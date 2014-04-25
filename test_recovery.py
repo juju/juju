@@ -12,6 +12,11 @@ import subprocess
 import sys
 from time import sleep
 
+from deploy_stack import (
+    destroy_environment,
+    dump_logs,
+    get_machine_dns_name,
+)
 from jujuconfig import translate_to_env
 from jujupy import (
     Environment,
@@ -41,7 +46,6 @@ def deploy_stack(env, charm_prefix):
     """"Deploy a simple stack, state-server and ubuntu."""
     if charm_prefix and not charm_prefix.endswith('/'):
         charm_prefix = charm_prefix + '/'
-    env.bootstrap()
     agent_version = env.get_matching_agent_version()
     instance_id = env.get_status().status['machines']['0']['instance-id']
     for ignored in until_timeout(30):
@@ -168,22 +172,34 @@ def main():
     try:
         setup_juju_path(args.juju_path)
         env = Environment.from_config(args.env_name)
-        instance_id = deploy_stack(env, args.charm_prefix)
-        if args.strategy == 'ha':
-            env.juju('ensure-availability', '-n', '3')
-            wait_for_ha(env)
-        else:
-            backup_file = backup_state_server(env)
-            restore_present_state_server(env, backup_file)
-        host = env.get_status().status['machines']['0']['dns-name']
-        delete_instance(env, instance_id)
-        print_now("Waiting for port to close on %s" % host)
-        wait_for_port(host, 17070, closed=True)
-        print_now("Closed.")
-        if args.strategy == 'ha':
-            env.get_status(600)
-        else:
-            restore_missing_state_server(env, backup_file)
+        env.bootstrap()
+        boostrap_host = get_machine_dns_name(0)
+        log_host = bootstrap_host()
+        try:
+            instance_id = deploy_stack(env, args.charm_prefix)
+            if args.strategy == 'ha':
+                env.juju('ensure-availability', '-n', '3')
+                wait_for_ha(env)
+                log_host = get_machine_dns_name(3)
+            else:
+                backup_file = backup_state_server(env)
+                restore_present_state_server(env, backup_file)
+                log_host = None
+            delete_instance(env, instance_id)
+            print_now("Waiting for port to close on %s" % boostrap_host)
+            wait_for_port(bootstrap_host, 17070, closed=True)
+            print_now("Closed.")
+            if args.strategy == 'ha':
+                env.get_status(600)
+            else:
+                restore_missing_state_server(env, backup_file)
+        except:
+            if log_host is not None:
+                dump_logs(env, log_host,
+                          os.path.join(os.environ['WORKSPACE'], 'artifacts'))
+            raise
+        finally:
+            destroy_environment(env)
     except Exception as e:
         print_now(e)
         if getattr(e, 'output', None):

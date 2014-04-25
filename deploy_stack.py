@@ -227,11 +227,7 @@ def deploy_job():
                           os.path.join(os.environ['WORKSPACE'], 'artifacts'))
             raise
         try:
-            while True:
-                bootstrap = env.get_status().status['machines']['0']
-                host = bootstrap.get('dns-name')
-                if host is not None and not host.startswith('172.'):
-                    break
+            host = get_machine_dns_name(env, 0)
             try:
                 prepare_environment(environment, already_bootstrapped=True,
                                     machines=machines)
@@ -254,6 +250,14 @@ def deploy_job():
         raise
         print('%s (%s)' % (e, type(e).__name__))
         sys.exit(1)
+
+
+def get_machine_dns_name(env, machine)
+    for remaining in until_timeout(300):
+        bootstrap = env.get_status().status['machines'][str(machine)]
+        host = bootstrap.get('dns-name')
+        if host is not None and not host.startswith('172.'):
+            return host
 
 
 def main():
