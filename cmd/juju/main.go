@@ -122,8 +122,8 @@ func Main(args []string) {
 	// Charm tool commands.
 	jujucmd.Register(wrap(&HelpToolCommand{}))
 
-	// Manage authorised ssh keys.
-	jujucmd.Register(wrap(NewAuthorisedKeysCommand()))
+	// Manage authorized ssh keys.
+	jujucmd.Register(wrap(NewAuthorizedKeysCommand()))
 
 	// Common commands.
 	jujucmd.Register(wrap(&cmd.VersionCommand{}))

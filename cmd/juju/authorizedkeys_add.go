@@ -14,7 +14,7 @@ import (
 )
 
 var addKeysDoc = `
-Add new authorised ssh keys to allow the holder of those keys to log on to Juju nodes or machines.
+Add new authorized ssh keys to allow the holder of those keys to log on to Juju nodes or machines.
 `
 
 // AddKeysCommand is used to add a new authorized ssh key for a user.
