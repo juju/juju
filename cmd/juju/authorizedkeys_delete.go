@@ -14,7 +14,7 @@ import (
 )
 
 var deleteKeysDoc = `
-Delete existing authorised ssh keys to remove ssh access for the holder of those keys.
+Delete existing authorized ssh keys to remove ssh access for the holder of those keys.
 The keys to delete are found by specifying either the "comment" portion of the ssh key,
 typically something like "user@host", or the key fingerprint found by using ssh-keygen.
 `

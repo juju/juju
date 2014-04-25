@@ -15,7 +15,7 @@ import (
 )
 
 var listKeysDoc = `
-List a user's authorised ssh keys, allowing the holders of those keys to log on to Juju nodes.
+List a user's authorized ssh keys, allowing the holders of those keys to log on to Juju nodes.
 By default, just the key fingerprint is printed. Use --full to display the entire key.
 
 `
@@ -31,7 +31,7 @@ func (c *ListKeysCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
 		Doc:     listKeysDoc,
-		Purpose: "list authorised ssh keys for a specified user",
+		Purpose: "list authorized ssh keys for a specified user",
 	}
 }
 
