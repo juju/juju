@@ -18,12 +18,12 @@ import (
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
 
-type AuthorisedKeysSuite struct {
+type AuthorizedKeysSuite struct {
 	testbase.LoggingSuite
 	jujuHome *coretesting.FakeHome
 }
 
-var _ = gc.Suite(&AuthorisedKeysSuite{})
+var _ = gc.Suite(&AuthorizedKeysSuite{})
 
 var authKeysCommandNames = []string{
 	"add",
@@ -33,20 +33,20 @@ var authKeysCommandNames = []string{
 	"list",
 }
 
-func (s *AuthorisedKeysSuite) SetUpTest(c *gc.C) {
+func (s *AuthorizedKeysSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.jujuHome = coretesting.MakeEmptyFakeHome(c)
 }
 
-func (s *AuthorisedKeysSuite) TearDownTest(c *gc.C) {
+func (s *AuthorizedKeysSuite) TearDownTest(c *gc.C) {
 	s.jujuHome.Restore()
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *AuthorisedKeysSuite) TestHelpCommands(c *gc.C) {
+func (s *AuthorizedKeysSuite) TestHelpCommands(c *gc.C) {
 	// Check that we have correctly registered all the sub commands
 	// by checking the help output.
-	out := badrun(c, 0, "authorised-keys", "--help")
+	out := badrun(c, 0, "authorized-keys", "--help")
 	lines := strings.Split(out, "\n")
 	var names []string
 	subcommandsFound := false
@@ -65,29 +65,29 @@ func (s *AuthorisedKeysSuite) TestHelpCommands(c *gc.C) {
 	c.Assert(names, gc.DeepEquals, authKeysCommandNames)
 }
 
-func (s *AuthorisedKeysSuite) assertHelpOutput(c *gc.C, cmd, args string) {
+func (s *AuthorizedKeysSuite) assertHelpOutput(c *gc.C, cmd, args string) {
 	if args != "" {
 		args = " " + args
 	}
-	expected := fmt.Sprintf("usage: juju authorised-keys %s [options]%s", cmd, args)
-	out := badrun(c, 0, "authorised-keys", cmd, "--help")
+	expected := fmt.Sprintf("usage: juju authorized-keys %s [options]%s", cmd, args)
+	out := badrun(c, 0, "authorized-keys", cmd, "--help")
 	lines := strings.Split(out, "\n")
 	c.Assert(lines[0], gc.Equals, expected)
 }
 
-func (s *AuthorisedKeysSuite) TestHelpList(c *gc.C) {
+func (s *AuthorizedKeysSuite) TestHelpList(c *gc.C) {
 	s.assertHelpOutput(c, "list", "")
 }
 
-func (s *AuthorisedKeysSuite) TestHelpAdd(c *gc.C) {
+func (s *AuthorizedKeysSuite) TestHelpAdd(c *gc.C) {
 	s.assertHelpOutput(c, "add", "<ssh key> [...]")
 }
 
-func (s *AuthorisedKeysSuite) TestHelpDelete(c *gc.C) {
+func (s *AuthorizedKeysSuite) TestHelpDelete(c *gc.C) {
 	s.assertHelpOutput(c, "delete", "<ssh key id> [...]")
 }
 
-func (s *AuthorisedKeysSuite) TestHelpImport(c *gc.C) {
+func (s *AuthorizedKeysSuite) TestHelpImport(c *gc.C) {
 	s.assertHelpOutput(c, "import", "<ssh key id> [...]")
 }
 
@@ -100,7 +100,7 @@ func (s *keySuiteBase) SetUpSuite(c *gc.C) {
 	s.PatchEnvironment(osenv.JujuEnvEnvKey, "dummyenv")
 }
 
-func (s *keySuiteBase) setAuthorisedKeys(c *gc.C, keys ...string) {
+func (s *keySuiteBase) setAuthorizedKeys(c *gc.C, keys ...string) {
 	keyString := strings.Join(keys, "\n")
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{"authorized-keys": keyString}, nil, nil)
 	c.Assert(err, gc.IsNil)
@@ -125,7 +125,7 @@ var _ = gc.Suite(&ListKeysSuite{})
 func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	s.setAuthorisedKeys(c, key1, key2)
+	s.setAuthorizedKeys(c, key1, key2)
 
 	context, err := coretesting.RunCommand(c, &ListKeysCommand{}, []string{})
 	c.Assert(err, gc.IsNil)
@@ -137,7 +137,7 @@ func (s *ListKeysSuite) TestListKeys(c *gc.C) {
 func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	s.setAuthorisedKeys(c, key1, key2)
+	s.setAuthorizedKeys(c, key1, key2)
 
 	context, err := coretesting.RunCommand(c, &ListKeysCommand{}, []string{"--full"})
 	c.Assert(err, gc.IsNil)
@@ -149,7 +149,7 @@ func (s *ListKeysSuite) TestListFullKeys(c *gc.C) {
 func (s *ListKeysSuite) TestListKeysNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	s.setAuthorisedKeys(c, key1, key2)
+	s.setAuthorizedKeys(c, key1, key2)
 	_, err := s.State.AddUser("fred", "password")
 	c.Assert(err, gc.IsNil)
 
@@ -173,7 +173,7 @@ var _ = gc.Suite(&AddKeySuite{})
 
 func (s *AddKeySuite) TestAddKey(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorisedKeys(c, key1)
+	s.setAuthorizedKeys(c, key1)
 
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	context, err := coretesting.RunCommand(c, &AddKeysCommand{}, []string{key2, "invalid-key"})
@@ -184,7 +184,7 @@ func (s *AddKeySuite) TestAddKey(c *gc.C) {
 
 func (s *AddKeySuite) TestAddKeyNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorisedKeys(c, key1)
+	s.setAuthorizedKeys(c, key1)
 	_, err := s.State.AddUser("fred", "password")
 	c.Assert(err, gc.IsNil)
 
@@ -204,7 +204,7 @@ var _ = gc.Suite(&DeleteKeySuite{})
 func (s *DeleteKeySuite) TestDeleteKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	s.setAuthorisedKeys(c, key1, key2)
+	s.setAuthorizedKeys(c, key1, key2)
 
 	context, err := coretesting.RunCommand(
 		c, &DeleteKeysCommand{}, []string{sshtesting.ValidKeyTwo.Fingerprint, "invalid-key"})
@@ -216,7 +216,7 @@ func (s *DeleteKeySuite) TestDeleteKeys(c *gc.C) {
 func (s *DeleteKeySuite) TestDeleteKeyNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
-	s.setAuthorisedKeys(c, key1, key2)
+	s.setAuthorizedKeys(c, key1, key2)
 	_, err := s.State.AddUser("fred", "password")
 	c.Assert(err, gc.IsNil)
 
@@ -240,7 +240,7 @@ func (s *ImportKeySuite) SetUpTest(c *gc.C) {
 
 func (s *ImportKeySuite) TestImportKeys(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorisedKeys(c, key1)
+	s.setAuthorizedKeys(c, key1)
 
 	context, err := coretesting.RunCommand(c, &ImportKeysCommand{}, []string{"lp:validuser", "invalid-key"})
 	c.Assert(err, gc.IsNil)
@@ -250,7 +250,7 @@ func (s *ImportKeySuite) TestImportKeys(c *gc.C) {
 
 func (s *ImportKeySuite) TestImportKeyNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
-	s.setAuthorisedKeys(c, key1)
+	s.setAuthorizedKeys(c, key1)
 	_, err := s.State.AddUser("fred", "password")
 	c.Assert(err, gc.IsNil)
 

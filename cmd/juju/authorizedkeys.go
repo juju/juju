@@ -15,17 +15,18 @@ nodes in the Juju environment.
 
 `
 
-type AuthorisedKeysCommand struct {
+type AuthorizedKeysCommand struct {
 	*cmd.SuperCommand
 }
 
-func NewAuthorisedKeysCommand() cmd.Command {
-	sshkeyscmd := &AuthorisedKeysCommand{
+func NewAuthorizedKeysCommand() cmd.Command {
+	sshkeyscmd := &AuthorizedKeysCommand{
 		SuperCommand: cmd.NewSuperCommand(cmd.SuperCommandParams{
-			Name:        "authorised-keys",
+			Name:        "authorized-keys",
 			Doc:         authKeysDoc,
 			UsagePrefix: "juju",
-			Purpose:     "manage authorised ssh keys",
+			Purpose:     "manage authorized ssh keys",
+			Aliases:     []string{"authorised-keys"},
 		}),
 	}
 	sshkeyscmd.Register(&AddKeysCommand{})
@@ -35,6 +36,6 @@ func NewAuthorisedKeysCommand() cmd.Command {
 	return sshkeyscmd
 }
 
-func (c *AuthorisedKeysCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *AuthorizedKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.SetCommonFlags(f)
 }

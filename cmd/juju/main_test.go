@@ -214,7 +214,8 @@ var commandNames = []string{
 	"add-relation",
 	"add-unit",
 	"api-endpoints",
-	"authorised-keys",
+	"authorised-keys", // alias for authorized-keys
+	"authorized-keys",
 	"bootstrap",
 	"debug-hooks",
 	"debug-log",

@@ -264,3 +264,26 @@ func (s *SuperCommandSuite) TestMissingCallbackContextWiredIn(c *gc.C) {
 	c.Assert(testing.Stdout(ctx), gc.Equals, "this is std out")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "this is std err")
 }
+
+func (s *SuperCommandSuite) TestSupercommandAliases(c *gc.C) {
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:        "jujutest",
+		UsagePrefix: "juju",
+	})
+	sub := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:        "jubar",
+		UsagePrefix: "juju jujutest",
+		Aliases:     []string{"jubaz", "jubing"},
+	})
+	info := sub.Info()
+	c.Check(info.Aliases, gc.DeepEquals, []string{"jubaz", "jubing"})
+	jc.Register(sub)
+	for _, name := range []string{"jubar", "jubaz", "jubing"} {
+		c.Logf("testing command name %q", name)
+		ctx := testing.Context(c)
+		code := cmd.Main(jc, ctx, []string{name, "--help"})
+		c.Assert(code, gc.Equals, 0)
+		stripped := strings.Replace(bufferString(ctx.Stdout), "\n", "", -1)
+		c.Assert(stripped, gc.Matches, ".*usage: juju jujutest jubar.*aliases: jubaz, jubing")
+	}
+}
