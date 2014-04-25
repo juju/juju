@@ -114,11 +114,6 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 		testInit(c, com, args, "")
 		os.Setenv(osenv.JujuEnvEnvKey, oldenv)
 		assertConnName(c, com, "walthamstow")
-
-		com, args = cmdFunc()
-		if _, ok := com.(*StatusCommand); !ok {
-			testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
-		}
 	}
 }
 

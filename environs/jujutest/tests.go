@@ -12,7 +12,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
@@ -133,7 +132,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	envtesting.UploadFakeTools(c, e.Storage())
 	err := bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), e, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	info, apiInfo, err := e.StateInfo()
@@ -161,7 +160,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	err = bootstrap.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), e3, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), e3, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	err = bootstrap.EnsureNotBootstrapped(e3)

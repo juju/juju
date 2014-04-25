@@ -169,7 +169,7 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) (env env
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, environ.Storage())
 	defer environ.Storage().RemoveAll()
-	err = environ.Bootstrap(ctx, constraints.Value{})
+	err = environ.Bootstrap(ctx, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	return environ
 }
@@ -313,9 +313,29 @@ func (s *localJujuTestSuite) TestConstraintsValidator(c *gc.C) {
 	ctx := coretesting.Context(c)
 	env, err := local.Provider.Prepare(ctx, minimalConfig(c))
 	c.Assert(err, gc.IsNil)
-	validator := env.ConstraintsValidator()
-	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cpu-cores=2")
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	hostArch := arch.HostArch()
+	cons := constraints.MustParse(fmt.Sprintf("arch=%s instance-type=foo tags=bar cpu-power=10 cpu-cores=2", hostArch))
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-cores", "cpu-power", "instance-type", "tags"})
+}
+
+func (s *localJujuTestSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	env := s.Prepare(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+
+	hostArch := arch.HostArch()
+	var invalidArch string
+	for _, a := range arch.AllSupportedArches {
+		if a != hostArch {
+			invalidArch = a
+			break
+		}
+	}
+	cons := constraints.MustParse(fmt.Sprintf("arch=%s", invalidArch))
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch="+invalidArch+"\nvalid values are:.*")
 }

@@ -260,7 +260,7 @@ func (env *azureEnviron) getContainerName() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) (err error) {
+func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (err error) {
 	// The creation of the affinity group and the virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil {
@@ -282,7 +282,7 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 			env.deleteVirtualNetwork()
 		}
 	}()
-	err = common.Bootstrap(ctx, env, cons)
+	err = common.Bootstrap(ctx, env, args)
 	return err
 }
 
@@ -427,10 +427,20 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (environ *azureEnviron) ConstraintsValidator() constraints.Validator {
+func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	return validator
+	supportedArches, err := env.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	instTypeNames := make([]string, len(gwacl.RoleSizes))
+	for i, role := range gwacl.RoleSizes {
+		instTypeNames[i] = role.Name
+	}
+	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	return validator, nil
 }
 
 // PrecheckInstance is defined on the state.Prechecker interface.

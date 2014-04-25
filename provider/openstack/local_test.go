@@ -232,7 +232,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 }
 
@@ -261,7 +261,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg, coretesting.Context(c), s.ConfigStore)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances([]instance.Instance{inst})
@@ -270,7 +270,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -574,7 +574,7 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -677,21 +677,35 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 
 func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	env := s.Open(c)
-	validator := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power"})
 }
 
+func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	env := s.Open(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=i386")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are:.*")
+	cons = constraints.MustParse("instance-type=foo")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+}
+
 func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	env := s.Open(c)
-	validator := env.ConstraintsValidator()
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
 	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
-	consB := constraints.MustParse("instance-type=foo")
+	consB := constraints.MustParse("instance-type=m1.small")
 	cons, err := validator.Merge(consA, consB)
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.MustParse("instance-type=foo"))
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("instance-type=m1.small"))
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
@@ -933,7 +947,7 @@ func (s *localHTTPSServerSuite) TestCanBootstrap(c *gc.C) {
 	openstack.UseTestImageData(metadataStorage, s.cred)
 	defer openstack.RemoveTestImageData(metadataStorage)
 
-	err = bootstrap.Bootstrap(coretesting.Context(c), s.env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), s.env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1076,7 +1090,7 @@ func (s *localHTTPSServerSuite) TestFetchFromToolsMetadataSources(c *gc.C) {
 
 func (s *localServerSuite) TestAllInstancesIgnoresOtherMachines(c *gc.C) {
 	env := s.Prepare(c)
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// Check that we see 1 instance in the environment

@@ -193,6 +193,7 @@ type bootstrapTest struct {
 	// will be uploaded before running the test.
 	uploads     []string
 	constraints constraints.Value
+	placement   string
 	hostArch    string
 }
 
@@ -271,7 +272,8 @@ func (test bootstrapTest) run(c *gc.C) {
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
-	c.Check(opBootstrap.Constraints, gc.DeepEquals, test.constraints)
+	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
+	c.Check(opBootstrap.Args.Placement, gc.Equals, test.placement)
 
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
@@ -286,10 +288,6 @@ func (test bootstrapTest) run(c *gc.C) {
 
 var bootstrapTests = []bootstrapTest{{
 	info: "no args, no error, no uploads, no constraints",
-}, {
-	info: "bad arg",
-	args: []string{"twiddle"},
-	err:  `unrecognized args: \["twiddle"\]`,
 }, {
 	info: "bad --constraints",
 	args: []string{"--constraints", "bad=wrong"},
@@ -326,7 +324,8 @@ var bootstrapTests = []bootstrapTest{{
 	uploads: []string{
 		"1.2.3.1-saucy-amd64",  // from version.Current
 		"1.2.3.1-raring-amd64", // from env.Config().DefaultSeries()
-		"1.2.3.1-%LTS%-amd64",  // from environs/config.DefaultSeries
+		"1.2.3.1-precise-amd64",
+		"1.2.3.1-trusty-amd64",
 	},
 }, {
 	info:     "--upload-tools uses arch from constraint if it matches current version",
@@ -336,7 +335,8 @@ var bootstrapTests = []bootstrapTest{{
 	uploads: []string{
 		"1.3.3.1-saucy-ppc64",  // from version.Current
 		"1.3.3.1-raring-ppc64", // from env.Config().DefaultSeries()
-		"1.3.3.1-%LTS%-ppc64",  // from environs/config.DefaultSeries
+		"1.3.3.1-precise-ppc64",
+		"1.3.3.1-trusty-ppc64",
 	},
 	constraints: constraints.MustParse("arch=ppc64"),
 }, {
@@ -345,7 +345,8 @@ var bootstrapTests = []bootstrapTest{{
 	args:    []string{"--upload-tools"},
 	uploads: []string{
 		"1.2.3.1-raring-amd64",
-		"1.2.3.1-%LTS%-amd64",
+		"1.2.3.1-precise-amd64",
+		"1.2.3.1-trusty-amd64",
 	},
 }, {
 	info:    "--upload-tools rejects invalid series",
@@ -370,8 +371,17 @@ var bootstrapTests = []bootstrapTest{{
 	args:    []string{"--upload-tools"},
 	uploads: []string{
 		"1.2.3.5-raring-amd64",
-		"1.2.3.5-%LTS%-amd64",
+		"1.2.3.5-precise-amd64",
+		"1.2.3.5-trusty-amd64",
 	},
+}, {
+	info:      "placement",
+	args:      []string{"something"},
+	placement: "something",
+}, {
+	info: "invalid placement: ssh",
+	args: []string{"ssh:someplace"},
+	err:  `unsupported bootstrap placement directive "ssh:someplace"`,
 }}
 
 func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
@@ -545,13 +555,14 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	urls := list.URLs()
 
 	// We expect:
-	//     latest LTS,
+	//     supported LTS series precise, trusty,
 	//     the specified series (quantal),
 	//     and the environment's default series (raring).
 	expectedVers := []version.Binary{
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "quantal", version.Current.Arch)),
 		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "raring", version.Current.Arch)),
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.Current.Series, version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "precise", version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "trusty", version.Current.Arch)),
 	}
 	c.Assert(urls, gc.HasLen, len(expectedVers))
 	for _, vers := range expectedVers {

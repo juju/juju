@@ -41,12 +41,24 @@ remote_cmd() {
 	# Mongo requires that a locale is set
 	export LC_ALL=C
 
+	# Prefer jujud-mongodb binaries if available 
+	export MONGODUMP=mongodump
+	if [ -f /usr/lib/juju/bin/mongodump ]; then
+		export MONGODUMP=/usr/lib/juju/bin/mongodump;
+	fi
+
+	export MONGOEXPORT=mongoexport
+	if [ -f /usr/lib/juju/bin/mongoexport ]; then
+		export MONGOEXPORT=/usr/lib/juju/bin/mongoexport;
+	fi
+
+
 	#---------------------------------------------------------------------
 	next_step 'Backing up mongo database'
 	execute 'Stopping mongo' stop juju-db
 	trap "start juju-db" 0		# ensure it starts again on failure
-	execute 'Backing up mongo' mongodump --dbpath $LIBJUJU/db
-	execute 'Backing up environ config' mongoexport \
+	execute 'Backing up mongo' $MONGODUMP --dbpath $LIBJUJU/db
+	execute 'Backing up environ config' $MONGOEXPORT \
 		--dbpath $LIBJUJU/db \
 		--db juju \
 		--collection settings \

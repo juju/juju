@@ -528,13 +528,28 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (e *environ) ConstraintsValidator() constraints.Validator {
+func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.Arch, constraints.RootDisk, constraints.CpuCores})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	return validator
+	supportedArches, err := e.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	novaClient := e.nova()
+	flavors, err := novaClient.ListFlavorsDetail()
+	if err != nil {
+		return nil, err
+	}
+	instTypeNames := make([]string, len(flavors))
+	for i, flavor := range flavors {
+		instTypeNames[i] = flavor.Name
+	}
+	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	return validator, nil
 }
 
 // PrecheckInstance is defined on the state.Prechecker interface.
@@ -566,7 +581,7 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
@@ -574,7 +589,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Valu
 	if err != nil {
 		return err
 	}
-	return common.Bootstrap(ctx, e, cons)
+	return common.Bootstrap(ctx, e, args)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {

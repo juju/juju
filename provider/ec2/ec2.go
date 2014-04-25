@@ -323,8 +323,8 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	return common.Bootstrap(ctx, e, cons)
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+	return common.Bootstrap(ctx, e, args)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
@@ -363,13 +363,23 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (e *environ) ConstraintsValidator() constraints.Validator {
+func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterConflicts(
 		[]string{constraints.InstanceType},
 		[]string{constraints.Mem, constraints.CpuCores, constraints.CpuPower})
 	validator.RegisterUnsupported(unsupportedConstraints)
-	return validator
+	supportedArches, err := e.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	instTypeNames := make([]string, len(allInstanceTypes))
+	for i, itype := range allInstanceTypes {
+		instTypeNames[i] = itype.Name
+	}
+	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	return validator, nil
 }
 
 func archMatches(arches []string, arch *string) bool {

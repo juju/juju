@@ -90,8 +90,8 @@ func (env *maasEnviron) Name() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	return common.Bootstrap(ctx, env, cons)
+func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+	return common.Bootstrap(ctx, env, args)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -345,10 +345,15 @@ var unsupportedConstraints = []string{
 }
 
 // ConstraintsValidator is defined on the Environs interface.
-func (environ *maasEnviron) ConstraintsValidator() constraints.Validator {
+func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	validator := constraints.NewValidator()
 	validator.RegisterUnsupported(unsupportedConstraints)
-	return validator
+	supportedArches, err := environ.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	return validator, nil
 }
 
 // setupNetworks prepares a []network.Info for the given instance.

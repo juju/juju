@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/ssh"
@@ -20,7 +19,7 @@ var logger = loggo.GetLogger("juju.environs.bootstrap")
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, cons constraints.Value) error {
+func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) error {
 	cfg := environ.Config()
 	if secret := cfg.AdminSecret(); secret == "" {
 		return fmt.Errorf("environment configuration has no admin-secret")
@@ -45,7 +44,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, cons con
 	}
 	logger.Debugf("environment %q supports service/machine networks: %v", environ.Name(), environ.SupportNetworks())
 	logger.Infof("bootstrapping environment %q", environ.Name())
-	return environ.Bootstrap(ctx, cons)
+	return environ.Bootstrap(ctx, args)
 }
 
 // SetBootstrapTools returns the newest tools from the given tools list,

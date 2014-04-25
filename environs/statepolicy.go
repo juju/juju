@@ -42,5 +42,5 @@ func (environStatePolicy) ConstraintsValidator(cfg *config.Config) (constraints.
 	if err != nil {
 		return nil, err
 	}
-	return env.ConstraintsValidator(), nil
+	return env.ConstraintsValidator()
 }

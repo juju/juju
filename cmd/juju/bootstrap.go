@@ -14,9 +14,11 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 )
 
@@ -64,11 +66,13 @@ type BootstrapCommand struct {
 	UploadTools    bool
 	Series         []string
 	MetadataSource string
+	Placement      string
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap",
+		Args:    "[placement]",
 		Purpose: "start up an environment from scratch",
 		Doc:     bootstrapDoc,
 	}
@@ -90,7 +94,22 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 	if len(c.Series) > 0 && !c.UploadTools {
 		return fmt.Errorf("--series requires --upload-tools")
 	}
-	return cmd.CheckEmpty(args)
+	// Parse the placement directive. Bootstrap currently only
+	// supports provider-specific placement directives.
+	placement, err := cmd.ZeroOrOneArgs(args)
+	if err != nil {
+		return err
+	}
+	if placement == "" {
+		return nil
+	}
+	_, err = instance.ParsePlacement(placement)
+	if err != instance.ErrPlacementScopeMissing {
+		// We only support unscoped placement directives for bootstrap.
+		return fmt.Errorf("unsupported bootstrap placement directive %q", placement)
+	}
+	c.Placement = placement
+	return nil
 }
 
 // Run connects to the environment specified on the command line and bootstraps
@@ -101,7 +120,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	validator := environ.ConstraintsValidator()
+	validator, err := environ.ConstraintsValidator()
+	if err != nil {
+		return err
+	}
 	unsupported, err := validator.Validate(c.Constraints)
 	if len(unsupported) > 0 {
 		logger.Warningf("unsupported constraints: %v", err)
@@ -153,7 +175,10 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return err
 		}
 	}
-	return bootstrap.Bootstrap(ctx, environ, c.Constraints)
+	return bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{
+		Constraints: c.Constraints,
+		Placement:   c.Placement,
+	})
 }
 
 type seriesVar struct {

@@ -15,7 +15,6 @@ import (
 
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/cloudinit/sshinit"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -33,7 +32,7 @@ var logger = loggo.GetLogger("juju.provider.common")
 // Bootstrap is a common implementation of the Bootstrap method defined on
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
-func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constraints.Value) (err error) {
+func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
@@ -42,7 +41,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 	defer func() { handleBootstrapError(err, ctx, inst, env) }()
 
 	// First thing, ensure we have tools otherwise there's no point.
-	selectedTools, err := EnsureBootstrapTools(ctx, env, config.PreferredSeries(env.Config()), cons.Arch)
+	selectedTools, err := EnsureBootstrapTools(ctx, env, config.PreferredSeries(env.Config()), args.Constraints.Arch)
 	if err != nil {
 		return err
 	}
@@ -64,9 +63,10 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, cons constra
 
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, _, err := env.StartInstance(environs.StartInstanceParams{
-		Constraints:   cons,
+		Constraints:   args.Constraints,
 		Tools:         selectedTools,
 		MachineConfig: machineConfig,
+		Placement:     args.Placement,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)

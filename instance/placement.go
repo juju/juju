@@ -28,7 +28,7 @@ type Placement struct {
 	// If Scope is empty, then it must be inferred from the context.
 	Scope string
 
-	// Directive is a scope-specific placement idrective.
+	// Directive is a scope-specific placement directive.
 	//
 	// For MachineScope or a container scope, this may be empty or
 	// the ID of an existing machine.
