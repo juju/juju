@@ -152,6 +152,7 @@ func (s *SSHCommandSuite) TestCopy(c *gc.C) {
 }
 
 func (s *SSHCommandSuite) TestCommandClientKeys(c *gc.C) {
+	defer overrideGenerateKey(c).Restore()
 	clientKeysDir := c.MkDir()
 	defer ssh.ClearClientKeys()
 	err := ssh.LoadClientKeys(clientKeysDir)

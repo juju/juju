@@ -87,6 +87,8 @@ var _ = gc.Suite(&SSHGoCryptoCommandSuite{})
 
 func (s *SSHGoCryptoCommandSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
+	generateKeyRestorer := overrideGenerateKey(c)
+	s.AddCleanup(func(*gc.C) { generateKeyRestorer.Restore() })
 	client, err := ssh.NewGoCryptoClient()
 	c.Assert(err, gc.IsNil)
 	s.client = client
