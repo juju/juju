@@ -14,6 +14,7 @@ import (
 	"code.google.com/p/go.crypto/ssh"
 )
 
+// rsaGenerateKey allows for tests to patch out rsa key generation
 var rsaGenerateKey = rsa.GenerateKey
 
 // KeyBits is used to determine the number of bits to use for the RSA keys
