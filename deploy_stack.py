@@ -254,7 +254,10 @@ def deploy_job():
                     dump_logs(env, host, log_dir)
                 raise
             try:
-                host = get_machine_dns_name(env, 0)
+                if host is None:
+                    host = get_machine_dns_name(env, 0)
+                if host is None:
+                    raise Exception('Could not get machine 0 host')
                 try:
                     prepare_environment(
                         env.environment, already_bootstrapped=True,
