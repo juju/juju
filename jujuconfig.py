@@ -11,7 +11,7 @@ def get_selected_environment(selected, allow_jenv=True):
     if allow_jenv:
         jenv_config = get_jenv_config(get_juju_home(), selected)
         if jenv_config is not None:
-            return jenv_config
+            return jenv_config, selected
     return get_environments()[selected], selected
 
 
