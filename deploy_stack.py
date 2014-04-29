@@ -269,7 +269,8 @@ def deploy_job():
                             os.environ['PATH'] = new_path
                             test_upgrade(env.environment)
                 except:
-                    dump_logs(env, host, log_dir)
+                    if host is not None:
+                        dump_logs(env, host, log_dir)
                     raise
             finally:
                 env.destroy_environment()
