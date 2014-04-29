@@ -10,7 +10,6 @@ import os
 import random
 import re
 import string
-import shutil
 import subprocess
 import sys
 import yaml
@@ -73,6 +72,22 @@ def destroy_job_instances(job_name):
     if len(instances) == 0:
         return
     subprocess.check_call(['euca-terminate-instances'] + instances)
+
+
+def run_instances(count):
+    environ = dict(os.environ)
+    environ.update({
+        'INSTANCE_TYPE': 'm1.large',
+        'AMI_IMAGE': 'ami-bd6d40d4',
+    })
+    command = ['ec2-run-instance-get-id', '-g', 'manual-juju-test']
+    machine_ids = [subprocess.check_output(command, env=environ).strip()
+                   for x in range(count)]
+    subprocess.call(['ec2-tag-job-instances'] + machine_ids)
+    machine_names = [
+        subprocess.check_output(['ec2-get-name', instance]).strip()
+        for instance in machine_ids]
+    return machine_names
 
 
 def deploy_dummy_stack(env, charm_prefix):
@@ -193,59 +208,70 @@ def deploy_job():
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
     machines = os.environ['MACHINES'].split()
-    environment = os.environ['ENV']
     new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
     upgrade = bool(os.environ.get('UPGRADE') == 'true')
+    created_machines = False
+    log_dir = os.path.join(os.environ['WORKSPACE'], 'artifacts')
     if not upgrade:
         os.environ['PATH'] = new_path
     try:
         if sys.platform == 'win32':
             # Ensure OpenSSH is never in the path for win tests.
             sys.path = [p for p in sys.path if 'OpenSSH' not in p]
-        env = Environment.from_config(environment)
+        env = Environment.from_config(os.environ['ENV'])
+        # Rename to the job name.
+        env.environment = os.environ['JOB_NAME']
         if 'BOOTSTRAP_HOST' in os.environ:
             env.config['bootstrap-host'] = os.environ['BOOTSTRAP_HOST']
-        host = env.config.get('bootstrap-host')
-        env.config['agent-version'] = env.get_matching_agent_version()
-        ssh_machines = [] + machines
-        if host is not None:
-            ssh_machines.append(host)
-        for machine in ssh_machines:
-            logging.info('Waiting for port 22 on %s' % machine)
-            wait_for_port(host, 22, timeout=120)
-        juju_home = get_juju_home()
+        elif env.config['type'] == 'manual':
+            instances = run_instances(min(1, 3 - len(machines)))
+            created_machines = True
+            env.config['bootstrap-host'] = instances[0]
+            machines.extend(instances[1:])
         try:
-            os.unlink(get_jenv_path(juju_home, env.environment))
-        except OSError as e:
-            if e.errno != errno.ENOENT:
-                raise
-        try:
-            bootstrap_from_env(juju_home, env)
-        except:
+            host = env.config.get('bootstrap-host')
+            env.config['agent-version'] = env.get_matching_agent_version()
+            ssh_machines = [] + machines
             if host is not None:
-                dump_logs(env, host,
-                          os.path.join(os.environ['WORKSPACE'], 'artifacts'))
-            raise
-        try:
-            host = get_machine_dns_name(env, 0)
+                ssh_machines.append(host)
+            for machine in ssh_machines:
+                logging.info('Waiting for port 22 on %s' % machine)
+                wait_for_port(host, 22, timeout=120)
+            juju_home = get_juju_home()
             try:
-                prepare_environment(environment, already_bootstrapped=True,
-                                    machines=machines)
-                if sys.platform == 'win32':
-                    # The win client tests only verify the client to the
-                    # state-server.
-                    return
-                deploy_dummy_stack(env, os.environ['CHARM_PREFIX'])
-                if upgrade:
-                    with scoped_environ():
-                        os.environ['PATH'] = new_path
-                        test_upgrade(environment)
+                os.unlink(get_jenv_path(juju_home, env.environment))
+            except OSError as e:
+                if e.errno != errno.ENOENT:
+                    raise
+            try:
+                bootstrap_from_env(juju_home, env)
             except:
-                dump_logs(env, host,
-                          os.path.join(os.environ['WORKSPACE'], 'artifacts'))
+                if host is not None:
+                    dump_logs(env, host, log_dir)
                 raise
+            try:
+                host = get_machine_dns_name(env, 0)
+                try:
+                    prepare_environment(
+                        env.environment, already_bootstrapped=True,
+                        machines=machines)
+                    if sys.platform == 'win32':
+                        # The win client tests only verify the client to the
+                        # state-server.
+                        return
+                    deploy_dummy_stack(env, os.environ['CHARM_PREFIX'])
+                    if upgrade:
+                        with scoped_environ():
+                            os.environ['PATH'] = new_path
+                            test_upgrade(env.environment)
+                except:
+                    dump_logs(env, host, log_dir)
+                    raise
+            finally:
+                env.destroy_environment()
         finally:
-            destroy_environment(env)
+            if created_machines:
+                destroy_job_instances(os.environ['JOB_NAME'])
     except Exception as e:
         raise
         print('%s (%s)' % (e, type(e).__name__))
@@ -280,10 +306,7 @@ def main():
         if sys.platform == 'win32':
             # The win client tests only verify the client to the state-server.
             return
-        if args.dummy:
-            deploy_dummy_stack(env, args.charm_prefix)
-        else:
-            deploy_stack(env, args.charm_prefix)
+        deploy_dummy_stack(env, args.charm_prefix)
     except Exception as e:
         print('%s (%s)' % (e, type(e).__name__))
         sys.exit(1)
