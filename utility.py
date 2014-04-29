@@ -34,7 +34,7 @@ def wait_for_port(host, port, closed=False, timeout=30):
             if closed:
                 return
         except socket.error as e:
-            if e.errno != errno.ECONNREFUSED:
+            if e.errno not in (errno.ECONNREFUSED, errno.ETIMEDOUT):
                 raise
             if closed:
                 return
