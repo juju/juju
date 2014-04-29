@@ -228,7 +228,7 @@ def deploy_job():
         if 'BOOTSTRAP_HOST' in os.environ:
             env.config['bootstrap-host'] = os.environ['BOOTSTRAP_HOST']
         elif env.config['type'] == 'manual':
-            instances = run_instances(min(1, 3 - len(machines)))
+            instances = run_instances(3)
             created_machines = True
             env.config['bootstrap-host'] = instances[0]
             machines.extend(instances[1:])

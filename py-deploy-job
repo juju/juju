@@ -2,6 +2,7 @@
 : ${SCRIPTS=$(readlink -f $(dirname $0))}
 source $SCRIPTS/common-startup.sh
 if [ "$ENV" == "manual" ]; then
-    prepare_manual
+    #prepare_manual
+    :
 fi
 deploy_job.py
