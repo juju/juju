@@ -23,6 +23,7 @@ from jujupy import (
     Environment,
 )
 from utility import (
+    PortTimeoutError,
     scoped_environ,
     temp_dir,
     until_timeout,
@@ -137,7 +138,10 @@ def dump_logs(env, host, directory):
         log_names = [
             'ubuntu@%s:/var/log/%s' % (host, n)
             for n in ['juju/all-machines.log', 'cloud-init-output.log']]
-        wait_for_port(host, 22, timeout=60)
+        try:
+            wait_for_port(host, 22, timeout=60)
+        except PortTimeoutError:
+            logging.warning("Could not dump logs because port 22 was closed.")
         for log_name in log_names:
             try:
                 scp_logs([log_name], directory)
