@@ -5,9 +5,13 @@ import subprocess
 import yaml
 
 
-def get_selected_environment(selected):
+def get_selected_environment(selected, allow_jenv=True):
     if selected is None:
         selected = default_env()
+    if allow_jenv:
+        jenv_config = get_jenv_config(selected)
+        if jenv_config is not None:
+            return jenv_config
     return get_environments()[selected], selected
 
 
