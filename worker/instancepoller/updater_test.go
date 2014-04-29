@@ -13,6 +13,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -110,6 +111,57 @@ func (*updaterSuite) TestWatchMachinesWaitsForMachinePollers(c *gc.C) {
 	}
 
 	waitRefresh <- struct{}{}
+	select {
+	case err := <-done:
+		c.Assert(err, gc.IsNil)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for watchMachinesLoop to terminate")
+	}
+	c.Assert(watcher.stopped, jc.IsTrue)
+}
+
+func (s *updaterSuite) TestManualMachinesIgnored(c *gc.C) {
+	waitStatus := make(chan struct{})
+	s.PatchValue(&MachineStatus, func(m *testMachine) (status params.Status, info string, data params.StatusData, err error) {
+		// Signal that we're in Status.
+		waitStatus <- struct{}{}
+		return params.StatusPending, "", params.StatusData{}, nil
+	})
+	m := &testMachine{
+		id:         "99",
+		instanceId: "manual:1234",
+		life:       state.Alive,
+	}
+	dyingc := make(chan struct{})
+	context := &testUpdaterContext{
+		dyingc: dyingc,
+		newMachineContextFunc: func() machineContext {
+			return &testMachineContext{
+				getInstanceInfo: instanceInfoGetter(c, "manual:1234", testAddrs, "running", nil),
+				dyingc:          dyingc,
+			}
+		},
+		getMachineFunc: func(id string) (machine, error) {
+			c.Check(id, gc.Equals, m.id)
+			return m, nil
+		},
+	}
+	watcher := &testMachinesWatcher{
+		changes: make(chan []string),
+	}
+	done := make(chan error)
+	go func() {
+		done <- watchMachinesLoop(context, watcher)
+	}()
+	// Send a change to start the machineLoop;
+	watcher.changes <- []string{"99"}
+	select {
+	case <-waitStatus:
+		c.Fatalf("poller called Status")
+	case <-time.After(coretesting.ShortWait):
+		c.Logf("status not called")
+	}
+	close(context.dyingc)
 	select {
 	case err := <-done:
 		c.Assert(err, gc.IsNil)
