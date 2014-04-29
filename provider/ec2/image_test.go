@@ -119,13 +119,13 @@ var findInstanceSpecTests = []struct {
 		series: "quantal",
 		arches: both,
 		cons:   "arch=amd64",
-		itype:  "cc1.4xlarge",
+		itype:  "cc2.8xlarge",
 		image:  "ami-01000035",
 	}, {
 		series: "quantal",
 		arches: both,
-		cons:   "instance-type=cc1.4xlarge",
-		itype:  "cc1.4xlarge",
+		cons:   "instance-type=cc2.8xlarge",
+		itype:  "cc2.8xlarge",
 		image:  "ami-01000035",
 	}, {
 		series: "precise",
@@ -137,8 +137,8 @@ var findInstanceSpecTests = []struct {
 }
 
 func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
-	for i, t := range findInstanceSpecTests {
-		c.Logf("test %d", i)
+	for i, test := range findInstanceSpecTests {
+		c.Logf("\ntest %d: %q; %q; %q", i, test.series, test.arches, test.cons)
 		stor := ebsStorage
 		spec, err := findInstanceSpec(
 			[]simplestreams.DataSource{
@@ -146,14 +146,14 @@ func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 			"released",
 			&instances.InstanceConstraint{
 				Region:      "test",
-				Series:      t.series,
-				Arches:      t.arches,
-				Constraints: constraints.MustParse(t.cons),
+				Series:      test.series,
+				Arches:      test.arches,
+				Constraints: constraints.MustParse(test.cons),
 				Storage:     &stor,
 			})
 		c.Assert(err, gc.IsNil)
-		c.Check(spec.InstanceType.Name, gc.Equals, t.itype)
-		c.Check(spec.Image.Id, gc.Equals, t.image)
+		c.Check(spec.InstanceType.Name, gc.Equals, test.itype)
+		c.Check(spec.Image.Id, gc.Equals, test.image)
 	}
 }
 
@@ -175,7 +175,7 @@ var findInstanceSpecErrorTests = []struct {
 		series: "raring",
 		arches: both,
 		cons:   "mem=4G",
-		err:    `no "raring" images in test matching instance types \[m1.large m1.xlarge c1.xlarge cc1.4xlarge cc2.8xlarge\]`,
+		err:    `no "raring" images in test matching instance types \[m1.large m1.xlarge c1.xlarge cc2.8xlarge\]`,
 	},
 }
 

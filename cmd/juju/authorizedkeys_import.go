@@ -15,7 +15,7 @@ import (
 )
 
 var importKeysDoc = `
-Import new authorised ssh keys to allow the holder of those keys to log on to Juju nodes or machines.
+Import new authorized ssh keys to allow the holder of those keys to log on to Juju nodes or machines.
 The keys are imported using ssh-import-id.
 `
 

@@ -27,6 +27,8 @@ func (s *ClientKeysSuite) SetUpTest(c *gc.C) {
 	fakeHome := testing.MakeEmptyFakeHome(c)
 	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
 	s.AddCleanup(func(*gc.C) { ssh.ClearClientKeys() })
+	generateKeyRestorer := overrideGenerateKey(c)
+	s.AddCleanup(func(*gc.C) { generateKeyRestorer.Restore() })
 }
 
 func checkFiles(c *gc.C, obtained, expected []string) {

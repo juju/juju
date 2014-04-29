@@ -7,6 +7,7 @@ import (
 
 var (
 	ProviderConnectDelay = &providerConnectDelay
+	GetConfig            = getConfig
 )
 
 type APIState apiState

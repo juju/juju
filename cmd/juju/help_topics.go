@@ -50,14 +50,14 @@ See Also:
 const helpLocalProvider = `
 The local provider is a Linux-only Juju environment that uses LXC containers as
 a virtual cloud on the local machine.  Because of this, lxc and mongodb are
-required for the local provider to work.  If you don't already have lxc and
-mongodb installed, run the following commands:
+required for the local provider to work. All of these dependencies are tracked
+in the 'juju-local' package. You can install that with:
 
   sudo apt-get update
-  sudo apt-get install lxc mongodb-server
+  sudo apt-get install juju-local
 
-After that you might get error for SSH authorized/public key not found. ERROR
-SSH authorized/public key not found.
+After that you might get error for SSH authorised/public key not found. ERROR
+SSH authorised/public key not found.
 
   ssh-keygen -t rsa
 

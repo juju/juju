@@ -457,7 +457,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	}
 	possibleTools, err := task.possibleTools(provisioningInfo.Series, provisioningInfo.Constraints)
 	if err != nil {
-		return err
+		return task.setErrorStatus("cannot find tools for machine %q: %v", machine, err)
 	}
 	inst, metadata, networkInfo, err := task.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:       provisioningInfo.Constraints,
