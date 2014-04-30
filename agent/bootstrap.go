@@ -35,6 +35,9 @@ type StateInitializer interface {
 // BootstrapMachineConfig holds configuration information
 // to attach to the bootstrap machine.
 type BootstrapMachineConfig struct {
+	// Addresses holds the bootstrap machine's addresses.
+	Addresses []instance.Address
+
 	// Constraints holds the bootstrap machine's constraints.
 	// This value is also used for the environment-level constraints.
 	Constraints constraints.Value
@@ -132,6 +135,7 @@ func (c *configInternal) initBootstrapMachine(st *state.State, cfg BootstrapMach
 		jobs[i] = machineJob
 	}
 	m, err := st.AddOneMachine(state.MachineTemplate{
+		Addresses:               cfg.Addresses,
 		Series:                  version.Current.Series,
 		Nonce:                   state.BootstrapNonce,
 		Constraints:             cfg.Constraints,

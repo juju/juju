@@ -63,6 +63,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
+		Addresses:       instance.NewAddresses([]string{"testing.invalid", "0.1.2.3"}),
 		Constraints:     expectConstraints,
 		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
@@ -101,6 +102,8 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	gotHW, err := m.HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotHW, gc.DeepEquals, expectHW)
+	gotAddrs := m.Addresses()
+	c.Assert(gotAddrs, gc.DeepEquals, mcfg.Addresses)
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to the state.
