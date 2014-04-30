@@ -165,7 +165,7 @@ func getAzureServiceListResponse(c *gc.C, services ...gwacl.HostedServiceDescrip
 	return responses
 }
 
-// getAzureServiceResponses returns a gwacl.DispatcherResponse corresponding
+// getAzureServiceResponse returns a gwacl.DispatcherResponse corresponding
 // to the API request used to get the properties of a Service.
 func getAzureServiceResponse(c *gc.C, service gwacl.HostedService) gwacl.DispatcherResponse {
 	serviceXML, err := service.Serialize()
