@@ -114,6 +114,9 @@ type machineDoc struct {
 	// machine is capable of hosting.
 	SupportedContainersKnown bool
 	SupportedContainers      []instance.ContainerType `bson:",omitempty"`
+	// Placement is the placement directive that should be used when provisioning
+	// an instance for the machine.
+	Placement string `bson:",omitempty"`
 	// Deprecated. InstanceId, now lives on instanceData.
 	// This attribute is retained so that data from existing machines can be read.
 	// SCHEMACHANGE
@@ -1090,6 +1093,12 @@ func (m *Machine) String() string {
 	return m.doc.Id
 }
 
+// Placement returns the machine's Placement structure that should be used when
+// provisioning an instance for the machine.
+func (m *Machine) Placement() string {
+	return m.doc.Placement
+}
+
 // Constraints returns the exact constraints that should apply when provisioning
 // an instance for the machine.
 func (m *Machine) Constraints() (constraints.Value, error) {
@@ -1101,6 +1110,13 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 // is already provisioned.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	defer errors.Maskf(&err, "cannot set constraints")
+	unsupported, err := m.st.validateConstraints(cons)
+	if len(unsupported) > 0 {
+		logger.Warningf(
+			"setting constraints on machine %q: unsupported constraints: %v", m.Id(), strings.Join(unsupported, ","))
+	} else if err != nil {
+		return err
+	}
 	notSetYet := bson.D{{"nonce", ""}}
 	ops := []txn.Op{
 		{

@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package constraints
@@ -6,6 +6,7 @@ package constraints
 import (
 	"fmt"
 	"math"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -13,6 +14,19 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
+)
+
+// The following constants list the supported constraint attribute names, as defined
+// by the fields in the Value struct.
+const (
+	Arch         = "arch"
+	Container    = "container"
+	CpuCores     = "cpu-cores"
+	CpuPower     = "cpu-power"
+	Mem          = "mem"
+	RootDisk     = "root-disk"
+	Tags         = "tags"
+	InstanceType = "instance-type"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -52,18 +66,45 @@ type Value struct {
 	// An empty list is treated the same as a nil (unspecified) list, except an
 	// empty list will override any default tags, where a nil list will not.
 	Tags *[]string `json:"tags,omitempty" yaml:"tags,omitempty"`
+
+	// InstanceType, if not nil, indicates that the specified cloud instance type
+	// be used. Only valid for clouds which support instance types.
+	InstanceType *string `json:"instance-type,omitempty" yaml:"instance-type,omitempty"`
+}
+
+// fieldNames records a mapping from the constraint tag to struct field name.
+// eg "root-disk" maps to RootDisk.
+var fieldNames map[string]string
+
+func init() {
+	// Create the fieldNames map by inspecting the json tags for each of
+	// the Value struct fields.
+	fieldNames = make(map[string]string)
+	typ := reflect.TypeOf(Value{})
+	for i := 0; i < typ.NumField(); i++ {
+		field := typ.Field(i)
+		if tag := field.Tag.Get("json"); tag != "" {
+			if i := strings.Index(tag, ","); i >= 0 {
+				tag = tag[0:i]
+			}
+			if tag == "-" {
+				continue
+			}
+			if tag != "" {
+				fieldNames[tag] = field.Name
+			}
+		}
+	}
 }
 
 // IsEmpty returns if the given constraints value has no constraints set
 func IsEmpty(v *Value) bool {
-	return v == nil ||
-		v.Arch == nil &&
-			v.Container == nil &&
-			v.CpuCores == nil &&
-			v.CpuPower == nil &&
-			v.Mem == nil &&
-			v.RootDisk == nil &&
-			v.Tags == nil
+	return v.String() == ""
+}
+
+// HasInstanceType returns true if the constraints.Value specifies an instance type.
+func (v *Value) HasInstanceType() bool {
+	return v.InstanceType != nil && *v.InstanceType != ""
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
@@ -80,6 +121,9 @@ func (v Value) String() string {
 	}
 	if v.CpuPower != nil {
 		strs = append(strs, "cpu-power="+uintStr(*v.CpuPower))
+	}
+	if v.InstanceType != nil {
+		strs = append(strs, "instance-type="+string(*v.InstanceType))
 	}
 	if v.Mem != nil {
 		s := uintStr(*v.Mem)
@@ -100,33 +144,6 @@ func (v Value) String() string {
 		strs = append(strs, "tags="+s)
 	}
 	return strings.Join(strs, " ")
-}
-
-// WithFallbacks returns a copy of v with nil values taken from v0.
-func (v Value) WithFallbacks(v0 Value) Value {
-	v1 := v0
-	if v.Arch != nil {
-		v1.Arch = v.Arch
-	}
-	if v.Container != nil {
-		v1.Container = v.Container
-	}
-	if v.CpuCores != nil {
-		v1.CpuCores = v.CpuCores
-	}
-	if v.CpuPower != nil {
-		v1.CpuPower = v.CpuPower
-	}
-	if v.Mem != nil {
-		v1.Mem = v.Mem
-	}
-	if v.RootDisk != nil {
-		v1.RootDisk = v.RootDisk
-	}
-	if v.Tags != nil {
-		v1.Tags = v.Tags
-	}
-	return v1
 }
 
 func uintStr(i uint64) string {
@@ -183,6 +200,51 @@ func (v ConstraintsValue) String() string {
 	return v.Target.String()
 }
 
+func (v *Value) fieldFromTag(tagName string) (reflect.Value, bool) {
+	fieldName := fieldNames[tagName]
+	val := reflect.ValueOf(v).Elem().FieldByName(fieldName)
+	return val, val.IsValid()
+}
+
+// attributesWithValues returns the non-zero attribute tags and their values from the constraint.
+func (v *Value) attributesWithValues() (result map[string]interface{}) {
+	result = make(map[string]interface{})
+	for fieldTag, fieldName := range fieldNames {
+		val := reflect.ValueOf(v).Elem().FieldByName(fieldName)
+		if !val.IsNil() {
+			result[fieldTag] = val.Elem().Interface()
+		}
+	}
+	return result
+}
+
+// hasAny returns any attrTags for which the constraint has a non-nil value.
+func (v *Value) hasAny(attrTags ...string) []string {
+	attrValues := v.attributesWithValues()
+	var result []string = []string{}
+	for _, tag := range attrTags {
+		_, ok := attrValues[tag]
+		if ok {
+			result = append(result, tag)
+		}
+	}
+	return result
+}
+
+// without returns a copy of the constraint without values for
+// the specified attributes.
+func (v *Value) without(attrTags ...string) (Value, error) {
+	result := *v
+	for _, tag := range attrTags {
+		val, ok := result.fieldFromTag(tag)
+		if !ok {
+			return Value{}, fmt.Errorf("unknown constraint %q", tag)
+		}
+		val.Set(reflect.Zero(val.Type()))
+	}
+	return result, nil
+}
+
 // setRaw interprets a name=value string and sets the supplied value.
 func (v *Value) setRaw(raw string) error {
 	eq := strings.Index(raw, "=")
@@ -192,20 +254,22 @@ func (v *Value) setRaw(raw string) error {
 	name, str := raw[:eq], raw[eq+1:]
 	var err error
 	switch name {
-	case "arch":
+	case Arch:
 		err = v.setArch(str)
-	case "container":
+	case Container:
 		err = v.setContainer(str)
-	case "cpu-cores":
+	case CpuCores:
 		err = v.setCpuCores(str)
-	case "cpu-power":
+	case CpuPower:
 		err = v.setCpuPower(str)
-	case "mem":
+	case Mem:
 		err = v.setMem(str)
-	case "root-disk":
+	case RootDisk:
 		err = v.setRootDisk(str)
-	case "tags":
+	case Tags:
 		err = v.setTags(str)
+	case InstanceType:
+		err = v.setInstanceType(str)
 	default:
 		return fmt.Errorf("unknown constraint %q", name)
 	}
@@ -229,20 +293,22 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 		vstr := fmt.Sprintf("%v", val)
 		var err error
 		switch k {
-		case "arch":
+		case Arch:
 			v.Arch = &vstr
-		case "container":
+		case Container:
 			ctype := instance.ContainerType(vstr)
 			v.Container = &ctype
-		case "cpu-cores":
+		case InstanceType:
+			v.InstanceType = &vstr
+		case CpuCores:
 			v.CpuCores, err = parseUint64(vstr)
-		case "cpu-power":
+		case CpuPower:
 			v.CpuPower, err = parseUint64(vstr)
-		case "mem":
+		case Mem:
 			v.Mem, err = parseUint64(vstr)
-		case "root-disk":
+		case RootDisk:
 			v.RootDisk, err = parseUint64(vstr)
-		case "tags":
+		case Tags:
 			v.Tags, err = parseYamlTags(val)
 		default:
 			return false
@@ -301,6 +367,14 @@ func (v *Value) setCpuPower(str string) (err error) {
 	}
 	v.CpuPower, err = parseUint64(str)
 	return
+}
+
+func (v *Value) setInstanceType(str string) error {
+	if v.InstanceType != nil {
+		return fmt.Errorf("already set")
+	}
+	v.InstanceType = &str
+	return nil
 }
 
 func (v *Value) setMem(str string) (err error) {

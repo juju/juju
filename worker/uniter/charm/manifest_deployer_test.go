@@ -9,7 +9,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	corecharm "launchpad.net/juju-core/charm"
 	ft "launchpad.net/juju-core/testing/filetesting"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/set"
@@ -37,17 +36,12 @@ func (s *ManifestDeployerSuite) SetUpTest(c *gc.C) {
 	s.deployer = charm.NewManifestDeployer(s.targetPath, deployerPath, s.bundles)
 }
 
-func (s *ManifestDeployerSuite) charmURL(revision int) *corecharm.URL {
-	baseURL := corecharm.MustParseURL("cs:s/c")
-	return baseURL.WithRevision(revision)
-}
-
 func (s *ManifestDeployerSuite) addMockCharm(c *gc.C, revision int, bundle charm.Bundle) charm.BundleInfo {
-	return s.bundles.AddBundle(c, s.charmURL(revision), bundle)
+	return s.bundles.AddBundle(c, charmURL(revision), bundle)
 }
 
 func (s *ManifestDeployerSuite) addCharm(c *gc.C, revision int, content ...ft.Entry) charm.BundleInfo {
-	return s.bundles.AddCustomBundle(c, s.charmURL(revision), func(path string) {
+	return s.bundles.AddCustomBundle(c, charmURL(revision), func(path string) {
 		ft.Entries(content).Create(c, path)
 	})
 }
@@ -65,7 +59,7 @@ func (s *ManifestDeployerSuite) deployCharm(c *gc.C, revision int, content ...ft
 func (s *ManifestDeployerSuite) assertCharm(c *gc.C, revision int, content ...ft.Entry) {
 	url, err := charm.ReadCharmURL(filepath.Join(s.targetPath, ".juju-charm"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(url, gc.DeepEquals, s.charmURL(revision))
+	c.Assert(url, gc.DeepEquals, charmURL(revision))
 	ft.Entries(content).Check(c, s.targetPath)
 }
 

@@ -4,6 +4,7 @@
 package joyent
 
 import (
+	"fmt"
 	"sync"
 
 	"launchpad.net/juju-core/constraints"
@@ -20,7 +21,6 @@ import (
 // This file contains the core of the Joyent Environ implementation.
 
 type joyentEnviron struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name string
@@ -42,6 +42,7 @@ type joyentEnviron struct {
 }
 
 var _ environs.Environ = (*joyentEnviron)(nil)
+var _ state.Prechecker = (*joyentEnviron)(nil)
 
 // newEnviron create a new Joyent environ instance from config.
 func newEnviron(cfg *config.Config) (*joyentEnviron, error) {
@@ -72,6 +73,27 @@ func (env *joyentEnviron) Name() string {
 
 func (*joyentEnviron) Provider() environs.EnvironProvider {
 	return providerInstance
+}
+
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (env *joyentEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	if !cons.HasInstanceType() {
+		return nil
+	}
+	// Constraint has an instance-type constraint so let's see if it is valid.
+	instanceTypes, err := env.listInstanceTypes()
+	if err != nil {
+		return err
+	}
+	for _, instanceType := range instanceTypes {
+		if instanceType.Name == *cons.InstanceType {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid Joyent instance %q specified", *cons.InstanceType)
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.
@@ -132,8 +154,8 @@ func (env *joyentEnviron) PublicStorage() storage.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	return common.Bootstrap(ctx, env, cons)
+func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+	return common.Bootstrap(ctx, env, args)
 }
 
 func (env *joyentEnviron) StateInfo() (*state.Info, *api.Info, error) {

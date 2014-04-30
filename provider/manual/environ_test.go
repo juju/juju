@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/environs/storage"
@@ -149,4 +150,13 @@ func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
 
 func (s *environSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(s.env.SupportNetworks(), jc.IsFalse)
+}
+
+func (s *environSuite) TestConstraintsValidator(c *gc.C) {
+	validator, err := s.env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cpu-cores=2 mem=1G")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "instance-type", "tags"})
 }

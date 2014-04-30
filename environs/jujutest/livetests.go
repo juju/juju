@@ -141,7 +141,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	envtesting.UploadFakeTools(c, t.Env.Storage())
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, cons)
+	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, environs.BootstrapParams{Constraints: cons})
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = true
 }
@@ -164,7 +164,8 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 	if !ok {
 		return
 	}
-	err := prechecker.PrecheckInstance("precise", constraints.Value{})
+	const placement = ""
+	err := prechecker.PrecheckInstance("precise", constraints.Value{}, placement)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -918,7 +919,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
 	c.Assert(err, gc.IsNil)
 
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	conn, err := juju.NewConn(env)

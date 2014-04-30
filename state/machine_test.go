@@ -7,11 +7,13 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -32,6 +34,12 @@ var _ = gc.Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
+	s.policy.getConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+		validator := constraints.NewValidator()
+		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+		validator.RegisterUnsupported([]string{constraints.CpuPower})
+		return validator, nil
+	}
 	var err error
 	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
@@ -1250,6 +1258,35 @@ func (s *MachineSuite) TestSetConstraints(c *gc.C) {
 	mcons, err = machine.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(mcons, gc.DeepEquals, cons1)
+}
+
+func (s *MachineSuite) TestSetAmbiguousConstraints(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("mem=4G instance-type=foo")
+	err = machine.SetConstraints(cons)
+	c.Assert(err, gc.ErrorMatches, `cannot set constraints: ambiguous constraints: "mem" overlaps with "instance-type"`)
+}
+
+func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
+	defer loggo.ResetWriters()
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.DEBUG)
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
+
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("mem=4G cpu-power=10")
+	err = machine.SetConstraints(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+		loggo.WARNING,
+		`setting constraints on machine "2": unsupported constraints: cpu-power`},
+	})
+	mcons, err := machine.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(mcons, gc.DeepEquals, cons)
 }
 
 func (s *MachineSuite) TestConstraintsLifecycle(c *gc.C) {

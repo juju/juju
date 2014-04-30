@@ -218,7 +218,7 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -303,7 +303,7 @@ func splitAuthKeys(keys string) []interface{} {
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
@@ -314,7 +314,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -326,7 +326,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
@@ -357,6 +357,63 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 		c.Check(addr.Type, gc.Equals, expected[i].Type)
 		c.Check(addr.NetworkScope, gc.Equals, expected[i].NetworkScope)
 	}
+}
+
+func (t *localServerSuite) TestConstraintsValidatorUnsupported(c *gc.C) {
+	env := t.Prepare(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=amd64 tags=foo")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"tags"})
+}
+
+func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	env := t.Prepare(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=ppc64")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+	cons = constraints.MustParse("instance-type=foo")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+}
+
+func (t *localServerSuite) TestConstraintsMerge(c *gc.C) {
+	env := t.Prepare(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	consA := constraints.MustParse("arch=amd64 mem=1G cpu-power=10 cpu-cores=2 tags=bar")
+	consB := constraints.MustParse("arch=i386 instance-type=m1.small")
+	cons, err := validator.Merge(consA, consB)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("arch=i386 instance-type=m1.small tags=bar"))
+}
+
+func (t *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
+	env := t.Prepare(c)
+	cons := constraints.MustParse("instance-type=m1.small root-disk=1G")
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
+	c.Assert(err, gc.IsNil)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
+	env := t.Prepare(c)
+	cons := constraints.MustParse("instance-type=m1.invalid")
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
+	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "m1.invalid" specified`)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
+	env := t.Prepare(c)
+	cons := constraints.MustParse("instance-type=cc1.4xlarge arch=i386")
+	placement := ""
+	err := env.PrecheckInstance("precise", cons, placement)
+	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {

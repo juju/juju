@@ -5,6 +5,7 @@ package provisioner
 
 import (
 	"fmt"
+	"time"
 
 	"launchpad.net/tomb"
 
@@ -450,26 +451,19 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 }
 
 func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error {
-	cons, err := machine.Constraints()
+	provisioningInfo, err := task.provisioningInfo(machine)
 	if err != nil {
 		return err
 	}
-	series, err := machine.Series()
+	possibleTools, err := task.possibleTools(provisioningInfo.Series, provisioningInfo.Constraints)
 	if err != nil {
-		return err
-	}
-	possibleTools, err := task.possibleTools(series, cons)
-	if err != nil {
-		return err
-	}
-	machineConfig, err := task.machineConfig(machine)
-	if err != nil {
-		return err
+		return task.setErrorStatus("cannot find tools for machine %q: %v", machine, err)
 	}
 	inst, metadata, networkInfo, err := task.broker.StartInstance(environs.StartInstanceParams{
-		Constraints:       cons,
+		Constraints:       provisioningInfo.Constraints,
 		Tools:             possibleTools,
-		MachineConfig:     machineConfig,
+		MachineConfig:     provisioningInfo.MachineConfig,
+		Placement:         provisioningInfo.Placement,
 		DistributionGroup: machine.DistributionGroup,
 	})
 	if err != nil {
@@ -478,7 +472,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 		// error; just keep going with the other machines.
 		return task.setErrorStatus("cannot start instance for machine %q: %v", machine, err)
 	}
-	nonce := machineConfig.MachineNonce
+	nonce := provisioningInfo.MachineConfig.MachineNonce
 	networks, ifaces := task.prepareNetworkAndInterfaces(networkInfo)
 
 	err = machine.SetInstanceInfo(inst.Id(), nonce, metadata, networks, ifaces)
@@ -512,7 +506,14 @@ func (task *provisionerTask) possibleTools(series string, cons constraints.Value
 	panic(fmt.Errorf("broker of type %T does not provide any tools", task.broker))
 }
 
-func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cloudinit.MachineConfig, error) {
+type provisioningInfo struct {
+	Constraints   constraints.Value
+	Series        string
+	Placement     string
+	MachineConfig *cloudinit.MachineConfig
+}
+
+func (task *provisionerTask) provisioningInfo(machine *apiprovisioner.Machine) (*provisioningInfo, error) {
 	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
 	if err != nil {
 		logger.Errorf("failed to setup authentication: %v", err)
@@ -525,11 +526,32 @@ func (task *provisionerTask) machineConfig(machine *apiprovisioner.Machine) (*cl
 	if err != nil {
 		return nil, err
 	}
-	includeNetworks, excludeNetworks, err := machine.RequestedNetworks()
-	if err != nil {
+	// ProvisioningInfo is new in 1.20; wait for the API server to be upgraded
+	// so we don't spew errors on upgrade.
+	var pInfo *params.ProvisioningInfo
+	for {
+		if pInfo, err = machine.ProvisioningInfo(); err == nil {
+			break
+		}
+		if params.IsCodeNotImplemented(err) {
+			logger.Infof("waiting for state server to be upgraded")
+			select {
+			case <-task.tomb.Dying():
+				return nil, tomb.ErrDying
+			case <-time.After(15 * time.Second):
+				continue
+			}
+		}
 		return nil, err
 	}
+	includeNetworks := pInfo.IncludeNetworks
+	excludeNetworks := pInfo.ExcludeNetworks
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid.String())
 	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, includeNetworks, excludeNetworks, stateInfo, apiInfo)
-	return machineConfig, nil
+	return &provisioningInfo{
+		Constraints:   pInfo.Constraints,
+		Series:        pInfo.Series,
+		Placement:     pInfo.Placement,
+		MachineConfig: machineConfig,
+	}, nil
 }

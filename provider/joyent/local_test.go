@@ -190,7 +190,7 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	err = env.StopInstances([]instance.Instance{inst})
@@ -200,7 +200,7 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -310,7 +310,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(bootstrapContext(c), env, constraints.Value{})
+	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -420,4 +420,26 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = storage.Get(stor, "ab")
 	c.Assert(err, gc.NotNil)
+}
+
+func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
+	env := s.Prepare(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "tags"})
+}
+
+func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	env := s.Prepare(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=ppc64")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+	cons = constraints.MustParse("instance-type=foo")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }

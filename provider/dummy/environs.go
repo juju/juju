@@ -98,9 +98,9 @@ func stateInfo() *state.Info {
 type Operation interface{}
 
 type OpBootstrap struct {
-	Context     environs.BootstrapContext
-	Env         string
-	Constraints constraints.Value
+	Context environs.BootstrapContext
+	Env     string
+	Args    environs.BootstrapParams
 }
 
 type OpDestroy struct {
@@ -184,7 +184,6 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name         string
@@ -543,6 +542,14 @@ func (*environ) SupportNetworks() bool {
 	return true
 }
 
+// PrecheckInstance is specified in the state.Prechecker interface.
+func (*environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" && placement != "valid" {
+		return fmt.Errorf("%s placement is invalid", placement)
+	}
+	return nil
+}
+
 // GetImageSources returns a list of sources which are used to search for simplestreams image metadata.
 func (e *environ) GetImageSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{
@@ -555,8 +562,8 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	selectedTools, err := common.EnsureBootstrapTools(ctx, e, config.PreferredSeries(e.Config()), cons.Arch)
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, config.PreferredSeries(e.Config()), args.Constraints.Arch)
 	if err != nil {
 		return err
 	}
@@ -608,7 +615,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Valu
 		if err != nil {
 			panic(err)
 		}
-		if err := st.SetEnvironConstraints(cons); err != nil {
+		if err := st.SetEnvironConstraints(args.Constraints); err != nil {
 			panic(err)
 		}
 		if err := st.SetAdminMongoPassword(utils.UserPasswordHash(password, utils.CompatSalt)); err != nil {
@@ -625,7 +632,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, cons constraints.Valu
 		estate.apiState = st
 	}
 	estate.bootstrapped = true
-	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Constraints: cons}
+	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
 	return nil
 }
 
@@ -691,6 +698,14 @@ func (e *environ) Destroy() (res error) {
 	defer estate.mu.Unlock()
 	estate.destroy()
 	return nil
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported([]string{constraints.CpuPower})
+	validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
+	return validator, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.

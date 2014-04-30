@@ -76,13 +76,15 @@ func configGetter(c *gc.C) configFunc {
 }
 
 func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
+	checkPlacement := "directive"
 	checkCons := constraints.MustParse("mem=8G")
 
 	startInstance := func(
-		cons constraints.Value, _, _ []string, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
+		placement string, cons constraints.Value, _, _ []string, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
+		c.Assert(placement, gc.DeepEquals, checkPlacement)
 		c.Assert(cons, gc.DeepEquals, checkCons)
 		c.Assert(mcfg, gc.DeepEquals, environs.NewBootstrapMachineConfig(mcfg.SystemPrivateSSHKey))
 		return nil, nil, nil, fmt.Errorf("meh, not started")
@@ -95,7 +97,10 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, checkCons)
+	err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+		Constraints: checkCons,
+		Placement:   checkPlacement,
+	})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: meh, not started")
 }
 
@@ -104,7 +109,7 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	stor := &mockStorage{Storage: innerStorage}
 
 	startInstance := func(
-		_ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
+		_ string, _ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
@@ -126,7 +131,7 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, constraints.Value{})
+	err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0].Id(), gc.Equals, instance.Id("i-blah"))
@@ -137,7 +142,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	stor := &mockStorage{Storage: innerStorage}
 
 	startInstance := func(
-		_ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
+		_ string, _ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
@@ -163,7 +168,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, constraints.Value{})
+	err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0].Id(), gc.Equals, instance.Id("i-blah"))
@@ -178,7 +183,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	checkHardware := instance.MustParseHardware("mem=2T")
 
 	startInstance := func(
-		_ constraints.Value, _, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
+		_ string, _ constraints.Value, _, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
@@ -206,7 +211,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	}
 	originalAuthKeys := env.Config().AuthorizedKeys()
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, constraints.Value{})
+	err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	authKeys := env.Config().AuthorizedKeys()
@@ -245,10 +250,7 @@ func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForAddresses(c *gc.C) {
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForAddresses(c *gc.C) {
 	ctx := coretesting.Context(c)
 	interrupted := make(chan os.Signal, 1)
-	go func() {
-		<-time.After(2 * time.Millisecond)
-		interrupted <- os.Interrupt
-	}()
+	interrupted <- os.Interrupt
 	_, err := common.WaitSSH(ctx, interrupted, ssh.DefaultClient, "/bin/true", neverAddresses{}, testSSHTimeout)
 	c.Check(err, gc.ErrorMatches, "interrupted")
 	c.Check(coretesting.Stderr(ctx), gc.Matches, "Waiting for address\n")

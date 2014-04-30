@@ -51,7 +51,6 @@ var shortAttempt = utils.AttemptStrategy{
 }
 
 type maasEnviron struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	name string
@@ -91,8 +90,8 @@ func (env *maasEnviron) Name() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
-	return common.Bootstrap(ctx, env, cons)
+func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+	return common.Bootstrap(ctx, env, args)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -169,6 +168,11 @@ func (env *maasEnviron) SupportNetworks() bool {
 		return false
 	}
 	return caps.Contains(capNetworksManagement)
+}
+
+func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	// We treat all placement directives as maas-name.
+	return nil
 }
 
 const capNetworksManagement = "networks-management"
@@ -271,10 +275,13 @@ func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
 }
 
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(cons constraints.Value, includeNetworks, excludeNetworks []string, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
+func (environ *maasEnviron) acquireNode(nodeName string, cons constraints.Value, includeNetworks, excludeNetworks []string, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
 	acquireParams := convertConstraints(cons)
 	addNetworks(acquireParams, includeNetworks, excludeNetworks)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
+	if nodeName != "" {
+		acquireParams.Add("name", nodeName)
+	}
 	var result gomaasapi.JSONObject
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
@@ -330,6 +337,23 @@ EOF
 // interfaces file.
 func linkBridgeInInterfaces() string {
 	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
+}
+
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.InstanceType,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error) {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	supportedArches, err := environ.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	return validator, nil
 }
 
 // setupNetworks prepares a []network.Info for the given instance.
@@ -394,7 +418,9 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 ) {
 	var inst *maasInstance
 	var err error
+	nodeName := args.Placement
 	node, tools, err := environ.acquireNode(
+		nodeName,
 		args.Constraints,
 		args.MachineConfig.IncludeNetworks,
 		args.MachineConfig.ExcludeNetworks,

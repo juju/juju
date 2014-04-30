@@ -60,8 +60,6 @@ var (
 )
 
 type azureEnviron struct {
-	common.NopPrecheckerPolicy
-
 	// Except where indicated otherwise, all fields in this object should
 	// only be accessed using a lock or a snapshot.
 	sync.Mutex
@@ -92,6 +90,7 @@ var _ environs.Environ = (*azureEnviron)(nil)
 var _ simplestreams.HasRegion = (*azureEnviron)(nil)
 var _ imagemetadata.SupportsCustomSources = (*azureEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*azureEnviron)(nil)
+var _ state.Prechecker = (*azureEnviron)(nil)
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
@@ -261,7 +260,7 @@ func (env *azureEnviron) getContainerName() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) (err error) {
+func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (err error) {
 	// The creation of the affinity group and the virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil {
@@ -283,7 +282,7 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 			env.deleteVirtualNetwork()
 		}
 	}()
-	err = common.Bootstrap(ctx, env, cons)
+	err = common.Bootstrap(ctx, env, args)
 	return err
 }
 
@@ -420,6 +419,49 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 		return "", "", err
 	}
 	return spec.InstanceType.Id, spec.Image.Id, nil
+}
+
+var unsupportedConstraints = []string{
+	constraints.CpuPower,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	supportedArches, err := env.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	instTypeNames := make([]string, len(gwacl.RoleSizes))
+	for i, role := range gwacl.RoleSizes {
+		instTypeNames[i] = role.Name
+	}
+	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	return validator, nil
+}
+
+// PrecheckInstance is defined on the state.Prechecker interface.
+func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	if !cons.HasInstanceType() {
+		return nil
+	}
+	// Constraint has an instance-type constraint so let's see if it is valid.
+	instanceTypes, err := listInstanceTypes(env, gwacl.RoleSizes)
+	if err != nil {
+		return err
+	}
+	for _, instanceType := range instanceTypes {
+		if instanceType.Name == *cons.InstanceType {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid Azure instance %q specified", *cons.InstanceType)
 }
 
 // createInstance creates all of the Azure entities necessary for a
@@ -716,7 +758,7 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 	return role
 }
 
-// StartInstance is specified in the InstanceBroker interface.
+// StopInstances is specified in the InstanceBroker interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	context, err := env.getManagementAPI()
 	if err != nil {

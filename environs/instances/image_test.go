@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
@@ -212,6 +213,34 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		},
 	},
 	{
+		desc:        "empty instance type constraint",
+		region:      "test",
+		constraints: "instance-type=",
+		imageId:     "ami-00000033",
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &pv, Mem: 512},
+		},
+	},
+	{
+		desc:        "use instance type constraint",
+		region:      "test",
+		constraints: "instance-type=it-1",
+		imageId:     "ami-00000035",
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 512, CpuCores: 2},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 1024, CpuCores: 2},
+		},
+	},
+	{
+		desc:        "instance type constraint, no matching instance types",
+		region:      "test",
+		constraints: "instance-type=it-10",
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 512, CpuCores: 2},
+		},
+		err: `invalid instance type "it-10"`,
+	},
+	{
 		desc:   "no image exists in metadata",
 		region: "invalid-region",
 		err:    `no "precise" images in invalid-region with arches \[amd64 arm\]`,
@@ -253,11 +282,12 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 				Arch:     im.Arch,
 			})
 		}
+		imageCons := constraints.MustParse(t.constraints)
 		spec, err := FindInstanceSpec(images, &InstanceConstraint{
 			Series:      "precise",
 			Region:      t.region,
 			Arches:      t.arches,
-			Constraints: constraints.MustParse(t.constraints),
+			Constraints: imageCons,
 		}, t.instanceTypes)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
@@ -270,7 +300,48 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 			if len(t.instanceTypes) == 1 {
 				c.Check(spec.InstanceType, gc.DeepEquals, t.instanceTypes[0])
 			}
+			if imageCons.HasInstanceType() {
+				c.Assert(spec.InstanceType.Name, gc.Equals, *imageCons.InstanceType)
+			}
 		}
+	}
+}
+
+func (s *imageSuite) TestPreferredSpec(c *gc.C) {
+	type prefTest struct {
+		desc     string
+		specs    []*InstanceSpec
+		expected *InstanceSpec
+	}
+
+	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
+
+	amd64 := &InstanceSpec{Image: Image{Arch: arch.AMD64}}
+	i386 := &InstanceSpec{Image: Image{Arch: arch.I386}}
+	arm64 := &InstanceSpec{Image: Image{Arch: arch.ARM64}}
+
+	prefTests := []prefTest{
+		{
+			"choose hostarch (arm64) over other arches",
+			[]*InstanceSpec{i386, arm64, amd64},
+			arm64,
+		},
+		{
+			"choose first image if no arm64",
+			[]*InstanceSpec{i386, amd64},
+			i386,
+		},
+		{
+			"choose only image only one there",
+			[]*InstanceSpec{amd64},
+			amd64,
+		},
+	}
+
+	for n, test := range prefTests {
+		c.Logf("PreferredSpec test %d: %s", n, test.desc)
+		actual := preferredSpec(test.specs)
+		c.Assert(actual, gc.Equals, test.expected)
 	}
 }
 

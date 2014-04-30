@@ -97,6 +97,11 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
+	// Create system-identity file
+	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
+		return err
+	}
+
 	// Generate a shared secret for the Mongo replica set, and write it out.
 	sharedSecret, err := mongo.GenerateSharedSecret()
 	if err != nil {
@@ -122,9 +127,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	logger.Infof("started mongo")
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
+	var m *state.Machine
 	err = nil
 	writeErr := c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
-		st, _, err = agent.InitializeState(
+		st, m, err = agent.InitializeState(
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
@@ -145,8 +151,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	st.Close()
-	return nil
+	defer st.Close()
+
+	// bootstrap machine always gets the vote
+	return m.SetHasVote(true)
 }
 
 func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agent.Config) error {

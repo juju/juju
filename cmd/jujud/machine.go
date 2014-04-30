@@ -74,7 +74,7 @@ var (
 
 	// The following are defined as variables to
 	// allow the tests to intercept calls to the functions.
-	ensureMongoServer        = mongo.EnsureMongoServer
+	ensureMongoServer        = mongo.EnsureServer
 	maybeInitiateMongoServer = peergrouper.MaybeInitiateMongoServer
 	ensureMongoAdminUser     = mongo.EnsureAdminUser
 	newSingularRunner        = singular.New
@@ -402,6 +402,13 @@ func (a *MachineAgent) updateSupportedContainers(
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
+
+	// Create system-identity file
+	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
+		return nil, err
+	}
+
+	// Start MondoDB server
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, err
 	}

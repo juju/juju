@@ -69,6 +69,10 @@ type MachineTemplate struct {
 	// as unclean for unit-assignment purposes.
 	Dirty bool
 
+	// Placement holds the placement directive that will be associated
+	// with the machine.
+	Placement string
+
 	// principals holds the principal units that will
 	// associated with the machine.
 	principals []string
@@ -183,15 +187,23 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 // valid and combines it with values from the state
 // to produce a resulting template that more accurately
 // represents the data that will be inserted into the state.
-func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (MachineTemplate, error) {
+func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (tmpl MachineTemplate, err error) {
+	// First check for obvious errors.
 	if p.Series == "" {
-		return MachineTemplate{}, fmt.Errorf("no series specified")
+		return tmpl, fmt.Errorf("no series specified")
 	}
-	cons, err := st.EnvironConstraints()
+	if p.InstanceId != "" {
+		if p.Nonce == "" {
+			return tmpl, fmt.Errorf("cannot add a machine with an instance id and no nonce")
+		}
+	} else if p.Nonce != "" {
+		return tmpl, fmt.Errorf("cannot specify a nonce without an instance id")
+	}
+
+	p.Constraints, err = st.resolveConstraints(p.Constraints)
 	if err != nil {
-		return MachineTemplate{}, err
+		return tmpl, err
 	}
-	p.Constraints = p.Constraints.WithFallbacks(cons)
 	// Machine constraints do not use a container constraint value.
 	// Both provisioning and deployment constraints use the same
 	// constraints.Value struct so here we clear the container
@@ -200,7 +212,7 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 	p.Constraints.Container = nil
 
 	if len(p.Jobs) == 0 {
-		return MachineTemplate{}, fmt.Errorf("no jobs specified")
+		return tmpl, fmt.Errorf("no jobs specified")
 	}
 	jset := make(map[MachineJob]bool)
 	for _, j := range p.Jobs {
@@ -211,16 +223,8 @@ func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bo
 	}
 	if jset[JobManageEnviron] {
 		if !allowStateServer {
-			return MachineTemplate{}, errStateServerNotAllowed
+			return tmpl, errStateServerNotAllowed
 		}
-	}
-
-	if p.InstanceId != "" {
-		if p.Nonce == "" {
-			return MachineTemplate{}, fmt.Errorf("cannot add a machine with an instance id and no nonce")
-		}
-	} else if p.Nonce != "" {
-		return MachineTemplate{}, fmt.Errorf("cannot specify a nonce without an instance id")
 	}
 	return p, nil
 }
@@ -234,7 +238,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 		return nil, nil, err
 	}
 	if template.InstanceId == "" {
-		if err := st.precheckInstance(template.Series, template.Constraints); err != nil {
+		if err := st.precheckInstance(template.Series, template.Constraints, template.Placement); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -359,11 +363,11 @@ func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineT
 		return nil, nil, fmt.Errorf("no container type specified")
 	}
 	if parentTemplate.InstanceId == "" {
-		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints); err != nil {
-			return nil, nil, err
-		}
 		// Adding a machine within a machine implies add-machine or placement.
 		if err := st.supportsUnitPlacement(); err != nil {
+			return nil, nil, err
+		}
+		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints, parentTemplate.Placement); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -403,6 +407,7 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 		Nonce:      template.Nonce,
 		Addresses:  instanceAddressesToAddresses(template.Addresses),
 		NoVote:     template.NoVote,
+		Placement:  template.Placement,
 	}
 }
 
@@ -497,8 +502,8 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 // the number of live state servers equal to numStateServers. The given
 // constraints and series will be attached to any new machines.
 func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
-	if numStateServers%2 != 1 || numStateServers <= 0 {
-		return fmt.Errorf("number of state servers must be odd and greater than zero")
+	if numStateServers < 0 || (numStateServers != 0 && numStateServers%2 != 1) {
+		return fmt.Errorf("number of state servers must be odd and non-negative")
 	}
 	if numStateServers > replicaset.MaxPeers {
 		return fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
@@ -508,7 +513,14 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 		if err != nil {
 			return err
 		}
-		if len(currentInfo.VotingMachineIds) > numStateServers {
+		desiredStateServerCount := numStateServers
+		if desiredStateServerCount == 0 {
+			desiredStateServerCount = len(currentInfo.VotingMachineIds)
+			if desiredStateServerCount <= 1 {
+				desiredStateServerCount = 3
+			}
+		}
+		if len(currentInfo.VotingMachineIds) > desiredStateServerCount {
 			return fmt.Errorf("cannot reduce state server count")
 		}
 
@@ -522,15 +534,15 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 				voteCount++
 			}
 		}
-		if voteCount == numStateServers && len(intent.remove) == 0 {
+		if voteCount == desiredStateServerCount && len(intent.remove) == 0 {
 			return nil
 		}
 		// Promote as many machines as we can to fulfil the shortfall.
-		if n := numStateServers - voteCount; n < len(intent.promote) {
+		if n := desiredStateServerCount - voteCount; n < len(intent.promote) {
 			intent.promote = intent.promote[:n]
 		}
 		voteCount += len(intent.promote)
-		intent.newCount = numStateServers - voteCount
+		intent.newCount = desiredStateServerCount - voteCount
 		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
 		ops, err := st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
 		if err != nil {

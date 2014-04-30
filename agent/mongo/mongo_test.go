@@ -5,6 +5,7 @@ package mongo
 
 import (
 	"encoding/base64"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -78,7 +79,7 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
-	obtained, err := MongodPath()
+	obtained, err := Path()
 	c.Check(err, gc.IsNil)
 	c.Check(obtained, gc.Equals, s.mongodPath)
 }
@@ -87,7 +88,7 @@ func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
 	s.PatchValue(&JujuMongodPath, "/not/going/to/exist/mongod")
 	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
-	obtained, err := MongodPath()
+	obtained, err := Path()
 	c.Check(err, gc.IsNil)
 	c.Check(obtained, gc.Equals, s.mongodPath)
 }
@@ -118,14 +119,14 @@ func testJournalDirs(dir string, c *gc.C) {
 	c.Assert(info.Size(), gc.Equals, size)
 }
 
-func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
+func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	dataDir := c.MkDir()
 	dbDir := filepath.Join(dataDir, "db")
 	namespace := "namespace"
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	err := EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
+	err := EnsureServer(dataDir, namespace, testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
 
 	testJournalDirs(dbDir, c)
@@ -156,7 +157,7 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 
 	s.installed = nil
 	// now check we can call it multiple times without error
-	err = EnsureMongoServer(dataDir, namespace, testInfo, WithHA)
+	err = EnsureServer(dataDir, namespace, testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
 	assertInstalled()
 
@@ -169,14 +170,55 @@ func (s *MongoSuite) TestEnsureMongoServer(c *gc.C) {
 	c.Assert(tlog, gc.Matches, start+`using mongod: .*/mongod --version: "db version v2\.4\.9`+tail)
 }
 
-func (s *MongoSuite) TestMongoUpstartServiceWithHA(c *gc.C) {
+func (s *MongoSuite) TestInstallMongod(c *gc.C) {
+	type installs struct {
+		series string
+		pkg    string
+	}
+	tests := []installs{
+		{"precise", "mongodb-server"},
+		{"quantal", "mongodb-server"},
+		{"raring", "mongodb-server"},
+		{"saucy", "mongodb-server"},
+		{"trusty", "juju-mongodb"},
+		{"u-series", "juju-mongodb"},
+	}
+
+	mockShellCommand(c, &s.CleanupSuite, "add-apt-repository")
+	output := mockShellCommand(c, &s.CleanupSuite, "apt-get")
+	for _, test := range tests {
+		c.Logf("Testing %s", test.series)
+		dataDir := c.MkDir()
+		namespace := "namespace" + test.series
+
+		s.PatchValue(&version.Current.Series, test.series)
+
+		err := EnsureServer(dataDir, namespace, testInfo, WithHA)
+		c.Assert(err, gc.IsNil)
+
+		cmds := getMockShellCalls(c, output)
+
+		// quantal does an extra apt-get install for python software properties
+		// so we need to remember to skip that one
+		index := 0
+		if test.series == "quantal" {
+			index = 1
+		}
+		match := fmt.Sprintf(`.* install .*%s`, test.pkg)
+		c.Assert(strings.Join(cmds[index], " "), gc.Matches, match)
+		// remove the temp file between tests
+		c.Assert(os.Remove(output), gc.IsNil)
+	}
+}
+
+func (s *MongoSuite) TestUpstartServiceWithHA(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, _, err := mongoUpstartService("", dataDir, dataDir, 1234, WithHA)
+	svc, _, err := upstartService("", dataDir, dataDir, 1234, WithHA)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
 
-	svc, _, err = mongoUpstartService("", dataDir, dataDir, 1234, WithoutHA)
+	svc, _, err = upstartService("", dataDir, dataDir, 1234, WithoutHA)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsFalse)
 }
@@ -199,11 +241,11 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	// test that we call add-apt-repository only for quantal (and that if it
 	// fails, we return the error)
 	s.PatchValue(&version.Current.Series, "quantal")
-	err := EnsureMongoServer(dir, "", testInfo, WithHA)
+	err := EnsureServer(dir, "", testInfo, WithHA)
 	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
 
 	s.PatchValue(&version.Current.Series, "trusty")
-	err = EnsureMongoServer(dir, "", testInfo, WithHA)
+	err = EnsureServer(dir, "", testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -212,7 +254,7 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	// created.
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
-	err := EnsureMongoServer(dataDir, "", testInfo, WithHA)
+	err := EnsureServer(dataDir, "", testInfo, WithHA)
 	c.Check(err, gc.IsNil)
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))
@@ -278,7 +320,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 	s.PatchValue(&version.Current.Series, "quantal")
 
 	dataDir := c.MkDir()
-	err := EnsureMongoServer(dataDir, "", testInfo, WithHA)
+	err := EnsureServer(dataDir, "", testInfo, WithHA)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(getMockShellCalls(c, addAptRepoOut), gc.DeepEquals, [][]string{{

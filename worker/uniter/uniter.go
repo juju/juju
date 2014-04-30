@@ -71,7 +71,7 @@ type Uniter struct {
 	baseDir      string
 	toolsDir     string
 	relationsDir string
-	charm        *charm.GitDir
+	charmPath    string
 	deployer     charm.Deployer
 	s            *State
 	sf           *StateFile
@@ -202,10 +202,13 @@ func (u *Uniter) init(unitTag string) (err error) {
 
 	u.relationers = map[int]*Relationer{}
 	u.relationHooks = make(chan hook.Info)
-	u.charm = charm.NewGitDir(filepath.Join(u.baseDir, "charm"))
+	u.charmPath = filepath.Join(u.baseDir, "charm")
 	deployerPath := filepath.Join(u.baseDir, "state", "deployer")
 	bundles := charm.NewBundlesDir(filepath.Join(u.baseDir, "state", "bundles"))
-	u.deployer = charm.NewGitDeployer(u.charm.Path(), deployerPath, bundles)
+	u.deployer, err = charm.NewDeployer(u.charmPath, deployerPath, bundles)
+	if err != nil {
+		return fmt.Errorf("cannot create deployer: %v", err)
+	}
 	u.sf = NewStateFile(filepath.Join(u.baseDir, "state", "uniter"))
 	u.rand = rand.New(rand.NewSource(time.Now().Unix()))
 
@@ -410,7 +413,7 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer srv.Close()
 
-	result, err := hctx.RunCommands(commands, u.charm.Path(), u.toolsDir, socketPath)
+	result, err := hctx.RunCommands(commands, u.charmPath, u.toolsDir, socketPath)
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
 	}
@@ -480,7 +483,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	logger.Infof("running %q hook", hookName)
 	ranHook := true
-	err = hctx.RunHook(hookName, u.charm.Path(), u.toolsDir, socketPath)
+	err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
 	if IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
@@ -634,8 +637,8 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		if rel.Life() != params.Alive {
 			continue
 		}
-		// Make sure we ignore relations not implemented by the unit's charm
-		ch, err := corecharm.ReadDir(u.charm.Path())
+		// Make sure we ignore relations not implemented by the unit's charm.
+		ch, err := corecharm.ReadDir(u.charmPath)
 		if err != nil {
 			return nil, err
 		}
@@ -719,6 +722,16 @@ func (u *Uniter) addRelation(rel *uniter.Relation, dir *relation.StateDir) error
 			return nil
 		}
 	}
+}
+
+// fixDeployer replaces the uniter's git-based charm deployer with a manifest-
+// based one, if necessary. It should not be called unless the existing charm
+// deployment is known to be in a stable state.
+func (u *Uniter) fixDeployer() error {
+	if err := charm.FixDeployer(&u.deployer); err != nil {
+		return fmt.Errorf("cannot convert git deployment to manifest deployment: %v", err)
+	}
+	return nil
 }
 
 // updatePackageProxy updates the package proxy settings from the

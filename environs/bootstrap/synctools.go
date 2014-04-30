@@ -92,6 +92,10 @@ func uploadVersion(vers version.Number, existing coretools.List) version.Number 
 	return vers
 }
 
+// Unless otherwise specified, we will upload tools for all lts series on bootstrap
+// when --upload-tools is used.
+var toolsLtsSeries = []string{"precise", "trusty"}
+
 // SeriesToUpload returns the supplied series with duplicates removed if
 // non-empty; otherwise it returns a default list of series we should
 // probably upload, based on cfg.
@@ -99,7 +103,9 @@ func SeriesToUpload(cfg *config.Config, series []string) []string {
 	unique := set.NewStrings(series...)
 	if unique.IsEmpty() {
 		unique.Add(version.Current.Series)
-		unique.Add(config.LatestLtsSeries())
+		for _, toolsSeries := range toolsLtsSeries {
+			unique.Add(toolsSeries)
+		}
 		if series, ok := cfg.DefaultSeries(); ok {
 			unique.Add(series)
 		}

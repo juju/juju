@@ -17,12 +17,13 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/charm"
+	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
@@ -38,6 +39,7 @@ import (
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
+	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
 // worstCase is used for timeouts when timing out
@@ -248,7 +250,7 @@ var bootstrapTests = []uniterTest{
 		serveCharm{},
 		writeFile{"charm", 0644},
 		createUniter{},
-		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: charm deployment failed: ".*charm" is not a directory`},
+		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: open .*: not a directory`},
 	), ut(
 		"charm cannot be downloaded",
 		createCharm{},
@@ -629,8 +631,7 @@ var steadyUpgradeTests = []uniterTest{
 		},
 		waitHooks{"upgrade-charm", "config-changed"},
 		verifyRunning{},
-	),
-	ut(
+	), ut(
 		// This test does an add-relation as quickly as possible
 		// after an upgrade-charm, in the hope that the scheduler will
 		// deliver the events in the wrong order. The observed
@@ -656,6 +657,89 @@ var steadyUpgradeTests = []uniterTest{
 
 func (s *UniterSuite) TestUniterSteadyStateUpgrade(c *gc.C) {
 	s.runUniterTests(c, steadyUpgradeTests)
+}
+
+func (s *UniterSuite) TestUniterUpgradeOverwrite(c *gc.C) {
+	makeTest := func(description string, content, extraChecks ft.Entries) uniterTest {
+		return ut(description,
+			createCharm{
+				// This is the base charm which all upgrade tests start out running.
+				customize: func(c *gc.C, ctx *context, path string) {
+					ft.Entries{
+						ft.Dir{"dir", 0755},
+						ft.File{"file", "blah", 0644},
+						ft.Symlink{"symlink", "file"},
+					}.Create(c, path)
+					// Note that it creates "dir/user-file" at runtime, which may be
+					// preserved or removed depending on the test.
+					script := "echo content > dir/user-file && chmod 755 dir/user-file"
+					appendHook(c, path, "start", script)
+				},
+			},
+			serveCharm{},
+			createUniter{},
+			waitUnit{
+				status: params.StatusStarted,
+			},
+			waitHooks{"install", "config-changed", "start"},
+
+			createCharm{
+				revision: 1,
+				customize: func(c *gc.C, _ *context, path string) {
+					content.Create(c, path)
+				},
+			},
+			serveCharm{},
+			upgradeCharm{revision: 1},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  1,
+			},
+			waitHooks{"upgrade-charm", "config-changed"},
+			verifyCharm{revision: 1},
+			custom{func(c *gc.C, ctx *context) {
+				path := filepath.Join(ctx.path, "charm")
+				content.Check(c, path)
+				extraChecks.Check(c, path)
+			}},
+			verifyRunning{},
+		)
+	}
+
+	s.runUniterTests(c, []uniterTest{
+		makeTest(
+			"files overwite files, dirs, symlinks",
+			ft.Entries{
+				ft.File{"file", "new", 0755},
+				ft.File{"dir", "new", 0755},
+				ft.File{"symlink", "new", 0755},
+			},
+			ft.Entries{
+				ft.Removed{"dir/user-file"},
+			},
+		), makeTest(
+			"symlinks overwite files, dirs, symlinks",
+			ft.Entries{
+				ft.Symlink{"file", "new"},
+				ft.Symlink{"dir", "new"},
+				ft.Symlink{"symlink", "new"},
+			},
+			ft.Entries{
+				ft.Removed{"dir/user-file"},
+			},
+		), makeTest(
+			"dirs overwite files, symlinks; merge dirs",
+			ft.Entries{
+				ft.Dir{"file", 0755},
+				ft.Dir{"dir", 0755},
+				ft.File{"dir/charm-file", "charm-content", 0644},
+				ft.Dir{"symlink", 0755},
+			},
+			ft.Entries{
+				ft.File{"dir/user-file", "content\n", 0755},
+			},
+		),
+	})
 }
 
 var errorUpgradeTests = []uniterTest{
@@ -723,15 +807,137 @@ func (s *UniterSuite) TestUniterErrorStateUpgrade(c *gc.C) {
 	s.runUniterTests(c, errorUpgradeTests)
 }
 
+func (s *UniterSuite) TestUniterDeployerConversion(c *gc.C) {
+	deployerConversionTests := []uniterTest{
+		ut(
+			"install normally, check not using git",
+			quickStart{},
+			verifyCharm{
+				checkFiles: ft.Entries{ft.Removed{".git"}},
+			},
+		), ut(
+			"install with git, restart in steady state",
+			prepareGitUniter{[]stepper{
+				quickStart{},
+				verifyGitCharm{},
+				stopUniter{},
+			}},
+			startUniter{},
+			waitHooks{"config-changed"},
+
+			// At this point, the deployer has been converted, but the
+			// charm directory itself hasn't; the *next* deployment will
+			// actually hit the charm directory and strip out the git
+			// stuff.
+			createCharm{revision: 1},
+			upgradeCharm{revision: 1},
+			waitHooks{"upgrade-charm", "config-changed"},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  1,
+			},
+			verifyCharm{
+				revision:   1,
+				checkFiles: ft.Entries{ft.Removed{".git"}},
+			},
+			verifyRunning{},
+		), ut(
+			"install with git, get conflicted, mark resolved",
+			prepareGitUniter{[]stepper{
+				startGitUpgradeError{},
+				stopUniter{},
+			}},
+			startUniter{},
+
+			resolveError{state.ResolvedNoHooks},
+			waitHooks{"upgrade-charm", "config-changed"},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  1,
+			},
+			verifyCharm{revision: 1},
+			verifyRunning{},
+
+			// Due to the uncertainties around marking upgrade conflicts resolved,
+			// the charm directory again remains unconverted, although the deployer
+			// should have been fixed. Again, we check this by running another
+			// upgrade and verifying the .git dir is then removed.
+			createCharm{revision: 2},
+			upgradeCharm{revision: 2},
+			waitHooks{"upgrade-charm", "config-changed"},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  2,
+			},
+			verifyCharm{
+				revision:   2,
+				checkFiles: ft.Entries{ft.Removed{".git"}},
+			},
+			verifyRunning{},
+		), ut(
+			"install with git, get conflicted, force an upgrade",
+			prepareGitUniter{[]stepper{
+				startGitUpgradeError{},
+				stopUniter{},
+			}},
+			startUniter{},
+
+			createCharm{
+				revision: 2,
+				customize: func(c *gc.C, ctx *context, path string) {
+					ft.File{"data", "OVERWRITE!", 0644}.Create(c, path)
+				},
+			},
+			serveCharm{},
+			upgradeCharm{revision: 2, forced: true},
+			waitHooks{"upgrade-charm", "config-changed"},
+			waitUnit{
+				status: params.StatusStarted,
+				charm:  2,
+			},
+
+			// A forced upgrade allows us to swap out the git deployer *and*
+			// the .git dir inside the charm immediately; check we did so.
+			verifyCharm{
+				revision: 2,
+				checkFiles: ft.Entries{
+					ft.Removed{".git"},
+					ft.File{"data", "OVERWRITE!", 0644},
+				},
+			},
+			verifyRunning{},
+		),
+	}
+	s.runUniterTests(c, deployerConversionTests)
+}
+
 var upgradeConflictsTests = []uniterTest{
 	// Upgrade scenarios - handling conflicts.
 	ut(
-		"upgrade: conflicting files",
+		"upgrade: resolving doesn't help until underlying problem is fixed",
 		startUpgradeError{},
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: params.StatusError,
+			info:   "upgrade failed",
+			charm:  1,
+		},
+		stopUniter{},
+		custom{func(c *gc.C, ctx *context) {
+			// By setting status to Started, and waiting for the restarted uniter
+			// to reset the error status, we can avoid a race in which we
+			// fixUpgradeError just before the restarting uniter retries the upgrade.
+			ctx.unit.SetStatus(params.StatusStarted, "", nil)
+		}},
+		startUniter{},
 
-		// NOTE: this is just dumbly committing the conflicts, but AFAICT this
-		// is the only reasonable solution; if the user tells us it's resolved
-		// we have to take their word for it.
+		waitUnit{
+			status: params.StatusError,
+			info:   "upgrade failed",
+			charm:  1,
+		},
+		verifyCharm{attemptedRevision: 1},
+		fixUpgradeError{},
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed"},
 		waitUnit{
@@ -740,86 +946,33 @@ var upgradeConflictsTests = []uniterTest{
 		},
 		verifyCharm{revision: 1},
 	), ut(
-		`upgrade: conflicting directories`,
-		createCharm{
-			customize: func(c *gc.C, ctx *context, path string) {
-				err := os.Mkdir(filepath.Join(path, "data"), 0755)
-				c.Assert(err, gc.IsNil)
-				appendHook(c, path, "start", "echo DATA > data/newfile")
-			},
-		},
-		serveCharm{},
-		createUniter{},
-		waitUnit{
-			status: params.StatusStarted,
-		},
-		waitHooks{"install", "config-changed", "start"},
-		verifyCharm{dirty: true},
-
-		createCharm{
-			revision: 1,
-			customize: func(c *gc.C, ctx *context, path string) {
-				data := filepath.Join(path, "data")
-				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
-				c.Assert(err, gc.IsNil)
-			},
-		},
-		serveCharm{},
-		upgradeCharm{revision: 1},
+		`upgrade: forced upgrade does work without explicit resolution if underlying problem was fixed`,
+		startUpgradeError{},
+		resolveError{state.ResolvedNoHooks},
 		waitUnit{
 			status: params.StatusError,
 			info:   "upgrade failed",
 			charm:  1,
 		},
 		verifyWaiting{},
-		verifyCharm{dirty: true},
+		verifyCharm{attemptedRevision: 1},
 
-		resolveError{state.ResolvedNoHooks},
-		waitHooks{"upgrade-charm", "config-changed"},
-		waitUnit{
-			status: params.StatusStarted,
-			charm:  1,
-		},
-		verifyCharm{revision: 1},
-	), ut(
-		"upgrade conflict resolved with forced upgrade",
-		startUpgradeError{},
-		createCharm{
-			revision: 2,
-			customize: func(c *gc.C, ctx *context, path string) {
-				otherdata := filepath.Join(path, "otherdata")
-				err := ioutil.WriteFile(otherdata, []byte("blah"), 0644)
-				c.Assert(err, gc.IsNil)
-			},
-		},
+		fixUpgradeError{},
+		createCharm{revision: 2},
 		serveCharm{},
 		upgradeCharm{revision: 2, forced: true},
+		waitHooks{"upgrade-charm", "config-changed"},
 		waitUnit{
 			status: params.StatusStarted,
 			charm:  2,
 		},
-		waitHooks{"upgrade-charm", "config-changed"},
 		verifyCharm{revision: 2},
-		custom{func(c *gc.C, ctx *context) {
-			// otherdata should exist (in v2)
-			otherdata, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "otherdata"))
-			c.Assert(err, gc.IsNil)
-			c.Assert(string(otherdata), gc.Equals, "blah")
-
-			// ignore should not (only in v1)
-			_, err = os.Stat(filepath.Join(ctx.path, "charm", "ignore"))
-			c.Assert(err, jc.Satisfies, os.IsNotExist)
-
-			// data should contain what was written in the start hook
-			data, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "data"))
-			c.Assert(err, gc.IsNil)
-			c.Assert(string(data), gc.Equals, "STARTDATA\n")
-		}},
 	), ut(
 		"upgrade conflict service dying",
 		startUpgradeError{},
 		serviceDying,
 		verifyWaiting{},
+		fixUpgradeError{},
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed", "stop"},
 		waitUniterDead{},
@@ -828,6 +981,7 @@ var upgradeConflictsTests = []uniterTest{
 		startUpgradeError{},
 		unitDying,
 		verifyWaiting{},
+		fixUpgradeError{},
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed", "stop"},
 		waitUniterDead{},
@@ -837,6 +991,7 @@ var upgradeConflictsTests = []uniterTest{
 		unitDead,
 		waitUniterDead{},
 		waitHooks{},
+		fixUpgradeError{},
 	),
 }
 
@@ -1174,7 +1329,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 
 	// Create the subordinate service.
 	dir := coretesting.Charms.ClonedDir(c.MkDir(), "logging")
-	curl, err := charm.ParseURL("cs:quantal/logging")
+	curl, err := corecharm.ParseURL("cs:quantal/logging")
 	c.Assert(err, gc.IsNil)
 	curl = curl.WithRevision(dir.Revision())
 	step(c, ctx, addCharm{dir, curl})
@@ -1217,8 +1372,7 @@ func step(c *gc.C, ctx *context, s stepper) {
 	s.step(c, ctx)
 }
 
-type ensureStateWorker struct {
-}
+type ensureStateWorker struct{}
 
 func (s ensureStateWorker) step(c *gc.C, ctx *context) {
 	addresses, err := ctx.st.Addresses()
@@ -1257,7 +1411,7 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 	if s.customize != nil {
 		s.customize(c, ctx, base)
 	}
-	dir, err := charm.ReadDir(base)
+	dir, err := corecharm.ReadDir(base)
 	c.Assert(err, gc.IsNil)
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, gc.IsNil)
@@ -1265,8 +1419,8 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 }
 
 type addCharm struct {
-	dir  *charm.Dir
-	curl *charm.URL
+	dir  *corecharm.Dir
+	curl *corecharm.URL
 }
 
 func (s addCharm) step(c *gc.C, ctx *context) {
@@ -1628,7 +1782,7 @@ func (s fixHook) step(c *gc.C, ctx *context) {
 type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *gc.C, ctx *context) {
-	err := ctx.svc.UpdateConfigSettings(charm.Settings(s))
+	err := ctx.svc.UpdateConfigSettings(corecharm.Settings(s))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1646,35 +1800,26 @@ func (s upgradeCharm) step(c *gc.C, ctx *context) {
 }
 
 type verifyCharm struct {
-	revision int
-	dirty    bool
+	revision          int
+	attemptedRevision int
+	checkFiles        ft.Entries
 }
 
 func (s verifyCharm) step(c *gc.C, ctx *context) {
-	if !s.dirty {
-		path := filepath.Join(ctx.path, "charm", "revision")
-		content, err := ioutil.ReadFile(path)
-		c.Assert(err, gc.IsNil)
-		c.Assert(string(content), gc.Equals, strconv.Itoa(s.revision))
-		err = ctx.unit.Refresh()
-		c.Assert(err, gc.IsNil)
-		url, ok := ctx.unit.CharmURL()
-		c.Assert(ok, gc.Equals, true)
-		c.Assert(url, gc.DeepEquals, curl(s.revision))
-	}
-
-	// Before we try to check the git status, make sure expected hooks are all
-	// complete, to prevent the test and the uniter interfering with each other.
-	step(c, ctx, waitHooks{})
-	cmd := exec.Command("git", "status")
-	cmd.Dir = filepath.Join(ctx.path, "charm")
-	out, err := cmd.CombinedOutput()
+	s.checkFiles.Check(c, filepath.Join(ctx.path, "charm"))
+	path := filepath.Join(ctx.path, "charm", "revision")
+	content, err := ioutil.ReadFile(path)
 	c.Assert(err, gc.IsNil)
-	cmp := gc.Matches
-	if s.dirty {
-		cmp = gc.Not(gc.Matches)
+	c.Assert(string(content), gc.Equals, strconv.Itoa(s.revision))
+	checkRevision := s.revision
+	if s.attemptedRevision > checkRevision {
+		checkRevision = s.attemptedRevision
 	}
-	c.Assert(string(out), cmp, "(# )?On branch master\nnothing to commit.*\n")
+	err = ctx.unit.Refresh()
+	c.Assert(err, gc.IsNil)
+	url, ok := ctx.unit.CharmURL()
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(url, gc.DeepEquals, curl(checkRevision))
 }
 
 type startUpgradeError struct{}
@@ -1683,7 +1828,7 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 	steps := []stepper{
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
-				appendHook(c, path, "start", "echo STARTDATA > data")
+				appendHook(c, path, "start", "chmod 555 $CHARM_DIR")
 			},
 		},
 		serveCharm{},
@@ -1692,19 +1837,9 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 			status: params.StatusStarted,
 		},
 		waitHooks{"install", "config-changed", "start"},
-		verifyCharm{dirty: true},
+		verifyCharm{},
 
-		createCharm{
-			revision: 1,
-			customize: func(c *gc.C, ctx *context, path string) {
-				data := filepath.Join(path, "data")
-				err := ioutil.WriteFile(data, []byte("<nelson>ha ha</nelson>"), 0644)
-				c.Assert(err, gc.IsNil)
-				ignore := filepath.Join(path, "ignore")
-				err = ioutil.WriteFile(ignore, []byte("anything"), 0644)
-				c.Assert(err, gc.IsNil)
-			},
-		},
+		createCharm{revision: 1},
 		serveCharm{},
 		upgradeCharm{revision: 1},
 		waitUnit{
@@ -1713,11 +1848,19 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 			charm:  1,
 		},
 		verifyWaiting{},
-		verifyCharm{dirty: true},
+		verifyCharm{attemptedRevision: 1},
 	}
 	for _, s_ := range steps {
 		step(c, ctx, s_)
 	}
+}
+
+type fixUpgradeError struct{}
+
+func (s fixUpgradeError) step(c *gc.C, ctx *context) {
+	charmPath := filepath.Join(ctx.path, "charm")
+	err := os.Chmod(charmPath, 0755)
+	c.Assert(err, gc.IsNil)
 }
 
 type addRelation struct {
@@ -1964,8 +2107,8 @@ var subordinateDying = custom{func(c *gc.C, ctx *context) {
 	c.Assert(ctx.subordinate.Destroy(), gc.IsNil)
 }}
 
-func curl(revision int) *charm.URL {
-	return charm.MustParseURL("cs:quantal/wordpress").WithRevision(revision)
+func curl(revision int) *corecharm.URL {
+	return corecharm.MustParseURL("cs:quantal/wordpress").WithRevision(revision)
 }
 
 func appendHook(c *gc.C, charm, name, data string) {
@@ -1982,10 +2125,10 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	f, err := os.Open(path)
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
-	meta, err := charm.ReadMeta(f)
+	meta, err := corecharm.ReadMeta(f)
 	c.Assert(err, gc.IsNil)
 
-	replace := func(what map[string]charm.Relation) bool {
+	replace := func(what map[string]corecharm.Relation) bool {
 		for relName, relation := range what {
 			if relName == oldName {
 				what[newName] = relation
@@ -2005,7 +2148,7 @@ func renameRelation(c *gc.C, charmPath, oldName, newName string) {
 	f, err = os.Open(path)
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
-	meta, err = charm.ReadMeta(f)
+	meta, err = corecharm.ReadMeta(f)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -2152,4 +2295,37 @@ func (verify verifyNoFile) step(c *gc.C, ctx *context) {
 	// Wait a short time and check again.
 	time.Sleep(coretesting.ShortWait)
 	c.Assert(verify.filename, jc.DoesNotExist)
+}
+
+// prepareGitUniter runs a sequence of uniter tests with the manifest deployer
+// replacement logic patched out, simulating the effect of running an older
+// version of juju that exclusively used a git deployer. This is useful both
+// for testing the new deployer-replacement code *and* for running the old
+// tests against the new, patched code to check that the tweaks made to
+// accommodate the manifest deployer do not change the original behaviour as
+// simulated by the patched-out code.
+type prepareGitUniter struct {
+	prepSteps []stepper
+}
+
+func (s prepareGitUniter) step(c *gc.C, ctx *context) {
+	c.Assert(ctx.uniter, gc.IsNil, gc.Commentf("please don't try to patch stuff while the uniter's running"))
+	newDeployer := func(charmPath, dataPath string, bundles charm.BundleReader) (charm.Deployer, error) {
+		return charm.NewGitDeployer(charmPath, dataPath, bundles), nil
+	}
+	restoreNewDeployer := gt.PatchValue(&charm.NewDeployer, newDeployer)
+	defer restoreNewDeployer()
+
+	fixDeployer := func(deployer *charm.Deployer) error {
+		return nil
+	}
+	restoreFixDeployer := gt.PatchValue(&charm.FixDeployer, fixDeployer)
+	defer restoreFixDeployer()
+
+	for _, prepStep := range s.prepSteps {
+		step(c, ctx, prepStep)
+	}
+	if ctx.uniter != nil {
+		step(c, ctx, stopUniter{})
+	}
 }

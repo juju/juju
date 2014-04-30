@@ -58,7 +58,6 @@ var _ environs.Environ = (*localEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*localEnviron)(nil)
 
 type localEnviron struct {
-	common.NopPrecheckerPolicy
 	common.SupportsUnitPlacementPolicy
 
 	localMutex       sync.Mutex
@@ -88,6 +87,13 @@ func (*localEnviron) SupportNetworks() bool {
 	return false
 }
 
+func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	if placement != "" {
+		return fmt.Errorf("unknown placement directive: %s", placement)
+	}
+	return nil
+}
+
 // Name is specified in the Environ interface.
 func (env *localEnviron) Name() string {
 	return env.name
@@ -105,7 +111,7 @@ func ensureNotRoot() error {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constraints.Value) error {
+func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
 	if err := ensureNotRoot(); err != nil {
 		return err
 	}
@@ -155,7 +161,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, cons constrain
 		agent.StorageDir:  env.config.storageDir(),
 		agent.StorageAddr: env.config.storageAddr(),
 	}
-	if err := environs.FinishMachineConfig(mcfg, cfg, cons); err != nil {
+	if err := environs.FinishMachineConfig(mcfg, cfg, args.Constraints); err != nil {
 		return err
 	}
 	// don't write proxy settings for local machine
@@ -299,6 +305,25 @@ func (env *localEnviron) setLocalStorage() error {
 	}
 	env.localStorage = storage
 	return nil
+}
+
+var unsupportedConstraints = []string{
+	constraints.CpuCores,
+	constraints.CpuPower,
+	constraints.InstanceType,
+	constraints.Tags,
+}
+
+// ConstraintsValidator is defined on the Environs interface.
+func (env *localEnviron) ConstraintsValidator() (constraints.Validator, error) {
+	validator := constraints.NewValidator()
+	validator.RegisterUnsupported(unsupportedConstraints)
+	supportedArches, err := env.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
+	validator.RegisterVocabulary(constraints.Arch, supportedArches)
+	return validator, nil
 }
 
 // StartInstance is specified in the InstanceBroker interface.

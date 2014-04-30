@@ -14,7 +14,6 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
@@ -220,7 +219,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// Upload tools for both preferred and fake default series
 	envtesting.MustUploadFakeToolsVersions(environ.Storage(), versions...)
-	c.Assert(bootstrap.Bootstrap(ctx, environ, constraints.Value{}), gc.IsNil)
+	c.Assert(bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{}), gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
 

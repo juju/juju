@@ -27,4 +27,4 @@ var LongAttempt = &utils.AttemptStrategy{
 }
 
 // SupportedSeries lists the series known to Juju.
-var SupportedSeries = []string{"precise", "quantal", "raring", "saucy", "trusty"}
+var SupportedSeries = []string{"precise", "quantal", "raring", "saucy", "trusty", "utopic"}
