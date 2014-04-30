@@ -85,10 +85,11 @@ def run_instances(count):
     machine_ids = [subprocess.check_output(command, env=environ).strip()
                    for x in range(count)]
     subprocess.call(['ec2-tag-job-instances'] + machine_ids)
-    machine_names = [
-        subprocess.check_output(['ec2-get-name', instance]).strip()
+    machine_info = [
+        (instance,
+         subprocess.check_output(['ec2-get-name', instance]).strip())
         for instance in machine_ids]
-    return machine_names
+    return machine_info
 
 
 def deploy_dummy_stack(env, charm_prefix):
@@ -127,7 +128,7 @@ def scp_logs(log_names, directory):
         '-o', 'StrictHostKeyChecking no'] + log_names + [directory])
 
 
-def dump_logs(env, host, directory):
+def dump_logs(env, host, directory, host_id=None):
     log_names = []
     if env.local:
         local = os.path.join(get_juju_home(), 'local')
@@ -149,6 +150,10 @@ def dump_logs(env, host, directory):
                 scp_logs([log_name], directory)
             except subprocess.CalledProcessError:
                 pass
+    if host_id is not None:
+        with open(os.path.join(directory, 'console.log')) as console_file:
+            subprocess.Popen(['euca-get-console-output', host_id],
+                             stdout=console_file)
     for log_name in os.listdir(directory):
         if not log_name.endswith('.log'):
             continue
@@ -214,6 +219,7 @@ def deploy_job():
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
     machines = os.environ['MACHINES'].split()
+    bootstrap_id = None
     new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
     upgrade = bool(os.environ.get('UPGRADE') == 'true')
     created_machines = False
@@ -232,8 +238,9 @@ def deploy_job():
         elif env.config['type'] == 'manual':
             instances = run_instances(3)
             created_machines = True
-            env.config['bootstrap-host'] = instances[0]
-            machines.extend(instances[1:])
+            env.config['bootstrap-host'] = instances[0][1]
+            bootstrap_id = instances[0][0]
+            machines.extend(i[1] for i in instances[1:])
         try:
             host = env.config.get('bootstrap-host')
             env.config['agent-version'] = env.get_matching_agent_version()
@@ -253,7 +260,7 @@ def deploy_job():
                 bootstrap_from_env(juju_home, env)
             except:
                 if host is not None:
-                    dump_logs(env, host, log_dir)
+                    dump_logs(env, host, log_dir, bootstrap_id)
                 raise
             try:
                 if host is None:
@@ -275,7 +282,7 @@ def deploy_job():
                             test_upgrade(env.environment)
                 except:
                     if host is not None:
-                        dump_logs(env, host, log_dir)
+                        dump_logs(env, host, log_dir, bootstrap_id)
                     raise
             finally:
                 env.destroy_environment()
