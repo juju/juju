@@ -123,9 +123,8 @@ def deploy_dummy_stack(env, charm_prefix):
 
 def scp_logs(log_names, directory):
     subprocess.check_call([
-        'timeout', '5m', 'scp', '-o', 'UserKnownHostsFile', '/dev/null',
-        '-o', 'StrictHostKeyChecking', 'no'] +
-        log_names + [directory])
+        'timeout', '5m', 'scp', '-o', 'UserKnownHostsFile /dev/null',
+        '-o', 'StrictHostKeyChecking no'] + log_names + [directory])
 
 
 def dump_logs(env, host, directory):
