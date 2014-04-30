@@ -280,7 +280,7 @@ func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{
 
 type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
 
-// UpateEnvironConfig adds, updates or removes attributes in the current
+// UpdateEnvironConfig adds, updates or removes attributes in the current
 // configuration of the environment with the provided updateAttrs and
 // removeAttrs.
 func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {

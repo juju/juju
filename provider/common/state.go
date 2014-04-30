@@ -41,7 +41,7 @@ func composeAddresses(hostnames []string, port int) []string {
 	return addresses
 }
 
-// composeStateInfo puts together the state.Info and api.Info for the given
+// getStateInfo puts together the state.Info and api.Info for the given
 // config, with the given state-server host names.
 // The given config absolutely must have a CACert.
 func getStateInfo(config *config.Config, hostnames []string) (*state.Info, *api.Info) {

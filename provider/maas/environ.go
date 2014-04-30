@@ -543,7 +543,7 @@ EOF
 	}
 }
 
-// StartInstance is specified in the InstanceBroker interface.
+// StopInstances is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StopInstances(instances []instance.Instance) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(instances) == 0 {

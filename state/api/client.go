@@ -632,7 +632,7 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 	return c.call("AddCharm", args, nil)
 }
 
-// ResolveCharms resolves the best available charm URLs with series, for charm
+// ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
 func (c *Client) ResolveCharm(ref charm.Reference) (*charm.URL, error) {
 	args := params.ResolveCharms{References: []charm.Reference{ref}}

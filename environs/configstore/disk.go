@@ -144,7 +144,7 @@ func (info *environInfo) APIEndpoint() APIEndpoint {
 	}
 }
 
-// SetExtraConfig implements EnvironInfo.SetBootstrapConfig.
+// SetBootstrapConfig implements EnvironInfo.SetBootstrapConfig.
 func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
 	if !info.created {
 		panic("bootstrap config set on environment info that has not just been created")

@@ -270,7 +270,7 @@ func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) 
 	return allInstanceTypes, nil
 }
 
-// findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
+// FindInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
 func (env *joyentEnviron) FindInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	allInstanceTypes, err := env.listInstanceTypes()
 	if err != nil {

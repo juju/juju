@@ -24,7 +24,7 @@ type Server struct {
 	mux   *http.ServeMux
 }
 
-// New returns a new *Server using store.
+// NewServer returns a new *Server using store.
 func NewServer(store *Store) (*Server, error) {
 	s := &Server{
 		store: store,

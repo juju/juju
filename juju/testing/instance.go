@@ -105,9 +105,9 @@ func AssertStartInstanceWithNetworks(
 	return inst, hc
 }
 
-// StartInstanceWithNetworks is a test helper function that starts an instance
-// with the given networks, and a plausible but invalid configuration, and
-// returns the result of Environ.StartInstance.
+// StartInstanceWithConstraintsAndNetworks is a test helper function that
+// starts an instance with the given networks, and a plausible but invalid
+// configuration, and returns the result of Environ.StartInstance.
 func StartInstanceWithConstraintsAndNetworks(
 	env environs.Environ, machineId string, cons constraints.Value,
 	includeNetworks, excludeNetworks []string,
