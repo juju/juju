@@ -51,9 +51,9 @@ type syncSuite struct {
 
 var _ = gc.Suite(&syncSuite{})
 var _ = gc.Suite(&uploadSuite{})
+var _ = gc.Suite(&badBuildSuite{})
 
 func (s *syncSuite) setUpTest(c *gc.C) {
-	s.PatchValue(&envtools.BundleTools, ttesting.GetMockBundleTools(c))
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.origVersion = version.Current
@@ -260,8 +260,28 @@ type uploadSuite struct {
 	envtesting.ToolsFixture
 }
 
+type badBuildSuite struct {
+}
+
+// Create bad Go source file
+func (s *badBuildSuite) SetUpTest(c *gc.C) {
+	gopath := c.MkDir()
+	join := append([]string{gopath, "src"}, strings.Split("launchpad.net/juju-core/cmd/broken", "/")...)
+	pkgdir := filepath.Join(join...)
+	err := os.MkdirAll(pkgdir, 0777)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(filepath.Join(pkgdir, "broken.go"), []byte("nope"), 0666)
+	c.Assert(err, gc.IsNil)
+	os.Setenv("GOPATH", gopath)
+}
+
+func (s *badBuildSuite) TearDownTest(c *gc.C) {
+	s.resetToolFuncs()
+	os.Setenv("GOPATH", os.Getenv("GOPATH"))
+}
+
 func (s *uploadSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&envtools.BundleTools, ttesting.GetMockBundleTools(c))
+	s.PatchValue(&envtools.BundleTools, ttesting.GetMockBundleTools(c, ""))
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	// We only want to use simplestreams to find any synced tools.
@@ -308,27 +328,6 @@ func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 	t, err := sync.Upload(s.env.Storage(), &vers.Number)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, vers)
-}
-
-// Test that the upload procedure fails correctly
-// when the build process fails (because of a bad Go source
-// file in this case).
-func (s *uploadSuite) TestUploadBadBuild(c *gc.C) {
-	gopath := c.MkDir()
-	join := append([]string{gopath, "src"}, strings.Split("launchpad.net/juju-core/cmd/broken", "/")...)
-	pkgdir := filepath.Join(join...)
-	err := os.MkdirAll(pkgdir, 0777)
-	c.Assert(err, gc.IsNil)
-
-	err = ioutil.WriteFile(filepath.Join(pkgdir, "broken.go"), []byte("nope"), 0666)
-	c.Assert(err, gc.IsNil)
-
-	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
-	os.Setenv("GOPATH", gopath)
-
-	t, err := sync.Upload(s.env.Storage(), nil)
-	c.Assert(t, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
 }
 
 func (s *uploadSuite) TestSyncTools(c *gc.C) {
@@ -419,4 +418,99 @@ func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
 	_, err = io.Copy(&buf, resp.Body)
 	c.Assert(err, gc.IsNil)
 	return buf.Bytes()
+}
+
+func bundleTools(c *gc.C) (version.Binary, string, error) {
+	f, err := ioutil.TempFile("", "juju-tgz")
+	c.Assert(err, gc.IsNil)
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	return envtools.BundleTools(f, &version.Current.Number)
+}
+
+// Test that when the build process fails (because of a bad Go source file in
+// this case) the bundle tools procedure passes when envtools.BundleTools is
+// patched and otherwise fails correctly.
+func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
+	env := s.Conn.Environ
+	vers, sha256Hash, err := bundleTools(c)
+	// TODO test vers
+	c.Logf("%#v", vers)
+	// c.Assert(version{}, gc.IsNil)
+	c.Assert(sha256Hash, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
+
+	// Test that original Upload Func fails as expected
+	t, err := sync.Upload(env.Storage(), nil)
+	c.Assert(t, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
+
+	// Test that original BuildToolsTarball fails
+	builtTools, err := sync.BuildToolsTarball(nil)
+	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
+	c.Assert(builtTools, gc.IsNil)
+
+	s.PatchValue(&envtools.BundleTools, ttesting.GetMockBundleTools(c, c.MkDir()))
+
+	vers, sha256Hash, err = bundleTools(c)
+	c.Assert(err, gc.IsNil)
+	c.Assert(vers.Number, gc.Equals, version.Current.Number)
+	c.Assert(sha256Hash, gc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+
+	t, err = sync.Upload(env.Storage(), nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(t.Version, gc.Equals, version.Current)
+	c.Assert(t.URL, gc.Not(gc.Equals), "")
+
+	builtTools, err = sync.BuildToolsTarball(nil)
+	c.Assert(builtTools.Version, gc.Equals, version.Current)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
+
+	var (
+		writer       io.Writer
+		forceVersion *version.Number
+	)
+
+	s.PatchValue(&envtools.BundleTools, func(writerArg io.Writer, forceVersionArg *version.Number) (vers version.Binary, sha256Hash string, err error) {
+		writer = writerArg
+		forceVersion = forceVersionArg
+		return
+	})
+
+	sync.BuildToolsTarball(&version.Current.Number)
+	c.Assert(*forceVersion, gc.Equals, version.Current.Number)
+	c.Assert(writer, gc.NotNil)
+}
+
+func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
+	s.PatchValue(&version.Current, version.MustParseBinary("1.9.1-trusty-amd64"))
+	buildToolsFunc := ttesting.GetMockBuildTools(c)
+	builtTools, err := buildToolsFunc(nil)
+	c.Assert(err, gc.IsNil)
+
+	builtTools.Dir = ""
+
+	expectedBuiltTools := &sync.BuiltTools{
+		StorageName: envtools.StorageName(version.Current),
+		Version:     version.Current,
+		Size:        127,
+		Sha256Hash:  "6a19d08ca4913382ca86508aa38eb8ee5b9ae2d74333fe8d862c0f9e29b82c39",
+	}
+	c.Assert(builtTools, gc.DeepEquals, expectedBuiltTools)
+
+	vers := version.MustParseBinary("1.5.3-trusty-amd64")
+	builtTools, err = buildToolsFunc(&vers.Number)
+	c.Assert(err, gc.IsNil)
+	builtTools.Dir = ""
+	expectedBuiltTools = &sync.BuiltTools{
+		StorageName: envtools.StorageName(vers),
+		Version:     vers,
+		Size:        127,
+		Sha256Hash:  "cad8ccedab8f26807ff379ddc2f2f78d9a7cac1276e001154cee5e39b9ddcc38",
+	}
+	c.Assert(builtTools, gc.DeepEquals, expectedBuiltTools)
 }

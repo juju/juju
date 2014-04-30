@@ -51,7 +51,6 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.home = coretesting.MakeFakeHomeNoEnvironments(c, "foo")
-	ttesting.ToolsDir = c.MkDir()
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {

@@ -31,8 +31,6 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-var ToolsDir string
-
 // mockUploadTools simulates the effect of tools.Upload, but skips the time-
 // consuming build from source.
 // TODO(fwereade) better factor agent/tools such that build logic is
@@ -59,18 +57,17 @@ func GetMockUploadTools(c *gc.C) sync.UploadFunc {
 	}
 }
 
-func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
-	if ToolsDir == "" {
-		ToolsDir = filepath.Join(c.MkDir(), "jujud")
+func GetMockBundleTools(c *gc.C, toolsDir string) tools.BundleToolsFunc {
+	if toolsDir == "" {
+		toolsDir = filepath.Join(c.MkDir(), "jujud")
 	}
-
 	return func(w io.Writer, forceVersion *version.Number) (vers version.Binary, sha256Hash string, err error) {
 		vers = version.Current
 		if forceVersion != nil {
 			vers.Number = *forceVersion
 		}
 
-		sha256Hash, err = tools.Archive(w, ToolsDir)
+		sha256Hash, err = tools.Archive(w, toolsDir)
 		c.Assert(err, gc.IsNil)
 		return vers, sha256Hash, err
 	}
@@ -79,12 +76,10 @@ func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
 // getMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
 // a fake tools tarball.
 func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
-	if ToolsDir == "" {
-		ToolsDir = c.MkDir()
-	}
+	toolsDir := c.MkDir()
 	return func(forceVersion *version.Number) (*sync.BuiltTools, error) {
 		// UploadFakeToolsVersions requires a storage to write to.
-		stor, err := filestorage.NewFileStorageWriter(ToolsDir)
+		stor, err := filestorage.NewFileStorageWriter(toolsDir)
 		c.Assert(err, gc.IsNil)
 		vers := version.Current
 		if forceVersion != nil {
@@ -95,7 +90,7 @@ func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
 		c.Assert(err, gc.IsNil)
 		agentTools := uploadedTools[0]
 		return &sync.BuiltTools{
-			Dir:         ToolsDir,
+			Dir:         toolsDir,
 			StorageName: tools.StorageName(vers),
 			Version:     vers,
 			Size:        agentTools.Size,

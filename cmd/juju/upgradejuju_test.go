@@ -276,7 +276,6 @@ var upgradeJujuTests = []struct {
 }}
 
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
-	s.PatchValue(&sync.BuildToolsTarball, ttesting.GetMockBuildTools(c))
 	oldVersion := version.Current
 	defer func() {
 		version.Current = oldVersion
@@ -390,12 +389,10 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	}
 	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
-	ttesting.ToolsDir = c.MkDir()
-
+	s.PatchValue(&sync.BuildToolsTarball, ttesting.GetMockBuildTools(c))
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
-	s.PatchValue(&envtools.BundleTools, ttesting.GetMockBundleTools(c))
 	s.Reset(c)
 	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools"})
 	c.Assert(err, gc.IsNil)
