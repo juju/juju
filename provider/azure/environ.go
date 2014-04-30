@@ -758,7 +758,7 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 	return role
 }
 
-// StartInstance is specified in the InstanceBroker interface.
+// StopInstances is specified in the InstanceBroker interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	context, err := env.getManagementAPI()
 	if err != nil {
