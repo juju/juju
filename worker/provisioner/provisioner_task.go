@@ -478,7 +478,7 @@ func (task *provisionerTask) possibleTools(series string, cons constraints.Value
 		return tools.FindInstanceTools(env, agentVersion, series, cons.Arch)
 	}
 	if hasTools, ok := task.broker.(coretools.HasTools); ok {
-		return hasTools.Tools(), nil
+		return hasTools.Tools(series), nil
 	}
 	panic(fmt.Errorf("broker of type %T does not provide any tools", task.broker))
 }

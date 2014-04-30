@@ -87,7 +87,7 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
 	cons := constraints.Value{}
-	possibleTools := s.broker.(coretools.HasTools).Tools()
+	possibleTools := s.broker.(coretools.HasTools).Tools("precise")
 	lxc, _, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         possibleTools,

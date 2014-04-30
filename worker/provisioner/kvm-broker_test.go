@@ -85,7 +85,7 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
 	cons := constraints.Value{}
-	possibleTools := s.broker.(coretools.HasTools).Tools()
+	possibleTools := s.broker.(coretools.HasTools).Tools("precise")
 	kvm, _, err := s.broker.StartInstance(environs.StartInstanceParams{
 		Constraints:   cons,
 		Tools:         possibleTools,
