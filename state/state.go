@@ -1373,9 +1373,20 @@ func (st *State) Action(id string) (*Action, error) {
 	return newAction(&doc), nil
 }
 
-//func (st *State) AddAction(a *Action) (*Action, error) {
-//
-//}
+func (st *State) AddAction(unit string, name string, payload string) (*Action, error) {
+	if !names.IsUnit(unit) {
+		return nil, fmt.Errorf("%q is not a valid unit name", unit)
+	}
+	doc := actionDoc{bson.NewObjectId(), name, payload, ActionPending}
+	err := st.actions.Insert(doc)
+
+	if err != nil {
+		return nil, fmt.Errorf("cannot add action {%q, %q} to unit %q: %v",
+			name, payload, unit, err)
+	}
+
+	return newAction(&doc), nil
+}
 
 // Unit returns a unit by name.
 func (st *State) Unit(name string) (*Unit, error) {

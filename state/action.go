@@ -9,6 +9,7 @@ const (
 
 type actionDoc struct {
 	Id      string `bson:"_id"`
+	Name    string
 	Payload string
 	Status  ActionStatus
 }
@@ -22,6 +23,10 @@ func newAction(adoc *actionDoc) *Action {
 		doc: *adoc,
 	}
 	return action
+}
+
+func (a *Action) Name() string {
+	return a.doc.Name
 }
 
 func (a *Action) Id() string {
