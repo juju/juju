@@ -10,20 +10,6 @@ fi
 # Do the deployment for upgrade testing.
 : ${JUJU_REPOSITORY=$HOME/repository}
 
-prepare_manual(){
-    export INSTANCE_TYPE=m1.large
-    export AMI_IMAGE=ami-bd6d40d4
-    machine_0_id=$(ec2-run-instance-get-id -g manual-juju-test)
-    machine_1_id=$(ec2-run-instance-get-id -g manual-juju-test)
-    machine_2_id=$(ec2-run-instance-get-id -g manual-juju-test)
-    ec2-tag-job-instances $machine_0_id $machine_1_id $machine_2_id
-    machine_0_name=$(ec2-get-name $machine_0_id)
-    machine_1_name=$(ec2-get-name $machine_1_id)
-    machine_2_name=$(ec2-get-name $machine_2_id)
-    export BOOTSTRAP_HOST=$machine_0_name
-    export MACHINES="$machine_1_name $machine_2_name"
-}
-
 artifacts_path=$WORKSPACE/artifacts
 export MACHINES=""
 set -x
