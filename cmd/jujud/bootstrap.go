@@ -65,6 +65,22 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err := c.Conf.read("machine-0"); err != nil {
 		return err
 	}
+
+	// Get the bootstrap machine's addresses from the provider.
+	env, err := environs.New(envCfg)
+	if err != nil {
+		return err
+	}
+	instanceId := instance.Id(c.InstanceId)
+	instances, err := env.Instances([]instance.Id{instanceId})
+	if err != nil {
+		return err
+	}
+	addrs, err := instances[0].Addresses()
+	if err != nil {
+		return err
+	}
+
 	// agent.Jobs is an optional field in the agent config, and was
 	// introduced after 1.17.2. We default to allowing units on
 	// machine-0 if missing.
@@ -76,6 +92,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		}
 	}
 	st, _, err := c.Conf.config.InitializeState(envCfg, agent.BootstrapMachineConfig{
+		Addresses:       addrs,
 		Constraints:     c.Constraints,
 		Jobs:            jobs,
 		InstanceId:      instance.Id(c.InstanceId),

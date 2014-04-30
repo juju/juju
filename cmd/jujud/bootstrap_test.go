@@ -5,16 +5,22 @@ package main
 
 import (
 	"encoding/base64"
+	"io"
+	"io/ioutil"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -29,8 +35,11 @@ import (
 type BootstrapSuite struct {
 	testbase.LoggingSuite
 	testing.MgoSuite
-	dataDir string
-	logDir  string
+	envcfg        string
+	instance      instance.Instance
+	dataDir       string
+	logDir        string
+	bootstrapName string
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -38,11 +47,13 @@ var _ = gc.Suite(&BootstrapSuite{})
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	s.makeTestEnv(c)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
+	dummy.Reset()
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
@@ -102,7 +113,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig, "--instance-id", "anything", "--hardware", hw.String())
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instance.Id()), "--hardware", hw.String())
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -120,7 +131,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 
 	instid, err := machines[0].InstanceId()
 	c.Assert(err, gc.IsNil)
-	c.Assert(instid, gc.Equals, instance.Id("anything"))
+	c.Assert(instid, gc.Equals, s.instance.Id())
 
 	stateHw, err := machines[0].HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
@@ -135,8 +146,8 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--env-config", testConfig,
-		"--instance-id", "anything",
+		"--env-config", s.envcfg,
+		"--instance-id", string(s.instance.Id()),
 		"--constraints", tcons.String(),
 	)
 	c.Assert(err, gc.IsNil)
@@ -170,7 +181,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
 		state.JobManageEnviron, state.JobHostUnits,
 	}
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig, "--instance-id", "anything")
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instance.Id()))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -187,9 +198,31 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, expectedJobs)
 }
 
+func (s *BootstrapSuite) TestMachineAddresses(c *gc.C) {
+	addrs := instance.NewAddresses([]string{"testing.invalid", "0.1.2.3"})
+	dummy.SetInstanceAddresses(s.instance, addrs)
+
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instance.Id()))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.IsNil)
+
+	st, err := state.Open(&state.Info{
+		Addrs:    []string{testing.MgoServer.Addr()},
+		CACert:   []byte(testing.CACert),
+		Password: testPasswordHash(),
+	}, state.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	m, err := st.Machine("0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Addresses(), gc.DeepEquals, addrs)
+}
+
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	jobs := []params.MachineJob{params.JobManageEnviron}
-	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", testConfig, "--instance-id", "anything")
+	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.envcfg, "--instance-id", string(s.instance.Id()))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -219,7 +252,7 @@ func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
-	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", testConfig, "--instance-id", "anything")
+	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instance.Id()))
 	c.Assert(err, gc.IsNil)
 
 	err = cmd.Run(nil)
@@ -333,6 +366,37 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 	}
 }
 
+func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
+	attrs := dummy.SampleConfig().Merge(
+		testing.Attrs{
+			"agent-version": version.Current.Number.String(),
+		},
+	).Delete("admin-secret", "ca-private-key")
+
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	provider, err := environs.Provider(cfg.Type())
+	c.Assert(err, gc.IsNil)
+	env, err := provider.Prepare(nullContext(), cfg)
+	c.Assert(err, gc.IsNil)
+
+	envtesting.MustUploadFakeTools(env.Storage())
+	inst, _, err := jujutesting.StartInstance(env, "0")
+	c.Assert(err, gc.IsNil)
+	s.instance = inst
+	s.bootstrapName, err = inst.DNSName()
+	c.Assert(err, gc.IsNil)
+	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()
+}
+
+func nullContext() *cmd.Context {
+	ctx, _ := cmd.DefaultContext()
+	ctx.Stdin = io.LimitReader(nil, 0)
+	ctx.Stdout = ioutil.Discard
+	ctx.Stderr = ioutil.Discard
+	return ctx
+}
+
 type b64yaml map[string]interface{}
 
 func (m b64yaml) encode() string {
@@ -342,11 +406,3 @@ func (m b64yaml) encode() string {
 	}
 	return base64.StdEncoding.EncodeToString(data)
 }
-
-var testConfig = b64yaml(
-	dummy.SampleConfig().Merge(
-		testing.Attrs{
-			"state-server":  false,
-			"agent-version": "3.4.5",
-		},
-	).Delete("admin-secret", "ca-private-key")).encode()
