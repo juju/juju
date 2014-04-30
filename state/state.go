@@ -64,6 +64,7 @@ type State struct {
 	settingsrefs      *mgo.Collection
 	constraints       *mgo.Collection
 	units             *mgo.Collection
+	actions           *mgo.Collection
 	users             *mgo.Collection
 	presence          *mgo.Collection
 	cleanups          *mgo.Collection
@@ -1358,6 +1359,23 @@ func (st *State) Relation(id int) (*Relation, error) {
 	}
 	return newRelation(st, &doc), nil
 }
+
+// Action returns an Action by Id.
+func (st *State) Action(id string) (*Action, error) {
+	doc := actionDoc{}
+	err := st.actions.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("action %q", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get action %q: %v", id, err)
+	}
+	return newAction(&doc), nil
+}
+
+//func (st *State) AddAction(a *Action) (*Action, error) {
+//
+//}
 
 // Unit returns a unit by name.
 func (st *State) Unit(name string) (*Unit, error) {
