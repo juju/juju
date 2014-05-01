@@ -32,7 +32,7 @@ from utility import (
 )
 
 
-def prepare_environment(environment, already_bootstrapped, machines):
+def prepare_environment(env, already_bootstrapped, machines):
     """Prepare an environment for deployment.
 
     As well as bootstrapping, this ensures the correct agent version is in
@@ -45,7 +45,6 @@ def prepare_environment(environment, already_bootstrapped, machines):
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
-    env = Environment.from_config(environment)
     if not already_bootstrapped:
         env.bootstrap()
     agent_version = env.get_matching_agent_version()
@@ -170,8 +169,9 @@ def dump_logs(env, host, directory, host_id=None):
         subprocess.check_call(['gzip', path])
 
 
-def test_upgrade(environment):
-    env = Environment.from_config(environment)
+def test_upgrade(old_env):
+    env = Environment.from_config(old_env.environment)
+    env.client.debug = old_env.client.debug
     upgrade_juju(env)
     env.wait_for_version(env.get_matching_agent_version())
 
@@ -243,13 +243,14 @@ def deploy_job():
     machines = os.environ.get('MACHINES', '').split()
     new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
     upgrade = bool(os.environ.get('UPGRADE') == 'true')
+    debug = bool(os.environ.get('DEBUG') == 'true')
     log_dir = os.path.join(os.environ['WORKSPACE'], 'artifacts')
     bootstrap_host = os.environ.get('BOOTSTRAP_HOST')
     return _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
-                       bootstrap_host, machines, log_dir)
+                       bootstrap_host, machines, log_dir, debug)
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
-                bootstrap_host, machines, log_dir):
+                bootstrap_host, machines, log_dir, debug):
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
@@ -262,6 +263,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
             # Ensure OpenSSH is never in the path for win tests.
             sys.path = [p for p in sys.path if 'OpenSSH' not in p]
         env = Environment.from_config(base_env)
+        env.client.debug = debug
         # Rename to the job name.
         env.environment = job_name
         if bootstrap_host is not None:
@@ -300,8 +302,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                     raise Exception('Could not get machine 0 host')
                 try:
                     prepare_environment(
-                        env.environment, already_bootstrapped=True,
-                        machines=machines)
+                        env, already_bootstrapped=True, machines=machines)
                     if sys.platform == 'win32':
                         # The win client tests only verify the client to the
                         # state-server.
@@ -310,7 +311,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
                     if upgrade:
                         with scoped_environ():
                             os.environ['PATH'] = new_path
-                            test_upgrade(env.environment)
+                            test_upgrade(env)
                 except:
                     if host is not None:
                         dump_logs(env, host, log_dir, bootstrap_id)
@@ -349,8 +350,8 @@ def main():
     parser.add_argument('env', help='The environment to deploy on.')
     args = parser.parse_args()
     try:
-        env = prepare_environment(args.env, args.already_bootstrapped,
-                                  args.machine)
+        env = Environment.from_config(args.env)
+        prepare_environment(env, args.already_bootstrapped, args.machine)
         if sys.platform == 'win32':
             # The win client tests only verify the client to the state-server.
             return
