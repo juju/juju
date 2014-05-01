@@ -231,7 +231,6 @@ var statusTests = []testCase{
 				"environment": "dummyenv",
 				"machines":    M{},
 				"services":    M{},
-				"networks":    M{},
 			},
 		},
 
@@ -248,7 +247,6 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
-				"networks": M{},
 			},
 		},
 
@@ -272,7 +270,6 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
-				"networks": M{},
 			},
 		},
 
@@ -285,7 +282,6 @@ var statusTests = []testCase{
 					"0": machine0,
 				},
 				"services": M{},
-				"networks": M{},
 			},
 		},
 
@@ -306,7 +302,6 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -371,7 +366,6 @@ var statusTests = []testCase{
 					"net1": M{
 						"provider-id": "provider-net1",
 						"cidr":        "0.1.2.0/24",
-						"vlan-tag":    0,
 					},
 					"net2": M{
 						"provider-id": "provider-vlan42",
@@ -405,7 +399,6 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -427,7 +420,6 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -445,7 +437,6 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
-				"networks": M{},
 			},
 		},
 
@@ -465,7 +456,6 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -488,7 +478,6 @@ var statusTests = []testCase{
 					"dummy-service":   unexposedService,
 					"exposed-service": unexposedService,
 				},
-				"networks": M{},
 			},
 		},
 
@@ -504,7 +493,6 @@ var statusTests = []testCase{
 					"dummy-service":   unexposedService,
 					"exposed-service": exposedService,
 				},
-				"networks": M{},
 			},
 		},
 
@@ -529,7 +517,6 @@ var statusTests = []testCase{
 					"dummy-service":   unexposedService,
 					"exposed-service": exposedService,
 				},
-				"networks": M{},
 			},
 		},
 
@@ -582,7 +569,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 
@@ -658,7 +644,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 
@@ -685,7 +670,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 		scopedExpect{
@@ -713,7 +697,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 		scopedExpect{
@@ -739,7 +722,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 		scopedExpect{
@@ -767,7 +749,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 		scopedExpect{
@@ -809,7 +790,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -842,7 +822,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 	),
@@ -966,7 +945,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -1035,7 +1013,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 	),
@@ -1146,7 +1123,6 @@ var statusTests = []testCase{
 						"subordinate-to": L{"mysql", "wordpress"},
 					},
 				},
-				"networks": M{},
 			},
 		},
 
@@ -1214,7 +1190,6 @@ var statusTests = []testCase{
 						"subordinate-to": L{"mysql", "wordpress"},
 					},
 				},
-				"networks": M{},
 			},
 		},
 
@@ -1259,7 +1234,6 @@ var statusTests = []testCase{
 						"subordinate-to": L{"mysql", "wordpress"},
 					},
 				},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -1337,7 +1311,6 @@ var statusTests = []testCase{
 						"subordinate-to": L{"wordpress"},
 					},
 				},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -1398,7 +1371,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 
@@ -1424,7 +1396,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -1465,7 +1436,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -1508,7 +1478,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -1553,7 +1522,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 	), test(
@@ -1597,7 +1565,6 @@ var statusTests = []testCase{
 						},
 					},
 				},
-				"networks": M{},
 			},
 		},
 	),

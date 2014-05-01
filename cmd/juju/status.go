@@ -94,7 +94,7 @@ type formattedStatus struct {
 	Environment string                   `json:"environment"`
 	Machines    map[string]machineStatus `json:"machines"`
 	Services    map[string]serviceStatus `json:"services"`
-	Networks    map[string]networkStatus `json:"networks"`
+	Networks    map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
 }
 
 type errorStatus struct {
@@ -203,7 +203,7 @@ type networkStatus struct {
 	Err        error      `json:"-" yaml:",omitempty"`
 	ProviderId network.Id `json:"provider-id" yaml:"provider-id"`
 	CIDR       string     `json:"cidr,omitempty" yaml:"cidr,omitempty"`
-	VLANTag    int        `json:"vlan-tag" yaml:"vlan-tag"`
+	VLANTag    int        `json:"vlan-tag,omitempty" yaml:"vlan-tag,omitempty"`
 }
 
 type networkStatusNoMarshal networkStatus
@@ -232,7 +232,6 @@ func formatStatus(status *api.Status) formattedStatus {
 		Environment: status.EnvironmentName,
 		Machines:    make(map[string]machineStatus),
 		Services:    make(map[string]serviceStatus),
-		Networks:    make(map[string]networkStatus),
 	}
 	for k, m := range status.Machines {
 		out.Machines[k] = formatMachine(m)
@@ -241,6 +240,9 @@ func formatStatus(status *api.Status) formattedStatus {
 		out.Services[k] = formatService(s)
 	}
 	for k, n := range status.Networks {
+		if out.Networks == nil {
+			out.Networks = make(map[string]networkStatus)
+		}
 		out.Networks[k] = formatNetwork(n)
 	}
 	return out
