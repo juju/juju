@@ -33,6 +33,7 @@ func (s *statusSuite) TestFullStatus(c *gc.C) {
 	c.Check(status.EnvironmentName, gc.Equals, "dummyenv")
 	c.Check(status.Services, gc.HasLen, 0)
 	c.Check(status.Machines, gc.HasLen, 1)
+	c.Check(status.Networks, gc.HasLen, 0)
 	resultMachine, ok := status.Machines[machine.Id()]
 	if !ok {
 		c.Fatalf("Missing machine with id %q", machine.Id())

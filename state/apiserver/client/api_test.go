@@ -223,6 +223,7 @@ var scenarioStatus = &api.Status{
 			},
 		},
 	},
+	Networks: map[string]api.NetworkStatus{},
 }
 
 // setUpScenario makes an environment scenario suitable for

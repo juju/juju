@@ -48,11 +48,15 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 	if context.machines, err = fetchMachines(conn.State, machineIds); err != nil {
 		return noStatus, err
 	}
+	if context.networks, err = fetchNetworks(conn.State); err != nil {
+		return noStatus, err
+	}
 
 	return api.Status{
 		EnvironmentName: conn.Environ.Name(),
 		Machines:        context.processMachines(),
 		Services:        context.processServices(),
+		Networks:        context.processNetworks(),
 	}, nil
 }
 
@@ -77,6 +81,7 @@ type statusContext struct {
 	machines     map[string][]*state.Machine
 	services     map[string]*state.Service
 	units        map[string]map[string]*state.Unit
+	networks     map[string]*state.Network
 	latestCharms map[charm.URL]string
 }
 
@@ -272,6 +277,19 @@ func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (*set.Strings,
 	return machineIds, nil
 }
 
+// fetchNetworks returns a map from network name to network.
+func fetchNetworks(st *state.State) (map[string]*state.Network, error) {
+	v := make(map[string]*state.Network)
+	networks, err := st.AllNetworks()
+	if err != nil {
+		return nil, err
+	}
+	for _, n := range networks {
+		v[n.Name()] = n
+	}
+	return v, nil
+}
+
 func (context *statusContext) processMachines() map[string]api.MachineStatus {
 	machinesMap := make(map[string]api.MachineStatus)
 	for id, machines := range context.machines {
@@ -345,6 +363,22 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 	}
 	status.Containers = make(map[string]api.MachineStatus)
 	return
+}
+
+func (context *statusContext) processNetworks() map[string]api.NetworkStatus {
+	networksMap := make(map[string]api.NetworkStatus)
+	for name, network := range context.networks {
+		networksMap[name] = context.makeNetworkStatus(network)
+	}
+	return networksMap
+}
+
+func (context *statusContext) makeNetworkStatus(network *state.Network) api.NetworkStatus {
+	return api.NetworkStatus{
+		ProviderId: network.ProviderId(),
+		CIDR:       network.CIDR(),
+		VLANTag:    network.VLANTag(),
+	}
 }
 
 // paramsJobsFromJobs converts state jobs to params jobs.
