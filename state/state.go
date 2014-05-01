@@ -1370,22 +1370,26 @@ func (st *State) Action(id string) (*Action, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get action %q: %v", id, err)
 	}
-	return newAction(&doc), nil
+	return newAction(st, &doc), nil
 }
 
 func (st *State) AddAction(unit string, name string, payload string) (*Action, error) {
 	if !names.IsUnit(unit) {
 		return nil, fmt.Errorf("%q is not a valid unit name", unit)
 	}
-	doc := actionDoc{bson.NewObjectId(), name, payload, ActionPending}
-	err := st.actions.Insert(doc)
-
-	if err != nil {
+	doc := actionDoc{string(bson.NewObjectId()), name, payload, ActionPending}
+	ops := []txn.Op{{
+		C:      st.actions.Name,
+		Id:     doc.Id,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+	if err := st.runTransaction(ops); err != nil {
 		return nil, fmt.Errorf("cannot add action {%q, %q} to unit %q: %v",
 			name, payload, unit, err)
 	}
 
-	return newAction(&doc), nil
+	return newAction(st, &doc), nil
 }
 
 // Unit returns a unit by name.

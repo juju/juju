@@ -26,7 +26,7 @@ type Action struct {
 
 func newAction(st *State, adoc *actionDoc) *Action {
 	action := &Action{
-		st:  *st,
+		st:  st,
 		doc: *adoc,
 	}
 	return action
@@ -52,28 +52,28 @@ func (a *Action) setRunning() error {
 	ops := []txn.Op{{
 		C:      a.st.actions.Name,
 		Id:     a.doc.Id,
-		Assert: DocExists,
+		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"status", ActionRunning}}}},
 	}}
-	err = a.st.runTransaction(ops)
+	err := a.st.runTransaction(ops)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	a.doc.status = ActionRunning
-	nil
+	a.doc.Status = ActionRunning
+	return nil
 }
 
 func (a *Action) setPending() error {
 	ops := []txn.Op{{
 		C:      a.st.actions.Name,
 		Id:     a.doc.Id,
-		Assert: DocExists,
+		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"status", ActionPending}}}},
 	}}
-	err = a.st.runTransaction(ops)
+	err := a.st.runTransaction(ops)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	a.doc.status = ActionPending
-	nil
+	a.doc.Status = ActionPending
+	return nil
 }
