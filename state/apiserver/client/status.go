@@ -373,11 +373,12 @@ func (context *statusContext) processNetworks() map[string]api.NetworkStatus {
 	return networksMap
 }
 
-func (context *statusContext) makeNetworkStatus(network *state.Network) (status api.NetworkStatus) {
-	status.ProviderId = network.ProviderId()
-	status.CIDR = network.CIDR()
-	status.VLANTag = network.VLANTag()
-	return
+func (context *statusContext) makeNetworkStatus(network *state.Network) api.NetworkStatus {
+	return api.NetworkStatus{
+		ProviderId: network.ProviderId(),
+		CIDR:       network.CIDR(),
+		VLANTag:    network.VLANTag(),
+	}
 }
 
 // paramsJobsFromJobs converts state jobs to params jobs.
