@@ -279,15 +279,15 @@ func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (*set.Strings,
 
 // fetchNetworks returns a map from network name to network.
 func fetchNetworks(st *state.State) (map[string]*state.Network, error) {
-	v := make(map[string]*state.Network)
 	networks, err := st.AllNetworks()
 	if err != nil {
 		return nil, err
 	}
+	out := make(map[string]*state.Network)
 	for _, n := range networks {
-		v[n.Name()] = n
+		out[n.Name()] = n
 	}
-	return v, nil
+	return out, nil
 }
 
 func (context *statusContext) processMachines() map[string]api.MachineStatus {
