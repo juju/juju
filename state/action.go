@@ -1,5 +1,10 @@
 package state
 
+import (
+	"labix.org/v2/mgo/bson"
+	"labix.org/v2/mgo/txn"
+)
+
 type ActionStatus string
 
 const (
@@ -15,11 +20,13 @@ type actionDoc struct {
 }
 
 type Action struct {
+	st  *State
 	doc actionDoc
 }
 
-func newAction(adoc *actionDoc) *Action {
+func newAction(st *State, adoc *actionDoc) *Action {
 	action := &Action{
+		st:  *st,
 		doc: *adoc,
 	}
 	return action
@@ -41,10 +48,32 @@ func (a *Action) Status() ActionStatus {
 	return a.doc.Status
 }
 
-func (a *Action) setRunning() {
-	a.doc.Status = ActionRunning
+func (a *Action) setRunning() error {
+	ops := []txn.Op{{
+		C:      a.st.actions.Name,
+		Id:     a.doc.Id,
+		Assert: DocExists,
+		Update: bson.D{{"$set", bson.D{{"status", ActionRunning}}}},
+	}}
+	err = a.st.runTransaction(ops)
+	if err != nil {
+		return nil, err
+	}
+	a.doc.status = ActionRunning
+	nil
 }
 
-func (a *Action) setPending() {
-	a.doc.Status = ActionPending
+func (a *Action) setPending() error {
+	ops := []txn.Op{{
+		C:      a.st.actions.Name,
+		Id:     a.doc.Id,
+		Assert: DocExists,
+		Update: bson.D{{"$set", bson.D{{"status", ActionPending}}}},
+	}}
+	err = a.st.runTransaction(ops)
+	if err != nil {
+		return nil, err
+	}
+	a.doc.status = ActionPending
+	nil
 }
