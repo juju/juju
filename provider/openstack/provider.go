@@ -369,7 +369,7 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 	return hc
 }
 
-// getAddress returns the existing server information on addresses,
+// getAddresses returns the existing server information on addresses,
 // but fetches the details over the api again if no addresses exist.
 func (inst *openstackInstance) getAddresses() (map[string][]nova.IPAddress, error) {
 	addrs := inst.getServerDetail().Addresses

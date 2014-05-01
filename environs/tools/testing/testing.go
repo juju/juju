@@ -32,7 +32,7 @@ func MakeTools(c *gc.C, metadataDir, subdir string, versionStrings []string) cor
 	return makeTools(c, metadataDir, subdir, versionStrings, false)
 }
 
-// MakeTools creates some fake tools (including checksums) with the given version strings.
+// MakeToolsWithCheckSum creates some fake tools (including checksums) with the given version strings.
 func MakeToolsWithCheckSum(c *gc.C, metadataDir, subdir string, versionStrings []string) coretools.List {
 	return makeTools(c, metadataDir, subdir, versionStrings, true)
 }
@@ -203,7 +203,7 @@ func UploadToStorage(c *gc.C, stor storage.Storage, versions ...version.Binary) 
 	return uploaded
 }
 
-// UploadToStorage uploads tools and metadata for the specified versions to dir.
+// UploadToDirectory uploads tools and metadata for the specified versions to dir.
 func UploadToDirectory(c *gc.C, dir string, versions ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
 	if len(versions) == 0 {

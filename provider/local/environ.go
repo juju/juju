@@ -352,7 +352,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	return inst, hardware, nil, nil
 }
 
-// StartInstance is specified in the InstanceBroker interface.
+// StopInstances is specified in the InstanceBroker interface.
 func (env *localEnviron) StopInstances(instances []instance.Instance) error {
 	for _, inst := range instances {
 		if inst.Id() == bootstrapInstanceId {

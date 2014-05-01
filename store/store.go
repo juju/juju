@@ -1017,7 +1017,7 @@ func (s *storeSession) Charms() *mgo.Collection {
 	return s.DB("juju").C("charms")
 }
 
-// Charms returns a mgo.GridFS to read and write charms.
+// CharmFS returns a mgo.GridFS to read and write charms.
 func (s *storeSession) CharmFS() *mgo.GridFS {
 	return s.DB("juju").GridFS("charmfs")
 }
