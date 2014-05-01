@@ -72,13 +72,11 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	if err := VerifyPrerequisites(localConfig.container()); err != nil {
-		logger.Errorf("failed verification of local provider prerequisites: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed verification of local provider prerequisites: %v", err)
 	}
 	environ := &localEnviron{name: cfg.Name()}
 	if err := environ.SetConfig(cfg); err != nil {
-		logger.Errorf("failure setting config: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failure setting config: %v", err)
 	}
 	return environ, nil
 }
@@ -180,8 +178,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
-		logger.Errorf("failed to validate unknown attrs: %v", err)
-		return nil, err
+		return nil, fmt.Errorf("failed to validate unknown attrs: %v", err)
 	}
 	localConfig := newEnvironConfig(cfg, validated)
 	// Before potentially creating directories, make sure that the
