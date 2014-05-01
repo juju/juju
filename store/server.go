@@ -145,14 +145,19 @@ func (s *Server) serveEvent(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	response := map[string]*charm.EventResponse{}
 	for _, url := range r.Form["charms"] {
+		short_url := url
 		digest := ""
 		if i := strings.Index(url, "@"); i >= 0 && i+1 < len(url) {
 			digest = url[i+1:]
-			url = url[:i]
+			short_url = url[:i]
 		}
 		c := &charm.EventResponse{}
-		response[url] = c
-		curl, err := s.resolveURL(url)
+		if r.Form.Get("long_keys") != "1" {
+			response[short_url] = c
+		} else {
+			response[url] = c
+		}
+		curl, err := s.resolveURL(short_url)
 		var event *CharmEvent
 		if err == nil {
 			event, err = s.store.CharmEvent(curl, digest)
