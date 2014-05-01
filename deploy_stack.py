@@ -12,6 +12,7 @@ import re
 import string
 import subprocess
 import sys
+from time import sleep
 import yaml
 
 from jujuconfig import (
@@ -75,21 +76,29 @@ def destroy_job_instances(job_name):
     subprocess.check_call(['euca-terminate-instances'] + instances)
 
 
+def parse_euca(euca_output):
+    for line in euca_output.splitlines():
+        fields = line.split('\t')
+        if fields[0] != 'INSTANCE':
+            continue
+        yield fields[1], fields[3]
+
+
 def run_instances(count):
     environ = dict(os.environ)
-    environ.update({
-        'INSTANCE_TYPE': 'm1.large',
-        'AMI_IMAGE': 'ami-36aa4d5e',
-    })
-    command = ['ec2-run-instance-get-id', '-g', 'manual-juju-test']
-    machine_ids = [subprocess.check_output(command, env=environ).strip()
-                   for x in range(count)]
-    subprocess.call(['ec2-tag-job-instances'] + machine_ids)
-    machine_info = [
-        (instance,
-         subprocess.check_output(['ec2-get-name', instance]).strip())
-        for instance in machine_ids]
-    return machine_info
+    command = [
+        'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
+        '-t', 'm1.large', '-g', 'manual-juju-test', 'ami-36aa4d5e']
+    run_output = subprocess.check_output(command, env=environ).strip()
+    machine_ids = dict(parse_euca(run_output)).keys()
+    subprocess.call(
+        ['euca-create-tags', '--tag', 'job_name=%s' % os.environ['JOB_NAME']]
+        + machine_ids, env=environ)
+    for remaining in until_timeout(300):
+        names = dict(describe_instances(machine_ids, env=environ))
+        if '' not in names.values():
+            return names.items()
+        sleep(1)
 
 
 def deploy_dummy_stack(env, charm_prefix):
@@ -151,7 +160,7 @@ def dump_logs(env, host, directory, host_id=None):
             except subprocess.CalledProcessError:
                 pass
     if host_id is not None:
-        with open(os.path.join(directory, 'console.log')) as console_file:
+        with open(os.path.join(directory, 'console.log'), 'w') as console_file:
             subprocess.Popen(['euca-get-console-output', host_id],
                              stdout=console_file)
     for log_name in os.listdir(directory):
@@ -175,15 +184,22 @@ def upgrade_juju(environment):
     environment.upgrade_juju()
 
 
+def describe_instances(instances=None, running=False, job_name=None,
+                       env=None):
+    command = ['euca-describe-instances']
+    if job_name is not None:
+        command.extend(['--filter', 'tag:job_name=%s' % job_name])
+    if running:
+        command.extend(['--filter', 'instance-state-name=running'])
+    if instances is not None:
+        command.extend(instances)
+    logging.info(' '.join(command))
+    return parse_euca(subprocess.check_output(command, env=env))
+
+
 def get_job_instances(job_name):
-    instance_pattern = re.compile('^INSTANCE\t(i-[^\t]*)\t.*')
-    description = subprocess.check_output([
-        'euca-describe-instances', '--filter', 'instance-state-name=running',
-        '--filter', 'tag:job_name=%s' % job_name])
-    for line in description.splitlines():
-        match = instance_pattern.match(line)
-        if match:
-            yield match.group(1)
+    description = describe_instances(job_name=job_name, running=True)
+    return (machine_id for machine_id, name in description)
 
 
 def bootstrap_from_env(juju_home, env):
