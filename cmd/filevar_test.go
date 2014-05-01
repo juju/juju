@@ -5,6 +5,7 @@ package cmd_test
 
 import (
 	"os"
+	"path/filepath"
 
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
@@ -39,7 +40,7 @@ func (s *FileVarSuite) SetUpTest(c *gc.C) {
 func (s *FileVarSuite) TestTildeFileVar(c *gc.C) {
 	var config cmd.FileVar
 	config.Set("~/config.yaml")
-	c.Assert(config.String(), gc.Equals, osenv.Home()+"/config.yaml")
+	c.Assert(config.String(), gc.Equals, filepath.Join(osenv.Home(), "config.yaml"))
 }
 
 func (s *FileVarSuite) TestValidFileVar(c *gc.C) {
