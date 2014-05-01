@@ -77,13 +77,16 @@ def destroy_job_instances(job_name):
 
 def run_instances(count):
     environ = dict(os.environ)
-    environ.update({
-        'INSTANCE_TYPE': 'm1.large',
-        'AMI_IMAGE': 'ami-bd6d40d4',
-    })
-    command = ['ec2-run-instance-get-id', '-g', 'manual-juju-test']
-    machine_ids = [subprocess.check_output(command, env=environ).strip()
-                   for x in range(count)]
+    command = [
+        'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
+        '-t', 'm1.large', '-g', 'manual-juju-test', 'ami-bd6d40d4']
+    run_output = subprocess.check_output(command, env=environ).strip()
+    machine_ids = []
+    for line in run_output.splitlines():
+        match = re.match('INSTANCE\t(i-[^\t]*)\t.*', line)
+        if match is None:
+            continue
+        machine_ids.append(match.group(1))
     subprocess.call(['ec2-tag-job-instances'] + machine_ids)
     machine_info = [
         (instance,
@@ -151,7 +154,7 @@ def dump_logs(env, host, directory, host_id=None):
             except subprocess.CalledProcessError:
                 pass
     if host_id is not None:
-        with open(os.path.join(directory, 'console.log')) as console_file:
+        with open(os.path.join(directory, 'console.log'), 'w') as console_file:
             subprocess.Popen(['euca-get-console-output', host_id],
                              stdout=console_file)
     for log_name in os.listdir(directory):
