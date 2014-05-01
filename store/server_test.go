@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
@@ -184,13 +185,13 @@ func (s *StoreSuite) TestServerCharmEvent(c *gc.C) {
 
 	query1 := url1.String() + "@" + event1.Digest
 	query3 := url1.String() + "@" + event3.Digest
-	event1_info := map[string]interface{}{
+	event1Info := map[string]interface{}{
 		"kind":     "published",
 		"revision": float64(42),
 		"digest":   "revKey1",
 		"warnings": []interface{}{"A warning."},
 		"time":     "1970-01-01T00:00:01Z"}
-	event3_info := map[string]interface{}{
+	event3Info := map[string]interface{}{
 		"kind":     "publish-error",
 		"revision": float64(0),
 		"digest":   "revKey3",
@@ -200,20 +201,20 @@ func (s *StoreSuite) TestServerCharmEvent(c *gc.C) {
 	req.Form = url.Values{"charms": []string{query1, query3}}
 	rec := httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
-	expected := map[string]interface{}{url1.String(): event3_info}
+	expected := map[string]interface{}{url1.String(): event3Info}
 	obtained := map[string]interface{}{}
 	err = json.NewDecoder(rec.Body).Decode(&obtained)
 	c.Assert(err, gc.IsNil)
-	c.Assert(obtained, gc.DeepEquals, expected)
+	c.Assert(obtained, jc.DeepEquals, expected)
 
 	req.Form = url.Values{"charms": []string{query1, query3}, "long_keys": []string{"1"}}
 	rec = httptest.NewRecorder()
 	server.ServeHTTP(rec, req)
-	expected = map[string]interface{}{query1: event1_info, query3: event3_info}
+	expected = map[string]interface{}{query1: event1Info, query3: event3Info}
 	obtained = map[string]interface{}{}
 	err = json.NewDecoder(rec.Body).Decode(&obtained)
 	c.Assert(err, gc.IsNil)
-	c.Assert(obtained, gc.DeepEquals, expected)
+	c.Assert(obtained, jc.DeepEquals, expected)
 }
 
 func (s *StoreSuite) TestSeriesNotFound(c *gc.C) {

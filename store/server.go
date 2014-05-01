@@ -145,19 +145,23 @@ func (s *Server) serveEvent(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	response := map[string]*charm.EventResponse{}
 	for _, url := range r.Form["charms"] {
-		short_url := url
+		shortURL := url
 		digest := ""
 		if i := strings.Index(url, "@"); i >= 0 && i+1 < len(url) {
 			digest = url[i+1:]
-			short_url = url[:i]
+			shortURL = url[:i]
 		}
 		c := &charm.EventResponse{}
+		// By default, shortURL is used as the key in the response data.
+		// This makes it impossible to return more than one event per charm.
+		// If the query parameter "long_keys=1" is set, use the parameter
+		// from the request (<cs-url>@<revision-id>) as the key.
 		if r.Form.Get("long_keys") != "1" {
-			response[short_url] = c
+			response[shortURL] = c
 		} else {
 			response[url] = c
 		}
-		curl, err := s.resolveURL(short_url)
+		curl, err := s.resolveURL(shortURL)
 		var event *CharmEvent
 		if err == nil {
 			event, err = s.store.CharmEvent(curl, digest)
