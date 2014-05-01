@@ -4,6 +4,8 @@
 package main
 
 import (
+	"io/ioutil"
+	"path/filepath"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -13,6 +15,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -138,6 +141,15 @@ func (s *DeploySuite) TestConfig(c *gc.C) {
 		"skill-level": int64(9000),
 		"username":    "admin001",
 	})
+}
+
+func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
+	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	path := filepath.Join(osenv.Home(), "config.yaml")
+	err := ioutil.WriteFile(path, nil, 0644)
+	c.Assert(err, gc.IsNil)
+	err = runDeploy(c, "local:dummy", "dummy-service", "--config", "~/config.yaml")
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *DeploySuite) TestConfigError(c *gc.C) {

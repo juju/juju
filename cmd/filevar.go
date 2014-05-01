@@ -6,6 +6,8 @@ package cmd
 import (
 	"errors"
 	"io/ioutil"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // FileVar represents a path to a file.
@@ -16,9 +18,12 @@ type FileVar struct {
 var ErrNoPath = errors.New("path not set")
 
 // Set stores the chosen path name in f.Path.
-func (f *FileVar) Set(v string) error {
-	f.Path = v
-	return nil
+func (f *FileVar) Set(v string) (err error) {
+	f.Path, err = utils.NormalizePath(v)
+	if err != nil {
+		return err
+	}
+	return err
 }
 
 // Read returns the contents of the file.
