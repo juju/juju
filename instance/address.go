@@ -216,7 +216,7 @@ func SelectInternalAddress(addresses []Address, machineLocal bool) string {
 }
 
 // SelectInternalHostPort picks one HostPort from a slice that can be
-// used as an endpoint for juju internal communication and returns it 
+// used as an endpoint for juju internal communication and returns it
 // in its NetAddr form.
 // If there are no suitable addresses, the empty string is returned.
 func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
