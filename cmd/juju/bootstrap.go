@@ -72,7 +72,6 @@ type BootstrapCommand struct {
 func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap",
-		Args:    "[placement]",
 		Purpose: "start up an environment from scratch",
 		Doc:     bootstrapDoc,
 	}
@@ -84,6 +83,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
+	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
@@ -96,20 +96,14 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 	}
 	// Parse the placement directive. Bootstrap currently only
 	// supports provider-specific placement directives.
-	placement, err := cmd.ZeroOrOneArgs(args)
-	if err != nil {
-		return err
+	if c.Placement != "" {
+		_, err = instance.ParsePlacement(c.Placement)
+		if err != instance.ErrPlacementScopeMissing {
+			// We only support unscoped placement directives for bootstrap.
+			return fmt.Errorf("unsupported bootstrap placement directive %q", c.Placement)
+		}
 	}
-	if placement == "" {
-		return nil
-	}
-	_, err = instance.ParsePlacement(placement)
-	if err != instance.ErrPlacementScopeMissing {
-		// We only support unscoped placement directives for bootstrap.
-		return fmt.Errorf("unsupported bootstrap placement directive %q", placement)
-	}
-	c.Placement = placement
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 // Run connects to the environment specified on the command line and bootstraps
