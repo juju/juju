@@ -917,26 +917,7 @@ var upgradeConflictsTests = []uniterTest{
 		"upgrade: resolving doesn't help until underlying problem is fixed",
 		startUpgradeError{},
 		resolveError{state.ResolvedNoHooks},
-		waitUnit{
-			status: params.StatusError,
-			info:   "upgrade failed",
-			charm:  1,
-		},
-		stopUniter{},
-		custom{func(c *gc.C, ctx *context) {
-			// By setting status to Started, and waiting for the restarted uniter
-			// to reset the error status, we can avoid a race in which we
-			// fixUpgradeError just before the restarting uniter retries the upgrade.
-			ctx.unit.SetStatus(params.StatusStarted, "", nil)
-		}},
-		startUniter{},
-
-		waitUnit{
-			status: params.StatusError,
-			info:   "upgrade failed",
-			charm:  1,
-		},
-		verifyCharm{attemptedRevision: 1},
+		verifyWaitingUpgradeError{revision: 1},
 		fixUpgradeError{},
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed"},
@@ -949,14 +930,7 @@ var upgradeConflictsTests = []uniterTest{
 		`upgrade: forced upgrade does work without explicit resolution if underlying problem was fixed`,
 		startUpgradeError{},
 		resolveError{state.ResolvedNoHooks},
-		waitUnit{
-			status: params.StatusError,
-			info:   "upgrade failed",
-			charm:  1,
-		},
-		verifyWaiting{},
-		verifyCharm{attemptedRevision: 1},
-
+		verifyWaitingUpgradeError{revision: 1},
 		fixUpgradeError{},
 		createCharm{revision: 2},
 		serveCharm{},
@@ -971,7 +945,7 @@ var upgradeConflictsTests = []uniterTest{
 		"upgrade conflict service dying",
 		startUpgradeError{},
 		serviceDying,
-		verifyWaiting{},
+		verifyWaitingUpgradeError{revision: 1},
 		fixUpgradeError{},
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed", "stop"},
@@ -980,7 +954,7 @@ var upgradeConflictsTests = []uniterTest{
 		"upgrade conflict unit dying",
 		startUpgradeError{},
 		unitDying,
-		verifyWaiting{},
+		verifyWaitingUpgradeError{revision: 1},
 		fixUpgradeError{},
 		resolveError{state.ResolvedNoHooks},
 		waitHooks{"upgrade-charm", "config-changed", "stop"},
@@ -1851,6 +1825,37 @@ func (s startUpgradeError) step(c *gc.C, ctx *context) {
 		verifyCharm{attemptedRevision: 1},
 	}
 	for _, s_ := range steps {
+		step(c, ctx, s_)
+	}
+}
+
+type verifyWaitingUpgradeError struct {
+	revision int
+}
+
+func (s verifyWaitingUpgradeError) step(c *gc.C, ctx *context) {
+	verifyCharmSteps := []stepper{
+		waitUnit{
+			status: params.StatusError,
+			info:   "upgrade failed",
+			charm:  s.revision,
+		},
+		verifyCharm{attemptedRevision: s.revision},
+	}
+	verifyWaitingSteps := []stepper{
+		stopUniter{},
+		custom{func(c *gc.C, ctx *context) {
+			// By setting status to Started, and waiting for the restarted uniter
+			// to reset the error status, we can avoid a race in which a subsequent
+			// fixUpgradeError lands just before the restarting uniter retries the
+			// upgrade; and thus puts us in an unexpected state for future steps.
+			ctx.unit.SetStatus(params.StatusStarted, "", nil)
+		}},
+		startUniter{},
+	}
+	allSteps := append(verifyCharmSteps, verifyWaitingSteps...)
+	allSteps = append(allSteps, verifyCharmSteps...)
+	for _, s_ := range allSteps {
 		step(c, ctx, s_)
 	}
 }
