@@ -8,7 +8,7 @@ source $JUJU_HOME/ec2rc
 ec2-terminate-job-instances
 set -x
 export INSTANCE_TYPE=m1.large
-export AMI_IMAGE=ami-bd6d40d4
+export AMI_IMAGE=ami-36aa4d5e
 instance_id=$(ec2-run-instance-get-id)
 ec2-tag-job-instances $instance_id
 instance_name=$(ec2-get-name $instance_id)

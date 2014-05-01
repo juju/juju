@@ -79,7 +79,6 @@ def run_instances(count):
     environ = dict(os.environ)
     environ.update({
         'INSTANCE_TYPE': 'm1.large',
-        #'AMI_IMAGE': 'ami-bd6d40d4',
         'AMI_IMAGE': 'ami-36aa4d5e',
     })
     command = ['ec2-run-instance-get-id', '-g', 'manual-juju-test']
