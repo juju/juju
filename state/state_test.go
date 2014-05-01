@@ -1036,6 +1036,45 @@ func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestAllNetworks(c *gc.C) {
+	machine1, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		IncludeNetworks: []string{"net1", "net2"},
+		ExcludeNetworks: []string{"net3", "net4"},
+	})
+	c.Assert(err, gc.IsNil)
+	machine2, err := s.State.AddOneMachine(state.MachineTemplate{
+		Series:          "quantal",
+		Jobs:            []state.MachineJob{state.JobHostUnits},
+		IncludeNetworks: []string{"net3", "net4"},
+		ExcludeNetworks: []string{"net1", "net2"},
+	})
+	c.Assert(err, gc.IsNil)
+
+	networks := []*state.Network{}
+	for i := 0; i < 4; i++ {
+		netName := fmt.Sprintf("net%d", i+1)
+		cidr := fmt.Sprintf("0.1.%d.0/24", i)
+		ifaceName := fmt.Sprintf("eth%d", i%2)
+		macAddress := fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i)
+		machine := machine1
+		if i >= 2 {
+			machine = machine2
+		}
+		network, _ := addNetworkAndInterface(
+			c, s.State, machine,
+			netName, "provider-"+netName, cidr, i, false,
+			macAddress, ifaceName)
+		networks = append(networks, network)
+
+		allNetworks, err := s.State.AllNetworks()
+		c.Assert(err, gc.IsNil)
+		c.Assert(allNetworks, gc.HasLen, len(networks))
+		c.Assert(allNetworks, jc.DeepEquals, networks)
+	}
+}
+
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("haha/borken", "user-admin", charm, nil, nil)

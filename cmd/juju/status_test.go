@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
@@ -230,6 +231,7 @@ var statusTests = []testCase{
 				"environment": "dummyenv",
 				"machines":    M{},
 				"services":    M{},
+				"networks":    M{},
 			},
 		},
 
@@ -246,6 +248,7 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
+				"networks": M{},
 			},
 		},
 
@@ -269,6 +272,7 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
+				"networks": M{},
 			},
 		},
 
@@ -281,6 +285,7 @@ var statusTests = []testCase{
 					"0": machine0,
 				},
 				"services": M{},
+				"networks": M{},
 			},
 		},
 
@@ -301,10 +306,11 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
+				"networks": M{},
 			},
 		},
 	), test(
-		"deploy two services with networks",
+		"deploy two services and two networks",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
@@ -323,6 +329,18 @@ var statusTests = []testCase{
 			name:            "no-networks-service",
 			charm:           "dummy",
 			withoutNetworks: []string{"mynet"},
+		},
+		addNetwork{
+			name:       "net1",
+			providerId: network.Id("provider-net1"),
+			cidr:       "0.1.2.0/24",
+			vlanTag:    0,
+		},
+		addNetwork{
+			name:       "net2",
+			providerId: network.Id("provider-vlan42"),
+			cidr:       "0.42.1.0/24",
+			vlanTag:    42,
 		},
 
 		expect{
@@ -347,6 +365,18 @@ var statusTests = []testCase{
 						"networks": M{
 							"disabled": L{"mynet"},
 						},
+					},
+				},
+				"networks": M{
+					"net1": M{
+						"provider-id": "provider-net1",
+						"cidr":        "0.1.2.0/24",
+						"vlan-tag":    0,
+					},
+					"net2": M{
+						"provider-id": "provider-vlan42",
+						"cidr":        "0.42.1.0/24",
+						"vlan-tag":    42,
 					},
 				},
 			},
@@ -375,6 +405,7 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
+				"networks": M{},
 			},
 		},
 	), test(
@@ -396,6 +427,7 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
+				"networks": M{},
 			},
 		},
 	), test(
@@ -413,6 +445,7 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
+				"networks": M{},
 			},
 		},
 
@@ -432,6 +465,7 @@ var statusTests = []testCase{
 					},
 				},
 				"services": M{},
+				"networks": M{},
 			},
 		},
 	), test(
@@ -454,6 +488,7 @@ var statusTests = []testCase{
 					"dummy-service":   unexposedService,
 					"exposed-service": unexposedService,
 				},
+				"networks": M{},
 			},
 		},
 
@@ -469,6 +504,7 @@ var statusTests = []testCase{
 					"dummy-service":   unexposedService,
 					"exposed-service": exposedService,
 				},
+				"networks": M{},
 			},
 		},
 
@@ -493,6 +529,7 @@ var statusTests = []testCase{
 					"dummy-service":   unexposedService,
 					"exposed-service": exposedService,
 				},
+				"networks": M{},
 			},
 		},
 
@@ -545,6 +582,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 
@@ -620,6 +658,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 
@@ -646,6 +685,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 		scopedExpect{
@@ -673,6 +713,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 		scopedExpect{
@@ -698,6 +739,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 		scopedExpect{
@@ -725,6 +767,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 		scopedExpect{
@@ -766,6 +809,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 	), test(
@@ -798,6 +842,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 	),
@@ -921,6 +966,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 	), test(
@@ -989,6 +1035,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 	),
@@ -1099,6 +1146,7 @@ var statusTests = []testCase{
 						"subordinate-to": L{"mysql", "wordpress"},
 					},
 				},
+				"networks": M{},
 			},
 		},
 
@@ -1166,6 +1214,7 @@ var statusTests = []testCase{
 						"subordinate-to": L{"mysql", "wordpress"},
 					},
 				},
+				"networks": M{},
 			},
 		},
 
@@ -1210,6 +1259,7 @@ var statusTests = []testCase{
 						"subordinate-to": L{"mysql", "wordpress"},
 					},
 				},
+				"networks": M{},
 			},
 		},
 	), test(
@@ -1287,6 +1337,7 @@ var statusTests = []testCase{
 						"subordinate-to": L{"wordpress"},
 					},
 				},
+				"networks": M{},
 			},
 		},
 	), test(
@@ -1347,6 +1398,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 
@@ -1372,6 +1424,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 	), test(
@@ -1412,6 +1465,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 	), test(
@@ -1454,6 +1508,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 	), test(
@@ -1498,6 +1553,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 	), test(
@@ -1541,6 +1597,7 @@ var statusTests = []testCase{
 						},
 					},
 				},
+				"networks": M{},
 			},
 		},
 	),
@@ -1562,6 +1619,24 @@ func (am addMachine) step(c *gc.C, ctx *context) {
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, am.machineId)
+}
+
+type addNetwork struct {
+	name       string
+	providerId network.Id
+	cidr       string
+	vlanTag    int
+}
+
+func (an addNetwork) step(c *gc.C, ctx *context) {
+	n, err := ctx.st.AddNetwork(state.NetworkInfo{
+		Name:       an.name,
+		ProviderId: an.providerId,
+		CIDR:       an.cidr,
+		VLANTag:    an.vlanTag,
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(n.Name(), gc.Equals, an.name)
 }
 
 type addContainer struct {

@@ -20,6 +20,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
@@ -90,11 +91,20 @@ type UnitStatus struct {
 	Subordinates   map[string]UnitStatus
 }
 
+// NetworkStatus holds status info about a network.
+type NetworkStatus struct {
+	Err        error
+	ProviderId network.Id
+	CIDR       string
+	VLANTag    int
+}
+
 // Status holds information about the status of a juju environment.
 type Status struct {
 	EnvironmentName string
 	Machines        map[string]MachineStatus
 	Services        map[string]ServiceStatus
+	Networks        map[string]NetworkStatus
 }
 
 // Status returns the status of the juju environment.

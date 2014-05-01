@@ -1087,6 +1087,19 @@ func (st *State) Network(name string) (*Network, error) {
 	return newNetwork(st, doc), nil
 }
 
+// AllNetworks returns all known networks in the environment.
+func (st *State) AllNetworks() (networks []*Network, err error) {
+	docs := []networkDoc{}
+	err = st.networks.Find(nil).All(&docs)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get all networks")
+	}
+	for _, doc := range docs {
+		networks = append(networks, newNetwork(st, &doc))
+	}
+	return networks, nil
+}
+
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
 	if !names.IsService(name) {
