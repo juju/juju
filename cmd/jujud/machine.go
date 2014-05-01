@@ -445,9 +445,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})
-			runner.StartWorker("peergrouper", func() (worker.Worker, error) {
-				return peergrouperNew(st)
-			})
+			if shouldEnableHA(agentConfig) {
+				runner.StartWorker("peergrouper", func() (worker.Worker, error) {
+					return peergrouperNew(st)
+				})
+			}
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
