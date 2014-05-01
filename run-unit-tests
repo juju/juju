@@ -50,6 +50,10 @@ sudo apt-get upgrade -y
 sudo apt-get install -y build-essential
 # Hack match for i386.
 sed -i 's/x86/86/' Makefile
+# Trusty needs mongodb-server and juju-mongodb
+if [[ \$(lsb_release -sc) == "trusty" ]]; then
+    sudo apt-get install -y mongodb-server
+fi
 make install-dependencies
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make build
