@@ -231,26 +231,41 @@ def bootstrap_from_env(juju_home, env):
 
 
 def deploy_job():
+    required = set(['NEW_JUJU_BIN', 'WORKSPACE', 'NEW_JUJU_BIN', 'ENV',
+                    'JOB_NAME', 'CHARM_PREFIX'])
+    missing = required.difference(os.environ.keys())
+    if len(missing) > 0:
+        raise Exception('Missing environment variables: %s' %
+                        ', '.join(sorted(missing)))
+    base_env = os.environ['ENV']
+    job_name = os.environ['JOB_NAME']
+    charm_prefix = os.environ['CHARM_PREFIX']
+    machines = os.environ.get('MACHINES', '').split()
+    new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
+    upgrade = bool(os.environ.get('UPGRADE') == 'true')
+    log_dir = os.path.join(os.environ['WORKSPACE'], 'artifacts')
+    bootstrap_host = os.environ.get('BOOTSTRAP_HOST')
+    return _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
+                       bootstrap_host, machines, log_dir)
+
+def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
+                bootstrap_host, machines, log_dir):
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
-    machines = os.environ['MACHINES'].split()
     bootstrap_id = None
-    new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
-    upgrade = bool(os.environ.get('UPGRADE') == 'true')
     created_machines = False
-    log_dir = os.path.join(os.environ['WORKSPACE'], 'artifacts')
     if not upgrade:
         os.environ['PATH'] = new_path
     try:
         if sys.platform == 'win32':
             # Ensure OpenSSH is never in the path for win tests.
             sys.path = [p for p in sys.path if 'OpenSSH' not in p]
-        env = Environment.from_config(os.environ['ENV'])
+        env = Environment.from_config(base_env)
         # Rename to the job name.
-        env.environment = os.environ['JOB_NAME']
-        if 'BOOTSTRAP_HOST' in os.environ:
-            env.config['bootstrap-host'] = os.environ['BOOTSTRAP_HOST']
+        env.environment = job_name
+        if bootstrap_host is not None:
+            env.config['bootstrap-host'] = bootstrap_host
         elif env.config['type'] == 'manual':
             instances = run_instances(3)
             created_machines = True
@@ -265,7 +280,7 @@ def deploy_job():
                 ssh_machines.append(host)
             for machine in ssh_machines:
                 logging.info('Waiting for port 22 on %s' % machine)
-                wait_for_port(host, 22, timeout=120)
+                wait_for_port(machine, 22, timeout=120)
             juju_home = get_juju_home()
             try:
                 os.unlink(get_jenv_path(juju_home, env.environment))
@@ -291,7 +306,7 @@ def deploy_job():
                         # The win client tests only verify the client to the
                         # state-server.
                         return
-                    deploy_dummy_stack(env, os.environ['CHARM_PREFIX'])
+                    deploy_dummy_stack(env, charm_prefix)
                     if upgrade:
                         with scoped_environ():
                             os.environ['PATH'] = new_path
@@ -304,7 +319,7 @@ def deploy_job():
                 env.destroy_environment()
         finally:
             if created_machines:
-                destroy_job_instances(os.environ['JOB_NAME'])
+                destroy_job_instances(job_name)
     except Exception as e:
         raise
         print('%s (%s)' % (e, type(e).__name__))
