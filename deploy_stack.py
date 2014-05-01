@@ -12,6 +12,7 @@ import re
 import string
 import subprocess
 import sys
+from time import sleep
 import yaml
 
 from jujuconfig import (
@@ -75,24 +76,29 @@ def destroy_job_instances(job_name):
     subprocess.check_call(['euca-terminate-instances'] + instances)
 
 
+def parse_euca(euca_output):
+    for line in euca_output.splitlines():
+        fields = line.split('\t')
+        if fields[0] != 'INSTANCE':
+            continue
+        yield fields[1], fields[3]
+
+
 def run_instances(count):
     environ = dict(os.environ)
     command = [
         'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
         '-t', 'm1.large', '-g', 'manual-juju-test', 'ami-36aa4d5e']
     run_output = subprocess.check_output(command, env=environ).strip()
-    machine_ids = []
-    for line in run_output.splitlines():
-        match = re.match('INSTANCE\t(i-[^\t]*)\t.*', line)
-        if match is None:
-            continue
-        machine_ids.append(match.group(1))
-    subprocess.call(['ec2-tag-job-instances'] + machine_ids)
-    machine_info = [
-        (instance,
-         subprocess.check_output(['ec2-get-name', instance]).strip())
-        for instance in machine_ids]
-    return machine_info
+    machine_ids = dict(parse_euca(run_output)).keys()
+    subprocess.call(
+        ['euca-create-tags', '--tag', 'job_name=%s' % os.environ['JOB_NAME']]
+        + machine_ids, env=environ)
+    for remaining in until_timeout(300):
+        names = dict(describe_instances(machine_ids, env=environ))
+        if '' not in names.values():
+            return names.items()
+        sleep(1)
 
 
 def deploy_dummy_stack(env, charm_prefix):
@@ -178,15 +184,22 @@ def upgrade_juju(environment):
     environment.upgrade_juju()
 
 
+def describe_instances(instances=None, running=False, job_name=None,
+                       env=None):
+    command = ['euca-describe-instances']
+    if job_name is not None:
+        command.extend(['--filter', 'tag:job_name=%s' % job_name])
+    if running:
+        command.extend(['--filter', 'instance-state-name=running'])
+    if instances is not None:
+        command.extend(instances)
+    logging.info(' '.join(command))
+    return parse_euca(subprocess.check_output(command, env=env))
+
+
 def get_job_instances(job_name):
-    instance_pattern = re.compile('^INSTANCE\t(i-[^\t]*)\t.*')
-    description = subprocess.check_output([
-        'euca-describe-instances', '--filter', 'instance-state-name=running',
-        '--filter', 'tag:job_name=%s' % job_name])
-    for line in description.splitlines():
-        match = instance_pattern.match(line)
-        if match:
-            yield match.group(1)
+    description = describe_instances(job_name=job_name, running=True)
+    return (machine_id for machine_id, name in description)
 
 
 def bootstrap_from_env(juju_home, env):
