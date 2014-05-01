@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -33,6 +34,12 @@ func (s *FileVarSuite) SetUpTest(c *gc.C) {
 	f.Close()
 	err = os.Chmod(s.InvalidPath, 0) // make unreadable
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *FileVarSuite) TestTildeFileVar(c *gc.C) {
+	var config cmd.FileVar
+	config.Set("~/config.yaml")
+	c.Assert(config.String(), gc.Equals, osenv.Home()+"/config.yaml")
 }
 
 func (s *FileVarSuite) TestValidFileVar(c *gc.C) {
