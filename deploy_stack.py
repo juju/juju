@@ -79,7 +79,7 @@ def run_instances(count):
     environ = dict(os.environ)
     command = [
         'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
-        '-t', 'm1.large', '-g', 'manual-juju-test', 'ami-bd6d40d4']
+        '-t', 'm1.large', '-g', 'manual-juju-test', 'ami-36aa4d5e']
     run_output = subprocess.check_output(command, env=environ).strip()
     machine_ids = []
     for line in run_output.splitlines():
