@@ -6,7 +6,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"launchpad.net/gnuflag"
 
@@ -81,13 +80,17 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
+	f.Var(cmd.NewStringsValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
 	err = c.EnvCommandBase.Init()
+	if err != nil {
+		return
+	}
+	err = validateSeries(c.Series)
 	if err != nil {
 		return
 	}
@@ -104,6 +107,15 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	return cmd.CheckEmpty(args)
+}
+
+func validateSeries(series []string) (err error) {
+	for _, name := range series {
+		if !charm.IsValidSeries(name) {
+			return fmt.Errorf("invalid series name %q", name)
+		}
+	}
+	return nil
 }
 
 // Run connects to the environment specified on the command line and bootstraps
@@ -173,23 +185,4 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 	})
-}
-
-type seriesVar struct {
-	target *[]string
-}
-
-func (v seriesVar) Set(value string) error {
-	names := strings.Split(value, ",")
-	for _, name := range names {
-		if !charm.IsValidSeries(name) {
-			return fmt.Errorf("invalid series name %q", name)
-		}
-	}
-	*v.target = names
-	return nil
-}
-
-func (v seriesVar) String() string {
-	return strings.Join(*v.target, ",")
 }
