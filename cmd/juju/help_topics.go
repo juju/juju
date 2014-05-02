@@ -81,7 +81,7 @@ You deploy charms from the charm store using the following commands:
 
 As of trusty, the local provider will prefer to use lxc-clone to create
 the machines. A 'template' container is created with the name
-  juju-<series>-tempalte
+  juju-<series>-template
 where <series> is the OS series, for example 'juju-precise-template'.
 You can override the use of clone by specifying
   use-clone: true
