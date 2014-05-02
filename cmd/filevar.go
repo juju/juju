@@ -18,12 +18,9 @@ type FileVar struct {
 var ErrNoPath = errors.New("path not set")
 
 // Set stores the chosen path name in f.Path.
-func (f *FileVar) Set(v string) (err error) {
-	f.Path, err = utils.NormalizePath(v)
-	if err != nil {
-		return err
-	}
-	return err
+func (f *FileVar) Set(v string) error {
+	f.Path = v
+	return nil
 }
 
 // Read returns the contents of the file.
@@ -31,7 +28,11 @@ func (f *FileVar) Read(ctx *Context) ([]byte, error) {
 	if f.Path == "" {
 		return nil, ErrNoPath
 	}
-	return ioutil.ReadFile(ctx.AbsPath(f.Path))
+	path, err := utils.NormalizePath(f.Path)
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.ReadFile(ctx.AbsPath(path))
 }
 
 // String returns the path to the file.

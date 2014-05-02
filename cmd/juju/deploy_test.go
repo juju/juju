@@ -144,6 +144,7 @@ func (s *DeploySuite) TestConfig(c *gc.C) {
 }
 
 func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
+	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	path := filepath.Join(osenv.Home(), "config.yaml")
 	err := ioutil.WriteFile(path, nil, 0644)

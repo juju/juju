@@ -4,6 +4,7 @@
 package cmd_test
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -38,9 +39,16 @@ func (s *FileVarSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *FileVarSuite) TestTildeFileVar(c *gc.C) {
+	defer testing.MakeEmptyFakeHome(c).Restore()
+	path := filepath.Join(osenv.Home(), "config.yaml")
+	err := ioutil.WriteFile(path, []byte("abc"), 0644)
+	c.Assert(err, gc.IsNil)
+
 	var config cmd.FileVar
 	config.Set("~/config.yaml")
-	c.Assert(config.String(), gc.Equals, filepath.Join(osenv.Home(), "config.yaml"))
+	file, err := config.Read(s.ctx)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(file), gc.Equals, "abc")
 }
 
 func (s *FileVarSuite) TestValidFileVar(c *gc.C) {
