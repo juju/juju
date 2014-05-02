@@ -4,8 +4,6 @@
 package main
 
 import (
-	"io/ioutil"
-	"path/filepath"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -144,12 +142,10 @@ func (s *DeploySuite) TestConfig(c *gc.C) {
 }
 
 func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
-	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	path := filepath.Join(osenv.Home(), "config.yaml")
-	err := ioutil.WriteFile(path, nil, 0644)
-	c.Assert(err, gc.IsNil)
-	err = runDeploy(c, "local:dummy", "dummy-service", "--config", "~/config.yaml")
+	// Putting a config file in home is okay as $HOME is set to a tempdir
+	setupConfigFile(c, osenv.Home())
+	err := runDeploy(c, "local:dummy", "dummy-service", "--config", "~/testconfig.yaml")
 	c.Assert(err, gc.IsNil)
 }
 
