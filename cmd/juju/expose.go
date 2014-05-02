@@ -28,7 +28,7 @@ func (c *ExposeCommand) Info() *cmd.Info {
 		Name:    "expose",
 		Args:    "<service>",
 		Purpose: "expose a service",
-		Doc: jujuExposeHelp,
+		Doc:     jujuExposeHelp,
 	}
 }
 
