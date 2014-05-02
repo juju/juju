@@ -80,17 +80,13 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.Var(cmd.NewStringsValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list")
+	f.Var(newSeriesValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
 	err = c.EnvCommandBase.Init()
-	if err != nil {
-		return
-	}
-	err = validateSeries(c.Series)
 	if err != nil {
 		return
 	}
@@ -109,8 +105,23 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 	return cmd.CheckEmpty(args)
 }
 
-func validateSeries(series []string) (err error) {
-	for _, name := range series {
+type seriesValue struct {
+	*cmd.StringsValue
+}
+
+// newSeriesValue is used to create the type passed into the gnuflag.FlagSet Var function.
+func newSeriesValue(defaultValue []string, target *[]string) *seriesValue {
+	v := seriesValue{(*cmd.StringsValue)(target)}
+	*(v.StringsValue) = defaultValue
+	return &v
+}
+
+// Implements gnuflag.Value Set.
+func (v *seriesValue) Set(s string) error {
+	if err := v.StringsValue.Set(s); err != nil {
+		return err
+	}
+	for _, name := range *(v.StringsValue) {
 		if !charm.IsValidSeries(name) {
 			return fmt.Errorf("invalid series name %q", name)
 		}

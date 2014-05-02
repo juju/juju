@@ -79,7 +79,7 @@ func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.vers, "version", "", "upgrade to specific version")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
-	f.Var(cmd.NewStringsValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list")
+	f.Var(newSeriesValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list")
 }
 
 func (c *UpgradeJujuCommand) Init(args []string) error {
@@ -105,10 +105,6 @@ func (c *UpgradeJujuCommand) Init(args []string) error {
 			return fmt.Errorf("cannot specify build number when uploading tools")
 		}
 		c.Version = vers
-	}
-	err = validateSeries(c.Series)
-	if err != nil {
-		return err
 	}
 	if len(c.Series) > 0 && !c.UploadTools {
 		return fmt.Errorf("--series requires --upload-tools")
