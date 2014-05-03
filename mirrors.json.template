@@ -1,0 +1,12 @@
+{
+ "mirrors": {
+  "com.ubuntu.juju:released:tools": [
+     {
+      "datatype": "content-download",
+      "path": "streams/v1/cpc-mirrors.json",
+      "updated": "NOW",
+      "format": "mirrors:1.0"
+     }
+  ]
+ }
+}
