@@ -70,7 +70,7 @@ set +e
 CI_DIR="/cygdrive/c/Users/Administrator/ci"
 scp -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    $WORKSPACE/$TARFILE $SCRIPTS/winbuildtest.py \
+    $WORKSPACE/$TARFILE $RELEASE_TOOLS/winbuildtest.py \
     Administrator@$instance_ip:$CI_DIR/
 if [ $? -ne 0 ]; then
     exit 1
