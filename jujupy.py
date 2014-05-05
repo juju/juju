@@ -73,6 +73,7 @@ class JujuClientDevel:
     def __init__(self, version, full_path):
         self.version = version
         self.full_path = full_path
+        self.debug = False
 
     @classmethod
     def get_version(cls):
@@ -100,7 +101,8 @@ class JujuClientDevel:
             prefix = ()
         else:
             prefix = ('timeout', '%.2fs' % timeout)
-        return prefix + ('juju', '--show-log', command,) + e_arg + args
+        logging = '--debug' if self.debug else '--show-log'
+        return prefix + ('juju', logging, command,) + e_arg + args
 
     def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""

@@ -136,6 +136,14 @@ class TestJujuClientDevel(TestCase):
         full = client._full_args(None, 'bar', False, ('baz', 'qux'))
         self.assertEqual(('juju', '--show-log', 'bar', 'baz', 'qux'), full)
 
+    def test_full_args_debug(self):
+        env = Environment('foo', '')
+        client = JujuClientDevel(None, 'my/juju/bin')
+        client.debug = True
+        full = client._full_args(env, 'bar', False, ('baz', 'qux'))
+        self.assertEqual((
+            'juju', '--debug', 'bar', '-e', 'foo', 'baz', 'qux'), full)
+
     def test_bootstrap_hpcloud(self):
         env = Environment('hp', '')
         with patch.object(env, 'hpcloud', lambda: True):

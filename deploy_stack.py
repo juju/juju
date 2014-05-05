@@ -12,6 +12,7 @@ import re
 import string
 import subprocess
 import sys
+from time import sleep
 import yaml
 
 from jujuconfig import (
@@ -31,7 +32,7 @@ from utility import (
 )
 
 
-def prepare_environment(environment, already_bootstrapped, machines):
+def prepare_environment(env, already_bootstrapped, machines):
     """Prepare an environment for deployment.
 
     As well as bootstrapping, this ensures the correct agent version is in
@@ -44,7 +45,6 @@ def prepare_environment(environment, already_bootstrapped, machines):
     if sys.platform == 'win32':
         # Ensure OpenSSH is never in the path for win tests.
         sys.path = [p for p in sys.path if 'OpenSSH' not in p]
-    env = Environment.from_config(environment)
     if not already_bootstrapped:
         env.bootstrap()
     agent_version = env.get_matching_agent_version()
@@ -75,21 +75,29 @@ def destroy_job_instances(job_name):
     subprocess.check_call(['euca-terminate-instances'] + instances)
 
 
+def parse_euca(euca_output):
+    for line in euca_output.splitlines():
+        fields = line.split('\t')
+        if fields[0] != 'INSTANCE':
+            continue
+        yield fields[1], fields[3]
+
+
 def run_instances(count):
     environ = dict(os.environ)
-    environ.update({
-        'INSTANCE_TYPE': 'm1.large',
-        'AMI_IMAGE': 'ami-36aa4d5e',
-    })
-    command = ['ec2-run-instance-get-id', '-g', 'manual-juju-test']
-    machine_ids = [subprocess.check_output(command, env=environ).strip()
-                   for x in range(count)]
-    subprocess.call(['ec2-tag-job-instances'] + machine_ids)
-    machine_info = [
-        (instance,
-         subprocess.check_output(['ec2-get-name', instance]).strip())
-        for instance in machine_ids]
-    return machine_info
+    command = [
+        'euca-run-instances', '-k', 'id_rsa', '-n', '%d' % count,
+        '-t', 'm1.large', '-g', 'manual-juju-test', 'ami-36aa4d5e']
+    run_output = subprocess.check_output(command, env=environ).strip()
+    machine_ids = dict(parse_euca(run_output)).keys()
+    subprocess.call(
+        ['euca-create-tags', '--tag', 'job_name=%s' % os.environ['JOB_NAME']]
+        + machine_ids, env=environ)
+    for remaining in until_timeout(300):
+        names = dict(describe_instances(machine_ids, env=environ))
+        if '' not in names.values():
+            return names.items()
+        sleep(1)
 
 
 def deploy_dummy_stack(env, charm_prefix):
@@ -151,7 +159,7 @@ def dump_logs(env, host, directory, host_id=None):
             except subprocess.CalledProcessError:
                 pass
     if host_id is not None:
-        with open(os.path.join(directory, 'console.log')) as console_file:
+        with open(os.path.join(directory, 'console.log'), 'w') as console_file:
             subprocess.Popen(['euca-get-console-output', host_id],
                              stdout=console_file)
     for log_name in os.listdir(directory):
@@ -161,8 +169,9 @@ def dump_logs(env, host, directory, host_id=None):
         subprocess.check_call(['gzip', path])
 
 
-def test_upgrade(environment):
-    env = Environment.from_config(environment)
+def test_upgrade(old_env):
+    env = Environment.from_config(old_env.environment)
+    env.client.debug = old_env.client.debug
     upgrade_juju(env)
     env.wait_for_version(env.get_matching_agent_version())
 
@@ -175,15 +184,22 @@ def upgrade_juju(environment):
     environment.upgrade_juju()
 
 
+def describe_instances(instances=None, running=False, job_name=None,
+                       env=None):
+    command = ['euca-describe-instances']
+    if job_name is not None:
+        command.extend(['--filter', 'tag:job_name=%s' % job_name])
+    if running:
+        command.extend(['--filter', 'instance-state-name=running'])
+    if instances is not None:
+        command.extend(instances)
+    logging.info(' '.join(command))
+    return parse_euca(subprocess.check_output(command, env=env))
+
+
 def get_job_instances(job_name):
-    instance_pattern = re.compile('^INSTANCE\t(i-[^\t]*)\t.*')
-    description = subprocess.check_output([
-        'euca-describe-instances', '--filter', 'instance-state-name=running',
-        '--filter', 'tag:job_name=%s' % job_name])
-    for line in description.splitlines():
-        match = instance_pattern.match(line)
-        if match:
-            yield match.group(1)
+    description = describe_instances(job_name=job_name, running=True)
+    return (machine_id for machine_id, name in description)
 
 
 def bootstrap_from_env(juju_home, env):
@@ -215,26 +231,43 @@ def bootstrap_from_env(juju_home, env):
 
 
 def deploy_job():
+    required = set(['NEW_JUJU_BIN', 'WORKSPACE', 'NEW_JUJU_BIN', 'ENV',
+                    'JOB_NAME', 'CHARM_PREFIX'])
+    missing = required.difference(os.environ.keys())
+    if len(missing) > 0:
+        raise Exception('Missing environment variables: %s' %
+                        ', '.join(sorted(missing)))
+    base_env = os.environ['ENV']
+    job_name = os.environ['JOB_NAME']
+    charm_prefix = os.environ['CHARM_PREFIX']
+    machines = os.environ.get('MACHINES', '').split()
+    new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
+    upgrade = bool(os.environ.get('UPGRADE') == 'true')
+    debug = bool(os.environ.get('DEBUG') == 'true')
+    log_dir = os.path.join(os.environ['WORKSPACE'], 'artifacts')
+    bootstrap_host = os.environ.get('BOOTSTRAP_HOST')
+    return _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
+                       bootstrap_host, machines, log_dir, debug)
+
+def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
+                bootstrap_host, machines, log_dir, debug):
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
-    machines = os.environ['MACHINES'].split()
     bootstrap_id = None
-    new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
-    upgrade = bool(os.environ.get('UPGRADE') == 'true')
     created_machines = False
-    log_dir = os.path.join(os.environ['WORKSPACE'], 'artifacts')
     if not upgrade:
         os.environ['PATH'] = new_path
     try:
         if sys.platform == 'win32':
             # Ensure OpenSSH is never in the path for win tests.
             sys.path = [p for p in sys.path if 'OpenSSH' not in p]
-        env = Environment.from_config(os.environ['ENV'])
+        env = Environment.from_config(base_env)
+        env.client.debug = debug
         # Rename to the job name.
-        env.environment = os.environ['JOB_NAME']
-        if 'BOOTSTRAP_HOST' in os.environ:
-            env.config['bootstrap-host'] = os.environ['BOOTSTRAP_HOST']
+        env.environment = job_name
+        if bootstrap_host is not None:
+            env.config['bootstrap-host'] = bootstrap_host
         elif env.config['type'] == 'manual':
             instances = run_instances(3)
             created_machines = True
@@ -249,7 +282,7 @@ def deploy_job():
                 ssh_machines.append(host)
             for machine in ssh_machines:
                 logging.info('Waiting for port 22 on %s' % machine)
-                wait_for_port(host, 22, timeout=120)
+                wait_for_port(machine, 22, timeout=120)
             juju_home = get_juju_home()
             try:
                 os.unlink(get_jenv_path(juju_home, env.environment))
@@ -269,17 +302,16 @@ def deploy_job():
                     raise Exception('Could not get machine 0 host')
                 try:
                     prepare_environment(
-                        env.environment, already_bootstrapped=True,
-                        machines=machines)
+                        env, already_bootstrapped=True, machines=machines)
                     if sys.platform == 'win32':
                         # The win client tests only verify the client to the
                         # state-server.
                         return
-                    deploy_dummy_stack(env, os.environ['CHARM_PREFIX'])
+                    deploy_dummy_stack(env, charm_prefix)
                     if upgrade:
                         with scoped_environ():
                             os.environ['PATH'] = new_path
-                            test_upgrade(env.environment)
+                            test_upgrade(env)
                 except:
                     if host is not None:
                         dump_logs(env, host, log_dir, bootstrap_id)
@@ -288,7 +320,7 @@ def deploy_job():
                 env.destroy_environment()
         finally:
             if created_machines:
-                destroy_job_instances(os.environ['JOB_NAME'])
+                destroy_job_instances(job_name)
     except Exception as e:
         raise
         print('%s (%s)' % (e, type(e).__name__))
@@ -318,8 +350,8 @@ def main():
     parser.add_argument('env', help='The environment to deploy on.')
     args = parser.parse_args()
     try:
-        env = prepare_environment(args.env, args.already_bootstrapped,
-                                  args.machine)
+        env = Environment.from_config(args.env)
+        prepare_environment(env, args.already_bootstrapped, args.machine)
         if sys.platform == 'win32':
             # The win client tests only verify the client to the state-server.
             return
