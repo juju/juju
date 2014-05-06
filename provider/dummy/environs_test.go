@@ -14,7 +14,9 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/network"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
@@ -46,19 +48,19 @@ func (s *suite) TearDownTest(c *gc.C) {
 }
 
 func (s *suite) TestAllocateAddress(c *gc.C) {
-	cfg, err := config.New(config.NoDefaults, t.TestConfig)
+	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, gc.IsNil)
-	e, err := environs.Prepare(cfg, coretesting.Context(c), t.ConfigStore)
-	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", t.TestConfig))
+	e, err := environs.Prepare(cfg, testing.Context(c), s.ConfigStore)
+	c.Assert(err, gc.IsNil, gc.Commentf("preparing environ %#v", s.TestConfig))
 	c.Assert(e, gc.NotNil)
 
 	envtesting.UploadFakeTools(c, e.Storage())
-	err := bootstrap.EnsureNotBootstrapped(e)
+	err = bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), e, environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(testing.Context(c), e, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	inst, _ := testing.AssertStartInstance(c, e, "0")
+	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	netId := network.Id("net1")
 
@@ -90,7 +92,7 @@ func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation
 		c.Check(addrOp.InstanceId, gc.Equals, expectInstId)
 		c.Check(addrOp.Address, gc.Equals, expectAddress)
 		return
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(testing.ShortWait):
 		c.Fatalf("time out wating for operation")
 	}
 }
