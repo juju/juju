@@ -6,9 +6,11 @@
 package version
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils/set"
 )
 
 type darwinVersionSuite struct {
@@ -25,5 +27,9 @@ func (*darwinVersionSuite) TestGetSysctlVersionPlatform(c *gc.C) {
 }
 
 func (s *darwinVersionSuite) TestOSVersion(c *gc.C) {
-	c.Check(osVersion(), gc.Matches, `darwin\d+`)
+	knownSeries := set.Strings{}
+	for _, series := range darwinVersions {
+		knownSeries.Add(series)
+	}
+	c.Check(osVersion(), jc.Satisfies, knownSeries.Contains)
 }

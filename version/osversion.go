@@ -4,7 +4,6 @@
 package version
 
 import (
-	"fmt"
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -45,11 +44,33 @@ func kernelToMajor(getKernelVersion kernelVersionFunc) (int, error) {
 	return int(majorVersion), nil
 }
 
-func osVersionFromKernelVersion(prefix string, getKernelVersion kernelVersionFunc) string {
+func darwinVersionFromKernelVersion(getKernelVersion kernelVersionFunc) string {
 	majorVersion, err := kernelToMajor(getKernelVersion)
 	if err != nil {
 		logger.Infof("unable to determine OS version: %v", err)
 		return "unknown"
 	}
-	return fmt.Sprintf("%s%d", prefix, majorVersion)
+	return darwinSeriesFromMajorVersion(majorVersion)
+}
+
+// TODO(jam): 2014-05-06 bug #XXXXX
+// should we have a system file that we can read so this can be updated without
+// recompiling Juju?
+var darwinVersions = map[int]string{
+	13: "mavericks",
+	12: "mountainlion",
+	11: "lion",
+	10: "snowleopard",
+	9:  "leopard",
+	8:  "tiger",
+	7:  "panther",
+	6:  "jaguar",
+	5:  "puma",
+}
+
+func darwinSeriesFromMajorVersion(majorVersion int) string {
+	if series, ok := darwinVersions[majorVersion]; ok {
+		return series
+	}
+	return "unknown"
 }

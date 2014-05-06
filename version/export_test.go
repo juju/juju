@@ -4,8 +4,9 @@
 package version
 
 var (
-	ReadSeries                 = readSeries
-	KernelToMajor              = kernelToMajor
-	OSVersionFromKernelVersion = osVersionFromKernelVersion
-	LSBReleaseFileVar          = &lsbReleaseFile
+	ReadSeries                     = readSeries
+	KernelToMajor                  = kernelToMajor
+	DarwinVersionFromKernelVersion = darwinVersionFromKernelVersion
+	DarwinSeriesFromMajorVersion   = darwinSeriesFromMajorVersion
+	LSBReleaseFileVar              = &lsbReleaseFile
 )

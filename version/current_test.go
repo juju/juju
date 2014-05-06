@@ -27,7 +27,7 @@ func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 		// platform) then CurrentSeries should be unknown.
 		switch runtime.GOOS {
 		case "darwin":
-			c.Check(s, gc.Matches, `darwin\d+`)
+			c.Check(s, gc.Matches, `mavericks|snowleopard`)
 		default:
 			c.Assert(s, gc.Equals, "n/a")
 		}
