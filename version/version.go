@@ -313,7 +313,8 @@ func (v Number) IsDev() bool {
 func readSeries(releaseFile string) string {
 	data, err := ioutil.ReadFile(releaseFile)
 	if err != nil {
-		return "unknown"
+		// Failed to read the LSB Release file, so fall back to OS probing
+		return getOSVersion()
 	}
 	for _, line := range strings.Split(string(data), "\n") {
 		const prefix = "DISTRIB_CODENAME="
