@@ -79,10 +79,6 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 	assertAllocateAddress(c, e, opc, inst.Id(), netId, expectAddress)
 }
 
-func (s *suite) prepareAndBootstrap(c *gc.C) environs.Environ {
-	return e
-}
-
 func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectNetId network.Id, expectAddress instance.Address) {
 	select {
 	case op := <-opc:
