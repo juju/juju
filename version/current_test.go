@@ -4,9 +4,7 @@
 package version_test
 
 import (
-	"io/ioutil"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 
 	gc "launchpad.net/gocheck"
@@ -17,47 +15,6 @@ import (
 type CurrentSuite struct{}
 
 var _ = gc.Suite(&CurrentSuite{})
-
-var readSeriesTests = []struct {
-	contents string
-	series   string
-}{{
-	`DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=12.04
-DISTRIB_CODENAME=precise
-DISTRIB_DESCRIPTION="Ubuntu 12.04 LTS"`,
-	"precise",
-}, {
-	"DISTRIB_CODENAME= \tprecise\t",
-	"precise",
-}, {
-	`DISTRIB_CODENAME="precise"`,
-	"precise",
-}, {
-	"DISTRIB_CODENAME='precise'",
-	"precise",
-}, {
-	`DISTRIB_ID=Ubuntu
-DISTRIB_RELEASE=12.10
-DISTRIB_CODENAME=quantal
-DISTRIB_DESCRIPTION="Ubuntu 12.10"`,
-	"quantal",
-}, {
-	"",
-	"unknown",
-},
-}
-
-func (*CurrentSuite) TestReadSeries(c *gc.C) {
-	d := c.MkDir()
-	f := filepath.Join(d, "foo")
-	for i, t := range readSeriesTests {
-		c.Logf("test %d", i)
-		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
-		c.Assert(err, gc.IsNil)
-		c.Assert(version.ReadSeries(f), gc.Equals, t.series)
-	}
-}
 
 func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 	s := version.Current.Series
