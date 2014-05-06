@@ -6,7 +6,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"launchpad.net/gnuflag"
 
@@ -81,7 +80,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
+	f.Var(newSeriesValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
 	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 }
@@ -104,6 +103,30 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 		}
 	}
 	return cmd.CheckEmpty(args)
+}
+
+type seriesValue struct {
+	*cmd.StringsValue
+}
+
+// newSeriesValue is used to create the type passed into the gnuflag.FlagSet Var function.
+func newSeriesValue(defaultValue []string, target *[]string) *seriesValue {
+	v := seriesValue{(*cmd.StringsValue)(target)}
+	*(v.StringsValue) = defaultValue
+	return &v
+}
+
+// Implements gnuflag.Value Set.
+func (v *seriesValue) Set(s string) error {
+	if err := v.StringsValue.Set(s); err != nil {
+		return err
+	}
+	for _, name := range *(v.StringsValue) {
+		if !charm.IsValidSeries(name) {
+			return fmt.Errorf("invalid series name %q", name)
+		}
+	}
+	return nil
 }
 
 // Run connects to the environment specified on the command line and bootstraps
@@ -173,23 +196,4 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 	})
-}
-
-type seriesVar struct {
-	target *[]string
-}
-
-func (v seriesVar) Set(value string) error {
-	names := strings.Split(value, ",")
-	for _, name := range names {
-		if !charm.IsValidSeries(name) {
-			return fmt.Errorf("invalid series name %q", name)
-		}
-	}
-	*v.target = names
-	return nil
-}
-
-func (v seriesVar) String() string {
-	return strings.Join(*v.target, ",")
 }
