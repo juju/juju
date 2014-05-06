@@ -86,13 +86,13 @@ func (s *darwinVersionSuite) TestGetMajorVersionEmpty(c *gc.C) {
 
 func (s *darwinVersionSuite) TestGetOSVersion(c *gc.C) {
 	s.PatchValue(&getSysctlVersion, sysctlMacOS10dot9dot2)
-	c.Check(getOSVersion(), gc.Equals, "darwin13")
+	c.Check(osVersion(), gc.Equals, "darwin13")
 }
 
 func (s *darwinVersionSuite) TestGetOSVersionError(c *gc.C) {
 	// We suppress the actual error in favor of returning "unknown", but we
 	// do at least log the error
 	s.PatchValue(&getSysctlVersion, sysctlError)
-	c.Check(getOSVersion(), gc.Equals, "unknown")
+	c.Check(osVersion(), gc.Equals, "unknown")
 	c.Check(c.GetTestLog(), gc.Matches, ".* juju.version unable to determine OS version: no such syscall\n")
 }

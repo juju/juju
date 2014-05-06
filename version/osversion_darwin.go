@@ -36,9 +36,9 @@ func getMajorVersion() (int, error) {
 	return int(majorVersion), nil
 }
 
-// getOSVersion returns the best approximation to what version this machine is.
+// osVersion returns the best approximation to what version this machine is.
 // If we are unable to determine the OSVersion, we return "unknown".
-func getOSVersion() string {
+func osVersion() string {
 	majorVersion, err := getMajorVersion()
 	if err != nil {
 		logger.Infof("unable to determine OS version: %v", err)
