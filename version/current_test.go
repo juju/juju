@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 
 	gc "launchpad.net/gocheck"
 
@@ -67,7 +68,12 @@ func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 	if err != nil {
 		// If the command fails (for instance if we're running on some other
 		// platform) then CurrentSeries should be unknown.
-		c.Assert(s, gc.Equals, "n/a")
+		switch runtime.GOOS {
+		case "darwin":
+			c.Check(s, gc.Matches, `darwin\d+`)
+		default:
+			c.Assert(s, gc.Equals, "n/a")
+		}
 	} else {
 		c.Assert(string(out), gc.Equals, "Codename:\t"+s+"\n")
 	}

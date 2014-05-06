@@ -96,8 +96,3 @@ func (s *darwinVersionSuite) TestGetOSVersionError(c *gc.C) {
 	c.Check(getOSVersion(), gc.Equals, "unknown")
 	c.Check(c.GetTestLog(), gc.Matches, ".* juju.version unable to determine OS version: no such syscall\n")
 }
-
-func (s *darwinVersionSuite) TestReadSeriesNoLSB(c *gc.C) {
-	s.PatchValue(&getSysctlVersion, sysctlMacOS10dot9dot2)
-	c.Check(readSeries("/no-such-file-exists"), gc.Equals, "darwin13")
-}
