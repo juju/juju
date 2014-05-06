@@ -53,9 +53,11 @@ func darwinVersionFromKernelVersion(getKernelVersion kernelVersionFunc) string {
 	return darwinSeriesFromMajorVersion(majorVersion)
 }
 
-// TODO(jam): 2014-05-06 bug #XXXXX
-// should we have a system file that we can read so this can be updated without
-// recompiling Juju?
+// TODO(jam): 2014-05-06 https://launchpad.net/bugs/1316593
+// we should have a system file that we can read so this can be updated without
+// recompiling Juju. For now, this is a lot easier, and also solves the fact
+// that we want to populate version.Current.Series during init() time, before
+// we've potentially read that information from anywhere else
 var darwinVersions = map[int]string{
 	13: "mavericks",
 	12: "mountainlion",
