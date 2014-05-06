@@ -4,6 +4,7 @@
 package version
 
 import (
+	"fmt"
 	"io/ioutil"
 	"strconv"
 	"strings"
@@ -45,4 +46,10 @@ func kernelToMajor(getKernelVersion kernelVersionFunc) (int, error) {
 }
 
 func osVersionFromKernelVersion(prefix string, getKernelVersion kernelVersionFunc) string {
+	majorVersion, err := kernelToMajor(getKernelVersion)
+	if err != nil {
+		logger.Infof("unable to determine OS version: %v", err)
+		return "unknown"
+	}
+	return fmt.Sprintf("%s%d", prefix, majorVersion)
 }

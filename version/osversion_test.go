@@ -111,3 +111,14 @@ func (s *kernelVersionSuite) TestKernelToMajorVersionEmpty(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `strconv.ParseInt: parsing "": invalid syntax`)
 	c.Check(majorVersion, gc.Equals, 0)
 }
+
+func (s *kernelVersionSuite) TestOSVersionFromKernelVersion(c *gc.C) {
+	c.Check(version.OSVersionFromKernelVersion("darwin", sysctlMacOS10dot9dot2), gc.Equals, "darwin13")
+}
+
+func (s *kernelVersionSuite) TestOSVersionError(c *gc.C) {
+	// We suppress the actual error in favor of returning "unknown", but we
+	// do log the error
+	c.Check(version.OSVersionFromKernelVersion("darwin", sysctlError), gc.Equals, "unknown")
+	c.Check(c.GetTestLog(), gc.Matches, ".* juju.version unable to determine OS version: no such syscall\n")
+}
