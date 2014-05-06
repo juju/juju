@@ -1,0 +1,5 @@
+#!/bin/bash
+
+engine=`cat .web-engine`
+service php5-fpm stop
+service $engine stop

@@ -1,0 +1,32 @@
+#!/bin/bash
+
+set -eu
+
+juju-log "We've got a mount"
+source inc/common
+
+options=`relation-get options`
+mountpoint=`relation-get mountpoint`
+fstype=`relation-get fstype`
+host=`relation-get private-address`
+
+if [ -z "$fstype" ] ; then
+	juju-log "Going to wait for some real data"
+    exit 0
+fi
+
+if [ ! -z "$options" ]; then
+    options="-o $options"
+fi
+
+# Write this out to our .nfs-mount file
+cat > .nfs-mount <<EOF
+#!/bin/bash
+MOUNT_TYPE=$fstype
+MOUNT_OPS=$options
+MOUNT_SERVER=$host
+MOUNT_PATH=$mountpoint
+
+EOF
+
+. hooks/config-changed

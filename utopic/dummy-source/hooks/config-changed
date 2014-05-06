@@ -1,0 +1,6 @@
+#!/bin/bash
+set -eux
+token="$(config-get token)"
+for relation_id in $(relation-ids sink); do
+  relation-set -r $relation_id token="$token"
+done
