@@ -38,3 +38,7 @@ func (s *suite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	dummy.Reset()
 }
+
+func (s *suite) TestAllocateAddress(c *gc.C) {
+	/// XXX
+}

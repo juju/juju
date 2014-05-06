@@ -26,6 +26,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
@@ -635,6 +636,16 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 		return result, environs.ErrPartialInstances
 	}
 	return result, nil
+}
+
+// AllocateAddress requests a new address to be allocated for the
+// given instance on the given network. This is not implemented on the
+// MAAS provider yet.
+func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+	// TODO(dimitern) 2014-05-06 bug #1316627
+	// Once MAAS API allows allocating an address,
+	// implement this using the API.
+	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
 // AllInstances returns all the instance.Instance in this provider.
