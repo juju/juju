@@ -5,10 +5,10 @@ and juju to verify that each revision of juju can be released, built, packaged,
 published, installed, bootstrapped, and deployed.
 
 CI requires
-    lp:/juju-release-tools
-    lp:/~juju-qa/juju-core/ci-cd-scripts2
-    The charm-repository
-    A JUJU_HOME with all the envs to test.
+    lp:juju-release-tools (The packaging and publication tools)
+    lp:juju-ci-tools (This branch)
+    lp:juju-ci-tools/repository (A copy of the juju charm repository)
+    And a JUJU_HOME with all the envs to test.
 
 The general process involves making a release tarball, making a package,
 making a tree of tools and metadata, and lastly publishing the tools.
