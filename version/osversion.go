@@ -5,8 +5,13 @@ package version
 
 import (
 	"io/ioutil"
+	"strconv"
 	"strings"
-	)
+
+	"github.com/juju/loggo"
+)
+
+var logger = loggo.GetLogger("juju.version")
 
 func readSeries(releaseFile string) string {
 	data, err := ioutil.ReadFile(releaseFile)
@@ -23,3 +28,21 @@ func readSeries(releaseFile string) string {
 	return "unknown"
 }
 
+type kernelVersionFunc func() (string, error)
+
+// kernelToMajor takes a dotted version and returns just the Major portion
+func kernelToMajor(getKernelVersion kernelVersionFunc) (int, error) {
+	fullVersion, err := getKernelVersion()
+	if err != nil {
+		return 0, err
+	}
+	parts := strings.SplitN(fullVersion, ".", 2)
+	majorVersion, err := strconv.ParseInt(parts[0], 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return int(majorVersion), nil
+}
+
+func osVersionFromKernelVersion(prefix string, getKernelVersion kernelVersionFunc) string {
+}

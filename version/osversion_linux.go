@@ -8,4 +8,3 @@ package version
 func osVersion() string {
 	return readSeries(lsbReleaseFile)
 }
-

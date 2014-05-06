@@ -3,6 +3,8 @@
 
 // +build !darwin,!linux
 
+package version
+
 func osVersion() string {
 	return "unknown"
 }

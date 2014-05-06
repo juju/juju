@@ -5,6 +5,6 @@ package version
 
 var (
 	ReadSeries        = readSeries
-	OSVersion         = osVersion
+	KernelToMajor     = kernelToMajor
 	LSBReleaseFileVar = &lsbReleaseFile
 )

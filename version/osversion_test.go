@@ -4,21 +4,27 @@
 package version_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/version"
 )
-
 
 type readSeriesSuite struct {
 	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&readSeriesSuite{})
+
+type kernelVersionSuite struct {
+	testbase.LoggingSuite
+}
+
+var _ = gc.Suite(&kernelVersionSuite{})
 
 var readSeriesTests = []struct {
 	contents string
@@ -61,3 +67,47 @@ func (*readSeriesSuite) TestReadSeries(c *gc.C) {
 	}
 }
 
+func sysctlMacOS10dot9dot2() (string, error) {
+	// My 10.9.2 Mac gives "13.1.0" as the kernel version
+	return "13.1.0", nil
+}
+
+func sysctlError() (string, error) {
+	return "", fmt.Errorf("no such syscall")
+}
+
+func (s *kernelVersionSuite) TestKernelToMajorVersion(c *gc.C) {
+	majorVersion, err := version.KernelToMajor(sysctlMacOS10dot9dot2)
+	c.Assert(err, gc.IsNil)
+	c.Check(majorVersion, gc.Equals, 13)
+}
+
+func (s *kernelVersionSuite) TestKernelToMajorVersionError(c *gc.C) {
+	majorVersion, err := version.KernelToMajor(sysctlError)
+	c.Assert(err, gc.ErrorMatches, "no such syscall")
+	c.Check(majorVersion, gc.Equals, 0)
+}
+
+func (s *kernelVersionSuite) TestKernelToMajorVersionNoDots(c *gc.C) {
+	majorVersion, err := version.KernelToMajor(func() (string, error) {
+		return "1234", nil
+	})
+	c.Assert(err, gc.IsNil)
+	c.Check(majorVersion, gc.Equals, 1234)
+}
+
+func (s *kernelVersionSuite) TestKernelToMajorVersionNotInt(c *gc.C) {
+	majorVersion, err := version.KernelToMajor(func() (string, error) {
+		return "a.b.c", nil
+	})
+	c.Assert(err, gc.ErrorMatches, `strconv.ParseInt: parsing "a": invalid syntax`)
+	c.Check(majorVersion, gc.Equals, 0)
+}
+
+func (s *kernelVersionSuite) TestKernelToMajorVersionEmpty(c *gc.C) {
+	majorVersion, err := version.KernelToMajor(func() (string, error) {
+		return "", nil
+	})
+	c.Assert(err, gc.ErrorMatches, `strconv.ParseInt: parsing "": invalid syntax`)
+	c.Check(majorVersion, gc.Equals, 0)
+}

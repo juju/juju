@@ -8,7 +8,6 @@ package version
 import (
 	"fmt"
 
-	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing/testbase"
@@ -30,58 +29,10 @@ func sysctlError() (string, error) {
 }
 
 func (*darwinVersionSuite) TestGetSysctlVersionPlatform(c *gc.C) {
+	// Test that getSysctlVersion returns something that looks like a dotted revision number
 	releaseVersion, err := getSysctlVersion()
 	c.Assert(err, gc.IsNil)
 	c.Check(releaseVersion, gc.Matches, `\d+\..*`)
-}
-
-func (*darwinVersionSuite) TestGetMajorVersionPlatform(c *gc.C) {
-	// Test that we actually get a value on this platform
-	majorVersion, err := getMajorVersion()
-	c.Assert(err, gc.IsNil)
-	c.Check(majorVersion, jc.GreaterThan, 0)
-	c.Check(majorVersion, jc.LessThan, 100)
-}
-
-func (s *darwinVersionSuite) TestGetMajorVersion(c *gc.C) {
-	s.PatchValue(&getSysctlVersion, sysctlMacOS10dot9dot2)
-	majorVersion, err := getMajorVersion()
-	c.Assert(err, gc.IsNil)
-	c.Check(majorVersion, gc.Equals, 13)
-}
-
-func (s *darwinVersionSuite) TestGetMajorVersionError(c *gc.C) {
-	s.PatchValue(&getSysctlVersion, sysctlError)
-	majorVersion, err := getMajorVersion()
-	c.Assert(err, gc.ErrorMatches, "no such syscall")
-	c.Check(majorVersion, gc.Equals, 0)
-}
-
-func (s *darwinVersionSuite) TestGetMajorVersionNoDots(c *gc.C) {
-	s.PatchValue(&getSysctlVersion, func() (string, error) {
-		return "1234", nil
-	})
-	majorVersion, err := getMajorVersion()
-	c.Assert(err, gc.IsNil)
-	c.Check(majorVersion, gc.Equals, 1234)
-}
-
-func (s *darwinVersionSuite) TestGetMajorVersionNotInt(c *gc.C) {
-	s.PatchValue(&getSysctlVersion, func() (string, error) {
-		return "a.b.c", nil
-	})
-	majorVersion, err := getMajorVersion()
-	c.Assert(err, gc.ErrorMatches, `strconv.ParseInt: parsing "a": invalid syntax`)
-	c.Check(majorVersion, gc.Equals, 0)
-}
-
-func (s *darwinVersionSuite) TestGetMajorVersionEmpty(c *gc.C) {
-	s.PatchValue(&getSysctlVersion, func() (string, error) {
-		return "", nil
-	})
-	majorVersion, err := getMajorVersion()
-	c.Assert(err, gc.ErrorMatches, `strconv.ParseInt: parsing "": invalid syntax`)
-	c.Check(majorVersion, gc.Equals, 0)
 }
 
 func (s *darwinVersionSuite) TestGetOSVersion(c *gc.C) {
