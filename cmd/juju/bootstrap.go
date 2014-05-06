@@ -123,6 +123,7 @@ func (v *seriesValue) Set(s string) error {
 	}
 	for _, name := range *(v.StringsValue) {
 		if !charm.IsValidSeries(name) {
+			v.StringsValue = nil
 			return fmt.Errorf("invalid series name %q", name)
 		}
 	}
