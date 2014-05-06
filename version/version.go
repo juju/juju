@@ -310,21 +310,6 @@ func (v Number) IsDev() bool {
 	return isOdd(v.Minor) || v.Build > 0
 }
 
-func readSeries(releaseFile string) string {
-	data, err := ioutil.ReadFile(releaseFile)
-	if err != nil {
-		// Failed to read the LSB Release file, so fall back to OS probing
-		return "unknown"
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		const prefix = "DISTRIB_CODENAME="
-		if strings.HasPrefix(line, prefix) {
-			return strings.Trim(line[len(prefix):], "\t '\"")
-		}
-	}
-	return "unknown"
-}
-
 // ReleaseVersion looks for the value of DISTRIB_RELEASE in the content of
 // the lsbReleaseFile.  If the value is not found, the file is not found, or
 // an error occurs reading the file, an empty string is returned.
