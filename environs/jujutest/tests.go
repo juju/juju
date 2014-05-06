@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"sort"
-	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -17,13 +16,11 @@ import (
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
@@ -131,7 +128,12 @@ func (t *Tests) TestStartStop(c *gc.C) {
 }
 
 func (t *Tests) TestBootstrap(c *gc.C) {
-	e := t.prepareAndBootstrap(c)
+	e := t.Prepare(c)
+	envtesting.UploadFakeTools(c, e.Storage())
+	err := bootstrap.EnsureNotBootstrapped(e)
+	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(coretesting.Context(c), e, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
 
 	info, apiInfo, err := e.StateInfo()
 	c.Check(info.Addrs, gc.Not(gc.HasLen), 0)
@@ -163,55 +165,6 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	err = bootstrap.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
-}
-
-func (t *Tests) TestAllocateAddress(c *gc.C) {
-	e := t.prepareAndBootstrap(c)
-	inst, _ := testing.AssertStartInstance(c, e, "0")
-	c.Assert(inst, gc.NotNil)
-	netId := network.Id("net1")
-
-	opc := make(chan dummy.Operation, 200)
-	dummy.Listen(opc)
-
-	expectAddress := instance.NewAddress("0.1.2.1", instance.NetworkCloudLocal)
-	address, err := e.AllocateAddress(inst.Id(), netId)
-	c.Assert(err, gc.IsNil)
-	c.Assert(address, gc.DeepEquals, expectAddress)
-
-	assertAllocateAddress(c, e, opc, inst.Id(), netId, expectAddress)
-
-	expectAddress = instance.NewAddress("0.1.2.2", instance.NetworkCloudLocal)
-	address, err = e.AllocateAddress(inst.Id(), netId)
-	c.Assert(err, gc.IsNil)
-	c.Assert(address, gc.DeepEquals, expectAddress)
-	assertAllocateAddress(c, e, opc, inst.Id(), netId, expectAddress)
-}
-
-func (t *Tests) prepareAndBootstrap(c *gc.C) environs.Environ {
-	e := t.Prepare(c)
-	envtesting.UploadFakeTools(c, e.Storage())
-	err := bootstrap.EnsureNotBootstrapped(e)
-	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), e, environs.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
-	return e
-}
-
-func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectNetId network.Id, expectAddress instance.Address) {
-	select {
-	case op := <-opc:
-		addrOp, ok := op.(dummy.OpAllocateAddress)
-		if !ok {
-			c.Fatalf("unexpected op: %#v", op)
-		}
-		c.Check(addrOp.NetworkId, gc.Equals, expectNetId)
-		c.Check(addrOp.InstanceId, gc.Equals, expectInstId)
-		c.Check(addrOp.Address, gc.Equals, expectAddress)
-		return
-	case <-time.After(coretesting.ShortWait):
-		c.Fatalf("time out wating for operation")
-	}
 }
 
 var noRetry = utils.AttemptStrategy{}
