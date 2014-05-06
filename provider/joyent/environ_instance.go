@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
@@ -222,6 +223,13 @@ func (env *joyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 	}
 
 	return instances, nil
+}
+
+// AllocateAddress requests a new address to be allocated for the
+// given instance on the given network. This is not implemented on the
+// Joyent provider yet.
+func (*joyentEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
 func (env *joyentEnviron) StopInstances(instances []instance.Instance) error {

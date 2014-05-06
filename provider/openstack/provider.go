@@ -31,6 +31,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
@@ -994,6 +995,13 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		}
 	}
 	return insts, err
+}
+
+// AllocateAddress requests a new address to be allocated for the
+// given instance on the given network. This is not implemented on the
+// OpenStack provider yet.
+func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+	return instance.Address{}, coreerrors.NotImplementedf("AllocateAddress")
 }
 
 func (e *environ) AllInstances() (insts []instance.Instance, err error) {
