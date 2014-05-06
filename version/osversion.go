@@ -23,4 +23,3 @@ func readSeries(releaseFile string) string {
 	}
 	return "unknown"
 }
-
