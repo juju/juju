@@ -305,6 +305,14 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--series", "fine"},
 	err:  `--series requires --upload-tools`,
 }, {
+	info: "lonely --upload-series",
+	args: []string{"--upload-series", "fine"},
+	err:  `--upload-series requires --upload-tools`,
+}, {
+	info: "--upload-series with --series",
+	args: []string{"--upload-tools", "--upload-series", "foo", "--series", "bar"},
+	err:  `--upload-series and --series can't be used together`,
+}, {
 	info:    "bad environment",
 	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"-e", "brokenenv"},
@@ -351,7 +359,7 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info:    "--upload-tools rejects invalid series",
 	version: "1.2.3-saucy-amd64",
-	args:    []string{"--upload-tools", "--series", "ping,ping,pong"},
+	args:    []string{"--upload-tools", "--upload-series", "ping,ping,pong"},
 	err:     `invalid series "ping"`,
 }, {
 	info:     "--upload-tools rejects mismatched arch",
@@ -405,6 +413,18 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	expectedErrText := "error: environment is already bootstrapped\n"
 	c.Check(coretesting.Stderr(ctx2), gc.Equals, expectedErrText)
 	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
+}
+
+func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
+	_, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+
+	cmd := BootstrapCommand{}
+	err := coretesting.InitCommand(&cmd, []string{"--upload-tools", "--series", "foo,bar"})
+
+	c.Assert(err, gc.IsNil)
+	c.Check(cmd.Series, gc.DeepEquals, []string{"foo", "bar"})
+	c.Check(cmd.seriesOld, gc.IsNil)
 }
 
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
