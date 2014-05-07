@@ -1388,6 +1388,12 @@ func (st *State) AddAction(unit string, name string, payload string) (*Action, e
 		return nil, fmt.Errorf("cannot add action {%q, %q} to unit %q: %v",
 			name, payload, unit, err)
 	}
+	unit, err := st.Unit(unit)
+	if err != nil {
+		return nil, fmt.Errorf("cannot add action {%q, %q} to unit %q: %v",
+			name, payload, unit, err)
+	}
+	unit.AddAction(doc.Id)
 
 	return newAction(st, &doc), nil
 }
