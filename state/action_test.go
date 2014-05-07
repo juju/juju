@@ -15,8 +15,9 @@ type ActionSuite struct {
 
 var _ = gc.Suite(&ActionSuite{})
 
-func (s *ActionSuite) TestNewAction(c *gc.C) {
-	// s.ConnSuite.SetUpTest(c)
+func (s *ActionSuite) SetUpTest(c *gc.C) {
+	s.ConnSuite.SetUpTest(c)
+
 	// s.charm = s.AddTestingCharm(c, "wordpress")
 	// var err error
 	// s.service = s.AddTestingService(c, "wordpress", s.charm)
