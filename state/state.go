@@ -1374,8 +1374,10 @@ func (st *State) Action(id string) (*Action, error) {
 }
 
 func (st *State) AddAction(unit string, name string, payload string) (*Action, error) {
-	if !names.IsUnit(unit) {
-		return nil, fmt.Errorf("%q is not a valid unit name", unit)
+	thisUnit, err := st.Unit(unit)
+	if err != nil {
+		return nil, fmt.Errorf("cannot add action {%q, %q} to unit %q: %v",
+			name, payload, unit, err)
 	}
 	doc := actionDoc{string(bson.NewObjectId()), name, unit, payload, ActionPending}
 	ops := []txn.Op{{
@@ -1384,16 +1386,11 @@ func (st *State) AddAction(unit string, name string, payload string) (*Action, e
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
+	append(ops, thisUnit.AddActionOps(doc.Id))
+
 	if err := st.runTransaction(ops); err != nil {
-		return nil, fmt.Errorf("cannot add action {%q, %q} to unit %q: %v",
-			name, payload, unit, err)
+		return nil, onAbort(err, errDead)
 	}
-	unit, err := st.Unit(unit)
-	if err != nil {
-		return nil, fmt.Errorf("cannot add action {%q, %q} to unit %q: %v",
-			name, payload, unit, err)
-	}
-	unit.AddAction(doc.Id)
 
 	return newAction(st, &doc), nil
 }
