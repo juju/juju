@@ -75,11 +75,7 @@ $FileCreateMode 0640
 // Messages are forwarded to the state server node.
 const nodeRsyslogTemplate = `
 $ModLoad imfile
-
-{{range $i, $bootstrapIP := bootstrapHosts}}
-{{if $i}}
-
-{{end}}
+{{range $i, $bootstrapIP := bootstrapHosts}}{{if $i}}\n{{end}}
 # Enable reliable forwarding.
 $ActionQueueType LinkedList
 $ActionQueueFileName {{logfileName}}{{namespace}}
@@ -100,8 +96,7 @@ $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
-:syslogtag, startswith, "juju{{namespace}}-" @@{{$bootstrapIP}}:{{portNumber}};LongTagForwardFormat
-{{end}}
+:syslogtag, startswith, "juju{{namespace}}-" @@{{$bootstrapIP}}:{{portNumber}};LongTagForwardFormat{{end}}
 & ~
 `
 
