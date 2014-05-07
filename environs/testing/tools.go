@@ -40,7 +40,7 @@ func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
 }
 
-// RemoveFakeMetadata deletes the fake simplestreams tools metadata from the supplied storage.
+// RemoveFakeToolsMetadata deletes the fake simplestreams tools metadata from the supplied storage.
 func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 	files := []string{simplestreams.UnsignedIndex, envtools.ProductMetadataPath}
 	for _, file := range files {

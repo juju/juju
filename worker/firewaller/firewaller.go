@@ -456,7 +456,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []instance.Port) error 
 	return nil
 }
 
-// flushGlobalPorts opens and closes ports global on the machine.
+// flushInstancePorts opens and closes ports global on the machine.
 func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []instance.Port) error {
 	// If there's nothing to do, do nothing.
 	// This is important because when a machine is first created,
@@ -646,7 +646,7 @@ func (md *machineData) watchLoop(unitw apiwatcher.StringsWatcher) {
 	}
 }
 
-// stopWatch stops the machine watching.
+// Stop stops the machine watching.
 func (md *machineData) Stop() error {
 	md.tomb.Kill(nil)
 	return md.tomb.Wait()

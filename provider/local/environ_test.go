@@ -60,7 +60,7 @@ func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	environ, err := local.Provider.Open(testConfig)
-	c.Assert(err, gc.ErrorMatches, "mkdir .* permission denied")
+	c.Assert(err, gc.ErrorMatches, "failure setting config: mkdir .* permission denied")
 	c.Assert(environ, gc.IsNil)
 }
 

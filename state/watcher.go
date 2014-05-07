@@ -1123,7 +1123,7 @@ func (w *entityWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-// getTxnRevo returns the transaction revision number of the
+// getTxnRevno returns the transaction revision number of the
 // given key in the given collection. It is useful to enable
 // a watcher.Watcher to be primed with the correct revision
 // id.

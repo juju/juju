@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
@@ -695,6 +696,14 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		return nil, err
 	}
 	return insts, nil
+}
+
+// AllocateAddress requests a new address to be allocated for the
+// given instance on the given network. This is not implemented by the
+// EC2 provider yet.
+func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+	// TODO(dimitern) This will be implemented in a follow-up.
+	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {

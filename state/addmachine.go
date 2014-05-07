@@ -112,7 +112,7 @@ func (st *State) AddMachine(series string, jobs ...MachineJob) (*Machine, error)
 	return ms[0], nil
 }
 
-// AddOne machine adds a new machine configured according to the
+// AddOneMachine machine adds a new machine configured according to the
 // given template.
 func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 	ms, err := st.AddMachines(template)
