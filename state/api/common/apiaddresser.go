@@ -60,7 +60,7 @@ func (a *APIAddresser) APIHostPorts() ([][]instance.HostPort, error) {
 	return result.Servers, nil
 }
 
-// APIHostPorts watches the host/port addresses of the API servers.
+// WatchAPIHostPorts watches the host/port addresses of the API servers.
 func (a *APIAddresser) WatchAPIHostPorts() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
 	err := a.caller.Call(a.facadeName, "", "WatchAPIHostPorts", nil, &result)

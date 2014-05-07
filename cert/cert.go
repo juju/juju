@@ -39,7 +39,7 @@ func ParseCert(certPEM string) (*x509.Certificate, error) {
 	return nil, errors.New("no certificates found")
 }
 
-// ParseCert parses the given PEM-formatted X509 certificate
+// ParseCertAndKey parses the given PEM-formatted X509 certificate
 // and RSA private key.
 func ParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey, error) {
 	tlsCert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))

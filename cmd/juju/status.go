@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api"
@@ -93,6 +94,7 @@ type formattedStatus struct {
 	Environment string                   `json:"environment"`
 	Machines    map[string]machineStatus `json:"machines"`
 	Services    map[string]serviceStatus `json:"services"`
+	Networks    map[string]networkStatus `json:"networks,omitempty" yaml:",omitempty"`
 }
 
 type errorStatus struct {
@@ -197,6 +199,31 @@ func (s unitStatus) GetYAML() (tag string, value interface{}) {
 	return "", unitStatusNoMarshal(s)
 }
 
+type networkStatus struct {
+	Err        error      `json:"-" yaml:",omitempty"`
+	ProviderId network.Id `json:"provider-id" yaml:"provider-id"`
+	CIDR       string     `json:"cidr,omitempty" yaml:"cidr,omitempty"`
+	VLANTag    int        `json:"vlan-tag,omitempty" yaml:"vlan-tag,omitempty"`
+}
+
+type networkStatusNoMarshal networkStatus
+
+func (n networkStatus) MarshalJSON() ([]byte, error) {
+	if n.Err != nil {
+		return json.Marshal(errorStatus{n.Err.Error()})
+	}
+	type nNoMethods networkStatus
+	return json.Marshal(nNoMethods(n))
+}
+
+func (n networkStatus) GetYAML() (tag string, value interface{}) {
+	if n.Err != nil {
+		return "", errorStatus{n.Err.Error()}
+	}
+	type nNoMethods networkStatus
+	return "", nNoMethods(n)
+}
+
 func formatStatus(status *api.Status) formattedStatus {
 	if status == nil {
 		return formattedStatus{}
@@ -211,6 +238,12 @@ func formatStatus(status *api.Status) formattedStatus {
 	}
 	for k, s := range status.Services {
 		out.Services[k] = formatService(s)
+	}
+	for k, n := range status.Networks {
+		if out.Networks == nil {
+			out.Networks = make(map[string]networkStatus)
+		}
+		out.Networks[k] = formatNetwork(n)
 	}
 	return out
 }
@@ -299,4 +332,13 @@ func formatUnit(unit api.UnitStatus) unitStatus {
 		out.Subordinates[k] = formatUnit(m)
 	}
 	return out
+}
+
+func formatNetwork(network api.NetworkStatus) networkStatus {
+	return networkStatus{
+		Err:        network.Err,
+		ProviderId: network.ProviderId,
+		CIDR:       network.CIDR,
+		VLANTag:    network.VLANTag,
+	}
 }

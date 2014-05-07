@@ -1065,7 +1065,7 @@ func (c *Client) RetryProvisioning(p params.Entities) (params.ErrorResults, erro
 	})
 }
 
-// APIHostPOrts returns the API host/port addresses stored in state.
+// APIHostPorts returns the API host/port addresses stored in state.
 func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	if result.Servers, err = c.api.state.APIHostPorts(); err != nil {
 		return params.APIHostPortsResult{}, err

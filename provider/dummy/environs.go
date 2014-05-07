@@ -108,6 +108,13 @@ type OpDestroy struct {
 	Error error
 }
 
+type OpAllocateAddress struct {
+	Env        string
+	InstanceId instance.Id
+	NetworkId  network.Id
+	Address    instance.Address
+}
+
 type OpStartInstance struct {
 	Env             string
 	MachineId       string
@@ -171,6 +178,7 @@ type environState struct {
 	statePolicy  state.Policy
 	mu           sync.Mutex
 	maxId        int // maximum instance id allocated so far.
+	maxAddr      int // maximum allocated address last byte
 	insts        map[instance.Id]*dummyInstance
 	globalPorts  map[instance.Port]bool
 	bootstrapped bool
@@ -871,6 +879,37 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 		return nil, environs.ErrNoInstances
 	}
 	return
+}
+
+// AllocateAddress requests a new address to be allocated for the
+// given instance on the given network.
+func (env *environ) AllocateAddress(instId instance.Id, netId network.Id) (instance.Address, error) {
+	if err := env.checkBroken("AllocateAddress"); err != nil {
+		return instance.Address{}, err
+	}
+
+	estate, err := env.state()
+	if err != nil {
+		return instance.Address{}, err
+	}
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+	estate.maxAddr++
+	// TODO(dimitern) Once we have integrated networks
+	// and addresses, make sure we return a valid address
+	// for the given network, and we also have the network
+	// already registered.
+	newAddress := instance.NewAddress(
+		fmt.Sprintf("0.1.2.%d", estate.maxAddr),
+		instance.NetworkCloudLocal,
+	)
+	estate.ops <- OpAllocateAddress{
+		Env:        env.name,
+		InstanceId: instId,
+		NetworkId:  netId,
+		Address:    newAddress,
+	}
+	return newAddress, nil
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {

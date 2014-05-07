@@ -129,7 +129,7 @@ func SeriesVersion(series string) (string, error) {
 	return "", fmt.Errorf("invalid series %q", series)
 }
 
-// Supported series returns the Ubuntu series for which we expect to find metadata.
+// SupportedSeries returns the Ubuntu series for which we expect to find metadata.
 func SupportedSeries() []string {
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
@@ -659,7 +659,7 @@ func (mirrorRef *MirrorReference) hasCloud(cloud CloudSpec) bool {
 	return false
 }
 
-// GetMirrorReference returns the reference to the metadata file containing mirrors for the specified content and cloud.
+// getMirrorReference returns the reference to the metadata file containing mirrors for the specified content and cloud.
 func (mirrorRefs *MirrorRefs) getMirrorReference(datatype, contentId string, cloud CloudSpec) (*MirrorReference, error) {
 	candidates := mirrorRefs.extractMirrorRefs(contentId)
 	if len(candidates) == 0 {

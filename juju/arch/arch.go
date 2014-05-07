@@ -43,7 +43,7 @@ var archREs = []struct {
 // Override for testing.
 var HostArch = hostArch
 
-// HostArch returns the Juju architecture of the machine on which it is run.
+// hostArch returns the Juju architecture of the machine on which it is run.
 func hostArch() string {
 	return NormaliseArch(runtime.GOARCH)
 }

@@ -76,7 +76,7 @@ var storageAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-// ConsistencyStrategy is specified in the StorageReader interface.
+// DefaultConsistencyStrategy is specified in the StorageReader interface.
 func (s *openstackstorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
 }

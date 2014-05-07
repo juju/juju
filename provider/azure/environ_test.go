@@ -55,7 +55,7 @@ func makeEnviron(c *gc.C) *azureEnviron {
 	return makeEnvironWithConfig(c, attrs)
 }
 
-// makeEnviron creates a fake azureEnviron with the specified configuration.
+// makeEnvironWithConfig creates a fake azureEnviron with the specified configuration.
 func makeEnvironWithConfig(c *gc.C, attrs map[string]interface{}) *azureEnviron {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -165,7 +165,7 @@ func getAzureServiceListResponse(c *gc.C, services ...gwacl.HostedServiceDescrip
 	return responses
 }
 
-// getAzureServiceResponses returns a gwacl.DispatcherResponse corresponding
+// getAzureServiceResponse returns a gwacl.DispatcherResponse corresponding
 // to the API request used to get the properties of a Service.
 func getAzureServiceResponse(c *gc.C, service gwacl.HostedService) gwacl.DispatcherResponse {
 	serviceXML, err := service.Serialize()

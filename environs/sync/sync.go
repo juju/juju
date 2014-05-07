@@ -128,7 +128,7 @@ func SyncTools(syncContext *SyncContext) error {
 	return nil
 }
 
-// selectSourceStorage returns a storage reader based on the source setting.
+// selectSourceDatasource returns a storage reader based on the source setting.
 func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource, error) {
 	source := syncContext.Source
 	if source == "" {

@@ -398,7 +398,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
-// StateJobs returns a worker running all the workers that require
+// StateWorker returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
@@ -650,7 +650,8 @@ func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err 
 	return st, m, nil
 }
 
-// startWorker starts a worker to run the specified child worker but only after waiting for upgrades to complete.
+// startWorkerAfterUpgrade starts a worker to run the specified child worker
+// but only after waiting for upgrades to complete.
 func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
 	runner.StartWorker(name, func() (worker.Worker, error) {
 		return a.upgradeWaiterWorker(start), nil

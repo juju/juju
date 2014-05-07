@@ -9,6 +9,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
@@ -114,6 +115,10 @@ type Environ interface {
 	// InstanceBroker defines methods for starting and stopping
 	// instances.
 	InstanceBroker
+
+	// AllocateAddress requests a new address to be allocated for the
+	// given instance on the given network.
+	AllocateAddress(instId instance.Id, netId network.Id) (instance.Address, error)
 
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
