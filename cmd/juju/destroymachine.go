@@ -22,19 +22,26 @@ type DestroyMachineCommand struct {
 }
 
 const destroyMachineDoc = `
-Machines that are responsible for the environment cannot be destroyed. Machines
-running units or containers can only be destroyed with the --force flag; doing
-so will also destroy all those units and containers without giving them any
+Machines that are responsible for the environment cannot be removed. Machines
+running units or containers can only be removed with the --force flag; doing
+so will also remove all those units and containers without giving them any
 opportunity to shut down cleanly.
+
+Examples:
+	# Remove machine number 5, running no units or containers
+	$ juju remove-machine 5
+
+	# Remove machine 6, running units or containers
+	$ juju remove-machine 6 --force
 `
 
 func (c *DestroyMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "destroy-machine",
+		Name:    "remove-machine",
 		Args:    "<machine> ...",
-		Purpose: "destroy machines",
+		Purpose: "remove machines from the environment",
 		Doc:     destroyMachineDoc,
-		Aliases: []string{"remove-machine", "terminate-machine"},
+		Aliases: []string{"destroy-machine", "terminate-machine"},
 	}
 }
 
