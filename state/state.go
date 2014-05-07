@@ -1377,7 +1377,7 @@ func (st *State) AddAction(unit string, name string, payload string) (*Action, e
 	if !names.IsUnit(unit) {
 		return nil, fmt.Errorf("%q is not a valid unit name", unit)
 	}
-	doc := actionDoc{string(bson.NewObjectId()), name, payload, ActionPending}
+	doc := actionDoc{string(bson.NewObjectId()), name, unit, payload, ActionPending}
 	ops := []txn.Op{{
 		C:      st.actions.Name,
 		Id:     doc.Id,
