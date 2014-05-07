@@ -5,6 +5,7 @@ package testing
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	stdtesting "testing"
@@ -31,6 +33,9 @@ var (
 	// MgoServer is a shared mongo server used by tests.
 	MgoServer = &MgoInstance{ssl: true}
 	logger    = loggo.GetLogger("juju.testing")
+
+	// regular expression to match output of mongod
+	waitingForConnectionsRe = regexp.MustCompile(".*initandlisten.*waiting for connections.*")
 )
 
 type MgoInstance struct {
@@ -150,10 +155,21 @@ func (inst *MgoInstance) run() error {
 	server.Stderr = server.Stdout
 	exited := make(chan struct{})
 	started := make(chan struct{})
+	listening := make(chan error, 1)
 	go func() {
 		<-started
-		lines := readLines(fmt.Sprintf("mongod:%v", mgoport), out, 20)
-		err := server.Wait()
+		// Wait until the server is listening.
+		var buf bytes.Buffer
+		prefix := fmt.Sprintf("mongod:%v", mgoport)
+		if readUntilMatching(prefix, io.TeeReader(out, &buf), waitingForConnectionsRe) {
+			listening <- nil
+		} else {
+			listening <- fmt.Errorf("mongod failed to listen on port %v", mgoport)
+		}
+		// Capture the last 20 lines of output from mongod, to log
+		// in the event of unclean exit.
+		lines := readLastLines(prefix, io.MultiReader(&buf, out), 20)
+		err = server.Wait()
 		exitErr, _ := err.(*exec.ExitError)
 		if err == nil || exitErr != nil && exitErr.Exited() {
 			// mongodb has exited without being killed, so print the
@@ -168,6 +184,11 @@ func (inst *MgoInstance) run() error {
 	inst.exited = exited
 	err = server.Start()
 	close(started)
+	if err != nil {
+		return err
+	}
+	err = <-listening
+	close(listening)
 	if err != nil {
 		return err
 	}
@@ -220,27 +241,41 @@ func (s *MgoSuite) SetUpSuite(c *gc.C) {
 	if MgoServer.addr == "" {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}
+	mgo.SetDebug(true)
 	mgo.SetStats(true)
 	// Make tests that use password authentication faster.
 	utils.FastInsecureHash = true
 }
 
-// readLines reads lines from the given reader and returns
+// readUntilMatching reads lines from the given reader until the reader
+// is depleted or a line matches the given regular expression.
+func readUntilMatching(prefix string, r io.Reader, re *regexp.Regexp) bool {
+	sc := bufio.NewScanner(r)
+	for sc.Scan() {
+		line := sc.Text()
+		logger.Tracef("%s: %s", prefix, line)
+		if re.MatchString(line) {
+			return true
+		}
+	}
+	return false
+}
+
+// readLastLines reads lines from the given reader and returns
 // the last n non-empty lines, ignoring empty lines.
-func readLines(prefix string, r io.Reader, n int) []string {
-	br := bufio.NewReader(r)
+func readLastLines(prefix string, r io.Reader, n int) []string {
+	sc := bufio.NewScanner(r)
 	lines := make([]string, n)
 	i := 0
-	for {
-		line, err := br.ReadString('\n')
-		if line = strings.TrimRight(line, "\n"); line != "" {
+	for sc.Scan() {
+		if line := strings.TrimRight(sc.Text(), "\n"); line != "" {
 			logger.Tracef("%s: %s", prefix, line)
 			lines[i%n] = line
 			i++
 		}
-		if err != nil {
-			break
-		}
+	}
+	if err := sc.Err(); err != nil {
+		panic(err)
 	}
 	final := make([]string, 0, n+1)
 	if i > n {
@@ -276,7 +311,7 @@ func (inst *MgoInstance) Dial() (*mgo.Session, error) {
 // DialInfo returns information suitable for dialling the
 // receiving MongoDB instance.
 func (inst *MgoInstance) DialInfo() *mgo.DialInfo {
-	return MgoDialInfo(inst.addr)
+	return MgoDialInfoTls(inst.ssl, inst.addr)
 }
 
 // DialDirect returns a new direct connection to the shared MongoDB server. This
@@ -301,28 +336,44 @@ func (inst *MgoInstance) MustDialDirect() *mgo.Session {
 // for dialling an MgoInstance at any of the
 // given addresses.
 func MgoDialInfo(addrs ...string) *mgo.DialInfo {
-	pool := x509.NewCertPool()
-	xcert, err := cert.ParseCert(CACert)
-	if err != nil {
-		panic(err)
-	}
-	pool.AddCert(xcert)
-	tlsConfig := &tls.Config{
-		RootCAs:    pool,
-		ServerName: "anything",
-	}
-	return &mgo.DialInfo{
-		Addrs: addrs,
-		Dial: func(addr net.Addr) (net.Conn, error) {
+	return MgoDialInfoTls(true, addrs...)
+}
+
+// MgoDialInfoTls returns a DialInfo suitable
+// for dialling an MgoInstance at any of the
+// given addresses, optionally using TLS.
+func MgoDialInfoTls(useTls bool, addrs ...string) *mgo.DialInfo {
+	var dial func(addr net.Addr) (net.Conn, error)
+	if useTls {
+		pool := x509.NewCertPool()
+		xcert, err := cert.ParseCert(CACert)
+		if err != nil {
+			panic(err)
+		}
+		pool.AddCert(xcert)
+		tlsConfig := &tls.Config{
+			RootCAs:    pool,
+			ServerName: "anything",
+		}
+		dial = func(addr net.Addr) (net.Conn, error) {
 			conn, err := tls.Dial("tcp", addr.String(), tlsConfig)
 			if err != nil {
 				logger.Debugf("tls.Dial(%s) failed with %v", addr, err)
 				return nil, err
 			}
 			return conn, nil
-		},
-		Timeout: mgoDialTimeout,
+		}
+	} else {
+		dial = func(addr net.Addr) (net.Conn, error) {
+			conn, err := net.Dial("tcp", addr.String())
+			if err != nil {
+				logger.Debugf("net.Dial(%s) failed with %v", addr, err)
+				return nil, err
+			}
+			return conn, nil
+		}
 	}
+	return &mgo.DialInfo{Addrs: addrs, Dial: dial, Timeout: mgoDialTimeout}
 }
 
 func (s *MgoSuite) SetUpTest(c *gc.C) {
