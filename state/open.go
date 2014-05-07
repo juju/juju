@@ -32,6 +32,11 @@ import (
 // default.
 const mongoSocketTimeout = 10 * time.Second
 
+// defaultDialTimeout should be representative of
+// the upper bound of time taken to dial a mongo
+// server from within the same cloud/private network.
+const defaultDialTimeout = 30 * time.Second
+
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
 // connection to that cluster.
@@ -63,9 +68,7 @@ type DialOpts struct {
 // DefaultDialOpts returns a DialOpts representing the default
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
-	return DialOpts{
-		Timeout: 10 * time.Minute,
-	}
+	return DialOpts{Timeout: defaultDialTimeout}
 }
 
 // Open connects to the server described by the given
