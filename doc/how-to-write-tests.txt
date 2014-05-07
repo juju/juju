@@ -1,0 +1,89 @@
+How to write tests
+==================
+
+On the whole, new or updated code will not pass review unless there are tests
+associated with the code.  For code additions, the tests should cover as much
+of the new code as practical, and for code changes, either the tests should be
+updated, or at least the tests that already exist that cover the refactored
+code should be identified when requesting a review to show that there is already
+test coverage, and that the refactoring didn't break anything.
+
+go test and gocheck
+-------------------
+
+The `go test` command is used to run the tests.  Juju uses the `gocheck` package
+("launchpad.net/gocheck") to provide a checkers and assert methods for the test
+writers.  The use of gocheck replaces the standard `testing` library.
+
+
+setting up tests for new packages
+---------------------------------
+
+Lets say we are creating a new provider for "magic" cloud, and we have a package
+called "magic" that lives at "launchpad.net/juju-core/provider/magic".  The
+general approach for testing in juju is to have the tests in a separate package.
+Continuing with this example the tests would be in a package called "magic_test".
+
+A common idiom that has occurred in juju is to setup to gocheck hooks in a special
+file called `package_test.go` that would look like this:
+
+
+```go
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package magic_test
+
+import (
+	"testing"
+
+	gc "launchpad.net/gocheck"
+)
+
+func Test(t *testing.T) {
+	gc.TestingT(t)
+}
+```
+
+or
+
+```go
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package magic_test
+
+import (
+	stdtesting "testing"
+
+	"launchpad.net/juju-core/testing"
+)
+
+func Test(t *stdtesting.T) {
+	testing.MgoTestPackage(t)
+}
+```
+
+The key difference here is that the first one just hooks up `gocheck`
+so it looks for the `gocheck` suites in the package.  The second makes 
+sure that there is a mongo available for the duration of the package tests.
+
+
+
+
+
+
+
+
+
+export_test.go
+--------------
+
+
+  * How to write tests
+     * base suites
+     * environment isolation
+     * patch variables and environment
+     * using gocheck (filter and verbose)
+     * table based tests vs. simple tests
+     * test should be small and obviously correct
