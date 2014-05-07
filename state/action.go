@@ -15,6 +15,7 @@ const (
 type actionDoc struct {
 	Id      string `bson:"_id"`
 	Name    string
+	Unit    string
 	Payload string
 	Status  ActionStatus
 }
