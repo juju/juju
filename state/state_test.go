@@ -174,12 +174,19 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddAction(c *gc.C) {
-	// s.ConnSuite.SetUpTest(c)
-	s.charm = s.AddTestingCharm(c, "wordpress")
-	s.service = s.AddTestingService(c, "wordpress", s.charm)
-	testAction := s.State.AddAction("wordpress", "snapshot", "outfile: foo.tar.gz")
-	c.Assert(s.State.Action("%v", testAction.doc.Id), gc.DeepEquals, testAction)
-	c.Assert(s.Unit.QueuedActions()[0], gc.Equals, s.Action(testAction.doc.Id))
+	charm := s.AddTestingCharm(c, "dummy")
+	_, err := s.State.AddService("wordpress", "user-admin", charm, nil, nil)
+	c.Assert(err, gc.IsNil)
+	testAction, err := s.State.AddAction("wordpress/0", "snapshot", "outfile: foo.tar.gz")
+	c.Assert(err, gc.IsNil)
+	answerAction, err := s.State.Action(testAction.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(answerAction, gc.DeepEquals, testAction)
+	testUnit, err := s.State.Unit("wordpress/0")
+	c.Assert(err, gc.IsNil)
+	queuedActions, err := testUnit.QueuedActions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(queuedActions[0], gc.Equals, answerAction.Id())
 }
 
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
