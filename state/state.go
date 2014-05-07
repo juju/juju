@@ -1386,7 +1386,11 @@ func (st *State) AddAction(unit string, name string, payload string) (*Action, e
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
-	append(ops, thisUnit.AddActionOps(doc.Id))
+	addActionOp, err := thisUnit.addActionOps(doc.Id)
+	if err != nil {
+		return nil, err
+	}
+	ops = append(ops, addActionOp...)
 
 	if err := st.runTransaction(ops); err != nil {
 		return nil, onAbort(err, errDead)
