@@ -63,19 +63,20 @@ const (
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in state/api/params.
 type unitDoc struct {
-	Name         string `bson:"_id"`
-	Service      string
-	Series       string
-	CharmURL     *charm.URL
-	Principal    string
-	Subordinates []string
-	MachineId    string
-	Resolved     ResolvedMode
-	Tools        *tools.Tools `bson:",omitempty"`
-	Ports        []instance.Port
-	Life         Life
-	TxnRevno     int64 `bson:"txn-revno"`
-	PasswordHash string
+	Name          string `bson:"_id"`
+	Service       string
+	Series        string
+	CharmURL      *charm.URL
+	Principal     string
+	Subordinates  []string
+	MachineId     string
+	Resolved      ResolvedMode
+	Tools         *tools.Tools `bson:",omitempty"`
+	Ports         []instance.Port
+	Life          Life
+	TxnRevno      int64 `bson:"txn-revno"`
+	PasswordHash  string
+	QueuedActions []string
 
 	// No longer used - to be removed.
 	PublicAddress  string
@@ -606,6 +607,29 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 	return nil
 }
 
+func (u *Unit) AddAction(actionId string) error {
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$addToSet", bson.D{{"queuedactions", actionId}}}},
+	}}
+	err := u.st.runTransaction(ops)
+	if err != nil {
+		return onAbort(err, errDead)
+	}
+	found := false
+	for _, id := range u.doc.QueuedActions {
+		if id == actionId {
+			break
+		}
+	}
+	if !found {
+		u.doc.QueuedActions = append(u.doc.QueuedActions, actionId)
+	}
+	return nil
+}
+
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	port := instance.Port{Protocol: protocol, Number: number}
@@ -1132,7 +1156,7 @@ func (u *Unit) AssignToCleanMachine() (m *Machine, err error) {
 	return u.assignToCleanMaybeEmptyMachine(false)
 }
 
-// AssignToCleanMachine assigns u to a machine which is marked as clean and is also
+// AssignToCleanEmptyMachine assigns u to a machine which is marked as clean and is also
 // not hosting any containers. A machine is clean if it has never had any principal units
 // assigned to it. If there are no clean machines besides any machine(s) running JobHostEnviron,
 // an error is returned.
