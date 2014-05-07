@@ -617,30 +617,10 @@ func (u *Unit) addActionOps(actionID string) ([]txn.Op, error) {
 	return ops, nil
 }
 
-// AddAction will probably be removed
-func (u *Unit) AddAction(actionID string) error {
-	ops, err := u.addActionOps(actionID)
-	if err != nil {
-		return onAbort(err, errDead)
-	}
-
-	err = u.st.runTransaction(ops)
-	if err != nil {
-		return onAbort(err, errDead)
-	}
-
-	for _, id := range u.doc.QueuedActions {
-		if id == actionID {
-			break
-		}
-	}
-	u.doc.QueuedActions = append(u.doc.QueuedActions, actionID)
-	return nil
-}
-
 // QueuedActions returns the ids of the Actions enqueued for this unit
 func (u *Unit) QueuedActions() ([]string, error) {
-	return []string{}, nil
+	actions := append([]string{}, u.doc.QueuedActions...)
+	return actions, nil
 }
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
