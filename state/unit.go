@@ -607,27 +607,39 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 	return nil
 }
 
-func (u *Unit) AddAction(actionId string) error {
+func (u *Unit) addActionOps(actionId string) ([]txn.Op, error) {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"queuedactions", actionId}}}},
 	}}
-	err := u.st.runTransaction(ops)
+	return ops, nil
+}
+
+// AddAction will probably be removed
+func (u *Unit) AddAction(actionId string) error {
+	ops, err := u.addActionOps(actionId)
 	if err != nil {
 		return onAbort(err, errDead)
 	}
-	found := false
+
+	err = u.st.runTransaction(ops)
+	if err != nil {
+		return onAbort(err, errDead)
+	}
+
 	for _, id := range u.doc.QueuedActions {
 		if id == actionId {
 			break
 		}
 	}
-	if !found {
-		u.doc.QueuedActions = append(u.doc.QueuedActions, actionId)
-	}
+	u.doc.QueuedActions = append(u.doc.QueuedActions, actionId)
 	return nil
+}
+
+func (u *Unit) QueuedActions() ([]string, error) {
+	return []string{}, nil
 }
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
