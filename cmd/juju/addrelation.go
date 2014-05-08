@@ -7,12 +7,13 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 )
 
 // AddRelationCommand adds a relation between two service endpoints.
 type AddRelationCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Endpoints []string
 }
 

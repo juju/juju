@@ -14,11 +14,12 @@ import (
 	"launchpad.net/juju-core/bzr"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/log"
 )
 
 type PublishCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	URL       string
 	CharmPath string
 
@@ -60,6 +61,9 @@ func (c *PublishCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *PublishCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.Init(); err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return nil
 	}

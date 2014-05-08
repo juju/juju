@@ -12,6 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
@@ -28,7 +29,7 @@ import (
 
 // UpgradeJujuCommand upgrades the agents in a juju installation.
 type UpgradeJujuCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	vers        string
 	Version     version.Number
 	UploadTools bool
@@ -84,6 +85,9 @@ func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *UpgradeJujuCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.Init(); err != nil {
+		return err
+	}
 	if c.vers != "" {
 		vers, err := version.Parse(c.vers)
 		if err != nil {

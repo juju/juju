@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
@@ -22,7 +23,7 @@ import (
 )
 
 type DeployCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	UnitCommandBase
 	CharmName    string
 	ServiceName  string
@@ -96,6 +97,9 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.Init(); err != nil {
+		return err
+	}
 	switch len(args) {
 	case 2:
 		if !names.IsService(args[1]) {

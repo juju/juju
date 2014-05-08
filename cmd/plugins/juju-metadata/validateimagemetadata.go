@@ -12,6 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
@@ -22,7 +23,7 @@ import (
 
 // ValidateImageMetadataCommand
 type ValidateImageMetadataCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	out          cmd.Output
 	providerType string
 	metadataDir  string
@@ -91,6 +92,9 @@ func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ValidateImageMetadataCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.Init(); err != nil {
+		return err
+	}
 	if c.providerType != "" {
 		if c.series == "" {
 			return fmt.Errorf("series required if provider type is specified")
@@ -102,7 +106,7 @@ func (c *ValidateImageMetadataCommand) Init(args []string) error {
 			return fmt.Errorf("metadata directory required if provider type is specified")
 		}
 	}
-	return c.EnvCommandBase.Init(args)
+	return cmd.CheckEmpty(args)
 }
 
 var _ environs.ConfigGetter = (*overrideEnvStream)(nil)
