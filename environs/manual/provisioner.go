@@ -130,7 +130,7 @@ func splitUserHost(host string) (string, string) {
 
 func recordMachineInState(
 	client *api.Client, machineParams params.AddMachineParams) (machineId string, err error) {
-	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
+	results, err := client.AddMachines1dot18([]params.AddMachineParams{machineParams})
 	if err != nil {
 		return "", err
 	}
