@@ -95,6 +95,7 @@ make build
 # Hack match for i386.
 sed -i 's/x86/86/' Makefile
 make install
+export JUJU_NOTEST_MONGOJS=1
 make check
 EOT
 EXIT_STATUS=$?
