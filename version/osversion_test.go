@@ -112,18 +112,18 @@ func (*kernelVersionSuite) TestKernelToMajorVersionEmpty(c *gc.C) {
 	c.Check(majorVersion, gc.Equals, 0)
 }
 
-func (*kernelVersionSuite) TestDarwinVersionFromKernelVersion(c *gc.C) {
-	c.Check(version.DarwinVersionFromKernelVersion(sysctlMacOS10dot9dot2), gc.Equals, "mavericks")
+func (*kernelVersionSuite) TestMacOSXSeriesFromKernelVersion(c *gc.C) {
+	c.Check(version.MacOSXSeriesFromKernelVersion(sysctlMacOS10dot9dot2), gc.Equals, "mavericks")
 }
 
-func (*kernelVersionSuite) TestDarwinVersionFromKernelVersionError(c *gc.C) {
+func (*kernelVersionSuite) TestMacOSXSeriesFromKernelVersionError(c *gc.C) {
 	// We suppress the actual error in favor of returning "unknown", but we
 	// do log the error
-	c.Check(version.DarwinVersionFromKernelVersion(sysctlError), gc.Equals, "unknown")
+	c.Check(version.MacOSXSeriesFromKernelVersion(sysctlError), gc.Equals, "unknown")
 	c.Check(c.GetTestLog(), gc.Matches, ".* juju.version unable to determine OS version: no such syscall\n")
 }
 
-func (*kernelVersionSuite) TestDarwinSeries(c *gc.C) {
+func (*kernelVersionSuite) TestMacOSXSeries(c *gc.C) {
 	tests := []struct {
 		version int
 		series  string
@@ -135,7 +135,7 @@ func (*kernelVersionSuite) TestDarwinSeries(c *gc.C) {
 		{0, "unknown"},
 	}
 	for _, test := range tests {
-		series := version.DarwinSeriesFromMajorVersion(test.version)
+		series := version.MacOSXSeriesFromMajorVersion(test.version)
 		c.Check(series, gc.Equals, test.series)
 	}
 }

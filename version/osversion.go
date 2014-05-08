@@ -16,7 +16,6 @@ var logger = loggo.GetLogger("juju.version")
 func readSeries(releaseFile string) string {
 	data, err := ioutil.ReadFile(releaseFile)
 	if err != nil {
-		// Failed to read the LSB Release file, so fall back to OS probing
 		return "unknown"
 	}
 	for _, line := range strings.Split(string(data), "\n") {
@@ -44,13 +43,13 @@ func kernelToMajor(getKernelVersion kernelVersionFunc) (int, error) {
 	return int(majorVersion), nil
 }
 
-func darwinVersionFromKernelVersion(getKernelVersion kernelVersionFunc) string {
+func macOSXSeriesFromKernelVersion(getKernelVersion kernelVersionFunc) string {
 	majorVersion, err := kernelToMajor(getKernelVersion)
 	if err != nil {
 		logger.Infof("unable to determine OS version: %v", err)
 		return "unknown"
 	}
-	return darwinSeriesFromMajorVersion(majorVersion)
+	return macOSXSeriesFromMajorVersion(majorVersion)
 }
 
 // TODO(jam): 2014-05-06 https://launchpad.net/bugs/1316593
@@ -58,7 +57,9 @@ func darwinVersionFromKernelVersion(getKernelVersion kernelVersionFunc) string {
 // recompiling Juju. For now, this is a lot easier, and also solves the fact
 // that we want to populate version.Current.Series during init() time, before
 // we've potentially read that information from anywhere else
-var darwinVersions = map[int]string{
+// macOSXSeries maps from the Darwin Kernel Major Version to the Mac OSX
+// series.
+var macOSXSeries = map[int]string{
 	13: "mavericks",
 	12: "mountainlion",
 	11: "lion",
@@ -70,8 +71,8 @@ var darwinVersions = map[int]string{
 	5:  "puma",
 }
 
-func darwinSeriesFromMajorVersion(majorVersion int) string {
-	if series, ok := darwinVersions[majorVersion]; ok {
+func macOSXSeriesFromMajorVersion(majorVersion int) string {
+	if series, ok := macOSXSeries[majorVersion]; ok {
 		return series
 	}
 	return "unknown"

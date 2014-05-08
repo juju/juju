@@ -18,5 +18,5 @@ var getSysctlVersion = sysctlVersion
 // osVersion returns the best approximation to what version this machine is.
 // If we are unable to determine the OSVersion, we return "unknown".
 func osVersion() string {
-	return darwinVersionFromKernelVersion(getSysctlVersion)
+	return macOSXSeriesFromKernelVersion(getSysctlVersion)
 }
