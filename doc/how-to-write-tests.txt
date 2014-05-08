@@ -115,8 +115,8 @@ import (
 )
 
 var (
-    // checkIfRoot is a variable of type `func() bool`, so CheckIfRoot is
-    // a pointer to that variable so we can patch it in the tests.
+	// checkIfRoot is a variable of type `func() bool`, so CheckIfRoot is
+	// a pointer to that variable so we can patch it in the tests.
 	CheckIfRoot      = &checkIfRoot
 	// providerInstance is a pointer to an instance of a private structure.
 	// Provider points to the same instance, so public methods on that instance
@@ -148,7 +148,7 @@ There are three main suites:
 
 The second two have the LoggingSuite functionality included through
 composition.  The LoggingSuite is also composed of the LoggingSuite from 
-github.com/juju/testing, which brings in the CleanupSute from the same.
+github.com/juju/testing, which brings in the CleanupSuite from the same.
 The CleanupSuite has the functionality around patching environment
 variables and normal variables for the duration of a test. It also
 provides a clean-up stack that gets called when the test teardown happens.
@@ -158,8 +158,11 @@ variable to it. It also creates ~/.juju and a simple environments.yaml file,
 ~/.ssh with a fake id_rsa.pub key, it isolates the test from the JUJU_HOME,
 JUJU_ENV, and JUJU_LOGGING_CONFIG environment variables.
 
-The JujuConnSuite does this and more. It also sets up a state server and
-api server.
+The JujuConnSuite does this and more. It also sets up a state server and api
+server.  This is one problem with the JujuConnSuite, it almost always does a
+lot more than you actually want or need.  This should really be broken into
+smaller component parts that make more sense.  If you can get away with not
+using the JujuConnSuite, you should try.
 
 To create a new suite composed of one or more of the suites above, you can do
 something like:
