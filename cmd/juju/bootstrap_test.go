@@ -25,7 +25,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/dummy"
@@ -57,7 +57,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
-	s.PatchValue(&sync.Upload, ttesting.GetMockUploadTools(c))
+	s.PatchValue(&sync.Upload, toolstesting.GetMockUploadTools(c))
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -497,7 +497,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 }
 
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) environs.Environ {
-	s.PatchValue(&sync.Upload, ttesting.GetMockUploadTools(c))
+	s.PatchValue(&sync.Upload, toolstesting.GetMockUploadTools(c))
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
@@ -619,7 +619,7 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 		versionStrings[i] = vers.String()
 	}
 	source := c.MkDir()
-	ttesting.MakeTools(c, source, "releases", versionStrings)
+	toolstesting.MakeTools(c, source, "releases", versionStrings)
 	return source
 }
 

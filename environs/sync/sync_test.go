@@ -27,7 +27,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -88,8 +88,8 @@ environments:
 	for i, vers := range vAll {
 		versionStrings[i] = vers.String()
 	}
-	ttesting.MakeTools(c, baseDir, "releases", versionStrings)
-	ttesting.MakeTools(c, s.localStorage, "releases", versionStrings)
+	toolstesting.MakeTools(c, baseDir, "releases", versionStrings)
+	toolstesting.MakeTools(c, s.localStorage, "releases", versionStrings)
 
 	// Switch the default tools location.
 	baseURL, err := s.storage.URL(storage.BaseToolsPath)
@@ -281,7 +281,7 @@ func (s *badBuildSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *uploadSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&envtools.BundleTools, ttesting.GetMockBundleTools(c, ""))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, ""))
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	// We only want to use simplestreams to find any synced tools.
@@ -386,7 +386,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedS
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}
-	metadata := ttesting.ParseMetadataFromStorage(c, s.env.Storage(), false)
+	metadata := toolstesting.ParseMetadataFromStorage(c, s.env.Storage(), false)
 	c.Assert(metadata, gc.HasLen, 3)
 	for i, tm := range metadata {
 		c.Assert(tm.Release, gc.Equals, expectSeries[i])
@@ -451,7 +451,7 @@ func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
 	c.Assert(builtTools, gc.IsNil)
 
-	s.PatchValue(&envtools.BundleTools, ttesting.GetMockBundleTools(c, c.MkDir()))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, c.MkDir()))
 
 	vers, sha256Hash, err = bundleTools(c)
 	c.Assert(err, gc.IsNil)
@@ -488,7 +488,7 @@ func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
 
 func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 	s.PatchValue(&version.Current, version.MustParseBinary("1.9.1-trusty-amd64"))
-	buildToolsFunc := ttesting.GetMockBuildTools(c)
+	buildToolsFunc := toolstesting.GetMockBuildTools(c)
 	builtTools, err := buildToolsFunc(nil)
 	c.Assert(err, gc.IsNil)
 

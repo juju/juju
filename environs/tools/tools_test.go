@@ -17,7 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -82,11 +82,11 @@ func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return ttesting.UploadToDirectory(c, s.customToolsDir, verses...)
+	return toolstesting.UploadToDirectory(c, s.customToolsDir, verses...)
 }
 
 func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return ttesting.UploadToDirectory(c, s.publicToolsDir, verses...)
+	return toolstesting.UploadToDirectory(c, s.publicToolsDir, verses...)
 }
 
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
@@ -180,7 +180,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsInControlBucket(c *gc.C) {
 	s.reset(c, nil)
-	custom := ttesting.UploadToStorage(c, s.env.Storage(), envtesting.V110p...)
+	custom := toolstesting.UploadToStorage(c, s.env.Storage(), envtesting.V110p...)
 	s.uploadPublic(c, envtesting.VAll...)
 	actual, err := envtools.FindTools(s.env, 1, 1, coretools.Filter{}, envtools.DoNotAllowRetry)
 	c.Assert(err, gc.IsNil)

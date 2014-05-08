@@ -22,7 +22,7 @@ import (
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
-	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -332,7 +332,7 @@ func (s *simplestreamsSuite) TestWriteMetadataNoFetch(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = tools.MergeAndWriteMetadata(writer, toolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadataFromDir(c, dir, false)
+	metadata := toolstesting.ParseMetadataFromDir(c, dir, false)
 	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
@@ -342,7 +342,7 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 		"2.0.1-raring-amd64",
 	}
 	dir := c.MkDir()
-	ttesting.MakeTools(c, dir, "releases", versionStrings)
+	toolstesting.MakeTools(c, dir, "releases", versionStrings)
 
 	toolsList := coretools.List{
 		{
@@ -364,7 +364,7 @@ func (s *simplestreamsSuite) assertWriteMetadata(c *gc.C, withMirrors bool) {
 	}
 	err = tools.MergeAndWriteMetadata(writer, toolsList, writeMirrors)
 	c.Assert(err, gc.IsNil)
-	metadata := ttesting.ParseMetadataFromDir(c, dir, withMirrors)
+	metadata := toolstesting.ParseMetadataFromDir(c, dir, withMirrors)
 	assertMetadataMatches(c, dir, toolsList, metadata)
 }
 
@@ -404,7 +404,7 @@ func (s *simplestreamsSuite) TestWriteMetadataMergeWithExisting(c *gc.C) {
 	err = tools.MergeAndWriteMetadata(writer, newToolsList, tools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
 	requiredToolsList := append(existingToolsList, newToolsList[1])
-	metadata := ttesting.ParseMetadataFromDir(c, dir, false)
+	metadata := toolstesting.ParseMetadataFromDir(c, dir, false)
 	assertMetadataMatches(c, dir, requiredToolsList, metadata)
 }
 
@@ -557,7 +557,7 @@ func (c *countingStorage) Get(name string) (io.ReadCloser, error) {
 func (*metadataHelperSuite) TestResolveMetadata(c *gc.C) {
 	var versionStrings = []string{"1.2.3-precise-amd64"}
 	dir := c.MkDir()
-	ttesting.MakeTools(c, dir, "releases", versionStrings)
+	toolstesting.MakeTools(c, dir, "releases", versionStrings)
 	toolsList := coretools.List{{
 		Version: version.MustParseBinary(versionStrings[0]),
 		Size:    123,

@@ -20,7 +20,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -389,7 +389,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	}
 	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
-	s.PatchValue(&sync.BuildToolsTarball, ttesting.GetMockBuildTools(c))
+	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {

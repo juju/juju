@@ -21,7 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -160,7 +160,7 @@ var bootstrapSetAgentVersionTests = []envtesting.BootstrapToolsTest{
 	}}
 
 func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
-	s.PatchValue(&sync.Upload, ttesting.GetMockUploadTools(c))
+	s.PatchValue(&sync.Upload, toolstesting.GetMockUploadTools(c))
 	allTests := append(envtesting.BootstrapToolsTests, bootstrapSetAgentVersionTests...)
 	// version.Current is set in the loop so ensure it is restored later.
 	s.PatchValue(&version.Current, version.Current)
@@ -305,7 +305,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailability(c *gc.C) {
 	cliVersion := version.Current
 	cliVersion.Arch = "arm64"
 	version.Current = cliVersion
-	s.PatchValue(&sync.BuildToolsTarball, ttesting.GetMockBuildTools(c))
+	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
 	// Host runs arm64, environment supports arm64.
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
@@ -357,7 +357,7 @@ func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, forceVe
 	cliVersion := version.Current
 	cliVersion.Arch = "arm64"
 	version.Current = cliVersion
-	s.PatchValue(&sync.BuildToolsTarball, ttesting.GetMockBuildTools(c))
+	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
 	// Host runs arm64, environment supports arm64.
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
