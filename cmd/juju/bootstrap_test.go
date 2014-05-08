@@ -305,6 +305,14 @@ var bootstrapTests = []bootstrapTest{{
 	args: []string{"--series", "fine"},
 	err:  `--series requires --upload-tools`,
 }, {
+	info: "lonely --upload-series",
+	args: []string{"--upload-series", "fine"},
+	err:  `--upload-series requires --upload-tools`,
+}, {
+	info: "--upload-series with --series",
+	args: []string{"--upload-tools", "--upload-series", "foo", "--series", "bar"},
+	err:  `--upload-series and --series can't be used together`,
+}, {
 	info:    "bad environment",
 	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"-e", "brokenenv"},
@@ -351,7 +359,7 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info:    "--upload-tools rejects invalid series",
 	version: "1.2.3-saucy-amd64",
-	args:    []string{"--upload-tools", "--series", "ping,ping,pong"},
+	args:    []string{"--upload-tools", "--upload-series", "ping,ping,pong"},
 	err:     `invalid series "ping"`,
 }, {
 	info:     "--upload-tools rejects mismatched arch",
@@ -405,6 +413,33 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	expectedErrText := "error: environment is already bootstrapped\n"
 	c.Check(coretesting.Stderr(ctx2), gc.Equals, expectedErrText)
 	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
+}
+
+func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
+	ctx := s.checkSeriesArg(c, "--series")
+	c.Check(coretesting.Stderr(ctx), gc.Equals,
+		"Use of --series is deprecated. Please use --upload-series instead.\n")
+}
+
+func (s *BootstrapSuite) TestNoDeprecationWithUploadSeries(c *gc.C) {
+	ctx := s.checkSeriesArg(c, "--upload-series")
+	c.Check(coretesting.Stderr(ctx), gc.Equals, "")
+}
+
+func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context {
+	_bootstrap := &fakeBootstrapFuncs{}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return _bootstrap
+	})
+	_, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
+
+	ctx, err := coretesting.RunCommand(c, &BootstrapCommand{},
+		[]string{"--upload-tools", argVariant, "foo,bar"})
+
+	c.Assert(err, gc.IsNil)
+	c.Check(_bootstrap.uploadToolsSeries, gc.DeepEquals, []string{"foo", "bar"})
+	return ctx
 }
 
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
@@ -703,4 +738,25 @@ func joinBinaryVersions(versions ...[]version.Binary) []version.Binary {
 		all = append(all, versions...)
 	}
 	return all
+}
+
+// TODO(menn0): This fake BootstrapInterface implementation is
+// currently quite minimal but could be easily extended to cover more
+// test scenarios. This could help improve some of the tests in this
+// file which execute large amounts of external functionality.
+type fakeBootstrapFuncs struct {
+	uploadToolsSeries []string
+}
+
+func (fake *fakeBootstrapFuncs) EnsureNotBootstrapped(env environs.Environ) error {
+	return nil
+}
+
+func (fake *fakeBootstrapFuncs) UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch *string, forceVersion bool, bootstrapSeries ...string) error {
+	fake.uploadToolsSeries = bootstrapSeries
+	return nil
+}
+
+func (fake fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) error {
+	return nil
 }
