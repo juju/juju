@@ -8,12 +8,26 @@ updated, or at least the tests that already exist that cover the refactored
 code should be identified when requesting a review to show that there is already
 test coverage, and that the refactoring didn't break anything.
 
+
 go test and gocheck
 -------------------
 
 The `go test` command is used to run the tests.  Juju uses the `gocheck` package
 ("launchpad.net/gocheck") to provide a checkers and assert methods for the test
 writers.  The use of gocheck replaces the standard `testing` library.
+
+Across all of the tests in juju-core, the gocheck package is imported
+with a shorter alias, because it is used a lot.
+
+```go
+import (
+	// system packages
+
+	gc "launchpad.net/gocheck"
+
+	// juju packages
+)
+```
 
 
 setting up tests for new packages
@@ -68,22 +82,151 @@ The key difference here is that the first one just hooks up `gocheck`
 so it looks for the `gocheck` suites in the package.  The second makes 
 sure that there is a mongo available for the duration of the package tests.
 
+A general rule is not to setup mongo for a package unless you really
+need to as it is extra overhead.
+
+
+writing the test files
+----------------------
+
+Normally there will be a test file for each file with code in the package.
+For a file called `config.go` there should be a test file called `config_test.go`.
+
+The package should in most cases be the same as the normal files with a "_test" suffix.
+In this way, the tests are testing the same interface as any normal user of the
+package.  It is reasonably common to want to modify some internal aspect of the package
+under test for the tests.  This is normally handled by a file called `export_test.go`.
+Even though the file ends with `_test.go`, the package definition is the same as the
+normal source files. In this way, for the tests and only the tests, additional
+public symbols can be defined for the package and used in the tests.
+
+Here is an annotated extract from `provider/local/export_test.go`
+
+```go
+// The package is the "local" so it has access to the package symbols
+// and not just the public ones.
+package local
+
+import (
+	"github.com/juju/testing"
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/environs/config"
+)
+
+var (
+    // checkIfRoot is a variable of type `func() bool`, so CheckIfRoot is
+    // a pointer to that variable so we can patch it in the tests.
+	CheckIfRoot      = &checkIfRoot
+	// providerInstance is a pointer to an instance of a private structure.
+	// Provider points to the same instance, so public methods on that instance
+	// are available in the tests.
+	Provider         = providerInstance
+)
+
+// ConfigNamespace is a helper function for the test that steps through a
+// number of private methods or variables, and is an alternative mechanism
+// to provide functionality for the tests.
+func ConfigNamespace(cfg *config.Config) string {
+	env, _ := providerInstance.Open(cfg)
+	return env.(*localEnviron).config.namespace()
+}
+```
+
+Suites and Juju base suites
+---------------------------
+
+With gocheck tests are grouped into Suites. Each suite has distinct
+set-up and tear-down logic.  Suites are often composed of other suites
+that provide specific set-up and tear-down behaviour.
+
+There are three main suites:
+
+  * /testing/testbase.LoggingSuite (testing/testbase/log.go)
+  * /testing.FakeHomeSuite (testing/environ.go)
+  * /juju/testing.JujuConnSuite (juju/testing/conn.go)
+
+The second two have the LoggingSuite functionality included through
+composition.  The LoggingSuite is also composed of the LoggingSuite from 
+github.com/juju/testing, which brings in the CleanupSute from the same.
+The CleanupSuite has the functionality around patching environment
+variables and normal variables for the duration of a test. It also
+provides a clean-up stack that gets called when the test teardown happens.
+
+The FakeHomeSuite creates a temporary directory and sets the HOME environment
+variable to it. It also creates ~/.juju and a simple environments.yaml file,
+~/.ssh with a fake id_rsa.pub key, it isolates the test from the JUJU_HOME,
+JUJU_ENV, and JUJU_LOGGING_CONFIG environment variables.
+
+The JujuConnSuite does this and more. It also sets up a state server and
+api server.
+
+
+To create your new test suite composing one of the following, you can
+do the following:
+
+```go
+type ToolsSuite struct {
+	testbase.LoggingSuite
+	dataDir string
+}
+
+var _ = gc.Suite(&ToolsSuite{})
+
+```
+
+If there is no extra setup needed, then you don't need to specify any
+set-up or tear-down methods as the LoggingSuite has them, and they are
+called by default.
+
+If you did want to do something, say, create a directory and save it in
+the dataDir, you would do something like this:
+
+```go
+func (t *ToolsSuite) SetUpTest(c *gc.C) {
+	t.LoggingSuite.SetUpTest(c)
+	t.dataDir = c.MkDir()
+}
+```
+
+If the test suite has multiple contained suites, please call them in the
+order that they are defined, and make sure something that is composed from
+the LoggingSuite is first.  They should be torn down in the reverse order.
+
+Even if the code that is being tested currently has no logging in it, it
+is a good idea to use the LoggingSuite as a base for two reasons:
+ * it brings in something composed of the CleanupSuite
+ * if someone does add logging later, it is captured and doesn't polute
+   the logging output
+
+
+Patching variables and the environment
+--------------------------------------
+
+Inside a test, and assuming that the Suite has a CleanupSuite somewhere
+in the compisition tree, there are a few very helpful functions.
+
+```go
+
+var foo int
+
+func (s *someTest) TestFubar(c *gc.C) {
+	// The TEST_OMG environment value will have "new value" for the duration
+	// of the test.
+	s.PatchEnvironment("TEST_OMG", "new value")
+
+	// foo is set to the value 42 for the duration of the test
+	s.PatchValue(&foo, 42)
+}
+```
+
+PatchValue works with any matching type. This includes function variables.
 
 
 
+Good tests
+----------
 
-
-
-
-
-export_test.go
---------------
-
-
-  * How to write tests
-     * base suites
-     * environment isolation
-     * patch variables and environment
-     * using gocheck (filter and verbose)
-     * table based tests vs. simple tests
-     * test should be small and obviously correct
+Good tests should be:
+  * small and obviously correct
+  * isolated from any system or environment values that may impact the test
