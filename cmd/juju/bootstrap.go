@@ -171,7 +171,7 @@ var getBootstrapFuncs = func() BootstrapInterface {
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
-	_bootstrap := getBootstrapFuncs()
+	bootstrapFuncs := getBootstrapFuncs()
 
 	if len(c.seriesOld) > 0 {
 		fmt.Fprintln(ctx.Stderr, "Use of --series is deprecated. Please use --upload-series instead.")
@@ -193,7 +193,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	defer cleanup()
-	if err := _bootstrap.EnsureNotBootstrapped(environ); err != nil {
+	if err := bootstrapFuncs.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
 
@@ -231,12 +231,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.UploadTools = true
 	}
 	if c.UploadTools {
-		err = _bootstrap.UploadTools(ctx, environ, c.Constraints.Arch, true, c.Series...)
+		err = bootstrapFuncs.UploadTools(ctx, environ, c.Constraints.Arch, true, c.Series...)
 		if err != nil {
 			return err
 		}
 	}
-	return _bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{
+	return bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 	})
