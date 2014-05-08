@@ -63,20 +63,19 @@ const (
 // unitDoc represents the internal state of a unit in MongoDB.
 // Note the correspondence with UnitInfo in state/api/params.
 type unitDoc struct {
-	Name          string `bson:"_id"`
-	Service       string
-	Series        string
-	CharmURL      *charm.URL
-	Principal     string
-	Subordinates  []string
-	MachineId     string
-	Resolved      ResolvedMode
-	Tools         *tools.Tools `bson:",omitempty"`
-	Ports         []instance.Port
-	Life          Life
-	TxnRevno      int64 `bson:"txn-revno"`
-	PasswordHash  string
-	QueuedActions []string
+	Name         string `bson:"_id"`
+	Service      string
+	Series       string
+	CharmURL     *charm.URL
+	Principal    string
+	Subordinates []string
+	MachineId    string
+	Resolved     ResolvedMode
+	Tools        *tools.Tools `bson:",omitempty"`
+	Ports        []instance.Port
+	Life         Life
+	TxnRevno     int64 `bson:"txn-revno"`
+	PasswordHash string
 
 	// No longer used - to be removed.
 	PublicAddress  string
@@ -259,7 +258,7 @@ func (u *Unit) PasswordValid(password string) bool {
 	return false
 }
 
-// Destroy, when called on a Alive unit, advances its lifecycle as far as
+// Destroy , when called on a Alive unit, advances its lifecycle as far as
 // possible; it otherwise has no effect. In most situations, the unit's
 // life is just set to Dying; but if a principal unit that is not assigned
 // to a provisioned machine is Destroyed, it will be removed from state
@@ -605,22 +604,6 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errDead))
 	}
 	return nil
-}
-
-func (u *Unit) addActionOps(actionID string) ([]txn.Op, error) {
-	ops := []txn.Op{{
-		C:      u.st.units.Name,
-		Id:     u.doc.Name,
-		Assert: notDeadDoc,
-		Update: bson.D{{"$addToSet", bson.D{{"queuedactions", actionID}}}},
-	}}
-	return ops, nil
-}
-
-// QueuedActions returns the ids of the Actions enqueued for this unit
-func (u *Unit) QueuedActions() ([]string, error) {
-	actions := append([]string{}, u.doc.QueuedActions...)
-	return actions, nil
 }
 
 // OpenPort sets the policy of the port with protocol and number to be opened.

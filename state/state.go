@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The state package enables reading, observing, and changing
+// Package state enables reading, observing, and changing
 // the state stored in MongoDB of a whole environment
 // managed by juju.
 package state
@@ -281,7 +281,7 @@ func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{
 
 type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
 
-// UpateEnvironConfig adds, updates or removes attributes in the current
+// UpdateEnvironConfig adds, updates or removes attributes in the current
 // configuration of the environment with the provided updateAttrs and
 // removeAttrs.
 func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
@@ -317,7 +317,7 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 	}
 
 	validAttrs := validCfg.AllAttrs()
-	for k, _ := range oldConfig.AllAttrs() {
+	for k := range oldConfig.AllAttrs() {
 		if _, ok := validAttrs[k]; !ok {
 			settings.Delete(k)
 		}
@@ -927,7 +927,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	defer errors.Maskf(&err, "cannot add service %q", name)
 	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
 	if err != nil || kind != names.UserTagKind {
-		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
+		return nil, fmt.Errorf("invalid ownertag %s", ownerTag)
 	}
 	// Sanity checks.
 	if !names.IsService(name) {
@@ -1373,25 +1373,18 @@ func (st *State) Action(id string) (*Action, error) {
 	return newAction(st, &doc), nil
 }
 
+// AddAction takes a unit Id, and an action name, and a payload containing
+// json-schema options for the action and inserts it into the actions
+// collection
 func (st *State) AddAction(unit string, name string, payload string) (*Action, error) {
-	thisUnit, err := st.Unit(unit)
-	if err != nil {
-		return nil, fmt.Errorf("cannot add action {%q, %q} to unit %q: %v",
-			name, payload, unit, err)
-	}
-	doc := actionDoc{string(bson.NewObjectId()), name, unit, payload, ActionPending}
+	newActionID := fmt.Sprintf("%s_%s", unit, string(bson.NewObjectId()))
+	doc := actionDoc{newActionID, name, unit, payload, ActionPending}
 	ops := []txn.Op{{
 		C:      st.actions.Name,
 		Id:     doc.Id,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
-	addActionOp, err := thisUnit.addActionOps(doc.Id)
-	if err != nil {
-		return nil, err
-	}
-	ops = append(ops, addActionOp...)
-
 	if err := st.runTransaction(ops); err != nil {
 		return nil, onAbort(err, errDead)
 	}
