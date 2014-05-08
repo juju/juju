@@ -24,14 +24,14 @@ import (
 )
 
 func Test(t *stdtesting.T) {
-	gc.TestingT(t)
+	testing.MgoTestPackageSsl(t, false)
 }
 
 var _ = gc.Suite(&StoreSuite{})
 var _ = gc.Suite(&TrivialSuite{})
 
 type StoreSuite struct {
-	MgoSuite
+	testing.MgoSuite
 	testing.HTTPSuite
 	testbase.LoggingSuite
 	store *store.Store
@@ -42,10 +42,9 @@ var noTestMongoJs *bool = flag.Bool("notest-mongojs", false, "Disable MongoDB te
 type TrivialSuite struct{}
 
 func (s *StoreSuite) SetUpSuite(c *gc.C) {
+	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
-	s.LoggingSuite.SetUpSuite(c)
-
 	if os.Getenv("JUJU_NOTEST_MONGOJS") == "1" {
 		c.Log("Tests requiring MongoDB Javascript will be skipped")
 		*noTestMongoJs = true
@@ -53,26 +52,27 @@ func (s *StoreSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *StoreSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownSuite(c)
 	s.HTTPSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
+	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *StoreSuite) SetUpTest(c *gc.C) {
-	s.MgoSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
+	s.HTTPSuite.SetUpTest(c)
 	var err error
-	s.store, err = store.Open(s.Addr)
+	s.store, err = store.Open(testing.MgoServer.Addr())
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *StoreSuite) TearDownTest(c *gc.C) {
-	s.LoggingSuite.TearDownTest(c)
-	s.HTTPSuite.TearDownTest(c)
 	if s.store != nil {
 		s.store.Close()
 	}
+	s.HTTPSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 // FakeCharmDir is a charm that implements the interface that the
@@ -839,7 +839,7 @@ func (s *StoreSuite) TestListCounters(c *gc.C) {
 	}
 
 	// Use a different store to exercise cache filling.
-	st, err := store.Open(s.Addr)
+	st, err := store.Open(testing.MgoServer.Addr())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

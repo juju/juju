@@ -521,8 +521,9 @@ EOF
 	configured := set.NewStrings("eth0")
 
 	// In order to support VLANs, we need to include 8021q module
-	// configure vconfig's set_name_type
-	script("modprobe 8021q")
+	// configure vconfig's set_name_type, but due to bug #1316762,
+	// we need to first check if it's already loaded.
+	script("sh -c 'lsmod | grep -q 8021q || modprobe 8021q'")
 	script("sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'")
 	script("vconfig set_name_type DEV_PLUS_VID_NO_PAD")
 	// Now prepare each interface configuration
