@@ -417,7 +417,8 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 
 func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
 	ctx := s.checkSeriesArg(c, "--series")
-	c.Check(coretesting.Stderr(ctx), gc.Equals, "Use of --series is deprecated. Please use --upload-series instead.\n")
+	c.Check(coretesting.Stderr(ctx), gc.Equals,
+		"Use of --series is deprecated. Please use --upload-series instead.\n")
 }
 
 func (s *BootstrapSuite) TestNoDeprecationWithUploadSeries(c *gc.C) {
@@ -433,11 +434,10 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 
-	bootstrapCommand := BootstrapCommand{}
-	ctx := coretesting.Context(c)
-	code := cmd.Main(&bootstrapCommand, ctx, []string{"--upload-tools", argVariant, "foo,bar"})
+	ctx, err := coretesting.RunCommand(c, &BootstrapCommand{},
+		[]string{"--upload-tools", argVariant, "foo,bar"})
 
-	c.Check(code, gc.Equals, 0)
+	c.Assert(err, gc.IsNil)
 	c.Check(_bootstrap.uploadToolsSeries, gc.DeepEquals, []string{"foo", "bar"})
 	return ctx
 }
