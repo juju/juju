@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -187,6 +188,24 @@ func (p *ProvisionerAPI) SetSupportedContainers(
 			result.Results[i].Error = common.ServerError(err)
 		}
 	}
+	return result, nil
+}
+
+// ContainerManagerConfig returns information from the environment config that are
+// needed for configuring the container manager.
+func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
+	var result params.ContainerManagerConfig
+	config, err := p.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	cfg := make(map[string]string)
+	cfg[container.ConfigName] = "juju"
+	switch args.Type {
+	case instance.LXC:
+		cfg["use-clone"] = fmt.Sprint(config.LXCUseClone())
+	}
+	result.ManagerConfig = cfg
 	return result, nil
 }
 

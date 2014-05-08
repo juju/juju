@@ -115,6 +115,11 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 	return result.Tools, nil
 }
 
+func (st *State) ContainerManagerConfig(args params.ContainerManagerConfigParams) (result params.ContainerManagerConfig, err error) {
+	err = st.call("ContainerManagerConfig", args, &result)
+	return result, err
+}
+
 // ContainerConfig returns information from the environment config that are
 // needed for container cloud-init.
 func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
