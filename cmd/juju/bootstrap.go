@@ -103,7 +103,6 @@ func (c *BootstrapCommand) Init(args []string) (err error) {
 	}
 	if len(c.seriesOld) > 0 {
 		c.Series = c.seriesOld
-		c.seriesOld = nil
 	}
 
 	// Parse the placement directive. Bootstrap currently only
@@ -143,10 +142,41 @@ func (v *seriesValue) Set(s string) error {
 	return nil
 }
 
+// bootstrap functionality that Run calls to support cleaner testing
+type BootstrapInterface interface {
+	EnsureNotBootstrapped(env environs.Environ) error
+	UploadTools(environs.BootstrapContext, environs.Environ, *string, bool, ...string) error
+	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) error
+}
+
+type bootstrapFuncs struct{}
+
+func (b bootstrapFuncs) EnsureNotBootstrapped(env environs.Environ) error {
+	return bootstrap.EnsureNotBootstrapped(env)
+}
+
+func (b bootstrapFuncs) UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch *string, forceVersion bool, bootstrapSeries ...string) error {
+	return bootstrap.UploadTools(ctx, env, toolsArch, forceVersion, bootstrapSeries...)
+}
+
+func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) error {
+	return bootstrap.Bootstrap(ctx, env, args)
+}
+
+var getBootstrapFuncs = func() BootstrapInterface {
+	return &bootstrapFuncs{}
+}
+
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
+	_bootstrap := getBootstrapFuncs()
+
+	if len(c.seriesOld) > 0 {
+		fmt.Fprintln(ctx.Stderr, "Use of --series is deprecated. Please use --upload-series instead.")
+	}
+
 	environ, cleanup, err := environFromName(ctx, c.EnvName, &resultErr, "Bootstrap")
 	if err != nil {
 		return err
@@ -163,7 +193,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	defer cleanup()
-	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
+	if err := _bootstrap.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
 
@@ -201,12 +231,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.UploadTools = true
 	}
 	if c.UploadTools {
-		err = bootstrap.UploadTools(ctx, environ, c.Constraints.Arch, true, c.Series...)
+		err = _bootstrap.UploadTools(ctx, environ, c.Constraints.Arch, true, c.Series...)
 		if err != nil {
 			return err
 		}
 	}
-	return bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{
+	return _bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 	})

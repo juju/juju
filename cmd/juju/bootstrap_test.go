@@ -416,15 +416,30 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
+	ctx := s.checkSeriesArg(c, "--series")
+	c.Check(coretesting.Stderr(ctx), gc.Equals, "Use of --series is deprecated. Please use --upload-series instead.\n")
+}
+
+func (s *BootstrapSuite) TestNoDeprecationWithUploadSeries(c *gc.C) {
+	ctx := s.checkSeriesArg(c, "--upload-series")
+	c.Check(coretesting.Stderr(ctx), gc.Equals, "")
+}
+
+func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context {
+	_bootstrap := &fakeBootstrapFuncs{}
+	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
+		return _bootstrap
+	})
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 
-	cmd := BootstrapCommand{}
-	err := coretesting.InitCommand(&cmd, []string{"--upload-tools", "--series", "foo,bar"})
+	bootstrapCommand := BootstrapCommand{}
+	ctx := coretesting.Context(c)
+	code := cmd.Main(&bootstrapCommand, ctx, []string{"--upload-tools", argVariant, "foo,bar"})
 
-	c.Assert(err, gc.IsNil)
-	c.Check(cmd.Series, gc.DeepEquals, []string{"foo", "bar"})
-	c.Check(cmd.seriesOld, gc.IsNil)
+	c.Check(code, gc.Equals, 0)
+	c.Check(_bootstrap.uploadToolsSeries, gc.DeepEquals, []string{"foo", "bar"})
+	return ctx
 }
 
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
@@ -723,4 +738,25 @@ func joinBinaryVersions(versions ...[]version.Binary) []version.Binary {
 		all = append(all, versions...)
 	}
 	return all
+}
+
+// TODO(menn0): This fake BootstrapInterface implementation is
+// currently quite minimal but could be easily extended to cover more
+// test scenarios. This could help improve some of the tests in this
+// file which execute large amounts of external functionality.
+type fakeBootstrapFuncs struct {
+	uploadToolsSeries []string
+}
+
+func (fake *fakeBootstrapFuncs) EnsureNotBootstrapped(env environs.Environ) error {
+	return nil
+}
+
+func (fake *fakeBootstrapFuncs) UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch *string, forceVersion bool, bootstrapSeries ...string) error {
+	fake.uploadToolsSeries = bootstrapSeries
+	return nil
+}
+
+func (fake fakeBootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) error {
+	return nil
 }
