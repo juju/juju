@@ -34,7 +34,7 @@ var lsbReleaseFile = "/etc/lsb-release"
 // binary, it will override this.
 var Current = Binary{
 	Number: MustParse(version),
-	Series: readSeries(lsbReleaseFile),
+	Series: osVersion(),
 	Arch:   arch.HostArch(),
 }
 
@@ -308,20 +308,6 @@ func isOdd(x int) bool {
 // version.
 func (v Number) IsDev() bool {
 	return isOdd(v.Minor) || v.Build > 0
-}
-
-func readSeries(releaseFile string) string {
-	data, err := ioutil.ReadFile(releaseFile)
-	if err != nil {
-		return "unknown"
-	}
-	for _, line := range strings.Split(string(data), "\n") {
-		const prefix = "DISTRIB_CODENAME="
-		if strings.HasPrefix(line, prefix) {
-			return strings.Trim(line[len(prefix):], "\t '\"")
-		}
-	}
-	return "unknown"
 }
 
 // ReleaseVersion looks for the value of DISTRIB_RELEASE in the content of
