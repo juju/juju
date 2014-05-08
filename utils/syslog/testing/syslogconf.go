@@ -66,11 +66,11 @@ func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port in
 }
 
 var expectedForwardSyslogConfTemplate = `
-$ModLoad imfile
+$ModLoad imuxsock
 
-# Enable reliable forwarding.
+# start: Forwarding rule for server
 $ActionQueueType LinkedList
-$ActionQueueFileName {{.MachineTag}}{{.Namespace}}
+$ActionQueueFileName {{.MachineTag}}{{.Namespace}}_0
 $ActionResumeRetryCount -1
 $ActionQueueSaveOnShutdown on
 
@@ -87,8 +87,9 @@ $ActionSendStreamDriverAuthMode anon
 $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
-
 :syslogtag, startswith, "juju{{.Namespace}}-" @@{{.BootstrapIP}}:{{.Port}};LongTagForwardFormat
+# end: Forwarding rule for server
+
 & ~
 `
 
