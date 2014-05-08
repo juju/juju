@@ -75,7 +75,9 @@ $FileCreateMode 0640
 // Messages are forwarded to the state server node.
 const nodeRsyslogTemplate = `
 $ModLoad imfile
-{{range $i, $bootstrapIP := bootstrapHosts}}{{if $i}}\n{{end}}
+{{range $i, $bootstrapIP := bootstrapHosts}}{{if $i}}
+\n
+{{end}}
 # Enable reliable forwarding.
 $ActionQueueType LinkedList
 $ActionQueueFileName {{logfileName}}{{namespace}}
