@@ -64,7 +64,7 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SyncToolsCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.Init(); err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	if c.destination != "" {

@@ -43,7 +43,7 @@ func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ToolsMetadataCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.Init(); err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	return cmd.CheckEmpty(args)

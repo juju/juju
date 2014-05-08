@@ -83,7 +83,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
-	if err := c.EnvCommandBase.Init(); err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	if len(c.Series) > 0 && !c.UploadTools {

@@ -92,7 +92,7 @@ func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ValidateImageMetadataCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.Init(); err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	if c.providerType != "" {

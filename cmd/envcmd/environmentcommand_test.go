@@ -8,9 +8,12 @@ import (
 	"os"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
+	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd/envcmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/osenv"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -82,4 +85,56 @@ func (*EnvironmentCommandSuite) TestErrorWritingFile(c *gc.C) {
 	os.MkdirAll(envcmd.GetCurrentEnvironmentFilePath(), 0777)
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, gc.ErrorMatches, "unable to write to the environment file: .*")
+}
+
+func (s *EnvironmentCommandSuite) TestEnsureEnvName(c *gc.C) {
+	// Take environment name from command line arg.
+	cmd := initEnvCommandBase(c, "explicit")
+	err := cmd.EnsureEnvName()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cmd.EnvName, gc.Equals, "explicit")
+
+	// Take environment name from the default.
+	defer coretesting.MakeFakeHome(c, coretesting.MultipleEnvConfig).Restore()
+	testEnsureEnvName(c, coretesting.SampleEnvName)
+
+	// Take environment name from the one and only environment,
+	// even if it is not explicitly marked as default.
+	defer coretesting.MakeFakeHome(c, coretesting.SingleEnvConfigNoDefault).Restore()
+	testEnsureEnvName(c, coretesting.SampleEnvName)
+
+	// If there is a current-environment file, use that.
+	err = envcmd.WriteCurrentEnvironment("fubar")
+	testEnsureEnvName(c, "fubar")
+}
+
+func (s *EnvironmentCommandSuite) TestEnsureEnvNameErrors(c *gc.C) {
+	err := initEnvCommandBase(c, "").EnsureEnvName()
+	c.Assert(err, jc.Satisfies, environs.IsNoEnv)
+
+	// If there are multiple environments but no default,
+	// an error should be returned.
+	defer coretesting.MakeFakeHome(c, coretesting.MultipleEnvConfigNoDefault).Restore()
+	err = initEnvCommandBase(c, "").EnsureEnvName()
+	c.Assert(err, gc.Equals, envcmd.ErrNoEnvironmentSpecified)
+}
+
+func initEnvCommandBase(c *gc.C, name string) *envcmd.EnvCommandBase {
+	var flags gnuflag.FlagSet
+	var cmd envcmd.EnvCommandBase
+	cmd.SetFlags(&flags)
+	var args []string
+	if name != "" {
+		args = []string{"-e", name}
+	}
+	err := flags.Parse(false, args)
+	c.Assert(err, gc.IsNil)
+	return &cmd
+}
+
+func testEnsureEnvName(c *gc.C, expect string) {
+	cmd := initEnvCommandBase(c, "")
+	err := cmd.EnsureEnvName()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cmd.EnvName, gc.Equals, expect)
 }

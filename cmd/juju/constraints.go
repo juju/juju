@@ -80,7 +80,7 @@ func (c *GetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *GetConstraintsCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.Init(); err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	if len(args) > 0 {
@@ -154,7 +154,7 @@ func (c *SetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SetConstraintsCommand) Init(args []string) (err error) {
-	if err := c.EnvCommandBase.Init(); err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	if c.ServiceName != "" && !names.IsService(c.ServiceName) {

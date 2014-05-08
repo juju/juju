@@ -36,7 +36,7 @@ func (c *ResolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ResolvedCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.Init(); err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	if len(args) > 0 {
