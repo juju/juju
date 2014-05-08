@@ -13,13 +13,13 @@ import (
 	"launchpad.net/juju-core/names"
 )
 
-// DestroyUnitCommand is responsible for destroying service units.
-type DestroyUnitCommand struct {
+// RemoveUnitCommand is responsible for destroying service units.
+type RemoveUnitCommand struct {
 	envcmd.EnvCommandBase
 	UnitNames []string
 }
 
-func (c *DestroyUnitCommand) Info() *cmd.Info {
+func (c *RemoveUnitCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-unit",
 		Args:    "<unit> [...]",
@@ -28,7 +28,7 @@ func (c *DestroyUnitCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DestroyUnitCommand) Init(args []string) error {
+func (c *RemoveUnitCommand) Init(args []string) error {
 	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
@@ -47,7 +47,7 @@ func (c *DestroyUnitCommand) Init(args []string) error {
 
 // Run connects to the environment specified on the command line and destroys
 // units therein.
-func (c *DestroyUnitCommand) Run(_ *cmd.Context) error {
+func (c *RemoveUnitCommand) Run(_ *cmd.Context) error {
 	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err

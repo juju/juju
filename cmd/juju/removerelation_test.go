@@ -10,18 +10,18 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-type DestroyRelationSuite struct {
+type RemoveRelationSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = gc.Suite(&DestroyRelationSuite{})
+var _ = gc.Suite(&RemoveRelationSuite{})
 
-func runDestroyRelation(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &DestroyRelationCommand{}, args)
+func runRemoveRelation(c *gc.C, args ...string) error {
+	_, err := testing.RunCommand(c, &RemoveRelationCommand{}, args)
 	return err
 }
 
-func (s *DestroyRelationSuite) TestDestroyRelation(c *gc.C) {
+func (s *RemoveRelationSuite) TestRemoveRelation(c *gc.C) {
 	testing.Charms.BundlePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
@@ -31,16 +31,16 @@ func (s *DestroyRelationSuite) TestDestroyRelation(c *gc.C) {
 	runAddRelation(c, "riak", "logging")
 
 	// Destroy a relation that exists.
-	err = runDestroyRelation(c, "logging", "riak")
+	err = runRemoveRelation(c, "logging", "riak")
 	c.Assert(err, gc.IsNil)
 
 	// Destroy a relation that used to exist.
-	err = runDestroyRelation(c, "riak", "logging")
+	err = runRemoveRelation(c, "riak", "logging")
 	c.Assert(err, gc.ErrorMatches, `relation "logging:info riak:juju-info" not found`)
 
 	// Invalid removes.
-	err = runDestroyRelation(c, "ping", "pong")
+	err = runRemoveRelation(c, "ping", "pong")
 	c.Assert(err, gc.ErrorMatches, `service "ping" not found`)
-	err = runDestroyRelation(c, "riak")
+	err = runRemoveRelation(c, "riak")
 	c.Assert(err, gc.ErrorMatches, `a relation must involve two services`)
 }
