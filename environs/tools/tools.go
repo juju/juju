@@ -233,7 +233,7 @@ func FindExactTools(cloudInst environs.ConfigGetter,
 	return availableTools[0], nil
 }
 
-// CheckToolsSeries verifies that all the given possible tools are for the
+// checkToolsSeries verifies that all the given possible tools are for the
 // given OS series.
 func checkToolsSeries(toolsList coretools.List, series string) error {
 	toolsSeries := toolsList.AllSeries()

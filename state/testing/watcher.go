@@ -138,7 +138,7 @@ func (c StringsWatcherC) AssertChangeInSingleEvent(expect ...string) {
 	c.assertChange(true, expect...)
 }
 
-// AssertChange asserts the given list of changes was reported by
+// assertChange asserts the given list of changes was reported by
 // the watcher, but does not assume there are no following changes.
 func (c StringsWatcherC) assertChange(single bool, expect ...string) {
 	c.State.StartSync()

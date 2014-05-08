@@ -21,7 +21,7 @@ func IsMachine(id string) bool {
 	return validMachine.MatchString(id)
 }
 
-// IsMachine returns whether id is a valid container machine id.
+// IsContainerMachine returns whether id is a valid container machine id.
 func IsContainerMachine(id string) bool {
 	return validMachine.MatchString(id) && strings.Contains(id, "/")
 }

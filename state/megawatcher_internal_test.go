@@ -975,7 +975,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 	}
 }
 
-// StateWatcher tests the integration of the state watcher
+// TestStateWatcher tests the integration of the state watcher
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {

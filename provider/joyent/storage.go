@@ -87,7 +87,7 @@ func (s *JoyentStorage) createContainer() error {
 	return err
 }
 
-// deleteContainer deletes the named container from the storage account.
+// DeleteContainer deletes the named container from the storage account.
 func (s *JoyentStorage) DeleteContainer(containerName string) error {
 	err := s.manta.DeleteDirectory(containerName)
 	if err == nil && strings.EqualFold(s.containerName, containerName) {

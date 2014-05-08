@@ -86,12 +86,16 @@ $InputTCPServerRun {{portNumber}}
 
 // The rsyslog conf for non-state server nodes.
 // Messages are forwarded to the state server node.
+//
+// Each forwarding rule must be repeated in full, for every state server and
+// each rule must use a unique ActionQueueFileName
+// See: http://www.rsyslog.com/doc/rsyslog_reliable_forwarding.html
 const nodeRsyslogTemplate = `
-$ModLoad imfile
-
-# Enable reliable forwarding.
+$ModLoad imuxsock
+{{range $i, $bootstrapIP := bootstrapHosts}}
+# start: Forwarding rule for {{$bootstrapIP}}
 $ActionQueueType LinkedList
-$ActionQueueFileName {{logfileName}}{{namespace}}
+$ActionQueueFileName {{logfileName}}{{namespace}}_{{$i}}
 $ActionResumeRetryCount -1
 $ActionQueueSaveOnShutdown on
 
@@ -108,8 +112,9 @@ $ActionSendStreamDriverAuthMode anon
 $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
-
-:syslogtag, startswith, "juju{{namespace}}-" {{range $i, $bootstrapIP := bootstrapHosts}}{{if $i}} & {{end}}@@{{$bootstrapIP}}:{{portNumber}};LongTagForwardFormat{{end}}
+:syslogtag, startswith, "juju{{namespace}}-" @@{{$bootstrapIP}}:{{portNumber}};LongTagForwardFormat
+# end: Forwarding rule for {{$bootstrapIP}}
+{{end}}
 & ~
 `
 

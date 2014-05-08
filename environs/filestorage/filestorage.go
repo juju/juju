@@ -111,7 +111,7 @@ func (f *fileStorageReader) URL(name string) (string, error) {
 	return "file://" + filepath.Join(f.path, name), nil
 }
 
-// ConsistencyStrategy implements storage.StorageReader.ConsistencyStrategy.
+// DefaultConsistencyStrategy implements storage.StorageReader.ConsistencyStrategy.
 func (f *fileStorageReader) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }

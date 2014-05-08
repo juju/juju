@@ -50,14 +50,14 @@ See Also:
 const helpLocalProvider = `
 The local provider is a Linux-only Juju environment that uses LXC containers as
 a virtual cloud on the local machine.  Because of this, lxc and mongodb are
-required for the local provider to work.  If you don't already have lxc and
-mongodb installed, run the following commands:
+required for the local provider to work. All of these dependencies are tracked
+in the 'juju-local' package. You can install that with:
 
   sudo apt-get update
-  sudo apt-get install lxc mongodb-server
+  sudo apt-get install juju-local
 
-After that you might get error for SSH authorized/public key not found. ERROR
-SSH authorized/public key not found.
+After that you might get error for SSH authorised/public key not found. ERROR
+SSH authorised/public key not found.
 
   ssh-keygen -t rsa
 
@@ -81,7 +81,7 @@ You deploy charms from the charm store using the following commands:
 
 As of trusty, the local provider will prefer to use lxc-clone to create
 the machines. A 'template' container is created with the name
-  juju-<series>-tempalte
+  juju-<series>-template
 where <series> is the OS series, for example 'juju-precise-template'.
 You can override the use of clone by specifying
   use-clone: true

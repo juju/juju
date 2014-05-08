@@ -14,6 +14,9 @@ import (
 	"code.google.com/p/go.crypto/ssh"
 )
 
+// rsaGenerateKey allows for tests to patch out rsa key generation
+var rsaGenerateKey = rsa.GenerateKey
+
 // KeyBits is used to determine the number of bits to use for the RSA keys
 // created using the GenerateKey function.
 var KeyBits = 2048
@@ -24,7 +27,7 @@ var KeyBits = 2048
 // be added into an authorized_keys file, and has the comment passed in as the
 // comment part of the key.
 func GenerateKey(comment string) (private, public string, err error) {
-	key, err := rsa.GenerateKey(rand.Reader, KeyBits)
+	key, err := rsaGenerateKey(rand.Reader, KeyBits)
 	if err != nil {
 		return "", "", err
 	}

@@ -4,12 +4,15 @@
 package cmd_test
 
 import (
+	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -33,6 +36,19 @@ func (s *FileVarSuite) SetUpTest(c *gc.C) {
 	f.Close()
 	err = os.Chmod(s.InvalidPath, 0) // make unreadable
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *FileVarSuite) TestTildeFileVar(c *gc.C) {
+	defer testing.MakeEmptyFakeHome(c).Restore()
+	path := filepath.Join(osenv.Home(), "config.yaml")
+	err := ioutil.WriteFile(path, []byte("abc"), 0644)
+	c.Assert(err, gc.IsNil)
+
+	var config cmd.FileVar
+	config.Set("~/config.yaml")
+	file, err := config.Read(s.ctx)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(file), gc.Equals, "abc")
 }
 
 func (s *FileVarSuite) TestValidFileVar(c *gc.C) {

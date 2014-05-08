@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"
@@ -758,7 +759,7 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 	return role
 }
 
-// StartInstance is specified in the InstanceBroker interface.
+// StopInstances is specified in the InstanceBroker interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	context, err := env.getManagementAPI()
 	if err != nil {
@@ -932,6 +933,13 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		}
 	}
 	return instances, err
+}
+
+// AllocateAddress requests a new address to be allocated for the
+// given instance on the given network. This is not implemented on the
+// Azure provider yet.
+func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

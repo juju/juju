@@ -158,7 +158,7 @@ func (s *localStorage) modURL(name string) (string, error) {
 	return fmt.Sprintf("%s%s?%s", s.httpsBaseURL, name, v.Encode()), nil
 }
 
-// ConsistencyStrategy is specified in the StorageReader interface.
+// DefaultConsistencyStrategy is specified in the StorageReader interface.
 func (s *localStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }

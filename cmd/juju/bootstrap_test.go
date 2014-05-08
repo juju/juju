@@ -376,12 +376,12 @@ var bootstrapTests = []bootstrapTest{{
 	},
 }, {
 	info:      "placement",
-	args:      []string{"something"},
+	args:      []string{"--to", "something"},
 	placement: "something",
 }, {
-	info: "invalid placement: ssh",
-	args: []string{"ssh:someplace"},
-	err:  `unsupported bootstrap placement directive "ssh:someplace"`,
+	info: "additional args",
+	args: []string{"anything", "else"},
+	err:  `unrecognized args: \["anything" "else"\]`,
 }}
 
 func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {

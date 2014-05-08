@@ -40,7 +40,7 @@ type Server struct {
 	limiter utils.Limiter
 }
 
-// Serve serves the given state by accepting requests on the given
+// NewServer serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
 func NewServer(s *state.State, addr string, cert, key []byte, datadir, logDir string) (*Server, error) {

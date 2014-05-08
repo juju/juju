@@ -119,7 +119,7 @@ func EnsureCloneTemplate(
 
 	userData, err := templateUserData(series, authorizedKeys, aptProxy)
 	if err != nil {
-		logger.Tracef("filed to create tempalte user data for template: %v", err)
+		logger.Tracef("failed to create template user data for template: %v", err)
 		return nil, err
 	}
 	userDataFilename, err := container.WriteCloudInitFile(containerDirectory, userData)
