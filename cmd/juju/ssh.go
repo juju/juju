@@ -69,6 +69,9 @@ func (c *SSHCommand) Info() *cmd.Info {
 }
 
 func (c *SSHCommand) Init(args []string) error {
+	if err := c.EnsureEnvName(); err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return errors.New("no target name specified")
 	}
