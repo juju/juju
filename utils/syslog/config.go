@@ -80,12 +80,6 @@ $FileCreateMode 0640
 const nodeRsyslogTemplate = `
 $ModLoad imuxsock
 $ModLoad imfile
-{{range $i, $stateServerIP := stateServerHosts}}
-# start: Forwarding rule for {{$stateServerIP}}
-$ActionQueueType LinkedList
-$ActionQueueFileName {{logfileName}}{{namespace}}_{{$i}}
-$ActionResumeRetryCount -1
-$ActionQueueSaveOnShutdown on
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
@@ -94,6 +88,12 @@ $InputFileTag juju{{namespace}}-{{logfileName}}:
 $InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
 
+{{range $i, $stateServerIP := stateServerHosts}}
+# start: Forwarding rule for {{$stateServerIP}}
+$ActionQueueType LinkedList
+$ActionQueueFileName {{logfileName}}{{namespace}}_{{$i}}
+$ActionResumeRetryCount -1
+$ActionQueueSaveOnShutdown on
 $DefaultNetstreamDriver gtls
 $DefaultNetstreamDriverCAFile {{tlsCACertPath}}
 $ActionSendStreamDriverAuthMode anon
