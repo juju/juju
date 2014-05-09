@@ -927,7 +927,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	defer errors.Maskf(&err, "cannot add service %q", name)
 	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
 	if err != nil || kind != names.UserTagKind {
-		return nil, fmt.Errorf("invalid ownertag %s", ownerTag)
+		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
 	}
 	// Sanity checks.
 	if !names.IsService(name) {
