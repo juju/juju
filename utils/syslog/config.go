@@ -79,6 +79,7 @@ $FileCreateMode 0640
 // See: http://www.rsyslog.com/doc/rsyslog_reliable_forwarding.html
 const nodeRsyslogTemplate = `
 $ModLoad imuxsock
+$ModLoad imfile
 {{range $i, $stateServerIP := stateServerHosts}}
 # start: Forwarding rule for {{$stateServerIP}}
 $ActionQueueType LinkedList

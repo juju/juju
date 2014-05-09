@@ -67,6 +67,7 @@ func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port in
 
 var expectedForwardSyslogConfTemplate = `
 $ModLoad imuxsock
+$ModLoad imfile
 
 # start: Forwarding rule for server
 $ActionQueueType LinkedList
