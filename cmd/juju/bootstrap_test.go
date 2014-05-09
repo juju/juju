@@ -314,7 +314,7 @@ var bootstrapTests = []bootstrapTest{{
 	err:  `--upload-series and --series can't be used together`,
 }, {
 	info:    "bad environment",
-	version: "1.1.3-%LTS%-amd64",
+	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"-e", "brokenenv"},
 	err:     `dummy.Bootstrap is broken`,
 }, {
