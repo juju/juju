@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/juju/ubuntu"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -229,7 +230,7 @@ func cloneToolsForSeries(toolsInfo *BuiltTools, series ...string) error {
 	}
 	logger.Debugf("generating tarballs for %v", series)
 	for _, series := range series {
-		_, err := simplestreams.SeriesVersion(series)
+		_, err := ubuntu.SeriesVersion(series)
 		if err != nil {
 			return err
 		}

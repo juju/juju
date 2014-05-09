@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/juju/ubuntu"
 	"launchpad.net/juju-core/testing/testbase"
 )
 
@@ -535,7 +536,7 @@ func NewTestConstraint(params simplestreams.LookupParams) *testConstraint {
 }
 
 func (tc *testConstraint) Ids() ([]string, error) {
-	version, err := simplestreams.SeriesVersion(tc.Series[0])
+	version, err := ubuntu.SeriesVersion(tc.Series[0])
 	if err != nil {
 		return nil, err
 	}
