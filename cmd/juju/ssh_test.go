@@ -93,9 +93,6 @@ var sshTests = []struct {
 }
 
 func (s *SSHSuite) TestSSHCommand(c *gc.C) {
-	//err := s.State.UpdateEnvironConfig(map[string]interface{}{"proxy-ssh": true}, nil, nil)
-	//c.Assert(err, gc.IsNil)
-
 	m := s.makeMachines(3, c, true)
 	ch := coretesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(

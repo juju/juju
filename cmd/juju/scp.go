@@ -103,14 +103,9 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	}
 	defer c.apiClient.Close()
 
-	var options *ssh.Options
-	if c.proxy, err = c.proxySSH(); err != nil {
+	options, err := c.getSSHOptions(false)
+	if err != nil {
 		return err
-	} else if c.proxy {
-		options = new(ssh.Options)
-		if err := c.setProxyCommand(options); err != nil {
-			return err
-		}
 	}
 	args, err := expandArgs(c.Args, c.hostFromTarget)
 	if err != nil {
