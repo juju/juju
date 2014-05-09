@@ -16,7 +16,6 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
@@ -226,11 +225,7 @@ var errTests = []errTestParams{
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
-	home := testing.MakeSampleHome(c)
-	s.AddCleanup(func(*gc.C) {
-		home.Restore()
-		dummy.Reset()
-	})
+	defer testing.MakeEmptyFakeHome(c).Restore()
 	for i, t := range errTests {
 		c.Logf("test: %d", i)
 		ctx := testing.Context(c)
