@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -378,6 +379,59 @@ func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
 	addresses, err := s.provisioner.StateAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addresses, gc.DeepEquals, stateAddresses)
+}
+
+func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
+	args := params.ContainerManagerConfigParams{Type: instance.KVM}
+	result, err := s.provisioner.ContainerManagerConfig(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.ManagerConfig, gc.DeepEquals, map[string]string{
+		container.ConfigName: "juju",
+	})
+}
+
+func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
+	args := params.ContainerManagerConfigParams{Type: instance.LXC}
+	st, err := state.Open(s.StateInfo(c), state.DialOpts{}, state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	tests := []struct {
+		lxcUseClone      bool
+		expectedUseClone string
+	}{{
+		lxcUseClone:      false,
+		expectedUseClone: "false",
+	}, {
+		lxcUseClone:      true,
+		expectedUseClone: "true",
+	}}
+
+	// Change lxc-use-clone, and ensure it gets picked up.
+	for i, t := range tests {
+		c.Logf("test %d: %+v", i, t)
+		err = st.UpdateEnvironConfig(map[string]interface{}{
+			"lxc-use-clone": t.lxcUseClone,
+		}, nil, nil)
+		c.Assert(err, gc.IsNil)
+		result, err := s.provisioner.ContainerManagerConfig(args)
+		c.Assert(err, gc.IsNil)
+		c.Assert(result.ManagerConfig, gc.DeepEquals, map[string]string{
+			container.ConfigName: "juju",
+			"use-clone":          t.expectedUseClone,
+		})
+	}
+}
+
+func (s *provisionerSuite) TestContainerManagerConfigPermissive(c *gc.C) {
+	// ContainerManagerConfig is permissive of container types, and
+	// will just return the basic type-independent configuration.
+	args := params.ContainerManagerConfigParams{Type: "invalid"}
+	result, err := s.provisioner.ContainerManagerConfig(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.ManagerConfig, gc.DeepEquals, map[string]string{
+		container.ConfigName: "juju",
+	})
 }
 
 func (s *provisionerSuite) TestContainerConfig(c *gc.C) {

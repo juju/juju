@@ -691,6 +691,13 @@ func (c *Config) TestMode() bool {
 	return c.defined["test-mode"].(bool)
 }
 
+// LXCUseClone reports whether the LXC provisioner should create a
+// template and use cloning to speed up container provisioning.
+func (c *Config) LXCUseClone() bool {
+	v, _ := c.defined["lxc-use-clone"].(bool)
+	return v
+}
+
 // UnknownAttrs returns a copy of the raw configuration attributes
 // that are supposedly specific to the environment type. They could
 // also be wrong attributes, though. Only the specific environment
@@ -766,6 +773,7 @@ var fields = schema.Fields{
 	"bootstrap-retry-delay":     schema.ForceInt(),
 	"bootstrap-addresses-delay": schema.ForceInt(),
 	"test-mode":                 schema.Bool(),
+	"lxc-use-clone":             schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -823,8 +831,9 @@ var alwaysOptional = schema.Defaults{
 	// Authentication string sent with requests to the charm store
 	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
-	"image-stream": "",
-	"test-mode":    false,
+	"image-stream":  "",
+	"test-mode":     false,
+	"lxc-use-clone": false,
 }
 
 func allowEmpty(attr string) bool {
@@ -884,6 +893,7 @@ var immutableAttributes = []string{
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
+	"lxc-use-clone",
 }
 
 var (
