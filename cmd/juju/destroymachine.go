@@ -44,8 +44,7 @@ func (c *DestroyMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DestroyMachineCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	if len(args) == 0 {

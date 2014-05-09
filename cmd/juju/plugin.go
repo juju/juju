@@ -84,8 +84,11 @@ func (*PluginCommand) Info() *cmd.Info {
 }
 
 func (c *PluginCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
+		return err
+	}
 	c.args = args
-	return c.EnvCommandBase.Init()
+	return nil
 }
 
 func (c *PluginCommand) SetFlags(f *gnuflag.FlagSet) {

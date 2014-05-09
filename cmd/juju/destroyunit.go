@@ -29,8 +29,7 @@ func (c *DestroyUnitCommand) Info() *cmd.Info {
 }
 
 func (c *DestroyUnitCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+	if err := c.EnsureEnvName(); err != nil {
 		return err
 	}
 	c.UnitNames = args

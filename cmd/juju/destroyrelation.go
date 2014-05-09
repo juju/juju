@@ -27,8 +27,7 @@ func (c *DestroyRelationCommand) Info() *cmd.Info {
 }
 
 func (c *DestroyRelationCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+	if err := c.EnsureEnvName(); err != nil {
 		return err
 	}
 	if len(args) != 2 {

@@ -19,6 +19,11 @@ import (
 
 const CurrentEnvironmentFilename = "current-environment"
 
+// ErrNoEnvironmentSpecified is returned by commands that operate on
+// an environment if there is no current environment, no environment
+// has been explicitly specified, and there is no default environment.
+var ErrNoEnvironmentSpecified = fmt.Errorf("no environment specified")
+
 // The purpose of EnvCommandBase is to provide a default member and flag
 // setting for commands that deal across different environments.
 type EnvCommandBase struct {
@@ -64,11 +69,17 @@ func getDefaultEnvironment() string {
 	return ReadCurrentEnvironment()
 }
 
-func (c *EnvCommandBase) Init() error {
+// EnsureEnvName ensures that c.EnvName is non-empty, or sets it to the default
+// environment name. If there is no default environment name, then
+// EnsureEnvName returns ErrNoEnvironmentSpecified.
+func (c *EnvCommandBase) EnsureEnvName() error {
 	if c.EnvName == "" {
 		envs, err := environs.ReadEnvirons("")
 		if err != nil {
 			return err
+		}
+		if envs.Default == "" {
+			return ErrNoEnvironmentSpecified
 		}
 		c.EnvName = envs.Default
 	}
