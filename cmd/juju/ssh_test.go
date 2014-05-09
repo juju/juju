@@ -68,22 +68,22 @@ var sshTests = []struct {
 	{
 		"connect to machine 0",
 		[]string{"ssh", "0"},
-		sshArgs + "ubuntu@dummyenv-0.dns\n",
+		sshArgs + "ubuntu@dummyenv-0.internal\n",
 	},
 	{
 		"connect to machine 0 and pass extra arguments",
 		[]string{"ssh", "0", "uname", "-a"},
-		sshArgs + "ubuntu@dummyenv-0.dns uname -a\n",
+		sshArgs + "ubuntu@dummyenv-0.internal uname -a\n",
 	},
 	{
 		"connect to unit mysql/0",
 		[]string{"ssh", "mysql/0"},
-		sshArgs + "ubuntu@dummyenv-0.dns\n",
+		sshArgs + "ubuntu@dummyenv-0.internal\n",
 	},
 	{
 		"connect to unit mongodb/1 and pass extra arguments",
 		[]string{"ssh", "mongodb/1", "ls", "/"},
-		sshArgs + "ubuntu@dummyenv-2.dns ls /\n",
+		sshArgs + "ubuntu@dummyenv-2.internal ls /\n",
 	},
 	{
 		"connect to unit mysql/0 without proxy",
@@ -93,6 +93,9 @@ var sshTests = []struct {
 }
 
 func (s *SSHSuite) TestSSHCommand(c *gc.C) {
+	//err := s.State.UpdateEnvironConfig(map[string]interface{}{"proxy-ssh": true}, nil, nil)
+	//c.Assert(err, gc.IsNil)
+
 	m := s.makeMachines(3, c, true)
 	ch := coretesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
@@ -219,14 +222,5 @@ func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *gc.C) 
 	u, err := srv.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, gc.IsNil)
-	// fudge unit.SetPublicAddress
-	id, err := m.InstanceId()
-	c.Assert(err, gc.IsNil)
-	insts, err := s.Conn.Environ.Instances([]instance.Id{id})
-	c.Assert(err, gc.IsNil)
-	addr, err := insts[0].WaitDNSName()
-	c.Assert(err, gc.IsNil)
-	err = m.SetAddresses(instance.NewAddress(addr, instance.NetworkPublic))
 	c.Assert(err, gc.IsNil)
 }
