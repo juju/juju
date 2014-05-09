@@ -12,7 +12,7 @@ import (
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/juju/arch"
-	"launchpad.net/juju-core/juju/ubuntu"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 func init() {

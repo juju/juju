@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/juju/ubuntu"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),

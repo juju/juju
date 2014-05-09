@@ -13,10 +13,10 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/arch"
-	"launchpad.net/juju-core/juju/ubuntu"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 const noToolsMessage = `Juju cannot bootstrap because no tools are available for your environment.

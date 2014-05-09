@@ -13,8 +13,8 @@ import (
 
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/juju/ubuntu"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 var PrivateKeyPassphrase = "12345"
