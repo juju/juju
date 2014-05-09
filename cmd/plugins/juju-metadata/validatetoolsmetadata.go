@@ -11,6 +11,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -22,7 +23,7 @@ import (
 
 // ValidateToolsMetadataCommand
 type ValidateToolsMetadataCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	out          cmd.Output
 	providerType string
 	metadataDir  string
@@ -117,6 +118,9 @@ func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ValidateToolsMetadataCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
+		return err
+	}
 	if c.providerType != "" {
 		if c.region == "" {
 			return fmt.Errorf("region required if provider type is specified")
@@ -134,7 +138,7 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 			return err
 		}
 	}
-	return c.EnvCommandBase.Init(args)
+	return cmd.CheckEmpty(args)
 }
 
 func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {

@@ -10,6 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api"
@@ -18,7 +19,7 @@ import (
 )
 
 type StatusCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	out      cmd.Output
 	patterns []string
 }
@@ -56,6 +57,9 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *StatusCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
+		return err
+	}
 	c.patterns = args
 	return nil
 }

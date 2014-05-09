@@ -8,13 +8,14 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
 )
 
 // DestroyUnitCommand is responsible for destroying service units.
 type DestroyUnitCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	UnitNames []string
 }
 
@@ -28,6 +29,9 @@ func (c *DestroyUnitCommand) Info() *cmd.Info {
 }
 
 func (c *DestroyUnitCommand) Init(args []string) error {
+	if err := c.EnsureEnvName(); err != nil {
+		return err
+	}
 	c.UnitNames = args
 	if len(c.UnitNames) == 0 {
 		return errors.New("no units specified")
