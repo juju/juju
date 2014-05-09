@@ -87,7 +87,6 @@ $InputFileName {{logfilePath}}
 $InputFileTag juju{{namespace}}-{{logfileName}}:
 $InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
-
 {{range $i, $stateServerIP := stateServerHosts}}
 # start: Forwarding rule for {{$stateServerIP}}
 $ActionQueueType LinkedList

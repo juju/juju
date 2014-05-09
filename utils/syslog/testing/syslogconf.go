@@ -69,12 +69,6 @@ var expectedForwardSyslogConfTemplate = `
 $ModLoad imuxsock
 $ModLoad imfile
 
-# start: Forwarding rule for server
-$ActionQueueType LinkedList
-$ActionQueueFileName {{.MachineTag}}{{.Namespace}}_0
-$ActionResumeRetryCount -1
-$ActionQueueSaveOnShutdown on
-
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName {{.LogDir}}/{{.MachineTag}}.log
@@ -82,6 +76,11 @@ $InputFileTag juju{{.Namespace}}-{{.MachineTag}}:
 $InputFileStateFile {{.MachineTag}}{{.Namespace}}
 $InputRunFileMonitor
 
+# start: Forwarding rule for server
+$ActionQueueType LinkedList
+$ActionQueueFileName {{.MachineTag}}{{.Namespace}}_0
+$ActionResumeRetryCount -1
+$ActionQueueSaveOnShutdown on
 $DefaultNetstreamDriver gtls
 $DefaultNetstreamDriverCAFile {{.LogDir}}/ca-cert.pem
 $ActionSendStreamDriverAuthMode anon
