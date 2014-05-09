@@ -124,20 +124,21 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 			}
 		}()
 	}
-	host, err := c.hostFromTarget(c.Target)
-	if err != nil {
-		return err
-	}
 	var options ssh.Options
 	if c.pty {
 		options.EnablePTY()
 	}
-	if proxy, err := c.proxySSH(); err != nil {
+	var err error
+	if c.proxy, err = c.proxySSH(); err != nil {
 		return err
-	} else if proxy {
+	} else if c.proxy {
 		if err := c.setProxyCommand(&options); err != nil {
 			return err
 		}
+	}
+	host, err := c.hostFromTarget(c.Target)
+	if err != nil {
+		return err
 	}
 	cmd := ssh.Command("ubuntu@"+host, c.Args, &options)
 	cmd.Stdin = ctx.Stdin

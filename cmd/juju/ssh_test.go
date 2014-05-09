@@ -182,7 +182,7 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	attemptStarter.next = func() bool {
 		called++
 		if called > 1 {
-			s.setAddress(m[0], c)
+			s.setAddresses(m[0], c)
 		}
 		return true
 	}
@@ -191,19 +191,20 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 	c.Assert(called, gc.Equals, 2)
 }
 
-func (s *SSHCommonSuite) setAddress(m *state.Machine, c *gc.C) {
-	addr := instance.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()), instance.NetworkPublic)
-	err := m.SetAddresses(addr)
+func (s *SSHCommonSuite) setAddresses(m *state.Machine, c *gc.C) {
+	addrPub := instance.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()), instance.NetworkPublic)
+	addrPriv := instance.NewAddress(fmt.Sprintf("dummyenv-%s.internal", m.Id()), instance.NetworkCloudLocal)
+	err := m.SetAddresses(addrPub, addrPriv)
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *SSHCommonSuite) makeMachines(n int, c *gc.C, setAddress bool) []*state.Machine {
+func (s *SSHCommonSuite) makeMachines(n int, c *gc.C, setAddresses bool) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
 		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
-		if setAddress {
-			s.setAddress(m, c)
+		if setAddresses {
+			s.setAddresses(m, c)
 		}
 		// must set an instance id as the ssh command uses that as a signal the
 		// machine has been provisioned
