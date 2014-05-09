@@ -152,6 +152,7 @@ var TestImagesData = map[string]string{
 			"com.ubuntu.cloud:server:12.04:i386",
 			"com.ubuntu.cloud:server:12.04:amd64",
 			"com.ubuntu.cloud:server:12.10:amd64",
+			"com.ubuntu.cloud:server:12.10:i386",
 			"com.ubuntu.cloud:server:13.04:i386"
 		   ],
 		   "path": "streams/v1/com.ubuntu.cloud:released:aws.js"
