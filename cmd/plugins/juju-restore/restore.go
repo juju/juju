@@ -114,13 +114,9 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	initctl stop jujud-machine-0
 
 	initctl stop juju-db
-	mkdir /tmp/oldbackup
-	mv /var/lib/juju /tmp/oldbackup/var_lib_juju
-        mv /var/log/juju /tmp/oldbackup/var_log_juju
-	mkdir /tmp/oldbackup/inits
-	cp -vax /etc/init/juju* /tmp/oldbackup/inits
+	rm -r /var/lib/juju
+        rm -r /var/log/juju
 
-	#rm -r /var/lib/juju /var/log/juju
 	tar -C / -xvp -f juju-backup/root.tar
 	mkdir -p /var/lib/juju/db
 
@@ -134,12 +130,12 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	initctl start juju-db
 
 	mongoAdminEval() {
-		mongo --ssl -u admin -p {{.Creds.OldPassword | printf "%q" }} localhost:37017/admin --eval "$1"
+		mongo --ssl -u admin -p {{.Creds.OldPassword | shquote }} localhost:37017/admin --eval "$1"
 	}
 
 
 	mongoEval() {
-		mongo --ssl -u {{.Creds.Tag}} -p {{.Creds.Password | printf "%q" }} localhost:37017/juju --eval "$1"
+		mongo --ssl -u {{.Creds.Tag}} -p {{.Creds.Password | shquote }} localhost:37017/juju --eval "$1"
 	}
 
 	# wait for mongo to come up after starting the juju-db upstart service.
@@ -383,15 +379,15 @@ func extractCreds(backupFile string) (credentials, error) {
 	if !ok || password == "" {
 		return credentials{}, fmt.Errorf("agent password not found in configuration")
 	}
-	oldpassword, ok := m["oldpassword"].(string)
-	if !ok || password == "" {
+	oldPassword, ok := m["oldpassword"].(string)
+	if !ok || oldPassword == "" {
 		return credentials{}, fmt.Errorf("agent old password not found in configuration")
 	}
 
 	return credentials{
 		Tag:         "machine-0",
 		Password:    password,
-		OldPassword: oldpassword,
+		OldPassword: oldPassword,
 	}, nil
 }
 
