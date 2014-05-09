@@ -145,19 +145,16 @@ func (inst *MgoInstance) run() error {
 		mgoargs = append(mgoargs, inst.Params...)
 	}
 	// Look for /usr/lib/juju/bin/mongod first, since on platforms where it
-	// is available, it will be use preferentially
+	// is available, it will be used preferentially
 	mongopath, err := exec.LookPath("/usr/lib/juju/bin/mongod")
-	if err == nil {
-		logger.Debugf("found mongod at: %q", mongopath)
-	} else {
+	if err != nil {
 		logger.Debugf("failed to find '/usr/lib/juju/bin/mongod', searching for 'mongod'")
 		mongopath, err = exec.LookPath("mongod")
-		if err == nil {
-			logger.Debugf("found %q", mongopath)
-		} else {
+		if err != nil {
 			return err
 		}
 	}
+	logger.Debugf("found mongod at: %q", mongopath)
 	server := exec.Command(mongopath, mgoargs...)
 	out, err := server.StdoutPipe()
 	if err != nil {
