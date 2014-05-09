@@ -63,8 +63,7 @@ func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DebugLogCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+	if err := c.EnsureEnvName(); err != nil {
 		return err
 	}
 	if c.level != "" {

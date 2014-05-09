@@ -42,10 +42,9 @@ func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
 }
 
-func (c *ToolsMetadataCommand) Init(args []string) (err error) {
-	err = c.EnvCommandBase.Init()
-	if err != nil {
-		return
+func (c *ToolsMetadataCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
+		return err
 	}
 	return cmd.CheckEmpty(args)
 }
