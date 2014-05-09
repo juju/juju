@@ -14,8 +14,8 @@ import (
 	"launchpad.net/juju-core/names"
 )
 
-// DestroyMachineCommand causes an existing machine to be destroyed.
-type DestroyMachineCommand struct {
+// RemoveMachineCommand causes an existing machine to be destroyed.
+type RemoveMachineCommand struct {
 	envcmd.EnvCommandBase
 	MachineIds []string
 	Force      bool
@@ -35,7 +35,7 @@ Examples:
 	$ juju remove-machine 6 --force
 `
 
-func (c *DestroyMachineCommand) Info() *cmd.Info {
+func (c *RemoveMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "remove-machine",
 		Args:    "<machine> ...",
@@ -45,12 +45,12 @@ func (c *DestroyMachineCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DestroyMachineCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *RemoveMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "completely remove machine and all dependencies")
 }
 
-func (c *DestroyMachineCommand) Init(args []string) error {
+func (c *RemoveMachineCommand) Init(args []string) error {
 	err := c.EnvCommandBase.Init()
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (c *DestroyMachineCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
+func (c *RemoveMachineCommand) Run(_ *cmd.Context) error {
 	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
