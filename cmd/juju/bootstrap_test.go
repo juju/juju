@@ -304,7 +304,7 @@ var bootstrapTests = []bootstrapTest{{
 	err:  `--series requires --upload-tools`,
 }, {
 	info:    "bad environment",
-	version: "1.2.3-%LTS%-amd64",
+	version: "1.1.3-%LTS%-amd64",
 	args:    []string{"-e", "brokenenv"},
 	err:     `dummy.Bootstrap is broken`,
 }, {
@@ -318,7 +318,8 @@ var bootstrapTests = []bootstrapTest{{
 	uploads: []string{
 		"1.2.3.1-saucy-amd64",  // from version.Current
 		"1.2.3.1-raring-amd64", // from env.Config().DefaultSeries()
-		"1.2.3.1-%LTS%-amd64",  // from environs/config.DefaultSeries
+		"1.2.3.1-precise-amd64",
+		"1.2.3.1-trusty-amd64",
 	},
 }, {
 	info:     "--upload-tools uses arch from constraint if it matches current version",
@@ -328,7 +329,8 @@ var bootstrapTests = []bootstrapTest{{
 	uploads: []string{
 		"1.3.3.1-saucy-ppc64",  // from version.Current
 		"1.3.3.1-raring-ppc64", // from env.Config().DefaultSeries()
-		"1.3.3.1-%LTS%-ppc64",  // from environs/config.DefaultSeries
+		"1.3.3.1-precise-ppc64",
+		"1.3.3.1-trusty-ppc64",
 	},
 	constraints: constraints.MustParse("arch=ppc64"),
 }, {
@@ -337,7 +339,8 @@ var bootstrapTests = []bootstrapTest{{
 	args:    []string{"--upload-tools"},
 	uploads: []string{
 		"1.2.3.1-raring-amd64",
-		"1.2.3.1-%LTS%-amd64",
+		"1.2.3.1-precise-amd64",
+		"1.2.3.1-trusty-amd64",
 	},
 }, {
 	info:    "--upload-tools rejects invalid series",
@@ -361,7 +364,8 @@ var bootstrapTests = []bootstrapTest{{
 	args:    []string{"--upload-tools"},
 	uploads: []string{
 		"1.2.3.5-raring-amd64",
-		"1.2.3.5-%LTS%-amd64",
+		"1.2.3.5-precise-amd64",
+		"1.2.3.5-trusty-amd64",
 	},
 }}
 
@@ -522,10 +526,9 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
-	otherSeries := "precise"
-	if otherSeries == version.Current.Series {
-		otherSeries = "raring"
-	}
+	s.PatchValue(&version.Current.Series, config.LatestLtsSeries())
+	otherSeries := "quantal"
+
 	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
 	// Run command and check for that upload has been run for tools matching the current juju version.
 	opc, errc := runCommand(nullContext(c), new(BootstrapCommand))
@@ -535,17 +538,18 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
-	expectedUrlCount := 2
 
-	// There will be distinct tools for each of these if they are different
-	if config.LatestLtsSeries() != coretesting.FakeDefaultSeries {
-		expectedUrlCount++
-	}
-	c.Assert(urls, gc.HasLen, expectedUrlCount)
+	// We expect:
+	//     supported LTS series precise, trusty,
+	//     the specified series (quantal),
+	//     and the environment's default series (raring).
 	expectedVers := []version.Binary{
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", otherSeries, version.Current.Arch)),
-		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", version.Current.Series, version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "quantal", version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "raring", version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "precise", version.Current.Arch)),
+		version.MustParseBinary(fmt.Sprintf("1.7.3.1-%s-%s", "trusty", version.Current.Arch)),
 	}
+	c.Assert(urls, gc.HasLen, len(expectedVers))
 	for _, vers := range expectedVers {
 		c.Logf("seeking: " + vers.String())
 		_, found := urls[vers]
@@ -582,11 +586,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	code := cmd.Main(&BootstrapCommand{}, context, nil)
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
-	expectedErrText := "uploading tools for series \\[precise "
-	if config.LatestLtsSeries() != coretesting.FakeDefaultSeries {
-		expectedErrText += config.LatestLtsSeries() + " "
-	}
-	expectedErrText += "raring\\]\n"
+	expectedErrText := "uploading tools for series \\[precise .* raring\\]\n"
 	expectedErrText += "error: cannot upload bootstrap tools: an error\n"
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
