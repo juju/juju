@@ -108,8 +108,10 @@ func (inst *MgoInstance) Start(ssl bool) error {
 		inst.port = 0
 		os.RemoveAll(inst.dir)
 		inst.dir = ""
+		logger.Warningf("failed to start mongo: %v", err)
+	} else {
+		logger.Debugf("started mongod pid %d in %s on port %d", inst.server.Process.Pid, dbdir, inst.port)
 	}
-	logger.Debugf("started mongod pid %d in %s on port %d", inst.server.Process.Pid, dbdir, inst.port)
 	return err
 }
 
@@ -142,7 +144,18 @@ func (inst *MgoInstance) run() error {
 	if inst.Params != nil {
 		mgoargs = append(mgoargs, inst.Params...)
 	}
-	server := exec.Command("mongod", mgoargs...)
+	// Look for /usr/lib/juju/bin/mongod first, since on platforms where it
+	// is available, it will be used preferentially
+	mongopath, err := exec.LookPath("/usr/lib/juju/bin/mongod")
+	if err != nil {
+		logger.Debugf("failed to find '/usr/lib/juju/bin/mongod', searching for 'mongod'")
+		mongopath, err = exec.LookPath("mongod")
+		if err != nil {
+			return err
+		}
+	}
+	logger.Debugf("found mongod at: %q", mongopath)
+	server := exec.Command(mongopath, mgoargs...)
 	out, err := server.StdoutPipe()
 	if err != nil {
 		return err
@@ -218,7 +231,7 @@ func MgoTestPackageSsl(t *stdtesting.T, ssl bool) {
 
 func (s *MgoSuite) SetUpSuite(c *gc.C) {
 	if MgoServer.addr == "" {
-		panic("MgoSuite tests must be run with MgoTestPackage")
+		c.Fatalf("No Mongo Server Address, MgoSuite tests must be run with MgoTestPackage")
 	}
 	mgo.SetStats(true)
 	// Make tests that use password authentication faster.

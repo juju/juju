@@ -37,16 +37,33 @@ func (s *MgoSuite) SetUpSuite(c *gc.C) {
 		"--smallfiles",
 		"--nojournal",
 	}
-	s.server = exec.Command("mongod", args...)
+	// Look for a system mongod first, since the juju-specific mongodb
+	// doesn't come with V8 so we have to skip some tests
+	mongopath, err := exec.LookPath("mongod")
+	if err == nil {
+		c.Log("found mongodb at: %q", mongopath)
+	} else {
+		c.Log("failed to find mongod: %v", err)
+		// We can fall back to /usr/lib/juju/bin/mongod but we should
+		// disable the JS tests
+		mongopath, err = exec.LookPath("/usr/lib/juju/bin/mongod")
+		c.Log("Tests requiring MongoDB Javascript will be skipped")
+		*noTestMongoJs = true
+	}
+	c.Assert(err, gc.IsNil)
+	s.server = exec.Command(mongopath, args...)
 	s.server.Stdout = &s.output
 	s.server.Stderr = &s.output
-	err := s.server.Start()
+	err = s.server.Start()
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *MgoSuite) TearDownSuite(c *gc.C) {
-	s.server.Process.Kill()
-	s.server.Process.Wait()
+	if s.server != nil && s.server.Process != nil {
+		s.server.Process.Kill()
+		s.server.Process.Wait()
+		s.server.Process = nil
+	}
 }
 
 func (s *MgoSuite) SetUpTest(c *gc.C) {
