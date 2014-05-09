@@ -29,6 +29,9 @@ func (c *DestroyServiceCommand) Info() *cmd.Info {
 }
 
 func (c *DestroyServiceCommand) Init(args []string) error {
+	if err := c.EnsureEnvName(); err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("no service specified")
 	}
