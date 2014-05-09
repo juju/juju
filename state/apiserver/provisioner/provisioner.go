@@ -191,7 +191,7 @@ func (p *ProvisionerAPI) SetSupportedContainers(
 	return result, nil
 }
 
-// ContainerManagerConfig returns information from the environment config that are
+// ContainerManagerConfig returns information from the environment config that is
 // needed for configuring the container manager.
 func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConfigParams) (params.ContainerManagerConfig, error) {
 	var result params.ContainerManagerConfig
@@ -209,7 +209,7 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 	return result, nil
 }
 
-// ContainerConfig returns information from the environment config that are
+// ContainerConfig returns information from the environment config that is
 // needed for container cloud-init.
 func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result := params.ContainerConfig{}
