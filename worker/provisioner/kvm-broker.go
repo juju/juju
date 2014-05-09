@@ -23,8 +23,9 @@ func NewKvmBroker(
 	api APICalls,
 	tools *tools.Tools,
 	agentConfig agent.Config,
+	managerConfig container.ManagerConfig,
 ) (environs.InstanceBroker, error) {
-	manager, err := kvm.NewContainerManager(container.ManagerConfig{container.ConfigName: "juju"})
+	manager, err := kvm.NewContainerManager(managerConfig)
 	if err != nil {
 		return nil, err
 	}

@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc/mock"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
@@ -77,7 +78,8 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			CACert:            []byte(coretesting.CACert),
 		})
 	c.Assert(err, gc.IsNil)
-	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)
+	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -246,7 +248,8 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
 	tools, err := s.provisioner.Tools(agentConfig.Tag())
 	c.Assert(err, gc.IsNil)
-	broker, err := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig)
+	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	broker, err := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
 }
