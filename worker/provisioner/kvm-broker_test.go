@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm/mock"
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
 	"launchpad.net/juju-core/environs"
@@ -75,7 +76,8 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			CACert:            coretesting.CACert,
 		})
 	c.Assert(err, gc.IsNil)
-	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, tools, s.agentConfig)
+	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, tools, s.agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -219,7 +221,8 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	tools, err := s.provisioner.Tools(agentConfig.Tag())
 	c.Assert(err, gc.IsNil)
-	broker, err := provisioner.NewKvmBroker(s.provisioner, tools, agentConfig)
+	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	broker, err := provisioner.NewKvmBroker(s.provisioner, tools, agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker)
 }
