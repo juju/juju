@@ -10,6 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 )
 
@@ -42,7 +43,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 
 // AddUnitCommand is responsible adding additional units to a service.
 type AddUnitCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	UnitCommandBase
 	ServiceName string
 }
@@ -79,6 +80,9 @@ func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *AddUnitCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
+		return err
+	}
 	switch len(args) {
 	case 1:
 		c.ServiceName = args[0]

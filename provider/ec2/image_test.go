@@ -64,7 +64,7 @@ var findInstanceSpecTests = []struct {
 		image:  "ami-00000033",
 	}, {
 		series: "quantal",
-		arches: both,
+		arches: []string{"i386"},
 		itype:  "m1.small",
 		image:  "ami-01000034",
 	}, {

@@ -7,12 +7,13 @@ import (
 	"errors"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 )
 
 // UnexposeCommand is responsible exposing services.
 type UnexposeCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 }
 
@@ -25,6 +26,9 @@ func (c *UnexposeCommand) Info() *cmd.Info {
 }
 
 func (c *UnexposeCommand) Init(args []string) error {
+	if err := c.EnsureEnvName(); err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return errors.New("no service name specified")
 	}

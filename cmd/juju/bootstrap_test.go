@@ -387,8 +387,7 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	ctx2 := coretesting.Context(c)
 	code2 := cmd.Main(&BootstrapCommand{}, ctx2, nil)
 	c.Check(code2, gc.Equals, 1)
-	expectedErrText := "Bootstrap failed, destroying environment\n"
-	expectedErrText += "error: environment is already bootstrapped\n"
+	expectedErrText := "error: environment is already bootstrapped\n"
 	c.Check(coretesting.Stderr(ctx2), gc.Equals, expectedErrText)
 	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
 }
@@ -572,8 +571,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	code := cmd.Main(&BootstrapCommand{}, context, nil)
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
-	expectedErrText := "Bootstrap failed, destroying environment\n"
-	expectedErrText += "error: cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment(.|\n)*"
+	expectedErrText := "error: cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment(.|\n)*"
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
 
@@ -589,7 +587,6 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	c.Assert(code, gc.Equals, 1)
 	errText := context.Stderr.(*bytes.Buffer).String()
 	expectedErrText := "uploading tools for series \\[precise .* raring\\]\n"
-	expectedErrText += "Bootstrap failed, destroying environment\n"
 	expectedErrText += "error: cannot upload bootstrap tools: an error\n"
 	c.Assert(errText, gc.Matches, expectedErrText)
 }
@@ -665,6 +662,8 @@ var (
 	v120p64 = version.MustParseBinary("1.2.0-precise-amd64")
 	v120q32 = version.MustParseBinary("1.2.0-quantal-i386")
 	v120q64 = version.MustParseBinary("1.2.0-quantal-amd64")
+	v120t32 = version.MustParseBinary("1.2.0-trusty-i386")
+	v120t64 = version.MustParseBinary("1.2.0-trusty-amd64")
 	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
 	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
@@ -672,12 +671,21 @@ var (
 		v100d64, v100p64, v100q64, v100q32,
 	}
 	v120All = []version.Binary{
-		v120d64, v120p64, v120q64, v120q32,
+		v120d64, v120p64, v120q64, v120q32, v120t32, v120t64,
 	}
-	vAll = []version.Binary{
-		v100d64, v100p64, v100q32, v100q64,
-		v120d64, v120p64, v120q32, v120q64,
+	v190All = []version.Binary{
 		v190p32, v190q64,
+	}
+	v200All = []version.Binary{
 		v200p64,
 	}
+	vAll = joinBinaryVersions(v100All, v120All, v190All, v200All)
 )
+
+func joinBinaryVersions(versions ...[]version.Binary) []version.Binary {
+	var all []version.Binary
+	for _, versions := range versions {
+		all = append(all, versions...)
+	}
+	return all
+}

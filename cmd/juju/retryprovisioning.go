@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
 )
@@ -14,7 +15,7 @@ import (
 // RetryProvisioningCommand updates machines' error status to tell
 // the provisoner that it should try to re-provision the machine.
 type RetryProvisioningCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Machines []string
 }
 
@@ -27,6 +28,9 @@ func (c *RetryProvisioningCommand) Info() *cmd.Info {
 }
 
 func (c *RetryProvisioningCommand) Init(args []string) error {
+	if err := c.EnsureEnvName(); err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return fmt.Errorf("no machine specified")
 	}

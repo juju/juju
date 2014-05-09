@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -17,7 +18,7 @@ import (
 // UnsetCommand sets configuration values of a service back
 // to their default.
 type UnsetCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	Options     []string
 }
@@ -42,6 +43,9 @@ func (c *UnsetCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *UnsetCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
+		return err
+	}
 	if len(args) == 0 {
 		return errors.New("no service name specified")
 	}
