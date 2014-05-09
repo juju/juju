@@ -27,8 +27,8 @@ type APICalls interface {
 	ContainerConfig() (params.ContainerConfig, error)
 }
 
-func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config) (environs.InstanceBroker, error) {
-	manager, err := lxc.NewContainerManager(container.ManagerConfig{container.ConfigName: "juju"})
+func NewLxcBroker(api APICalls, tools *tools.Tools, agentConfig agent.Config, managerConfig container.ManagerConfig) (environs.InstanceBroker, error) {
+	manager, err := lxc.NewContainerManager(managerConfig)
 	if err != nil {
 		return nil, err
 	}
