@@ -1111,6 +1111,11 @@ var validationTests = []validationTest{{
 	about: "Cannot change the bootstrap-timeout from implicit-default to different value",
 	new:   testing.Attrs{"bootstrap-timeout": 5},
 	err:   `cannot change bootstrap-timeout from 600 to 5`,
+}, {
+	about: "Cannot change lxc-use-clone",
+	old:   testing.Attrs{"lxc-use-clone": false},
+	new:   testing.Attrs{"lxc-use-clone": true},
+	err:   `cannot change lxc-use-clone from false to true`,
 }}
 
 func (*ConfigSuite) TestValidateChange(c *gc.C) {
