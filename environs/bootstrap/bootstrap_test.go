@@ -343,8 +343,10 @@ func (s *bootstrapSuite) TestSeriesToUpload(c *gc.C) {
 
 	prefSeries := config.PreferredSeries(cfg)
 	expect := []string{"quantal", prefSeries}
-	if prefSeries != config.LatestLtsSeries() {
-		expect = append(expect, config.LatestLtsSeries())
+	for _, series := range []string{"precise", "trusty"} {
+		if prefSeries != series {
+			expect = append(expect, series)
+		}
 	}
 	c.Assert(bootstrap.SeriesToUpload(cfg, nil), jc.SameContents, expect)
 
