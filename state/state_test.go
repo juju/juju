@@ -175,18 +175,13 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 
 func (s *StateSuite) TestAddAction(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	wp, err := s.State.AddService("wordpress", "user-admin", charm, nil, nil)
-	c.Assert(err, gc.IsNil)
-	testUnit, err := wp.AddUnit()
+	_, err := s.State.AddService("wordpress", "user-admin", charm, nil, nil)
 	c.Assert(err, gc.IsNil)
 	testAction, err := s.State.AddAction("wordpress/0", "snapshot", "outfile: foo.tar.gz")
 	c.Assert(err, gc.IsNil)
 	answerAction, err := s.State.Action(testAction.Id())
 	c.Assert(err, gc.IsNil)
 	c.Assert(answerAction, gc.DeepEquals, testAction)
-	queuedActions, err := testUnit.QueuedActions()
-	c.Assert(err, gc.IsNil)
-	c.Assert(queuedActions[0], gc.Equals, answerAction.Id())
 }
 
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
