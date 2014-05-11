@@ -4,6 +4,7 @@
 package registry
 
 import (
+	"fmt"
 	"reflect"
 	"sort"
 
@@ -11,10 +12,10 @@ import (
 )
 
 // typedNameVersion is a registry that will allow you to register objects based
-// on a name and version pair. The objects must implement the Type defined when
-// the registry was created.
-// As registries are meant to be populated at init() time, if the registered
-// object does not implement Type, it is a runtime panic().
+// on a name and version pair. The objects must be convertible to the Type
+// defined when the registry was created. It will be cast during Register so
+// you can be sure all objects returned from Get() are safe to TypeAssert to
+// that type.
 type typedNameVersion struct {
 	requiredType reflect.Type
 	versions map[string]Versions
@@ -45,13 +46,17 @@ type Versions map[int]interface{}
 // name and version.
 func (r *typedNameVersion) Register(name string, version int, obj interface{}) error {
 	if !reflect.TypeOf(obj).ConvertibleTo(r.requiredType) {
-		//panic()
+		return fmt.Errorf("object of type %T cannot be converted to type %s.%s", obj, r.requiredType.PkgPath(), r.requiredType.Name())
 	}
 	obj = reflect.ValueOf(obj).Convert(r.requiredType).Interface()
 	if r.versions == nil {
 		r.versions = make(map[string]Versions, 1)
 	}
 	if versions, ok := r.versions[name]; ok {
+		if _, ok := versions[version]; ok {
+			fullname := fmt.Sprintf("%s(%d)", name, version)
+			return fmt.Errorf("object %q already registered", fullname)
+		}
 		versions[version] = obj
 	} else {
 		r.versions[name] = Versions{version: obj}

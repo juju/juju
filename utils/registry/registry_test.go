@@ -78,7 +78,7 @@ func (s *registrySuite) TestDescriptionFromVersionsAreSorted(c *gc.C) {
 
 func (s *registrySuite) TestRegisterAndList(c *gc.C) {
 	r := registry.NewTypedNameVersion(factoryType)
-	r.Register("name", 0, nilFactory)
+	c.Assert(r.Register("name", 0, nilFactory), gc.IsNil)
 	c.Check(r.List(), gc.DeepEquals, []registry.Description{
 		{Name: "name", Versions: []int{0}},
 	})
@@ -86,9 +86,9 @@ func (s *registrySuite) TestRegisterAndList(c *gc.C) {
 
 func (s *registrySuite) TestRegisterAndListMultiple(c *gc.C) {
 	r := registry.NewTypedNameVersion(factoryType)
-	r.Register("other", 0, nilFactory)
-	r.Register("name", 0, nilFactory)
-	r.Register("third", 2, nilFactory)
+	c.Assert(r.Register("other", 0, nilFactory), gc.IsNil)
+	c.Assert(r.Register("name", 0, nilFactory), gc.IsNil)
+	c.Assert(r.Register("third", 2, nilFactory), gc.IsNil)
 	c.Check(r.List(), gc.DeepEquals, []registry.Description{
 		{Name: "name", Versions: []int{0}},
 		{Name: "other", Versions: []int{0}},
@@ -96,12 +96,35 @@ func (s *registrySuite) TestRegisterAndListMultiple(c *gc.C) {
 	})
 }
 
+func (s *registrySuite) TestRegisterWrongType(c *gc.C) {
+	r := registry.NewTypedNameVersion(factoryType)
+	err := r.Register("other", 0, "notAFactory")
+	c.Check(err, gc.ErrorMatches, `object of type string cannot be converted to type .*registry_test.Factory`)
+}
+
+func (s *registrySuite) TestRegisterAlreadyPresent(c *gc.C) {
+	r := registry.NewTypedNameVersion(factoryType)
+	err := r.Register("name", 0, func() (interface{}, error) {
+		return "orig", nil
+	})
+	c.Assert(err, gc.IsNil)
+	err = r.Register("name", 0, func() (interface{}, error) {
+		return "broken", nil
+	})
+	c.Check(err, gc.ErrorMatches, `object "name\(0\)" already registered`)
+	f, err := r.Get("name", 0)
+	c.Assert(err, gc.IsNil)
+	val, err := f.(Factory)()
+	c.Assert(err, gc.IsNil)
+	c.Check(val, gc.Equals, "orig")
+}
+
 func (s *registrySuite) TestGet(c *gc.C) {
 	r := registry.NewTypedNameVersion(factoryType)
 	customFactory := func() (interface{}, error) {
 		return 10, nil
 	}
-	r.Register("name", 0, customFactory)
+	c.Assert(r.Register("name", 0, customFactory), gc.IsNil)
 	f, err := r.Get("name", 0)
 	c.Assert(err, gc.IsNil)
 	c.Assert(f, gc.NotNil)
@@ -120,7 +143,7 @@ func (s *registrySuite) TestGetUnknown(c *gc.C) {
 
 func (s *registrySuite) TestGetUnknownVersion(c *gc.C) {
 	r := registry.NewTypedNameVersion(factoryType)
-	r.Register("name", 0, nilFactory)
+	c.Assert(r.Register("name", 0, nilFactory), gc.IsNil)
 	f, err := r.Get("name", 1)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(err, gc.ErrorMatches, `name\(1\) not found`)
