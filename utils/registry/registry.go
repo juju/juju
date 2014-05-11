@@ -11,19 +11,19 @@ import (
 	"launchpad.net/juju-core/errors"
 )
 
-// typedNameVersion is a registry that will allow you to register objects based
+// TypedNameVersion is a registry that will allow you to register objects based
 // on a name and version pair. The objects must be convertible to the Type
 // defined when the registry was created. It will be cast during Register so
 // you can be sure all objects returned from Get() are safe to TypeAssert to
 // that type.
-type typedNameVersion struct {
+type TypedNameVersion struct {
 	requiredType reflect.Type
 	versions map[string]Versions
 }
 
 // NewTypedNameVersion creates a place to register your objects
-func NewTypedNameVersion(requiredType reflect.Type) *typedNameVersion {
-	return &typedNameVersion{
+func NewTypedNameVersion(requiredType reflect.Type) *TypedNameVersion {
+	return &TypedNameVersion{
 		requiredType: requiredType,
 		versions: make(map[string]Versions),
 	}
@@ -44,7 +44,7 @@ type Versions map[int]interface{}
 // error is returned.
 // An error is also returned if an object is already registered with the given
 // name and version.
-func (r *typedNameVersion) Register(name string, version int, obj interface{}) error {
+func (r *TypedNameVersion) Register(name string, version int, obj interface{}) error {
 	if !reflect.TypeOf(obj).ConvertibleTo(r.requiredType) {
 		return fmt.Errorf("object of type %T cannot be converted to type %s.%s", obj, r.requiredType.PkgPath(), r.requiredType.Name())
 	}
@@ -79,7 +79,7 @@ func descriptionFromVersions(name string, versions Versions) Description {
 }
 
 // List returns a slice describing each of the registered Facades.
-func (r *typedNameVersion) List() []Description {
+func (r *TypedNameVersion) List() []Description {
 	names := make([]string, 0, len(r.versions))
 	for name := range r.versions {
 		names = append(names, name)
@@ -95,7 +95,7 @@ func (r *typedNameVersion) List() []Description {
 
 // Get returns the object for a single name and version. If the requested
 // facade is not found, it returns error.NotFound
-func (r *typedNameVersion) Get(name string, version int) (interface{}, error) {
+func (r *TypedNameVersion) Get(name string, version int) (interface{}, error) {
 	if versions, ok := r.versions[name]; ok {
 		if factory, ok := versions[version]; ok {
 			return factory, nil
