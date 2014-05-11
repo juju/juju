@@ -5,7 +5,6 @@ package simplestreams_test
 
 import (
 	"bytes"
-	"sort"
 	"strings"
 	"testing"
 
@@ -14,7 +13,6 @@ import (
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -401,25 +399,6 @@ func (s *simplestreamsSuite) TestDealiasing(c *gc.C) {
 	ti := ic.Items["usww3he"].(*sstesting.TestItem)
 	c.Check(ti.RegionName, gc.Equals, "us-west-3")
 	c.Check(ti.Endpoint, gc.Equals, "https://ec2.us-west-3.amazonaws.com")
-}
-
-func (s *simplestreamsSuite) TestSeriesVersion(c *gc.C) {
-	cleanup := simplestreams.SetSeriesVersions(make(map[string]string))
-	defer cleanup()
-	vers, err := simplestreams.SeriesVersion("precise")
-	if err != nil && err.Error() == `invalid series "precise"` {
-		c.Fatalf(`Unable to lookup series "precise", you may need to: apt-get install distro-info`)
-	}
-	c.Assert(err, gc.IsNil)
-	c.Assert(vers, gc.Equals, "12.04")
-}
-
-func (s *simplestreamsSuite) TestSupportedSeries(c *gc.C) {
-	cleanup := simplestreams.SetSeriesVersions(make(map[string]string))
-	defer cleanup()
-	series := simplestreams.SupportedSeries()
-	sort.Strings(series)
-	c.Assert(series, gc.DeepEquals, coretesting.SupportedSeries)
 }
 
 var getMirrorTests = []struct {

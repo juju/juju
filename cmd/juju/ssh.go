@@ -94,8 +94,7 @@ func (c *SSHCommand) Info() *cmd.Info {
 }
 
 func (c *SSHCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+	if err := c.EnsureEnvName(); err != nil {
 		return err
 	}
 	if len(args) == 0 {
@@ -111,6 +110,23 @@ var getJujuExecutable = func() (string, error) {
 	return exec.LookPath(os.Args[0])
 }
 
+// getSSHOptions configures and returns SSH options and proxy settings.
+func (c *SSHCommon) getSSHOptions(enablePty bool) (*ssh.Options, error) {
+	var options ssh.Options
+	if enablePty {
+		options.EnablePTY()
+	}
+	var err error
+	if c.proxy, err = c.proxySSH(); err != nil {
+		return nil, err
+	} else if c.proxy {
+		if err := c.setProxyCommand(&options); err != nil {
+			return nil, err
+		}
+	}
+	return &options, nil
+}
+
 // Run resolves c.Target to a machine, to the address of a i
 // machine or unit forks ssh passing any arguments provided.
 func (c *SSHCommand) Run(ctx *cmd.Context) error {
@@ -124,22 +140,15 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 			}
 		}()
 	}
+	options, err := c.getSSHOptions(c.pty)
+	if err != nil {
+		return err
+	}
 	host, err := c.hostFromTarget(c.Target)
 	if err != nil {
 		return err
 	}
-	var options ssh.Options
-	if c.pty {
-		options.EnablePTY()
-	}
-	if proxy, err := c.proxySSH(); err != nil {
-		return err
-	} else if proxy {
-		if err := c.setProxyCommand(&options); err != nil {
-			return err
-		}
-	}
-	cmd := ssh.Command("ubuntu@"+host, c.Args, &options)
+	cmd := ssh.Command("ubuntu@"+host, c.Args, options)
 	cmd.Stdin = ctx.Stdin
 	cmd.Stdout = ctx.Stdout
 	cmd.Stderr = ctx.Stderr

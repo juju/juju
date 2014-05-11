@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 // MergeAndWriteMetadata reads the existing metadata from storage (if any),
@@ -23,7 +24,7 @@ func MergeAndWriteMetadata(series string, metadata []*ImageMetadata, cloudSpec *
 	if err != nil {
 		return err
 	}
-	seriesVersion, err := simplestreams.SeriesVersion(series)
+	seriesVersion, err := ubuntu.SeriesVersion(series)
 	if err != nil {
 		return err
 	}
