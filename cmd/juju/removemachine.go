@@ -28,10 +28,10 @@ so will also remove all those units and containers without giving them any
 opportunity to shut down cleanly.
 
 Examples:
-	# Remove machine number 5, running no units or containers
+	# Remove machine number 5 which has no running units or containers
 	$ juju remove-machine 5
 
-	# Remove machine 6, running units or containers
+	# Remove machine 6 and any running units or containers
 	$ juju remove-machine 6 --force
 `
 
