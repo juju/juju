@@ -73,73 +73,77 @@ func Main(args []string) {
 
 	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
-	wrap := func(c cmd.Command) cmd.Command {
-		if ec, ok := c.(envcmd.EnvironCommand); ok {
-			return envCmdWrapper{envcmd.Wrap(ec), ctx}
-		}
-		return c
+	registerCommands(jujucmd, ctx)
+	os.Exit(cmd.Main(jujucmd, ctx, args[1:]))
+}
+
+type commandRegistry interface {
+	Register(cmd.Command)
+}
+
+func registerCommands(r commandRegistry, ctx *cmd.Context) {
+	wrapEnvCommand := func(c envcmd.EnvironCommand) cmd.Command {
+		return envCmdWrapper{envcmd.Wrap(c), ctx}
 	}
 
 	// Creation commands.
-	jujucmd.Register(wrap(&BootstrapCommand{}))
-	jujucmd.Register(wrap(&AddMachineCommand{}))
-	jujucmd.Register(wrap(&DeployCommand{}))
-	jujucmd.Register(wrap(&AddRelationCommand{}))
-	jujucmd.Register(wrap(&AddUnitCommand{}))
+	r.Register(wrapEnvCommand(&BootstrapCommand{}))
+	r.Register(wrapEnvCommand(&AddMachineCommand{}))
+	r.Register(wrapEnvCommand(&DeployCommand{}))
+	r.Register(wrapEnvCommand(&AddRelationCommand{}))
+	r.Register(wrapEnvCommand(&AddUnitCommand{}))
 
 	// Destruction commands.
-	jujucmd.Register(wrap(&RemoveMachineCommand{}))
-	jujucmd.Register(wrap(&RemoveRelationCommand{}))
-	jujucmd.Register(wrap(&RemoveServiceCommand{}))
-	jujucmd.Register(wrap(&RemoveUnitCommand{}))
-	jujucmd.Register(wrap(&DestroyEnvironmentCommand{}))
+	r.Register(wrapEnvCommand(&RemoveMachineCommand{}))
+	r.Register(wrapEnvCommand(&RemoveRelationCommand{}))
+	r.Register(wrapEnvCommand(&RemoveServiceCommand{}))
+	r.Register(wrapEnvCommand(&RemoveUnitCommand{}))
+	r.Register(&DestroyEnvironmentCommand{})
 
 	// Reporting commands.
-	jujucmd.Register(wrap(&StatusCommand{}))
-	jujucmd.Register(wrap(&SwitchCommand{}))
-	jujucmd.Register(wrap(&EndpointCommand{}))
+	r.Register(wrapEnvCommand(&StatusCommand{}))
+	r.Register(&SwitchCommand{})
+	r.Register(wrapEnvCommand(&EndpointCommand{}))
 
 	// Error resolution and debugging commands.
-	jujucmd.Register(wrap(&RunCommand{}))
-	jujucmd.Register(wrap(&SCPCommand{}))
-	jujucmd.Register(wrap(&SSHCommand{}))
-	jujucmd.Register(wrap(&ResolvedCommand{}))
-	jujucmd.Register(wrap(&DebugLogCommand{}))
-	jujucmd.Register(wrap(&DebugHooksCommand{}))
-	jujucmd.Register(wrap(&RetryProvisioningCommand{}))
+	r.Register(wrapEnvCommand(&RunCommand{}))
+	r.Register(wrapEnvCommand(&SCPCommand{}))
+	r.Register(wrapEnvCommand(&SSHCommand{}))
+	r.Register(wrapEnvCommand(&ResolvedCommand{}))
+	r.Register(wrapEnvCommand(&DebugLogCommand{}))
+	r.Register(wrapEnvCommand(&DebugHooksCommand{}))
+	r.Register(wrapEnvCommand(&RetryProvisioningCommand{}))
 
 	// Configuration commands.
-	jujucmd.Register(wrap(&InitCommand{}))
-	jujucmd.Register(wrap(&GetCommand{}))
-	jujucmd.Register(wrap(&SetCommand{}))
-	jujucmd.Register(wrap(&UnsetCommand{}))
-	jujucmd.Register(wrap(&GetConstraintsCommand{}))
-	jujucmd.Register(wrap(&SetConstraintsCommand{}))
-	jujucmd.Register(wrap(&GetEnvironmentCommand{}))
-	jujucmd.Register(wrap(&SetEnvironmentCommand{}))
-	jujucmd.Register(wrap(&UnsetEnvironmentCommand{}))
-	jujucmd.Register(wrap(&ExposeCommand{}))
-	jujucmd.Register(wrap(&SyncToolsCommand{}))
-	jujucmd.Register(wrap(&UnexposeCommand{}))
-	jujucmd.Register(wrap(&UpgradeJujuCommand{}))
-	jujucmd.Register(wrap(&UpgradeCharmCommand{}))
+	r.Register(&InitCommand{})
+	r.Register(wrapEnvCommand(&GetCommand{}))
+	r.Register(wrapEnvCommand(&SetCommand{}))
+	r.Register(wrapEnvCommand(&UnsetCommand{}))
+	r.Register(wrapEnvCommand(&GetConstraintsCommand{}))
+	r.Register(wrapEnvCommand(&SetConstraintsCommand{}))
+	r.Register(wrapEnvCommand(&GetEnvironmentCommand{}))
+	r.Register(wrapEnvCommand(&SetEnvironmentCommand{}))
+	r.Register(wrapEnvCommand(&UnsetEnvironmentCommand{}))
+	r.Register(wrapEnvCommand(&ExposeCommand{}))
+	r.Register(wrapEnvCommand(&SyncToolsCommand{}))
+	r.Register(wrapEnvCommand(&UnexposeCommand{}))
+	r.Register(wrapEnvCommand(&UpgradeJujuCommand{}))
+	r.Register(wrapEnvCommand(&UpgradeCharmCommand{}))
 
 	// Charm publishing commands.
-	jujucmd.Register(wrap(&PublishCommand{}))
+	r.Register(wrapEnvCommand(&PublishCommand{}))
 
 	// Charm tool commands.
-	jujucmd.Register(wrap(&HelpToolCommand{}))
+	r.Register(&HelpToolCommand{})
 
 	// Manage authorized ssh keys.
-	jujucmd.Register(wrap(NewAuthorizedKeysCommand()))
+	r.Register(NewAuthorizedKeysCommand())
 
 	// Manage state server availability.
-	jujucmd.Register(wrap(&EnsureAvailabilityCommand{}))
+	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
 
 	// Common commands.
-	jujucmd.Register(wrap(&cmd.VersionCommand{}))
-
-	os.Exit(cmd.Main(jujucmd, ctx, args[1:]))
+	r.Register(&cmd.VersionCommand{})
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle

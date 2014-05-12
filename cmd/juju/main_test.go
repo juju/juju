@@ -351,3 +351,20 @@ command\.(.|\n)*`)
 		c.Assert(line, gc.Matches, globalFlags[i])
 	}
 }
+
+type commands []cmd.Command
+
+func (r *commands) Register(c cmd.Command) {
+	*r = append(*r, c)
+}
+
+func (s *MainSuite) TestEnvironCommands(c *gc.C) {
+	var commands commands
+	registerCommands(&commands, testing.Context(c))
+	// There should not be any EnvironCommands registered.
+	// EnvironCommands must be wrapped using envcmd.Wrap.
+	for _, cmd := range commands {
+		c.Logf("%v", cmd.Info().Name)
+		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&BootstrapCommand{}))
+	}
+}
