@@ -80,8 +80,7 @@ func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *AddMachineCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	if c.Constraints.Container != nil {

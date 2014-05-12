@@ -4,6 +4,9 @@
 package version
 
 var (
-	ReadSeries        = readSeries
-	LSBReleaseFileVar = &lsbReleaseFile
+	ReadSeries                    = readSeries
+	KernelToMajor                 = kernelToMajor
+	MacOSXSeriesFromKernelVersion = macOSXSeriesFromKernelVersion
+	MacOSXSeriesFromMajorVersion  = macOSXSeriesFromMajorVersion
+	LSBReleaseFileVar             = &lsbReleaseFile
 )

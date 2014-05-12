@@ -78,7 +78,7 @@ var scpTests = []struct {
 	}, {
 		about:  "scp from machine 0 to unit mysql/0 with proxy",
 		args:   []string{"0:foo", "mysql/0:/foo"},
-		result: commonArgs + "ubuntu@dummyenv-0.dns:foo ubuntu@dummyenv-0.dns:/foo\n",
+		result: commonArgs + "ubuntu@dummyenv-0.internal:foo ubuntu@dummyenv-0.internal:/foo\n",
 		proxy:  true,
 	}, {
 		args:   []string{"0:foo", ".", "-rv", "-o", "SomeOption"},
@@ -188,7 +188,15 @@ func (s *expandArgsSuite) TestSCPExpandArgs(c *gc.C) {
 		c.Check(strings.HasSuffix(argString, "\n"), jc.IsTrue)
 		argString = argString[:len(argString)-1]
 		args := strings.Split(argString, " ")
-		expanded, err := expandArgs(t.args, dummyHostsFromTarget)
+		expanded, err := expandArgs(t.args, func(target string) (string, error) {
+			if res, ok := hostsFromTargets[target]; ok {
+				if t.proxy {
+					res = strings.Replace(res, ".dns", ".internal", 1)
+				}
+				return res, nil
+			}
+			return target, nil
+		})
 		c.Check(err, gc.IsNil)
 		c.Check(expanded, gc.DeepEquals, args)
 	}

@@ -12,25 +12,25 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-type DestroyUnitSuite struct {
+type RemoveUnitSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = gc.Suite(&DestroyUnitSuite{})
+var _ = gc.Suite(&RemoveUnitSuite{})
 
-func runDestroyUnit(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &DestroyUnitCommand{}, args)
+func runRemoveUnit(c *gc.C, args ...string) error {
+	_, err := testing.RunCommand(c, &RemoveUnitCommand{}, args)
 	return err
 }
 
-func (s *DestroyUnitSuite) TestDestroyUnit(c *gc.C) {
+func (s *RemoveUnitSuite) TestRemoveUnit(c *gc.C) {
 	testing.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "-n", "2", "local:dummy", "dummy")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	svc, _ := s.AssertService(c, "dummy", curl, 2, 0)
 
-	err = runDestroyUnit(c, "dummy/0", "dummy/1", "dummy/2", "sillybilly/17")
+	err = runRemoveUnit(c, "dummy/0", "dummy/1", "dummy/2", "sillybilly/17")
 	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "dummy/2" does not exist; unit "sillybilly/17" does not exist`)
 	units, err := svc.AllUnits()
 	c.Assert(err, gc.IsNil)

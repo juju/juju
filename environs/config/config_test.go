@@ -1028,6 +1028,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["tools-url"] = ""
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false
+	attrs["lxc-use-clone"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1110,6 +1111,11 @@ var validationTests = []validationTest{{
 	about: "Cannot change the bootstrap-timeout from implicit-default to different value",
 	new:   testing.Attrs{"bootstrap-timeout": 5},
 	err:   `cannot change bootstrap-timeout from 600 to 5`,
+}, {
+	about: "Cannot change lxc-use-clone",
+	old:   testing.Attrs{"lxc-use-clone": false},
+	new:   testing.Attrs{"lxc-use-clone": true},
+	err:   `cannot change lxc-use-clone from false to true`,
 }}
 
 func (*ConfigSuite) TestValidateChange(c *gc.C) {

@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 var PrivateKeyPassphrase = "12345"
@@ -535,7 +536,7 @@ func NewTestConstraint(params simplestreams.LookupParams) *testConstraint {
 }
 
 func (tc *testConstraint) Ids() ([]string, error) {
-	version, err := simplestreams.SeriesVersion(tc.Series[0])
+	version, err := ubuntu.SeriesVersion(tc.Series[0])
 	if err != nil {
 		return nil, err
 	}

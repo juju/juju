@@ -92,8 +92,7 @@ func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ValidateImageMetadataCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	if c.providerType != "" {
@@ -107,7 +106,7 @@ func (c *ValidateImageMetadataCommand) Init(args []string) error {
 			return fmt.Errorf("metadata directory required if provider type is specified")
 		}
 	}
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 var _ environs.ConfigGetter = (*overrideEnvStream)(nil)

@@ -67,12 +67,7 @@ func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port in
 
 var expectedForwardSyslogConfTemplate = `
 $ModLoad imuxsock
-
-# start: Forwarding rule for server
-$ActionQueueType LinkedList
-$ActionQueueFileName {{.MachineTag}}{{.Namespace}}_0
-$ActionResumeRetryCount -1
-$ActionQueueSaveOnShutdown on
+$ModLoad imfile
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
@@ -81,6 +76,11 @@ $InputFileTag juju{{.Namespace}}-{{.MachineTag}}:
 $InputFileStateFile {{.MachineTag}}{{.Namespace}}
 $InputRunFileMonitor
 
+# start: Forwarding rule for server
+$ActionQueueType LinkedList
+$ActionQueueFileName {{.MachineTag}}{{.Namespace}}_0
+$ActionResumeRetryCount -1
+$ActionQueueSaveOnShutdown on
 $DefaultNetstreamDriver gtls
 $DefaultNetstreamDriverCAFile {{.LogDir}}/ca-cert.pem
 $ActionSendStreamDriverAuthMode anon

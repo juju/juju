@@ -48,8 +48,8 @@ func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 
 	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "i", "only show log messages for these entities")
 	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeEntity), "include", "only show log messages for these entities")
-	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "x", "only show log messages for these entities")
-	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "exclude", "only show log messages for these entities")
+	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "x", "do not show log messages for these entities")
+	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeEntity), "exclude", "do not show log messages for these entities")
 	f.Var(cmd.NewAppendStringsValue(&c.params.IncludeModule), "include-module", "only show log messages for these logging modules")
 	f.Var(cmd.NewAppendStringsValue(&c.params.ExcludeModule), "exclude-module", "do not show log messages for these logging modules")
 
@@ -63,8 +63,7 @@ func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DebugLogCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+	if err := c.EnsureEnvName(); err != nil {
 		return err
 	}
 	if c.level != "" {

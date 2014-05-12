@@ -60,8 +60,7 @@ func (c *PublishCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *PublishCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	if len(args) == 0 {

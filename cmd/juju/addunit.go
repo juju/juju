@@ -80,6 +80,9 @@ func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *AddUnitCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
+		return err
+	}
 	switch len(args) {
 	case 1:
 		c.ServiceName = args[0]

@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/worker"
@@ -71,7 +72,7 @@ func (cs *ContainerSetup) SetUp() (watcher watcher.StringsWatcher, err error) {
 }
 
 // Handle is called whenever containers change on the machine being watched.
-// All machines start out with so containers so the first time Handle is called,
+// Machines start out with no containers so the first time Handle is called,
 // it will be because a container has been added.
 func (cs *ContainerSetup) Handle(containerIds []string) (resultError error) {
 	// Consume the initial watcher event.
@@ -142,6 +143,21 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 	}
 	var initialiser container.Initialiser
 	var broker environs.InstanceBroker
+
+	// Ask the provisioner for the container manager configuration.
+	managerConfigResult, err := cs.provisioner.ContainerManagerConfig(
+		params.ContainerManagerConfigParams{Type: containerType},
+	)
+	if params.IsCodeNotImplemented(err) {
+		// We currently don't support upgrading;
+		// revert to the old configuration.
+		managerConfigResult.ManagerConfig = container.ManagerConfig{container.ConfigName: "juju"}
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	managerConfig := container.ManagerConfig(managerConfigResult.ManagerConfig)
+
 	switch containerType {
 	case instance.LXC:
 		series, err := cs.machine.Series()
@@ -150,13 +166,13 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 		}
 
 		initialiser = lxc.NewContainerInitialiser(series)
-		broker, err = NewLxcBroker(cs.provisioner, tools, cs.config)
+		broker, err = NewLxcBroker(cs.provisioner, tools, cs.config, managerConfig)
 		if err != nil {
 			return nil, nil, err
 		}
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
-		broker, err = NewKvmBroker(cs.provisioner, tools, cs.config)
+		broker, err = NewKvmBroker(cs.provisioner, tools, cs.config, managerConfig)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")
 			return nil, nil, err

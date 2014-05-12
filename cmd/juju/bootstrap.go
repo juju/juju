@@ -88,9 +88,8 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
-	err = c.EnvCommandBase.Init()
-	if err != nil {
-		return
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
+		return err
 	}
 	if len(c.Series) > 0 && !c.UploadTools {
 		return fmt.Errorf("--upload-series requires --upload-tools")
