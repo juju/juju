@@ -100,7 +100,6 @@ func (c *DeployCommand) Info() *cmd.Info {
 }
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision (DEPRECATED)")
@@ -113,10 +112,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	switch len(args) {
 	case 2:
 		if !names.IsService(args[1]) {

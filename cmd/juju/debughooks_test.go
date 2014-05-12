@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -79,7 +80,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 	for i, t := range debugHooksTests {
 		c.Logf("test %d: %s\n\t%s\n", i, t.info, t.args)
 		ctx := coretesting.Context(c)
-		code := cmd.Main(&DebugHooksCommand{}, ctx, t.args)
+		code := cmd.Main(envcmd.Wrap(&DebugHooksCommand{}), ctx, t.args)
 		c.Check(code, gc.Equals, t.code)
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, t.stderr)
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Matches, t.result)

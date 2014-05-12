@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd/envcmd"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -19,7 +20,7 @@ type DestroyUnitSuite struct {
 var _ = gc.Suite(&DestroyUnitSuite{})
 
 func runDestroyUnit(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &DestroyUnitCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&DestroyUnitCommand{}), args)
 	return err
 }
 

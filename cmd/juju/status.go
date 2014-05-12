@@ -50,7 +50,6 @@ func (c *StatusCommand) Info() *cmd.Info {
 }
 
 func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
@@ -59,7 +58,7 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *StatusCommand) Init(args []string) error {
 	c.patterns = args
-	return c.EnvCommandBase.Init()
+	return nil
 }
 
 var connectionError = `Unable to connect to environment %q.

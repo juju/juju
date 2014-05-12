@@ -40,7 +40,6 @@ type SSHCommon struct {
 }
 
 func (c *SSHCommon) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.proxy, "proxy", true, "proxy through the API server")
 	f.BoolVar(&c.pty, "pty", true, "enable pseudo-tty allocation")
 }
@@ -94,10 +93,6 @@ func (c *SSHCommand) Info() *cmd.Info {
 }
 
 func (c *SSHCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	if len(args) == 0 {
 		return errors.New("no target name specified")
 	}

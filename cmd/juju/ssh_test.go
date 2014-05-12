@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -113,7 +114,7 @@ func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 		c.Logf("test %d: %s -> %s\n", i, t.about, t.args)
 		ctx := coretesting.Context(c)
 		jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
-		jujucmd.Register(&SSHCommand{})
+		jujucmd.Register(envcmd.Wrap(&SSHCommand{}))
 
 		code := cmd.Main(jujucmd, ctx, t.args)
 		c.Check(code, gc.Equals, 0)

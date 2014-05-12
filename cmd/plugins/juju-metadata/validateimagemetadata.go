@@ -81,7 +81,6 @@ func (c *ValidateImageMetadataCommand) Info() *cmd.Info {
 }
 
 func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
@@ -92,10 +91,6 @@ func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ValidateImageMetadataCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	if c.providerType != "" {
 		if c.series == "" {
 			return fmt.Errorf("series required if provider type is specified")

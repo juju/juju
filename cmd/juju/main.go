@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 
@@ -126,7 +127,6 @@ func Main(args []string) {
 	jujucmd.Register(wrap(NewAuthorizedKeysCommand()))
 
 	// Manage state server availability.
-	// TODO: enable once the backend is ready for it.
 	jujucmd.Register(wrap(&EnsureAvailabilityCommand{}))
 
 	// Common commands.
@@ -138,38 +138,30 @@ func Main(args []string) {
 // wrap encapsulates code that wraps some of the commands in a helper class
 // that handles some common errors
 func wrap(c cmd.Command) cmd.Command {
-	if ec, ok := c.(envCmd); ok {
-		return envCmdWrapper{ec}
+	if ec, ok := c.(envcmd.EnvironCommand); ok {
+		return envcmd.Wrap(ec)
 	}
 	return c
 }
 
-// envCmd is a Command that interacts with the juju client environment
-type envCmd interface {
-	cmd.Command
-	EnvironName() string
-}
-
 // envCmdWrapper is a struct that wraps an environment command and lets us handle
-// errors returned from Run before they're returned to the main function
+// errors returned from Init before they're returned to the main function.
 type envCmdWrapper struct {
-	envCmd
+	cmd.Command
+	ctx *cmd.Context
 }
 
-// Run in envCmdWrapper gives us an opportunity to handle errors after the command is
-// run. This is used to give informative messages to the user.
-func (c envCmdWrapper) Run(ctx *cmd.Context) error {
-	err := c.envCmd.Run(ctx)
-	if environs.IsNoEnv(err) && c.EnvironName() == "" {
-		fmt.Fprintln(ctx.Stderr, "No juju environment configuration file exists.")
-		fmt.Fprintln(ctx.Stderr, err)
-		fmt.Fprintln(ctx.Stderr, "Please create a configuration by running:")
-		fmt.Fprintln(ctx.Stderr, "    juju init")
-		fmt.Fprintln(ctx.Stderr, "then edit the file to configure your juju environment.")
-		fmt.Fprintln(ctx.Stderr, "You can then re-run the command.")
+func (w *envCmdWrapper) Init(args []string) error {
+	err := w.Command.Init(args)
+	if environs.IsNoEnv(err) {
+		fmt.Fprintln(w.ctx.Stderr, "No juju environment configuration file exists.")
+		fmt.Fprintln(w.ctx.Stderr, err)
+		fmt.Fprintln(w.ctx.Stderr, "Please create a configuration by running:")
+		fmt.Fprintln(w.ctx.Stderr, "    juju init")
+		fmt.Fprintln(w.ctx.Stderr, "then edit the file to configure your juju environment.")
+		fmt.Fprintln(w.ctx.Stderr, "You can then re-run the command.")
 		return cmd.ErrSilent
 	}
-
 	return err
 }
 

@@ -37,16 +37,7 @@ func (c *EndpointCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *EndpointCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(args)
-}
-
 func (c *EndpointCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.BoolVar(&c.refresh, "refresh", false, "connect to the API to ensure up-to-date endpoint locations")
 }

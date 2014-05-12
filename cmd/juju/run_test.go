@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/exec"
@@ -106,7 +107,7 @@ func (*RunSuite) TestTargetArgParsing(c *gc.C) {
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		runCmd := &RunCommand{}
-		testing.TestInit(c, runCmd, test.args, test.errMatch)
+		testing.TestInit(c, envcmd.Wrap(runCmd), test.args, test.errMatch)
 		if test.errMatch == "" {
 			c.Check(runCmd.all, gc.Equals, test.all)
 			c.Check(runCmd.machines, gc.DeepEquals, test.machines)
@@ -142,7 +143,7 @@ func (*RunSuite) TestTimeoutArgParsing(c *gc.C) {
 	}} {
 		c.Log(fmt.Sprintf("%v: %s", i, test.message))
 		runCmd := &RunCommand{}
-		testing.TestInit(c, runCmd, test.args, test.errMatch)
+		testing.TestInit(c, envcmd.Wrap(runCmd), test.args, test.errMatch)
 		if test.errMatch == "" {
 			c.Check(runCmd.timeout, gc.Equals, test.timeout)
 		}
@@ -257,7 +258,7 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	jsonFormatted, err := cmd.FormatJson(unformatted)
 	c.Assert(err, gc.IsNil)
 
-	context, err := testing.RunCommand(c, &RunCommand{}, []string{
+	context, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}), []string{
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
 	})
 	c.Assert(err, gc.IsNil)
@@ -337,7 +338,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 			args = append(args, "--format", test.format)
 		}
 		args = append(args, "--all", "ignored")
-		context, err := testing.RunCommand(c, &RunCommand{}, args)
+		context, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}), args)
 		if test.errorMatch != "" {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
 		} else {

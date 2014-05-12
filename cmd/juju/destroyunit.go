@@ -29,10 +29,6 @@ func (c *DestroyUnitCommand) Info() *cmd.Info {
 }
 
 func (c *DestroyUnitCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	c.UnitNames = args
 	if len(c.UnitNames) == 0 {
 		return errors.New("no units specified")

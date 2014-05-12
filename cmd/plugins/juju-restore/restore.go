@@ -82,17 +82,12 @@ func (c *restoreCommand) Info() *cmd.Info {
 }
 
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.showDescription, "description", false, "show the purpose of this plugin")
 	c.Log.AddFlags(f)
 }
 
 func (c *restoreCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	if c.showDescription {
 		return cmd.CheckEmpty(args)
 	}

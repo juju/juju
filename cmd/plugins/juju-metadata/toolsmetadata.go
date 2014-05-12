@@ -37,17 +37,8 @@ func (c *ToolsMetadataCommand) Info() *cmd.Info {
 }
 
 func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.metadataDir, "d", "", "local directory in which to store metadata")
 	f.BoolVar(&c.public, "public", false, "tools are for a public cloud, so generate mirrors information")
-}
-
-func (c *ToolsMetadataCommand) Init(args []string) (err error) {
-	err = c.EnvCommandBase.Init()
-	if err != nil {
-		return
-	}
-	return cmd.CheckEmpty(args)
 }
 
 func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {

@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -24,7 +25,7 @@ type AddMachineSuite struct {
 var _ = gc.Suite(&AddMachineSuite{})
 
 func runAddMachine(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &AddMachineCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&AddMachineCommand{}), args)
 	return err
 }
 

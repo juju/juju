@@ -7,6 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -20,7 +21,7 @@ type DestroyMachineSuite struct {
 var _ = gc.Suite(&DestroyMachineSuite{})
 
 func runDestroyMachine(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &DestroyMachineCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&DestroyMachineCommand{}), args)
 	return err
 }
 
