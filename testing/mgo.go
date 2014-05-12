@@ -60,6 +60,10 @@ type MgoInstance struct {
 	// Params is a list of additional parameters that will be passed to
 	// the mongod application
 	Params []string
+
+	// WithoutV8 is true if we believe this Mongo doesn't actually have the
+	// V8 engine
+	WithoutV8 bool
 }
 
 // Addr returns the address of the MongoDB server.
@@ -112,10 +116,11 @@ func (inst *MgoInstance) Start(ssl bool) error {
 		inst.port = 0
 		os.RemoveAll(inst.dir)
 		inst.dir = ""
-		return err
+		logger.Warningf("failed to start mongo: %v", err)
+	} else {
+		logger.Debugf("started mongod pid %d in %s on port %d", inst.server.Process.Pid, dbdir, inst.port)
 	}
-	logger.Debugf("started mongod pid %d in %s on port %d", inst.server.Process.Pid, dbdir, inst.port)
-	return nil
+	return err
 }
 
 // run runs the MongoDB server at the
@@ -147,17 +152,34 @@ func (inst *MgoInstance) run() error {
 	if inst.Params != nil {
 		mgoargs = append(mgoargs, inst.Params...)
 	}
-	server := exec.Command("mongod", mgoargs...)
+	// Look for mongod first. This is so we can run the V8 tests for the
+	// store
+	mongopath, err := exec.LookPath("mongod")
+	if err != nil {
+		logger.Debugf("failed to find 'mongodb', in PATH, looking for /usr/lib/juju/bin/mongod")
+		mongopath, err = exec.LookPath("/usr/lib/juju/bin/mongod")
+		if err != nil {
+			return err
+		}
+		inst.WithoutV8 = true
+	}
+	logger.Debugf("found mongod at: %q", mongopath)
+	server := exec.Command(mongopath, mgoargs...)
 	out, err := server.StdoutPipe()
 	if err != nil {
 		return err
 	}
 	server.Stderr = server.Stdout
 	exited := make(chan struct{})
-	started := make(chan struct{})
+	started := make(chan error)
 	listening := make(chan error, 1)
 	go func() {
-		<-started
+		err := <-started
+		if err != nil {
+			close(listening)
+			close(exited)
+			return
+		}
 		// Wait until the server is listening.
 		var buf bytes.Buffer
 		prefix := fmt.Sprintf("mongod:%v", mgoport)
@@ -183,7 +205,7 @@ func (inst *MgoInstance) run() error {
 	}()
 	inst.exited = exited
 	err = server.Start()
-	close(started)
+	started <- err
 	if err != nil {
 		return err
 	}
@@ -239,7 +261,7 @@ func MgoTestPackageSsl(t *stdtesting.T, ssl bool) {
 
 func (s *MgoSuite) SetUpSuite(c *gc.C) {
 	if MgoServer.addr == "" {
-		panic("MgoSuite tests must be run with MgoTestPackage")
+		c.Fatalf("No Mongo Server Address, MgoSuite tests must be run with MgoTestPackage")
 	}
 	mgo.SetDebug(true)
 	mgo.SetStats(true)
