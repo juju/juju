@@ -43,6 +43,7 @@ const tagOffset = len("juju-") + 1
 // Instead we need to mess with the global FileCreateMode.  We set it back
 // to the ubuntu default after defining our rule.
 const stateServerRsyslogTemplate = `
+$ModLoad imuxsock
 $ModLoad imfile
 
 # Messages received from remote rsyslog machines have messages prefixed with a space,
@@ -52,9 +53,20 @@ $template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
 $RuleSet local
-:syslogtag, startswith, "juju{{namespace}}-" {{range $i, $bootstrapIP := bootstrapHosts}}{{if $i}} & {{end}}@@{{$bootstrapIP}}:{{portNumber}};LongTagForwardFormat{{end}}
-$FileCreateMode 0644
-:syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
+{{range $i, $stateServerIP := stateServerHosts}}
+# start: Forwarding rule for {{$stateServerIP}}
+$ActionQueueType LinkedList
+$ActionQueueFileName {{logfileName}}{{namespace}}_{{$i}}
+$ActionResumeRetryCount -1
+$ActionQueueSaveOnShutdown on
+$DefaultNetstreamDriver gtls
+$DefaultNetstreamDriverCAFile {{tlsCACertPath}}
+$ActionSendStreamDriverAuthMode anon
+$ActionSendStreamDriverMode 1 # run driver in TLS-only mode
+
+:syslogtag, startswith, "juju{{namespace}}-" @@{{$stateServerIP}}:{{portNumber}};LongTagForwardFormat
+# end: Forwarding rule for {{$stateServerIP}}
+{{end}}
 & ~
 $FileCreateMode 0640
 
