@@ -104,7 +104,7 @@ func (c *restoreCommand) Init(args []string) error {
 }
 
 var updateBootstrapMachineTemplate = mustParseTemplate(`
-	set -x
+	set -exu
 
 	export LC_ALL=C
 	tar xzf juju-backup.tgz
@@ -115,7 +115,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 
 	initctl stop juju-db
 	rm -r /var/lib/juju
-        rm -r /var/log/juju
+	rm -r /var/log/juju
 
 	tar -C / -xvp -f juju-backup/root.tar
 	mkdir -p /var/lib/juju/db
@@ -130,16 +130,16 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	initctl start juju-db
 
 	mongoAdminEval() {
-		mongo --ssl -u admin -p {{.Creds.OldPassword | shquote }} localhost:37017/admin --eval "$1"
+		mongo --ssl -u admin -p {{.Creds.OldPassword | shquote}} localhost:37017/admin --eval "$1"
 	}
 
 
 	mongoEval() {
-		mongo --ssl -u {{.Creds.Tag}} -p {{.Creds.Password | shquote }} localhost:37017/juju --eval "$1"
+		mongo --ssl -u {{.Creds.Tag}} -p {{.Creds.Password | shquote}} localhost:37017/juju --eval "$1"
 	}
 
 	# wait for mongo to come up after starting the juju-db upstart service.
-	for i in $(seq 1 50)
+	for i in $(seq 1 100)
 	do
 		mongoEval ' ' && break
 		sleep 5
@@ -309,15 +309,16 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 }
 
 func restoreBootstrapMachine(conn *juju.APIConn, backupFile string, creds credentials) (newInstId instance.Id, addr string, err error) {
-	addr, err = conn.State.Client().PublicAddress("0")
+	client := conn.State.Client()
+	addr, err = client.PublicAddress("0")
 	if err != nil {
 		return "", "", fmt.Errorf("cannot get public address of bootstrap machine: %v", err)
 	}
-	paddr, err := conn.State.Client().PrivateAddress("0")
+	paddr, err := client.PrivateAddress("0")
 	if err != nil {
 		return "", "", fmt.Errorf("cannot get private address of bootstrap machine: %v", err)
 	}
-	status, err := conn.State.Client().Status(nil)
+	status, err := client.Status(nil)
 	if err != nil {
 		return "", "", fmt.Errorf("cannot get environment status: %v", err)
 	}
