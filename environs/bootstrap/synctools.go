@@ -9,7 +9,6 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -17,6 +16,7 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 const noToolsMessage = `Juju cannot bootstrap because no tools are available for your environment.
@@ -34,7 +34,7 @@ func UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch 
 	logger.Infof("checking that upload is possible")
 	// Check the series are valid.
 	for _, series := range bootstrapSeries {
-		if _, err := simplestreams.SeriesVersion(series); err != nil {
+		if _, err := ubuntu.SeriesVersion(series); err != nil {
 			return err
 		}
 	}
