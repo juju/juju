@@ -12,40 +12,40 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-type DestroyServiceSuite struct {
+type RemoveServiceSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = gc.Suite(&DestroyServiceSuite{})
+var _ = gc.Suite(&RemoveServiceSuite{})
 
-func runDestroyService(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&DestroyServiceCommand{}), args)
+func runRemoveService(c *gc.C, args ...string) error {
+	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveServiceCommand{}), args)
 	return err
 }
 
-func (s *DestroyServiceSuite) TestSuccess(c *gc.C) {
+func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
 	// Destroy a service that exists.
 	testing.Charms.BundlePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
-	err = runDestroyService(c, "riak")
+	err = runRemoveService(c, "riak")
 	c.Assert(err, gc.IsNil)
 	riak, err := s.State.Service("riak")
 	c.Assert(err, gc.IsNil)
 	c.Assert(riak.Life(), gc.Equals, state.Dying)
 }
 
-func (s *DestroyServiceSuite) TestFailure(c *gc.C) {
+func (s *RemoveServiceSuite) TestFailure(c *gc.C) {
 	// Destroy a service that does not exist.
-	err := runDestroyService(c, "gargleblaster")
+	err := runRemoveService(c, "gargleblaster")
 	c.Assert(err, gc.ErrorMatches, `service "gargleblaster" not found`)
 }
 
-func (s *DestroyServiceSuite) TestInvalidArgs(c *gc.C) {
-	err := runDestroyService(c)
+func (s *RemoveServiceSuite) TestInvalidArgs(c *gc.C) {
+	err := runRemoveService(c)
 	c.Assert(err, gc.ErrorMatches, `no service specified`)
-	err = runDestroyService(c, "ping", "pong")
+	err = runRemoveService(c, "ping", "pong")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["pong"\]`)
-	err = runDestroyService(c, "invalid:name")
+	err = runRemoveService(c, "invalid:name")
 	c.Assert(err, gc.ErrorMatches, `invalid service name "invalid:name"`)
 }

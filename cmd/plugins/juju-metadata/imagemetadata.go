@@ -61,10 +61,6 @@ func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Endpoint, "u", "", "the cloud endpoint (for Openstack, this is the Identity Service endpoint)")
 }
 
-func (c *ImageMetadataCommand) Init(args []string) error {
-	return cmd.CheckEmpty(args)
-}
-
 // setParams sets parameters based on the environment configuration
 // for those which have not been explicitly specified.
 func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {

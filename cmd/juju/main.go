@@ -88,10 +88,10 @@ func Main(args []string) {
 	jujucmd.Register(wrap(&AddUnitCommand{}))
 
 	// Destruction commands.
-	jujucmd.Register(wrap(&DestroyMachineCommand{}))
-	jujucmd.Register(wrap(&DestroyRelationCommand{}))
-	jujucmd.Register(wrap(&DestroyServiceCommand{}))
-	jujucmd.Register(wrap(&DestroyUnitCommand{}))
+	jujucmd.Register(wrap(&RemoveMachineCommand{}))
+	jujucmd.Register(wrap(&RemoveRelationCommand{}))
+	jujucmd.Register(wrap(&RemoveServiceCommand{}))
+	jujucmd.Register(wrap(&RemoveUnitCommand{}))
 	jujucmd.Register(wrap(&DestroyEnvironmentCommand{}))
 
 	// Reporting commands.

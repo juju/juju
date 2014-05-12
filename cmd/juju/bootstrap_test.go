@@ -4,7 +4,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"strings"
 
@@ -404,16 +403,11 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	defaultSeriesVersion.Minor = 11
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 
-	ctx := coretesting.Context(c)
-	code := cmd.Main(envcmd.Wrap(&BootstrapCommand{}), ctx, nil)
-	c.Check(code, gc.Equals, 0)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
+	c.Assert(err, gc.IsNil)
 
-	ctx2 := coretesting.Context(c)
-	code2 := cmd.Main(envcmd.Wrap(&BootstrapCommand{}), ctx2, nil)
-	c.Check(code2, gc.Equals, 1)
-	expectedErrText := "error: environment is already bootstrapped\n"
-	c.Check(coretesting.Stderr(ctx2), gc.Equals, expectedErrText)
-	c.Check(coretesting.Stdout(ctx2), gc.Equals, "")
+	_, err = coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
+	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
 func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
@@ -476,12 +470,13 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
-	ctx := coretesting.Context(c)
-	code := cmd.Main(envcmd.Wrap(&BootstrapCommand{}), ctx, []string{"--metadata-source", c.MkDir()})
-	c.Check(code, gc.Equals, 1)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), []string{"--metadata-source", c.MkDir()})
+	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: Juju "+
+		"cannot bootstrap because no tools are available for your "+
+		"environment(.|\n)*")
 
 	// Now check that there are no tools available.
-	_, err := envtools.FindTools(
+	_, err = envtools.FindTools(
 		env, version.Current.Major, version.Current.Minor, coretools.Filter{}, envtools.DoNotAllowRetry)
 	c.Assert(err, gc.FitsTypeOf, errors.NotFoundf(""))
 }
@@ -529,9 +524,9 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 	devVersion := version.Current
 	devVersion.Minor = 11
 	s.PatchValue(&version.Current, devVersion)
-	ctx := coretesting.Context(c)
-	code := cmd.Main(envcmd.Wrap(&BootstrapCommand{}), ctx, []string{"--metadata-source", sourceDir})
-	c.Check(code, gc.Equals, 0)
+
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), []string{"--metadata-source", sourceDir})
+	c.Assert(err, gc.IsNil)
 	c.Assert(imagemetadata.DefaultBaseURL, gc.Equals, imagemetadata.UbuntuCloudImagesURL)
 
 	// Now check the image metadata has been uploaded.
@@ -547,9 +542,8 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// Bootstrap the environment with the valid source.
 	// The bootstrapping has to show no error, because the tools
 	// are automatically synchronized.
-	ctx := coretesting.Context(c)
-	code := cmd.Main(envcmd.Wrap(&BootstrapCommand{}), ctx, []string{"--metadata-source", sourceDir})
-	c.Check(code, gc.Equals, 0)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), []string{"--metadata-source", sourceDir})
+	c.Assert(err, gc.IsNil)
 
 	// Now check the available tools which are the 1.2.0 envtools.
 	checkTools(c, env, v120All)
@@ -618,12 +612,11 @@ func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	context := coretesting.Context(c)
-	code := cmd.Main(envcmd.Wrap(&BootstrapCommand{}), context, nil)
-	c.Assert(code, gc.Equals, 1)
-	errText := context.Stderr.(*bytes.Buffer).String()
-	expectedErrText := "error: cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment(.|\n)*"
-	c.Assert(errText, gc.Matches, expectedErrText)
+
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
+	c.Assert(err, gc.ErrorMatches, "cannot upload bootstrap tools: Juju "+
+		"cannot bootstrap because no tools are available for your "+
+		"environment(.|\n)*")
 }
 
 func uploadToolsAlwaysFails(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
@@ -633,13 +626,12 @@ func uploadToolsAlwaysFails(stor storage.Storage, forceVersion *version.Number, 
 func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "precise")
 	s.PatchValue(&sync.Upload, uploadToolsAlwaysFails)
-	context := coretesting.Context(c)
-	code := cmd.Main(envcmd.Wrap(&BootstrapCommand{}), context, nil)
-	c.Assert(code, gc.Equals, 1)
-	errText := context.Stderr.(*bytes.Buffer).String()
-	expectedErrText := "uploading tools for series \\[precise .* raring\\]\n"
-	expectedErrText += "error: cannot upload bootstrap tools: an error\n"
-	c.Assert(errText, gc.Matches, expectedErrText)
+
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
+
+	c.Check(coretesting.Stderr(ctx), gc.Matches,
+		"uploading tools for series \\[precise .* raring\\]\n")
+	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: an error")
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {

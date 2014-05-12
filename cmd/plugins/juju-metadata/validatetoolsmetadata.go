@@ -134,7 +134,7 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 			return err
 		}
 	}
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {

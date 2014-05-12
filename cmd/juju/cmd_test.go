@@ -361,16 +361,16 @@ func (*CmdSuite) TestUnsetCommandInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "no service name specified")
 }
 
-func initDestroyUnitCommand(args ...string) (*DestroyUnitCommand, error) {
-	com := &DestroyUnitCommand{}
+func initRemoveUnitCommand(args ...string) (*RemoveUnitCommand, error) {
+	com := &RemoveUnitCommand{}
 	return com, coretesting.InitCommand(com, args)
 }
 
-func (*CmdSuite) TestDestroyUnitCommandInit(c *gc.C) {
+func (*CmdSuite) TestRemoveUnitCommandInit(c *gc.C) {
 	// missing args
-	_, err := initDestroyUnitCommand()
+	_, err := initRemoveUnitCommand()
 	c.Assert(err, gc.ErrorMatches, "no units specified")
 	// not a unit
-	_, err = initDestroyUnitCommand("seven/nine")
+	_, err = initRemoveUnitCommand("seven/nine")
 	c.Assert(err, gc.ErrorMatches, `invalid unit name "seven/nine"`)
 }

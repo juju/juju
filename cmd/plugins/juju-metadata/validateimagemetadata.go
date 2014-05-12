@@ -102,7 +102,7 @@ func (c *ValidateImageMetadataCommand) Init(args []string) error {
 			return fmt.Errorf("metadata directory required if provider type is specified")
 		}
 	}
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 var _ environs.ConfigGetter = (*overrideEnvStream)(nil)
