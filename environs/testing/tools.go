@@ -13,7 +13,7 @@ import (
 
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -161,12 +161,11 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 }
 
 func uploadFakeTools(stor storage.Storage) error {
-	versions := []version.Binary{version.Current}
-	toolsVersion := version.Current
-	latestLts := config.LatestLtsSeries()
-	if toolsVersion.Series != latestLts {
-		toolsVersion.Series = latestLts
-		versions = append(versions, toolsVersion)
+	var versions []version.Binary
+	for _, series := range bootstrap.ToolsLtsSeries {
+		vers := version.Current
+		vers.Series = series
+		versions = append(versions, vers)
 	}
 	if _, err := UploadFakeToolsVersions(stor, versions...); err != nil {
 		return err
