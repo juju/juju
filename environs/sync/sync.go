@@ -20,6 +20,7 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 var logger = loggo.GetLogger("juju.environs.sync")
@@ -229,7 +230,7 @@ func cloneToolsForSeries(toolsInfo *BuiltTools, series ...string) error {
 	}
 	logger.Debugf("generating tarballs for %v", series)
 	for _, series := range series {
-		_, err := simplestreams.SeriesVersion(series)
+		_, err := ubuntu.SeriesVersion(series)
 		if err != nil {
 			return err
 		}
