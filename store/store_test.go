@@ -45,7 +45,7 @@ func (s *StoreSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
-	if os.Getenv("JUJU_NOTEST_MONGOJS") == "1" {
+	if os.Getenv("JUJU_NOTEST_MONGOJS") == "1" || testing.MgoServer.WithoutV8 {
 		c.Log("Tests requiring MongoDB Javascript will be skipped")
 		*noTestMongoJs = true
 	}
