@@ -22,9 +22,10 @@ check_deps() {
     echo "Phase 0: Checking requirements."
     has_deps=1
     which bzr || has_deps=0
+    which hg || has_deps=0
     which go || has_deps=0
     if [[ $has_deps == 0 ]]; then
-        echo "Install bzr and golang."
+        echo "Install bzr, hg and golang."
         exit 2
     fi
 }
