@@ -10,8 +10,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/utils/registry"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils/registry"
 )
 
 type registrySuite struct {

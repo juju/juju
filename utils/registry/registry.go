@@ -18,14 +18,14 @@ import (
 // that type.
 type TypedNameVersion struct {
 	requiredType reflect.Type
-	versions map[string]Versions
+	versions     map[string]Versions
 }
 
 // NewTypedNameVersion creates a place to register your objects
 func NewTypedNameVersion(requiredType reflect.Type) *TypedNameVersion {
 	return &TypedNameVersion{
 		requiredType: requiredType,
-		versions: make(map[string]Versions),
+		versions:     make(map[string]Versions),
 	}
 }
 
