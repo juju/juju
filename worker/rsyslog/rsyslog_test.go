@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strings"
 	stdtesting "testing"
 	"time"
 
@@ -161,6 +162,19 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(string(rsyslogConf), gc.DeepEquals, string(rendered))
+}
+
+func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
+	_, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	syslogConfig := syslog.NewAccumulateConfig(m.Tag(), *rsyslog.LogDir, 6541, "", []string{"192.168.1", "127.0.0.1"})
+	rendered, err := syslogConfig.Render()
+	c.Assert(err, gc.IsNil)
+
+	stateServer1Config := ":syslogtag, startswith, \"juju-\" @@192.168.1:6541;LongTagForwardFormat"
+	stateServer2Config := ":syslogtag, startswith, \"juju-\" @@127.0.0.1:6541;LongTagForwardFormat"
+
+	c.Assert(strings.Contains(string(rendered), stateServer1Config), gc.Equals, true)
+	c.Assert(strings.Contains(string(rendered), stateServer2Config), gc.Equals, true)
 }
 
 func (s *RsyslogSuite) TestNamespace(c *gc.C) {
