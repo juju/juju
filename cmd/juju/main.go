@@ -81,6 +81,8 @@ type commandRegistry interface {
 	Register(cmd.Command)
 }
 
+// registerCommands registers commands in the specified registry.
+// EnvironCommands must be wrapped with an envCmdWrapper.
 func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	wrapEnvCommand := func(c envcmd.EnvironCommand) cmd.Command {
 		return envCmdWrapper{envcmd.Wrap(c), ctx}
