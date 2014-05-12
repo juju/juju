@@ -35,8 +35,7 @@ func (c *AddKeysCommand) Info() *cmd.Info {
 }
 
 func (c *AddKeysCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	switch len(args) {

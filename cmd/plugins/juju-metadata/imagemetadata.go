@@ -63,6 +63,9 @@ func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ImageMetadataCommand) Init(args []string) error {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
+		return err
+	}
 	return cmd.CheckEmpty(args)
 }
 

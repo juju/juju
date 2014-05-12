@@ -12,25 +12,24 @@ import (
 	"launchpad.net/juju-core/names"
 )
 
-// DestroyServiceCommand causes an existing service to be destroyed.
-type DestroyServiceCommand struct {
+// RemoveServiceCommand causes an existing service to be destroyed.
+type RemoveServiceCommand struct {
 	envcmd.EnvCommandBase
 	ServiceName string
 }
 
-func (c *DestroyServiceCommand) Info() *cmd.Info {
+func (c *RemoveServiceCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "destroy-service",
+		Name:    "remove-service",
 		Args:    "<service>",
-		Purpose: "destroy a service",
-		Doc:     "Destroying a service will destroy all its units and relations.",
-		Aliases: []string{"remove-service"},
+		Purpose: "remove a service from the environment",
+		Doc:     "Removing a service will remove all its units and relations.",
+		Aliases: []string{"destroy-service"},
 	}
 }
 
-func (c *DestroyServiceCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+func (c *RemoveServiceCommand) Init(args []string) error {
+	if err := c.EnsureEnvName(); err != nil {
 		return err
 	}
 	if len(args) == 0 {
@@ -43,7 +42,7 @@ func (c *DestroyServiceCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *DestroyServiceCommand) Run(_ *cmd.Context) error {
+func (c *RemoveServiceCommand) Run(_ *cmd.Context) error {
 	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err

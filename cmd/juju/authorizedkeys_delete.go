@@ -37,8 +37,7 @@ func (c *DeleteKeysCommand) Info() *cmd.Info {
 }
 
 func (c *DeleteKeysCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
+	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
 		return err
 	}
 	switch len(args) {

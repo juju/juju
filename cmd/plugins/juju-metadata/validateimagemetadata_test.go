@@ -87,6 +87,8 @@ func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, seri
 }
 
 const metadataTestEnvConfig = `
+default: ec2
+
 environments:
     ec2:
         type: ec2
