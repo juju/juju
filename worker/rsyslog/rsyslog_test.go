@@ -155,10 +155,11 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	syslogPort := s.Conn.Environ.Config().SyslogPort()
-	syslogConfig := syslog.NewAccumulateConfig(m.Tag(), *rsyslog.LogDir, syslogPort, "", []string{"foo:80"})
+	syslogConfig := syslog.NewAccumulateConfig(m.Tag(), *rsyslog.LogDir, syslogPort, "", []string{})
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, gc.IsNil)
+
 	c.Assert(string(rsyslogConf), gc.DeepEquals, string(rendered))
 }
 
