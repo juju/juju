@@ -73,6 +73,13 @@ func Main(args []string) {
 
 	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
+	wrap := func(c cmd.Command) cmd.Command {
+		if ec, ok := c.(envcmd.EnvironCommand); ok {
+			return envCmdWrapper{envcmd.Wrap(ec), ctx}
+		}
+		return c
+	}
+
 	// Creation commands.
 	jujucmd.Register(wrap(&BootstrapCommand{}))
 	jujucmd.Register(wrap(&AddMachineCommand{}))
@@ -135,15 +142,6 @@ func Main(args []string) {
 	os.Exit(cmd.Main(jujucmd, ctx, args[1:]))
 }
 
-// wrap encapsulates code that wraps some of the commands in a helper class
-// that handles some common errors
-func wrap(c cmd.Command) cmd.Command {
-	if ec, ok := c.(envcmd.EnvironCommand); ok {
-		return envcmd.Wrap(ec)
-	}
-	return c
-}
-
 // envCmdWrapper is a struct that wraps an environment command and lets us handle
 // errors returned from Init before they're returned to the main function.
 type envCmdWrapper struct {
@@ -151,7 +149,7 @@ type envCmdWrapper struct {
 	ctx *cmd.Context
 }
 
-func (w *envCmdWrapper) Init(args []string) error {
+func (w envCmdWrapper) Init(args []string) error {
 	err := w.Command.Init(args)
 	if environs.IsNoEnv(err) {
 		fmt.Fprintln(w.ctx.Stderr, "No juju environment configuration file exists.")
