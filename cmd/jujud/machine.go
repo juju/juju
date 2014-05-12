@@ -34,6 +34,7 @@ import (
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/utils/voyeur"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -55,6 +56,7 @@ import (
 	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/singular"
 	"launchpad.net/juju-core/worker/terminationworker"
+	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -382,6 +384,11 @@ func (a *MachineAgent) updateSupportedContainers(
 	if err := machine.SetSupportedContainers(containers...); err != nil {
 		return fmt.Errorf("setting supported containers for %s: %v", tag, err)
 	}
+	lockDir := filepath.Join(agentConfig.DataDir(), "locks")
+	initLock, err := fslock.NewLock(lockDir, uniter.HookExecutionLock)
+	if err != nil {
+		return err
+	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
 	handler := provisioner.NewContainerSetupHandler(
@@ -391,6 +398,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		machine,
 		pr,
 		agentConfig,
+		initLock,
 	)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil

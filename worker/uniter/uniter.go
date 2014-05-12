@@ -42,6 +42,10 @@ const (
 	// workloads in the future, we'll need to move these into a file that is
 	// compiled conditionally for different targets and use tcp (most likely).
 	RunListenerFile = "run.socket"
+
+	// HookExecutionLock is the name of the uniter hook lock, used for serializing
+	// execution of hooks across all units on the same machine.
+	HookExecutionLock = "uniter-hook-execution"
 )
 
 // A UniterExecutionObserver gets the appropriate methods called when a hook
@@ -146,7 +150,7 @@ func (u *Uniter) loop(unitTag string) (err error) {
 
 func (u *Uniter) setupLocks() (err error) {
 	lockDir := filepath.Join(u.dataDir, "locks")
-	u.hookLock, err = fslock.NewLock(lockDir, "uniter-hook-execution")
+	u.hookLock, err = fslock.NewLock(lockDir, HookExecutionLock)
 	if err != nil {
 		return err
 	}
