@@ -1363,7 +1363,10 @@ func (s startUniter) step(c *gc.C, ctx *context) {
 	if ctx.s.uniter == nil {
 		panic("API connection not established")
 	}
-	ctx.uniter = uniter.NewUniter(ctx.s.uniter, s.unitTag, ctx.dataDir)
+	locksDir := filepath.Join(ctx.dataDir, "locks")
+	lock, err := fslock.NewLock(locksDir, "uniter-hook-execution")
+	c.Assert(err, gc.IsNil)
+	ctx.uniter = uniter.NewUniter(ctx.s.uniter, s.unitTag, ctx.dataDir, lock)
 	uniter.SetUniterObserver(ctx.uniter, ctx)
 }
 
