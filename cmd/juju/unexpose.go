@@ -26,9 +26,6 @@ func (c *UnexposeCommand) Info() *cmd.Info {
 }
 
 func (c *UnexposeCommand) Init(args []string) error {
-	if err := c.EnsureEnvName(); err != nil {
-		return err
-	}
 	if len(args) == 0 {
 		return errors.New("no service name specified")
 	}

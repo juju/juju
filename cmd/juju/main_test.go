@@ -19,6 +19,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju/osenv"
 	_ "launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -70,11 +71,11 @@ func helpText(command cmd.Command, name string) string {
 }
 
 func deployHelpText() string {
-	return helpText(&DeployCommand{}, "juju deploy")
+	return helpText(envcmd.Wrap(&DeployCommand{}), "juju deploy")
 }
 
 func syncToolsHelpText() string {
-	return helpText(&SyncToolsCommand{}, "juju sync-tools")
+	return helpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -348,5 +349,22 @@ command\.(.|\n)*`)
 	c.Assert(len(flags), gc.Equals, len(globalFlags))
 	for i, line := range flags {
 		c.Assert(line, gc.Matches, globalFlags[i])
+	}
+}
+
+type commands []cmd.Command
+
+func (r *commands) Register(c cmd.Command) {
+	*r = append(*r, c)
+}
+
+func (s *MainSuite) TestEnvironCommands(c *gc.C) {
+	var commands commands
+	registerCommands(&commands, testing.Context(c))
+	// There should not be any EnvironCommands registered.
+	// EnvironCommands must be wrapped using envcmd.Wrap.
+	for _, cmd := range commands {
+		c.Logf("%v", cmd.Info().Name)
+		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&BootstrapCommand{}))
 	}
 }

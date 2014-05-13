@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/api/watcher"
+	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -29,6 +30,7 @@ type ContainerSetup struct {
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
 	config              agent.Config
+	initLock            *fslock.Lock
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
@@ -44,7 +46,7 @@ type ContainerSetup struct {
 // containers are created on the given machine.
 func NewContainerSetupHandler(runner worker.Runner, workerName string, supportedContainers []instance.ContainerType,
 	machine *apiprovisioner.Machine, provisioner *apiprovisioner.State,
-	config agent.Config) worker.StringsWatchHandler {
+	config agent.Config, initLock *fslock.Lock) worker.StringsWatchHandler {
 
 	return &ContainerSetup{
 		runner:              runner,
@@ -53,6 +55,7 @@ func NewContainerSetupHandler(runner worker.Runner, workerName string, supported
 		provisioner:         provisioner,
 		config:              config,
 		workerName:          workerName,
+		initLock:            initLock,
 	}
 }
 
@@ -122,11 +125,20 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 	if initialiser, broker, err := cs.getContainerArtifacts(containerType); err != nil {
 		return fmt.Errorf("initialising container infrastructure on host machine: %v", err)
 	} else {
-		if err := initialiser.Initialise(); err != nil {
-			return fmt.Errorf("setting up container dependnecies on host machine: %v", err)
+		if err := cs.runInitialiser(containerType, initialiser); err != nil {
+			return fmt.Errorf("setting up container dependencies on host machine: %v", err)
 		}
 		return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker)
 	}
+}
+
+// runInitialiser runs the container initialiser with the initialisation hook held.
+func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, initialiser container.Initialiser) error {
+	if err := cs.initLock.Lock(fmt.Sprintf("initialise-%s", containerType)); err != nil {
+		return fmt.Errorf("failed to acquire initialization lock: %v", err)
+	}
+	defer cs.initLock.Unlock()
+	return initialiser.Initialise()
 }
 
 // TearDown is defined on the StringsWatchHandler interface.

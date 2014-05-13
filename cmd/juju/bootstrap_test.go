@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -142,7 +143,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	restore := envtools.TestingPatchBootstrapFindTools(mockFindTools)
 	defer restore()
 
-	_, errc := runCommand(nullContext(c), new(BootstrapCommand), test.args...)
+	_, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), test.args...)
 	err := <-errc
 	c.Check(findToolsRetryValues, gc.DeepEquals, test.expectedAllowRetry)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
@@ -225,7 +226,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 
 	// Run command and check for uploads.
-	opc, errc := runCommand(nullContext(c), new(BootstrapCommand), test.args...)
+	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), test.args...)
 	// Check for remaining operations/errors.
 	if test.err != "" {
 		err := <-errc
@@ -402,10 +403,10 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	defaultSeriesVersion.Minor = 11
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 
-	_, err := coretesting.RunCommand(c, &BootstrapCommand{}, nil)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
 	c.Assert(err, gc.IsNil)
 
-	_, err = coretesting.RunCommand(c, &BootstrapCommand{}, nil)
+	_, err = coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
@@ -428,7 +429,7 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 	_, fake := makeEmptyFakeHome(c)
 	defer fake.Restore()
 
-	ctx, err := coretesting.RunCommand(c, &BootstrapCommand{},
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}),
 		[]string{"--upload-tools", argVariant, "foo,bar"})
 
 	c.Assert(err, gc.IsNil)
@@ -457,7 +458,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	loggo.RegisterWriter(logger, testWriter, loggo.WARNING)
 	defer loggo.RemoveWriter(logger)
 
-	_, errc := runCommand(ctx, new(BootstrapCommand), "-e", "peckham")
+	_, errc := runCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
 	c.Assert(<-errc, gc.IsNil)
 	c.Assert(testWriter.Log, jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
 }
@@ -469,7 +470,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
-	_, err := coretesting.RunCommand(c, &BootstrapCommand{}, []string{"--metadata-source", c.MkDir()})
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), []string{"--metadata-source", c.MkDir()})
 	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: Juju "+
 		"cannot bootstrap because no tools are available for your "+
 		"environment(.|\n)*")
@@ -524,7 +525,7 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 	devVersion.Minor = 11
 	s.PatchValue(&version.Current, devVersion)
 
-	_, err := coretesting.RunCommand(c, &BootstrapCommand{}, []string{"--metadata-source", sourceDir})
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), []string{"--metadata-source", sourceDir})
 	c.Assert(err, gc.IsNil)
 	c.Assert(imagemetadata.DefaultBaseURL, gc.Equals, imagemetadata.UbuntuCloudImagesURL)
 
@@ -541,7 +542,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// Bootstrap the environment with the valid source.
 	// The bootstrapping has to show no error, because the tools
 	// are automatically synchronized.
-	_, err := coretesting.RunCommand(c, &BootstrapCommand{}, []string{"--metadata-source", sourceDir})
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), []string{"--metadata-source", sourceDir})
 	c.Assert(err, gc.IsNil)
 
 	// Now check the available tools which are the 1.2.0 envtools.
@@ -575,7 +576,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 
 	env := s.setupAutoUploadTest(c, "1.7.3", otherSeries)
 	// Run command and check for that upload has been run for tools matching the current juju version.
-	opc, errc := runCommand(nullContext(c), new(BootstrapCommand))
+	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)))
 	c.Assert(<-errc, gc.IsNil)
 	c.Assert((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
 	list, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{}, false)
@@ -603,7 +604,7 @@ func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
 
 func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
-	_, errc := runCommand(nullContext(c), new(BootstrapCommand))
+	_, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)))
 	err := <-errc
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped, gc.Matches, noToolsAvailableMessage)
@@ -612,7 +613,7 @@ func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
 
-	_, err := coretesting.RunCommand(c, &BootstrapCommand{}, nil)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
 	c.Assert(err, gc.ErrorMatches, "cannot upload bootstrap tools: Juju "+
 		"cannot bootstrap because no tools are available for your "+
 		"environment(.|\n)*")
@@ -626,7 +627,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "precise")
 	s.PatchValue(&sync.Upload, uploadToolsAlwaysFails)
 
-	ctx, err := coretesting.RunCommand(c, &BootstrapCommand{}, nil)
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
 
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
 		"uploading tools for series \\[precise .* raring\\]\n")
@@ -642,7 +643,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	// upload is only enabled for dev versions.
 	devVersion.Minor = 11
 	s.PatchValue(&version.Current, devVersion)
-	opc, errc := runCommand(nullContext(c), new(BootstrapCommand), "-e", "brokenenv")
+	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv")
 	err := <-errc
 	c.Assert(err, gc.ErrorMatches, "dummy.Bootstrap is broken")
 	var opDestroy *dummy.OpDestroy

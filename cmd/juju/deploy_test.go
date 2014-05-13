@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -26,7 +27,7 @@ type DeploySuite struct {
 var _ = gc.Suite(&DeploySuite{})
 
 func runDeploy(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, &DeployCommand{}, args)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), args)
 	return err
 }
 
@@ -64,7 +65,7 @@ var initErrorTests = []struct {
 func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
-		err := coretesting.InitCommand(&DeployCommand{}, t.args)
+		err := coretesting.InitCommand(envcmd.Wrap(&DeployCommand{}), t.args)
 		c.Assert(err, gc.ErrorMatches, t.err)
 	}
 }
@@ -84,7 +85,7 @@ func (s *DeploySuite) TestCharmDir(c *gc.C) {
 
 func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 	coretesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
-	ctx, err := coretesting.RunCommand(c, &DeployCommand{}, []string{"local:dummy", "-u"})
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), []string{"local:dummy", "-u"})
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")

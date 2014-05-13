@@ -30,15 +30,11 @@ func (c *ResolvedCommand) Info() *cmd.Info {
 }
 
 func (c *ResolvedCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.Retry, "r", false, "re-execute failed hooks")
 	f.BoolVar(&c.Retry, "retry", false, "")
 }
 
 func (c *ResolvedCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	if len(args) > 0 {
 		c.UnitName = args[0]
 		if !names.IsUnit(c.UnitName) {

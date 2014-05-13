@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cmd/envcmd"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -61,7 +62,7 @@ func (s *retryProvisioningSuite) TestResolved(c *gc.C) {
 
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
-		context, err := testing.RunCommand(c, &RetryProvisioningCommand{}, t.args)
+		context, err := testing.RunCommand(c, envcmd.Wrap(&RetryProvisioningCommand{}), t.args)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue

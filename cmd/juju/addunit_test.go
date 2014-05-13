@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -38,13 +39,13 @@ var initAddUnitErrorTests = []struct {
 func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 	for i, t := range initAddUnitErrorTests {
 		c.Logf("test %d", i)
-		err := testing.InitCommand(&AddUnitCommand{}, t.args)
+		err := testing.InitCommand(envcmd.Wrap(&AddUnitCommand{}), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
 func runAddUnit(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &AddUnitCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&AddUnitCommand{}), args)
 	return err
 }
 

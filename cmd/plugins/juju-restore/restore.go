@@ -48,7 +48,7 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
-	os.Exit(cmd.Main(&restoreCommand{}, ctx, args[1:]))
+	os.Exit(cmd.Main(envcmd.Wrap(&restoreCommand{}), ctx, args[1:]))
 }
 
 var logger = loggo.GetLogger("juju.plugins.restore")
@@ -82,16 +82,12 @@ func (c *restoreCommand) Info() *cmd.Info {
 }
 
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.showDescription, "description", false, "show the purpose of this plugin")
 	c.Log.AddFlags(f)
 }
 
 func (c *restoreCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	if c.showDescription {
 		return cmd.CheckEmpty(args)
 	}

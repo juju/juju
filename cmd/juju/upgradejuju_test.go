@@ -14,6 +14,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/storage"
@@ -313,7 +314,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 		// Set up apparent CLI version and initialize the command.
 		version.Current = version.MustParseBinary(test.currentVersion)
 		com := &UpgradeJujuCommand{}
-		if err := coretesting.InitCommand(com, test.args); err != nil {
+		if err := coretesting.InitCommand(envcmd.Wrap(com), test.args); err != nil {
 			if test.expectInitErr != "" {
 				c.Check(err, gc.ErrorMatches, test.expectInitErr)
 			} else {

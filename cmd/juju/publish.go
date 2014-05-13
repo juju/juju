@@ -55,14 +55,10 @@ func (c *PublishCommand) Info() *cmd.Info {
 }
 
 func (c *PublishCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.CharmPath, "from", ".", "path for charm to be published")
 }
 
 func (c *PublishCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	if len(args) == 0 {
 		return nil
 	}

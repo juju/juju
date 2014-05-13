@@ -6,6 +6,7 @@ package main
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cmd/envcmd"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -19,7 +20,7 @@ type ResolvedSuite struct {
 var _ = gc.Suite(&ResolvedSuite{})
 
 func runResolved(c *gc.C, args []string) error {
-	_, err := testing.RunCommand(c, &ResolvedCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&ResolvedCommand{}), args)
 	return err
 }
 

@@ -46,7 +46,7 @@ func extractJujuArgs(args []string) []string {
 
 func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	cmdName := JujuPluginPrefix + subcommand
-	plugin := &PluginCommand{name: cmdName}
+	plugin := envcmd.Wrap(&PluginCommand{name: cmdName})
 
 	// We process common flags supported by Juju commands.
 	// To do this, we extract only those supported flags from the
@@ -84,22 +84,15 @@ func (*PluginCommand) Info() *cmd.Info {
 }
 
 func (c *PluginCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	c.args = args
 	return nil
-}
-
-func (c *PluginCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 }
 
 func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command := exec.Command(c.name, c.args...)
 	command.Env = append(os.Environ(), []string{
 		osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
-		osenv.JujuEnvEnvKey + "=" + c.EnvironName()}...,
+		osenv.JujuEnvEnvKey + "=" + c.EnvName}...,
 	)
 
 	// Now hook up stdin, stdout, stderr

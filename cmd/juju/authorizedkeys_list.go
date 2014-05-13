@@ -37,16 +37,8 @@ func (c *ListKeysCommand) Info() *cmd.Info {
 }
 
 func (c *ListKeysCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.showFullKey, "full", false, "show full key instead of just the key fingerprint")
 	f.StringVar(&c.user, "user", "admin", "the user for which to list the keys")
-}
-
-func (c *ListKeysCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
-	return cmd.CheckEmpty(args)
 }
 
 func (c *ListKeysCommand) Run(context *cmd.Context) error {

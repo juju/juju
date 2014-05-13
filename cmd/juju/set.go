@@ -39,14 +39,10 @@ func (c *SetCommand) Info() *cmd.Info {
 }
 
 func (c *SetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.Var(&c.SettingsYAML, "config", "path to yaml-formatted service config")
 }
 
 func (c *SetCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	if len(args) == 0 || len(strings.Split(args[0], "=")) > 1 {
 		return errors.New("no service name specified")
 	}
