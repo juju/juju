@@ -22,6 +22,19 @@ $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %sy
 
 $RuleSet local
 
+# start: Forwarding rule for foo
+$ActionQueueType LinkedList
+$ActionQueueFileName {{.MachineTag}}{{.Namespace}}_0
+$ActionResumeRetryCount -1
+$ActionQueueSaveOnShutdown on
+$DefaultNetstreamDriver gtls
+$DefaultNetstreamDriverCAFile /var/log/juju{{.Namespace}}/ca-cert.pem
+$ActionSendStreamDriverAuthMode anon
+$ActionSendStreamDriverMode 1 # run driver in TLS-only mode
+
+:syslogtag, startswith, "juju{{.Namespace}}-" @@foo:{{.Port}};LongTagForwardFormat
+# end: Forwarding rule for foo
+
 & ~
 $FileCreateMode 0640
 
