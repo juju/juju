@@ -10,7 +10,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -240,8 +239,12 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		container.ConfigLogDir: env.config.logDir(),
 	}
 	if containerType == instance.LXC {
-		managerConfig["use-clone"] = strconv.FormatBool(cfg.LXCUseClone())
-		managerConfig["use-aufs"] = strconv.FormatBool(cfg.LXCUseCloneAUFS())
+		if useLxcClone, ok := cfg.LXCUseClone(); ok {
+			managerConfig["use-clone"] = fmt.Sprint(useLxcClone)
+		}
+		if useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS(); ok {
+			managerConfig["use-aufs"] = fmt.Sprint(useLxcCloneAufs)
+		}
 	}
 	env.containerManager, err = factory.NewContainerManager(
 		containerType, managerConfig)

@@ -141,7 +141,7 @@ var configTests = []configTest{
 			"authorized-keys-path": "~/.ssh/authorized_keys2",
 		},
 	}, {
-		about:       "Explicit LXC clone values",
+		about:       "LXC clone values",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
 			"type":           "my-type",
@@ -149,28 +149,6 @@ var configTests = []configTest{
 			"default-series": "precise",
 			"lxc-clone":      true,
 			"lxc-clone-aufs": true,
-		},
-	}, {
-		about:       "LXC clone defaults to true for trusty",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"default-series": "trusty",
-		},
-		expected: testing.Attrs{
-			"lxc-clone": true,
-		},
-	}, {
-		about:       "LXC clone defaults to false for precise",
-		useDefaults: config.UseDefaults,
-		attrs: testing.Attrs{
-			"type":           "my-type",
-			"name":           "my-name",
-			"default-series": "precise",
-		},
-		expected: testing.Attrs{
-			"lxc-clone": false,
 		},
 	}, {
 		about:       "CA cert & key from path",
@@ -1015,12 +993,17 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(oldToolsURL, gc.Equals, "")
 	}
 
-	useLxcClone := cfg.LXCUseClone()
-	lxcCloneAttr, lxcCloneAttrPresent := cfg.AllAttrs()["lxc-clone"]
-	if lxcCloneAttrPresent {
-		c.Assert(useLxcClone, gc.Equals, lxcCloneAttr)
+	useLxcClone, ok := cfg.LXCUseClone()
+	if v, ok := test.attrs["lxc-clone"]; ok {
+		c.Assert(useLxcClone, gc.Equals, v)
 	} else {
-		c.Assert(useLxcClone, gc.Equals, test.expected["lxc-clone"])
+		c.Assert(useLxcClone, gc.Equals, false)
+	}
+	useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS()
+	if v, ok := test.attrs["lxc-clone-aufs"]; ok {
+		c.Assert(useLxcCloneAufs, gc.Equals, v)
+	} else {
+		c.Assert(useLxcCloneAufs, gc.Equals, false)
 	}
 }
 
@@ -1069,7 +1052,6 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["tools-url"] = ""
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false
-	attrs["lxc-clone"] = false
 	attrs["lxc-clone-aufs"] = false
 
 	// Default firewall mode is instance

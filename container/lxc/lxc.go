@@ -88,10 +88,19 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	if logDir == "" {
 		logDir = agent.DefaultLogDir
 	}
-	// Explicitly ignore the error result from ParseBool.
-	// If it fails to parse, the value is false, and this suits
-	// us fine.
-	useClone, _ := strconv.ParseBool(conf.PopValue("use-clone"))
+	var useClone bool
+	useCloneVal := conf.PopValue("use-clone")
+	if useCloneVal != "" {
+		// Explicitly ignore the error result from ParseBool.
+		// If it fails to parse, the value is false, and this suits
+		// us fine.
+		useClone, _ = strconv.ParseBool(useCloneVal)
+	} else {
+		// If no lxc-clone value is explicitly set in config, then
+		// see if the Ubuntu series we are running on supports it
+		// and if it does, we will use clone.
+		useClone = preferFastLXC(releaseVersion())
+	}
 	useAUFS, _ := strconv.ParseBool(conf.PopValue("use-aufs"))
 	backingFS, err := containerDirFilesystem()
 	if err != nil {
@@ -110,6 +119,23 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 		useAUFS:           useAUFS,
 		backingFilesystem: backingFS,
 	}, nil
+}
+
+// releaseVersion is a function that returns a string representing the
+// DISTRIB_RELEASE from the /etc/lsb-release file.
+var releaseVersion = version.ReleaseVersion
+
+// preferFastLXC returns true if the host is capable of
+// LXC cloning from a template.
+func preferFastLXC(release string) bool {
+	if release == "" {
+		return false
+	}
+	value, err := strconv.ParseFloat(release, 64)
+	if err != nil {
+		return false
+	}
+	return value >= 14.04
 }
 
 func (manager *containerManager) CreateContainer(

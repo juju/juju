@@ -346,12 +346,6 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
-	// Check the lxc-clone value. If not set, we use a default based on the preferred series.
-	fastOptionAvailable := useFastLXC(PreferredSeries(cfg))
-	if _, found := cfg.defined["lxc-clone"]; !found {
-		cfg.defined["lxc-clone"] = fastOptionAvailable
-	}
-
 	cfg.processDeprecatedAttributes()
 	return nil
 }
@@ -706,16 +700,16 @@ func (c *Config) TestMode() bool {
 
 // LXCUseClone reports whether the LXC provisioner should create a
 // template and use cloning to speed up container provisioning.
-func (c *Config) LXCUseClone() bool {
-	v, _ := c.defined["lxc-clone"].(bool)
-	return v
+func (c *Config) LXCUseClone() (bool, bool) {
+	v, ok := c.defined["lxc-clone"].(bool)
+	return v, ok
 }
 
 // LXCUseCloneAUFS reports whether the LXC provisioner should create a
 // lxc clone using aufs if available.
-func (c *Config) LXCUseCloneAUFS() bool {
-	v, _ := c.defined["lxc-clone-aufs"].(bool)
-	return v
+func (c *Config) LXCUseCloneAUFS() (bool, bool) {
+	v, ok := c.defined["lxc-clone-aufs"].(bool)
+	return v, ok
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes

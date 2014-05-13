@@ -11,11 +11,9 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/container/kvm"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
@@ -73,7 +71,7 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 		"name": "test",
 	})
 	c.Assert(err, gc.IsNil)
-	localProvider, err := environs.Provider(provider.Local)
+	provider, err := environs.Provider(provider.Local)
 	c.Assert(err, gc.IsNil)
 
 	for i, test := range []struct {
@@ -234,7 +232,7 @@ Acquire::magic::Proxy "none";
 			testConfig, err = baseConfig.Apply(test.extraConfig)
 			c.Assert(err, gc.IsNil)
 		}
-		env, err := localProvider.Prepare(coretesting.Context(c), testConfig)
+		env, err := provider.Prepare(coretesting.Context(c), testConfig)
 		c.Assert(err, gc.IsNil)
 
 		envConfig := env.Config()
@@ -261,7 +259,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		"type": "local",
 		"name": "test",
 	})
-	localProvider, err := environs.Provider("local")
+	provider, err := environs.Provider("local")
 	c.Assert(err, gc.IsNil)
 
 	type test struct {
@@ -289,7 +287,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
 			return &user.User{Username: test.userOS}, test.userOSErr
 		})
-		env, err := localProvider.Prepare(coretesting.Context(c), basecfg)
+		env, err := provider.Prepare(coretesting.Context(c), basecfg)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			cfg := env.Config()
@@ -297,74 +295,6 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		}
-	}
-}
-
-func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
-	s.PatchValue(local.DetectAptProxies, func() (osenv.ProxySettings, error) {
-		return osenv.ProxySettings{}, nil
-	})
-	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) {
-		return true, nil
-	})
-	s.PatchValue(&local.VerifyPrerequisites, func(containerType instance.ContainerType) error {
-		return nil
-	})
-	localProvider, err := environs.Provider("local")
-	c.Assert(err, gc.IsNil)
-
-	type test struct {
-		extraConfig map[string]interface{}
-		expectClone bool
-		expectAUFS  bool
-	}
-	tests := []test{{
-		extraConfig: map[string]interface{}{
-			"default-series": "precise",
-		},
-	}, {
-		extraConfig: map[string]interface{}{
-			"default-series": "precise",
-			"lxc-clone":      "true",
-		},
-		expectClone: true,
-	}, {
-		extraConfig: map[string]interface{}{
-			"default-series": "trusty",
-		},
-		expectClone: true,
-	}, {
-		extraConfig: map[string]interface{}{
-			"lxc-clone":      false,
-			"default-series": "trusty",
-		},
-	}, {
-		extraConfig: map[string]interface{}{
-			"default-series": "trusty",
-			"lxc-clone-aufs": true,
-		},
-		expectClone: true,
-		expectAUFS:  true,
-	}}
-
-	for i, test := range tests {
-		c.Logf("test %d: %v", i, test)
-		attrs := map[string]interface{}{
-			"type": "local",
-			"name": "test",
-		}
-		for k, v := range test.extraConfig {
-			attrs[k] = v
-		}
-		testConfig, err := config.New(config.UseDefaults, attrs)
-		c.Assert(err, gc.IsNil)
-		env, err := localProvider.Open(testConfig)
-		c.Assert(err, gc.IsNil)
-		localAttributes := env.Config().AllAttrs()
-		value, _ := localAttributes["lxc-clone"].(bool)
-		c.Check(value, gc.Equals, test.expectClone)
-		value, _ = localAttributes["lxc-clone-aufs"].(bool)
-		c.Check(value, gc.Equals, test.expectAUFS)
 	}
 }
 
@@ -376,9 +306,9 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 		"type": "local",
 		"name": "test",
 	})
-	localProvider, err := environs.Provider("local")
+	provider, err := environs.Provider("local")
 	c.Assert(err, gc.IsNil)
-	env, err := localProvider.Prepare(coretesting.Context(c), basecfg)
+	env, err := provider.Prepare(coretesting.Context(c), basecfg)
 	c.Assert(err, gc.IsNil)
 	// local provider sets proxy-ssh to false
 	c.Assert(env.Config().ProxySSH(), gc.Equals, false)

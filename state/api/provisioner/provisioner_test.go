@@ -573,6 +573,11 @@ func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 		expectedUseCloneAufs: "true",
 	}}
 
+	result, err := s.provisioner.ContainerManagerConfig(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.ManagerConfig[container.ConfigName], gc.Equals, "juju")
+	c.Assert(result.ManagerConfig["use-clone"], gc.Equals, "")
+
 	// Change lxc-clone, and ensure it gets picked up.
 	for i, t := range tests {
 		c.Logf("test %d: %+v", i, t)
