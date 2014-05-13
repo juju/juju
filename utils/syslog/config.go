@@ -43,7 +43,38 @@ const tagOffset = len("juju-") + 1
 // Instead we need to mess with the global FileCreateMode.  We set it back
 // to the ubuntu default after defining our rule.
 const stateServerRsyslogTemplate = `
+$ModLoad imuxsock
 $ModLoad imfile
+
+# Messages received from remote rsyslog machines have messages prefixed with a space,
+# so add one in for local messages too if needed.
+$template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
+
+$template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
+
+$RuleSet local
+{{range $i, $stateServerIP := stateServerHosts}}
+# start: Forwarding rule for {{$stateServerIP}}
+$ActionQueueType LinkedList
+$ActionQueueFileName {{logfileName}}{{namespace}}_{{$i}}
+$ActionResumeRetryCount -1
+$ActionQueueSaveOnShutdown on
+$DefaultNetstreamDriver gtls
+$DefaultNetstreamDriverCAFile {{tlsCACertPath}}
+$ActionSendStreamDriverAuthMode anon
+$ActionSendStreamDriverMode 1 # run driver in TLS-only mode
+
+:syslogtag, startswith, "juju{{namespace}}-" @@{{$stateServerIP}}:{{portNumber}};LongTagForwardFormat
+# end: Forwarding rule for {{$stateServerIP}}
+{{end}}
+& ~
+$FileCreateMode 0640
+
+$RuleSet remote
+$FileCreateMode 0644
+:syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
+& ~
+$FileCreateMode 0640
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
@@ -51,6 +82,7 @@ $InputFileName {{logfilePath}}
 $InputFileTag juju{{namespace}}-{{logfileName}}:
 $InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
+$DefaultRuleset local
 
 $ModLoad imtcp
 $DefaultNetstreamDriver gtls
@@ -59,16 +91,9 @@ $DefaultNetstreamDriverCertFile {{tlsCertPath}}
 $DefaultNetstreamDriverKeyFile {{tlsKeyPath}}
 $InputTCPServerStreamDriverAuthMode anon
 $InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
+
+$InputTCPServerBindRuleset remote
 $InputTCPServerRun {{portNumber}}
-
-# Messages received from remote rsyslog machines have messages prefixed with a space,
-# so add one in for local messages too if needed.
-$template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
-
-$FileCreateMode 0644
-:syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
-& ~
-$FileCreateMode 0640
 `
 
 // The rsyslog conf for non-state server nodes.
@@ -168,12 +193,13 @@ func NewForwardConfig(logFile, logDir string, port int, namespace string, stateS
 
 // NewAccumulateConfig creates a SyslogConfig instance used to accumulate log entries from the
 // various unit nodes.
-func NewAccumulateConfig(logFile, logDir string, port int, namespace string) *SyslogConfig {
+func NewAccumulateConfig(logFile, logDir string, port int, namespace string, stateServerAddresses []string) *SyslogConfig {
 	conf := &SyslogConfig{
-		configTemplate: stateServerRsyslogTemplate,
-		LogFileName:    logFile,
-		Port:           port,
-		LogDir:         logDir,
+		configTemplate:       stateServerRsyslogTemplate,
+		LogFileName:          logFile,
+		Port:                 port,
+		LogDir:               logDir,
+		StateServerAddresses: stateServerAddresses,
 	}
 	if namespace != "" {
 		conf.Namespace = "-" + namespace

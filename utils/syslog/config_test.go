@@ -43,7 +43,7 @@ func (s *SyslogConfigSuite) assertRsyslogConfigContents(c *gc.C, slConfig *syslo
 }
 
 func (s *SyslogConfigSuite) TestAccumulateConfigRender(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "")
+	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "", []string{"foo"})
 	s.assertRsyslogConfigContents(
 		c,
 		syslogConfigRenderer,
@@ -52,7 +52,7 @@ func (s *SyslogConfigSuite) TestAccumulateConfigRender(c *gc.C) {
 }
 
 func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "")
+	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "", []string{"foo"})
 	syslogConfigRenderer.ConfigDir = s.configDir
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
 	s.assertRsyslogConfigPath(c, syslogConfigRenderer)
@@ -68,7 +68,7 @@ func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
 }
 
 func (s *SyslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
-	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "namespace")
+	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "namespace", []string{"foo"})
 	syslogConfigRenderer.LogDir += "-namespace"
 	s.assertRsyslogConfigContents(
 		c, syslogConfigRenderer, syslogtesting.ExpectedAccumulateSyslogConf(
