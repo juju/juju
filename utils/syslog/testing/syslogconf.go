@@ -66,13 +66,8 @@ func ExpectedAccumulateSyslogConf(c *gc.C, machineTag, namespace string, port in
 }
 
 var expectedForwardSyslogConfTemplate = `
+$ModLoad imuxsock
 $ModLoad imfile
-
-# Enable reliable forwarding.
-$ActionQueueType LinkedList
-$ActionQueueFileName {{.MachineTag}}{{.Namespace}}
-$ActionResumeRetryCount -1
-$ActionQueueSaveOnShutdown on
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
@@ -81,14 +76,20 @@ $InputFileTag juju{{.Namespace}}-{{.MachineTag}}:
 $InputFileStateFile {{.MachineTag}}{{.Namespace}}
 $InputRunFileMonitor
 
+# start: Forwarding rule for server
+$ActionQueueType LinkedList
+$ActionQueueFileName {{.MachineTag}}{{.Namespace}}_0
+$ActionResumeRetryCount -1
+$ActionQueueSaveOnShutdown on
 $DefaultNetstreamDriver gtls
 $DefaultNetstreamDriverCAFile {{.LogDir}}/ca-cert.pem
 $ActionSendStreamDriverAuthMode anon
 $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
-
 :syslogtag, startswith, "juju{{.Namespace}}-" @@{{.BootstrapIP}}:{{.Port}};LongTagForwardFormat
+# end: Forwarding rule for server
+
 & ~
 `
 

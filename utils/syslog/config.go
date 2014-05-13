@@ -73,14 +73,13 @@ $FileCreateMode 0640
 
 // The rsyslog conf for non-state server nodes.
 // Messages are forwarded to the state server node.
+//
+// Each forwarding rule must be repeated in full for every state server and
+// each rule must use a unique ActionQueueFileName
+// See: http://www.rsyslog.com/doc/rsyslog_reliable_forwarding.html
 const nodeRsyslogTemplate = `
+$ModLoad imuxsock
 $ModLoad imfile
-
-# Enable reliable forwarding.
-$ActionQueueType LinkedList
-$ActionQueueFileName {{logfileName}}{{namespace}}
-$ActionResumeRetryCount -1
-$ActionQueueSaveOnShutdown on
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
@@ -88,15 +87,21 @@ $InputFileName {{logfilePath}}
 $InputFileTag juju{{namespace}}-{{logfileName}}:
 $InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
-
+{{range $i, $stateServerIP := stateServerHosts}}
+# start: Forwarding rule for {{$stateServerIP}}
+$ActionQueueType LinkedList
+$ActionQueueFileName {{logfileName}}{{namespace}}_{{$i}}
+$ActionResumeRetryCount -1
+$ActionQueueSaveOnShutdown on
 $DefaultNetstreamDriver gtls
 $DefaultNetstreamDriverCAFile {{tlsCACertPath}}
 $ActionSendStreamDriverAuthMode anon
 $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
-
-:syslogtag, startswith, "juju{{namespace}}-" @@{{bootstrapIP}}:{{portNumber}};LongTagForwardFormat
+:syslogtag, startswith, "juju{{namespace}}-" @@{{$stateServerIP}}:{{portNumber}};LongTagForwardFormat
+# end: Forwarding rule for {{$stateServerIP}}
+{{end}}
 & ~
 `
 
@@ -205,11 +210,13 @@ func (slConfig *SyslogConfig) ServerKeyPath() string {
 
 // Render generates the rsyslog config.
 func (slConfig *SyslogConfig) Render() ([]byte, error) {
-	// TODO: for HA, we will want to send to all state server addresses (maybe).
-	var bootstrapIP = func() string {
-		addr := slConfig.StateServerAddresses[0]
-		parts := strings.Split(addr, ":")
-		return parts[0]
+	var stateServerHosts = func() []string {
+		var hosts []string
+		for _, addr := range slConfig.StateServerAddresses {
+			parts := strings.Split(addr, ":")
+			hosts = append(hosts, parts[0])
+		}
+		return hosts
 	}
 
 	var logFilePath = func() string {
@@ -218,16 +225,16 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 
 	t := template.New("")
 	t.Funcs(template.FuncMap{
-		"logfileName":   func() string { return slConfig.LogFileName },
-		"bootstrapIP":   bootstrapIP,
-		"logfilePath":   logFilePath,
-		"portNumber":    func() int { return slConfig.Port },
-		"logDir":        func() string { return slConfig.LogDir },
-		"namespace":     func() string { return slConfig.Namespace },
-		"tagStart":      func() int { return tagOffset + len(slConfig.Namespace) },
-		"tlsCACertPath": slConfig.CACertPath,
-		"tlsCertPath":   slConfig.ServerCertPath,
-		"tlsKeyPath":    slConfig.ServerKeyPath,
+		"logfileName":      func() string { return slConfig.LogFileName },
+		"stateServerHosts": stateServerHosts,
+		"logfilePath":      logFilePath,
+		"portNumber":       func() int { return slConfig.Port },
+		"logDir":           func() string { return slConfig.LogDir },
+		"namespace":        func() string { return slConfig.Namespace },
+		"tagStart":         func() int { return tagOffset + len(slConfig.Namespace) },
+		"tlsCACertPath":    slConfig.CACertPath,
+		"tlsCertPath":      slConfig.ServerCertPath,
+		"tlsKeyPath":       slConfig.ServerKeyPath,
 	})
 
 	// Process the rsyslog config template and echo to the conf file.
