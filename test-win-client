@@ -49,10 +49,11 @@ scp -i $JUJU_HOME/staging-juju-rsa \
 if [ $? -ne 0 ]; then
     exit 1
 fi
+set +e
 ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     Administrator@$instance_ip \
-    'juju destroy-environment --force -y test-win-client || juju destroy-environment -y -e test-win-client'
+    'juju destroy-environment --force -y test-win-client'
 ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     Administrator@$instance_ip \
@@ -62,7 +63,7 @@ EXIT_STATUS=$?
 ssh -i $JUJU_HOME/staging-juju-rsa \
     -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     Administrator@$instance_ip \
-    'juju destroy-environment --force -y test-win-client || juju destroy-environment -y -e test-win-client'
+    'juju destroy-environment --force -y test-win-client'
 set -e
 set +x
 euca-stop-instances $INSTANCE_ID
