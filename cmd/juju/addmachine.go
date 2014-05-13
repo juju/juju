@@ -74,15 +74,11 @@ func (c *AddMachineCommand) Info() *cmd.Info {
 }
 
 func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
 }
 
 func (c *AddMachineCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	if c.Constraints.Container != nil {
 		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
 	}
@@ -92,7 +88,7 @@ func (c *AddMachineCommand) Init(args []string) error {
 	}
 	c.Placement, err = instance.ParsePlacement(placement)
 	if err == instance.ErrPlacementScopeMissing {
-		placement = c.EnvironName() + ":" + placement
+		placement = c.EnvName + ":" + placement
 		c.Placement, err = instance.ParsePlacement(placement)
 	}
 	if err != nil {

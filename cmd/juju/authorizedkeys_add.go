@@ -35,9 +35,6 @@ func (c *AddKeysCommand) Info() *cmd.Info {
 }
 
 func (c *AddKeysCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	switch len(args) {
 	case 0:
 		return errors.New("no ssh key specified")
@@ -48,7 +45,6 @@ func (c *AddKeysCommand) Init(args []string) error {
 }
 
 func (c *AddKeysCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.user, "user", "admin", "the user for which to add the keys")
 }
 

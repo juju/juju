@@ -76,7 +76,6 @@ func (c *UpgradeCharmCommand) Info() *cmd.Info {
 }
 
 func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "upgrade all units immediately, even if in error state")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository path")
 	f.StringVar(&c.SwitchURL, "switch", "", "crossgrade to a different charm")
@@ -84,9 +83,6 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *UpgradeCharmCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	switch len(args) {
 	case 1:
 		if !names.IsService(args[0]) {

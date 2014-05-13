@@ -70,7 +70,6 @@ func (c *RunCommand) Info() *cmd.Info {
 }
 
 func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.BoolVar(&c.all, "all", false, "run the commands on all the machines")
 	f.DurationVar(&c.timeout, "timeout", 5*time.Minute, "how long to wait before the remote command is considered to have failed")
@@ -80,9 +79,6 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *RunCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	if len(args) == 0 {
 		return errors.New("no commands specified")
 	}

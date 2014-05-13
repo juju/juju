@@ -13,6 +13,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
@@ -68,12 +69,12 @@ func testInit(c *gc.C, com cmd.Command, args []string, errPat string) {
 	}
 }
 
-// assertConnName asserts that the Command is using
+// assertEnvName asserts that the Command is using
 // the given environment name.
 // Since every command has a different type,
 // we use reflection to look at the value of the
 // Conn field in the value.
-func assertConnName(c *gc.C, com cmd.Command, name string) {
+func assertEnvName(c *gc.C, com cmd.Command, name string) {
 	v := reflect.ValueOf(com).Elem().FieldByName("EnvName")
 	c.Assert(v, jc.Satisfies, reflect.Value.IsValid)
 	c.Assert(v.Interface(), gc.Equals, name)
@@ -81,12 +82,12 @@ func assertConnName(c *gc.C, com cmd.Command, name string) {
 
 // All members of EnvironmentInitTests are tested for the -environment and -e
 // flags, and that extra arguments will cause parsing to fail.
-var EnvironmentInitTests = []func() (cmd.Command, []string){
-	func() (cmd.Command, []string) { return new(BootstrapCommand), nil },
-	func() (cmd.Command, []string) {
+var EnvironmentInitTests = []func() (envcmd.EnvironCommand, []string){
+	func() (envcmd.EnvironCommand, []string) { return new(BootstrapCommand), nil },
+	func() (envcmd.EnvironCommand, []string) {
 		return new(DeployCommand), []string{"charm-name", "service-name"}
 	},
-	func() (cmd.Command, []string) { return new(StatusCommand), nil },
+	func() (envcmd.EnvironCommand, []string) { return new(StatusCommand), nil },
 }
 
 // TestEnvironmentInit tests that all commands which accept
@@ -96,24 +97,24 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 	for i, cmdFunc := range EnvironmentInitTests {
 		c.Logf("test %d", i)
 		com, args := cmdFunc()
-		testInit(c, com, args, "")
-		assertConnName(c, com, "peckham")
+		testInit(c, envcmd.Wrap(com), args, "")
+		assertEnvName(c, com, "peckham")
 
 		com, args = cmdFunc()
-		testInit(c, com, append(args, "-e", "walthamstow"), "")
-		assertConnName(c, com, "walthamstow")
+		testInit(c, envcmd.Wrap(com), append(args, "-e", "walthamstow"), "")
+		assertEnvName(c, com, "walthamstow")
 
 		com, args = cmdFunc()
-		testInit(c, com, append(args, "--environment", "walthamstow"), "")
-		assertConnName(c, com, "walthamstow")
+		testInit(c, envcmd.Wrap(com), append(args, "--environment", "walthamstow"), "")
+		assertEnvName(c, com, "walthamstow")
 
 		// JUJU_ENV is the final place the environment can be overriden
 		com, args = cmdFunc()
 		oldenv := os.Getenv(osenv.JujuEnvEnvKey)
 		os.Setenv(osenv.JujuEnvEnvKey, "walthamstow")
-		testInit(c, com, args, "")
+		testInit(c, envcmd.Wrap(com), args, "")
 		os.Setenv(osenv.JujuEnvEnvKey, oldenv)
-		assertConnName(c, com, "walthamstow")
+		assertEnvName(c, com, "walthamstow")
 	}
 }
 
@@ -192,7 +193,7 @@ func initExpectations(com *DeployCommand) {
 
 func initDeployCommand(args ...string) (*DeployCommand, error) {
 	com := &DeployCommand{}
-	return com, coretesting.InitCommand(com, args)
+	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
 }
 
 func (*CmdSuite) TestDeployCommandInit(c *gc.C) {

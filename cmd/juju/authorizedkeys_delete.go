@@ -37,9 +37,6 @@ func (c *DeleteKeysCommand) Info() *cmd.Info {
 }
 
 func (c *DeleteKeysCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	switch len(args) {
 	case 0:
 		return errors.New("no ssh key id specified")
@@ -50,7 +47,6 @@ func (c *DeleteKeysCommand) Init(args []string) error {
 }
 
 func (c *DeleteKeysCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.user, "user", "admin", "the user for which to delete the keys")
 }
 

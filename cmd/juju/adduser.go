@@ -51,9 +51,6 @@ func (c *AddUserCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 func (c *AddUserCommand) Init(args []string) error {
-	if err := c.EnsureEnvName(); err != nil {
-		return err
-	}
 	switch len(args) {
 	case 0:
 		return fmt.Errorf("no username supplied")

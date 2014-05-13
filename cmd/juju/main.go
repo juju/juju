@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 
@@ -72,104 +73,99 @@ func Main(args []string) {
 
 	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
-	// Creation commands.
-	jujucmd.Register(wrap(&BootstrapCommand{}))
-	jujucmd.Register(wrap(&AddMachineCommand{}))
-	jujucmd.Register(wrap(&DeployCommand{}))
-	jujucmd.Register(wrap(&AddRelationCommand{}))
-	jujucmd.Register(wrap(&AddUnitCommand{}))
-
-	// Destruction commands.
-	jujucmd.Register(wrap(&RemoveMachineCommand{}))
-	jujucmd.Register(wrap(&RemoveRelationCommand{}))
-	jujucmd.Register(wrap(&RemoveServiceCommand{}))
-	jujucmd.Register(wrap(&RemoveUnitCommand{}))
-	jujucmd.Register(wrap(&DestroyEnvironmentCommand{}))
-
-	// Reporting commands.
-	jujucmd.Register(wrap(&StatusCommand{}))
-	jujucmd.Register(wrap(&SwitchCommand{}))
-	jujucmd.Register(wrap(&EndpointCommand{}))
-
-	// Error resolution and debugging commands.
-	jujucmd.Register(wrap(&RunCommand{}))
-	jujucmd.Register(wrap(&SCPCommand{}))
-	jujucmd.Register(wrap(&SSHCommand{}))
-	jujucmd.Register(wrap(&ResolvedCommand{}))
-	jujucmd.Register(wrap(&DebugLogCommand{}))
-	jujucmd.Register(wrap(&DebugHooksCommand{}))
-	jujucmd.Register(wrap(&RetryProvisioningCommand{}))
-
-	// Configuration commands.
-	jujucmd.Register(wrap(&InitCommand{}))
-	jujucmd.Register(wrap(&GetCommand{}))
-	jujucmd.Register(wrap(&SetCommand{}))
-	jujucmd.Register(wrap(&UnsetCommand{}))
-	jujucmd.Register(wrap(&GetConstraintsCommand{}))
-	jujucmd.Register(wrap(&SetConstraintsCommand{}))
-	jujucmd.Register(wrap(&GetEnvironmentCommand{}))
-	jujucmd.Register(wrap(&SetEnvironmentCommand{}))
-	jujucmd.Register(wrap(&UnsetEnvironmentCommand{}))
-	jujucmd.Register(wrap(&ExposeCommand{}))
-	jujucmd.Register(wrap(&SyncToolsCommand{}))
-	jujucmd.Register(wrap(&UnexposeCommand{}))
-	jujucmd.Register(wrap(&UpgradeJujuCommand{}))
-	jujucmd.Register(wrap(&UpgradeCharmCommand{}))
-
-	// Charm publishing commands.
-	jujucmd.Register(wrap(&PublishCommand{}))
-
-	// Charm tool commands.
-	jujucmd.Register(wrap(&HelpToolCommand{}))
-
-	// Manage authorized ssh keys.
-	jujucmd.Register(wrap(NewAuthorizedKeysCommand()))
-
-	// Manage state server availability.
-	// TODO: enable once the backend is ready for it.
-	jujucmd.Register(wrap(&EnsureAvailabilityCommand{}))
-
-	// Common commands.
-	jujucmd.Register(wrap(&cmd.VersionCommand{}))
-
+	registerCommands(jujucmd, ctx)
 	os.Exit(cmd.Main(jujucmd, ctx, args[1:]))
 }
 
-// wrap encapsulates code that wraps some of the commands in a helper class
-// that handles some common errors
-func wrap(c cmd.Command) cmd.Command {
-	if ec, ok := c.(envCmd); ok {
-		return envCmdWrapper{ec}
-	}
-	return c
+type commandRegistry interface {
+	Register(cmd.Command)
 }
 
-// envCmd is a Command that interacts with the juju client environment
-type envCmd interface {
-	cmd.Command
-	EnvironName() string
+// registerCommands registers commands in the specified registry.
+// EnvironCommands must be wrapped with an envCmdWrapper.
+func registerCommands(r commandRegistry, ctx *cmd.Context) {
+	wrapEnvCommand := func(c envcmd.EnvironCommand) cmd.Command {
+		return envCmdWrapper{envcmd.Wrap(c), ctx}
+	}
+
+	// Creation commands.
+	r.Register(wrapEnvCommand(&BootstrapCommand{}))
+	r.Register(wrapEnvCommand(&AddMachineCommand{}))
+	r.Register(wrapEnvCommand(&DeployCommand{}))
+	r.Register(wrapEnvCommand(&AddRelationCommand{}))
+	r.Register(wrapEnvCommand(&AddUnitCommand{}))
+
+	// Destruction commands.
+	r.Register(wrapEnvCommand(&RemoveMachineCommand{}))
+	r.Register(wrapEnvCommand(&RemoveRelationCommand{}))
+	r.Register(wrapEnvCommand(&RemoveServiceCommand{}))
+	r.Register(wrapEnvCommand(&RemoveUnitCommand{}))
+	r.Register(&DestroyEnvironmentCommand{})
+
+	// Reporting commands.
+	r.Register(wrapEnvCommand(&StatusCommand{}))
+	r.Register(&SwitchCommand{})
+	r.Register(wrapEnvCommand(&EndpointCommand{}))
+
+	// Error resolution and debugging commands.
+	r.Register(wrapEnvCommand(&RunCommand{}))
+	r.Register(wrapEnvCommand(&SCPCommand{}))
+	r.Register(wrapEnvCommand(&SSHCommand{}))
+	r.Register(wrapEnvCommand(&ResolvedCommand{}))
+	r.Register(wrapEnvCommand(&DebugLogCommand{}))
+	r.Register(wrapEnvCommand(&DebugHooksCommand{}))
+	r.Register(wrapEnvCommand(&RetryProvisioningCommand{}))
+
+	// Configuration commands.
+	r.Register(&InitCommand{})
+	r.Register(wrapEnvCommand(&GetCommand{}))
+	r.Register(wrapEnvCommand(&SetCommand{}))
+	r.Register(wrapEnvCommand(&UnsetCommand{}))
+	r.Register(wrapEnvCommand(&GetConstraintsCommand{}))
+	r.Register(wrapEnvCommand(&SetConstraintsCommand{}))
+	r.Register(wrapEnvCommand(&GetEnvironmentCommand{}))
+	r.Register(wrapEnvCommand(&SetEnvironmentCommand{}))
+	r.Register(wrapEnvCommand(&UnsetEnvironmentCommand{}))
+	r.Register(wrapEnvCommand(&ExposeCommand{}))
+	r.Register(wrapEnvCommand(&SyncToolsCommand{}))
+	r.Register(wrapEnvCommand(&UnexposeCommand{}))
+	r.Register(wrapEnvCommand(&UpgradeJujuCommand{}))
+	r.Register(wrapEnvCommand(&UpgradeCharmCommand{}))
+
+	// Charm publishing commands.
+	r.Register(wrapEnvCommand(&PublishCommand{}))
+
+	// Charm tool commands.
+	r.Register(&HelpToolCommand{})
+
+	// Manage authorized ssh keys.
+	r.Register(NewAuthorizedKeysCommand())
+
+	// Manage state server availability.
+	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
+
+	// Common commands.
+	r.Register(&cmd.VersionCommand{})
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle
-// errors returned from Run before they're returned to the main function
+// errors returned from Init before they're returned to the main function.
 type envCmdWrapper struct {
-	envCmd
+	cmd.Command
+	ctx *cmd.Context
 }
 
-// Run in envCmdWrapper gives us an opportunity to handle errors after the command is
-// run. This is used to give informative messages to the user.
-func (c envCmdWrapper) Run(ctx *cmd.Context) error {
-	err := c.envCmd.Run(ctx)
-	if environs.IsNoEnv(err) && c.EnvironName() == "" {
-		fmt.Fprintln(ctx.Stderr, "No juju environment configuration file exists.")
-		fmt.Fprintln(ctx.Stderr, err)
-		fmt.Fprintln(ctx.Stderr, "Please create a configuration by running:")
-		fmt.Fprintln(ctx.Stderr, "    juju init")
-		fmt.Fprintln(ctx.Stderr, "then edit the file to configure your juju environment.")
-		fmt.Fprintln(ctx.Stderr, "You can then re-run the command.")
+func (w envCmdWrapper) Init(args []string) error {
+	err := w.Command.Init(args)
+	if environs.IsNoEnv(err) {
+		fmt.Fprintln(w.ctx.Stderr, "No juju environment configuration file exists.")
+		fmt.Fprintln(w.ctx.Stderr, err)
+		fmt.Fprintln(w.ctx.Stderr, "Please create a configuration by running:")
+		fmt.Fprintln(w.ctx.Stderr, "    juju init")
+		fmt.Fprintln(w.ctx.Stderr, "then edit the file to configure your juju environment.")
+		fmt.Fprintln(w.ctx.Stderr, "You can then re-run the command.")
 		return cmd.ErrSilent
 	}
-
 	return err
 }
 

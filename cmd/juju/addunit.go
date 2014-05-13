@@ -74,15 +74,11 @@ func (c *AddUnitCommand) Info() *cmd.Info {
 }
 
 func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to add")
 }
 
 func (c *AddUnitCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	switch len(args) {
 	case 1:
 		c.ServiceName = args[0]

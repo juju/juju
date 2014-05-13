@@ -12,6 +12,7 @@ import (
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/osenv"
@@ -47,29 +48,33 @@ func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentSet(c *gc.C) {
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *gc.C) {
-	env := envcmd.GetDefaultEnvironment()
+	env, err := envcmd.GetDefaultEnvironment()
 	c.Assert(env, gc.Equals, "")
+	c.Assert(err, jc.Satisfies, environs.IsNoEnv)
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentCurrentEnvironmentSet(c *gc.C) {
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, gc.IsNil)
-	env := envcmd.GetDefaultEnvironment()
+	env, err := envcmd.GetDefaultEnvironment()
 	c.Assert(env, gc.Equals, "fubar")
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentJujuEnvSet(c *gc.C) {
 	os.Setenv(osenv.JujuEnvEnvKey, "magic")
-	env := envcmd.GetDefaultEnvironment()
+	env, err := envcmd.GetDefaultEnvironment()
 	c.Assert(env, gc.Equals, "magic")
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *gc.C) {
 	os.Setenv(osenv.JujuEnvEnvKey, "magic")
 	err := envcmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, gc.IsNil)
-	env := envcmd.GetDefaultEnvironment()
+	env, err := envcmd.GetDefaultEnvironment()
 	c.Assert(env, gc.Equals, "magic")
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *EnvironmentCommandSuite) TestWriteAddsNewline(c *gc.C) {
@@ -87,12 +92,12 @@ func (*EnvironmentCommandSuite) TestErrorWritingFile(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "unable to write to the environment file: .*")
 }
 
-func (s *EnvironmentCommandSuite) TestEnsureEnvName(c *gc.C) {
+func (s *EnvironmentCommandSuite) TestEnvironCommandInit(c *gc.C) {
 	// Take environment name from command line arg.
-	cmd := initEnvCommandBase(c, "explicit")
-	err := cmd.EnsureEnvName()
+	cmd, envName := prepareEnvCommand(c, "explicit")
+	err := cmd.Init(nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(cmd.EnvName, gc.Equals, "explicit")
+	c.Assert(*envName, gc.Equals, "explicit")
 
 	// Take environment name from the default.
 	defer coretesting.MakeFakeHome(c, coretesting.MultipleEnvConfig).Restore()
@@ -108,33 +113,52 @@ func (s *EnvironmentCommandSuite) TestEnsureEnvName(c *gc.C) {
 	testEnsureEnvName(c, "fubar")
 }
 
-func (s *EnvironmentCommandSuite) TestEnsureEnvNameErrors(c *gc.C) {
-	err := initEnvCommandBase(c, "").EnsureEnvName()
+func (s *EnvironmentCommandSuite) TestEnvironCommandInitErrors(c *gc.C) {
+	cmd, _ := prepareEnvCommand(c, "")
+	err := cmd.Init(nil)
 	c.Assert(err, jc.Satisfies, environs.IsNoEnv)
 
 	// If there are multiple environments but no default,
 	// an error should be returned.
 	defer coretesting.MakeFakeHome(c, coretesting.MultipleEnvConfigNoDefault).Restore()
-	err = initEnvCommandBase(c, "").EnsureEnvName()
+	cmd, _ = prepareEnvCommand(c, "")
+	err = cmd.Init(nil)
 	c.Assert(err, gc.Equals, envcmd.ErrNoEnvironmentSpecified)
 }
 
-func initEnvCommandBase(c *gc.C, name string) *envcmd.EnvCommandBase {
+type testCommand struct {
+	envcmd.EnvCommandBase
+}
+
+func (c *testCommand) Info() *cmd.Info {
+	panic("should not be called")
+}
+
+func (c *testCommand) Run(ctx *cmd.Context) error {
+	panic("should not be called")
+}
+
+// prepareEnvCommand prepares a Command for a call to Init,
+// returning the Command and a pointer to a string that will
+// contain the environment name after the Command's Init method
+// has been called.
+func prepareEnvCommand(c *gc.C, name string) (cmd.Command, *string) {
 	var flags gnuflag.FlagSet
-	var cmd envcmd.EnvCommandBase
-	cmd.SetFlags(&flags)
+	var cmd testCommand
+	wrapped := envcmd.Wrap(&cmd)
+	wrapped.SetFlags(&flags)
 	var args []string
 	if name != "" {
 		args = []string{"-e", name}
 	}
 	err := flags.Parse(false, args)
 	c.Assert(err, gc.IsNil)
-	return &cmd
+	return wrapped, &cmd.EnvName
 }
 
 func testEnsureEnvName(c *gc.C, expect string) {
-	cmd := initEnvCommandBase(c, "")
-	err := cmd.EnsureEnvName()
+	cmd, envName := prepareEnvCommand(c, "")
+	err := cmd.Init(nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(cmd.EnvName, gc.Equals, expect)
+	c.Assert(*envName, gc.Equals, expect)
 }
