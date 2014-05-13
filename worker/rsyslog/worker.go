@@ -53,7 +53,7 @@ type RsyslogConfigHandler struct {
 	mode            RsyslogMode
 	syslogConfig    *syslog.SyslogConfig
 	rsyslogConfPath string
-
+	tag             string
 	// We store the syslog-port and rsyslog-ca-cert
 	// values after writing the rsyslog configuration,
 	// so we can decide whether a change has occurred.
@@ -116,6 +116,7 @@ func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag, namesp
 		st:           st,
 		mode:         mode,
 		syslogConfig: syslogConfig,
+		tag:          tag,
 	}, nil
 }
 
@@ -125,7 +126,7 @@ func (h *RsyslogConfigHandler) SetUp() (watcher.NotifyWatcher, error) {
 			return nil, errgo.Annotate(err, "failed to write rsyslog certificates")
 		}
 	}
-	return h.st.WatchForEnvironConfigChanges()
+	return h.st.WatchForRsyslogChanges(h.tag)
 }
 
 var restartRsyslog = syslog.Restart
@@ -138,7 +139,7 @@ func (h *RsyslogConfigHandler) TearDown() error {
 }
 
 func (h *RsyslogConfigHandler) Handle() error {
-	cfg, err := h.st.EnvironConfig()
+	cfg, err := h.st.GetRsyslogConfig()
 	if err != nil {
 		return errgo.Annotate(err, "cannot get environ config")
 	}

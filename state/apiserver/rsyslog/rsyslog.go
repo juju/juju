@@ -8,12 +8,17 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/watcher"
 )
 
 // RsyslogAPI implements the API used by the rsyslog worker.
 type RsyslogAPI struct {
 	*common.EnvironWatcher
-	st        *state.State
+
+	st         *state.State
+	resources  *common.Resources
+	authorizer common.Authorizer
+
 	canModify bool
 }
 
@@ -45,4 +50,29 @@ func (api *RsyslogAPI) SetRsyslogCert(args params.SetRsyslogCertParams) (params.
 		result.Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+func (api *RsyslogAPI) WatchForRsyslogChanges(args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	for i, agent := range args.Entities {
+		err := common.ErrPerm
+		if api.authorizer.AuthOwner(agent.Tag) {
+			watch := api.st.WatchForEnvironConfigChanges()
+			// Consume the initial event. Technically, API
+			// calls to Watch 'transmit' the initial event
+			// in the Watch response. But NotifyWatchers
+			// have no state to transmit.
+			if _, ok := <-watch.Changes(); ok {
+				result.Results[i].NotifyWatcherId = api.resources.Register(watch)
+				err = nil
+			} else {
+				err = watcher.MustErr(watch)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+
 }
