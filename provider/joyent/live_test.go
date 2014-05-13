@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
@@ -48,6 +49,7 @@ func registerLiveTests() {
 	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
 			TestConfig:     attrs,
+			Attempt:        *joyent.ShortAttempt,
 			CanOpenState:   true,
 			HasProvisioner: true,
 		},

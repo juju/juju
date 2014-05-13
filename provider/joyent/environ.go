@@ -150,10 +150,6 @@ func (env *joyentEnviron) Storage() storage.Storage {
 	return env.getSnapshot().storage
 }
 
-func (env *joyentEnviron) PublicStorage() storage.StorageReader {
-	return environs.EmptyStorage
-}
-
 func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
 	return common.Bootstrap(ctx, env, args)
 }

@@ -22,6 +22,10 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
+var (
+	ShortAttempt = &shortAttempt
+)
+
 var Provider environs.EnvironProvider = GetProviderInstance()
 var EnvironmentVariables = environmentVariables
 
