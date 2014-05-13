@@ -31,6 +31,24 @@ func getDNSNames(instances []instance.Instance) []string {
 	return names
 }
 
+// getAddresses queries and returns the Addresses for the given instances,
+// ignoring nil instances or ones without addresses
+func getAddresses(instances []instance.Instance) []string {
+	names := make([]string, 0)
+	for _, inst := range instances {
+		if inst != nil {
+			addrs, err := inst.Addresses()
+			// If that fails, just keep looking.
+			if err == nil {
+				for _, addr := range addrs {
+					names = append(names, addr.Value)
+				}
+			}
+		}
+	}
+	return names
+}
+
 // composeAddresses suffixes each of a slice of hostnames with a given port
 // number.
 func composeAddresses(hostnames []string, port int) []string {
@@ -79,7 +97,7 @@ func StateInfo(env environs.Environ) (*state.Info, *api.Info, error) {
 			logger.Debugf("error getting state instances: %v", err.Error())
 			return nil, nil, err
 		}
-		hostnames = getDNSNames(insts)
+		hostnames = getAddresses(insts)
 	}
 
 	if len(hostnames) == 0 {
