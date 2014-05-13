@@ -145,17 +145,25 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		sleep 5
 	done
 
-	mongoEval '
-		db = db.getSiblingDB("juju")
-		db.machines.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
-		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
-	'
-	
 	# Create a new replicaSet conf and re initiate it
 	mongoAdminEval '
 		conf = { "_id" : "juju", "version" : 1, "members" : [ { "_id" : 1, "host" : "{{ .PrivateAddress | printf "%s:37017" }}" , "tags" : { "juju-machine-id" : "0" } }]}
 		rs.initiate(conf)
 	'
+
+	sleep 60
+
+	# Remove all state machines but 0, to restore HA
+	mongoEval '
+		db = db.getSiblingDB("juju")
+		db.machines.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
+		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
+		db.machines.remove({_id: {$ne:"0"}, hasvote: true})
+		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : [0]}})
+		db.stateServers.update({"_id":"e"}, {$set:{"votingmachineids" : [0]}})
+	'
+	
+
 
 	# Give time to replset to initiate
 	for i in $(seq 1 20)
@@ -168,6 +176,13 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 
 	# Update the agent.conf for machine-0 with the new addresses
 	cd /var/lib/juju/agents
+
+	# Remove extra state machines from conf
+	REMOVECOUNT=$(grep -Ec "^-.*17070$" /var/lib/juju/agents/machine-0/agent.conf )
+	awk -v removecount=$REMOVECOUNT '/\-.*17070$/{i++}i<1' machine-0/agent.conf > machine-0/agent.conf.new
+	awk -v removecount=$REMOVECOUNT '/\-.*17070$/{i++}i==removecount' machine-0/agent.conf >> machine-0/agent.conf.new
+	mv machine-0/agent.conf.new  machine-0/agent.conf
+
 	sed -i.old -r -e "/^(stateaddresses):/{
 		n
 		s/- .*(:[0-9]+)/- {{.Address}}\1/
@@ -175,6 +190,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		n
 		s/- .*(:[0-9]+)/- {{.PrivateAddress}}\1/
 	}"  machine-0/agent.conf
+	
 
 	initctl start juju-db
 	initctl start jujud-machine-0
