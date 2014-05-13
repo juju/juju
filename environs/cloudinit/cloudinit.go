@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
@@ -18,7 +19,6 @@ import (
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"

@@ -10,10 +10,9 @@ import (
 	"runtime"
 	"testing"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-
-	"launchpad.net/juju-core/errors"
 )
 
 // errorInfo holds information about a single error type: a satisfier

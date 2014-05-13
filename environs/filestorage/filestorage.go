@@ -12,8 +12,9 @@ import (
 	"sort"
 	"strings"
 
+	coreerrors "github.com/juju/errors"
+
 	"launchpad.net/juju-core/environs/storage"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 

@@ -6,9 +6,9 @@ package lxc
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"launchpad.net/golxc"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 )
 

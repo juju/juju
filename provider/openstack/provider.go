@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	coreerrors "github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/goose/client"
 	gooseerrors "launchpad.net/goose/errors"
@@ -31,7 +32,6 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"

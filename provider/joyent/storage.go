@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
+	coreerrors "github.com/juju/errors"
 	"launchpad.net/juju-core/environs/storage"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 
 	"github.com/joyent/gocommon/client"

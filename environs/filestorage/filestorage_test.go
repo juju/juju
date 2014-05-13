@@ -15,12 +15,12 @@ import (
 	"strings"
 	"testing"
 
+	coreerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/storage"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
 )
 

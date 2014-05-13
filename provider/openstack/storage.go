@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
+	coreerrors "github.com/juju/errors"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/swift"
 
 	"launchpad.net/juju-core/environs/storage"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 

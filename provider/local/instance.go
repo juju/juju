@@ -6,7 +6,8 @@ package local
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/errors"
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 )

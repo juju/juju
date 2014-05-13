@@ -12,10 +12,10 @@ import (
 	"strings"
 
 	"github.com/joyent/gocommon/errors"
+	coreerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/joyent"
 	jp "launchpad.net/juju-core/provider/joyent"
 )

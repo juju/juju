@@ -9,11 +9,11 @@ import (
 	"io"
 	"io/ioutil"
 
+	coreerrors "github.com/juju/errors"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/storage"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 )
 

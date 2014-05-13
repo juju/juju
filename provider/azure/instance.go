@@ -8,9 +8,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/errors"
 	"launchpad.net/gwacl"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/worker/firewaller"

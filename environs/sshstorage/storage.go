@@ -16,9 +16,9 @@ import (
 	"strconv"
 	"strings"
 
+	coreerrors "github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )

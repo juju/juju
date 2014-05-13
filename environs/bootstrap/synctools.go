@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/arch"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"

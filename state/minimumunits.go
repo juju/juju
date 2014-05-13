@@ -6,10 +6,9 @@ package state
 import (
 	"errors"
 
+	coreerrors "github.com/juju/errors"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	coreerrors "launchpad.net/juju-core/errors"
 )
 
 // minUnitsDoc keeps track of relevant changes on the service's MinUnits field

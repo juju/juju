@@ -6,12 +6,13 @@ package main
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api"
 )
 

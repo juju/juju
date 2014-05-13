@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"os"
 
+	coreerrors "github.com/juju/errors"
+
 	"launchpad.net/juju-core/charm"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 	uhook "launchpad.net/juju-core/worker/uniter/hook"
 )

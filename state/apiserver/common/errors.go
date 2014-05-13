@@ -7,7 +7,8 @@ import (
 	stderrors "errors"
 	"fmt"
 
-	"launchpad.net/juju-core/errors"
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )

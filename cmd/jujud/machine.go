@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"launchpad.net/gnuflag"
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
