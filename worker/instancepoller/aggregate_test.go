@@ -163,7 +163,8 @@ func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
 	aggregator := newAggregator(testGetter)
 	_, err := aggregator.instanceInfo("foo")
 
-	c.Assert(err, gc.DeepEquals, errors.NotFoundf("instance foo"))
+	c.Assert(err, gc.ErrorMatches, "instance foo not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *aggregateSuite) TestAddressesError(c *gc.C) {
