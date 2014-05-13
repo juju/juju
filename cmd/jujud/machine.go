@@ -34,7 +34,6 @@ import (
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/utils/voyeur"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -56,7 +55,6 @@ import (
 	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/singular"
 	"launchpad.net/juju-core/worker/terminationworker"
-	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -384,8 +382,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	if err := machine.SetSupportedContainers(containers...); err != nil {
 		return fmt.Errorf("setting supported containers for %s: %v", tag, err)
 	}
-	lockDir := filepath.Join(agentConfig.DataDir(), "locks")
-	initLock, err := fslock.NewLock(lockDir, uniter.HookExecutionLock)
+	initLock, err := hookExecutionLock(agentConfig.DataDir())
 	if err != nil {
 		return err
 	}
