@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"path/filepath"
 	"time"
 
 	"launchpad.net/gnuflag"
@@ -21,6 +22,7 @@ import (
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
 	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
+	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
@@ -271,4 +273,12 @@ var newRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config
 		}
 	}
 	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs)
+}
+
+// hookExecutionLock returns an *fslock.Lock suitable for use as a unit
+// hook execution lock. Other workers may also use this lock if they
+// require isolation from hook execution.
+func hookExecutionLock(dataDir string) (*fslock.Lock, error) {
+	lockDir := filepath.Join(dataDir, "locks")
+	return fslock.NewLock(lockDir, "uniter-hook-execution")
 }

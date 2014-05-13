@@ -82,11 +82,15 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	agentConfig := a.Conf.config
+	dataDir := agentConfig.DataDir()
+	hookLock, err := hookExecutionLock(dataDir)
+	if err != nil {
+		return nil, err
+	}
 	st, entity, err := openAPIState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
-	dataDir := a.Conf.dataDir
 	runner := worker.NewRunner(connectionIsFatal(st), moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
@@ -95,7 +99,7 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 		return workerlogger.NewLogger(st.Logger(), agentConfig), nil
 	})
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
-		return uniter.NewUniter(st.Uniter(), entity.Tag(), dataDir), nil
+		return uniter.NewUniter(st.Uniter(), entity.Tag(), dataDir, hookLock), nil
 	})
 	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)

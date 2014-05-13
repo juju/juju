@@ -230,7 +230,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	}
 
 	// Perform the operations needed to set up hosting for containers.
-	if err := a.setupContainerSupport(runner, st, entity); err != nil {
+	if err := a.setupContainerSupport(runner, st, entity, agentConfig); err != nil {
 		return nil, fmt.Errorf("setting up container support: %v", err)
 	}
 	for _, job := range entity.Jobs() {
@@ -266,7 +266,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 
 // setupContainerSupport determines what containers can be run on this machine and
 // initialises suitable infrastructure to support such containers.
-func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State, entity *apiagent.Entity) error {
+func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State, entity *apiagent.Entity, agentConfig agent.Config) error {
 	var supportedContainers []instance.ContainerType
 	// We don't yet support nested lxc containers but anything else can run an LXC container.
 	if entity.ContainerType() != instance.LXC {
@@ -279,7 +279,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State
 	if err == nil && supportsKvm {
 		supportedContainers = append(supportedContainers, instance.KVM)
 	}
-	return a.updateSupportedContainers(runner, st, entity.Tag(), supportedContainers)
+	return a.updateSupportedContainers(runner, st, entity.Tag(), supportedContainers, agentConfig)
 }
 
 // updateSupportedContainers records in state that a machine can run the specified containers.
@@ -287,7 +287,7 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State
 // the watcher is killed, the machine is set up to be able to start containers of the given type,
 // and a suitable provisioner is started.
 func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.State,
-	tag string, containers []instance.ContainerType) error {
+	tag string, containers []instance.ContainerType, agentConfig agent.Config) error {
 
 	var machine *apiprovisioner.Machine
 	var err error
@@ -304,9 +304,13 @@ func (a *MachineAgent) updateSupportedContainers(runner worker.Runner, st *api.S
 	if err := machine.SetSupportedContainers(containers...); err != nil {
 		return fmt.Errorf("setting supported containers for %s: %v", tag, err)
 	}
+	initLock, err := hookExecutionLock(agentConfig.DataDir())
+	if err != nil {
+		return err
+	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
-	handler := provisioner.NewContainerSetupHandler(runner, watcherName, containers, machine, pr, a.Conf.config)
+	handler := provisioner.NewContainerSetupHandler(runner, watcherName, containers, machine, pr, a.Conf.config, initLock)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
 	})

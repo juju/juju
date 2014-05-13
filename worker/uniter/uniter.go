@@ -92,10 +92,11 @@ type Uniter struct {
 // NewUniter creates a new Uniter which will install, run, and upgrade
 // a charm on behalf of the unit with the given unitTag, by executing
 // hooks and operations provoked by changes in st.
-func NewUniter(st *uniter.State, unitTag string, dataDir string) *Uniter {
+func NewUniter(st *uniter.State, unitTag string, dataDir string, hookLock *fslock.Lock) *Uniter {
 	u := &Uniter{
-		st:      st,
-		dataDir: dataDir,
+		st:       st,
+		dataDir:  dataDir,
+		hookLock: hookLock,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -143,11 +144,6 @@ func (u *Uniter) loop(unitTag string) (err error) {
 }
 
 func (u *Uniter) setupLocks() (err error) {
-	lockDir := filepath.Join(u.dataDir, "locks")
-	u.hookLock, err = fslock.NewLock(lockDir, "uniter-hook-execution")
-	if err != nil {
-		return err
-	}
 	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
 		// Look to see if it was us that held the lock before.  If it was, we
 		// should be safe enough to break it, as it is likely that we died
