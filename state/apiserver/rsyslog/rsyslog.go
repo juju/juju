@@ -52,6 +52,22 @@ func (api *RsyslogAPI) SetRsyslogCert(args params.SetRsyslogCertParams) (params.
 	return result, nil
 }
 
+func (api *RsyslogAPI) GetRsyslogConfig() (params.RsyslogConfigResult, error) {
+	cfg, err := api.st.EnvironConfig()
+	if err != nil {
+		return params.RsyslogConfigResult{}, err
+	}
+
+	rsyslogCfg, err := rsyslog.NewRsyslogConfig(cfg, api.st)
+	if err != nil {
+		return params.RsyslogConfigResult{}, err
+	}
+
+	return params.RsyslogConfigResult{
+		Config: rsyslogCfg,
+	}, nil
+}
+
 func (api *RsyslogAPI) WatchForRsyslogChanges(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),

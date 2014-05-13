@@ -6,7 +6,6 @@ package rsyslog
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
@@ -14,11 +13,6 @@ import (
 )
 
 const rsyslogAPI = "Rsyslog"
-
-// RsyslogConfig
-type RsyslogConfig struct {
-	*config.Config
-}
 
 // State provides access to the Rsyslog API facade.
 type State struct {
@@ -80,11 +74,11 @@ func (st *State) WatchForRsyslogChanges(agentTag string) (watcher.NotifyWatcher,
 	return w, nil
 }
 
-func (st *State) GetRsyslogConfig() (*config.Config, error) {
-	var rsyslogConfig RsyslogConfig
-	cfg, err := st.EnvironConfig()
+func (st *State) GetRsyslogConfig() (*RsyslogConfig, error) {
+	var result params.RsyslogConfigResult
+	err := st.caller.Call(rsyslogAPI, "", "GetRsyslogConfig", nil, &result)
 	if err != nil {
 		return nil, err
 	}
-	return cfg, nil
+	return result.Config, nil
 }

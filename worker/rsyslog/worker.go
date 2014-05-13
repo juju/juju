@@ -143,16 +143,16 @@ func (h *RsyslogConfigHandler) Handle() error {
 	if err != nil {
 		return errgo.Annotate(err, "cannot get environ config")
 	}
-	rsyslogCACert := cfg.RsyslogCACert()
+	rsyslogCACert := cfg.CACert
 	if rsyslogCACert == "" {
 		return nil
 	}
 	// If neither syslog-port nor rsyslog-ca-cert
 	// have changed, we can drop out now.
-	if cfg.SyslogPort() == h.syslogPort && rsyslogCACert == h.rsyslogCACert {
+	if cfg.Port == h.syslogPort && rsyslogCACert == h.rsyslogCACert {
 		return nil
 	}
-	h.syslogConfig.Port = cfg.SyslogPort()
+	h.syslogConfig.Port = cfg.Port
 	if h.mode == RsyslogModeForwarding {
 		if err := writeFileAtomic(h.syslogConfig.CACertPath(), []byte(rsyslogCACert), 0644, 0, 0); err != nil {
 			return errgo.Annotate(err, "cannot write CA certificate")
@@ -173,7 +173,7 @@ func (h *RsyslogConfigHandler) Handle() error {
 	// Record config values so we don't try again.
 	// Do this last so we recover from intermittent
 	// failures.
-	h.syslogPort = cfg.SyslogPort()
+	h.syslogPort = cfg.Port
 	h.rsyslogCACert = rsyslogCACert
 	return nil
 }

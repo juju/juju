@@ -81,12 +81,3 @@ func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 	// Verify no change was effected.
 	verifyRsyslogCACert(c, st.Rsyslog(), "")
 }
-
-func (s *rsyslogSuite) TestWatchStateServers(c *gc.C) {
-	results, err := s.rsyslog.WatchStateServers()
-	c.Assert(err, gc.IsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-}
-
-func (s *rsyslogSuite) TestWatchConfigChange(c *gc.C) {
-}
