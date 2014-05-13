@@ -11,7 +11,25 @@ import (
 )
 
 var expectedAccumulateSyslogConfTemplate = `
+$ModLoad imuxsock
 $ModLoad imfile
+
+# Messages received from remote rsyslog machines have messages prefixed with a space,
+# so add one in for local messages too if needed.
+$template JujuLogFormat{{.Namespace}},"%syslogtag:{{.Offset}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
+
+$template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
+
+$RuleSet local
+
+& ~
+$FileCreateMode 0640
+
+$RuleSet remote
+$FileCreateMode 0644
+:syslogtag, startswith, "juju{{.Namespace}}-" /var/log/juju{{.Namespace}}/all-machines.log;JujuLogFormat{{.Namespace}}
+& ~
+$FileCreateMode 0640
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
@@ -19,6 +37,7 @@ $InputFileName /var/log/juju{{.Namespace}}/{{.MachineTag}}.log
 $InputFileTag juju{{.Namespace}}-{{.MachineTag}}:
 $InputFileStateFile {{.MachineTag}}{{.Namespace}}
 $InputRunFileMonitor
+$DefaultRuleset local
 
 $ModLoad imtcp
 $DefaultNetstreamDriver gtls
@@ -27,16 +46,9 @@ $DefaultNetstreamDriverCertFile /var/log/juju{{.Namespace}}/rsyslog-cert.pem
 $DefaultNetstreamDriverKeyFile /var/log/juju{{.Namespace}}/rsyslog-key.pem
 $InputTCPServerStreamDriverAuthMode anon
 $InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
+
+$InputTCPServerBindRuleset remote
 $InputTCPServerRun {{.Port}}
-
-# Messages received from remote rsyslog machines have messages prefixed with a space,
-# so add one in for local messages too if needed.
-$template JujuLogFormat{{.Namespace}},"%syslogtag:{{.Offset}}:$%%msg:::sp-if-no-1st-sp%%msg:::drop-last-lf%\n"
-
-$FileCreateMode 0644
-:syslogtag, startswith, "juju{{.Namespace}}-" /var/log/juju{{.Namespace}}/all-machines.log;JujuLogFormat{{.Namespace}}
-& ~
-$FileCreateMode 0640
 `
 
 type templateArgs struct {
