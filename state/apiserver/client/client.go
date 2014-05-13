@@ -9,7 +9,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/errgo/errgo"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
@@ -953,47 +952,47 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	store := config.SpecializeCharmRepo(CharmStore, envConfig)
 	downloadedCharm, err := store.Get(charmURL)
 	if err != nil {
-		return errgo.Annotatef(err, "cannot download charm %q", charmURL.String())
+		return errors.Annotatef(err, "cannot download charm %q", charmURL.String())
 	}
 
 	// Open it and calculate the SHA256 hash.
 	downloadedBundle, ok := downloadedCharm.(*charm.Bundle)
 	if !ok {
-		return errgo.New("expected a charm archive, got %T", downloadedCharm)
+		return errors.Errorf("expected a charm archive, got %T", downloadedCharm)
 	}
 	archive, err := os.Open(downloadedBundle.Path)
 	if err != nil {
-		return errgo.Annotate(err, "cannot read downloaded charm")
+		return errors.Annotate(err, "cannot read downloaded charm")
 	}
 	defer archive.Close()
 	bundleSHA256, size, err := utils.ReadSHA256(archive)
 	if err != nil {
-		return errgo.Annotate(err, "cannot calculate SHA256 hash of charm")
+		return errors.Annotate(err, "cannot calculate SHA256 hash of charm")
 	}
 	if _, err := archive.Seek(0, 0); err != nil {
-		return errgo.Annotate(err, "cannot rewind charm archive")
+		return errors.Annotate(err, "cannot rewind charm archive")
 	}
 
 	// Get the environment storage and upload the charm.
 	env, err := environs.New(envConfig)
 	if err != nil {
-		return errgo.Annotate(err, "cannot access environment")
+		return errors.Annotate(err, "cannot access environment")
 	}
 	storage := env.Storage()
 	archiveName, err := CharmArchiveName(charmURL.Name, charmURL.Revision)
 	if err != nil {
-		return errgo.Annotate(err, "cannot generate charm archive name")
+		return errors.Annotate(err, "cannot generate charm archive name")
 	}
 	if err := storage.Put(archiveName, archive, size); err != nil {
-		return errgo.Annotate(err, "cannot upload charm to provider storage")
+		return errors.Annotate(err, "cannot upload charm to provider storage")
 	}
 	storageURL, err := storage.URL(archiveName)
 	if err != nil {
-		return errgo.Annotate(err, "cannot get storage URL for charm")
+		return errors.Annotate(err, "cannot get storage URL for charm")
 	}
 	bundleURL, err := url.Parse(storageURL)
 	if err != nil {
-		return errgo.Annotate(err, "cannot parse storage URL")
+		return errors.Annotate(err, "cannot parse storage URL")
 	}
 
 	// Finally, update the charm data in state and mark it as no longer pending.
@@ -1005,7 +1004,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 		// us. This means we have to delete what we just uploaded
 		// to storage.
 		if err := storage.Remove(archiveName); err != nil {
-			errgo.Annotate(err, "cannot remove duplicated charm from storage")
+			errors.Annotate(err, "cannot remove duplicated charm from storage")
 		}
 		return nil
 	}

@@ -17,7 +17,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 )
 
 var KeyBits = 1024
@@ -64,11 +64,11 @@ func ParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey
 func Verify(srvCertPEM, caCertPEM string, when time.Time) error {
 	caCert, err := ParseCert(caCertPEM)
 	if err != nil {
-		return errgo.Annotate(err, "cannot parse CA certificate")
+		return errors.Annotate(err, "cannot parse CA certificate")
 	}
 	srvCert, err := ParseCert(srvCertPEM)
 	if err != nil {
-		return errgo.Annotate(err, "cannot parse server certificate")
+		return errors.Annotate(err, "cannot parse server certificate")
 	}
 	pool := x509.NewCertPool()
 	pool.AddCert(caCert)

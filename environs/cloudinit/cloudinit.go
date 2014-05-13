@@ -10,7 +10,6 @@ import (
 	"path"
 	"strings"
 
-	"github.com/errgo/errgo"
 	"github.com/juju/errors"
 	"launchpad.net/goyaml"
 
@@ -405,7 +404,7 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.C
 	acfg.SetValue(agent.AgentServiceName, cfg.MachineAgentServiceName)
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
-		return nil, errgo.Annotate(err, "failed to write commands")
+		return nil, errors.Annotate(err, "failed to write commands")
 	}
 	c.AddScripts(cmds...)
 	return acfg, nil
@@ -423,7 +422,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, cfg.LogDir, tag, machineId, nil)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
-		return errgo.Annotatef(err, "cannot make cloud-init upstart script for the %s agent", tag)
+		return errors.Annotatef(err, "cannot make cloud-init upstart script for the %s agent", tag)
 	}
 	c.AddRunCmd(cloudinit.LogProgressCmd("Starting Juju machine agent (%s)", name))
 	c.AddScripts(cmds...)

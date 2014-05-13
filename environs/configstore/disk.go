@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/errgo/errgo"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/goyaml"
@@ -173,14 +172,14 @@ func (info *environInfo) Location() string {
 func (info *environInfo) Write() error {
 	data, err := goyaml.Marshal(info.EnvInfo)
 	if err != nil {
-		return errgo.Annotate(err, "cannot marshal environment info")
+		return errors.Annotate(err, "cannot marshal environment info")
 	}
 	// Create a temporary file and rename it, so that the data
 	// changes atomically.
 	parent, _ := filepath.Split(info.path)
 	tmpFile, err := ioutil.TempFile(parent, "")
 	if err != nil {
-		return errgo.Annotate(err, "cannot create temporary file")
+		return errors.Annotate(err, "cannot create temporary file")
 	}
 	_, err = tmpFile.Write(data)
 	// N.B. We need to close the file before renaming it
@@ -188,11 +187,11 @@ func (info *environInfo) Write() error {
 	// error.
 	tmpFile.Close()
 	if err != nil {
-		return errgo.Annotate(err, "cannot write temporary file")
+		return errors.Annotate(err, "cannot write temporary file")
 	}
 	if err := utils.ReplaceFile(tmpFile.Name(), info.path); err != nil {
 		os.Remove(tmpFile.Name())
-		return errgo.Annotate(err, "cannot rename new environment info file")
+		return errors.Annotate(err, "cannot rename new environment info file")
 	}
 	info.initialized = true
 	return nil

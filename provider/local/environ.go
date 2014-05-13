@@ -15,7 +15,6 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/errgo/errgo"
 	"github.com/juju/errors"
 
 	"launchpad.net/juju-core/agent"
@@ -476,7 +475,7 @@ func (env *localEnviron) Destroy() error {
 			// Exit status 1 means no processes were matched:
 			// we don't consider this an error here.
 			if err.ProcessState.Sys().(syscall.WaitStatus).ExitStatus() != 1 {
-				return errgo.Annotate(err, "failed to kill jujud")
+				return errors.Annotate(err, "failed to kill jujud")
 			}
 		}
 	}
