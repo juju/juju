@@ -73,7 +73,7 @@ func (s *prepareSuite) TestPrepareCapturesEnvironment(c *gc.C) {
 		"name": "test",
 	})
 	c.Assert(err, gc.IsNil)
-	provider, err := environs.Provider(provider.Local)
+	localProvider, err := environs.Provider(provider.Local)
 	c.Assert(err, gc.IsNil)
 
 	for i, test := range []struct {
@@ -234,7 +234,7 @@ Acquire::magic::Proxy "none";
 			testConfig, err = baseConfig.Apply(test.extraConfig)
 			c.Assert(err, gc.IsNil)
 		}
-		env, err := provider.Prepare(coretesting.Context(c), testConfig)
+		env, err := localProvider.Prepare(coretesting.Context(c), testConfig)
 		c.Assert(err, gc.IsNil)
 
 		envConfig := env.Config()
@@ -261,7 +261,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		"type": "local",
 		"name": "test",
 	})
-	provider, err := environs.Provider("local")
+	localProvider, err := environs.Provider("local")
 	c.Assert(err, gc.IsNil)
 
 	type test struct {
@@ -289,7 +289,7 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		s.PatchValue(local.UserCurrent, func() (*user.User, error) {
 			return &user.User{Username: test.userOS}, test.userOSErr
 		})
-		env, err := provider.Prepare(coretesting.Context(c), basecfg)
+		env, err := localProvider.Prepare(coretesting.Context(c), basecfg)
 		if test.err == "" {
 			c.Assert(err, gc.IsNil)
 			cfg := env.Config()
@@ -310,50 +310,37 @@ func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
 	s.PatchValue(&local.VerifyPrerequisites, func(containerType instance.ContainerType) error {
 		return nil
 	})
-	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"type": "local",
-		"name": "test",
-	})
-	provider, err := environs.Provider("local")
+	localProvider, err := environs.Provider("local")
 	c.Assert(err, gc.IsNil)
 
 	type test struct {
-		systemDefault bool
-		extraConfig   map[string]interface{}
-		expectClone   bool
-		expectAUFS    bool
+		extraConfig map[string]interface{}
+		expectClone bool
+		expectAUFS  bool
 	}
 	tests := []test{{
 		extraConfig: map[string]interface{}{
-			"container": "lxc",
+			"default-series": "precise",
 		},
 	}, {
 		extraConfig: map[string]interface{}{
-			"container": "lxc",
-			"lxc-clone": "true",
-		},
-		expectClone: true,
-	}, {
-		systemDefault: true,
-		extraConfig: map[string]interface{}{
-			"container": "lxc",
+			"default-series": "precise",
+			"lxc-clone":      "true",
 		},
 		expectClone: true,
 	}, {
-		systemDefault: true,
 		extraConfig: map[string]interface{}{
-			"container": "kvm",
+			"default-series": "trusty",
+		},
+		expectClone: true,
+	}, {
+		extraConfig: map[string]interface{}{
+			"lxc-clone":      false,
+			"default-series": "trusty",
 		},
 	}, {
-		systemDefault: true,
 		extraConfig: map[string]interface{}{
-			"container": "lxc",
-			"lxc-clone": false,
-		},
-	}, {
-		systemDefault: true,
-		extraConfig: map[string]interface{}{
-			"container":      "lxc",
+			"default-series": "trusty",
 			"lxc-clone-aufs": true,
 		},
 		expectClone: true,
@@ -362,22 +349,22 @@ func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
 
 	for i, test := range tests {
 		c.Logf("test %d: %v", i, test)
-
-		releaseVersion := "12.04"
-		if test.systemDefault {
-			releaseVersion = "14.04"
+		attrs := map[string]interface{}{
+			"type": "local",
+			"name": "test",
 		}
-		s.PatchValue(local.ReleaseVersion, func() string { return releaseVersion })
-		testConfig, err := basecfg.Apply(test.extraConfig)
+		for k, v := range test.extraConfig {
+			attrs[k] = v
+		}
+		testConfig, err := config.New(config.UseDefaults, attrs)
 		c.Assert(err, gc.IsNil)
-		env, err := provider.Open(testConfig)
+		env, err := localProvider.Open(testConfig)
 		c.Assert(err, gc.IsNil)
-		localAttributes := env.Config().UnknownAttrs()
-
+		localAttributes := env.Config().AllAttrs()
 		value, _ := localAttributes["lxc-clone"].(bool)
-		c.Assert(value, gc.Equals, test.expectClone)
+		c.Check(value, gc.Equals, test.expectClone)
 		value, _ = localAttributes["lxc-clone-aufs"].(bool)
-		c.Assert(value, gc.Equals, test.expectAUFS)
+		c.Check(value, gc.Equals, test.expectAUFS)
 	}
 }
 
@@ -389,9 +376,9 @@ func (s *prepareSuite) TestPrepareProxySSH(c *gc.C) {
 		"type": "local",
 		"name": "test",
 	})
-	provider, err := environs.Provider("local")
+	localProvider, err := environs.Provider("local")
 	c.Assert(err, gc.IsNil)
-	env, err := provider.Prepare(coretesting.Context(c), basecfg)
+	env, err := localProvider.Prepare(coretesting.Context(c), basecfg)
 	c.Assert(err, gc.IsNil)
 	// local provider sets proxy-ssh to false
 	c.Assert(env.Config().ProxySSH(), gc.Equals, false)

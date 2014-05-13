@@ -240,8 +240,8 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		container.ConfigLogDir: env.config.logDir(),
 	}
 	if containerType == instance.LXC {
-		managerConfig["use-clone"] = strconv.FormatBool(env.config.lxcClone())
-		managerConfig["use-aufs"] = strconv.FormatBool(env.config.lxcCloneAUFS())
+		managerConfig["use-clone"] = strconv.FormatBool(cfg.LXCUseClone())
+		managerConfig["use-aufs"] = strconv.FormatBool(cfg.LXCUseCloneAUFS())
 	}
 	env.containerManager, err = factory.NewContainerManager(
 		containerType, managerConfig)

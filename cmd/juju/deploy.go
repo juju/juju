@@ -66,14 +66,22 @@ machines provisioned with add-unit will use the same constraints (unless changed
 by set-constraints).
 
 Charms can be deployed to a specific machine using the --to argument.
+If the destination is an LXC container, as of trusty, the default is
+to use lxc-clone to create the container. A 'template' container is
+created with the name
+  juju-<series>-template
+where <series> is the OS series, for example 'juju-trusty-template'.
 
-Like constraints, service-specific network requirements can be
-specified with --networks and --exclude-networks arguments, both can
-take a comma-delimited list of provider-specific network names/labels.
-These instruct juju to ensure to add all the networks specified with
---networks to all new machines deployed to host units of the service
-and to ensure none of the networks in --exclude-networks are added to
-the service's machines. Not supported on all providers.
+You can override the use of clone by changing the provider configuration:
+  lxc-clone: false
+
+If you have the main container directory mounted on a btrfs partition,
+then the clone will be using btrfs snapshots to create the containers.
+This means that the clones use up much less disk space.  If you do not have btrfs,
+lxc will attempt to use aufs (which is an overlay type filesystem). You can
+explicitly ask Juju to create full containers and not overlays by specifying
+the following in the provider configuration:
+  lxc-clone-aufs: false
 
 Examples:
    juju deploy mysql --to 23       (Deploy to machine 23)
@@ -83,6 +91,14 @@ Examples:
    juju deploy mysql -n 5 --constraints mem=8G (deploy 5 instances of mysql with at least 8 GB of RAM each)
 
    juju deploy mysql --networks=storage,mynet --exclude-networks=logging
+
+Like constraints, service-specific network requirements can be
+specified with --networks and --exclude-networks arguments, both can
+take a comma-delimited list of provider-specific network names/labels.
+These instruct juju to ensure to add all the networks specified with
+--networks to all new machines deployed to host units of the service
+and to ensure none of the networks in --exclude-networks are added to
+the service's machines. Not supported on all providers.
 
 See Also:
    juju help constraints

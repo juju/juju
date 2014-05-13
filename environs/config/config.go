@@ -346,6 +346,12 @@ func Validate(cfg, old *Config) error {
 		}
 	}
 
+	// Check the lxc-clone value. If not set, we use a default based on the preferred series.
+	fastOptionAvailable := useFastLXC(PreferredSeries(cfg))
+	if _, found := cfg.defined["lxc-clone"]; !found {
+		cfg.defined["lxc-clone"] = fastOptionAvailable
+	}
+
 	cfg.processDeprecatedAttributes()
 	return nil
 }
@@ -701,7 +707,14 @@ func (c *Config) TestMode() bool {
 // LXCUseClone reports whether the LXC provisioner should create a
 // template and use cloning to speed up container provisioning.
 func (c *Config) LXCUseClone() bool {
-	v, _ := c.defined["lxc-use-clone"].(bool)
+	v, _ := c.defined["lxc-clone"].(bool)
+	return v
+}
+
+// LXCUseCloneAUFS reports whether the LXC provisioner should create a
+// lxc clone using aufs if available.
+func (c *Config) LXCUseCloneAUFS() bool {
+	v, _ := c.defined["lxc-clone-aufs"].(bool)
 	return v
 }
 
@@ -781,7 +794,8 @@ var fields = schema.Fields{
 	"bootstrap-addresses-delay": schema.ForceInt(),
 	"test-mode":                 schema.Bool(),
 	"proxy-ssh":                 schema.Bool(),
-	"lxc-use-clone":             schema.Bool(),
+	"lxc-clone":                 schema.Bool(),
+	"lxc-clone-aufs":            schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": schema.String(),
@@ -815,6 +829,7 @@ var alwaysOptional = schema.Defaults{
 	"apt-http-proxy":            schema.Omit,
 	"apt-https-proxy":           schema.Omit,
 	"apt-ftp-proxy":             schema.Omit,
+	"lxc-clone":                 schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url": "",
@@ -839,10 +854,10 @@ var alwaysOptional = schema.Defaults{
 	// Authentication string sent with requests to the charm store
 	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
-	"image-stream":  "",
-	"test-mode":     false,
-	"proxy-ssh":     false,
-	"lxc-use-clone": false,
+	"image-stream":   "",
+	"test-mode":      false,
+	"proxy-ssh":      false,
+	"lxc-clone-aufs": false,
 }
 
 func allowEmpty(attr string) bool {
@@ -903,7 +918,8 @@ var immutableAttributes = []string{
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
-	"lxc-use-clone",
+	"lxc-clone",
+	"lxc-clone-aufs",
 }
 
 var (
