@@ -446,7 +446,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})
 			if shouldEnableHA(agentConfig) {
-				runner.StartWorker("peergrouper", func() (worker.Worker, error) {
+				a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
 					return peergrouperNew(st)
 				})
 			}
