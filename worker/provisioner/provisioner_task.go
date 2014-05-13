@@ -397,7 +397,11 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 	if len(instances) == 0 {
 		return nil
 	}
-	if err := task.broker.StopInstances(instances); err != nil {
+	ids := make([]instance.Id, len(instances))
+	for i, inst := range instances {
+		ids[i] = inst.Id()
+	}
+	if err := task.broker.StopInstances(ids); err != nil {
 		logger.Errorf("broker failed to stop instances: %v", err)
 		return err
 	}
@@ -484,7 +488,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	}
 	// We need to stop the instance right away here, set error status and go on.
 	task.setErrorStatus("cannot register instance for machine %v: %v", machine, err)
-	if err := task.broker.StopInstances([]instance.Instance{inst}); err != nil {
+	if err := task.broker.StopInstances([]instance.Id{inst.Id()}); err != nil {
 		// We cannot even stop the instance, log the error and quit.
 		logger.Errorf("cannot stop instance %q for machine %v: %v", inst.Id(), machine, err)
 		return err

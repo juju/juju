@@ -102,11 +102,11 @@ func (broker *lxcBroker) StartInstance(args environs.StartInstanceParams) (insta
 }
 
 // StopInstances shuts down the given instances.
-func (broker *lxcBroker) StopInstances(instances []instance.Instance) error {
+func (broker *lxcBroker) StopInstances(ids []instance.Id) error {
 	// TODO: potentially parallelise.
-	for _, instance := range instances {
-		lxcLogger.Infof("stopping lxc container for instance: %s", instance.Id())
-		if err := broker.manager.DestroyContainer(instance); err != nil {
+	for _, id := range ids {
+		lxcLogger.Infof("stopping lxc container for instance: %s", id)
+		if err := broker.manager.DestroyContainer(id); err != nil {
 			lxcLogger.Errorf("container did not stop: %v", err)
 			return err
 		}

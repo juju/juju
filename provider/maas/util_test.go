@@ -30,7 +30,7 @@ func (*utilSuite) TestGetSystemIdValues(c *gc.C) {
 	instanceId2 := instance.Id("/MAAS/api/1.0/nodes/system_id2/")
 	instanceIds := []instance.Id{instanceId1, instanceId2}
 
-	values := getSystemIdValues(instanceIds)
+	values := getSystemIdValues("id", instanceIds)
 
 	c.Check(values["id"], gc.DeepEquals, []string{"system_id1", "system_id2"})
 }

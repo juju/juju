@@ -114,7 +114,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(insts, gc.HasLen, 2)
 	c.Assert(insts[0].Id(), gc.Not(gc.Equals), insts[1].Id())
 
-	err = e.StopInstances([]instance.Instance{inst0})
+	err = e.StopInstances([]instance.Id{inst0.Id()})
 	c.Assert(err, gc.IsNil)
 
 	insts, err = e.Instances([]instance.Id{id0, id1})

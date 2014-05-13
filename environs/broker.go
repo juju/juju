@@ -50,8 +50,9 @@ type InstanceBroker interface {
 	// id.
 	StartInstance(args StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error)
 
-	// StopInstances shuts down the given instances.
-	StopInstances([]instance.Instance) error
+	// StopInstances shuts down the instances with the specified IDs.
+	// Unknown instance IDs are ignored, to enable idempotency.
+	StopInstances([]instance.Id) error
 
 	// AllInstances returns all instances currently known to the broker.
 	AllInstances() ([]instance.Instance, error)

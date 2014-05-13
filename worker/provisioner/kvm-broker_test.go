@@ -102,13 +102,13 @@ func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
 	kvm1 := s.startInstance(c, "1/kvm/1")
 	kvm2 := s.startInstance(c, "1/kvm/2")
 
-	err := s.broker.StopInstances([]instance.Instance{kvm0})
+	err := s.broker.StopInstances([]instance.Id{kvm0.Id()})
 	c.Assert(err, gc.IsNil)
 	s.assertInstances(c, kvm1, kvm2)
 	c.Assert(s.kvmContainerDir(kvm0), jc.DoesNotExist)
 	c.Assert(s.kvmRemovedContainerDir(kvm0), jc.IsDirectory)
 
-	err = s.broker.StopInstances([]instance.Instance{kvm1, kvm2})
+	err = s.broker.StopInstances([]instance.Id{kvm1.Id(), kvm2.Id()})
 	c.Assert(err, gc.IsNil)
 	s.assertInstances(c)
 }
@@ -118,7 +118,7 @@ func (s *kvmBrokerSuite) TestAllInstances(c *gc.C) {
 	kvm1 := s.startInstance(c, "1/kvm/1")
 	s.assertInstances(c, kvm0, kvm1)
 
-	err := s.broker.StopInstances([]instance.Instance{kvm1})
+	err := s.broker.StopInstances([]instance.Id{kvm1.Id()})
 	c.Assert(err, gc.IsNil)
 	kvm2 := s.startInstance(c, "1/kvm/2")
 	s.assertInstances(c, kvm0, kvm2)

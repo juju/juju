@@ -116,7 +116,7 @@ func (t *LiveTests) TearDownTest(c *gc.C) {
 
 func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	inst, hc := testing.AssertStartInstance(c, t.Env, "30")
-	defer t.Env.StopInstances([]instance.Instance{inst})
+	defer t.Env.StopInstances([]instance.Id{inst.Id()})
 	// Sanity check for hardware characteristics.
 	c.Assert(hc.Arch, gc.NotNil)
 	c.Assert(hc.Mem, gc.NotNil)
@@ -140,7 +140,7 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=2G")
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, "30", cons)
-	defer t.Env.StopInstances([]instance.Instance{inst})
+	defer t.Env.StopInstances([]instance.Id{inst.Id()})
 	ec2inst := ec2.InstanceEC2(inst)
 	c.Assert(ec2inst.InstanceType, gc.Equals, "m1.medium")
 	c.Assert(*hc.Arch, gc.Equals, "amd64")
@@ -187,14 +187,14 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	inst0, _ := testing.AssertStartInstance(c, t.Env, "98")
-	defer t.Env.StopInstances([]instance.Instance{inst0})
+	defer t.Env.StopInstances([]instance.Id{inst0.Id()})
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "99")
-	defer t.Env.StopInstances([]instance.Instance{inst1})
+	defer t.Env.StopInstances([]instance.Id{inst1.Id()})
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
 	c.Assert(err, gc.IsNil)
@@ -343,7 +343,7 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
 	inst2, _ := testing.AssertStartInstance(c, t.Env, "41")
 
-	err := t.Env.StopInstances([]instance.Instance{inst0, inst1, inst2})
+	err := t.Env.StopInstances([]instance.Id{inst0.Id(), inst1.Id(), inst2.Id()})
 	c.Check(err, gc.IsNil)
 
 	var insts []instance.Instance
