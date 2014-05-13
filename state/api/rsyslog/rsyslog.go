@@ -6,6 +6,7 @@ package rsyslog
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
@@ -13,6 +14,13 @@ import (
 )
 
 const rsyslogAPI = "Rsyslog"
+
+// RsyslogConfig holds the values needed for the rsyslog worker
+type RsyslogConfig struct {
+	CACert    string
+	Port      int
+	HostPorts []instance.HostPort
+}
 
 // State provides access to the Rsyslog API facade.
 type State struct {
@@ -80,5 +88,9 @@ func (st *State) GetRsyslogConfig() (*RsyslogConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return result.Config, nil
+	return &RsyslogConfig{
+		CACert:    result.CACert,
+		Port:      result.Port,
+		HostPorts: result.HostPorts,
+	}, nil
 }

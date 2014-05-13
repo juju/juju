@@ -15,11 +15,11 @@ import (
 type RsyslogAPI struct {
 	*common.EnvironWatcher
 
-	st         *state.State
-	resources  *common.Resources
-	authorizer common.Authorizer
-
-	canModify bool
+	st             *state.State
+	resources      *common.Resources
+	authorizer     common.Authorizer
+	StateAddresser *common.StateAddresser
+	canModify      bool
 }
 
 // NewRsyslogAPI creates a new instance of the Rsyslog API.
@@ -32,6 +32,7 @@ func NewRsyslogAPI(st *state.State, resources *common.Resources, authorizer comm
 		EnvironWatcher: common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
 		st:             st,
 		canModify:      authorizer.AuthEnvironManager(),
+		StateAddresser: common.NewStateAddresser(st),
 	}, nil
 }
 
@@ -58,13 +59,15 @@ func (api *RsyslogAPI) GetRsyslogConfig() (params.RsyslogConfigResult, error) {
 		return params.RsyslogConfigResult{}, err
 	}
 
-	rsyslogCfg, err := rsyslog.NewRsyslogConfig(cfg, api.st)
+	rsyslogCfg, err := newRsyslogConfig(cfg, api)
 	if err != nil {
 		return params.RsyslogConfigResult{}, err
 	}
 
 	return params.RsyslogConfigResult{
-		Config: rsyslogCfg,
+		CACert:    rsyslogCfg.CACert,
+		Port:      rsyslogCfg.Port,
+		HostPorts: rsyslogCfg.HostPorts,
 	}, nil
 }
 

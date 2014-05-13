@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/state/apiserver/rsyslog"
 	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
@@ -685,7 +684,9 @@ type SetRsyslogCertParams struct {
 // RsyslogConfigResult holds the result of an GetRsyslogConfig
 // call.
 type RsyslogConfigResult struct {
-	Config *rsyslog.RsyslogConfig
+	CACert    string
+	Port      int
+	HostPorts []instance.HostPort
 }
 
 // DistributionGroupResult contains the result of
