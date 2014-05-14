@@ -148,7 +148,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 
 	# Create a new replicaSet conf and re initiate it
 	mongoAdminEval '
-		conf = { "_id" : "juju", "version" : 1, "members" : [ { "_id" : 1, "host" : "{{ .PrivateAddress | printf "%s:{{.AgentConfig.StatePort}}" }}" , "tags" : { "juju-machine-id" : "0" } }]}
+		conf = { "_id" : "juju", "version" : 1, "members" : [ { "_id" : 1, "host" : "{{ .PrivateAddress | printf "%s:"}}{{.AgentConfig.StatePort}}" , "tags" : { "juju-machine-id" : "0" } }]}
 		rs.initiate(conf)
 	'
 
@@ -200,7 +200,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 func updateBootstrapMachineScript(instanceId instance.Id, agentConf agentConfig, addr, paddr string) string {
 	return execTemplate(updateBootstrapMachineTemplate, struct {
 		NewInstanceId  instance.Id
-		AgentConfig	agentConfig
+		AgentConfig    agentConfig
 		Address        string
 		PrivateAddress string
 	}{instanceId, agentConf, addr, paddr})
@@ -363,9 +363,9 @@ type credentials struct {
 }
 
 type agentConfig struct {
-	Credentials	credentials
-	ApiPort		string
-	StatePort	string
+	Credentials credentials
+	ApiPort     string
+	StatePort   string
 }
 
 func extractConfig(backupFile string) (agentConfig, error) {
@@ -420,13 +420,13 @@ func extractConfig(backupFile string) (agentConfig, error) {
 	apiPort := strconv.Itoa(apiPortNum)
 
 	return agentConfig{
-		Credentials:	credentials{
-					Tag:         "machine-0",
-					Password:    password,
-					OldPassword: oldPassword,
-				},
-		StatePort:   statePort,
-		ApiPort:     apiPort,
+		Credentials: credentials{
+			Tag:         "machine-0",
+			Password:    password,
+			OldPassword: oldPassword,
+		},
+		StatePort: statePort,
+		ApiPort:   apiPort,
 	}, nil
 }
 
