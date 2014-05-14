@@ -16,6 +16,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -30,6 +31,9 @@ func TestPackage(t *stdtesting.T) {
 
 type RsyslogSuite struct {
 	jujutesting.JujuConnSuite
+
+	st      *api.State
+	machine *state.Machine
 }
 
 var _ = gc.Suite(&RsyslogSuite{})
@@ -50,6 +54,10 @@ func (s *RsyslogSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(rsyslog.RestartRsyslog, func() error { return nil })
 	s.PatchValue(rsyslog.LogDir, c.MkDir())
 	s.PatchValue(rsyslog.RsyslogConfDir, c.MkDir())
+
+	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
 }
 
 func waitForFile(c *gc.C, file string) {
@@ -87,7 +95,7 @@ func (s *RsyslogSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *RsyslogSuite) TestTearDown(c *gc.C) {
-	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st, m := s.st, s.machine
 	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", []string{"0.1.2.3"})
 	c.Assert(err, gc.IsNil)
 	confFile := filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf")
@@ -131,7 +139,7 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 }
 
 func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
-	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st, m := s.st, s.machine
 	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", nil)
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -165,7 +173,7 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 }
 
 func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
-	_, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	m := s.machine
 	syslogConfig := syslog.NewAccumulateConfig(m.Tag(), *rsyslog.LogDir, 6541, "", []string{"192.168.1", "127.0.0.1"})
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, gc.IsNil)
@@ -178,7 +186,7 @@ func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
 }
 
 func (s *RsyslogSuite) TestNamespace(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st := s.st
 	// namespace only takes effect in filenames
 	// for machine-0; all others assume isolation.
 	s.testNamespace(c, st, "machine-0", "", "25-juju.conf", *rsyslog.LogDir)
