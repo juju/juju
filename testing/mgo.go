@@ -38,6 +38,11 @@ var (
 	waitingForConnectionsRe = regexp.MustCompile(".*initandlisten.*waiting for connections.*")
 )
 
+const (
+	// maximum number of times to attempt starting mongod
+	maxStartMongodAttempts = 5
+)
+
 type MgoInstance struct {
 	// addr holds the address of the MongoDB server
 	addr string
@@ -107,18 +112,29 @@ func (inst *MgoInstance) Start(ssl bool) error {
 	if err != nil {
 		return fmt.Errorf("cannot write cert/key PEM: %v", err)
 	}
-	inst.port = FindTCPPort()
-	inst.addr = fmt.Sprintf("localhost:%d", inst.port)
-	inst.dir = dbdir
-	inst.ssl = ssl
-	if err := inst.run(); err != nil {
-		inst.addr = ""
-		inst.port = 0
-		os.RemoveAll(inst.dir)
-		inst.dir = ""
-		logger.Warningf("failed to start mongo: %v", err)
-	} else {
-		logger.Debugf("started mongod pid %d in %s on port %d", inst.server.Process.Pid, dbdir, inst.port)
+
+	// Attempt to start mongo up to maxStartMongodAttempts times,
+	// as the port we choose may be taken from us in the mean time.
+	for i := 0; i < maxStartMongodAttempts; i++ {
+		inst.port = FindTCPPort()
+		inst.addr = fmt.Sprintf("localhost:%d", inst.port)
+		inst.dir = dbdir
+		inst.ssl = ssl
+		err = inst.run()
+		switch err.(type) {
+		case addrAlreadyInUseError:
+			logger.Debugf("failed to start mongo: %v, trying another port", err)
+			continue
+		case nil:
+			logger.Debugf("started mongod pid %d in %s on port %d", inst.server.Process.Pid, dbdir, inst.port)
+		default:
+			inst.addr = ""
+			inst.port = 0
+			os.RemoveAll(inst.dir)
+			inst.dir = ""
+			logger.Warningf("failed to start mongo: %v", err)
+		}
+		break
 	}
 	return err
 }
@@ -139,6 +155,7 @@ func (inst *MgoInstance) run() error {
 		"--noprealloc",
 		"--smallfiles",
 		"--nojournal",
+		"--nohttpinterface",
 		"--nounixsocket",
 		"--oplogSize", "10",
 		"--keyFile", filepath.Join(inst.dir, "keyfile"),
@@ -186,7 +203,11 @@ func (inst *MgoInstance) run() error {
 		if readUntilMatching(prefix, io.TeeReader(out, &buf), waitingForConnectionsRe) {
 			listening <- nil
 		} else {
-			listening <- fmt.Errorf("mongod failed to listen on port %v", mgoport)
+			err := fmt.Errorf("mongod failed to listen on port %v", mgoport)
+			if strings.Contains(buf.String(), "addr already in use") {
+				err = addrAlreadyInUseError{err}
+			}
+			listening <- err
 		}
 		// Capture the last 20 lines of output from mongod, to log
 		// in the event of unclean exit.
@@ -401,6 +422,7 @@ func MgoDialInfoTls(useTls bool, addrs ...string) *mgo.DialInfo {
 func (s *MgoSuite) SetUpTest(c *gc.C) {
 	mgo.ResetStats()
 	s.Session = MgoServer.MustDial()
+	dropAll(s.Session)
 }
 
 // Reset deletes all content from the MongoDB server and panics if it encounters
@@ -439,6 +461,25 @@ func (inst *MgoInstance) Reset() {
 			panic(fmt.Errorf("Cannot drop MongoDB database %v: %v", name, err))
 		}
 	}
+}
+
+// dropAll drops all databases apart from admin, local and config.
+func dropAll(session *mgo.Session) (err error) {
+	names, err := session.DatabaseNames()
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		switch name {
+		case "admin", "local", "config":
+		default:
+			err = session.DB(name).DropDatabase()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // resetAdminPasswordAndFetchDBNames logs into the database with a
@@ -527,4 +568,8 @@ func FindTCPPort() int {
 	}
 	l.Close()
 	return l.Addr().(*net.TCPAddr).Port
+}
+
+type addrAlreadyInUseError struct {
+	error
 }

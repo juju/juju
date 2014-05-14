@@ -130,8 +130,8 @@ type OpStartInstance struct {
 }
 
 type OpStopInstances struct {
-	Env       string
-	Instances []instance.Instance
+	Env string
+	Ids []instance.Id
 }
 
 type OpOpenPorts struct {
@@ -829,7 +829,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	return i, hc, networkInfo, nil
 }
 
-func (e *environ) StopInstances(is []instance.Instance) error {
+func (e *environ) StopInstances(ids ...instance.Id) error {
 	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
@@ -840,12 +840,12 @@ func (e *environ) StopInstances(is []instance.Instance) error {
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	for _, i := range is {
-		delete(estate.insts, i.(*dummyInstance).id)
+	for _, id := range ids {
+		delete(estate.insts, id)
 	}
 	estate.ops <- OpStopInstances{
-		Env:       e.name,
-		Instances: is,
+		Env: e.name,
+		Ids: ids,
 	}
 	return nil
 }

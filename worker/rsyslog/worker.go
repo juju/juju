@@ -80,7 +80,7 @@ func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag, namesp
 	var syslogConfig *syslog.SyslogConfig
 	if mode == RsyslogModeAccumulate {
 		syslogConfig = syslog.NewAccumulateConfig(
-			tag, logDir, 0, namespace,
+			tag, logDir, 0, namespace, stateServerAddrs,
 		)
 	} else {
 		syslogConfig = syslog.NewForwardConfig(

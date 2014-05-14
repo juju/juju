@@ -24,12 +24,12 @@ func extractSystemId(instanceId instance.Id) string {
 }
 
 // getSystemIdValues returns a url.Values object with all the 'system_ids'
-// from the given instanceIds stored under the key 'id'.  This is used
+// from the given instanceIds stored under the specified key.  This is used
 // to filter out instances when listing the nodes objects.
-func getSystemIdValues(instanceIds []instance.Id) url.Values {
+func getSystemIdValues(key string, instanceIds []instance.Id) url.Values {
 	values := url.Values{}
 	for _, instanceId := range instanceIds {
-		values.Add("id", extractSystemId(instanceId))
+		values.Add(key, extractSystemId(instanceId))
 	}
 	return values
 }

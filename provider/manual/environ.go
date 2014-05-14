@@ -70,7 +70,7 @@ func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance
 	return nil, nil, nil, errNoStartInstance
 }
 
-func (*manualEnviron) StopInstances([]instance.Instance) error {
+func (*manualEnviron) StopInstances(...instance.Id) error {
 	return errNoStopInstance
 }
 

@@ -264,7 +264,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
-	err = env.StopInstances([]instance.Instance{inst})
+	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -288,7 +288,7 @@ func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
-	err = env.StopInstances([]instance.Instance{inst})
+	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -363,7 +363,7 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	// group, one group for the entire environment, and another for the
 	// new instance.
 	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", env.Name()), fmt.Sprintf("juju-%v-%v", env.Name(), instanceName)})
-	err = env.StopInstances([]instance.Instance{inst})
+	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 	// The security group for this instance is now removed.
 	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", env.Name())})
@@ -391,7 +391,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	inst, _ := testing.AssertStartInstance(c, env, instanceName)
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", env.Name()), fmt.Sprintf("juju-%v-%v", env.Name(), instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
-	err = env.StopInstances([]instance.Instance{inst})
+	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 	assertSecurityGroups(c, env, allSecurityGroups)
 }
@@ -478,7 +478,7 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	// goose's test service always returns ACTIVE state.
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	c.Assert(inst.Status(), gc.Equals, nova.StatusActive)
-	err := env.StopInstances([]instance.Instance{inst})
+	err := env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -489,7 +489,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	inst1, _ := testing.AssertStartInstance(c, env, "101")
 	id1 := inst1.Id()
 	defer func() {
-		err := env.StopInstances([]instance.Instance{inst0, inst1})
+		err := env.StopInstances(inst0.Id(), inst1.Id())
 		c.Assert(err, gc.IsNil)
 	}()
 
@@ -534,7 +534,7 @@ func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 	defer cleanup()
 	stateInst, _ := testing.AssertStartInstance(c, env, "100")
 	defer func() {
-		err := env.StopInstances([]instance.Instance{stateInst})
+		err := env.StopInstances(stateInst.Id())
 		c.Assert(err, gc.IsNil)
 	}()
 	found := make(map[instance.Id]instance.Instance)
@@ -559,7 +559,7 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 	defer cleanup()
 	stateInst, _ := testing.AssertStartInstance(c, env, "100")
 	defer func() {
-		err := env.StopInstances([]instance.Instance{stateInst})
+		err := env.StopInstances(stateInst.Id())
 		c.Assert(err, gc.IsNil)
 	}()
 
