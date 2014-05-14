@@ -401,6 +401,7 @@ func MgoDialInfoTls(useTls bool, addrs ...string) *mgo.DialInfo {
 func (s *MgoSuite) SetUpTest(c *gc.C) {
 	mgo.ResetStats()
 	s.Session = MgoServer.MustDial()
+	dropAll(s.Session)
 }
 
 // Reset deletes all content from the MongoDB server and panics if it encounters
@@ -439,6 +440,25 @@ func (inst *MgoInstance) Reset() {
 			panic(fmt.Errorf("Cannot drop MongoDB database %v: %v", name, err))
 		}
 	}
+}
+
+// dropAll drops all databases apart from admin, local and config.
+func dropAll(session *mgo.Session) (err error) {
+	names, err := session.DatabaseNames()
+	if err != nil {
+		return err
+	}
+	for _, name := range names {
+		switch name {
+		case "admin", "local", "config":
+		default:
+			err = session.DB(name).DropDatabase()
+			if err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 // resetAdminPasswordAndFetchDBNames logs into the database with a
