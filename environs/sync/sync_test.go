@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -261,27 +260,39 @@ type uploadSuite struct {
 }
 
 type badBuildSuite struct {
+	env environs.Environ
+	testbase.LoggingSuite
+	envtesting.ToolsFixture
 }
+
+var badGo = `
+#!/bin/bash --norc
+exit 1
+`[1:]
 
 // Create bad Go source file
 func (s *badBuildSuite) SetUpTest(c *gc.C) {
-	gopath := c.MkDir()
-	join := append([]string{gopath, "src"}, strings.Split("launchpad.net/juju-core/cmd/broken", "/")...)
-	pkgdir := filepath.Join(join...)
-	err := os.MkdirAll(pkgdir, 0777)
+	s.LoggingSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
+	// We only want to use simplestreams to find any synced tools.
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(filepath.Join(pkgdir, "broken.go"), []byte("nope"), 0666)
+	s.env, err = environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
-	os.Setenv("GOPATH", gopath)
-}
 
-func (s *badBuildSuite) TearDownTest(c *gc.C) {
-	s.resetToolFuncs()
-	os.Setenv("GOPATH", os.Getenv("GOPATH"))
+	// Mock go cmd
+	testPath := c.MkDir()
+	s.PatchEnvPathPrepend(testPath)
+	path := filepath.Join(testPath, "go")
+	err = ioutil.WriteFile(path, []byte(badGo), 0755)
+	c.Assert(err, gc.IsNil)
+	// Check mocked go cmd errors
+	out, err := exec.Command("go").CombinedOutput()
+	c.Assert(err, gc.ErrorMatches, "exit status 1")
+	c.Assert(string(out), gc.Equals, "")
 }
 
 func (s *uploadSuite) SetUpTest(c *gc.C) {
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, ""))
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	// We only want to use simplestreams to find any synced tools.
@@ -302,6 +313,8 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
+	// TODO(waigani) Does this test need to download tools? If not,
+	// sync.bundleTools can be mocked to improve test speed.
 	dir := downloadTools(c, t)
 	out, err := exec.Command(filepath.Join(dir, "jujud"), "version").CombinedOutput()
 	c.Assert(err, gc.IsNil)
@@ -433,32 +446,28 @@ func bundleTools(c *gc.C) (version.Binary, string, error) {
 // this case) the bundle tools procedure passes when envtools.BundleTools is
 // patched and otherwise fails correctly.
 func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
-	env := s.Conn.Environ
 	vers, sha256Hash, err := bundleTools(c)
-	// TODO test vers
-	c.Logf("%#v", vers)
-	// c.Assert(version{}, gc.IsNil)
+	c.Assert(vers, gc.DeepEquals, version.Binary{})
 	c.Assert(sha256Hash, gc.Equals, "")
-	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
-
+	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; `)
 	// Test that original Upload Func fails as expected
-	t, err := sync.Upload(env.Storage(), nil)
+	t, err := sync.Upload(s.env.Storage(), nil)
 	c.Assert(t, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
+	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; `)
 
 	// Test that original BuildToolsTarball fails
 	builtTools, err := sync.BuildToolsTarball(nil)
-	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
+	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; `)
 	c.Assert(builtTools, gc.IsNil)
 
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c, c.MkDir()))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 
 	vers, sha256Hash, err = bundleTools(c)
 	c.Assert(err, gc.IsNil)
 	c.Assert(vers.Number, gc.Equals, version.Current.Number)
 	c.Assert(sha256Hash, gc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
 
-	t, err = sync.Upload(env.Storage(), nil)
+	t, err = sync.Upload(s.env.Storage(), nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")

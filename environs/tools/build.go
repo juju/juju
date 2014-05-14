@@ -198,7 +198,7 @@ func buildJujud(dir string) error {
 	return nil
 }
 
-// BundleToolsFunc is a function which can bundles all the current juju tools
+// BundleToolsFunc is a function which can bundle all the current juju tools
 // in gzipped tar format to the given writer.
 type BundleToolsFunc func(w io.Writer, forceVersion *version.Number) (version.Binary, string, error)
 
