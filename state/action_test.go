@@ -27,7 +27,13 @@ func (s *ActionSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *ActionSuite) TokenTest(c *gc.C) {
-	action := newAction(s.SettingsSuite.state, actionDoc{})
-	err := action.setRunning()
+	action, err := s.SettingsSuite.state.AddAction("fakeunit/0", "fakeaction", nil)
 	c.Assert(err, gc.IsNil)
+
+	err = action.setRunning()
+	c.Assert(err, gc.IsNil)
+
+	action2, err := s.SettingsSuite.state.Action(action.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(action2.Status(), gc.Equals, action.Status())
 }

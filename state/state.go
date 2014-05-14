@@ -1377,7 +1377,13 @@ func (st *State) Action(id string) (*Action, error) {
 // json-schema options for the action and inserts it into the actions
 // collection
 func (st *State) AddAction(unit string, name string, payload interface{}) (*Action, error) {
-	newActionID := fmt.Sprintf("%s_%s", unit, string(bson.NewObjectId()))
+	prefix := fmt.Sprintf("u#%s#", unit)
+	suffix, err := st.sequence(prefix)
+	if err != nil {
+		return nil, onAbort(err, errDead)
+	}
+
+	newActionID := fmt.Sprintf("%s%s", prefix, suffix)
 	doc := actionDoc{Id: newActionID, Name: name, Unit: unit, Payload: payload, Status: ActionPending}
 	ops := []txn.Op{{
 		C:      st.actions.Name,
