@@ -1370,15 +1370,15 @@ func (st *State) Action(id string) (*Action, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot get action %q: %v", id, err)
 	}
-	return newAction(st, &doc), nil
+	return newAction(st, doc), nil
 }
 
 // AddAction takes a unit Id, and an action name, and a payload containing
 // json-schema options for the action and inserts it into the actions
 // collection
-func (st *State) AddAction(unit string, name string, payload string) (*Action, error) {
+func (st *State) AddAction(unit string, name string, payload interface{}) (*Action, error) {
 	newActionID := fmt.Sprintf("%s_%s", unit, string(bson.NewObjectId()))
-	doc := actionDoc{newActionID, name, unit, payload, ActionPending}
+	doc := actionDoc{Id: newActionID, Name: name, Unit: unit, Payload: payload, Status: ActionPending}
 	ops := []txn.Op{{
 		C:      st.actions.Name,
 		Id:     doc.Id,
@@ -1389,7 +1389,7 @@ func (st *State) AddAction(unit string, name string, payload string) (*Action, e
 		return nil, onAbort(err, errDead)
 	}
 
-	return newAction(st, &doc), nil
+	return newAction(st, doc), nil
 }
 
 // Unit returns a unit by name.

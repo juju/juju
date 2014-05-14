@@ -1,20 +1,30 @@
-package state_test
+package state
 
 import (
 	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state"
 )
 
 type ActionSuite struct {
-	ConnSuite
-	charm   *state.Charm
-	service *state.Service
-	unit    *state.Unit
-	action  *state.Action
+	SettingsSuite
 }
 
 var _ = gc.Suite(&ActionSuite{})
 
+func (s *ActionSuite) SetUpSuite(c *gc.C) {
+	s.SettingsSuite.SetUpSuite(c)
+}
+
+func (s *ActionSuite) TearDownSuite(c *gc.C) {
+	s.SettingsSuite.TearDownSuite(c)
+}
+
 func (s *ActionSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
+	s.SettingsSuite.SetUpTest(c)
+}
+
+func (s *ActionSuite) TearDownTest(c *gc.C) {
+	s.SettingsSuite.TearDownTest(c)
+}
+
+func (s *ActionSuite) TokenTest(c *gc.C) {
 }
