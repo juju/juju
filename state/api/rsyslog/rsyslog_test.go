@@ -5,30 +5,52 @@ package rsyslog_test
 
 import (
 	gc "launchpad.net/gocheck"
+	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/rsyslog"
+	coretesting "launchpad.net/juju-core/testing"
 
-	jujutesting "launchpad.net/juju-core/juju/testing"
-	apitesting "launchpad.net/juju-core/state/api/testing"
+	//statetesting "launchpad.net/juju-core/state/testing"
 )
 
 type rsyslogSuite struct {
-	jujutesting.JujuConnSuite
-	*apitesting.EnvironWatcherTests
+	testing.JujuConnSuite
+
+	st      *api.State
+	machine *state.Machine
+	rsyslog *rsyslog.State
 }
 
 var _ = gc.Suite(&rsyslogSuite{})
 
 func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+	// considered 'alive' so that calls don't spawn new instances
+	_, err := s.State.AddMachine("precise", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	m, err := s.BackingState.Machine("0")
+	c.Assert(err, gc.IsNil)
+	s.BackingState.StartSync()
+	err = m.WaitAgentAlive(coretesting.LongWait)
+	c.Assert(err, gc.IsNil)
 
-	stateAPI, _ := s.OpenAPIAsNewMachine(c)
-	rsyslogAPI := stateAPI.Rsyslog()
-	c.Assert(rsyslogAPI, gc.NotNil)
+	s.st, s.machine = s.OpenAPIAsNewMachine(c)
+	// Create the rsyslog API facade
+	s.rsyslog = s.st.Rsyslog()
+	c.Assert(s.rsyslog, gc.NotNil)
+}
 
-	s.EnvironWatcherTests = apitesting.NewEnvironWatcherTests(
-		rsyslogAPI,
-		s.BackingState,
-		apitesting.NoSecrets,
-	)
+func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
+	cfg, err := s.rsyslog.GetRsyslogConfig()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cfg, gc.NotNil)
+}
+
+func (s *rsyslogSuite) TestWatchForRsyslogChanges(c *gc.C) {
+	//	w, err := s.st.WatchForRsyslogChanges(s.rawMachine.Tag())
+	//	c.Assert(err, gc.IsNil)
+	//	defer statetesting.AssertStop(c, w)
 }
 
 // SetRsyslogCACert is tested in state/apiserver/rsyslog
