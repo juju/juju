@@ -10,7 +10,6 @@ import os
 import re
 import subprocess
 import sys
-from time import sleep
 
 from deploy_stack import (
     destroy_environment,
@@ -166,6 +165,9 @@ def main():
     strategy.add_argument(
         '--backup', action='store_const', dest='strategy', const='backup',
         help="Test backup/restore.")
+    strategy.add_argument(
+        '--ha-backup', action='store_const', dest='strategy', const='ha-backup',
+        help="Test backup/restore of HA.")
     parser.add_argument('juju_path')
     parser.add_argument('env_name')
     args = parser.parse_args()
@@ -177,11 +179,11 @@ def main():
         log_host = bootstrap_host
         try:
             instance_id = deploy_stack(env, args.charm_prefix)
-            if args.strategy == 'ha':
+            if args.strategy.startswith('ha'):
                 env.juju('ensure-availability', '-n', '3')
                 wait_for_ha(env)
                 log_host = get_machine_dns_name(env, 3)
-            else:
+            if args.strategy.endswith('backup'):
                 backup_file = backup_state_server(env)
                 restore_present_state_server(env, backup_file)
                 log_host = None
