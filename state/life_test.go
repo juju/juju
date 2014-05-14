@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
@@ -16,11 +17,9 @@ type LifeSuite struct {
 }
 
 func (s *LifeSuite) SetUpTest(c *gc.C) {
-	var err error
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
-	s.svc, err = s.State.AddService("dummysvc", s.charm)
-	c.Assert(err, gc.IsNil)
+	s.svc = s.AddTestingService(c, "dummysvc", s.charm)
 }
 
 var _ = gc.Suite(&LifeSuite{})
@@ -81,8 +80,7 @@ var stateChanges = []struct {
 
 type lifeFixture interface {
 	id() (coll string, id interface{})
-	setup(s *LifeSuite, c *gc.C) state.Living
-	teardown(s *LifeSuite, c *gc.C)
+	setup(s *LifeSuite, c *gc.C) state.AgentLiving
 }
 
 type unitLife struct {
@@ -93,17 +91,12 @@ func (l *unitLife) id() (coll string, id interface{}) {
 	return "units", l.unit.Name()
 }
 
-func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.Living {
+func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
 	unit, err := s.svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit)
 	l.unit = unit
 	return l.unit
-}
-
-func (l *unitLife) teardown(s *LifeSuite, c *gc.C) {
-	err := l.unit.Remove()
-	c.Assert(err, gc.IsNil)
 }
 
 type machineLife struct {
@@ -114,30 +107,25 @@ func (l *machineLife) id() (coll string, id interface{}) {
 	return "machines", l.machine.Id()
 }
 
-func (l *machineLife) setup(s *LifeSuite, c *gc.C) state.Living {
+func (l *machineLife) setup(s *LifeSuite, c *gc.C) state.AgentLiving {
 	var err error
-	l.machine, err = s.State.AddMachine("series", state.JobHostUnits)
+	l.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	return l.machine
-}
-
-func (l *machineLife) teardown(s *LifeSuite, c *gc.C) {
-	err := l.machine.Remove()
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached, dbinitial state.Life, c *gc.C) {
 	collName, id := lfix.id()
 	coll := s.MgoSuite.Session.DB("juju").C(collName)
 
-	err := coll.UpdateId(id, D{{"$set", D{
+	err := coll.UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", cached},
 	}}})
 	c.Assert(err, gc.IsNil)
 	err = living.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	err = coll.UpdateId(id, D{{"$set", D{
+	err = coll.UpdateId(id, bson.D{{"$set", bson.D{
 		{"life", dbinitial},
 	}}})
 	c.Assert(err, gc.IsNil)
@@ -165,7 +153,8 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 			c.Assert(living.Life(), gc.Equals, v.dbfinal)
 			err = living.EnsureDead()
 			c.Assert(err, gc.IsNil)
-			lfix.teardown(s, c)
+			err = living.Remove()
+			c.Assert(err, gc.IsNil)
 		}
 	}
 }

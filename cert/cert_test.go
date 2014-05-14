@@ -38,7 +38,7 @@ func (certSuite) TestParseCertificate(c *gc.C) {
 	c.Check(xcert, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "no certificates found")
 
-	xcert, err = cert.ParseCert([]byte("hello"))
+	xcert, err = cert.ParseCert("hello")
 	c.Check(xcert, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "no certificates found")
 }
@@ -76,18 +76,54 @@ func (certSuite) TestNewServer(c *gc.C) {
 	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
 	c.Assert(err, gc.IsNil)
 
-	srvCertPEM, srvKeyPEM, err := cert.NewServer("juju test", caCertPEM, caKeyPEM, expiry)
+	var noHostnames []string
+	srvCertPEM, srvKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, noHostnames)
 	c.Assert(err, gc.IsNil)
 
 	srvCert, srvKey, err := cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
-	c.Assert(err, gc.IsNil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(srvCert.Subject.CommonName, gc.Equals, "*")
 	c.Assert(srvCert.NotAfter.Equal(expiry), gc.Equals, true)
 	c.Assert(srvCert.BasicConstraintsValid, gc.Equals, false)
 	c.Assert(srvCert.IsCA, gc.Equals, false)
+	c.Assert(srvCert.ExtKeyUsage, gc.DeepEquals, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
 
 	checkTLSConnection(c, caCert, srvCert, srvKey)
+}
+
+func (certSuite) TestNewServerHostnames(c *gc.C) {
+	type test struct {
+		hostnames           []string
+		expectedDNSNames    []string
+		expectedIPAddresses []net.IP
+	}
+	tests := []test{{
+		[]string{},
+		nil,
+		nil,
+	}, {
+		[]string{"example.com"},
+		[]string{"example.com"},
+		nil,
+	}, {
+		[]string{"example.com", "127.0.0.1"},
+		[]string{"example.com"},
+		[]net.IP{net.IPv4(127, 0, 0, 1).To4()},
+	}, {
+		[]string{"::1"},
+		nil,
+		[]net.IP{net.IPv6loopback},
+	}}
+	for i, t := range tests {
+		c.Logf("test %d: %v", i, t.hostnames)
+		expiry := roundTime(time.Now().AddDate(1, 0, 0))
+		srvCertPEM, srvKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, t.hostnames)
+		c.Assert(err, gc.IsNil)
+		srvCert, _, err := cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
+		c.Assert(err, gc.IsNil)
+		c.Assert(srvCert.DNSNames, gc.DeepEquals, t.expectedDNSNames)
+		c.Assert(srvCert.IPAddresses, gc.DeepEquals, t.expectedIPAddresses)
+	}
 }
 
 func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
@@ -98,16 +134,18 @@ func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(xcert.NotAfter.Equal(expiry), gc.Equals, true)
 
-	certPEM, _, err = cert.NewServer("foo", certPEM, keyPEM, expiry)
+	var noHostnames []string
+	certPEM, _, err = cert.NewServer(certPEM, keyPEM, expiry, noHostnames)
 	xcert, err = cert.ParseCert(certPEM)
 	c.Assert(err, gc.IsNil)
 	c.Assert(xcert.NotAfter.Equal(expiry), gc.Equals, true)
 }
 
 func (certSuite) TestNewServerWithInvalidCert(c *gc.C) {
-	srvCert, srvKey, err := cert.NewServer("foo", nonCACert, nonCAKey, time.Now())
-	c.Check(srvCert, gc.IsNil)
-	c.Check(srvKey, gc.IsNil)
+	var noHostnames []string
+	srvCert, srvKey, err := cert.NewServer(nonCACert, nonCAKey, time.Now(), noHostnames)
+	c.Check(srvCert, gc.Equals, "")
+	c.Check(srvKey, gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, "CA certificate is not a valid CA")
 }
 
@@ -116,7 +154,8 @@ func (certSuite) TestVerify(c *gc.C) {
 	caCert, caKey, err := cert.NewCA("foo", now.Add(1*time.Minute))
 	c.Assert(err, gc.IsNil)
 
-	srvCert, _, err := cert.NewServer("foo", caCert, caKey, now.Add(3*time.Minute))
+	var noHostnames []string
+	srvCert, _, err := cert.NewServer(caCert, caKey, now.Add(3*time.Minute), noHostnames)
 	c.Assert(err, gc.IsNil)
 
 	err = cert.Verify(srvCert, caCert, now)
@@ -127,7 +166,7 @@ func (certSuite) TestVerify(c *gc.C) {
 
 	// TODO(rog) why does this succeed?
 	// err = cert.Verify(srvCert, caCert, now.Add(-1 * time.Minute))
-	//c.Check(err, ErrorMatches, "x509: certificate has expired or is not yet valid")
+	//c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")
 
 	err = cert.Verify(srvCert, caCert, now.Add(2*time.Minute))
 	c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")
@@ -139,7 +178,7 @@ func (certSuite) TestVerify(c *gc.C) {
 	err = cert.Verify(srvCert, caCert2, now)
 	c.Check(err, gc.ErrorMatches, "x509: certificate signed by unknown authority")
 
-	srvCert2, _, err := cert.NewServer("bar", caCert2, caKey2, now.Add(1*time.Minute))
+	srvCert2, _, err := cert.NewServer(caCert2, caKey2, now.Add(1*time.Minute), noHostnames)
 	c.Assert(err, gc.IsNil)
 
 	// Check new server certificate against original CA.
@@ -256,7 +295,7 @@ func roundTime(t time.Time) time.Time {
 }
 
 var (
-	caCertPEM = []byte(`
+	caCertPEM = `
 -----BEGIN CERTIFICATE-----
 MIIBnTCCAUmgAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
 MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE0Mzg1NFoXDTIyMTExNDE0
@@ -268,9 +307,9 @@ FQGeGMeTzPbHW62EZbbTJzAfBgNVHSMEGDAWgBQQDswPFQGeGMeTzPbHW62EZbbT
 JzALBgkqhkiG9w0BAQUDQQAqZzN0DqUyEfR8zIanozyD2pp10m9le+ODaKZDDNfH
 8cB2x26F1iZ8ccq5IC2LtQf1IKJnpTcYlLuDvW6yB96g
 -----END CERTIFICATE-----
-`)
+`
 
-	caKeyPEM = []byte(`
+	caKeyPEM = `
 -----BEGIN RSA PRIVATE KEY-----
 MIIBOwIBAAJBAII46mf1pYpwqvYZAa3KDAPs91817Uj0FiI8CprYjfcXn7o+oV1+
 6NQq+jJMkjpcbhCj8IQJpo32yaHKr0PHMyECAwEAAQJAYctedh4raLE+Ir0a3qnK
@@ -280,9 +319,9 @@ JFwDdp+7gE98mXtaFrjctLWeFx797U8CIAnnqiMTwWM8H2ljyhfBtYMXeTmu3zzU
 0hfS4hcNwDiLAiEAkNXXU7YEPkFJD46ps1x7/s0UOutHV8tXZD44ou+l1GkCIQDO
 HOzuvYngJpoClGw0ipzJPoNZ2Z/GkdOWGByPeKu/8g==
 -----END RSA PRIVATE KEY-----
-`)
+`
 
-	nonCACert = []byte(`-----BEGIN CERTIFICATE-----
+	nonCACert = `-----BEGIN CERTIFICATE-----
 MIIBmjCCAUagAwIBAgIBADALBgkqhkiG9w0BAQUwJjENMAsGA1UEChMEanVqdTEV
 MBMGA1UEAxMManVqdSB0ZXN0aW5nMB4XDTEyMTExNDE3MTU1NloXDTIyMTExNDE3
 MjA1NlowJjENMAsGA1UEChMEanVqdTEVMBMGA1UEAxMManVqdSB0ZXN0aW5nMFow
@@ -293,9 +332,9 @@ vmmkUoYuWg9sDob4jzAfBgNVHSMEGDAWgBRqbxkIW4R0vmmkUoYuWg9sDob4jzAL
 BgkqhkiG9w0BAQUDQQC3+KN8RppKdvlbP6fDwRC22PaCxd0PVyIHsn7I4jgpBPf8
 Z3codMYYA5/f0AmUsD7wi7nnJVPPLZK7JWu4VI/w
 -----END CERTIFICATE-----
-`)
+`
 
-	nonCAKey = []byte(`-----BEGIN RSA PRIVATE KEY-----
+	nonCAKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIBOgIBAAJBAL3r8KxNNjVVrx63pBg1fCuywCLfpqwWVX9+SwaGpG5yJ2LP/7Ee
 +Gz0SKoS7s0bF5UCRx8iFe7r8EOWhu2Pa/kCAwEAAQJAdzuAxStUNPeuEWLJKkmp
 wuVdqocuZCtBUeE/yMEOyibZ9NLKSuDJuDorkoeoiBz2vyUITHkLp4jgNmCI8NGg
@@ -304,5 +343,5 @@ kj2moFk9GdBXZV9I0t1VTwcDvVyeAXkCIDrfvldQPdO9wJOKK3vLkS1qpyf2lhIZ
 b1alx3PZuxOBAiAthPltYMRWtar+fTaZTFo5RH+SQSkibaRI534mQF+ySQIhAIml
 yiWVLC2XrtwijDu1fwh/wtFCb/bPvqvgG5wgAO+2
 -----END RSA PRIVATE KEY-----
-`)
+`
 )

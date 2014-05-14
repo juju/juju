@@ -8,6 +8,7 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/resumer"
@@ -53,7 +54,7 @@ func (s *ResumerSuite) TestResumerCalls(c *gc.C) {
 		diff := tr.timestamps[i].Sub(tr.timestamps[i-1])
 
 		c.Assert(diff >= testInterval, gc.Equals, true)
-		c.Assert(diff <= 2*testInterval, gc.Equals, true)
+		c.Assert(diff <= 4*testInterval, gc.Equals, true)
 	}
 }
 

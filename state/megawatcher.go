@@ -28,8 +28,15 @@ type backingMachine machineDoc
 
 func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.MachineInfo{
-		Id: m.Id,
+		Id:                       m.Id,
+		Life:                     params.Life(m.Life.String()),
+		Series:                   m.Series,
+		Jobs:                     paramsJobsFromJobs(m.Jobs),
+		Addresses:                mergedAddresses(m.MachineAddresses, m.Addresses),
+		SupportedContainers:      m.SupportedContainers,
+		SupportedContainersKnown: m.SupportedContainersKnown,
 	}
+
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
@@ -41,18 +48,22 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		info.Status = sdoc.Status
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
-		// The entry already exists, so preserve the current status and instance id.
+		// The entry already exists, so preserve the current status and
+		// instance data.
 		oldInfo := oldInfo.(*params.MachineInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
 		info.InstanceId = oldInfo.InstanceId
+		info.HardwareCharacteristics = oldInfo.HardwareCharacteristics
 	}
-	// If the machine is been provisioned, fetch the instance id if required.
+	// If the machine is been provisioned, fetch the instance id as required,
+	// and set instance id and hardware characteristics.
 	if m.Nonce != "" && info.InstanceId == "" {
 		instanceData, err := getInstanceData(st, m.Id)
 		if err == nil {
 			info.InstanceId = string(instanceData.InstanceId)
-		} else if !errors.IsNotFoundError(err) {
+			info.HardwareCharacteristics = hardwareCharacteristics(instanceData)
+		} else if !errors.IsNotFound(err) {
 			return err
 		}
 	}
@@ -76,13 +87,11 @@ type backingUnit unitDoc
 
 func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.UnitInfo{
-		Name:           u.Name,
-		Service:        u.Service,
-		Series:         u.Series,
-		PublicAddress:  u.PublicAddress,
-		PrivateAddress: u.PrivateAddress,
-		MachineId:      u.MachineId,
-		Ports:          u.Ports,
+		Name:      u.Name,
+		Service:   u.Service,
+		Series:    u.Series,
+		MachineId: u.MachineId,
+		Ports:     u.Ports,
 	}
 	if u.CharmURL != nil {
 		info.CharmURL = u.CharmURL.String()
@@ -103,8 +112,27 @@ func (u *backingUnit) updated(st *State, store *multiwatcher.Store, id interface
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
 	}
+	publicAddress, privateAddress, err := getUnitAddresses(st, u.Name)
+	if err != nil {
+		return err
+	}
+	info.PublicAddress = publicAddress
+	info.PrivateAddress = privateAddress
 	store.Update(info)
 	return nil
+}
+
+// getUnitAddresses returns the public and private addresses on a given unit.
+// As of 1.18, the addresses are stored on the assigned machine but we retain
+// this approach for backwards compatibility.
+func getUnitAddresses(st *State, unitName string) (publicAddress, privateAddress string, err error) {
+	u, err := st.Unit(unitName)
+	if err != nil {
+		return "", "", err
+	}
+	publicAddress, _ = u.PublicAddress()
+	privateAddress, _ = u.PrivateAddress()
+	return publicAddress, privateAddress, nil
 }
 
 func (svc *backingUnit) removed(st *State, store *multiwatcher.Store, id interface{}) error {
@@ -122,10 +150,12 @@ func (m *backingUnit) mongoId() interface{} {
 type backingService serviceDoc
 
 func (svc *backingService) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+
 	info := &params.ServiceInfo{
 		Name:     svc.Name,
 		Exposed:  svc.Exposed,
 		CharmURL: svc.CharmURL.String(),
+		OwnerTag: svc.fixOwnerTag(),
 		Life:     params.Life(svc.Life.String()),
 		MinUnits: svc.MinUnits,
 	}
@@ -173,6 +203,15 @@ func (svc *backingService) removed(st *State, store *multiwatcher.Store, id inte
 	return nil
 }
 
+// SCHEMACHANGE
+// TODO(mattyw) remove when schema upgrades are possible
+func (svc *backingService) fixOwnerTag() string {
+	if svc.OwnerTag != "" {
+		return svc.OwnerTag
+	}
+	return "user-admin"
+}
+
 func (m *backingService) mongoId() interface{} {
 	return m.Name
 }
@@ -189,6 +228,7 @@ func (r *backingRelation) updated(st *State, store *multiwatcher.Store, id inter
 	}
 	info := &params.RelationInfo{
 		Key:       r.Key,
+		Id:        r.Id,
 		Endpoints: eps,
 	}
 	store.Update(info)
@@ -250,11 +290,13 @@ func (s *backingStatus) updated(st *State, store *multiwatcher.Store, id interfa
 		newInfo := *info
 		newInfo.Status = s.Status
 		newInfo.StatusInfo = s.StatusInfo
+		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
 	case *params.MachineInfo:
 		newInfo := *info
 		newInfo.Status = s.Status
 		newInfo.StatusInfo = s.StatusInfo
+		newInfo.StatusData = s.StatusData
 		info0 = &newInfo
 	default:
 		panic(fmt.Errorf("status for unexpected entity with id %q; type %T", id, info))

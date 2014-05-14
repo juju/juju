@@ -14,10 +14,12 @@ import (
 
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 type suite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.HTTPSuite
 }
 
@@ -47,10 +49,10 @@ func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
-func (s *suite) TestDownload(c *gc.C) {
+func (s *suite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
 	tmp := c.MkDir()
 	testing.Server.Response(200, nil, []byte("archive"))
-	d := downloader.New(s.URL("/archive.tgz"), tmp)
+	d := downloader.New(s.URL("/archive.tgz"), tmp, hostnameVerification)
 	status := <-d.Done()
 	c.Assert(status.Err, gc.IsNil)
 	c.Assert(status.File, gc.NotNil)
@@ -62,9 +64,17 @@ func (s *suite) TestDownload(c *gc.C) {
 	assertFileContents(c, status.File, "archive")
 }
 
+func (s *suite) TestDownloadWithoutDisablingSSLHostnameVerification(c *gc.C) {
+	s.testDownload(c, utils.VerifySSLHostnames)
+}
+
+func (s *suite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
+	s.testDownload(c, utils.NoVerifySSLHostnames)
+}
+
 func (s *suite) TestDownloadError(c *gc.C) {
 	testing.Server.Response(404, nil, nil)
-	d := downloader.New(s.URL("/archive.tgz"), c.MkDir())
+	d := downloader.New(s.URL("/archive.tgz"), c.MkDir(), utils.VerifySSLHostnames)
 	status := <-d.Done()
 	c.Assert(status.File, gc.IsNil)
 	c.Assert(status.Err, gc.ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
@@ -72,7 +82,7 @@ func (s *suite) TestDownloadError(c *gc.C) {
 
 func (s *suite) TestStopDownload(c *gc.C) {
 	tmp := c.MkDir()
-	d := downloader.New(s.URL("/x.tgz"), tmp)
+	d := downloader.New(s.URL("/x.tgz"), tmp, utils.VerifySSLHostnames)
 	d.Stop()
 	select {
 	case status := <-d.Done():

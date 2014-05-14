@@ -14,16 +14,20 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"net"
 	"time"
+
+	"github.com/errgo/errgo"
 )
 
 var KeyBits = 1024
 
 // ParseCert parses the given PEM-formatted X509 certificate.
-func ParseCert(certPEM []byte) (*x509.Certificate, error) {
-	for len(certPEM) > 0 {
+func ParseCert(certPEM string) (*x509.Certificate, error) {
+	certPEMData := []byte(certPEM)
+	for len(certPEMData) > 0 {
 		var certBlock *pem.Block
-		certBlock, certPEM = pem.Decode(certPEM)
+		certBlock, certPEMData = pem.Decode(certPEMData)
 		if certBlock == nil {
 			break
 		}
@@ -35,10 +39,10 @@ func ParseCert(certPEM []byte) (*x509.Certificate, error) {
 	return nil, errors.New("no certificates found")
 }
 
-// ParseCert parses the given PEM-formatted X509 certificate
+// ParseCertAndKey parses the given PEM-formatted X509 certificate
 // and RSA private key.
-func ParseCertAndKey(certPEM, keyPEM []byte) (*x509.Certificate, *rsa.PrivateKey, error) {
-	tlsCert, err := tls.X509KeyPair(certPEM, keyPEM)
+func ParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey, error) {
+	tlsCert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -57,14 +61,14 @@ func ParseCertAndKey(certPEM, keyPEM []byte) (*x509.Certificate, *rsa.PrivateKey
 
 // Verify verifies that the given server certificate is valid with
 // respect to the given CA certificate at the given time.
-func Verify(srvCertPEM, caCertPEM []byte, when time.Time) error {
+func Verify(srvCertPEM, caCertPEM string, when time.Time) error {
 	caCert, err := ParseCert(caCertPEM)
 	if err != nil {
-		return fmt.Errorf("cannot parse CA certificate: %v", err)
+		return errgo.Annotate(err, "cannot parse CA certificate")
 	}
 	srvCert, err := ParseCert(srvCertPEM)
 	if err != nil {
-		return fmt.Errorf("cannot parse server certificate: %v", err)
+		return errgo.Annotate(err, "cannot parse server certificate")
 	}
 	pool := x509.NewCertPool()
 	pool.AddCert(caCert)
@@ -79,10 +83,10 @@ func Verify(srvCertPEM, caCertPEM []byte, when time.Time) error {
 
 // NewCA generates a CA certificate/key pair suitable for signing server
 // keys for an environment with the given name.
-func NewCA(envName string, expiry time.Time) (certPEM, keyPEM []byte, err error) {
+func NewCA(envName string, expiry time.Time) (certPEM, keyPEM string, err error) {
 	key, err := rsa.GenerateKey(rand.Reader, KeyBits)
 	if err != nil {
-		return nil, nil, err
+		return "", "", err
 	}
 	now := time.Now()
 	template := &x509.Certificate{
@@ -101,43 +105,52 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM []byte, err error)
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, template, &key.PublicKey, key)
 	if err != nil {
-		return nil, nil, fmt.Errorf("canot create certificate: %v", err)
+		return "", "", fmt.Errorf("canot create certificate: %v", err)
 	}
-	certPEM = pem.EncodeToMemory(&pem.Block{
+	certPEMData := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: certDER,
 	})
-	keyPEM = pem.EncodeToMemory(&pem.Block{
+	keyPEMData := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
-	return certPEM, keyPEM, nil
+	return string(certPEMData), string(keyPEMData), nil
 }
 
-// NewServer generates a certificate/key pair suitable for use by a
-// server for an environment with the given name.
-func NewServer(envName string, caCertPEM, caKeyPEM []byte, expiry time.Time) (certPEM, keyPEM []byte, err error) {
-	tlsCert, err := tls.X509KeyPair(caCertPEM, caKeyPEM)
+// NewServer generates a certificate/key pair suitable for use by a server.
+func NewServer(caCertPEM, caKeyPEM string, expiry time.Time, hostnames []string) (certPEM, keyPEM string, err error) {
+	return newLeaf(caCertPEM, caKeyPEM, expiry, hostnames, []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth})
+}
+
+// NewClient generates a certificate/key pair suitable for client authentication.
+func NewClient(caCertPEM, caKeyPEM string, expiry time.Time) (certPEM, keyPEM string, err error) {
+	return newLeaf(caCertPEM, caKeyPEM, expiry, nil, []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth})
+}
+
+// newLeaf generates a certificate/key pair suitable for use by a leaf node.
+func newLeaf(caCertPEM, caKeyPEM string, expiry time.Time, hostnames []string, extKeyUsage []x509.ExtKeyUsage) (certPEM, keyPEM string, err error) {
+	tlsCert, err := tls.X509KeyPair([]byte(caCertPEM), []byte(caKeyPEM))
 	if err != nil {
-		return nil, nil, err
+		return "", "", err
 	}
 	if len(tlsCert.Certificate) != 1 {
-		return nil, nil, fmt.Errorf("more than one certificate for CA")
+		return "", "", fmt.Errorf("more than one certificate for CA")
 	}
 	caCert, err := x509.ParseCertificate(tlsCert.Certificate[0])
 	if err != nil {
-		return nil, nil, err
+		return "", "", err
 	}
 	if !caCert.BasicConstraintsValid || !caCert.IsCA {
-		return nil, nil, fmt.Errorf("CA certificate is not a valid CA")
+		return "", "", fmt.Errorf("CA certificate is not a valid CA")
 	}
 	caKey, ok := tlsCert.PrivateKey.(*rsa.PrivateKey)
 	if !ok {
-		return nil, nil, fmt.Errorf("CA private key has unexpected type %T", tlsCert.PrivateKey)
+		return "", "", fmt.Errorf("CA private key has unexpected type %T", tlsCert.PrivateKey)
 	}
 	key, err := rsa.GenerateKey(rand.Reader, KeyBits)
 	if err != nil {
-		return nil, nil, fmt.Errorf("cannot generate key: %v", err)
+		return "", "", fmt.Errorf("cannot generate key: %v", err)
 	}
 	now := time.Now()
 	template := &x509.Certificate{
@@ -152,21 +165,29 @@ func NewServer(envName string, caCertPEM, caKeyPEM []byte, expiry time.Time) (ce
 		NotAfter:  expiry.UTC(),
 
 		SubjectKeyId: bigIntHash(key.N),
-		KeyUsage:     x509.KeyUsageDataEncipherment,
+		KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageKeyAgreement,
+		ExtKeyUsage:  extKeyUsage,
+	}
+	for _, hostname := range hostnames {
+		if ip := net.ParseIP(hostname); ip != nil {
+			template.IPAddresses = append(template.IPAddresses, ip)
+		} else {
+			template.DNSNames = append(template.DNSNames, hostname)
+		}
 	}
 	certDER, err := x509.CreateCertificate(rand.Reader, template, caCert, &key.PublicKey, caKey)
 	if err != nil {
-		return nil, nil, err
+		return "", "", err
 	}
-	certPEM = pem.EncodeToMemory(&pem.Block{
+	certPEMData := pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: certDER,
 	})
-	keyPEM = pem.EncodeToMemory(&pem.Block{
+	keyPEMData := pem.EncodeToMemory(&pem.Block{
 		Type:  "RSA PRIVATE KEY",
 		Bytes: x509.MarshalPKCS1PrivateKey(key),
 	})
-	return certPEM, keyPEM, nil
+	return string(certPEMData), string(keyPEMData), nil
 }
 
 func bigIntHash(n *big.Int) []byte {

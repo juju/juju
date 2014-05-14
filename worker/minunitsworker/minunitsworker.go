@@ -4,10 +4,10 @@
 package minunitsworker
 
 import (
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -26,7 +26,7 @@ func NewMinUnitsWorker(st *state.State) worker.Worker {
 	return worker.NewStringsWorker(mu)
 }
 
-func (mu *MinUnitsWorker) SetUp() (api.StringsWatcher, error) {
+func (mu *MinUnitsWorker) SetUp() (watcher.StringsWatcher, error) {
 	return mu.st.WatchMinUnits(), nil
 }
 

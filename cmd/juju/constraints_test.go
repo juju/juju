@@ -5,8 +5,12 @@ package main
 
 import (
 	"bytes"
+
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -32,7 +36,7 @@ func uint64p(val uint64) *uint64 {
 }
 
 func assertSet(c *gc.C, args ...string) {
-	rcode, rstdout, rstderr := runCmdLine(c, &SetConstraintsCommand{}, args...)
+	rcode, rstdout, rstderr := runCmdLine(c, envcmd.Wrap(&SetConstraintsCommand{}), args...)
 	c.Assert(rcode, gc.Equals, 0)
 	c.Assert(rstdout, gc.Equals, "")
 	c.Assert(rstderr, gc.Equals, "")
@@ -52,12 +56,11 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 	assertSet(c)
 	cons, err = s.State.EnvironConstraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.Value{})
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *ConstraintsCommandsSuite) TestSetService(c *gc.C) {
-	svc, err := s.State.AddService("svc", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
 
 	// Set constraints.
 	assertSet(c, "-s", "svc", "mem=4G", "cpu-power=250")
@@ -72,11 +75,11 @@ func (s *ConstraintsCommandsSuite) TestSetService(c *gc.C) {
 	assertSet(c, "-s", "svc")
 	cons, err = svc.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.Value{})
+	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
 
 func assertSetError(c *gc.C, code int, stderr string, args ...string) {
-	rcode, rstdout, rstderr := runCmdLine(c, &SetConstraintsCommand{}, args...)
+	rcode, rstdout, rstderr := runCmdLine(c, envcmd.Wrap(&SetConstraintsCommand{}), args...)
 	c.Assert(rcode, gc.Equals, code)
 	c.Assert(rstdout, gc.Equals, "")
 	c.Assert(rstderr, gc.Matches, "error: "+stderr+"\n")
@@ -108,15 +111,13 @@ func (s *ConstraintsCommandsSuite) TestGetEnvironValues(c *gc.C) {
 }
 
 func (s *ConstraintsCommandsSuite) TestGetServiceEmpty(c *gc.C) {
-	_, err := s.State.AddService("svc", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
+	s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
 	assertGet(c, "", "svc")
 }
 
 func (s *ConstraintsCommandsSuite) TestGetServiceValues(c *gc.C) {
-	svc, err := s.State.AddService("svc", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
-	err = svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
+	svc := s.AddTestingService(c, "svc", s.AddTestingCharm(c, "dummy"))
+	err := svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
 	c.Assert(err, gc.IsNil)
 	assertGet(c, "cpu-cores=64\n", "svc")
 }

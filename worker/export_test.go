@@ -15,14 +15,14 @@ func init() {
 	}
 }
 
-func (nw *notifyWorker) SetMustErr(f func(watcher.Errer) error) func(watcher.Errer) error {
-	old := nw.mustErr
-	nw.mustErr = f
-	return old
+func SetMustErr(f func(watcher.Errer) error) {
+	if f == nil {
+		mustErr = watcher.MustErr
+	} else {
+		mustErr = f
+	}
 }
 
-func (sw *stringsWorker) SetMustErr(f func(watcher.Errer) error) func(watcher.Errer) error {
-	old := sw.mustErr
-	sw.mustErr = f
-	return old
+func MustErr() func(watcher.Errer) error {
+	return mustErr
 }

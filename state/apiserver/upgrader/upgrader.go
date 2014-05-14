@@ -6,8 +6,9 @@ package upgrader
 import (
 	"errors"
 
-	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/environs"
+	"github.com/juju/loggo"
+
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -15,8 +16,20 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+var logger = loggo.GetLogger("juju.state.apiserver.upgrader")
+
+type Upgrader interface {
+	WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error)
+	DesiredVersion(args params.Entities) (params.VersionResults, error)
+	Tools(args params.Entities) (params.ToolsResults, error)
+	SetTools(args params.EntitiesVersion) (params.ErrorResults, error)
+}
+
 // UpgraderAPI provides access to the Upgrader API facade.
 type UpgraderAPI struct {
+	*common.ToolsGetter
+	*common.ToolsSetter
+
 	st         *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
@@ -28,10 +41,19 @@ func NewUpgraderAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*UpgraderAPI, error) {
-	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
+	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	return &UpgraderAPI{st: st, resources: resources, authorizer: authorizer}, nil
+	getCanReadWrite := func() (common.AuthFunc, error) {
+		return authorizer.AuthOwner, nil
+	}
+	return &UpgraderAPI{
+		ToolsGetter: common.NewToolsGetter(st, getCanReadWrite),
+		ToolsSetter: common.NewToolsSetter(st, getCanReadWrite),
+		st:          st,
+		resources:   resources,
+		authorizer:  authorizer,
+	}, nil
 }
 
 // WatchAPIVersion starts a watcher to track if there is a new version
@@ -60,94 +82,59 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 	return result, nil
 }
 
-func (u *UpgraderAPI) oneAgentTools(tag string, agentVersion version.Number, env environs.Environ) (*tools.Tools, error) {
-	if !u.authorizer.AuthOwner(tag) {
-		return nil, common.ErrPerm
-	}
-	entity0, err := u.findEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	entity, ok := entity0.(state.AgentTooler)
-	if !ok {
-		return nil, common.NotSupportedError(tag, "agent tools")
-	}
-
-	existingTools, err := entity.AgentTools()
-	if err != nil {
-		return nil, err
-	}
-	requested := version.Binary{
-		Number: agentVersion,
-		Series: existingTools.Version.Series,
-		Arch:   existingTools.Version.Arch,
-	}
-	// TODO(jam): Avoid searching the provider for every machine
-	// that wants to upgrade. The information could just be cached
-	// in state, or even in the API servers
-	return environs.FindExactTools(env, requested)
-}
-
-// Tools finds the Tools necessary for the given agents.
-func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, error) {
-	results := make([]params.AgentToolsResult, len(args.Entities))
-	if len(args.Entities) == 0 {
-		return params.AgentToolsResults{}, nil
-	}
-	// For now, all agents get the same proposed version
+func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, error) {
+	// Get the Agent Version requested in the Environment Config
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
-		return params.AgentToolsResults{}, err
+		return version.Number{}, nil, err
 	}
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
-		return params.AgentToolsResults{}, errors.New("agent version not set in environment config")
+		return version.Number{}, nil, errors.New("agent version not set in environment config")
 	}
-	env, err := environs.New(cfg)
+	return agentVersion, cfg, nil
+}
+
+type hasIsManager interface {
+	IsManager() bool
+}
+
+func (u *UpgraderAPI) entityIsManager(tag string) bool {
+	entity, err := u.st.FindEntity(tag)
 	if err != nil {
-		return params.AgentToolsResults{}, err
+		return false
 	}
+	if m, ok := entity.(hasIsManager); !ok {
+		return false
+	} else {
+		return m.IsManager()
+	}
+}
+
+// DesiredVersion reports the Agent Version that we want that agent to be running
+func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResults, error) {
+	results := make([]params.VersionResult, len(args.Entities))
+	if len(args.Entities) == 0 {
+		return params.VersionResults{}, nil
+	}
+	agentVersion, _, err := u.getGlobalAgentVersion()
+	if err != nil {
+		return params.VersionResults{}, common.ServerError(err)
+	}
+	// Is the desired version greater than the current API server version?
+	isNewerVersion := agentVersion.Compare(version.Current.Number) > 0
 	for i, entity := range args.Entities {
-		agentTools, err := u.oneAgentTools(entity.Tag, agentVersion, env)
-		if err == nil {
-			results[i].Tools = agentTools
+		err := common.ErrPerm
+		if u.authorizer.AuthOwner(entity.Tag) {
+			if !isNewerVersion || u.entityIsManager(entity.Tag) {
+				results[i].Version = &agentVersion
+			} else {
+				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, version.Current.Number)
+				results[i].Version = &version.Current.Number
+			}
+			err = nil
 		}
 		results[i].Error = common.ServerError(err)
 	}
-	return params.AgentToolsResults{results}, nil
-}
-
-// SetTools updates the recorded tools version for the agents.
-func (u *UpgraderAPI) SetTools(args params.SetAgentsTools) (params.ErrorResults, error) {
-	results := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.AgentTools)),
-	}
-	for i, agentTools := range args.AgentTools {
-		err := u.setOneAgentTools(agentTools.Tag, agentTools.Tools)
-		results.Results[i].Error = common.ServerError(err)
-	}
-	return results, nil
-}
-
-func (u *UpgraderAPI) setOneAgentTools(tag string, tools *tools.Tools) error {
-	if !u.authorizer.AuthOwner(tag) {
-		return common.ErrPerm
-	}
-	entity, err := u.findEntity(tag)
-	if err != nil {
-		return err
-	}
-	return entity.SetAgentTools(tools)
-}
-
-func (u *UpgraderAPI) findEntity(tag string) (state.AgentTooler, error) {
-	entity0, err := u.st.FindEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	entity, ok := entity0.(state.AgentTooler)
-	if !ok {
-		return nil, common.NotSupportedError(tag, "agent tools")
-	}
-	return entity, nil
+	return params.VersionResults{Results: results}, nil
 }

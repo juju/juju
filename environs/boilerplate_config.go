@@ -11,26 +11,41 @@ import (
 	"text/template"
 )
 
-var configHeader = `## This is the Juju config file, which you can use to specify multiple environments in which to deploy.
-## By default Juju ships AWS (default), HP Cloud, OpenStack.
-## See https://juju.ubuntu.com/docs for more information
+var configHeader = `
+# This is the Juju config file, which you can use to specify multiple
+# environments in which to deploy. By default Juju ships with AWS
+# (default), HP Cloud, OpenStack, Azure, MaaS, Local and Manual
+# providers. See https://juju.ubuntu.com/docs for more information
 
-## An environment configuration must always specify at least the following information:
-##
-## - name (to identify the environment)
-## - type (to specify the provider)
-## - admin-secret (an arbitrary "password" identifying an client with administrative-level access to system state)
+# An environment configuration must always specify at least the
+# following information:
+# - name (to identify the environment)
+# - type (to specify the provider)
+# In the following example the name is "myenv" and type is "ec2".
+# myenv:
+#    type: ec2
 
-## Values in <brackets> below need to be filled in by the user.
+# Values in <brackets> below need to be filled in by the user.
+# Optional attributes are shown commented out, with
+# a sample value or a value in <brackets>.
 
-## The default environment is chosen when one is not specified using either:
-##   -e, --environment command line parameter
-##   JUJU_ENV environment variable
-## If both -e and JUJU_ENV are specified, the command line parameter has precedence.
+# There are several settings supported by all environments, all of which
+# are optional and have specified default values. For more info, see the
+# Juju documentation.
+
+# The default environment is chosen when an environment is not
+# specified using any of the following, in descending order of precedence:
+#  1. -e or --environment command line parameter, passed after the command, e.g.
+#     $ juju add-unit -e myenv myservice
+#  2. By setting JUJU_ENV environment variable.
+#  3. Using the juju switch command like this:
+#     $ juju switch myenv
+#
+
 default: amazon
 
 environments:
-`
+`[1:]
 
 func randomKey() string {
 	buf := make([]byte, 16)
@@ -55,7 +70,7 @@ func BoilerplateConfig() string {
 		if err := t.Execute(&ecfg, nil); err != nil {
 			panic(fmt.Errorf("cannot generate boilerplate from %s: %v", name, err))
 		}
-		indent(&config, ecfg.Bytes(), "  ")
+		indent(&config, ecfg.Bytes(), "    ")
 	}
 
 	// Sanity check to ensure the boilerplate parses.

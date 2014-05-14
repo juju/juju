@@ -49,5 +49,5 @@ func (s *VersionSuite) TestVersionJson(c *gc.C) {
 	code := Main(&VersionCommand{}, ctx, []string{"--format", "json"})
 	c.Check(code, gc.Equals, 0)
 	c.Assert(stderr.String(), gc.Equals, "")
-	c.Assert(stdout.String(), gc.Equals, fmt.Sprintf("%q", version.Current.String())+"\n")
+	c.Assert(stdout.String(), gc.Equals, fmt.Sprintf("%q\n", version.Current.String()))
 }

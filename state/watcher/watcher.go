@@ -8,17 +8,15 @@ package watcher
 
 import (
 	"fmt"
+	"time"
+
+	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
-	"time"
 )
 
-// Debug specifies whether the package will log debug
-// messages.
-// TODO(rog) allow debug level setting in the log package.
-var Debug = false
+var logger = loggo.GetLogger("juju.state.watcher")
 
 // A Watcher can watch any number of collections and documents for changes.
 type Watcher struct {
@@ -33,6 +31,10 @@ type Watcher struct {
 	// omitted from this map and are considered to have revno -1.
 	current map[watchKey]int64
 
+	// needSync is set when a synchronization should take
+	// place.
+	needSync bool
+
 	// syncEvents and requestEvents contain the events to be
 	// dispatched to the watcher channels. They're queued during
 	// processing and flushed at the end to simplify the algorithm.
@@ -44,16 +46,8 @@ type Watcher struct {
 	// the the goroutine loop.
 	request chan interface{}
 
-	// syncDone contains pending done channels from sync requests.
-	syncDone []chan bool
-
 	// lastId is the most recent transaction id observed by a sync.
 	lastId interface{}
-
-	// next will dispatch when it's time to sync the database
-	// knowledge. It's maintained here so that Sync and StartSync
-	// can manipulate it to force a sync sooner.
-	next <-chan time.Time
 }
 
 // A Change holds information about a document change.
@@ -152,9 +146,7 @@ type reqUnwatch struct {
 	ch  chan<- Change
 }
 
-type reqSync struct {
-	done chan bool
-}
+type reqSync struct{}
 
 func (w *Watcher) sendReq(req interface{}) {
 	select {
@@ -205,18 +197,7 @@ func (w *Watcher) UnwatchCollection(collection string, ch chan<- Change) {
 
 // StartSync forces the watcher to load new events from the database.
 func (w *Watcher) StartSync() {
-	w.sendReq(reqSync{nil})
-}
-
-// Sync forces the watcher to load new events from the database and blocks
-// until all events have been dispatched.
-func (w *Watcher) Sync() {
-	done := make(chan bool)
-	w.sendReq(reqSync{done})
-	select {
-	case <-done:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqSync{})
 }
 
 // Period is the delay between each sync.
@@ -225,25 +206,25 @@ var Period time.Duration = 5 * time.Second
 
 // loop implements the main watcher loop.
 func (w *Watcher) loop() error {
-	w.next = time.After(0)
+	next := time.After(Period)
+	w.needSync = true
 	if err := w.initLastId(); err != nil {
 		return err
 	}
 	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-w.next:
-			w.next = time.After(Period)
-			syncDone := w.syncDone
-			w.syncDone = nil
+		if w.needSync {
 			if err := w.sync(); err != nil {
 				return err
 			}
 			w.flush()
-			for _, done := range syncDone {
-				close(done)
-			}
+			next = time.After(Period)
+		}
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-next:
+			next = time.After(Period)
+			w.needSync = true
 		case req := <-w.request:
 			w.handle(req)
 			w.flush()
@@ -291,13 +272,10 @@ func (w *Watcher) flush() {
 // handle deals with requests delivered by the public API
 // onto the background watcher goroutine.
 func (w *Watcher) handle(req interface{}) {
-	debugf("state/watcher: got request: %#v", req)
+	logger.Tracef("got request: %#v", req)
 	switch r := req.(type) {
 	case reqSync:
-		w.next = time.After(0)
-		if r.done != nil {
-			w.syncDone = append(w.syncDone, r.done)
-		}
+		w.needSync = true
 	case reqWatch:
 		for _, info := range w.watches[r.key] {
 			if info.ch == r.info.ch {
@@ -350,7 +328,7 @@ type logInfo struct {
 // of the watcher to be ignored.
 func (w *Watcher) initLastId() error {
 	var entry struct {
-		Id interface{} "_id"
+		Id interface{} `bson:"_id"`
 	}
 	err := w.log.Find(nil).Sort("-$natural").One(&entry)
 	if err != nil && err != mgo.ErrNotFound {
@@ -363,6 +341,7 @@ func (w *Watcher) initLastId() error {
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
 func (w *Watcher) sync() error {
+	w.needSync = false
 	// Iterate through log events in reverse insertion order (newest first).
 	iter := w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 	seen := make(map[watchKey]bool)
@@ -371,7 +350,7 @@ func (w *Watcher) sync() error {
 	var entry bson.D
 	for iter.Next(&entry) {
 		if len(entry) == 0 {
-			debugf("state/watcher: got empty changelog document")
+			logger.Tracef("got empty changelog document")
 		}
 		id := entry[0]
 		if id.Name != "_id" {
@@ -384,7 +363,7 @@ func (w *Watcher) sync() error {
 		if id.Value == lastId {
 			break
 		}
-		debugf("state/watcher: got changelog document: %#v", entry)
+		logger.Tracef("got changelog document: %#v", entry)
 		for _, c := range entry[1:] {
 			// See txn's Runner.ChangeLog for the structure of log entries.
 			var d, r []interface{}
@@ -398,7 +377,7 @@ func (w *Watcher) sync() error {
 				}
 			}
 			if len(d) == 0 || len(d) != len(r) {
-				log.Warningf("state/watcher: changelog has invalid collection document: %#v", c)
+				logger.Warningf("changelog has invalid collection document: %#v", c)
 				continue
 			}
 			for i := len(d) - 1; i >= 0; i-- {
@@ -409,7 +388,7 @@ func (w *Watcher) sync() error {
 				seen[key] = true
 				revno, ok := r[i].(int64)
 				if !ok {
-					log.Warningf("state/watcher: changelog has revno with type %T: %#v", r[i], r[i])
+					logger.Warningf("changelog has revno with type %T: %#v", r[i], r[i])
 					continue
 				}
 				if revno < 0 {
@@ -441,10 +420,4 @@ func (w *Watcher) sync() error {
 		return fmt.Errorf("watcher iteration error: %v", iter.Err())
 	}
 	return nil
-}
-
-func debugf(f string, a ...interface{}) {
-	if Debug {
-		log.Debugf(f, a...)
-	}
 }

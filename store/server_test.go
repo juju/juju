@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
@@ -21,7 +22,7 @@ import (
 )
 
 func (s *StoreSuite) prepareServer(c *gc.C) (*store.Server, *charm.URL) {
-	curl := charm.MustParseURL("cs:oneiric/wordpress")
+	curl := charm.MustParseURL("cs:precise/wordpress")
 	pub, err := s.store.CharmPublisher([]*charm.URL{curl}, "some-digest")
 	c.Assert(err, gc.IsNil)
 	err = pub.Publish(&FakeCharmDir{})
@@ -37,10 +38,12 @@ func (s *StoreSuite) TestServerCharmInfo(c *gc.C) {
 	req, err := http.NewRequest("GET", "/charm-info", nil)
 	c.Assert(err, gc.IsNil)
 
-	var tests = []struct{ url, sha, digest, err string }{
-		{curl.String(), fakeRevZeroSha, "some-digest", ""},
-		{"cs:oneiric/non-existent", "", "", "entry not found"},
-		{"cs:bad", "", "", `charm URL without series: "cs:bad"`},
+	var tests = []struct{ url, canonical, sha, digest, err string }{
+		{curl.String(), curl.String(), fakeRevZeroSha, "some-digest", ""},
+		{"cs:oneiric/non-existent", "", "", "", "entry not found"},
+		{"cs:wordpress", curl.String(), fakeRevZeroSha, "some-digest", ""},
+		{"cs:/bad", "", "", "", `charm URL has invalid series: "cs:/bad"`},
+		{"gopher:archie-server", "", "", "", `charm URL has invalid schema: "gopher:archie-server"`},
 	}
 
 	for _, t := range tests {
@@ -51,9 +54,10 @@ func (s *StoreSuite) TestServerCharmInfo(c *gc.C) {
 		expected := make(map[string]interface{})
 		if t.sha != "" {
 			expected[t.url] = map[string]interface{}{
-				"revision": float64(0),
-				"sha256":   t.sha,
-				"digest":   t.digest,
+				"canonical-url": t.canonical,
+				"revision":      float64(0),
+				"sha256":        t.sha,
+				"digest":        t.digest,
 			}
 		} else {
 			expected[t.url] = map[string]interface{}{
@@ -64,11 +68,12 @@ func (s *StoreSuite) TestServerCharmInfo(c *gc.C) {
 		obtained := map[string]interface{}{}
 		err = json.NewDecoder(rec.Body).Decode(&obtained)
 		c.Assert(err, gc.IsNil)
-		c.Assert(obtained, gc.DeepEquals, expected)
+		c.Assert(obtained, gc.DeepEquals, expected, gc.Commentf("URL: %s", t.url))
 		c.Assert(rec.Header().Get("Content-Type"), gc.Equals, "application/json")
 	}
 
-	s.checkCounterSum(c, []string{"charm-info", curl.Series, curl.Name}, false, 1)
+	// 2 charm-info events, one for resolved URL, one for the reference.
+	s.checkCounterSum(c, []string{"charm-info", curl.Series, curl.Name}, false, 2)
 	s.checkCounterSum(c, []string{"charm-missing", "oneiric", "non-existent"}, false, 1)
 }
 
@@ -177,11 +182,65 @@ func (s *StoreSuite) TestServerCharmEvent(c *gc.C) {
 
 	s.checkCounterSum(c, []string{"charm-event", "oneiric", "wordpress"}, false, 2)
 	s.checkCounterSum(c, []string{"charm-event", "oneiric", "mysql"}, false, 1)
+
+	query1 := url1.String() + "@" + event1.Digest
+	query3 := url1.String() + "@" + event3.Digest
+	event1Info := map[string]interface{}{
+		"kind":     "published",
+		"revision": float64(42),
+		"digest":   "revKey1",
+		"warnings": []interface{}{"A warning."},
+		"time":     "1970-01-01T00:00:01Z"}
+	event3Info := map[string]interface{}{
+		"kind":     "publish-error",
+		"revision": float64(0),
+		"digest":   "revKey3",
+		"errors":   []interface{}{"An error."},
+		"time":     "1970-01-01T00:00:03Z"}
+
+	req.Form = url.Values{"charms": []string{query1, query3}}
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	expected := map[string]interface{}{url1.String(): event3Info}
+	obtained := map[string]interface{}{}
+	err = json.NewDecoder(rec.Body).Decode(&obtained)
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, jc.DeepEquals, expected)
+
+	req.Form = url.Values{"charms": []string{query1, query3}, "long_keys": []string{"1"}}
+	rec = httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	expected = map[string]interface{}{query1: event1Info, query3: event3Info}
+	obtained = map[string]interface{}{}
+	err = json.NewDecoder(rec.Body).Decode(&obtained)
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, jc.DeepEquals, expected)
+}
+
+func (s *StoreSuite) TestSeriesNotFound(c *gc.C) {
+	server, err := store.NewServer(s.store)
+	req, err := http.NewRequest("GET", "/charm-info?charms=cs:not-found", nil)
+	c.Assert(err, gc.IsNil)
+	rec := httptest.NewRecorder()
+	server.ServeHTTP(rec, req)
+	c.Assert(rec.Code, gc.Equals, http.StatusOK)
+
+	expected := map[string]interface{}{"cs:not-found": map[string]interface{}{
+		"revision": float64(0),
+		"errors":   []interface{}{"entry not found"}}}
+	obtained := map[string]interface{}{}
+	err = json.NewDecoder(rec.Body).Decode(&obtained)
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.DeepEquals, expected)
 }
 
 // checkCounterSum checks that statistics are properly collected.
 // It retries a few times as they are generally collected in background.
 func (s *StoreSuite) checkCounterSum(c *gc.C, key []string, prefix bool, expected int64) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	var sum int64
 	for retry := 0; retry < 10; retry++ {
 		time.Sleep(1e8)
@@ -277,6 +336,10 @@ func (s *StoreSuite) TestRootRedirect(c *gc.C) {
 }
 
 func (s *StoreSuite) TestStatsCounter(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	for _, key := range [][]string{{"a", "b"}, {"a", "b"}, {"a", "c"}, {"a"}} {
 		err := s.store.IncCounter(key)
 		c.Assert(err, gc.IsNil)
@@ -307,6 +370,10 @@ func (s *StoreSuite) TestStatsCounter(c *gc.C) {
 }
 
 func (s *StoreSuite) TestStatsCounterList(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	incs := [][]string{
 		{"a"},
 		{"a", "b"},
@@ -355,6 +422,10 @@ func (s *StoreSuite) TestStatsCounterList(c *gc.C) {
 }
 
 func (s *StoreSuite) TestStatsCounterBy(c *gc.C) {
+	if *noTestMongoJs {
+		c.Skip("MongoDB javascript not available")
+	}
+
 	incs := []struct {
 		key []string
 		day int

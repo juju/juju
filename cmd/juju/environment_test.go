@@ -5,10 +5,17 @@ package main
 
 import (
 	"fmt"
-	gc "launchpad.net/gocheck"
-	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/testing"
 	"strings"
+
+	jc "github.com/juju/testing/checkers"
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cmd/envcmd"
+	"launchpad.net/juju-core/environs/config"
+	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider/dummy"
+	_ "launchpad.net/juju-core/provider/local"
+	"launchpad.net/juju-core/testing"
 )
 
 type GetEnvironmentSuite struct {
@@ -30,7 +37,7 @@ var singleValueTests = []struct {
 		output: "dummyenv",
 	}, {
 		key:    "authorized-keys",
-		output: "i-am-a-key",
+		output: dummy.SampleConfig()["authorized-keys"].(string),
 	}, {
 		key: "unknown",
 		err: `Key "unknown" not found in "dummyenv" environment.`,
@@ -38,9 +45,8 @@ var singleValueTests = []struct {
 }
 
 func (s *GetEnvironmentSuite) TestSingleValue(c *gc.C) {
-
 	for _, t := range singleValueTests {
-		context, err := testing.RunCommand(c, &GetEnvironmentCommand{}, []string{t.key})
+		context, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), []string{t.key})
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -52,19 +58,22 @@ func (s *GetEnvironmentSuite) TestSingleValue(c *gc.C) {
 }
 
 func (s *GetEnvironmentSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, &GetEnvironmentCommand{}, []string{"name", "type"})
+	_, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), []string{"name", "type"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["type"\]`)
 }
 
 func (s *GetEnvironmentSuite) TestAllValues(c *gc.C) {
-
-	context, _ := testing.RunCommand(c, &GetEnvironmentCommand{}, []string{})
+	context, _ := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), []string{})
 	output := strings.TrimSpace(testing.Stdout(context))
 
-	// Make sure that all the environment keys are there.
-	any := "(.|\n)*" // because . doesn't match new lines.
+	// Make sure that all the environment keys are there. The admin
+	// secret and CA private key are never pushed into the
+	// environment.
 	for key := range s.Conn.Environ.Config().AllAttrs() {
-		c.Assert(output, gc.Matches, fmt.Sprintf("%s%s: %s", any, key, any))
+		c.Logf("test for key %q", key)
+		any := `(.|\n)*`
+		pattern := fmt.Sprintf(`(?m)^%s:`, key)
+		c.Check(output, gc.Matches, any+pattern+any)
 	}
 }
 
@@ -106,10 +115,9 @@ var setEnvInitTests = []struct {
 }
 
 func (s *SetEnvironmentSuite) TestInit(c *gc.C) {
-
 	for _, t := range setEnvInitTests {
 		command := &SetEnvironmentCommand{}
-		testing.TestInit(c, command, t.args, t.err)
+		testing.TestInit(c, envcmd.Wrap(command), t.args, t.err)
 		if t.expected != nil {
 			c.Assert(command.values, gc.DeepEquals, t.expected)
 		}
@@ -117,16 +125,35 @@ func (s *SetEnvironmentSuite) TestInit(c *gc.C) {
 }
 
 func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
-	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=raring"})
+	// default-series not set
+	stateConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	series, ok := stateConfig.DefaultSeries()
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(series, gc.Equals, "precise") // default-series set in RepoSuite.SetUpTest
+
+	_, err = testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), []string{"default-series=raring"})
+	c.Assert(err, gc.IsNil)
+
+	stateConfig, err = s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	series, ok = stateConfig.DefaultSeries()
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(series, gc.Equals, "raring")
+	c.Assert(config.PreferredSeries(stateConfig), gc.Equals, "raring")
+}
+
+func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {
+	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), []string{"ssl-hostname-verification=false"})
 	c.Assert(err, gc.IsNil)
 
 	stateConfig, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateConfig.DefaultSeries(), gc.Equals, "raring")
+	c.Assert(stateConfig.SSLHostnameVerification(), gc.Equals, false)
 }
 
 func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
-	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=spartan", "broken=nope", "secret=sekrit"})
+	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), []string{"default-series=spartan", "broken=nope", "secret=sekrit"})
 	c.Assert(err, gc.IsNil)
 
 	stateConfig, err := s.State.EnvironConfig()
@@ -138,10 +165,10 @@ func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
 }
 
 func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *gc.C) {
-	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=raring"})
+	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), []string{"default-series=raring"})
 	c.Assert(err, gc.IsNil)
 
-	context, err := testing.RunCommand(c, &GetEnvironmentCommand{}, []string{"default-series"})
+	context, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), []string{"default-series"})
 	c.Assert(err, gc.IsNil)
 	output := strings.TrimSpace(testing.Stdout(context))
 
@@ -150,15 +177,87 @@ func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *gc.C) {
 
 var immutableConfigTests = map[string]string{
 	"name":          "foo",
-	"type":          "foo",
+	"type":          "local",
 	"firewall-mode": "global",
+	"state-port":    "1",
+	"api-port":      "666",
 }
 
 func (s *SetEnvironmentSuite) TestImmutableConfigValues(c *gc.C) {
 	for name, value := range immutableConfigTests {
 		param := fmt.Sprintf("%s=%s", name, value)
-		_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{param})
-		errorPattern := fmt.Sprintf("cannot change %s from .* to %q", name, value)
+		_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), []string{param})
+		errorPattern := fmt.Sprintf("cannot change %s from .* to [\"]?%v[\"]?", name, value)
 		c.Assert(err, gc.ErrorMatches, errorPattern)
+	}
+}
+
+type UnsetEnvironmentSuite struct {
+	jujutesting.RepoSuite
+}
+
+var _ = gc.Suite(&UnsetEnvironmentSuite{})
+
+var unsetEnvTests = []struct {
+	args       []string
+	err        string
+	expected   attributes
+	unexpected []string
+}{
+	{
+		args: []string{},
+		err:  "No keys specified",
+	}, {
+		args:       []string{"xyz", "xyz"},
+		unexpected: []string{"xyz"},
+	}, {
+		args: []string{"type", "xyz"},
+		err:  "type: expected string, got nothing",
+		expected: attributes{
+			"type": "dummy",
+			"xyz":  123,
+		},
+	}, {
+		args: []string{"syslog-port"},
+		expected: attributes{
+			"syslog-port": config.DefaultSyslogPort,
+		},
+	}, {
+		args:       []string{"xyz2", "xyz"},
+		unexpected: []string{"xyz"},
+	},
+}
+
+func (s *UnsetEnvironmentSuite) initConfig(c *gc.C) {
+	err := s.State.UpdateEnvironConfig(map[string]interface{}{
+		"syslog-port": 1234,
+		"xyz":         123,
+	}, nil, nil)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *UnsetEnvironmentSuite) TestUnsetEnvironment(c *gc.C) {
+	for _, t := range unsetEnvTests {
+		c.Logf("testing unset-env %v", t.args)
+		s.initConfig(c)
+		_, err := testing.RunCommand(c, envcmd.Wrap(&UnsetEnvironmentCommand{}), t.args)
+		if t.err != "" {
+			c.Assert(err, gc.ErrorMatches, t.err)
+		} else {
+			c.Assert(err, gc.IsNil)
+		}
+		if len(t.expected)+len(t.unexpected) != 0 {
+			stateConfig, err := s.State.EnvironConfig()
+			c.Assert(err, gc.IsNil)
+			for k, v := range t.expected {
+				vstate, ok := stateConfig.AllAttrs()[k]
+				c.Assert(ok, jc.IsTrue)
+				c.Assert(vstate, gc.Equals, v)
+			}
+			for _, k := range t.unexpected {
+				_, ok := stateConfig.AllAttrs()[k]
+				c.Assert(ok, jc.IsFalse)
+			}
+		}
 	}
 }

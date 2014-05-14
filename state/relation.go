@@ -11,12 +11,12 @@ import (
 	"strings"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/charm"
-	errors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/utils"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -64,12 +64,12 @@ func (r *Relation) String() string {
 // Tag returns a name identifying the relation that is safe to use
 // as a file name.
 func (r *Relation) Tag() string {
-	return names.RelationTag(strconv.Itoa(r.doc.Id))
+	return names.RelationTag(r.doc.Key)
 }
 
 // Refresh refreshes the contents of the relation from the underlying
-// state. It returns an error that satisfies IsNotFound if the relation has been
-// removed.
+// state. It returns an error that satisfies errors.IsNotFound if the
+// relation has been removed.
 func (r *Relation) Refresh() error {
 	doc := relationDoc{}
 	err := r.st.relations.FindId(r.doc.Key).One(&doc)
@@ -97,7 +97,7 @@ func (r *Relation) Life() Life {
 // Destroy ensures that the relation will be removed at some point; if no units
 // are currently in scope, it will be removed immediately.
 func (r *Relation) Destroy() (err error) {
-	defer utils.ErrorContextf(&err, "cannot destroy relation %q", r)
+	defer errors.Maskf(&err, "cannot destroy relation %q", r)
 	if len(r.doc.Endpoints) == 1 && r.doc.Endpoints[0].Role == charm.RolePeer {
 		return fmt.Errorf("is a peer relation")
 	}
@@ -122,7 +122,7 @@ func (r *Relation) Destroy() (err error) {
 		if err := rel.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
 		}
-		if err := rel.Refresh(); errors.IsNotFoundError(err) {
+		if err := rel.Refresh(); errors.IsNotFound(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -152,8 +152,8 @@ func (r *Relation) destroyOps(ignoreService string) (ops []txn.Op, isRemove bool
 	return []txn.Op{{
 		C:      r.st.relations.Name,
 		Id:     r.doc.Key,
-		Assert: D{{"life", Alive}, {"unitcount", D{{"$gt", 0}}}},
-		Update: D{{"$set", D{{"life", Dying}}}},
+		Assert: bson.D{{"life", Alive}, {"unitcount", bson.D{{"$gt", 0}}}},
+		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 	}}, false, nil
 }
 
@@ -169,17 +169,17 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 		Remove: true,
 	}
 	if departingUnit != nil {
-		relOp.Assert = D{{"life", Dying}, {"unitcount", 1}}
+		relOp.Assert = bson.D{{"life", Dying}, {"unitcount", 1}}
 	} else {
-		relOp.Assert = D{{"life", Alive}, {"unitcount", 0}}
+		relOp.Assert = bson.D{{"life", Alive}, {"unitcount", 0}}
 	}
 	ops := []txn.Op{relOp}
 	for _, ep := range r.doc.Endpoints {
 		if ep.ServiceName == ignoreService {
 			continue
 		}
-		var asserts D
-		hasRelation := D{{"relationcount", D{{"$gt", 0}}}}
+		var asserts bson.D
+		hasRelation := bson.D{{"relationcount", bson.D{{"$gt", 0}}}}
 		if departingUnit == nil {
 			// We're constructing a destroy operation, either of the relation
 			// or one of its services, and can therefore be assured that both
@@ -188,13 +188,13 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 		} else if ep.ServiceName == departingUnit.ServiceName() {
 			// This service must have at least one unit -- the one that's
 			// departing the relation -- so it cannot be ready for removal.
-			cannotDieYet := D{{"unitcount", D{{"$gt", 0}}}}
+			cannotDieYet := bson.D{{"unitcount", bson.D{{"$gt", 0}}}}
 			asserts = append(hasRelation, cannotDieYet...)
 		} else {
 			// This service may require immediate removal.
 			svc := &Service{st: r.st}
-			hasLastRef := D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
-			removable := append(D{{"_id", ep.ServiceName}}, hasLastRef...)
+			hasLastRef := bson.D{{"life", Dying}, {"unitcount", 0}, {"relationcount", 1}}
+			removable := append(bson.D{{"_id", ep.ServiceName}}, hasLastRef...)
 			if err := r.st.services.Find(removable).One(&svc.doc); err == nil {
 				ops = append(ops, svc.removeOps(hasLastRef)...)
 				continue
@@ -203,17 +203,17 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 			}
 			// If not, we must check that this is still the case when the
 			// transaction is applied.
-			asserts = D{{"$or", []D{
+			asserts = bson.D{{"$or", []bson.D{
 				{{"life", Alive}},
-				{{"unitcount", D{{"$gt", 0}}}},
-				{{"relationcount", D{{"$gt", 1}}}},
+				{{"unitcount", bson.D{{"$gt", 0}}}},
+				{{"relationcount", bson.D{{"$gt", 1}}}},
 			}}}
 		}
 		ops = append(ops, txn.Op{
 			C:      r.st.services.Name,
 			Id:     ep.ServiceName,
 			Assert: asserts,
-			Update: D{{"$inc", D{{"relationcount", -1}}}},
+			Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
 		})
 	}
 	cleanupOp := r.st.newCleanupOp("settings", fmt.Sprintf("r#%d#", r.Id()))

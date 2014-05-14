@@ -4,9 +4,13 @@
 package common
 
 import (
+	"github.com/juju/loggo"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
+
+var logger = loggo.GetLogger("juju.state.apiserver.common")
 
 // PasswordChanger implements a common SetPasswords method for use by
 // various facades.
@@ -25,7 +29,7 @@ func NewPasswordChanger(st state.EntityFinder, getCanChange GetAuthFunc) *Passwo
 }
 
 // SetPasswords sets the given password for each supplied entity, if possible.
-func (pc *PasswordChanger) SetPasswords(args params.PasswordChanges) (params.ErrorResults, error) {
+func (pc *PasswordChanger) SetPasswords(args params.EntityPasswords) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
@@ -48,10 +52,29 @@ func (pc *PasswordChanger) SetPasswords(args params.PasswordChanges) (params.Err
 	return result, nil
 }
 
-func (pc *PasswordChanger) setPassword(tag, password string) error {
+func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string) error {
 	type mongoPassworder interface {
 		SetMongoPassword(password string) error
 	}
+	// We set the mongo password first on the grounds that
+	// if it fails, the agent in question should still be able
+	// to authenticate to another API server and ask it to change
+	// its password.
+	if entity0, ok := entity.(mongoPassworder); ok {
+		if err := entity0.SetMongoPassword(password); err != nil {
+			return err
+		}
+		logger.Infof("setting mongo password for %q", entity.Tag())
+		return nil
+	}
+	return NotSupportedError(entity.Tag(), "mongo access")
+}
+
+func (pc *PasswordChanger) setPassword(tag, password string) error {
+	type jobsGetter interface {
+		Jobs() []state.MachineJob
+	}
+	var err error
 	entity0, err := pc.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -60,16 +83,18 @@ func (pc *PasswordChanger) setPassword(tag, password string) error {
 	if !ok {
 		return NotSupportedError(tag, "authentication")
 	}
-	// We set the mongo password first on the grounds that
-	// if it fails, the agent in question should still be able
-	// to authenticate to another API server and ask it to change
-	// its password.
-	if entity, ok := entity.(mongoPassworder); ok {
-		// TODO(rog) when the API is universal, check that the entity is a
-		// machine with jobs that imply it needs access to the mongo state.
-		if err := entity.SetMongoPassword(password); err != nil {
-			return err
+	if entity, ok := entity0.(jobsGetter); ok {
+		for _, job := range entity.Jobs() {
+			paramsJob := job.ToParams()
+			if paramsJob.NeedsState() {
+				err = pc.setMongoPassword(entity0, password)
+				break
+			}
 		}
 	}
-	return entity.SetPassword(password)
+	if err == nil {
+		err = entity.SetPassword(password)
+		logger.Infof("setting password for %q", tag)
+	}
+	return err
 }

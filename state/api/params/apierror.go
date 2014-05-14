@@ -43,6 +43,10 @@ const (
 	CodeStopped             = "stopped"
 	CodeHasAssignedUnits    = "machine has assigned units"
 	CodeNotProvisioned      = "not provisioned"
+	CodeNoAddressSet        = "no address set"
+	CodeTryAgain            = "try again"
+	CodeNotImplemented      = rpc.CodeNotImplemented
+	CodeAlreadyExists       = "already exists"
 )
 
 // ErrCode returns the error code associated with
@@ -55,7 +59,7 @@ func ErrCode(err error) string {
 	return ""
 }
 
-// clientError maps errors returned from an RPC call into local errors with
+// ClientError maps errors returned from an RPC call into local errors with
 // appropriate values.
 func ClientError(err error) error {
 	rerr, ok := err.(*rpc.RequestError)
@@ -70,4 +74,69 @@ func ClientError(err error) error {
 		Message: rerr.Message,
 		Code:    rerr.Code,
 	}
+}
+
+func IsCodeNotFound(err error) bool {
+	return ErrCode(err) == CodeNotFound
+}
+
+func IsCodeUnauthorized(err error) bool {
+	return ErrCode(err) == CodeUnauthorized
+}
+
+// IsCodeNotFoundOrCodeUnauthorized is used in API clients which,
+// pre-API, used errors.IsNotFound; this is because an API client is
+// not necessarily privileged to know about the existence or otherwise
+// of a particular entity, and the server may hence convert NotFound
+// to Unauthorized at its discretion.
+func IsCodeNotFoundOrCodeUnauthorized(err error) bool {
+	return IsCodeNotFound(err) || IsCodeUnauthorized(err)
+}
+
+func IsCodeCannotEnterScope(err error) bool {
+	return ErrCode(err) == CodeCannotEnterScope
+}
+
+func IsCodeCannotEnterScopeYet(err error) bool {
+	return ErrCode(err) == CodeCannotEnterScopeYet
+}
+
+func IsCodeExcessiveContention(err error) bool {
+	return ErrCode(err) == CodeExcessiveContention
+}
+
+func IsCodeUnitHasSubordinates(err error) bool {
+	return ErrCode(err) == CodeUnitHasSubordinates
+}
+
+func IsCodeNotAssigned(err error) bool {
+	return ErrCode(err) == CodeNotAssigned
+}
+
+func IsCodeStopped(err error) bool {
+	return ErrCode(err) == CodeStopped
+}
+
+func IsCodeHasAssignedUnits(err error) bool {
+	return ErrCode(err) == CodeHasAssignedUnits
+}
+
+func IsCodeNotProvisioned(err error) bool {
+	return ErrCode(err) == CodeNotProvisioned
+}
+
+func IsCodeNoAddressSet(err error) bool {
+	return ErrCode(err) == CodeNoAddressSet
+}
+
+func IsCodeTryAgain(err error) bool {
+	return ErrCode(err) == CodeTryAgain
+}
+
+func IsCodeNotImplemented(err error) bool {
+	return ErrCode(err) == CodeNotImplemented
+}
+
+func IsCodeAlreadyExists(err error) bool {
+	return ErrCode(err) == CodeAlreadyExists
 }

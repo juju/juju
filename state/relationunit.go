@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/charm"
-	errors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/utils"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -95,7 +95,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		C:      ru.st.relations.Name,
 		Id:     relationKey,
 		Assert: isAliveDoc,
-		Update: D{{"$inc", D{{"unitcount", 1}}}},
+		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
 	}}
 
 	// * Create the unit settings in this relation, if they do not already
@@ -202,7 +202,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		return nil, "", fmt.Errorf("expected single related endpoint, got %v", related)
 	}
 	serviceName, unitName := related[0].ServiceName, ru.unit.doc.Name
-	selSubordinate := D{{"service", serviceName}, {"principal", unitName}}
+	selSubordinate := bson.D{{"service", serviceName}, {"principal", unitName}}
 	var lDoc lifeDoc
 	if err := ru.st.units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
 		service, err := ru.st.Service(serviceName)
@@ -239,7 +239,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 	ops := []txn.Op{{
 		C:      ru.st.relationScopes.Name,
 		Id:     key,
-		Update: D{{"$set", D{{"departing", true}}}},
+		Update: bson.D{{"$set", bson.D{{"departing", true}}}},
 	}}
 	return ru.st.runTransaction(ops)
 }
@@ -294,15 +294,15 @@ func (ru *RelationUnit) LeaveScope() error {
 			ops = append(ops, txn.Op{
 				C:      ru.st.relations.Name,
 				Id:     ru.relation.doc.Key,
-				Assert: D{{"life", Alive}},
-				Update: D{{"$inc", D{{"unitcount", -1}}}},
+				Assert: bson.D{{"life", Alive}},
+				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
 		} else if ru.relation.doc.UnitCount > 1 {
 			ops = append(ops, txn.Op{
 				C:      ru.st.relations.Name,
 				Id:     ru.relation.doc.Key,
-				Assert: D{{"unitcount", D{{"$gt", 1}}}},
-				Update: D{{"$inc", D{{"unitcount", -1}}}},
+				Assert: bson.D{{"unitcount", bson.D{{"$gt", 1}}}},
+				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
 		} else {
 			relOps, err := ru.relation.removeOps("", ru.unit)
@@ -317,7 +317,7 @@ func (ru *RelationUnit) LeaveScope() error {
 			}
 			return err
 		}
-		if err := ru.relation.Refresh(); errors.IsNotFoundError(err) {
+		if err := ru.relation.Refresh(); errors.IsNotFound(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -327,16 +327,16 @@ func (ru *RelationUnit) LeaveScope() error {
 }
 
 // InScope returns whether the relation unit has entered scope or not.
-func (ru *RelationUnit) InScope() bool {
+func (ru *RelationUnit) InScope() (bool, error) {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
-		return false
+		return false, err
 	}
 	count, err := ru.st.relationScopes.FindId(key).Count()
 	if err != nil {
-		return false
+		return false, err
 	}
-	return count > 0
+	return count > 0, nil
 }
 
 // WatchScope returns a watcher which notifies of counterpart units
@@ -365,7 +365,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
 func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, err error) {
-	defer utils.ErrorContextf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
+	defer errors.Maskf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
 	if !names.IsUnit(uname) {
 		return nil, fmt.Errorf("%q is not a valid unit name", uname)
 	}

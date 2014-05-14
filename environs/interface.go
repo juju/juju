@@ -4,20 +4,29 @@
 package environs
 
 import (
-	"errors"
 	"io"
+	"os"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/network"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/utils"
 )
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
+	// Prepare prepares an environment for use. Any additional
+	// configuration attributes in the returned environment should
+	// be saved to be used later. If the environment is already
+	// prepared, this call is equivalent to Open.
+	Prepare(ctx BootstrapContext, cfg *config.Config) (Environ, error)
+
 	// Open opens the environment and returns it.
+	// The configuration must have come from a previously
+	// prepared environment.
 	Open(cfg *config.Config) (Environ, error)
 
 	// Validate ensures that config is a valid configuration for this
@@ -38,70 +47,34 @@ type EnvironProvider interface {
 	BoilerplateConfig() string
 
 	// SecretAttrs filters the supplied configuration returning only values
-	// which are considered sensitive.
-	SecretAttrs(cfg *config.Config) (map[string]interface{}, error)
-
-	// PublicAddress returns this machine's public host name.
-	PublicAddress() (string, error)
-
-	// PrivateAddress returns this machine's private host name.
-	PrivateAddress() (string, error)
+	// which are considered sensitive. All of the values of these secret
+	// attributes need to be strings.
+	SecretAttrs(cfg *config.Config) (map[string]string, error)
 }
 
-var ErrNoInstances = errors.New("no instances found")
-var ErrPartialInstances = errors.New("only some instances were found")
-
-// A StorageReader can retrieve and list files from a storage provider.
-type StorageReader interface {
-	// Get opens the given storage file and returns a ReadCloser
-	// that can be used to read its contents.  It is the caller's
-	// responsibility to close it after use.  If the name does not
-	// exist, it should return a *NotFoundError.
-	Get(name string) (io.ReadCloser, error)
-
-	// List lists all names in the storage with the given prefix, in
-	// alphabetical order.  The names in the storage are considered
-	// to be in a flat namespace, so the prefix may include slashes
-	// and the names returned are the full names for the matching
-	// entries.
-	List(prefix string) ([]string, error)
-
-	// URL returns a URL that can be used to access the given storage file.
-	URL(name string) (string, error)
-
-	// ConsistencyStrategy returns the appropriate polling for waiting
-	// for this storage to become consistent.
-	// If the storage implementation has immediate consistency, the
-	// strategy won't need to wait at all.  But for eventually-consistent
-	// storage backends a few seconds of polling may be needed.
-	ConsistencyStrategy() utils.AttemptStrategy
+// EnvironStorage implements storage access for an environment
+type EnvironStorage interface {
+	// Storage returns storage specific to the environment.
+	Storage() storage.Storage
 }
 
-// A StorageWriter adds and removes files in a storage provider.
-type StorageWriter interface {
-	// Put reads from r and writes to the given storage file.
-	// The length must give the total length of the file.
-	Put(name string, r io.Reader, length int64) error
-
-	// Remove removes the given file from the environment's
-	// storage. It should not return an error if the file does
-	// not exist.
-	Remove(name string) error
-
-	// RemoveAll deletes all files that have been stored here.
-	// If the underlying storage implementation may be shared
-	// with other actors, it must be sure not to delete their
-	// file as well.
-	// Nevertheless, use with care!  This method is only mean
-	// for cleaning up an environment that's being destroyed.
-	RemoveAll() error
+// ConfigGetter implements access to an environment's configuration.
+type ConfigGetter interface {
+	// Config returns the configuration data with which the Environ was created.
+	// Note that this is not necessarily current; the canonical location
+	// for the configuration data is stored in the state.
+	Config() *config.Config
 }
 
-// Storage represents storage that can be both
-// read and written.
-type Storage interface {
-	StorageReader
-	StorageWriter
+// BootstrapParams holds the parameters for bootstrapping an environment.
+type BootstrapParams struct {
+	// Constraints are used to choose the initial instance specification,
+	// and will be stored in the new environment's state.
+	Constraints constraints.Value
+
+	// Placement, if non-empty, holds an environment-specific placement
+	// directive used to choose the initial instance.
+	Placement string
 }
 
 // An Environ represents a juju environment as specified
@@ -130,34 +103,38 @@ type Environ interface {
 	// environment via the juju package, the password hash will be
 	// automatically replaced by the real password.
 	//
-	// The supplied constraints are used to choose the initial instance
-	// specification, and will be stored in the new environment's state.
-	Bootstrap(cons constraints.Value) error
+	// Bootstrap is responsible for selecting the appropriate tools,
+	// and setting the agent-version configuration attribute prior to
+	// bootstrapping the environment.
+	Bootstrap(ctx BootstrapContext, params BootstrapParams) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
 	StateInfo() (*state.Info, *api.Info, error)
 
-	// Config returns the current configuration of this Environ.
-	Config() *config.Config
+	// InstanceBroker defines methods for starting and stopping
+	// instances.
+	InstanceBroker
+
+	// AllocateAddress requests a new address to be allocated for the
+	// given instance on the given network.
+	AllocateAddress(instId instance.Id, netId network.Id) (instance.Address, error)
+
+	// ConfigGetter allows the retrieval of the configuration data.
+	ConfigGetter
+
+	// EnvironCapability allows access to this environment's capabilities.
+	state.EnvironCapability
+
+	// ConstraintsValidator returns a Validator instance which
+	// is used to validate and merge constraints.
+	ConstraintsValidator() (constraints.Validator, error)
 
 	// SetConfig updates the Environ's configuration.
 	//
 	// Calls to SetConfig do not affect the configuration of
-	// values previously obtained from Storage and PublicStorage.
+	// values previously obtained from Storage.
 	SetConfig(cfg *config.Config) error
-
-	// StartInstance asks for a new instance to be created, associated
-	// with the provided machine identifier. The given info describes
-	// the juju state for the new instance to connect to. The nonce,
-	// which must be unique within an environment, is used by juju to
-	// protect against the consequences of multiple instances being
-	// started with the same machine id.
-	StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-		info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error)
-
-	// StopInstances shuts down the given instances.
-	StopInstances([]instance.Instance) error
 
 	// Instances returns a slice of instances corresponding to the
 	// given instance ids.  If no instances were found, but there
@@ -167,26 +144,16 @@ type Environ interface {
 	// will be returned.
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 
-	// AllInstances returns all instances currently known to the
-	// environment.
-	AllInstances() ([]instance.Instance, error)
-
-	// Storage returns storage specific to the environment.
-	Storage() Storage
-
-	// PublicStorage returns storage shared between environments.
-	PublicStorage() StorageReader
+	EnvironStorage
 
 	// Destroy shuts down all known machines and destroys the
-	// rest of the environment. A list of instances known to
-	// be part of the environment can be given with insts.
-	// This is because recently started machines might not
-	// yet be visible in the environment, so this method
-	// can wait until they are.
+	// rest of the environment. Note that on some providers,
+	// very recently started instances may not be destroyed
+	// because they are not yet visible.
 	//
 	// When Destroy has been called, any Environ referring to the
 	// same remote environment may become invalid
-	Destroy(insts []instance.Instance) error
+	Destroy() error
 
 	// OpenPorts opens the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
@@ -205,4 +172,29 @@ type Environ interface {
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
+
+	state.Prechecker
+}
+
+// BootstrapContext is an interface that is passed to
+// Environ.Bootstrap, providing a means of obtaining
+// information about and manipulating the context in which
+// it is being invoked.
+type BootstrapContext interface {
+	GetStdin() io.Reader
+	GetStdout() io.Writer
+	GetStderr() io.Writer
+	Infof(format string, params ...interface{})
+	Verbosef(format string, params ...interface{})
+
+	// InterruptNotify starts watching for interrupt signals
+	// on behalf of the caller, sending them to the supplied
+	// channel.
+	InterruptNotify(sig chan<- os.Signal)
+
+	// StopInterruptNotify undoes the effects of a previous
+	// call to InterruptNotify with the same channel. After
+	// StopInterruptNotify returns, no more signals will be
+	// delivered to the channel.
+	StopInterruptNotify(chan<- os.Signal)
 }

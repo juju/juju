@@ -19,7 +19,7 @@ func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }
 
-// TestCommonScript tests the behaviour of HooksContext.
+// TestHooksContext tests the behaviour of HooksContext.
 func (*DebugHooksCommonSuite) TestHooksContext(c *gc.C) {
 	ctx := debug.NewHooksContext("foo/8")
 	c.Assert(ctx.Unit, gc.Equals, "foo/8")

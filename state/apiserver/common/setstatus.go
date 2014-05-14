@@ -4,6 +4,8 @@
 package common
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -25,7 +27,7 @@ func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSet
 	}
 }
 
-func (s *StatusSetter) setEntityStatus(tag string, status params.Status, info string) error {
+func (s *StatusSetter) setEntityStatus(tag string, status params.Status, info string, data params.StatusData) error {
 	entity0, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -34,16 +36,11 @@ func (s *StatusSetter) setEntityStatus(tag string, status params.Status, info st
 	if !ok {
 		return NotSupportedError(tag, "setting status")
 	}
-	return entity.SetStatus(status, info)
+	return entity.SetStatus(status, info, data)
 }
 
 // SetStatus sets the status of each given entity.
 func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
-	// This is only to ensure compatibility with v1.12.
-	// DEPRECATE(v1.14)
-	if len(args.Entities) == 0 {
-		args.Entities = args.Machines
-	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -57,7 +54,60 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 	for i, arg := range args.Entities {
 		err := ErrPerm
 		if canModify(arg.Tag) {
-			err = s.setEntityStatus(arg.Tag, arg.Status, arg.Info)
+			err = s.setEntityStatus(arg.Tag, arg.Status, arg.Info, arg.Data)
+		}
+		result.Results[i].Error = ServerError(err)
+	}
+	return result, nil
+}
+
+func (s *StatusSetter) updateEntityStatusData(tag string, data params.StatusData) error {
+	entity0, err := s.st.FindEntity(tag)
+	if err != nil {
+		return err
+	}
+	statusGetter, ok := entity0.(state.StatusGetter)
+	if !ok {
+		return NotSupportedError(tag, "getting status")
+	}
+	existingStatus, existingInfo, existingData, err := statusGetter.Status()
+	if err != nil {
+		return err
+	}
+	newData := existingData
+	if newData == nil {
+		newData = data
+	} else {
+		for k, v := range data {
+			newData[k] = v
+		}
+	}
+	entity, ok := entity0.(state.StatusSetter)
+	if !ok {
+		return NotSupportedError(tag, "updating status")
+	}
+	if len(newData) > 0 && existingStatus != params.StatusError {
+		return fmt.Errorf("machine %q is not in an error state", tag)
+	}
+	return entity.SetStatus(existingStatus, existingInfo, newData)
+}
+
+// UpdateStatus updates the status data of each given entity.
+func (s *StatusSetter) UpdateStatus(args params.SetStatus) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canModify, err := s.getCanModify()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, arg := range args.Entities {
+		err := ErrPerm
+		if canModify(arg.Tag) {
+			err = s.updateEntityStatusData(arg.Tag, arg.Data)
 		}
 		result.Results[i].Error = ServerError(err)
 	}

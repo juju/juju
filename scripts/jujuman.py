@@ -149,7 +149,7 @@ This is the Juju config file, which you can use to specify multiple
 environments in which to deploy.
 
 A config file can be created using
-.B juju init -w
+.B juju init
 which you can then edit to provide the secret keys, or use environment
 variables to provide the secret values.
 

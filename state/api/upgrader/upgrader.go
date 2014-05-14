@@ -6,36 +6,41 @@ package upgrader
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/state/api/common"
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
+	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // State provides access to an upgrader worker's view of the state.
 type State struct {
-	caller common.Caller
+	caller base.Caller
+}
+
+func (st *State) call(method string, params, result interface{}) error {
+	return st.caller.Call("Upgrader", "", method, params, result)
 }
 
 // NewState returns a version of the state that provides functionality
 // required by the upgrader worker.
-func NewState(caller common.Caller) *State {
+func NewState(caller base.Caller) *State {
 	return &State{caller}
 }
 
-// SetTools sets the tools associated with the entity
-// with the given tag, which must be the tag
-// of the entity that the upgrader is running
-// on behalf of.
-func (st *State) SetTools(tag string, tools *tools.Tools) error {
+// SetVersion sets the tools version associated with the entity with
+// the given tag, which must be the tag of the entity that the
+// upgrader is running on behalf of.
+func (st *State) SetVersion(tag string, v version.Binary) error {
 	var results params.ErrorResults
-	args := params.SetAgentsTools{
-		AgentTools: []params.SetAgentTools{{
+	args := params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{{
 			Tag:   tag,
-			Tools: tools,
+			Tools: &params.Version{v},
 		}},
 	}
-	err := st.caller.Call("Upgrader", "", "SetTools", args, &results)
+	err := st.call("SetTools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return err
@@ -43,40 +48,71 @@ func (st *State) SetTools(tag string, tools *tools.Tools) error {
 	return results.OneError()
 }
 
-func (st *State) Tools(tag string) (*tools.Tools, error) {
-	var results params.AgentToolsResults
+func (st *State) DesiredVersion(tag string) (version.Number, error) {
+	var results params.VersionResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.caller.Call("Upgrader", "", "Tools", args, &results)
+	err := st.call("DesiredVersion", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
-		return nil, err
+		return version.Number{}, err
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return version.Number{}, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
-		return nil, err
+		return version.Number{}, err
 	}
-	return result.Tools, nil
+	if result.Version == nil {
+		// TODO: Not directly tested
+		return version.Number{}, fmt.Errorf("received no error, but got a nil Version")
+	}
+	return *result.Version, nil
 }
 
-func (st *State) WatchAPIVersion(agentTag string) (*watcher.NotifyWatcher, error) {
+// Tools returns the agent tools that should run on the given entity,
+// along with a flag whether to disable SSL hostname verification.
+func (st *State) Tools(tag string) (*tools.Tools, utils.SSLHostnameVerification, error) {
+	var results params.ToolsResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag}},
+	}
+	err := st.call("Tools", args, &results)
+	if err != nil {
+		// TODO: Not directly tested
+		return nil, false, err
+	}
+	if len(results.Results) != 1 {
+		// TODO: Not directly tested
+		return nil, false, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return nil, false, err
+	}
+	hostnameVerification := utils.VerifySSLHostnames
+	if result.DisableSSLHostnameVerification {
+		hostnameVerification = utils.NoVerifySSLHostnames
+	}
+	return result.Tools, hostnameVerification, nil
+}
+
+func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := st.caller.Call("Upgrader", "", "WatchAPIVersion", args, &results)
+	err := st.call("WatchAPIVersion", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {

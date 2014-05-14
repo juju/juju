@@ -4,19 +4,17 @@
 package state
 
 import (
-	"time"
-
+	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo/txn"
-
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type SettingsSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.MgoSuite
 	state *State
 	key   string
@@ -28,8 +26,8 @@ var _ = gc.Suite(&SettingsSuite{})
 // connecting to the testing state server.
 func TestingStateInfo() *Info {
 	return &Info{
-		Addrs:  []string{testing.MgoAddr},
-		CACert: []byte(testing.CACert),
+		Addrs:  []string{testing.MgoServer.Addr()},
+		CACert: testing.CACert,
 	}
 }
 
@@ -37,7 +35,7 @@ func TestingStateInfo() *Info {
 // connecting to the testing state server.
 func TestingDialOpts() DialOpts {
 	return DialOpts{
-		Timeout: 100 * time.Millisecond,
+		Timeout: testing.LongWait,
 	}
 }
 
@@ -55,7 +53,7 @@ func (s *SettingsSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	// TODO(dfc) this logic is duplicated with the metawatcher_test.
-	state, err := Open(TestingStateInfo(), TestingDialOpts())
+	state, err := Open(TestingStateInfo(), TestingDialOpts(), Policy(nil))
 	c.Assert(err, gc.IsNil)
 
 	s.state = state
@@ -84,7 +82,7 @@ func (s *SettingsSuite) TestCannotOverwrite(c *gc.C) {
 func (s *SettingsSuite) TestCannotReadMissing(c *gc.C) {
 	_, err := readSettings(s.state, s.key)
 	c.Assert(err, gc.ErrorMatches, "settings not found")
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SettingsSuite) TestCannotWriteMissing(c *gc.C) {
@@ -97,7 +95,7 @@ func (s *SettingsSuite) TestCannotWriteMissing(c *gc.C) {
 	node.Set("foo", "bar")
 	_, err = node.Write()
 	c.Assert(err, gc.ErrorMatches, "settings not found")
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *SettingsSuite) TestUpdateWithWrite(c *gc.C) {

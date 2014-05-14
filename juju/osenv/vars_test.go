@@ -1,20 +1,54 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package osenv_test
+package osenv
 
 import (
+	"path/filepath"
+	"runtime"
+
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
-type importSuite struct{}
+type importSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&importSuite{})
 
-func (*importSuite) TestDependencies(c *gc.C) {
-	// This test is to ensure we don't bring in dependencies at all.
-	c.Assert(testing.FindJujuCoreImports(c, "launchpad.net/juju-core/juju/osenv"),
-		gc.HasLen, 0)
+func (s *importSuite) TestJujuHomeWin(c *gc.C) {
+	path := `P:\FooBar\AppData`
+	s.PatchEnvironment("APPDATA", path)
+	c.Assert(jujuHomeWin(), gc.Equals, filepath.Join(path, "Juju"))
+}
+
+func (s *importSuite) TestJujuHomeLinux(c *gc.C) {
+	path := `/foo/bar/baz/`
+	s.PatchEnvironment("HOME", path)
+	c.Assert(jujuHomeLinux(), gc.Equals, filepath.Join(path, ".juju"))
+}
+
+func (s *importSuite) TestJujuHomeEnvVar(c *gc.C) {
+	path := "/foo/bar/baz"
+	s.PatchEnvironment(JujuHomeEnvKey, path)
+	c.Assert(JujuHomeDir(), gc.Equals, path)
+}
+
+func (s *importSuite) TestBlankJujuHomeEnvVar(c *gc.C) {
+	s.PatchEnvironment(JujuHomeEnvKey, "")
+
+	if runtime.GOOS == "windows" {
+		s.PatchEnvironment("APPDATA", `P:\foobar`)
+	} else {
+		s.PatchEnvironment("HOME", "/foobar")
+	}
+	c.Assert(JujuHomeDir(), gc.Not(gc.Equals), "")
+
+	if runtime.GOOS == "windows" {
+		c.Assert(JujuHomeDir(), gc.Equals, jujuHomeWin())
+	} else {
+		c.Assert(JujuHomeDir(), gc.Equals, jujuHomeLinux())
+	}
 }

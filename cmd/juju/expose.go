@@ -7,22 +7,28 @@ import (
 	"errors"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // ExposeCommand is responsible exposing services.
 type ExposeCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 }
+
+var jujuExposeHelp = `
+Adjusts firewall rules and similar security mechanisms of the provider, to
+allow the service to be accessed on its public address.
+
+`
 
 func (c *ExposeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "expose",
 		Args:    "<service>",
 		Purpose: "expose a service",
+		Doc:     jujuExposeHelp,
 	}
 }
 
@@ -37,14 +43,10 @@ func (c *ExposeCommand) Init(args []string) error {
 // Run changes the juju-managed firewall to expose any
 // ports that were also explicitly marked by units as open.
 func (c *ExposeCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-
-	params := params.ServiceExpose{
-		ServiceName: c.ServiceName,
-	}
-	return statecmd.ServiceExpose(conn.State, params)
+	defer client.Close()
+	return client.ServiceExpose(c.ServiceName)
 }

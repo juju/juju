@@ -25,6 +25,24 @@ func NotSupportedError(entity, operation string) error {
 	return &notSupportedError{entity, operation}
 }
 
+type noAddressSetError struct {
+	unitTag     string
+	addressName string
+}
+
+func (e *noAddressSetError) Error() string {
+	return fmt.Sprintf("%q has no %s address set", e.unitTag, e.addressName)
+}
+
+func NoAddressSetError(unitTag, addressName string) error {
+	return &noAddressSetError{unitTag, addressName}
+}
+
+func IsNoAddressSetError(err error) bool {
+	_, ok := err.(*noAddressSetError)
+	return ok
+}
+
 var (
 	ErrBadId          = stderrors.New("id not found")
 	ErrBadCreds       = stderrors.New("invalid entity name or password")
@@ -34,7 +52,7 @@ var (
 	ErrUnknownPinger  = stderrors.New("unknown pinger id")
 	ErrStoppedWatcher = stderrors.New("watcher has been stopped")
 	ErrBadRequest     = stderrors.New("invalid request")
-	ErrNotProvisioned = stderrors.New("not provisioned")
+	ErrTryAgain       = stderrors.New("try again")
 )
 
 var singletonErrorCodes = map[error]string{
@@ -48,7 +66,18 @@ var singletonErrorCodes = map[error]string{
 	ErrNotLoggedIn:               params.CodeUnauthorized,
 	ErrUnknownWatcher:            params.CodeNotFound,
 	ErrStoppedWatcher:            params.CodeStopped,
-	ErrNotProvisioned:            params.CodeNotProvisioned,
+	ErrTryAgain:                  params.CodeTryAgain,
+}
+
+func singletonCode(err error) (string, bool) {
+	// All error types may not be hashable; deal with
+	// that by catching the panic if we try to look up
+	// a non-hashable type.
+	defer func() {
+		recover()
+	}()
+	code, ok := singletonErrorCodes[err]
+	return code, ok
 }
 
 // ServerError returns an error suitable for returning to an API
@@ -58,17 +87,23 @@ func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
 	}
-	code := singletonErrorCodes[err]
+	code, ok := singletonCode(err)
 	switch {
-	case code != "":
-	case errors.IsUnauthorizedError(err):
+	case ok:
+	case errors.IsUnauthorized(err):
 		code = params.CodeUnauthorized
-	case errors.IsNotFoundError(err):
+	case errors.IsNotFound(err):
 		code = params.CodeNotFound
+	case errors.IsAlreadyExists(err):
+		code = params.CodeAlreadyExists
 	case state.IsNotAssigned(err):
 		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
 		code = params.CodeHasAssignedUnits
+	case IsNoAddressSetError(err):
+		code = params.CodeNoAddressSet
+	case state.IsNotProvisionedError(err):
+		code = params.CodeNotProvisioned
 	default:
 		code = params.ErrCode(err)
 	}

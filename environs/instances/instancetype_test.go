@@ -9,22 +9,14 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type instanceTypeSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&instanceTypeSuite{})
-
-func (s *instanceTypeSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-}
-
-func (s *instanceTypeSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownTest(c)
-}
 
 var hvm = "hvm"
 
@@ -33,7 +25,7 @@ var hvm = "hvm"
 var instanceTypes = []InstanceType{
 	{
 		Name:     "m1.small",
-		Arches:   []string{"amd64", "arm"},
+		Arches:   []string{"amd64", "armhf"},
 		CpuCores: 1,
 		CpuPower: CpuPower(100),
 		Mem:      1740,
@@ -41,7 +33,7 @@ var instanceTypes = []InstanceType{
 		RootDisk: 8192,
 	}, {
 		Name:     "m1.medium",
-		Arches:   []string{"amd64", "arm"},
+		Arches:   []string{"amd64", "armhf"},
 		CpuCores: 1,
 		CpuPower: CpuPower(200),
 		Mem:      3840,
@@ -66,7 +58,7 @@ var instanceTypes = []InstanceType{
 	},
 	{
 		Name:     "t1.micro",
-		Arches:   []string{"amd64", "arm"},
+		Arches:   []string{"amd64", "armhf"},
 		CpuCores: 1,
 		CpuPower: CpuPower(20),
 		Mem:      613,
@@ -75,7 +67,7 @@ var instanceTypes = []InstanceType{
 	},
 	{
 		Name:     "c1.medium",
-		Arches:   []string{"amd64", "arm"},
+		Arches:   []string{"amd64", "armhf"},
 		CpuCores: 2,
 		CpuPower: CpuPower(500),
 		Mem:      1740,
@@ -98,7 +90,7 @@ var instanceTypes = []InstanceType{
 		Mem:      23552,
 		Cost:     1300,
 		RootDisk: 32768,
-		VType:    &hvm,
+		VirtType: &hvm,
 	}, {
 		Name:     "cc2.8xlarge",
 		Arches:   []string{"amd64"},
@@ -107,7 +99,7 @@ var instanceTypes = []InstanceType{
 		Mem:      61952,
 		Cost:     2400,
 		RootDisk: 131072,
-		VType:    &hvm,
+		VirtType: &hvm,
 	},
 }
 
@@ -143,28 +135,63 @@ var getInstanceTypesTest = []struct {
 		},
 	}, {
 		about:          "arches filtered by constraint",
-		cons:           "cpu-power=100 arch=arm",
+		cons:           "cpu-power=100 arch=armhf",
 		expectedItypes: []string{"m1.small", "m1.medium", "c1.medium"},
-		arches:         []string{"arm"},
+		arches:         []string{"armhf"},
 	},
 	{
-		about: "fallback instance type, enough memory for mongodb",
-		cons:  "mem=8G",
+		about: "enough memory for mongodb if mem not specified",
+		cons:  "cpu-cores=4",
 		itypesToUse: []InstanceType{
+			{Id: "5", Name: "it-5", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 2},
+			{Id: "4", Name: "it-4", Arches: []string{"amd64"}, Mem: 2048, CpuCores: 4},
+			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 4},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256, CpuCores: 4},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4},
+		},
+		expectedItypes: []string{"it-3", "it-4"},
+	},
+	{
+		about: "small mem specified, use that even though less than needed for mongodb",
+		cons:  "mem=300M",
+		itypesToUse: []InstanceType{
+			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 2048},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
+		},
+		expectedItypes: []string{"it-1", "it-3"},
+	},
+	{
+		about: "mem specified and match found",
+		cons:  "mem=4G arch=amd64",
+		itypesToUse: []InstanceType{
+			{Id: "4", Name: "it-4", Arches: []string{"armhf"}, Mem: 8096},
 			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 4096},
 			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 2048},
 			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
 		},
-		expectedItypes: []string{"it-2"},
+		expectedItypes: []string{"it-3"},
 	},
 	{
-		about: "fallback instance type, not enough memory for mongodb",
-		cons:  "mem=4G",
+		about: "largest mem available matching other constraints if mem not specified",
+		cons:  "cpu-cores=4",
 		itypesToUse: []InstanceType{
-			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256},
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
+			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 2},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256, CpuCores: 4},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4},
 		},
 		expectedItypes: []string{"it-1"},
+	},
+	{
+		about: "largest mem available matching other constraints if mem not specified, cost is tie breaker",
+		cons:  "cpu-cores=4",
+		itypesToUse: []InstanceType{
+			{Id: "4", Name: "it-4", Arches: []string{"amd64"}, Mem: 1024, CpuCores: 2},
+			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 256, CpuCores: 4},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4, Cost: 50},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512, CpuCores: 4, Cost: 100},
+		},
+		expectedItypes: []string{"it-2"},
 	},
 }
 
@@ -203,6 +230,12 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *gc.C) {
 
 	_, err = getMatchingInstanceTypes(constraint("test", "arch=i386 mem=8G"), instanceTypes)
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "arch=i386 mem=8192M"`)
+
+	_, err = getMatchingInstanceTypes(constraint("test", "cpu-cores=9000"), instanceTypes)
+	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "cpu-cores=9000"`)
+
+	_, err = getMatchingInstanceTypes(constraint("test", "mem=90000M"), instanceTypes)
+	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "mem=90000M"`)
 }
 
 var instanceTypeMatchTests = []struct {
@@ -210,22 +243,22 @@ var instanceTypeMatchTests = []struct {
 	itype  string
 	arches []string
 }{
-	{"", "m1.small", []string{"amd64", "arm"}},
+	{"", "m1.small", []string{"amd64", "armhf"}},
 	{"", "m1.large", []string{"amd64"}},
-	{"cpu-power=100", "m1.small", []string{"amd64", "arm"}},
+	{"cpu-power=100", "m1.small", []string{"amd64", "armhf"}},
 	{"arch=amd64", "m1.small", []string{"amd64"}},
 	{"cpu-cores=3", "m1.xlarge", []string{"amd64"}},
-	{"cpu-power=", "t1.micro", []string{"amd64", "arm"}},
-	{"cpu-power=500", "c1.medium", []string{"amd64", "arm"}},
+	{"cpu-power=", "t1.micro", []string{"amd64", "armhf"}},
+	{"cpu-power=500", "c1.medium", []string{"amd64", "armhf"}},
 	{"cpu-power=2000", "c1.xlarge", []string{"amd64"}},
 	{"cpu-power=2001", "cc1.4xlarge", []string{"amd64"}},
-	{"mem=2G", "m1.medium", []string{"amd64", "arm"}},
+	{"mem=2G", "m1.medium", []string{"amd64", "armhf"}},
 
 	{"arch=i386", "m1.small", nil},
 	{"cpu-power=100", "t1.micro", nil},
 	{"cpu-power=9001", "cc2.8xlarge", nil},
 	{"mem=1G", "t1.micro", nil},
-	{"arch=arm", "c1.xlarge", nil},
+	{"arch=armhf", "c1.xlarge", nil},
 }
 
 func (s *instanceTypeSuite) TestMatch(c *gc.C) {

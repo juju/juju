@@ -3,23 +3,22 @@
 
 package agent
 
-// TODO(fwereade): there's nothing machine-specific in here...
-
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/state/api/common"
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 // State provides access to an agent's view of the state.
 type State struct {
-	caller common.Caller
+	caller base.Caller
 }
 
 // NewState returns a version of the state that provides functionality
 // required by agent code.
-func NewState(caller common.Caller) *State {
+func NewState(caller base.Caller) *State {
 	return &State{caller}
 }
 
@@ -33,12 +32,30 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 		return nil, err
 	}
 	if len(results.Entities) != 1 {
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Entities))
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Entities))
 	}
 	if err := results.Entities[0].Error; err != nil {
 		return nil, err
 	}
 	return &results.Entities[0], nil
+}
+
+func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+	var results params.StateServingInfo
+	err := st.caller.Call("Agent", "", "StateServingInfo", nil, &results)
+	return results, err
+}
+
+// IsMaster reports whether the connected machine
+// agent lives at the same network address as the primary
+// mongo server for the replica set.
+// This call will return an error if the connected
+// agent is not a machine agent with environment-manager
+// privileges.
+func (st *State) IsMaster() (bool, error) {
+	var results params.IsMasterResult
+	err := st.caller.Call("Agent", "", "IsMaster", nil, &results)
+	return results.Master, err
 }
 
 type Entity struct {
@@ -77,11 +94,17 @@ func (m *Entity) Jobs() []params.MachineJob {
 	return m.doc.Jobs
 }
 
+// ContainerType returns the type of container hosting this entity.
+// If the entity is not a machine, it returns an empty string.
+func (m *Entity) ContainerType() instance.ContainerType {
+	return m.doc.ContainerType
+}
+
 // SetPassword sets the password associated with the agent's entity.
 func (m *Entity) SetPassword(password string) error {
 	var results params.ErrorResults
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{{
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{{
 			Tag:      m.tag,
 			Password: password,
 		}},

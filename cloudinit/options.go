@@ -5,10 +5,14 @@ package cloudinit
 
 import (
 	"fmt"
-	"strings"
 
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
+
+// CloudToolsPrefsPath defines the default location of
+// apt_preferences(5) file for the cloud-tools pocket.
+const CloudToolsPrefsPath = "/etc/apt/preferences.d/50-cloud-tools"
 
 // SetAttr sets an arbitrary attribute in the cloudinit config.
 // If value is nil the attribute will be deleted; otherwise
@@ -31,10 +35,24 @@ func (cfg *Config) SetAptUpgrade(yes bool) {
 	cfg.set("apt_upgrade", yes, yes)
 }
 
-// SetUpdate sets whether cloud-init runs "apt-get update"
+// AptUpgrade returns the value set by SetAptUpgrade, or
+// false if no call to SetAptUpgrade has been made.
+func (cfg *Config) AptUpgrade() bool {
+	update, _ := cfg.attrs["apt_upgrade"].(bool)
+	return update
+}
+
+// SetAptUpdate sets whether cloud-init runs "apt-get update"
 // on first boot.
 func (cfg *Config) SetAptUpdate(yes bool) {
 	cfg.set("apt_update", yes, yes)
+}
+
+// AptUpdate returns the value set by SetAptUpdate, or
+// false if no call to SetAptUpdate has been made.
+func (cfg *Config) AptUpdate() bool {
+	update, _ := cfg.attrs["apt_update"].(bool)
+	return update
 }
 
 // SetAptProxy sets the URL to be used as the apt
@@ -59,26 +77,25 @@ func (cfg *Config) SetAptPreserveSourcesList(yes bool) {
 
 // AddAptSource adds an apt source. The key holds the
 // public key of the source, in the form expected by apt-key(8).
-func (cfg *Config) AddAptSource(name, key string) {
-	src, _ := cfg.attrs["apt_sources"].([]*source)
+func (cfg *Config) AddAptSource(name, key string, prefs *AptPreferences) {
+	src, _ := cfg.attrs["apt_sources"].([]*AptSource)
 	cfg.attrs["apt_sources"] = append(src,
-		&source{
+		&AptSource{
 			Source: name,
 			Key:    key,
-		})
+			Prefs:  prefs,
+		},
+	)
+	if prefs != nil {
+		// Create the apt preferences file.
+		cfg.AddFile(prefs.Path, prefs.FileContents(), 0644)
+	}
 }
 
-// AddAptSource adds an apt source. The public key for the
-// source is retrieved by fetching the given keyId from the
-// GPG key server at the given address.
-func (cfg *Config) AddAptSourceWithKeyId(name, keyId, keyServer string) {
-	src, _ := cfg.attrs["apt_sources"].([]*source)
-	cfg.attrs["apt_sources"] = append(src,
-		&source{
-			Source:    name,
-			KeyId:     keyId,
-			KeyServer: keyServer,
-		})
+// AptSources returns the apt sources added with AddAptSource.
+func (cfg *Config) AptSources() []*AptSource {
+	srcs, _ := cfg.attrs["apt_sources"].([]*AptSource)
+	return srcs
 }
 
 // SetDebconfSelections provides preseeded debconf answers
@@ -92,13 +109,66 @@ func (cfg *Config) SetDebconfSelections(answers string) {
 // If any packages are specified, "apt-get update"
 // will be called.
 func (cfg *Config) AddPackage(name string) {
+	cfg.attrs["packages"] = append(cfg.Packages(), name)
+}
+
+// AddPackageFromTargetRelease adds a package to be installed using
+// the given release, passed to apt-get with the --target-release
+// argument.
+func (cfg *Config) AddPackageFromTargetRelease(packageName, targetRelease string) {
+	cfg.AddPackage(fmt.Sprintf("--target-release '%s' '%s'", targetRelease, packageName))
+}
+
+// Packages returns a list of packages that will be
+// installed on first boot.
+func (cfg *Config) Packages() []string {
 	pkgs, _ := cfg.attrs["packages"].([]string)
-	cfg.attrs["packages"] = append(pkgs, name)
+	return pkgs
 }
 
 func (cfg *Config) addCmd(kind string, c *command) {
+	cfg.attrs[kind] = append(cfg.getCmds(kind), c)
+}
+
+func (cfg *Config) getCmds(kind string) []*command {
 	cmds, _ := cfg.attrs[kind].([]*command)
-	cfg.attrs[kind] = append(cmds, c)
+	return cmds
+}
+
+// getCmdStrings returns a slice of interface{}, where
+// each interface's dynamic value is either a string
+// or slice of strings.
+func (cfg *Config) getCmdStrings(kind string) []interface{} {
+	cmds := cfg.getCmds(kind)
+	result := make([]interface{}, len(cmds))
+	for i, cmd := range cmds {
+		if cmd.args != nil {
+			result[i] = append([]string{}, cmd.args...)
+		} else {
+			result[i] = cmd.literal
+		}
+	}
+	return result
+}
+
+// BootCmds returns a list of commands added with
+// AddBootCmd*.
+//
+// Each element in the resultant slice is either a
+// string or []string, corresponding to how the command
+// was added.
+func (cfg *Config) BootCmds() []interface{} {
+	return cfg.getCmdStrings("bootcmd")
+}
+
+// RunCmds returns a list of commands that will be
+// run at first boot.
+//
+// Each element in the resultant slice is either a
+// string or []string, corresponding to how the command
+// was added.
+func (cfg *Config) RunCmds() []interface{} {
+	return cfg.getCmdStrings("runcmd")
 }
 
 // AddRunCmd adds a command to be executed
@@ -187,6 +257,20 @@ func (cfg *Config) SetOutput(kind OutputKind, stdout, stderr string) {
 	cfg.attrs["output"] = out
 }
 
+// Output returns the output destination passed to SetOutput for
+// the specified output kind.
+func (cfg *Config) Output(kind OutputKind) (stdout, stderr string) {
+	if out, ok := cfg.attrs["output"].(map[string]interface{}); ok {
+		switch out := out[string(kind)].(type) {
+		case string:
+			stdout = out
+		case []string:
+			stdout, stderr = out[0], out[1]
+		}
+	}
+	return stdout, stderr
+}
+
 // AddSSHKey adds a pre-generated ssh key to the
 // server keyring. Keys that are added like this will be
 // written to /etc/ssh and new random keys will not
@@ -209,18 +293,19 @@ func (cfg *Config) SetDisableRoot(disable bool) {
 	cfg.set("disable_root", !disable, disable)
 }
 
-// AddSSHAuthorizedKey adds a set of keys in
+// AddSSHAuthorizedKeys adds a set of keys in
 // ssh authorized_keys format (see ssh(8) for details)
 // that will be added to ~/.ssh/authorized_keys for the
 // configured user (see SetUser).
-func (cfg *Config) AddSSHAuthorizedKeys(keys string) {
+func (cfg *Config) AddSSHAuthorizedKeys(keyData string) {
 	akeys, _ := cfg.attrs["ssh_authorized_keys"].([]string)
-	lines := strings.Split(keys, "\n")
-	for _, line := range lines {
-		if line == "" || line[0] == '#' {
-			continue
-		}
-		akeys = append(akeys, line)
+	keys := ssh.SplitAuthorisedKeys(keyData)
+	for _, key := range keys {
+		// Ensure the key has a comment prepended with "Juju:" so we
+		// can distinguish between Juju managed keys and those added
+		// externally.
+		jujuKey := ssh.EnsureJujuComment(key)
+		akeys = append(akeys, jujuKey)
 	}
 	cfg.attrs["ssh_authorized_keys"] = akeys
 }
@@ -235,10 +320,17 @@ func (cfg *Config) AddScripts(scripts ...string) {
 // AddFile will add multiple run_cmd entries to safely set the contents of a
 // specific file to the requested contents.
 func (cfg *Config) AddFile(filename, data string, mode uint) {
+	// Note: recent versions of cloud-init have the "write_files"
+	// module, which can write arbitrary files. We currently support
+	// 12.04 LTS, which uses an older version of cloud-init without
+	// this module.
 	p := shquote(filename)
+	// Don't use the shell's echo builtin here; the interpretation
+	// of escape sequences differs between shells, namely bash and
+	// dash. Instead, we use printf (or we could use /bin/echo).
 	cfg.AddScripts(
-		fmt.Sprintf("install -m %o /dev/null %s", mode, p),
-		fmt.Sprintf("echo %s > %s", shquote(data), p),
+		fmt.Sprintf("install -D -m %o /dev/null %s", mode, p),
+		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(data), p),
 	)
 }
 
@@ -254,7 +346,6 @@ func shquote(p string) string {
 // puppet
 // resizefs
 // rightscale_userdata
-// rsyslog
 // scripts_per_boot
 // scripts_per_instance
 // scripts_per_once

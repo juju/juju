@@ -9,14 +9,13 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // GetCommand retrieves the configuration of a service.
 type GetCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	out         cmd.Output
 }
@@ -25,12 +24,11 @@ func (c *GetCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get",
 		Args:    "<service>",
-		Purpose: "get service config options",
+		Purpose: "get service configuration options",
 	}
 }
 
 func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	// TODO(dfc) add json formatting ?
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
@@ -49,17 +47,13 @@ func (c *GetCommand) Init(args []string) error {
 // Run fetches the configuration of the service and formats
 // the result as a YAML string.
 func (c *GetCommand) Run(ctx *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer client.Close()
 
-	params := params.ServiceGet{
-		ServiceName: c.ServiceName,
-	}
-
-	results, err := statecmd.ServiceGet(conn.State, params)
+	results, err := client.ServiceGet(c.ServiceName)
 	if err != nil {
 		return err
 	}

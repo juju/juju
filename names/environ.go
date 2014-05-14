@@ -3,15 +3,19 @@
 
 package names
 
-import "strings"
+import (
+	"strings"
+)
 
-// EnvironTag returns the tag of an environment with the given name.
-func EnvironTag(name string) string {
-	return makeTag(EnvironTagKind, name)
+// EnvironTag returns the tag of an environment with the given environment UUID.
+func EnvironTag(uuid string) string {
+	return makeTag(EnvironTagKind, uuid)
 }
 
-// IsEnvironment returns whether id is a valid environment id.
-// TODO(rog) stricter constraints
-func IsEnvironment(name string) bool {
-	return !strings.Contains(name, "/")
+// IsEnvironment returns whether id is a valid environment UUID.
+func IsEnvironment(id string) bool {
+	// TODO(axw) 2013-12-04 #1257587
+	// We should not accept environment tags that
+	// do not look like UUIDs.
+	return !strings.Contains(id, "/")
 }

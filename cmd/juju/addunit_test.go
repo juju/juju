@@ -5,7 +5,9 @@ package main
 
 import (
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -37,13 +39,13 @@ var initAddUnitErrorTests = []struct {
 func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 	for i, t := range initAddUnitErrorTests {
 		c.Logf("test %d", i)
-		err := testing.InitCommand(&AddUnitCommand{}, t.args)
+		err := testing.InitCommand(envcmd.Wrap(&AddUnitCommand{}), t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
 func runAddUnit(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &AddUnitCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&AddUnitCommand{}), args)
 	return err
 }
 
@@ -99,13 +101,11 @@ func (s *AddUnitSuite) TestForceMachineExistingContainer(c *gc.C) {
 	curl := s.setupService(c)
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	params := &state.AddMachineParams{
-		ParentId:      machine.Id(),
-		Series:        "precise",
-		ContainerType: instance.LXC,
-		Jobs:          []state.MachineJob{state.JobHostUnits},
+	template := state.MachineTemplate{
+		Series: "precise",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineWithConstraints(params)
+	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", container.Id())

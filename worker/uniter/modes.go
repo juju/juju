@@ -6,55 +6,21 @@ package uniter
 import (
 	stderrors "errors"
 	"fmt"
+
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	ucharm "launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
-	"launchpad.net/tomb"
 )
 
 // Mode defines the signature of the functions that implement the possible
 // states of a running Uniter.
 type Mode func(u *Uniter) (Mode, error)
-
-// ModeInit is the initial Uniter mode.
-func ModeInit(u *Uniter) (next Mode, err error) {
-	defer modeContext("ModeInit", &err)()
-	logger.Infof("updating unit addresses")
-	// TODO(dimitern): Once the uniter is using the API, change the
-	// following block to use st.ProviderType() instead of calling
-	// st.EnvironConfig. Also, We might be able to drop all this
-	// address stuff entirely once we have machine addresses.
-	cfg, err := u.st.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return nil, err
-	}
-	if private, err := provider.PrivateAddress(); err != nil {
-		return nil, err
-	} else if err = u.unit.SetPrivateAddress(private); err != nil {
-		return nil, err
-	}
-	if public, err := provider.PublicAddress(); err != nil {
-		return nil, err
-	} else if err = u.unit.SetPublicAddress(public); err != nil {
-		return nil, err
-	}
-	logger.Infof("reconciling relation state")
-	if err := u.restoreRelations(); err != nil {
-		return nil, err
-	}
-	return ModeContinue, nil
-}
 
 // ModeContinue determines what action to take based on persistent uniter state.
 func ModeContinue(u *Uniter) (next Mode, err error) {
@@ -66,7 +32,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		if u.s, err = u.sf.Read(); err == ErrNoStateFile {
 			// When no state exists, start from scratch.
 			logger.Infof("charm is not deployed")
-			curl, _ := u.service.CharmURL()
+			curl, _, err := u.service.CharmURL()
+			if err != nil {
+				return nil, err
+			}
 			return ModeInstalling(curl), nil
 		} else if err != nil {
 			return nil, err
@@ -152,7 +121,7 @@ func ModeUpgrading(curl *charm.URL) Mode {
 func ModeConfigChanged(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeConfigChanged", &err)()
 	if !u.s.Started {
-		if err = u.unit.SetStatus(params.StatusInstalled, ""); err != nil {
+		if err = u.unit.SetStatus(params.StatusInstalled, "", nil); err != nil {
 			return nil, err
 		}
 	}
@@ -190,10 +159,13 @@ func ModeStopping(u *Uniter) (next Mode, err error) {
 // ModeTerminating marks the unit dead and returns ErrTerminateAgent.
 func ModeTerminating(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeTerminating", &err)()
-	if err = u.unit.SetStatus(params.StatusStopped, ""); err != nil {
+	if err = u.unit.SetStatus(params.StatusStopped, "", nil); err != nil {
 		return nil, err
 	}
-	w := u.unit.Watch()
+	w, err := u.unit.Watch()
+	if err != nil {
+		return nil, err
+	}
 	defer watcher.Stop(w, &u.tomb)
 	for {
 		select {
@@ -206,7 +178,9 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			if err := u.unit.Refresh(); err != nil {
 				return nil, err
 			}
-			if len(u.unit.SubordinateNames()) > 0 {
+			if hasSubs, err := u.unit.HasSubordinates(); err != nil {
+				return nil, err
+			} else if hasSubs {
 				continue
 			}
 			// The unit is known to be Dying; so if it didn't have subordinates
@@ -229,7 +203,10 @@ func ModeAbide(u *Uniter) (next Mode, err error) {
 	if u.s.Op != Continue {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
-	if err = u.unit.SetStatus(params.StatusStarted, ""); err != nil {
+	if err := u.fixDeployer(); err != nil {
+		return nil, err
+	}
+	if err = u.unit.SetStatus(params.StatusStarted, "", nil); err != nil {
 		return nil, err
 	}
 	u.f.WantUpgradeEvent(false)
@@ -290,14 +267,8 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	if err := u.unit.Refresh(); err != nil {
 		return nil, err
 	}
-	for _, name := range u.unit.SubordinateNames() {
-		if sub, err := u.st.Unit(name); errors.IsNotFoundError(err) {
-			continue
-		} else if err != nil {
-			return nil, err
-		} else if err = sub.Destroy(); err != nil {
-			return nil, err
-		}
+	if err = u.unit.DestroyAllSubordinates(); err != nil {
+		return nil, err
 	}
 	for id, r := range u.relationers {
 		if err := r.SetDying(); err != nil {
@@ -328,14 +299,22 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 
 // ModeHookError is responsible for watching and responding to:
 // * user resolution of hook errors
-// * charm upgrade requests
+// * forced charm upgrade requests
 func ModeHookError(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeHookError", &err)()
 	if u.s.Op != RunHook || u.s.OpStep != Pending {
 		return nil, fmt.Errorf("insane uniter state: %#v", u.s)
 	}
-	msg := fmt.Sprintf("hook failed: %q", u.s.Hook.Kind)
-	if err = u.unit.SetStatus(params.StatusError, msg); err != nil {
+	msg := fmt.Sprintf("hook failed: %q", u.currentHookName())
+	// Create error information for status.
+	data := params.StatusData{"hook": u.currentHookName()}
+	if u.s.Hook.Kind.IsRelation() {
+		data["relation-id"] = u.s.Hook.RelationId
+		if u.s.Hook.RemoteUnit != "" {
+			data["remote-unit"] = u.s.Hook.RemoteUnit
+		}
+	}
+	if err = u.unit.SetStatus(params.StatusError, msg, data); err != nil {
 		return nil, err
 	}
 	u.f.WantResolvedEvent()
@@ -346,9 +325,9 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			return nil, tomb.ErrDying
 		case rm := <-u.f.ResolvedEvents():
 			switch rm {
-			case state.ResolvedRetryHooks:
+			case params.ResolvedRetryHooks:
 				err = u.runHook(*u.s.Hook)
-			case state.ResolvedNoHooks:
+			case params.ResolvedNoHooks:
 				err = u.commitHook(*u.s.Hook)
 			default:
 				return nil, fmt.Errorf("unknown resolved mode %q", rm)
@@ -374,31 +353,40 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 func ModeConflicted(curl *charm.URL) Mode {
 	return func(u *Uniter) (next Mode, err error) {
 		defer modeContext("ModeConflicted", &err)()
-		if err = u.unit.SetStatus(params.StatusError, "upgrade failed"); err != nil {
+		// TODO(mue) Add helpful data here too in later CL.
+		if err = u.unit.SetStatus(params.StatusError, "upgrade failed", nil); err != nil {
 			return nil, err
 		}
 		u.f.WantResolvedEvent()
 		u.f.WantUpgradeEvent(true)
-		for {
-			select {
-			case <-u.tomb.Dying():
-				return nil, tomb.ErrDying
-			case <-u.f.ResolvedEvents():
-				err = u.charm.Snapshotf("Upgrade conflict resolved.")
-				if e := u.f.ClearResolved(); e != nil {
-					return nil, e
-				}
-				if err != nil {
-					return nil, err
-				}
-				return ModeUpgrading(curl), nil
-			case curl := <-u.f.UpgradeEvents():
-				if err := u.charm.Revert(); err != nil {
-					return nil, err
-				}
-				return ModeUpgrading(curl), nil
+		select {
+		case <-u.tomb.Dying():
+			return nil, tomb.ErrDying
+		case curl = <-u.f.UpgradeEvents():
+			if err := u.deployer.NotifyRevert(); err != nil {
+				return nil, err
 			}
+			// Now the git dir (if it is one) has been reverted, it's safe to
+			// use a manifest deployer to deploy the new charm.
+			if err := u.fixDeployer(); err != nil {
+				return nil, err
+			}
+		case <-u.f.ResolvedEvents():
+			err = u.deployer.NotifyResolved()
+			if e := u.f.ClearResolved(); e != nil {
+				return nil, e
+			}
+			if err != nil {
+				return nil, err
+			}
+			// We don't fixDeployer at this stage, because we have *no idea*
+			// what (if anything) the user has done to the charm dir before
+			// setting resolved. But the balance of probability is that the
+			// dir is filled with git droppings, that will be considered user
+			// files and hang around forever, so in this case we wait for the
+			// upgrade to complete and fixDeployer in ModeAbide.
 		}
+		return ModeUpgrading(curl), nil
 	}
 }
 

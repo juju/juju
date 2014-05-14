@@ -4,8 +4,11 @@
 package state
 
 import (
-	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 // EntityFinder is implemented by *State. See State.FindEntity
@@ -31,12 +34,18 @@ var (
 )
 
 type StatusSetter interface {
-	SetStatus(status params.Status, info string) error
+	SetStatus(status params.Status, info string, data params.StatusData) error
+}
+
+type StatusGetter interface {
+	Status() (status params.Status, info string, data params.StatusData, err error)
 }
 
 var (
 	_ StatusSetter = (*Machine)(nil)
 	_ StatusSetter = (*Unit)(nil)
+	_ StatusGetter = (*Machine)(nil)
+	_ StatusGetter = (*Unit)(nil)
 )
 
 // Lifer represents an entity with a life.
@@ -55,7 +64,7 @@ var (
 // that have associated agent tools.
 type AgentTooler interface {
 	AgentTools() (*tools.Tools, error)
-	SetAgentTools(*tools.Tools) error
+	SetAgentVersion(version.Binary) error
 }
 
 // EnsureDeader with an EnsureDead method.
@@ -127,6 +136,7 @@ var (
 	_ NotifyWatcherFactory = (*Machine)(nil)
 	_ NotifyWatcherFactory = (*Unit)(nil)
 	_ NotifyWatcherFactory = (*Service)(nil)
+	_ NotifyWatcherFactory = (*Environment)(nil)
 )
 
 // AgentEntity represents an entity that can
@@ -147,3 +157,37 @@ var (
 	_ AgentEntity = (*Machine)(nil)
 	_ AgentEntity = (*Unit)(nil)
 )
+
+// EnvironAccessor defines the methods needed to watch for environment
+// config changes, and read the environment config.
+type EnvironAccessor interface {
+	WatchForEnvironConfigChanges() NotifyWatcher
+	EnvironConfig() (*config.Config, error)
+}
+
+var _ EnvironAccessor = (*State)(nil)
+
+// UnitsWatcher defines the methods needed to retrieve an entity (a
+// machine or a service) and watch its units.
+type UnitsWatcher interface {
+	Entity
+	WatchUnits() StringsWatcher
+}
+
+var _ UnitsWatcher = (*Machine)(nil)
+var _ UnitsWatcher = (*Service)(nil)
+
+// EnvironMachinesWatcher defines a single method -
+// WatchEnvironMachines.
+type EnvironMachinesWatcher interface {
+	WatchEnvironMachines() StringsWatcher
+}
+
+var _ EnvironMachinesWatcher = (*State)(nil)
+
+// InstanceIdGetter defines a single method - InstanceId.
+type InstanceIdGetter interface {
+	InstanceId() (instance.Id, error)
+}
+
+var _ InstanceIdGetter = (*Machine)(nil)

@@ -5,6 +5,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -12,8 +13,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"fmt"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
@@ -30,8 +29,11 @@ var _ = gc.Suite(&MetadataSuite{})
 
 var metadataCommandNames = []string{
 	"generate-image",
+	"generate-tools",
 	"help",
+	"sign",
 	"validate-images",
+	"validate-tools",
 }
 
 func (s *MetadataSuite) SetUpTest(c *gc.C) {
@@ -59,7 +61,7 @@ func badrun(c *gc.C, exit int, args ...string) string {
 
 	ps := exec.Command(os.Args[0], localArgs...)
 
-	ps.Env = append(os.Environ(), osenv.JujuHome+"="+config.JujuHome())
+	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome())
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
 		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
@@ -93,6 +95,10 @@ func (s *MetadataSuite) assertHelpOutput(c *gc.C, cmd string) {
 
 func (s *MetadataSuite) TestHelpValidateImages(c *gc.C) {
 	s.assertHelpOutput(c, "validate-images")
+}
+
+func (s *MetadataSuite) TestHelpValidateTools(c *gc.C) {
+	s.assertHelpOutput(c, "validate-tools")
 }
 
 func (s *MetadataSuite) TestHelpGenerateImage(c *gc.C) {

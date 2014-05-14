@@ -6,8 +6,9 @@ package local
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/common"
 )
 
 type localInstance struct {
@@ -27,21 +28,30 @@ func (inst *localInstance) Status() string {
 	return ""
 }
 
+func (*localInstance) Refresh() error {
+	return nil
+}
+
 func (inst *localInstance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("localInstance.Addresses not implemented")
-	return nil, nil
+	if inst.id == bootstrapInstanceId {
+		addrs := []instance.Address{{
+			NetworkScope: instance.NetworkPublic,
+			Type:         instance.HostName,
+			Value:        "localhost",
+		}, {
+			NetworkScope: instance.NetworkCloudLocal,
+			Type:         instance.Ipv4Address,
+			Value:        inst.env.bridgeAddress,
+		}}
+		return addrs, nil
+	}
+	return nil, errors.NotImplementedf("localInstance.Addresses")
 }
 
 // DNSName implements instance.Instance.DNSName.
 func (inst *localInstance) DNSName() (string, error) {
-	if string(inst.id) == "localhost" {
-		// get the bridge address from the environment
-		addr, err := inst.env.findBridgeAddress()
-		if err != nil {
-			logger.Errorf("failed to get bridge address: %v", err)
-			return "", instance.ErrNoDNSName
-		}
-		return addr, nil
+	if inst.id == bootstrapInstanceId {
+		return inst.env.bridgeAddress, nil
 	}
 	// Get the IPv4 address from eth0
 	return getAddressForInterface("eth0")
@@ -49,7 +59,7 @@ func (inst *localInstance) DNSName() (string, error) {
 
 // WaitDNSName implements instance.Instance.WaitDNSName.
 func (inst *localInstance) WaitDNSName() (string, error) {
-	return environs.WaitDNSName(inst)
+	return common.WaitDNSName(inst)
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.

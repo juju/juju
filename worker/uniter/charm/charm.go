@@ -1,99 +1,100 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package charm
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"io"
+	"errors"
+	"net/url"
+
+	"github.com/juju/loggo"
+
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/downloader"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
-	"os"
-	"path"
+	"launchpad.net/juju-core/utils/set"
 )
 
-// BundlesDir is responsible for storing and retrieving charm bundles
-// identified by state charms.
-type BundlesDir struct {
-	path string
+var logger = loggo.GetLogger("juju.worker.uniter.charm")
+
+// charmURLPath is the path within a charm directory to which Deployers
+// commonly write the charm URL of the latest deployed charm.
+const charmURLPath = ".juju-charm"
+
+// Bundle allows access to a charm's files.
+type Bundle interface {
+
+	// Manifest returns a set of slash-separated strings representing files,
+	// directories, and symlinks stored in the bundle.
+	Manifest() (set.Strings, error)
+
+	// ExpandTo unpacks the entities referenced in the manifest into the
+	// supplied directory. If it returns without error, every file referenced
+	// in the charm must be present in the directory; implementations may vary
+	// in the details of what they do with other files present.
+	ExpandTo(dir string) error
 }
 
-// NewBundlesDir returns a new BundlesDir which uses path for storage.
-func NewBundlesDir(path string) *BundlesDir {
-	return &BundlesDir{path}
+// BundleInfo describes a Bundle.
+type BundleInfo interface {
+
+	// URL returns the charm URL identifying the bundle.
+	URL() *charm.URL
+
+	// Archive URL returns the location of the bundle data.
+	ArchiveURL() (*url.URL, utils.SSLHostnameVerification, error)
+
+	// ArchiveSha256 returns the hex-encoded SHA-256 digest of the bundle data.
+	ArchiveSha256() (string, error)
 }
 
-// Read returns a charm bundle from the directory. If no bundle exists yet,
-// one will be downloaded and validated and copied into the directory before
-// being returned. Downloads will be aborted if a value is received on abort.
-func (d *BundlesDir) Read(sch *state.Charm, abort <-chan struct{}) (*charm.Bundle, error) {
-	path := d.bundlePath(sch)
-	if _, err := os.Stat(path); err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		} else if err = d.download(sch, abort); err != nil {
-			return nil, err
-		}
+// BundleReader provides a mechanism for getting a Bundle from a BundleInfo.
+type BundleReader interface {
+
+	// Read returns the bundle identified by the supplied info. The abort chan
+	// can be used to notify an implementation that it need not complete the
+	// operation, and can immediately error out if it is convenient to do so.
+	Read(bi BundleInfo, abort <-chan struct{}) (Bundle, error)
+}
+
+// Deployer is responsible for installing and upgrading charms.
+type Deployer interface {
+
+	// Stage must be called to prime the Deployer to install or upgrade the
+	// bundle identified by the supplied info. The abort chan can be used to
+	// notify an implementation that it need not complete the operation, and
+	// can immediately error out if it convenient to do so. It must always
+	// be safe to restage the same bundle, or to stage a new bundle.
+	Stage(info BundleInfo, abort <-chan struct{}) error
+
+	// Deploy will install or upgrade the most recently staged bundle.
+	// Behaviour is undefined if Stage has not been called. Failures that
+	// can be resolved by user intervention will be signalled by returning
+	// ErrConflict.
+	Deploy() error
+
+	// NotifyRevert must be called when a conflicted deploy is abandoned, in
+	// preparation for a new upgrade.
+	NotifyRevert() error
+
+	// NotifyResolved must be called when the cause of a deploy conflict has
+	// been resolved, and a new deploy attempt will be made.
+	NotifyResolved() error
+}
+
+// ErrConflict indicates that an upgrade failed and cannot be resolved
+// without human intervention.
+var ErrConflict = errors.New("charm upgrade has conflicts")
+
+// ReadCharmURL reads a charm identity file from the supplied path.
+func ReadCharmURL(path string) (*charm.URL, error) {
+	surl := ""
+	if err := utils.ReadYaml(path, &surl); err != nil {
+		return nil, err
 	}
-	return charm.ReadBundle(path)
+	return charm.ParseURL(surl)
 }
 
-// download fetches the supplied charm and checks that it has the correct sha256
-// hash, then copies it into the directory. If a value is received on abort, the
-// download will be stopped.
-func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err error) {
-	defer utils.ErrorContextf(&err, "failed to download charm %q from %q", sch.URL(), sch.BundleURL())
-	dir := d.downloadsPath()
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	burl := sch.BundleURL().String()
-	log.Infof("worker/uniter/charm: downloading %s from %s", sch.URL(), burl)
-	dl := downloader.New(burl, dir)
-	defer dl.Stop()
-	for {
-		select {
-		case <-abort:
-			log.Infof("worker/uniter/charm: download aborted")
-			return fmt.Errorf("aborted")
-		case st := <-dl.Done():
-			if st.Err != nil {
-				return st.Err
-			}
-			log.Infof("worker/uniter/charm: download complete")
-			defer st.File.Close()
-			hash := sha256.New()
-			if _, err = io.Copy(hash, st.File); err != nil {
-				return err
-			}
-			actualSha256 := hex.EncodeToString(hash.Sum(nil))
-			if actualSha256 != sch.BundleSha256() {
-				return fmt.Errorf(
-					"expected sha256 %q, got %q", sch.BundleSha256(), actualSha256,
-				)
-			}
-			log.Infof("worker/uniter/charm: download verified")
-			if err := os.MkdirAll(d.path, 0755); err != nil {
-				return err
-			}
-			return os.Rename(st.File.Name(), d.bundlePath(sch))
-		}
-	}
-}
-
-// bundlePath returns the path to the location where the verified charm
-// bundle identified by sch will be, or has been, saved.
-func (d *BundlesDir) bundlePath(sch *state.Charm) string {
-	return path.Join(d.path, charm.Quote(sch.URL().String()))
-}
-
-// downloadsPath returns the path to the directory into which charms are
-// downloaded.
-func (d *BundlesDir) downloadsPath() string {
-	return path.Join(d.path, "downloads")
+// WriteCharmURL writes a charm identity file into the supplied path.
+func WriteCharmURL(path string, url *charm.URL) error {
+	return utils.WriteYaml(path, url.String())
 }

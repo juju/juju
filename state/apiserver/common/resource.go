@@ -4,7 +4,6 @@
 package common
 
 import (
-	"launchpad.net/juju-core/log"
 	"strconv"
 	"sync"
 )
@@ -79,7 +78,7 @@ func (rs *Resources) StopAll() {
 	defer rs.mu.Unlock()
 	for _, r := range rs.resources {
 		if err := r.Stop(); err != nil {
-			log.Errorf("state/api: error stopping %T resource: %v", r, err)
+			logger.Errorf("error stopping %T resource: %v", r, err)
 		}
 	}
 	rs.resources = make(map[string]Resource)

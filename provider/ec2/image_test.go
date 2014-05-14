@@ -9,11 +9,13 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 type imageSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&imageSuite{})
@@ -29,7 +31,7 @@ func (s *imageSuite) TearDownSuite(c *gc.C) {
 }
 
 type specSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var _ = gc.Suite(&specSuite{})
@@ -62,7 +64,7 @@ var findInstanceSpecTests = []struct {
 		image:  "ami-00000033",
 	}, {
 		series: "quantal",
-		arches: both,
+		arches: []string{"i386"},
 		itype:  "m1.small",
 		image:  "ami-01000034",
 	}, {
@@ -93,7 +95,7 @@ var findInstanceSpecTests = []struct {
 		series: "precise",
 		arches: both,
 		cons:   "cpu-power=",
-		itype:  "t1.micro",
+		itype:  "m1.small",
 		image:  "ami-00000033",
 	}, {
 		series: "precise",
@@ -117,25 +119,41 @@ var findInstanceSpecTests = []struct {
 		series: "quantal",
 		arches: both,
 		cons:   "arch=amd64",
-		itype:  "cc1.4xlarge",
+		itype:  "cc2.8xlarge",
 		image:  "ami-01000035",
+	}, {
+		series: "quantal",
+		arches: both,
+		cons:   "instance-type=cc2.8xlarge",
+		itype:  "cc2.8xlarge",
+		image:  "ami-01000035",
+	}, {
+		series: "precise",
+		arches: []string{"i386"},
+		cons:   "instance-type=c1.medium",
+		itype:  "c1.medium",
+		image:  "ami-00000034",
 	},
 }
 
 func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
-	for i, t := range findInstanceSpecTests {
-		c.Logf("test %d", i)
-		storage := ebsStorage
-		spec, err := findInstanceSpec([]string{"test:"}, &instances.InstanceConstraint{
-			Region:      "test",
-			Series:      t.series,
-			Arches:      t.arches,
-			Constraints: constraints.MustParse(t.cons),
-			Storage:     &storage,
-		})
+	for i, test := range findInstanceSpecTests {
+		c.Logf("\ntest %d: %q; %q; %q", i, test.series, test.arches, test.cons)
+		stor := ebsStorage
+		spec, err := findInstanceSpec(
+			[]simplestreams.DataSource{
+				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
+			"released",
+			&instances.InstanceConstraint{
+				Region:      "test",
+				Series:      test.series,
+				Arches:      test.arches,
+				Constraints: constraints.MustParse(test.cons),
+				Storage:     &stor,
+			})
 		c.Assert(err, gc.IsNil)
-		c.Check(spec.InstanceType.Name, gc.Equals, t.itype)
-		c.Check(spec.Image.Id, gc.Equals, t.image)
+		c.Check(spec.InstanceType.Name, gc.Equals, test.itype)
+		c.Check(spec.Image.Id, gc.Equals, test.image)
 	}
 }
 
@@ -157,19 +175,23 @@ var findInstanceSpecErrorTests = []struct {
 		series: "raring",
 		arches: both,
 		cons:   "mem=4G",
-		err:    `no "raring" images in test matching instance types \[m1.large m1.xlarge c1.xlarge cc1.4xlarge cc2.8xlarge\]`,
+		err:    `no "raring" images in test matching instance types \[m1.large m1.xlarge c1.xlarge cc2.8xlarge\]`,
 	},
 }
 
 func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
-		_, err := findInstanceSpec([]string{"test:"}, &instances.InstanceConstraint{
-			Region:      "test",
-			Series:      t.series,
-			Arches:      t.arches,
-			Constraints: constraints.MustParse(t.cons),
-		})
+		_, err := findInstanceSpec(
+			[]simplestreams.DataSource{
+				simplestreams.NewURLDataSource("test", "test:", utils.VerifySSLHostnames)},
+			"released",
+			&instances.InstanceConstraint{
+				Region:      "test",
+				Series:      t.series,
+				Arches:      t.arches,
+				Constraints: constraints.MustParse(t.cons),
+			})
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }

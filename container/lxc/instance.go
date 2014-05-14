@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/golxc"
 
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 )
 
@@ -30,9 +31,12 @@ func (lxc *lxcInstance) Status() string {
 	return string(state)
 }
 
+func (*lxcInstance) Refresh() error {
+	return nil
+}
+
 func (lxc *lxcInstance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("lxcInstance.Addresses not implemented")
-	return nil, nil
+	return nil, errors.NotImplementedf("lxcInstance.Addresses")
 }
 
 // DNSName implements instance.Instance.DNSName.

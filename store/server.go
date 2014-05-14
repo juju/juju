@@ -13,8 +13,9 @@ import (
 	"time"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 )
+
+const DefaultSeries = "precise"
 
 // Server is an http.Handler that serves the HTTP API of juju
 // so that juju clients can retrieve published charms.
@@ -23,7 +24,7 @@ type Server struct {
 	mux   *http.ServeMux
 }
 
-// New returns a new *Server using store.
+// NewServer returns a new *Server using store.
 func NewServer(store *Store) (*Server, error) {
 	s := &Server{
 		store: store,
@@ -74,6 +75,24 @@ func charmStatsKey(curl *charm.URL, kind string) []string {
 	return []string{kind, curl.Series, curl.Name, curl.User}
 }
 
+func (s *Server) resolveURL(url string) (*charm.URL, error) {
+	ref, series, err := charm.ParseReference(url)
+	if err != nil {
+		return nil, err
+	}
+	if series == "" {
+		prefSeries, err := s.store.Series(ref)
+		if err != nil {
+			return nil, err
+		}
+		if len(prefSeries) == 0 {
+			return nil, ErrNotFound
+		}
+		return &charm.URL{Reference: ref, Series: prefSeries[0]}, nil
+	}
+	return &charm.URL{Reference: ref, Series: series}, nil
+}
+
 func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/charm-info" {
 		w.WriteHeader(http.StatusNotFound)
@@ -84,7 +103,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 	for _, url := range r.Form["charms"] {
 		c := &charm.InfoResponse{}
 		response[url] = c
-		curl, err := charm.ParseURL(url)
+		curl, err := s.resolveURL(url)
 		var info *CharmInfo
 		if err == nil {
 			info, err = s.store.CharmInfo(curl)
@@ -92,11 +111,12 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		var skey []string
 		if err == nil {
 			skey = charmStatsKey(curl, "charm-info")
+			c.CanonicalURL = curl.String()
 			c.Sha256 = info.BundleSha256()
 			c.Revision = info.Revision()
 			c.Digest = info.Digest()
 		} else {
-			if err == ErrNotFound {
+			if err == ErrNotFound && curl != nil {
 				skey = charmStatsKey(curl, "charm-missing")
 			}
 			c.Errors = append(c.Errors, err.Error())
@@ -111,7 +131,7 @@ func (s *Server) serveInfo(w http.ResponseWriter, r *http.Request) {
 		_, err = w.Write(data)
 	}
 	if err != nil {
-		log.Errorf("store: cannot write content: %v", err)
+		logger.Errorf("cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -125,14 +145,23 @@ func (s *Server) serveEvent(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	response := map[string]*charm.EventResponse{}
 	for _, url := range r.Form["charms"] {
+		shortURL := url
 		digest := ""
 		if i := strings.Index(url, "@"); i >= 0 && i+1 < len(url) {
 			digest = url[i+1:]
-			url = url[:i]
+			shortURL = url[:i]
 		}
 		c := &charm.EventResponse{}
-		response[url] = c
-		curl, err := charm.ParseURL(url)
+		// By default, shortURL is used as the key in the response data.
+		// This makes it impossible to return more than one event per charm.
+		// If the query parameter "long_keys=1" is set, use the parameter
+		// from the request (<cs-url>@<revision-id>) as the key.
+		if r.Form.Get("long_keys") != "1" {
+			response[shortURL] = c
+		} else {
+			response[url] = c
+		}
+		curl, err := s.resolveURL(shortURL)
 		var event *CharmEvent
 		if err == nil {
 			event, err = s.store.CharmEvent(curl, digest)
@@ -159,7 +188,7 @@ func (s *Server) serveEvent(w http.ResponseWriter, r *http.Request) {
 		_, err = w.Write(data)
 	}
 	if err != nil {
-		log.Errorf("store: cannot write content: %v", err)
+		logger.Errorf("cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -169,7 +198,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	if !strings.HasPrefix(r.URL.Path, "/charm/") {
 		panic("serveCharm: bad url")
 	}
-	curl, err := charm.ParseURL("cs:" + r.URL.Path[len("/charm/"):])
+	curl, err := s.resolveURL("cs:" + r.URL.Path[len("/charm/"):])
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -181,7 +210,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	}
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		log.Errorf("store: cannot open charm %q: %v", curl, err)
+		logger.Errorf("cannot open charm %q: %v", curl, err)
 		return
 	}
 	if statsEnabled(r) {
@@ -193,7 +222,7 @@ func (s *Server) serveCharm(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.FormatInt(info.BundleSize(), 10))
 	_, err = io.Copy(w, rc)
 	if err != nil {
-		log.Errorf("store: failed to stream charm %q: %v", curl, err)
+		logger.Errorf("failed to stream charm %q: %v", curl, err)
 	}
 }
 
@@ -282,7 +311,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 
 	entries, err := s.store.Counters(&req)
 	if err != nil {
-		log.Errorf("store: cannot query counters: %v", err)
+		logger.Errorf("cannot query counters: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -311,7 +340,7 @@ func (s *Server) serveStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(buf)))
 	_, err = w.Write(buf)
 	if err != nil {
-		log.Errorf("store: cannot write content: %v", err)
+		logger.Errorf("cannot write content: %v", err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }

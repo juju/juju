@@ -14,12 +14,12 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju/osenv"
 	_ "launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -30,7 +30,9 @@ func TestPackage(t *stdtesting.T) {
 	testing.MgoTestPackage(t)
 }
 
-type MainSuite struct{}
+type MainSuite struct {
+	testing.FakeHomeSuite
+}
 
 var _ = gc.Suite(&MainSuite{})
 
@@ -49,8 +51,9 @@ func TestRunMain(t *stdtesting.T) {
 func badrun(c *gc.C, exit int, args ...string) string {
 	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, args...)
 	ps := exec.Command(os.Args[0], localArgs...)
-	ps.Env = append(os.Environ(), osenv.JujuHome+"="+config.JujuHome())
+	ps.Env = append(os.Environ(), osenv.JujuHomeEnvKey+"="+osenv.JujuHome())
 	output, err := ps.CombinedOutput()
+	c.Logf("command output: %q", output)
 	if exit != 0 {
 		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
 	}
@@ -68,15 +71,11 @@ func helpText(command cmd.Command, name string) string {
 }
 
 func deployHelpText() string {
-	return helpText(&DeployCommand{}, "juju deploy")
+	return helpText(envcmd.Wrap(&DeployCommand{}), "juju deploy")
 }
 
 func syncToolsHelpText() string {
-	return helpText(&SyncToolsCommand{}, "juju sync-tools")
-}
-
-func (s *MainSuite) TestTearDown(c *gc.C) {
-	loggo.ResetLoggers()
+	return helpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
@@ -85,7 +84,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
 	// setting the flags (which is needed for the help text) it is accessing
-	// config.JujuHome(), which panics if SetJujuHome has not been called.
+	// osenv.JujuHome(), which panics if SetJujuHome has not been called.
 	// The FakeHome from testing does this.
 	for i, t := range []struct {
 		summary string
@@ -116,7 +115,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "juju help foo doesn't exist",
 		args:    []string{"help", "foo"},
 		code:    1,
-		out:     "error: unknown command or topic for foo\n",
+		out:     "ERROR unknown command or topic for foo\n",
 	}, {
 		summary: "juju help deploy shows the default help without global options",
 		args:    []string{"help", "deploy"},
@@ -136,7 +135,7 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
 		code:    1,
-		out:     "error: unrecognized command: juju discombobulate\n",
+		out:     "ERROR unrecognized command: juju discombobulate\n",
 	}, {
 		summary: "unknown option before command",
 		args:    []string{"--cheese", "bootstrap"},
@@ -171,45 +170,43 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 }
 
 var brokenConfig = `
-environments:
-    one:
-        type: dummy
-        state-server: false
-        authorized-keys: i-am-a-key
+'
 `
 
 // breakJuju writes a dummy environment with incomplete configuration.
 // environMethod is called.
 func breakJuju(c *gc.C, environMethod string) (msg string) {
-	path := config.JujuHomePath("environments.yaml")
+	path := osenv.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(path, []byte(brokenConfig), 0666)
 	c.Assert(err, gc.IsNil)
-	return fmt.Sprintf("environment configuration has no admin-secret")
+	return `cannot parse "[^"]*": YAML error.*`
 }
 
 func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *gc.C) {
+	c.Skip("breaks test isolation: lp:1233601")
 	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified before command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
-	out := badrun(c, 1, "--log-file", logpath, "--verbose", "--debug", "bootstrap")
-	c.Assert(out, gc.Equals, "error: "+msg+"\n")
+	out := badrun(c, 1, "--log-file", logpath, "bootstrap")
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .*%s\n`, msg)
+	c.Assert(out, gc.Matches, fullmsg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, gc.IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* command failed: %s\n`, msg)
 	c.Assert(string(content), gc.Matches, fullmsg)
 }
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *gc.C) {
+	c.Skip("breaks test isolation: lp:1233601")
 	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified after command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
-	out := badrun(c, 1, "bootstrap", "--log-file", logpath, "--verbose", "--debug")
-	c.Assert(out, gc.Equals, "error: "+msg+"\n")
+	out := badrun(c, 1, "bootstrap", "--log-file", logpath)
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .*%s\n`, msg)
+	c.Assert(out, gc.Matches, fullmsg)
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, gc.IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* command failed: %s\n`, msg)
 	c.Assert(string(content), gc.Matches, fullmsg)
 }
 
@@ -218,6 +215,8 @@ var commandNames = []string{
 	"add-relation",
 	"add-unit",
 	"api-endpoints",
+	"authorised-keys", // alias for authorized-keys
+	"authorized-keys",
 	"bootstrap",
 	"debug-hooks",
 	"debug-log",
@@ -227,6 +226,7 @@ var commandNames = []string{
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
+	"ensure-availability",
 	"env", // alias for switch
 	"expose",
 	"generate-config", // alias for init
@@ -238,9 +238,13 @@ var commandNames = []string{
 	"help-tool",
 	"init",
 	"publish",
+	"remove-machine",  // alias for destroy-machine
 	"remove-relation", // alias for destroy-relation
+	"remove-service",  // alias for destroy-service
 	"remove-unit",     // alias for destroy-unit
 	"resolved",
+	"retry-provisioning",
+	"run",
 	"scp",
 	"set",
 	"set-constraints",
@@ -253,6 +257,9 @@ var commandNames = []string{
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
+	"unset",
+	"unset-env", // alias for unset-environment
+	"unset-environment",
 	"upgrade-charm",
 	"upgrade-juju",
 	"version",
@@ -261,7 +268,7 @@ var commandNames = []string{
 func (s *MainSuite) TestHelpCommands(c *gc.C) {
 	// Check that we have correctly registered all the commands
 	// by checking the help output.
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "commands")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -273,18 +280,21 @@ func (s *MainSuite) TestHelpCommands(c *gc.C) {
 		names = append(names, f[0])
 	}
 	// The names should be output in alphabetical order, so don't sort.
-	c.Assert(names, gc.DeepEquals, commandNames)
+	c.Assert(names, jc.DeepEquals, commandNames)
 }
 
 var topicNames = []string{
-	"aws",
+	"azure-provider",
 	"basics",
 	"commands",
+	"constraints",
+	"ec2-provider",
 	"global-options",
 	"glossary",
-	"hpcloud",
-	"local",
-	"openstack",
+	"hpcloud-provider",
+	"local-provider",
+	"logging",
+	"openstack-provider",
 	"plugins",
 	"topics",
 }
@@ -292,7 +302,7 @@ var topicNames = []string{
 func (s *MainSuite) TestHelpTopics(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "topics")
 	lines := strings.Split(out, "\n")
 	var names []string
@@ -311,15 +321,17 @@ var globalFlags = []string{
 	"--debug .*",
 	"--description .*",
 	"-h, --help .*",
-	"--log-config .*",
 	"--log-file .*",
+	"--logging-config .*",
+	"-q, --quiet .*",
+	"--show-log .*",
 	"-v, --verbose .*",
 }
 
 func (s *MainSuite) TestHelpGlobalOptions(c *gc.C) {
 	// Check that we have correctly registered all the topics
 	// by checking the help output.
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
+	defer osenv.SetJujuHome(osenv.SetJujuHome(c.MkDir()))
 	out := badrun(c, 0, "help", "global-options")
 	c.Assert(out, gc.Matches, `Global Options
 
@@ -337,5 +349,22 @@ command\.(.|\n)*`)
 	c.Assert(len(flags), gc.Equals, len(globalFlags))
 	for i, line := range flags {
 		c.Assert(line, gc.Matches, globalFlags[i])
+	}
+}
+
+type commands []cmd.Command
+
+func (r *commands) Register(c cmd.Command) {
+	*r = append(*r, c)
+}
+
+func (s *MainSuite) TestEnvironCommands(c *gc.C) {
+	var commands commands
+	registerCommands(&commands, testing.Context(c))
+	// There should not be any EnvironCommands registered.
+	// EnvironCommands must be wrapped using envcmd.Wrap.
+	for _, cmd := range commands {
+		c.Logf("%v", cmd.Info().Name)
+		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&BootstrapCommand{}))
 	}
 }

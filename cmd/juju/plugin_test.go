@@ -11,13 +11,15 @@ import (
 	"text/template"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/testing"
-	. "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type PluginSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	oldPath string
 	home    *testing.FakeHome
 }
@@ -115,21 +117,21 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *gc.C) {
 
 func (suite *PluginSuite) TestHelpPluginsWithNoPlugins(c *gc.C) {
 	output := badrun(c, 0, "help", "plugins")
-	c.Assert(output, HasPrefix, PluginTopicText)
-	c.Assert(output, HasSuffix, "\n\nNo plugins found.\n")
+	c.Assert(output, jc.HasPrefix, PluginTopicText)
+	c.Assert(output, jc.HasSuffix, "\n\nNo plugins found.\n")
 }
 
 func (suite *PluginSuite) TestHelpPluginsWithPlugins(c *gc.C) {
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
 	suite.makeFullPlugin(PluginParams{Name: "bar"})
 	output := badrun(c, 0, "help", "plugins")
-	c.Assert(output, HasPrefix, PluginTopicText)
+	c.Assert(output, jc.HasPrefix, PluginTopicText)
 	expectedPlugins := `
 
 bar  bar description
 foo  foo description
 `
-	c.Assert(output, HasSuffix, expectedPlugins)
+	c.Assert(output, jc.HasSuffix, expectedPlugins)
 }
 
 func (suite *PluginSuite) TestHelpPluginName(c *gc.C) {
@@ -144,7 +146,7 @@ something useful
 
 func (suite *PluginSuite) TestHelpPluginNameNotAPlugin(c *gc.C) {
 	output := badrun(c, 0, "help", "foo")
-	expectedHelp := "error: unknown command or topic for foo\n"
+	expectedHelp := "ERROR unknown command or topic for foo\n"
 	c.Assert(output, gc.Matches, expectedHelp)
 }
 
@@ -165,14 +167,21 @@ func (suite *PluginSuite) TestDebugAsArg(c *gc.C) {
 	c.Assert(output, gc.Matches, expectedDebug)
 }
 
+func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
+	suite.makeFullPlugin(PluginParams{Name: "foo"})
+	output := badrun(c, 0, "foo", "-e", "myenv", "-p", "pluginarg")
+	expectedDebug := `foo -e myenv -p pluginarg\n.*env is:  myenv\n.*home is: .*\.juju\n`
+	c.Assert(output, gc.Matches, expectedDebug)
+}
+
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
-	content := fmt.Sprintf("#!/bin/bash\necho %s $*", name)
+	content := fmt.Sprintf("#!/bin/bash --norc\necho %s $*", name)
 	filename := testing.HomePath(JujuPluginPrefix + name)
 	ioutil.WriteFile(filename, []byte(content), perm)
 }
 
 func (suite *PluginSuite) makeFailingPlugin(name string, exitStatus int) {
-	content := fmt.Sprintf("#!/bin/bash\necho failing\nexit %d", exitStatus)
+	content := fmt.Sprintf("#!/bin/bash --norc\necho failing\nexit %d", exitStatus)
 	filename := testing.HomePath(JujuPluginPrefix + name)
 	ioutil.WriteFile(filename, []byte(content), 0755)
 }
@@ -184,7 +193,7 @@ type PluginParams struct {
 	DependsOn  string
 }
 
-const pluginTemplate = `#!/bin/bash
+const pluginTemplate = `#!/bin/bash --norc
 
 if [ "$1" = "--description" ]; then
   if [ -n "{{.Creates}}" ]; then
@@ -211,6 +220,8 @@ if [ "$1" = "--debug" ]; then
 fi
 
 echo {{.Name}} $*
+echo "env is: " $JUJU_ENV
+echo "home is: " $JUJU_HOME
 exit {{.ExitStatus}}
 `
 

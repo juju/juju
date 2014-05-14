@@ -6,11 +6,12 @@ package jujuc_test
 import (
 	"fmt"
 
+	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
-	"launchpad.net/loggo"
 )
 
 type JujuLogSuite struct {
@@ -19,47 +20,56 @@ type JujuLogSuite struct {
 
 var _ = gc.Suite(&JujuLogSuite{})
 
-var commonLogTests = []struct {
-	debugFlag bool
-	level     loggo.Level
-}{
-	{false, loggo.INFO},
-	{true, loggo.DEBUG},
-}
-
-func assertLogs(c *gc.C, ctx jujuc.Context, badge string) {
-	loggo.ConfigureLoggers("juju=DEBUG")
-	writer := &loggo.TestWriter{}
-	old_writer, err := loggo.ReplaceDefaultWriter(writer)
-	c.Assert(err, gc.IsNil)
-	defer loggo.ReplaceDefaultWriter(old_writer)
+func assertLogs(c *gc.C, ctx jujuc.Context, writer *loggo.TestWriter, unitname, badge string) {
 	msg1 := "the chickens"
 	msg2 := "are 110% AWESOME"
 	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, gc.IsNil)
-	for _, t := range commonLogTests {
+	for _, t := range []struct {
+		args  []string
+		level loggo.Level
+	}{
+		{
+			level: loggo.INFO,
+		}, {
+			args:  []string{"--debug"},
+			level: loggo.DEBUG,
+		}, {
+			args:  []string{"--log-level", "TRACE"},
+			level: loggo.TRACE,
+		}, {
+			args:  []string{"--log-level", "info"},
+			level: loggo.INFO,
+		}, {
+			args:  []string{"--log-level", "WaRnInG"},
+			level: loggo.WARNING,
+		}, {
+			args:  []string{"--log-level", "error"},
+			level: loggo.ERROR,
+		},
+	} {
 		writer.Clear()
 		c.Assert(err, gc.IsNil)
 
-		var args []string
-		if t.debugFlag {
-			args = []string{"--debug", msg1, msg2}
-		} else {
-			args = []string{msg1, msg2}
-		}
+		args := append(t.args, msg1, msg2)
 		code := cmd.Main(com, &cmd.Context{}, args)
 		c.Assert(code, gc.Equals, 0)
 		c.Assert(writer.Log, gc.HasLen, 1)
 		c.Assert(writer.Log[0].Level, gc.Equals, t.level)
-		c.Assert(writer.Log[0].Message, gc.Equals, fmt.Sprintf("%s: %s %s", badge, msg1, msg2))
+		c.Assert(writer.Log[0].Module, gc.Equals, fmt.Sprintf("unit.%s.juju-log", unitname))
+		c.Assert(writer.Log[0].Message, gc.Equals, fmt.Sprintf("%s%s %s", badge, msg1, msg2))
 	}
 }
 
 func (s *JujuLogSuite) TestBadges(c *gc.C) {
+	tw := &loggo.TestWriter{}
+	_, err := loggo.ReplaceDefaultWriter(tw)
+	loggo.GetLogger("unit").SetLogLevel(loggo.TRACE)
+	c.Assert(err, gc.IsNil)
 	hctx := s.GetHookContext(c, -1, "")
-	assertLogs(c, hctx, "u/0")
+	assertLogs(c, hctx, tw, "u/0", "")
 	hctx = s.GetHookContext(c, 1, "u/1")
-	assertLogs(c, hctx, "u/0 peer1:1")
+	assertLogs(c, hctx, tw, "u/0", "peer1:1: ")
 }
 
 func newJujuLogCommand(c *gc.C) cmd.Command {

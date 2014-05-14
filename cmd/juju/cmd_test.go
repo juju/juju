@@ -4,18 +4,20 @@
 package main
 
 import (
-	"bytes"
+	"io"
+	"io/ioutil"
 	"os"
 	"reflect"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
 )
 
 type CmdSuite struct {
@@ -34,7 +36,7 @@ environments:
         state-server: false
         admin-secret: arble
         authorized-keys: i-am-a-key
-        default-series: defaultseries
+        default-series: raring
     walthamstow:
         type: dummy
         state-server: false
@@ -67,26 +69,25 @@ func testInit(c *gc.C, com cmd.Command, args []string, errPat string) {
 	}
 }
 
-// assertConnName asserts that the Command is using
+// assertEnvName asserts that the Command is using
 // the given environment name.
 // Since every command has a different type,
 // we use reflection to look at the value of the
 // Conn field in the value.
-func assertConnName(c *gc.C, com cmd.Command, name string) {
+func assertEnvName(c *gc.C, com cmd.Command, name string) {
 	v := reflect.ValueOf(com).Elem().FieldByName("EnvName")
-	c.Assert(v, checkers.Satisfies, reflect.Value.IsValid)
+	c.Assert(v, jc.Satisfies, reflect.Value.IsValid)
 	c.Assert(v.Interface(), gc.Equals, name)
 }
 
 // All members of EnvironmentInitTests are tested for the -environment and -e
 // flags, and that extra arguments will cause parsing to fail.
-var EnvironmentInitTests = []func() (cmd.Command, []string){
-	func() (cmd.Command, []string) { return new(BootstrapCommand), nil },
-	func() (cmd.Command, []string) { return new(DestroyEnvironmentCommand), nil },
-	func() (cmd.Command, []string) {
+var EnvironmentInitTests = []func() (envcmd.EnvironCommand, []string){
+	func() (envcmd.EnvironCommand, []string) { return new(BootstrapCommand), nil },
+	func() (envcmd.EnvironCommand, []string) {
 		return new(DeployCommand), []string{"charm-name", "service-name"}
 	},
-	func() (cmd.Command, []string) { return new(StatusCommand), nil },
+	func() (envcmd.EnvironCommand, []string) { return new(StatusCommand), nil },
 }
 
 // TestEnvironmentInit tests that all commands which accept
@@ -96,33 +97,40 @@ func (*CmdSuite) TestEnvironmentInit(c *gc.C) {
 	for i, cmdFunc := range EnvironmentInitTests {
 		c.Logf("test %d", i)
 		com, args := cmdFunc()
-		testInit(c, com, args, "")
-		assertConnName(c, com, "")
+		testInit(c, envcmd.Wrap(com), args, "")
+		assertEnvName(c, com, "peckham")
 
 		com, args = cmdFunc()
-		testInit(c, com, append(args, "-e", "walthamstow"), "")
-		assertConnName(c, com, "walthamstow")
+		testInit(c, envcmd.Wrap(com), append(args, "-e", "walthamstow"), "")
+		assertEnvName(c, com, "walthamstow")
 
 		com, args = cmdFunc()
-		testInit(c, com, append(args, "--environment", "walthamstow"), "")
-		assertConnName(c, com, "walthamstow")
+		testInit(c, envcmd.Wrap(com), append(args, "--environment", "walthamstow"), "")
+		assertEnvName(c, com, "walthamstow")
 
 		// JUJU_ENV is the final place the environment can be overriden
 		com, args = cmdFunc()
-		oldenv := os.Getenv(osenv.JujuEnv)
-		os.Setenv(osenv.JujuEnv, "walthamstow")
-		testInit(c, com, args, "")
-		os.Setenv(osenv.JujuEnv, oldenv)
-		assertConnName(c, com, "walthamstow")
-
-		com, args = cmdFunc()
-		if _, ok := com.(*StatusCommand); !ok {
-			testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
-		}
+		oldenv := os.Getenv(osenv.JujuEnvEnvKey)
+		os.Setenv(osenv.JujuEnvEnvKey, "walthamstow")
+		testInit(c, envcmd.Wrap(com), args, "")
+		os.Setenv(osenv.JujuEnvEnvKey, oldenv)
+		assertEnvName(c, com, "walthamstow")
 	}
 }
 
+func nullContext(c *gc.C) *cmd.Context {
+	ctx, err := cmd.DefaultContext()
+	c.Assert(err, gc.IsNil)
+	ctx.Stdin = io.LimitReader(nil, 0)
+	ctx.Stdout = ioutil.Discard
+	ctx.Stderr = ioutil.Discard
+	return ctx
+}
+
 func runCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
+	if ctx == nil {
+		panic("ctx == nil")
+	}
 	errc = make(chan error, 1)
 	opc = make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
@@ -136,78 +144,10 @@ func runCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dum
 			return
 		}
 
-		if ctx == nil {
-			ctx = cmd.DefaultContext()
-		}
 		err = com.Run(ctx)
 		errc <- err
 	}()
 	return
-}
-
-func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
-	// normal destroy
-	opc, errc := runCommand(nil, new(DestroyEnvironmentCommand), "--yes")
-	c.Check(<-errc, gc.IsNil)
-	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "peckham")
-
-	// destroy with broken environment
-	opc, errc = runCommand(nil, new(DestroyEnvironmentCommand), "--yes", "-e", "brokenenv")
-	c.Check(<-opc, gc.IsNil)
-	c.Check(<-errc, gc.ErrorMatches, "dummy.Destroy is broken")
-	c.Check(<-opc, gc.IsNil)
-}
-
-func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
-	com := new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, nil), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, false)
-
-	com = new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, []string{"-y"}), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, true)
-
-	com = new(DestroyEnvironmentCommand)
-	c.Check(coretesting.InitCommand(com, []string{"--yes"}), gc.IsNil)
-	c.Check(com.assumeYes, gc.Equals, true)
-
-	var stdin, stdout bytes.Buffer
-	ctx := cmd.DefaultContext()
-	ctx.Stdout = &stdout
-	ctx.Stdin = &stdin
-
-	// Ensure confirmation is requested if "-y" is not specified.
-	stdin.WriteString("n")
-	opc, errc := runCommand(ctx, new(DestroyEnvironmentCommand))
-	c.Check(<-errc, gc.ErrorMatches, "Environment destruction aborted")
-	c.Check(<-opc, gc.IsNil)
-	c.Check(stdout.String(), gc.Matches, "WARNING:.*peckham.*\\(type: dummy\\)(.|\n)*")
-
-	// EOF on stdin: equivalent to answering no.
-	stdin.Reset()
-	stdout.Reset()
-	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand))
-	c.Check(<-opc, gc.IsNil)
-	c.Check(<-errc, gc.ErrorMatches, "Environment destruction aborted")
-
-	// "--yes" passed: no confirmation request.
-	stdin.Reset()
-	stdout.Reset()
-	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand), "--yes")
-	c.Check(<-errc, gc.IsNil)
-	c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "peckham")
-	c.Check(stdout.String(), gc.Equals, "")
-
-	// Any of casing of "y" and "yes" will confirm.
-	for _, answer := range []string{"y", "Y", "yes", "YES"} {
-		stdin.Reset()
-		stdout.Reset()
-		stdin.WriteString(answer)
-		opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand))
-		c.Check(<-errc, gc.IsNil)
-		c.Check((<-opc).(dummy.OpDestroy).Env, gc.Equals, "peckham")
-		c.Check(stdout.String(), gc.Matches, "WARNING:.*peckham.*\\(type: dummy\\)(.|\n)*")
-	}
 }
 
 var deployTests = []struct {
@@ -248,16 +188,17 @@ func initExpectations(com *DeployCommand) {
 	if com.RepoPath == "" {
 		com.RepoPath = "/path/to/repo"
 	}
+	com.EnvCommandBase.EnvName = "peckham"
 }
 
 func initDeployCommand(args ...string) (*DeployCommand, error) {
 	com := &DeployCommand{}
-	return com, coretesting.InitCommand(com, args)
+	return com, coretesting.InitCommand(envcmd.Wrap(com), args)
 }
 
 func (*CmdSuite) TestDeployCommandInit(c *gc.C) {
-	defer os.Setenv(osenv.JujuRepository, os.Getenv(osenv.JujuRepository))
-	os.Setenv(osenv.JujuRepository, "/path/to/repo")
+	defer os.Setenv(osenv.JujuRepositoryEnvKey, os.Getenv(osenv.JujuRepositoryEnvKey))
+	os.Setenv(osenv.JujuRepositoryEnvKey, "/path/to/repo")
 
 	for _, t := range deployTests {
 		initExpectations(t.com)
@@ -342,7 +283,7 @@ func initSSHCommand(args ...string) (*SSHCommand, error) {
 func (*CmdSuite) TestSSHCommandInit(c *gc.C) {
 	// missing args
 	_, err := initSSHCommand()
-	c.Assert(err, gc.ErrorMatches, "no service name specified")
+	c.Assert(err, gc.ErrorMatches, "no target name specified")
 }
 
 func initSCPCommand(args ...string) (*SCPCommand, error) {
@@ -409,16 +350,27 @@ func (*CmdSuite) TestSetCommandInit(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot specify --config when using key=value arguments")
 }
 
-func initDestroyUnitCommand(args ...string) (*DestroyUnitCommand, error) {
-	com := &DestroyUnitCommand{}
+func initUnsetCommand(args ...string) (*UnsetCommand, error) {
+	com := &UnsetCommand{}
 	return com, coretesting.InitCommand(com, args)
 }
 
-func (*CmdSuite) TestDestroyUnitCommandInit(c *gc.C) {
+func (*CmdSuite) TestUnsetCommandInit(c *gc.C) {
 	// missing args
-	_, err := initDestroyUnitCommand()
+	_, err := initUnsetCommand()
+	c.Assert(err, gc.ErrorMatches, "no service name specified")
+}
+
+func initRemoveUnitCommand(args ...string) (*RemoveUnitCommand, error) {
+	com := &RemoveUnitCommand{}
+	return com, coretesting.InitCommand(com, args)
+}
+
+func (*CmdSuite) TestRemoveUnitCommandInit(c *gc.C) {
+	// missing args
+	_, err := initRemoveUnitCommand()
 	c.Assert(err, gc.ErrorMatches, "no units specified")
 	// not a unit
-	_, err = initDestroyUnitCommand("seven/nine")
+	_, err = initRemoveUnitCommand("seven/nine")
 	c.Assert(err, gc.ErrorMatches, `invalid unit name "seven/nine"`)
 }

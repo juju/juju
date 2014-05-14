@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	ContainerSnippet = "(/[a-z]+/" + NumberSnippet + ")"
-	MachineSnippet   = NumberSnippet + ContainerSnippet + "*"
+	ContainerTypeSnippet = "[a-z]+"
+	ContainerSnippet     = "(/" + ContainerTypeSnippet + "/" + NumberSnippet + ")"
+	MachineSnippet       = NumberSnippet + ContainerSnippet + "*"
 )
 
 var validMachine = regexp.MustCompile("^" + MachineSnippet + "$")
@@ -18,6 +19,11 @@ var validMachine = regexp.MustCompile("^" + MachineSnippet + "$")
 // IsMachine returns whether id is a valid machine id.
 func IsMachine(id string) bool {
 	return validMachine.MatchString(id)
+}
+
+// IsContainerMachine returns whether id is a valid container machine id.
+func IsContainerMachine(id string) bool {
+	return validMachine.MatchString(id) && strings.Contains(id, "/")
 }
 
 // MachineTag returns the tag for the machine with the given id.

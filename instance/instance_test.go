@@ -5,6 +5,7 @@ package instance_test
 
 import (
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/instance"
 )
 
@@ -48,8 +49,8 @@ var parseHardwareTests = []struct {
 		summary: "set arch i386",
 		args:    []string{"arch=i386"},
 	}, {
-		summary: "set arch arm",
-		args:    []string{"arch=arm"},
+		summary: "set arch armhf",
+		args:    []string{"arch=armhf"},
 	}, {
 		summary: "set nonsense arch 1",
 		args:    []string{"arch=cheese"},
@@ -64,7 +65,7 @@ var parseHardwareTests = []struct {
 		err:     `bad "arch" characteristic: already set`,
 	}, {
 		summary: "double set arch separately",
-		args:    []string{"arch=arm", "arch="},
+		args:    []string{"arch=armhf", "arch="},
 		err:     `bad "arch" characteristic: already set`,
 	},
 
@@ -222,7 +223,7 @@ var parseHardwareTests = []struct {
 		args:    []string{" root-disk=4G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"root-disk=4G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm"},
+		args:    []string{"root-disk=4G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf"},
 	},
 }
 
@@ -239,5 +240,27 @@ func (s *HardwareSuite) TestParseHardware(c *gc.C) {
 		cons1, err := instance.ParseHardware(hwc.String())
 		c.Assert(err, gc.IsNil)
 		c.Assert(cons1, gc.DeepEquals, hwc)
+	}
+}
+
+type PortsSuite struct{}
+
+var _ = gc.Suite(&PortsSuite{})
+
+var sortPortsTests = []struct {
+	have, want []instance.Port
+}{
+	{nil, []instance.Port{}},
+	{[]instance.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []instance.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+}
+
+func (*PortsSuite) TestSortPorts(c *gc.C) {
+	for _, t := range sortPortsTests {
+		p := make([]instance.Port, len(t.have))
+		copy(p, t.have)
+		instance.SortPorts(p)
+		c.Check(p, gc.DeepEquals, t.want)
+		instance.SortPorts(p)
+		c.Check(p, gc.DeepEquals, t.want)
 	}
 }

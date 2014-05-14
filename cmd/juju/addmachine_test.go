@@ -5,13 +5,17 @@ package main
 
 import (
 	"fmt"
+	"strconv"
+
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"strconv"
 )
 
 type AddMachineSuite struct {
@@ -21,7 +25,7 @@ type AddMachineSuite struct {
 var _ = gc.Suite(&AddMachineSuite{})
 
 func runAddMachine(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &AddMachineCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&AddMachineCommand{}), args)
 	return err
 }
 
@@ -34,8 +38,7 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	c.Assert(m.Series(), gc.DeepEquals, "precise")
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	expectedCons := constraints.Value{}
-	c.Assert(mcons, gc.DeepEquals, expectedCons)
+	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 }
 
 func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {
@@ -72,34 +75,50 @@ func (s *AddMachineSuite) _assertAddContainer(c *gc.C, parentId, containerId str
 }
 
 func (s *AddMachineSuite) TestAddContainerToNewMachine(c *gc.C) {
-	for i, ctype := range instance.SupportedContainerTypes {
-		err := runAddMachine(c, fmt.Sprintf("%s", ctype))
+	for i, ctype := range instance.ContainerTypes {
+		c.Logf("test %d: %s", i, ctype)
+		err := runAddMachine(c, string(ctype))
 		c.Assert(err, gc.IsNil)
-		s._assertAddContainer(c, strconv.Itoa(2*i), fmt.Sprintf("0/%s/0", ctype), ctype)
+		s._assertAddContainer(c, strconv.Itoa(i), fmt.Sprintf("%d/%s/0", i, ctype), ctype)
 	}
 }
 
 func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	err := runAddMachine(c)
 	c.Assert(err, gc.IsNil)
-	err = runAddMachine(c)
-	c.Assert(err, gc.IsNil)
-	for i, container := range instance.SupportedContainerTypes {
-		err := runAddMachine(c, fmt.Sprintf("%s:1", container))
+	for i, container := range instance.ContainerTypes {
+		machineNum := strconv.Itoa(i + 1)
+		err = runAddMachine(c)
 		c.Assert(err, gc.IsNil)
-		s._assertAddContainer(c, "1", fmt.Sprintf("1/%s/%d", container, i), container)
+		err := runAddMachine(c, fmt.Sprintf("%s:%s", container, machineNum))
+		c.Assert(err, gc.IsNil)
+		s._assertAddContainer(c, machineNum, fmt.Sprintf("%s/%s/0", machineNum, container), container)
 	}
+}
+
+func (s *AddMachineSuite) TestAddUnsupportedContainerToMachine(c *gc.C) {
+	err := runAddMachine(c)
+	c.Assert(err, gc.IsNil)
+	m, err := s.State.Machine("0")
+	c.Assert(err, gc.IsNil)
+	m.SetSupportedContainers([]instance.ContainerType{instance.KVM})
+	err = runAddMachine(c, "lxc:0")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxc containers")
 }
 
 func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
 	err := runAddMachine(c, ":lxc")
-	c.Assert(err, gc.ErrorMatches, `malformed container argument ":lxc"`)
+	c.Check(err, gc.ErrorMatches, `cannot add a new machine: :lxc placement is invalid`)
 	err = runAddMachine(c, "lxc:")
-	c.Assert(err, gc.ErrorMatches, `malformed container argument "lxc:"`)
+	c.Check(err, gc.ErrorMatches, `invalid value "" for "lxc" scope: expected machine-id`)
 	err = runAddMachine(c, "2")
-	c.Assert(err, gc.ErrorMatches, `malformed container argument "2"`)
+	c.Check(err, gc.ErrorMatches, `machine-id cannot be specified when adding machines`)
 	err = runAddMachine(c, "foo")
-	c.Assert(err, gc.ErrorMatches, `malformed container argument "foo"`)
+	c.Check(err, gc.ErrorMatches, `cannot add a new machine: foo placement is invalid`)
+	err = runAddMachine(c, "foo:bar")
+	c.Check(err, gc.ErrorMatches, `invalid environment name "foo"`)
+	err = runAddMachine(c, "dummyenv:invalid")
+	c.Check(err, gc.ErrorMatches, `cannot add a new machine: invalid placement is invalid`)
 	err = runAddMachine(c, "lxc", "--constraints", "container=lxc")
-	c.Assert(err, gc.ErrorMatches, `container constraint "lxc" not allowed when adding a machine`)
+	c.Check(err, gc.ErrorMatches, `container constraint "lxc" not allowed when adding a machine`)
 }

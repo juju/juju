@@ -12,16 +12,20 @@ import (
 
 // Remover implements a common Remove method for use by various facades.
 type Remover struct {
-	st           state.EntityFinder
-	getCanModify GetAuthFunc
+	st             state.EntityFinder
+	callEnsureDead bool
+	getCanModify   GetAuthFunc
 }
 
-// NewRemover returns a new Remover. The GetAuthFunc will be used on
-// each invocation of Remove to determine current permissions.
-func NewRemover(st state.EntityFinder, getCanModify GetAuthFunc) *Remover {
+// NewRemover returns a new Remover. The callEnsureDead flag specifies
+// whether EnsureDead should be called on an entity before
+// removing. The GetAuthFunc will be used on each invocation of Remove
+// to determine current permissions.
+func NewRemover(st state.EntityFinder, callEnsureDead bool, getCanModify GetAuthFunc) *Remover {
 	return &Remover{
-		st:           st,
-		getCanModify: getCanModify,
+		st:             st,
+		callEnsureDead: callEnsureDead,
+		getCanModify:   getCanModify,
 	}
 }
 
@@ -42,8 +46,10 @@ func (r *Remover) removeEntity(tag string) error {
 	if life := remover.Life(); life == state.Alive {
 		return fmt.Errorf("cannot remove entity %q: still alive", tag)
 	}
-	if err = remover.EnsureDead(); err != nil {
-		return err
+	if r.callEnsureDead {
+		if err := remover.EnsureDead(); err != nil {
+			return err
+		}
 	}
 	return remover.Remove()
 }

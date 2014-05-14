@@ -9,16 +9,17 @@ import (
 	"strings"
 	"text/template"
 
+	"launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 )
 
@@ -31,68 +32,34 @@ func init() {
 	testRoundTripper.RegisterForScheme("test")
 }
 
-var origMetadataHost = metadataHost
-
-var metadataContent = `"availability_zone": "nova", "hostname": "test.novalocal", ` +
-	`"launch_index": 0, "meta": {"priority": "low", "role": "webserver"}, ` +
-	`"public_keys": {"mykey": "ssh-rsa fake-key\n"}, "name": "test"}`
-
-// A group of canned responses for the "metadata server". These match
-// reasonably well with the results of making those requests on a Folsom+
-// Openstack service
-var MetadataTesting = map[string]string{
-	"/latest/meta-data/local-ipv4":         "10.1.1.2",
-	"/latest/meta-data/public-ipv4":        "203.1.1.2",
-	"/openstack/2012-08-10/meta_data.json": metadataContent,
-}
-
-// Set Metadata requests to be served by the filecontent supplied.
-func UseTestMetadata(metadata map[string]string) {
-	if len(metadata) != 0 {
-		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(metadata, nil)
-		metadataHost = "test:"
-	} else {
-		testRoundTripper.Sub = nil
-		metadataHost = origMetadataHost
-	}
-}
-
 var (
 	ShortAttempt   = &shortAttempt
 	StorageAttempt = &storageAttempt
 )
 
-func SetFakeToolsStorage(useFake bool) {
-	if useFake {
-		tools.SetToolPrefix("tools_test/juju-")
-	} else {
-		tools.SetToolPrefix(tools.DefaultToolPrefix)
-	}
-}
-
-// WritablePublicStorage returns a Storage instance which is authorised to write to the PublicStorage bucket.
-// It is used by tests which need to upload files.
-func WritablePublicStorage(e environs.Environ) environs.Storage {
+// MetadataStorage returns a Storage instance which is used to store simplestreams metadata for tests.
+func MetadataStorage(e environs.Environ) storage.Storage {
 	ecfg := e.(*environ).ecfg()
 	authModeCfg := AuthMode(ecfg.authMode())
-	writablePublicStorage := &storage{
-		containerName: ecfg.publicBucket(),
+	container := "juju-dist-test"
+	metadataStorage := &openstackstorage{
+		containerName: container,
 		swift:         swift.New(e.(*environ).authClient(ecfg, authModeCfg)),
 	}
 
 	// Ensure the container exists.
-	err := writablePublicStorage.makeContainer(ecfg.publicBucket(), swift.PublicRead)
+	err := metadataStorage.makeContainer(container, swift.PublicRead)
 	if err != nil {
-		panic(fmt.Errorf("cannot create writable public container: %v", err))
+		panic(fmt.Errorf("cannot create %s container: %v", container, err))
 	}
-	return writablePublicStorage
+	return metadataStorage
 }
 
 func InstanceAddress(addresses map[string][]nova.IPAddress) string {
 	return instance.SelectPublicAddress(convertNovaAddresses(addresses))
 }
 
-var publicBucketIndexData = `
+var indexData = `
 		{
 		 "index": {
 		  "com.ubuntu.cloud:released:openstack": {
@@ -119,7 +86,7 @@ var publicBucketIndexData = `
 		}
 `
 
-var publicBucketImagesData = `
+var imagesData = `
 {
  "content_id": "com.ubuntu.cloud:released:openstack",
  "products": {
@@ -156,6 +123,25 @@ var publicBucketImagesData = `
            }
          },
          "pubname": "ubuntu-precise-12.04-amd64-server-20121111",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.04:ppc64": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "ppc64",
+     "versions": {
+       "20121111": {
+         "items": {
+           "inst33": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "33"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-ppc64-server-20121111",
          "label": "release"
        }
      }
@@ -217,22 +203,41 @@ var publicBucketImagesData = `
 
 const productMetadatafile = "image-metadata/products.json"
 
-func UseTestImageData(e environs.Environ, cred *identity.Credentials) {
+func UseTestImageData(stor storage.Storage, cred *identity.Credentials) {
 	// Put some image metadata files into the public storage.
-	t := template.Must(template.New("").Parse(publicBucketIndexData))
+	t := template.Must(template.New("").Parse(indexData))
 	var metadata bytes.Buffer
 	if err := t.Execute(&metadata, cred); err != nil {
 		panic(fmt.Errorf("cannot generate index metdata: %v", err))
 	}
 	data := metadata.Bytes()
-	WritablePublicStorage(e).Put(simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
-	WritablePublicStorage(e).Put(
-		productMetadatafile, strings.NewReader(publicBucketImagesData), int64(len(publicBucketImagesData)))
+	stor.Put(simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
+	stor.Put(
+		productMetadatafile, strings.NewReader(imagesData), int64(len(imagesData)))
 }
 
-func RemoveTestImageData(e environs.Environ) {
-	WritablePublicStorage(e).Remove(simplestreams.DefaultIndexPath + ".json")
-	WritablePublicStorage(e).Remove(productMetadatafile)
+func RemoveTestImageData(stor storage.Storage) {
+	stor.Remove(simplestreams.DefaultIndexPath + ".json")
+	stor.Remove(productMetadatafile)
+}
+
+// DiscardSecurityGroup cleans up a security group, it is not an error to
+// delete something that doesn't exist.
+func DiscardSecurityGroup(e environs.Environ, name string) error {
+	env := e.(*environ)
+	novaClient := env.nova()
+	group, err := novaClient.SecurityGroupByName(name)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// Group already deleted, done
+			return nil
+		}
+	}
+	err = novaClient.DeleteSecurityGroup(group.Id)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
@@ -246,8 +251,9 @@ func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *inst
 	return
 }
 
-func GetImageURLs(e environs.Environ) ([]string, error) {
-	return e.(*environ).getImageBaseURLs()
+func ControlBucketName(e environs.Environ) string {
+	env := e.(*environ)
+	return env.ecfg().controlBucket()
 }
 
 func GetSwiftURL(e environs.Environ) (string, error) {
@@ -259,10 +265,47 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env.ecfg().attrs["use-floating-ip"] = val
 }
 
+func SetUpGlobalGroup(e environs.Environ, name string, statePort, apiPort int) (nova.SecurityGroup, error) {
+	return e.(*environ).setUpGlobalGroup(name, statePort, apiPort)
+}
+
 func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	return e.(*environ).ensureGroup(name, rules)
 }
 
 func CollectInstances(e environs.Environ, ids []instance.Id, out map[instance.Id]instance.Instance) []instance.Id {
 	return e.(*environ).collectInstances(ids, out)
+}
+
+// ImageMetadataStorage returns a Storage object pointing where the goose
+// infrastructure sets up its keystone entry for image metadata
+func ImageMetadataStorage(e environs.Environ) storage.Storage {
+	env := e.(*environ)
+	return &openstackstorage{
+		containerName: "imagemetadata",
+		swift:         swift.New(env.client),
+	}
+}
+
+// CreateCustomStorage creates a swift container and returns the Storage object
+// so you can put data into it.
+func CreateCustomStorage(e environs.Environ, containerName string) storage.Storage {
+	env := e.(*environ)
+	swiftClient := swift.New(env.client)
+	if err := swiftClient.CreateContainer(containerName, swift.PublicRead); err != nil {
+		panic(err)
+	}
+	return &openstackstorage{
+		containerName: containerName,
+		swift:         swiftClient,
+	}
+}
+
+func GetNovaClient(e environs.Environ) *nova.Client {
+	return e.(*environ).nova()
+}
+
+// ResolveNetwork exposes environ helper function resolveNetwork for testing
+func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
+	return e.(*environ).resolveNetwork(networkName)
 }

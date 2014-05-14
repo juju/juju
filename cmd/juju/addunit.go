@@ -10,9 +10,8 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
@@ -44,15 +43,23 @@ func (c *UnitCommandBase) Init(args []string) error {
 
 // AddUnitCommand is responsible adding additional units to a service.
 type AddUnitCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	UnitCommandBase
 	ServiceName string
 }
 
 const addUnitDoc = `
-Service units can be added to a specific machine using the --to argument.
+Adding units to an existing service is a way to scale out an environment by
+deploying more instances of a service.  Add-unit must be called on services that
+have already been deployed via juju deploy.  
+
+By default, services are deployed to newly provisioned machines.  Alternatively,
+service units can be added to a specific existing machine using the --to
+argument.
+
 Examples:
- juju add-unit mysql --to 23       (Add unit to machine 23)
+ juju add-unit mysql -n 5          (Add 5 mysql units on 5 new machines)
+ juju add-unit mysql --to 23       (Add a mysql unit to machine 23)
  juju add-unit mysql --to 24/lxc/3 (Add unit to lxc container 3 on host machine 24)
  juju add-unit mysql --to lxc:25   (Add unit to a new lxc container on host machine 25)
 `
@@ -61,13 +68,12 @@ func (c *AddUnitCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-unit",
 		Args:    "<service name>",
-		Purpose: "add a service unit",
+		Purpose: "add one or more units of an already-deployed service",
 		Doc:     addUnitDoc,
 	}
 }
 
 func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to add")
 }
@@ -86,19 +92,14 @@ func (c *AddUnitCommand) Init(args []string) error {
 }
 
 // Run connects to the environment specified on the command line
-// and calls conn.AddUnits.
+// and calls AddServiceUnits for the given service.
 func (c *AddUnitCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer apiclient.Close()
 
-	params := params.AddServiceUnits{
-		ServiceName:   c.ServiceName,
-		NumUnits:      c.NumUnits,
-		ToMachineSpec: c.ToMachineSpec,
-	}
-	_, err = statecmd.AddServiceUnits(conn.State, params)
+	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.ToMachineSpec)
 	return err
 }

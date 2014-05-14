@@ -5,23 +5,16 @@ package provisioner
 
 import (
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/watcher"
 )
 
-// exported so we can manually close the Provisioners underlying
-// state connection.
-func (p *Provisioner) CloseState() error {
-	return p.st.Close()
+func SetObserver(p Provisioner, observer chan<- *config.Config) {
+	ep := p.(*environProvisioner)
+	ep.Lock()
+	ep.observer = observer
+	ep.Unlock()
 }
 
-// exported so we can discover all machines visible to the
-// Provisioners state connection.
-func (p *Provisioner) AllMachines() ([]*state.Machine, error) {
-	return p.st.AllMachines()
-}
-
-func (o *configObserver) SetObserver(observer chan<- *config.Config) {
-	o.Lock()
-	o.observer = observer
-	o.Unlock()
+func GetRetryWatcher(p Provisioner) (watcher.NotifyWatcher, error) {
+	return p.getRetryWatcher()
 }

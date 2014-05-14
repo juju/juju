@@ -4,42 +4,22 @@
 package testing
 
 import (
-	"os"
-
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type GitSuite struct {
-	oldValues map[string]string
+	testbase.LoggingSuite
 }
 
-// We ensure that Git is told about the user name and email if the setup under which the
-// tests are run does not already provide that information. These git env variables are used for
-// that purpose.
-var gitEnvVars = []string{
-	"GIT_AUTHOR_NAME",
-	"GIT_AUTHOR_EMAIL",
-	"GIT_COMMITTER_NAME",
-	"GIT_COMMITTER_EMAIL",
-}
+func (t *GitSuite) SetUpTest(c *gc.C) {
+	t.LoggingSuite.SetUpTest(c)
 
-func (t *GitSuite) SetUpTest(c *C) {
-	t.oldValues = make(map[string]string)
-	for _, v := range gitEnvVars {
-		t.oldValues[v] = os.Getenv(v)
-	}
-	if t.oldValues["GIT_AUTHOR_NAME"] == "" {
-		os.Setenv("GIT_AUTHOR_NAME", "Foo Bar")
-	}
-	if t.oldValues["GIT_AUTHOR_EMAIL"] == "" {
-		os.Setenv("GIT_AUTHOR_EMAIL", "foo@example.org")
-	}
-	os.Setenv("GIT_COMMITTER_NAME", "$GIT_AUTHOR_NAME")
-	os.Setenv("GIT_COMMITTER_EMAIL", "$GIT_AUTHOR_EMAIL")
-}
+	t.PatchEnvironment("HOME", c.MkDir())
+	t.PatchEnvironment("LC_ALL", "C")
 
-func (t *GitSuite) TearDownTest(c *C) {
-	for k, v := range t.oldValues {
-		os.Setenv(k, v)
-	}
+	t.PatchEnvironment("GIT_AUTHOR_NAME", "Foo Bar")
+	t.PatchEnvironment("GIT_AUTHOR_EMAIL", "foo@example.org")
+	t.PatchEnvironment("GIT_COMMITTER_NAME", "Foo Bar")
+	t.PatchEnvironment("GIT_COMMITTER_EMAIL", "foo@example.org")
 }

@@ -8,12 +8,15 @@ import (
 	"net/http"
 	"time"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/agent"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/watcher"
+	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -21,31 +24,6 @@ import (
 // when a failed download should be retried.
 var retryAfter = func() <-chan time.Time {
 	return time.After(5 * time.Second)
-}
-
-// UpgradeReadyError is returned by an Upgrader to report that
-// an upgrade is ready to be performed and a restart is due.
-type UpgradeReadyError struct {
-	AgentName string
-	OldTools  *tools.Tools
-	NewTools  *tools.Tools
-	DataDir   string
-}
-
-func (e *UpgradeReadyError) Error() string {
-	return "must restart: an agent upgrade is available"
-}
-
-// ChangeAgentTools does the actual agent upgrade.
-// It should be called just before an agent exits, so that
-// it will restart running the new tools.
-func (e *UpgradeReadyError) ChangeAgentTools() error {
-	tools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Version)
-	if err != nil {
-		return err
-	}
-	logger.Infof("upgraded from %v to %v (%q)", e.OldTools.Version, tools.Version, tools.URL)
-	return nil
 }
 
 var logger = loggo.GetLogger("juju.worker.upgrader")
@@ -59,18 +37,17 @@ type Upgrader struct {
 	tag     string
 }
 
-// New returns a new upgrader worker. It watches changes to the
-// current version of the current agent (with the given tag)
-// and tries to download the tools for any new version
-// into the given data directory.
-// If an upgrade is needed, the worker will exit with an
-// UpgradeReadyError holding details of the requested upgrade. The tools
-// will have been downloaded and unpacked.
-func New(st *upgrader.State, tag, dataDir string) *Upgrader {
+// NewUpgrader returns a new upgrader worker. It watches changes to the
+// current version of the current agent (with the given tag) and tries to
+// download the tools for any new version into the given data directory.  If
+// an upgrade is needed, the worker will exit with an UpgradeReadyError
+// holding details of the requested upgrade. The tools will have been
+// downloaded and unpacked.
+func NewUpgrader(st *upgrader.State, agentConfig agent.Config) *Upgrader {
 	u := &Upgrader{
 		st:      st,
-		dataDir: dataDir,
-		tag:     tag,
+		dataDir: agentConfig.DataDir(),
+		tag:     agentConfig.Tag(),
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -96,18 +73,21 @@ func (u *Upgrader) Stop() error {
 	return u.Wait()
 }
 
-func (u *Upgrader) loop() error {
-	currentTools, err := tools.ReadTools(u.dataDir, version.Current)
-	if err != nil {
-		// Don't abort everything because we can't find the tools directory.
-		// The problem should sort itself out as we will immediately
-		// download some more tools and upgrade.
-		logger.Warningf("cannot read current tools: %v", err)
-		currentTools = &tools.Tools{
-			Version: version.Current,
-		}
+// allowedTargetVersion checks if targetVersion is too different from
+// curVersion to allow a downgrade.
+func allowedTargetVersion(curVersion, targetVersion version.Number) bool {
+	if targetVersion.Major < curVersion.Major {
+		return false
 	}
-	err = u.st.SetTools(u.tag, currentTools)
+	if targetVersion.Major == curVersion.Major && targetVersion.Minor < curVersion.Minor {
+		return false
+	}
+	return true
+}
+
+func (u *Upgrader) loop() error {
+	currentTools := &coretools.Tools{Version: version.Current}
+	err := u.st.SetVersion(u.tag, currentTools.Version)
 	if err != nil {
 		return err
 	}
@@ -122,49 +102,76 @@ func (u *Upgrader) loop() error {
 	// initial event from the API version watcher, thus ensuring
 	// that we attempt an upgrade even if other workers are dying
 	// all around us.
-	var dying <-chan struct{}
-	var wantTools *tools.Tools
+	var (
+		dying                <-chan struct{}
+		wantTools            *coretools.Tools
+		wantVersion          version.Number
+		hostnameVerification utils.SSLHostnameVerification
+	)
 	for {
 		select {
 		case _, ok := <-changes:
 			if !ok {
 				return watcher.MustErr(versionWatcher)
 			}
-			wantTools, err = u.st.Tools(u.tag)
+			wantVersion, err = u.st.DesiredVersion(u.tag)
 			if err != nil {
 				return err
 			}
-			logger.Infof("required tools: %v", wantTools.Version)
+			logger.Infof("desired tool version: %v", wantVersion)
 			dying = u.tomb.Dying()
 		case <-retry:
 		case <-dying:
 			return nil
 		}
-		if wantTools.Version.Number != currentTools.Version.Number {
-			logger.Infof("upgrade required from %v to %v", currentTools.Version, wantTools.Version)
-			// The worker cannot be stopped while we're downloading
-			// the tools - this means that even if the API is going down
-			// repeatedly (causing the agent to be stopped), as long
-			// as we have got as far as this, we will still be able to
-			// upgrade the agent.
-			err := u.fetchTools(wantTools)
-			if err == nil {
-				return &UpgradeReadyError{
-					OldTools:  currentTools,
-					NewTools:  wantTools,
-					AgentName: u.tag,
-					DataDir:   u.dataDir,
-				}
-			}
-			logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
-			retry = retryAfter()
+		if wantVersion == currentTools.Version.Number {
+			continue
+		} else if !allowedTargetVersion(version.Current.Number, wantVersion) {
+			// See also bug #1299802 where when upgrading from
+			// 1.16 to 1.18 there is a race condition that can
+			// cause the unit agent to upgrade, and then want to
+			// downgrade when its associate machine agent has not
+			// finished upgrading.
+			logger.Infof("desired tool version: %s is older than current %s, refusing to downgrade",
+				wantVersion, version.Current)
+			continue
 		}
+		logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
+		// TODO(dimitern) 2013-10-03 bug #1234715
+		// Add a testing HTTPS storage to verify the
+		// disableSSLHostnameVerification behavior here.
+		wantTools, hostnameVerification, err = u.st.Tools(u.tag)
+		if err != nil {
+			// Not being able to lookup Tools is considered fatal
+			return err
+		}
+		// The worker cannot be stopped while we're downloading
+		// the tools - this means that even if the API is going down
+		// repeatedly (causing the agent to be stopped), as long
+		// as we have got as far as this, we will still be able to
+		// upgrade the agent.
+		err := u.ensureTools(wantTools, hostnameVerification)
+		if err == nil {
+			return &UpgradeReadyError{
+				OldTools:  version.Current,
+				NewTools:  wantTools.Version,
+				AgentName: u.tag,
+				DataDir:   u.dataDir,
+			}
+		}
+		logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
+		retry = retryAfter()
 	}
 }
 
-func (u *Upgrader) fetchTools(agentTools *tools.Tools) error {
+func (u *Upgrader) ensureTools(agentTools *coretools.Tools, hostnameVerification utils.SSLHostnameVerification) error {
+	if _, err := agenttools.ReadTools(u.dataDir, agentTools.Version); err == nil {
+		// Tools have already been downloaded
+		return nil
+	}
 	logger.Infof("fetching tools from %q", agentTools.URL)
-	resp, err := http.Get(agentTools.URL)
+	client := utils.GetHTTPClient(hostnameVerification)
+	resp, err := client.Get(agentTools.URL)
 	if err != nil {
 		return err
 	}
@@ -172,9 +179,10 @@ func (u *Upgrader) fetchTools(agentTools *tools.Tools) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad HTTP response: %v", resp.Status)
 	}
-	err = tools.UnpackTools(u.dataDir, agentTools, resp.Body)
+	err = agenttools.UnpackTools(u.dataDir, agentTools, resp.Body)
 	if err != nil {
 		return fmt.Errorf("cannot unpack tools: %v", err)
 	}
+	logger.Infof("unpacked tools %s to %s", agentTools.Version, u.dataDir)
 	return nil
 }

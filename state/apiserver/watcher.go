@@ -80,3 +80,33 @@ func (w *srvStringsWatcher) Next() (params.StringsWatchResult, error) {
 func (w *srvStringsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
+
+// srvRelationUnitsWatcher notifies about units entering and leaving
+// the scope of a RelationUnit, and changes to the settings of those
+// units known to have entered.
+type srvRelationUnitsWatcher struct {
+	watcher   state.RelationUnitsWatcher
+	id        string
+	resources *common.Resources
+}
+
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvRelationUnitsWatcher.
+func (w *srvRelationUnitsWatcher) Next() (params.RelationUnitsWatchResult, error) {
+	if changes, ok := <-w.watcher.Changes(); ok {
+		return params.RelationUnitsWatchResult{
+			Changes: changes,
+		}, nil
+	}
+	err := w.watcher.Err()
+	if err == nil {
+		err = common.ErrStoppedWatcher
+	}
+	return params.RelationUnitsWatchResult{}, err
+}
+
+// Stop stops the watcher.
+func (w *srvRelationUnitsWatcher) Stop() error {
+	return w.resources.Stop(w.id)
+}

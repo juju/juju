@@ -11,7 +11,6 @@ import (
 	"launchpad.net/lpad"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 )
 
 type PublishBranchError struct {
@@ -55,13 +54,13 @@ func PublishCharmsDistro(store *Store, apiBase lpad.APIBase) error {
 		burl, curl, err := uniqueNameURLs(tip.UniqueName)
 		if err != nil {
 			errs = append(errs, PublishBranchError{tip.UniqueName, err})
-			log.Errorf("%v\n", err)
+			logger.Errorf("%v", err)
 			continue
 		}
-		log.Infof("----- %s\n", burl)
+		logger.Infof("%s\n", burl)
 		if tip.Revision == "" {
 			errs = append(errs, PublishBranchError{burl, fmt.Errorf("branch has no revisions")})
-			log.Errorf("branch has no revisions\n")
+			logger.Errorf("branch has no revisions\n")
 			continue
 		}
 		// Charm is published in the personal URL and in any explicitly
@@ -69,7 +68,10 @@ func PublishCharmsDistro(store *Store, apiBase lpad.APIBase) error {
 		urls := []*charm.URL{curl}
 		schema, name := curl.Schema, curl.Name
 		for _, series := range tip.OfficialSeries {
-			curl = &charm.URL{Schema: schema, Name: name, Series: series, Revision: -1}
+			curl = &charm.URL{
+				Reference: charm.Reference{Schema: schema, Name: name, Revision: -1},
+				Series:    series,
+			}
 			curl.Series = series
 			curl.User = ""
 			urls = append(urls, curl)
@@ -81,7 +83,7 @@ func PublishCharmsDistro(store *Store, apiBase lpad.APIBase) error {
 		}
 		if err != nil {
 			errs = append(errs, PublishBranchError{burl, err})
-			log.Errorf("%v\n", err)
+			logger.Errorf("%v", err)
 		}
 	}
 	if errs != nil {

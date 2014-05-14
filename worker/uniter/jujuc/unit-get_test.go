@@ -5,11 +5,13 @@ package jujuc_test
 
 import (
 	"io/ioutil"
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
-	"path/filepath"
 )
 
 type UnitGetSuite struct {

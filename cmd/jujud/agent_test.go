@@ -4,22 +4,29 @@
 package main
 
 import (
-	"bytes"
 	stderrors "errors"
 	"fmt"
-	"net/http"
-	"os"
-	"path/filepath"
+	"net"
+	"strconv"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
+	envtesting "launchpad.net/juju-core/environs/testing"
+	envtools "launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/upgrader"
@@ -28,7 +35,7 @@ import (
 var _ = gc.Suite(&toolSuite{})
 
 type toolSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 }
 
 var errorImportanceTests = []error{
@@ -46,8 +53,118 @@ func (*toolSuite) TestErrorImportance(c *gc.C) {
 	}
 }
 
-func mkTools(s string) *tools.Tools {
-	return &tools.Tools{
+var isFatalTests = []struct {
+	err     error
+	isFatal bool
+}{{
+	err:     worker.ErrTerminateAgent,
+	isFatal: true,
+}, {
+	err:     &upgrader.UpgradeReadyError{},
+	isFatal: true,
+}, {
+	err: &params.Error{
+		Message: "blah",
+		Code:    params.CodeNotProvisioned,
+	},
+	isFatal: false,
+}, {
+	err:     &fatalError{"some fatal error"},
+	isFatal: true,
+}, {
+	err:     stderrors.New("foo"),
+	isFatal: false,
+}, {
+	err: &params.Error{
+		Message: "blah",
+		Code:    params.CodeNotFound,
+	},
+	isFatal: false,
+}}
+
+func (*toolSuite) TestIsFatal(c *gc.C) {
+	for i, test := range isFatalTests {
+		c.Logf("test %d: %s", i, test.err)
+		c.Assert(isFatal(test.err), gc.Equals, test.isFatal)
+	}
+}
+
+type apiOpenSuite struct {
+	testbase.LoggingSuite
+}
+
+type fakeAPIOpenConfig struct {
+	agent.Config
+}
+
+func (fakeAPIOpenConfig) APIInfo() *api.Info {
+	return &api.Info{}
+}
+
+func (fakeAPIOpenConfig) OldPassword() string {
+	return "old"
+}
+
+var _ = gc.Suite(&apiOpenSuite{})
+
+func (s *apiOpenSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
+	var apiError error
+	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
+		return nil, apiError
+	})
+	for i, test := range []struct {
+		openErr    error
+		replaceErr error
+	}{{
+		fmt.Errorf("blah"), nil,
+	}, {
+		openErr:    &params.Error{Code: params.CodeNotProvisioned},
+		replaceErr: worker.ErrTerminateAgent,
+	}, {
+		openErr:    &params.Error{Code: params.CodeUnauthorized},
+		replaceErr: worker.ErrTerminateAgent,
+	}} {
+		c.Logf("test %d", i)
+		apiError = test.openErr
+		_, _, err := openAPIState(fakeAPIOpenConfig{}, nil)
+		if test.replaceErr == nil {
+			c.Check(err, gc.Equals, test.openErr)
+		} else {
+			c.Check(err, gc.Equals, test.replaceErr)
+		}
+	}
+}
+
+type testPinger func() error
+
+func (f testPinger) Ping() error {
+	return f()
+}
+
+func (s *toolSuite) TestConnectionIsFatal(c *gc.C) {
+	var (
+		errPinger testPinger = func() error {
+			return stderrors.New("ping error")
+		}
+		okPinger testPinger = func() error {
+			return nil
+		}
+	)
+	for i, pinger := range []testPinger{errPinger, okPinger} {
+		for j, test := range isFatalTests {
+			c.Logf("test %d.%d: %s", i, j, test.err)
+			fatal := connectionIsFatal(pinger)(test.err)
+			if test.isFatal {
+				c.Check(fatal, jc.IsTrue)
+			} else {
+				c.Check(fatal, gc.Equals, i == 0)
+			}
+		}
+	}
+}
+
+func mkTools(s string) *coretools.Tools {
+	return &coretools.Tools{
 		Version: version.MustParseBinary(s + "-foo-bar"),
 	}
 }
@@ -97,7 +214,7 @@ func runWithTimeout(r runner) error {
 	select {
 	case err := <-done:
 		return err
-	case <-time.After(5 * time.Second):
+	case <-time.After(coretesting.LongWait):
 	}
 	err := r.Stop()
 	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
@@ -105,29 +222,125 @@ func runWithTimeout(r runner) error {
 
 // agentSuite is a fixture to be used by agent test suites.
 type agentSuite struct {
+	oldRestartDelay time.Duration
 	testing.JujuConnSuite
 }
 
-// primeAgent writes the configuration file and tools
-// for an agent with the given entity name.
-// It returns the agent's configuration and the current tools.
-func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (*agent.Conf, *tools.Tools) {
-	agentTools := s.primeTools(c, version.Current)
-	tools1, err := tools.ChangeAgentTools(s.DataDir(), tag, version.Current)
+func (s *agentSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+
+	s.oldRestartDelay = worker.RestartDelay
+	// We could use testing.ShortWait, but this thrashes quite
+	// a bit when some tests are restarting every 50ms for 10 seconds,
+	// so use a slightly more friendly delay.
+	worker.RestartDelay = 250 * time.Millisecond
+	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo, bool) error {
+		return nil
+	})
+}
+
+func (s *agentSuite) TearDownSuite(c *gc.C) {
+	s.JujuConnSuite.TearDownSuite(c)
+	worker.RestartDelay = s.oldRestartDelay
+}
+
+// primeAgent writes the configuration file and tools with version vers
+// for an agent with the given entity name.  It returns the agent's
+// configuration and the current tools.
+func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
+	stor := s.Conn.Environ.Storage()
+	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
+	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
+	c.Assert(err, gc.IsNil)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	conf := &agent.Conf{
-		DataDir:   s.DataDir(),
-		StateInfo: s.StateInfo(c),
-		APIInfo:   s.APIInfo(c),
-	}
-	conf.StateInfo.Tag = tag
-	conf.StateInfo.Password = password
-	conf.APIInfo.Tag = tag
-	conf.APIInfo.Password = password
-	err = conf.Write()
+	stateInfo := s.StateInfo(c)
+	apiInfo := s.APIInfo(c)
+	conf, err := agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			DataDir:           s.DataDir(),
+			Tag:               tag,
+			UpgradedToVersion: vers.Number,
+			Password:          password,
+			Nonce:             state.BootstrapNonce,
+			StateAddresses:    stateInfo.Addrs,
+			APIAddresses:      apiInfo.Addrs,
+			CACert:            stateInfo.CACert,
+		})
+	conf.SetPassword(password)
+	c.Assert(conf.Write(), gc.IsNil)
+	s.primeAPIHostPorts(c)
+	return conf, agentTools
+}
+
+func (s *agentSuite) primeAPIHostPorts(c *gc.C) {
+	apiInfo := s.APIInfo(c)
+
+	c.Assert(apiInfo.Addrs, gc.HasLen, 1)
+	hostPort, err := parseHostPort(apiInfo.Addrs[0])
 	c.Assert(err, gc.IsNil)
+
+	err = s.State.SetAPIHostPorts([][]instance.HostPort{{hostPort}})
+	c.Assert(err, gc.IsNil)
+}
+
+func parseHostPort(s string) (instance.HostPort, error) {
+	addr, port, err := net.SplitHostPort(s)
+	if err != nil {
+		return instance.HostPort{}, err
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil {
+		return instance.HostPort{}, fmt.Errorf("bad port number %q", port)
+	}
+	addrs := instance.NewAddresses(addr)
+	hostPorts := instance.AddressesWithPort(addrs, portNum)
+	return hostPorts[0], nil
+}
+
+// writeStateAgentConfig creates and writes a state agent config.
+func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
+	port := coretesting.FindTCPPort()
+	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
+	conf, err := agent.NewStateMachineConfig(
+		agent.AgentConfigParams{
+			DataDir:           dataDir,
+			Tag:               tag,
+			UpgradedToVersion: vers.Number,
+			Password:          password,
+			Nonce:             state.BootstrapNonce,
+			StateAddresses:    stateInfo.Addrs,
+			APIAddresses:      apiAddr,
+			CACert:            stateInfo.CACert,
+		},
+		params.StateServingInfo{
+			Cert:       coretesting.ServerCert,
+			PrivateKey: coretesting.ServerKey,
+			StatePort:  coretesting.MgoServer.Port(),
+			APIPort:    port,
+		})
+	c.Assert(err, gc.IsNil)
+	conf.SetPassword(password)
+	c.Assert(conf.Write(), gc.IsNil)
+	return conf
+}
+
+// primeStateAgent writes the configuration file and tools with version vers
+// for an agent with the given entity name.  It returns the agent's configuration
+// and the current tools.
+func (s *agentSuite) primeStateAgent(
+	c *gc.C, tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
+
+	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, vers)
+	c.Assert(err, gc.IsNil)
+	c.Assert(tools1, gc.DeepEquals, agentTools)
+
+	stateInfo := s.StateInfo(c)
+	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password, vers)
+	s.primeAPIHostPorts(c)
 	return conf, agentTools
 }
 
@@ -139,59 +352,16 @@ func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *agentSuite) proposeVersion(c *gc.C, vers version.Number) {
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	cfg, err = cfg.Apply(map[string]interface{}{
-		"agent-version": vers.String(),
-	})
-	c.Assert(err, gc.IsNil)
-	err = s.State.SetEnvironConfig(cfg)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *agentSuite) uploadTools(c *gc.C, vers version.Binary) *tools.Tools {
-	tgz := coretesting.TarGz(
-		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
-	)
-	storage := s.Conn.Environ.Storage()
-	err := storage.Put(tools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
-	c.Assert(err, gc.IsNil)
-	url, err := s.Conn.Environ.Storage().URL(tools.StorageName(vers))
-	c.Assert(err, gc.IsNil)
-	return &tools.Tools{URL: url, Version: vers}
-}
-
-// primeTools sets up the current version of the tools to vers and
-// makes sure that they're available JujuConnSuite's DataDir.
-func (s *agentSuite) primeTools(c *gc.C, vers version.Binary) *tools.Tools {
-	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
-	c.Assert(err, gc.IsNil)
-	version.Current = vers
-	agentTools := s.uploadTools(c, vers)
-	resp, err := http.Get(agentTools.URL)
-	c.Assert(err, gc.IsNil)
-	defer resp.Body.Close()
-	err = tools.UnpackTools(s.DataDir(), agentTools, resp.Body)
-	c.Assert(err, gc.IsNil)
-	return agentTools
-}
-
-func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent) {
-	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
+func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
+	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
 	c.Assert(err, gc.IsNil)
 
-	// Check that it starts initially and changes the password
-	err = ent.SetPassword("initial")
-	c.Assert(err, gc.IsNil)
-
-	conf.OldPassword = "initial"
-	conf.APIInfo.Password = ""
-	conf.StateInfo.Password = ""
+	conf.SetPassword("")
 	err = conf.Write()
 	c.Assert(err, gc.IsNil)
 
-	assertOpen := func(conf *agent.Conf) {
+	// Check that it starts initially and changes the password
+	assertOpen := func(conf agent.Config) {
 		st, gotEnt, err := openAPIState(conf, agentCmd)
 		c.Assert(err, gc.IsNil)
 		c.Assert(st, gc.NotNil)
@@ -203,60 +373,41 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 	// Check that the initial password is no longer valid.
 	err = ent.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ent.PasswordValid("initial"), gc.Equals, false)
-
-	// Check that the passwords in the configuration are correct.
-	c.Assert(ent.PasswordValid(conf.APIInfo.Password), gc.Equals, true)
-	c.Assert(conf.StateInfo.Password, gc.Equals, conf.APIInfo.Password)
-	c.Assert(conf.OldPassword, gc.Equals, "initial")
-
-	// Read the configuration and check the same
-	c.Assert(refreshConfig(conf), gc.IsNil)
-	c.Assert(ent.PasswordValid(conf.APIInfo.Password), gc.Equals, true)
-	c.Assert(conf.StateInfo.Password, gc.Equals, conf.APIInfo.Password)
-	c.Assert(conf.OldPassword, gc.Equals, "initial")
+	c.Assert(ent.PasswordValid(initialPassword), gc.Equals, false)
 
 	// Read the configuration and check that we can connect with it.
-	c.Assert(refreshConfig(conf), gc.IsNil)
-
+	conf = refreshConfig(c, conf)
 	// Check we can open the API with the new configuration.
 	assertOpen(conf)
-
-	newPassword := conf.StateInfo.Password
-
-	// Change the password in the configuration and check
-	// that it falls back to using the initial password
-	c.Assert(refreshConfig(conf), gc.IsNil)
-	conf.APIInfo.Password = "spurious"
-	conf.OldPassword = newPassword
-	c.Assert(conf.Write(), gc.IsNil)
-	assertOpen(conf)
-
-	// Check that it's changed the password again...
-	c.Assert(conf.APIInfo.Password, gc.Not(gc.Equals), "spurious")
-	c.Assert(conf.APIInfo.Password, gc.Not(gc.Equals), newPassword)
-
-	// ... and that we can still open the state with the new configuration.
-	assertOpen(conf)
 }
 
-func (s *agentSuite) testUpgrade(c *gc.C, agent runner, currentTools *tools.Tools) {
-	newVers := version.Current
-	newVers.Patch++
-	newTools := s.uploadTools(c, newVers)
-	s.proposeVersion(c, newVers.Number)
-	err := runWithTimeout(agent)
-	c.Assert(err, gc.FitsTypeOf, &upgrader.UpgradeReadyError{})
-	ug := err.(*upgrader.UpgradeReadyError)
-	c.Assert(ug.NewTools, gc.DeepEquals, newTools)
-	c.Assert(ug.OldTools, gc.DeepEquals, currentTools)
+type errorAPIOpener struct {
+	err error
 }
 
-func refreshConfig(c *agent.Conf) error {
-	nc, err := agent.ReadConf(c.DataDir, c.StateInfo.Tag)
-	if err != nil {
-		return err
-	}
-	*c = *nc
-	return nil
+func (e *errorAPIOpener) OpenAPI(_ api.DialOpts) (*api.State, string, error) {
+	return nil, "", e.err
+}
+
+func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
+	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
+	c.Assert(err, gc.IsNil)
+	info, ok := config.StateInfo()
+	c.Assert(ok, jc.IsTrue)
+	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
+	c.Assert(err, gc.IsNil)
+	st.Close()
+}
+
+func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
+	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
+	c.Assert(err, gc.IsNil)
+	_, ok := config.StateInfo()
+	c.Assert(ok, jc.IsFalse)
+}
+
+func refreshConfig(c *gc.C, config agent.Config) agent.ConfigSetterWriter {
+	config1, err := agent.ReadConfig(agent.ConfigPath(config.DataDir(), config.Tag()))
+	c.Assert(err, gc.IsNil)
+	return config1
 }

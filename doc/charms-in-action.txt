@@ -104,6 +104,7 @@ following characteristics:
   * $JUJU_CONTEXT_ID and $JUJU_AGENT_SOCKET are set (but should not be messed
     with: the command line tools won't work without them).
   * $JUJU_API_ADDRESSES holds a space separated list of juju API addresses.
+  * $JUJU_ENV_NAME holds the human friendly name of the current environment.
 
 Hook tools
 ----------

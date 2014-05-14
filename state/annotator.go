@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/errors"
 )
 
 // annotatorDoc represents the internal state of annotations for an Entity in
@@ -34,7 +35,7 @@ type annotator struct {
 
 // SetAnnotations adds key/value pairs to annotations in MongoDB.
 func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
-	defer utils.ErrorContextf(&err, "cannot update annotations on %s", a.tag)
+	defer errors.Maskf(&err, "cannot update annotations on %s", a.tag)
 	if len(pairs) == 0 {
 		return nil
 	}
@@ -117,7 +118,7 @@ func (a *annotator) updateOps(toUpdate map[string]string, toRemove map[string]bo
 		C:      a.st.annotations.Name,
 		Id:     a.globalKey,
 		Assert: txn.DocExists,
-		Update: D{{"$set", toUpdate}, {"$unset", toRemove}},
+		Update: bson.D{{"$set", toUpdate}, {"$unset", toRemove}},
 	}}
 }
 

@@ -6,13 +6,13 @@ package deployer
 import (
 	"fmt"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker"
@@ -24,10 +24,9 @@ var logger = loggo.GetLogger("juju.worker.deployer")
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
 type Deployer struct {
-	st         *apideployer.State
-	ctx        Context
-	machineTag string
-	deployed   set.Strings
+	st       *apideployer.State
+	ctx      Context
+	deployed set.Strings
 }
 
 // Context abstracts away the differences between different unit deployment
@@ -46,25 +45,25 @@ type Context interface {
 
 	// DeployedUnits returns the names of all units deployed by the manager.
 	DeployedUnits() ([]string, error)
+
+	// AgentConfig returns the agent config for the machine agent that is
+	// running the deployer.
+	AgentConfig() agent.Config
 }
 
 // NewDeployer returns a Worker that deploys and recalls unit agents
 // via ctx, taking a machine id to operate on.
-func NewDeployer(st *apideployer.State, ctx Context, machineTag string) worker.Worker {
+func NewDeployer(st *apideployer.State, ctx Context) worker.Worker {
 	d := &Deployer{
-		st:         st,
-		ctx:        ctx,
-		machineTag: machineTag,
+		st:  st,
+		ctx: ctx,
 	}
 	return worker.NewStringsWorker(d)
 }
 
-func isNotFoundOrUnauthorized(err error) bool {
-	return errors.IsNotFoundError(err) || params.ErrCode(err) == params.CodeUnauthorized
-}
-
-func (d *Deployer) SetUp() (api.StringsWatcher, error) {
-	machine, err := d.st.Machine(d.machineTag)
+func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
+	machineTag := d.ctx.AgentConfig().Tag()
+	machine, err := d.st.Machine(machineTag)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +102,7 @@ func (d *Deployer) changed(unitName string) error {
 	logger.Infof("checking unit %q", unitName)
 	var life params.Life
 	unit, err := d.st.Unit(unitTag)
-	if isNotFoundOrUnauthorized(err) {
+	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		life = params.Dead
 	} else if err != nil {
 		return err

@@ -3,6 +3,10 @@
 
 package version
 
-func ReadSeries(f string) string {
-	return readSeries(f)
-}
+var (
+	ReadSeries                    = readSeries
+	KernelToMajor                 = kernelToMajor
+	MacOSXSeriesFromKernelVersion = macOSXSeriesFromKernelVersion
+	MacOSXSeriesFromMajorVersion  = macOSXSeriesFromMajorVersion
+	LSBReleaseFileVar             = &lsbReleaseFile
+)

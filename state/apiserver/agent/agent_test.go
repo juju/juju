@@ -5,6 +5,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -22,9 +23,10 @@ type agentSuite struct {
 
 	authorizer apiservertesting.FakeAuthorizer
 
-	machine0 *state.Machine
-	machine1 *state.Machine
-	agent    *agent.API
+	machine0  *state.Machine
+	machine1  *state.Machine
+	container *state.Machine
+	agent     *agent.API
 }
 
 var _ = gc.Suite(&agentSuite{})
@@ -33,10 +35,17 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("series", state.JobManageEnviron, state.JobManageState)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
-	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	template := state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	s.container, err = s.State.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
@@ -44,7 +53,6 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.machine1.Tag(),
 		LoggedIn:     true,
-		Manager:      false,
 		MachineAgent: true,
 	}
 
@@ -72,29 +80,62 @@ func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 }
 
 func (s *agentSuite) TestGetEntities(c *gc.C) {
-	err := s.machine1.Destroy()
+	err := s.container.Destroy()
 	c.Assert(err, gc.IsNil)
-	results := s.agent.GetEntities(params.Entities{
+	args := params.Entities{
 		Entities: []params.Entity{
 			{Tag: "machine-1"},
 			{Tag: "machine-0"},
+			{Tag: "machine-1-lxc-0"},
 			{Tag: "machine-42"},
 		},
-	})
+	}
+	results := s.agent.GetEntities(args)
 	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
 		Entities: []params.AgentGetEntitiesResult{
 			{
-				Life: "dying",
+				Life: "alive",
 				Jobs: []params.MachineJob{params.JobHostUnits},
 			},
 			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Now login as the machine agent of the container and try again.
+	auth := s.authorizer
+	auth.MachineAgent = true
+	auth.UnitAgent = false
+	auth.Tag = s.container.Tag()
+	containerAgent, err := agent.NewAPI(s.State, auth)
+	c.Assert(err, gc.IsNil)
+
+	results = containerAgent.GetEntities(args)
+	c.Assert(results, gc.DeepEquals, params.AgentGetEntitiesResults{
+		Entities: []params.AgentGetEntitiesResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				Life:          "dying",
+				Jobs:          []params.MachineJob{params.JobHostUnits},
+				ContainerType: instance.LXC,
+			},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
 
 func (s *agentSuite) TestGetNotFoundEntity(c *gc.C) {
-	err := s.machine1.Destroy()
+	// Destroy the container first, so we can destroy its parent.
+	err := s.container.Destroy()
+	c.Assert(err, gc.IsNil)
+	err = s.container.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.container.Remove()
+	c.Assert(err, gc.IsNil)
+
+	err = s.machine1.Destroy()
 	c.Assert(err, gc.IsNil)
 	err = s.machine1.EnsureDead()
 	c.Assert(err, gc.IsNil)
@@ -115,11 +156,11 @@ func (s *agentSuite) TestGetNotFoundEntity(c *gc.C) {
 }
 
 func (s *agentSuite) TestSetPasswords(c *gc.C) {
-	results, err := s.agent.SetPasswords(params.PasswordChanges{
-		Changes: []params.PasswordChange{
-			{Tag: "machine-0", Password: "xxx"},
-			{Tag: "machine-1", Password: "yyy"},
-			{Tag: "machine-42", Password: "zzz"},
+	results, err := s.agent.SetPasswords(params.EntityPasswords{
+		Changes: []params.EntityPassword{
+			{Tag: "machine-0", Password: "xxx-12345678901234567890"},
+			{Tag: "machine-1", Password: "yyy-12345678901234567890"},
+			{Tag: "machine-42", Password: "zzz-12345678901234567890"},
 		},
 	})
 	c.Assert(err, gc.IsNil)
@@ -132,6 +173,18 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 	})
 	err = s.machine1.Refresh()
 	c.Assert(err, gc.IsNil)
-	changed := s.machine1.PasswordValid("yyy")
+	changed := s.machine1.PasswordValid("yyy-12345678901234567890")
 	c.Assert(changed, gc.Equals, true)
+}
+
+func (s *agentSuite) TestShortSetPasswords(c *gc.C) {
+	results, err := s.agent.SetPasswords(params.EntityPasswords{
+		Changes: []params.EntityPassword{
+			{Tag: "machine-1", Password: "yyy"},
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.ErrorMatches,
+		"password is only 3 bytes long, and is not a valid Agent password")
 }

@@ -36,27 +36,7 @@ var _ = gc.Suite(&watcherSuite{})
 
 func (s *watcherSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
-	// Create a machine to work with
-	var err error
-	s.rawMachine, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-	err = s.rawMachine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	err = s.rawMachine.SetPassword("test-password")
-	c.Assert(err, gc.IsNil)
-
-	// Login as the machine agent of the created machine.
-	s.stateAPI = s.OpenAPIAsMachine(c, s.rawMachine.Tag(), "test-password", "fake_nonce")
-	c.Assert(s.stateAPI, gc.NotNil)
-}
-
-func (s *watcherSuite) TearDownTest(c *gc.C) {
-	if s.stateAPI != nil {
-		err := s.stateAPI.Close()
-		c.Check(err, gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
+	s.stateAPI, s.rawMachine = s.OpenAPIAsNewMachine(c)
 }
 
 func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {
@@ -123,10 +103,8 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	// Create two services, relate them, and add one unit to each - a
 	// principal and a subordinate.
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	logging := s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -162,12 +140,12 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	// ensure they're reported as separate events over the API.
 	err = subordinate.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	s.BackingState.Sync()
+	s.BackingState.StartSync()
 	err = subordinate.Remove()
 	c.Assert(err, gc.IsNil)
 	err = principal.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	s.BackingState.Sync()
+	s.BackingState.StartSync()
 
 	// Expect these changes as 2 separate events, so that
 	// nothing gets lost.
@@ -194,8 +172,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 
 	// Create a service, deploy a unit of it on the machine.
-	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	principal, err := mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
 	err = principal.AssignToMachine(s.rawMachine)
@@ -203,7 +180,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 
 	// Ensure the initial event is delivered. Then test the watcher
 	// can be stopped cleanly without reading the pending change.
-	s.BackingState.Sync()
+	s.BackingState.StartSync()
 	statetesting.AssertCanStopWhenSending(c, w)
 	wc.AssertClosed()
 }

@@ -5,13 +5,15 @@ package params_test
 
 import (
 	"encoding/json"
+	"testing"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"testing"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -33,30 +35,37 @@ var marshalTestCases = []struct {
 	about: "MachineInfo Delta",
 	value: params.Delta{
 		Entity: &params.MachineInfo{
-			Id:         "Benji",
-			InstanceId: "Shazam",
-			Status:     "error",
-			StatusInfo: "foo",
+			Id:                      "Benji",
+			InstanceId:              "Shazam",
+			Status:                  "error",
+			StatusInfo:              "foo",
+			Life:                    params.Alive,
+			Series:                  "trusty",
+			SupportedContainers:     []instance.ContainerType{instance.LXC},
+			Jobs:                    []params.MachineJob{state.JobManageEnviron.ToParams()},
+			Addresses:               []instance.Address{},
+			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
 	},
-	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam","Status":"error","StatusInfo":"foo"}]`,
+	json: `["machine","change",{"Id":"Benji","InstanceId":"Shazam","Status":"error","StatusInfo":"foo","StatusData":null,"Life":"alive","Series":"trusty","SupportedContainers":["lxc"],"SupportedContainersKnown":false,"Jobs":["JobManageEnviron"],"Addresses":[],"HardwareCharacteristics":{}}]`,
 }, {
 	about: "ServiceInfo Delta",
 	value: params.Delta{
 		Entity: &params.ServiceInfo{
 			Name:        "Benji",
 			Exposed:     true,
-			CharmURL:    "cs:series/name",
-			Life:        params.Life(state.Dying.String()),
+			CharmURL:    "cs:quantal/name",
+			Life:        params.Dying,
+			OwnerTag:    "test-owner",
 			MinUnits:    42,
-			Constraints: constraints.MustParse("arch=arm mem=1024M"),
+			Constraints: constraints.MustParse("arch=armhf mem=1024M"),
 			Config: charm.Settings{
 				"hello": "goodbye",
 				"foo":   false,
 			},
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Life":"dying","MinUnits":42,"Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
+	json: `["service","change",{"CharmURL": "cs:quantal/name","Name":"Benji","Exposed":true,"Life":"dying","OwnerTag":"test-owner","MinUnits":42,"Constraints":{"arch":"armhf", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
@@ -77,18 +86,19 @@ var marshalTestCases = []struct {
 			StatusInfo:     "foo",
 		},
 	},
-	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo"}]`,
+	json: `["unit", "change", {"CharmURL": "cs:~user/precise/wordpress-42", "MachineId": "1", "Series": "precise", "Name": "Benji", "PublicAddress": "testing.invalid", "Service": "Shazam", "PrivateAddress": "10.0.0.1", "Ports": [{"Protocol": "http", "Number": 80}], "Status": "error", "StatusInfo": "foo","StatusData":null}]`,
 }, {
 	about: "RelationInfo Delta",
 	value: params.Delta{
 		Entity: &params.RelationInfo{
 			Key: "Benji",
+			Id:  4711,
 			Endpoints: []params.Endpoint{
 				{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
 				{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 		},
 	},
-	json: `["relation","change",{"Key":"Benji", "Endpoints": [{"ServiceName":"logging", "Relation":{"Name":"logging-directory", "Role":"requirer", "Interface":"logging", "Optional":false, "Limit":1, "Scope":"container"}}, {"ServiceName":"wordpress", "Relation":{"Name":"logging-dir", "Role":"provider", "Interface":"logging", "Optional":false, "Limit":0, "Scope":"container"}}]}]`,
+	json: `["relation","change",{"Key":"Benji", "Id": 4711, "Endpoints": [{"ServiceName":"logging", "Relation":{"Name":"logging-directory", "Role":"requirer", "Interface":"logging", "Optional":false, "Limit":1, "Scope":"container"}}, {"ServiceName":"wordpress", "Relation":{"Name":"logging-dir", "Role":"provider", "Interface":"logging", "Optional":false, "Limit":0, "Scope":"container"}}]}]`,
 }, {
 	about: "AnnotationInfo Delta",
 	value: params.Delta{
@@ -109,7 +119,7 @@ var marshalTestCases = []struct {
 			Key: "Benji",
 		},
 	},
-	json: `["relation","remove",{"Key":"Benji", "Endpoints": null}]`,
+	json: `["relation","remove",{"Key":"Benji", "Id": 0, "Endpoints": null}]`,
 }}
 
 func (s *MarshalSuite) TestDeltaMarshalJSON(c *gc.C) {

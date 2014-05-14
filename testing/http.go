@@ -12,21 +12,21 @@ import (
 	"os"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 )
 
 type HTTPSuite struct{}
 
 var Server = NewHTTPServer(5 * time.Second)
 
-func (s *HTTPSuite) SetUpSuite(c *C) {
+func (s *HTTPSuite) SetUpSuite(c *gc.C) {
 	Server.Start()
 }
-func (s *HTTPSuite) TearDownSuite(c *C) {}
+func (s *HTTPSuite) TearDownSuite(c *gc.C) {}
 
-func (s *HTTPSuite) SetUpTest(c *C) {}
+func (s *HTTPSuite) SetUpTest(c *gc.C) {}
 
-func (s *HTTPSuite) TearDownTest(c *C) {
+func (s *HTTPSuite) TearDownTest(c *gc.C) {
 	Server.Flush()
 }
 

@@ -9,10 +9,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/loggo"
 	"launchpad.net/goyaml"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 var logger = loggo.GetLogger("juju.environs")
@@ -26,39 +28,120 @@ type environ struct {
 // Environs holds information about each named environment
 // in an environments.yaml file.
 type Environs struct {
-	Default  string // The name of the default environment.
-	environs map[string]environ
+	Default     string // The name of the default environment.
+	rawEnvirons map[string]map[string]interface{}
 }
 
 // Names returns the list of environment names.
 func (e *Environs) Names() (names []string) {
-	for name := range e.environs {
+	for name := range e.rawEnvirons {
 		names = append(names, name)
 	}
 	return
 }
 
+func validateEnvironmentKind(rawEnviron map[string]interface{}) error {
+	kind, _ := rawEnviron["type"].(string)
+	if kind == "" {
+		return fmt.Errorf("environment %q has no type", rawEnviron["name"])
+	}
+	p, _ := Provider(kind)
+	if p == nil {
+		return fmt.Errorf("environment %q has an unknown provider type %q", rawEnviron["name"], kind)
+	}
+	return nil
+}
+
+// Config returns the environment configuration for the environment
+// with the given name. If the configuration is not
+// found, an errors.NotFoundError is returned.
+func (envs *Environs) Config(name string) (*config.Config, error) {
+	if name == "" {
+		name = envs.Default
+		if name == "" {
+			return nil, fmt.Errorf("no default environment found")
+		}
+	}
+	attrs, ok := envs.rawEnvirons[name]
+	if !ok {
+		return nil, errors.NotFoundf("environment %q", name)
+	}
+	if err := validateEnvironmentKind(attrs); err != nil {
+		return nil, err
+	}
+
+	// If deprecated config attributes are used, log warnings so the user can know
+	// that they need to be fixed.
+	if oldToolsURL := attrs["tools-url"]; oldToolsURL != nil && oldToolsURL.(string) != "" {
+		_, newToolsSpecified := attrs["tools-metadata-url"]
+		var msg string
+		if newToolsSpecified {
+			msg = fmt.Sprintf(
+				"Config attribute %q (%v) is deprecated and will be ignored since\n"+
+					"the new tools URL attribute %q has also been used.\n"+
+					"The attribute %q should be removed from your configuration.",
+				"tools-url", oldToolsURL, "tools-metadata-url", "tools-url")
+		} else {
+			msg = fmt.Sprintf(
+				"Config attribute %q (%v) is deprecated.\n"+
+					"The location to find tools is now specified using the %q attribute.\n"+
+					"Your configuration should be updated to set %q as follows\n%v: %v.",
+				"tools-url", oldToolsURL, "tools-metadata-url", "tools-metadata-url", "tools-metadata-url", oldToolsURL)
+		}
+		logger.Warningf(msg)
+	}
+	// null has been renamed to manual (with an alias for existing config).
+	if oldType, _ := attrs["type"].(string); oldType == "null" {
+		logger.Warningf(
+			"Provider type \"null\" has been renamed to \"manual\".\n" +
+				"Please update your environment configuration.",
+		)
+	}
+
+	cfg, err := config.New(config.UseDefaults, attrs)
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
 // providers maps from provider type to EnvironProvider for
 // each registered provider type.
+//
+// providers should not typically be used directly; the
+// Provider function will handle provider type aliases,
+// and should be used instead.
 var providers = make(map[string]EnvironProvider)
+
+// providerAliases is a map of provider type aliases.
+var providerAliases = make(map[string]string)
 
 // RegisterProvider registers a new environment provider. Name gives the name
 // of the provider, and p the interface to that provider.
 //
-// RegisterProvider will panic if the same provider name is registered more than
-// once.
-func RegisterProvider(name string, p EnvironProvider) {
-	if providers[name] != nil {
+// RegisterProvider will panic if the provider name or any of the aliases
+// are registered more than once.
+func RegisterProvider(name string, p EnvironProvider, alias ...string) {
+	if providers[name] != nil || providerAliases[name] != "" {
 		panic(fmt.Errorf("juju: duplicate provider name %q", name))
 	}
 	providers[name] = p
+	for _, alias := range alias {
+		if providers[alias] != nil || providerAliases[alias] != "" {
+			panic(fmt.Errorf("juju: duplicate provider alias %q", alias))
+		}
+		providerAliases[alias] = name
+	}
 }
 
 // Provider returns the previously registered provider with the given type.
-func Provider(typ string) (EnvironProvider, error) {
-	p, ok := providers[typ]
+func Provider(providerType string) (EnvironProvider, error) {
+	if alias, ok := providerAliases[providerType]; ok {
+		providerType = alias
+	}
+	p, ok := providers[providerType]
 	if !ok {
-		return nil, fmt.Errorf("no registered provider for %q", typ)
+		return nil, fmt.Errorf("no registered provider for %q", providerType)
 	}
 	return p, nil
 }
@@ -90,41 +173,17 @@ func ReadEnvironsBytes(data []byte) (*Environs, error) {
 			}
 		}
 	}
-
-	environs := make(map[string]environ)
 	for name, attrs := range raw.Environments {
-		kind, _ := attrs["type"].(string)
-		if kind == "" {
-			environs[name] = environ{
-				err: fmt.Errorf("environment %q has no type", name),
-			}
-			continue
-		}
-		p := providers[kind]
-		if p == nil {
-			environs[name] = environ{
-				err: fmt.Errorf("environment %q has an unknown provider type %q", name, kind),
-			}
-			continue
-		}
 		// store the name of the this environment in the config itself
 		// so that providers can see it.
 		attrs["name"] = name
-		cfg, err := config.New(attrs)
-		if err != nil {
-			environs[name] = environ{
-				err: fmt.Errorf("error parsing environment %q: %v", name, err),
-			}
-			continue
-		}
-		environs[name] = environ{config: cfg}
 	}
-	return &Environs{raw.Default, environs}, nil
+	return &Environs{raw.Default, raw.Environments}, nil
 }
 
 func environsPath(path string) string {
 	if path == "" {
-		path = config.JujuHomePath("environments.yaml")
+		path = osenv.JujuHomePath("environments.yaml")
 	}
 	return path
 }
@@ -134,7 +193,7 @@ type NoEnvError struct {
 	error
 }
 
-// IsNoEnv returns if err is a NoEnvError.
+// IsNoEnv reports whether err is a NoEnvError.
 func IsNoEnv(err error) bool {
 	_, ok := err.(NoEnvError)
 	return ok
@@ -185,27 +244,17 @@ func WriteEnvirons(path string, fileContents string) (string, error) {
 	return environsFilepath, nil
 }
 
-// BootstrapConfig returns a copy of the supplied configuration with
-// secret attributes removed. If the resulting config is not suitable
-// for bootstrapping an environment, an error is returned.
+// BootstrapConfig returns a copy of the supplied configuration with the
+// admin-secret and ca-private-key attributes removed. If the resulting
+// config is not suitable for bootstrapping an environment, an error is
+// returned.
 func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
-	p, err := Provider(cfg.Type())
-	if err != nil {
-		return nil, err
-	}
-	secrets, err := p.SecretAttrs(cfg)
-	if err != nil {
-		return nil, err
-	}
 	m := cfg.AllAttrs()
-	for k := range secrets {
-		delete(m, k)
-	}
-
 	// We never want to push admin-secret or the root CA private key to the cloud.
 	delete(m, "admin-secret")
-	m["ca-private-key"] = ""
-	if cfg, err = config.New(m); err != nil {
+	delete(m, "ca-private-key")
+	cfg, err := config.New(config.NoDefaults, m)
+	if err != nil {
 		return nil, err
 	}
 	if _, ok := cfg.AgentVersion(); !ok {

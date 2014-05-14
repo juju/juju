@@ -7,8 +7,11 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
+
+	"launchpad.net/juju-core/juju/arch"
 )
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -34,6 +37,9 @@ type Instance interface {
 
 	// Status returns the provider-specific status for the instance.
 	Status() string
+
+	// Refresh refreshes local knowledge of the instance from the provider.
+	Refresh() error
 
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance. This will supercede DNSName
@@ -61,18 +67,19 @@ type Instance interface {
 
 	// Ports returns the set of ports open on the instance, which
 	// should have been started with the given machine id.
-	// The ports are returned as sorted by state.SortPorts.
+	// The ports are returned as sorted by SortPorts.
 	Ports(machineId string) ([]Port, error)
 }
 
 // HardwareCharacteristics represents the characteristics of the instance (if known).
 // Attributes that are nil are unknown or not supported.
 type HardwareCharacteristics struct {
-	Arch     *string `yaml:"arch,omitempty"`
-	Mem      *uint64 `yaml:"mem,omitempty"`
-	RootDisk *uint64 `yaml:"rootdisk,omitempty"`
-	CpuCores *uint64 `yaml:"cpucores,omitempty"`
-	CpuPower *uint64 `yaml:"cpupower,omitempty"`
+	Arch     *string   `json:",omitempty" yaml:"arch,omitempty"`
+	Mem      *uint64   `json:",omitempty" yaml:"mem,omitempty"`
+	RootDisk *uint64   `json:",omitempty" yaml:"rootdisk,omitempty"`
+	CpuCores *uint64   `json:",omitempty" yaml:"cpucores,omitempty"`
+	CpuPower *uint64   `json:",omitempty" yaml:"cpupower,omitempty"`
+	Tags     *[]string `json:",omitempty" yaml:"tags,omitempty"`
 }
 
 func uintStr(i uint64) string {
@@ -99,7 +106,20 @@ func (hc HardwareCharacteristics) String() string {
 	if hc.RootDisk != nil {
 		strs = append(strs, fmt.Sprintf("root-disk=%dM", *hc.RootDisk))
 	}
+	if hc.Tags != nil && len(*hc.Tags) > 0 {
+		strs = append(strs, fmt.Sprintf("tags=%s", strings.Join(*hc.Tags, ",")))
+	}
 	return strings.Join(strs, " ")
+}
+
+// Implement gnuflag.Value
+func (hc *HardwareCharacteristics) Set(s string) error {
+	parsed, err := ParseHardware(s)
+	if err != nil {
+		return err
+	}
+	*hc = parsed
+	return nil
 }
 
 // MustParseHardware constructs a HardwareCharacteristics from the supplied arguments,
@@ -150,6 +170,8 @@ func (hc *HardwareCharacteristics) setRaw(raw string) error {
 		err = hc.setMem(str)
 	case "root-disk":
 		err = hc.setRootDisk(str)
+	case "tags":
+		err = hc.setTags(str)
 	default:
 		return fmt.Errorf("unknown characteristic %q", name)
 	}
@@ -163,10 +185,7 @@ func (hc *HardwareCharacteristics) setArch(str string) error {
 	if hc.Arch != nil {
 		return fmt.Errorf("already set")
 	}
-	switch str {
-	case "":
-	case "amd64", "i386", "arm":
-	default:
+	if str != "" && !arch.IsSupportedArch(str) {
 		return fmt.Errorf("%q not recognized", str)
 	}
 	hc.Arch = &str
@@ -205,6 +224,23 @@ func (hc *HardwareCharacteristics) setRootDisk(str string) (err error) {
 	return
 }
 
+func (hc *HardwareCharacteristics) setTags(str string) (err error) {
+	if hc.Tags != nil {
+		return fmt.Errorf("already set")
+	}
+	hc.Tags = parseTags(str)
+	return
+}
+
+// parseTags returns the tags in the value s
+func parseTags(s string) *[]string {
+	if s == "" {
+		return &[]string{}
+	}
+	tags := strings.Split(s, ",")
+	return &tags
+}
+
 func parseUint64(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
@@ -240,4 +276,23 @@ var mbSuffixes = map[string]float64{
 	"G": 1024,
 	"T": 1024 * 1024,
 	"P": 1024 * 1024 * 1024,
+}
+
+type portSlice []Port
+
+func (p portSlice) Len() int      { return len(p) }
+func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+func (p portSlice) Less(i, j int) bool {
+	p1 := p[i]
+	p2 := p[j]
+	if p1.Protocol != p2.Protocol {
+		return p1.Protocol < p2.Protocol
+	}
+	return p1.Number < p2.Number
+}
+
+// SortPorts sorts the given ports, first by protocol,
+// then by number.
+func SortPorts(ports []Port) {
+	sort.Sort(portSlice(ports))
 }

@@ -6,12 +6,14 @@ package agent_test
 import (
 	"fmt"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 )
 
 var _ = gc.Suite(&unitSuite{})
@@ -23,27 +25,22 @@ type unitSuite struct {
 }
 
 func (s *unitSuite) SetUpTest(c *gc.C) {
+	var err error
 	s.JujuConnSuite.SetUpTest(c)
-	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, gc.IsNil)
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.unit, err = svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = s.unit.SetPassword("unit-password")
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = s.unit.SetPassword(password)
 
-	s.st = s.OpenAPIAs(c, s.unit.Tag(), "unit-password")
-}
-
-func (s *unitSuite) TearDownTest(c *gc.C) {
-	if s.st != nil {
-		c.Assert(s.st.Close(), gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
+	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
 }
 
 func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	m, err := s.st.Agent().Entity("wordpress/1")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
 	m, err = s.st.Agent().Entity(s.unit.Tag())
@@ -59,6 +56,6 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 
 	m, err = s.st.Agent().Entity(s.unit.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("unit %q not found", s.unit.Name()))
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)
 }

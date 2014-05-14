@@ -4,9 +4,11 @@
 package azure
 
 import (
+	"bytes"
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
@@ -14,31 +16,48 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/environs/storage"
+	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	apiparams "launchpad.net/juju-core/state/api/params"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
-type environSuite struct {
+type baseEnvironSuite struct {
 	providerSuite
 }
 
+type environSuite struct {
+	baseEnvironSuite
+}
+
 var _ = gc.Suite(&environSuite{})
+var _ = gc.Suite(&startInstanceSuite{})
 
 // makeEnviron creates a fake azureEnviron with arbitrary configuration.
 func makeEnviron(c *gc.C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
-	cfg, err := config.New(attrs)
+	return makeEnvironWithConfig(c, attrs)
+}
+
+// makeEnvironWithConfig creates a fake azureEnviron with the specified configuration.
+func makeEnvironWithConfig(c *gc.C, attrs map[string]interface{}) *azureEnviron {
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := NewEnviron(cfg)
 	c.Assert(err, gc.IsNil)
@@ -50,12 +69,21 @@ func makeEnviron(c *gc.C) *azureEnviron {
 // setDummyStorage injects the local provider's fake storage implementation
 // into the given environment, so that tests can manipulate storage as if it
 // were real.
-// Returns a cleanup function that must be called when done with the storage.
-func setDummyStorage(c *gc.C, env *azureEnviron) func() {
-	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
-	c.Assert(err, gc.IsNil)
-	env.storage = localstorage.Client(listener.Addr().String())
-	return func() { listener.Close() }
+func (s *baseEnvironSuite) setDummyStorage(c *gc.C, env *azureEnviron) {
+	closer, storage, _ := envtesting.CreateLocalTestStorage(c)
+	env.storage = storage
+	s.AddCleanup(func(c *gc.C) { closer.Close() })
+}
+
+func (*environSuite) TestGetEndpoint(c *gc.C) {
+	c.Check(
+		getEndpoint("West US"),
+		gc.Equals,
+		"https://management.core.windows.net/")
+	c.Check(
+		getEndpoint("China East"),
+		gc.Equals,
+		"https://management.core.chinacloudapi.cn/")
 }
 
 func (*environSuite) TestGetSnapshot(c *gc.C) {
@@ -78,7 +106,7 @@ func (*environSuite) TestGetSnapshot(c *gc.C) {
 
 func (*environSuite) TestGetSnapshotLocksEnviron(c *gc.C) {
 	original := azureEnviron{}
-	testing.TestLockingFunction(&original.Mutex, func() { original.getSnapshot() })
+	coretesting.TestLockingFunction(&original.Mutex, func() { original.getSnapshot() })
 }
 
 func (*environSuite) TestName(c *gc.C) {
@@ -95,7 +123,7 @@ func (*environSuite) TestConfigReturnsConfig(c *gc.C) {
 
 func (*environSuite) TestConfigLocksEnviron(c *gc.C) {
 	env := azureEnviron{name: "env", ecfg: new(azureEnvironConfig)}
-	testing.TestLockingFunction(&env.Mutex, func() { env.Config() })
+	coretesting.TestLockingFunction(&env.Mutex, func() { env.Config() })
 }
 
 func (*environSuite) TestGetManagementAPI(c *gc.C) {
@@ -125,7 +153,7 @@ func (*environSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *gc.C) {
 	// The real test is that this does not panic.
 }
 
-func getAzureServiceListResponse(c *gc.C, services []gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
+func getAzureServiceListResponse(c *gc.C, services ...gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
 	list := gwacl.HostedServiceDescriptorList{HostedServices: services}
 	listXML, err := list.Serialize()
 	c.Assert(err, gc.IsNil)
@@ -137,23 +165,47 @@ func getAzureServiceListResponse(c *gc.C, services []gwacl.HostedServiceDescript
 	return responses
 }
 
-// getAzureServiceResponses returns the slice of responses
-// (gwacl.DispatcherResponse) which correspond to the API requests used to
-// get the properties of a Service.
-func getAzureServiceResponses(c *gc.C, service gwacl.HostedService) []gwacl.DispatcherResponse {
+// getAzureServiceResponse returns a gwacl.DispatcherResponse corresponding
+// to the API request used to get the properties of a Service.
+func getAzureServiceResponse(c *gc.C, service gwacl.HostedService) gwacl.DispatcherResponse {
 	serviceXML, err := service.Serialize()
 	c.Assert(err, gc.IsNil)
-	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
-		[]byte(serviceXML),
-		http.StatusOK,
-		nil,
-	)}
-	return responses
+	return gwacl.NewDispatcherResponse([]byte(serviceXML), http.StatusOK, nil)
 }
 
 func patchWithServiceListResponse(c *gc.C, services []gwacl.HostedServiceDescriptor) *[]*gwacl.X509Request {
-	responses := getAzureServiceListResponse(c, services)
+	responses := getAzureServiceListResponse(c, services...)
 	return gwacl.PatchManagementAPIResponses(responses)
+}
+
+func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedService) *[]*gwacl.X509Request {
+	descriptors := make([]gwacl.HostedServiceDescriptor, len(services))
+	for i, service := range services {
+		descriptors[i] = service.HostedServiceDescriptor
+	}
+	responses := getAzureServiceListResponse(c, descriptors...)
+	for _, service := range services {
+		if !strings.HasPrefix(service.ServiceName, prefix) {
+			continue
+		}
+		serviceXML, err := service.Serialize()
+		c.Assert(err, gc.IsNil)
+		serviceGetResponse := gwacl.NewDispatcherResponse([]byte(serviceXML), http.StatusOK, nil)
+		responses = append(responses, serviceGetResponse)
+	}
+	return gwacl.PatchManagementAPIResponses(responses)
+}
+
+func (s *environSuite) TestSupportedArchitectures(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	a, err := env.SupportedArchitectures()
+	c.Assert(err, gc.IsNil)
+	c.Assert(a, gc.DeepEquals, []string{"amd64"})
+}
+
+func (s *environSuite) TestSupportNetworks(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
@@ -170,25 +222,34 @@ func (*environSuite) TestGetContainerName(c *gc.C) {
 func (suite *environSuite) TestAllInstances(c *gc.C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
-	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-in-another-env"}, {ServiceName: prefix + "deployment-1"}, {ServiceName: prefix + "deployment-2"}}
-	requests := patchWithServiceListResponse(c, services)
+	service1 := makeLegacyDeployment(env, prefix+"service1")
+	service2 := makeDeployment(env, prefix+"service2")
+	service3 := makeDeployment(env, "not"+prefix+"service3")
+
+	requests := patchInstancesResponses(c, prefix, service1, service2, service3)
 	instances, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
-	c.Check(len(instances), gc.Equals, 2)
-	c.Check(instances[0].Id(), gc.Equals, instance.Id(prefix+"deployment-1"))
-	c.Check(instances[1].Id(), gc.Equals, instance.Id(prefix+"deployment-2"))
-	c.Check(len(*requests), gc.Equals, 1)
+	c.Check(len(instances), gc.Equals, 3)
+	c.Check(instances[0].Id(), gc.Equals, instance.Id(prefix+"service1"))
+	service2Role1Name := service2.Deployments[0].RoleList[0].RoleName
+	service2Role2Name := service2.Deployments[0].RoleList[1].RoleName
+	c.Check(instances[1].Id(), gc.Equals, instance.Id(prefix+"service2-"+service2Role1Name))
+	c.Check(instances[2].Id(), gc.Equals, instance.Id(prefix+"service2-"+service2Role2Name))
+	c.Check(len(*requests), gc.Equals, 3)
 }
 
 func (suite *environSuite) TestInstancesReturnsFilteredList(c *gc.C) {
-	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
-	requests := patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
-	instances, err := env.Instances([]instance.Id{"deployment-1"})
+	prefix := env.getEnvPrefix()
+	service := makeDeployment(env, prefix+"service")
+	requests := patchInstancesResponses(c, prefix, service)
+	role1Name := service.Deployments[0].RoleList[0].RoleName
+	instId := instance.Id(prefix + "service-" + role1Name)
+	instances, err := env.Instances([]instance.Id{instId})
 	c.Assert(err, gc.IsNil)
 	c.Check(len(instances), gc.Equals, 1)
-	c.Check(instances[0].Id(), gc.Equals, instance.Id("deployment-1"))
-	c.Check(len(*requests), gc.Equals, 1)
+	c.Check(instances[0].Id(), gc.Equals, instId)
+	c.Check(len(*requests), gc.Equals, 2)
 }
 
 func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequested(c *gc.C) {
@@ -210,14 +271,22 @@ func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c
 }
 
 func (suite *environSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *gc.C) {
-	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
-	requests := patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
-	instances, err := env.Instances([]instance.Id{"deployment-1", "unknown-deployment"})
+	prefix := env.getEnvPrefix()
+	service := makeDeployment(env, prefix+"service")
+
+	role1Name := service.Deployments[0].RoleList[0].RoleName
+	role2Name := service.Deployments[0].RoleList[1].RoleName
+	inst1Id := instance.Id(prefix + "service-" + role1Name)
+	inst2Id := instance.Id(prefix + "service-" + role2Name)
+	patchInstancesResponses(c, prefix, service)
+
+	instances, err := env.Instances([]instance.Id{inst1Id, "unknown", inst2Id})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
-	c.Check(len(instances), gc.Equals, 1)
-	c.Check(instances[0].Id(), gc.Equals, instance.Id("deployment-1"))
-	c.Check(len(*requests), gc.Equals, 1)
+	c.Check(len(instances), gc.Equals, 3)
+	c.Check(instances[0].Id(), gc.Equals, inst1Id)
+	c.Check(instances[1], gc.IsNil)
+	c.Check(instances[2].Id(), gc.Equals, inst2Id)
 }
 
 func (*environSuite) TestStorage(c *gc.C) {
@@ -231,31 +300,6 @@ func (*environSuite) TestStorage(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(context.Account, gc.Equals, env.ecfg.storageAccountName())
 	c.Check(context.RetryPolicy, gc.DeepEquals, retryPolicy)
-}
-
-func (*environSuite) TestPublicStorage(c *gc.C) {
-	env := makeEnviron(c)
-	baseStorage := env.PublicStorage()
-	storage, ok := baseStorage.(*azureStorage)
-	c.Assert(storage, gc.NotNil)
-	c.Check(ok, gc.Equals, true)
-	c.Check(storage.storageContext.getContainer(), gc.Equals, env.ecfg.publicStorageContainerName())
-	context, err := storage.getStorageContext()
-	c.Assert(err, gc.IsNil)
-	c.Check(context.Account, gc.Equals, env.ecfg.publicStorageAccountName())
-	c.Check(context.Key, gc.Equals, "")
-	c.Check(context.RetryPolicy, gc.DeepEquals, retryPolicy)
-}
-
-func (*environSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *gc.C) {
-	attrs := makeAzureConfigMap(c)
-	attrs["public-storage-container-name"] = ""
-	attrs["public-storage-account-name"] = ""
-	cfg, err := config.New(attrs)
-	c.Assert(err, gc.IsNil)
-	env, err := NewEnviron(cfg)
-	c.Assert(err, gc.IsNil)
-	c.Check(env.PublicStorage(), gc.Equals, environs.EmptyStorage)
 }
 
 func (*environSuite) TestQueryStorageAccountKeyGetsKey(c *gc.C) {
@@ -277,21 +321,21 @@ func (*environSuite) TestQueryStorageAccountKeyGetsKey(c *gc.C) {
 
 func (*environSuite) TestGetStorageContextCreatesStorageContext(c *gc.C) {
 	env := makeEnviron(c)
-	storage, err := env.getStorageContext()
+	stor, err := env.getStorageContext()
 	c.Assert(err, gc.IsNil)
-	c.Assert(storage, gc.NotNil)
-	c.Check(storage.Account, gc.Equals, env.ecfg.storageAccountName())
-	c.Check(storage.AzureEndpoint, gc.Equals, gwacl.GetEndpoint(env.ecfg.location()))
+	c.Assert(stor, gc.NotNil)
+	c.Check(stor.Account, gc.Equals, env.ecfg.storageAccountName())
+	c.Check(stor.AzureEndpoint, gc.Equals, gwacl.GetEndpoint(env.ecfg.location()))
 }
 
 func (*environSuite) TestGetStorageContextUsesKnownStorageAccountKey(c *gc.C) {
 	env := makeEnviron(c)
 	env.storageAccountKey = "my-key"
 
-	storage, err := env.getStorageContext()
+	stor, err := env.getStorageContext()
 	c.Assert(err, gc.IsNil)
 
-	c.Check(storage.Key, gc.Equals, "my-key")
+	c.Check(stor.Key, gc.Equals, "my-key")
 }
 
 func (*environSuite) TestGetStorageContextQueriesStorageAccountKeyIfNeeded(c *gc.C) {
@@ -304,10 +348,10 @@ func (*environSuite) TestGetStorageContextQueriesStorageAccountKeyIfNeeded(c *gc
 		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
 	})
 
-	storage, err := env.getStorageContext()
+	stor, err := env.getStorageContext()
 	c.Assert(err, gc.IsNil)
 
-	c.Check(storage.Key, gc.Equals, keysInAzure.Primary)
+	c.Check(stor.Key, gc.Equals, keysInAzure.Primary)
 	c.Check(env.storageAccountKey, gc.Equals, keysInAzure.Primary)
 }
 
@@ -377,22 +421,13 @@ func (*environSuite) TestUpdateStorageAccountKeyDetectsConcurrentUpdate(c *gc.C)
 	c.Check(env.storageAccountKey, gc.Equals, "")
 }
 
-func (*environSuite) TestGetPublicStorageContext(c *gc.C) {
-	env := makeEnviron(c)
-	storage, err := env.getPublicStorageContext()
-	c.Assert(err, gc.IsNil)
-	c.Assert(storage, gc.NotNil)
-	c.Check(storage.Account, gc.Equals, env.ecfg.publicStorageAccountName())
-	c.Check(storage.Key, gc.Equals, "")
-}
-
 func (*environSuite) TestSetConfigValidates(c *gc.C) {
 	env := makeEnviron(c)
 	originalCfg := env.ecfg
 	attrs := makeAzureConfigMap(c)
 	// This config is not valid.  It lacks essential information.
 	delete(attrs, "management-subscription-id")
-	badCfg, err := config.New(attrs)
+	badCfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(badCfg)
@@ -413,21 +448,21 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	// unusual default Ubuntu release series: 7.04 Feisty Fawn.
 	attrs := makeAzureConfigMap(c)
 	attrs["default-series"] = "feisty"
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(cfg)
 	c.Assert(err, gc.IsNil)
 
-	c.Check(env.ecfg.Config.DefaultSeries(), gc.Equals, "feisty")
+	c.Check(config.PreferredSeries(env.ecfg.Config), gc.Equals, "feisty")
 }
 
 func (*environSuite) TestSetConfigLocksEnviron(c *gc.C) {
 	env := makeEnviron(c)
-	cfg, err := config.New(makeAzureConfigMap(c))
+	cfg, err := config.New(config.NoDefaults, makeAzureConfigMap(c))
 	c.Assert(err, gc.IsNil)
 
-	testing.TestLockingFunction(&env.Mutex, func() { env.SetConfig(cfg) })
+	coretesting.TestLockingFunction(&env.Mutex, func() { env.SetConfig(cfg) })
 }
 
 func (*environSuite) TestSetConfigWillNotUpdateName(c *gc.C) {
@@ -438,7 +473,7 @@ func (*environSuite) TestSetConfigWillNotUpdateName(c *gc.C) {
 	originalName := env.Name()
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "new-name"
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(cfg)
@@ -456,7 +491,7 @@ func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
 	env.storageAccountKey = "key-for-previous-config"
 	attrs := makeAzureConfigMap(c)
 	attrs["default-series"] = "other"
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	err = env.SetConfig(cfg)
@@ -465,32 +500,31 @@ func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
 	c.Check(env.storageAccountKey, gc.Equals, "")
 }
 
-func (*environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
+func (s *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	_, _, err := env.StateInfo()
-	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
-func (*environSuite) TestStateInfo(c *gc.C) {
-	instanceID := "my-instance"
-	patchWithServiceListResponse(c, []gwacl.HostedServiceDescriptor{{
-		ServiceName: instanceID,
-	}})
+func (s *environSuite) TestStateInfo(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
-	err := environs.SaveState(
+	s.setDummyStorage(c, env)
+	prefix := env.getEnvPrefix()
+
+	service := makeDeployment(env, prefix+"myservice")
+	instId := instance.Id(service.ServiceName + "-" + service.Deployments[0].RoleList[0].RoleName)
+	patchInstancesResponses(c, prefix, service)
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instId}},
+	)
 	c.Assert(err, gc.IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
-
 	config := env.Config()
-	dnsName := "my-instance." + AZURE_DOMAIN_NAME
+	dnsName := prefix + "myservice." + AZURE_DOMAIN_NAME
 	stateServerAddr := fmt.Sprintf("%s:%d", dnsName, config.StatePort())
 	apiServerAddr := fmt.Sprintf("%s:%d", dnsName, config.APIPort())
 	c.Check(stateInfo.Addrs, gc.DeepEquals, []string{stateServerAddr})
@@ -507,19 +541,12 @@ func parseCreateServiceRequest(c *gc.C, request *gwacl.X509Request) *gwacl.Creat
 	return &body
 }
 
-// makeServiceNameAlreadyTakenError simulates the AzureError you get when
-// trying to create a hosted service with a name that's already taken.
-func makeServiceNameAlreadyTakenError(c *gc.C) []byte {
-	// At the time of writing, this is the exact kind of error that Azure
-	// returns in this situation.
-	errorBody, err := xml.Marshal(gwacl.AzureError{
-		error:      fmt.Errorf("POST request failed"),
-		HTTPStatus: http.StatusConflict,
-		Code:       "ConflictError",
-		Message:    "The specified DNS name is already taken.",
-	})
+// getHostedServicePropertiesServiceName extracts the service name parameter
+// from the GetHostedServiceProperties request URL.
+func getHostedServicePropertiesServiceName(c *gc.C, request *gwacl.X509Request) string {
+	url, err := url.Parse(request.URL)
 	c.Assert(err, gc.IsNil)
-	return errorBody
+	return path.Base(url.Path)
 }
 
 // makeNonAvailabilityResponse simulates a reply to the
@@ -544,7 +571,7 @@ func makeAvailabilityResponse(c *gc.C) []byte {
 func (*environSuite) TestAttemptCreateServiceCreatesService(c *gc.C) {
 	prefix := "myservice"
 	affinityGroup := "affinity-group"
-	location := "location"
+
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
@@ -553,7 +580,7 @@ func (*environSuite) TestAttemptCreateServiceCreatesService(c *gc.C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := attemptCreateService(azure, prefix, affinityGroup, location)
+	service, err := attemptCreateService(azure, prefix, affinityGroup, "")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(*requests, gc.HasLen, 2)
@@ -561,11 +588,8 @@ func (*environSuite) TestAttemptCreateServiceCreatesService(c *gc.C) {
 	c.Check(body.ServiceName, gc.Equals, service.ServiceName)
 	c.Check(body.AffinityGroup, gc.Equals, affinityGroup)
 	c.Check(service.ServiceName, gc.Matches, prefix+".*")
-	c.Check(service.Location, gc.Equals, location)
-
-	label, err := base64.StdEncoding.DecodeString(service.Label)
-	c.Assert(err, gc.IsNil)
-	c.Check(string(label), gc.Equals, service.ServiceName)
+	// We specify AffinityGroup, so Location should be empty.
+	c.Check(service.Location, gc.Equals, "")
 }
 
 func (*environSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *gc.C) {
@@ -576,7 +600,7 @@ func (*environSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *gc.C) 
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
+	service, err := attemptCreateService(azure, "service", "affinity-group", "")
 	c.Check(err, gc.IsNil)
 	c.Check(service, gc.IsNil)
 }
@@ -590,7 +614,7 @@ func (*environSuite) TestAttemptCreateServicePropagatesOtherFailure(c *gc.C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	_, err = attemptCreateService(azure, "service", "affinity-group", "location")
+	_, err = attemptCreateService(azure, "service", "affinity-group", "")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, ".*Not Found.*")
 }
@@ -598,24 +622,30 @@ func (*environSuite) TestAttemptCreateServicePropagatesOtherFailure(c *gc.C) {
 func (*environSuite) TestNewHostedServiceCreatesService(c *gc.C) {
 	prefix := "myservice"
 	affinityGroup := "affinity-group"
-	location := "location"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+		getAzureServiceResponse(c, gwacl.HostedService{
+			HostedServiceDescriptor: gwacl.HostedServiceDescriptor{
+				ServiceName: "anything",
+			},
+		}),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := newHostedService(azure, prefix, affinityGroup, location)
+	service, err := newHostedService(azure, prefix, affinityGroup, "")
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(*requests, gc.HasLen, 2)
+	c.Assert(*requests, gc.HasLen, 3)
 	body := parseCreateServiceRequest(c, (*requests)[1])
-	c.Check(body.ServiceName, gc.Equals, service.ServiceName)
+	requestedServiceName := getHostedServicePropertiesServiceName(c, (*requests)[2])
+	c.Check(body.ServiceName, gc.Matches, prefix+".*")
+	c.Check(body.ServiceName, gc.Equals, requestedServiceName)
 	c.Check(body.AffinityGroup, gc.Equals, affinityGroup)
-	c.Check(service.ServiceName, gc.Matches, prefix+".*")
-	c.Check(service.Location, gc.Equals, location)
+	c.Check(service.ServiceName, gc.Equals, "anything")
+	c.Check(service.Location, gc.Equals, "")
 }
 
 func (*environSuite) TestNewHostedServiceRetriesIfNotUnique(c *gc.C) {
@@ -626,17 +656,22 @@ func (*environSuite) TestNewHostedServiceRetriesIfNotUnique(c *gc.C) {
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil),
-		gwacl.NewDispatcherResponse(okBody, http.StatusOK, nil),
-		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(okBody, http.StatusOK, nil), // name is unique
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),    // create service
+		getAzureServiceResponse(c, gwacl.HostedService{
+			HostedServiceDescriptor: gwacl.HostedServiceDescriptor{
+				ServiceName: "anything",
+			},
+		}),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	service, err := newHostedService(azure, "service", "affinity-group", "location")
+	service, err := newHostedService(azure, "service", "affinity-group", "")
 	c.Check(err, gc.IsNil)
 
-	c.Assert(*requests, gc.HasLen, 4)
+	c.Assert(*requests, gc.HasLen, 5)
 	// How many names have been attempted, and how often?
 	// There is a minute chance that this tries the same name twice, and
 	// then this test will fail.  If that happens, try seeding the
@@ -657,11 +692,8 @@ func (*environSuite) TestNewHostedServiceRetriesIfNotUnique(c *gc.C) {
 	c.Check(attemptedNames, gc.HasLen, 3)
 
 	// Once newHostedService succeeds, we get a hosted service with the
-	// last requested name.
-	c.Check(
-		service.ServiceName,
-		gc.Equals,
-		parseCreateServiceRequest(c, (*requests)[3]).ServiceName)
+	// name returned from GetHostedServiceProperties.
+	c.Check(service.ServiceName, gc.Equals, "anything")
 }
 
 func (*environSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *gc.C) {
@@ -674,138 +706,145 @@ func (*environSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *gc.C) 
 	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, gc.IsNil)
 
-	_, err = newHostedService(azure, "service", "affinity-group", "location")
+	_, err = newHostedService(azure, "service", "affinity-group", "")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "could not come up with a unique hosted service name.*")
 }
 
-// buildDestroyAzureServiceResponses returns a slice containing the responses that a fake Azure server
-// can use to simulate the deletion of the given list of services.
-func buildDestroyAzureServiceResponses(c *gc.C, services []*gwacl.HostedService) []gwacl.DispatcherResponse {
-	responses := []gwacl.DispatcherResponse{}
-	for _, service := range services {
-		// When destroying a hosted service, gwacl first issues a Get request
-		// to fetch the properties of the services.  Then it destroys all the
-		// deployments found in this service (none in this case, we make sure
-		// the service does not contain deployments to keep the testing simple)
-		// And it finally deletes the service itself.
-		if len(service.Deployments) != 0 {
-			panic("buildDestroyAzureServiceResponses does not support services with deployments!")
-		}
+func buildGetServicePropertiesResponses(c *gc.C, services ...*gwacl.HostedService) []gwacl.DispatcherResponse {
+	responses := make([]gwacl.DispatcherResponse, len(services))
+	for i, service := range services {
 		serviceXML, err := service.Serialize()
 		c.Assert(err, gc.IsNil)
-		serviceGetResponse := gwacl.NewDispatcherResponse(
-			[]byte(serviceXML),
-			http.StatusOK,
-			nil,
-		)
-		responses = append(responses, serviceGetResponse)
-		serviceDeleteResponse := gwacl.NewDispatcherResponse(
-			nil,
-			http.StatusOK,
-			nil,
-		)
-		responses = append(responses, serviceDeleteResponse)
+		responses[i] = gwacl.NewDispatcherResponse([]byte(serviceXML), http.StatusOK, nil)
 	}
 	return responses
 }
 
-func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDescriptor) {
-	service1Desc := &gwacl.HostedServiceDescriptor{ServiceName: name}
-	service1 := &gwacl.HostedService{HostedServiceDescriptor: *service1Desc}
-	return service1, service1Desc
+func buildStatusOKResponses(c *gc.C, n int) []gwacl.DispatcherResponse {
+	responses := make([]gwacl.DispatcherResponse, n)
+	for i := range responses {
+		responses[i] = gwacl.NewDispatcherResponse(nil, http.StatusOK, nil)
+	}
+	return responses
 }
 
-func setServiceDeletionConcurrency(nbGoroutines int) func() {
-	oldMaxConcurrentDeletes := maxConcurrentDeletes
-	maxConcurrentDeletes = nbGoroutines
-	return func() { maxConcurrentDeletes = oldMaxConcurrentDeletes }
+func makeAzureService(name string) *gwacl.HostedService {
+	return &gwacl.HostedService{
+		HostedServiceDescriptor: gwacl.HostedServiceDescriptor{ServiceName: name},
+	}
 }
 
-func (*environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
-	cleanup := setServiceDeletionConcurrency(3)
-	defer cleanup()
-	service1Name := "service1"
-	service1, service1Desc := makeAzureService(service1Name)
-	service2Name := "service2"
-	service2, service2Desc := makeAzureService(service2Name)
-	services := []*gwacl.HostedService{service1, service2}
-	responses := buildDestroyAzureServiceResponses(c, services)
-	requests := gwacl.PatchManagementAPIResponses(responses)
+func makeRole(env *azureEnviron) *gwacl.Role {
+	size := "Large"
+	vhd := env.newOSDisk("source-image-name")
+	userData := "example-user-data"
+	return env.newRole(size, vhd, userData, false)
+}
+
+func makeLegacyDeployment(env *azureEnviron, serviceName string) *gwacl.HostedService {
+	service := makeAzureService(serviceName)
+	service.Deployments = []gwacl.Deployment{{
+		Name:     serviceName,
+		RoleList: []gwacl.Role{*makeRole(env)},
+	}}
+	return service
+}
+
+func makeDeployment(env *azureEnviron, serviceName string) *gwacl.HostedService {
+	service := makeAzureService(serviceName)
+	service.Deployments = []gwacl.Deployment{{
+		Name:     serviceName + "-v2",
+		RoleList: []gwacl.Role{*makeRole(env), *makeRole(env)},
+	}}
+	return service
+}
+
+func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	env := makeEnviron(c)
-	instances := convertToInstances(
-		[]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc},
-		env)
+	prefix := env.getEnvPrefix()
+	service1Name := "service1"
+	service1 := makeLegacyDeployment(env, prefix+service1Name)
+	service2Name := "service2"
+	service2 := makeDeployment(env, prefix+service2Name)
 
-	err := env.StopInstances(instances)
+	inst1, err := env.getInstance(service1, "")
+	c.Assert(err, gc.IsNil)
+	role2Name := service2.Deployments[0].RoleList[0].RoleName
+	inst2, err := env.getInstance(service2, role2Name)
+	c.Assert(err, gc.IsNil)
+	role3Name := service2.Deployments[0].RoleList[1].RoleName
+	inst3, err := env.getInstance(service2, role3Name)
+	c.Assert(err, gc.IsNil)
+
+	responses := buildGetServicePropertiesResponses(c, service1)
+	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteHostedService
+	responses = append(responses, buildGetServicePropertiesResponses(c, service2)...)
+	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteHostedService
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	err = env.StopInstances(inst1.Id(), inst2.Id(), inst3.Id())
 	c.Check(err, gc.IsNil)
 
-	// It takes 2 API calls to delete each service:
-	// - one GET request to fetch the service's properties;
-	// - one DELETE request to delete the service.
-	c.Check(len(*requests), gc.Equals, len(services)*2)
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
+	// One GET and DELETE per service
+	// (GetHostedServiceProperties and DeleteHostedService).
+	c.Check(len(*requests), gc.Equals, len(responses))
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".*")
 	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".")
 	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
 }
 
-func (*environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
-	cleanup := setServiceDeletionConcurrency(3)
-	defer cleanup()
-	responses := []gwacl.DispatcherResponse{
-		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
-	}
-	service1Name := "service1"
-	_, service1Desc := makeAzureService(service1Name)
-	service2Name := "service2"
-	service2, service2Desc := makeAzureService(service2Name)
-	services := []*gwacl.HostedService{service2}
-	destroyResponses := buildDestroyAzureServiceResponses(c, services)
-	responses = append(responses, destroyResponses...)
-	requests := gwacl.PatchManagementAPIResponses(responses)
+func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 	env := makeEnviron(c)
-	instances := convertToInstances(
-		[]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc}, env)
+	service := makeDeployment(env, env.getEnvPrefix()+"service")
 
-	err := env.StopInstances(instances)
+	role1Name := service.Deployments[0].RoleList[0].RoleName
+	inst1, err := env.getInstance(service, role1Name)
+	c.Assert(err, gc.IsNil)
+
+	responses := buildGetServicePropertiesResponses(c, service)
+	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteRole
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	err = env.StopInstances(inst1.Id())
+	c.Check(err, gc.IsNil)
+
+	// One GET for the service, and one DELETE for the role.
+	// The service isn't deleted because it has two roles,
+	// and only one is being deleted.
+	c.Check(len(*requests), gc.Equals, len(responses))
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service.ServiceName+".")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+role1Name+".*")
+}
+
+func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
+	env := makeEnviron(c)
+	prefix := env.getEnvPrefix()
+	service1 := makeDeployment(env, prefix+"service1")
+	service2 := makeDeployment(env, prefix+"service2")
+	service1Role1Name := service1.Deployments[0].RoleList[0].RoleName
+	inst1, err := env.getInstance(service1, service1Role1Name)
+	c.Assert(err, gc.IsNil)
+	service2Role1Name := service2.Deployments[0].RoleList[0].RoleName
+	inst2, err := env.getInstance(service2, service2Role1Name)
+	c.Assert(err, gc.IsNil)
+
+	responses := buildGetServicePropertiesResponses(c, service1, service2)
+	// Failed to delete one of the services.
+	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil))
+	requests := gwacl.PatchManagementAPIResponses(responses)
+
+	err = env.StopInstances(inst1.Id(), inst2.Id())
 	c.Check(err, gc.ErrorMatches, ".*Conflict.*")
 
-	c.Check(len(*requests), gc.Equals, 3)
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".")
-	// Only one of the services was deleted.
-	assertOneRequestMatches(c, *requests, "DELETE", ".*")
+	c.Check(len(*requests), gc.Equals, len(responses))
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1.ServiceName+".*")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2.ServiceName+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*("+service1.ServiceName+"|"+service2.ServiceName+").")
 }
 
-func (*environSuite) TestStopInstancesWithLimitedConcurrency(c *gc.C) {
-	cleanup := setServiceDeletionConcurrency(3)
-	defer cleanup()
-	services := []*gwacl.HostedService{}
-	serviceDescs := []gwacl.HostedServiceDescriptor{}
-	for i := 0; i < 10; i++ {
-		serviceName := fmt.Sprintf("service%d", i)
-		service, serviceDesc := makeAzureService(serviceName)
-		services = append(services, service)
-		serviceDescs = append(serviceDescs, *serviceDesc)
-	}
-	responses := buildDestroyAzureServiceResponses(c, services)
-	requests := gwacl.PatchManagementAPIResponses(responses)
+func (s *environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
 	env := makeEnviron(c)
-	instances := convertToInstances(serviceDescs, env)
-
-	err := env.StopInstances(instances)
-	c.Check(err, gc.IsNil)
-	c.Check(len(*requests), gc.Equals, len(services)*2)
-}
-
-func (*environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
-	cleanup := setServiceDeletionConcurrency(3)
-	defer cleanup()
-	env := makeEnviron(c)
-	instances := []instance.Instance{}
-
-	err := env.StopInstances(instances)
+	err := env.StopInstances()
 	c.Check(err, gc.IsNil)
 }
 
@@ -829,58 +868,52 @@ func getVnetAndAffinityGroupCleanupResponses(c *gc.C) []gwacl.DispatcherResponse
 	return cleanupResponses
 }
 
-func (*environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
+func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := environs.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusBadRequest, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
 
-	err = env.Destroy([]instance.Instance{})
+	err = env.Destroy()
 	c.Check(err, gc.NotNil)
 
-	files, err := env.Storage().List("")
+	files, err := storage.List(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 1)
 }
 
-func (*environSuite) TestDestroyCleansUpStorage(c *gc.C) {
+func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := environs.SaveState(
+	err := bootstrap.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
-	services := []gwacl.HostedServiceDescriptor{}
-	responses := getAzureServiceListResponse(c, services)
+	responses := getAzureServiceListResponse(c)
 	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
 	responses = append(responses, cleanupResponses...)
 	gwacl.PatchManagementAPIResponses(responses)
-	instances := convertToInstances([]gwacl.HostedServiceDescriptor{}, env)
 
-	err = env.Destroy(instances)
+	err = env.Destroy()
 	c.Check(err, gc.IsNil)
 
-	files, err := env.Storage().List("")
+	files, err := storage.List(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
 	c.Check(files, gc.HasLen, 0)
 }
 
-func (*environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C) {
+func (s *environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
-	services := []gwacl.HostedServiceDescriptor{}
-	responses := getAzureServiceListResponse(c, services)
+	s.setDummyStorage(c, env)
+	responses := getAzureServiceListResponse(c)
 	// Prepare a configuration with a single virtual network.
 	existingConfig := &gwacl.NetworkConfiguration{
 		XMLNS: gwacl.XMLNS_NC,
@@ -900,9 +933,8 @@ func (*environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C) {
 	}
 	responses = append(responses, cleanupResponses...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	instances := convertToInstances([]gwacl.HostedServiceDescriptor{}, env)
 
-	err = env.Destroy(instances)
+	err = env.Destroy()
 	c.Check(err, gc.IsNil)
 
 	c.Assert(*requests, gc.HasLen, 4)
@@ -944,63 +976,99 @@ func assertOneRequestMatches(c *gc.C, requests []*gwacl.X509Request, method stri
 	c.Error(fmt.Sprintf("none of the requests matches: Method=%v, URL pattern=%v", method, urlPattern))
 }
 
-func (*environSuite) TestDestroyStopsAllInstances(c *gc.C) {
-	cleanup1 := setServiceDeletionConcurrency(3)
-	defer cleanup1()
+func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	env := makeEnviron(c)
-	cleanup2 := setDummyStorage(c, env)
-	defer cleanup2()
-
-	// Simulate 2 instances corresponding to two Azure services.
+	s.setDummyStorage(c, env)
 	prefix := env.getEnvPrefix()
-	service1Name := prefix + "service1"
-	service2Name := prefix + "service2"
-	service1, service1Desc := makeAzureService(service1Name)
-	service2, service2Desc := makeAzureService(service2Name)
-	services := []*gwacl.HostedService{service1, service2}
+	service1 := makeDeployment(env, prefix+"service1")
+	service2 := makeDeployment(env, prefix+"service2")
+
 	// The call to AllInstances() will return only one service (service1).
-	listInstancesResponses := getAzureServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
-	destroyResponses := buildDestroyAzureServiceResponses(c, services)
-	responses := append(listInstancesResponses, destroyResponses...)
-	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
-	responses = append(responses, cleanupResponses...)
+	responses := getAzureServiceListResponse(c, service1.HostedServiceDescriptor, service2.HostedServiceDescriptor)
+	responses = append(responses, buildStatusOKResponses(c, 2)...) // DeleteHostedService
+	responses = append(responses, getVnetAndAffinityGroupCleanupResponses(c)...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
-	// Call Destroy with service1 and service2.
-	instances := convertToInstances(
-		[]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc},
-		env)
-	err := env.Destroy(instances)
+	err := env.Destroy()
 	c.Check(err, gc.IsNil)
 
 	// One request to get the list of all the environment's instances.
-	// Then two requests per destroyed machine (one to fetch the
-	// service's information, one to delete it) and two requests to delete
-	// the Virtual Network and the Affinity Group.
-	c.Check((*requests), gc.HasLen, 1+len(services)*2+2)
+	// One delete request per destroyed service, and two additional
+	// requests to delete the Virtual Network and the Affinity Group.
+	c.Check((*requests), gc.HasLen, 5)
 	c.Check((*requests)[0].Method, gc.Equals, "GET")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".*")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1.ServiceName+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2.ServiceName+".*")
 }
 
-func (*environSuite) TestGetInstance(c *gc.C) {
+func (s *environSuite) TestGetInstance(c *gc.C) {
 	env := makeEnviron(c)
-	prefix := env.getEnvPrefix()
-	serviceName := prefix + "instance-name"
-	serviceDesc := gwacl.HostedServiceDescriptor{ServiceName: serviceName}
-	service := gwacl.HostedService{HostedServiceDescriptor: serviceDesc}
-	responses := getAzureServiceResponses(c, service)
-	gwacl.PatchManagementAPIResponses(responses)
+	service1 := makeLegacyDeployment(env, "service1")
+	service2 := makeDeployment(env, "service1")
 
-	instance, err := env.getInstance("serviceName")
-	c.Check(err, gc.IsNil)
+	// azureEnviron.Instances will call getInstance with roleName==""
+	// for legacy instances. This will cause getInstance to get the
+	// one and only role (or error if there is more than one).
+	inst1, err := env.getInstance(service1, "")
+	c.Assert(err, gc.IsNil)
+	c.Check(inst1.Id(), gc.Equals, instance.Id("service1"))
+	c.Assert(inst1, gc.FitsTypeOf, &azureInstance{})
+	c.Check(inst1.(*azureInstance).environ, gc.Equals, env)
+	c.Check(inst1.(*azureInstance).roleName, gc.Equals, service1.Deployments[0].RoleList[0].RoleName)
+	service1.Deployments[0].RoleList = service2.Deployments[0].RoleList
+	inst1, err = env.getInstance(service1, "")
+	c.Check(err, gc.ErrorMatches, `expected one role for "service1", got 2`)
 
-	c.Check(string(instance.Id()), gc.Equals, serviceName)
-	c.Check(instance, gc.FitsTypeOf, &azureInstance{})
-	azInstance := instance.(*azureInstance)
-	c.Check(azInstance.environ, gc.Equals, env)
+	inst2, err := env.getInstance(service2, service2.Deployments[0].RoleList[0].RoleName)
+	c.Assert(err, gc.IsNil)
+	c.Check(inst2.Id(), gc.Equals, instance.Id("service1-"+service2.Deployments[0].RoleList[0].RoleName))
+}
+
+func (s *environSuite) TestInitialPorts(c *gc.C) {
+	env := makeEnviron(c)
+	service1 := makeLegacyDeployment(env, "service1")
+	service2 := makeDeployment(env, "service2")
+	service3 := makeDeployment(env, "service3")
+	service3.Label = base64.StdEncoding.EncodeToString([]byte(stateServerLabel))
+
+	role1 := &service1.Deployments[0].RoleList[0]
+	inst1, err := env.getInstance(service1, role1.RoleName)
+	c.Assert(err, gc.IsNil)
+	c.Assert(inst1.(*azureInstance).maskStateServerPorts, jc.IsTrue)
+	role2 := &service2.Deployments[0].RoleList[0]
+	inst2, err := env.getInstance(service2, role2.RoleName)
+	c.Assert(err, gc.IsNil)
+	role3 := &service3.Deployments[0].RoleList[0]
+	inst3, err := env.getInstance(service3, role3.RoleName)
+	c.Assert(err, gc.IsNil)
+
+	// Only role2 should report opened state server ports via the Ports method.
+	dummyRole := *role1
+	configSetNetwork(&dummyRole).InputEndpoints = &[]gwacl.InputEndpoint{{
+		LocalPort: env.Config().StatePort(),
+		Protocol:  "tcp",
+		Name:      "stateserver",
+		Port:      env.Config().StatePort(),
+	}, {
+		LocalPort: env.Config().APIPort(),
+		Protocol:  "tcp",
+		Name:      "apiserver",
+		Port:      env.Config().APIPort(),
+	}}
+	reportsStateServerPorts := func(inst instance.Instance) bool {
+		responses := preparePortChangeConversation(c, &dummyRole)
+		gwacl.PatchManagementAPIResponses(responses)
+		ports, err := inst.Ports("")
+		c.Assert(err, gc.IsNil)
+		portmap := make(map[int]bool)
+		for _, port := range ports {
+			portmap[port.Number] = true
+		}
+		return portmap[env.Config().StatePort()] && portmap[env.Config().APIPort()]
+	}
+	c.Check(inst1, gc.Not(jc.Satisfies), reportsStateServerPorts)
+	c.Check(inst2, jc.Satisfies, reportsStateServerPorts)
+	c.Check(inst3, gc.Not(jc.Satisfies), reportsStateServerPorts)
 }
 
 func (*environSuite) TestNewOSVirtualDisk(c *gc.C) {
@@ -1030,25 +1098,32 @@ func mapInputEndpointsByPort(c *gc.C, endpoints []gwacl.InputEndpoint) map[int]g
 	return mapping
 }
 
-func (*environSuite) TestNewRole(c *gc.C) {
+func (s *environSuite) TestNewRole(c *gc.C) {
+	s.testNewRole(c, false)
+}
+
+func (s *environSuite) TestNewRoleStateServer(c *gc.C) {
+	s.testNewRole(c, true)
+}
+
+func (*environSuite) testNewRole(c *gc.C, stateServer bool) {
 	env := makeEnviron(c)
 	size := "Large"
 	vhd := env.newOSDisk("source-image-name")
 	userData := "example-user-data"
-	hostname := "hostname"
 
-	role := env.newRole(size, vhd, userData, hostname)
+	role := env.newRole(size, vhd, userData, stateServer)
 
 	configs := role.ConfigurationSets
 	linuxConfig := configs[0]
 	networkConfig := configs[1]
 	c.Check(linuxConfig.CustomData, gc.Equals, userData)
-	c.Check(linuxConfig.Hostname, gc.Equals, hostname)
+	c.Check(linuxConfig.Hostname, gc.Equals, role.RoleName)
 	c.Check(linuxConfig.Username, gc.Not(gc.Equals), "")
 	c.Check(linuxConfig.Password, gc.Not(gc.Equals), "")
 	c.Check(linuxConfig.DisableSSHPasswordAuthentication, gc.Equals, "true")
 	c.Check(role.RoleSize, gc.Equals, size)
-	c.Check(role.OSVirtualHardDisk[0], gc.Equals, *vhd)
+	c.Check(role.OSVirtualHardDisk, gc.DeepEquals, vhd)
 
 	endpoints := mapInputEndpointsByPort(c, *networkConfig.InputEndpoints)
 
@@ -1058,35 +1133,19 @@ func (*environSuite) TestNewRole(c *gc.C) {
 	c.Check(sshEndpoint.LocalPort, gc.Equals, 22)
 	c.Check(sshEndpoint.Protocol, gc.Equals, "tcp")
 
-	// There's also an endpoint for the state (mongodb) port.
-	// TODO: Ought to have this only for state servers.
-	stateEndpoint, ok := endpoints[env.Config().StatePort()]
-	c.Assert(ok, gc.Equals, true)
-	c.Check(stateEndpoint.LocalPort, gc.Equals, env.Config().StatePort())
-	c.Check(stateEndpoint.Protocol, gc.Equals, "tcp")
+	if stateServer {
+		// There's also an endpoint for the state (mongodb) port.
+		stateEndpoint, ok := endpoints[env.Config().StatePort()]
+		c.Assert(ok, gc.Equals, true)
+		c.Check(stateEndpoint.LocalPort, gc.Equals, env.Config().StatePort())
+		c.Check(stateEndpoint.Protocol, gc.Equals, "tcp")
 
-	// And one for the API port.
-	// TODO: Ought to have this only for API servers.
-	apiEndpoint, ok := endpoints[env.Config().APIPort()]
-	c.Assert(ok, gc.Equals, true)
-	c.Check(apiEndpoint.LocalPort, gc.Equals, env.Config().APIPort())
-	c.Check(apiEndpoint.Protocol, gc.Equals, "tcp")
-}
-
-func (*environSuite) TestNewDeployment(c *gc.C) {
-	env := makeEnviron(c)
-	deploymentName := "deployment-name"
-	deploymentLabel := "deployment-label"
-	virtualNetworkName := "virtual-network-name"
-	vhd := env.newOSDisk("source-image-name")
-	role := env.newRole("Small", vhd, "user-data", "hostname")
-
-	deployment := env.newDeployment(role, deploymentName, deploymentLabel, virtualNetworkName)
-
-	base64Label := base64.StdEncoding.EncodeToString([]byte(deploymentLabel))
-	c.Check(deployment.Label, gc.Equals, base64Label)
-	c.Check(deployment.Name, gc.Equals, deploymentName)
-	c.Check(deployment.RoleList, gc.HasLen, 1)
+		// And one for the API port.
+		apiEndpoint, ok := endpoints[env.Config().APIPort()]
+		c.Assert(ok, gc.Equals, true)
+		c.Check(apiEndpoint.LocalPort, gc.Equals, env.Config().APIPort())
+		c.Check(apiEndpoint.Protocol, gc.Equals, "tcp")
+	}
 }
 
 func (*environSuite) TestProviderReturnsAzureEnvironProvider(c *gc.C) {
@@ -1209,21 +1268,6 @@ func (*environSuite) TestGetAffinityGroupNameIsConstant(c *gc.C) {
 	c.Check(env.getAffinityGroupName(), gc.Equals, env.getAffinityGroupName())
 }
 
-func (*environSuite) TestGetImageBaseURLs(c *gc.C) {
-	env := makeEnviron(c)
-	urls, err := env.getImageBaseURLs()
-	c.Assert(err, gc.IsNil)
-	// At the moment this is not configurable.  It returns a fixed URL for
-	// the central simplestreams database.
-	c.Check(urls, gc.DeepEquals, []string{simplestreams.DefaultBaseURL})
-}
-
-func (*environSuite) TestGetImageStreamDefaultsToBlank(c *gc.C) {
-	env := makeEnviron(c)
-	// Hard-coded to default for now.
-	c.Check(env.getImageStream(), gc.Equals, "")
-}
-
 func (*environSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *gc.C) {
 	env := makeEnviron(c)
 	// Hard-coded to true for now.  Once we support other base URLs, this
@@ -1242,54 +1286,53 @@ func (*environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
 		Mem:      &aim.Mem,
 	}
 
-	instanceType, image, err := env.selectInstanceTypeAndImage(cons, "precise", "West US")
+	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
+		Region:      "West US",
+		Series:      "precise",
+		Constraints: cons,
+	})
 	c.Assert(err, gc.IsNil)
 
 	c.Check(instanceType, gc.Equals, aim.Name)
 	c.Check(image, gc.Equals, forcedImage)
 }
 
-func (*environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(c *gc.C) {
-	env := makeEnviron(c)
+func (s *environSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
+	envAttrs := makeAzureConfigMap(c)
+	envAttrs["location"] = "North Europe"
+	env := makeEnvironWithConfig(c, envAttrs)
+	s.setDummyStorage(c, env)
+	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	s.PatchValue(&signedImageDataOnly, false)
+	images := []*imagemetadata.ImageMetadata{
+		{
+			Id:         "image-id",
+			VirtType:   "Hyper-V",
+			Arch:       "amd64",
+			RegionName: "North Europe",
+			Endpoint:   "https://management.core.windows.net/",
+		},
+	}
+	makeTestMetadata(c, env, "precise", "North Europe", images)
+	return env
+}
 
+func (s *environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
 	// We'll tailor our constraints so as to get a specific instance type.
 	aim := gwacl.RoleNameMap["ExtraSmall"]
 	cons := constraints.Value{
 		CpuCores: &aim.CpuCores,
 		Mem:      &aim.Mem,
 	}
-
-	// We have one image available.
-	images := []*imagemetadata.ImageMetadata{
-		{
-			Id:          "image",
-			VType:       "Hyper-V",
-			Arch:        "amd64",
-			RegionAlias: "North Europe",
-			RegionName:  "North Europe",
-			Endpoint:    "http://localhost/",
-		},
-	}
-	cleanup := patchFetchImageMetadata(images, nil)
-	defer cleanup()
-
-	instanceType, image, err := env.selectInstanceTypeAndImage(cons, "precise", "West US")
-	c.Assert(err, gc.IsNil)
-
-	c.Check(instanceType, gc.Equals, aim.Name)
-	c.Check(image, gc.Equals, "image")
-}
-
-func (*environSuite) TestConvertToInstances(c *gc.C) {
-	services := []gwacl.HostedServiceDescriptor{
-		{ServiceName: "foo"}, {ServiceName: "bar"},
-	}
-	env := makeEnviron(c)
-	instances := convertToInstances(services, env)
-	c.Check(instances, gc.DeepEquals, []instance.Instance{
-		&azureInstance{services[0], env},
-		&azureInstance{services[1], env},
+	instanceType, image, err := env.selectInstanceTypeAndImage(&instances.InstanceConstraint{
+		Region:      "North Europe",
+		Series:      "precise",
+		Constraints: cons,
 	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(instanceType, gc.Equals, aim.Name)
+	c.Assert(image, gc.Equals, "image-id")
 }
 
 func (*environSuite) TestExtractStorageKeyPicksPrimaryKeyIfSet(c *gc.C) {
@@ -1309,4 +1352,190 @@ func (*environSuite) TestExtractStorageKeyFallsBackToSecondaryKey(c *gc.C) {
 
 func (*environSuite) TestExtractStorageKeyReturnsBlankIfNoneSet(c *gc.C) {
 	c.Check(extractStorageKey(&gwacl.StorageAccountKeys{}), gc.Equals, "")
+}
+
+func assertSourceContents(c *gc.C, source simplestreams.DataSource, filename string, content []byte) {
+	rc, _, err := source.Fetch(filename)
+	c.Assert(err, gc.IsNil)
+	defer rc.Close()
+	retrieved, err := ioutil.ReadAll(rc)
+	c.Assert(err, gc.IsNil)
+	c.Assert(retrieved, gc.DeepEquals, content)
+}
+
+func (s *environSuite) assertGetImageMetadataSources(c *gc.C, stream, officialSourcePath string) {
+	envAttrs := makeAzureConfigMap(c)
+	if stream != "" {
+		envAttrs["image-stream"] = stream
+	}
+	env := makeEnvironWithConfig(c, envAttrs)
+	s.setDummyStorage(c, env)
+
+	data := []byte{1, 2, 3, 4}
+	env.Storage().Put("images/filename", bytes.NewReader(data), int64(len(data)))
+
+	sources, err := imagemetadata.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 2)
+	assertSourceContents(c, sources[0], "filename", data)
+	url, err := sources[1].URL("")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Equals, fmt.Sprintf("http://cloud-images.ubuntu.com/%s/", officialSourcePath))
+}
+
+func (s *environSuite) TestGetImageMetadataSources(c *gc.C) {
+	s.assertGetImageMetadataSources(c, "", "releases")
+	s.assertGetImageMetadataSources(c, "released", "releases")
+	s.assertGetImageMetadataSources(c, "daily", "daily")
+}
+
+func (s *environSuite) TestGetToolsMetadataSources(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+
+	data := []byte{1, 2, 3, 4}
+	env.Storage().Put("tools/filename", bytes.NewReader(data), int64(len(data)))
+
+	sources, err := tools.GetMetadataSources(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(sources), gc.Equals, 1)
+	assertSourceContents(c, sources[0], "filename", data)
+}
+
+func (s *environSuite) TestCheckUnitAssignment(c *gc.C) {
+	// If availability-sets-enabled is true, then placement is disabled.
+	attrs := makeAzureConfigMap(c)
+	attrs["availability-sets-enabled"] = true
+	env := environs.Environ(makeEnvironWithConfig(c, attrs))
+	err := env.SupportsUnitPlacement()
+	c.Assert(err, gc.ErrorMatches, "unit placement is not supported with availability-sets-enabled")
+
+	// If the user disables availability sets, they can do what they want.
+	attrs["availability-sets-enabled"] = false
+	env = environs.Environ(makeEnvironWithConfig(c, attrs))
+	err = env.SupportsUnitPlacement()
+	c.Assert(err, gc.IsNil)
+}
+
+type startInstanceSuite struct {
+	baseEnvironSuite
+	env    *azureEnviron
+	params environs.StartInstanceParams
+}
+
+func (s *startInstanceSuite) SetUpTest(c *gc.C) {
+	s.baseEnvironSuite.SetUpTest(c)
+	s.env = makeEnviron(c)
+	s.setDummyStorage(c, s.env)
+	s.env.ecfg.attrs["force-image-name"] = "my-image"
+	stateInfo := &state.Info{
+		Addrs:    []string{"localhost:123"},
+		CACert:   coretesting.CACert,
+		Password: "password",
+		Tag:      "machine-1",
+	}
+	apiInfo := &api.Info{
+		Addrs:    []string{"localhost:124"},
+		CACert:   coretesting.CACert,
+		Password: "admin",
+		Tag:      "machine-1",
+	}
+	s.params = environs.StartInstanceParams{
+		Tools: envtesting.AssertUploadFakeToolsVersions(
+			c, s.env.storage, envtesting.V120p...,
+		),
+		MachineConfig: environs.NewMachineConfig(
+			"1", "yanonce", nil, nil, stateInfo, apiInfo,
+		),
+	}
+}
+
+func (s *startInstanceSuite) startInstance(c *gc.C) (serviceName string, stateServer bool) {
+	var called bool
+	restore := testing.PatchValue(&createInstance, func(env *azureEnviron, azure *gwacl.ManagementAPI, role *gwacl.Role, serviceNameArg string, stateServerArg bool) (instance.Instance, error) {
+		serviceName = serviceNameArg
+		stateServer = stateServerArg
+		called = true
+		return nil, nil
+	})
+	defer restore()
+	_, _, _, err := s.env.StartInstance(s.params)
+	c.Assert(err, gc.IsNil)
+	c.Assert(called, jc.IsTrue)
+	return serviceName, stateServer
+}
+
+func (s *startInstanceSuite) TestStartInstanceDistributionGroupError(c *gc.C) {
+	s.params.DistributionGroup = func() ([]instance.Id, error) {
+		return nil, fmt.Errorf("DistributionGroupError")
+	}
+	s.env.ecfg.attrs["availability-sets-enabled"] = true
+	_, _, _, err := s.env.StartInstance(s.params)
+	c.Assert(err, gc.ErrorMatches, "DistributionGroupError")
+	// DistributionGroup should not be called if availability-sets-enabled=false.
+	s.env.ecfg.attrs["availability-sets-enabled"] = false
+	s.startInstance(c)
+}
+
+func (s *startInstanceSuite) TestStartInstanceDistributionGroupEmpty(c *gc.C) {
+	// serviceName will be empty if DistributionGroup is nil or returns nothing.
+	s.env.ecfg.attrs["availability-sets-enabled"] = true
+	serviceName, _ := s.startInstance(c)
+	c.Assert(serviceName, gc.Equals, "")
+	s.params.DistributionGroup = func() ([]instance.Id, error) { return nil, nil }
+	serviceName, _ = s.startInstance(c)
+	c.Assert(serviceName, gc.Equals, "")
+}
+
+func (s *startInstanceSuite) TestStartInstanceDistributionGroup(c *gc.C) {
+	s.params.DistributionGroup = func() ([]instance.Id, error) {
+		return []instance.Id{
+			instance.Id(s.env.getEnvPrefix() + "whatever-role0"),
+		}, nil
+	}
+	// DistributionGroup will only have an effect if
+	// availability-sets-enabled=true.
+	s.env.ecfg.attrs["availability-sets-enabled"] = false
+	serviceName, _ := s.startInstance(c)
+	c.Assert(serviceName, gc.Equals, "")
+	s.env.ecfg.attrs["availability-sets-enabled"] = true
+	serviceName, _ = s.startInstance(c)
+	c.Assert(serviceName, gc.Equals, "juju-testenv-whatever")
+}
+
+func (s *startInstanceSuite) TestStartInstanceStateServerJobs(c *gc.C) {
+	// If the machine has the JobManagesEnviron job,
+	// we should see stateServer==true.
+	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
+		apiparams.JobHostUnits,
+	}
+	_, stateServer := s.startInstance(c)
+	c.Assert(stateServer, jc.IsFalse)
+	s.params.MachineConfig.Jobs = []apiparams.MachineJob{
+		apiparams.JobHostUnits, apiparams.JobManageEnviron,
+	}
+	_, stateServer = s.startInstance(c)
+	c.Assert(stateServer, jc.IsTrue)
+}
+
+func (s *environSuite) TestConstraintsValidator(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
+	unsupported, err := validator.Validate(cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "tags"})
+}
+
+func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	cons := constraints.MustParse("arch=ppc64")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+	cons = constraints.MustParse("instance-type=foo")
+	_, err = validator.Validate(cons)
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
 }

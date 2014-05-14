@@ -10,16 +10,18 @@ import (
 	"path/filepath"
 	"testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
 )
 
 func Test(t *testing.T) { gc.TestingT(t) }
 
 type UpstartSuite struct {
-	origPath string
+	testbase.LoggingSuite
 	testPath string
 	service  *upstart.Service
 }
@@ -27,24 +29,23 @@ type UpstartSuite struct {
 var _ = gc.Suite(&UpstartSuite{})
 
 func (s *UpstartSuite) SetUpTest(c *gc.C) {
-	s.origPath = os.Getenv("PATH")
 	s.testPath = c.MkDir()
-	os.Setenv("PATH", s.testPath+":"+s.origPath)
+	s.PatchEnvPathPrepend(s.testPath)
+	s.PatchValue(&upstart.InstallStartRetryAttempts, utils.AttemptStrategy{})
 	s.service = &upstart.Service{Name: "some-service", InitDir: c.MkDir()}
 	_, err := os.Create(filepath.Join(s.service.InitDir, "some-service.conf"))
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *UpstartSuite) TearDownTest(c *gc.C) {
-	os.Setenv("PATH", s.origPath)
-}
-
 var checkargs = `
-#!/bin/bash
-if [ "$1" != "some-service" ]; then
+#!/bin/bash --norc
+if [ "$1" != "--system" ]; then
   exit 255
 fi
-if [ "$2" != "" ]; then
+if [ "$2" != "some-service" ]; then
+  exit 255
+fi
+if [ "$3" != "" ]; then
   exit 255
 fi
 `[1:]
@@ -107,26 +108,41 @@ func (s *UpstartSuite) TestStop(c *gc.C) {
 func (s *UpstartSuite) TestRemoveMissing(c *gc.C) {
 	err := os.Remove(filepath.Join(s.service.InitDir, "some-service.conf"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.service.Remove(), gc.IsNil)
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
 }
 
 func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
 	s.StoppedStatus(c)
-	c.Assert(s.service.Remove(), gc.IsNil)
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
 	_, err := os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *UpstartSuite) TestRemoveRunning(c *gc.C) {
 	s.RunningStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
-	c.Assert(s.service.Remove(), gc.ErrorMatches, ".*exit status 99.*")
+	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
 	_, err := os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
 	c.Assert(err, gc.IsNil)
 	s.MakeTool(c, "stop", "exit 0")
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
+	_, err = os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+func (s *UpstartSuite) TestStopAndRemove(c *gc.C) {
+	s.RunningStatus(c)
+	s.MakeTool(c, "stop", "exit 99")
+
+	// StopAndRemove will fail, as it calls stop.
+	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
+	_, err := os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
+	c.Assert(err, gc.IsNil)
+
+	// Plain old Remove will succeed.
 	c.Assert(s.service.Remove(), gc.IsNil)
 	_, err = os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *UpstartSuite) TestInstallErrors(c *gc.C) {
@@ -236,5 +252,5 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	conf := s.dummyConf(c)
 	err = conf.Install()
 	c.Assert(err, gc.IsNil)
-	c.Assert(&conf.Service, checkers.Satisfies, (*upstart.Service).Running)
+	c.Assert(&conf.Service, jc.Satisfies, (*upstart.Service).Running)
 }

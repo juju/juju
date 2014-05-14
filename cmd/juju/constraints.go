@@ -9,16 +9,49 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
+
+const getConstraintsDoc = `
+get-constraints returns a list of constraints that have been set on
+the environment using juju set-constraints.  You can also view constraints set
+for a specific service by using juju get-constraints <service>.
+
+See Also:
+   juju help constraints
+   juju help set-constraints
+`
+
+const setConstraintsDoc = `
+set-constraints sets machine constraints on the system, which are used as the
+default constraints for all new machines provisioned in the environment (unless
+overridden).  You can also set constraints on a specific service by using juju 
+set-constraints <service>. 
+
+Constraints set on a service are combined with environment constraints for
+commands (such as juju deploy) that provision machines for services.  Where
+environment and service constraints overlap, the service constraints take
+precedence.
+
+Examples:
+
+   set-constraints mem=8G                         (all new machines in the environment must have at least 8GB of RAM)
+   set-constraints --service wordpress mem=4G     (all new wordpress machines can ignore the 8G constraint above, and require only 4G)
+
+See Also:
+   juju help constraints
+   juju help get-constraints
+   juju help deploy
+   juju help add-machine
+   juju help add-unit
+`
 
 // GetConstraintsCommand shows the constraints for a service or environment.
 type GetConstraintsCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	out         cmd.Output
 }
@@ -27,7 +60,8 @@ func (c *GetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "get-constraints",
 		Args:    "[<service>]",
-		Purpose: "view constraints",
+		Purpose: "view constraints on the environment or a service",
+		Doc:     getConstraintsDoc,
 	}
 }
 
@@ -36,7 +70,6 @@ func formatConstraints(value interface{}) ([]byte, error) {
 }
 
 func (c *GetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "constraints", map[string]cmd.Formatter{
 		"constraints": formatConstraints,
 		"yaml":        cmd.FormatYaml,
@@ -55,22 +88,17 @@ func (c *GetConstraintsCommand) Init(args []string) error {
 }
 
 func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer apiclient.Close()
 
 	var cons constraints.Value
-	if c.ServiceName != "" {
-		args := params.GetServiceConstraints{
-			ServiceName: c.ServiceName,
-		}
-		var results params.GetServiceConstraintsResults
-		results, err = statecmd.GetServiceConstraints(conn.State, args)
-		cons = results.Constraints
+	if c.ServiceName == "" {
+		cons, err = apiclient.GetEnvironmentConstraints()
 	} else {
-		cons, err = conn.State.EnvironConstraints()
+		cons, err = apiclient.GetServiceConstraints(c.ServiceName)
 	}
 	if err != nil {
 		return err
@@ -80,7 +108,7 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 
 // SetConstraintsCommand shows the constraints for a service or environment.
 type SetConstraintsCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	ServiceName string
 	Constraints constraints.Value
 }
@@ -89,12 +117,12 @@ func (c *SetConstraintsCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "set-constraints",
 		Args:    "[key=[value] ...]",
-		Purpose: "replace constraints",
+		Purpose: "set constraints on the environment or a service",
+		Doc:     setConstraintsDoc,
 	}
 }
 
 func (c *SetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.ServiceName, "s", "", "set service constraints")
 	f.StringVar(&c.ServiceName, "service", "", "")
 }
@@ -108,17 +136,13 @@ func (c *SetConstraintsCommand) Init(args []string) (err error) {
 }
 
 func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer apiclient.Close()
 	if c.ServiceName == "" {
-		return conn.State.SetEnvironConstraints(c.Constraints)
+		return apiclient.SetEnvironmentConstraints(c.Constraints)
 	}
-	params := params.SetServiceConstraints{
-		ServiceName: c.ServiceName,
-		Constraints: c.Constraints,
-	}
-	return statecmd.SetServiceConstraints(conn.State, params)
+	return apiclient.SetServiceConstraints(c.ServiceName, c.Constraints)
 }

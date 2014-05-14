@@ -62,3 +62,13 @@ func AuthEither(a, b GetAuthFunc) GetAuthFunc {
 		}, nil
 	}
 }
+
+// AuthAlways returns an authentication function that always returns
+// the given permission.
+func AuthAlways(ok bool) GetAuthFunc {
+	return func() (AuthFunc, error) {
+		return func(tag string) bool {
+			return ok
+		}, nil
+	}
+}

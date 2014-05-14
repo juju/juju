@@ -6,13 +6,16 @@ package deployer_test
 import (
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	apitesting "launchpad.net/juju-core/state/api/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -23,6 +26,7 @@ func TestAll(t *stdtesting.T) {
 
 type deployerSuite struct {
 	testing.JujuConnSuite
+	*apitesting.APIAddresserTests
 
 	stateAPI *api.State
 
@@ -41,25 +45,13 @@ var _ = gc.Suite(&deployerSuite{})
 
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-
-	// Create a machine to work with.
-	var err error
-	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron, state.JobHostUnits)
+	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
-	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	err = s.machine.SetPassword("test-password")
-	c.Assert(err, gc.IsNil)
-
-	// Login as the machine agent of the created machine.
-	s.stateAPI = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
-	c.Assert(s.stateAPI, gc.NotNil)
 
 	// Create the needed services and relate them.
-	s.service0, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
-	s.service1, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -80,14 +72,8 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// Create the deployer facade.
 	s.st = s.stateAPI.Deployer()
 	c.Assert(s.st, gc.NotNil)
-}
 
-func (s *deployerSuite) TearDownTest(c *gc.C) {
-	if s.stateAPI != nil {
-		err := s.stateAPI.Close()
-		c.Check(err, gc.IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
+	s.APIAddresserTests = apitesting.NewAPIAddresserTests(s.st, s.BackingState)
 }
 
 // Note: This is really meant as a unit-test, this isn't a test that
@@ -99,7 +85,7 @@ func (s *deployerSuite) TestNew(c *gc.C) {
 
 func (s *deployerSuite) assertUnauthorized(c *gc.C, err error) {
 	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 }
 
 func (s *deployerSuite) TestWatchUnitsWrongMachine(c *gc.C) {
@@ -133,6 +119,10 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
 	err = s.subordinate.SetPassword("foo")
+	c.Assert(err, gc.ErrorMatches, "password is only 3 bytes long, and is not a valid Agent password")
+	wc.AssertNoChange()
+
+	err = s.subordinate.SetPassword("foo-12345678901234567890")
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
@@ -157,7 +147,7 @@ func (s *deployerSuite) TestUnit(c *gc.C) {
 
 	// Try getting a unit we're not responsible for.
 	// First create a new machine and deploy another unit there.
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	principal1, err := s.service0.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -230,41 +220,31 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Change the principal's password and verify.
-	err = unit.SetPassword("foobar")
+	err = unit.SetPassword("foobar-12345678901234567890")
 	c.Assert(err, gc.IsNil)
 	err = s.principal.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.principal.PasswordValid("foobar"), gc.Equals, true)
+	c.Assert(s.principal.PasswordValid("foobar-12345678901234567890"), gc.Equals, true)
 
 	// Then the subordinate.
 	unit, err = s.st.Unit(s.subordinate.Tag())
 	c.Assert(err, gc.IsNil)
-	err = unit.SetPassword("phony")
+	err = unit.SetPassword("phony-12345678901234567890")
 	c.Assert(err, gc.IsNil)
 	err = s.subordinate.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.subordinate.PasswordValid("phony"), gc.Equals, true)
+	c.Assert(s.subordinate.PasswordValid("phony-12345678901234567890"), gc.Equals, true)
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
+	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
+
 	stateAddresses, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
+	c.Assert(len(stateAddresses), gc.Equals, 1)
 
 	addresses, err := s.st.StateAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addresses, gc.DeepEquals, stateAddresses)
-}
-
-func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	apiInfo := s.APIInfo(c)
-
-	addresses, err := s.st.APIAddresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, apiInfo.Addrs)
-}
-
-func (s *deployerSuite) TestCACert(c *gc.C) {
-	caCert, err := s.st.CACert()
-	c.Assert(err, gc.IsNil)
-	c.Assert(caCert, gc.DeepEquals, s.State.CACert())
 }

@@ -11,11 +11,10 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state"
-	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/set"
-	"launchpad.net/juju-core/worker/deployer"
 )
 
 // fakeManager allows us to test deployments without actually deploying units
@@ -25,10 +24,11 @@ import (
 // a sync and observe changes to the set of desired units (and thereby run
 // deployment tests in a reasonable amount of time).
 type fakeContext struct {
-	mu       sync.Mutex
-	deployed set.Strings
-	st       *state.State
-	inited   chan struct{}
+	mu          sync.Mutex
+	deployed    set.Strings
+	st          *state.State
+	agentConfig agent.Config
+	inited      chan struct{}
 }
 
 func (ctx *fakeContext) DeployUnit(unitName, _ string) error {
@@ -79,28 +79,6 @@ func (ctx *fakeContext) waitDeployed(c *gc.C, want ...string) {
 	}
 }
 
-func patchDeployContext(c *gc.C, st *state.State, expectInfo *state.Info, expectDataDir string) (*fakeContext, func()) {
-	ctx := &fakeContext{
-		inited: make(chan struct{}),
-	}
-	e0 := *expectInfo
-	expectInfo = &e0
-	orig := newDeployContext
-	newDeployContext = func(dst *apideployer.State, dataDir string) (deployer.Context, error) {
-		caCert, err := dst.CACert()
-		if err != nil {
-			return nil, err
-		}
-		stateAddrs, err := dst.StateAddresses()
-		if err != nil {
-			return nil, err
-		}
-		c.Check(stateAddrs, gc.DeepEquals, expectInfo.Addrs)
-		c.Check(caCert, gc.DeepEquals, expectInfo.CACert)
-		c.Check(dataDir, gc.Equals, expectDataDir)
-		ctx.st = st
-		close(ctx.inited)
-		return ctx, nil
-	}
-	return ctx, func() { newDeployContext = orig }
+func (ctx *fakeContext) AgentConfig() agent.Config {
+	return ctx.agentConfig
 }

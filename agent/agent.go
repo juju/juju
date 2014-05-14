@@ -4,145 +4,567 @@
 package agent
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
+	"strconv"
+	"strings"
 
-	"launchpad.net/goyaml"
+	"github.com/errgo/errgo"
+	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
-// Conf holds information for a given agent.
-type Conf struct {
-	// DataDir specifies the path of the data directory used by all
-	// agents
-	DataDir string
+var logger = loggo.GetLogger("juju.agent")
 
-	// StateServerCert and StateServerKey hold the state server
-	// certificate and private key in PEM format.
-	StateServerCert []byte `yaml:",omitempty"`
-	StateServerKey  []byte `yaml:",omitempty"`
+// DefaultLogDir defines the default log directory for juju agents.
+// It's defined as a variable so it could be overridden in tests.
+var DefaultLogDir = "/var/log/juju"
 
-	StatePort int `yaml:",omitempty"`
-	APIPort   int `yaml:",omitempty"`
+// DefaultDataDir defines the default data directory for juju agents.
+// It's defined as a variable so it could be overridden in tests.
+var DefaultDataDir = "/var/lib/juju"
 
-	// OldPassword specifies a password that should be
-	// used to connect to the state if StateInfo.Password
-	// is blank or invalid.
-	OldPassword string
+// SystemIdentity is the name of the file where the environment SSH key is kept.
+const SystemIdentity = "system-identity"
 
-	// MachineNonce is set at provisioning/bootstrap time and used to
-	// ensure the agent is running on the correct instance.
-	MachineNonce string
+const (
+	LxcBridge        = "LXC_BRIDGE"
+	ProviderType     = "PROVIDER_TYPE"
+	ContainerType    = "CONTAINER_TYPE"
+	Namespace        = "NAMESPACE"
+	StorageDir       = "STORAGE_DIR"
+	StorageAddr      = "STORAGE_ADDR"
+	AgentServiceName = "AGENT_SERVICE_NAME"
+)
 
-	// StateInfo specifies how the agent should connect to the
-	// state.  The password may be empty if an old password is
-	// specified, or when bootstrapping.
-	StateInfo *state.Info `yaml:",omitempty"`
+// The Config interface is the sole way that the agent gets access to the
+// configuration information for the machine and unit agents.  There should
+// only be one instance of a config object for any given agent, and this
+// interface is passed between multiple go routines.  The mutable methods are
+// protected by a mutex, and it is expected that the caller doesn't modify any
+// slice that may be returned.
+//
+// NOTE: should new mutating methods be added to this interface, consideration
+// is needed around the synchronisation as a single instance is used in
+// multiple go routines.
+type Config interface {
+	// DataDir returns the data directory. Each agent has a subdirectory
+	// containing the configuration files.
+	DataDir() string
 
-	// OldAPIPassword specifies a password that should
-	// be used to connect to the API if APIInfo.Password
-	// is blank or invalid.
-	OldAPIPassword string
+	// LogDir returns the log directory. All logs from all agents on
+	// the machine are written to this directory.
+	LogDir() string
 
-	// APIInfo specifies how the agent should connect to the
-	// state through the API.
-	APIInfo *api.Info `yaml:",omitempty"`
+	// SystemIdentityPath returns the path of the file where the environment
+	// SSH key is kept.
+	SystemIdentityPath() string
+
+	// Jobs returns a list of MachineJobs that need to run.
+	Jobs() []params.MachineJob
+
+	// Tag returns the tag of the entity on whose behalf the state connection
+	// will be made.
+	Tag() string
+
+	// Dir returns the agent's directory.
+	Dir() string
+
+	// Nonce returns the nonce saved when the machine was provisioned
+	// TODO: make this one of the key/value pairs.
+	Nonce() string
+
+	// CACert returns the CA certificate that is used to validate the state or
+	// API server's certificate.
+	CACert() string
+
+	// APIAddresses returns the addresses needed to connect to the api server
+	APIAddresses() ([]string, error)
+
+	// WriteCommands returns shell commands to write the agent configuration.
+	// It returns an error if the configuration does not have all the right
+	// elements.
+	WriteCommands() ([]string, error)
+
+	// StateServingInfo returns the details needed to run
+	// a state server and reports whether those details
+	// are available
+	StateServingInfo() (params.StateServingInfo, bool)
+
+	// APIInfo returns details for connecting to the API server.
+	APIInfo() *api.Info
+
+	// StateInfo returns details for connecting to the state server and reports
+	// whether those details are available
+	StateInfo() (*state.Info, bool)
+
+	// OldPassword returns the fallback password when connecting to the
+	// API server.
+	OldPassword() string
+
+	// UpgradedToVersion returns the version for which all upgrade steps have been
+	// successfully run, which is also the same as the initially deployed version.
+	UpgradedToVersion() version.Number
+
+	// Value returns the value associated with the key, or an empty string if
+	// the key is not found.
+	Value(key string) string
 }
 
-// ReadConf reads configuration data for the given
-// entity from the given data directory.
-func ReadConf(dataDir, tag string) (*Conf, error) {
-	dir := tools.Dir(dataDir, tag)
-	data, err := ioutil.ReadFile(path.Join(dir, "agent.conf"))
+type ConfigSetterOnly interface {
+	// Clone returns a copy of the configuration that
+	// is unaffected by subsequent calls to the Set*
+	// methods
+	Clone() Config
+
+	// SetOldPassword sets the password that is currently
+	// valid but needs to be changed. This is used as
+	// a fallback.
+	SetOldPassword(oldPassword string)
+
+	// SetPassword sets the password to be used when
+	// connecting to the state.
+	SetPassword(newPassword string)
+
+	// SetValue updates the value for the specified key.
+	SetValue(key, value string)
+
+	// SetUpgradedToVerson sets the version that
+	// the agent has successfully upgraded to.
+	SetUpgradedToVersion(newVersion version.Number)
+
+	// SetAPIHostPorts sets the API host/port addresses to connect to.
+	SetAPIHostPorts(servers [][]instance.HostPort)
+
+	// Migrate takes an existing agent config and applies the given
+	// parameters to change it.
+	//
+	// Only non-empty fields in newParams are used
+	// to change existing config settings. All changes are written
+	// atomically. UpgradedToVersion cannot be changed here, because
+	// Migrate is most likely called during an upgrade, so it will be
+	// changed at the end of the upgrade anyway, if successful.
+	//
+	// Migrate does not actually write the new configuration.
+	//
+	// Note that if the configuration file moves location,
+	// (if DataDir is set), the the caller is responsible for removing
+	// the old configuration.
+	Migrate(MigrateParams) error
+
+	// SetStateServingInfo sets the information needed
+	// to run a state server
+	SetStateServingInfo(info params.StateServingInfo)
+}
+
+type ConfigWriter interface {
+	// Write writes the agent configuration.
+	Write() error
+}
+
+type ConfigSetter interface {
+	Config
+	ConfigSetterOnly
+}
+
+type ConfigSetterWriter interface {
+	Config
+	ConfigSetterOnly
+	ConfigWriter
+}
+
+// MigrateParams holds agent config values to change in a
+// Migrate call. Empty fields will be ignored. DeleteValues
+// specifies a list of keys to delete.
+type MigrateParams struct {
+	DataDir      string
+	LogDir       string
+	Jobs         []params.MachineJob
+	DeleteValues []string
+	Values       map[string]string
+}
+
+// Ensure that the configInternal struct implements the Config interface.
+var _ Config = (*configInternal)(nil)
+
+type connectionDetails struct {
+	addresses []string
+	password  string
+}
+
+func (d *connectionDetails) clone() *connectionDetails {
+	if d == nil {
+		return nil
+	}
+	newd := *d
+	newd.addresses = append([]string{}, d.addresses...)
+	return &newd
+}
+
+type configInternal struct {
+	configFilePath    string
+	dataDir           string
+	logDir            string
+	tag               string
+	nonce             string
+	jobs              []params.MachineJob
+	upgradedToVersion version.Number
+	caCert            string
+	stateDetails      *connectionDetails
+	apiDetails        *connectionDetails
+	oldPassword       string
+	servingInfo       *params.StateServingInfo
+	values            map[string]string
+}
+
+type AgentConfigParams struct {
+	DataDir           string
+	LogDir            string
+	Jobs              []params.MachineJob
+	UpgradedToVersion version.Number
+	Tag               string
+	Password          string
+	Nonce             string
+	StateAddresses    []string
+	APIAddresses      []string
+	CACert            string
+	Values            map[string]string
+}
+
+// NewAgentConfig returns a new config object suitable for use for a
+// machine or unit agent.
+func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) {
+	if configParams.DataDir == "" {
+		return nil, errgo.Trace(requiredError("data directory"))
+	}
+	logDir := DefaultLogDir
+	if configParams.LogDir != "" {
+		logDir = configParams.LogDir
+	}
+	if configParams.Tag == "" {
+		return nil, errgo.Trace(requiredError("entity tag"))
+	}
+	if configParams.UpgradedToVersion == version.Zero {
+		return nil, errgo.Trace(requiredError("upgradedToVersion"))
+	}
+	if configParams.Password == "" {
+		return nil, errgo.Trace(requiredError("password"))
+	}
+	if len(configParams.CACert) == 0 {
+		return nil, errgo.Trace(requiredError("CA certificate"))
+	}
+	// Note that the password parts of the state and api information are
+	// blank.  This is by design.
+	config := &configInternal{
+		logDir:            logDir,
+		dataDir:           configParams.DataDir,
+		jobs:              configParams.Jobs,
+		upgradedToVersion: configParams.UpgradedToVersion,
+		tag:               configParams.Tag,
+		nonce:             configParams.Nonce,
+		caCert:            configParams.CACert,
+		oldPassword:       configParams.Password,
+		values:            configParams.Values,
+	}
+	if len(configParams.StateAddresses) > 0 {
+		config.stateDetails = &connectionDetails{
+			addresses: configParams.StateAddresses,
+		}
+	}
+	if len(configParams.APIAddresses) > 0 {
+		config.apiDetails = &connectionDetails{
+			addresses: configParams.APIAddresses,
+		}
+	}
+	if err := config.check(); err != nil {
+		return nil, err
+	}
+	if config.values == nil {
+		config.values = make(map[string]string)
+	}
+	config.configFilePath = ConfigPath(config.dataDir, config.tag)
+	return config, nil
+}
+
+// NewStateMachineConfig returns a configuration suitable for
+// a machine running the state server.
+func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.StateServingInfo) (ConfigSetterWriter, error) {
+	if serverInfo.Cert == "" {
+		return nil, errgo.Trace(requiredError("state server cert"))
+	}
+	if serverInfo.PrivateKey == "" {
+		return nil, errgo.Trace(requiredError("state server key"))
+	}
+	if serverInfo.StatePort == 0 {
+		return nil, errgo.Trace(requiredError("state port"))
+	}
+	if serverInfo.APIPort == 0 {
+		return nil, errgo.Trace(requiredError("api port"))
+	}
+	config, err := NewAgentConfig(configParams)
 	if err != nil {
 		return nil, err
 	}
-	var c Conf
-	if err := goyaml.Unmarshal(data, &c); err != nil {
+	config.SetStateServingInfo(serverInfo)
+	return config, nil
+}
+
+// Dir returns the agent-specific data directory.
+func Dir(dataDir, agentName string) string {
+	// Note: must use path, not filepath, as this
+	// function is used by the client on Windows.
+	return path.Join(dataDir, "agents", agentName)
+}
+
+// ConfigPath returns the full path to the agent config file.
+// NOTE: Delete this once all agents accept --config instead
+// of --data-dir - it won't be needed anymore.
+func ConfigPath(dataDir, agentName string) string {
+	return filepath.Join(Dir(dataDir, agentName), agentConfigFilename)
+}
+
+// ReadConfig reads configuration data from the given location.
+func ReadConfig(configFilePath string) (ConfigSetterWriter, error) {
+	var (
+		format formatter
+		config *configInternal
+	)
+	configData, err := ioutil.ReadFile(configFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("cannot read agent config %q: %v", configFilePath, err)
+	}
+
+	// Try to read the legacy format file.
+	dir := filepath.Dir(configFilePath)
+	legacyFormatPath := filepath.Join(dir, legacyFormatFilename)
+	formatBytes, err := ioutil.ReadFile(legacyFormatPath)
+	if err != nil && !os.IsNotExist(err) {
+		return nil, fmt.Errorf("cannot read format file: %v", err)
+	}
+	formatData := string(formatBytes)
+	if err == nil {
+		// It exists, so unmarshal with a legacy formatter.
+		// Drop the format prefix to leave the version only.
+		if !strings.HasPrefix(formatData, legacyFormatPrefix) {
+			return nil, fmt.Errorf("malformed agent config format %q", formatData)
+		}
+		format, err = getFormatter(strings.TrimPrefix(formatData, legacyFormatPrefix))
+		if err != nil {
+			return nil, err
+		}
+		config, err = format.unmarshal(configData)
+	} else {
+		// Does not exist, just parse the data.
+		format, config, err = parseConfigData(configData)
+	}
+	if err != nil {
 		return nil, err
 	}
-	c.DataDir = dataDir
-	if err := c.Check(); err != nil {
-		return nil, err
+	logger.Debugf("read agent config, format %q", format.version())
+	config.configFilePath = configFilePath
+	if format != currentFormat {
+		// Migrate from a legacy format to the new one.
+		err := config.Write()
+		if err != nil {
+			return nil, fmt.Errorf("cannot migrate %s agent config to %s: %v", format.version(), currentFormat.version(), err)
+		}
+		logger.Debugf("migrated agent config from %s to %s", format.version(), currentFormat.version())
+		err = os.Remove(legacyFormatPath)
+		if err != nil && !os.IsNotExist(err) {
+			return nil, fmt.Errorf("cannot remove legacy format file %q: %v", legacyFormatPath, err)
+		}
 	}
-	if c.StateInfo != nil {
-		c.StateInfo.Tag = tag
+	return config, nil
+}
+
+func (c0 *configInternal) Clone() Config {
+	c1 := *c0
+	// Deep copy only fields which may be affected
+	// by ConfigSetter methods.
+	c1.stateDetails = c0.stateDetails.clone()
+	c1.apiDetails = c0.apiDetails.clone()
+	c1.jobs = append([]params.MachineJob{}, c0.jobs...)
+	c1.values = make(map[string]string, len(c0.values))
+	for key, val := range c0.values {
+		c1.values[key] = val
 	}
-	if c.APIInfo != nil {
-		c.APIInfo.Tag = tag
+	return &c1
+}
+
+func (config *configInternal) Migrate(newParams MigrateParams) error {
+	if newParams.DataDir != "" {
+		config.dataDir = newParams.DataDir
+		config.configFilePath = ConfigPath(config.dataDir, config.tag)
 	}
-	return &c, nil
+	if newParams.LogDir != "" {
+		config.logDir = newParams.LogDir
+	}
+	if len(newParams.Jobs) > 0 {
+		config.jobs = make([]params.MachineJob, len(newParams.Jobs))
+		copy(config.jobs, newParams.Jobs)
+	}
+	for _, key := range newParams.DeleteValues {
+		delete(config.values, key)
+	}
+	for key, value := range newParams.Values {
+		if config.values == nil {
+			config.values = make(map[string]string)
+		}
+		config.values[key] = value
+	}
+	if err := config.check(); err != nil {
+		return fmt.Errorf("migrated agent config is invalid: %v", err)
+	}
+	return nil
+}
+
+func (c *configInternal) SetUpgradedToVersion(newVersion version.Number) {
+	c.upgradedToVersion = newVersion
+}
+
+func (c *configInternal) SetAPIHostPorts(servers [][]instance.HostPort) {
+	if c.apiDetails == nil {
+		return
+	}
+	var addrs []string
+	for _, serverHostPorts := range servers {
+		addr := instance.SelectInternalHostPort(serverHostPorts, false)
+		if addr != "" {
+			addrs = append(addrs, addr)
+		}
+	}
+	c.apiDetails.addresses = addrs
+}
+
+func (c *configInternal) SetValue(key, value string) {
+	if value == "" {
+		delete(c.values, key)
+	} else {
+		c.values[key] = value
+	}
+}
+
+func (c *configInternal) SetOldPassword(oldPassword string) {
+	c.oldPassword = oldPassword
+}
+
+func (c *configInternal) SetPassword(newPassword string) {
+	if c.stateDetails != nil {
+		c.stateDetails.password = newPassword
+	}
+	if c.apiDetails != nil {
+		c.apiDetails.password = newPassword
+	}
+}
+
+func (c *configInternal) Write() error {
+	data, err := c.fileContents()
+	if err != nil {
+		return err
+	}
+	// Make sure the config dir gets created.
+	configDir := filepath.Dir(c.configFilePath)
+	if err := os.MkdirAll(configDir, 0755); err != nil {
+		return fmt.Errorf("cannot create agent config dir %q: %v", configDir, err)
+	}
+	return utils.AtomicWriteFile(c.configFilePath, data, 0600)
 }
 
 func requiredError(what string) error {
 	return fmt.Errorf("%s not found in configuration", what)
 }
 
-// File returns the path of the given file in the agent's directory.
-func (c *Conf) File(name string) string {
+func (c *configInternal) File(name string) string {
 	return path.Join(c.Dir(), name)
 }
 
-func (c *Conf) confFile() string {
-	return c.File("agent.conf")
+func (c *configInternal) DataDir() string {
+	return c.dataDir
 }
 
-// Tag returns the tag of the entity on whose behalf the state connection will
-// be made.
-func (c *Conf) Tag() string {
-	if c.StateInfo != nil {
-		return c.StateInfo.Tag
-	}
-	return c.APIInfo.Tag
+func (c *configInternal) LogDir() string {
+	return c.logDir
 }
 
-// Dir returns the agent's directory.
-func (c *Conf) Dir() string {
-	return tools.Dir(c.DataDir, c.Tag())
+func (c *configInternal) SystemIdentityPath() string {
+	return filepath.Join(c.dataDir, SystemIdentity)
 }
 
-// Check checks that the configuration has all the required elements.
-func (c *Conf) Check() error {
-	if c.DataDir == "" {
-		return requiredError("data directory")
+func (c *configInternal) Jobs() []params.MachineJob {
+	return c.jobs
+}
+
+func (c *configInternal) Nonce() string {
+	return c.nonce
+}
+
+func (c *configInternal) UpgradedToVersion() version.Number {
+	return c.upgradedToVersion
+}
+
+func (c *configInternal) CACert() string {
+	return c.caCert
+}
+
+func (c *configInternal) Value(key string) string {
+	return c.values[key]
+}
+
+func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
+	if c.servingInfo == nil {
+		return params.StateServingInfo{}, false
 	}
-	if c.StateInfo == nil && c.APIInfo == nil {
-		return requiredError("state info or API info")
+	return *c.servingInfo, true
+}
+
+func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
+	c.servingInfo = &info
+}
+
+func (c *configInternal) APIAddresses() ([]string, error) {
+	if c.apiDetails == nil {
+		return []string{}, errgo.New("No apidetails in config")
 	}
-	if c.StateInfo != nil {
-		if c.StateInfo.Tag == "" {
-			return requiredError("state entity tag")
-		}
-		if err := checkAddrs(c.StateInfo.Addrs, "state server address"); err != nil {
+	return append([]string{}, c.apiDetails.addresses...), nil
+}
+
+func (c *configInternal) OldPassword() string {
+	return c.oldPassword
+}
+
+func (c *configInternal) Tag() string {
+	return c.tag
+}
+
+func (c *configInternal) Dir() string {
+	return Dir(c.dataDir, c.tag)
+}
+
+func (c *configInternal) check() error {
+	if c.stateDetails == nil && c.apiDetails == nil {
+		return errgo.Trace(requiredError("state or API addresses"))
+	}
+	if c.stateDetails != nil {
+		if err := checkAddrs(c.stateDetails.addresses, "state server address"); err != nil {
 			return err
 		}
-		if len(c.StateInfo.CACert) == 0 {
-			return requiredError("state CA certificate")
-		}
 	}
-	// TODO(rog) make APIInfo mandatory
-	if c.APIInfo != nil {
-		if c.APIInfo.Tag == "" {
-			return requiredError("API entity tag")
-		}
-		if err := checkAddrs(c.APIInfo.Addrs, "API server address"); err != nil {
+	if c.apiDetails != nil {
+		if err := checkAddrs(c.apiDetails.addresses, "API server address"); err != nil {
 			return err
 		}
-		if len(c.APIInfo.CACert) == 0 {
-			return requiredError("API CA certficate")
-		}
-	}
-	if c.StateInfo != nil && c.APIInfo != nil && c.StateInfo.Tag != c.APIInfo.Tag {
-		return fmt.Errorf("mismatched entity tags")
 	}
 	return nil
 }
@@ -151,110 +573,57 @@ var validAddr = regexp.MustCompile("^.+:[0-9]+$")
 
 func checkAddrs(addrs []string, what string) error {
 	if len(addrs) == 0 {
-		return requiredError(what)
+		return errgo.Trace(requiredError(what))
 	}
 	for _, a := range addrs {
 		if !validAddr.MatchString(a) {
-			return fmt.Errorf("invalid %s %q", what, a)
+			return errgo.New("invalid %s %q", what, a)
 		}
 	}
 	return nil
 }
 
-// Write writes the agent configuration.
-func (c *Conf) Write() error {
-	if err := c.Check(); err != nil {
-		return err
-	}
-	data, err := goyaml.Marshal(c)
-	if err != nil {
-		return err
-	}
-	if err := os.MkdirAll(c.Dir(), 0755); err != nil {
-		return err
-	}
-	f := c.File("agent.conf-new")
-	if err := ioutil.WriteFile(f, data, 0600); err != nil {
-		return err
-	}
-	if err := os.Rename(f, c.confFile()); err != nil {
-		return err
-	}
-	return nil
-}
-
-// WriteCommands returns shell commands to write the agent
-// configuration.  It returns an error if the configuration does not
-// have all the right elements.
-func (c *Conf) WriteCommands() ([]string, error) {
-	if err := c.Check(); err != nil {
-		return nil, err
-	}
-	data, err := goyaml.Marshal(c)
+func (c *configInternal) fileContents() ([]byte, error) {
+	data, err := currentFormat.marshal(c)
 	if err != nil {
 		return nil, err
 	}
-	var cmds []string
-	addCmd := func(f string, a ...interface{}) {
-		cmds = append(cmds, fmt.Sprintf(f, a...))
-	}
-	f := utils.ShQuote(c.confFile())
-	addCmd("mkdir -p %s", utils.ShQuote(c.Dir()))
-	addCmd("install -m %o /dev/null %s", 0600, f)
-	addCmd("echo %s > %s", utils.ShQuote(string(data)), f)
-	return cmds, nil
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "%s%s\n", formatPrefix, currentFormat.version())
+	buf.Write(data)
+	return buf.Bytes(), nil
 }
 
-// OpenAPI tries to open the state using the given Conf.  If it
-// returns a non-empty newPassword, the password used to connect
-// to the state should be changed accordingly - the caller should write the
-// configuration with StateInfo.Password set to newPassword, then
-// set the entity's password accordingly.
-func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
-	info := *c.APIInfo
-	info.Nonce = c.MachineNonce
-	if info.Password != "" {
-		st, err := api.Open(&info, dialOpts)
-		if err == nil {
-			return st, "", nil
-		}
-		if params.ErrCode(err) != params.CodeUnauthorized {
-			return nil, "", err
-		}
-		// Access isn't authorized even though we have a password
-		// This can happen if we crash after saving the
-		// password but before changing it, so we'll try again
-		// with the old password.
-	}
-	info.Password = c.OldPassword
-	st, err = api.Open(&info, dialOpts)
+func (c *configInternal) WriteCommands() ([]string, error) {
+	data, err := c.fileContents()
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
-	// We've succeeded in connecting with the old password, so
-	// we can now change it to something more private.
-	password, err := utils.RandomPassword()
-	if err != nil {
-		st.Close()
-		return nil, "", err
-	}
-	return st, password, nil
+	commands := []string{"mkdir -p " + utils.ShQuote(c.Dir())}
+	commands = append(commands, writeFileCommands(c.File(agentConfigFilename), data, 0600)...)
+	return commands, nil
 }
 
-// OpenState tries to open the state using the given Conf.
-func (c *Conf) OpenState() (*state.State, error) {
-	info := *c.StateInfo
-	if info.Password != "" {
-		st, err := state.Open(&info, state.DefaultDialOpts())
-		if err == nil {
-			return st, nil
-		}
-		// TODO(rog) remove this fallback behaviour when
-		// all initial connections are via the API.
-		if !errors.IsUnauthorizedError(err) {
-			return nil, err
-		}
+func (c *configInternal) APIInfo() *api.Info {
+	return &api.Info{
+		Addrs:    c.apiDetails.addresses,
+		Password: c.apiDetails.password,
+		CACert:   c.caCert,
+		Tag:      c.tag,
+		Nonce:    c.nonce,
 	}
-	info.Password = c.OldPassword
-	return state.Open(&info, state.DefaultDialOpts())
+}
+
+func (c *configInternal) StateInfo() (info *state.Info, ok bool) {
+	ssi, ok := c.StateServingInfo()
+	if !ok {
+		return nil, false
+	}
+	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
+	return &state.Info{
+		Addrs:    []string{addr},
+		Password: c.stateDetails.password,
+		CACert:   c.caCert,
+		Tag:      c.tag,
+	}, true
 }

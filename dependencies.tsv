@@ -1,14 +1,21 @@
-code.google.com/p/go.crypto	hg	1747226a2f43c3f146f77dede1adf7073461b616	141
-code.google.com/p/go.net	hg	3591c18acabc99439c783463ef00e6dc277eee39	77
-labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20130722041249-5v5syfwrb8gq243v	236
+code.google.com/p/go.crypto	hg	6478cc9340cbbe6c04511280c5007722269108e9	184
+code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
+github.com/errgo/errgo	git	93d72bf813883d1054cae1c001d3a46603f7f559	
+github.com/joyent/gocommon	git	98b151a080efe19bcde223d2d3b04389963d2347	
+github.com/joyent/gomanta	git	ff785814c0ebb4050420a2f1d47895b35b8808f2	
+github.com/joyent/gosdc	git	10bbe92c5d98c8b38a0b7f62ee042c7252150efc	
+github.com/joyent/gosign	git	476720af5427223da5420afbbadf620bfb760345	
+github.com/juju/loggo	git	fa3acf9ab9ed09aea29030558528e24a254d27af	
+github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb	
+github.com/juju/testing	git	9c0e0686136637876ae659e9056897575236e11f	
+labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j	273
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
-launchpad.net/goamz	bzr	andrew.wilkins@canonical.com-20130802064116-vh589h5djzbw54dy	38
-launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20130302024745-6ikofwq2c03h7giu	85
-launchpad.net/golxc	bzr	frank.mueller@canonical.com-20130617094614-jelomk87defuetol	5
-launchpad.net/gomaasapi	bzr	tarmac-20130730082905-neqonnq9tk03ll8f	43
-launchpad.net/goose	bzr	tarmac-20130819081040-rjckdm3pmjcodvcl	100
-launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20130620163049-221erv1tss39x0xe	47
-launchpad.net/gwacl	bzr	tarmac-20130812105204-e0qmhs9n39pts2q2	217
-launchpad.net/loggo	bzr	tim.penhey@canonical.com-20130729043644-ym0cscir1cist4sm	39
+launchpad.net/goamz	bzr	roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9	44
+launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20140225173054-xu9zlkf9kxhvow02	87
+launchpad.net/golxc	bzr	tim.penhey@canonical.com-20140311005930-b14361bwnocu3krh	8
+launchpad.net/gomaasapi	bzr	andrew.wilkins@canonical.com-20140513111813-kstzbs2kx1ujl3m3	50
+launchpad.net/goose	bzr	tarmac-20140423072524-vxav71c7ko4lgtcu	119
+launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50
+launchpad.net/gwacl	bzr	tarmac-20140312041035-ac7gw7kcqjx7db63	234
 launchpad.net/lpad	bzr	gustavo@niemeyer.net-20120626194701-536yx0g9jdq2ik3h	64
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17

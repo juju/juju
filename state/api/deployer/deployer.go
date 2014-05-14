@@ -4,40 +4,36 @@
 package deployer
 
 import (
-	"fmt"
-
+	"launchpad.net/juju-core/state/api/base"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
 
+const deployerFacade = "Deployer"
+
 // State provides access to the deployer worker's idea of the state.
 type State struct {
-	caller common.Caller
+	caller base.Caller
+	*common.APIAddresser
 }
 
 // NewState creates a new State instance that makes API calls
 // through the given caller.
-func NewState(caller common.Caller) *State {
-	return &State{caller}
+func NewState(caller base.Caller) *State {
+	return &State{
+		APIAddresser: common.NewAPIAddresser(deployerFacade, caller),
+		caller:       caller,
+	}
+
+}
+
+func (st *State) call(method string, params, result interface{}) error {
+	return st.caller.Call(deployerFacade, "", method, params, result)
 }
 
 // unitLife returns the lifecycle state of the given unit.
 func (st *State) unitLife(tag string) (params.Life, error) {
-	var result params.LifeResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
-	}
-	err := st.caller.Call("Deployer", "", "Life", args, &result)
-	if err != nil {
-		return "", err
-	}
-	if len(result.Results) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		return "", err
-	}
-	return result.Results[0].Life, nil
+	return common.Life(st.caller, deployerFacade, tag)
 }
 
 // Unit returns the unit with the given tag.
@@ -64,29 +60,16 @@ func (st *State) Machine(tag string) (*Machine, error) {
 // StateAddresses returns the list of addresses used to connect to the state.
 func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.caller.Call("Deployer", "", "StateAddresses", nil, &result)
+	err := st.call("StateAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
 	return result.Result, nil
 }
 
-// APIAddresses returns the list of addresses used to connect to the API.
-func (st *State) APIAddresses() ([]string, error) {
-	var result params.StringsResult
-	err := st.caller.Call("Deployer", "", "APIAddresses", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	return result.Result, nil
-}
-
-// CACert returns the certificate used to validate the state connection.
-func (st *State) CACert() ([]byte, error) {
-	var result params.BytesResult
-	err := st.caller.Call("Deployer", "", "CACert", nil, &result)
-	if err != nil {
-		return nil, err
-	}
-	return result.Result, nil
+// ConnectionInfo returns all the address information that the deployer task
+// needs in one call.
+func (st *State) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
+	err = st.call("ConnectionInfo", nil, &result)
+	return result, err
 }

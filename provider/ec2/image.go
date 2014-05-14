@@ -9,10 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/loggo"
 )
-
-var logger = loggo.GetLogger("juju.environs.ec2")
 
 // signedImageDataOnly is defined here to allow tests to override the content.
 // If true, only inline PGP signed image metadata will be used.
@@ -38,18 +35,21 @@ func filterImages(images []*imagemetadata.ImageMetadata) []*imagemetadata.ImageM
 }
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
-func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(
+	sources []simplestreams.DataSource, stream string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+
 	if ic.Constraints.CpuPower == nil {
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
 	ec2Region := allRegions[ic.Region]
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
-		Series:    ic.Series,
+		Series:    []string{ic.Series},
 		Arches:    ic.Arches,
+		Stream:    stream,
 	})
-	matchingImages, err := imagemetadata.Fetch(
-		baseURLs, simplestreams.DefaultIndexPath, imageConstraint, signedImageDataOnly)
+	matchingImages, _, err := imagemetadata.Fetch(
+		sources, simplestreams.DefaultIndexPath, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}

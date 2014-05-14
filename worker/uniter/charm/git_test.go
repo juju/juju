@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package charm_test
@@ -9,11 +9,11 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
@@ -21,23 +21,9 @@ var curl = corecharm.MustParseURL("cs:series/blah-blah-123")
 
 type GitDirSuite struct {
 	testing.GitSuite
-	LoggingSuite testing.LoggingSuite
-	resetLcAll   func()
 }
 
 var _ = gc.Suite(&GitDirSuite{})
-
-func (s *GitDirSuite) SetUpTest(c *gc.C) {
-	s.GitSuite.SetUpTest(c)
-	s.LoggingSuite.SetUpTest(c)
-	s.resetLcAll = testing.PatchEnvironment("LC_ALL", "en_US")
-}
-
-func (s *GitDirSuite) TearDownTest(c *gc.C) {
-	s.resetLcAll()
-	s.LoggingSuite.TearDownTest(c)
-	s.GitSuite.TearDownTest(c)
-}
 
 func (s *GitDirSuite) TestInitConfig(c *gc.C) {
 	base := c.MkDir()
@@ -85,7 +71,7 @@ func (s *GitDirSuite) TestCreate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(exists, jc.IsTrue)
 
-	_, err = charm.ReadCharmURL(repo)
+	_, err = repo.ReadCharmURL()
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	err = repo.Init()
@@ -98,7 +84,7 @@ func (s *GitDirSuite) TestAddCommitPullRevert(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(filepath.Join(target.Path(), "initial"), []byte("initial"), 0644)
 	c.Assert(err, gc.IsNil)
-	err = charm.WriteCharmURL(target, curl)
+	err = target.WriteCharmURL(curl)
 	c.Assert(err, gc.IsNil)
 	err = target.AddAll()
 	c.Assert(err, gc.IsNil)
@@ -114,7 +100,7 @@ func (s *GitDirSuite) TestAddCommitPullRevert(c *gc.C) {
 	source := newRepo(c)
 	err = target.Pull(source)
 	c.Assert(err, gc.IsNil)
-	url, err := charm.ReadCharmURL(target)
+	url, err := target.ReadCharmURL()
 	c.Assert(err, gc.IsNil)
 	c.Assert(url, gc.DeepEquals, curl)
 	fi, err := os.Stat(filepath.Join(target.Path(), "some-dir"))

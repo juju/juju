@@ -6,7 +6,9 @@ package jujuc
 import (
 	"errors"
 	"fmt"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 )
 

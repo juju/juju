@@ -7,33 +7,27 @@ import (
 	"io/ioutil"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
-type configSuite struct{}
+type configSuite struct {
+	testbase.LoggingSuite
+}
 
 var _ = gc.Suite(&configSuite{})
 
-// makeBaseConfigMap creates a minimal map of standard configuration items.
-// It's just the bare minimum to produce a configuration object.
-func makeBaseConfigMap() map[string]interface{} {
-	return map[string]interface{}{
-		"name":           "testenv",
-		"type":           "azure",
-		"ca-cert":        testing.CACert,
-		"ca-private-key": testing.CAKey,
-	}
-}
-
-func makeConfigMap(configMap map[string]interface{}) map[string]interface{} {
-	conf := makeBaseConfigMap()
-	for k, v := range configMap {
-		conf[k] = v
-	}
-	return conf
+// makeConfigMap creates a minimal map of standard configuration items,
+// adds the given extra items to that and returns it.
+func makeConfigMap(extra map[string]interface{}) map[string]interface{} {
+	return testing.FakeConfig().Merge(testing.Attrs{
+		"name": "testenv",
+		"type": "azure",
+	}).Merge(extra)
 }
 
 var testCert = `
@@ -57,12 +51,10 @@ PI2fs3bw5bRH8tmGjrsJeEdp9crCBS8I3hKcxCkTTRTowdY=
 
 func makeAzureConfigMap(c *gc.C) map[string]interface{} {
 	azureConfig := map[string]interface{}{
-		"location":                      "location",
-		"management-subscription-id":    "subscription-id",
-		"management-certificate":        testCert,
-		"storage-account-name":          "account-name",
-		"public-storage-account-name":   "public-account-name",
-		"public-storage-container-name": "public-container-name",
+		"location":                   "location",
+		"management-subscription-id": "subscription-id",
+		"management-certificate":     testCert,
+		"storage-account-name":       "account-name",
 	}
 	return makeConfigMap(azureConfig)
 }
@@ -81,7 +73,7 @@ func createTempFile(c *gc.C, content []byte) string {
 func (*configSuite) TestValidateAcceptsNilOldConfig(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	provider := azureEnvironProvider{}
-	config, err := config.New(attrs)
+	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	result, err := provider.Validate(config, nil)
 	c.Assert(err, gc.IsNil)
@@ -91,9 +83,9 @@ func (*configSuite) TestValidateAcceptsNilOldConfig(c *gc.C) {
 func (*configSuite) TestValidateAcceptsUnchangedConfig(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	provider := azureEnvironProvider{}
-	oldConfig, err := config.New(attrs)
+	oldConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	newConfig, err := config.New(attrs)
+	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	result, err := provider.Validate(newConfig, oldConfig)
 	c.Assert(err, gc.IsNil)
@@ -102,12 +94,12 @@ func (*configSuite) TestValidateAcceptsUnchangedConfig(c *gc.C) {
 
 func (*configSuite) TestValidateChecksConfigChanges(c *gc.C) {
 	provider := azureEnvironProvider{}
-	oldAttrs := makeBaseConfigMap()
-	oldConfig, err := config.New(oldAttrs)
+	oldConfig, err := config.New(config.NoDefaults, makeConfigMap(nil))
 	c.Assert(err, gc.IsNil)
-	newAttrs := makeBaseConfigMap()
-	newAttrs["name"] = "different-name"
-	newConfig, err := config.New(newAttrs)
+	newAttrs := makeConfigMap(map[string]interface{}{
+		"name": "different-name",
+	})
+	newConfig, err := config.New(config.NoDefaults, newAttrs)
 	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, oldConfig)
 	c.Check(err, gc.NotNil)
@@ -118,23 +110,19 @@ func (*configSuite) TestValidateParsesAzureConfig(c *gc.C) {
 	managementSubscriptionId := "subscription-id"
 	certificate := "certificate content"
 	storageAccountName := "account-name"
-	publicStorageAccountName := "public-account-name"
-	publicStorageContainerName := "public-container-name"
 	forceImageName := "force-image-name"
 	unknownFutureSetting := "preserved"
 	azureConfig := map[string]interface{}{
-		"location":                      location,
-		"management-subscription-id":    managementSubscriptionId,
-		"management-certificate":        certificate,
-		"storage-account-name":          storageAccountName,
-		"public-storage-account-name":   publicStorageAccountName,
-		"public-storage-container-name": publicStorageContainerName,
-		"force-image-name":              forceImageName,
-		"unknown-future-setting":        unknownFutureSetting,
+		"location":                   location,
+		"management-subscription-id": managementSubscriptionId,
+		"management-certificate":     certificate,
+		"storage-account-name":       storageAccountName,
+		"force-image-name":           forceImageName,
+		"unknown-future-setting":     unknownFutureSetting,
 	}
 	attrs := makeConfigMap(azureConfig)
 	provider := azureEnvironProvider{}
-	config, err := config.New(attrs)
+	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	azConfig, err := provider.newConfig(config)
 	c.Assert(err, gc.IsNil)
@@ -143,8 +131,6 @@ func (*configSuite) TestValidateParsesAzureConfig(c *gc.C) {
 	c.Check(azConfig.managementSubscriptionId(), gc.Equals, managementSubscriptionId)
 	c.Check(azConfig.managementCertificate(), gc.Equals, certificate)
 	c.Check(azConfig.storageAccountName(), gc.Equals, storageAccountName)
-	c.Check(azConfig.publicStorageAccountName(), gc.Equals, publicStorageAccountName)
-	c.Check(azConfig.publicStorageContainerName(), gc.Equals, publicStorageContainerName)
 	c.Check(azConfig.forceImageName(), gc.Equals, forceImageName)
 	c.Check(azConfig.UnknownAttrs()["unknown-future-setting"], gc.Equals, unknownFutureSetting)
 }
@@ -156,7 +142,7 @@ func (*configSuite) TestValidateReadsCertFile(c *gc.C) {
 	delete(attrs, "management-certificate")
 	attrs["management-certificate-path"] = certFile
 	provider := azureEnvironProvider{}
-	newConfig, err := config.New(attrs)
+	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	azConfig, err := provider.newConfig(newConfig)
 	c.Assert(err, gc.IsNil)
@@ -169,37 +155,17 @@ func (*configSuite) TestChecksExistingCertFile(c *gc.C) {
 	delete(attrs, "management-certificate")
 	attrs["management-certificate-path"] = nonExistingCertPath
 	provider := azureEnvironProvider{}
-	newConfig, err := config.New(attrs)
+	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, gc.ErrorMatches, ".*"+nonExistingCertPath+": no such file or directory.*")
-}
-
-func (*configSuite) TestChecksPublicStorageAccountNameCannotBeDefinedAlone(c *gc.C) {
-	attrs := makeAzureConfigMap(c)
-	attrs["public-storage-container-name"] = ""
-	provider := azureEnvironProvider{}
-	newConfig, err := config.New(attrs)
-	c.Assert(err, gc.IsNil)
-	_, err = provider.Validate(newConfig, nil)
-	c.Check(err, gc.ErrorMatches, ".*both or none of them.*")
-}
-
-func (*configSuite) TestChecksPublicStorageContainerNameCannotBeDefinedAlone(c *gc.C) {
-	attrs := makeAzureConfigMap(c)
-	attrs["public-storage-account-name"] = ""
-	provider := azureEnvironProvider{}
-	newConfig, err := config.New(attrs)
-	c.Assert(err, gc.IsNil)
-	_, err = provider.Validate(newConfig, nil)
-	c.Check(err, gc.ErrorMatches, ".*both or none of them.*")
 }
 
 func (*configSuite) TestChecksLocationIsRequired(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["location"] = ""
 	provider := azureEnvironProvider{}
-	newConfig, err := config.New(attrs)
+	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, gc.ErrorMatches, ".*environment has no location.*")
@@ -215,15 +181,57 @@ func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	certificate := "certificate"
 	attrs["management-certificate"] = certificate
-	config, err := config.New(attrs)
+	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	provider := azureEnvironProvider{}
 	secretAttrs, err := provider.SecretAttrs(config)
 	c.Assert(err, gc.IsNil)
 
-	expectedAttrs := map[string]interface{}{
+	expectedAttrs := map[string]string{
 		"management-certificate": certificate,
 	}
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
+}
+
+func (*configSuite) TestEmptyImageStream1dot16Compat(c *gc.C) {
+	attrs := makeAzureConfigMap(c)
+	attrs["image-stream"] = ""
+	provider := azureEnvironProvider{}
+	cfg, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	_, err = provider.Validate(cfg, nil)
+	c.Assert(err, gc.IsNil)
+}
+
+func (*configSuite) TestAvailabilitySetsEnabledDefault(c *gc.C) {
+	userValues := []interface{}{nil, false, true}
+	for _, userValue := range userValues {
+		attrs := makeAzureConfigMap(c)
+		// If availability-sets-enabled isn't specified, it's set to true.
+		checker := jc.IsTrue
+		if userValue, ok := userValue.(bool); ok {
+			attrs["availability-sets-enabled"] = userValue
+			if !userValue {
+				checker = jc.IsFalse
+			}
+		}
+		cfg, err := config.New(config.UseDefaults, attrs)
+		c.Assert(err, gc.IsNil)
+		env, err := azureEnvironProvider{}.Prepare(testing.Context(c), cfg)
+		c.Assert(err, gc.IsNil)
+		azureEnv := env.(*azureEnviron)
+		c.Assert(azureEnv.ecfg.availabilitySetsEnabled(), checker)
+	}
+}
+
+func (*configSuite) TestAvailabilitySetsEnabledImmutable(c *gc.C) {
+	cfg, err := config.New(config.UseDefaults, makeAzureConfigMap(c))
+	c.Assert(err, gc.IsNil)
+	env, err := azureEnvironProvider{}.Prepare(testing.Context(c), cfg)
+	c.Assert(err, gc.IsNil)
+	cfg, err = env.Config().Apply(map[string]interface{}{"availability-sets-enabled": false})
+	c.Assert(err, gc.IsNil)
+	err = env.SetConfig(cfg)
+	c.Assert(err, gc.ErrorMatches, "cannot change availability-sets-enabled")
 }

@@ -6,6 +6,7 @@ package charm_test
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
@@ -21,38 +22,63 @@ var urlTests = []struct {
 	s, err string
 	url    *charm.URL
 }{
-	{"cs:~user/series/name", "", &charm.URL{"cs", "user", "series", "name", -1}},
-	{"cs:~user/series/name-0", "", &charm.URL{"cs", "user", "series", "name", 0}},
-	{"cs:series/name", "", &charm.URL{"cs", "", "series", "name", -1}},
-	{"cs:series/name-42", "", &charm.URL{"cs", "", "series", "name", 42}},
-	{"local:series/name-1", "", &charm.URL{"local", "", "series", "name", 1}},
-	{"local:series/name", "", &charm.URL{"local", "", "series", "name", -1}},
-	{"local:series/n0-0n-n0", "", &charm.URL{"local", "", "series", "n0-0n-n0", -1}},
+	{"cs:~user/series/name", "", &charm.URL{charm.Reference{"cs", "user", "name", -1}, "series"}},
+	{"cs:~user/series/name-0", "", &charm.URL{charm.Reference{"cs", "user", "name", 0}, "series"}},
+	{"cs:series/name", "", &charm.URL{charm.Reference{"cs", "", "name", -1}, "series"}},
+	{"cs:series/name-42", "", &charm.URL{charm.Reference{"cs", "", "name", 42}, "series"}},
+	{"local:series/name-1", "", &charm.URL{charm.Reference{"local", "", "name", 1}, "series"}},
+	{"local:series/name", "", &charm.URL{charm.Reference{"local", "", "name", -1}, "series"}},
+	{"local:series/n0-0n-n0", "", &charm.URL{charm.Reference{"local", "", "n0-0n-n0", -1}, "series"}},
+	{"cs:~user/name", "", &charm.URL{charm.Reference{"cs", "user", "name", -1}, ""}},
+	{"cs:name", "", &charm.URL{charm.Reference{"cs", "", "name", -1}, ""}},
+	{"local:name", "", &charm.URL{charm.Reference{"local", "", "name", -1}, ""}},
 
 	{"bs:~user/series/name-1", "charm URL has invalid schema: .*", nil},
 	{"cs:~1/series/name-1", "charm URL has invalid user name: .*", nil},
+	{"cs:~user", "charm URL without charm name: .*", nil},
 	{"cs:~user/1/name-1", "charm URL has invalid series: .*", nil},
 	{"cs:~user/series/name-1-2", "charm URL has invalid charm name: .*", nil},
 	{"cs:~user/series/name-1-name-2", "charm URL has invalid charm name: .*", nil},
 	{"cs:~user/series/name--name-2", "charm URL has invalid charm name: .*", nil},
 	{"cs:~user/series/huh/name-1", "charm URL has invalid form: .*", nil},
-	{"cs:~user/name", "charm URL without series: .*", nil},
-	{"cs:name", "charm URL without series: .*", nil},
+	{"cs:/name", "charm URL has invalid series: .*", nil},
 	{"local:~user/series/name", "local charm URL with user name: .*", nil},
 	{"local:~user/name", "local charm URL with user name: .*", nil},
-	{"local:name", "charm URL without series: .*", nil},
 }
 
 func (s *URLSuite) TestParseURL(c *gc.C) {
 	for i, t := range urlTests {
 		c.Logf("test %d", i)
-		url, err := charm.ParseURL(t.s)
+		url, uerr := charm.ParseURL(t.s)
+		ref, series, rerr := charm.ParseReference(t.s)
 		comment := gc.Commentf("ParseURL(%q)", t.s)
-		if t.err != "" {
-			c.Check(err.Error(), gc.Matches, t.err, comment)
+		if t.url != nil && t.url.Series == "" {
+			if t.err != "" {
+				// Expected error should match
+				c.Assert(rerr, gc.NotNil, comment)
+				c.Check(rerr.Error(), gc.Matches, t.err, comment)
+			} else {
+				// Expected charm reference should match
+				c.Check(ref, gc.DeepEquals, t.url.Reference, comment)
+				c.Check(t.url.Reference.String(), gc.Equals, t.s)
+			}
+			if rerr != nil {
+				// If ParseReference has an error, ParseURL should share it
+				c.Check(uerr.Error(), gc.Equals, rerr.Error(), comment)
+			} else {
+				// Otherwise, ParseURL with an empty series should error unresolved.
+				c.Check(uerr.Error(), gc.Equals, charm.ErrUnresolvedUrl.Error(), comment)
+			}
 		} else {
-			c.Check(url, gc.DeepEquals, t.url, comment)
-			c.Check(t.url.String(), gc.Equals, t.s)
+			if t.err != "" {
+				c.Assert(uerr, gc.NotNil, comment)
+				c.Check(uerr.Error(), gc.Matches, t.err, comment)
+				c.Check(uerr.Error(), gc.Equals, rerr.Error(), comment)
+			} else {
+				c.Check(url.Series, gc.Equals, series, comment)
+				c.Check(url, gc.DeepEquals, t.url, comment)
+				c.Check(t.url.String(), gc.Equals, t.s)
+			}
 		}
 	}
 }
@@ -82,31 +108,35 @@ func (s *URLSuite) TestInferURL(c *gc.C) {
 		comment := gc.Commentf("InferURL(%q, %q)", t.vague, "defseries")
 		inferred, ierr := charm.InferURL(t.vague, "defseries")
 		parsed, perr := charm.ParseURL(t.exact)
-		if parsed != nil {
+		if perr == nil {
 			c.Check(inferred, gc.DeepEquals, parsed, comment)
+			c.Check(ierr, gc.IsNil)
 		} else {
 			expect := perr.Error()
 			if t.vague != t.exact {
-				expect = fmt.Sprintf("%s (URL inferred from %q)", expect, t.vague)
+				if colIdx := strings.Index(expect, ":"); colIdx > 0 {
+					expect = expect[:colIdx]
+				}
 			}
-			c.Check(ierr.Error(), gc.Equals, expect, comment)
+			c.Check(ierr.Error(), gc.Matches, expect+".*", comment)
 		}
 	}
 	u, err := charm.InferURL("~blah", "defseries")
 	c.Assert(u, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, "cannot infer charm URL with user but no schema: .*")
+	c.Assert(err, gc.ErrorMatches, "charm URL without charm name: .*")
 }
 
 var inferNoDefaultSeriesTests = []struct {
 	vague, exact string
+	resolved     bool
 }{
-	{"foo", ""},
-	{"foo-1", ""},
-	{"cs:foo", ""},
-	{"cs:~user/foo", ""},
-	{"series/foo", "cs:series/foo"},
-	{"cs:series/foo", "cs:series/foo"},
-	{"cs:~user/series/foo", "cs:~user/series/foo"},
+	{"foo", "", false},
+	{"foo-1", "", false},
+	{"cs:foo", "", false},
+	{"cs:~user/foo", "", false},
+	{"series/foo", "cs:series/foo", true},
+	{"cs:series/foo", "cs:series/foo", true},
+	{"cs:~user/series/foo", "cs:~user/series/foo", true},
 }
 
 func (s *URLSuite) TestInferURLNoDefaultSeries(c *gc.C) {
@@ -118,6 +148,23 @@ func (s *URLSuite) TestInferURLNoDefaultSeries(c *gc.C) {
 			parsed, err := charm.ParseURL(t.exact)
 			c.Assert(err, gc.IsNil)
 			c.Assert(inferred, gc.DeepEquals, parsed, gc.Commentf(`InferURL(%q, "")`, t.vague))
+		}
+	}
+}
+
+func (s *URLSuite) TestParseUnresolved(c *gc.C) {
+	for _, t := range inferNoDefaultSeriesTests {
+		if t.resolved {
+			url, err := charm.ParseURL(t.vague)
+			c.Assert(err, gc.IsNil)
+			c.Assert(url.Series, gc.Not(gc.Equals), "")
+		} else {
+			_, series, err := charm.ParseReference(t.vague)
+			c.Assert(err, gc.IsNil)
+			c.Assert(series, gc.Equals, "")
+			_, err = charm.ParseURL(t.vague)
+			c.Assert(err, gc.NotNil)
+			c.Assert(err, gc.Equals, charm.ErrUnresolvedUrl)
 		}
 	}
 }
@@ -158,33 +205,42 @@ var validTests = []struct {
 	{charm.IsValidSeries, "precise", true},
 	{charm.IsValidSeries, "Precise", false},
 	{charm.IsValidSeries, "pre cise", false},
-	{charm.IsValidSeries, "pre-cise", true},
+	{charm.IsValidSeries, "pre-cise", false},
 	{charm.IsValidSeries, "pre^cise", false},
-	{charm.IsValidSeries, "prec1se", false},
+	{charm.IsValidSeries, "prec1se", true},
 	{charm.IsValidSeries, "-precise", false},
 	{charm.IsValidSeries, "precise-", false},
+	{charm.IsValidSeries, "precise-1", false},
+	{charm.IsValidSeries, "precise1", true},
 	{charm.IsValidSeries, "pre-c1se", false},
 }
 
 func (s *URLSuite) TestValidCheckers(c *gc.C) {
 	for i, t := range validTests {
 		c.Logf("test %d: %s", i, t.string)
-		c.Assert(t.valid(t.string), gc.Equals, t.expect)
+		c.Assert(t.valid(t.string), gc.Equals, t.expect, gc.Commentf("%s", t.string))
 	}
 }
 
 func (s *URLSuite) TestMustParseURL(c *gc.C) {
 	url := charm.MustParseURL("cs:series/name")
-	c.Assert(url, gc.DeepEquals, &charm.URL{"cs", "", "series", "name", -1})
-	f := func() { charm.MustParseURL("local:name") }
-	c.Assert(f, gc.PanicMatches, "charm URL without series: .*")
+	c.Assert(url, gc.DeepEquals,
+		&charm.URL{Reference: charm.Reference{"cs", "", "name", -1}, Series: "series"})
+	f := func() { charm.MustParseURL("local:@@/name") }
+	c.Assert(f, gc.PanicMatches, "charm URL has invalid series: .*")
+	f = func() { charm.MustParseURL("cs:~user") }
+	c.Assert(f, gc.PanicMatches, "charm URL without charm name: .*")
+	f = func() { charm.MustParseURL("cs:~user") }
+	c.Assert(f, gc.PanicMatches, "charm URL without charm name: .*")
+	f = func() { charm.MustParseURL("cs:name") }
+	c.Assert(f, gc.PanicMatches, "charm url series is not resolved")
 }
 
 func (s *URLSuite) TestWithRevision(c *gc.C) {
 	url := charm.MustParseURL("cs:series/name")
 	other := url.WithRevision(1)
-	c.Assert(url, gc.DeepEquals, &charm.URL{"cs", "", "series", "name", -1})
-	c.Assert(other, gc.DeepEquals, &charm.URL{"cs", "", "series", "name", 1})
+	c.Assert(url, gc.DeepEquals, &charm.URL{charm.Reference{"cs", "", "name", -1}, "series"})
+	c.Assert(other, gc.DeepEquals, &charm.URL{charm.Reference{"cs", "", "name", 1}, "series"})
 
 	// Should always copy. The opposite behavior is error prone.
 	c.Assert(other.WithRevision(1), gc.Not(gc.Equals), other)
@@ -202,7 +258,7 @@ var codecs = []struct {
 	Unmarshal: json.Unmarshal,
 }}
 
-func (s *URLSuite) TestCodecs(c *gc.C) {
+func (s *URLSuite) TestURLCodecs(c *gc.C) {
 	for i, codec := range codecs {
 		c.Logf("codec %d", i)
 		type doc struct {
@@ -220,6 +276,25 @@ func (s *URLSuite) TestCodecs(c *gc.C) {
 		err = codec.Unmarshal(data, &v)
 		c.Assert(err, gc.IsNil)
 		c.Assert(v.URL, gc.IsNil)
+	}
+}
+
+func (s *URLSuite) TestReferenceJSON(c *gc.C) {
+	ref, _, err := charm.ParseReference("cs:series/name")
+	c.Assert(err, gc.IsNil)
+	data, err := json.Marshal(&ref)
+	c.Assert(err, gc.IsNil)
+	c.Check(string(data), gc.Equals, `"cs:name"`)
+
+	var parsed charm.Reference
+	err = json.Unmarshal(data, &parsed)
+	c.Assert(err, gc.IsNil)
+	c.Check(parsed, gc.DeepEquals, ref)
+
+	// unmarshalling json gibberish and invalid charm reference strings
+	for _, value := range []string{":{", `"cs:{}+<"`, `"cs:~_~/f00^^&^/baaaar$%-?"`} {
+		err = json.Unmarshal([]byte(value), &parsed)
+		c.Check(err, gc.NotNil)
 	}
 }
 

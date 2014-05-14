@@ -9,11 +9,17 @@ import (
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
+
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
 )
+
+func ControlBucketName(e environs.Environ) string {
+	return e.(*environ).ecfg().controlBucket()
+}
 
 func JujuGroupName(e environs.Environ) string {
 	return e.(*environ).jujuGroupName()
@@ -37,14 +43,15 @@ func InstanceEC2(inst instance.Instance) *ec2.Instance {
 
 // BucketStorage returns a storage instance addressing
 // an arbitrary s3 bucket.
-func BucketStorage(b *s3.Bucket) environs.Storage {
-	return &storage{
+func BucketStorage(b *s3.Bucket) storage.Storage {
+	return &ec2storage{
 		bucket: b,
 	}
 }
 
-func GetImageURLs(e environs.Environ) ([]string, error) {
-	return e.(*environ).getImageBaseURLs()
+// DeleteBucket deletes the s3 bucket used by the storage instance.
+func DeleteBucket(s storage.Storage) error {
+	return deleteBucket(s.(*ec2storage))
 }
 
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
@@ -56,19 +63,19 @@ func init() {
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
 
-var origImagesUrl = simplestreams.DefaultBaseURL
+var origImagesUrl = imagemetadata.DefaultBaseURL
 
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
 func UseTestImageData(files map[string]string) {
 	if files != nil {
 		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-		simplestreams.DefaultBaseURL = "test:"
+		imagemetadata.DefaultBaseURL = "test:"
 		signedImageDataOnly = false
 	} else {
 		signedImageDataOnly = true
 		testRoundTripper.Sub = nil
-		simplestreams.DefaultBaseURL = origImagesUrl
+		imagemetadata.DefaultBaseURL = origImagesUrl
 	}
 }
 
@@ -91,18 +98,6 @@ func UseTestInstanceTypeData(content instanceTypeCost) {
 	}
 }
 
-var origMetadataHost = metadataHost
-
-func UseTestMetadata(files map[string]string) {
-	if files != nil {
-		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-		metadataHost = "test:"
-	} else {
-		testRoundTripper.Sub = nil
-		metadataHost = origMetadataHost
-	}
-}
-
 var (
 	ShortAttempt   = &shortAttempt
 	StorageAttempt = &storageAttempt
@@ -119,8 +114,6 @@ func FabricateInstance(inst instance.Instance, newId string) instance.Instance {
 	newi := &ec2Instance{
 		e:        oldi.e,
 		Instance: &ec2.Instance{},
-		arch:     oldi.arch,
-		instType: oldi.instType,
 	}
 	*newi.Instance = *oldi.Instance
 	newi.InstanceId = newId
@@ -133,50 +126,41 @@ type Storage interface {
 	ResetMadeBucket()
 }
 
-func (s *storage) ResetMadeBucket() {
+func (s *ec2storage) ResetMadeBucket() {
 	s.Lock()
 	defer s.Unlock()
 	s.madeBucket = false
 }
 
-// WritablePublicStorage returns a Storage instance which is authorised to write to the PublicStorage bucket.
-// It is used by tests which need to upload files.
-func WritablePublicStorage(e environs.Environ) environs.Storage {
-	// In the case of ec2, access to the public storage instance is created with the user's AWS credentials.
-	// So write access is there implicitly, and we just need to cast to a writable storage instance.
-	// This contrasts with the openstack case, where the public storage instance truly is read only and we need
-	// to create a separate writable instance. If the ec2 case ever changes, the changes are confined to this method.
-	return e.PublicStorage().(environs.Storage)
-}
-
 var TestImagesData = map[string]string{
 	"/streams/v1/index.json": `
-		{
-		 "index": {
-		  "com.ubuntu.cloud:released": {
-		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
-		   "clouds": [
-			{
-			 "region": "test",
-			 "endpoint": "https://ec2.endpoint.com"
-			}
-		   ],
-		   "cloudname": "aws",
-		   "datatype": "image-ids",
-		   "format": "products:1.0",
-		   "products": [
-			"com.ubuntu.cloud:server:12.04:amd64",
-			"com.ubuntu.cloud:server:12.04:i386",
-			"com.ubuntu.cloud:server:12.04:amd64",
-			"com.ubuntu.cloud:server:12.10:amd64",
-			"com.ubuntu.cloud:server:13.04:i386"
-		   ],
-		   "path": "streams/v1/com.ubuntu.cloud:released:aws.js"
-		  }
-		 },
-		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
-		 "format": "index:1.0"
-		}
+        {
+         "index": {
+          "com.ubuntu.cloud:released": {
+           "updated": "Wed, 01 May 2013 13:31:26 +0000",
+           "clouds": [
+            {
+             "region": "test",
+             "endpoint": "https://ec2.endpoint.com"
+            }
+           ],
+           "cloudname": "aws",
+           "datatype": "image-ids",
+           "format": "products:1.0",
+           "products": [
+            "com.ubuntu.cloud:server:12.04:amd64",
+            "com.ubuntu.cloud:server:12.04:i386",
+            "com.ubuntu.cloud:server:12.04:amd64",
+            "com.ubuntu.cloud:server:12.10:amd64",
+            "com.ubuntu.cloud:server:12.10:i386",
+            "com.ubuntu.cloud:server:13.04:i386"
+           ],
+           "path": "streams/v1/com.ubuntu.cloud:released:aws.js"
+          }
+         },
+         "updated": "Wed, 01 May 2013 13:31:26 +0000",
+         "format": "index:1.0"
+        }
 `,
 	"/streams/v1/com.ubuntu.cloud:released:aws.js": `
 {
@@ -357,7 +341,6 @@ var TestInstanceTypeCosts = instanceTypeCost{
 	"t1.micro":    20,
 	"c1.medium":   145,
 	"c1.xlarge":   580,
-	"cc1.4xlarge": 1300,
 	"cc2.8xlarge": 2400,
 }
 

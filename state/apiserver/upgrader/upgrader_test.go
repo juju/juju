@@ -4,9 +4,10 @@
 package upgrader_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -15,7 +16,6 @@ import (
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	statetesting "launchpad.net/juju-core/state/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -25,6 +25,7 @@ type upgraderSuite struct {
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	rawMachine *state.Machine
+	apiMachine *state.Machine
 	upgrader   *upgrader.UpgraderAPI
 	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
@@ -38,18 +39,19 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine to work with
 	var err error
-	s.rawMachine, err = s.State.AddMachine("series", state.JobHostUnits)
+	// The first machine created is the only one allowed to
+	// JobManageEnviron
+	s.apiMachine, err = s.State.AddMachine("quantal", state.JobHostUnits,
+		state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = s.rawMachine.SetPassword("test-password")
+	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.rawMachine.Tag(),
 		LoggedIn:     true,
-		Manager:      false,
 		MachineAgent: true,
-		Client:       false,
 	}
 	s.upgrader, err = upgrader.NewUpgraderAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
@@ -92,10 +94,9 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	wc.AssertClosed()
 }
 
-func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *gc.C) {
-	// We aren't even a machine agent
+func (s *upgraderSuite) TestUpgraderAPIRefusesNonMachineAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.UnitAgent = false
+	anAuthorizer.UnitAgent = true
 	anAuthorizer.MachineAgent = false
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.NotNil)
@@ -150,25 +151,33 @@ func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	// The machine must have its existing tools set before we query for the
 	// next tools. This is so that we can grab Arch and Series without
 	// having to pass it in again
-	err := s.rawMachine.SetAgentTools(&tools.Tools{
-		URL:     "",
-		Version: version.Current,
-	})
+	err := s.rawMachine.SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{agent}}
 	results, err := s.upgrader.Tools(args)
 	c.Assert(err, gc.IsNil)
-	c.Check(results.Results, gc.HasLen, 1)
-	c.Assert(results.Results[0].Error, gc.IsNil)
-	agentTools := results.Results[0].Tools
-	c.Check(agentTools.URL, gc.Not(gc.Equals), "")
-	c.Check(agentTools.Version, gc.DeepEquals, cur)
+	assertTools := func() {
+		c.Check(results.Results, gc.HasLen, 1)
+		c.Assert(results.Results[0].Error, gc.IsNil)
+		agentTools := results.Results[0].Tools
+		c.Check(agentTools.URL, gc.Not(gc.Equals), "")
+		c.Check(agentTools.Version, gc.DeepEquals, cur)
+	}
+	assertTools()
+	c.Check(results.Results[0].DisableSSLHostnameVerification, jc.IsFalse)
+
+	envtesting.SetSSLHostnameVerification(c, s.State, false)
+
+	results, err = s.upgrader.Tools(args)
+	c.Assert(err, gc.IsNil)
+	assertTools()
+	c.Check(results.Results[0].DisableSSLHostnameVerification, jc.IsTrue)
 }
 
 func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.SetTools(params.SetAgentsTools{})
+	results, err := s.upgrader.SetTools(params.EntitiesVersion{})
 	c.Assert(err, gc.IsNil)
 	c.Check(results.Results, gc.HasLen, 0)
 }
@@ -178,10 +187,10 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer.Tag = "machine-12354"
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
-	args := params.SetAgentsTools{
-		AgentTools: []params.SetAgentTools{{
+	args := params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{{
 			Tag: s.rawMachine.Tag(),
-			Tools: &tools.Tools{
+			Tools: &params.Version{
 				Version: version.Current,
 			},
 		}},
@@ -195,11 +204,11 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 func (s *upgraderSuite) TestSetTools(c *gc.C) {
 	cur := version.Current
 	_, err := s.rawMachine.AgentTools()
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	args := params.SetAgentsTools{
-		AgentTools: []params.SetAgentTools{{
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	args := params.EntitiesVersion{
+		AgentTools: []params.EntityVersion{{
 			Tag: s.rawMachine.Tag(),
-			Tools: &tools.Tools{
+			Tools: &params.Version{
 				Version: cur,
 			}},
 		},
@@ -221,4 +230,106 @@ func (s *upgraderSuite) TestSetTools(c *gc.C) {
 	c.Check(realTools.Version.Patch, gc.Equals, cur.Patch)
 	c.Check(realTools.Version.Build, gc.Equals, cur.Build)
 	c.Check(realTools.URL, gc.Equals, "")
+}
+
+func (s *upgraderSuite) TestDesiredVersionNothing(c *gc.C) {
+	// Not an error to watch nothing
+	results, err := s.upgrader.DesiredVersion(params.Entities{})
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 0)
+}
+
+func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = "machine-12354"
+	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, gc.IsNil)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
+	}
+	results, err := anUpgrader.DesiredVersion(args)
+	// It is not an error to make the request, but the specific item is rejected
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	toolResult := results.Results[0]
+	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.rawMachine.Tag()},
+		{Tag: "machine-12345"},
+	}}
+	results, err := s.upgrader.DesiredVersion(args)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	agentVersion := results.Results[0].Version
+	c.Assert(agentVersion, gc.NotNil)
+	c.Check(*agentVersion, gc.DeepEquals, version.Current.Number)
+
+	c.Assert(results.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(results.Results[1].Version, gc.IsNil)
+
+}
+
+func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	results, err := s.upgrader.DesiredVersion(args)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	agentVersion := results.Results[0].Version
+	c.Assert(agentVersion, gc.NotNil)
+	c.Check(*agentVersion, gc.DeepEquals, version.Current.Number)
+}
+
+func (s *upgraderSuite) bumpDesiredAgentVersion(c *gc.C) version.Number {
+	// In order to call SetEnvironAgentVersion we have to first SetTools on
+	// all the existing machines
+	s.apiMachine.SetAgentVersion(version.Current)
+	s.rawMachine.SetAgentVersion(version.Current)
+	newer := version.Current
+	newer.Patch++
+	err := s.State.SetEnvironAgentVersion(newer.Number)
+	c.Assert(err, gc.IsNil)
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	vers, ok := cfg.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Check(vers, gc.Equals, newer.Number)
+	return newer.Number
+}
+
+func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
+	newVersion := s.bumpDesiredAgentVersion(c)
+	// Grab a different Upgrader for the apiMachine
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:          s.apiMachine.Tag(),
+		LoggedIn:     true,
+		MachineAgent: true,
+	}
+	upgraderAPI, err := upgrader.NewUpgraderAPI(s.State, s.resources, authorizer)
+	c.Assert(err, gc.IsNil)
+	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag()}}}
+	results, err := upgraderAPI.DesiredVersion(args)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	agentVersion := results.Results[0].Version
+	c.Assert(agentVersion, gc.NotNil)
+	c.Check(*agentVersion, gc.DeepEquals, newVersion)
+}
+
+func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *gc.C) {
+	newVersion := s.bumpDesiredAgentVersion(c)
+	c.Assert(newVersion, gc.Not(gc.Equals), version.Current.Number)
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	results, err := s.upgrader.DesiredVersion(args)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	agentVersion := results.Results[0].Version
+	c.Assert(agentVersion, gc.NotNil)
+	c.Check(*agentVersion, gc.DeepEquals, version.Current.Number)
 }

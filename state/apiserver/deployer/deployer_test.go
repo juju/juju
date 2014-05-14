@@ -7,9 +7,11 @@ import (
 	"sort"
 	stdtesting "testing"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -52,17 +54,15 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// machine 1 (authorized): mysql/0 (principal0), logging/0 (subordinate0)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("series", state.JobManageState, state.JobHostUnits)
+	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	s.service0, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, gc.IsNil)
+	s.service0 = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 
-	s.service1, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
+	s.service1 = s.AddTestingService(c, "logging", s.AddTestingCharm(c, "logging"))
 	eps, err := s.State.InferEndpoints([]string{"mysql", "logging"})
 	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
@@ -90,7 +90,6 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          names.MachineTag(s.machine1.Id()),
 		LoggedIn:     true,
-		Manager:      false,
 		MachineAgent: true,
 	}
 
@@ -149,12 +148,12 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 }
 
 func (s *deployerSuite) TestSetPasswords(c *gc.C) {
-	args := params.PasswordChanges{
-		Changes: []params.PasswordChange{
-			{Tag: "unit-mysql-0", Password: "xxx"},
-			{Tag: "unit-mysql-1", Password: "yyy"},
-			{Tag: "unit-logging-0", Password: "zzz"},
-			{Tag: "unit-fake-42", Password: "abc"},
+	args := params.EntityPasswords{
+		Changes: []params.EntityPassword{
+			{Tag: "unit-mysql-0", Password: "xxx-12345678901234567890"},
+			{Tag: "unit-mysql-1", Password: "yyy-12345678901234567890"},
+			{Tag: "unit-logging-0", Password: "zzz-12345678901234567890"},
+			{Tag: "unit-fake-42", Password: "abc-12345678901234567890"},
 		},
 	}
 	results, err := s.deployer.SetPasswords(args)
@@ -169,11 +168,11 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	})
 	err = s.principal0.Refresh()
 	c.Assert(err, gc.IsNil)
-	changed := s.principal0.PasswordValid("xxx")
+	changed := s.principal0.PasswordValid("xxx-12345678901234567890")
 	c.Assert(changed, gc.Equals, true)
 	err = s.subordinate0.Refresh()
 	c.Assert(err, gc.IsNil)
-	changed = s.subordinate0.PasswordValid("zzz")
+	changed = s.subordinate0.PasswordValid("zzz-12345678901234567890")
 	c.Assert(changed, gc.Equals, true)
 
 	// Remove the subordinate and make sure it's detected.
@@ -182,11 +181,11 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	err = s.subordinate0.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.subordinate0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), gc.Equals, true)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
-	results, err = s.deployer.SetPasswords(params.PasswordChanges{
-		Changes: []params.PasswordChange{
-			{Tag: "unit-logging-0", Password: "blah"},
+	results, err = s.deployer.SetPasswords(params.EntityPasswords{
+		Changes: []params.EntityPassword{
+			{Tag: "unit-logging-0", Password: "blah-12345678901234567890"},
 		},
 	})
 	c.Assert(err, gc.IsNil)
@@ -230,7 +229,7 @@ func (s *deployerSuite) TestLife(c *gc.C) {
 	err = s.subordinate0.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.subordinate0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), gc.Equals, true)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	result, err = s.deployer.Life(params.Entities{
 		Entities: []params.Entity{
@@ -291,7 +290,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	})
 
 	err = s.subordinate0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), gc.Equals, true)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	// Make sure the subordinate is detected as removed.
 	result, err = s.deployer.Remove(args)
@@ -302,6 +301,9 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
+	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
+
 	addresses, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
 
@@ -313,18 +315,24 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	apiInfo := s.APIInfo(c)
+	hostPorts := [][]instance.HostPort{{{
+		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+		Port:    1234,
+	}}}
+
+	err := s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
 
 	result, err := s.deployer.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: apiInfo.Addrs,
+		Result: []string{"0.1.2.3:1234"},
 	})
 }
 
 func (s *deployerSuite) TestCACert(c *gc.C) {
 	result := s.deployer.CACert()
 	c.Assert(result, gc.DeepEquals, params.BytesResult{
-		Result: s.State.CACert(),
+		Result: []byte(s.State.CACert()),
 	})
 }

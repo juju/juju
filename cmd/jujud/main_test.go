@@ -8,36 +8,66 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/gnuflag"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
+
+	"github.com/juju/testing"
+	"launchpad.net/gnuflag"
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 var caCertFile string
 
-func TestPackage(t *stdtesting.T) {
-	// Create a CA certificate available for all tests.
-	f, err := ioutil.TempFile("", "juju-test-cert")
+func mkdtemp(prefix string) string {
+	d, err := ioutil.TempDir("", prefix)
 	if err != nil {
 		panic(err)
 	}
-	_, err = f.WriteString(testing.CACert)
+	return d
+}
+
+func mktemp(prefix string, content string) string {
+	f, err := ioutil.TempFile("", prefix)
+	if err != nil {
+		panic(err)
+	}
+	_, err = f.WriteString(content)
 	if err != nil {
 		panic(err)
 	}
 	f.Close()
-	caCertFile = f.Name()
+	return f.Name()
+}
+
+func TestPackage(t *stdtesting.T) {
+	// Change the default init dir in worker/deployer,
+	// so the deployer doesn't try to remove upstart
+	// jobs from tests.
+	restore := testing.PatchValue(&deployer.InitDir, mkdtemp("juju-worker-deployer"))
+	defer restore()
+
+	// TODO(waigani) 2014-03-19 bug 1294458
+	// Refactor to use base suites
+
+	// Change the path to "juju-run", so that the
+	// tests don't try to write to /usr/local/bin.
+	jujuRun = mktemp("juju-run", "")
+	defer os.Remove(jujuRun)
+
+	// Create a CA certificate available for all tests.
+	caCertFile = mktemp("juju-test-cert", coretesting.CACert)
 	defer os.Remove(caCertFile)
 
-	testing.MgoTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 type MainSuite struct{}
@@ -80,6 +110,7 @@ func (s *MainSuite) TestParseErrors(c *gc.C) {
 	checkMessage(c, msga,
 		"bootstrap-state",
 		"--env-config", b64yaml{"blah": "blah"}.encode(),
+		"--instance-id", "inst",
 		"toastie")
 	checkMessage(c, msga, "unit",
 		"--unit-name", "un/0",

@@ -10,7 +10,8 @@ import (
 	"time"
 
 	"launchpad.net/gwacl"
-	"launchpad.net/juju-core/environs"
+
+	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
@@ -45,7 +46,7 @@ func (context *environStorageContext) getStorageContext() (*gwacl.StorageContext
 }
 
 // azureStorage implements Storage.
-var _ environs.Storage = (*azureStorage)(nil)
+var _ storage.Storage = (*azureStorage)(nil)
 
 // Get is specified in the StorageReader interface.
 func (storage *azureStorage) Get(name string) (io.ReadCloser, error) {
@@ -90,16 +91,24 @@ func (storage *azureStorage) URL(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// 10 years should be good enough.
-	expires := time.Now().AddDate(10, 0, 0)
-	return context.GetAnonymousFileURL(storage.getContainer(), name, expires), nil
+	if context.Key != "" {
+		// 10 years should be good enough.
+		expires := time.Now().AddDate(10, 0, 0)
+		return context.GetAnonymousFileURL(storage.getContainer(), name, expires)
+	}
+	return context.GetFileURL(storage.getContainer(), name), nil
 }
 
-// ConsistencyStrategy is specified in the StorageReader interface.
-func (storage *azureStorage) ConsistencyStrategy() utils.AttemptStrategy {
+// DefaultConsistencyStrategy is specified in the StorageReader interface.
+func (storage *azureStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	// This storage backend has immediate consistency, so there's no
 	// need to wait.  One attempt should do.
 	return utils.AttemptStrategy{}
+}
+
+// ShouldRetry is specified in the StorageReader interface.
+func (storage *azureStorage) ShouldRetry(err error) bool {
+	return false
 }
 
 // Put is specified in the StorageWriter interface.
@@ -180,20 +189,4 @@ func (storage *azureStorage) deleteContainer(name string) error {
 	}
 
 	return context.DeleteContainer(name)
-}
-
-// publicEnvironStorageContext is a storageContext which gets its information
-// from an azureEnviron object to create a public storage.
-type publicEnvironStorageContext struct {
-	environ *azureEnviron
-}
-
-var _ storageContext = (*publicEnvironStorageContext)(nil)
-
-func (context *publicEnvironStorageContext) getContainer() string {
-	return context.environ.getSnapshot().ecfg.publicStorageContainerName()
-}
-
-func (context *publicEnvironStorageContext) getStorageContext() (*gwacl.StorageContext, error) {
-	return context.environ.getPublicStorageContext()
 }

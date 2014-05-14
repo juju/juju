@@ -8,29 +8,70 @@ import (
 	"os"
 	"path/filepath"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
+// FakeAuthKeys holds the authorized key used for testing
+// purposes in FakeConfig. It is valid for parsing with the utils/ssh
+// authorized-key utilities.
+const FakeAuthKeys = `ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAAAYQDP8fPSAMFm2PQGoVUks/FENVUMww1QTK6m++Y2qX9NGHm43kwEzxfoWR77wo6fhBhgFHsQ6ogE/cYLx77hOvjTchMEP74EVxSce0qtDjI7SwYbOpAButRId3g/Ef4STz8= joe@0.1.2.4`
+
+func init() {
+	_, err := ssh.ParseAuthorisedKey(FakeAuthKeys)
+	if err != nil {
+		panic("FakeAuthKeys does not hold a valid authorized key: " + err.Error())
+	}
+}
+
+const FakeDefaultSeries = "precise"
+
+// FakeConfig() returns an environment configuration for a
+// fake provider with all required attributes set.
+func FakeConfig() Attrs {
+	return Attrs{
+		"type":                      "someprovider",
+		"name":                      "testenv",
+		"authorized-keys":           FakeAuthKeys,
+		"firewall-mode":             config.FwInstance,
+		"admin-secret":              "fish",
+		"ca-cert":                   CACert,
+		"ca-private-key":            CAKey,
+		"ssl-hostname-verification": true,
+		"development":               false,
+		"state-port":                19034,
+		"api-port":                  17777,
+		"default-series":            FakeDefaultSeries,
+	}
+}
+
 // EnvironConfig returns a default environment configuration suitable for
-// testing.
-func EnvironConfig(c *C) *config.Config {
-	cfg, err := config.New(map[string]interface{}{
-		"type":            "test",
-		"name":            "test-name",
-		"default-series":  "test-series",
-		"authorized-keys": "test-keys",
-		"agent-version":   "9.9.9.9",
-		"ca-cert":         CACert,
-		"ca-private-key":  "",
-	})
-	c.Assert(err, IsNil)
+// setting in the state.
+func EnvironConfig(c *gc.C) *config.Config {
+	return CustomEnvironConfig(c, Attrs{})
+}
+
+// CustomEnvironConfig returns an environment configuration with
+// additional specified keys added.
+func CustomEnvironConfig(c *gc.C, extra Attrs) *config.Config {
+	attrs := FakeConfig().Merge(Attrs{
+		"agent-version": "1.2.3",
+	}).Merge(extra).Delete("admin-secret", "ca-private-key")
+	cfg, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
 	return cfg
 }
 
-const SampleEnvName = "erewhemos"
-const EnvDefault = "default:\n  " + SampleEnvName + "\n"
+const (
+	SampleEnvName = "erewhemos"
+	EnvDefault    = "default:\n  " + SampleEnvName + "\n"
+)
+
+const DefaultMongoPassword = "conn-from-name-secret"
 
 // Environment names below are explicit as it makes them more readable.
 const SingleEnvConfigNoDefault = `
@@ -39,7 +80,7 @@ environments:
         type: dummy
         state-server: true
         authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
+        admin-secret: ` + DefaultMongoPassword + `
 `
 
 const SingleEnvConfig = EnvDefault + SingleEnvConfigNoDefault
@@ -50,12 +91,12 @@ environments:
         type: dummy
         state-server: true
         authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
+        admin-secret: ` + DefaultMongoPassword + `
     erewhemos-2:
         type: dummy
         state-server: true
         authorized-keys: i-am-a-key
-        admin-secret: conn-from-name-secret
+        admin-secret: ` + DefaultMongoPassword + `
 `
 
 const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
@@ -68,8 +109,7 @@ type TestFile struct {
 
 type FakeHome struct {
 	oldHomeEnv     string
-	oldJujuEnv     string
-	oldJujuHomeEnv string
+	oldEnvironment map[string]string
 	oldJujuHome    string
 	files          []TestFile
 }
@@ -81,20 +121,20 @@ type FakeHome struct {
 // No ~/.juju/environments.yaml exists, but CAKeys are written for each of the
 // 'certNames' specified, and the id_rsa.pub file is written to to the .ssh
 // dir.
-func MakeFakeHomeNoEnvironments(c *C, certNames ...string) *FakeHome {
+func MakeFakeHomeNoEnvironments(c *gc.C, certNames ...string) *FakeHome {
 	fake := MakeEmptyFakeHome(c)
 
 	for _, name := range certNames {
-		err := ioutil.WriteFile(config.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
-		c.Assert(err, IsNil)
-		err = ioutil.WriteFile(config.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
-		c.Assert(err, IsNil)
+		err := ioutil.WriteFile(osenv.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
+		c.Assert(err, gc.IsNil)
+		err = ioutil.WriteFile(osenv.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
+		c.Assert(err, gc.IsNil)
 	}
 
 	err := os.Mkdir(HomePath(".ssh"), 0777)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(HomePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	return fake
 }
@@ -106,61 +146,68 @@ func MakeFakeHomeNoEnvironments(c *C, certNames ...string) *FakeHome {
 // A new ~/.juju/environments.yaml file is created with the content of the
 // `envConfig` parameter, and CAKeys are written for each of the 'certNames'
 // specified.
-func MakeFakeHome(c *C, envConfig string, certNames ...string) *FakeHome {
+func MakeFakeHome(c *gc.C, envConfig string, certNames ...string) *FakeHome {
 	fake := MakeFakeHomeNoEnvironments(c, certNames...)
 
-	envs := config.JujuHomePath("environments.yaml")
+	envs := osenv.JujuHomePath("environments.yaml")
 	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	return fake
 }
 
-func MakeEmptyFakeHome(c *C) *FakeHome {
+func MakeEmptyFakeHome(c *gc.C) *FakeHome {
 	fake := MakeEmptyFakeHomeWithoutJuju(c)
-	err := os.Mkdir(config.JujuHome(), 0700)
-	c.Assert(err, IsNil)
+	err := os.Mkdir(osenv.JujuHome(), 0700)
+	c.Assert(err, gc.IsNil)
 	return fake
 }
 
-func MakeEmptyFakeHomeWithoutJuju(c *C) *FakeHome {
-	oldHomeEnv := os.Getenv("HOME")
-	oldJujuHomeEnv := os.Getenv("JUJU_HOME")
-	oldJujuEnv := os.Getenv("JUJU_ENV")
+func MakeEmptyFakeHomeWithoutJuju(c *gc.C) *FakeHome {
+	oldHomeEnv := osenv.Home()
+	oldEnvironment := make(map[string]string)
+	for _, name := range []string{
+		osenv.JujuHomeEnvKey,
+		osenv.JujuEnvEnvKey,
+		osenv.JujuLoggingConfigEnvKey,
+	} {
+		oldEnvironment[name] = os.Getenv(name)
+	}
 	fakeHome := c.MkDir()
-	os.Setenv("HOME", fakeHome)
-	os.Setenv("JUJU_HOME", "")
-	os.Setenv("JUJU_ENV", "")
+	osenv.SetHome(fakeHome)
+	os.Setenv(osenv.JujuHomeEnvKey, "")
+	os.Setenv(osenv.JujuEnvEnvKey, "")
+	os.Setenv(osenv.JujuLoggingConfigEnvKey, "")
 	jujuHome := filepath.Join(fakeHome, ".juju")
-	oldJujuHome := config.SetJujuHome(jujuHome)
+	oldJujuHome := osenv.SetJujuHome(jujuHome)
 	return &FakeHome{
 		oldHomeEnv:     oldHomeEnv,
-		oldJujuEnv:     oldJujuEnv,
-		oldJujuHomeEnv: oldJujuHomeEnv,
+		oldEnvironment: oldEnvironment,
 		oldJujuHome:    oldJujuHome,
 		files:          []TestFile{},
 	}
 }
 
 func HomePath(names ...string) string {
-	all := append([]string{os.Getenv("HOME")}, names...)
+	all := append([]string{osenv.Home()}, names...)
 	return filepath.Join(all...)
 }
 
 func (h *FakeHome) Restore() {
-	config.SetJujuHome(h.oldJujuHome)
-	os.Setenv("JUJU_ENV", h.oldJujuEnv)
-	os.Setenv("JUJU_HOME", h.oldJujuHomeEnv)
-	os.Setenv("HOME", h.oldHomeEnv)
+	osenv.SetJujuHome(h.oldJujuHome)
+	for name, value := range h.oldEnvironment {
+		os.Setenv(name, value)
+	}
+	osenv.SetHome(h.oldHomeEnv)
 }
 
-func (h *FakeHome) AddFiles(c *C, files []TestFile) {
+func (h *FakeHome) AddFiles(c *gc.C, files []TestFile) {
 	for _, f := range files {
 		path := HomePath(f.Name)
 		err := os.MkdirAll(filepath.Dir(path), 0700)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		err = ioutil.WriteFile(path, []byte(f.Data), 0666)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		h.files = append(h.files, f)
 	}
 }
@@ -168,7 +215,7 @@ func (h *FakeHome) AddFiles(c *C, files []TestFile) {
 // FileContents returns the test file contents for the
 // given specified path (which may be relative, so
 // we compare with the base filename only).
-func (h *FakeHome) FileContents(c *C, path string) string {
+func (h *FakeHome) FileContents(c *gc.C, path string) string {
 	for _, f := range h.files {
 		if filepath.Base(f.Name) == filepath.Base(path) {
 			return f.Data
@@ -189,25 +236,29 @@ func (h *FakeHome) FileExists(path string) bool {
 	return false
 }
 
-func MakeFakeHomeWithFiles(c *C, files []TestFile) *FakeHome {
+func MakeFakeHomeWithFiles(c *gc.C, files []TestFile) *FakeHome {
 	fake := MakeEmptyFakeHome(c)
 	fake.AddFiles(c, files)
 	return fake
 }
 
-func MakeSampleHome(c *C) *FakeHome {
-	return MakeFakeHome(c, SingleEnvConfig, SampleCertName)
+func MakeSampleHome(c *gc.C, files ...TestFile) *FakeHome {
+	fake := MakeFakeHome(c, SingleEnvConfig, SampleCertName)
+	fake.AddFiles(c, files)
+	return fake
 }
 
-func MakeMultipleEnvHome(c *C) *FakeHome {
-	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, "erewhemos-2")
+func MakeMultipleEnvHome(c *gc.C) *FakeHome {
+	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, SampleCertName+"-2")
 }
 
-// PatchEnvironment provides a test a simple way to override a single
-// environment variable. A function is returned that will return the
-// environment to what it was before.
-func PatchEnvironment(name, value string) func() {
-	oldValue := os.Getenv(name)
-	os.Setenv(name, value)
-	return func() { os.Setenv(name, oldValue) }
+type FakeHomeSuite struct {
+	testbase.LoggingSuite
+	Home *FakeHome
+}
+
+func (s *FakeHomeSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.Home = MakeSampleHome(c)
+	s.AddCleanup(func(*gc.C) { s.Home.Restore() })
 }

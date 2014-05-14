@@ -6,6 +6,7 @@ package tools
 import (
 	"io"
 
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -21,11 +22,11 @@ func NewDiskManager(dataDir string) *DiskManager {
 	return &DiskManager{dataDir: dataDir}
 }
 
-func (d *DiskManager) ReadTools(vers version.Binary) (*Tools, error) {
+func (d *DiskManager) ReadTools(vers version.Binary) (*tools.Tools, error) {
 	return ReadTools(d.dataDir, vers)
 }
 
-func (d *DiskManager) UnpackTools(tools *Tools, r io.Reader) error {
+func (d *DiskManager) UnpackTools(tools *tools.Tools, r io.Reader) error {
 	return UnpackTools(d.dataDir, tools, r)
 }
 

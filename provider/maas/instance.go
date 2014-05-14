@@ -4,22 +4,40 @@
 package maas
 
 import (
+	"fmt"
+	"sync"
+
 	"launchpad.net/gomaasapi"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/common"
 )
 
 type maasInstance struct {
+	environ *maasEnviron
+
+	mu         sync.Mutex
 	maasObject *gomaasapi.MAASObject
-	environ    *maasEnviron
 }
 
 var _ instance.Instance = (*maasInstance)(nil)
 
+func (mi *maasInstance) String() string {
+	hostname, err := mi.DNSName()
+	if err != nil {
+		// This is meant to be impossible, but be paranoid.
+		hostname = fmt.Sprintf("<DNSName failed: %q>", err)
+	}
+	return fmt.Sprintf("%s:%s", hostname, mi.Id())
+}
+
 func (mi *maasInstance) Id() instance.Id {
+	return maasObjectId(mi.getMaasObject())
+}
+
+func maasObjectId(maasObject *gomaasapi.MAASObject) instance.Id {
 	// Use the node's 'resource_uri' value.
-	return instance.Id((*mi.maasObject).URI().String())
+	return instance.Id(maasObject.URI().String())
 }
 
 func (mi *maasInstance) Status() string {
@@ -31,34 +49,75 @@ func (mi *maasInstance) Status() string {
 	return ""
 }
 
-// refreshInstance refreshes the instance with the most up-to-date information
+// Refresh refreshes the instance with the most up-to-date information
 // from the MAAS server.
-func (mi *maasInstance) refreshInstance() error {
-	insts, err := mi.environ.Instances([]instance.Id{mi.Id()})
+func (mi *maasInstance) Refresh() error {
+	mi.mu.Lock()
+	defer mi.mu.Unlock()
+	insts, err := mi.environ.Instances([]instance.Id{maasObjectId(mi.maasObject)})
 	if err != nil {
 		return err
 	}
-	newMaasObject := insts[0].(*maasInstance).maasObject
-	mi.maasObject = newMaasObject
+	mi.maasObject = insts[0].(*maasInstance).maasObject
 	return nil
 }
 
+func (mi *maasInstance) getMaasObject() *gomaasapi.MAASObject {
+	mi.mu.Lock()
+	defer mi.mu.Unlock()
+	return mi.maasObject
+}
+
 func (mi *maasInstance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("maasInstance.Address not implemented")
-	return nil, nil
+	name, err := mi.DNSName()
+	if err != nil {
+		return nil, err
+	}
+	host := instance.Address{name, instance.HostName, "", instance.NetworkPublic}
+	addrs := []instance.Address{host}
+
+	ips, err := mi.ipAddresses()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ip := range ips {
+		a := instance.NewAddress(ip, instance.NetworkUnknown)
+		addrs = append(addrs, a)
+	}
+
+	return addrs, nil
+}
+
+func (mi *maasInstance) ipAddresses() ([]string, error) {
+	// we have to do this the hard way, since maasObject doesn't have this built-in yet
+	addressArray := mi.getMaasObject().GetMap()["ip_addresses"]
+	if addressArray.IsNil() {
+		// Older MAAS versions do not return ip_addresses.
+		return nil, nil
+	}
+	objs, err := addressArray.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	ips := make([]string, len(objs))
+	for i, obj := range objs {
+		s, err := obj.GetString()
+		if err != nil {
+			return nil, err
+		}
+		ips[i] = s
+	}
+	return ips, nil
 }
 
 func (mi *maasInstance) DNSName() (string, error) {
 	// A MAAS instance has its DNS name immediately.
-	hostname, err := (*mi.maasObject).GetField("hostname")
-	if err != nil {
-		return "", err
-	}
-	return hostname, nil
+	return mi.getMaasObject().GetField("hostname")
 }
 
 func (mi *maasInstance) WaitDNSName() (string, error) {
-	return environs.WaitDNSName(mi)
+	return common.WaitDNSName(mi)
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

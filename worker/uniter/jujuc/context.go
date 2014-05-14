@@ -5,9 +5,11 @@ package jujuc
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/charm"
 	"strconv"
 	"strings"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // Context is the interface that all hook helper commands
@@ -50,6 +52,9 @@ type Context interface {
 	// RelationIds returns the ids of all relations the executing unit is
 	// currently participating in.
 	RelationIds() []int
+
+	// OwnerTag returns the owner of the service the executing units belongs to
+	OwnerTag() string
 }
 
 // ContextRelation expresses the capabilities of a hook with respect to a relation.
@@ -75,14 +80,13 @@ type ContextRelation interface {
 	UnitNames() []string
 
 	// ReadSettings returns the settings of any remote unit in the relation.
-	ReadSettings(unit string) (map[string]interface{}, error)
+	ReadSettings(unit string) (params.RelationSettings, error)
 }
 
 // Settings is implemented by types that manipulate unit settings.
 type Settings interface {
-	Map() map[string]interface{}
-	Get(string) (interface{}, bool)
-	Set(string, interface{})
+	Map() params.RelationSettings
+	Set(string, string)
 	Delete(string)
 }
 

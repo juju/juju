@@ -6,11 +6,13 @@ package jujuc_test
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
-	"path/filepath"
 )
 
 type RelationGetSuite struct {
@@ -22,8 +24,8 @@ var _ = gc.Suite(&RelationGetSuite{})
 func (s *RelationGetSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 	s.rels[0].units["u/0"]["private-address"] = "foo: bar\n"
-	s.rels[1].units["m/0"] = map[string]interface{}{"pew": "pew\npew\n"}
-	s.rels[1].units["u/1"] = map[string]interface{}{"value": "12345"}
+	s.rels[1].units["m/0"] = Settings{"pew": "pew\npew\n"}
+	s.rels[1].units["u/1"] = Settings{"value": "12345"}
 }
 
 var relationGetTests = []struct {
@@ -124,8 +126,13 @@ var relationGetTests = []struct {
 	}, {
 		summary: "explicit smart formatting 3",
 		relid:   1,
-		args:    []string{"value", "u/1"},
+		args:    []string{"value", "u/1", "--format", "smart"},
 		out:     "12345",
+	}, {
+		summary: "explicit smart formatting 4",
+		relid:   1,
+		args:    []string{"missing", "u/1", "--format", "smart"},
+		out:     "",
 	}, {
 		summary: "json formatting 1",
 		relid:   1,
@@ -144,6 +151,11 @@ var relationGetTests = []struct {
 		args:    []string{"value", "u/1", "--format", "json"},
 		out:     `"12345"`,
 	}, {
+		summary: "json formatting 4",
+		relid:   1,
+		args:    []string{"missing", "u/1", "--format", "json"},
+		out:     `null`,
+	}, {
 		summary: "yaml formatting 1",
 		relid:   1,
 		unit:    "m/0",
@@ -160,6 +172,11 @@ var relationGetTests = []struct {
 		relid:   1,
 		args:    []string{"value", "u/1", "--format", "yaml"},
 		out:     `"12345"`,
+	}, {
+		summary: "yaml formatting 4",
+		relid:   1,
+		args:    []string{"missing", "u/1", "--format", "yaml"},
+		out:     ``,
 	},
 }
 
@@ -171,18 +188,18 @@ func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
-		c.Assert(code, gc.Equals, t.code)
+		c.Check(code, gc.Equals, t.code)
 		if code == 0 {
-			c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 			expect := t.out
 			if expect != "" {
 				expect = expect + "\n"
 			}
-			c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
+			c.Check(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
-			c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+			c.Check(bufferString(ctx.Stdout), gc.Equals, "")
 			expect := fmt.Sprintf(`(.|\n)*error: %s\n`, t.out)
-			c.Assert(bufferString(ctx.Stderr), gc.Matches, expect)
+			c.Check(bufferString(ctx.Stderr), gc.Matches, expect)
 		}
 	}
 }

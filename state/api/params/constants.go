@@ -20,7 +20,23 @@ type MachineJob string
 const (
 	JobHostUnits     MachineJob = "JobHostUnits"
 	JobManageEnviron MachineJob = "JobManageEnviron"
-	JobManageState   MachineJob = "JobManageState"
+	// Deprecated in 1.18
+	JobManageStateDeprecated MachineJob = "JobManageState"
+)
+
+// NeedsState returns true if the job requires a state connection.
+func (job MachineJob) NeedsState() bool {
+	return job == JobManageEnviron
+}
+
+// ResolvedMode describes the way state transition errors
+// are resolved.
+type ResolvedMode string
+
+const (
+	ResolvedNone       ResolvedMode = ""
+	ResolvedRetryHooks ResolvedMode = "retry-hooks"
+	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
 // Status represents the status of an entity.

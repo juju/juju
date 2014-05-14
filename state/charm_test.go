@@ -7,13 +7,13 @@ import (
 	"bytes"
 	"net/url"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
 )
 
 type CharmSuite struct {
@@ -34,10 +34,11 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.URL().String(), gc.Equals, s.curl.String())
 	c.Assert(dummy.Revision(), gc.Equals, 1)
-	bundleURL, err := url.Parse("http://bundles.testing.invalid/series-dummy-1")
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/quantal-dummy-1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(dummy.BundleURL(), gc.DeepEquals, bundleURL)
-	c.Assert(dummy.BundleSha256(), gc.Equals, "series-dummy-1-sha256")
+	c.Assert(dummy.BundleSha256(), gc.Equals, "quantal-dummy-1-sha256")
+	c.Assert(dummy.IsUploaded(), jc.IsTrue)
 	meta := dummy.Meta()
 	c.Assert(meta.Name, gc.Equals, "dummy")
 	config := dummy.Config()
@@ -54,7 +55,7 @@ func (s *CharmSuite) TestCharmNotFound(c *gc.C) {
 	curl := charm.MustParseURL("local:anotherseries/dummy-1")
 	_, err := s.State.Charm(curl)
 	c.Assert(err, gc.ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 type CharmTestHelperSuite struct {
@@ -99,7 +100,7 @@ func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 		revision := chd.Revision()
 
 		ch := s.AddTestingCharm(c, name)
-		assertCustomCharm(c, ch, "series", meta, config, revision)
+		assertCustomCharm(c, ch, "quantal", meta, config, revision)
 
 		ch = s.AddSeriesCharm(c, name, "anotherseries")
 		assertCustomCharm(c, ch, "anotherseries", meta, config, revision)
@@ -123,7 +124,7 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 		meta := chd.Meta()
 
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
-		assertCustomCharm(c, ch, "series", meta, config, 123)
+		assertCustomCharm(c, ch, "quantal", meta, config, 123)
 	})
 }
 
@@ -141,6 +142,6 @@ func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 
 		ch := s.AddMetaCharm(c, name, metaYaml, 123)
-		assertCustomCharm(c, ch, "series", meta, config, 123)
+		assertCustomCharm(c, ch, "quantal", meta, config, 123)
 	})
 }

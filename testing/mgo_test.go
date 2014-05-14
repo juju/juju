@@ -10,10 +10,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type mgoSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	testing.MgoSuite
 }
 
@@ -43,8 +44,8 @@ func (s *mgoSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 }
 
-func (s *mgoSuite) TestMgoResetWhenUnauthorized(c *gc.C) {
-	session := testing.MgoDial()
+func (s *mgoSuite) TestResetWhenUnauthorized(c *gc.C) {
+	session := testing.MgoServer.MustDial()
 	defer session.Close()
 	err := session.DB("admin").AddUser("admin", "foo", false)
 	if err != nil && err.Error() != "need to login" {
@@ -53,10 +54,10 @@ func (s *mgoSuite) TestMgoResetWhenUnauthorized(c *gc.C) {
 	// The test will fail if the reset does not succeed
 }
 
-func (s *mgoSuite) TestMgoStartAndClean(c *gc.C) {
-	c.Assert(testing.MgoAddr, gc.Not(gc.Equals), "")
+func (s *mgoSuite) TestStartAndClean(c *gc.C) {
+	c.Assert(testing.MgoServer.Addr(), gc.Not(gc.Equals), "")
 
-	session := testing.MgoDial()
+	session := testing.MgoServer.MustDial()
 	defer session.Close()
 	menu := session.DB("food").C("menu")
 	err := menu.Insert(
@@ -71,7 +72,7 @@ func (s *mgoSuite) TestMgoStartAndClean(c *gc.C) {
 	c.Assert(food[0]["spam"], gc.Equals, "lots")
 	c.Assert(food[1]["eggs"], gc.Equals, "fried")
 
-	testing.MgoReset()
+	testing.MgoServer.Reset()
 	morefood := make([]map[string]string, 0)
 	err = menu.Find(nil).All(&morefood)
 	c.Assert(err, gc.IsNil)

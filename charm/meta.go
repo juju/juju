@@ -102,6 +102,7 @@ type Meta struct {
 	Format      int                 `bson:",omitempty"`
 	OldRevision int                 `bson:",omitempty"` // Obsolete
 	Categories  []string            `bson:",omitempty"`
+	Series      string              `bson:",omitempty"`
 }
 
 func generateRelationHooks(relName string, allHooks map[string]bool) {
@@ -179,6 +180,9 @@ func ReadMeta(r io.Reader) (meta *Meta, err error) {
 		// Obsolete
 		meta.OldRevision = int(m["revision"].(int64))
 	}
+	if series, ok := m["series"]; ok && series != nil {
+		meta.Series = series.(string)
+	}
 	if err := meta.Check(); err != nil {
 		return nil, err
 	}
@@ -243,6 +247,13 @@ func (meta Meta) Check() error {
 			return fmt.Errorf("subordinate charm %q lacks \"requires\" relation with container scope", meta.Name)
 		}
 	}
+
+	if meta.Series != "" {
+		if !IsValidSeries(meta.Series) {
+			return fmt.Errorf("charm %q declares invalid series: %q", meta.Name, meta.Series)
+		}
+	}
+
 	return nil
 }
 
@@ -357,6 +368,7 @@ var charmSchema = schema.FieldMap(
 		"format":      schema.Int(),
 		"subordinate": schema.Bool(),
 		"categories":  schema.List(schema.String()),
+		"series":      schema.String(),
 	},
 	schema.Defaults{
 		"provides":    schema.Omit,
@@ -366,5 +378,6 @@ var charmSchema = schema.FieldMap(
 		"format":      1,
 		"subordinate": schema.Omit,
 		"categories":  schema.Omit,
+		"series":      schema.Omit,
 	},
 )

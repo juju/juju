@@ -6,7 +6,7 @@ package worker
 import (
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/state/api"
+	apiWatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 )
 
@@ -17,10 +17,6 @@ type stringsWorker struct {
 
 	// handler is what will be called when events are triggered.
 	handler StringsWatchHandler
-
-	// mustErr is set to watcher.MustErr, but that panic()s, so
-	// we let the test suite override it.
-	mustErr func(watcher.Errer) error
 }
 
 // StringsWatchHandler implements the business logic triggered as part
@@ -30,7 +26,7 @@ type StringsWatchHandler interface {
 	// will be waiting on for more events. SetUp can return a Watcher
 	// even if there is an error, and strings Worker will make sure to
 	// stop the watcher.
-	SetUp() (api.StringsWatcher, error)
+	SetUp() (apiWatcher.StringsWatcher, error)
 
 	// TearDown should cleanup any resources that are left around
 	TearDown() error
@@ -46,7 +42,6 @@ type StringsWatchHandler interface {
 func NewStringsWorker(handler StringsWatchHandler) Worker {
 	sw := &stringsWorker{
 		handler: handler,
-		mustErr: watcher.MustErr,
 	}
 	go func() {
 		defer sw.tomb.Done()
@@ -83,7 +78,7 @@ func (sw *stringsWorker) loop() error {
 			return tomb.ErrDying
 		case changes, ok := <-w.Changes():
 			if !ok {
-				return sw.mustErr(w)
+				return mustErr(w)
 			}
 			if err := sw.handler.Handle(changes); err != nil {
 				return err

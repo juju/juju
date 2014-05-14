@@ -5,22 +5,27 @@ package apiserver
 
 import (
 	stderrors "errors"
+	"sync"
+
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/presence"
-	"sync"
+	"launchpad.net/juju-core/utils"
 )
 
-func newStateServer(srv *Server, rpcConn *rpc.Conn) *initialRoot {
+func newStateServer(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier, limiter utils.Limiter) *initialRoot {
 	r := &initialRoot{
 		srv:     srv,
 		rpcConn: rpcConn,
 	}
 	r.admin = &srvAdmin{
-		root: r,
+		root:        r,
+		limiter:     limiter,
+		reqNotifier: reqNotifier,
 	}
 	return r
 }
@@ -50,9 +55,11 @@ func (r *initialRoot) Admin(id string) (*srvAdmin, error) {
 // clients can access. It holds any methods
 // that are needed to log in.
 type srvAdmin struct {
-	mu       sync.Mutex
-	root     *initialRoot
-	loggedIn bool
+	mu          sync.Mutex
+	limiter     utils.Limiter
+	root        *initialRoot
+	loggedIn    bool
+	reqNotifier *requestNotifier
 }
 
 var errAlreadyLoggedIn = stderrors.New("already logged in")
@@ -60,16 +67,53 @@ var errAlreadyLoggedIn = stderrors.New("already logged in")
 // Login logs in with the provided credentials.
 // All subsequent requests on the connection will
 // act as the authenticated user.
-func (a *srvAdmin) Login(c params.Creds) error {
+func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.loggedIn {
 		// This can only happen if Login is called concurrently.
-		return errAlreadyLoggedIn
+		return params.LoginResult{}, errAlreadyLoggedIn
 	}
-	entity0, err := a.root.srv.state.FindEntity(c.AuthTag)
-	if err != nil && !errors.IsNotFoundError(err) {
-		return err
+	// Users are not rate limited, all other entities are
+	if kind, err := names.TagKind(c.AuthTag); err != nil || kind != names.UserTagKind {
+		if !a.limiter.Acquire() {
+			logger.Debugf("rate limiting, try again later")
+			return params.LoginResult{}, common.ErrTryAgain
+		}
+		defer a.limiter.Release()
+	}
+	entity, err := doCheckCreds(a.root.srv.state, c)
+	if err != nil {
+		return params.LoginResult{}, err
+	}
+	if a.reqNotifier != nil {
+		a.reqNotifier.login(entity.Tag())
+	}
+	// We have authenticated the user; now choose an appropriate API
+	// to serve to them.
+	// TODO: consider switching the new root based on who is logging in
+	newRoot := newSrvRoot(a.root, entity)
+	if err := a.startPingerIfAgent(newRoot, entity); err != nil {
+		return params.LoginResult{}, err
+	}
+
+	// Fetch the API server addresses from state.
+	hostPorts, err := a.root.srv.state.APIHostPorts()
+	if err != nil {
+		return params.LoginResult{}, err
+	}
+	logger.Debugf("hostPorts: %v", hostPorts)
+
+	a.root.rpcConn.Serve(newRoot, serverError)
+	return params.LoginResult{hostPorts}, nil
+}
+
+var doCheckCreds = checkCreds
+
+func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
+	entity0, err := st.FindEntity(c.AuthTag)
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, err
 	}
 	// We return the same error when an entity
 	// does not exist as for a bad password, so that
@@ -77,20 +121,26 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	// about existing entities.
 	entity, ok := entity0.(taggedAuthenticator)
 	if !ok {
-		return common.ErrBadCreds
+		return nil, common.ErrBadCreds
 	}
 	if err != nil || !entity.PasswordValid(c.Password) {
-		return common.ErrBadCreds
+		return nil, common.ErrBadCreds
 	}
-	// We have authenticated the user; now choose an appropriate API
-	// to serve to them.
-	newRoot, err := a.apiRootForEntity(entity, c)
-	if err != nil {
-		return err
+	// Check if a machine agent is logging in with the right Nonce
+	if err := checkForValidMachineAgent(entity, c); err != nil {
+		return nil, err
 	}
+	return entity, nil
+}
 
-	if err := a.root.rpcConn.Serve(newRoot, serverError); err != nil {
-		return err
+func checkForValidMachineAgent(entity taggedAuthenticator, c params.Creds) error {
+	// If this is a machine agent connecting, we need to check the
+	// nonce matches, otherwise the wrong agent might be trying to
+	// connect.
+	if machine, ok := entity.(*state.Machine); ok {
+		if !machine.CheckProvisioned(c.Nonce) {
+			return state.NotProvisionedError(machine.Id())
+		}
 	}
 	return nil
 }
@@ -109,25 +159,27 @@ func (p *machinePinger) Stop() error {
 	return p.Pinger.Kill()
 }
 
-func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) (interface{}, error) {
-	// TODO(rog) choose appropriate object to serve.
-	newRoot := newSrvRoot(a.root.srv, entity)
-
-	// If this is a machine agent connecting, we need to check the
-	// nonce matches, otherwise the wrong agent might be trying to
-	// connect.
-	machine, ok := entity.(*state.Machine)
-	if ok {
-		if !machine.CheckProvisioned(c.Nonce) {
-			return nil, common.ErrNotProvisioned
-		}
-		// The machine agent has connected, so start a pinger to announce
-		// it's now alive.
-		pinger, err := machine.SetAgentAlive()
-		if err != nil {
-			return nil, err
-		}
-		newRoot.resources.Register(&machinePinger{pinger})
+func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticator) error {
+	setAgentAliver, ok := entity.(interface {
+		SetAgentAlive() (*presence.Pinger, error)
+	})
+	if !ok {
+		return nil
 	}
-	return newRoot, nil
+	// A machine or unit agent has connected, so start a pinger to
+	// announce it's now alive, and set up the API pinger
+	// so that the connection will be terminated if a sufficient
+	// interval passes between pings.
+	pinger, err := setAgentAliver.SetAgentAlive()
+	if err != nil {
+		return err
+	}
+	newRoot.resources.Register(&machinePinger{pinger})
+	action := func() {
+		if err := newRoot.rpcConn.Close(); err != nil {
+			logger.Errorf("error closing the RPC connection: %v", err)
+		}
+	}
+	newRoot.pingTimeout = newPingTimeout(action, maxClientPingInterval)
+	return nil
 }

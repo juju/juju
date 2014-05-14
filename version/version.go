@@ -12,50 +12,40 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"runtime"
 	"strconv"
 	"strings"
 
 	"labix.org/v2/mgo/bson"
+
+	"launchpad.net/juju-core/juju/arch"
 )
 
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.13.2"
+const version = "1.19.3"
 
-// CurrentNumber returns the version number.
-func CurrentNumber() Number {
-	return MustParse(version)
-}
-
-// CurrentSeries returns the current Ubuntu release name.
-func CurrentSeries() string {
-	return readSeries("/etc/lsb-release")
-}
-
-// CurrentArch returns the architecture of the machine.
-func CurrentArch() string {
-	return ubuntuArch(runtime.GOARCH)
-}
+// lsbReleaseFile is the name of the file that is read in order to determine
+// the release version of ubuntu.
+var lsbReleaseFile = "/etc/lsb-release"
 
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = Binary{
-	Number: CurrentNumber(),
-	Series: CurrentSeries(),
-	Arch:   CurrentArch(),
+	Number: MustParse(version),
+	Series: osVersion(),
+	Arch:   arch.HostArch(),
 }
 
 func init() {
 	toolsDir := filepath.Dir(os.Args[0])
 	v, err := ioutil.ReadFile(filepath.Join(toolsDir, "FORCE-VERSION"))
 	if err != nil {
-		if os.IsNotExist(err) {
-			return
+		if !os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "WARNING: cannot read forced version: %v\n", err)
 		}
-		panic(fmt.Errorf("version: cannot read forced version: %v", err))
+		return
 	}
 	Current.Number = MustParse(strings.TrimSpace(string(v)))
 }
@@ -127,6 +117,25 @@ func (vp *Binary) UnmarshalJSON(data []byte) error {
 	}
 	*vp = v
 	return nil
+}
+
+// GetYAML implements goyaml.Getter
+func (v Binary) GetYAML() (tag string, value interface{}) {
+	return "", v.String()
+}
+
+// SetYAML implements goyaml.Setter
+func (vp *Binary) SetYAML(tag string, value interface{}) bool {
+	vstr := fmt.Sprintf("%v", value)
+	if vstr == "" {
+		return false
+	}
+	v, err := ParseBinary(vstr)
+	if err != nil {
+		return false
+	}
+	*vp = v
+	return true
 }
 
 var (
@@ -208,20 +217,27 @@ func (v Number) String() string {
 	return s
 }
 
-// Less returns whether v is semantically earlier in the
-// version sequence than w.
-func (v Number) Less(w Number) bool {
+// Compare returns -1, 0 or 1 depending on whether
+// v is less than, equal to or greater than w.
+func (v Number) Compare(w Number) int {
+	if v == w {
+		return 0
+	}
+	less := false
 	switch {
 	case v.Major != w.Major:
-		return v.Major < w.Major
+		less = v.Major < w.Major
 	case v.Minor != w.Minor:
-		return v.Minor < w.Minor
+		less = v.Minor < w.Minor
 	case v.Patch != w.Patch:
-		return v.Patch < w.Patch
+		less = v.Patch < w.Patch
 	case v.Build != w.Build:
-		return v.Build < w.Build
+		less = v.Build < w.Build
 	}
-	return false
+	if less {
+		return -1
+	}
+	return 1
 }
 
 // GetBSON turns v into a bson.Getter so it can be saved directly
@@ -263,6 +279,25 @@ func (vp *Number) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// GetYAML implements goyaml.Getter
+func (v Number) GetYAML() (tag string, value interface{}) {
+	return "", v.String()
+}
+
+// SetYAML implements goyaml.Setter
+func (vp *Number) SetYAML(tag string, value interface{}) bool {
+	vstr := fmt.Sprintf("%v", value)
+	if vstr == "" {
+		return false
+	}
+	v, err := Parse(vstr)
+	if err != nil {
+		return false
+	}
+	*vp = v
+	return true
+}
+
 func isOdd(x int) bool {
 	return x%2 != 0
 }
@@ -275,23 +310,38 @@ func (v Number) IsDev() bool {
 	return isOdd(v.Minor) || v.Build > 0
 }
 
-func readSeries(releaseFile string) string {
-	data, err := ioutil.ReadFile(releaseFile)
+// ReleaseVersion looks for the value of DISTRIB_RELEASE in the content of
+// the lsbReleaseFile.  If the value is not found, the file is not found, or
+// an error occurs reading the file, an empty string is returned.
+func ReleaseVersion() string {
+	content, err := ioutil.ReadFile(lsbReleaseFile)
 	if err != nil {
-		return "unknown"
+		return ""
 	}
-	for _, line := range strings.Split(string(data), "\n") {
-		const p = "DISTRIB_CODENAME="
-		if strings.HasPrefix(line, p) {
-			return strings.Trim(line[len(p):], "\t '\"")
+	const prefix = "DISTRIB_RELEASE="
+	for _, line := range strings.Split(string(content), "\n") {
+		if strings.HasPrefix(line, prefix) {
+			return strings.Trim(line[len(prefix):], "\t '\"")
 		}
 	}
-	return "unknown"
+	return ""
 }
 
-func ubuntuArch(arch string) string {
-	if arch == "386" {
-		arch = "i386"
+// ParseMajorMinor takes an argument of the form "major.minor" and returns ints major and minor.
+func ParseMajorMinor(vers string) (int, int, error) {
+	parts := strings.Split(vers, ".")
+	major, err := strconv.Atoi(parts[0])
+	minor := -1
+	if err != nil {
+		return -1, -1, fmt.Errorf("invalid major version number %s: %v", parts[0], err)
 	}
-	return arch
+	if len(parts) == 2 {
+		minor, err = strconv.Atoi(parts[1])
+		if err != nil {
+			return -1, -1, fmt.Errorf("invalid minor version number %s: %v", parts[1], err)
+		}
+	} else if len(parts) > 2 {
+		return -1, -1, fmt.Errorf("invalid major.minor version number %s", vers)
+	}
+	return major, minor, nil
 }

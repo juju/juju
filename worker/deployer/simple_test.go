@@ -4,6 +4,7 @@
 package deployer_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,14 +13,16 @@ import (
 	"sort"
 	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
 )
@@ -130,29 +133,33 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 }
 
 type SimpleToolsFixture struct {
-	dataDir         string
-	initDir         string
-	logDir          string
-	origPath        string
-	binDir          string
-	syslogConfigDir string
+	testbase.LoggingSuite
+
+	dataDir  string
+	logDir   string
+	initDir  string
+	origPath string
+	binDir   string
 }
 
-var fakeJujud = "#!/bin/bash\n# fake-jujud\nexit 0\n"
+var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
 
 func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
+	fix.LoggingSuite.SetUpTest(c)
 	fix.dataDir = dataDir
 	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
-	fix.syslogConfigDir = c.MkDir()
 	toolsDir := tools.SharedToolsDir(fix.dataDir, version.Current)
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, gc.IsNil)
 	jujudPath := filepath.Join(toolsDir, "jujud")
 	err = ioutil.WriteFile(jujudPath, []byte(fakeJujud), 0755)
 	c.Assert(err, gc.IsNil)
-	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
-	err = ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)
+	toolsPath := filepath.Join(toolsDir, "downloaded-tools.txt")
+	testTools := coretools.Tools{Version: version.Current, URL: "http://testing.invalid/tools"}
+	data, err := json.Marshal(testTools)
+	c.Assert(err, gc.IsNil)
+	err = ioutil.WriteFile(toolsPath, data, 0644)
 	c.Assert(err, gc.IsNil)
 	fix.binDir = c.MkDir()
 	fix.origPath = os.Getenv("PATH")
@@ -166,11 +173,12 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 
 func (fix *SimpleToolsFixture) TearDown(c *gc.C) {
 	os.Setenv("PATH", fix.origPath)
+	fix.LoggingSuite.TearDownTest(c)
 }
 
 func (fix *SimpleToolsFixture) makeBin(c *gc.C, name, script string) {
 	path := filepath.Join(fix.binDir, name)
-	err := ioutil.WriteFile(path, []byte("#!/bin/bash\n"+script), 0755)
+	err := ioutil.WriteFile(path, []byte("#!/bin/bash --norc\n"+script), 0755)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -181,36 +189,26 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
 }
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
-	return deployer.NewTestSimpleContext(fix.initDir, fix.dataDir, fix.logDir, fix.syslogConfigDir)
+	config := agentConfig("machine-tag", fix.dataDir, fix.logDir)
+	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
 }
 
-func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir, syslogConfPath string) {
+func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag string) *deployer.SimpleContext {
+	config := agentConfig(machineTag, fix.dataDir, fix.logDir)
+	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
+}
+
+func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir string) {
 	confName := fmt.Sprintf("jujud-%s.conf", tag)
 	confPath = filepath.Join(fix.initDir, confName)
-	agentDir = tools.Dir(fix.dataDir, tag)
+	agentDir = agent.Dir(fix.dataDir, tag)
 	toolsDir = tools.ToolsDir(fix.dataDir, tag)
-	syslogConfPath = filepath.Join(fix.syslogConfigDir, fmt.Sprintf("26-juju-%s.conf", tag))
 	return
 }
 
-var expectedSyslogConf = `
-$ModLoad imfile
-
-$InputFileStateFile /var/spool/rsyslog/juju-%s-state
-$InputFilePersistStateInterval 50
-$InputFilePollInterval 5
-$InputFileName /var/log/juju/%s.log
-$InputFileTag juju-%s:
-$InputFileStateFile %s
-$InputRunFileMonitor
-
-:syslogtag, startswith, "juju-" @s1:514
-& ~
-`
-
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string) {
 	tag := names.UnitTag(name)
-	uconfPath, _, toolsDir, syslogConfPath := fix.paths(tag)
+	uconfPath, _, toolsDir := fix.paths(tag)
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, gc.IsNil)
 	uconf := string(uconfData)
@@ -238,54 +236,80 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 		}
 	}
 
-	conf, err := agent.ReadConf(fix.dataDir, tag)
+	conf, err := agent.ReadConfig(agent.ConfigPath(fix.dataDir, tag))
 	c.Assert(err, gc.IsNil)
-	c.Assert(conf, gc.DeepEquals, &agent.Conf{
-		DataDir:     fix.dataDir,
-		OldPassword: password,
-		StateInfo: &state.Info{
-			Addrs:  []string{"s1:123", "s2:123"},
-			CACert: []byte("test-cert"),
-			Tag:    tag,
-		},
-		APIInfo: &api.Info{
-			Addrs:  []string{"a1:123", "a2:123"},
-			CACert: []byte("test-cert"),
-			Tag:    tag,
-		},
-	})
+	c.Assert(conf.Tag(), gc.Equals, tag)
+	c.Assert(conf.DataDir(), gc.Equals, fix.dataDir)
 
 	jujudData, err := ioutil.ReadFile(jujudPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(jujudData), gc.Equals, fakeJujud)
-
-	syslogConfData, err := ioutil.ReadFile(syslogConfPath)
-	c.Assert(err, gc.IsNil)
-	parts := strings.SplitN(name, "/", 2)
-	unitTag := fmt.Sprintf("unit-%s-%s", parts[0], parts[1])
-	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, unitTag, unitTag, unitTag, unitTag)
-	c.Assert(string(syslogConfData), gc.Equals, expectedSyslogConfReplaced)
-
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
 	tag := names.UnitTag(name)
-	confPath, agentDir, toolsDir, syslogConfPath := fix.paths(tag)
-	for _, path := range []string{confPath, agentDir, toolsDir, syslogConfPath} {
+	confPath, agentDir, toolsDir := fix.paths(tag)
+	for _, path := range []string{confPath, agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)
 		if err == nil {
 			c.Log("Warning: %q not removed as expected", path)
 		} else {
-			c.Assert(err, checkers.Satisfies, os.IsNotExist)
+			c.Assert(err, jc.Satisfies, os.IsNotExist)
 		}
 	}
 }
 
 func (fix *SimpleToolsFixture) injectUnit(c *gc.C, upstartConf, unitTag string) {
 	confPath := filepath.Join(fix.initDir, upstartConf)
-	err := ioutil.WriteFile(confPath, []byte("#!/bin/bash\necho $0"), 0644)
+	err := ioutil.WriteFile(confPath, []byte("#!/bin/bash --norc\necho $0"), 0644)
 	c.Assert(err, gc.IsNil)
 	toolsDir := filepath.Join(fix.dataDir, "tools", unitTag)
 	err = os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, gc.IsNil)
+}
+
+type mockConfig struct {
+	agent.Config
+	tag               string
+	datadir           string
+	logdir            string
+	upgradedToVersion version.Number
+	jobs              []params.MachineJob
+}
+
+func (mock *mockConfig) Tag() string {
+	return mock.tag
+}
+
+func (mock *mockConfig) DataDir() string {
+	return mock.datadir
+}
+
+func (mock *mockConfig) LogDir() string {
+	return mock.logdir
+}
+
+func (mock *mockConfig) Jobs() []params.MachineJob {
+	return mock.jobs
+}
+
+func (mock *mockConfig) UpgradedToVersion() version.Number {
+	return mock.upgradedToVersion
+}
+
+func (mock *mockConfig) WriteUpgradedToVersion(newVersion version.Number) error {
+	mock.upgradedToVersion = newVersion
+	return nil
+}
+
+func (mock *mockConfig) CACert() string {
+	return testing.CACert
+}
+
+func (mock *mockConfig) Value(_ string) string {
+	return ""
+}
+
+func agentConfig(tag, datadir, logdir string) agent.Config {
+	return &mockConfig{tag: tag, datadir: datadir, logdir: logdir}
 }

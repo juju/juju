@@ -20,24 +20,26 @@ import (
 	"regexp"
 	"time"
 
-	"launchpad.net/juju-core/log"
+	"github.com/juju/loggo"
+
 	"launchpad.net/juju-core/utils"
 )
 
 const (
-	// NameRegexp specifies the regular expression used to itentify valid lock names.
+	// NameRegexp specifies the regular expression used to identify valid lock names.
 	NameRegexp      = "^[a-z]+[a-z0-9.-]*$"
 	heldFilename    = "held"
 	messageFilename = "message"
 )
 
 var (
+	logger         = loggo.GetLogger("juju.utils.fslock")
 	ErrLockNotHeld = errors.New("lock not held")
 	ErrTimeout     = errors.New("lock timeout exceeded")
 
 	validName = regexp.MustCompile(NameRegexp)
 
-	lockWaitDelay = 1 * time.Second
+	LockWaitDelay = 1 * time.Second
 )
 
 type Lock struct {
@@ -113,7 +115,7 @@ func (lock *Lock) acquire(message string) (bool, error) {
 		}
 	}
 	// Now move the temp directory to the lock directory.
-	err = os.Rename(tempDirName, lock.lockDir())
+	err = utils.ReplaceFile(tempDirName, lock.lockDir())
 	if err != nil {
 		// Any error on rename means we failed.
 		// Beaten to it, clean up temporary directory.
@@ -141,10 +143,10 @@ func (lock *Lock) lockLoop(message string, continueFunc func() error) error {
 		}
 		currMessage := lock.Message()
 		if currMessage != heldMessage {
-			log.Infof("attempted lock failed %q, %s, currently held: %s", lock.name, message, currMessage)
+			logger.Infof("attempted lock failed %q, %s, currently held: %s", lock.name, message, currMessage)
 			heldMessage = currMessage
 		}
-		time.Sleep(lockWaitDelay)
+		time.Sleep(LockWaitDelay)
 	}
 }
 
@@ -174,14 +176,14 @@ func (lock *Lock) LockWithTimeout(duration time.Duration, message string) error 
 	return lock.lockLoop(message, continueFunc)
 }
 
-// Lock blocks until it is able to acquire the lock.  If the lock is failed to
+// LockWithFunc blocks until it is able to acquire the lock.  If the lock is failed to
 // be acquired, the continueFunc is called prior to the sleeping.  If the
 // continueFunc returns an error, that error is returned from LockWithFunc.
 func (lock *Lock) LockWithFunc(message string, continueFunc func() error) error {
 	return lock.lockLoop(message, continueFunc)
 }
 
-// IsHeld returns whether the lock is currently held by the receiver.
+// IsLockHeld returns whether the lock is currently held by the receiver.
 func (lock *Lock) IsLockHeld() bool {
 	heldNonce, err := ioutil.ReadFile(lock.heldFile())
 	if err != nil {
@@ -200,7 +202,7 @@ func (lock *Lock) Unlock() error {
 	tempLockName := fmt.Sprintf(".%s.%x", lock.name, lock.nonce)
 	tempDirName := path.Join(lock.parent, tempLockName)
 	// Now move the lock directory to the temp directory to release the lock.
-	if err := os.Rename(lock.lockDir(), tempDirName); err != nil {
+	if err := utils.ReplaceFile(lock.lockDir(), tempDirName); err != nil {
 		return err
 	}
 	// And now cleanup.

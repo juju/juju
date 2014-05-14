@@ -4,12 +4,16 @@
 package client_test
 
 import (
+	"strings"
+
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"strings"
+	"launchpad.net/juju-core/version"
 )
 
 type permSuite struct {
@@ -65,6 +69,10 @@ var operationPermTests = []struct {
 	op:    opClientServiceDeploy,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.ServiceDeployWithNetworks",
+	op:    opClientServiceDeployWithNetworks,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.ServiceUpdate",
 	op:    opClientServiceUpdate,
 	allow: []string{"user-admin", "user-other"},
@@ -99,6 +107,22 @@ var operationPermTests = []struct {
 }, {
 	about: "Client.SetServiceConstraints",
 	op:    opClientSetServiceConstraints,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.SetEnvironmentConstraints",
+	op:    opClientSetEnvironmentConstraints,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.EnvironmentGet",
+	op:    opClientEnvironmentGet,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.EnvironmentSet",
+	op:    opClientEnvironmentSet,
+	allow: []string{"user-admin", "user-other"},
+}, {
+	about: "Client.SetEnvironAgentVersion",
+	op:    opClientSetEnvironAgentVersion,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.WatchAll",
@@ -153,7 +177,7 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 				c.Check(err, gc.IsNil)
 			} else {
 				c.Check(err, gc.ErrorMatches, "permission denied")
-				c.Check(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+				c.Check(err, jc.Satisfies, params.IsCodeUnauthorized)
 			}
 			reset()
 			st.Close()
@@ -162,12 +186,12 @@ func (s *permSuite) TestOperationPerm(c *gc.C) {
 }
 
 func opClientCharmInfo(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	info, err := st.Client().CharmInfo("local:series/wordpress-3")
+	info, err := st.Client().CharmInfo("local:quantal/wordpress-3")
 	if err != nil {
 		c.Check(info, gc.IsNil)
 		return func() {}, err
 	}
-	c.Assert(info.URL, gc.Equals, "local:series/wordpress-3")
+	c.Assert(info.URL, gc.Equals, "local:quantal/wordpress-3")
 	c.Assert(info.Meta.Name, gc.Equals, "wordpress")
 	c.Assert(info.Revision, gc.Equals, 3)
 	return func() {}, nil
@@ -175,7 +199,7 @@ func opClientCharmInfo(c *gc.C, st *api.State, mst *state.State) (func(), error)
 
 func opClientAddRelation(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	_, err := st.Client().AddRelation("nosuch1", "nosuch2")
-	if params.ErrCode(err) == params.CodeNotFound {
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err
@@ -183,19 +207,19 @@ func opClientAddRelation(c *gc.C, st *api.State, mst *state.State) (func(), erro
 
 func opClientDestroyRelation(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().DestroyRelation("nosuch1", "nosuch2")
-	if params.ErrCode(err) == params.CodeNotFound {
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err
 }
 
 func opClientStatus(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	status, err := st.Client().Status()
+	status, err := st.Client().Status(nil)
 	if err != nil {
 		c.Check(status, gc.IsNil)
 		return func() {}, err
 	}
-	c.Assert(status, gc.DeepEquals, scenarioStatus)
+	c.Assert(status, jc.DeepEquals, scenarioStatus)
 	return func() {}, nil
 }
 
@@ -260,7 +284,7 @@ func opClientResolved(c *gc.C, st *api.State, _ *state.State) (func(), error) {
 	// that the user is not authorized.  In that case we want to exit now,
 	// letting the error percolate out so the caller knows that the
 	// permission error was correctly generated.
-	if err != nil && params.ErrCode(err) == params.CodeUnauthorized {
+	if err != nil && params.IsCodeUnauthorized(err) {
 		return func() {}, err
 	}
 	// Otherwise, the user was authorized, but we expect an error anyway
@@ -294,7 +318,15 @@ func opClientSetAnnotations(c *gc.C, st *api.State, mst *state.State) (func(), e
 }
 
 func opClientServiceDeploy(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{})
+	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{}, "")
+	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
+		err = nil
+	}
+	return func() {}, err
+}
+
+func opClientServiceDeployWithNetworks(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	err := st.Client().ServiceDeployWithNetworks("mad:bad/url-1", "x", 1, "", constraints.Value{}, "", nil, nil)
 	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
 		err = nil
 	}
@@ -304,36 +336,36 @@ func opClientServiceDeploy(c *gc.C, st *api.State, mst *state.State) (func(), er
 func opClientServiceUpdate(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	args := params.ServiceUpdate{
 		ServiceName:     "no-such-charm",
-		CharmUrl:        "cs:series/wordpress-42",
+		CharmUrl:        "cs:quantal/wordpress-42",
 		ForceCharmUrl:   true,
 		SettingsStrings: map[string]string{"blog-title": "foo"},
 		SettingsYAML:    `"wordpress": {"blog-title": "foo"}`,
 	}
 	err := st.Client().ServiceUpdate(args)
-	if params.ErrCode(err) == params.CodeNotFound {
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err
 }
 
 func opClientServiceSetCharm(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().ServiceSetCharm("nosuch", "local:series/wordpress", false)
-	if params.ErrCode(err) == params.CodeNotFound {
+	err := st.Client().ServiceSetCharm("nosuch", "local:quantal/wordpress", false)
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err
 }
 
 func opClientAddServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	_, err := st.Client().AddServiceUnits("nosuch", 1)
-	if params.ErrCode(err) == params.CodeNotFound {
+	_, err := st.Client().AddServiceUnits("nosuch", 1, "")
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err
 }
 
 func opClientDestroyServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().DestroyServiceUnits([]string{"wordpress/99"})
+	err := st.Client().DestroyServiceUnits("wordpress/99")
 	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
 		err = nil
 	}
@@ -342,7 +374,7 @@ func opClientDestroyServiceUnits(c *gc.C, st *api.State, mst *state.State) (func
 
 func opClientServiceDestroy(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDestroy("non-existent")
-	if params.ErrCode(err) == params.CodeNotFound {
+	if params.IsCodeNotFound(err) {
 		err = nil
 	}
 	return func() {}, err
@@ -360,6 +392,54 @@ func opClientSetServiceConstraints(c *gc.C, st *api.State, mst *state.State) (fu
 		return func() {}, err
 	}
 	return func() {}, nil
+}
+
+func opClientSetEnvironmentConstraints(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	nullConstraints := constraints.Value{}
+	err := st.Client().SetEnvironmentConstraints(nullConstraints)
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {}, nil
+}
+
+func opClientEnvironmentGet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	_, err := st.Client().EnvironmentGet()
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {}, nil
+}
+
+func opClientEnvironmentSet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	args := map[string]interface{}{"some-key": "some-value"}
+	err := st.Client().EnvironmentSet(args)
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {
+		args["some-key"] = nil
+		st.Client().EnvironmentSet(args)
+	}, nil
+}
+
+func opClientSetEnvironAgentVersion(c *gc.C, st *api.State, mst *state.State) (func(), error) {
+	attrs, err := st.Client().EnvironmentGet()
+	if err != nil {
+		return func() {}, err
+	}
+	err = st.Client().SetEnvironAgentVersion(version.Current.Number)
+	if err != nil {
+		return func() {}, err
+	}
+
+	return func() {
+		oldAgentVersion, found := attrs["agent-version"]
+		if found {
+			versionString := oldAgentVersion.(string)
+			st.Client().SetEnvironAgentVersion(version.MustParse(versionString))
+		}
+	}, nil
 }
 
 func opClientWatchAll(c *gc.C, st *api.State, mst *state.State) (func(), error) {

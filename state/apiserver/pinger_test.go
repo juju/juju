@@ -4,11 +4,17 @@
 package apiserver_test
 
 import (
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"time"
+
+	"github.com/juju/loggo"
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/apiserver"
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type stateSuite struct {
@@ -20,21 +26,9 @@ var _ = gc.Suite(&stateSuite{})
 var testPingPeriod = 100 * time.Millisecond
 
 func (s *stateSuite) TestConnectionBrokenDetection(c *gc.C) {
-	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	err = stm.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	err = stm.SetPassword("password")
-	c.Assert(err, gc.IsNil)
+	s.PatchValue(&api.PingPeriod, testPingPeriod)
 
-	origPingPeriod := api.PingPeriod
-	api.PingPeriod = testPingPeriod
-	defer func() {
-		api.PingPeriod = origPingPeriod
-	}()
-
-	st := s.OpenAPIAsMachine(c, stm.Tag(), "password", "fake_nonce")
-	defer st.Close()
+	st, _ := s.OpenAPIAsNewMachine(c)
 
 	// Connection still alive
 	select {
@@ -53,4 +47,73 @@ func (s *stateSuite) TestConnectionBrokenDetection(c *gc.C) {
 	case <-st.Broken():
 		return
 	}
+}
+
+func (s *stateSuite) TestPing(c *gc.C) {
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("ping-tester", tw, loggo.DEBUG), gc.IsNil)
+	defer loggo.RemoveWriter("ping-tester")
+
+	st, _ := s.OpenAPIAsNewMachine(c)
+	err := st.Ping()
+	c.Assert(err, gc.IsNil)
+	err = st.Close()
+	c.Assert(err, gc.IsNil)
+	err = st.Ping()
+	c.Assert(err, gc.Equals, rpc.ErrShutdown)
+
+	// Make sure that ping messages have not been logged.
+	for _, m := range tw.Log {
+		c.Logf("checking %q", m.Message)
+		c.Check(m.Message, gc.Not(gc.Matches), ".*Ping.*")
+	}
+}
+
+func (s *stateSuite) TestClientNoNeedToPing(c *gc.C) {
+	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(0))
+	st, err := api.Open(s.APIInfo(c), api.DefaultDialOpts())
+	c.Assert(err, gc.IsNil)
+	time.Sleep(coretesting.ShortWait)
+	err = st.Ping()
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *stateSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
+	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(0))
+	st, _ := s.OpenAPIAsNewMachine(c)
+	time.Sleep(coretesting.ShortWait)
+	err := st.Ping()
+	c.Assert(err, gc.ErrorMatches, "connection is shut down")
+}
+
+type mongoPingerSuite struct {
+	testing.JujuConnSuite
+}
+
+var _ = gc.Suite(&mongoPingerSuite{})
+
+func (s *mongoPingerSuite) SetUpTest(c *gc.C) {
+	// We need to set the ping interval before the server is started.
+	s.PatchValue(apiserver.MongoPingInterval, coretesting.ShortWait)
+	s.JujuConnSuite.SetUpTest(c)
+}
+
+func (s *mongoPingerSuite) TestAgentConnectionsShutDownWhenStateDies(c *gc.C) {
+	s.PatchValue(apiserver.MongoPingInterval, coretesting.ShortWait)
+	st, _ := s.OpenAPIAsNewMachine(c)
+	err := st.Ping()
+	c.Assert(err, gc.IsNil)
+	coretesting.MgoServer.Destroy()
+
+	attempt := utils.AttemptStrategy{
+		Total: coretesting.LongWait,
+		Delay: coretesting.ShortWait,
+	}
+	for a := attempt.Start(); a.Next(); {
+		if err := st.Ping(); err != nil {
+			c.Assert(err, gc.ErrorMatches, "connection is shut down")
+			return
+		}
+	}
+	c.Fatalf("timed out waiting for API server to die")
 }

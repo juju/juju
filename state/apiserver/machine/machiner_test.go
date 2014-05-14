@@ -6,6 +6,7 @@ package machine_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -50,13 +51,13 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
-	err := s.machine0.SetStatus(params.StatusStarted, "blah")
+	err := s.machine0.SetStatus(params.StatusStarted, "blah", nil)
 	c.Assert(err, gc.IsNil)
-	err = s.machine1.SetStatus(params.StatusStopped, "foo")
+	err = s.machine1.SetStatus(params.StatusStopped, "foo", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
-		Entities: []params.SetEntityStatus{
+		Entities: []params.EntityStatus{
 			{Tag: "machine-1", Status: params.StatusError, Info: "not really"},
 			{Tag: "machine-0", Status: params.StatusStopped, Info: "foobar"},
 			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
@@ -72,12 +73,12 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	})
 
 	// Verify machine 0 - no change.
-	status, info, err := s.machine0.Status()
+	status, info, _, err := s.machine0.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStarted)
 	c.Assert(info, gc.Equals, "blah")
 	// ...machine 1 is fine though.
-	status, info, err = s.machine1.Status()
+	status, info, _, err = s.machine1.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusError)
 	c.Assert(info, gc.Equals, "not really")
@@ -146,6 +147,39 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	err = s.machine1.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.machine1.Life(), gc.Equals, state.Dead)
+}
+
+func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
+	c.Assert(s.machine0.Addresses(), gc.HasLen, 0)
+	c.Assert(s.machine1.Addresses(), gc.HasLen, 0)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
+		instance.NewAddress("8.8.8.8", instance.NetworkUnknown),
+	}
+
+	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{
+		{Tag: "machine-1", Addresses: addresses},
+		{Tag: "machine-0", Addresses: addresses},
+		{Tag: "machine-42", Addresses: addresses},
+	}}
+
+	result, err := s.machiner.SetMachineAddresses(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	err = s.machine1.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine1.MachineAddresses(), gc.DeepEquals, addresses)
+	err = s.machine0.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine0.MachineAddresses(), gc.HasLen, 0)
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {

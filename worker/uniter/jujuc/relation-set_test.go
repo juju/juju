@@ -5,7 +5,9 @@ package jujuc_test
 
 import (
 	"fmt"
+
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -175,13 +177,13 @@ var relationSetRunTests = []struct {
 }{
 	{
 		map[string]string{"base": ""},
-		map[string]interface{}{},
+		Settings{},
 	}, {
 		map[string]string{"foo": "bar"},
-		map[string]interface{}{"base": "value", "foo": "bar"},
+		Settings{"base": "value", "foo": "bar"},
 	}, {
 		map[string]string{"base": "changed"},
-		map[string]interface{}{"base": "changed"},
+		Settings{"base": "changed"},
 	},
 }
 

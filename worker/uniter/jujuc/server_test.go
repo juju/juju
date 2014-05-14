@@ -13,12 +13,14 @@ import (
 	"sync"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
@@ -69,7 +71,7 @@ func factory(contextId, cmdName string) (cmd.Command, error) {
 }
 
 type ServerSuite struct {
-	testing.LoggingSuite
+	testbase.LoggingSuite
 	server   *jujuc.Server
 	sockPath string
 	err      chan error
@@ -92,11 +94,11 @@ func (s *ServerSuite) TearDownTest(c *gc.C) {
 	s.server.Close()
 	c.Assert(<-s.err, gc.IsNil)
 	_, err := os.Open(s.sockPath)
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *ServerSuite) Call(c *gc.C, req jujuc.Request) (resp jujuc.Response, err error) {
+func (s *ServerSuite) Call(c *gc.C, req jujuc.Request) (resp exec.ExecResponse, err error) {
 	client, err := rpc.Dial("unix", s.sockPath)
 	c.Assert(err, gc.IsNil)
 	defer client.Close()
@@ -161,7 +163,7 @@ func (s *ServerSuite) TestBadContextId(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `bad request: unknown context "whatever"`)
 }
 
-func (s *ServerSuite) AssertBadCommand(c *gc.C, args []string, code int) jujuc.Response {
+func (s *ServerSuite) AssertBadCommand(c *gc.C, args []string, code int) exec.ExecResponse {
 	resp, err := s.Call(c, jujuc.Request{"validCtx", c.MkDir(), args[0], args[1:]})
 	c.Assert(err, gc.IsNil)
 	c.Assert(resp.Code, gc.Equals, code)

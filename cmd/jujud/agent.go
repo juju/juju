@@ -6,24 +6,32 @@ package main
 import (
 	"fmt"
 	"io"
+	"path/filepath"
+	"sync"
 	"time"
 
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apiagent "launchpad.net/juju-core/state/api/agent"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/fslock"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/juju-core/worker/rsyslog"
 	"launchpad.net/juju-core/worker/upgrader"
 )
+
+var apiOpen = api.Open
 
 // requiredError is useful when complaining about missing command-line options.
 func requiredError(name string) error {
@@ -32,26 +40,56 @@ func requiredError(name string) error {
 
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
-	*agent.Conf
 	dataDir string
+	mu      sync.Mutex
+	_config agent.ConfigSetterWriter
 }
 
-// addFlags injects common agent flags into f.
-func (c *AgentConf) addFlags(f *gnuflag.FlagSet) {
+// AddFlags injects common agent flags into f.
+func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
+	// TODO(dimitern) 2014-02-19 bug 1282025
+	// We need to pass a config location here instead and
+	// use it to locate the conf and the infer the data-dir
+	// from there instead of passing it like that.
 	f.StringVar(&c.dataDir, "data-dir", "/var/lib/juju", "directory for juju data")
 }
 
-func (c *AgentConf) checkArgs(args []string) error {
+func (c *AgentConf) CheckArgs(args []string) error {
 	if c.dataDir == "" {
 		return requiredError("data-dir")
 	}
 	return cmd.CheckEmpty(args)
 }
 
-func (c *AgentConf) read(tag string) error {
-	var err error
-	c.Conf, err = agent.ReadConf(c.dataDir, tag)
-	return err
+func (c *AgentConf) ReadConfig(tag string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	conf, err := agent.ReadConfig(agent.ConfigPath(c.dataDir, tag))
+	if err != nil {
+		return err
+	}
+	c._config = conf
+	return nil
+}
+
+func (ch *AgentConf) ChangeConfig(change func(c agent.ConfigSetter)) error {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+	change(ch._config)
+	return ch._config.Write()
+}
+
+func (ch *AgentConf) CurrentConfig() agent.Config {
+	ch.mu.Lock()
+	defer ch.mu.Unlock()
+	return ch._config.Clone()
+}
+
+// SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
+func (a *AgentConf) SetAPIHostPorts(servers [][]instance.HostPort) error {
+	return a.ChangeConfig(func(c agent.ConfigSetter) {
+		c.SetAPIHostPorts(servers)
+	})
 }
 
 func importance(err error) int {
@@ -80,15 +118,16 @@ func isUpgraded(err error) bool {
 }
 
 type Agent interface {
-	Entity(st *state.State) (AgentState, error)
 	Tag() string
+	ChangeConfig(func(agent.ConfigSetter)) error
 }
 
 // The AgentState interface is implemented by state types
 // that represent running agents.
 type AgentState interface {
-	// SetAgentTools sets the tools that the agent is currently running.
-	SetAgentTools(tools *tools.Tools) error
+	// SetAgentVersion sets the tools version that the agent is
+	// currently running.
+	SetAgentVersion(v version.Binary) error
 	Tag() string
 	SetMongoPassword(password string) error
 	Life() state.Life
@@ -103,13 +142,35 @@ func (e *fatalError) Error() string {
 }
 
 func isFatal(err error) bool {
-	isTerminate := err == worker.ErrTerminateAgent
-	notProvisioned := params.ErrCode(err) == params.CodeNotProvisioned
-	if isTerminate || notProvisioned || isUpgraded(err) {
+	if err == worker.ErrTerminateAgent {
+		return true
+	}
+	if isUpgraded(err) {
 		return true
 	}
 	_, ok := err.(*fatalError)
 	return ok
+}
+
+type pinger interface {
+	Ping() error
+}
+
+// connectionIsFatal returns a function suitable for passing
+// as the isFatal argument to worker.NewRunner,
+// that diagnoses an error as fatal if the connection
+// has failed or if the error is otherwise fatal.
+func connectionIsFatal(conn pinger) func(err error) bool {
+	return func(err error) bool {
+		if isFatal(err) {
+			return true
+		}
+		if err := conn.Ping(); err != nil {
+			logger.Infof("error pinging %T: %v", conn, err)
+			return true
+		}
+		return false
+	}
 }
 
 // isleep waits for the given duration or until it receives a value on
@@ -124,63 +185,86 @@ func isleep(d time.Duration, stop <-chan struct{}) bool {
 	return true
 }
 
-func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
-	st, err := c.OpenState()
-	if err != nil {
-		return nil, nil, err
-	}
-	entity, err := a.Entity(st)
-	if errors.IsNotFoundError(err) || err == nil && entity.Life() == state.Dead {
-		err = worker.ErrTerminateAgent
-	}
-	if err != nil {
-		st.Close()
-		return nil, nil, err
-	}
-	return st, entity, nil
+type apiOpener interface {
+	OpenAPI(api.DialOpts) (*api.State, string, error)
 }
 
-func openAPIState(c *agent.Conf, a Agent) (*api.State, *apiagent.Entity, error) {
+type configChanger func(c *agent.Config)
+
+// openAPIState opens the API using the given information, and
+// returns the opened state and the api entity with
+// the given tag. The given changeConfig function is
+// called if the password changes to set the password.
+func openAPIState(
+	agentConfig agent.Config,
+	a Agent,
+) (_ *api.State, _ *apiagent.Entity, err error) {
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,
 	// then the worker that's calling this cannot
 	// be interrupted.
-	st, newPassword, err := c.OpenAPI(api.DialOpts{})
+	info := agentConfig.APIInfo()
+	st, err := apiOpen(info, api.DialOpts{})
+	usedOldPassword := false
+	if params.IsCodeUnauthorized(err) {
+		// We've perhaps used the wrong password, so
+		// try again with the fallback password.
+		info := *info
+		info.Password = agentConfig.OldPassword()
+		usedOldPassword = true
+		st, err = apiOpen(&info, api.DialOpts{})
+	}
 	if err != nil {
+		if params.IsCodeNotProvisioned(err) {
+			return nil, nil, worker.ErrTerminateAgent
+		}
+		if params.IsCodeUnauthorized(err) {
+			return nil, nil, worker.ErrTerminateAgent
+		}
 		return nil, nil, err
 	}
+	defer func() {
+		if err != nil {
+			st.Close()
+		}
+	}()
 	entity, err := st.Agent().Entity(a.Tag())
-	if params.ErrCode(err) == params.CodeNotFound || err == nil && entity.Life() == params.Dead {
-		err = worker.ErrTerminateAgent
+	if err == nil && entity.Life() == params.Dead {
+		return nil, nil, worker.ErrTerminateAgent
 	}
 	if err != nil {
-		st.Close()
+		if params.IsCodeUnauthorized(err) {
+			return nil, nil, worker.ErrTerminateAgent
+		}
 		return nil, nil, err
 	}
-	if newPassword == "" {
-		return st, entity, nil
-	}
-	// Make a copy of the configuration so that if we fail
-	// to write the configuration file, the configuration will
-	// still be valid.
-	c1 := *c
-	stateInfo := *c.StateInfo
-	c1.StateInfo = &stateInfo
-	apiInfo := *c.APIInfo
-	c1.APIInfo = &apiInfo
+	if usedOldPassword {
+		// We succeeded in connecting with the fallback
+		// password, so we need to create a new password
+		// for the future.
 
-	c1.StateInfo.Password = newPassword
-	c1.APIInfo.Password = newPassword
-	if err := c1.Write(); err != nil {
-		return nil, nil, err
+		newPassword, err := utils.RandomPassword()
+		if err != nil {
+			return nil, nil, err
+		}
+		// Change the configuration *before* setting the entity
+		// password, so that we avoid the possibility that
+		// we might successfully change the entity's
+		// password but fail to write the configuration,
+		// thus locking us out completely.
+		if err := a.ChangeConfig(func(c agent.ConfigSetter) {
+			c.SetPassword(newPassword)
+			c.SetOldPassword(info.Password)
+		}); err != nil {
+			return nil, nil, err
+		}
+		if err := entity.SetPassword(newPassword); err != nil {
+			return nil, nil, err
+		}
 	}
-	*c = c1
-	if err := entity.SetPassword(newPassword); err != nil {
-		return nil, nil, err
-	}
+
 	return st, entity, nil
-
 }
 
 // agentDone processes the error returned by
@@ -192,7 +276,7 @@ func agentDone(err error) error {
 	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
 		if err := ug.ChangeAgentTools(); err != nil {
 			// Return and let upstart deal with the restart.
-			return err
+			return errors.LoggedErrorf(logger, "cannot change agent tools: %v", err)
 		}
 	}
 	return err
@@ -219,7 +303,7 @@ func (c *closeWorker) Kill() {
 func (c *closeWorker) Wait() error {
 	err := c.worker.Wait()
 	if err := c.closer.Close(); err != nil {
-		log.Errorf("closeWorker: close error: %v", err)
+		logger.Errorf("closeWorker: close error: %v", err)
 	}
 	return err
 }
@@ -229,18 +313,26 @@ func (c *closeWorker) Wait() error {
 // running the tests and (2) get access to the *State used internally, so that
 // tests can be run without waiting for the 5s watcher refresh time to which we would
 // otherwise be restricted.
-var newDeployContext = func(st *apideployer.State, dataDir string) (deployer.Context, error) {
-	caCert, err := st.CACert()
-	if err != nil {
-		return nil, err
-	}
-	return deployer.NewSimpleContext(dataDir, caCert, st), nil
+var newDeployContext = func(st *apideployer.State, agentConfig agent.Config) deployer.Context {
+	return deployer.NewSimpleContext(agentConfig, st)
 }
 
-func newDeployer(st *apideployer.State, machineTag string, dataDir string) (worker.Worker, error) {
-	ctx, err := newDeployContext(st, dataDir)
+// newRsyslogConfigWorker creates and returns a new RsyslogConfigWorker
+// based on the specified configuration parameters.
+var newRsyslogConfigWorker = func(st *apirsyslog.State, agentConfig agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	tag := agentConfig.Tag()
+	namespace := agentConfig.Value(agent.Namespace)
+	addrs, err := agentConfig.APIAddresses()
 	if err != nil {
 		return nil, err
 	}
-	return deployer.NewDeployer(st, ctx, machineTag), nil
+	return rsyslog.NewRsyslogConfigWorker(st, mode, tag, namespace, addrs)
+}
+
+// hookExecutionLock returns an *fslock.Lock suitable for use as a unit
+// hook execution lock. Other workers may also use this lock if they
+// require isolation from hook execution.
+func hookExecutionLock(dataDir string) (*fslock.Lock, error) {
+	lockDir := filepath.Join(dataDir, "locks")
+	return fslock.NewLock(lockDir, "uniter-hook-execution")
 }

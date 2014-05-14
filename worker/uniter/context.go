@@ -7,10 +7,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/state"
-	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -18,11 +14,42 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/juju/loggo"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/uniter"
+	utilexec "launchpad.net/juju-core/utils/exec"
+	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
+
+type missingHookError struct {
+	hookName string
+}
+
+func (e *missingHookError) Error() string {
+	return e.hookName + " does not exist"
+}
+
+func IsMissingHookError(err error) bool {
+	_, ok := err.(*missingHookError)
+	return ok
+}
 
 // HookContext is the implementation of jujuc.Context.
 type HookContext struct {
-	unit *state.Unit
+	unit *uniter.Unit
+
+	// privateAddress is the cached value of the unit's private
+	// address.
+	privateAddress string
+
+	// publicAddress is the cached value of the unit's public
+	// address.
+	publicAddress string
 
 	// configSettings holds the service configuration.
 	configSettings charm.Settings
@@ -32,6 +59,9 @@ type HookContext struct {
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
+
+	// envName is the human friendly name of the environment.
+	envName string
 
 	// relationId identifies the relation for which a relation hook is
 	// executing. If it is -1, the context is not running a relation hook;
@@ -49,20 +79,40 @@ type HookContext struct {
 
 	// apiAddrs contains the API server addresses.
 	apiAddrs []string
+
+	// serviceOwner contains the owner of the service
+	serviceOwner string
+
+	// proxySettings are the current proxy settings that the uniter knows about
+	proxySettings osenv.ProxySettings
 }
 
-func NewHookContext(unit *state.Unit, id, uuid string, relationId int,
-	remoteUnitName string, relations map[int]*ContextRelation,
-	apiAddrs []string) *HookContext {
-	return &HookContext{
+func NewHookContext(unit *uniter.Unit, id, uuid, envName string,
+	relationId int, remoteUnitName string, relations map[int]*ContextRelation,
+	apiAddrs []string, serviceOwner string, proxySettings osenv.ProxySettings) (*HookContext, error) {
+	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
 		uuid:           uuid,
+		envName:        envName,
 		relationId:     relationId,
 		remoteUnitName: remoteUnitName,
 		relations:      relations,
 		apiAddrs:       apiAddrs,
+		serviceOwner:   serviceOwner,
+		proxySettings:  proxySettings,
 	}
+	// Get and cache the addresses.
+	var err error
+	ctx.publicAddress, err = unit.PublicAddress()
+	if err != nil && !params.IsCodeNoAddressSet(err) {
+		return nil, err
+	}
+	ctx.privateAddress, err = unit.PrivateAddress()
+	if err != nil && !params.IsCodeNoAddressSet(err) {
+		return nil, err
+	}
+	return ctx, nil
 }
 
 func (ctx *HookContext) UnitName() string {
@@ -70,11 +120,11 @@ func (ctx *HookContext) UnitName() string {
 }
 
 func (ctx *HookContext) PublicAddress() (string, bool) {
-	return ctx.unit.PublicAddress()
+	return ctx.publicAddress, ctx.publicAddress != ""
 }
 
 func (ctx *HookContext) PrivateAddress() (string, bool) {
-	return ctx.unit.PrivateAddress()
+	return ctx.privateAddress, ctx.privateAddress != ""
 }
 
 func (ctx *HookContext) OpenPort(protocol string, port int) error {
@@ -83,6 +133,10 @@ func (ctx *HookContext) OpenPort(protocol string, port int) error {
 
 func (ctx *HookContext) ClosePort(protocol string, port int) error {
 	return ctx.unit.ClosePort(protocol, port)
+}
+
+func (ctx *HookContext) OwnerTag() string {
+	return ctx.serviceOwner
 }
 
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
@@ -134,6 +188,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.unit.Name(),
 		"JUJU_ENV_UUID=" + ctx.uuid,
+		"JUJU_ENV_NAME=" + ctx.envName,
 		"JUJU_API_ADDRESSES=" + strings.Join(ctx.apiAddrs, " "),
 	}
 	if r, found := ctx.HookRelation(); found {
@@ -142,28 +197,18 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		name, _ := ctx.RemoteUnitName()
 		vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 	}
+	vars = append(vars, ctx.proxySettings.AsEnvironmentValues()...)
 	return vars
 }
 
-// RunHook executes a hook in an environment which allows it to to call back
-// into ctx to execute jujuc tools.
-func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
-	var err error
-	env := ctx.hookVars(charmDir, toolsDir, socketPath)
-	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())
-	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
-		logger.Infof("executing %s via debug-hooks", hookName)
-		err = session.RunHook(hookName, charmDir, env)
-	} else {
-		err = runCharmHook(hookName, charmDir, env)
-	}
-	write := err == nil
+func (ctx *HookContext) finalizeContext(process string, err error) error {
+	writeChanges := err == nil
 	for id, rctx := range ctx.relations {
-		if write {
+		if writeChanges {
 			if e := rctx.WriteSettings(); e != nil {
 				e = fmt.Errorf(
 					"could not write settings from %q to relation %d: %v",
-					hookName, id, e,
+					process, id, e,
 				)
 				logger.Errorf("%v", e)
 				if err == nil {
@@ -176,8 +221,48 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 	return err
 }
 
-func runCharmHook(hookName, charmDir string, env []string) error {
-	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
+// RunCommands executes the commands in an environment which allows it to to
+// call back into the hook context to execute jujuc tools.
+func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath string) (*utilexec.ExecResponse, error) {
+	env := ctx.hookVars(charmDir, toolsDir, socketPath)
+	result, err := utilexec.RunCommands(
+		utilexec.RunParams{
+			Commands:    commands,
+			WorkingDir:  charmDir,
+			Environment: env})
+	return result, ctx.finalizeContext("run commands", err)
+}
+
+func (ctx *HookContext) GetLogger(hookName string) loggo.Logger {
+	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", ctx.UnitName(), hookName))
+}
+
+// RunHook executes a hook in an environment which allows it to to call back
+// into the hook context to execute jujuc tools.
+func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
+	var err error
+	env := ctx.hookVars(charmDir, toolsDir, socketPath)
+	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())
+	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
+		logger.Infof("executing %s via debug-hooks", hookName)
+		err = session.RunHook(hookName, charmDir, env)
+	} else {
+		err = ctx.runCharmHook(hookName, charmDir, env)
+	}
+	return ctx.finalizeContext(hookName, err)
+}
+
+func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string) error {
+	hook, err := exec.LookPath(filepath.Join(charmDir, "hooks", hookName))
+	if err != nil {
+		if ee, ok := err.(*exec.Error); ok && os.IsNotExist(ee.Err) {
+			// Missing hook is perfectly valid, but worth mentioning.
+			logger.Infof("skipped %q hook (not implemented)", hookName)
+			return &missingHookError{hookName}
+		}
+		return err
+	}
+	ps := exec.Command(hook)
 	ps.Env = env
 	ps.Dir = charmDir
 	outReader, outWriter, err := os.Pipe()
@@ -187,8 +272,9 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 	ps.Stdout = outWriter
 	ps.Stderr = outWriter
 	hookLogger := &hookLogger{
-		r:    outReader,
-		done: make(chan struct{}),
+		r:      outReader,
+		done:   make(chan struct{}),
+		logger: ctx.GetLogger(hookName),
 	}
 	go hookLogger.run()
 	err = ps.Start()
@@ -197,13 +283,6 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 		err = ps.Wait()
 	}
 	hookLogger.stop()
-	if ee, ok := err.(*exec.Error); ok && err != nil {
-		if os.IsNotExist(ee.Err) {
-			// Missing hook is perfectly valid, but worth mentioning.
-			logger.Infof("skipped %q hook (not implemented)", hookName)
-			return nil
-		}
-	}
 	return err
 }
 
@@ -212,6 +291,7 @@ type hookLogger struct {
 	done    chan struct{}
 	mu      sync.Mutex
 	stopped bool
+	logger  loggo.Logger
 }
 
 func (l *hookLogger) run() {
@@ -231,7 +311,7 @@ func (l *hookLogger) run() {
 			l.mu.Unlock()
 			return
 		}
-		logger.Infof("HOOK %s", line)
+		l.logger.Infof("%s", line)
 		l.mu.Unlock()
 	}
 }
@@ -254,18 +334,18 @@ func (l *hookLogger) stop() {
 }
 
 // SettingsMap is a map from unit name to relation settings.
-type SettingsMap map[string]map[string]interface{}
+type SettingsMap map[string]params.RelationSettings
 
 // ContextRelation is the implementation of jujuc.ContextRelation.
 type ContextRelation struct {
-	ru *state.RelationUnit
+	ru *uniter.RelationUnit
 
 	// members contains settings for known relation members. Nil values
 	// indicate members whose settings have not yet been cached.
 	members SettingsMap
 
 	// settings allows read and write access to the relation unit settings.
-	settings *state.Settings
+	settings *uniter.Settings
 
 	// cache is a short-term cache that enables consistent access to settings
 	// for units that are not currently participating in the relation. Its
@@ -275,7 +355,7 @@ type ContextRelation struct {
 
 // NewContextRelation creates a new context for the given relation unit.
 // The unit-name keys of members supplies the initial membership.
-func NewContextRelation(ru *state.RelationUnit, members map[string]int64) *ContextRelation {
+func NewContextRelation(ru *uniter.RelationUnit, members map[string]int64) *ContextRelation {
 	ctx := &ContextRelation{ru: ru, members: SettingsMap{}}
 	for unit := range members {
 		ctx.members[unit] = nil
@@ -287,7 +367,7 @@ func NewContextRelation(ru *state.RelationUnit, members map[string]int64) *Conte
 // WriteSettings persists all changes made to the unit's relation settings.
 func (ctx *ContextRelation) WriteSettings() (err error) {
 	if ctx.settings != nil {
-		_, err = ctx.settings.Write()
+		err = ctx.settings.Write()
 	}
 	return
 }
@@ -300,16 +380,12 @@ func (ctx *ContextRelation) ClearCache() {
 	ctx.cache = make(SettingsMap)
 }
 
-// UpdateMembers ensures that the context is aware of every supplied member
-// unit. For each supplied member that has non-nil settings, the cached
-// settings will be overwritten; but nil settings will not overwrite cached
-// ones.
+// UpdateMembers ensures that the context is aware of every supplied
+// member unit. For each supplied member, the cached settings will be
+// overwritten.
 func (ctx *ContextRelation) UpdateMembers(members SettingsMap) {
 	for m, s := range members {
-		_, found := ctx.members[m]
-		if !found || s != nil {
-			ctx.members[m] = s
-		}
+		ctx.members[m] = s
 	}
 }
 
@@ -350,7 +426,7 @@ func (ctx *ContextRelation) Settings() (jujuc.Settings, error) {
 	return ctx.settings, nil
 }
 
-func (ctx *ContextRelation) ReadSettings(unit string) (settings map[string]interface{}, err error) {
+func (ctx *ContextRelation) ReadSettings(unit string) (settings params.RelationSettings, err error) {
 	settings, member := ctx.members[unit]
 	if settings == nil {
 		if settings = ctx.cache[unit]; settings == nil {

@@ -3,25 +3,13 @@
 
 package environs
 
-import (
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+var (
+	Providers       = &providers
+	ProviderAliases = &providerAliases
 )
 
-func Providers() map[string]EnvironProvider {
-	return providers
-}
-
-func GetDNSNames(instances []instance.Instance) []string {
-	return getDNSNames(instances)
-}
-
-func ComposeAddresses(hostnames []string, port int) []string {
-	return composeAddresses(hostnames, port)
-}
-
-func GetStateInfo(cfg *config.Config, hostnames []string) (*state.Info, *api.Info) {
-	return getStateInfo(cfg, hostnames)
+func UpdateEnvironAttrs(envs *Environs, name string, newAttrs map[string]interface{}) {
+	for k, v := range newAttrs {
+		envs.rawEnvirons[name][k] = v
+	}
 }

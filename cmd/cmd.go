@@ -10,11 +10,32 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"strings"
 
 	"launchpad.net/gnuflag"
 )
+
+type RcPassthroughError struct {
+	Code int
+}
+
+func (e *RcPassthroughError) Error() string {
+	return fmt.Sprintf("subprocess encountered error code %v", e.Code)
+}
+
+func IsRcPassthroughError(err error) bool {
+	_, ok := err.(*RcPassthroughError)
+	return ok
+}
+
+// NewRcPassthroughError creates an error that will have the code used at the
+// return code from the cmd.Main function rather than the default of 1 if
+// there is an error.
+func NewRcPassthroughError(code int) error {
+	return &RcPassthroughError{code}
+}
 
 // ErrSilent can be returned from Run to signal that Main should exit with
 // code 1 without producing error output.
@@ -22,6 +43,9 @@ var ErrSilent = errors.New("cmd: error out silently")
 
 // Command is implemented by types that interpret command-line arguments.
 type Command interface {
+	// IsSuperCommand returns true if the command is a super command.
+	IsSuperCommand() bool
+
 	// Info returns information about the Command.
 	Info() *Info
 
@@ -43,6 +67,11 @@ type Command interface {
 // CommandBase provides the default implementation for SetFlags, Init, and Help.
 type CommandBase struct{}
 
+// IsSuperCommand implements Command.IsSuperCommand
+func (c *CommandBase) IsSuperCommand() bool {
+	return false
+}
+
 // SetFlags does nothing in the simplest case.
 func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {}
 
@@ -61,10 +90,40 @@ func (c *CommandBase) AllowInterspersedFlags() bool {
 // should interpret file names relative to Dir (see AbsPath below), and print
 // output and errors to Stdout and Stderr respectively.
 type Context struct {
-	Dir    string
-	Stdin  io.Reader
-	Stdout io.Writer
-	Stderr io.Writer
+	Dir     string
+	Stdin   io.Reader
+	Stdout  io.Writer
+	Stderr  io.Writer
+	quiet   bool
+	verbose bool
+}
+
+func (ctx *Context) write(format string, params ...interface{}) {
+	output := fmt.Sprintf(format, params...)
+	if !strings.HasSuffix(output, "\n") {
+		output = output + "\n"
+	}
+	fmt.Fprint(ctx.Stderr, output)
+}
+
+// Infof will write the formatted string to Stderr if quiet is false, but if
+// quiet is true the message is logged.
+func (ctx *Context) Infof(format string, params ...interface{}) {
+	if ctx.quiet {
+		logger.Infof(format, params...)
+	} else {
+		ctx.write(format, params...)
+	}
+}
+
+// Verbosef will write the formatted string to Stderr if the verbose is true,
+// and to the logger if not.
+func (ctx *Context) Verbosef(format string, params ...interface{}) {
+	if ctx.verbose {
+		ctx.write(format, params...)
+	} else {
+		logger.Infof(format, params...)
+	}
 }
 
 // AbsPath returns an absolute representation of path, with relative paths
@@ -74,6 +133,31 @@ func (ctx *Context) AbsPath(path string) string {
 		return path
 	}
 	return filepath.Join(ctx.Dir, path)
+}
+
+// GetStdin satisfies environs.BootstrapContext
+func (ctx *Context) GetStdin() io.Reader {
+	return ctx.Stdin
+}
+
+// GetStdout satisfies environs.BootstrapContext
+func (ctx *Context) GetStdout() io.Writer {
+	return ctx.Stdout
+}
+
+// GetStderr satisfies environs.BootstrapContext
+func (ctx *Context) GetStderr() io.Writer {
+	return ctx.Stderr
+}
+
+// InterruptNotify satisfies environs.BootstrapContext
+func (ctx *Context) InterruptNotify(c chan<- os.Signal) {
+	signal.Notify(c, os.Interrupt)
+}
+
+// StopInterruptNotify satisfies environs.BootstrapContext
+func (ctx *Context) StopInterruptNotify(c chan<- os.Signal) {
+	signal.Stop(c)
 }
 
 // Info holds some of the usage documentation of a Command.
@@ -126,20 +210,23 @@ func (i *Info) Help(f *gnuflag.FlagSet) []byte {
 	return buf.Bytes()
 }
 
-// Errors from commands can be either ErrHelp, which means "show the help" or
-// some other error related to needed flags missing, or needed positional args
-// missing, in which case we should print the error and return a non-zero
-// return code.
-func handleCommandError(c Command, ctx *Context, err error, f *gnuflag.FlagSet) (int, bool) {
-	if err == gnuflag.ErrHelp {
+// Errors from commands can be ErrSilent (don't print an error message),
+// ErrHelp (show the help) or some other error related to needed flags
+// missing, or needed positional args missing, in which case we should
+// print the error and return a non-zero return code.
+func handleCommandError(c Command, ctx *Context, err error, f *gnuflag.FlagSet) (rc int, done bool) {
+	switch err {
+	case nil:
+		return 0, false
+	case gnuflag.ErrHelp:
 		ctx.Stdout.Write(c.Info().Help(f))
 		return 0, true
-	}
-	if err != nil {
+	case ErrSilent:
+		return 2, true
+	default:
 		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		return 2, true
 	}
-	return 0, false
 }
 
 // Main runs the given Command in the supplied Context with the given
@@ -158,6 +245,9 @@ func Main(c Command, ctx *Context, args []string) int {
 		return rc
 	}
 	if err := c.Run(ctx); err != nil {
+		if IsRcPassthroughError(err) {
+			return err.(*RcPassthroughError).Code
+		}
 		if err != ErrSilent {
 			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		}
@@ -167,21 +257,21 @@ func Main(c Command, ctx *Context, args []string) int {
 }
 
 // DefaultContext returns a Context suitable for use in non-hosted situations.
-func DefaultContext() *Context {
+func DefaultContext() (*Context, error) {
 	dir, err := os.Getwd()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	abs, err := filepath.Abs(dir)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	return &Context{
 		Dir:    abs,
 		Stdin:  os.Stdin,
 		Stdout: os.Stdout,
 		Stderr: os.Stderr,
-	}
+	}, nil
 }
 
 // CheckEmpty is a utility function that returns an error if args is not empty.

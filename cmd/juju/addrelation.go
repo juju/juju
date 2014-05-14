@@ -7,14 +7,13 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // AddRelationCommand adds a relation between two service endpoints.
 type AddRelationCommand struct {
-	cmd.EnvCommandBase
+	envcmd.EnvCommandBase
 	Endpoints []string
 }
 
@@ -35,14 +34,11 @@ func (c *AddRelationCommand) Init(args []string) error {
 }
 
 func (c *AddRelationCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
-	params := params.AddRelation{
-		Endpoints: c.Endpoints,
-	}
-	_, err = statecmd.AddRelation(conn.State, params)
+	defer client.Close()
+	_, err = client.AddRelation(c.Endpoints...)
 	return err
 }

@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/errors"
 )
 
 // preferredTypes is a list of machine types, in order of preference so that
@@ -104,15 +105,6 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 	return nil, fmt.Errorf("no machine type matches constraints %v", constraint)
 }
 
-// baseURLs specifies where we look for simplestreams information.  It contains
-// the central databases for the released and daily streams, but this may
-// become more configurable.  This variable is here as a placeholder, but also
-// as an injection point for tests.
-var baseURLs = []string{
-	simplestreams.DefaultBaseURL,
-	"http://cloud-images.ubuntu.com/daily",
-}
-
 // getEndpoint returns the simplestreams endpoint to use for the given Azure
 // location (e.g. West Europe or China North).
 func getEndpoint(location string) string {
@@ -129,29 +121,28 @@ func getEndpoint(location string) string {
 // this setting.
 var signedImageDataOnly = true
 
-// fetchImageMetadata is a pointer to the imagemetadata.Fetch function.  It's
-// only needed as an injection point where tests can substitute fakes.
-var fetchImageMetadata = imagemetadata.Fetch
-
 // findMatchingImages queries simplestreams for OS images that match the given
 // requirements.
 //
 // If it finds no matching images, that's an error.
-func findMatchingImages(location, series, stream string, arches []string) ([]*imagemetadata.ImageMetadata, error) {
+func findMatchingImages(e *azureEnviron, location, series string, arches []string) ([]*imagemetadata.ImageMetadata, error) {
 	endpoint := getEndpoint(location)
 	constraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: simplestreams.CloudSpec{location, endpoint},
-		Series:    series,
+		Series:    []string{series},
 		Arches:    arches,
-		Stream:    stream,
+		Stream:    e.Config().ImageStream(),
 	})
-	indexPath := simplestreams.DefaultIndexPath
-	images, err := fetchImageMetadata(baseURLs, indexPath, constraint, signedImageDataOnly)
+	sources, err := imagemetadata.GetMetadataSources(e)
 	if err != nil {
 		return nil, err
 	}
-	if len(images) == 0 {
+	indexPath := simplestreams.DefaultIndexPath
+	images, _, err := imagemetadata.Fetch(sources, indexPath, constraint, signedImageDataOnly)
+	if len(images) == 0 || errors.IsNotFound(err) {
 		return nil, fmt.Errorf("no OS images found for location %q, series %q, architectures %q (and endpoint: %q)", location, series, arches, endpoint)
+	} else if err != nil {
+		return nil, err
 	}
 	return images, nil
 }
@@ -166,35 +157,43 @@ func newInstanceType(roleSize gwacl.RoleSize) instances.InstanceType {
 	return instances.InstanceType{
 		Id:       roleSize.Name,
 		Name:     roleSize.Name,
-		Arches:   architectures,
 		CpuCores: roleSize.CpuCores,
 		Mem:      roleSize.Mem,
 		RootDisk: roleSize.OSDiskSpaceVirt,
 		Cost:     roleSize.Cost,
-		VType:    &vtype,
+		VirtType: &vtype,
 		CpuPower: &cpuPower,
+		// tags are not currently supported by azure
 	}
 }
 
 // listInstanceTypes describes the available instance types based on a
 // description in gwacl's terms.
-func listInstanceTypes(roleSizes []gwacl.RoleSize) []instances.InstanceType {
+func listInstanceTypes(env *azureEnviron, roleSizes []gwacl.RoleSize) ([]instances.InstanceType, error) {
+	arches, err := env.SupportedArchitectures()
+	if err != nil {
+		return nil, err
+	}
 	types := make([]instances.InstanceType, len(roleSizes))
 	for index, roleSize := range roleSizes {
 		types[index] = newInstanceType(roleSize)
+		types[index].Arches = arches
 	}
-	return types
+	return types, nil
 }
 
 // findInstanceSpec returns the InstanceSpec that best satisfies the supplied
 // InstanceConstraint.
-func findInstanceSpec(stream string, constraint instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(env *azureEnviron, constraint *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	constraint.Constraints = defaultToBaselineSpec(constraint.Constraints)
-	imageData, err := findMatchingImages(constraint.Region, constraint.Series, stream, constraint.Arches)
+	imageData, err := findMatchingImages(env, constraint.Region, constraint.Series, constraint.Arches)
 	if err != nil {
 		return nil, err
 	}
 	images := instances.ImageMetadataToImages(imageData)
-	instanceTypes := listInstanceTypes(gwacl.RoleSizes)
-	return instances.FindInstanceSpec(images, &constraint, instanceTypes)
+	instanceTypes, err := listInstanceTypes(env, gwacl.RoleSizes)
+	if err != nil {
+		return nil, err
+	}
+	return instances.FindInstanceSpec(images, constraint, instanceTypes)
 }

@@ -4,13 +4,18 @@
 package testing
 
 import (
+	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/utils"
 )
+
+func TestPackage(t *stdtesting.T) {
+	gc.TestingT(t)
+}
 
 type testingSuite struct{}
 
@@ -72,14 +77,14 @@ func (*testingSuite) TestInternalPatchAttemptStrategiesReturnsCleanup(c *gc.C) {
 }
 
 func (*testingSuite) TestPatchAttemptStrategiesPatchesEnvironsStrategies(c *gc.C) {
-	c.Assert(environs.LongAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
-	c.Assert(environs.ShortAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
+	c.Assert(common.LongAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
+	c.Assert(common.ShortAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
 
 	cleanup := PatchAttemptStrategies()
 	defer cleanup()
 
-	c.Check(environs.LongAttempt, gc.DeepEquals, impatientAttempt)
-	c.Check(environs.ShortAttempt, gc.DeepEquals, impatientAttempt)
+	c.Check(common.LongAttempt, gc.DeepEquals, impatientAttempt)
+	c.Check(common.ShortAttempt, gc.DeepEquals, impatientAttempt)
 }
 
 func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {

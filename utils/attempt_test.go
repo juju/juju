@@ -1,9 +1,11 @@
 package utils_test
 
 import (
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/utils"
 	"time"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/utils"
 )
 
 func doSomething() (int, error) { return 0, nil }

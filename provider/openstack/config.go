@@ -5,48 +5,41 @@ package openstack
 
 import (
 	"fmt"
-	"launchpad.net/goose/identity"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/schema"
 	"net/url"
+
+	"launchpad.net/goose/identity"
+
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/schema"
 )
 
 var configFields = schema.Fields{
-	"username":          schema.String(),
-	"password":          schema.String(),
-	"tenant-name":       schema.String(),
-	"auth-url":          schema.String(),
-	"auth-mode":         schema.String(),
-	"access-key":        schema.String(),
-	"secret-key":        schema.String(),
-	"region":            schema.String(),
-	"control-bucket":    schema.String(),
-	"public-bucket":     schema.String(),
-	"public-bucket-url": schema.String(),
-	"use-floating-ip":   schema.Bool(),
-	// These next keys are deprecated and ignored. We keep them them in the schema
-	// so existing configs do not error.
-	"default-image-id":      schema.String(),
-	"default-instance-type": schema.String(),
+	"username":             schema.String(),
+	"password":             schema.String(),
+	"tenant-name":          schema.String(),
+	"auth-url":             schema.String(),
+	"auth-mode":            schema.String(),
+	"access-key":           schema.String(),
+	"secret-key":           schema.String(),
+	"region":               schema.String(),
+	"control-bucket":       schema.String(),
+	"use-floating-ip":      schema.Bool(),
+	"use-default-secgroup": schema.Bool(),
+	"network":              schema.String(),
 }
 var configDefaults = schema.Defaults{
-	"username":          "",
-	"password":          "",
-	"tenant-name":       "",
-	"auth-url":          "",
-	"auth-mode":         string(AuthUserPass),
-	"access-key":        "",
-	"secret-key":        "",
-	"region":            "",
-	"control-bucket":    "",
-	"public-bucket":     "juju-dist",
-	"public-bucket-url": "",
-	"use-floating-ip":   false,
-	// These next keys are deprecated and ignored. We keep them them in the schema
-	// so existing configs do not error.
-	"default-image-id":      "",
-	"default-instance-type": "",
+	"username":             "",
+	"password":             "",
+	"tenant-name":          "",
+	"auth-url":             "",
+	"auth-mode":            string(AuthUserPass),
+	"access-key":           "",
+	"secret-key":           "",
+	"region":               "",
+	"control-bucket":       "",
+	"use-floating-ip":      false,
+	"use-default-secgroup": false,
+	"network":              "",
 }
 
 type environConfig struct {
@@ -90,16 +83,16 @@ func (c *environConfig) controlBucket() string {
 	return c.attrs["control-bucket"].(string)
 }
 
-func (c *environConfig) publicBucket() string {
-	return c.attrs["public-bucket"].(string)
-}
-
-func (c *environConfig) publicBucketURL() string {
-	return c.attrs["public-bucket-url"].(string)
-}
-
 func (c *environConfig) useFloatingIP() bool {
 	return c.attrs["use-floating-ip"].(bool)
+}
+
+func (c *environConfig) useDefaultSecurityGroup() bool {
+	return c.attrs["use-default-secgroup"].(bool)
+}
+
+func (c *environConfig) network() string {
+	return c.attrs["network"].(string)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -122,28 +115,6 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
-	}
-
-	// Check for deprecated fields and log a warning. We also print to stderr to ensure the user sees the message
-	// even if they are not running with --debug.
-	if defaultImageId := cfg.AllAttrs()["default-image-id"]; defaultImageId != nil && defaultImageId.(string) != "" {
-		msg := fmt.Sprintf(
-			"Config attribute %q (%v) is deprecated and ignored.\n"+
-				"Your cloud provider should have set up image metadata to provide the correct image id\n"+
-				"for your chosen series and archietcure. If this is a private Openstack deployment without\n"+
-				"existing image metadata, please run 'juju help image-metadata' to see how suitable image"+
-				"metadata can be generated.",
-			"default-image-id", defaultImageId)
-		log.Warningf(msg)
-	}
-	if defaultInstanceType := cfg.AllAttrs()["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
-		msg := fmt.Sprintf(
-			"Config attribute %q (%v) is deprecated and ignored.\n"+
-				"The correct instance flavor is determined using constraints, globally specified\n"+
-				"when an environment is bootstrapped, or individually when a charm is deployed.\n"+
-				"See 'juju help bootstrap' or 'juju help deploy'.",
-			"default-instance-type", defaultInstanceType)
-		log.Warningf(msg)
 	}
 
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
@@ -225,6 +196,35 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		}
 	}
 
-	// Apply the coerced unknown values back into the config.
-	return cfg.Apply(ecfg.attrs)
+	// Check for deprecated fields and log a warning. We also print to stderr to ensure the user sees the message
+	// even if they are not running with --debug.
+	cfgAttrs := cfg.AllAttrs()
+	if defaultImageId := cfgAttrs["default-image-id"]; defaultImageId != nil && defaultImageId.(string) != "" {
+		msg := fmt.Sprintf(
+			"Config attribute %q (%v) is deprecated and ignored.\n"+
+				"Your cloud provider should have set up image metadata to provide the correct image id\n"+
+				"for your chosen series and archietcure. If this is a private Openstack deployment without\n"+
+				"existing image metadata, please run 'juju-metadata help' to see how suitable image"+
+				"metadata can be generated.",
+			"default-image-id", defaultImageId)
+		logger.Warningf(msg)
+	}
+	if defaultInstanceType := cfgAttrs["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
+		msg := fmt.Sprintf(
+			"Config attribute %q (%v) is deprecated and ignored.\n"+
+				"The correct instance flavor is determined using constraints, globally specified\n"+
+				"when an environment is bootstrapped, or individually when a charm is deployed.\n"+
+				"See 'juju help bootstrap' or 'juju help deploy'.",
+			"default-instance-type", defaultInstanceType)
+		logger.Warningf(msg)
+	}
+	// Construct a new config with the deprecated attributes removed.
+	for _, attr := range []string{"default-image-id", "default-instance-type"} {
+		delete(cfgAttrs, attr)
+		delete(ecfg.attrs, attr)
+	}
+	for k, v := range ecfg.attrs {
+		cfgAttrs[k] = v
+	}
+	return config.New(config.NoDefaults, cfgAttrs)
 }

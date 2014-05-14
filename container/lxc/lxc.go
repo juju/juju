@@ -7,223 +7,291 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"regexp"
+	"strconv"
 	"strings"
+	"time"
 
+	"github.com/juju/loggo"
 	"launchpad.net/golxc"
-	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
-	defaultTemplate     = "ubuntu-cloud"
-	containerDir        = "/var/lib/juju/containers"
-	removedContainerDir = "/var/lib/juju/removed-containers"
-	lxcContainerDir     = "/var/lib/lxc"
-	lxcRestartDir       = "/etc/lxc/auto"
-	lxcObjectFactory    = golxc.Factory()
-	aptHTTPProxyRE      = regexp.MustCompile(`(?i)^Acquire::HTTP::Proxy\s+"([^"]+)";$`)
+	defaultTemplate  = "ubuntu-cloud"
+	LxcContainerDir  = "/var/lib/lxc"
+	LxcRestartDir    = "/etc/lxc/auto"
+	LxcObjectFactory = golxc.Factory()
 )
 
 const (
-	// BridgeNetwork will have the container use the lxc bridge.
-	bridgeNetwork = "bridge"
-	// PhyscialNetwork will have the container use a specified network device.
-	physicalNetwork = "physical"
 	// DefaultLxcBridge is the package created container bridge
 	DefaultLxcBridge = "lxcbr0"
+	// Btrfs is special as we treat it differently for create and clone.
+	Btrfs = "btrfs"
 )
-
-// NetworkConfig defines how the container network will be configured.
-type NetworkConfig struct {
-	networkType string
-	device      string
-}
 
 // DefaultNetworkConfig returns a valid NetworkConfig to use the
 // defaultLxcBridge that is created by the lxc package.
-func DefaultNetworkConfig() *NetworkConfig {
-	return &NetworkConfig{bridgeNetwork, DefaultLxcBridge}
+func DefaultNetworkConfig() *container.NetworkConfig {
+	return container.BridgeNetworkConfig(DefaultLxcBridge)
 }
 
-// BridgeNetworkConfig returns a valid NetworkConfig to use the specified
-// device as a network bridge for the container.
-func BridgeNetworkConfig(device string) *NetworkConfig {
-	return &NetworkConfig{bridgeNetwork, device}
-}
+// FsCommandOutput calls cmd.Output, this is used as an overloading point so
+// we can test what *would* be run without actually executing another program
+var FsCommandOutput = (*exec.Cmd).CombinedOutput
 
-// PhysicalNetworkConfig returns a valid NetworkConfig to use the specified
-// device as the network device for the container.
-func PhysicalNetworkConfig(device string) *NetworkConfig {
-	return &NetworkConfig{physicalNetwork, device}
-}
-
-// ManagerConfig contains the initialization parameters for the ContainerManager.
-type ManagerConfig struct {
-	Name   string
-	LogDir string
-}
-
-// ContainerManager is responsible for starting containers, and stopping and
-// listing containers that it has started.  The name of the manager is used to
-// namespace the lxc containers on the machine.
-type ContainerManager interface {
-	// StartContainer creates and starts a new lxc container for the specified machine.
-	StartContainer(
-		machineId, series, nonce string,
-		network *NetworkConfig,
-		tools *tools.Tools,
-		environConfig *config.Config,
-		stateInfo *state.Info,
-		apiInfo *api.Info) (instance.Instance, error)
-	// StopContainer stops and destroyes the lxc container identified by Instance.
-	StopContainer(instance.Instance) error
-	// ListContainers return a list of containers that have been started by
-	// this manager.
-	ListContainers() ([]instance.Instance, error)
+func containerDirFilesystem() (string, error) {
+	cmd := exec.Command("df", "--output=fstype", LxcContainerDir)
+	out, err := FsCommandOutput(cmd)
+	if err != nil {
+		return "", err
+	}
+	// The filesystem is the second line.
+	lines := strings.Split(string(out), "\n")
+	if len(lines) < 2 {
+		logger.Errorf("unexpected output: %q", out)
+		return "", fmt.Errorf("could not determine filesystem type")
+	}
+	return lines[1], nil
 }
 
 type containerManager struct {
-	name   string
-	logdir string
+	name              string
+	logdir            string
+	createWithClone   bool
+	useAUFS           bool
+	backingFilesystem string
 }
+
+// containerManager implements container.Manager.
+var _ container.Manager = (*containerManager)(nil)
 
 // NewContainerManager returns a manager object that can start and stop lxc
 // containers. The containers that are created are namespaced by the name
 // parameter.
-func NewContainerManager(conf ManagerConfig) ContainerManager {
-	logdir := "/var/log/juju"
-	if conf.LogDir != "" {
-		logdir = conf.LogDir
+func NewContainerManager(conf container.ManagerConfig) (container.Manager, error) {
+	name := conf.PopValue(container.ConfigName)
+	if name == "" {
+		return nil, fmt.Errorf("name is required")
 	}
-	return &containerManager{name: conf.Name, logdir: logdir}
+	logDir := conf.PopValue(container.ConfigLogDir)
+	if logDir == "" {
+		logDir = agent.DefaultLogDir
+	}
+	// Explicitly ignore the error result from ParseBool.
+	// If it fails to parse, the value is false, and this suits
+	// us fine.
+	useClone, _ := strconv.ParseBool(conf.PopValue("use-clone"))
+	useAUFS, _ := strconv.ParseBool(conf.PopValue("use-aufs"))
+	backingFS, err := containerDirFilesystem()
+	if err != nil {
+		// Especially in tests, or a bot, the lxc dir may not exist
+		// causing the test to fail. Since we only really care if the
+		// backingFS is 'btrfs' and we treat the rest the same, just
+		// call it 'unknown'.
+		backingFS = "unknown"
+	}
+	logger.Tracef("backing filesystem: %q", backingFS)
+	conf.WarnAboutUnused()
+	return &containerManager{
+		name:              name,
+		logdir:            logDir,
+		createWithClone:   useClone,
+		useAUFS:           useAUFS,
+		backingFilesystem: backingFS,
+	}, nil
 }
 
-func (manager *containerManager) StartContainer(
-	machineId, series, nonce string,
-	network *NetworkConfig,
-	tools *tools.Tools,
-	environConfig *config.Config,
-	stateInfo *state.Info,
-	apiInfo *api.Info) (instance.Instance, error) {
-
-	name := names.MachineTag(machineId)
+func (manager *containerManager) CreateContainer(
+	machineConfig *cloudinit.MachineConfig,
+	series string,
+	network *container.NetworkConfig,
+) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	start := time.Now()
+	name := names.MachineTag(machineConfig.MachineId)
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}
-	// Note here that the lxcObjectFacotry only returns a valid container
-	// object, and doesn't actually construct the underlying lxc container on
-	// disk.
-	container := lxcObjectFactory.New(name)
-
 	// Create the cloud-init.
-	directory := jujuContainerDirectory(name)
-	logger.Tracef("create directory: %s", directory)
-	if err := os.MkdirAll(directory, 0755); err != nil {
-		logger.Errorf("failed to create container directory: %v", err)
-		return nil, err
+	directory, err := container.NewDirectory(name)
+	if err != nil {
+		return nil, nil, err
 	}
 	logger.Tracef("write cloud-init")
-	userDataFilename, err := writeUserData(directory, machineId, nonce, tools, environConfig, stateInfo, apiInfo)
+	if manager.createWithClone {
+		// If we are using clone, disable the apt-get steps
+		machineConfig.DisablePackageCommands = true
+	}
+	userDataFilename, err := container.WriteUserData(machineConfig, directory)
 	if err != nil {
 		logger.Errorf("failed to write user data: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
 	logger.Tracef("write the lxc.conf file")
-	configFile, err := writeLxcConfig(network, directory, manager.logdir)
+	configFile, err := writeLxcConfig(network, directory)
 	if err != nil {
 		logger.Errorf("failed to write config file: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
-	templateParams := []string{
-		"--debug",                      // Debug errors in the cloud image
-		"--userdata", userDataFilename, // Our groovey cloud-init
-		"--hostid", name, // Use the container name as the hostid
-		"-r", series,
-	}
-	// Create the container.
-	logger.Tracef("create the container")
-	if err := container.Create(configFile, defaultTemplate, templateParams...); err != nil {
-		logger.Errorf("lxc container creation failed: %v", err)
-		return nil, err
-	}
-	// Make sure that the mount dir has been created.
-	logger.Tracef("make the mount dir for the shard logs")
-	if err := os.MkdirAll(internalLogDir(name), 0755); err != nil {
-		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
-		return nil, err
-	}
-	logger.Tracef("lxc container created")
-	// Now symlink the config file into the restart directory.
-	containerConfigFile := filepath.Join(lxcContainerDir, name, "config")
-	if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
-		return nil, err
-	}
-	logger.Tracef("auto-restart link created")
 
+	var lxcContainer golxc.Container
+	if manager.createWithClone {
+		templateContainer, err := EnsureCloneTemplate(
+			manager.backingFilesystem,
+			series,
+			network,
+			machineConfig.AuthorizedKeys,
+			machineConfig.AptProxySettings,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		templateParams := []string{
+			"--debug",                      // Debug errors in the cloud image
+			"--userdata", userDataFilename, // Our groovey cloud-init
+			"--hostid", name, // Use the container name as the hostid
+		}
+		var extraCloneArgs []string
+		if manager.backingFilesystem == Btrfs || manager.useAUFS {
+			extraCloneArgs = append(extraCloneArgs, "--snapshot")
+		}
+		if manager.backingFilesystem != Btrfs && manager.useAUFS {
+			extraCloneArgs = append(extraCloneArgs, "--backingstore", "aufs")
+		}
+
+		lock, err := AcquireTemplateLock(templateContainer.Name(), "clone")
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed to acquire lock on template: %v", err)
+		}
+		defer lock.Unlock()
+		lxcContainer, err = templateContainer.Clone(name, extraCloneArgs, templateParams)
+		if err != nil {
+			logger.Errorf("lxc container cloning failed: %v", err)
+			return nil, nil, err
+		}
+	} else {
+		// Note here that the lxcObjectFacotry only returns a valid container
+		// object, and doesn't actually construct the underlying lxc container on
+		// disk.
+		lxcContainer = LxcObjectFactory.New(name)
+		templateParams := []string{
+			"--debug",                      // Debug errors in the cloud image
+			"--userdata", userDataFilename, // Our groovey cloud-init
+			"--hostid", name, // Use the container name as the hostid
+			"-r", series,
+		}
+		// Create the container.
+		logger.Tracef("create the container")
+		if err := lxcContainer.Create(configFile, defaultTemplate, nil, templateParams); err != nil {
+			logger.Errorf("lxc container creation failed: %v", err)
+			return nil, nil, err
+		}
+		logger.Tracef("lxc container created")
+	}
+	if err := autostartContainer(name); err != nil {
+		return nil, nil, err
+	}
+	if err := mountHostLogDir(name, manager.logdir); err != nil {
+		return nil, nil, err
+	}
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
 	consoleFile := filepath.Join(directory, "console.log")
-	container.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
+	lxcContainer.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	logger.Tracef("start the container")
 	// We explicitly don't pass through the config file to the container.Start
 	// method as we have passed it through at container creation time.  This
 	// is necessary to get the appropriate rootfs reference without explicitly
 	// setting it ourselves.
-	if err = container.Start("", consoleFile); err != nil {
+	if err = lxcContainer.Start("", consoleFile); err != nil {
 		logger.Errorf("container failed to start: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
-	logger.Tracef("container started")
-	return &lxcInstance{container, name}, nil
+	arch := version.Current.Arch
+	hardware := &instance.HardwareCharacteristics{
+		Arch: &arch,
+	}
+	logger.Tracef("container %q started: %v", name, time.Now().Sub(start))
+	return &lxcInstance{lxcContainer, name}, hardware, nil
 }
 
-func (manager *containerManager) StopContainer(instance instance.Instance) error {
-	name := string(instance.Id())
-	container := lxcObjectFactory.New(name)
-	if err := container.Stop(); err != nil {
-		logger.Errorf("failed to stop lxc container: %v", err)
-		return err
-	}
-	// Destroy removes the restart symlink for us.
-	if err := container.Destroy(); err != nil {
-		logger.Errorf("failed to destroy lxc container: %v", err)
-		return err
-	}
-
-	// Move the directory.
-	logger.Tracef("create old container dir: %s", removedContainerDir)
-	if err := os.MkdirAll(removedContainerDir, 0755); err != nil {
-		logger.Errorf("failed to create removed container directory: %v", err)
-		return err
-	}
-	removedDir, err := uniqueDirectory(removedContainerDir, name)
+func appendToContainerConfig(name, line string) error {
+	file, err := os.OpenFile(
+		containerConfigFilename(name), os.O_RDWR|os.O_APPEND, 0644)
 	if err != nil {
-		logger.Errorf("was not able to generate a unique directory: %v", err)
 		return err
 	}
-	if err := os.Rename(jujuContainerDirectory(name), removedDir); err != nil {
-		logger.Errorf("failed to rename container directory: %v", err)
-		return err
+	defer file.Close()
+	_, err = file.WriteString(line)
+	return err
+}
+
+func autostartContainer(name string) error {
+	// Now symlink the config file into the restart directory, if it exists.
+	// This is for backwards compatiblity. From Trusty onwards, the auto start
+	// option should be set in the LXC config file, this is done in the networkConfigTemplate
+	// function below.
+	if useRestartDir() {
+		if err := os.Symlink(
+			containerConfigFilename(name),
+			restartSymlink(name),
+		); err != nil {
+			return err
+		}
+		logger.Tracef("auto-restart link created")
+	} else {
+		logger.Tracef("Setting auto start to true in lxc config.")
+		return appendToContainerConfig(name, "lxc.start.auto = 1\n")
 	}
 	return nil
 }
 
+func mountHostLogDir(name, logDir string) error {
+	// Make sure that the mount dir has been created.
+	logger.Tracef("make the mount dir for the shared logs")
+	if err := os.MkdirAll(internalLogDir(name), 0755); err != nil {
+		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
+		return err
+	}
+	line := fmt.Sprintf(
+		"lxc.mount.entry=%s var/log/juju none defaults,bind 0 0\n",
+		logDir)
+	return appendToContainerConfig(name, line)
+}
+
+func (manager *containerManager) DestroyContainer(id instance.Id) error {
+	start := time.Now()
+	name := string(id)
+	lxcContainer := LxcObjectFactory.New(name)
+	if useRestartDir() {
+		// Remove the autostart link.
+		if err := os.Remove(restartSymlink(name)); err != nil {
+			logger.Errorf("failed to remove restart symlink: %v", err)
+			return err
+		}
+	}
+	if err := lxcContainer.Destroy(); err != nil {
+		logger.Errorf("failed to destroy lxc container: %v", err)
+		return err
+	}
+
+	err := container.RemoveDirectory(name)
+	logger.Tracef("container %q stopped: %v", name, time.Now().Sub(start))
+	return err
+}
+
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
-	containers, err := lxcObjectFactory.List()
+	containers, err := LxcObjectFactory.List()
 	if err != nil {
 		logger.Errorf("failed getting all instances: %v", err)
 		return
@@ -246,23 +314,19 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 	return
 }
 
-func jujuContainerDirectory(containerName string) string {
-	return filepath.Join(containerDir, containerName)
-}
-
 const internalLogDirTemplate = "%s/%s/rootfs/var/log/juju"
 
 func internalLogDir(containerName string) string {
-	return fmt.Sprintf(internalLogDirTemplate, lxcContainerDir, containerName)
+	return fmt.Sprintf(internalLogDirTemplate, LxcContainerDir, containerName)
 }
 
 func restartSymlink(name string) string {
-	return filepath.Join(lxcRestartDir, name+".conf")
+	return filepath.Join(LxcRestartDir, name+".conf")
 }
 
-const localConfig = `%s
-lxc.mount.entry=%s var/log/juju none defaults,bind 0 0
-`
+func containerConfigFilename(name string) string {
+	return filepath.Join(LxcContainerDir, name, "config")
+}
 
 const networkTemplate = `
 lxc.network.type = %s
@@ -274,129 +338,45 @@ func networkConfigTemplate(networkType, networkLink string) string {
 	return fmt.Sprintf(networkTemplate, networkType, networkLink)
 }
 
-func generateNetworkConfig(network *NetworkConfig) string {
+func generateNetworkConfig(network *container.NetworkConfig) string {
+	var lxcConfig string
 	if network == nil {
 		logger.Warningf("network unspecified, using default networking config")
 		network = DefaultNetworkConfig()
 	}
-	switch network.networkType {
-	case physicalNetwork:
-		return networkConfigTemplate("phys", network.device)
+	switch network.NetworkType {
+	case container.PhysicalNetwork:
+		lxcConfig = networkConfigTemplate("phys", network.Device)
 	default:
-		logger.Warningf("Unknown network config type %q: using bridge", network.networkType)
+		logger.Warningf("Unknown network config type %q: using bridge", network.NetworkType)
 		fallthrough
-	case bridgeNetwork:
-		return networkConfigTemplate("veth", network.device)
+	case container.BridgeNetwork:
+		lxcConfig = networkConfigTemplate("veth", network.Device)
 	}
+
+	return lxcConfig
 }
 
-func writeLxcConfig(network *NetworkConfig, directory, logdir string) (string, error) {
+func writeLxcConfig(network *container.NetworkConfig, directory string) (string, error) {
 	networkConfig := generateNetworkConfig(network)
 	configFilename := filepath.Join(directory, "lxc.conf")
-	configContent := fmt.Sprintf(localConfig, networkConfig, logdir)
-	if err := ioutil.WriteFile(configFilename, []byte(configContent), 0644); err != nil {
+	if err := ioutil.WriteFile(configFilename, []byte(networkConfig), 0644); err != nil {
 		return "", err
 	}
 	return configFilename, nil
 }
 
-func writeUserData(
-	directory, machineId, nonce string,
-	tools *tools.Tools,
-	environConfig *config.Config,
-	stateInfo *state.Info,
-	apiInfo *api.Info,
-) (string, error) {
-	userData, err := cloudInitUserData(machineId, nonce, tools, environConfig, stateInfo, apiInfo)
-	if err != nil {
-		logger.Errorf("failed to create user data: %v", err)
-		return "", err
-	}
-	userDataFilename := filepath.Join(directory, "cloud-init")
-	if err := ioutil.WriteFile(userDataFilename, userData, 0644); err != nil {
-		logger.Errorf("failed to write user data: %v", err)
-		return "", err
-	}
-	return userDataFilename, nil
-}
-
-func cloudInitUserData(
-	machineId, nonce string,
-	tools *tools.Tools,
-	environConfig *config.Config,
-	stateInfo *state.Info,
-	apiInfo *api.Info,
-) ([]byte, error) {
-	machineConfig := &cloudinit.MachineConfig{
-		MachineId:            machineId,
-		MachineNonce:         nonce,
-		MachineContainerType: instance.LXC,
-		StateInfo:            stateInfo,
-		APIInfo:              apiInfo,
-		DataDir:              "/var/lib/juju",
-		Tools:                tools,
-	}
-	if err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{}); err != nil {
-		return nil, err
-	}
-	cloudConfig, err := cloudinit.New(machineConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	// Run apt-config to fetch proxy settings from host. If no proxy
-	// settings are configured, then we don't set up any proxy information
-	// on the container.
-	proxyConfig, err := utils.AptConfigProxy()
-	if err != nil {
-		return nil, err
-	}
-	if proxyConfig != "" {
-		var proxyLines []string
-		for _, line := range strings.Split(proxyConfig, "\n") {
-			line = strings.TrimSpace(line)
-			if len(line) > 0 {
-				if m := aptHTTPProxyRE.FindStringSubmatch(line); m != nil {
-					cloudConfig.SetAptProxy(m[1])
-				} else {
-					proxyLines = append(proxyLines, line)
-				}
-			}
-		}
-		if len(proxyLines) > 0 {
-			cloudConfig.AddFile(
-				"/etc/apt/apt.conf.d/99proxy-extra",
-				strings.Join(proxyLines, "\n"),
-				0644)
-		}
-	}
-
-	// Run ifconfig to get the addresses of the internal container at least
-	// logged in the host.
-	cloudConfig.AddRunCmd("ifconfig")
-
-	data, err := cloudConfig.Render()
-	if err != nil {
-		return nil, err
-	}
-	return data, nil
-}
-
-// uniqueDirectory returns "path/name" if that directory doesn't exist.  If it
-// does, the method starts appending .1, .2, etc until a unique name is found.
-func uniqueDirectory(path, name string) (string, error) {
-	dir := filepath.Join(path, name)
-	_, err := os.Stat(dir)
-	if os.IsNotExist(err) {
-		return dir, nil
-	}
-	for i := 1; ; i++ {
-		dir := filepath.Join(path, fmt.Sprintf("%s.%d", name, i))
-		_, err := os.Stat(dir)
+// useRestartDir is used to determine whether or not to use a symlink to the
+// container config as the restart mechanism.  Older versions of LXC had the
+// /etc/lxc/auto directory that would indicate that a container shoud auto-
+// restart when the machine boots by having a symlink to the lxc.conf file.
+// Newer versions don't do this, but instead have a config value inside the
+// lxc.conf file.
+func useRestartDir() bool {
+	if _, err := os.Stat(LxcRestartDir); err != nil {
 		if os.IsNotExist(err) {
-			return dir, nil
-		} else if err != nil {
-			return "", err
+			return false
 		}
 	}
+	return true
 }

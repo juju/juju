@@ -5,6 +5,8 @@ package main
 
 import (
 	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cmd/envcmd"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -18,7 +20,7 @@ type ResolvedSuite struct {
 var _ = gc.Suite(&ResolvedSuite{})
 
 func runResolved(c *gc.C, args []string) error {
-	_, err := testing.RunCommand(c, &ResolvedCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&ResolvedCommand{}), args)
 	return err
 }
 
@@ -78,7 +80,7 @@ func (s *ResolvedSuite) TestResolved(c *gc.C) {
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
 		c.Assert(err, gc.IsNil)
-		err = u.SetStatus(params.StatusError, "lol borken")
+		err = u.SetStatus(params.StatusError, "lol borken", nil)
 		c.Assert(err, gc.IsNil)
 	}
 

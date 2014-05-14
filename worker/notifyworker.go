@@ -6,9 +6,13 @@ package worker
 import (
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/state/api"
+	apiWatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 )
+
+// mustErr is defined as a variable to allow the test suite
+// to override it.
+var mustErr = watcher.MustErr
 
 // notifyWorker is the internal implementation of the Worker
 // interface, using a NotifyWatcher for handling changes.
@@ -17,10 +21,6 @@ type notifyWorker struct {
 
 	// handler is what will handle when events are triggered
 	handler NotifyWatchHandler
-
-	// mustErr is set to watcher.MustErr, but that panic()s, so
-	// we let the test suite override it.
-	mustErr func(watcher.Errer) error
 }
 
 // NotifyWatchHandler implements the business logic that is triggered
@@ -30,7 +30,7 @@ type NotifyWatchHandler interface {
 	// will be waiting on for more events. SetUp can return a Watcher
 	// even if there is an error, and the notify Worker will make sure
 	// to stop the watcher.
-	SetUp() (api.NotifyWatcher, error)
+	SetUp() (apiWatcher.NotifyWatcher, error)
 
 	// TearDown should cleanup any resources that are left around
 	TearDown() error
@@ -46,7 +46,6 @@ type NotifyWatchHandler interface {
 func NewNotifyWorker(handler NotifyWatchHandler) Worker {
 	nw := &notifyWorker{
 		handler: handler,
-		mustErr: watcher.MustErr,
 	}
 	go func() {
 		defer nw.tomb.Done()
@@ -95,7 +94,7 @@ func (nw *notifyWorker) loop() error {
 			return tomb.ErrDying
 		case _, ok := <-w.Changes():
 			if !ok {
-				return nw.mustErr(w)
+				return mustErr(w)
 			}
 			if err := nw.handler.Handle(); err != nil {
 				return err

@@ -7,7 +7,9 @@ import (
 	"strings"
 
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 type HelpToolSuite struct {
@@ -32,17 +34,7 @@ purpose: show help on a juju charm tool
 }
 
 func (suite *HelpToolSuite) TestHelpTool(c *gc.C) {
-	expectedNames := []string{
-		"close-port",
-		"config-get",
-		"juju-log",
-		"open-port",
-		"relation-get",
-		"relation-ids",
-		"relation-list",
-		"relation-set",
-		"unit-get",
-	}
+	expectedNames := jujuc.CommandNames()
 	output := badrun(c, 0, "help-tool")
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	for i, line := range lines {

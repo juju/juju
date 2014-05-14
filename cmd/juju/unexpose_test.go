@@ -5,7 +5,9 @@ package main
 
 import (
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd/envcmd"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 )
@@ -17,7 +19,7 @@ type UnexposeSuite struct {
 var _ = gc.Suite(&UnexposeSuite{})
 
 func runUnexpose(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &UnexposeCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&UnexposeCommand{}), args)
 	return err
 }
 

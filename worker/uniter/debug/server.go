@@ -27,6 +27,13 @@ func (s *ServerSession) MatchHook(hookName string) bool {
 	return s.hooks.IsEmpty() || s.hooks.Contains(hookName)
 }
 
+// waitClientExit executes flock, waiting for the SSH client to exit.
+// This is a var so it can be replaced for testing.
+var waitClientExit = func(s *ServerSession) {
+	path := s.ClientExitFileLock()
+	exec.Command("flock", path, "-c", "true").Run()
+}
+
 // RunHook "runs" the hook with the specified name via debug-hooks.
 func (s *ServerSession) RunHook(hookName, charmDir string, env []string) error {
 	env = append(env, "JUJU_HOOK_NAME="+hookName)
@@ -41,8 +48,7 @@ func (s *ServerSession) RunHook(hookName, charmDir string, env []string) error {
 		// Wait for the SSH client to exit (i.e. release the flock),
 		// then kill the server hook process in case the client
 		// exited uncleanly.
-		path := s.ClientExitFileLock()
-		exec.Command("flock", path, "-c", "true").Run()
+		waitClientExit(s)
 		proc.Kill()
 	}(cmd.Process)
 	return cmd.Wait()
@@ -79,17 +85,19 @@ const debugHooksServerScript = `set -e
 export JUJU_DEBUG=$(mktemp -d)
 exec > $JUJU_DEBUG/debug.log >&1
 
+# Set a useful prompt.
+export PS1="$JUJU_UNIT_NAME:$JUJU_HOOK_NAME % "
+
 # Save environment variables and export them for sourcing.
 FILTER='^\(LS_COLORS\|LESSOPEN\|LESSCLOSE\|PWD\)='
-env | grep -v $FILTER > $JUJU_DEBUG/env.sh
-sed -i 's/^/export /' $JUJU_DEBUG/env.sh
+export | grep -v $FILTER > $JUJU_DEBUG/env.sh
 
 # Create an internal script which will load the hook environment.
 cat > $JUJU_DEBUG/hook.sh <<END
 #!/bin/bash
 . $JUJU_DEBUG/env.sh
 echo \$\$ > $JUJU_DEBUG/hook.pid
-exec /bin/bash
+exec /bin/bash --noprofile --norc
 END
 chmod +x $JUJU_DEBUG/hook.sh
 

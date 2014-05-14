@@ -4,11 +4,14 @@
 package cleaner
 
 import (
-	"launchpad.net/juju-core/log"
+	"github.com/juju/loggo"
+
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/worker"
 )
+
+var logger = loggo.GetLogger("juju.worker.cleaner")
 
 // Cleaner is responsible for cleaning up the state.
 type Cleaner struct {
@@ -21,13 +24,13 @@ func NewCleaner(st *state.State) worker.Worker {
 	return worker.NewNotifyWorker(&Cleaner{st: st})
 }
 
-func (c *Cleaner) SetUp() (api.NotifyWatcher, error) {
+func (c *Cleaner) SetUp() (watcher.NotifyWatcher, error) {
 	return c.st.WatchCleanups(), nil
 }
 
 func (c *Cleaner) Handle() error {
 	if err := c.st.Cleanup(); err != nil {
-		log.Errorf("worker/cleaner: cannot cleanup state: %v", err)
+		logger.Errorf("cannot cleanup state: %v", err)
 	}
 	// We do not return the err from Cleanup, because we don't want to stop
 	// the loop as a failure

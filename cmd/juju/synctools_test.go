@@ -7,20 +7,24 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/loggo"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/sync"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 )
 
 type syncToolsSuite struct {
-	coretesting.LoggingSuite
+	testbase.LoggingSuite
 	home         *coretesting.FakeHome
-	targetEnv    environs.Environ
+	configStore  configstore.Storage
 	localStorage string
 
 	origSyncTools func(*sync.SyncContext) error
@@ -40,9 +44,8 @@ environments:
         authorized-keys: "not-really-one"
 `)
 	var err error
-	s.targetEnv, err = environs.NewFromName("test-target")
+	s.configStore, err = configstore.Default()
 	c.Assert(err, gc.IsNil)
-	envtesting.RemoveAllTools(c, s.targetEnv)
 	s.origSyncTools = syncTools
 }
 
@@ -53,8 +56,13 @@ func (s *syncToolsSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
+func (s *syncToolsSuite) Reset(c *gc.C) {
+	s.TearDownTest(c)
+	s.SetUpTest(c)
+}
+
 func runSyncToolsCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return coretesting.RunCommand(c, &SyncToolsCommand{}, args)
+	return coretesting.RunCommand(c, envcmd.Wrap(&SyncToolsCommand{}), args)
 }
 
 func wait(signal chan struct{}) error {
@@ -66,7 +74,7 @@ func wait(signal chan struct{}) error {
 	}
 }
 
-var tests = []struct {
+var syncToolsCommandTests = []struct {
 	description string
 	args        []string
 	sctx        *sync.SyncContext
@@ -74,62 +82,122 @@ var tests = []struct {
 	{
 		description: "environment as only argument",
 		args:        []string{"-e", "test-target"},
-		sctx: &sync.SyncContext{
-			EnvName: "test-target",
-		},
+		sctx:        &sync.SyncContext{},
 	},
 	{
 		description: "specifying also the synchronization source",
 		args:        []string{"-e", "test-target", "--source", "/foo/bar"},
 		sctx: &sync.SyncContext{
-			EnvName: "test-target",
-			Source:  "/foo/bar",
+			Source: "/foo/bar",
 		},
 	},
 	{
 		description: "synchronize all version including development",
 		args:        []string{"-e", "test-target", "--all", "--dev"},
 		sctx: &sync.SyncContext{
-			EnvName:     "test-target",
 			AllVersions: true,
 			Dev:         true,
-		},
-	},
-	{
-		description: "synchronize to public bucket",
-		args:        []string{"-e", "test-target", "--public"},
-		sctx: &sync.SyncContext{
-			EnvName:      "test-target",
-			PublicBucket: true,
 		},
 	},
 	{
 		description: "just make a dry run",
 		args:        []string{"-e", "test-target", "--dry-run"},
 		sctx: &sync.SyncContext{
-			EnvName: "test-target",
-			DryRun:  true,
+			DryRun: true,
+		},
+	},
+	{
+		description: "specific public",
+		args:        []string{"-e", "test-target", "--public"},
+		sctx: &sync.SyncContext{
+			Public: true,
+		},
+	},
+	{
+		description: "specify version",
+		args:        []string{"-e", "test-target", "--version", "1.2"},
+		sctx: &sync.SyncContext{
+			MajorVersion: 1,
+			MinorVersion: 2,
 		},
 	},
 }
 
 func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
-	for _, test := range tests {
-		c.Log(test.description)
-		called := make(chan struct{}, 1)
+	for i, test := range syncToolsCommandTests {
+		c.Logf("test %d: %s", i, test.description)
+		targetEnv, err := environs.PrepareFromName("test-target", nullContext(c), s.configStore)
+		c.Assert(err, gc.IsNil)
+		called := false
 		syncTools = func(sctx *sync.SyncContext) error {
-			c.Assert(sctx.EnvName, gc.Equals, test.sctx.EnvName)
 			c.Assert(sctx.AllVersions, gc.Equals, test.sctx.AllVersions)
+			c.Assert(sctx.MajorVersion, gc.Equals, test.sctx.MajorVersion)
+			c.Assert(sctx.MinorVersion, gc.Equals, test.sctx.MinorVersion)
 			c.Assert(sctx.DryRun, gc.Equals, test.sctx.DryRun)
-			c.Assert(sctx.PublicBucket, gc.Equals, test.sctx.PublicBucket)
 			c.Assert(sctx.Dev, gc.Equals, test.sctx.Dev)
+			c.Assert(sctx.Public, gc.Equals, test.sctx.Public)
 			c.Assert(sctx.Source, gc.Equals, test.sctx.Source)
-			called <- struct{}{}
+			c.Assert(dummy.IsSameStorage(sctx.Target, targetEnv.Storage()), jc.IsTrue)
+			called = true
 			return nil
 		}
 		ctx, err := runSyncToolsCommand(c, test.args...)
 		c.Assert(err, gc.IsNil)
 		c.Assert(ctx, gc.NotNil)
-		c.Assert(wait(called), gc.IsNil)
+		c.Assert(called, jc.IsTrue)
+		s.Reset(c)
 	}
+}
+
+func (s *syncToolsSuite) TestSyncToolsCommandTargetDirectory(c *gc.C) {
+	called := false
+	dir := c.MkDir()
+	syncTools = func(sctx *sync.SyncContext) error {
+		c.Assert(sctx.AllVersions, gc.Equals, false)
+		c.Assert(sctx.DryRun, gc.Equals, false)
+		c.Assert(sctx.Dev, gc.Equals, false)
+		c.Assert(sctx.Source, gc.Equals, "")
+		url, err := sctx.Target.URL("")
+		c.Assert(err, gc.IsNil)
+		c.Assert(url, gc.Equals, "file://"+dir)
+		called = true
+		return nil
+	}
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--local-dir", dir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ctx, gc.NotNil)
+	c.Assert(called, jc.IsTrue)
+	s.Reset(c)
+}
+
+func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
+	called := false
+	dir := c.MkDir()
+	syncTools = func(sctx *sync.SyncContext) error {
+		c.Assert(sctx.AllVersions, gc.Equals, false)
+		c.Assert(sctx.DryRun, gc.Equals, false)
+		c.Assert(sctx.Dev, gc.Equals, false)
+		c.Assert(sctx.Source, gc.Equals, "")
+		url, err := sctx.Target.URL("")
+		c.Assert(err, gc.IsNil)
+		c.Assert(url, gc.Equals, "file://"+dir)
+		called = true
+		return nil
+	}
+	// Register writer.
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("deprecated-tester", tw, loggo.DEBUG), gc.IsNil)
+	defer loggo.RemoveWriter("deprecated-tester")
+	// Add deprecated message to be checked.
+	messages := []jc.SimpleMessage{
+		{loggo.WARNING, "Use of the --destination flag is deprecated in 1.18. Please use --local-dir instead."},
+	}
+	// Run sync-tools command with --destination flag.
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--destination", dir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ctx, gc.NotNil)
+	c.Assert(called, jc.IsTrue)
+	// Check deprecated message was logged.
+	c.Check(tw.Log, jc.LogMatches, messages)
+	s.Reset(c)
 }

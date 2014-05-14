@@ -5,6 +5,8 @@ package main
 
 import (
 	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cmd/envcmd"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 )
@@ -16,7 +18,7 @@ type AddRelationSuite struct {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func runAddRelation(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &AddRelationCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&AddRelationCommand{}), args)
 	return err
 }
 

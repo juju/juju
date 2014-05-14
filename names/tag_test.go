@@ -23,9 +23,12 @@ var tagKindTests = []struct {
 	{tag: "service-foo", kind: names.ServiceTagKind},
 	{tag: "environment-42", kind: names.EnvironTagKind},
 	{tag: "user-admin", kind: names.UserTagKind},
-	{tag: "relation-42", kind: names.RelationTagKind},
+	{tag: "relation-service1.rel1#other-svc.other-rel2", kind: names.RelationTagKind},
+	{tag: "relation-service.peerRelation", kind: names.RelationTagKind},
 	{tag: "foo", err: `"foo" is not a valid tag`},
 	{tag: "unit", err: `"unit" is not a valid tag`},
+	{tag: "network", err: `"network" is not a valid tag`},
+	{tag: "network-42", kind: names.NetworkTagKind},
 }
 
 func (*tagSuite) TestTagKind(c *gc.C) {
@@ -96,9 +99,13 @@ var parseTagTests = []struct {
 	expectKind: names.EnvironTagKind,
 	resultId:   "foo",
 }, {
-	tag:        "relation-42",
+	tag:        "relation-my-svc1.myrel1#other-svc.other-rel2",
 	expectKind: names.RelationTagKind,
-	resultId:   "42",
+	resultId:   "my-svc1:myrel1 other-svc:other-rel2",
+}, {
+	tag:        "relation-riak.ring",
+	expectKind: names.RelationTagKind,
+	resultId:   "riak:ring",
 }, {
 	tag:        "environment-/",
 	expectKind: names.EnvironTagKind,
@@ -112,6 +119,14 @@ var parseTagTests = []struct {
 	expectKind: names.UserTagKind,
 	resultErr:  `"user-/" is not a valid user tag`,
 }, {
+	tag:        "network-",
+	expectKind: names.NetworkTagKind,
+	resultErr:  `"network-" is not a valid network tag`,
+}, {
+	tag:        "network-mynet1",
+	expectKind: names.NetworkTagKind,
+	resultId:   "mynet1",
+}, {
 	tag:        "foo",
 	expectKind: "",
 	resultErr:  `"foo" is not a valid tag`,
@@ -122,7 +137,9 @@ var makeTag = map[string]func(id string) string{
 	names.UnitTagKind:     names.UnitTag,
 	names.ServiceTagKind:  names.ServiceTag,
 	names.RelationTagKind: names.RelationTag,
-	// TODO(rog) environment and user, when they have Tag functions.
+	names.EnvironTagKind:  names.EnvironTag,
+	names.UserTagKind:     names.UserTag,
+	names.NetworkTagKind:  names.NetworkTag,
 }
 
 func (*tagSuite) TestParseTag(c *gc.C) {
