@@ -8,7 +8,6 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/base"
-	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
 )
@@ -24,20 +23,12 @@ type RsyslogConfig struct {
 
 // State provides access to the Rsyslog API facade.
 type State struct {
-	*common.EnvironWatcher
 	caller base.Caller
-}
-
-func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call("Rsyslog", "", method, params, result)
 }
 
 // NewState creates a new client-side Rsyslog facade.
 func NewState(caller base.Caller) *State {
-	return &State{
-		EnvironWatcher: common.NewEnvironWatcher(rsyslogAPI, caller),
-		caller:         caller,
-	}
+	return &State{caller: caller}
 }
 
 // SetRsyslogCert sets the rsyslog CA certificate,
@@ -64,7 +55,9 @@ func (st *State) WatchForRsyslogChanges(agentTag string) (watcher.NotifyWatcher,
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := st.call("WatchForRsyslogChanges", args, &results)
+	fmt.Printf("tag: %s", agentTag)
+
+	err := st.caller.Call(rsyslogAPI, "", "WatchForRsyslogChanges", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
