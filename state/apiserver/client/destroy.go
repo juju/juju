@@ -104,28 +104,7 @@ func destroyInstances(st *state.State, machines []*state.Machine) error {
 	if err != nil {
 		return err
 	}
-	// TODO(axw) 2013-12-12 #1260171
-	// Modify InstanceBroker.StopInstances to take
-	// a slice of IDs rather than Instances.
-	instances, err := env.Instances(ids)
-	switch err {
-	case nil:
-	default:
-		return err
-	case environs.ErrNoInstances:
-		return nil
-	case environs.ErrPartialInstances:
-		var nonNilInstances []instance.Instance
-		for i, inst := range instances {
-			if inst == nil {
-				logger.Warningf("unknown instance ID: %v", ids[i])
-				continue
-			}
-			nonNilInstances = append(nonNilInstances, inst)
-		}
-		instances = nonNilInstances
-	}
-	return env.StopInstances(instances)
+	return env.StopInstances(ids...)
 }
 
 // checkManualMachines checks if any of the machines in the slice were

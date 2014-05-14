@@ -537,11 +537,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	return inst, &hc, nil, nil
 }
 
-func (e *environ) StopInstances(insts []instance.Instance) error {
-	ids := make([]instance.Id, len(insts))
-	for i, inst := range insts {
-		ids[i] = inst.(*ec2Instance).Id()
-	}
+func (e *environ) StopInstances(ids ...instance.Id) error {
 	return e.terminateInstances(ids)
 }
 
