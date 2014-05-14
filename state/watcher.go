@@ -772,7 +772,11 @@ func (w *relationUnitsWatcher) loop() (err error) {
 				out = nil
 			}
 		case c := <-w.updates:
-			setRelationUnitChangeVersion(&changes, c.Id.(string), c.Revno)
+			id, ok := c.Id.(string)
+			if !ok {
+				logger.Warningf("ignoring bad relation scope id: %#v", c.Id)
+			}
+			setRelationUnitChangeVersion(&changes, id, c.Revno)
 			out = w.out
 		case out <- changes:
 			sentInitial = true
