@@ -82,6 +82,7 @@ func (st *State) WatchForRsyslogChanges(agentTag string) (watcher.NotifyWatcher,
 	return w, nil
 }
 
+// GetRsyslogConfig returns a RsyslogConfig.
 func (st *State) GetRsyslogConfig() (*RsyslogConfig, error) {
 	var result params.RsyslogConfigResult
 	err := st.caller.Call(rsyslogAPI, "", "GetRsyslogConfig", nil, &result)
