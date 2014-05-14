@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/rsyslog"
+	"launchpad.net/juju-core/version"
 
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -58,6 +59,23 @@ func (s *rsyslogSuite) TestWatchForRsyslogChanges(c *gc.C) {
 	w, err := s.rsyslog.WatchForRsyslogChanges(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, w)
+
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	// Initial event
+	wc.AssertOneChange()
+
+	// make an environ config change
+	cur := version.Current.Number
+	newVersion := cur
+	newVersion.Minor += 1
+	err = statetesting.SetAgentVersion(s.State, newVersion)
+	c.Assert(err, gc.IsNil)
+
+	// assert we get notified
+	wc.AssertOneChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
 
 // SetRsyslogCACert is tested in state/apiserver/rsyslog
