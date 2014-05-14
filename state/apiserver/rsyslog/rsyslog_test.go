@@ -25,6 +25,7 @@ type rsyslogSuite struct {
 	*commontesting.EnvironWatcherTest
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
+	rsyslog    *rsyslog.RsyslogAPI
 }
 
 var _ = gc.Suite(&rsyslogSuite{})

@@ -681,6 +681,14 @@ type SetRsyslogCertParams struct {
 	CACert []byte
 }
 
+// RsyslogConfigResult holds the result of an GetRsyslogConfig
+// call.
+type RsyslogConfigResult struct {
+	CACert    string
+	Port      int
+	HostPorts []instance.HostPort
+}
+
 // DistributionGroupResult contains the result of
 // the DistributionGroup provisioner API call.
 type DistributionGroupResult struct {
