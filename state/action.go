@@ -48,8 +48,8 @@ func (a *Action) Id() string {
 	return a.doc.Id
 }
 
-// Payload will contain a structure representing arguments or parameters to 
-// an action, and is expected to be validated by the Unit using the Charm 
+// Payload will contain a structure representing arguments or parameters to
+// an action, and is expected to be validated by the Unit using the Charm
 // definition of the Action
 func (a *Action) Payload() interface{} {
 	return a.doc.Payload
