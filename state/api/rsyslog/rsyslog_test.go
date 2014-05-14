@@ -5,11 +5,11 @@ package rsyslog_test
 
 import (
 	gc "launchpad.net/gocheck"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/rsyslog"
-	coretesting "launchpad.net/juju-core/testing"
 
 	//statetesting "launchpad.net/juju-core/state/testing"
 )
@@ -26,16 +26,11 @@ var _ = gc.Suite(&rsyslogSuite{})
 
 func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	// considered 'alive' so that calls don't spawn new instances
-	_, err := s.State.AddMachine("precise", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	m, err := s.BackingState.Machine("0")
-	c.Assert(err, gc.IsNil)
-	s.BackingState.StartSync()
-	err = m.WaitAgentAlive(coretesting.LongWait)
+
+	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
 	c.Assert(err, gc.IsNil)
 
-	s.st, s.machine = s.OpenAPIAsNewMachine(c)
 	// Create the rsyslog API facade
 	s.rsyslog = s.st.Rsyslog()
 	c.Assert(s.rsyslog, gc.NotNil)
@@ -48,9 +43,9 @@ func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
 }
 
 func (s *rsyslogSuite) TestWatchForRsyslogChanges(c *gc.C) {
-	//	w, err := s.st.WatchForRsyslogChanges(s.rawMachine.Tag())
-	//	c.Assert(err, gc.IsNil)
-	//	defer statetesting.AssertStop(c, w)
+	//w, err := s.rsyslog.WatchForRsyslogChanges(s.machine.Tag())
+	//c.Assert(err, gc.IsNil)
+	//defer statetesting.AssertStop(c, w)
 }
 
 // SetRsyslogCACert is tested in state/apiserver/rsyslog
