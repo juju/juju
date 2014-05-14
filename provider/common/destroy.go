@@ -20,7 +20,7 @@ func Destroy(env environs.Environ) error {
 		for i, inst := range instances {
 			ids[i] = inst.Id()
 		}
-		if err := env.StopInstances(ids); err != nil {
+		if err := env.StopInstances(ids...); err != nil {
 			return err
 		}
 		fallthrough

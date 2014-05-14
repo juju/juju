@@ -901,7 +901,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	return inst, inst.hardwareCharacteristics(), nil, nil
 }
 
-func (e *environ) StopInstances(ids []instance.Id) error {
+func (e *environ) StopInstances(ids ...instance.Id) error {
 	// If in instance firewall mode, gather the security group names.
 	var securityGroupNames []string
 	if e.Config().FirewallMode() == config.FwInstance {

@@ -475,7 +475,7 @@ func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.
 	var inst instance.Instance
 	defer func() {
 		if inst != nil && resultErr != nil {
-			if err := env.StopInstances([]instance.Id{inst.Id()}); err != nil {
+			if err := env.StopInstances(inst.Id()); err != nil {
 				// Failure upon failure. Log it, but return the original error.
 				logger.Errorf("error releasing failed instance: %v", err)
 			}
@@ -760,7 +760,7 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 }
 
 // StopInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) StopInstances(ids []instance.Id) error {
+func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 	context, err := env.getManagementAPI()
 	if err != nil {
 		return err

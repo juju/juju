@@ -104,7 +104,7 @@ func destroyInstances(st *state.State, machines []*state.Machine) error {
 	if err != nil {
 		return err
 	}
-	return env.StopInstances(ids)
+	return env.StopInstances(ids...)
 }
 
 // checkManualMachines checks if any of the machines in the slice were

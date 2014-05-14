@@ -537,7 +537,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	return inst, &hc, nil, nil
 }
 
-func (e *environ) StopInstances(ids []instance.Id) error {
+func (e *environ) StopInstances(ids ...instance.Id) error {
 	return e.terminateInstances(ids)
 }
 

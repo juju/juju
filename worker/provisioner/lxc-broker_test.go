@@ -131,13 +131,13 @@ func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {
 	lxc1 := s.startInstance(c, "1/lxc/1")
 	lxc2 := s.startInstance(c, "1/lxc/2")
 
-	err := s.broker.StopInstances([]instance.Id{lxc0.Id()})
+	err := s.broker.StopInstances(lxc0.Id())
 	c.Assert(err, gc.IsNil)
 	s.assertInstances(c, lxc1, lxc2)
 	c.Assert(s.lxcContainerDir(lxc0), jc.DoesNotExist)
 	c.Assert(s.lxcRemovedContainerDir(lxc0), jc.IsDirectory)
 
-	err = s.broker.StopInstances([]instance.Id{lxc1.Id(), lxc2.Id()})
+	err = s.broker.StopInstances(lxc1.Id(), lxc2.Id())
 	c.Assert(err, gc.IsNil)
 	s.assertInstances(c)
 }
@@ -147,7 +147,7 @@ func (s *lxcBrokerSuite) TestAllInstances(c *gc.C) {
 	lxc1 := s.startInstance(c, "1/lxc/1")
 	s.assertInstances(c, lxc0, lxc1)
 
-	err := s.broker.StopInstances([]instance.Id{lxc1.Id()})
+	err := s.broker.StopInstances(lxc1.Id())
 	c.Assert(err, gc.IsNil)
 	lxc2 := s.startInstance(c, "1/lxc/2")
 	s.assertInstances(c, lxc0, lxc2)

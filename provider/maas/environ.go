@@ -434,7 +434,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	defer func() {
 		if err != nil {
-			if err := environ.StopInstances([]instance.Id{inst.Id()}); err != nil {
+			if err := environ.StopInstances(inst.Id()); err != nil {
 				logger.Errorf("error releasing failed instance: %v", err)
 			}
 		}
@@ -546,7 +546,7 @@ EOF
 }
 
 // StopInstances is specified in the InstanceBroker interface.
-func (environ *maasEnviron) StopInstances(ids []instance.Id) error {
+func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(ids) == 0 {
 		return nil

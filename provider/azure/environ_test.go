@@ -782,7 +782,7 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	responses = append(responses, buildGetServicePropertiesResponses(c, service2)...)
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteHostedService
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	err = env.StopInstances([]instance.Id{inst1.Id(), inst2.Id(), inst3.Id()})
+	err = env.StopInstances(inst1.Id(), inst2.Id(), inst3.Id())
 	c.Check(err, gc.IsNil)
 
 	// One GET and DELETE per service
@@ -805,7 +805,7 @@ func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 	responses := buildGetServicePropertiesResponses(c, service)
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteRole
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	err = env.StopInstances([]instance.Id{inst1.Id()})
+	err = env.StopInstances(inst1.Id())
 	c.Check(err, gc.IsNil)
 
 	// One GET for the service, and one DELETE for the role.
@@ -833,7 +833,7 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil))
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
-	err = env.StopInstances([]instance.Id{inst1.Id(), inst2.Id()})
+	err = env.StopInstances(inst1.Id(), inst2.Id())
 	c.Check(err, gc.ErrorMatches, ".*Conflict.*")
 
 	c.Check(len(*requests), gc.Equals, len(responses))
@@ -844,7 +844,7 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
 	env := makeEnviron(c)
-	err := env.StopInstances([]instance.Id{})
+	err := env.StopInstances()
 	c.Check(err, gc.IsNil)
 }
 

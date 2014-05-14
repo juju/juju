@@ -28,7 +28,7 @@ type Manager interface {
 		network *NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error)
 
 	// DestroyContainer stops and destroyes the container identified by
-	// Instance.
+	// instance id.
 	DestroyContainer(instance.Id) error
 
 	// ListContainers return a list of containers that have been started by

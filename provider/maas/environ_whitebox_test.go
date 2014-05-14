@@ -420,7 +420,7 @@ func (suite *environSuite) getNetwork(name string, id int, vlanTag int) *gomaasa
 func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
 	suite.getInstance("test1")
 
-	err := suite.makeEnviron().StopInstances([]instance.Id{})
+	err := suite.makeEnviron().StopInstances()
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	c.Check(operations, gc.DeepEquals, map[string][]string{})
@@ -435,7 +435,7 @@ func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	suite.testMAASObject.TestServer.OwnedNodes()["test1"] = true
 	suite.testMAASObject.TestServer.OwnedNodes()["test2"] = true
 
-	err := suite.makeEnviron().StopInstances([]instance.Id{"test1", "test2", "test3"})
+	err := suite.makeEnviron().StopInstances("test1", "test2", "test3")
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodesOperations()
 	c.Check(operations, gc.DeepEquals, []string{"release"})

@@ -232,7 +232,7 @@ func (*joyentEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Add
 	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
-func (env *joyentEnviron) StopInstances(ids []instance.Id) error {
+func (env *joyentEnviron) StopInstances(ids ...instance.Id) error {
 	// Remove all the instances in parallel so that we incur less round-trips.
 	var wg sync.WaitGroup
 	//var err error

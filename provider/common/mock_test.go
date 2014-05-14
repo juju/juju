@@ -60,7 +60,7 @@ func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (instan
 		args.MachineConfig)
 }
 
-func (env *mockEnviron) StopInstances(ids []instance.Id) error {
+func (env *mockEnviron) StopInstances(ids ...instance.Id) error {
 	return env.stopInstances(ids)
 }
 

@@ -193,7 +193,7 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
-	err = env.StopInstances([]instance.Id{inst.Id()})
+	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -261,7 +261,7 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	envtesting.UploadFakeTools(c, env.Storage())
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	c.Assert(inst.Status(), gc.Equals, "running")
-	err := env.StopInstances([]instance.Id{inst.Id()})
+	err := env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -274,7 +274,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	id1 := inst1.Id()
 	c.Logf("id0: %s, id1: %s", id0, id1)
 	defer func() {
-		err := env.StopInstances([]instance.Id{inst0.Id(), inst1.Id()})
+		err := env.StopInstances(inst0.Id(), inst1.Id())
 		c.Assert(err, gc.IsNil)
 	}()
 

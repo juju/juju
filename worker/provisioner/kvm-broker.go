@@ -105,7 +105,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (insta
 }
 
 // StopInstances shuts down the given instances.
-func (broker *kvmBroker) StopInstances(ids []instance.Id) error {
+func (broker *kvmBroker) StopInstances(ids ...instance.Id) error {
 	// TODO: potentially parallelise.
 	for _, id := range ids {
 		kvmLogger.Infof("stopping kvm container for instance: %s", id)

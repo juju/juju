@@ -52,7 +52,7 @@ type InstanceBroker interface {
 
 	// StopInstances shuts down the instances with the specified IDs.
 	// Unknown instance IDs are ignored, to enable idempotency.
-	StopInstances([]instance.Id) error
+	StopInstances(...instance.Id) error
 
 	// AllInstances returns all instances currently known to the broker.
 	AllInstances() ([]instance.Instance, error)

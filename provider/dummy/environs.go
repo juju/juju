@@ -829,7 +829,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	return i, hc, networkInfo, nil
 }
 
-func (e *environ) StopInstances(ids []instance.Id) error {
+func (e *environ) StopInstances(ids ...instance.Id) error {
 	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err

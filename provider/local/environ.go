@@ -354,7 +354,7 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 }
 
 // StopInstances is specified in the InstanceBroker interface.
-func (env *localEnviron) StopInstances(ids []instance.Id) error {
+func (env *localEnviron) StopInstances(ids ...instance.Id) error {
 	for _, id := range ids {
 		if id == bootstrapInstanceId {
 			return fmt.Errorf("cannot stop the bootstrap instance")
