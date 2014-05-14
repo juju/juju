@@ -44,9 +44,9 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 }
 
 func verifyRsyslogCACert(c *gc.C, st *apirsyslog.State, expected string) {
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.GetRsyslogConfig()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cfg.RsyslogCACert(), gc.DeepEquals, expected)
+	c.Assert(cfg.CACert, gc.DeepEquals, expected)
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
