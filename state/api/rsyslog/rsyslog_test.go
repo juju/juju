@@ -50,7 +50,7 @@ func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
 	hostPort := cfg.HostPorts[0]
 	c.Assert(hostPort.Address.Value, gc.Equals, "0.1.2.3")
 
-	// the rsyslog port is set by the provider/environ/provider.go
+	// the rsyslog port is set by the provider/dummy/environs.go
 	c.Assert(hostPort.Port, gc.Equals, 2345)
 }
 
