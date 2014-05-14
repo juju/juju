@@ -104,6 +104,13 @@ make check
 EOT
 EXIT_STATUS=$?
 
+ssh "$@" $remote_user@$instance_name <<EOT
+rm -r /tmp/adduser-*
+rm -r /tmp/go-*
+rm -r /tmp/gocheck-*
+rm -r /tmp/juju-*
+rm -r /tmp/test-*
+EOT
 
 # Capture the jujud to make a tool.
 version=$(echo $juju_version | cut -d _ -f2)
