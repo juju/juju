@@ -382,6 +382,10 @@ func (a *MachineAgent) updateSupportedContainers(
 	if err := machine.SetSupportedContainers(containers...); err != nil {
 		return fmt.Errorf("setting supported containers for %s: %v", tag, err)
 	}
+	initLock, err := hookExecutionLock(agentConfig.DataDir())
+	if err != nil {
+		return err
+	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
 	handler := provisioner.NewContainerSetupHandler(
@@ -391,6 +395,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		machine,
 		pr,
 		agentConfig,
+		initLock,
 	)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil

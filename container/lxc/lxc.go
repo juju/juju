@@ -269,9 +269,9 @@ func mountHostLogDir(name, logDir string) error {
 	return appendToContainerConfig(name, line)
 }
 
-func (manager *containerManager) DestroyContainer(instance instance.Instance) error {
+func (manager *containerManager) DestroyContainer(id instance.Id) error {
 	start := time.Now()
-	name := string(instance.Id())
+	name := string(id)
 	lxcContainer := LxcObjectFactory.New(name)
 	if useRestartDir() {
 		// Remove the autostart link.

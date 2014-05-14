@@ -29,7 +29,6 @@ func (c *GetCommand) Info() *cmd.Info {
 }
 
 func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	// TODO(dfc) add json formatting ?
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
@@ -37,9 +36,6 @@ func (c *GetCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *GetCommand) Init(args []string) error {
-	if err := c.EnvCommandBase.EnsureEnvName(); err != nil {
-		return err
-	}
 	// TODO(dfc) add --schema-only
 	if len(args) == 0 {
 		return errors.New("no service name specified")

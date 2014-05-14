@@ -17,6 +17,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/instance"
@@ -31,7 +32,7 @@ import (
 
 func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
-	code = cmd.Main(&StatusCommand{}, ctx, args)
+	code = cmd.Main(envcmd.Wrap(&StatusCommand{}), ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
 	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
 	return

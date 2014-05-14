@@ -274,7 +274,7 @@ func (s *LxcSuite) TestContainerState(c *gc.C) {
 
 	// DestroyContainer stops and then destroys the container, putting it
 	// into "unknown" state.
-	err := manager.DestroyContainer(instance)
+	err := manager.DestroyContainer(instance.Id())
 	c.Assert(err, gc.IsNil)
 	c.Assert(instance.Status(), gc.Equals, string(golxc.StateUnknown))
 }
@@ -283,7 +283,7 @@ func (s *LxcSuite) TestDestroyContainer(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 
-	err := manager.DestroyContainer(instance)
+	err := manager.DestroyContainer(instance.Id())
 	c.Assert(err, gc.IsNil)
 
 	name := string(instance.Id())
@@ -302,7 +302,7 @@ func (s *LxcSuite) TestDestroyContainerNameClash(c *gc.C) {
 	err := os.MkdirAll(targetDir, 0755)
 	c.Assert(err, gc.IsNil)
 
-	err = manager.DestroyContainer(instance)
+	err = manager.DestroyContainer(instance.Id())
 	c.Assert(err, gc.IsNil)
 
 	// Check that the container dir is no longer in the container dir
@@ -368,7 +368,7 @@ lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
 func (s *LxcSuite) TestDestroyContainerRemovesAutostartLink(c *gc.C) {
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
-	err := manager.DestroyContainer(instance)
+	err := manager.DestroyContainer(instance.Id())
 	c.Assert(err, gc.IsNil)
 	autostartLink := lxc.RestartSymlink(string(instance.Id()))
 	c.Assert(autostartLink, jc.SymlinkDoesNotExist)
@@ -380,7 +380,7 @@ func (s *LxcSuite) TestDestroyContainerNoRestartDir(c *gc.C) {
 
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
-	err = manager.DestroyContainer(instance)
+	err = manager.DestroyContainer(instance.Id())
 	c.Assert(err, gc.IsNil)
 }
 

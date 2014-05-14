@@ -28,9 +28,6 @@ func (c *RetryProvisioningCommand) Info() *cmd.Info {
 }
 
 func (c *RetryProvisioningCommand) Init(args []string) error {
-	if err := c.EnsureEnvName(); err != nil {
-		return err
-	}
 	if len(args) == 0 {
 		return fmt.Errorf("no machine specified")
 	}

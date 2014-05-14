@@ -434,7 +434,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	defer func() {
 		if err != nil {
-			if err := environ.releaseInstance(inst); err != nil {
+			if err := environ.StopInstances(inst.Id()); err != nil {
 				logger.Errorf("error releasing failed instance: %v", err)
 			}
 		}
@@ -546,32 +546,18 @@ EOF
 }
 
 // StopInstances is specified in the InstanceBroker interface.
-func (environ *maasEnviron) StopInstances(instances []instance.Instance) error {
+func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
-	if len(instances) == 0 {
+	if len(ids) == 0 {
 		return nil
 	}
-	// Tell MAAS to release each of the instances.  If there are errors,
-	// return only the first one (but release all instances regardless).
-	// Note that releasing instances also turns them off.
-	var firstErr error
-	for _, instance := range instances {
-		err := environ.releaseInstance(instance)
-		if firstErr == nil {
-			firstErr = err
-		}
-	}
-	return firstErr
-}
-
-// releaseInstance releases a single instance.
-func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
-	maasInst := inst.(*maasInstance)
-	maasObj := maasInst.maasObject
-	_, err := maasObj.CallPost("release", nil)
-	if err != nil {
-		logger.Debugf("error releasing instance %v", maasInst)
-	}
+	// TODO(axw) 2014-05-13 #1319016
+	// Nodes that have been removed out of band will cause
+	// the release call to fail. We should parse the error
+	// returned from MAAS and retry, or otherwise request
+	// an enhancement to MAAS to ignore unknown node IDs.
+	nodes := environ.getMAASClient().GetSubObject("nodes")
+	_, err := nodes.CallPost("release", getSystemIdValues("nodes", ids))
 	return err
 }
 
@@ -580,7 +566,7 @@ func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 // "ids" matches all instances (not none as you might expect).
 func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
-	filter := getSystemIdValues(ids)
+	filter := getSystemIdValues("id", ids)
 	filter.Add("agent_name", environ.ecfg().maasAgentName())
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {

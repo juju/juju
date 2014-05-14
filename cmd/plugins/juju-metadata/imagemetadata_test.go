@@ -15,6 +15,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -116,7 +117,7 @@ const (
 func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{
+		envcmd.Wrap(&ImageMetadataCommand{}), ctx, []string{
 			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint", "-s", "raring"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
@@ -130,7 +131,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
 func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{
+		envcmd.Wrap(&ImageMetadataCommand{}), ctx, []string{
 			"-d", s.dir, "-i", "1234", "-r", "region", "-u", "endpoint", "-s", "raring"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
@@ -144,7 +145,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{
+		envcmd.Wrap(&ImageMetadataCommand{}), ctx, []string{
 			"-d", s.dir, "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
@@ -158,7 +159,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-d", s.dir, "-e", "ec2", "-i", "1234"})
+		envcmd.Wrap(&ImageMetadataCommand{}), ctx, []string{"-d", s.dir, "-e", "ec2", "-i", "1234"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
 	expected := expectedMetadata{
@@ -173,7 +174,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnv(c *gc.C) {
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{
+		envcmd.Wrap(&ImageMetadataCommand{}), ctx, []string{
 			"-d", s.dir, "-e", "ec2", "-r", "us-west-1", "-u", "https://ec2.us-west-1.amazonaws.com", "-i", "1234"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
@@ -189,7 +190,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithRegionOverride(c 
 func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvWithNoHasRegion(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{
+		envcmd.Wrap(&ImageMetadataCommand{}), ctx, []string{
 			"-d", s.dir, "-e", "azure", "-r", "region", "-u", "endpoint", "-i", "1234"})
 	c.Assert(code, gc.Equals, 0)
 	out := testing.Stdout(ctx)
@@ -234,7 +235,7 @@ func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
 	for i, t := range errTests {
 		c.Logf("test: %d", i)
 		ctx := testing.Context(c)
-		code := cmd.Main(&ImageMetadataCommand{}, ctx, t.args)
+		code := cmd.Main(envcmd.Wrap(&ImageMetadataCommand{}), ctx, t.args)
 		c.Check(code, gc.Equals, 1)
 	}
 }

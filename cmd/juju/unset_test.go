@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -77,7 +78,7 @@ func (s *UnsetSuite) TestUnsetOptionFail(c *gc.C) {
 // assertUnsetSuccess unsets configuration options and checks the expected settings.
 func assertUnsetSuccess(c *gc.C, dir string, svc *state.Service, args []string, expect charm.Settings) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(&UnsetCommand{}, ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(envcmd.Wrap(&UnsetCommand{}), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Equals, 0)
 	settings, err := svc.ConfigSettings()
 	c.Assert(err, gc.IsNil)
@@ -87,7 +88,7 @@ func assertUnsetSuccess(c *gc.C, dir string, svc *state.Service, args []string, 
 // assertUnsetFail unsets configuration options and checks the expected error.
 func assertUnsetFail(c *gc.C, dir string, args []string, err string) {
 	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(&UnsetCommand{}, ctx, append([]string{"dummy-service"}, args...))
+	code := cmd.Main(envcmd.Wrap(&UnsetCommand{}), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Not(gc.Equals), 0)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, err)
 }
