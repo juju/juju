@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/rsyslog"
 
-	//statetesting "launchpad.net/juju-core/state/testing"
+	statetesting "launchpad.net/juju-core/state/testing"
 )
 
 type rsyslogSuite struct {
@@ -43,9 +43,9 @@ func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
 }
 
 func (s *rsyslogSuite) TestWatchForRsyslogChanges(c *gc.C) {
-	//w, err := s.rsyslog.WatchForRsyslogChanges(s.machine.Tag())
-	//c.Assert(err, gc.IsNil)
-	//defer statetesting.AssertStop(c, w)
+	w, err := s.rsyslog.WatchForRsyslogChanges(s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, w)
 }
 
 // SetRsyslogCACert is tested in state/apiserver/rsyslog
