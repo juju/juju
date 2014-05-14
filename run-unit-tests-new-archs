@@ -35,6 +35,7 @@ fi
 # Define common vars for remote scripts; do not make them evalaute
 # what is known in this script to ensure the logs line order is sane.
 afact='lastSuccessfulBuild/artifact'
+test -f buildvars.bash && rm buildvars.bash
 wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
 echo "Testing $BRANCH $REVNO"

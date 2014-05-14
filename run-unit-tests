@@ -6,6 +6,7 @@ export INSTANCE_TYPE=$1
 export AMI_IMAGE=$2
 
 afact='lastSuccessfulBuild/artifact'
+test -f buildvars.bash && rm buildvars.bash
 wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
 echo "Testing $BRANCH $REVNO"
