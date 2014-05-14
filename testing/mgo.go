@@ -155,6 +155,7 @@ func (inst *MgoInstance) run() error {
 		"--noprealloc",
 		"--smallfiles",
 		"--nojournal",
+		"--nohttpinterface",
 		"--nounixsocket",
 		"--oplogSize", "10",
 		"--keyFile", filepath.Join(inst.dir, "keyfile"),
