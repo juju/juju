@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/rsyslog"
-	"launchpad.net/juju-core/version"
 
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -64,11 +63,9 @@ func (s *rsyslogSuite) TestWatchForRsyslogChanges(c *gc.C) {
 	// Initial event
 	wc.AssertOneChange()
 
-	// make an environ config change
-	cur := version.Current.Number
-	newVersion := cur
-	newVersion.Minor += 1
-	err = statetesting.SetAgentVersion(s.State, newVersion)
+	// change the API HostPorts
+	newHostPorts := instance.AddressesWithPort(instance.NewAddresses("127.0.0.1"), 6541)
+	err = s.State.SetAPIHostPorts([][]instance.HostPort{newHostPorts})
 	c.Assert(err, gc.IsNil)
 
 	// assert we get notified
