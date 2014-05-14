@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state/api/rsyslog"
 
 	statetesting "launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type rsyslogSuite struct {
@@ -37,9 +38,20 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
+	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
+	c.Assert(err, gc.IsNil)
+
 	cfg, err := s.rsyslog.GetRsyslogConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg, gc.NotNil)
+
+	c.Assert(cfg.CACert, gc.Equals, coretesting.CACert)
+	c.Assert(cfg.HostPorts, gc.HasLen, 1)
+	hostPort := cfg.HostPorts[0]
+	c.Assert(hostPort.Address.Value, gc.Equals, "0.1.2.3")
+
+	// the rsyslog port is set by the provider/environ/provider.go
+	c.Assert(hostPort.Port, gc.Equals, 2345)
 }
 
 func (s *rsyslogSuite) TestWatchForRsyslogChanges(c *gc.C) {

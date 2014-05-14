@@ -4,8 +4,6 @@
 package rsyslog
 
 import (
-	"fmt"
-
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -76,12 +74,10 @@ func (api *RsyslogAPI) GetRsyslogConfig() (params.RsyslogConfigResult, error) {
 }
 
 func (api *RsyslogAPI) WatchForRsyslogChanges(args params.Entities) (params.NotifyWatchResults, error) {
-	fmt.Printf("on server, WatchFor")
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	for i, agent := range args.Entities {
-		fmt.Printf("in for loop")
 		err := common.ErrPerm
 		if api.authorizer.AuthOwner(agent.Tag) {
 			watch := api.st.WatchForEnvironConfigChanges()
