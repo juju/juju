@@ -187,6 +187,10 @@ func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
 
 func (s *RsyslogSuite) TestNamespace(c *gc.C) {
 	st := s.st
+	// set the rsyslog cert
+	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
+	c.Assert(err, gc.IsNil)
+
 	// namespace only takes effect in filenames
 	// for machine-0; all others assume isolation.
 	s.testNamespace(c, st, "machine-0", "", "25-juju.conf", *rsyslog.LogDir)
@@ -209,19 +213,23 @@ func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag, namespace, exp
 
 	err := os.MkdirAll(expectedLogDir, 0755)
 	c.Assert(err, gc.IsNil)
-	err = s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
-	c.Assert(err, gc.IsNil)
 	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, tag, namespace, []string{"0.1.2.3"})
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	// Ensure that ca-cert.pem gets written to the expected log dir.
-	waitForFile(c, filepath.Join(expectedLogDir, "ca-cert.pem"))
+	// change the API HostPorts to trigger an rsyslog restart
+	newHostPorts := instance.AddressesWithPort(instance.NewAddresses("127.0.0.1"), 6541)
+	err = s.State.SetAPIHostPorts([][]instance.HostPort{newHostPorts})
+	c.Assert(err, gc.IsNil)
 
 	// Wait for rsyslog to be restarted, so we can check to see
 	// what the name of the config file is.
 	waitForRestart(c, restarted)
+
+	// Ensure that ca-cert.pem gets written to the expected log dir.
+	waitForFile(c, filepath.Join(expectedLogDir, "ca-cert.pem"))
+
 	dir, err := os.Open(*rsyslog.RsyslogConfDir)
 	c.Assert(err, gc.IsNil)
 	names, err := dir.Readdirnames(-1)

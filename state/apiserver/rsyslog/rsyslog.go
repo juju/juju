@@ -77,9 +77,9 @@ func (api *RsyslogAPI) WatchForRsyslogChanges(args params.Entities) (params.Noti
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	for i, agent := range args.Entities {
+	for i := range args.Entities {
 		err := common.ErrPerm
-		if api.authorizer.AuthOwner(agent.Tag) {
+		if api.authorizer.AuthMachineAgent() {
 			watch := api.st.WatchAPIHostPorts()
 			// Consume the initial event. Technically, API
 			// calls to Watch 'transmit' the initial event
