@@ -66,8 +66,9 @@ machines provisioned with add-unit will use the same constraints (unless changed
 by set-constraints).
 
 Charms can be deployed to a specific machine using the --to argument.
-If the destination is an LXC container, as of trusty, the default is
-to use lxc-clone to create the container. A 'template' container is
+If the destination is an LXC container the default is to use lxc-clone
+to create the container where possible. For Ubuntu deployments, lxc-clone
+is supported for the trusty OS series and later. A 'template' container is
 created with the name
   juju-<series>-template
 where <series> is the OS series, for example 'juju-trusty-template'.
@@ -77,16 +78,16 @@ You can override the use of clone by changing the provider configuration:
 
 If you have the main container directory mounted on a btrfs partition,
 then the clone will be using btrfs snapshots to create the containers.
-This means that the clones use up much less disk space.  If you do not have btrfs,
-lxc will attempt to use aufs (which is an overlay type filesystem). You can
+This means that clones use up much less disk space.  If you do not have btrfs,
+lxc will attempt to use aufs (an overlay type filesystem). You can
 explicitly ask Juju to create full containers and not overlays by specifying
 the following in the provider configuration:
   lxc-clone-aufs: false
 
 Examples:
-   juju deploy mysql --to 23       (Deploy to machine 23)
-   juju deploy mysql --to 24/lxc/3 (Deploy to lxc container 3 on host machine 24)
-   juju deploy mysql --to lxc:25   (Deploy to a new lxc container on host machine 25)
+   juju deploy mysql --to 23       (deploy to machine 23)
+   juju deploy mysql --to 24/lxc/3 (deploy to lxc container 3 on host machine 24)
+   juju deploy mysql --to lxc:25   (deploy to a new lxc container on host machine 25)
    
    juju deploy mysql -n 5 --constraints mem=8G (deploy 5 instances of mysql with at least 8 GB of RAM each)
 
