@@ -24,6 +24,9 @@ type RsyslogAPI struct {
 
 // NewRsyslogAPI creates a new instance of the Rsyslog API.
 func NewRsyslogAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*RsyslogAPI, error) {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
+		return nil, common.ErrPerm
+	}
 	// Can always watch for environ changes.
 	getCanWatch := common.AuthAlways(true)
 	// Does not get the secrets.

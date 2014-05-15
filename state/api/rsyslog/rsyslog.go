@@ -55,7 +55,6 @@ func (st *State) WatchForRsyslogChanges(agentTag string) (watcher.NotifyWatcher,
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	fmt.Printf("tag: %s", agentTag)
 
 	err := st.caller.Call(rsyslogAPI, "", "WatchForRsyslogChanges", args, &results)
 	if err != nil {

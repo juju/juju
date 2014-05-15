@@ -36,6 +36,7 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		LoggedIn:       true,
 		EnvironManager: true,
+		MachineAgent:   true,
 	}
 	s.resources = common.NewResources()
 	api, err := rsyslog.NewRsyslogAPI(s.State, s.resources, s.authorizer)
@@ -96,4 +97,23 @@ func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	// Verify no change was effected.
 	verifyRsyslogCACert(c, unitState.Rsyslog(), "")
+}
+
+func (s *rsyslogSuite) TestUpgraderAPIAllowsUnitAgent(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.UnitAgent = true
+	anAuthorizer.MachineAgent = false
+	anUpgrader, err := rsyslog.NewRsyslogAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, gc.IsNil)
+	c.Check(anUpgrader, gc.NotNil)
+}
+
+func (s *rsyslogSuite) TestUpgraderAPIRefusesNonUnitNonMachineAgent(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.UnitAgent = false
+	anAuthorizer.MachineAgent = false
+	anUpgrader, err := rsyslog.NewRsyslogAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, gc.NotNil)
+	c.Check(anUpgrader, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

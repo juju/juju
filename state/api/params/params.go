@@ -681,8 +681,7 @@ type SetRsyslogCertParams struct {
 	CACert []byte
 }
 
-// RsyslogConfigResult holds the result of an GetRsyslogConfig
-// call.
+// RsyslogConfigResult holds the result of a GetRsyslogConfig call.
 type RsyslogConfigResult struct {
 	CACert    string
 	Port      int
