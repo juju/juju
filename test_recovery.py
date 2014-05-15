@@ -179,11 +179,11 @@ def main():
         log_host = bootstrap_host
         try:
             instance_id = deploy_stack(env, args.charm_prefix)
-            if args.strategy.startswith('ha'):
+            if args.strategy in ('ha', 'ha-backup'):
                 env.juju('ensure-availability', '-n', '3')
                 wait_for_ha(env)
                 log_host = get_machine_dns_name(env, 3)
-            if args.strategy.endswith('backup'):
+            if args.strategy in ('ha-backup', 'backup'):
                 backup_file = backup_state_server(env)
                 restore_present_state_server(env, backup_file)
                 log_host = None
