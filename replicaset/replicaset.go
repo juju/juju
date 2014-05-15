@@ -28,6 +28,7 @@ var logger = loggo.GetLogger("juju.replicaset")
 // details.
 func Initiate(session *mgo.Session, address, name string, tags map[string]string) error {
 	monotonicSession := session.Clone()
+	defer monotonicSession.Close()
 	monotonicSession.SetMode(mgo.Monotonic, true)
 	cfg := Config{
 		Name:    name,
@@ -276,6 +277,7 @@ func CurrentMembers(session *mgo.Session) ([]Member, error) {
 func CurrentConfig(session *mgo.Session) (*Config, error) {
 	cfg := &Config{}
 	monotonicSession := session.Clone()
+	defer monotonicSession.Close()
 	monotonicSession.SetMode(mgo.Monotonic, true)
 	err := monotonicSession.DB("local").C("system.replset").Find(nil).One(cfg)
 	if err == mgo.ErrNotFound {
