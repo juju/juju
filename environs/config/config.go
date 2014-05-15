@@ -258,6 +258,16 @@ func (cfg *Config) processDeprecatedAttributes() {
 	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
 	// we still want it in the config for upgrades.
 	cfg.defined["tools-url"], _ = cfg.ToolsURL()
+
+	// Copy across lxc-use-clone to lxc-clone.
+	if lxcUseClone, ok := cfg.defined["lxc-use-clone"]; ok {
+		_, newValSpecified := cfg.LXCUseClone()
+		// Ensure the new attribute name "lxc-clone" is set.
+		if !newValSpecified {
+			cfg.defined["lxc-clone"] = lxcUseClone
+		}
+	}
+
 	// Update the provider type from null to manual.
 	if cfg.Type() == "null" {
 		cfg.defined["type"] = "manual"
@@ -700,9 +710,16 @@ func (c *Config) TestMode() bool {
 
 // LXCUseClone reports whether the LXC provisioner should create a
 // template and use cloning to speed up container provisioning.
-func (c *Config) LXCUseClone() bool {
-	v, _ := c.defined["lxc-use-clone"].(bool)
-	return v
+func (c *Config) LXCUseClone() (bool, bool) {
+	v, ok := c.defined["lxc-clone"].(bool)
+	return v, ok
+}
+
+// LXCUseCloneAUFS reports whether the LXC provisioner should create a
+// lxc clone using aufs if available.
+func (c *Config) LXCUseCloneAUFS() (bool, bool) {
+	v, ok := c.defined["lxc-clone-aufs"].(bool)
+	return v, ok
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes
@@ -781,10 +798,12 @@ var fields = schema.Fields{
 	"bootstrap-addresses-delay": schema.ForceInt(),
 	"test-mode":                 schema.Bool(),
 	"proxy-ssh":                 schema.Bool(),
-	"lxc-use-clone":             schema.Bool(),
+	"lxc-clone":                 schema.Bool(),
+	"lxc-clone-aufs":            schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url": schema.String(),
+	"tools-url":     schema.String(),
+	"lxc-use-clone": schema.Bool(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -815,9 +834,11 @@ var alwaysOptional = schema.Defaults{
 	"apt-http-proxy":            schema.Omit,
 	"apt-https-proxy":           schema.Omit,
 	"apt-ftp-proxy":             schema.Omit,
+	"lxc-clone":                 schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url": "",
+	"tools-url":     "",
+	"lxc-use-clone": schema.Omit,
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being
@@ -839,10 +860,10 @@ var alwaysOptional = schema.Defaults{
 	// Authentication string sent with requests to the charm store
 	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
-	"image-stream":  "",
-	"test-mode":     false,
-	"proxy-ssh":     false,
-	"lxc-use-clone": false,
+	"image-stream":   "",
+	"test-mode":      false,
+	"proxy-ssh":      false,
+	"lxc-clone-aufs": false,
 }
 
 func allowEmpty(attr string) bool {
@@ -903,7 +924,8 @@ var immutableAttributes = []string{
 	"bootstrap-timeout",
 	"bootstrap-retry-delay",
 	"bootstrap-addresses-delay",
-	"lxc-use-clone",
+	"lxc-clone",
+	"lxc-clone-aufs",
 }
 
 var (

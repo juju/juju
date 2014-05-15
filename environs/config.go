@@ -98,6 +98,14 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 		)
 	}
 
+	// lxc-use-clone has been renamed to lxc-clone
+	if _, ok := attrs["lxc-use-clone"]; ok {
+		logger.Warningf(
+			"Config attribute \"lxc-use-clone\" has been renamed to \"lxc-clone\".\n" +
+				"Please update your environment configuration.",
+		)
+	}
+
 	cfg, err := config.New(config.UseDefaults, attrs)
 	if err != nil {
 		return nil, err

@@ -58,6 +58,68 @@ func (s *LxcSuite) TearDownTest(c *gc.C) {
 	s.TestSuite.TearDownTest(c)
 }
 
+func (t *LxcSuite) TestPreferFastLXC(c *gc.C) {
+	for i, test := range []struct {
+		message        string
+		releaseVersion string
+		expected       bool
+	}{{
+		message: "missing release file",
+	}, {
+		message:        "precise release",
+		releaseVersion: "12.04",
+	}, {
+		message:        "trusty release",
+		releaseVersion: "14.04",
+		expected:       true,
+	}, {
+		message:        "unstable unicorn",
+		releaseVersion: "14.10",
+		expected:       true,
+	}, {
+		message:        "lucid",
+		releaseVersion: "10.04",
+	}} {
+		c.Logf("%v: %v", i, test.message)
+		value := lxc.PreferFastLXC(test.releaseVersion)
+		c.Assert(value, gc.Equals, test.expected)
+	}
+}
+
+func (s *LxcSuite) TestContainerManagerLXCClone(c *gc.C) {
+	type test struct {
+		releaseVersion string
+		useClone       string
+		expectClone    bool
+	}
+	tests := []test{{
+		releaseVersion: "12.04",
+		useClone:       "true",
+		expectClone:    true,
+	}, {
+		releaseVersion: "14.04",
+		expectClone:    true,
+	}, {
+		releaseVersion: "12.04",
+		useClone:       "false",
+	}, {
+		releaseVersion: "14.04",
+		useClone:       "false",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d: %v", i, test)
+		s.PatchValue(lxc.ReleaseVersion, func() string { return test.releaseVersion })
+
+		mgr, err := lxc.NewContainerManager(container.ManagerConfig{
+			container.ConfigName: "juju",
+			"use-clone":          test.useClone,
+		})
+		c.Assert(err, gc.IsNil)
+		c.Check(lxc.GetCreateWithCloneValue(mgr), gc.Equals, test.expectClone)
+	}
+}
+
 func (s *LxcSuite) TestContainerDirFilesystem(c *gc.C) {
 	for i, test := range []struct {
 		message    string

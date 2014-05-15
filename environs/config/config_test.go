@@ -61,7 +61,8 @@ var sampleConfig = testing.Attrs{
 type configTest struct {
 	about       string
 	useDefaults config.Defaulting
-	attrs       map[string]interface{}
+	attrs       testing.Attrs
+	expected    testing.Attrs
 	err         string
 }
 
@@ -138,6 +139,33 @@ var configTests = []configTest{
 			"type":                 "my-type",
 			"name":                 "my-name",
 			"authorized-keys-path": "~/.ssh/authorized_keys2",
+		},
+	}, {
+		about:       "LXC clone values",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":           "my-type",
+			"name":           "my-name",
+			"default-series": "precise",
+			"lxc-clone":      true,
+			"lxc-clone-aufs": true,
+		},
+	}, {
+		about:       "Deprecated lxc-use-clone used",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"lxc-use-clone": true,
+		},
+	}, {
+		about:       "Deprecated lxc-use-clone ignored",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"lxc-use-clone": false,
+			"lxc-clone":     true,
 		},
 	}, {
 		about:       "CA cert & key from path",
@@ -981,6 +1009,27 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(oldURLAttrPresent, jc.IsFalse)
 		c.Assert(oldToolsURL, gc.Equals, "")
 	}
+
+	useLxcClone, useLxcClonePresent := cfg.LXCUseClone()
+	oldUseClone, oldUseClonePresent := cfg.AllAttrs()["lxc-use-clone"]
+	if v, ok := test.attrs["lxc-clone"]; ok {
+		c.Assert(useLxcClone, gc.Equals, v)
+		c.Assert(useLxcClonePresent, jc.IsTrue)
+	} else {
+		if oldUseClonePresent {
+			c.Assert(useLxcClonePresent, jc.IsTrue)
+			c.Assert(useLxcClone, gc.Equals, oldUseClone)
+		} else {
+			c.Assert(useLxcClonePresent, jc.IsFalse)
+			c.Assert(useLxcClone, gc.Equals, false)
+		}
+	}
+	useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS()
+	if v, ok := test.attrs["lxc-clone-aufs"]; ok {
+		c.Assert(useLxcCloneAufs, gc.Equals, v)
+	} else {
+		c.Assert(useLxcCloneAufs, gc.Equals, false)
+	}
 }
 
 func (test configTest) assertDuration(c *gc.C, name string, actual time.Duration, defaultInSeconds int) {
@@ -1028,7 +1077,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["tools-url"] = ""
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false
-	attrs["lxc-use-clone"] = false
+	attrs["lxc-clone-aufs"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1112,10 +1161,15 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"bootstrap-timeout": 5},
 	err:   `cannot change bootstrap-timeout from 600 to 5`,
 }, {
-	about: "Cannot change lxc-use-clone",
-	old:   testing.Attrs{"lxc-use-clone": false},
-	new:   testing.Attrs{"lxc-use-clone": true},
-	err:   `cannot change lxc-use-clone from false to true`,
+	about: "Cannot change lxc-clone",
+	old:   testing.Attrs{"lxc-clone": false},
+	new:   testing.Attrs{"lxc-clone": true},
+	err:   `cannot change lxc-clone from false to true`,
+}, {
+	about: "Cannot change lxc-clone-aufs",
+	old:   testing.Attrs{"lxc-clone-aufs": false},
+	new:   testing.Attrs{"lxc-clone-aufs": true},
+	err:   `cannot change lxc-clone-aufs from false to true`,
 }}
 
 func (*ConfigSuite) TestValidateChange(c *gc.C) {
@@ -1131,9 +1185,9 @@ func (*ConfigSuite) TestValidateChange(c *gc.C) {
 		oldConfig := newTestConfig(c, test.old)
 		err := config.Validate(newConfig, oldConfig)
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 		} else {
-			c.Assert(err, gc.ErrorMatches, test.err)
+			c.Check(err, gc.ErrorMatches, test.err)
 		}
 	}
 }
