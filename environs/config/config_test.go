@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -27,14 +26,14 @@ func Test(t *stdtesting.T) {
 }
 
 type ConfigSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	home string
 }
 
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which
 	// is <root>=WARNING
 	loggo.ResetLoggers()
@@ -696,7 +695,7 @@ type testFile struct {
 	name, data string
 }
 
-func (*ConfigSuite) TestConfig(c *gc.C) {
+func (s *ConfigSuite) TestConfig(c *gc.C) {
 	files := []testing.TestFile{
 		{".ssh/id_dsa.pub", "dsa"},
 		{".ssh/id_rsa.pub", "rsa\n"},
@@ -711,11 +710,10 @@ func (*ConfigSuite) TestConfig(c *gc.C) {
 		{"othercert.pem", caCert3},
 		{"otherkey.pem", caKey3},
 	}
-	h := testing.MakeFakeHomeWithFiles(c, files)
-	defer h.Restore()
+	s.BaseSuite.Home.AddFiles(c, files...)
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
-		test.check(c, h)
+		test.check(c, s.BaseSuite.Home)
 	}
 }
 
@@ -741,12 +739,10 @@ var noCertFilesTests = []configTest{
 	},
 }
 
-func (*ConfigSuite) TestConfigNoCertFiles(c *gc.C) {
-	h := testing.MakeEmptyFakeHome(c)
-	defer h.Restore()
+func (s *ConfigSuite) TestConfigNoCertFiles(c *gc.C) {
 	for i, test := range noCertFilesTests {
 		c.Logf("test %d. %s", i, test.about)
-		test.check(c, h)
+		test.check(c, s.BaseSuite.Home)
 	}
 }
 
@@ -803,17 +799,16 @@ var emptyCertFilesTests = []configTest{
 	}, */
 }
 
-func (*ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
+func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 	files := []testing.TestFile{
 		{".juju/my-name-cert.pem", ""},
 		{".juju/my-name-private-key.pem", ""},
 	}
-	h := testing.MakeFakeHomeWithFiles(c, files)
-	defer h.Restore()
+	s.BaseSuite.Home.AddFiles(c, files...)
 
 	for i, test := range emptyCertFilesTests {
 		c.Logf("test %d. %s", i, test.about)
-		test.check(c, h)
+		test.check(c, s.BaseSuite.Home)
 	}
 }
 
@@ -1118,12 +1113,11 @@ var validationTests = []validationTest{{
 	err:   `cannot change lxc-use-clone from false to true`,
 }}
 
-func (*ConfigSuite) TestValidateChange(c *gc.C) {
+func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	files := []testing.TestFile{
 		{".ssh/identity.pub", "identity"},
 	}
-	h := testing.MakeFakeHomeWithFiles(c, files)
-	defer h.Restore()
+	s.BaseSuite.Home.AddFiles(c, files...)
 
 	for i, test := range validationTests {
 		c.Logf("test %d: %s", i, test.about)
@@ -1138,16 +1132,16 @@ func (*ConfigSuite) TestValidateChange(c *gc.C) {
 	}
 }
 
-func makeFakeHome(c *gc.C) *testing.FakeHome {
-	return testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
+func (s *ConfigSuite) addJujuFiles(c *gc.C) {
+	s.BaseSuite.Home.AddFiles(c, []testing.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
 		{".juju/myenv-cert.pem", caCert},
 		{".juju/myenv-private-key.pem", caKey},
-	})
+	}...)
 }
 
-func (*ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
-	defer makeFakeHome(c).Restore()
+func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
+	s.addJujuFiles(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":    "myenv",
 		"type":    "other",
@@ -1199,32 +1193,30 @@ func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {
 	return result
 }
 
-func (*ConfigSuite) TestLoggingConfig(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestLoggingConfig(c *gc.C) {
+	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{
 		"logging-config": "<root>=WARNING;juju=DEBUG"})
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING;juju=DEBUG;unit=DEBUG")
 }
 
-func (*ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
+	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{
 		"logging-config": "<root>=WARNING;unit=INFO"})
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING;unit=INFO")
 }
 
 func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
-	defer makeFakeHome(c).Restore()
+	s.addJujuFiles(c)
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "<root>=INFO")
 
 	config := newTestConfig(c, nil)
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;unit=DEBUG")
 }
 
-func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
-	defer makeFakeHome(c).Restore()
+func (s *ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
+	s.addJujuFiles(c)
 
 	config := newTestConfig(c, testing.Attrs{
 		"http-proxy":  "http://user@10.0.0.1",
@@ -1241,9 +1233,8 @@ func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
-func (*ConfigSuite) TestProxyValues(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestProxyValues(c *gc.C) {
+	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{
 		"http-proxy":      "http://user@10.0.0.1",
 		"https-proxy":     "https://user@10.0.0.1",
@@ -1260,9 +1251,8 @@ func (*ConfigSuite) TestProxyValues(c *gc.C) {
 	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.2")
 }
 
-func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
+	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{})
 	c.Assert(config.HttpProxy(), gc.Equals, "")
 	c.Assert(config.AptHttpProxy(), gc.Equals, "")
@@ -1273,9 +1263,8 @@ func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	c.Assert(config.NoProxy(), gc.Equals, "")
 }
 
-func (*ConfigSuite) TestProxyConfigMap(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
+	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
 	proxy := osenv.ProxySettings{
 		Http:    "http proxy",
@@ -1291,9 +1280,8 @@ func (*ConfigSuite) TestProxyConfigMap(c *gc.C) {
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
 }
 
-func (*ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
+	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
 	proxy := osenv.ProxySettings{
 		Http:  "http proxy",
@@ -1307,12 +1295,9 @@ func (*ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
 }
 
-func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
-	// In order to test missing certs, it checks the JUJU_HOME dir, so we need
-	// a fake home.
-	defer testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
-		{".ssh/id_rsa.pub", "rsa\n"},
-	}).Restore()
+func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
+	// Add a cert.
+	s.BaseSuite.Home.AddFiles(c, testing.TestFile{".ssh/id_rsa.pub", "rsa\n"})
 
 	for _, test := range []struct {
 		configValues map[string]interface{}

@@ -676,7 +676,8 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 
 // makeEmptyFakeHome creates a faked home without envtools.
 func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
-	fake := coretesting.MakeFakeHome(c, envConfig)
+	fake := coretesting.MakeFakeHome(c)
+	coretesting.AddEnvironments(c, envConfig)
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)

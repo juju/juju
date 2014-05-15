@@ -14,16 +14,14 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 // Sadly, this is a very slow test suite, heavily dominated by calls to bzr.
 
 type PublishSuite struct {
-	testbase.LoggingSuite
+	testing.FakeJujuHomeSuite
 	testing.HTTPSuite
 
-	home       *testing.FakeHome
 	dir        string
 	oldBaseURL string
 	branch     *bzr.Branch
@@ -59,7 +57,7 @@ func (s *PublishSuite) runPublish(c *gc.C, args ...string) (*cmd.Context, error)
 const pollDelay = testing.ShortWait
 
 func (s *PublishSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 
 	s.oldBaseURL = charm.Store.BaseURL
@@ -67,16 +65,16 @@ func (s *PublishSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *PublishSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownSuite(c)
+	s.FakeJujuHomeSuite.TearDownSuite(c)
 	s.HTTPSuite.TearDownSuite(c)
 
 	charm.Store.BaseURL = s.oldBaseURL
 }
 
 func (s *PublishSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
-	s.home = testing.MakeSampleHome(c, testing.TestFile{
+	s.FakeJujuHomeSuite.Home.AddFiles(c, testing.TestFile{
 		Name: ".bazaar/bazaar.conf",
 		Data: "[DEFAULT]\nemail = Test <testing@testing.invalid>\n",
 	})
@@ -88,9 +86,8 @@ func (s *PublishSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *PublishSuite) TearDownTest(c *gc.C) {
-	s.home.Restore()
 	s.HTTPSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *PublishSuite) TestNoBranch(c *gc.C) {

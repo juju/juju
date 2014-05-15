@@ -6,4 +6,5 @@ package utils
 var (
 	GOMAXPROCS = &gomaxprocs
 	NumCPU     = &numCPU
+	Dial       = dial
 )

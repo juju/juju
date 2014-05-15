@@ -20,20 +20,12 @@ import (
 )
 
 type EnvironmentCommandSuite struct {
-	home *coretesting.FakeHome
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&EnvironmentCommandSuite{})
 
 func Test(t *testing.T) { gc.TestingT(t) }
-
-func (s *EnvironmentCommandSuite) SetUpTest(c *gc.C) {
-	s.home = coretesting.MakeEmptyFakeHome(c)
-}
-
-func (s *EnvironmentCommandSuite) TearDownTest(c *gc.C) {
-	s.home.Restore()
-}
 
 func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentUnset(c *gc.C) {
 	env := envcmd.ReadCurrentEnvironment()
@@ -100,12 +92,12 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInit(c *gc.C) {
 	c.Assert(*envName, gc.Equals, "explicit")
 
 	// Take environment name from the default.
-	defer coretesting.MakeFakeHome(c, coretesting.MultipleEnvConfig).Restore()
+	coretesting.AddEnvironments(c, coretesting.MultipleEnvConfig)
 	testEnsureEnvName(c, coretesting.SampleEnvName)
 
 	// Take environment name from the one and only environment,
 	// even if it is not explicitly marked as default.
-	defer coretesting.MakeFakeHome(c, coretesting.SingleEnvConfigNoDefault).Restore()
+	coretesting.AddEnvironments(c, coretesting.SingleEnvConfigNoDefault)
 	testEnsureEnvName(c, coretesting.SampleEnvName)
 
 	// If there is a current-environment file, use that.
@@ -120,7 +112,7 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitErrors(c *gc.C) {
 
 	// If there are multiple environments but no default,
 	// an error should be returned.
-	defer coretesting.MakeFakeHome(c, coretesting.MultipleEnvConfigNoDefault).Restore()
+	coretesting.AddEnvironments(c, coretesting.MultipleEnvConfigNoDefault)
 	cmd, _ = prepareEnvCommand(c, "")
 	err = cmd.Init(nil)
 	c.Assert(err, gc.Equals, envcmd.ErrNoEnvironmentSpecified)

@@ -79,9 +79,7 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 
 	os.Remove(jujuRun) // ignore error; may not exist
-	// Fake $HOME, and ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
-	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
-	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
+	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
 	s.PatchValue(&authenticationworker.SSHUser, "")
 
 	testpath := c.MkDir()

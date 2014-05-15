@@ -6,7 +6,10 @@ package utils
 import (
 	"crypto/tls"
 	"encoding/base64"
+	"fmt"
+	"net"
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -19,6 +22,7 @@ func init() {
 	// hit the above Go bug.
 	defaultTransport := http.DefaultTransport.(*http.Transport)
 	defaultTransport.DisableKeepAlives = true
+	defaultTransport.Dial = dial
 	registerFileProtocol(defaultTransport)
 }
 
@@ -80,6 +84,7 @@ func NewHttpTLSTransport(tlsConfig *tls.Config) *http.Transport {
 	transport := &http.Transport{
 		TLSClientConfig:   tlsConfig,
 		DisableKeepAlives: true,
+		Dial:              dial,
 	}
 	registerFileProtocol(transport)
 	return transport
@@ -98,4 +103,17 @@ func BasicAuthHeader(username, password string) http.Header {
 	return http.Header{
 		"Authorization": {encoded},
 	}
+}
+
+// OutgoingAccessAllowed determines whether connections other than
+// localhost can be dialled.
+var OutgoingAccessAllowed = true
+
+func dial(network, addr string) (net.Conn, error) {
+	parts := strings.Split(addr, ":")
+	ip := net.ParseIP(parts[0])
+	if !ip.IsLoopback() && !OutgoingAccessAllowed {
+		return nil, fmt.Errorf("access to address %q not allowed", addr)
+	}
+	return net.Dial(network, addr)
 }

@@ -15,13 +15,11 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/tools"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
 type ValidateToolsMetadataSuite struct {
-	testbase.LoggingSuite
-	home        *coretesting.FakeHome
+	coretesting.BaseSuite
 	metadataDir string
 }
 
@@ -88,16 +86,11 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, version, region,
 }
 
 func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
-	s.home = coretesting.MakeFakeHome(c, metadataTestEnvConfig)
+	s.BaseSuite.SetUpTest(c)
+	coretesting.AddEnvironments(c, metadataTestEnvConfig)
 	s.metadataDir = c.MkDir()
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
-}
-
-func (s *ValidateToolsMetadataSuite) TearDownTest(c *gc.C) {
-	s.home.Restore()
-	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *ValidateToolsMetadataSuite) setupEc2LocalMetadata(c *gc.C, region string) {

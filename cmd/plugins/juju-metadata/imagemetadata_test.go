@@ -19,26 +19,23 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ImageMetadataSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	environ []string
-	home    *testing.FakeHome
 	dir     string
 }
 
 var _ = gc.Suite(&ImageMetadataSuite{})
 
 func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.environ = os.Environ()
 }
 
 func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
-	os.Clearenv()
+	s.BaseSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 	// Create a fake certificate so azure test environment can be opened.
 	certfile, err := ioutil.TempFile(s.dir, "")
@@ -47,18 +44,9 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filename, []byte("test certificate"), 0644)
 	c.Assert(err, gc.IsNil)
 	envConfig := strings.Replace(metadataTestEnvConfig, "/home/me/azure.pem", filename, -1)
-	s.home = testing.MakeFakeHome(c, envConfig)
+	testing.AddEnvironments(c, envConfig)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
-}
-
-func (s *ImageMetadataSuite) TearDownTest(c *gc.C) {
-	for _, envstring := range s.environ {
-		kv := strings.SplitN(envstring, "=", 2)
-		os.Setenv(kv[0], kv[1])
-	}
-	s.home.Restore()
-	s.LoggingSuite.TearDownTest(c)
 }
 
 var seriesVersions map[string]string = map[string]string{
@@ -227,9 +215,8 @@ var errTests = []errTestParams{
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *gc.C) {
-	home := testing.MakeSampleHome(c)
+	testing.MakeSampleJujuHome(c)
 	s.AddCleanup(func(*gc.C) {
-		home.Restore()
 		dummy.Reset()
 	})
 	for i, t := range errTests {

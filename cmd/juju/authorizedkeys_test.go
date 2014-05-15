@@ -15,13 +15,11 @@ import (
 	keymanagerserver "launchpad.net/juju-core/state/apiserver/keymanager"
 	keymanagertesting "launchpad.net/juju-core/state/apiserver/keymanager/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
 
 type AuthorizedKeysSuite struct {
-	testbase.LoggingSuite
-	jujuHome *coretesting.FakeHome
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&AuthorizedKeysSuite{})
@@ -32,16 +30,6 @@ var authKeysCommandNames = []string{
 	"help",
 	"import",
 	"list",
-}
-
-func (s *AuthorizedKeysSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
-	s.jujuHome = coretesting.MakeEmptyFakeHome(c)
-}
-
-func (s *AuthorizedKeysSuite) TearDownTest(c *gc.C) {
-	s.jujuHome.Restore()
-	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *AuthorizedKeysSuite) TestHelpCommands(c *gc.C) {

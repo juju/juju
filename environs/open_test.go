@@ -18,18 +18,23 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type OpenSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&OpenSuite{})
 
-func (*OpenSuite) TearDownTest(c *gc.C) {
+func (s *OpenSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	testing.AddEnvironments(c, testing.MultipleEnvConfigNoDefault)
+}
+
+func (s *OpenSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (*OpenSuite) TestNewDummyEnviron(c *gc.C) {
@@ -54,7 +59,6 @@ func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 }
 
 func (*OpenSuite) TestNewFromName(c *gc.C) {
-	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
 	store := configstore.NewMem()
 	ctx := testing.Context(c)
 	e, err := environs.PrepareFromName("erewhemos", ctx, store)
@@ -66,7 +70,6 @@ func (*OpenSuite) TestNewFromName(c *gc.C) {
 }
 
 func (*OpenSuite) TestNewFromNameWithInvalidInfo(c *gc.C) {
-	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
 	store := configstore.NewMem()
 	cfg, _, err := environs.ConfigForName("erewhemos", store)
 	c.Assert(err, gc.IsNil)
@@ -86,7 +89,6 @@ func (*OpenSuite) TestNewFromNameWithInvalidInfo(c *gc.C) {
 }
 
 func (*OpenSuite) TestNewFromNameWithInvalidEnvironConfig(c *gc.C) {
-	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
 	store := configstore.NewMem()
 
 	e, err := environs.NewFromName("erewhemos", store)
@@ -95,7 +97,6 @@ func (*OpenSuite) TestNewFromNameWithInvalidEnvironConfig(c *gc.C) {
 }
 
 func (*OpenSuite) TestPrepareFromName(c *gc.C) {
-	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
 	ctx := testing.Context(c)
 	e, err := environs.PrepareFromName("erewhemos", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
@@ -105,7 +106,6 @@ func (*OpenSuite) TestPrepareFromName(c *gc.C) {
 }
 
 func (*OpenSuite) TestConfigForName(c *gc.C) {
-	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
 	cfg, source, err := environs.ConfigForName("erewhemos", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
@@ -113,7 +113,6 @@ func (*OpenSuite) TestConfigForName(c *gc.C) {
 }
 
 func (*OpenSuite) TestConfigForNameNoDefault(c *gc.C) {
-	defer testing.MakeFakeHome(c, testing.MultipleEnvConfigNoDefault, testing.SampleCertName).Restore()
 	cfg, source, err := environs.ConfigForName("", configstore.NewMem())
 	c.Assert(err, gc.ErrorMatches, "no default environment found")
 	c.Assert(cfg, gc.IsNil)
@@ -121,7 +120,7 @@ func (*OpenSuite) TestConfigForNameNoDefault(c *gc.C) {
 }
 
 func (*OpenSuite) TestConfigForNameDefault(c *gc.C) {
-	defer testing.MakeFakeHome(c, testing.SingleEnvConfig, testing.SampleCertName).Restore()
+	testing.AddEnvironments(c, testing.SingleEnvConfig)
 	cfg, source, err := environs.ConfigForName("", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.Name(), gc.Equals, "erewhemos")
@@ -129,7 +128,7 @@ func (*OpenSuite) TestConfigForNameDefault(c *gc.C) {
 }
 
 func (*OpenSuite) TestConfigForNameFromInfo(c *gc.C) {
-	defer testing.MakeFakeHome(c, testing.SingleEnvConfig, testing.SampleCertName).Restore()
+	testing.AddEnvironments(c, testing.SingleEnvConfig)
 	store := configstore.NewMem()
 	cfg, source, err := environs.ConfigForName("", store)
 	c.Assert(err, gc.IsNil)
@@ -326,17 +325,23 @@ environments:
         authorized-keys: i-am-a-key
 `
 
-type checkEnvironmentSuite struct{}
+type checkEnvironmentSuite struct {
+	testing.BaseSuite
+}
 
 var _ = gc.Suite(&checkEnvironmentSuite{})
 
+func (s *checkEnvironmentSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	testing.AddEnvironments(c, checkEnv)
+}
+
 func (s *checkEnvironmentSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *checkEnvironmentSuite) TestCheckEnvironment(c *gc.C) {
-	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
-
 	ctx := testing.Context(c)
 	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
@@ -351,8 +356,6 @@ func (s *checkEnvironmentSuite) TestCheckEnvironment(c *gc.C) {
 }
 
 func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *gc.C) {
-	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
-
 	ctx := testing.Context(c)
 	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
@@ -373,8 +376,6 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *gc.C) {
 }
 
 func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *gc.C) {
-	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
-
 	ctx := testing.Context(c)
 	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
@@ -394,8 +395,6 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *gc.C) {
 }
 
 func (s *checkEnvironmentSuite) TestCheckEnvironmentBadContent(c *gc.C) {
-	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
-
 	ctx := testing.Context(c)
 	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
