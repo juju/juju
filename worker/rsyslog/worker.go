@@ -63,8 +63,8 @@ type RsyslogConfigHandler struct {
 
 var _ worker.NotifyWatchHandler = (*RsyslogConfigHandler)(nil)
 
-// NewRsyslogConfigWorker returns a worker.Worker that watches
-// for config changes and updates rsyslog configuration based
+// NewRsyslogConfigWorker returns a worker.Worker that uses
+// WatchForRsyslogChanges and updates rsyslog configuration based
 // on changes. The worker will remove the configuration file
 // on teardown.
 func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag, namespace string, stateServerAddrs []string) (worker.Worker, error) {

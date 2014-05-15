@@ -49,7 +49,7 @@ func (st *State) SetRsyslogCert(caCert string) error {
 	return nil
 }
 
-// WatchForChanges ...
+// WatchForRsyslogChanges returns a new NotifyWatcher.
 func (st *State) WatchForRsyslogChanges(agentTag string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{

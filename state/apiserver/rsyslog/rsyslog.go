@@ -38,6 +38,7 @@ func NewRsyslogAPI(st *state.State, resources *common.Resources, authorizer comm
 	}, nil
 }
 
+// SetRsyslogCert sets the rsyslog CACert.
 func (api *RsyslogAPI) SetRsyslogCert(args params.SetRsyslogCertParams) (params.ErrorResult, error) {
 	var result params.ErrorResult
 	if !api.canModify {
@@ -55,6 +56,7 @@ func (api *RsyslogAPI) SetRsyslogCert(args params.SetRsyslogCertParams) (params.
 	return result, nil
 }
 
+// GetRsyslogConfig returns a RsyslogConfigResult.
 func (api *RsyslogAPI) GetRsyslogConfig() (params.RsyslogConfigResult, error) {
 	cfg, err := api.st.EnvironConfig()
 	if err != nil {
@@ -73,6 +75,8 @@ func (api *RsyslogAPI) GetRsyslogConfig() (params.RsyslogConfigResult, error) {
 	}, nil
 }
 
+// WatchForRsyslogChanges starts a watcher to track if there are changes
+// that require we update the rsyslog.d configurations for a machine and/or unit.
 func (api *RsyslogAPI) WatchForRsyslogChanges(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
