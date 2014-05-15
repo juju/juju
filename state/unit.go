@@ -322,12 +322,13 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ServiceName())
+	cleanupOp := u.st.newCleanupOp("dyingUnit", u.doc.Name)
 	setDyingOps := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}, minUnitsOp}
+	}, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
 	} else if len(u.doc.Subordinates) != 0 {

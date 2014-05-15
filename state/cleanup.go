@@ -55,6 +55,8 @@ func (st *State) Cleanup() error {
 			err = st.cleanupSettings(doc.Prefix)
 		case "units":
 			err = st.cleanupUnits(doc.Prefix)
+		case "dyingUnit":
+			err = st.cleanupDyingUnit(doc.Prefix)
 		case "services":
 			err = st.cleanupServices()
 		case "machine":
@@ -132,6 +134,34 @@ func (st *State) cleanupUnits(prefix string) error {
 	}
 	if err := iter.Err(); err != nil {
 		return fmt.Errorf("cannot read unit document: %v", err)
+	}
+	return nil
+}
+
+// cleanupDyingUnit marks the unit as departing from all its joined relations,
+// allowing related units to start converging to a state in which that unit is
+// gone as quickly as possible.
+func (st *State) cleanupDyingUnit(name string) error {
+	unit, err := st.Unit(name)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	relations, err := unit.JoinedRelations()
+	if err != nil {
+		return err
+	}
+	for _, relation := range relations {
+		relationUnit, err := relation.Unit(unit)
+		if errors.IsNotFound(err) {
+			return nil
+		} else if err != nil {
+			return err
+		}
+		if err := relationUnit.PrepareLeaveScope(); err != nil {
+			return err
+		}
 	}
 	return nil
 }
