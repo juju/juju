@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
@@ -236,13 +236,13 @@ func (h *charmsHandler) processUploadedArchive(path string) error {
 	}
 	zipr, err := zip.NewReader(f, fi.Size())
 	if err != nil {
-		return errgo.Annotate(err, "cannot open charm archive")
+		return errors.Annotate(err, "cannot open charm archive")
 	}
 
 	// Find out the root dir prefix from the archive.
 	rootDir, err := h.findArchiveRootDir(zipr)
 	if err != nil {
-		return errgo.Annotate(err, "cannot read charm archive")
+		return errors.Annotate(err, "cannot read charm archive")
 	}
 	if rootDir == "." {
 		// Normal charm, just use charm.ReadBundle().
@@ -253,15 +253,15 @@ func (h *charmsHandler) processUploadedArchive(path string) error {
 	// dir and then read it as a charm dir.
 	tempDir, err := ioutil.TempDir("", "charm-extract")
 	if err != nil {
-		return errgo.Annotate(err, "cannot create temp directory")
+		return errors.Annotate(err, "cannot create temp directory")
 	}
 	defer os.RemoveAll(tempDir)
 	if err := ziputil.Extract(zipr, tempDir, rootDir); err != nil {
-		return errgo.Annotate(err, "cannot extract charm archive")
+		return errors.Annotate(err, "cannot extract charm archive")
 	}
 	dir, err := charm.ReadDir(tempDir)
 	if err != nil {
-		return errgo.Annotate(err, "cannot read extracted archive")
+		return errors.Annotate(err, "cannot read extracted archive")
 	}
 
 	// Now repackage the dir as a bundle at the original path.
@@ -313,25 +313,25 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	// dir and the repackaged archive.
 	tempDir, err := ioutil.TempDir("", "charm-download")
 	if err != nil {
-		return errgo.Annotate(err, "cannot create temp directory")
+		return errors.Annotate(err, "cannot create temp directory")
 	}
 	defer os.RemoveAll(tempDir)
 	extractPath := filepath.Join(tempDir, "extracted")
 	repackagedPath := filepath.Join(tempDir, "repackaged.zip")
 	repackagedArchive, err := os.Create(repackagedPath)
 	if err != nil {
-		return errgo.Annotate(err, "cannot repackage uploaded charm")
+		return errors.Annotate(err, "cannot repackage uploaded charm")
 	}
 	defer repackagedArchive.Close()
 
 	// Expand and repack it with the revision specified by curl.
 	archive.SetRevision(curl.Revision)
 	if err := archive.ExpandTo(extractPath); err != nil {
-		return errgo.Annotate(err, "cannot extract uploaded charm")
+		return errors.Annotate(err, "cannot extract uploaded charm")
 	}
 	charmDir, err := charm.ReadDir(extractPath)
 	if err != nil {
-		return errgo.Annotate(err, "cannot read extracted charm")
+		return errors.Annotate(err, "cannot read extracted charm")
 	}
 
 	// Bundle the charm and calculate its sha256 hash at the
@@ -339,39 +339,39 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	hash := sha256.New()
 	err = charmDir.BundleTo(io.MultiWriter(hash, repackagedArchive))
 	if err != nil {
-		return errgo.Annotate(err, "cannot repackage uploaded charm")
+		return errors.Annotate(err, "cannot repackage uploaded charm")
 	}
 	bundleSHA256 := hex.EncodeToString(hash.Sum(nil))
 	size, err := repackagedArchive.Seek(0, 2)
 	if err != nil {
-		return errgo.Annotate(err, "cannot get charm file size")
+		return errors.Annotate(err, "cannot get charm file size")
 	}
 
 	// Now upload to provider storage.
 	if _, err := repackagedArchive.Seek(0, 0); err != nil {
-		return errgo.Annotate(err, "cannot rewind the charm file reader")
+		return errors.Annotate(err, "cannot rewind the charm file reader")
 	}
 	storage, err := environs.GetStorage(h.state)
 	if err != nil {
-		return errgo.Annotate(err, "cannot access provider storage")
+		return errors.Annotate(err, "cannot access provider storage")
 	}
 	name := charm.Quote(curl.String())
 	if err := storage.Put(name, repackagedArchive, size); err != nil {
-		return errgo.Annotate(err, "cannot upload charm to provider storage")
+		return errors.Annotate(err, "cannot upload charm to provider storage")
 	}
 	storageURL, err := storage.URL(name)
 	if err != nil {
-		return errgo.Annotate(err, "cannot get storage URL for charm")
+		return errors.Annotate(err, "cannot get storage URL for charm")
 	}
 	bundleURL, err := url.Parse(storageURL)
 	if err != nil {
-		return errgo.Annotate(err, "cannot parse storage URL")
+		return errors.Annotate(err, "cannot parse storage URL")
 	}
 
 	// And finally, update state.
 	_, err = h.state.UpdateUploadedCharm(archive, curl, bundleURL, bundleSHA256)
 	if err != nil {
-		return errgo.Annotate(err, "cannot update uploaded charm in state")
+		return errors.Annotate(err, "cannot update uploaded charm in state")
 	}
 	return nil
 }
@@ -416,18 +416,18 @@ func (h *charmsHandler) downloadCharm(name, charmArchivePath string) error {
 	// Get the provider storage.
 	storage, err := environs.GetStorage(h.state)
 	if err != nil {
-		return errgo.Annotate(err, "cannot access provider storage")
+		return errors.Annotate(err, "cannot access provider storage")
 	}
 
 	// Use the storage to retrieve and save the charm archive.
 	reader, err := storage.Get(name)
 	if err != nil {
-		return errgo.Annotate(err, "charm not found in the provider storage")
+		return errors.Annotate(err, "charm not found in the provider storage")
 	}
 	defer reader.Close()
 	data, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return errgo.Annotate(err, "cannot read charm data")
+		return errors.Annotate(err, "cannot read charm data")
 	}
 	// In order to avoid races, the archive is saved in a temporary file which
 	// is then atomically renamed. The temporary file is created in the
@@ -435,19 +435,19 @@ func (h *charmsHandler) downloadCharm(name, charmArchivePath string) error {
 	// target live in the same file system.
 	cacheDir := filepath.Dir(charmArchivePath)
 	if err = os.MkdirAll(cacheDir, 0755); err != nil {
-		return errgo.Annotate(err, "cannot create the charms cache")
+		return errors.Annotate(err, "cannot create the charms cache")
 	}
 	tempCharmArchive, err := ioutil.TempFile(cacheDir, "charm")
 	if err != nil {
-		return errgo.Annotate(err, "cannot create charm archive temp file")
+		return errors.Annotate(err, "cannot create charm archive temp file")
 	}
 	defer tempCharmArchive.Close()
 	if err = ioutil.WriteFile(tempCharmArchive.Name(), data, 0644); err != nil {
-		return errgo.Annotate(err, "error processing charm archive download")
+		return errors.Annotate(err, "error processing charm archive download")
 	}
 	if err = os.Rename(tempCharmArchive.Name(), charmArchivePath); err != nil {
 		defer os.Remove(tempCharmArchive.Name())
-		return errgo.Annotate(err, "error renaming the charm archive")
+		return errors.Annotate(err, "error renaming the charm archive")
 	}
 	return nil
 }

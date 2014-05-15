@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/testing/testbase"
@@ -41,10 +41,10 @@ func (s *DestroySuite) TestCannotStopInstances(c *gc.C) {
 				&mockInstance{id: "another"},
 			}, nil
 		},
-		stopInstances: func(instances []instance.Instance) error {
-			c.Assert(instances, gc.HasLen, 2)
-			c.Assert(instances[0].Id(), gc.Equals, instance.Id("one"))
-			c.Assert(instances[1].Id(), gc.Equals, instance.Id("another"))
+		stopInstances: func(ids []instance.Id) error {
+			c.Assert(ids, gc.HasLen, 2)
+			c.Assert(ids[0], gc.Equals, instance.Id("one"))
+			c.Assert(ids[1], gc.Equals, instance.Id("another"))
 			return fmt.Errorf("nah")
 		},
 	}
@@ -61,10 +61,10 @@ func (s *DestroySuite) TestCannotTrashStorage(c *gc.C) {
 				&mockInstance{id: "another"},
 			}, nil
 		},
-		stopInstances: func(instances []instance.Instance) error {
-			c.Assert(instances, gc.HasLen, 2)
-			c.Assert(instances[0].Id(), gc.Equals, instance.Id("one"))
-			c.Assert(instances[1].Id(), gc.Equals, instance.Id("another"))
+		stopInstances: func(ids []instance.Id) error {
+			c.Assert(ids, gc.HasLen, 2)
+			c.Assert(ids[0], gc.Equals, instance.Id("one"))
+			c.Assert(ids[1], gc.Equals, instance.Id("another"))
 			return nil
 		},
 	}
@@ -84,9 +84,9 @@ func (s *DestroySuite) TestSuccess(c *gc.C) {
 				&mockInstance{id: "one"},
 			}, nil
 		},
-		stopInstances: func(instances []instance.Instance) error {
-			c.Assert(instances, gc.HasLen, 1)
-			c.Assert(instances[0].Id(), gc.Equals, instance.Id("one"))
+		stopInstances: func(ids []instance.Id) error {
+			c.Assert(ids, gc.HasLen, 1)
+			c.Assert(ids[0], gc.Equals, instance.Id("one"))
 			return nil
 		},
 	}

@@ -7,7 +7,8 @@ import (
 	stderrors "errors"
 	"sync"
 
-	"launchpad.net/juju-core/errors"
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"

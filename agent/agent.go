@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/instance"
@@ -247,23 +247,23 @@ type AgentConfigParams struct {
 // machine or unit agent.
 func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) {
 	if configParams.DataDir == "" {
-		return nil, errgo.Trace(requiredError("data directory"))
+		return nil, errors.Trace(requiredError("data directory"))
 	}
 	logDir := DefaultLogDir
 	if configParams.LogDir != "" {
 		logDir = configParams.LogDir
 	}
 	if configParams.Tag == "" {
-		return nil, errgo.Trace(requiredError("entity tag"))
+		return nil, errors.Trace(requiredError("entity tag"))
 	}
 	if configParams.UpgradedToVersion == version.Zero {
-		return nil, errgo.Trace(requiredError("upgradedToVersion"))
+		return nil, errors.Trace(requiredError("upgradedToVersion"))
 	}
 	if configParams.Password == "" {
-		return nil, errgo.Trace(requiredError("password"))
+		return nil, errors.Trace(requiredError("password"))
 	}
 	if len(configParams.CACert) == 0 {
-		return nil, errgo.Trace(requiredError("CA certificate"))
+		return nil, errors.Trace(requiredError("CA certificate"))
 	}
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
@@ -302,16 +302,16 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 // a machine running the state server.
 func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.StateServingInfo) (ConfigSetterWriter, error) {
 	if serverInfo.Cert == "" {
-		return nil, errgo.Trace(requiredError("state server cert"))
+		return nil, errors.Trace(requiredError("state server cert"))
 	}
 	if serverInfo.PrivateKey == "" {
-		return nil, errgo.Trace(requiredError("state server key"))
+		return nil, errors.Trace(requiredError("state server key"))
 	}
 	if serverInfo.StatePort == 0 {
-		return nil, errgo.Trace(requiredError("state port"))
+		return nil, errors.Trace(requiredError("state port"))
 	}
 	if serverInfo.APIPort == 0 {
-		return nil, errgo.Trace(requiredError("api port"))
+		return nil, errors.Trace(requiredError("api port"))
 	}
 	config, err := NewAgentConfig(configParams)
 	if err != nil {
@@ -535,7 +535,7 @@ func (c *configInternal) SetStateServingInfo(info params.StateServingInfo) {
 
 func (c *configInternal) APIAddresses() ([]string, error) {
 	if c.apiDetails == nil {
-		return []string{}, errgo.New("No apidetails in config")
+		return []string{}, errors.New("No apidetails in config")
 	}
 	return append([]string{}, c.apiDetails.addresses...), nil
 }
@@ -554,7 +554,7 @@ func (c *configInternal) Dir() string {
 
 func (c *configInternal) check() error {
 	if c.stateDetails == nil && c.apiDetails == nil {
-		return errgo.Trace(requiredError("state or API addresses"))
+		return errors.Trace(requiredError("state or API addresses"))
 	}
 	if c.stateDetails != nil {
 		if err := checkAddrs(c.stateDetails.addresses, "state server address"); err != nil {
@@ -573,11 +573,11 @@ var validAddr = regexp.MustCompile("^.+:[0-9]+$")
 
 func checkAddrs(addrs []string, what string) error {
 	if len(addrs) == 0 {
-		return errgo.Trace(requiredError(what))
+		return errors.Trace(requiredError(what))
 	}
 	for _, a := range addrs {
 		if !validAddr.MatchString(a) {
-			return errgo.New("invalid %s %q", what, a)
+			return errors.Errorf("invalid %s %q", what, a)
 		}
 	}
 	return nil

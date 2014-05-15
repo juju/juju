@@ -11,6 +11,7 @@ import (
 
 	"github.com/joyent/gocommon/client"
 	"github.com/joyent/gosdc/cloudapi"
+	"github.com/juju/errors"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -18,7 +19,6 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
@@ -232,17 +232,17 @@ func (*joyentEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Add
 	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
-func (env *joyentEnviron) StopInstances(instances []instance.Instance) error {
+func (env *joyentEnviron) StopInstances(ids ...instance.Id) error {
 	// Remove all the instances in parallel so that we incur less round-trips.
 	var wg sync.WaitGroup
 	//var err error
-	wg.Add(len(instances))
-	errc := make(chan error, len(instances))
-	for _, inst := range instances {
-		inst := inst.(*joyentInstance)
+	wg.Add(len(ids))
+	errc := make(chan error, len(ids))
+	for _, id := range ids {
+		id := id // copy to new free var for closure
 		go func() {
 			defer wg.Done()
-			if err := inst.Stop(); err != nil {
+			if err := env.stopInstance(string(id)); err != nil {
 				errc <- err
 			}
 		}()
@@ -255,6 +255,39 @@ func (env *joyentEnviron) StopInstances(instances []instance.Instance) error {
 	}
 
 	return nil
+}
+
+func (env *joyentEnviron) stopInstance(id string) error {
+	// wait for machine to be running
+	// if machine is still provisioning stop will fail
+	for !env.pollMachineState(id, "running") {
+		time.Sleep(1 * time.Second)
+	}
+
+	err := env.compute.cloudapi.StopMachine(id)
+	if err != nil {
+		return fmt.Errorf("cannot stop instance %s: %v", id, err)
+	}
+
+	// wait for machine to be stopped
+	for !env.pollMachineState(id, "stopped") {
+		time.Sleep(1 * time.Second)
+	}
+
+	err = env.compute.cloudapi.DeleteMachine(id)
+	if err != nil {
+		return fmt.Errorf("cannot delete instance %s: %v", id, err)
+	}
+
+	return nil
+}
+
+func (env *joyentEnviron) pollMachineState(machineId, state string) bool {
+	machineConfig, err := env.compute.cloudapi.GetMachine(machineId)
+	if err != nil {
+		return false
+	}
+	return strings.EqualFold(machineConfig.State, state)
 }
 
 func (env *joyentEnviron) listInstanceTypes() ([]instances.InstanceType, error) {

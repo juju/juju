@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -17,7 +18,6 @@ import (
 	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
@@ -254,8 +254,8 @@ func (s *CommonProvisionerSuite) checkStopSomeInstances(c *gc.C,
 		case o := <-s.op:
 			switch o := o.(type) {
 			case dummy.OpStopInstances:
-				for _, stoppedInstance := range o.Instances {
-					instId := string(stoppedInstance.Id())
+				for _, id := range o.Ids {
+					instId := string(id)
 					instanceIdsToStop.Remove(instId)
 					if instanceIdsToKeep.Contains(instId) {
 						c.Errorf("provisioner unexpectedly stopped instance %s", instId)

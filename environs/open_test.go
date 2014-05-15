@@ -6,6 +6,7 @@ package environs_test
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -15,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"

@@ -4,7 +4,7 @@
 package firewaller
 
 import (
-	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
@@ -122,7 +122,7 @@ func (fw *Firewaller) loop() error {
 		case change := <-fw.portsChange:
 			change.unitd.ports = change.ports
 			if err := fw.flushUnits([]*unitData{change.unitd}); err != nil {
-				return errgo.Annotate(err, "cannot change firewall ports")
+				return errors.Annotate(err, "cannot change firewall ports")
 			}
 		case change := <-fw.exposedChange:
 			change.serviced.exposed = change.exposed
@@ -131,7 +131,7 @@ func (fw *Firewaller) loop() error {
 				unitds = append(unitds, unitd)
 			}
 			if err := fw.flushUnits(unitds); err != nil {
-				return errgo.Annotate(err, "cannot change firewall ports")
+				return errors.Annotate(err, "cannot change firewall ports")
 			}
 		}
 	}
@@ -157,7 +157,7 @@ func (fw *Firewaller) startMachine(tag string) error {
 	if params.IsCodeNotFound(err) {
 		return nil
 	} else if err != nil {
-		return errgo.Annotate(err, "cannot watch machine units")
+		return errors.Annotate(err, "cannot watch machine units")
 	}
 	unitw, err := m.WatchUnits()
 	if err != nil {
@@ -177,7 +177,7 @@ func (fw *Firewaller) startMachine(tag string) error {
 		if err != nil {
 			stop("units watcher", unitw)
 			delete(fw.machineds, tag)
-			return errgo.Annotatef(err, "cannot respond to units changes for %q", tag)
+			return errors.Annotatef(err, "cannot respond to units changes for %q", tag)
 		}
 	}
 	go machined.watchLoop(unitw)
@@ -374,7 +374,7 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 		}
 	}
 	if err := fw.flushUnits(changed); err != nil {
-		return errgo.Annotate(err, "cannot change firewall ports")
+		return errors.Annotate(err, "cannot change firewall ports")
 	}
 	return nil
 }

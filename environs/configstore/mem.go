@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"sync"
 
-	"launchpad.net/juju-core/errors"
+	"github.com/juju/errors"
 )
 
 type memStore struct {

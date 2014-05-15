@@ -15,7 +15,7 @@ import (
 	"sync"
 	"syscall"
 
-	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/mongo"
@@ -34,7 +34,6 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/osenv"
@@ -354,12 +353,12 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 }
 
 // StopInstances is specified in the InstanceBroker interface.
-func (env *localEnviron) StopInstances(instances []instance.Instance) error {
-	for _, inst := range instances {
-		if inst.Id() == bootstrapInstanceId {
+func (env *localEnviron) StopInstances(ids ...instance.Id) error {
+	for _, id := range ids {
+		if id == bootstrapInstanceId {
 			return fmt.Errorf("cannot stop the bootstrap instance")
 		}
-		if err := env.containerManager.DestroyContainer(inst); err != nil {
+		if err := env.containerManager.DestroyContainer(id); err != nil {
 			return err
 		}
 	}
@@ -462,7 +461,7 @@ func (env *localEnviron) Destroy() error {
 		return err
 	}
 	for _, inst := range containers {
-		if err := env.containerManager.DestroyContainer(inst); err != nil {
+		if err := env.containerManager.DestroyContainer(inst.Id()); err != nil {
 			return err
 		}
 	}
@@ -476,7 +475,7 @@ func (env *localEnviron) Destroy() error {
 			// Exit status 1 means no processes were matched:
 			// we don't consider this an error here.
 			if err.ProcessState.Sys().(syscall.WaitStatus).ExitStatus() != 1 {
-				return errgo.Annotate(err, "failed to kill jujud")
+				return errors.Annotate(err, "failed to kill jujud")
 			}
 		}
 	}
