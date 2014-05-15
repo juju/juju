@@ -6,12 +6,12 @@ package state_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"

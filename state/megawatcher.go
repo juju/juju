@@ -8,9 +8,9 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"

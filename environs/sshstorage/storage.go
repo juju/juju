@@ -7,7 +7,6 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,9 +15,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -253,7 +252,7 @@ func (s *SSHStorage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		err := err.(SSHStorageError)
 		if strings.Contains(err.Output, "No such file") {
-			return nil, coreerrors.NewNotFound(err, "")
+			return nil, errors.NewNotFound(err, "")
 		}
 		return nil, err
 	}
