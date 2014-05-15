@@ -258,6 +258,16 @@ func (cfg *Config) processDeprecatedAttributes() {
 	// Even if the user has edited their environment yaml to remove the deprecated tools-url value,
 	// we still want it in the config for upgrades.
 	cfg.defined["tools-url"], _ = cfg.ToolsURL()
+
+	// Copy across lxc-use-clone to lxc-clone.
+	if lxcUseClone, ok := cfg.defined["lxc-use-clone"]; ok {
+		_, newValSpecified := cfg.LXCUseClone()
+		// Ensure the new attribute name "lxc-clone" is set.
+		if !newValSpecified {
+			cfg.defined["lxc-clone"] = lxcUseClone
+		}
+	}
+
 	// Update the provider type from null to manual.
 	if cfg.Type() == "null" {
 		cfg.defined["type"] = "manual"
@@ -792,7 +802,8 @@ var fields = schema.Fields{
 	"lxc-clone-aufs":            schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url": schema.String(),
+	"tools-url":     schema.String(),
+	"lxc-use-clone": schema.Bool(),
 }
 
 // alwaysOptional holds configuration defaults for attributes that may
@@ -826,7 +837,8 @@ var alwaysOptional = schema.Defaults{
 	"lxc-clone":                 schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url": "",
+	"tools-url":     "",
+	"lxc-use-clone": schema.Omit,
 
 	// For backward compatibility reasons, the following
 	// attributes default to empty strings rather than being

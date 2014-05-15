@@ -107,6 +107,7 @@ environments:
         type: dummy
         state-server: false
         tools-url: aknowndeprecatedfield
+        lxc-use-clone: true
 `
 	tw := &loggo.TestWriter{}
 	// we only capture Warning or above
@@ -128,7 +129,7 @@ environments:
 	// Only once we grab the deprecated one do we see any warnings
 	_, err = envs.Config("deprecated")
 	c.Check(err, gc.IsNil)
-	c.Check(tw.Log, gc.HasLen, 1)
+	c.Check(tw.Log, gc.HasLen, 2)
 }
 
 func (*suite) TestNoHomeBeforeConfig(c *gc.C) {
@@ -453,5 +454,11 @@ func (s *ConfigDeprecationSuite) TestDeprecatedToolsURLWithNewURLWarning(c *gc.C
 func (s *ConfigDeprecationSuite) TestDeprecatedTypeNullWarning(c *gc.C) {
 	attrs := testing.Attrs{"type": "null"}
 	expected := `Provider type \"null\" has been renamed to \"manual\"\.Please update your environment configuration\.`
+	s.checkDeprecationWarning(c, attrs, expected)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecatedLxcUseCloneWarning(c *gc.C) {
+	attrs := testing.Attrs{"lxc-use-clone": true}
+	expected := `Config attribute \"lxc-use-clone\" has been renamed to \"lxc-clone\".Please update your environment configuration\.`
 	s.checkDeprecationWarning(c, attrs, expected)
 }

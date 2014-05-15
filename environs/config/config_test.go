@@ -151,6 +151,23 @@ var configTests = []configTest{
 			"lxc-clone-aufs": true,
 		},
 	}, {
+		about:       "Deprecated lxc-use-clone used",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"lxc-use-clone": true,
+		},
+	}, {
+		about:       "Deprecated lxc-use-clone ignored",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"lxc-use-clone": false,
+			"lxc-clone":     true,
+		},
+	}, {
 		about:       "CA cert & key from path",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -993,11 +1010,19 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(oldToolsURL, gc.Equals, "")
 	}
 
-	useLxcClone, ok := cfg.LXCUseClone()
+	useLxcClone, useLxcClonePresent := cfg.LXCUseClone()
+	oldUseClone, oldUseClonePresent := cfg.AllAttrs()["lxc-use-clone"]
 	if v, ok := test.attrs["lxc-clone"]; ok {
 		c.Assert(useLxcClone, gc.Equals, v)
+		c.Assert(useLxcClonePresent, jc.IsTrue)
 	} else {
-		c.Assert(useLxcClone, gc.Equals, false)
+		if oldUseClonePresent {
+			c.Assert(useLxcClonePresent, jc.IsTrue)
+			c.Assert(useLxcClone, gc.Equals, oldUseClone)
+		} else {
+			c.Assert(useLxcClonePresent, jc.IsFalse)
+			c.Assert(useLxcClone, gc.Equals, false)
+		}
 	}
 	useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS()
 	if v, ok := test.attrs["lxc-clone-aufs"]; ok {
