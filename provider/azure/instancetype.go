@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/errors"
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/errors"
 )
 
 // preferredTypes is a list of machine types, in order of preference so that

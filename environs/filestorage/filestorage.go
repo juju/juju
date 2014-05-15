@@ -12,8 +12,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/environs/storage"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -60,11 +61,11 @@ func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
 	fi, err := os.Stat(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = coreerrors.NewNotFound(err, "")
+			err = errors.NewNotFound(err, "")
 		}
 		return nil, err
 	} else if fi.IsDir() {
-		return nil, coreerrors.NotFoundf("no such file with name %q", name)
+		return nil, errors.NotFoundf("no such file with name %q", name)
 	}
 	file, err := os.Open(filename)
 	if err != nil {
