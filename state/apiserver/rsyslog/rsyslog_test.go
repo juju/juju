@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -50,22 +51,31 @@ func verifyRsyslogCACert(c *gc.C, st *apirsyslog.State, expected string) {
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := st.Rsyslog().SetRsyslogCert(coretesting.CACert)
+	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	err := m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
+
+	err = st.Rsyslog().SetRsyslogCert(coretesting.CACert)
 	c.Assert(err, gc.IsNil)
 	verifyRsyslogCACert(c, st.Rsyslog(), coretesting.CACert)
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertNil(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := st.Rsyslog().SetRsyslogCert("")
+	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	err := m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
+
+	err = st.Rsyslog().SetRsyslogCert("")
 	c.Assert(err, gc.ErrorMatches, "no certificates found")
 	verifyRsyslogCACert(c, st.Rsyslog(), "")
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := st.Rsyslog().SetRsyslogCert(string(pem.EncodeToMemory(&pem.Block{
+	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	err := m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
+
+	err = st.Rsyslog().SetRsyslogCert(string(pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: []byte("not a valid certificate"),
 	})))
@@ -74,10 +84,14 @@ func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	err := st.Rsyslog().SetRsyslogCert(coretesting.CACert)
+	_, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	err := m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
+
+	unitState, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
+	err = unitState.Rsyslog().SetRsyslogCert(coretesting.CACert)
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	// Verify no change was effected.
-	verifyRsyslogCACert(c, st.Rsyslog(), "")
+	verifyRsyslogCACert(c, unitState.Rsyslog(), "")
 }
