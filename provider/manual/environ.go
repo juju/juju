@@ -5,14 +5,13 @@ package manual
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"net"
 	"path"
 	"strings"
 	"sync"
 
-	coreerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
@@ -205,7 +204,7 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 // given instance on the given network. This is not supported on the
 // manual provider.
 func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
-	return instance.Address{}, coreerrors.NotSupportedf("AllocateAddress")
+	return instance.Address{}, errors.NotSupportedf("AllocateAddress")
 }
 
 var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {

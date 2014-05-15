@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	coreerrors "github.com/juju/errors"
+	jujuerrors "github.com/juju/errors"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/swift"
 
@@ -178,7 +178,7 @@ func (s *openstackstorage) RemoveAll() error {
 // container not being found.
 func maybeNotFound(err error) (error, bool) {
 	if err != nil && gooseerrors.IsNotFound(err) {
-		return coreerrors.NewNotFound(err, ""), true
+		return jujuerrors.NewNotFound(err, ""), true
 	}
 	return err, false
 }

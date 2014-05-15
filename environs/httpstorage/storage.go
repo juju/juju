@@ -6,7 +6,6 @@ package httpstorage
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,7 +15,7 @@ import (
 	"strings"
 	"sync"
 
-	coreerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs/storage"
@@ -96,7 +95,7 @@ func (s *localStorage) Get(name string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, coreerrors.NotFoundf("file %q", name)
+		return nil, errors.NotFoundf("file %q", name)
 	}
 	return resp.Body, nil
 }

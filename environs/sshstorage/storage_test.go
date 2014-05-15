@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	coreerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -164,7 +164,7 @@ func (s *storageSuite) TestGet(c *gc.C) {
 		c.Assert(out, gc.DeepEquals, data)
 	}
 	_, err = storage.Get(stor, "notthere")
-	c.Assert(err, jc.Satisfies, coreerrors.IsNotFound)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *storageSuite) TestWriteFailure(c *gc.C) {

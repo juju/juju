@@ -9,7 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	coreerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs"
@@ -65,7 +65,7 @@ func SaveState(storage storage.StorageWriter, state *BootstrapState) error {
 func LoadState(stor storage.StorageReader) (*BootstrapState, error) {
 	r, err := storage.Get(stor, StateFile)
 	if err != nil {
-		if coreerrors.IsNotFound(err) {
+		if errors.IsNotFound(err) {
 			return nil, environs.ErrNotBootstrapped
 		}
 		return nil, err

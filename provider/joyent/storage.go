@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	coreerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/utils"
 
@@ -94,7 +94,7 @@ func (s *JoyentStorage) DeleteContainer(containerName string) error {
 		s.madeContainer = false
 	}
 	if je.IsResourceNotFound(err) {
-		return coreerrors.NewNotFound(err, fmt.Sprintf("cannot delete %s, not found", containerName))
+		return errors.NewNotFound(err, fmt.Sprintf("cannot delete %s, not found", containerName))
 	}
 	return err
 }
@@ -155,7 +155,7 @@ func (s *JoyentStorage) URL(name string) (string, error) {
 func (s *JoyentStorage) Get(name string) (io.ReadCloser, error) {
 	b, err := s.manta.GetObject(s.containerName, name)
 	if err != nil {
-		return nil, coreerrors.NewNotFound(err, fmt.Sprintf("cannot find %s", name))
+		return nil, errors.NewNotFound(err, fmt.Sprintf("cannot find %s", name))
 	}
 	r := byteCloser{bytes.NewReader(b)}
 	return r, nil

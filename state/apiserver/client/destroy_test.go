@@ -6,7 +6,7 @@ package client_test
 import (
 	"fmt"
 
-	coreerrors "github.com/juju/errors"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -109,7 +109,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	for _, s := range services {
 		err = s.Refresh()
 		if err != nil {
-			c.Assert(err, jc.Satisfies, coreerrors.IsNotFound)
+			c.Assert(err, jc.Satisfies, errors.IsNotFound)
 		} else {
 			c.Assert(s.Life(), gc.Not(gc.Equals), state.Alive)
 		}
