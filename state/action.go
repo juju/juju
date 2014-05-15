@@ -31,11 +31,10 @@ type Action struct {
 }
 
 func newAction(st *State, adoc actionDoc) *Action {
-	action := &Action{
+	return &Action{
 		st:  st,
 		doc: adoc,
 	}
-	return action
 }
 
 // Name returns the name of the Action
