@@ -470,6 +470,33 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) TestEnsureLocalEnvironDoesntRunPeergrouper(c *gc.C) {
+	started := make(chan struct{}, 1)
+	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+		c.Check(st, gc.NotNil)
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		return newDummyWorker(), nil
+	})
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	err := a.ChangeConfig(func(config agent.ConfigSetter) {
+		config.SetValue(agent.ProviderType, "local")
+	})
+	c.Assert(err, gc.IsNil)
+	defer a.Stop()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	select {
+	case <-started:
+		c.Fatalf("local environment should not start peergrouper")
+	case <-time.After(coretesting.LongWait):
+	}
+}
+
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	// If it has been enabled, the JobManageEnviron agent should call utils.UseMultipleCPUs
 	usefulVersion := version.Current
