@@ -127,7 +127,7 @@ def delete_extra_state_servers(env, instance_id):
         extra_instance_id = info.get('instance-id')
         status = info.get('state-server-member-status')
         if extra_instance_id != instance_id and status is not None:
-            print_now("Deleting state-server-member {}".formt(machine))
+            print_now("Deleting state-server-member {}".format(machine))
             host = get_machine_dns_name(env, machine)
             delete_instance(env, extra_instance_id)
             wait_for_state_server_to_shutdown(host)
