@@ -136,6 +136,7 @@ def delete_extra_state_servers(env, instance_id):
 def restore_missing_state_server(env, backup_file):
     """juju-restore creates a replacement state-server for the services."""
     environ = dict(os.environ)
+    print_now("Starting restore.")
     proc = subprocess.Popen(
         ['juju-restore', '-e', env.environment,  '--constraints', 'mem=2G',
          backup_file],
