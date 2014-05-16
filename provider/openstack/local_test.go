@@ -32,6 +32,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
@@ -269,6 +270,14 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 }
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
+	// Ensure amd64 tools are available, to ensure and amd64 image.
+	amd64Version := version.Current
+	amd64Version.Arch = arch.AMD64
+	for _, series := range bootstrap.ToolsLtsSeries {
+		amd64Version.Series = series
+		envtesting.AssertUploadFakeToolsVersions(c, s.toolsMetadataStorage, amd64Version)
+	}
+
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
@@ -656,7 +665,7 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.Open(c)
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"amd64", "ppc64"})
+	c.Assert(a, gc.DeepEquals, []string{"amd64", "i386", "ppc64"})
 }
 
 func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
@@ -689,9 +698,9 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Open(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
-	cons := constraints.MustParse("arch=i386")
+	cons := constraints.MustParse("arch=arm64")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=arm64\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")

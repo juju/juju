@@ -101,6 +101,7 @@ type localLiveSuite struct {
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
+	s.AddSuiteCleanup(patchArch())
 	s.AddSuiteCleanup(CreateTestKey(c))
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
@@ -151,6 +152,7 @@ func (s *localServerSuite) SetUpSuite(c *gc.C) {
 	s.Tests.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
+	s.AddSuiteCleanup(patchArch())
 }
 
 func (s *localServerSuite) TearDownSuite(c *gc.C) {
