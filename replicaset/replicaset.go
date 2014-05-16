@@ -11,8 +11,23 @@ import (
 	"labix.org/v2/mgo/bson"
 )
 
-// MaxPeers defines the maximum number of peers that mongo supports.
-const MaxPeers = 7
+const (
+	// MaxPeers defines the maximum number of peers that mongo supports.
+	MaxPeers = 7
+
+	// maxInitiateAttempts is the maximum number of times to attempt
+	// replSetInitiate for each call to Initiate.
+	maxInitiateAttempts = 10
+
+	// initiateAttemptDelay is the amount of time to sleep between failed
+	// attempts to replSetInitiate.
+	initiateAttemptDelay = 100 * time.Millisecond
+
+	// rsMembersUnreachableError is the error message returned from mongo
+	// when it thinks that replicaset members are unreachable. This can
+	// occur if replSetInitiate is executed shortly after starting up mongo.
+	rsMembersUnreachableError = "all members and seeds must be reachable to initiate set"
+)
 
 var logger = loggo.GetLogger("juju.replicaset")
 
@@ -39,7 +54,16 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 		}},
 	}
 	logger.Infof("Initiating replicaset with config %#v", cfg)
-	return monotonicSession.Run(bson.D{{"replSetInitiate", cfg}}, nil)
+	var err error
+	for i := 0; i < maxInitiateAttempts; i++ {
+		err = monotonicSession.Run(bson.D{{"replSetInitiate", cfg}}, nil)
+		if err != nil && err.Error() == rsMembersUnreachableError {
+			time.Sleep(initiateAttemptDelay)
+			continue
+		}
+		break
+	}
+	return err
 }
 
 // Member holds configuration information for a replica set member.
