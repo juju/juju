@@ -10,7 +10,6 @@ import os
 import re
 import subprocess
 import sys
-from time import sleep
 
 from deploy_stack import (
     destroy_environment,
@@ -140,7 +139,7 @@ def restore_missing_state_server(env, backup_file):
 
 def wait_for_ha(env):
     desired_state = 'has-vote'
-    for remaining in until_timeout(300):
+    for remaining in until_timeout(600):
         status = env.get_status()
         states = {}
         for machine, info in status.iter_machines():
