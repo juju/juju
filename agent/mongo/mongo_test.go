@@ -223,6 +223,29 @@ func (s *MongoSuite) TestUpstartServiceWithHA(c *gc.C) {
 	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsFalse)
 }
 
+func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
+	dataDir := c.MkDir()
+
+	svc, _, err := upstartService("", dataDir, dataDir, 1234, WithHA)
+	c.Assert(err, gc.IsNil)
+	c.Assert(strings.Contains(svc.Cmd, "--journal"), jc.IsTrue)
+}
+
+func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
+	dataDir := c.MkDir()
+
+	cmd, err := noauthCommand(dataDir, 1234)
+	c.Assert(err, gc.IsNil)
+	var isJournalPresent bool
+	for _, value := range cmd.Args {
+		if value == "--journal" {
+			isJournalPresent = true
+		}
+	}
+	c.Assert(isJournalPresent, jc.IsTrue)
+	// c.Assert(strings.Contains(cmd.Path, "--journal"), jc.IsTrue)
+}
+
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
 	err := RemoveService("namespace")
 	c.Assert(err, gc.IsNil)
@@ -328,6 +351,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 		"ppa:juju/stable",
 	}})
 }
+
 
 // mockShellCommand creates a new command with the given
 // name and contents, and patches $PATH so that it will be
