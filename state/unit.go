@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -15,7 +16,6 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
@@ -1132,7 +1132,7 @@ func (u *Unit) AssignToCleanMachine() (m *Machine, err error) {
 	return u.assignToCleanMaybeEmptyMachine(false)
 }
 
-// AssignToCleanMachine assigns u to a machine which is marked as clean and is also
+// AssignToCleanEmptyMachine assigns u to a machine which is marked as clean and is also
 // not hosting any containers. A machine is clean if it has never had any principal units
 // assigned to it. If there are no clean machines besides any machine(s) running JobHostEnviron,
 // an error is returned.

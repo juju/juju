@@ -6,7 +6,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"launchpad.net/gnuflag"
 
@@ -65,6 +64,7 @@ type BootstrapCommand struct {
 	Constraints    constraints.Value
 	UploadTools    bool
 	Series         []string
+	seriesOld      []string
 	MetadataSource string
 	Placement      string
 }
@@ -72,50 +72,106 @@ type BootstrapCommand struct {
 func (c *BootstrapCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "bootstrap",
-		Args:    "[placement]",
 		Purpose: "start up an environment from scratch",
 		Doc:     bootstrapDoc,
 	}
 }
 
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
-	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
+	f.Var(newSeriesValue(nil, &c.Series), "upload-series", "upload tools for supplied comma-separated series list")
+	f.Var(newSeriesValue(nil, &c.seriesOld), "series", "upload tools for supplied comma-separated series list (DEPRECATED, see --upload-series)")
 	f.StringVar(&c.MetadataSource, "metadata-source", "", "local path to use as tools and/or metadata source")
+	f.StringVar(&c.Placement, "to", "", "a placement directive indicating an instance to bootstrap")
 }
 
 func (c *BootstrapCommand) Init(args []string) (err error) {
-	err = c.EnvCommandBase.Init()
-	if err != nil {
-		return
-	}
 	if len(c.Series) > 0 && !c.UploadTools {
+		return fmt.Errorf("--upload-series requires --upload-tools")
+	}
+	if len(c.seriesOld) > 0 && !c.UploadTools {
 		return fmt.Errorf("--series requires --upload-tools")
 	}
+	if len(c.Series) > 0 && len(c.seriesOld) > 0 {
+		return fmt.Errorf("--upload-series and --series can't be used together")
+	}
+	if len(c.seriesOld) > 0 {
+		c.Series = c.seriesOld
+	}
+
 	// Parse the placement directive. Bootstrap currently only
 	// supports provider-specific placement directives.
-	placement, err := cmd.ZeroOrOneArgs(args)
-	if err != nil {
+	if c.Placement != "" {
+		_, err = instance.ParsePlacement(c.Placement)
+		if err != instance.ErrPlacementScopeMissing {
+			// We only support unscoped placement directives for bootstrap.
+			return fmt.Errorf("unsupported bootstrap placement directive %q", c.Placement)
+		}
+	}
+	return cmd.CheckEmpty(args)
+}
+
+type seriesValue struct {
+	*cmd.StringsValue
+}
+
+// newSeriesValue is used to create the type passed into the gnuflag.FlagSet Var function.
+func newSeriesValue(defaultValue []string, target *[]string) *seriesValue {
+	v := seriesValue{(*cmd.StringsValue)(target)}
+	*(v.StringsValue) = defaultValue
+	return &v
+}
+
+// Implements gnuflag.Value Set.
+func (v *seriesValue) Set(s string) error {
+	if err := v.StringsValue.Set(s); err != nil {
 		return err
 	}
-	if placement == "" {
-		return nil
+	for _, name := range *(v.StringsValue) {
+		if !charm.IsValidSeries(name) {
+			v.StringsValue = nil
+			return fmt.Errorf("invalid series name %q", name)
+		}
 	}
-	_, err = instance.ParsePlacement(placement)
-	if err != instance.ErrPlacementScopeMissing {
-		// We only support unscoped placement directives for bootstrap.
-		return fmt.Errorf("unsupported bootstrap placement directive %q", placement)
-	}
-	c.Placement = placement
 	return nil
+}
+
+// bootstrap functionality that Run calls to support cleaner testing
+type BootstrapInterface interface {
+	EnsureNotBootstrapped(env environs.Environ) error
+	UploadTools(environs.BootstrapContext, environs.Environ, *string, bool, ...string) error
+	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) error
+}
+
+type bootstrapFuncs struct{}
+
+func (b bootstrapFuncs) EnsureNotBootstrapped(env environs.Environ) error {
+	return bootstrap.EnsureNotBootstrapped(env)
+}
+
+func (b bootstrapFuncs) UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch *string, forceVersion bool, bootstrapSeries ...string) error {
+	return bootstrap.UploadTools(ctx, env, toolsArch, forceVersion, bootstrapSeries...)
+}
+
+func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) error {
+	return bootstrap.Bootstrap(ctx, env, args)
+}
+
+var getBootstrapFuncs = func() BootstrapInterface {
+	return &bootstrapFuncs{}
 }
 
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
 func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
+	bootstrapFuncs := getBootstrapFuncs()
+
+	if len(c.seriesOld) > 0 {
+		fmt.Fprintln(ctx.Stderr, "Use of --series is deprecated. Please use --upload-series instead.")
+	}
+
 	environ, cleanup, err := environFromName(ctx, c.EnvName, &resultErr, "Bootstrap")
 	if err != nil {
 		return err
@@ -132,7 +188,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	}
 
 	defer cleanup()
-	if err := bootstrap.EnsureNotBootstrapped(environ); err != nil {
+	if err := bootstrapFuncs.EnsureNotBootstrapped(environ); err != nil {
 		return err
 	}
 
@@ -170,32 +226,13 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		c.UploadTools = true
 	}
 	if c.UploadTools {
-		err = bootstrap.UploadTools(ctx, environ, c.Constraints.Arch, true, c.Series...)
+		err = bootstrapFuncs.UploadTools(ctx, environ, c.Constraints.Arch, true, c.Series...)
 		if err != nil {
 			return err
 		}
 	}
-	return bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{
+	return bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 	})
-}
-
-type seriesVar struct {
-	target *[]string
-}
-
-func (v seriesVar) Set(value string) error {
-	names := strings.Split(value, ",")
-	for _, name := range names {
-		if !charm.IsValidSeries(name) {
-			return fmt.Errorf("invalid series name %q", name)
-		}
-	}
-	*v.target = names
-	return nil
-}
-
-func (v seriesVar) String() string {
-	return strings.Join(*v.target, ",")
 }

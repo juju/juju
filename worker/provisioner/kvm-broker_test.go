@@ -8,15 +8,16 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm/mock"
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -75,7 +76,8 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 			CACert:            coretesting.CACert,
 		})
 	c.Assert(err, gc.IsNil)
-	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, tools, s.agentConfig)
+	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	s.broker, err = provisioner.NewKvmBroker(&fakeAPI{}, tools, s.agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -100,13 +102,13 @@ func (s *kvmBrokerSuite) TestStopInstance(c *gc.C) {
 	kvm1 := s.startInstance(c, "1/kvm/1")
 	kvm2 := s.startInstance(c, "1/kvm/2")
 
-	err := s.broker.StopInstances([]instance.Instance{kvm0})
+	err := s.broker.StopInstances(kvm0.Id())
 	c.Assert(err, gc.IsNil)
 	s.assertInstances(c, kvm1, kvm2)
 	c.Assert(s.kvmContainerDir(kvm0), jc.DoesNotExist)
 	c.Assert(s.kvmRemovedContainerDir(kvm0), jc.IsDirectory)
 
-	err = s.broker.StopInstances([]instance.Instance{kvm1, kvm2})
+	err = s.broker.StopInstances(kvm1.Id(), kvm2.Id())
 	c.Assert(err, gc.IsNil)
 	s.assertInstances(c)
 }
@@ -116,7 +118,7 @@ func (s *kvmBrokerSuite) TestAllInstances(c *gc.C) {
 	kvm1 := s.startInstance(c, "1/kvm/1")
 	s.assertInstances(c, kvm0, kvm1)
 
-	err := s.broker.StopInstances([]instance.Instance{kvm1})
+	err := s.broker.StopInstances(kvm1.Id())
 	c.Assert(err, gc.IsNil)
 	kvm2 := s.startInstance(c, "1/kvm/2")
 	s.assertInstances(c, kvm0, kvm2)
@@ -219,7 +221,8 @@ func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	tools, err := s.provisioner.Tools(agentConfig.Tag())
 	c.Assert(err, gc.IsNil)
-	broker, err := provisioner.NewKvmBroker(s.provisioner, tools, agentConfig)
+	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	broker, err := provisioner.NewKvmBroker(s.provisioner, tools, agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewContainerProvisioner(instance.KVM, s.provisioner, agentConfig, broker)
 }

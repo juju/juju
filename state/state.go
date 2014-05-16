@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -24,7 +25,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -280,7 +280,7 @@ func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{
 
 type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
 
-// UpateEnvironConfig adds, updates or removes attributes in the current
+// UpdateEnvironConfig adds, updates or removes attributes in the current
 // configuration of the environment with the provided updateAttrs and
 // removeAttrs.
 func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, additionalValidation ValidateConfigFunc) error {
@@ -1085,6 +1085,19 @@ func (st *State) Network(name string) (*Network, error) {
 		return nil, fmt.Errorf("cannot get network %q: %v", name, err)
 	}
 	return newNetwork(st, doc), nil
+}
+
+// AllNetworks returns all known networks in the environment.
+func (st *State) AllNetworks() (networks []*Network, err error) {
+	docs := []networkDoc{}
+	err = st.networks.Find(nil).All(&docs)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get all networks")
+	}
+	for _, doc := range docs {
+		networks = append(networks, newNetwork(st, &doc))
+	}
+	return networks, nil
 }
 
 // Service returns a service state by name.

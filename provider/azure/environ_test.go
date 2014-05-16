@@ -55,7 +55,7 @@ func makeEnviron(c *gc.C) *azureEnviron {
 	return makeEnvironWithConfig(c, attrs)
 }
 
-// makeEnviron creates a fake azureEnviron with the specified configuration.
+// makeEnvironWithConfig creates a fake azureEnviron with the specified configuration.
 func makeEnvironWithConfig(c *gc.C, attrs map[string]interface{}) *azureEnviron {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -762,10 +762,11 @@ func makeDeployment(env *azureEnviron, serviceName string) *gwacl.HostedService 
 
 func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	env := makeEnviron(c)
+	prefix := env.getEnvPrefix()
 	service1Name := "service1"
-	service1 := makeLegacyDeployment(env, service1Name)
+	service1 := makeLegacyDeployment(env, prefix+service1Name)
 	service2Name := "service2"
-	service2 := makeDeployment(env, service2Name)
+	service2 := makeDeployment(env, prefix+service2Name)
 
 	inst1, err := env.getInstance(service1, "")
 	c.Assert(err, gc.IsNil)
@@ -781,7 +782,7 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	responses = append(responses, buildGetServicePropertiesResponses(c, service2)...)
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteHostedService
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	err = env.StopInstances([]instance.Instance{inst1, inst2, inst3})
+	err = env.StopInstances(inst1.Id(), inst2.Id(), inst3.Id())
 	c.Check(err, gc.IsNil)
 
 	// One GET and DELETE per service
@@ -795,7 +796,7 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 	env := makeEnviron(c)
-	service := makeDeployment(env, "service")
+	service := makeDeployment(env, env.getEnvPrefix()+"service")
 
 	role1Name := service.Deployments[0].RoleList[0].RoleName
 	inst1, err := env.getInstance(service, role1Name)
@@ -804,7 +805,7 @@ func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 	responses := buildGetServicePropertiesResponses(c, service)
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteRole
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	err = env.StopInstances([]instance.Instance{inst1})
+	err = env.StopInstances(inst1.Id())
 	c.Check(err, gc.IsNil)
 
 	// One GET for the service, and one DELETE for the role.
@@ -817,8 +818,9 @@ func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 	env := makeEnviron(c)
-	service1 := makeDeployment(env, "service1")
-	service2 := makeDeployment(env, "service2")
+	prefix := env.getEnvPrefix()
+	service1 := makeDeployment(env, prefix+"service1")
+	service2 := makeDeployment(env, prefix+"service2")
 	service1Role1Name := service1.Deployments[0].RoleList[0].RoleName
 	inst1, err := env.getInstance(service1, service1Role1Name)
 	c.Assert(err, gc.IsNil)
@@ -831,8 +833,7 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil))
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
-	instances := []instance.Instance{inst1, inst2}
-	err = env.StopInstances(instances)
+	err = env.StopInstances(inst1.Id(), inst2.Id())
 	c.Check(err, gc.ErrorMatches, ".*Conflict.*")
 
 	c.Check(len(*requests), gc.Equals, len(responses))
@@ -843,9 +844,7 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
 	env := makeEnviron(c)
-	instances := []instance.Instance{}
-
-	err := env.StopInstances(instances)
+	err := env.StopInstances()
 	c.Check(err, gc.IsNil)
 }
 

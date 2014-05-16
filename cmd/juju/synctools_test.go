@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/sync"
@@ -61,7 +62,7 @@ func (s *syncToolsSuite) Reset(c *gc.C) {
 }
 
 func runSyncToolsCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return coretesting.RunCommand(c, &SyncToolsCommand{}, args)
+	return coretesting.RunCommand(c, envcmd.Wrap(&SyncToolsCommand{}), args)
 }
 
 func wait(signal chan struct{}) error {

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -25,7 +26,6 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	toolstesting "launchpad.net/juju-core/environs/tools/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
@@ -210,7 +210,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	c.Check(insts[0].Id(), gc.Equals, id0)
 	c.Check(insts[1], gc.IsNil)
 
-	err = t.Env.StopInstances([]instance.Instance{inst})
+	err = t.Env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 
 	// The machine may not be marked as shutting down
@@ -231,7 +231,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
 	c.Assert(inst1, gc.NotNil)
-	defer t.Env.StopInstances([]instance.Instance{inst1})
+	defer t.Env.StopInstances(inst1.Id())
 	ports, err := inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
@@ -241,7 +241,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
-	defer t.Env.StopInstances([]instance.Instance{inst2})
+	defer t.Env.StopInstances(inst2.Id())
 
 	// Open some ports and check they're there.
 	err = inst1.OpenPorts("1", []instance.Port{{"udp", 67}, {"tcp", 45}})
@@ -334,7 +334,7 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 
 	// Create instances and check open ports on both instances.
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
-	defer t.Env.StopInstances([]instance.Instance{inst1})
+	defer t.Env.StopInstances(inst1.Id())
 	ports, err := t.Env.Ports()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
@@ -343,7 +343,7 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	ports, err = t.Env.Ports()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
-	defer t.Env.StopInstances([]instance.Instance{inst2})
+	defer t.Env.StopInstances(inst2.Id())
 
 	err = t.Env.OpenPorts([]instance.Port{{"udp", 67}, {"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
 	c.Assert(err, gc.IsNil)
@@ -867,7 +867,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 		MachineConfig: machineConfig,
 	})
 	if inst != nil {
-		err := t.Env.StopInstances([]instance.Instance{inst})
+		err := t.Env.StopInstances(inst.Id())
 		c.Check(err, gc.IsNil)
 	}
 	c.Assert(inst, gc.IsNil)

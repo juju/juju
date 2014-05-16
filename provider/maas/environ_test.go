@@ -220,7 +220,7 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 		`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,
 		"ifup br0",
 		// Networking/VLAN stuff.
-		"modprobe 8021q",
+		"sh -c 'lsmod | grep -q 8021q || modprobe 8021q'",
 		"sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'",
 		"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
 		"vconfig add eth0 99",

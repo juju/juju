@@ -6,11 +6,11 @@ package authenticationworker
 import (
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/keyupdater"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/utils/set"

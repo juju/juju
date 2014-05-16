@@ -103,7 +103,6 @@ func (c *ValidateToolsMetadataCommand) Info() *cmd.Info {
 }
 
 func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
@@ -118,10 +117,6 @@ func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ValidateToolsMetadataCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	if c.providerType != "" {
 		if c.region == "" {
 			return fmt.Errorf("region required if provider type is specified")
@@ -139,7 +134,7 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 			return err
 		}
 	}
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {

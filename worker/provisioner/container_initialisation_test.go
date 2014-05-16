@@ -5,6 +5,7 @@ package provisioner_test
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 
 	jc "github.com/juju/testing/checkers"
@@ -17,6 +18,7 @@ import (
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -26,7 +28,9 @@ type ContainerSetupSuite struct {
 	CommonProvisionerSuite
 	p provisioner.Provisioner
 	// Record the apt commands issued as part of container initialisation
-	aptCmdChan <-chan *exec.Cmd
+	aptCmdChan  <-chan *exec.Cmd
+	initLockDir string
+	initLock    *fslock.Lock
 }
 
 var _ = gc.Suite(&ContainerSetupSuite{})
@@ -56,6 +60,12 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	// Set up provisioner for the state machine.
 	agentConfig := s.AgentConfigForTag(c, "machine-0")
 	s.p = provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
+
+	// Create a new container initialisation lock.
+	s.initLockDir = c.MkDir()
+	initLock, err := fslock.NewLock(s.initLockDir, "container-init")
+	c.Assert(err, gc.IsNil)
+	s.initLock = initLock
 }
 
 func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
@@ -63,7 +73,7 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) {
+func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) worker.StringsWatchHandler {
 	runner := worker.NewRunner(allFatal, noImportance)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
@@ -73,13 +83,11 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) {
 	cfg := s.AgentConfigForTag(c, tag)
 
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
-	handler := provisioner.NewContainerSetupHandler(runner, watcherName, instance.ContainerTypes, machine, pr, cfg)
+	handler := provisioner.NewContainerSetupHandler(runner, watcherName, instance.ContainerTypes, machine, pr, cfg, s.initLock)
 	runner.StartWorker(watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
 	})
-	go func() {
-		runner.Wait()
-	}()
+	return handler
 }
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
@@ -185,4 +193,24 @@ func (s *ContainerSetupSuite) TestContainerInitialised(c *gc.C) {
 	} {
 		s.assertContainerInitialised(c, test.ctype, test.packages)
 	}
+}
+
+func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
+	m, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series:      coretesting.FakeDefaultSeries,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: s.defaultConstraints,
+	})
+	c.Assert(err, gc.IsNil)
+	err = m.SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
+
+	err = os.RemoveAll(s.initLockDir)
+	c.Assert(err, gc.IsNil)
+	handler := s.setupContainerWorker(c, m.Tag())
+	_, err = handler.SetUp()
+	c.Assert(err, gc.IsNil)
+	err = handler.Handle([]string{"0/lxc/0"})
+	c.Assert(err, gc.ErrorMatches, ".*failed to acquire initialization lock:.*")
+
 }

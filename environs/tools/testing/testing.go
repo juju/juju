@@ -29,6 +29,7 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
@@ -75,7 +76,7 @@ func MakeTools(c *gc.C, metadataDir, subdir string, versionStrings []string) cor
 	return makeTools(c, metadataDir, subdir, versionStrings, false)
 }
 
-// MakeTools creates some fake tools (including checksums) with the given version strings.
+// MakeToolsWithCheckSum creates some fake tools (including checksums) with the given version strings.
 func MakeToolsWithCheckSum(c *gc.C, metadataDir, subdir string, versionStrings []string) coretools.List {
 	return makeTools(c, metadataDir, subdir, versionStrings, true)
 }
@@ -166,7 +167,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, expectMirrors
 				toolsMetadata := item.(*tools.ToolsMetadata)
 				toolsMetadataMap[key] = toolsMetadata
 				toolsVersions.Add(key)
-				seriesVersion, err := simplestreams.SeriesVersion(toolsMetadata.Release)
+				seriesVersion, err := ubuntu.SeriesVersion(toolsMetadata.Release)
 				c.Assert(err, gc.IsNil)
 				productId := fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, toolsMetadata.Arch)
 				expectedProductIds.Add(productId)

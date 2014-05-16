@@ -20,6 +20,7 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 var logger = loggo.GetLogger("juju.environs.sync")
@@ -128,7 +129,7 @@ func SyncTools(syncContext *SyncContext) error {
 	return nil
 }
 
-// selectSourceStorage returns a storage reader based on the source setting.
+// selectSourceDatasource returns a storage reader based on the source setting.
 func selectSourceDatasource(syncContext *SyncContext) (simplestreams.DataSource, error) {
 	source := syncContext.Source
 	if source == "" {
@@ -229,7 +230,7 @@ func cloneToolsForSeries(toolsInfo *BuiltTools, series ...string) error {
 	}
 	logger.Debugf("generating tarballs for %v", series)
 	for _, series := range series {
-		_, err := simplestreams.SeriesVersion(series)
+		_, err := ubuntu.SeriesVersion(series)
 		if err != nil {
 			return err
 		}

@@ -17,12 +17,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 func init() {
@@ -117,7 +119,7 @@ func NewGeneralToolsConstraint(majorVersion, minorVersion int, released bool, pa
 func (tc *ToolsConstraint) Ids() ([]string, error) {
 	var allIds []string
 	for _, series := range tc.Series {
-		version, err := simplestreams.SeriesVersion(series)
+		version, err := ubuntu.SeriesVersion(series)
 		if err != nil {
 			return nil, err
 		}
@@ -157,7 +159,7 @@ func (t *ToolsMetadata) binary() version.Binary {
 }
 
 func (t *ToolsMetadata) productId() (string, error) {
-	seriesVersion, err := simplestreams.SeriesVersion(t.Release)
+	seriesVersion, err := ubuntu.SeriesVersion(t.Release)
 	if err != nil {
 		return "", err
 	}

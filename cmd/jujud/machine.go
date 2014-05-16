@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"launchpad.net/gnuflag"
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -382,6 +382,10 @@ func (a *MachineAgent) updateSupportedContainers(
 	if err := machine.SetSupportedContainers(containers...); err != nil {
 		return fmt.Errorf("setting supported containers for %s: %v", tag, err)
 	}
+	initLock, err := hookExecutionLock(agentConfig.DataDir())
+	if err != nil {
+		return err
+	}
 	// Start the watcher to fire when a container is first requested on the machine.
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
 	handler := provisioner.NewContainerSetupHandler(
@@ -391,6 +395,7 @@ func (a *MachineAgent) updateSupportedContainers(
 		machine,
 		pr,
 		agentConfig,
+		initLock,
 	)
 	a.startWorkerAfterUpgrade(runner, watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
@@ -398,7 +403,7 @@ func (a *MachineAgent) updateSupportedContainers(
 	return nil
 }
 
-// StateJobs returns a worker running all the workers that require
+// StateWorker returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
@@ -650,7 +655,8 @@ func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err 
 	return st, m, nil
 }
 
-// startWorker starts a worker to run the specified child worker but only after waiting for upgrades to complete.
+// startWorkerAfterUpgrade starts a worker to run the specified child worker
+// but only after waiting for upgrades to complete.
 func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string, start func() (worker.Worker, error)) {
 	runner.StartWorker(name, func() (worker.Worker, error) {
 		return a.upgradeWaiterWorker(start), nil

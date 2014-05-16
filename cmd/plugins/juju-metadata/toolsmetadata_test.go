@@ -14,6 +14,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -100,7 +101,7 @@ func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
 	metadataDir := osenv.JujuHome() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&ToolsMetadataCommand{}, ctx, nil)
+	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, nil)
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedOutputDirectory)
@@ -118,7 +119,7 @@ func (s *ToolsMetadataSuite) TestGenerateDirectory(c *gc.C) {
 	metadataDir := c.MkDir()
 	toolstesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&ToolsMetadataCommand{}, ctx, []string{"-d", metadataDir})
+	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedOutputDirectory)
@@ -139,7 +140,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithPublicFallback(c *gc.C) {
 	// Run the command with no local metadata.
 	ctx := coretesting.Context(c)
 	metadataDir := c.MkDir()
-	code := cmd.Main(&ToolsMetadataCommand{}, ctx, []string{"-d", metadataDir})
+	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"-d", metadataDir})
 	c.Assert(code, gc.Equals, 0)
 	metadata := toolstesting.ParseMetadataFromDir(c, metadataDir, false)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
@@ -155,7 +156,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
 	metadataDir := c.MkDir()
 	toolstesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&ToolsMetadataCommand{}, ctx, []string{"--public", "-d", metadataDir})
+	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, []string{"--public", "-d", metadataDir})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedOutputMirrors)
@@ -171,7 +172,7 @@ func (s *ToolsMetadataSuite) TestGenerateWithMirrors(c *gc.C) {
 
 func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&ToolsMetadataCommand{}, ctx, nil)
+	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, nil)
 	c.Assert(code, gc.Equals, 1)
 	stdout := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(stdout, gc.Matches, "Finding tools in .*\n")
@@ -189,7 +190,7 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 	metadataDir := osenv.JujuHome() // default metadata dir
 	toolstesting.MakeTools(c, metadataDir, "releases", versionStrings)
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&ToolsMetadataCommand{}, ctx, nil)
+	code := cmd.Main(envcmd.Wrap(&ToolsMetadataCommand{}), ctx, nil)
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	expectedOutput := fmt.Sprintf(`

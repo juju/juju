@@ -66,6 +66,32 @@ machines provisioned with add-unit will use the same constraints (unless changed
 by set-constraints).
 
 Charms can be deployed to a specific machine using the --to argument.
+If the destination is an LXC container the default is to use lxc-clone
+to create the container where possible. For Ubuntu deployments, lxc-clone
+is supported for the trusty OS series and later. A 'template' container is
+created with the name
+  juju-<series>-template
+where <series> is the OS series, for example 'juju-trusty-template'.
+
+You can override the use of clone by changing the provider configuration:
+  lxc-clone: false
+
+If you have the main container directory mounted on a btrfs partition,
+then the clone will be using btrfs snapshots to create the containers.
+This means that clones use up much less disk space.  If you do not have btrfs,
+lxc will attempt to use aufs (an overlay type filesystem). You can
+explicitly ask Juju to create full containers and not overlays by specifying
+the following in the provider configuration:
+  lxc-clone-aufs: false
+
+Examples:
+   juju deploy mysql --to 23       (deploy to machine 23)
+   juju deploy mysql --to 24/lxc/3 (deploy to lxc container 3 on host machine 24)
+   juju deploy mysql --to lxc:25   (deploy to a new lxc container on host machine 25)
+   
+   juju deploy mysql -n 5 --constraints mem=8G (deploy 5 instances of mysql with at least 8 GB of RAM each)
+
+   juju deploy mysql --networks=storage,mynet --exclude-networks=logging
 
 Like constraints, service-specific network requirements can be
 specified with --networks and --exclude-networks arguments, both can
@@ -74,15 +100,6 @@ These instruct juju to ensure to add all the networks specified with
 --networks to all new machines deployed to host units of the service
 and to ensure none of the networks in --exclude-networks are added to
 the service's machines. Not supported on all providers.
-
-Examples:
-   juju deploy mysql --to 23       (Deploy to machine 23)
-   juju deploy mysql --to 24/lxc/3 (Deploy to lxc container 3 on host machine 24)
-   juju deploy mysql --to lxc:25   (Deploy to a new lxc container on host machine 25)
-   
-   juju deploy mysql -n 5 --constraints mem=8G (deploy 5 instances of mysql with at least 8 GB of RAM each)
-
-   juju deploy mysql --networks=storage,mynet --exclude-networks=logging
 
 See Also:
    juju help constraints
@@ -100,7 +117,6 @@ func (c *DeployCommand) Info() *cmd.Info {
 }
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision (DEPRECATED)")
@@ -113,10 +129,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	switch len(args) {
 	case 2:
 		if !names.IsService(args[1]) {

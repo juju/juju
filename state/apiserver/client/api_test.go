@@ -8,13 +8,13 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -223,6 +223,7 @@ var scenarioStatus = &api.Status{
 			},
 		},
 	},
+	Networks: map[string]api.NetworkStatus{},
 }
 
 // setUpScenario makes an environment scenario suitable for

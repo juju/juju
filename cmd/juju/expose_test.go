@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/cmd/envcmd"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 )
@@ -18,7 +19,7 @@ type ExposeSuite struct {
 var _ = gc.Suite(&ExposeSuite{})
 
 func runExpose(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &ExposeCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&ExposeCommand{}), args)
 	return err
 }
 

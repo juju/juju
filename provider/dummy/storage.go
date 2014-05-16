@@ -13,8 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 

@@ -10,6 +10,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/errors"
 	gc "launchpad.net/gocheck"
 	coretesting "launchpad.net/juju-core/testing"
 
@@ -18,7 +19,6 @@ import (
 	agenttools "launchpad.net/juju-core/agent/tools"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"

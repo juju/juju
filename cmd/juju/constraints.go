@@ -70,7 +70,6 @@ func formatConstraints(value interface{}) ([]byte, error) {
 }
 
 func (c *GetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "constraints", map[string]cmd.Formatter{
 		"constraints": formatConstraints,
 		"yaml":        cmd.FormatYaml,
@@ -79,10 +78,6 @@ func (c *GetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *GetConstraintsCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	if len(args) > 0 {
 		if !names.IsService(args[0]) {
 			return fmt.Errorf("invalid service name %q", args[0])
@@ -128,16 +123,11 @@ func (c *SetConstraintsCommand) Info() *cmd.Info {
 }
 
 func (c *SetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.ServiceName, "s", "", "set service constraints")
 	f.StringVar(&c.ServiceName, "service", "", "")
 }
 
 func (c *SetConstraintsCommand) Init(args []string) (err error) {
-	err = c.EnvCommandBase.Init()
-	if err != nil {
-		return
-	}
 	if c.ServiceName != "" && !names.IsService(c.ServiceName) {
 		return fmt.Errorf("invalid service name %q", c.ServiceName)
 	}

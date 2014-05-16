@@ -9,15 +9,16 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc/mock"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -77,7 +78,8 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 			CACert:            coretesting.CACert,
 		})
 	c.Assert(err, gc.IsNil)
-	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig)
+	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	s.broker, err = provisioner.NewLxcBroker(&fakeAPI{}, tools, s.agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -129,13 +131,13 @@ func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {
 	lxc1 := s.startInstance(c, "1/lxc/1")
 	lxc2 := s.startInstance(c, "1/lxc/2")
 
-	err := s.broker.StopInstances([]instance.Instance{lxc0})
+	err := s.broker.StopInstances(lxc0.Id())
 	c.Assert(err, gc.IsNil)
 	s.assertInstances(c, lxc1, lxc2)
 	c.Assert(s.lxcContainerDir(lxc0), jc.DoesNotExist)
 	c.Assert(s.lxcRemovedContainerDir(lxc0), jc.IsDirectory)
 
-	err = s.broker.StopInstances([]instance.Instance{lxc1, lxc2})
+	err = s.broker.StopInstances(lxc1.Id(), lxc2.Id())
 	c.Assert(err, gc.IsNil)
 	s.assertInstances(c)
 }
@@ -145,7 +147,7 @@ func (s *lxcBrokerSuite) TestAllInstances(c *gc.C) {
 	lxc1 := s.startInstance(c, "1/lxc/1")
 	s.assertInstances(c, lxc0, lxc1)
 
-	err := s.broker.StopInstances([]instance.Instance{lxc1})
+	err := s.broker.StopInstances(lxc1.Id())
 	c.Assert(err, gc.IsNil)
 	lxc2 := s.startInstance(c, "1/lxc/2")
 	s.assertInstances(c, lxc0, lxc2)
@@ -253,7 +255,8 @@ func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
 	tools, err := s.provisioner.Tools(agentConfig.Tag())
 	c.Assert(err, gc.IsNil)
-	broker, err := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig)
+	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
+	broker, err := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig, managerConfig)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewContainerProvisioner(instance.LXC, s.provisioner, agentConfig, broker)
 }

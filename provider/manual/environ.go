@@ -5,13 +5,13 @@ package manual
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"net"
 	"path"
 	"strings"
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
@@ -69,7 +69,7 @@ func (*manualEnviron) StartInstance(args environs.StartInstanceParams) (instance
 	return nil, nil, nil, errNoStartInstance
 }
 
-func (*manualEnviron) StopInstances([]instance.Instance) error {
+func (*manualEnviron) StopInstances(...instance.Id) error {
 	return errNoStopInstance
 }
 
@@ -198,6 +198,13 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 		err = environs.ErrNoInstances
 	}
 	return instances, err
+}
+
+// AllocateAddress requests a new address to be allocated for the
+// given instance on the given network. This is not supported on the
+// manual provider.
+func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+	return instance.Address{}, errors.NotSupportedf("AllocateAddress")
 }
 
 var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {

@@ -242,7 +242,7 @@ func (r *srvRoot) Upgrader(id string) (upgrader.Upgrader, error) {
 	case names.MachineTagKind:
 		return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
 	case names.UnitTagKind:
-		return upgrader.NewUnitUpgraderAPI(r.srv.state, r.resources, r, r.srv.dataDir)
+		return upgrader.NewUnitUpgraderAPI(r.srv.state, r.resources, r)
 	}
 	// Not a machine or unit.
 	return nil, common.ErrPerm

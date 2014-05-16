@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
+	jujuerrors "github.com/juju/errors"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/swift"
 
 	"launchpad.net/juju-core/environs/storage"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -76,7 +76,7 @@ var storageAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-// ConsistencyStrategy is specified in the StorageReader interface.
+// DefaultConsistencyStrategy is specified in the StorageReader interface.
 func (s *openstackstorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
 }
@@ -178,7 +178,7 @@ func (s *openstackstorage) RemoveAll() error {
 // container not being found.
 func maybeNotFound(err error) (error, bool) {
 	if err != nil && gooseerrors.IsNotFound(err) {
-		return coreerrors.NewNotFound(err, ""), true
+		return jujuerrors.NewNotFound(err, ""), true
 	}
 	return err, false
 }

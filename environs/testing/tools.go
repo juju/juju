@@ -13,6 +13,7 @@ import (
 
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -40,7 +41,7 @@ func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
 }
 
-// RemoveFakeMetadata deletes the fake simplestreams tools metadata from the supplied storage.
+// RemoveFakeToolsMetadata deletes the fake simplestreams tools metadata from the supplied storage.
 func RemoveFakeToolsMetadata(c *gc.C, stor storage.Storage) {
 	files := []string{simplestreams.UnsignedIndex, envtools.ProductMetadataPath}
 	for _, file := range files {
@@ -159,12 +160,11 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 }
 
 func uploadFakeTools(stor storage.Storage) error {
-	versions := []version.Binary{version.Current, version.Binary{Number: version.Current.Number, Series: "precise", Arch: "amd64"}}
-	toolsVersion := version.Current
-	latestLts := coretesting.FakeDefaultSeries
-	if toolsVersion.Series != latestLts {
-		toolsVersion.Series = latestLts
-		versions = append(versions, toolsVersion)
+	var versions []version.Binary
+	for _, series := range bootstrap.ToolsLtsSeries {
+		vers := version.Current
+		vers.Series = series
+		versions = append(versions, vers)
 	}
 	if _, err := UploadFakeToolsVersions(stor, versions...); err != nil {
 		return err

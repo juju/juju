@@ -6,14 +6,15 @@ package tools
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/arch"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/version/ubuntu"
 )
 
 var logger = loggo.GetLogger("juju.environs.tools")
@@ -54,7 +55,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 		seriesToSearch = []string{filter.Series}
 	} else {
 		logger.Debugf("no series specified when finding tools, looking for any")
-		seriesToSearch = simplestreams.SupportedSeries()
+		seriesToSearch = ubuntu.SupportedSeries()
 	}
 	toolsConstraint.Series = seriesToSearch
 	return toolsConstraint, nil
@@ -233,7 +234,7 @@ func FindExactTools(cloudInst environs.ConfigGetter,
 	return availableTools[0], nil
 }
 
-// CheckToolsSeries verifies that all the given possible tools are for the
+// checkToolsSeries verifies that all the given possible tools are for the
 // given OS series.
 func checkToolsSeries(toolsList coretools.List, series string) error {
 	toolsSeries := toolsList.AllSeries()

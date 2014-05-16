@@ -48,7 +48,7 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
-	os.Exit(cmd.Main(&restoreCommand{}, ctx, args[1:]))
+	os.Exit(cmd.Main(envcmd.Wrap(&restoreCommand{}), ctx, args[1:]))
 }
 
 var logger = loggo.GetLogger("juju.plugins.restore")
@@ -82,17 +82,12 @@ func (c *restoreCommand) Info() *cmd.Info {
 }
 
 func (c *restoreCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.showDescription, "description", false, "show the purpose of this plugin")
 	c.Log.AddFlags(f)
 }
 
 func (c *restoreCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	if c.showDescription {
 		return cmd.CheckEmpty(args)
 	}
@@ -104,42 +99,89 @@ func (c *restoreCommand) Init(args []string) error {
 }
 
 var updateBootstrapMachineTemplate = mustParseTemplate(`
-	set -e -x
+	set -exu
+
+	export LC_ALL=C
 	tar xzf juju-backup.tgz
 	test -d juju-backup
-
+	apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet install mongodb-clients
+	
 	initctl stop jujud-machine-0
 
 	initctl stop juju-db
-	rm -r /var/lib/juju /var/log/juju
+	rm -r /var/lib/juju
+	rm -r /var/log/juju
+
 	tar -C / -xvp -f juju-backup/root.tar
 	mkdir -p /var/lib/juju/db
-	export LC_ALL=C
-	mongorestore --drop --dbpath /var/lib/juju/db juju-backup/dump
+
+	# Prefer jujud-mongodb binaries if available 
+	export MONGORESTORE=mongorestore
+	if [ -f /usr/lib/juju/bin/mongorestore ]; then
+		export MONGORESTORE=/usr/lib/juju/bin/mongorestore;
+	fi	
+	$MONGORESTORE --drop --dbpath /var/lib/juju/db juju-backup/dump
+
 	initctl start juju-db
+
+	mongoAdminEval() {
+		mongo --ssl -u admin -p {{.Creds.OldPassword | shquote}} localhost:37017/admin --eval "$1"
+	}
+
 
 	mongoEval() {
 		mongo --ssl -u {{.Creds.Tag}} -p {{.Creds.Password | shquote}} localhost:37017/juju --eval "$1"
 	}
+
 	# wait for mongo to come up after starting the juju-db upstart service.
 	for i in $(seq 1 100)
 	do
 		mongoEval ' ' && break
 		sleep 5
 	done
+
 	mongoEval '
 		db = db.getSiblingDB("juju")
-		db.machines.update({_id: "0"}, {$set: {instanceid: '{{.NewInstanceId | printf "%q" | shquote}}' } })
-		db.instanceData.update({_id: "0"}, {$set: {instanceid: '{{.NewInstanceId | printf "%q"| shquote}}' } })
+		db.machines.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
+		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
 	'
+	
+	# Create a new replicaSet conf and re initiate it
+	mongoAdminEval '
+		conf = { "_id" : "juju", "version" : 1, "members" : [ { "_id" : 1, "host" : "{{ .PrivateAddress | printf "%s:37017" }}" , "tags" : { "juju-machine-id" : "0" } }]}
+		rs.initiate(conf)
+	'
+
+	# Give time to replset to initiate
+	for i in $(seq 1 20)
+	do
+		mongoEval ' ' && break
+		sleep 5
+	done
+
+	initctl stop juju-db
+
+	# Update the agent.conf for machine-0 with the new addresses
+	cd /var/lib/juju/agents
+	sed -i.old -r -e "/^(stateaddresses):/{
+		n
+		s/- .*(:[0-9]+)/- {{.Address}}\1/
+	}" -e "/^(apiaddresses):/{
+		n
+		s/- .*(:[0-9]+)/- {{.PrivateAddress}}\1/
+	}"  machine-0/agent.conf
+
+	initctl start juju-db
 	initctl start jujud-machine-0
 `)
 
-func updateBootstrapMachineScript(instanceId instance.Id, creds credentials) string {
+func updateBootstrapMachineScript(instanceId instance.Id, creds credentials, addr, paddr string) string {
 	return execTemplate(updateBootstrapMachineTemplate, struct {
-		NewInstanceId instance.Id
-		Creds         credentials
-	}{instanceId, creds})
+		NewInstanceId  instance.Id
+		Creds          credentials
+		Address        string
+		PrivateAddress string
+	}{instanceId, creds, addr, paddr})
 }
 
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
@@ -262,11 +304,16 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 }
 
 func restoreBootstrapMachine(conn *juju.APIConn, backupFile string, creds credentials) (newInstId instance.Id, addr string, err error) {
-	addr, err = conn.State.Client().PublicAddress("0")
+	client := conn.State.Client()
+	addr, err = client.PublicAddress("0")
 	if err != nil {
 		return "", "", fmt.Errorf("cannot get public address of bootstrap machine: %v", err)
 	}
-	status, err := conn.State.Client().Status(nil)
+	paddr, err := client.PrivateAddress("0")
+	if err != nil {
+		return "", "", fmt.Errorf("cannot get private address of bootstrap machine: %v", err)
+	}
+	status, err := client.Status(nil)
 	if err != nil {
 		return "", "", fmt.Errorf("cannot get environment status: %v", err)
 	}
@@ -281,15 +328,16 @@ func restoreBootstrapMachine(conn *juju.APIConn, backupFile string, creds creden
 		return "", "", fmt.Errorf("cannot copy backup file to bootstrap instance: %v", err)
 	}
 	progress("updating bootstrap machine")
-	if err := runViaSsh(addr, updateBootstrapMachineScript(newInstId, creds)); err != nil {
+	if err := runViaSsh(addr, updateBootstrapMachineScript(newInstId, creds, addr, paddr)); err != nil {
 		return "", "", fmt.Errorf("update script failed: %v", err)
 	}
 	return newInstId, addr, nil
 }
 
 type credentials struct {
-	Tag      string
-	Password string
+	Tag         string
+	Password    string
+	OldPassword string
 }
 
 func extractCreds(backupFile string) (credentials, error) {
@@ -327,9 +375,15 @@ func extractCreds(backupFile string) (credentials, error) {
 	if !ok || password == "" {
 		return credentials{}, fmt.Errorf("agent password not found in configuration")
 	}
+	oldPassword, ok := m["oldpassword"].(string)
+	if !ok || oldPassword == "" {
+		return credentials{}, fmt.Errorf("agent old password not found in configuration")
+	}
+
 	return credentials{
-		Tag:      "machine-0",
-		Password: password,
+		Tag:         "machine-0",
+		Password:    password,
+		OldPassword: oldPassword,
 	}, nil
 }
 
@@ -357,14 +411,14 @@ do
 		s/- .*(:[0-9]+)/- {{.Address}}\1/
 	}" $agent/agent.conf
 
-    # If we're processing a unit agent's directly
-    # and it has some relations, reset
-    # the stored version of all of them to
-    # ensure that any relation hooks will
-    # fire.
+	# If we're processing a unit agent's directly
+	# and it has some relations, reset
+	# the stored version of all of them to
+	# ensure that any relation hooks will
+	# fire.
 	if [[ $agent = unit-* ]]
 	then
-	find $agent/state/relations -type f -exec sed -i -r 's/change-version: [0-9]+$/change-version: 0/' {} \;
+		find $agent/state/relations -type f -exec sed -i -r 's/change-version: [0-9]+$/change-version: 0/' {} \;
 	fi
 	initctl start jujud-$agent
 done

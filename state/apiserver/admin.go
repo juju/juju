@@ -7,7 +7,8 @@ import (
 	stderrors "errors"
 	"sync"
 
-	"launchpad.net/juju-core/errors"
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
@@ -91,8 +92,9 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	}
 	// We have authenticated the user; now choose an appropriate API
 	// to serve to them.
-	newRoot, err := a.apiRootForEntity(entity, c)
-	if err != nil {
+	// TODO: consider switching the new root based on who is logging in
+	newRoot := newSrvRoot(a.root, entity)
+	if err := a.startPingerIfAgent(newRoot, entity); err != nil {
 		return params.LoginResult{}, err
 	}
 
@@ -125,7 +127,23 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 	if err != nil || !entity.PasswordValid(c.Password) {
 		return nil, common.ErrBadCreds
 	}
+	// Check if a machine agent is logging in with the right Nonce
+	if err := checkForValidMachineAgent(entity, c); err != nil {
+		return nil, err
+	}
 	return entity, nil
+}
+
+func checkForValidMachineAgent(entity taggedAuthenticator, c params.Creds) error {
+	// If this is a machine agent connecting, we need to check the
+	// nonce matches, otherwise the wrong agent might be trying to
+	// connect.
+	if machine, ok := entity.(*state.Machine); ok {
+		if !machine.CheckProvisioned(c.Nonce) {
+			return state.NotProvisionedError(machine.Id())
+		}
+	}
+	return nil
 }
 
 // machinePinger wraps a presence.Pinger.
@@ -142,38 +160,27 @@ func (p *machinePinger) Stop() error {
 	return p.Pinger.Kill()
 }
 
-func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) (interface{}, error) {
-	// TODO(rog) choose appropriate object to serve.
-	newRoot := newSrvRoot(a.root, entity)
-
-	// If this is a machine agent connecting, we need to check the
-	// nonce matches, otherwise the wrong agent might be trying to
-	// connect.
-	machine, ok := entity.(*state.Machine)
-	if ok {
-		if !machine.CheckProvisioned(c.Nonce) {
-			return nil, state.NotProvisionedError(machine.Id())
-		}
-	}
+func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticator) error {
 	setAgentAliver, ok := entity.(interface {
 		SetAgentAlive() (*presence.Pinger, error)
 	})
-	if ok {
-		// A machine or unit agent has connected, so start a pinger to
-		// announce it's now alive, and set up the API pinger
-		// so that the connection will be terminated if a sufficient
-		// interval passes between pings.
-		pinger, err := setAgentAliver.SetAgentAlive()
-		if err != nil {
-			return nil, err
-		}
-		newRoot.resources.Register(&machinePinger{pinger})
-		action := func() {
-			if err := newRoot.rpcConn.Close(); err != nil {
-				logger.Errorf("error closing the RPC connection: %v", err)
-			}
-		}
-		newRoot.pingTimeout = newPingTimeout(action, maxClientPingInterval)
+	if !ok {
+		return nil
 	}
-	return newRoot, nil
+	// A machine or unit agent has connected, so start a pinger to
+	// announce it's now alive, and set up the API pinger
+	// so that the connection will be terminated if a sufficient
+	// interval passes between pings.
+	pinger, err := setAgentAliver.SetAgentAlive()
+	if err != nil {
+		return err
+	}
+	newRoot.resources.Register(&machinePinger{pinger})
+	action := func() {
+		if err := newRoot.rpcConn.Close(); err != nil {
+			logger.Errorf("error closing the RPC connection: %v", err)
+		}
+	}
+	newRoot.pingTimeout = newPingTimeout(action, maxClientPingInterval)
+	return nil
 }

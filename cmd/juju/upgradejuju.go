@@ -76,17 +76,12 @@ func (c *UpgradeJujuCommand) Info() *cmd.Info {
 }
 
 func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.vers, "version", "", "upgrade to specific version")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
-	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
+	f.Var(newSeriesValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list")
 }
 
 func (c *UpgradeJujuCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	if c.vers != "" {
 		vers, err := version.Parse(c.vers)
 		if err != nil {

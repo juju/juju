@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/gomaasapi"
 
@@ -433,7 +434,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	defer func() {
 		if err != nil {
-			if err := environ.releaseInstance(inst); err != nil {
+			if err := environ.StopInstances(inst.Id()); err != nil {
 				logger.Errorf("error releasing failed instance: %v", err)
 			}
 		}
@@ -520,8 +521,9 @@ EOF
 	configured := set.NewStrings("eth0")
 
 	// In order to support VLANs, we need to include 8021q module
-	// configure vconfig's set_name_type
-	script("modprobe 8021q")
+	// configure vconfig's set_name_type, but due to bug #1316762,
+	// we need to first check if it's already loaded.
+	script("sh -c 'lsmod | grep -q 8021q || modprobe 8021q'")
 	script("sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'")
 	script("vconfig set_name_type DEV_PLUS_VID_NO_PAD")
 	// Now prepare each interface configuration
@@ -543,33 +545,19 @@ EOF
 	}
 }
 
-// StartInstance is specified in the InstanceBroker interface.
-func (environ *maasEnviron) StopInstances(instances []instance.Instance) error {
+// StopInstances is specified in the InstanceBroker interface.
+func (environ *maasEnviron) StopInstances(ids ...instance.Id) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
-	if len(instances) == 0 {
+	if len(ids) == 0 {
 		return nil
 	}
-	// Tell MAAS to release each of the instances.  If there are errors,
-	// return only the first one (but release all instances regardless).
-	// Note that releasing instances also turns them off.
-	var firstErr error
-	for _, instance := range instances {
-		err := environ.releaseInstance(instance)
-		if firstErr == nil {
-			firstErr = err
-		}
-	}
-	return firstErr
-}
-
-// releaseInstance releases a single instance.
-func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
-	maasInst := inst.(*maasInstance)
-	maasObj := maasInst.maasObject
-	_, err := maasObj.CallPost("release", nil)
-	if err != nil {
-		logger.Debugf("error releasing instance %v", maasInst)
-	}
+	// TODO(axw) 2014-05-13 #1319016
+	// Nodes that have been removed out of band will cause
+	// the release call to fail. We should parse the error
+	// returned from MAAS and retry, or otherwise request
+	// an enhancement to MAAS to ignore unknown node IDs.
+	nodes := environ.getMAASClient().GetSubObject("nodes")
+	_, err := nodes.CallPost("release", getSystemIdValues("nodes", ids))
 	return err
 }
 
@@ -578,7 +566,7 @@ func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 // "ids" matches all instances (not none as you might expect).
 func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
-	filter := getSystemIdValues(ids)
+	filter := getSystemIdValues("id", ids)
 	filter.Add("agent_name", environ.ecfg().maasAgentName())
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
 	if err != nil {
@@ -635,6 +623,16 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 		return result, environs.ErrPartialInstances
 	}
 	return result, nil
+}
+
+// AllocateAddress requests a new address to be allocated for the
+// given instance on the given network. This is not implemented on the
+// MAAS provider yet.
+func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+	// TODO(dimitern) 2014-05-06 bug #1316627
+	// Once MAAS API allows allocating an address,
+	// implement this using the API.
+	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
 // AllInstances returns all the instance.Instance in this provider.

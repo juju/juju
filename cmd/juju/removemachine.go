@@ -14,40 +14,42 @@ import (
 	"launchpad.net/juju-core/names"
 )
 
-// DestroyMachineCommand causes an existing machine to be destroyed.
-type DestroyMachineCommand struct {
+// RemoveMachineCommand causes an existing machine to be destroyed.
+type RemoveMachineCommand struct {
 	envcmd.EnvCommandBase
 	MachineIds []string
 	Force      bool
 }
 
 const destroyMachineDoc = `
-Machines that are responsible for the environment cannot be destroyed. Machines
-running units or containers can only be destroyed with the --force flag; doing
-so will also destroy all those units and containers without giving them any
+Machines that are responsible for the environment cannot be removed. Machines
+running units or containers can only be removed with the --force flag; doing
+so will also remove all those units and containers without giving them any
 opportunity to shut down cleanly.
+
+Examples:
+	# Remove machine number 5 which has no running units or containers
+	$ juju remove-machine 5
+
+	# Remove machine 6 and any running units or containers
+	$ juju remove-machine 6 --force
 `
 
-func (c *DestroyMachineCommand) Info() *cmd.Info {
+func (c *RemoveMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "destroy-machine",
+		Name:    "remove-machine",
 		Args:    "<machine> ...",
-		Purpose: "destroy machines",
+		Purpose: "remove machines from the environment",
 		Doc:     destroyMachineDoc,
-		Aliases: []string{"remove-machine", "terminate-machine"},
+		Aliases: []string{"destroy-machine", "terminate-machine"},
 	}
 }
 
-func (c *DestroyMachineCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
+func (c *RemoveMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.Force, "force", false, "completely remove machine and all dependencies")
 }
 
-func (c *DestroyMachineCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
+func (c *RemoveMachineCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no machines specified")
 	}
@@ -60,7 +62,7 @@ func (c *DestroyMachineCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
+func (c *RemoveMachineCommand) Run(_ *cmd.Context) error {
 	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err

@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"launchpad.net/goamz/s3"
 
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -83,7 +83,7 @@ var storageAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-// ConsistencyStrategy is specified in the StorageReader interface.
+// DefaultConsistencyStrategy is specified in the StorageReader interface.
 func (s *ec2storage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
 }
