@@ -53,12 +53,3 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 	}
 	return actionsSpec, nil
 }
-
-// actionSpec returns the named ActionSpec from the Actions, or an error if none
-// such exists.
-func (a *Actions) actionSpec(name string) (ActionSpec, error) {
-	if actionSpec, ok := a.ActionSpecs[name]; ok {
-		return actionSpec, nil
-	}
-	return ActionSpec{}, fmt.Errorf("unknown action %q", name)
-}
