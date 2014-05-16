@@ -352,7 +352,6 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 	}})
 }
 
-
 // mockShellCommand creates a new command with the given
 // name and contents, and patches $PATH so that it will be
 // executed by preference. It returns the name of a file
