@@ -52,3 +52,10 @@ func (s *archSuite) TestIsSupportedArch(c *gc.C) {
 	}
 	c.Assert(arch.IsSupportedArch("invalid"), jc.IsFalse)
 }
+
+func (s *archSuite) TestArchInfo(c *gc.C) {
+	for _, a := range arch.AllSupportedArches {
+		_, ok := arch.Info[a]
+		c.Assert(ok, jc.IsTrue)
+	}
+}
