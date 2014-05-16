@@ -6,11 +6,11 @@ package instancepoller
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/ratelimit"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 )
 

@@ -15,8 +15,6 @@ var (
 	DetectAptProxies = &detectAptProxies
 	FinishBootstrap  = &finishBootstrap
 	Provider         = providerInstance
-	ReleaseVersion   = &releaseVersion
-	UseFastLXC       = useFastLXC
 	UserCurrent      = &userCurrent
 )
 

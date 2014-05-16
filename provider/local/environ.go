@@ -10,12 +10,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 
-	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/mongo"
@@ -34,7 +33,6 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/osenv"
@@ -240,8 +238,12 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		container.ConfigLogDir: env.config.logDir(),
 	}
 	if containerType == instance.LXC {
-		managerConfig["use-clone"] = strconv.FormatBool(env.config.lxcClone())
-		managerConfig["use-aufs"] = strconv.FormatBool(env.config.lxcCloneAUFS())
+		if useLxcClone, ok := cfg.LXCUseClone(); ok {
+			managerConfig["use-clone"] = fmt.Sprint(useLxcClone)
+		}
+		if useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS(); ok {
+			managerConfig["use-aufs"] = fmt.Sprint(useLxcCloneAufs)
+		}
 	}
 	env.containerManager, err = factory.NewContainerManager(
 		containerType, managerConfig)
@@ -476,7 +478,7 @@ func (env *localEnviron) Destroy() error {
 			// Exit status 1 means no processes were matched:
 			// we don't consider this an error here.
 			if err.ProcessState.Sys().(syscall.WaitStatus).ExitStatus() != 1 {
-				return errgo.Annotate(err, "failed to kill jujud")
+				return errors.Annotate(err, "failed to kill jujud")
 			}
 		}
 	}

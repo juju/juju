@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -118,6 +119,8 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.testPath = c.MkDir()
 	s.fakesudo = filepath.Join(s.testPath, "sudo")
 	s.PatchEnvPathPrepend(s.testPath)
+	s.PatchValue(&lxc.TemplateLockDir, c.MkDir())
+	s.PatchValue(&lxc.TemplateStopTimeout, 500*time.Millisecond)
 
 	// Write a fake "sudo" which records its args to sudo.args.
 	err = ioutil.WriteFile(s.fakesudo, []byte(echoCommandScript), 0755)
@@ -276,6 +279,7 @@ func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {
 	manager, err := lxc.NewContainerManager(container.ManagerConfig{
 		container.ConfigName:   namespace,
 		container.ConfigLogDir: "logdir",
+		"use-clone":            "false",
 	})
 	c.Assert(err, gc.IsNil)
 

@@ -6,12 +6,12 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 )
 

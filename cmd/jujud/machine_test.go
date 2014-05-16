@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/testing"
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -23,7 +23,6 @@ import (
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
@@ -65,8 +64,7 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.agentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	restore := testing.PatchValue(&charm.CacheDir, c.MkDir())
-	s.AddSuiteCleanup(func(*gc.C) { restore() })
+	s.agentSuite.PatchValue(&charm.CacheDir, c.MkDir())
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -79,28 +77,26 @@ func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 
 	os.Remove(jujuRun) // ignore error; may not exist
-	// Fake $HOME, and ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
-	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
-	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
-	s.PatchValue(&authenticationworker.SSHUser, "")
+	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
+	s.agentSuite.PatchValue(&authenticationworker.SSHUser, "")
 
 	testpath := c.MkDir()
-	s.PatchEnvPathPrepend(testpath)
+	s.agentSuite.PatchEnvPathPrepend(testpath)
 	// mock out the start method so we can fake install services without sudo
 	fakeCmd(filepath.Join(testpath, "start"))
 	fakeCmd(filepath.Join(testpath, "stop"))
 
-	s.PatchValue(&upstart.InitDir, c.MkDir())
+	s.agentSuite.PatchValue(&upstart.InitDir, c.MkDir())
 
 	s.singularRecord = &singularRunnerRecord{}
-	testing.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
-	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+	s.agentSuite.PatchValue(&newSingularRunner, s.singularRecord.newSingularRunner)
+	s.agentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		return newDummyWorker(), nil
 	})
 
 	s.fakeEnsureMongo = fakeEnsure{}
-	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
-	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
+	s.agentSuite.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
+	s.agentSuite.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
 }
 
 func fakeCmd(path string) {
@@ -408,7 +404,7 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
-	s.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
+	s.agentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
@@ -449,7 +445,7 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 
 func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	started := make(chan struct{}, 1)
-	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+	s.agentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		c.Check(st, gc.NotNil)
 		select {
 		case started <- struct{}{}:
@@ -477,7 +473,7 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	calledChan := make(chan struct{}, 1)
-	s.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
+	s.agentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
 	// Now, start the agent, and observe that a JobManageEnviron agent
 	// calls UseMultipleCPUs
 	a := s.newAgent(c, m)
@@ -630,7 +626,7 @@ func (s *MachineSuite) assertAgentOpensState(
 	// need to check for that here, like in assertJobWithState.
 
 	agentAPIs := make(chan eitherState, 1)
-	s.PatchValue(reportOpened, func(st eitherState) {
+	s.agentSuite.PatchValue(reportOpened, func(st eitherState) {
 		select {
 		case agentAPIs <- st:
 		default:
@@ -830,8 +826,8 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 
 func (s *MachineSuite) TestMachineEnvironWorker(c *gc.C) {
 	proxyDir := c.MkDir()
-	s.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
-	s.PatchValue(&utils.AptConfFile, filepath.Join(proxyDir, "juju-apt-proxy"))
+	s.agentSuite.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
+	s.agentSuite.PatchValue(&utils.AptConfFile, filepath.Join(proxyDir, "juju-apt-proxy"))
 
 	s.primeAgent(c, version.Current, state.JobHostUnits)
 	// Make sure there are some proxy settings to write.
@@ -888,7 +884,7 @@ func (s *MachineSuite) TestMachineAgentRsyslogHostUnits(c *gc.C) {
 
 func (s *MachineSuite) testMachineAgentRsyslogConfigWorker(c *gc.C, job state.MachineJob, expectedMode rsyslog.RsyslogMode) {
 	created := make(chan rsyslog.RsyslogMode, 1)
-	s.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
+	s.agentSuite.PatchValue(&newRsyslogConfigWorker, func(_ *apirsyslog.State, _ agent.Config, mode rsyslog.RsyslogMode) (worker.Worker, error) {
 		created <- mode
 		return newDummyWorker(), nil
 	})
@@ -936,14 +932,14 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag())
 	c.Assert(err, gc.IsNil)
 
-	s.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
+	s.agentSuite.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {
 		err := s.State.MongoSession().DB("admin").AddUser(p.User, p.Password, false)
 		c.Assert(err, gc.IsNil)
 		return true, nil
 	})
 
 	stateOpened := make(chan eitherState, 1)
-	s.PatchValue(&reportOpenedState, func(st eitherState) {
+	s.agentSuite.PatchValue(&reportOpenedState, func(st eitherState) {
 		select {
 		case stateOpened <- st:
 		default:

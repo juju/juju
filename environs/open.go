@@ -9,13 +9,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/errors"
 )
 
 // File named `VerificationFilename` in the storage will contain
@@ -274,7 +273,7 @@ func DestroyInfo(envName string, store configstore.Storage) error {
 		return err
 	}
 	if err := info.Destroy(); err != nil {
-		return errgo.Annotate(err, "cannot destroy environment configuration information")
+		return errors.Annotate(err, "cannot destroy environment configuration information")
 	}
 	return nil
 }

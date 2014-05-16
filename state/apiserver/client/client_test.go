@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -21,7 +22,6 @@ import (
 	"launchpad.net/juju-core/environs/manual"
 	envstorage "launchpad.net/juju-core/environs/storage"
 	ttesting "launchpad.net/juju-core/environs/tools/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"

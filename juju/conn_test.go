@@ -12,6 +12,7 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
@@ -41,21 +41,21 @@ func Test(t *stdtesting.T) {
 }
 
 type NewConnSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&NewConnSuite{})
 
 func (cs *NewConnSuite) SetUpTest(c *gc.C) {
-	cs.LoggingSuite.SetUpTest(c)
+	cs.FakeJujuHomeSuite.SetUpTest(c)
 	cs.ToolsFixture.SetUpTest(c)
 }
 
 func (cs *NewConnSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	cs.ToolsFixture.TearDownTest(c)
-	cs.LoggingSuite.TearDownTest(c)
+	cs.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func assertClose(c *gc.C, closer io.Closer) {
@@ -94,8 +94,8 @@ func bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (*NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
-	defer coretesting.MakeSampleHome(c).Restore()
+func (s *NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
+	coretesting.MakeSampleJujuHome(c)
 	bootstrapEnv(c, "", defaultConfigStore(c))
 	// Error return from here is tested in TestNewConnFromNameNotSetGetsDefault.
 	conn, err := juju.NewConnFromName("")
@@ -105,8 +105,8 @@ func (*NewConnSuite) TestConnMultipleCloseOk(c *gc.C) {
 	assertClose(c, conn)
 }
 
-func (*NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
-	defer coretesting.MakeSampleHome(c).Restore()
+func (s *NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
+	coretesting.MakeSampleJujuHome(c)
 	bootstrapEnv(c, "", defaultConfigStore(c))
 	conn, err := juju.NewConnFromName("")
 	c.Assert(err, gc.IsNil)
@@ -114,8 +114,8 @@ func (*NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
 	c.Assert(conn.Environ.Name(), gc.Equals, coretesting.SampleEnvName)
 }
 
-func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
-	defer coretesting.MakeMultipleEnvHome(c).Restore()
+func (s *NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
+	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	// The default environment is "erewhemos", so make sure we get what we ask for.
 	const envName = "erewhemos-2"
 	bootstrapEnv(c, envName, defaultConfigStore(c))

@@ -3,10 +3,9 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	"launchpad.net/juju-core/errors"
 )
 
 // cleanupDoc represents a potentially large set of documents that should be

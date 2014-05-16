@@ -6,12 +6,12 @@ package provisioner_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
@@ -550,29 +550,47 @@ func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	defer st.Close()
 
 	tests := []struct {
-		lxcUseClone      bool
-		expectedUseClone string
+		lxcUseClone          bool
+		lxcUseCloneAufs      bool
+		expectedUseClone     string
+		expectedUseCloneAufs string
 	}{{
-		lxcUseClone:      false,
-		expectedUseClone: "false",
+		lxcUseClone:          true,
+		expectedUseClone:     "true",
+		expectedUseCloneAufs: "false",
 	}, {
-		lxcUseClone:      true,
-		expectedUseClone: "true",
+		lxcUseClone:          false,
+		expectedUseClone:     "false",
+		expectedUseCloneAufs: "false",
+	}, {
+		lxcUseCloneAufs:      false,
+		expectedUseClone:     "false",
+		expectedUseCloneAufs: "false",
+	}, {
+		lxcUseClone:          true,
+		lxcUseCloneAufs:      true,
+		expectedUseClone:     "true",
+		expectedUseCloneAufs: "true",
 	}}
 
-	// Change lxc-use-clone, and ensure it gets picked up.
+	result, err := s.provisioner.ContainerManagerConfig(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.ManagerConfig[container.ConfigName], gc.Equals, "juju")
+	c.Assert(result.ManagerConfig["use-clone"], gc.Equals, "")
+
+	// Change lxc-clone, and ensure it gets picked up.
 	for i, t := range tests {
 		c.Logf("test %d: %+v", i, t)
 		err = st.UpdateEnvironConfig(map[string]interface{}{
-			"lxc-use-clone": t.lxcUseClone,
+			"lxc-clone":      t.lxcUseClone,
+			"lxc-clone-aufs": t.lxcUseCloneAufs,
 		}, nil, nil)
 		c.Assert(err, gc.IsNil)
 		result, err := s.provisioner.ContainerManagerConfig(args)
 		c.Assert(err, gc.IsNil)
-		c.Assert(result.ManagerConfig, gc.DeepEquals, map[string]string{
-			container.ConfigName: "juju",
-			"use-clone":          t.expectedUseClone,
-		})
+		c.Assert(result.ManagerConfig[container.ConfigName], gc.Equals, "juju")
+		c.Assert(result.ManagerConfig["use-clone"], gc.Equals, t.expectedUseClone)
+		c.Assert(result.ManagerConfig["use-aufs"], gc.Equals, t.expectedUseCloneAufs)
 	}
 }
 

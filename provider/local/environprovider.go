@@ -223,13 +223,6 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	// Always assign the normalized path.
 	localConfig.attrs["root-dir"] = dir
 
-	if containerType != instance.KVM {
-		fastOptionAvailable := useFastLXC(containerType)
-		if _, found := localConfig.attrs["lxc-clone"]; !found {
-			localConfig.attrs["lxc-clone"] = fastOptionAvailable
-		}
-	}
-
 	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(localConfig.attrs)
 }

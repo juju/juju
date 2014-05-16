@@ -4,11 +4,11 @@
 package state
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
 )
