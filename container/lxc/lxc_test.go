@@ -155,9 +155,9 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	params := container.ManagerConfig{
 		container.ConfigName: name,
 	}
-	if s.useClone {
-		params["use-clone"] = "true"
-	}
+	// Need to ensure use-clone is explicitly set to avoid it
+	// being set based on the OS version.
+	params["use-clone"] = fmt.Sprintf("%v", s.useClone)
 	if s.useAUFS {
 		params["use-aufs"] = "true"
 	}
