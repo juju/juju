@@ -106,11 +106,11 @@ EXIT_STATUS=$?
 
 ssh "$@" $remote_user@$instance_name <<EOT
 echo "Cleaning up /tmp"
-rm -r /tmp/adduser-*
-rm -r /tmp/go-*
-rm -r /tmp/gocheck-*
-rm -r /tmp/juju-*
-rm -r /tmp/test-*
+rm -r /tmp/adduser-* || true
+rm -r /tmp/go-* || true
+rm -r /tmp/gocheck-* || true
+rm -r /tmp/juju-* || true
+rm -r /tmp/test-* || true
 EOT
 
 # Capture the jujud to make a tool.
