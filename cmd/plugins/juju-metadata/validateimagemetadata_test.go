@@ -16,12 +16,10 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ValidateImageMetadataSuite struct {
-	testbase.LoggingSuite
-	home        *coretesting.FakeHome
+	coretesting.FakeJujuHomeSuite
 	metadataDir string
 }
 
@@ -106,16 +104,11 @@ environments:
 `
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
-	s.home = coretesting.MakeFakeHome(c, metadataTestEnvConfig)
+	coretesting.WriteEnvironments(c, metadataTestEnvConfig)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
-}
-
-func (s *ValidateImageMetadataSuite) TearDownTest(c *gc.C) {
-	s.home.Restore()
-	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region, stream string) {

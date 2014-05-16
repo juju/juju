@@ -19,18 +19,17 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	_ "launchpad.net/juju-core/provider/manual"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type suite struct {
-	testbase.LoggingSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&suite{})
 
 func (s *suite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.LoggingSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 var invalidConfigTests = []struct {
@@ -80,7 +79,6 @@ environments:
 }
 
 func (*suite) TestInvalidEnv(c *gc.C) {
-	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 	for i, t := range invalidEnvTests {
 		c.Logf("running test %v", i)
 		es, err := environs.ReadEnvironsBytes([]byte(t.env))
@@ -97,7 +95,6 @@ func (*suite) TestNoWarningForDeprecatedButUnusedEnv(c *gc.C) {
 	// However, we can only really trigger that when we have a deprecated
 	// field. If support for the field is removed entirely, another
 	// mechanism will need to be used
-	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 	content := `
 environments:
     valid:
@@ -134,7 +131,7 @@ environments:
 
 func (*suite) TestNoHomeBeforeConfig(c *gc.C) {
 	// Test that we don't actually need HOME set until we call envs.Config()
-	// Because of this, we intentionally do *not* call testing.MakeFakeHomeNoEnvironments()
+	os.Setenv("HOME", "")
 	content := `
 environments:
     valid:
@@ -147,7 +144,9 @@ environments:
 }
 
 func (*suite) TestNoEnv(c *gc.C) {
-	defer testing.MakeFakeHomeNoEnvironments(c).Restore()
+	envPath := testing.HomePath(".juju", "environments.yaml")
+	err := os.Remove(envPath)
+	c.Assert(err, gc.IsNil)
 	es, err := environs.ReadEnvirons("")
 	c.Assert(es, gc.IsNil)
 	c.Assert(err, jc.Satisfies, environs.IsNoEnv)
@@ -198,7 +197,6 @@ environments:
 }
 
 func (*suite) TestConfig(c *gc.C) {
-	defer testing.MakeFakeHomeNoEnvironments(c, "only", "valid", "one", "two").Restore()
 	for i, t := range configTests {
 		c.Logf("running test %v", i)
 		envs, err := environs.ReadEnvironsBytes([]byte(t.env))
@@ -208,8 +206,6 @@ func (*suite) TestConfig(c *gc.C) {
 }
 
 func (*suite) TestDefaultConfigFile(c *gc.C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
-
 	env := `
 environments:
     only:
@@ -229,8 +225,8 @@ environments:
 	c.Assert(cfg.Name(), gc.Equals, "only")
 }
 
-func (*suite) TestConfigPerm(c *gc.C) {
-	defer testing.MakeSampleHome(c).Restore()
+func (s *suite) TestConfigPerm(c *gc.C) {
+	testing.MakeSampleJujuHome(c)
 
 	path := testing.HomePath(".juju")
 	info, err := os.Lstat(path)
@@ -257,7 +253,6 @@ environments:
 }
 
 func (*suite) TestNamedConfigFile(c *gc.C) {
-	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 
 	env := `
 environments:
@@ -284,7 +279,6 @@ func inMap(attrs testing.Attrs, attr string) bool {
 }
 
 func (*suite) TestBootstrapConfig(c *gc.C) {
-	defer testing.MakeFakeHomeNoEnvironments(c, "bladaam").Restore()
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"agent-version": "1.2.3",
 	})
@@ -411,7 +405,6 @@ func (s *ConfigDeprecationSuite) setupLogger(c *gc.C) func() {
 }
 
 func (s *ConfigDeprecationSuite) checkDeprecationWarning(c *gc.C, attrs testing.Attrs, expectedMsg string) {
-	defer testing.MakeFakeHomeNoEnvironments(c, "only").Restore()
 	content := `
 environments:
     deprecated:

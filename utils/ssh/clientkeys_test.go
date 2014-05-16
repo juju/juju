@@ -11,21 +11,18 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
 type ClientKeysSuite struct {
-	testbase.LoggingSuite
+	testing.FakeHomeSuite
 }
 
 var _ = gc.Suite(&ClientKeysSuite{})
 
 func (s *ClientKeysSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
-	fakeHome := testing.MakeEmptyFakeHome(c)
-	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
+	s.FakeHomeSuite.SetUpTest(c)
 	s.AddCleanup(func(*gc.C) { ssh.ClearClientKeys() })
 	generateKeyRestorer := overrideGenerateKey(c)
 	s.AddCleanup(func(*gc.C) { generateKeyRestorer.Restore() })

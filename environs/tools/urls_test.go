@@ -17,21 +17,18 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type URLsSuite struct {
-	home *testing.FakeHome
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&URLsSuite{})
 
-func (s *URLsSuite) SetUpTest(c *gc.C) {
-	s.home = testing.MakeEmptyFakeHome(c)
-}
-
 func (s *URLsSuite) TearDownTest(c *gc.C) {
-	s.home.Restore()
 	dummy.Reset()
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {

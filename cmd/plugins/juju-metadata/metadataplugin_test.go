@@ -22,7 +22,7 @@ func Test(t *stdtesting.T) {
 }
 
 type MetadataSuite struct {
-	jujuHome *testing.FakeHome
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&MetadataSuite{})
@@ -34,14 +34,6 @@ var metadataCommandNames = []string{
 	"sign",
 	"validate-images",
 	"validate-tools",
-}
-
-func (s *MetadataSuite) SetUpTest(c *gc.C) {
-	s.jujuHome = testing.MakeEmptyFakeHome(c)
-}
-
-func (s *MetadataSuite) TearDownTest(c *gc.C) {
-	s.jujuHome.Restore()
 }
 
 var (
