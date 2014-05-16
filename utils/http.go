@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strings"
 	"sync"
 )
 
@@ -114,8 +113,11 @@ var netDial = net.Dial
 
 func dial(network, addr string) (net.Conn, error) {
 	if !OutgoingAccessAllowed {
-		parts := strings.Split(addr, ":")
-		ip := net.ParseIP(parts[0])
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			return netDial(network, addr)
+		}
+		ip := net.ParseIP(host)
 		if !ip.IsLoopback() {
 			return nil, fmt.Errorf("access to address %q not allowed", addr)
 		}

@@ -117,6 +117,7 @@ func (s *dialSuite) assertDial(c *gc.C, addr string, allowDial bool) {
 }
 
 func (s *dialSuite) TestDialAllowsNonLocal(c *gc.C) {
+	s.PatchValue(&utils.OutgoingAccessAllowed, true)
 	s.assertDial(c, "10.0.0.1:80", true)
 }
 
