@@ -83,7 +83,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.ToolsFixture.SetUpTest(c)
-	t.PatchValue(&sync.Upload, toolstesting.GetMockUploadTools(c))
+	t.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 }
 
 func publicAttrs(e environs.Environ) map[string]interface{} {

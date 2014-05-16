@@ -160,7 +160,7 @@ var bootstrapSetAgentVersionTests = []envtesting.BootstrapToolsTest{
 	}}
 
 func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
-	s.PatchValue(&sync.Upload, toolstesting.GetMockUploadTools(c))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	allTests := append(envtesting.BootstrapToolsTests, bootstrapSetAgentVersionTests...)
 	// version.Current is set in the loop so ensure it is restored later.
 	s.PatchValue(&version.Current, version.Current)

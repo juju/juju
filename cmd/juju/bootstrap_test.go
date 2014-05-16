@@ -57,7 +57,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
-	s.PatchValue(&sync.Upload, toolstesting.GetMockUploadTools(c))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -497,7 +497,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 }
 
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) environs.Environ {
-	s.PatchValue(&sync.Upload, toolstesting.GetMockUploadTools(c))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 

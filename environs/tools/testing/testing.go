@@ -23,7 +23,6 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/sync"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
@@ -32,41 +31,13 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// GetMockUploadTools returns an UploadFunc that simulates the effect of
-// tools.Upload, but skips the time-consuming build from source.
-// TODO(fwereade) better factor agent/tools such that build logic is exposed
-// and can itself be neatly mocked?
-func GetMockUploadTools(c *gc.C) sync.UploadFunc {
-	return func(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
-		vers := version.Current
-		if forceVersion != nil {
-			vers.Number = *forceVersion
-		}
-		versions := []version.Binary{vers}
-		for _, series := range series {
-			if series != version.Current.Series {
-				newVers := vers
-				newVers.Series = series
-				versions = append(versions, newVers)
-			}
-		}
-		agentTools, err := envtesting.UploadFakeToolsVersions(stor, versions...)
-		if err != nil {
-			return nil, err
-		}
-		return agentTools[0], nil
-	}
-}
-
 func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
 	return func(w io.Writer, forceVersion *version.Number) (vers version.Binary, sha256Hash string, err error) {
 		vers = version.Current
 		if forceVersion != nil {
 			vers.Number = *forceVersion
 		}
-
 		sha256Hash = fmt.Sprintf("%x", sha256.New().Sum(nil))
-
 		return vers, sha256Hash, err
 	}
 }
@@ -82,21 +53,18 @@ func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
 
 		tgz, checksum := coretesting.TarGz(
 			coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
-		size := int64(len(tgz))
 
 		// Write fake tools to storage
 		toolsDir, err := ioutil.TempDir("", "juju-tools")
 		c.Assert(err, gc.IsNil)
-		stor, err := filestorage.NewFileStorageWriter(toolsDir)
-		c.Assert(err, gc.IsNil)
 		name := tools.StorageName(vers)
-		stor.Put(name, bytes.NewReader(tgz), size)
+		ioutil.WriteFile(filepath.Join(toolsDir, name), tgz, 0777)
 
 		return &sync.BuiltTools{
 			Dir:         toolsDir,
 			StorageName: tools.StorageName(vers),
 			Version:     vers,
-			Size:        size,
+			Size:        int64(len(tgz)),
 			Sha256Hash:  checksum,
 		}, nil
 	}
@@ -278,7 +246,7 @@ func UploadToStorage(c *gc.C, stor storage.Storage, versions ...version.Binary) 
 	return uploaded
 }
 
-// UploadToStorage uploads tools and metadata for the specified versions to dir.
+// UploadToDirectory uploads tools and metadata for the specified versions to dir.
 func UploadToDirectory(c *gc.C, dir string, versions ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
 	if len(versions) == 0 {
