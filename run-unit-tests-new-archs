@@ -105,6 +105,7 @@ EOT
 EXIT_STATUS=$?
 
 ssh "$@" $remote_user@$instance_name <<EOT
+echo "Cleaning up /tmp"
 rm -r /tmp/adduser-*
 rm -r /tmp/go-*
 rm -r /tmp/gocheck-*
