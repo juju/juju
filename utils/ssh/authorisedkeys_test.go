@@ -20,7 +20,7 @@ func Test(t *stdtesting.T) {
 }
 
 type AuthorisedKeysKeysSuite struct {
-	testing.BaseSuite
+	testing.FakeHomeSuite
 }
 
 const (

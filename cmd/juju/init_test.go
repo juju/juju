@@ -15,7 +15,7 @@ import (
 )
 
 type InitSuite struct {
-	testing.BaseSuite
+	testing.FakeHomeSuite
 }
 
 var _ = gc.Suite(&InitSuite{})
@@ -61,7 +61,7 @@ environments:
 // An existing environments.yaml will not be overwritten without
 // the explicit -f option.
 func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *gc.C) {
-	testing.AddEnvironments(c, existingEnv)
+	testing.WriteEnvironments(c, existingEnv)
 
 	ctx := testing.Context(c)
 	code := cmd.Main(&InitCommand{}, ctx, nil)
@@ -78,7 +78,7 @@ func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *gc.C) {
 // An existing environments.yaml will be overwritten when -f is
 // given explicitly.
 func (*InitSuite) TestExistingEnvironmentOverwritten(c *gc.C) {
-	testing.AddEnvironments(c, existingEnv)
+	testing.WriteEnvironments(c, existingEnv)
 
 	ctx := testing.Context(c)
 	code := cmd.Main(&InitCommand{}, ctx, []string{"-f"})

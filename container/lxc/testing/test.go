@@ -15,7 +15,7 @@ import (
 // TestSuite replaces the lxc factory that the broker uses with a mock
 // implementation.
 type TestSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 	Factory      mock.ContainerFactory
 	ContainerDir string
 	RemovedDir   string
@@ -24,7 +24,7 @@ type TestSuite struct {
 }
 
 func (s *TestSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ContainerDir = c.MkDir()
 	s.PatchValue(&container.ContainerDir, s.ContainerDir)
 	s.RemovedDir = c.MkDir()

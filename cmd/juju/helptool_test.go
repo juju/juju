@@ -13,7 +13,7 @@ import (
 )
 
 type HelpToolSuite struct {
-	testing.BaseSuite
+	testing.FakeHomeSuite
 }
 
 var _ = gc.Suite(&HelpToolSuite{})

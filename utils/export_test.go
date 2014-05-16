@@ -7,4 +7,5 @@ var (
 	GOMAXPROCS = &gomaxprocs
 	NumCPU     = &numCPU
 	Dial       = dial
+	NetDial    = &netDial
 )

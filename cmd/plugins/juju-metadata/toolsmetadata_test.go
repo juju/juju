@@ -27,7 +27,7 @@ import (
 )
 
 type ToolsMetadataSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 	env              environs.Environ
 	publicStorageDir string
 }
@@ -35,8 +35,7 @@ type ToolsMetadataSuite struct {
 var _ = gc.Suite(&ToolsMetadataSuite{})
 
 func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	coretesting.AddEnvironments(c, coretesting.SingleEnvConfig)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.AddCleanup(func(*gc.C) {
 		dummy.Reset()
 		loggo.ResetLoggers()

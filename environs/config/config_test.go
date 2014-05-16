@@ -26,14 +26,14 @@ func Test(t *stdtesting.T) {
 }
 
 type ConfigSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 	home string
 }
 
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which
 	// is <root>=WARNING
 	loggo.ResetLoggers()
@@ -710,10 +710,10 @@ func (s *ConfigSuite) TestConfig(c *gc.C) {
 		{"othercert.pem", caCert3},
 		{"otherkey.pem", caKey3},
 	}
-	s.BaseSuite.Home.AddFiles(c, files...)
+	s.FakeHomeSuite.Home.AddFiles(c, files...)
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
-		test.check(c, s.BaseSuite.Home)
+		test.check(c, s.FakeHomeSuite.Home)
 	}
 }
 
@@ -742,7 +742,7 @@ var noCertFilesTests = []configTest{
 func (s *ConfigSuite) TestConfigNoCertFiles(c *gc.C) {
 	for i, test := range noCertFilesTests {
 		c.Logf("test %d. %s", i, test.about)
-		test.check(c, s.BaseSuite.Home)
+		test.check(c, s.FakeHomeSuite.Home)
 	}
 }
 
@@ -804,11 +804,11 @@ func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 		{".juju/my-name-cert.pem", ""},
 		{".juju/my-name-private-key.pem", ""},
 	}
-	s.BaseSuite.Home.AddFiles(c, files...)
+	s.FakeHomeSuite.Home.AddFiles(c, files...)
 
 	for i, test := range emptyCertFilesTests {
 		c.Logf("test %d. %s", i, test.about)
-		test.check(c, s.BaseSuite.Home)
+		test.check(c, s.FakeHomeSuite.Home)
 	}
 }
 
@@ -1117,7 +1117,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	files := []testing.TestFile{
 		{".ssh/identity.pub", "identity"},
 	}
-	s.BaseSuite.Home.AddFiles(c, files...)
+	s.FakeHomeSuite.Home.AddFiles(c, files...)
 
 	for i, test := range validationTests {
 		c.Logf("test %d: %s", i, test.about)
@@ -1133,7 +1133,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 }
 
 func (s *ConfigSuite) addJujuFiles(c *gc.C) {
-	s.BaseSuite.Home.AddFiles(c, []testing.TestFile{
+	s.FakeHomeSuite.Home.AddFiles(c, []testing.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
 		{".juju/myenv-cert.pem", caCert},
 		{".juju/myenv-private-key.pem", caKey},
@@ -1297,7 +1297,7 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 
 func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 	// Add a cert.
-	s.BaseSuite.Home.AddFiles(c, testing.TestFile{".ssh/id_rsa.pub", "rsa\n"})
+	s.FakeHomeSuite.Home.AddFiles(c, testing.TestFile{".ssh/id_rsa.pub", "rsa\n"})
 
 	for _, test := range []struct {
 		configValues map[string]interface{}

@@ -49,7 +49,7 @@ environments:
 
 func (s *CmdSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	coretesting.AddEnvironments(c, envConfig, "peckham", "walthamstow", "brokenenv")
+	coretesting.WriteEnvironments(c, envConfig, "peckham", "walthamstow", "brokenenv")
 }
 
 func (s *CmdSuite) TearDownTest(c *gc.C) {

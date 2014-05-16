@@ -17,7 +17,7 @@ import (
 )
 
 type FileVarSuite struct {
-	testing.BaseSuite
+	testing.FakeHomeSuite
 	ctx         *cmd.Context
 	ValidPath   string
 	InvalidPath string // invalid path refers to a file which is not readable
@@ -26,7 +26,7 @@ type FileVarSuite struct {
 var _ = gc.Suite(&FileVarSuite{})
 
 func (s *FileVarSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
 	s.ctx = testing.Context(c)
 	s.ValidPath = s.ctx.AbsPath("valid.yaml")
 	s.InvalidPath = s.ctx.AbsPath("invalid.yaml")

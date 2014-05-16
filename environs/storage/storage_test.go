@@ -27,7 +27,7 @@ func TestPackage(t *stdtesting.T) {
 var _ = gc.Suite(&datasourceSuite{})
 
 type datasourceSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 	stor    storage.Storage
 	baseURL string
 }
@@ -41,8 +41,8 @@ environments:
 `
 
 func (s *datasourceSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	testing.AddEnvironments(c, existingEnv)
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	testing.WriteEnvironments(c, existingEnv)
 	environ, err := environs.PrepareFromName("test", testing.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	s.stor = environ.Storage()
@@ -52,7 +52,7 @@ func (s *datasourceSuite) SetUpTest(c *gc.C) {
 
 func (s *datasourceSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *datasourceSuite) TestFetch(c *gc.C) {

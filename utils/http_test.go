@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -102,9 +103,26 @@ func (s *dialSuite) TestDialRejectsNonLocal(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `access to address "10.0.0.1:80" not allowed`)
 }
 
-func (s *dialSuite) TestDialAllowsNonLocal(c *gc.C) {
-	_, err := utils.Dial("tcp", "10.0.0.1:80")
+func (s *dialSuite) assertDial(c *gc.C, addr string, allowDial bool) {
+	dialed := false
+	s.PatchValue(utils.NetDial, func(network, addr string) (net.Conn, error) {
+		c.Assert(network, gc.Equals, "tcp")
+		c.Assert(addr, gc.Equals, addr)
+		dialed = true
+		return nil, nil
+	})
+	_, err := utils.Dial("tcp", addr)
 	c.Assert(err, gc.IsNil)
+	c.Assert(dialed, gc.Equals, allowDial)
+}
+
+func (s *dialSuite) TestDialAllowsNonLocal(c *gc.C) {
+	s.assertDial(c, "10.0.0.1:80", true)
+}
+
+func (s *dialSuite) TestDialAllowsLocal(c *gc.C) {
+	s.PatchValue(&utils.OutgoingAccessAllowed, false)
+	s.assertDial(c, "127.0.0.1:1234", true)
 }
 
 func (s *dialSuite) TestInsecureClientNoAccess(c *gc.C) {

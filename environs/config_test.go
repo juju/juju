@@ -22,14 +22,14 @@ import (
 )
 
 type suite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&suite{})
 
 func (s *suite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 var invalidConfigTests = []struct {
@@ -143,6 +143,9 @@ environments:
 }
 
 func (*suite) TestNoEnv(c *gc.C) {
+	envPath := testing.HomePath(".juju", "environments.yaml")
+	err := os.Remove(envPath)
+	c.Assert(err, gc.IsNil)
 	es, err := environs.ReadEnvirons("")
 	c.Assert(es, gc.IsNil)
 	c.Assert(err, jc.Satisfies, environs.IsNoEnv)

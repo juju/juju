@@ -21,20 +21,20 @@ import (
 )
 
 type OpenSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&OpenSuite{})
 
 func (s *OpenSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	testing.AddEnvironments(c, testing.MultipleEnvConfigNoDefault)
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfigNoDefault)
 }
 
 func (s *OpenSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (*OpenSuite) TestNewDummyEnviron(c *gc.C) {
@@ -120,7 +120,7 @@ func (*OpenSuite) TestConfigForNameNoDefault(c *gc.C) {
 }
 
 func (*OpenSuite) TestConfigForNameDefault(c *gc.C) {
-	testing.AddEnvironments(c, testing.SingleEnvConfig)
+	testing.WriteEnvironments(c, testing.SingleEnvConfig)
 	cfg, source, err := environs.ConfigForName("", configstore.NewMem())
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.Name(), gc.Equals, "erewhemos")
@@ -128,7 +128,7 @@ func (*OpenSuite) TestConfigForNameDefault(c *gc.C) {
 }
 
 func (*OpenSuite) TestConfigForNameFromInfo(c *gc.C) {
-	testing.AddEnvironments(c, testing.SingleEnvConfig)
+	testing.WriteEnvironments(c, testing.SingleEnvConfig)
 	store := configstore.NewMem()
 	cfg, source, err := environs.ConfigForName("", store)
 	c.Assert(err, gc.IsNil)
@@ -326,19 +326,19 @@ environments:
 `
 
 type checkEnvironmentSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&checkEnvironmentSuite{})
 
 func (s *checkEnvironmentSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	testing.AddEnvironments(c, checkEnv)
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	testing.WriteEnvironments(c, checkEnv)
 }
 
 func (s *checkEnvironmentSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *checkEnvironmentSuite) TestCheckEnvironment(c *gc.C) {

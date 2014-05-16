@@ -19,7 +19,7 @@ import (
 )
 
 type ValidateToolsMetadataSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 	metadataDir string
 }
 
@@ -86,8 +86,8 @@ func (s *ValidateToolsMetadataSuite) makeLocalMetadata(c *gc.C, version, region,
 }
 
 func (s *ValidateToolsMetadataSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	coretesting.AddEnvironments(c, metadataTestEnvConfig)
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	coretesting.WriteEnvironments(c, metadataTestEnvConfig)
 	s.metadataDir = c.MkDir()
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")

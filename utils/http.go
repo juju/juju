@@ -109,11 +109,16 @@ func BasicAuthHeader(username, password string) http.Header {
 // localhost can be dialled.
 var OutgoingAccessAllowed = true
 
+// Override for tests.
+var netDial = net.Dial
+
 func dial(network, addr string) (net.Conn, error) {
-	parts := strings.Split(addr, ":")
-	ip := net.ParseIP(parts[0])
-	if !ip.IsLoopback() && !OutgoingAccessAllowed {
-		return nil, fmt.Errorf("access to address %q not allowed", addr)
+	if !OutgoingAccessAllowed {
+		parts := strings.Split(addr, ":")
+		ip := net.ParseIP(parts[0])
+		if !ip.IsLoopback() {
+			return nil, fmt.Errorf("access to address %q not allowed", addr)
+		}
 	}
-	return net.Dial(network, addr)
+	return netDial(network, addr)
 }

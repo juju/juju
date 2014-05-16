@@ -22,7 +22,7 @@ func Test(t *stdtesting.T) {
 }
 
 type MetadataSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&MetadataSuite{})

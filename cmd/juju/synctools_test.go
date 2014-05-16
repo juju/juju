@@ -21,7 +21,7 @@ import (
 )
 
 type syncToolsSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeHomeSuite
 	configStore  configstore.Storage
 	localStorage string
 
@@ -31,10 +31,10 @@ type syncToolsSuite struct {
 var _ = gc.Suite(&syncToolsSuite{})
 
 func (s *syncToolsSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
 
 	// Create a target environments.yaml and make sure its environment is empty.
-	coretesting.AddEnvironments(c, `
+	coretesting.WriteEnvironments(c, `
 environments:
     test-target:
         type: dummy
@@ -50,7 +50,7 @@ environments:
 func (s *syncToolsSuite) TearDownTest(c *gc.C) {
 	syncTools = s.origSyncTools
 	dummy.Reset()
-	s.BaseSuite.TearDownTest(c)
+	s.FakeHomeSuite.TearDownTest(c)
 }
 
 func (s *syncToolsSuite) Reset(c *gc.C) {

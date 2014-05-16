@@ -41,21 +41,21 @@ func Test(t *stdtesting.T) {
 }
 
 type NewConnSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&NewConnSuite{})
 
 func (cs *NewConnSuite) SetUpTest(c *gc.C) {
-	cs.BaseSuite.SetUpTest(c)
+	cs.FakeJujuHomeSuite.SetUpTest(c)
 	cs.ToolsFixture.SetUpTest(c)
 }
 
 func (cs *NewConnSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	cs.ToolsFixture.TearDownTest(c)
-	cs.BaseSuite.TearDownTest(c)
+	cs.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func assertClose(c *gc.C, closer io.Closer) {
@@ -115,7 +115,7 @@ func (s *NewConnSuite) TestNewConnFromNameNotSetGetsDefault(c *gc.C) {
 }
 
 func (s *NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
-	coretesting.AddEnvironments(c, coretesting.MultipleEnvConfig)
+	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	// The default environment is "erewhemos", so make sure we get what we ask for.
 	const envName = "erewhemos-2"
 	bootstrapEnv(c, envName, defaultConfigStore(c))

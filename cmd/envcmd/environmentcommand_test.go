@@ -20,7 +20,7 @@ import (
 )
 
 type EnvironmentCommandSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&EnvironmentCommandSuite{})
@@ -40,6 +40,9 @@ func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentSet(c *gc.C) {
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *gc.C) {
+	envPath := coretesting.HomePath(".juju", "environments.yaml")
+	err := os.Remove(envPath)
+	c.Assert(err, gc.IsNil)
 	env, err := envcmd.GetDefaultEnvironment()
 	c.Assert(env, gc.Equals, "")
 	c.Assert(err, jc.Satisfies, environs.IsNoEnv)
@@ -92,12 +95,12 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInit(c *gc.C) {
 	c.Assert(*envName, gc.Equals, "explicit")
 
 	// Take environment name from the default.
-	coretesting.AddEnvironments(c, coretesting.MultipleEnvConfig)
+	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	testEnsureEnvName(c, coretesting.SampleEnvName)
 
 	// Take environment name from the one and only environment,
 	// even if it is not explicitly marked as default.
-	coretesting.AddEnvironments(c, coretesting.SingleEnvConfigNoDefault)
+	coretesting.WriteEnvironments(c, coretesting.SingleEnvConfigNoDefault)
 	testEnsureEnvName(c, coretesting.SampleEnvName)
 
 	// If there is a current-environment file, use that.
@@ -106,13 +109,16 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInit(c *gc.C) {
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitErrors(c *gc.C) {
+	envPath := coretesting.HomePath(".juju", "environments.yaml")
+	err := os.Remove(envPath)
+	c.Assert(err, gc.IsNil)
 	cmd, _ := prepareEnvCommand(c, "")
-	err := cmd.Init(nil)
+	err = cmd.Init(nil)
 	c.Assert(err, jc.Satisfies, environs.IsNoEnv)
 
 	// If there are multiple environments but no default,
 	// an error should be returned.
-	coretesting.AddEnvironments(c, coretesting.MultipleEnvConfigNoDefault)
+	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfigNoDefault)
 	cmd, _ = prepareEnvCommand(c, "")
 	err = cmd.Init(nil)
 	c.Assert(err, gc.Equals, envcmd.ErrNoEnvironmentSpecified)

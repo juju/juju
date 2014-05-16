@@ -17,7 +17,7 @@ import (
 )
 
 type EmptyStorageSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&EmptyStorageSuite{})
@@ -41,7 +41,7 @@ func (s *EmptyStorageSuite) TestList(c *gc.C) {
 }
 
 type verifyStorageSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&verifyStorageSuite{})
@@ -55,13 +55,13 @@ environments:
 `
 
 func (s *verifyStorageSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	testing.AddEnvironments(c, existingEnv)
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	testing.WriteEnvironments(c, existingEnv)
 }
 
 func (s *verifyStorageSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.BaseSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {

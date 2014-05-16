@@ -14,7 +14,7 @@ import (
 )
 
 type SwitchSimpleSuite struct {
-	testing.BaseSuite
+	testing.FakeHomeSuite
 }
 
 var _ = gc.Suite(&SwitchSimpleSuite{})
@@ -25,28 +25,28 @@ func (*SwitchSimpleSuite) TestNoEnvironment(c *gc.C) {
 }
 
 func (*SwitchSimpleSuite) TestNoDefault(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfigNoDefault)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfigNoDefault)
 	_, err := testing.RunCommand(c, &SwitchCommand{}, nil)
 	c.Assert(err, gc.ErrorMatches, "no currently specified environment")
 }
 
 func (*SwitchSimpleSuite) TestShowsDefault(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfig)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	context, err := testing.RunCommand(c, &SwitchCommand{}, nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos\n")
 }
 
 func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecidence(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfig)
-	s.BaseSuite.Home.AddFiles(c, testing.TestFile{".juju/current-environment", "fubar"})
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+	s.FakeHomeSuite.Home.AddFiles(c, testing.TestFile{".juju/current-environment", "fubar"})
 	context, err := testing.RunCommand(c, &SwitchCommand{}, nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "fubar\n")
 }
 
 func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfig)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	os.Setenv("JUJU_ENV", "using-env")
 	context, err := testing.RunCommand(c, &SwitchCommand{}, nil)
 	c.Assert(err, gc.IsNil)
@@ -54,8 +54,8 @@ func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
 }
 
 func (s *SwitchSimpleSuite) TestJujuEnvOverCurrentEnvironment(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfig)
-	s.BaseSuite.Home.AddFiles(c, testing.TestFile{".juju/current-environment", "fubar"})
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+	s.FakeHomeSuite.Home.AddFiles(c, testing.TestFile{".juju/current-environment", "fubar"})
 	os.Setenv("JUJU_ENV", "using-env")
 	context, err := testing.RunCommand(c, &SwitchCommand{}, nil)
 	c.Assert(err, gc.IsNil)
@@ -63,7 +63,7 @@ func (s *SwitchSimpleSuite) TestJujuEnvOverCurrentEnvironment(c *gc.C) {
 }
 
 func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfig)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	context, err := testing.RunCommand(c, &SwitchCommand{}, []string{"erewhemos-2"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos -> erewhemos-2\n")
@@ -71,13 +71,13 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *gc.C) {
 }
 
 func (*SwitchSimpleSuite) TestSettingToUnknown(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfig)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	_, err := testing.RunCommand(c, &SwitchCommand{}, []string{"unknown"})
 	c.Assert(err, gc.ErrorMatches, `"unknown" is not a name of an existing defined environment`)
 }
 
 func (*SwitchSimpleSuite) TestSettingWhenJujuEnvSet(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfig)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	os.Setenv("JUJU_ENV", "using-env")
 	_, err := testing.RunCommand(c, &SwitchCommand{}, []string{"erewhemos-2"})
 	c.Assert(err, gc.ErrorMatches, `cannot switch when JUJU_ENV is overriding the environment \(set to "using-env"\)`)
@@ -88,14 +88,14 @@ erewhemos-2
 `
 
 func (*SwitchSimpleSuite) TestListEnvironments(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfig)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	context, err := testing.RunCommand(c, &SwitchCommand{}, []string{"--list"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, expectedEnvironments)
 }
 
 func (*SwitchSimpleSuite) TestListEnvironmentsOSJujuEnvSet(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfig)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	os.Setenv("JUJU_ENV", "using-env")
 	context, err := testing.RunCommand(c, &SwitchCommand{}, []string{"--list"})
 	c.Assert(err, gc.IsNil)
@@ -103,13 +103,13 @@ func (*SwitchSimpleSuite) TestListEnvironmentsOSJujuEnvSet(c *gc.C) {
 }
 
 func (*SwitchSimpleSuite) TestListEnvironmentsAndChange(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfig)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	_, err := testing.RunCommand(c, &SwitchCommand{}, []string{"--list", "erewhemos-2"})
 	c.Assert(err, gc.ErrorMatches, "cannot switch and list at the same time")
 }
 
 func (*SwitchSimpleSuite) TestTooManyParams(c *gc.C) {
-	testing.AddEnvironments(c, testing.MultipleEnvConfig)
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	_, err := testing.RunCommand(c, &SwitchCommand{}, []string{"foo", "bar"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: ."bar".`)
 }

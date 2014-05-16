@@ -22,7 +22,7 @@ import (
 )
 
 type ImageMetadataSuite struct {
-	testing.BaseSuite
+	testing.FakeJujuHomeSuite
 	environ []string
 	dir     string
 }
@@ -30,12 +30,12 @@ type ImageMetadataSuite struct {
 var _ = gc.Suite(&ImageMetadataSuite{})
 
 func (s *ImageMetadataSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 	s.environ = os.Environ()
 }
 
 func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 	// Create a fake certificate so azure test environment can be opened.
 	certfile, err := ioutil.TempFile(s.dir, "")
@@ -44,7 +44,7 @@ func (s *ImageMetadataSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filename, []byte("test certificate"), 0644)
 	c.Assert(err, gc.IsNil)
 	envConfig := strings.Replace(metadataTestEnvConfig, "/home/me/azure.pem", filename, -1)
-	testing.AddEnvironments(c, envConfig)
+	testing.WriteEnvironments(c, envConfig)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 }
@@ -131,6 +131,8 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 }
 
 func (s *ImageMetadataSuite) TestImageMetadataFilesLatestLts(c *gc.C) {
+	envConfig := strings.Replace(metadataTestEnvConfig, "default-series: precise", "", -1)
+	testing.WriteEnvironments(c, envConfig)
 	ctx := testing.Context(c)
 	code := cmd.Main(
 		envcmd.Wrap(&ImageMetadataCommand{}), ctx, []string{

@@ -19,7 +19,7 @@ import (
 )
 
 type ValidateImageMetadataSuite struct {
-	coretesting.BaseSuite
+	coretesting.FakeJujuHomeSuite
 	metadataDir string
 }
 
@@ -104,9 +104,9 @@ environments:
 `
 
 func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
-	coretesting.AddEnvironments(c, metadataTestEnvConfig)
+	coretesting.WriteEnvironments(c, metadataTestEnvConfig)
 	s.PatchEnvironment("AWS_ACCESS_KEY_ID", "access")
 	s.PatchEnvironment("AWS_SECRET_ACCESS_KEY", "secret")
 }

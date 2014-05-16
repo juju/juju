@@ -4,9 +4,13 @@
 package testing
 
 import (
+	"io/ioutil"
+	"os"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -97,13 +101,53 @@ const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
 
 const SampleCertName = "erewhemos"
 
+// FakeHomeSuite sets up a fake home directory before running tests.
+type FakeHomeSuite struct {
+	BaseSuite
+	Home *FakeHome
+}
+
+func (s *FakeHomeSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.Home = MakeFakeHome(c)
+}
+
 // FakeJujuHomeSuite isolates the user's home directory and
 // sets up a Juju home with a sample environment and certificate.
 type FakeJujuHomeSuite struct {
-	BaseSuite
+	FakeHomeSuite
+	oldJujuHome string
 }
 
 func (s *FakeJujuHomeSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	AddEnvironments(c, SingleEnvConfig, SampleCertName)
+	s.FakeHomeSuite.SetUpTest(c)
+	jujuHome := HomePath(".juju")
+	err := os.Mkdir(jujuHome, 0700)
+	c.Assert(err, gc.IsNil)
+	s.oldJujuHome = osenv.SetJujuHome(jujuHome)
+	WriteEnvironments(c, SingleEnvConfig, SampleCertName)
+}
+
+func (s *FakeJujuHomeSuite) TearDownTest(c *gc.C) {
+	osenv.SetJujuHome(s.oldJujuHome)
+	s.FakeHomeSuite.TearDownTest(c)
+}
+
+// MakeSampleJujuHome sets up a sample Juju environment.
+func MakeSampleJujuHome(c *gc.C) {
+	WriteEnvironments(c, SingleEnvConfig, SampleCertName)
+}
+
+// WriteEnvironments creates an environments file with envConfig and certs
+// from certNames.
+func WriteEnvironments(c *gc.C, envConfig string, certNames ...string) {
+	envs := osenv.JujuHomePath("environments.yaml")
+	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
+	c.Assert(err, gc.IsNil)
+	for _, name := range certNames {
+		err := ioutil.WriteFile(osenv.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
+		c.Assert(err, gc.IsNil)
+		err = ioutil.WriteFile(osenv.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
+		c.Assert(err, gc.IsNil)
+	}
 }

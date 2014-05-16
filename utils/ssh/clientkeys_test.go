@@ -16,13 +16,13 @@ import (
 )
 
 type ClientKeysSuite struct {
-	testing.BaseSuite
+	testing.FakeHomeSuite
 }
 
 var _ = gc.Suite(&ClientKeysSuite{})
 
 func (s *ClientKeysSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
 	s.AddCleanup(func(*gc.C) { ssh.ClearClientKeys() })
 	generateKeyRestorer := overrideGenerateKey(c)
 	s.AddCleanup(func(*gc.C) { generateKeyRestorer.Restore() })

@@ -23,7 +23,8 @@ import (
 // - scrubbing of env vars
 type BaseSuite struct {
 	testbase.LoggingSuite
-	Home *FakeHome
+	oldHomeEnv     string
+	oldEnvironment map[string]string
 }
 
 func (t *BaseSuite) SetUpSuite(c *gc.C) {
@@ -33,13 +34,28 @@ func (t *BaseSuite) SetUpSuite(c *gc.C) {
 }
 
 func (t *BaseSuite) SetUpTest(c *gc.C) {
-	t.Home = MakeFakeHome(c)
+	t.oldEnvironment = make(map[string]string)
+	for _, name := range []string{
+		osenv.JujuHomeEnvKey,
+		osenv.JujuEnvEnvKey,
+		osenv.JujuLoggingConfigEnvKey,
+	} {
+		t.oldEnvironment[name] = os.Getenv(name)
+	}
+	t.oldHomeEnv = osenv.Home()
+	osenv.SetHome("")
+	os.Setenv(osenv.JujuHomeEnvKey, "")
+	os.Setenv(osenv.JujuEnvEnvKey, "")
+	os.Setenv(osenv.JujuLoggingConfigEnvKey, "")
 	t.LoggingSuite.SetUpTest(c)
 }
 
 func (t *BaseSuite) TearDownTest(c *gc.C) {
-	t.Home.Restore()
 	t.LoggingSuite.TearDownTest(c)
+	for name, value := range t.oldEnvironment {
+		os.Setenv(name, value)
+	}
+	osenv.SetHome(t.oldHomeEnv)
 }
 
 type TestFile struct {
@@ -50,52 +66,22 @@ type TestFile struct {
 // environment so it can be cast aside for tests and
 // restored afterwards.
 type FakeHome struct {
-	oldHomeEnv     string
-	oldEnvironment map[string]string
-	oldJujuHome    string
-	files          []TestFile
+	files []TestFile
 }
 
 func MakeFakeHome(c *gc.C) *FakeHome {
-	oldHomeEnv := osenv.Home()
-	oldEnvironment := make(map[string]string)
-	for _, name := range []string{
-		osenv.JujuHomeEnvKey,
-		osenv.JujuEnvEnvKey,
-		osenv.JujuLoggingConfigEnvKey,
-	} {
-		oldEnvironment[name] = os.Getenv(name)
-	}
 	fakeHome := c.MkDir()
 	osenv.SetHome(fakeHome)
-	os.Setenv(osenv.JujuHomeEnvKey, "")
-	os.Setenv(osenv.JujuEnvEnvKey, "")
-	os.Setenv(osenv.JujuLoggingConfigEnvKey, "")
-	jujuHome := filepath.Join(fakeHome, ".juju")
-	err := os.Mkdir(jujuHome, 0700)
-	c.Assert(err, gc.IsNil)
-	oldJujuHome := osenv.SetJujuHome(jujuHome)
 
 	sshPath := filepath.Join(fakeHome, ".ssh")
-	err = os.Mkdir(sshPath, 0777)
+	err := os.Mkdir(sshPath, 0777)
 	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(filepath.Join(sshPath, "id_rsa.pub"), []byte("auth key\n"), 0666)
 	c.Assert(err, gc.IsNil)
 
 	return &FakeHome{
-		oldHomeEnv:     oldHomeEnv,
-		oldEnvironment: oldEnvironment,
-		oldJujuHome:    oldJujuHome,
-		files:          []TestFile{},
+		files: []TestFile{},
 	}
-}
-
-func (h *FakeHome) Restore() {
-	osenv.SetJujuHome(h.oldJujuHome)
-	for name, value := range h.oldEnvironment {
-		os.Setenv(name, value)
-	}
-	osenv.SetHome(h.oldHomeEnv)
 }
 
 func (h *FakeHome) AddFiles(c *gc.C, files ...TestFile) {
@@ -131,25 +117,6 @@ func (h *FakeHome) FileExists(path string) bool {
 		}
 	}
 	return false
-}
-
-// MakeSampleJujuHome sets up a sample Juju environment.
-func MakeSampleJujuHome(c *gc.C) {
-	AddEnvironments(c, SingleEnvConfig, SampleCertName)
-}
-
-// AddEnvironments creates an environments file with envConfig and certs
-// from certNames.
-func AddEnvironments(c *gc.C, envConfig string, certNames ...string) {
-	envs := osenv.JujuHomePath("environments.yaml")
-	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
-	c.Assert(err, gc.IsNil)
-	for _, name := range certNames {
-		err := ioutil.WriteFile(osenv.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
-		c.Assert(err, gc.IsNil)
-		err = ioutil.WriteFile(osenv.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
-		c.Assert(err, gc.IsNil)
-	}
 }
 
 // HomePath joins the specified path snippets and returns
