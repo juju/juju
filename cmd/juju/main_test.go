@@ -31,7 +31,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type MainSuite struct {
-	testing.FakeHomeSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&MainSuite{})

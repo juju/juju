@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
+	jc "github.com/juju/testing/checkers"
 
 	"launchpad.net/juju-core/utils"
 )
@@ -103,7 +104,7 @@ func (s *dialSuite) TestDialRejectsNonLocal(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `access to address "10.0.0.1:80" not allowed`)
 }
 
-func (s *dialSuite) assertDial(c *gc.C, addr string, allowDial bool) {
+func (s *dialSuite) assertDial(c *gc.C, addr string) {
 	dialed := false
 	s.PatchValue(utils.NetDial, func(network, addr string) (net.Conn, error) {
 		c.Assert(network, gc.Equals, "tcp")
@@ -113,17 +114,17 @@ func (s *dialSuite) assertDial(c *gc.C, addr string, allowDial bool) {
 	})
 	_, err := utils.Dial("tcp", addr)
 	c.Assert(err, gc.IsNil)
-	c.Assert(dialed, gc.Equals, allowDial)
+	c.Assert(dialed, jc.IsTrue)
 }
 
 func (s *dialSuite) TestDialAllowsNonLocal(c *gc.C) {
 	s.PatchValue(&utils.OutgoingAccessAllowed, true)
-	s.assertDial(c, "10.0.0.1:80", true)
+	s.assertDial(c, "10.0.0.1:80")
 }
 
 func (s *dialSuite) TestDialAllowsLocal(c *gc.C) {
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
-	s.assertDial(c, "127.0.0.1:1234", true)
+	s.assertDial(c, "127.0.0.1:1234")
 }
 
 func (s *dialSuite) TestInsecureClientNoAccess(c *gc.C) {

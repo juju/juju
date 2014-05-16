@@ -14,13 +14,16 @@ import (
 )
 
 type SwitchSimpleSuite struct {
-	testing.FakeHomeSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&SwitchSimpleSuite{})
 
 func (*SwitchSimpleSuite) TestNoEnvironment(c *gc.C) {
-	_, err := testing.RunCommand(c, &SwitchCommand{}, nil)
+	envPath := testing.HomePath(".juju", "environments.yaml")
+	err := os.Remove(envPath)
+	c.Assert(err, gc.IsNil)
+	_, err = testing.RunCommand(c, &SwitchCommand{}, nil)
 	c.Assert(err, gc.ErrorMatches, "couldn't read the environment")
 }
 

@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	gc "launchpad.net/gocheck"
@@ -15,7 +16,7 @@ import (
 )
 
 type InitSuite struct {
-	testing.FakeHomeSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&InitSuite{})
@@ -23,6 +24,9 @@ var _ = gc.Suite(&InitSuite{})
 // The environments.yaml is created by default if it
 // does not already exist.
 func (*InitSuite) TestBoilerPlateEnvironment(c *gc.C) {
+	envPath := testing.HomePath(".juju", "environments.yaml")
+	err := os.Remove(envPath)
+	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(&InitCommand{}, ctx, nil)
 	c.Check(code, gc.Equals, 0)
@@ -39,6 +43,9 @@ func (*InitSuite) TestBoilerPlateEnvironment(c *gc.C) {
 // The boilerplate is sent to stdout with --show, and the environments.yaml
 // is not created.
 func (*InitSuite) TestBoilerPlatePrinted(c *gc.C) {
+	envPath := testing.HomePath(".juju", "environments.yaml")
+	err := os.Remove(envPath)
+	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(&InitCommand{}, ctx, []string{"--show"})
 	c.Check(code, gc.Equals, 0)
@@ -46,7 +53,7 @@ func (*InitSuite) TestBoilerPlatePrinted(c *gc.C) {
 	strippedOut := strings.Replace(outStr, "\n", "", -1)
 	c.Check(strippedOut, gc.Matches, ".*# This is the Juju config file, which you can use.*")
 	environpath := testing.HomePath(".juju", "environments.yaml")
-	_, err := ioutil.ReadFile(environpath)
+	_, err = ioutil.ReadFile(environpath)
 	c.Assert(err, gc.NotNil)
 }
 

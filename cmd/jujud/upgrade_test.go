@@ -36,7 +36,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 
 	// Capture all apt commands.
 	s.aptCmds = nil
-	aptCmds := s.HookCommandOutput(&utils.AptCommandOutput, nil, nil)
+	aptCmds := s.agentSuite.HookCommandOutput(&utils.AptCommandOutput, nil, nil)
 	go func() {
 		for cmd := range aptCmds {
 			s.aptCmds = append(s.aptCmds, cmd)
@@ -65,7 +65,7 @@ func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 }
 
 func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
-	s.PatchValue(&version.Current, s.upgradeToVersion)
+	s.agentSuite.PatchValue(&version.Current, s.upgradeToVersion)
 	err := s.State.SetEnvironAgentVersion(s.upgradeToVersion.Number)
 	c.Assert(err, gc.IsNil)
 
