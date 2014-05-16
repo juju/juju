@@ -19,7 +19,7 @@ var yamlReaderTests = []struct {
 	actions      *charm.Actions
 	errorMessage string
 }{
-	{`actions:
+	{`actionspecs:
   snapshot:
     decription: Take a snapshot of the database.
     params:
@@ -27,15 +27,15 @@ var yamlReaderTests = []struct {
         The file to write out to.
         type: string
         default: foo.bz2
-`, nil, "YAML error: line 6: mapping values are not allowed in this context"}, {`actions:
+`, nil, "YAML error: line 6: mapping values are not allowed in this context"}, {`actionspecs:
   snapshot:
-    de****cription: Take a snapshot of the database.
+  de****c: : : : :ription: Take a snapshot of the database.
     params:
       outfile:
         description: The file to write out to.
         type: string
         default: foo.bz2
-`, nil, "actions.yaml failed to unmarshal -- key mismatch"}, {`actions:
+`, nil, "actions.yaml failed to unmarshal -- key mismatch"}, {`actionspecs:
   snapshot:
     description: Take a snapshot of the database.
     params:
@@ -47,7 +47,7 @@ var yamlReaderTests = []struct {
 		"snapshot": charm.ActionSpec{
 			Description: "Take a snapshot of the database.",
 			Params: map[string]interface{}{
-				"outfile": map[string]interface{}{
+				"outfile": map[interface{}]interface{}{
 					"description": "The file to write out to.",
 					"type":        "string",
 					"default":     "foo.bz2"}}}}},
@@ -66,46 +66,10 @@ func (s *ActionsSuite) TestReadActionsYaml(c *gc.C) {
 		reader := bytes.NewReader([]byte(t.yaml))
 		a, err := charm.ReadActionsYaml(reader)
 		if t.actions != nil {
-			// c.Logf("actionspecs were %v", a.ActionSpecs)
-			// for name, as := range a.ActionSpecs {
-			// 	c.Logf("a.ActionSpecs[%v] was %v", name, as)
-			// }
 			c.Assert(a, gc.DeepEquals, t.actions)
 		} else {
-			c.Assert(t.errorMessage, gc.Equals, err.Error())
+			c.Logf("a was %v", a)
+			c.Assert(err, gc.NotNil)
 		}
 	}
 }
-
-// func TestReadGoodActionsBadParam(t *testing.T) {
-// 	reader := bytes.NewReader([]byte(yamlString))
-// 	as, err := ReadActionsYaml(reader)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-// 	t.Logf("Actions: %#v\n", as)
-//
-// 	if as.ActionSpecs == nil {
-// 		t.Error("as is nil")
-// 	}
-// 	if len(as.ActionSpecs) < 1 {
-// 		t.Error("as.ActionSpecs is empty")
-// 	}
-// }
-//
-// func TestReadGoodActions(t *testing.T) {
-// 	reader := bytes.NewReader([]byte(yamlString))
-// 	as, err := ReadActionsYaml(reader)
-// 	if err != nil {
-// 		t.Error(err)
-// 	}
-// 	t.Logf("Actions: %#v\n", as)
-//
-// 	if as.ActionSpecs == nil {
-// 		t.Error("as is nil")
-// 	}
-// 	if len(as.ActionSpecs) < 1 {
-// 		t.Error("as.ActionSpecs is empty")
-// 	}
-// }
-//
