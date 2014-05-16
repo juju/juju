@@ -8,7 +8,7 @@ import (
 	"reflect"
 	"sort"
 
-	"launchpad.net/juju-core/errors"
+	"github.com/juju/errors"
 )
 
 // TypedNameVersion is a registry that will allow you to register objects based
