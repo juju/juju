@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"reflect"
 
 	"github.com/xeipuuv/gojsonschema"
 	"launchpad.net/goyaml"
@@ -40,6 +41,9 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 	}
 	if actionsSpec == nil {
 		return nil, fmt.Errorf("Empty actions definition")
+	}
+	if reflect.DeepEqual(actionsSpec, &Actions{}) {
+		return nil, fmt.Errorf("actions.yaml failed to unmarshal -- key mismatch")
 	}
 	for _, actionSpec := range actionsSpec.ActionSpecs {
 		_, err := gojsonschema.NewJsonSchemaDocument(actionSpec.Params)
