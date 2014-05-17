@@ -54,12 +54,14 @@ var yamlReaderTests = []struct {
 		""},
 }
 
+// Does NewActions() build an empty, non-nil Actions?
 func (s *ActionsSuite) TestNewActions(c *gc.C) {
 	newActions := charm.NewActions()
 	c.Logf("NewActions comes back empty and not nil.")
 	c.Assert(newActions, gc.NotNil)
 }
 
+// Does ReadActionsYaml properly handle malformed YAML?
 func (s *ActionsSuite) TestReadActionsYaml(c *gc.C) {
 	for i, t := range yamlReaderTests {
 		c.Logf("ReadActionsYaml test %d", i)

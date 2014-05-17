@@ -29,7 +29,7 @@ func NewActions() *Actions {
 	return &Actions{map[string]ActionSpec{}}
 }
 
-// ReadActions reads an Actions from YAML.
+// ReadActions builds an Actions spec from a charm's actions.yaml.
 func ReadActionsYaml(r io.Reader) (*Actions, error) {
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
