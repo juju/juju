@@ -462,9 +462,8 @@ func (s *badBuildSuite) TestUploadToolsBadBuild(c *gc.C) {
 	c.Assert(t, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; `)
 
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
-
 	// Test that Upload func passes after BundleTools func is mocked out
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	t, err = sync.Upload(s.env.Storage(), nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
@@ -477,10 +476,9 @@ func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; `)
 	c.Assert(builtTools, gc.IsNil)
 
-	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
-
 	// Test that BuildToolsTarball func passes after BundleTools func is
 	// mocked out
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	builtTools, err = sync.BuildToolsTarball(nil)
 	c.Assert(builtTools.Version, gc.Equals, version.Current)
 	c.Assert(err, gc.IsNil)

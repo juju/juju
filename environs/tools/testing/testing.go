@@ -55,15 +55,14 @@ func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
 		tgz, checksum := coretesting.TarGz(
 			coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
 
-		// Write fake tools to storage
 		toolsDir, err := ioutil.TempDir("", "juju-tools")
 		c.Assert(err, gc.IsNil)
-		name := tools.StorageName(vers)
+		name := "name"
 		ioutil.WriteFile(filepath.Join(toolsDir, name), tgz, 0777)
 
 		return &sync.BuiltTools{
 			Dir:         toolsDir,
-			StorageName: tools.StorageName(vers),
+			StorageName: name,
 			Version:     vers,
 			Size:        int64(len(tgz)),
 			Sha256Hash:  checksum,
