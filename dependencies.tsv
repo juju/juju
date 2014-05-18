@@ -4,7 +4,7 @@ github.com/joyent/gocommon	git	98b151a080efe19bcde223d2d3b04389963d2347
 github.com/joyent/gomanta	git	ff785814c0ebb4050420a2f1d47895b35b8808f2	
 github.com/joyent/gosdc	git	10bbe92c5d98c8b38a0b7f62ee042c7252150efc	
 github.com/joyent/gosign	git	476720af5427223da5420afbbadf620bfb760345	
-github.com/juju/errgo	git	96d8f88c102000c1e7150b957c7c493911519338	
+github.com/juju/errgo	git	f6b8bbf169635df7d536aef8bd14e808cf28c6db	
 github.com/juju/errors	git	075df0417dbcc39d24ee18248d2f8d6e3eed598b	
 github.com/juju/loggo	git	fa3acf9ab9ed09aea29030558528e24a254d27af	
 github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb	
