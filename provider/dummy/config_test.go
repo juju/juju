@@ -11,17 +11,16 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 var _ = gc.Suite(&ConfigSuite{})
 
 type ConfigSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 	dummy.Reset()
 }
 
