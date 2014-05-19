@@ -11,13 +11,12 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"math/big"
 	"net"
 	"time"
 
-	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 )
 
 var KeyBits = 1024
@@ -39,7 +38,7 @@ func ParseCert(certPEM string) (*x509.Certificate, error) {
 	return nil, errors.New("no certificates found")
 }
 
-// ParseCert parses the given PEM-formatted X509 certificate
+// ParseCertAndKey parses the given PEM-formatted X509 certificate
 // and RSA private key.
 func ParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey, error) {
 	tlsCert, err := tls.X509KeyPair([]byte(certPEM), []byte(keyPEM))
@@ -64,11 +63,11 @@ func ParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.PrivateKey
 func Verify(srvCertPEM, caCertPEM string, when time.Time) error {
 	caCert, err := ParseCert(caCertPEM)
 	if err != nil {
-		return errgo.Annotate(err, "cannot parse CA certificate")
+		return errors.Annotate(err, "cannot parse CA certificate")
 	}
 	srvCert, err := ParseCert(srvCertPEM)
 	if err != nil {
-		return errgo.Annotate(err, "cannot parse server certificate")
+		return errors.Annotate(err, "cannot parse server certificate")
 	}
 	pool := x509.NewCertPool()
 	pool.AddCert(caCert)

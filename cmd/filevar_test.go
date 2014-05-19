@@ -4,16 +4,20 @@
 package cmd_test
 
 import (
+	"io/ioutil"
 	"os"
+	"path/filepath"
 
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
 
 type FileVarSuite struct {
+	testing.FakeHomeSuite
 	ctx         *cmd.Context
 	ValidPath   string
 	InvalidPath string // invalid path refers to a file which is not readable
@@ -22,6 +26,7 @@ type FileVarSuite struct {
 var _ = gc.Suite(&FileVarSuite{})
 
 func (s *FileVarSuite) SetUpTest(c *gc.C) {
+	s.FakeHomeSuite.SetUpTest(c)
 	s.ctx = testing.Context(c)
 	s.ValidPath = s.ctx.AbsPath("valid.yaml")
 	s.InvalidPath = s.ctx.AbsPath("invalid.yaml")
@@ -33,6 +38,18 @@ func (s *FileVarSuite) SetUpTest(c *gc.C) {
 	f.Close()
 	err = os.Chmod(s.InvalidPath, 0) // make unreadable
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *FileVarSuite) TestTildeFileVar(c *gc.C) {
+	path := filepath.Join(osenv.Home(), "config.yaml")
+	err := ioutil.WriteFile(path, []byte("abc"), 0644)
+	c.Assert(err, gc.IsNil)
+
+	var config cmd.FileVar
+	config.Set("~/config.yaml")
+	file, err := config.Read(s.ctx)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(file), gc.Equals, "abc")
 }
 
 func (s *FileVarSuite) TestValidFileVar(c *gc.C) {

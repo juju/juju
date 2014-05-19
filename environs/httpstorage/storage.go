@@ -6,7 +6,6 @@ package httpstorage
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -16,10 +15,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs/storage"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -96,7 +95,7 @@ func (s *localStorage) Get(name string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, coreerrors.NotFoundf("file %q", name)
+		return nil, errors.NotFoundf("file %q", name)
 	}
 	return resp.Body, nil
 }
@@ -158,7 +157,7 @@ func (s *localStorage) modURL(name string) (string, error) {
 	return fmt.Sprintf("%s%s?%s", s.httpsBaseURL, name, v.Encode()), nil
 }
 
-// ConsistencyStrategy is specified in the StorageReader interface.
+// DefaultConsistencyStrategy is specified in the StorageReader interface.
 func (s *localStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }

@@ -11,6 +11,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -18,7 +19,6 @@ import (
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
@@ -31,6 +31,11 @@ import (
 // every 10 seconds, that seems like a reasonable
 // default.
 const mongoSocketTimeout = 10 * time.Second
+
+// defaultDialTimeout should be representative of
+// the upper bound of time taken to dial a mongo
+// server from within the same cloud/private network.
+const defaultDialTimeout = 30 * time.Second
 
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
@@ -63,9 +68,7 @@ type DialOpts struct {
 // DefaultDialOpts returns a DialOpts representing the default
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
-	return DialOpts{
-		Timeout: 10 * time.Minute,
-	}
+	return DialOpts{Timeout: defaultDialTimeout}
 }
 
 // Open connects to the server described by the given

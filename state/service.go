@@ -10,13 +10,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -905,7 +905,7 @@ func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op
 // just the ref count is not considered a change worth reporting
 // to watchers and firing config-changed hooks.
 //
-// There is and implicit _id field here, which mongo creates, which is
+// There is an implicit _id field here, which mongo creates, which is
 // always the same as the settingsDoc's id.
 type settingsRefsDoc struct {
 	RefCount int

@@ -19,6 +19,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju/osenv"
 	_ "launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -30,7 +31,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type MainSuite struct {
-	testing.FakeHomeSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&MainSuite{})
@@ -70,15 +71,14 @@ func helpText(command cmd.Command, name string) string {
 }
 
 func deployHelpText() string {
-	return helpText(&DeployCommand{}, "juju deploy")
+	return helpText(envcmd.Wrap(&DeployCommand{}), "juju deploy")
 }
 
 func syncToolsHelpText() string {
-	return helpText(&SyncToolsCommand{}, "juju sync-tools")
+	return helpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
-	defer testing.MakeSampleHome(c).Restore()
 	// The test array structure needs to be inline here as some of the
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
@@ -183,7 +183,6 @@ func breakJuju(c *gc.C, environMethod string) (msg string) {
 
 func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *gc.C) {
 	c.Skip("breaks test isolation: lp:1233601")
-	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified before command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
@@ -197,7 +196,6 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *gc.C) {
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *gc.C) {
 	c.Skip("breaks test isolation: lp:1233601")
-	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified after command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
@@ -348,5 +346,22 @@ command\.(.|\n)*`)
 	c.Assert(len(flags), gc.Equals, len(globalFlags))
 	for i, line := range flags {
 		c.Assert(line, gc.Matches, globalFlags[i])
+	}
+}
+
+type commands []cmd.Command
+
+func (r *commands) Register(c cmd.Command) {
+	*r = append(*r, c)
+}
+
+func (s *MainSuite) TestEnvironCommands(c *gc.C) {
+	var commands commands
+	registerCommands(&commands, testing.Context(c))
+	// There should not be any EnvironCommands registered.
+	// EnvironCommands must be wrapped using envcmd.Wrap.
+	for _, cmd := range commands {
+		c.Logf("%v", cmd.Info().Name)
+		c.Check(cmd, gc.Not(gc.FitsTypeOf), envcmd.EnvironCommand(&BootstrapCommand{}))
 	}
 }

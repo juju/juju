@@ -16,7 +16,7 @@ import (
 )
 
 type ensureDotProfileSuite struct {
-	testing.FakeHomeSuite
+	testing.FakeJujuHomeSuite
 	home string
 	ctx  upgrades.Context
 }
@@ -24,7 +24,7 @@ type ensureDotProfileSuite struct {
 var _ = gc.Suite(&ensureDotProfileSuite{})
 
 func (s *ensureDotProfileSuite) SetUpTest(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 
 	loggo.GetLogger("juju.upgrade").SetLogLevel(loggo.TRACE)
 

@@ -52,7 +52,6 @@ the local cloud.
 }
 
 func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.allVersions, "all", false, "copy all versions, not just the latest")
 	f.StringVar(&c.versionStr, "version", "", "copy a specific major[.minor] version")
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
@@ -64,10 +63,6 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SyncToolsCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	if c.destination != "" {
 		// Override localDir with destination as localDir now replaces destination
 		c.localDir = c.destination

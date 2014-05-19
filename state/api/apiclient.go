@@ -181,7 +181,7 @@ func dialWebsocket(addr string, opts DialOpts, rootCAs *x509.CertPool, try *para
 	return try.Start(newWebsocketDialer(cfg, opts))
 }
 
-// new WebsocketDialler returns a function that
+// newWebsocketDialer returns a function that
 // can be passed to utils/parallel.Try.Start.
 func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct{}) (io.Closer, error) {
 	openAttempt := utils.AttemptStrategy{

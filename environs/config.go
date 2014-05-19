@@ -9,11 +9,11 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
 )
 
@@ -94,6 +94,14 @@ func (envs *Environs) Config(name string) (*config.Config, error) {
 	if oldType, _ := attrs["type"].(string); oldType == "null" {
 		logger.Warningf(
 			"Provider type \"null\" has been renamed to \"manual\".\n" +
+				"Please update your environment configuration.",
+		)
+	}
+
+	// lxc-use-clone has been renamed to lxc-clone
+	if _, ok := attrs["lxc-use-clone"]; ok {
+		logger.Warningf(
+			"Config attribute \"lxc-use-clone\" has been renamed to \"lxc-clone\".\n" +
 				"Please update your environment configuration.",
 		)
 	}

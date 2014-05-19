@@ -17,19 +17,22 @@ type ExposeCommand struct {
 	ServiceName string
 }
 
+var jujuExposeHelp = `
+Adjusts firewall rules and similar security mechanisms of the provider, to
+allow the service to be accessed on its public address.
+
+`
+
 func (c *ExposeCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "expose",
 		Args:    "<service>",
 		Purpose: "expose a service",
+		Doc:     jujuExposeHelp,
 	}
 }
 
 func (c *ExposeCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	if len(args) == 0 {
 		return errors.New("no service name specified")
 	}

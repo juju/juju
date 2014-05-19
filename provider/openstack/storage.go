@@ -9,11 +9,11 @@ import (
 	"sync"
 	"time"
 
+	jujuerrors "github.com/juju/errors"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/swift"
 
 	"launchpad.net/juju-core/environs/storage"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -55,10 +55,9 @@ func (s *openstackstorage) Put(file string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (s *openstackstorage) Get(file string) (r io.ReadCloser, err error) {
-	r, err = s.swift.GetReader(s.containerName, file)
-	err, _ = maybeNotFound(err)
-	if err != nil {
+func (s *openstackstorage) Get(file string) (io.ReadCloser, error) {
+	r, _, err := s.swift.GetReader(s.containerName, file)
+	if err, _ := maybeNotFound(err); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -76,7 +75,7 @@ var storageAttempt = utils.AttemptStrategy{
 	Delay: 200 * time.Millisecond,
 }
 
-// ConsistencyStrategy is specified in the StorageReader interface.
+// DefaultConsistencyStrategy is specified in the StorageReader interface.
 func (s *openstackstorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	return storageAttempt
 }
@@ -178,7 +177,7 @@ func (s *openstackstorage) RemoveAll() error {
 // container not being found.
 func maybeNotFound(err error) (error, bool) {
 	if err != nil && gooseerrors.IsNotFound(err) {
-		return coreerrors.NewNotFound(err, ""), true
+		return jujuerrors.NewNotFound(err, ""), true
 	}
 	return err, false
 }

@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	charmtesting "launchpad.net/juju-core/charm/testing"
+	"launchpad.net/juju-core/cmd/envcmd"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -34,7 +35,7 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&UpgradeCharmErrorsSuite{})
 
 func runUpgradeCharm(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, &UpgradeCharmCommand{}, args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&UpgradeCharmCommand{}), args)
 	return err
 }
 

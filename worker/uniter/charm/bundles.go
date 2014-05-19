@@ -8,9 +8,10 @@ import (
 	"os"
 	"path"
 
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/downloader"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 

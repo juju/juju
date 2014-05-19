@@ -6,13 +6,13 @@ package provisioner
 import (
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	apiwatcher "launchpad.net/juju-core/state/api/watcher"

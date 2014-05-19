@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
@@ -474,7 +475,7 @@ func (env *azureEnviron) createInstance(azure *gwacl.ManagementAPI, role *gwacl.
 	var inst instance.Instance
 	defer func() {
 		if inst != nil && resultErr != nil {
-			if err := env.StopInstances([]instance.Instance{inst}); err != nil {
+			if err := env.StopInstances(inst.Id()); err != nil {
 				// Failure upon failure. Log it, but return the original error.
 				logger.Errorf("error releasing failed instance: %v", err)
 			}
@@ -759,7 +760,7 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 }
 
 // StopInstances is specified in the InstanceBroker interface.
-func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
+func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 	context, err := env.getManagementAPI()
 	if err != nil {
 		return err
@@ -768,18 +769,18 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 
 	// Map services to role names we want to delete.
 	serviceInstances := make(map[string]map[string]bool)
-	for _, instance := range instances {
-		instance, ok := instance.(*azureInstance)
-		if !ok {
-			continue
+	for _, id := range ids {
+		serviceName, roleName := env.splitInstanceId(id)
+		if roleName == "" {
+			serviceInstances[serviceName] = nil
+		} else {
+			deleteRoleNames, ok := serviceInstances[serviceName]
+			if !ok {
+				deleteRoleNames = make(map[string]bool)
+				serviceInstances[serviceName] = deleteRoleNames
+			}
+			deleteRoleNames[roleName] = true
 		}
-		serviceName := instance.hostedService.ServiceName
-		deleteRoleNames, ok := serviceInstances[serviceName]
-		if !ok {
-			deleteRoleNames = make(map[string]bool)
-			serviceInstances[serviceName] = deleteRoleNames
-		}
-		deleteRoleNames[instance.roleName] = true
 	}
 
 	// Load the properties of each service, so we know whether to
@@ -805,8 +806,9 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 			}
 		}
 		// If we're deleting all the roles, we need to delete the
-		// entire cloud service or we'll get an error.
-		if len(deleteRoleNames) == roleNames.Size() {
+		// entire cloud service or we'll get an error. deleteRoleNames
+		// is nil if we're dealing with a legacy deployment.
+		if deleteRoleNames == nil || len(deleteRoleNames) == roleNames.Size() {
 			if err := context.DeleteHostedService(serviceName); err != nil {
 				return err
 			}
@@ -932,6 +934,13 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		}
 	}
 	return instances, err
+}
+
+// AllocateAddress requests a new address to be allocated for the
+// given instance on the given network. This is not implemented on the
+// Azure provider yet.
+func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
 // AllInstances is specified in the InstanceBroker interface.

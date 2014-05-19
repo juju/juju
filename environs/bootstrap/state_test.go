@@ -40,7 +40,7 @@ func (suite *StateSuite) newStorage(c *gc.C) storage.Storage {
 	return stor
 }
 
-// testingHTTPServer creates a tempdir backed https server with internal
+// testingHTTPSServer creates a tempdir backed https server with internal
 // self-signed certs that will not be accepted as valid.
 func (suite *StateSuite) testingHTTPSServer(c *gc.C) (string, string) {
 	dataDir := c.MkDir()

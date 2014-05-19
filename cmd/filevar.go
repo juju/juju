@@ -6,6 +6,8 @@ package cmd
 import (
 	"errors"
 	"io/ioutil"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // FileVar represents a path to a file.
@@ -26,7 +28,11 @@ func (f *FileVar) Read(ctx *Context) ([]byte, error) {
 	if f.Path == "" {
 		return nil, ErrNoPath
 	}
-	return ioutil.ReadFile(ctx.AbsPath(f.Path))
+	path, err := utils.NormalizePath(f.Path)
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.ReadFile(ctx.AbsPath(path))
 }
 
 // String returns the path to the file.

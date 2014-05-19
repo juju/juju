@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -22,7 +23,7 @@ var _ = gc.Suite(&EndpointSuite{})
 
 func (s *EndpointSuite) TestEndpoint(c *gc.C) {
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&EndpointCommand{}, ctx, []string{})
+	code := cmd.Main(envcmd.Wrap(&EndpointCommand{}), ctx, []string{})
 	c.Check(code, gc.Equals, 0)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 	output := string(ctx.Stdout.(*bytes.Buffer).Bytes())

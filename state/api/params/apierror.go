@@ -59,7 +59,7 @@ func ErrCode(err error) string {
 	return ""
 }
 
-// clientError maps errors returned from an RPC call into local errors with
+// ClientError maps errors returned from an RPC call into local errors with
 // appropriate values.
 func ClientError(err error) error {
 	rerr, ok := err.(*rpc.RequestError)

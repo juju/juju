@@ -557,7 +557,7 @@ func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 	}
 }
 
-// checkAptSources checks that the cloudinit will or won't install the given
+// checkAptSource checks that the cloudinit will or won't install the given
 // source, depending on the value of match.
 func checkAptSource(c *gc.C, x map[interface{}]interface{}, source, key string, match bool) {
 	sources0 := x["apt_sources"]

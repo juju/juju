@@ -7,6 +7,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 )
 
 var authKeysDoc = `
@@ -29,10 +30,10 @@ func NewAuthorizedKeysCommand() cmd.Command {
 			Aliases:     []string{"authorised-keys"},
 		}),
 	}
-	sshkeyscmd.Register(&AddKeysCommand{})
-	sshkeyscmd.Register(&DeleteKeysCommand{})
-	sshkeyscmd.Register(&ImportKeysCommand{})
-	sshkeyscmd.Register(&ListKeysCommand{})
+	sshkeyscmd.Register(envcmd.Wrap(&AddKeysCommand{}))
+	sshkeyscmd.Register(envcmd.Wrap(&DeleteKeysCommand{}))
+	sshkeyscmd.Register(envcmd.Wrap(&ImportKeysCommand{}))
+	sshkeyscmd.Register(envcmd.Wrap(&ListKeysCommand{}))
 	return sshkeyscmd
 }
 

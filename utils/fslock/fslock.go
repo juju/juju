@@ -176,14 +176,14 @@ func (lock *Lock) LockWithTimeout(duration time.Duration, message string) error 
 	return lock.lockLoop(message, continueFunc)
 }
 
-// Lock blocks until it is able to acquire the lock.  If the lock is failed to
+// LockWithFunc blocks until it is able to acquire the lock.  If the lock is failed to
 // be acquired, the continueFunc is called prior to the sleeping.  If the
 // continueFunc returns an error, that error is returned from LockWithFunc.
 func (lock *Lock) LockWithFunc(message string, continueFunc func() error) error {
 	return lock.lockLoop(message, continueFunc)
 }
 
-// IsHeld returns whether the lock is currently held by the receiver.
+// IsLockHeld returns whether the lock is currently held by the receiver.
 func (lock *Lock) IsLockHeld() bool {
 	heldNonce, err := ioutil.ReadFile(lock.heldFile())
 	if err != nil {

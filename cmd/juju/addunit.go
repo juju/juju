@@ -74,7 +74,6 @@ func (c *AddUnitCommand) Info() *cmd.Info {
 }
 
 func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to add")
 }

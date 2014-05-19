@@ -8,11 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"

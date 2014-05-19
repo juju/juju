@@ -130,7 +130,10 @@ func splitUserHost(host string) (string, string) {
 
 func recordMachineInState(
 	client *api.Client, machineParams params.AddMachineParams) (machineId string, err error) {
-	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
+	// Note: we explicitly use AddMachines1dot18 rather than AddMachines to preserve
+	// backwards compatibility; we do not require any of the new features of AddMachines
+	// here.
+	results, err := client.AddMachines1dot18([]params.AddMachineParams{machineParams})
 	if err != nil {
 		return "", err
 	}

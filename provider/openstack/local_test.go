@@ -32,6 +32,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
@@ -264,11 +265,19 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
-	err = env.StopInstances([]instance.Instance{inst})
+	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
+	// Ensure amd64 tools are available, to ensure an amd64 image.
+	amd64Version := version.Current
+	amd64Version.Arch = arch.AMD64
+	for _, series := range bootstrap.ToolsLtsSeries {
+		amd64Version.Series = series
+		envtesting.AssertUploadFakeToolsVersions(c, s.toolsMetadataStorage, amd64Version)
+	}
+
 	env := s.Prepare(c)
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
@@ -288,7 +297,7 @@ func (s *localServerSuite) TestStartInstanceNetwork(c *gc.C) {
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
-	err = env.StopInstances([]instance.Instance{inst})
+	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -363,7 +372,7 @@ func (s *localServerSuite) TestStopInstance(c *gc.C) {
 	// group, one group for the entire environment, and another for the
 	// new instance.
 	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", env.Name()), fmt.Sprintf("juju-%v-%v", env.Name(), instanceName)})
-	err = env.StopInstances([]instance.Instance{inst})
+	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 	// The security group for this instance is now removed.
 	assertSecurityGroups(c, env, []string{"default", fmt.Sprintf("juju-%v", env.Name())})
@@ -391,7 +400,7 @@ func (s *localServerSuite) TestStopInstanceSecurityGroupNotDeleted(c *gc.C) {
 	inst, _ := testing.AssertStartInstance(c, env, instanceName)
 	allSecurityGroups := []string{"default", fmt.Sprintf("juju-%v", env.Name()), fmt.Sprintf("juju-%v-%v", env.Name(), instanceName)}
 	assertSecurityGroups(c, env, allSecurityGroups)
-	err = env.StopInstances([]instance.Instance{inst})
+	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 	assertSecurityGroups(c, env, allSecurityGroups)
 }
@@ -478,7 +487,7 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	// goose's test service always returns ACTIVE state.
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	c.Assert(inst.Status(), gc.Equals, nova.StatusActive)
-	err := env.StopInstances([]instance.Instance{inst})
+	err := env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -489,7 +498,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	inst1, _ := testing.AssertStartInstance(c, env, "101")
 	id1 := inst1.Id()
 	defer func() {
-		err := env.StopInstances([]instance.Instance{inst0, inst1})
+		err := env.StopInstances(inst0.Id(), inst1.Id())
 		c.Assert(err, gc.IsNil)
 	}()
 
@@ -534,7 +543,7 @@ func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 	defer cleanup()
 	stateInst, _ := testing.AssertStartInstance(c, env, "100")
 	defer func() {
-		err := env.StopInstances([]instance.Instance{stateInst})
+		err := env.StopInstances(stateInst.Id())
 		c.Assert(err, gc.IsNil)
 	}()
 	found := make(map[instance.Id]instance.Instance)
@@ -559,7 +568,7 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 	defer cleanup()
 	stateInst, _ := testing.AssertStartInstance(c, env, "100")
 	defer func() {
-		err := env.StopInstances([]instance.Instance{stateInst})
+		err := env.StopInstances(stateInst.Id())
 		c.Assert(err, gc.IsNil)
 	}()
 
@@ -656,7 +665,7 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.Open(c)
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"amd64", "ppc64"})
+	c.Assert(a, gc.DeepEquals, []string{"amd64", "i386", "ppc64"})
 }
 
 func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
@@ -689,9 +698,9 @@ func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.Open(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
-	cons := constraints.MustParse("arch=i386")
+	cons := constraints.MustParse("arch=arm64")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=i386\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=arm64\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")

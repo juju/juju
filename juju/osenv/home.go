@@ -47,7 +47,7 @@ func JujuHomePath(names ...string) string {
 	return filepath.Join(all...)
 }
 
-// JujuHome returns the directory where juju should store application-specific files
+// JujuHomeDir returns the directory where juju should store application-specific files
 func JujuHomeDir() string {
 	JujuHomeDir := os.Getenv(JujuHomeEnvKey)
 	if JujuHomeDir == "" {

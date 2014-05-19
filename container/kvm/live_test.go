@@ -75,7 +75,7 @@ func shutdownMachines(manager container.Manager) func(*gc.C) {
 		instances, err := manager.ListContainers()
 		c.Assert(err, gc.IsNil)
 		for _, instance := range instances {
-			err := manager.DestroyContainer(instance)
+			err := manager.DestroyContainer(instance.Id())
 			c.Check(err, gc.IsNil)
 		}
 	}

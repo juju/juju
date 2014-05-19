@@ -21,7 +21,7 @@ import (
 )
 
 type environSuite struct {
-	coretesting.FakeHomeSuite
+	coretesting.FakeJujuHomeSuite
 	env *manualEnviron
 }
 
@@ -32,7 +32,7 @@ type dummyStorage struct {
 var _ = gc.Suite(&environSuite{})
 
 func (s *environSuite) SetUpTest(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	env, err := manualProvider{}.Open(MinimalConfig(c))
 	c.Assert(err, gc.IsNil)
 	s.env = env.(*manualEnviron)

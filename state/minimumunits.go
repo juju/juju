@@ -4,12 +4,9 @@
 package state
 
 import (
-	"errors"
-
+	"github.com/juju/errors"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	coreerrors "launchpad.net/juju-core/errors"
 )
 
 // minUnitsDoc keeps track of relevant changes on the service's MinUnits field
@@ -31,7 +28,7 @@ type minUnitsDoc struct {
 
 // SetMinUnits changes the number of minimum units required by the service.
 func (s *Service) SetMinUnits(minUnits int) (err error) {
-	defer coreerrors.Maskf(&err, "cannot set minimum units for service %q", s)
+	defer errors.Maskf(&err, "cannot set minimum units for service %q", s)
 	defer func() {
 		if err == nil {
 			s.doc.MinUnits = minUnits
@@ -127,7 +124,7 @@ func (s *Service) MinUnits() int {
 // EnsureMinUnits adds new units if the service's MinUnits value is greater
 // than the number of alive units.
 func (s *Service) EnsureMinUnits() (err error) {
-	defer coreerrors.Maskf(&err, "cannot ensure minimum units for service %q", s)
+	defer errors.Maskf(&err, "cannot ensure minimum units for service %q", s)
 	service := &Service{st: s.st, doc: s.doc}
 	for {
 		// Ensure the service is alive.

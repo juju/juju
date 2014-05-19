@@ -12,11 +12,11 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing/testbase"
 )
 

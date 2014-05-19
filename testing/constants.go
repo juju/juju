@@ -25,6 +25,3 @@ var LongAttempt = &utils.AttemptStrategy{
 	Total: LongWait,
 	Delay: ShortWait,
 }
-
-// SupportedSeries lists the series known to Juju.
-var SupportedSeries = []string{"precise", "quantal", "raring", "saucy", "trusty", "utopic"}
