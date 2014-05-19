@@ -486,14 +486,14 @@ func (s *MachineSuite) TestEnsureLocalEnvironDoesntRunPeergrouper(c *gc.C) {
 		config.SetValue(agent.ProviderType, "local")
 	})
 	c.Assert(err, gc.IsNil)
-	defer a.Stop()
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 	go func() {
 		c.Check(a.Run(nil), gc.IsNil)
 	}()
 	select {
 	case <-started:
 		c.Fatalf("local environment should not start peergrouper")
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 
