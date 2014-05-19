@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	toolstesting "launchpad.net/juju-core/environs/tools/testing"
@@ -305,7 +304,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailability(c *gc.C) {
 	cliVersion := version.Current
 	cliVersion.Arch = "arm64"
 	version.Current = cliVersion
-	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	// Host runs arm64, environment supports arm64.
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
@@ -357,7 +356,7 @@ func (s *bootstrapSuite) assertUploadTools(c *gc.C, vers version.Binary, forceVe
 	cliVersion := version.Current
 	cliVersion.Arch = "arm64"
 	version.Current = cliVersion
-	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	// Host runs arm64, environment supports arm64.
 	s.PatchValue(&arch.HostArch, func() string {
 		return "arm64"
