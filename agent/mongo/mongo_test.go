@@ -228,7 +228,8 @@ func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
 
 	svc, _, err := upstartService("", dataDir, dataDir, 1234, WithHA)
 	c.Assert(err, gc.IsNil)
-	c.Assert(strings.Contains(svc.Cmd, "--journal"), jc.IsTrue)
+	journalPresent := strings.Contains(svc.Cmd, " --journal ") || strings.HasSuffix(svc.Cmd, " --journal")
+	c.Assert(journalPresent, jc.IsTrue)
 }
 
 func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
@@ -243,7 +244,6 @@ func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
 		}
 	}
 	c.Assert(isJournalPresent, jc.IsTrue)
-	// c.Assert(strings.Contains(cmd.Path, "--journal"), jc.IsTrue)
 }
 
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
