@@ -1,0 +1,44 @@
+Backup and restore
+==================
+
+Currently backup and restore is run by very different pieces of software.
+This doc is intended as an overview of both since, at least in the current
+status, changes in juju are prone to break both.
+
+Backup
+------
+
+juju-backup is a bash script that runs remote actions on the state-server
+and fetches the result in the form of a tgz file named after the date.
+The process gathers varios files relevant to the server such as:
+* /var/log/juju
+* /var/lib/juju
+* ~/.ssh/
+Also it creates a dump of the mongo db, for this it stops the db, which makes
+it less than ideal to be run as often as a backup process should be.
+
+Restore
+-------
+
+juju-restore is a go cmd plugin that, if no state-server is present, will
+bootstrap a new node is safe mode then upload to the tgz backup file
+and:
+* Stop juju-db
+* Stop jujud-machine
+* Loads the backed up db in place of the recently created one
+* Untars the fs files ino the current machine
+* Runs a set of bash scripts that replace the dns/instance names of the old
+machine with the ones of the new one in the relevant config files and also
+on the db, if thi step is not preformed peergrouper will kick our machine
+out of the vote list and fill it with the old dead ones.
+* Restarts all services.
+
+HA
+--
+
+In the case of HA, the backup process will backup files/db for machine 0
+We asume, for now, that if you are running restore is because you have
+lost all state-server machines. Out of this restore you will get one
+functioning state-server that you can use to start you other state machines.
+For this, if there is at least one state-server machine up restore will not
+perform the restore.
