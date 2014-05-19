@@ -8,7 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"reflect"
-
+	"regexp"
 	"github.com/xeipuuv/gojsonschema"
 	"launchpad.net/goyaml"
 )
@@ -40,15 +40,22 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 		return nil, err
 	}
 	if actionsSpec == nil {
-		return nil, fmt.Errorf("Empty actions definition")
+		return nil, fmt.Errorf("empty actions definition")
 	}
-	if reflect.DeepEqual(actionsSpec, &Actions{}) {
+	if data != []byte{} && reflect.DeepEqual(actionsSpec, &Actions{}) {
 		return nil, fmt.Errorf("actions.yaml failed to unmarshal -- key mismatch")
 	}
-	for _, actionSpec := range actionsSpec.ActionSpecs {
+
+	nameRule := regexp.MustCompile("^[^-][a-z-]+[^-]$")
+
+	for name, actionSpec := range actionsSpec.ActionSpecs {
+		badName := !nameRule.MatchString(name)
+		if badName {
+			return nil, fmt.Errorf("bad action name %s", name)
+		}
 		_, err := gojsonschema.NewJsonSchemaDocument(actionSpec.Params)
 		if err != nil {
-			return nil, fmt.Errorf("error loading Charm actions.yaml -- nonconformant params: %v", err)
+			return nil, fmt.Errorf("invalid params schema for action %q: %v", err)
 		}
 	}
 	return actionsSpec, nil
