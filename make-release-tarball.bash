@@ -48,6 +48,13 @@ echo "Setting juju-core tree to $JUJU_CORE_BRANCH $REVNO."
 (cd "${WORK}/src/launchpad.net/juju-core/" &&
  bzr pull --no-aliases --remember --overwrite -r $REVNO $JUJU_CORE_BRANCH)
 
+# Devs moved a package.
+if [[ $JUJU_CORE_BRANCH == 'lp:juju-core/1.18' ]]; then
+    echo "Moving deps to support 1.18 releases."
+    GOPATH=$WORK go get -v github.com/errgo/errgo
+    rm -rf $WORK/src/github.com/juju/errgo
+fi
+
 echo "Updating juju-core dependencies to the required versions."
 GOPATH=$WORK go get -v launchpad.net/godeps
 GODEPS=$WORK/bin/godeps
