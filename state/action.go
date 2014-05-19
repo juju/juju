@@ -1,26 +1,12 @@
 package state
 
-import (
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
-)
-
-// ActionStatus represents the available status' for an Action
-type ActionStatus string
-
-const (
-	// ActionPending is the default status of a new action.
-	ActionPending ActionStatus = "pending"
-	// ActionRunning indicates that the action has been picked up and is running.
-	ActionRunning ActionStatus = "running"
-)
+import ()
 
 type actionDoc struct {
 	Id      string `bson:"_id"`
 	Name    string
 	Unit    string
 	Payload interface{}
-	Status  ActionStatus
 }
 
 // Action represents an instruction to do some "action" and is expected to match
@@ -52,24 +38,4 @@ func (a *Action) Id() string {
 // definition of the Action
 func (a *Action) Payload() interface{} {
 	return a.doc.Payload
-}
-
-// Status shows the current status of the Action
-func (a *Action) Status() ActionStatus {
-	return a.doc.Status
-}
-
-func (a *Action) setRunning() error {
-	ops := []txn.Op{{
-		C:      a.st.actions.Name,
-		Id:     a.doc.Id,
-		Assert: txn.DocExists,
-		Update: bson.D{{"$set", bson.D{{"status", ActionRunning}}}},
-	}}
-	err := a.st.runTransaction(ops)
-	if err != nil {
-		return err
-	}
-	a.doc.Status = ActionRunning
-	return nil
 }

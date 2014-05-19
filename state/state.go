@@ -1397,7 +1397,7 @@ func (st *State) AddAction(unit string, name string, payload interface{}) (*Acti
 	}
 
 	newActionID := fmt.Sprintf("%s%s", prefix, suffix)
-	doc := actionDoc{Id: newActionID, Name: name, Unit: unit, Payload: payload, Status: ActionPending}
+	doc := actionDoc{Id: newActionID, Name: name, Unit: unit, Payload: payload}
 	ops := []txn.Op{{
 		C:      st.actions.Name,
 		Id:     doc.Id,

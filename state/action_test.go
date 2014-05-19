@@ -30,10 +30,7 @@ func (s *ActionSuite) TokenTest(c *gc.C) {
 	action, err := s.SettingsSuite.state.AddAction("fakeunit/0", "fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 
-	err = action.setRunning()
-	c.Assert(err, gc.IsNil)
-
 	action2, err := s.SettingsSuite.state.Action(action.Id())
 	c.Assert(err, gc.IsNil)
-	c.Assert(action2.Status(), gc.Equals, action.Status())
+	c.Assert(action.Name(), gc.Equals, action2.Name())
 }
