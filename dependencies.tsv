@@ -9,6 +9,9 @@ github.com/juju/errors	git	075df0417dbcc39d24ee18248d2f8d6e3eed598b
 github.com/juju/loggo	git	fa3acf9ab9ed09aea29030558528e24a254d27af	
 github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb	
 github.com/juju/testing	git	9c0e0686136637876ae659e9056897575236e11f	
+github.com/sigu-399/gojsonpointer	git	57ab5e9c764219a3e0c4d7759797fefdcab22e9c	
+github.com/sigu-399/gojsonreference	git	6e30f00ae66c0f0d10c841c9ac4ca49a617c7be3	
+github.com/xeipuuv/gojsonschema	git	8b52be5671082fa71acba81b0e0fd53d0f1821e7	
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j	273
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
 launchpad.net/goamz	bzr	roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9	44
