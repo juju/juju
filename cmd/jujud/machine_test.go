@@ -468,7 +468,7 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 
 func (s *MachineSuite) TestEnsureLocalEnvironDoesntRunPeergrouper(c *gc.C) {
 	started := make(chan struct{}, 1)
-	testing.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+	s.agentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
 		c.Check(st, gc.NotNil)
 		select {
 		case started <- struct{}{}:
