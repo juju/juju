@@ -44,7 +44,6 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 
 	// Run the cleanup, and check that units are all destroyed as appropriate.
 	s.assertCleanupRuns(c)
-	s.assertDoesNotNeedCleanup(c)
 	err = units[0].Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(units[0].Life(), gc.Equals, state.Dying)
@@ -52,6 +51,11 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	err = units[2].Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+
+	// Run a final cleanup to clear the cleanup scheduled for the unit that
+	// became dying.
+	s.assertCleanupRuns(c)
+	s.assertDoesNotNeedCleanup(c)
 }
 
 func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
@@ -108,12 +112,10 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	// Destroy the service, check the relation's still around.
 	err = pr.svc.Destroy()
 	c.Assert(err, gc.IsNil)
-	s.assertNeedsCleanup(c)
-	s.assertCleanupRuns(c)
+	s.assertCleanupCount(c, 2)
 	err = rel.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(rel.Life(), gc.Equals, state.Dying)
-	s.assertDoesNotNeedCleanup(c)
 
 	// The unit leaves scope, triggering relation removal.
 	err = pr.ru0.LeaveScope()
@@ -126,8 +128,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, map[string]interface{}{"some": "settings"})
 
 	// ...but they are on cleanup.
-	s.assertCleanupRuns(c)
-	s.assertDoesNotNeedCleanup(c)
+	s.assertCleanupCount(c, 1)
 	_, err = pr.ru1.ReadSettings("riak/0")
 	c.Assert(err, gc.ErrorMatches, `cannot read settings for unit "riak/0" in relation "riak:ring": settings not found`)
 }
@@ -164,8 +165,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the unit has been removed...
-	s.assertCleanupRuns(c)
-	s.assertDoesNotNeedCleanup(c)
+	s.assertCleanupCount(c, 2)
 	assertRemoved(c, pr.u0)
 
 	// ...and the unit has departed relation scope...
@@ -218,8 +218,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	s.assertNeedsCleanup(c)
 
 	// Clean up, and check that the container has been removed...
-	s.assertCleanupRuns(c)
-	s.assertDoesNotNeedCleanup(c)
+	s.assertCleanupCount(c, 2)
 	err = container.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
@@ -261,4 +260,16 @@ func (s *CleanupSuite) assertDoesNotNeedCleanup(c *gc.C) {
 	actual, err := s.State.NeedsCleanup()
 	c.Assert(err, gc.IsNil)
 	c.Assert(actual, jc.IsFalse)
+}
+
+// assertCleanupCount is useful because certain cleanups cause other cleanups
+// to be queued; it makes more sense to just run cleanup again than to unpick
+// object destruction so that we run the cleanups inline while running cleanups.
+func (s *CleanupSuite) assertCleanupCount(c *gc.C, count int) {
+	for i := 0; i < count; i++ {
+		c.Logf("checking cleanups %d", i)
+		s.assertNeedsCleanup(c)
+		s.assertCleanupRuns(c)
+	}
+	s.assertDoesNotNeedCleanup(c)
 }

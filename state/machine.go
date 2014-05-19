@@ -398,7 +398,7 @@ func (m *Machine) ForceDestroy() error {
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
-		}, m.st.newCleanupOp("machine", m.doc.Id)}
+		}, m.st.newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}
 		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
 		}

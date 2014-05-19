@@ -9,17 +9,28 @@ import (
 	"launchpad.net/juju-core/errors"
 )
 
+type cleanupKind string
+
+const (
+	// SCHEMACHANGE: the names are expressive, the values not so much.
+	cleanupRelationSettings            cleanupKind = "settings"
+	cleanupUnitsForDyingService        cleanupKind = "units"
+	cleanupDyingUnit                   cleanupKind = "dyingUnit"
+	cleanupServicesForDyingEnvironment cleanupKind = "services"
+	cleanupForceDestroyedMachine       cleanupKind = "machine"
+)
+
 // cleanupDoc represents a potentially large set of documents that should be
 // removed.
 type cleanupDoc struct {
 	Id     bson.ObjectId `bson:"_id"`
-	Kind   string
+	Kind   cleanupKind
 	Prefix string
 }
 
 // newCleanupOp returns a txn.Op that creates a cleanup document with a unique
 // id and the supplied kind and prefix.
-func (st *State) newCleanupOp(kind, prefix string) txn.Op {
+func (st *State) newCleanupOp(kind cleanupKind, prefix string) txn.Op {
 	doc := &cleanupDoc{
 		Id:     bson.NewObjectId(),
 		Kind:   kind,
@@ -51,16 +62,16 @@ func (st *State) Cleanup() error {
 		var err error
 		logger.Debugf("running %q cleanup: %q", doc.Kind, doc.Prefix)
 		switch doc.Kind {
-		case "settings":
-			err = st.cleanupSettings(doc.Prefix)
-		case "units":
-			err = st.cleanupUnits(doc.Prefix)
-		case "dyingUnit":
+		case cleanupRelationSettings:
+			err = st.cleanupRelationSettings(doc.Prefix)
+		case cleanupUnitsForDyingService:
+			err = st.cleanupUnitsForDyingService(doc.Prefix)
+		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix)
-		case "services":
-			err = st.cleanupServices()
-		case "machine":
-			err = st.cleanupMachine(doc.Prefix)
+		case cleanupServicesForDyingEnvironment:
+			err = st.cleanupServicesForDyingEnvironment()
+		case cleanupForceDestroyedMachine:
+			err = st.cleanupForceDestroyedMachine(doc.Prefix)
 		default:
 			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
@@ -83,7 +94,7 @@ func (st *State) Cleanup() error {
 	return nil
 }
 
-func (st *State) cleanupSettings(prefix string) error {
+func (st *State) cleanupRelationSettings(prefix string) error {
 	// Documents marked for cleanup are not otherwise referenced in the
 	// system, and will not be under watch, and are therefore safe to
 	// delete directly.
@@ -98,9 +109,10 @@ func (st *State) cleanupSettings(prefix string) error {
 	return nil
 }
 
-// cleanupServices sets all services to Dying, if they are not already Dying
-// or Dead. It's expected to be used when an environment is destroyed.
-func (st *State) cleanupServices() error {
+// cleanupServicesForDyingEnvironment sets all services to Dying, if they are
+// not already Dying or Dead. It's expected to be used when an environment is
+// destroyed.
+func (st *State) cleanupServicesForDyingEnvironment() error {
 	// This won't miss services, because a Dying environment cannot have
 	// services added to it. But we do have to remove the services themselves
 	// via individual transactions, because they could be in any state at all.
@@ -118,9 +130,10 @@ func (st *State) cleanupServices() error {
 	return nil
 }
 
-// cleanupUnits sets all units with the given prefix to Dying, if they are not
-// already Dying or Dead. It's expected to be used when a service is destroyed.
-func (st *State) cleanupUnits(prefix string) error {
+// cleanupUnitsForDyingService sets all units with the given prefix to Dying,
+// if they are not already Dying or Dead. It's expected to be used when a
+// service is destroyed.
+func (st *State) cleanupUnitsForDyingService(prefix string) error {
 	// This won't miss units, because a Dying service cannot have units added
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
@@ -166,10 +179,10 @@ func (st *State) cleanupDyingUnit(name string) error {
 	return nil
 }
 
-// cleanupMachine systematically destroys and removes all entities that
-// depend upon the supplied machine, and removes the machine from state. It's
+// cleanupForceDestroyedMachine systematically destroys and removes all entities
+// that depend upon the supplied machine, and removes the machine from state. It's
 // expected to be used in response to destroy-machine --force.
-func (st *State) cleanupMachine(machineId string) error {
+func (st *State) cleanupForceDestroyedMachine(machineId string) error {
 	machine, err := st.Machine(machineId)
 	if errors.IsNotFound(err) {
 		return nil
@@ -210,7 +223,7 @@ func (st *State) cleanupMachine(machineId string) error {
 	// instance that would otherwise be ignored when in provisioner-safe-mode.
 }
 
-// cleanupContainers recursively calls cleanupMachine on the supplied
+// cleanupContainers recursively calls cleanupForceDestroyedMachine on the supplied
 // machine's containers, and removes them from state entirely.
 func (st *State) cleanupContainers(machine *Machine) error {
 	containerIds, err := machine.Containers()
@@ -220,7 +233,7 @@ func (st *State) cleanupContainers(machine *Machine) error {
 		return err
 	}
 	for _, containerId := range containerIds {
-		if err := st.cleanupMachine(containerId); err != nil {
+		if err := st.cleanupForceDestroyedMachine(containerId); err != nil {
 			return err
 		}
 		container, err := st.Machine(containerId)
