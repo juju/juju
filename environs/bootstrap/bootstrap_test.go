@@ -24,7 +24,6 @@ import (
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -39,23 +38,20 @@ const (
 )
 
 type bootstrapSuite struct {
-	home *coretesting.FakeHome
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.home = coretesting.MakeFakeHomeNoEnvironments(c, "foo")
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
-	s.home.Restore()
 	s.ToolsFixture.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {

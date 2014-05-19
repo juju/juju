@@ -13,18 +13,10 @@ import (
 )
 
 type HelpToolSuite struct {
-	home *testing.FakeHome
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&HelpToolSuite{})
-
-func (suite *HelpToolSuite) SetUpTest(c *gc.C) {
-	suite.home = testing.MakeSampleHome(c)
-}
-
-func (suite *HelpToolSuite) TearDownTest(c *gc.C) {
-	suite.home.Restore()
-}
 
 func (suite *HelpToolSuite) TestHelpToolHelp(c *gc.C) {
 	output := badrun(c, 0, "help", "help-tool")

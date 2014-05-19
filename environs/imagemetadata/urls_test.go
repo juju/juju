@@ -15,21 +15,18 @@ import (
 	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type URLsSuite struct {
-	home *testing.FakeHome
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&URLsSuite{})
 
-func (s *URLsSuite) SetUpTest(c *gc.C) {
-	s.home = testing.MakeEmptyFakeHome(c)
-}
-
 func (s *URLsSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.home.Restore()
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *URLsSuite) env(c *gc.C, imageMetadataURL, stream string) environs.Environ {

@@ -42,14 +42,14 @@ func validAttrs() coretesting.Attrs {
 }
 
 type ConfigSuite struct {
-	coretesting.FakeHomeSuite
+	coretesting.FakeJujuHomeSuite
 	originalValues map[string]testing.Restorer
 }
 
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
-	s.FakeHomeSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 	restoreSdcAccount := testing.PatchEnvironment(jp.SdcAccount, "tester")
 	s.AddSuiteCleanup(func(*gc.C) { restoreSdcAccount() })
 	restoreSdcKeyId := testing.PatchEnvironment(jp.SdcKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
@@ -61,7 +61,7 @@ func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.AddCleanup(CreateTestKey(c))
 	for _, envVar := range jp.EnvironmentVariables {
 		s.PatchEnvironment(envVar, "")

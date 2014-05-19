@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/juju/errors"
@@ -30,13 +31,12 @@ import (
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
 type BootstrapSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeJujuHomeSuite
 	coretesting.MgoSuite
 	envtesting.ToolsFixture
 }
@@ -44,12 +44,12 @@ type BootstrapSuite struct {
 var _ = gc.Suite(&BootstrapSuite{})
 
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 
@@ -62,13 +62,13 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
+	s.FakeJujuHomeSuite.TearDownSuite(c)
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 	dummy.Reset()
 }
 
@@ -130,8 +130,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 			toolsVersions = append(toolsVersions, testVersion)
 		}
 	}
-	_, fake := makeEmptyFakeHome(c)
-	defer fake.Restore()
+	resetJujuHome(c)
 	sourceDir := createToolsSource(c, toolsVersions)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
@@ -177,8 +176,7 @@ type bootstrapTest struct {
 func (test bootstrapTest) run(c *gc.C) {
 	// Create home with dummy provider and remove all
 	// of its envtools.
-	env, fake := makeEmptyFakeHome(c)
-	defer fake.Restore()
+	env := resetJujuHome(c)
 
 	if test.version != "" {
 		useVersion := strings.Replace(test.version, "%LTS%", config.LatestLtsSeries(), 1)
@@ -370,8 +368,7 @@ var bootstrapTests = []bootstrapTest{{
 }}
 
 func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
-	env, fake := makeEmptyFakeHome(c)
-	defer fake.Restore()
+	env := resetJujuHome(c)
 	defaultSeriesVersion := version.Current
 	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
 	// Force a dev version by having an odd minor version number.
@@ -403,8 +400,7 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 	s.PatchValue(&getBootstrapFuncs, func() BootstrapInterface {
 		return _bootstrap
 	})
-	_, fake := makeEmptyFakeHome(c)
-	defer fake.Restore()
+	resetJujuHome(c)
 
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}),
 		[]string{"--upload-tools", argVariant, "foo,bar"})
@@ -415,8 +411,7 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 }
 
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
-	env, fake := makeEmptyFakeHome(c)
-	defer fake.Restore()
+	env := resetJujuHome(c)
 	defaultSeriesVersion := version.Current
 	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
 	// Force a dev version by having an odd minor version number.
@@ -442,8 +437,7 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
-	env, fake := makeEmptyFakeHome(c)
-	defer fake.Restore()
+	env := resetJujuHome(c)
 
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
@@ -491,8 +485,7 @@ func checkImageMetadata(c *gc.C, stor storage.StorageReader, expected []*imageme
 
 func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 	sourceDir, expected := createImageMetadata(c)
-	env, fake := makeEmptyFakeHome(c)
-	defer fake.Restore()
+	env := resetJujuHome(c)
 
 	// Bootstrap the environment with the valid source.
 	// Force a dev version by having an odd minor version number.
@@ -513,8 +506,7 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
-	env, fake := makeEmptyFakeHome(c)
-	defer fake.Restore()
+	env := resetJujuHome(c)
 
 	// Bootstrap the environment with the valid source.
 	// The bootstrapping has to show no error, because the tools
@@ -542,9 +534,7 @@ func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) envir
 
 	// Create home with dummy provider and remove all
 	// of its envtools.
-	env, fake := makeEmptyFakeHome(c)
-	s.AddCleanup(func(*gc.C) { fake.Restore() })
-	return env
+	return resetJujuHome(c)
 }
 
 func (s *BootstrapSuite) TestAutoUploadAfterFailedSync(c *gc.C) {
@@ -612,8 +602,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
-	_, fake := makeEmptyFakeHome(c)
-	defer fake.Restore()
+	resetJujuHome(c)
 	devVersion := version.Current
 	// Force a dev version by having an odd minor version number.
 	// This is because we have not uploaded any tools and auto
@@ -651,16 +640,19 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 	return source
 }
 
-// makeEmptyFakeHome creates a faked home without envtools.
-func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
-	fake := coretesting.MakeFakeHome(c, envConfig)
+// resetJujuHome restores an new, clean Juju home environment without tools.
+func resetJujuHome(c *gc.C) environs.Environ {
+	jenvDir := coretesting.HomePath(".juju", "environments")
+	err := os.RemoveAll(jenvDir)
+	c.Assert(err, gc.IsNil)
+	coretesting.WriteEnvironments(c, envConfig)
 	dummy.Reset()
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
 	env, err := environs.PrepareFromName("peckham", nullContext(c), store)
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
-	return env, fake
+	return env
 }
 
 // checkTools check if the environment contains the passed envtools.

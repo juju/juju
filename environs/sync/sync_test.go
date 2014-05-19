@@ -29,7 +29,6 @@ import (
 	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -40,7 +39,7 @@ func TestPackage(t *testing.T) {
 }
 
 type syncSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 	targetEnv    environs.Environ
 	origVersion  version.Binary
@@ -53,21 +52,21 @@ var _ = gc.Suite(&uploadSuite{})
 var _ = gc.Suite(&badBuildSuite{})
 
 func (s *syncSuite) setUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.origVersion = version.Current
 	// It's important that this be v1.8.x to match the test data.
 	version.Current.Number = version.MustParse("1.8.3")
 
 	// Create a target environments.yaml.
-	fakeHome := coretesting.MakeFakeHome(c, `
+	envConfig := `
 environments:
     test-target:
         type: dummy
         state-server: false
         authorized-keys: "not-really-one"
-`)
-	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
+`
+	coretesting.WriteEnvironments(c, envConfig)
 	var err error
 	s.targetEnv, err = environs.PrepareFromName("test-target", coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
@@ -100,7 +99,7 @@ func (s *syncSuite) tearDownTest(c *gc.C) {
 	dummy.Reset()
 	version.Current = s.origVersion
 	s.ToolsFixture.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 var tests = []struct {
@@ -255,12 +254,12 @@ func assertMirrors(c *gc.C, stor storage.StorageReader, expectMirrors bool) {
 
 type uploadSuite struct {
 	env environs.Environ
-	testbase.LoggingSuite
+	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 }
 
 func (s *uploadSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	// We only want to use simplestreams to find any synced tools.
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
@@ -272,7 +271,7 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 func (s *uploadSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	s.ToolsFixture.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *uploadSuite) TestUpload(c *gc.C) {
