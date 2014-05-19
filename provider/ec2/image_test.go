@@ -14,27 +14,11 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-type imageSuite struct {
-	testing.BaseSuite
-}
-
-var _ = gc.Suite(&imageSuite{})
-
-func (s *imageSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	UseTestImageData(TestImagesData)
-}
-
-func (s *imageSuite) TearDownSuite(c *gc.C) {
-	UseTestImageData(nil)
-	s.BaseSuite.TearDownTest(c)
-}
+var _ = gc.Suite(&specSuite{})
 
 type specSuite struct {
 	testing.BaseSuite
 }
-
-var _ = gc.Suite(&specSuite{})
 
 func (s *specSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)

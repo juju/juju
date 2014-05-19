@@ -27,6 +27,21 @@ var AllSupportedArches = []string{
 	PPC64,
 }
 
+// Info records the information regarding each architecture recognised by Juju.
+var Info = map[string]ArchInfo{
+	AMD64: {64},
+	I386:  {32},
+	ARM:   {32},
+	ARM64: {64},
+	PPC64: {64},
+}
+
+// ArchInfo is a struct containing information about a supported architecture.
+type ArchInfo struct {
+	// WordSize is the architecture's word size, in bits.
+	WordSize int
+}
+
 // archREs maps regular expressions for matching
 // `uname -m` to architectures recognised by Juju.
 var archREs = []struct {

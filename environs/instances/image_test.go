@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
@@ -91,10 +90,10 @@ var jsonImagesContent = `
        }
      }
    },
-   "com.ubuntu.cloud:server:12.04:arm": {
+   "com.ubuntu.cloud:server:12.04:armhf": {
      "release": "precise",
      "version": "12.04",
-     "arch": "arm",
+     "arch": "armhf",
      "versions": {
        "20121218": {
          "items": {
@@ -117,7 +116,57 @@ var jsonImagesContent = `
              "id": "ami-00000036"
            }
          },
-         "pubname": "ubuntu-precise-12.04-arm-server-20121218",
+         "pubname": "ubuntu-precise-12.04-armhf-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.04:i386": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "i386",
+     "versions": {
+       "20121218": {
+         "items": {
+           "apne1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "ap-northeast-1",
+             "id": "ami-b79b09b6"
+           },
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "test",
+             "id": "ami-b79b09b7"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-i386-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.04:ppc64": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "ppc64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "apne1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "ap-northeast-1",
+             "id": "ami-b79b09b8"
+           },
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "test",
+             "id": "ami-b79b09b9"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-ppc64-server-20121218",
          "label": "release"
        }
      }
@@ -167,10 +216,10 @@ type instanceSpecTestParams struct {
 
 func (p *instanceSpecTestParams) init() {
 	if p.arches == nil {
-		p.arches = []string{"amd64", "arm"}
+		p.arches = []string{"amd64", "armhf"}
 	}
 	if p.instanceTypes == nil {
-		p.instanceTypes = []InstanceType{{Id: "1", Name: "it-1", Arches: []string{"amd64", "arm"}}}
+		p.instanceTypes = []InstanceType{{Id: "1", Name: "it-1", Arches: []string{"amd64", "armhf"}}}
 		p.instanceTypeId = "1"
 		p.instanceTypeName = "it-1"
 	}
@@ -184,6 +233,42 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		imageId: "ami-00000033",
 		instanceTypes: []InstanceType{
 			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &pv, Mem: 512},
+		},
+	},
+	{
+		desc:    "prefer amd64 over i386",
+		region:  "test",
+		imageId: "ami-00000033",
+		arches:  []string{"amd64", "i386"},
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"i386", "amd64"}, VirtType: &pv, Mem: 512},
+		},
+	},
+	{
+		desc:    "prefer armhf over i386 (first alphabetical wins)",
+		region:  "test",
+		imageId: "ami-00000034",
+		arches:  []string{"armhf", "i386"},
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"armhf", "i386"}, VirtType: &pv, Mem: 512},
+		},
+	},
+	{
+		desc:    "prefer ppc64 over i386 (64-bit trumps 32-bit, regardless of alphabetical order)",
+		region:  "test",
+		imageId: "ami-b79b09b9",
+		arches:  []string{"ppc64", "i386"},
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"i386", "ppc64"}, VirtType: &pv, Mem: 512},
+		},
+	},
+	{
+		desc:    "prefer amd64 over arm64 (first 64-bit alphabetical wins)",
+		region:  "test",
+		imageId: "ami-00000033",
+		arches:  []string{"arm64", "amd64"},
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"arm64", "amd64"}, VirtType: &pv, Mem: 512},
 		},
 	},
 	{
@@ -243,7 +328,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 	{
 		desc:   "no image exists in metadata",
 		region: "invalid-region",
-		err:    `no "precise" images in invalid-region with arches \[amd64 arm\]`,
+		err:    `no "precise" images in invalid-region with arches \[amd64 armhf\]`,
 	},
 	{
 		desc:          "no valid instance types",
@@ -307,44 +392,6 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 	}
 }
 
-func (s *imageSuite) TestPreferredSpec(c *gc.C) {
-	type prefTest struct {
-		desc     string
-		specs    []*InstanceSpec
-		expected *InstanceSpec
-	}
-
-	s.PatchValue(&arch.HostArch, func() string { return arch.ARM64 })
-
-	amd64 := &InstanceSpec{Image: Image{Arch: arch.AMD64}}
-	i386 := &InstanceSpec{Image: Image{Arch: arch.I386}}
-	arm64 := &InstanceSpec{Image: Image{Arch: arch.ARM64}}
-
-	prefTests := []prefTest{
-		{
-			"choose hostarch (arm64) over other arches",
-			[]*InstanceSpec{i386, arm64, amd64},
-			arm64,
-		},
-		{
-			"choose first image if no arm64",
-			[]*InstanceSpec{i386, amd64},
-			i386,
-		},
-		{
-			"choose only image only one there",
-			[]*InstanceSpec{amd64},
-			amd64,
-		},
-	}
-
-	for n, test := range prefTests {
-		c.Logf("PreferredSpec test %d: %s", n, test.desc)
-		actual := preferredSpec(test.specs)
-		c.Assert(actual, gc.Equals, test.expected)
-	}
-}
-
 var imageMatchtests = []struct {
 	image Image
 	itype InstanceType
@@ -356,14 +403,14 @@ var imageMatchtests = []struct {
 		match: true,
 	}, {
 		image: Image{Arch: "amd64"},
-		itype: InstanceType{Arches: []string{"amd64", "arm"}},
+		itype: InstanceType{Arches: []string{"amd64", "armhf"}},
 		match: true,
 	}, {
 		image: Image{Arch: "amd64", VirtType: hvm},
 		itype: InstanceType{Arches: []string{"amd64"}, VirtType: &hvm},
 		match: true,
 	}, {
-		image: Image{Arch: "arm"},
+		image: Image{Arch: "armhf"},
 		itype: InstanceType{Arches: []string{"amd64"}},
 	}, {
 		image: Image{Arch: "amd64", VirtType: hvm},

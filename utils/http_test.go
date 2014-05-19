@@ -102,6 +102,8 @@ func (s *dialSuite) TestDialRejectsNonLocal(c *gc.C) {
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 	_, err := utils.Dial("tcp", "10.0.0.1:80")
 	c.Assert(err, gc.ErrorMatches, `access to address "10.0.0.1:80" not allowed`)
+	_, err = utils.Dial("tcp", "somehost:80")
+	c.Assert(err, gc.ErrorMatches, `access to address "somehost:80" not allowed`)
 }
 
 func (s *dialSuite) assertDial(c *gc.C, addr string) {

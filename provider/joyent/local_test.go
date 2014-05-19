@@ -25,6 +25,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
@@ -105,6 +106,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"image-metadata-url": "test://host",
 	})
+	s.LiveTests.UploadArches = []string{arch.AMD64}
 	s.LiveTests.SetUpSuite(c)
 
 	creds := joyent.MakeCredentials(c, s.TestConfig)
@@ -156,6 +158,7 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.cSrv.setupServer(c)
 	s.mSrv.setupServer(c)
 
+	s.ToolsFixture.UploadArches = []string{arch.AMD64}
 	s.Tests.SetUpTest(c)
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
 	// Put some fake image metadata in place.
@@ -180,7 +183,7 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 // allocate a public address.
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
+	s.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
@@ -190,7 +193,7 @@ func (s *localServerSuite) TestStartInstance(c *gc.C) {
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
+	s.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
@@ -249,7 +252,7 @@ var instanceGathering = []struct {
 
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
+	s.UploadFakeTools(c, env.Storage())
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	c.Assert(inst.Status(), gc.Equals, "running")
 	err := env.StopInstances(inst.Id())
@@ -258,7 +261,7 @@ func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 
 func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
+	s.UploadFakeTools(c, env.Storage())
 	inst0, _ := testing.AssertStartInstance(c, env, "100")
 	id0 := inst0.Id()
 	inst1, _ := testing.AssertStartInstance(c, env, "101")
@@ -300,7 +303,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
+	s.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
