@@ -173,17 +173,6 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 	c.Assert(doc.URL, gc.DeepEquals, curl)
 }
 
-func (s *StateSuite) TestAddAction(c *gc.C) {
-	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "user-admin", charm, nil, nil)
-	c.Assert(err, gc.IsNil)
-	testAction, err := s.State.AddAction("wordpress/0", "snapshot", "outfile: foo.tar.gz")
-	c.Assert(err, gc.IsNil)
-	answerAction, err := s.State.Action(testAction.Id())
-	c.Assert(err, gc.IsNil)
-	c.Assert(answerAction, gc.DeepEquals, testAction)
-}
-
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	// Check that adding charms updates any existing placeholder charm
 	// with the same URL.

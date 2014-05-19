@@ -1386,31 +1386,6 @@ func (st *State) Action(id string) (*Action, error) {
 	return newAction(st, doc), nil
 }
 
-// AddAction takes a unit Id, and an action name, and a payload containing
-// json-schema options for the action and inserts it into the actions
-// collection
-func (st *State) AddAction(unit string, name string, payload interface{}) (*Action, error) {
-	prefix := fmt.Sprintf("u#%s#", unit)
-	suffix, err := st.sequence(prefix)
-	if err != nil {
-		return nil, onAbort(err, errDead)
-	}
-
-	newActionID := fmt.Sprintf("%s%s", prefix, suffix)
-	doc := actionDoc{Id: newActionID, Name: name, Unit: unit, Payload: payload}
-	ops := []txn.Op{{
-		C:      st.actions.Name,
-		Id:     doc.Id,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}
-	if err := st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, errDead)
-	}
-
-	return newAction(st, doc), nil
-}
-
 // Unit returns a unit by name.
 func (st *State) Unit(name string) (*Unit, error) {
 	if !names.IsUnit(name) {

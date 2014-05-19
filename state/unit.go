@@ -1309,6 +1309,31 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	return nil
 }
 
+// AddAction adds a new Action of type name and using arguments payload to
+// this Unit.
+func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
+	prefix := fmt.Sprintf("u#%s#", u.Name())
+	suffix, err := u.st.sequence(prefix)
+	if err != nil {
+		return nil, onAbort(err, fmt.Errorf("cannot assign new sequence for prefix '%s'", prefix))
+	}
+
+	newActionID := fmt.Sprintf("%s%s", prefix, suffix)
+	doc := actionDoc{Id: newActionID, Name: name, Unit: u.Name(), Payload: payload}
+	ops := []txn.Op{{
+		C:      u.st.actions.Name,
+		Id:     doc.Id,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+	// TODO(jcw4) transaction loop
+	if err := u.st.runTransaction(ops); err != nil {
+		return nil, onAbort(err, fmt.Errorf("cannot add new action '%s' to unit '%s'", name, u.Name()))
+	}
+
+	return newAction(u.st, doc), nil
+}
+
 // Resolve marks the unit as having had any previous state transition
 // problems resolved, and informs the unit that it may attempt to
 // reestablish normal workflow. The retryHooks parameter informs
