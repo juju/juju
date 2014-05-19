@@ -117,9 +117,11 @@ func dial(network, addr string) (net.Conn, error) {
 		if err != nil {
 			return netDial(network, addr)
 		}
-		ip := net.ParseIP(host)
-		if !ip.IsLoopback() {
-			return nil, fmt.Errorf("access to address %q not allowed", addr)
+		if host != "localhost" {
+			ip := net.ParseIP(host)
+			if !ip.IsLoopback() {
+				return nil, fmt.Errorf("access to address %q not allowed", addr)
+			}
 		}
 	}
 	return netDial(network, addr)

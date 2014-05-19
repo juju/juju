@@ -9,7 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 func TestAzureProvider(t *stdtesting.T) {
@@ -17,7 +17,7 @@ func TestAzureProvider(t *stdtesting.T) {
 }
 
 type providerSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	envtesting.ToolsFixture
 	restoreTimeouts func()
 }
@@ -25,21 +25,21 @@ type providerSuite struct {
 var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
 	s.restoreTimeouts()
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
 	s.ToolsFixture.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }

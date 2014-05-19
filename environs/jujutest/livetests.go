@@ -33,7 +33,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -43,7 +42,6 @@ import (
 // (e.g. Amazon EC2).  The Environ is opened once only for all the tests
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
-	testbase.LoggingSuite
 	envtesting.ToolsFixture
 
 	// TestConfig contains the configuration attributes for opening an environment.
@@ -75,13 +73,7 @@ type LiveTests struct {
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
-	t.LoggingSuite.SetUpSuite(c)
 	t.ConfigStore = configstore.NewMem()
-}
-
-func (t *LiveTests) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
-	t.ToolsFixture.SetUpTest(c)
 }
 
 func publicAttrs(e environs.Environ) map[string]interface{} {
@@ -101,12 +93,6 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 	if t.Env != nil {
 		t.Destroy(c)
 	}
-	t.LoggingSuite.TearDownSuite(c)
-}
-
-func (t *LiveTests) TearDownTest(c *gc.C) {
-	t.ToolsFixture.TearDownTest(c)
-	t.LoggingSuite.TearDownTest(c)
 }
 
 // PrepareOnce ensures that the environment is

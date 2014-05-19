@@ -26,10 +26,12 @@ func TestPackage(t *stdtesting.T) {
 }
 
 func init() {
-	gc.Suite(&jujutest.LiveTests{
-		TestConfig:     dummy.SampleConfig(),
-		CanOpenState:   true,
-		HasProvisioner: false,
+	gc.Suite(&liveSuite{
+		LiveTests: jujutest.LiveTests{
+			TestConfig:     dummy.SampleConfig(),
+			CanOpenState:   true,
+			HasProvisioner: false,
+		},
 	})
 	gc.Suite(&suite{
 		Tests: jujutest.Tests{
@@ -38,13 +40,45 @@ func init() {
 	})
 }
 
+type liveSuite struct {
+	testing.BaseSuite
+	jujutest.LiveTests
+}
+
+func (s *liveSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.LiveTests.SetUpSuite(c)
+}
+
+func (s *liveSuite) TearDownSuite(c *gc.C) {
+	s.LiveTests.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
+}
+
+func (s *liveSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.LiveTests.SetUpTest(c)
+}
+
+func (s *liveSuite) TearDownTest(c *gc.C) {
+	s.LiveTests.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
+}
+
 type suite struct {
+	testing.BaseSuite
 	jujutest.Tests
+}
+
+func (s *suite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.Tests.SetUpTest(c)
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	dummy.Reset()
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *suite) TestAllocateAddress(c *gc.C) {

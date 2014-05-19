@@ -125,6 +125,7 @@ func (s *dialSuite) TestDialAllowsNonLocal(c *gc.C) {
 func (s *dialSuite) TestDialAllowsLocal(c *gc.C) {
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 	s.assertDial(c, "127.0.0.1:1234")
+	s.assertDial(c, "localhost:1234")
 }
 
 func (s *dialSuite) TestInsecureClientNoAccess(c *gc.C) {

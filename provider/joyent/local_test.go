@@ -28,12 +28,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
-
-type ProviderSuite struct{}
-
-var _ = gc.Suite(&ProviderSuite{})
 
 func registerLocalTests() {
 	gc.Suite(&localServerSuite{})
@@ -93,15 +88,14 @@ func (m *localMantaServer) destroyServer() {
 }
 
 type localLiveSuite struct {
-	testbase.LoggingSuite
-	LiveTests
+	providerSuite
+	jujutest.LiveTests
 	cSrv *localCloudAPIServer
 	mSrv *localMantaServer
 }
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-	s.AddSuiteCleanup(CreateTestKey(c))
+	s.providerSuite.SetUpSuite(c)
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)
@@ -124,17 +118,17 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 	s.LiveTests.TearDownSuite(c)
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
-	s.LoggingSuite.TearDownSuite(c)
+	s.providerSuite.TearDownSuite(c)
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.providerSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
 	s.LiveTests.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.providerSuite.TearDownTest(c)
 }
 
 // localServerSuite contains tests that run against an Joyent service double.
@@ -142,23 +136,20 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 // to test on a live Joyent server. The service double is started and stopped for
 // each test.
 type localServerSuite struct {
+	providerSuite
 	jujutest.Tests
 	cSrv *localCloudAPIServer
 	mSrv *localMantaServer
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
-	s.Tests.SetUpSuite(c)
+	s.providerSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
-func (s *localServerSuite) TearDownSuite(c *gc.C) {
-	s.Tests.TearDownSuite(c)
-}
-
 func (s *localServerSuite) SetUpTest(c *gc.C) {
-	s.AddSuiteCleanup(CreateTestKey(c))
+	s.providerSuite.SetUpTest(c)
 
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
@@ -167,7 +158,6 @@ func (s *localServerSuite) SetUpTest(c *gc.C) {
 
 	s.Tests.SetUpTest(c)
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
-
 	// Put some fake image metadata in place.
 	creds := joyent.MakeCredentials(c, s.TestConfig)
 	joyent.UseExternalTestImageMetadata(creds)
@@ -178,6 +168,7 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
+	s.providerSuite.TearDownTest(c)
 }
 
 func bootstrapContext(c *gc.C) environs.BootstrapContext {
