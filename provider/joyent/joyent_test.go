@@ -8,11 +8,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/juju/arch"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -62,7 +60,6 @@ var _ = gc.Suite(&providerSuite{})
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 	s.FakeHomeSuite.SetUpSuite(c)
-	s.AddSuiteCleanup(patchArch())
 	s.AddSuiteCleanup(CreateTestKey(c))
 }
 
@@ -97,15 +94,6 @@ func GetFakeConfig(sdcUrl, mantaUrl string) coretesting.Attrs {
 		"control-dir":      "juju-test",
 		"agent-version":    version.Current.Number.String(),
 	})
-}
-
-func patchArch() testing.CleanupFunc {
-	// Joyent only supports AMD64 currently. Rather than pretending
-	// it supports others, pretend we're running on AMD64 if we're not.
-	r := testing.PatchValue(&version.Current.Arch, arch.AMD64)
-	return func(c *gc.C) {
-		r()
-	}
 }
 
 func CreateTestKey(c *gc.C) func(*gc.C) {
