@@ -109,7 +109,7 @@ func GenerateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
 	return privateKey, nil
 }
 
-// handelBootstrapError cleans up after a failed bootstrap.
+// handleBootstrapError cleans up after a failed bootstrap.
 func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instance.Instance, env environs.Environ) {
 	if err == nil {
 		return
@@ -128,7 +128,7 @@ func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instanc
 
 	if inst != nil {
 		fmt.Fprintln(ctx.GetStderr(), "Stopping instance...")
-		if stoperr := env.StopInstances([]instance.Instance{inst}); stoperr != nil {
+		if stoperr := env.StopInstances(inst.Id()); stoperr != nil {
 			logger.Errorf("cannot stop failed bootstrap instance %q: %v", inst.Id(), stoperr)
 		} else {
 			// set to nil so we know we can safely delete the state file

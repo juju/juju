@@ -7,11 +7,12 @@ import (
 	"fmt"
 	stdtesting "testing"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
@@ -1143,6 +1144,15 @@ func (s *withoutStateServerSuite) TestToolsNothing(c *gc.C) {
 	results, err := s.provisioner.Tools(params.Entities{})
 	c.Assert(err, gc.IsNil)
 	c.Check(results.Results, gc.HasLen, 0)
+}
+
+func (s *withoutStateServerSuite) TestContainerManagerConfig(c *gc.C) {
+	args := params.ContainerManagerConfigParams{Type: instance.KVM}
+	results, err := s.provisioner.ContainerManagerConfig(args)
+	c.Check(err, gc.IsNil)
+	c.Assert(results.ManagerConfig, gc.DeepEquals, map[string]string{
+		container.ConfigName: "juju",
+	})
 }
 
 func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {

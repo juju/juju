@@ -22,14 +22,3 @@ func HasProduct(metadata IndexMetadata, prodIds []string) bool {
 func Filter(entries IndexMetadataSlice, match func(*IndexMetadata) bool) IndexMetadataSlice {
 	return entries.filter(match)
 }
-
-func SetSeriesVersions(value map[string]string) func() {
-	origVersions := seriesVersions
-	origUpdated := updatedseriesVersions
-	seriesVersions = value
-	updatedseriesVersions = false
-	return func() {
-		seriesVersions = origVersions
-		updatedseriesVersions = origUpdated
-	}
-}

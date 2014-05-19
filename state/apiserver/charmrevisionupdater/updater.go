@@ -4,10 +4,10 @@
 package charmrevisionupdater
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -71,7 +71,7 @@ func (api *CharmRevisionUpdaterAPI) UpdateLatestRevisions() (params.ErrorResult,
 	return params.ErrorResult{}, nil
 }
 
-// fetchAllServicesAndUnits returns a map from service name to service
+// fetchAllDeployedCharms returns a map from service name to service
 // and a map from service name to unit name to unit.
 func fetchAllDeployedCharms(st *state.State) (map[string]*charm.URL, error) {
 	deployedCharms := make(map[string]*charm.URL)

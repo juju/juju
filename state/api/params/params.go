@@ -597,6 +597,18 @@ func (i *AnnotationInfo) EntityId() EntityId {
 	}
 }
 
+// ContainerManagerConfigParams contains the parameters for the
+// ContainerManagerConfig provisioner API call.
+type ContainerManagerConfigParams struct {
+	Type instance.ContainerType
+}
+
+// ContainerManagerConfig contains information from the environment config
+// that is needed for configuring the container manager.
+type ContainerManagerConfig struct {
+	ManagerConfig map[string]string
+}
+
 // ContainerConfig contains information from the environment config that is
 // needed for container cloud-init.
 type ContainerConfig struct {

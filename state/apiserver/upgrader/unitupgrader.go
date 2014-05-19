@@ -21,7 +21,6 @@ type UnitUpgraderAPI struct {
 	st         *state.State
 	resources  *common.Resources
 	authorizer common.Authorizer
-	dataDir    string
 }
 
 // NewUnitUpgraderAPI creates a new server-side UnitUpgraderAPI facade.
@@ -29,7 +28,6 @@ func NewUnitUpgraderAPI(
 	st *state.State,
 	resources *common.Resources,
 	authorizer common.Authorizer,
-	dataDir string,
 ) (*UnitUpgraderAPI, error) {
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
@@ -43,7 +41,6 @@ func NewUnitUpgraderAPI(
 		st:          st,
 		resources:   resources,
 		authorizer:  authorizer,
-		dataDir:     dataDir,
 	}, nil
 }
 

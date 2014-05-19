@@ -5,6 +5,7 @@ package common
 
 import (
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/instance"
 )
 
 // Destroy is a common implementation of the Destroy method defined on
@@ -15,7 +16,11 @@ func Destroy(env environs.Environ) error {
 	instances, err := env.AllInstances()
 	switch err {
 	case nil:
-		if err := env.StopInstances(instances); err != nil {
+		ids := make([]instance.Id, len(instances))
+		for i, inst := range instances {
+			ids[i] = inst.Id()
+		}
+		if err := env.StopInstances(ids...); err != nil {
 			return err
 		}
 		fallthrough

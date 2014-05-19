@@ -6,11 +6,11 @@ package client_test
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -109,7 +109,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	for _, s := range services {
 		err = s.Refresh()
 		if err != nil {
-			c.Assert(err, jc.Satisfies, coreerrors.IsNotFound)
+			c.Assert(err, jc.Satisfies, errors.IsNotFound)
 		} else {
 			c.Assert(s.Life(), gc.Not(gc.Equals), state.Alive)
 		}

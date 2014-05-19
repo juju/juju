@@ -28,7 +28,7 @@ import (
 )
 
 type BootstrapSuite struct {
-	coretesting.FakeHomeSuite
+	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 }
 
@@ -39,7 +39,7 @@ type cleaner interface {
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, host, checkHostScript string) error {
 		return fmt.Errorf("mock connection failure to %s", host)
@@ -117,9 +117,9 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 		return &mockInstance{id: "i-blah"}, nil, nil, nil
 	}
 
-	var stopped []instance.Instance
-	stopInstances := func(instances []instance.Instance) error {
-		stopped = append(stopped, instances...)
+	var stopped []instance.Id
+	stopInstances := func(ids []instance.Id) error {
+		stopped = append(stopped, ids...)
 		return nil
 	}
 
@@ -134,7 +134,7 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
-	c.Assert(stopped[0].Id(), gc.Equals, instance.Id("i-blah"))
+	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
 }
 
 func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
@@ -150,8 +150,8 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 		return &mockInstance{id: "i-blah"}, nil, nil, nil
 	}
 
-	var stopped []instance.Instance
-	stopInstances := func(instances []instance.Instance) error {
+	var stopped []instance.Id
+	stopInstances := func(instances []instance.Id) error {
 		stopped = append(stopped, instances...)
 		return fmt.Errorf("bork bork borken")
 	}
@@ -171,7 +171,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
-	c.Assert(stopped[0].Id(), gc.Equals, instance.Id("i-blah"))
+	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
 	c.Assert(tw.Log, jc.LogMatches, []jc.SimpleMessage{{
 		loggo.ERROR, `cannot stop failed bootstrap instance "i-blah": bork bork borken`,
 	}})

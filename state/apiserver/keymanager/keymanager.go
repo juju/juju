@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -43,7 +43,7 @@ type KeyManagerAPI struct {
 
 var _ KeyManager = (*KeyManagerAPI)(nil)
 
-// NewKeyUpdaterAPI creates a new server-side keyupdater API end point.
+// NewKeyManagerAPI creates a new server-side keyupdater API end point.
 func NewKeyManagerAPI(
 	st *state.State,
 	resources *common.Resources,
@@ -304,7 +304,7 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 	return result, nil
 }
 
-// currentKeyDataForAdd gathers data used when deleting ssh keys.
+// currentKeyDataForDelete gathers data used when deleting ssh keys.
 func (api *KeyManagerAPI) currentKeyDataForDelete() (
 	keys map[string]string, invalidKeys []string, comments map[string]string, err error) {
 

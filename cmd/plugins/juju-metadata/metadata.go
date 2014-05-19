@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju"
 	_ "launchpad.net/juju-core/provider/all"
 )
@@ -41,10 +42,10 @@ func Main(args []string) {
 		Purpose:     "tools for generating and validating image and tools metadata",
 		Log:         &cmd.Log{}})
 
-	metadatacmd.Register(&ValidateImageMetadataCommand{})
-	metadatacmd.Register(&ImageMetadataCommand{})
-	metadatacmd.Register(&ToolsMetadataCommand{})
-	metadatacmd.Register(&ValidateToolsMetadataCommand{})
+	metadatacmd.Register(envcmd.Wrap(&ValidateImageMetadataCommand{}))
+	metadatacmd.Register(envcmd.Wrap(&ImageMetadataCommand{}))
+	metadatacmd.Register(envcmd.Wrap(&ToolsMetadataCommand{}))
+	metadatacmd.Register(envcmd.Wrap(&ValidateToolsMetadataCommand{}))
 	metadatacmd.Register(&SignMetadataCommand{})
 
 	os.Exit(cmd.Main(metadatacmd, ctx, args[1:]))

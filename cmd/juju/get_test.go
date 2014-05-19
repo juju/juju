@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -67,7 +68,7 @@ func (s *GetSuite) TestGetConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for _, t := range getTests {
 		ctx := coretesting.Context(c)
-		code := cmd.Main(&GetCommand{}, ctx, []string{t.service})
+		code := cmd.Main(envcmd.Wrap(&GetCommand{}), ctx, []string{t.service})
 		c.Check(code, gc.Equals, 0)
 		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 		// round trip via goyaml to avoid being sucked into a quagmire of

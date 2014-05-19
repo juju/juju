@@ -56,17 +56,12 @@ func (c *EnsureAvailabilityCommand) Info() *cmd.Info {
 }
 
 func (c *EnsureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	f.IntVar(&c.NumStateServers, "n", 0, "number of state servers to make available")
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "additional machine constraints")
 }
 
 func (c *EnsureAvailabilityCommand) Init(args []string) error {
-	err := c.EnvCommandBase.Init()
-	if err != nil {
-		return err
-	}
 	if c.NumStateServers < 0 || (c.NumStateServers%2 != 1 && c.NumStateServers != 0) {
 		return fmt.Errorf("must specify a number of state servers odd and non-negative")
 	}

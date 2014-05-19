@@ -98,7 +98,7 @@ func (s *KVMSuite) TestCreateContainer(c *gc.C) {
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 	instance := containertesting.CreateContainer(c, s.manager, "1/lxc/0")
 
-	err := s.manager.DestroyContainer(instance)
+	err := s.manager.DestroyContainer(instance.Id())
 	c.Assert(err, gc.IsNil)
 
 	name := string(instance.Id())

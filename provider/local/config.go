@@ -26,8 +26,6 @@ var (
 		"container":      schema.String(),
 		"storage-port":   schema.ForceInt(),
 		"namespace":      schema.String(),
-		"lxc-clone":      schema.Bool(),
-		"lxc-clone-aufs": schema.Bool(),
 	}
 	// The port defaults below are not entirely arbitrary.  Local user web
 	// frameworks often use 8000 or 8080, so I didn't want to use either of
@@ -40,8 +38,6 @@ var (
 		"bootstrap-ip":   schema.Omit,
 		"storage-port":   8040,
 		"namespace":      "",
-		"lxc-clone":      schema.Omit,
-		"lxc-clone-aufs": schema.Omit,
 	}
 )
 
@@ -106,16 +102,6 @@ func (c *environConfig) storageAddr() string {
 
 func (c *environConfig) configFile(filename string) string {
 	return filepath.Join(c.rootDir(), filename)
-}
-
-func (c *environConfig) lxcClone() bool {
-	value, _ := c.attrs["lxc-clone"].(bool)
-	return value
-}
-
-func (c *environConfig) lxcCloneAUFS() bool {
-	value, _ := c.attrs["lxc-clone-aufs"].(bool)
-	return value
 }
 
 func (c *environConfig) createDirs() error {

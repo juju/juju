@@ -210,20 +210,23 @@ func (i *Info) Help(f *gnuflag.FlagSet) []byte {
 	return buf.Bytes()
 }
 
-// Errors from commands can be either ErrHelp, which means "show the help" or
-// some other error related to needed flags missing, or needed positional args
-// missing, in which case we should print the error and return a non-zero
-// return code.
-func handleCommandError(c Command, ctx *Context, err error, f *gnuflag.FlagSet) (int, bool) {
-	if err == gnuflag.ErrHelp {
+// Errors from commands can be ErrSilent (don't print an error message),
+// ErrHelp (show the help) or some other error related to needed flags
+// missing, or needed positional args missing, in which case we should
+// print the error and return a non-zero return code.
+func handleCommandError(c Command, ctx *Context, err error, f *gnuflag.FlagSet) (rc int, done bool) {
+	switch err {
+	case nil:
+		return 0, false
+	case gnuflag.ErrHelp:
 		ctx.Stdout.Write(c.Info().Help(f))
 		return 0, true
-	}
-	if err != nil {
+	case ErrSilent:
+		return 2, true
+	default:
 		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		return 2, true
 	}
-	return 0, false
 }
 
 // Main runs the given Command in the supplied Context with the given

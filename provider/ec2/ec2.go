@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
@@ -536,11 +537,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	return inst, &hc, nil, nil
 }
 
-func (e *environ) StopInstances(insts []instance.Instance) error {
-	ids := make([]instance.Id, len(insts))
-	for i, inst := range insts {
-		ids[i] = inst.(*ec2Instance).Id()
-	}
+func (e *environ) StopInstances(ids ...instance.Id) error {
 	return e.terminateInstances(ids)
 }
 
@@ -695,6 +692,14 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 		return nil, err
 	}
 	return insts, nil
+}
+
+// AllocateAddress requests a new address to be allocated for the
+// given instance on the given network. This is not implemented by the
+// EC2 provider yet.
+func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+	// TODO(dimitern) This will be implemented in a follow-up.
+	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {

@@ -14,10 +14,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/errors"
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -179,7 +179,7 @@ func (stor *maasStorage) URL(name string) (string, error) {
 	return fullURL.String(), nil
 }
 
-// ConsistencyStrategy is specified in the StorageReader interface.
+// DefaultConsistencyStrategy is specified in the StorageReader interface.
 func (stor *maasStorage) DefaultConsistencyStrategy() utils.AttemptStrategy {
 	// This storage backend has immediate consistency, so there's no
 	// need to wait.  One attempt should do.

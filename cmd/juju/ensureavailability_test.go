@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -49,7 +50,7 @@ func (s *EnsureAvailabilitySuite) TearDownTest(c *gc.C) {
 }
 
 func runEnsureAvailability(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, &EnsureAvailabilityCommand{}, args)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&EnsureAvailabilityCommand{}), args)
 	return err
 }
 

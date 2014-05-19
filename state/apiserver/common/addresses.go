@@ -88,7 +88,7 @@ type StateAddresser struct {
 	getter AddressAndCertGetter
 }
 
-// NewAddresser returns a new StateAddresser that uses the given
+// NewStateAddresser returns a new StateAddresser that uses the given
 // st value to fetch its addresses.
 func NewStateAddresser(getter AddressAndCertGetter) *StateAddresser {
 	return &StateAddresser{getter}

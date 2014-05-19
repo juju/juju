@@ -45,15 +45,10 @@ func (c *GetEnvironmentCommand) Info() *cmd.Info {
 }
 
 func (c *GetEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.EnvCommandBase.SetFlags(f)
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
 func (c *GetEnvironmentCommand) Init(args []string) (err error) {
-	err = c.EnvCommandBase.Init()
-	if err != nil {
-		return
-	}
 	c.key, err = cmd.ZeroOrOneArgs(args)
 	return
 }
@@ -103,13 +98,7 @@ func (c *SetEnvironmentCommand) Info() *cmd.Info {
 	}
 }
 
-// SetFlags handled entirely by cmd.EnvCommandBase
-
 func (c *SetEnvironmentCommand) Init(args []string) (err error) {
-	err = c.EnvCommandBase.Init()
-	if err != nil {
-		return
-	}
 	if len(args) == 0 {
 		return fmt.Errorf("No key, value pairs specified")
 	}
@@ -168,10 +157,6 @@ func (c *UnsetEnvironmentCommand) Info() *cmd.Info {
 }
 
 func (c *UnsetEnvironmentCommand) Init(args []string) (err error) {
-	err = c.EnvCommandBase.Init()
-	if err != nil {
-		return
-	}
 	if len(args) == 0 {
 		return fmt.Errorf("No keys specified")
 	}

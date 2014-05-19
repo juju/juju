@@ -4,10 +4,6 @@
 package joyent
 
 import (
-	"fmt"
-	"strings"
-	"time"
-
 	"github.com/joyent/gosdc/cloudapi"
 
 	"launchpad.net/juju-core/instance"
@@ -62,41 +58,4 @@ func (inst *joyentInstance) DNSName() (string, error) {
 
 func (inst *joyentInstance) WaitDNSName() (string, error) {
 	return common.WaitDNSName(inst)
-}
-
-// Stop will stop and delete the machine
-// Stopped machines are still billed for in the Joyent Public Cloud
-func (inst *joyentInstance) Stop() error {
-	id := string(inst.Id())
-
-	// wait for machine to be running
-	// if machine is still provisioning stop will fail
-	for !inst.pollMachineState(id, "running") {
-		time.Sleep(1 * time.Second)
-	}
-
-	err := inst.env.compute.cloudapi.StopMachine(id)
-	if err != nil {
-		return fmt.Errorf("cannot stop instance %s: %v", id, err)
-	}
-
-	// wait for machine to be stopped
-	for !inst.pollMachineState(id, "stopped") {
-		time.Sleep(1 * time.Second)
-	}
-
-	err = inst.env.compute.cloudapi.DeleteMachine(id)
-	if err != nil {
-		return fmt.Errorf("cannot delete instance %s: %v", id, err)
-	}
-
-	return nil
-}
-
-func (inst *joyentInstance) pollMachineState(machineId, state string) bool {
-	machineConfig, err := inst.env.compute.cloudapi.GetMachine(machineId)
-	if err != nil {
-		return false
-	}
-	return strings.EqualFold(machineConfig.State, state)
 }

@@ -21,7 +21,7 @@ type Charm struct {
 	url string
 }
 
-// Strings returns the charm URL as a string.
+// String returns the charm URL as a string.
 func (c *Charm) String() string {
 	return c.url
 }

@@ -49,7 +49,11 @@ func (s *BzrSuite) TestNewFindsRoot(c *gc.C) {
 	err := os.Mkdir(s.b.Join("dir"), 0755)
 	c.Assert(err, gc.IsNil)
 	b := bzr.New(s.b.Join("dir"))
-	c.Assert(b.Location(), gc.Equals, s.b.Location())
+	// When bzr has to search for the root, it will expand any symlinks it
+	// found along the way.
+	path, err := filepath.EvalSymlinks(s.b.Location())
+	c.Assert(err, gc.IsNil)
+	c.Assert(b.Location(), gc.Equals, path)
 }
 
 func (s *BzrSuite) TestJoin(c *gc.C) {

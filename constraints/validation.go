@@ -112,8 +112,9 @@ func (v *validator) checkUnsupported(cons Value) []string {
 	return cons.hasAny(v.unsupported.Values()...)
 }
 
-// checkValid returns an error if the constraints value contains an attribute value
-// which is not allowed by the vocab which may have been registered for it.
+// checkValidValues returns an error if the constraints value contains an
+// attribute value which is not allowed by the vocab which may have been
+// registered for it.
 func (v *validator) checkValidValues(cons Value) error {
 	for attrTag, attrValue := range cons.attributesWithValues() {
 		k := reflect.TypeOf(attrValue).Kind()

@@ -300,7 +300,7 @@ func parseHostPort(s string) (instance.HostPort, error) {
 	return hostPorts[0], nil
 }
 
-// makeStateAgentConfig creates and writes a state agent config.
+// writeStateAgentConfig creates and writes a state agent config.
 func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
 	port := coretesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}

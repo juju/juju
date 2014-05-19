@@ -10,12 +10,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 	"syscall"
 
-	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/mongo"
@@ -239,8 +238,12 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		container.ConfigLogDir: env.config.logDir(),
 	}
 	if containerType == instance.LXC {
-		managerConfig["use-clone"] = strconv.FormatBool(env.config.lxcClone())
-		managerConfig["use-aufs"] = strconv.FormatBool(env.config.lxcCloneAUFS())
+		if useLxcClone, ok := cfg.LXCUseClone(); ok {
+			managerConfig["use-clone"] = fmt.Sprint(useLxcClone)
+		}
+		if useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS(); ok {
+			managerConfig["use-aufs"] = fmt.Sprint(useLxcCloneAufs)
+		}
 	}
 	env.containerManager, err = factory.NewContainerManager(
 		containerType, managerConfig)
@@ -352,13 +355,13 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	return inst, hardware, nil, nil
 }
 
-// StartInstance is specified in the InstanceBroker interface.
-func (env *localEnviron) StopInstances(instances []instance.Instance) error {
-	for _, inst := range instances {
-		if inst.Id() == bootstrapInstanceId {
+// StopInstances is specified in the InstanceBroker interface.
+func (env *localEnviron) StopInstances(ids ...instance.Id) error {
+	for _, id := range ids {
+		if id == bootstrapInstanceId {
 			return fmt.Errorf("cannot stop the bootstrap instance")
 		}
-		if err := env.containerManager.DestroyContainer(inst); err != nil {
+		if err := env.containerManager.DestroyContainer(id); err != nil {
 			return err
 		}
 	}
@@ -394,6 +397,13 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		err = nil
 	}
 	return insts, err
+}
+
+// AllocateAddress requests a new address to be allocated for the
+// given instance on the given network. This is not supported on the
+// local provider.
+func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+	return instance.Address{}, errors.NotSupportedf("AllocateAddress")
 }
 
 // AllInstances is specified in the InstanceBroker interface.
@@ -454,7 +464,7 @@ func (env *localEnviron) Destroy() error {
 		return err
 	}
 	for _, inst := range containers {
-		if err := env.containerManager.DestroyContainer(inst); err != nil {
+		if err := env.containerManager.DestroyContainer(inst.Id()); err != nil {
 			return err
 		}
 	}
@@ -468,7 +478,7 @@ func (env *localEnviron) Destroy() error {
 			// Exit status 1 means no processes were matched:
 			// we don't consider this an error here.
 			if err.ProcessState.Sys().(syscall.WaitStatus).ExitStatus() != 1 {
-				return errgo.Annotate(err, "failed to kill jujud")
+				return errors.Annotate(err, "failed to kill jujud")
 			}
 		}
 	}

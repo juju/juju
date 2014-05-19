@@ -111,7 +111,7 @@ type ToolsSetter struct {
 	getCanWrite GetAuthFunc
 }
 
-// NewToolsGetter returns a new ToolsGetter. The GetAuthFunc will be
+// NewToolsSetter returns a new ToolsGetter. The GetAuthFunc will be
 // used on each invocation of Tools to determine current permissions.
 func NewToolsSetter(st state.EntityFinder, getCanWrite GetAuthFunc) *ToolsSetter {
 	return &ToolsSetter{

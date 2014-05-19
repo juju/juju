@@ -14,8 +14,10 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	"launchpad.net/juju-core/state/api/watcher"
+	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -28,6 +30,7 @@ type ContainerSetup struct {
 	provisioner         *apiprovisioner.State
 	machine             *apiprovisioner.Machine
 	config              agent.Config
+	initLock            *fslock.Lock
 
 	// Save the workerName so the worker thread can be stopped.
 	workerName string
@@ -43,7 +46,7 @@ type ContainerSetup struct {
 // containers are created on the given machine.
 func NewContainerSetupHandler(runner worker.Runner, workerName string, supportedContainers []instance.ContainerType,
 	machine *apiprovisioner.Machine, provisioner *apiprovisioner.State,
-	config agent.Config) worker.StringsWatchHandler {
+	config agent.Config, initLock *fslock.Lock) worker.StringsWatchHandler {
 
 	return &ContainerSetup{
 		runner:              runner,
@@ -52,6 +55,7 @@ func NewContainerSetupHandler(runner worker.Runner, workerName string, supported
 		provisioner:         provisioner,
 		config:              config,
 		workerName:          workerName,
+		initLock:            initLock,
 	}
 }
 
@@ -71,7 +75,7 @@ func (cs *ContainerSetup) SetUp() (watcher watcher.StringsWatcher, err error) {
 }
 
 // Handle is called whenever containers change on the machine being watched.
-// All machines start out with so containers so the first time Handle is called,
+// Machines start out with no containers so the first time Handle is called,
 // it will be because a container has been added.
 func (cs *ContainerSetup) Handle(containerIds []string) (resultError error) {
 	// Consume the initial watcher event.
@@ -121,11 +125,20 @@ func (cs *ContainerSetup) initialiseAndStartProvisioner(containerType instance.C
 	if initialiser, broker, err := cs.getContainerArtifacts(containerType); err != nil {
 		return fmt.Errorf("initialising container infrastructure on host machine: %v", err)
 	} else {
-		if err := initialiser.Initialise(); err != nil {
-			return fmt.Errorf("setting up container dependnecies on host machine: %v", err)
+		if err := cs.runInitialiser(containerType, initialiser); err != nil {
+			return fmt.Errorf("setting up container dependencies on host machine: %v", err)
 		}
 		return StartProvisioner(cs.runner, containerType, cs.provisioner, cs.config, broker)
 	}
+}
+
+// runInitialiser runs the container initialiser with the initialisation hook held.
+func (cs *ContainerSetup) runInitialiser(containerType instance.ContainerType, initialiser container.Initialiser) error {
+	if err := cs.initLock.Lock(fmt.Sprintf("initialise-%s", containerType)); err != nil {
+		return fmt.Errorf("failed to acquire initialization lock: %v", err)
+	}
+	defer cs.initLock.Unlock()
+	return initialiser.Initialise()
 }
 
 // TearDown is defined on the StringsWatchHandler interface.
@@ -142,6 +155,21 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 	}
 	var initialiser container.Initialiser
 	var broker environs.InstanceBroker
+
+	// Ask the provisioner for the container manager configuration.
+	managerConfigResult, err := cs.provisioner.ContainerManagerConfig(
+		params.ContainerManagerConfigParams{Type: containerType},
+	)
+	if params.IsCodeNotImplemented(err) {
+		// We currently don't support upgrading;
+		// revert to the old configuration.
+		managerConfigResult.ManagerConfig = container.ManagerConfig{container.ConfigName: "juju"}
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	managerConfig := container.ManagerConfig(managerConfigResult.ManagerConfig)
+
 	switch containerType {
 	case instance.LXC:
 		series, err := cs.machine.Series()
@@ -150,13 +178,13 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 		}
 
 		initialiser = lxc.NewContainerInitialiser(series)
-		broker, err = NewLxcBroker(cs.provisioner, tools, cs.config)
+		broker, err = NewLxcBroker(cs.provisioner, tools, cs.config, managerConfig)
 		if err != nil {
 			return nil, nil, err
 		}
 	case instance.KVM:
 		initialiser = kvm.NewContainerInitialiser()
-		broker, err = NewKvmBroker(cs.provisioner, tools, cs.config)
+		broker, err = NewKvmBroker(cs.provisioner, tools, cs.config, managerConfig)
 		if err != nil {
 			logger.Errorf("failed to create new kvm broker")
 			return nil, nil, err

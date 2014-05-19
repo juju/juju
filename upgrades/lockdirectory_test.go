@@ -17,7 +17,7 @@ import (
 )
 
 type ensureLockDirSuite struct {
-	testing.FakeHomeSuite
+	testing.FakeJujuHomeSuite
 	bin     string
 	home    string
 	datadir string
@@ -34,7 +34,7 @@ echo $@ | tee $0.args
 `
 
 func (s *ensureLockDirSuite) SetUpTest(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 
 	s.bin = c.MkDir()
 	s.PatchEnvPathPrepend(s.bin)

@@ -12,6 +12,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
@@ -27,7 +28,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -420,24 +420,27 @@ func (suite *environSuite) getNetwork(name string, id int, vlanTag int) *gomaasa
 func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
 	suite.getInstance("test1")
 
-	err := suite.makeEnviron().StopInstances([]instance.Instance{})
+	err := suite.makeEnviron().StopInstances()
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	c.Check(operations, gc.DeepEquals, map[string][]string{})
 }
 
 func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
-	instance1 := suite.getInstance("test1")
-	instance2 := suite.getInstance("test2")
+	suite.getInstance("test1")
+	suite.getInstance("test2")
 	suite.getInstance("test3")
-	instances := []instance.Instance{instance1, instance2}
+	// mark test1 and test2 as being allocated, but not test3.
+	// The release operation will ignore test3.
+	suite.testMAASObject.TestServer.OwnedNodes()["test1"] = true
+	suite.testMAASObject.TestServer.OwnedNodes()["test2"] = true
 
-	err := suite.makeEnviron().StopInstances(instances)
-
+	err := suite.makeEnviron().StopInstances("test1", "test2", "test3")
 	c.Check(err, gc.IsNil)
-	operations := suite.testMAASObject.TestServer.NodeOperations()
-	expectedOperations := map[string][]string{"test1": {"release"}, "test2": {"release"}}
-	c.Check(operations, gc.DeepEquals, expectedOperations)
+	operations := suite.testMAASObject.TestServer.NodesOperations()
+	c.Check(operations, gc.DeepEquals, []string{"release"})
+	c.Assert(suite.testMAASObject.TestServer.OwnedNodes()["test1"], jc.IsFalse)
+	c.Assert(suite.testMAASObject.TestServer.OwnedNodes()["test2"], jc.IsFalse)
 }
 
 func (suite *environSuite) TestStateInfo(c *gc.C) {
@@ -472,6 +475,7 @@ func (suite *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 func (suite *environSuite) TestDestroy(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.getInstance("test1")
+	suite.testMAASObject.TestServer.OwnedNodes()["test1"] = true // simulate acquire
 	data := makeRandomBytes(10)
 	suite.testMAASObject.TestServer.NewFile("filename", data)
 	stor := env.Storage()
@@ -480,9 +484,9 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 	c.Check(err, gc.IsNil)
 
 	// Instances have been stopped.
-	operations := suite.testMAASObject.TestServer.NodeOperations()
-	expectedOperations := map[string][]string{"test1": {"release"}}
-	c.Check(operations, gc.DeepEquals, expectedOperations)
+	operations := suite.testMAASObject.TestServer.NodesOperations()
+	c.Check(operations, gc.DeepEquals, []string{"release"})
+	c.Check(suite.testMAASObject.TestServer.OwnedNodes()["test1"], jc.IsFalse)
 	// Files have been cleaned up.
 	listing, err := storage.List(stor, "")
 	c.Assert(err, gc.IsNil)

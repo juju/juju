@@ -8,13 +8,13 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/version"
@@ -125,8 +125,8 @@ func (manager *containerManager) CreateContainer(
 	return &kvmInstance{kvmContainer, name}, &hardware, nil
 }
 
-func (manager *containerManager) DestroyContainer(instance instance.Instance) error {
-	name := string(instance.Id())
+func (manager *containerManager) DestroyContainer(id instance.Id) error {
+	name := string(id)
 	kvmContainer := KvmObjectFactory.New(name)
 	if err := kvmContainer.Stop(); err != nil {
 		logger.Errorf("failed to stop kvm container: %v", err)

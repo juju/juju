@@ -121,6 +121,8 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	gotHW, err := m.HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotHW, gc.DeepEquals, expectHW)
+	gotAddrs := m.Addresses()
+	c.Assert(gotAddrs, gc.DeepEquals, mcfg.Addresses)
 
 	// Check that the API host ports are initialised correctly.
 	apiHostPorts, err := st.APIHostPorts()

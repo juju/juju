@@ -285,6 +285,7 @@ func upstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*u
 		" --noprealloc" +
 		" --syslog" +
 		" --smallfiles" +
+		" --journal" +
 		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir))
 	if withHA {
 		mongoCmd += " --replSet " + ReplicaSetName
@@ -373,6 +374,7 @@ func noauthCommand(dataDir string, port int) (*exec.Cmd, error) {
 		"--noprealloc",
 		"--syslog",
 		"--smallfiles",
+		"--journal",
 	)
 	return cmd, nil
 }
