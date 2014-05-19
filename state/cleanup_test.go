@@ -54,8 +54,7 @@ func (s *CleanupSuite) TestCleanupDyingServiceUnits(c *gc.C) {
 
 	// Run a final cleanup to clear the cleanup scheduled for the unit that
 	// became dying.
-	s.assertCleanupRuns(c)
-	s.assertDoesNotNeedCleanup(c)
+	s.assertCleanupCount(c, 1)
 }
 
 func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
