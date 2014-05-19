@@ -126,7 +126,7 @@ func (s *validationSuite) TestValidation(c *gc.C) {
 		unsupported, err := validator.Validate(cons)
 		if t.err == "" {
 			c.Assert(err, gc.IsNil)
-			c.Assert(unsupported, jc.DeepEquals, t.unsupported)
+			c.Assert(unsupported, jc.SameContents, t.unsupported)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
