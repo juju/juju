@@ -108,11 +108,6 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	})
 	s.LiveTests.UploadArches = []string{arch.AMD64}
 	s.LiveTests.SetUpSuite(c)
-
-	creds := joyent.MakeCredentials(c, s.TestConfig)
-	joyent.UseExternalTestImageMetadata(creds)
-	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -125,6 +120,10 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
 	s.providerSuite.SetUpTest(c)
+	creds := joyent.MakeCredentials(c, s.TestConfig)
+	joyent.UseExternalTestImageMetadata(creds)
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	s.LiveTests.SetUpTest(c)
 }
 
