@@ -173,14 +173,16 @@ func (s *SuperCommandSuite) TestVersionFlag(c *gc.C) {
 }
 
 func (s *SuperCommandSuite) TestLogging(c *gc.C) {
-	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", Log: &cmd.Log{}})
-	jc.Register(&TestCommand{Name: "blah"})
-	ctx := testing.Context(c)
-	code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
-	c.Assert(code, gc.Equals, 1)
-	c.Assert(bufferString(ctx.Stderr), gc.Matches, `^.* running juju-.*
+	for _, name := range []string{"juju", "jujutest", "zaphod"} {
+		jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: name, Log: &cmd.Log{}})
+		jc.Register(&TestCommand{Name: "blah"})
+		ctx := testing.Context(c)
+		code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
+		c.Assert(code, gc.Equals, 1)
+		c.Assert(bufferString(ctx.Stderr), gc.Matches, fmt.Sprintf(`^.* running %s-.*
 .* ERROR .* BAM!
-`)
+`, name))
+	}
 }
 
 func (s *SuperCommandSuite) TestDescription(c *gc.C) {
