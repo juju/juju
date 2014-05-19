@@ -13,7 +13,7 @@ if [[ $1 =~ .*@.* ]]; then
     remote_user=$(echo $1 | cut -d @ -f1)
     instance_name=$(echo $1 | cut -d @ -f2)
     shift
-    eval "set -- $ssh_options $@"
+    eval "set -- $ssh_options $1"
 else
     is_ephemeral="true"
     export INSTANCE_TYPE=$1
