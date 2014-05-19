@@ -29,6 +29,7 @@ import (
 	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -516,7 +517,7 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 	builtTools.Dir = ""
 
 	expectedBuiltTools := &sync.BuiltTools{
-		StorageName: envtools.StorageName(version.Current),
+		StorageName: "name",
 		Version:     version.Current,
 		Size:        127,
 		Sha256Hash:  "6a19d08ca4913382ca86508aa38eb8ee5b9ae2d74333fe8d862c0f9e29b82c39",
@@ -528,7 +529,7 @@ func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	builtTools.Dir = ""
 	expectedBuiltTools = &sync.BuiltTools{
-		StorageName: envtools.StorageName(vers),
+		StorageName: "name",
 		Version:     vers,
 		Size:        127,
 		Sha256Hash:  "cad8ccedab8f26807ff379ddc2f2f78d9a7cac1276e001154cee5e39b9ddcc38",
