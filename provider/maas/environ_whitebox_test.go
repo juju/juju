@@ -70,6 +70,11 @@ func (suite *environSuite) setupFakeTools(c *gc.C) {
 	envtesting.UploadFakeTools(c, stor)
 }
 
+func (suite *environSuite) setupFakeImageMetadata(c *gc.C) {
+	stor := NewStorage(suite.makeEnviron())
+	UseTestImageMetadata(c, stor)
+}
+
 func (suite *environSuite) addNode(jsonText string) instance.Id {
 	node := suite.testMAASObject.TestServer.NewNode(jsonText)
 	resourceURI, _ := node.GetField("resource_uri")
@@ -594,6 +599,7 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
+	suite.setupFakeImageMetadata(c)
 	env := suite.makeEnviron()
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
@@ -601,6 +607,7 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 }
 
 func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
+	suite.setupFakeImageMetadata(c)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
@@ -611,6 +618,7 @@ func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	suite.setupFakeImageMetadata(c)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)

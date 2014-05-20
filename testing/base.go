@@ -29,8 +29,7 @@ type BaseSuite struct {
 
 func (t *BaseSuite) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
-	// TODO(wallyworld) - flip this to false when all tests are fixed
-	t.PatchValue(&utils.OutgoingAccessAllowed, true)
+	t.PatchValue(&utils.OutgoingAccessAllowed, false)
 }
 
 func (t *BaseSuite) SetUpTest(c *gc.C) {
