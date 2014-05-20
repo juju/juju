@@ -1310,31 +1310,48 @@ func (u *Unit) UnassignFromMachine() (err error) {
 }
 
 // AddAction adds a new Action of type name and using arguments payload to
-// this Unit.
-func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
-	if u.doc.Life == Dead {
-		return nil, fmt.Errorf("cannot add action to Dead Unit")
-	}
-	prefix := fmt.Sprintf("u#%s#", u.Name())
+// this Unit, and returns its ID
+func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, error) {
+
+	prefix := fmt.Sprintf("u#%s#", u.doc.Name)
 	suffix, err := u.st.sequence(prefix)
 	if err != nil {
-		return nil, onAbort(err, fmt.Errorf("cannot assign new sequence for prefix '%s'", prefix))
+		return "", fmt.Errorf("cannot assign new sequence for prefix '%s'. %s", prefix, err)
 	}
 
 	newActionID := fmt.Sprintf("%s%d", prefix, suffix)
-	doc := actionDoc{Id: newActionID, Name: name, Payload: payload}
-	ops := []txn.Op{{
-		C:      u.st.actions.Name,
-		Id:     doc.Id,
-		Assert: txn.DocMissing,
-		Insert: doc,
-	}}
-	// TODO(jcw4) transaction loop
-	if err := u.st.runTransaction(ops); err != nil {
-		return nil, onAbort(err, fmt.Errorf("cannot add new action '%s' to unit '%s'", name, u.Name()))
-	}
 
-	return newAction(u.st, doc), nil
+	for i := 0; i < 3; i++ {
+		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
+			return "", err
+		} else if !notDead {
+			return "", fmt.Errorf("unit %q is dead", u)
+		}
+
+		sel := bson.D{{"_id", newActionID}}
+		if count, err := u.st.actions.Find(sel).Count(); err != nil {
+			return "", err
+		} else if count == 1 {
+			// Already inserted... should this be an error?
+			return newActionID, nil
+		}
+
+		doc := actionDoc{Id: newActionID, Name: name, Payload: payload}
+		ops := []txn.Op{{
+			C:      u.st.units.Name,
+			Id:     u.doc.Name,
+			Assert: notDeadDoc,
+		}, {
+			C:      u.st.actions.Name,
+			Id:     doc.Id,
+			Assert: txn.DocMissing,
+			Insert: doc,
+		}}
+		if err := u.st.runTransaction(ops); err != txn.ErrAborted {
+			return newActionID, err
+		}
+	}
+	return "", ErrExcessiveContention
 }
 
 // Resolve marks the unit as having had any previous state transition

@@ -1294,24 +1294,21 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
 
 func (s *UnitSuite) TestAddAction(c *gc.C) {
 	// verify can add an Action
-	action, err := s.unit.AddAction("fakeaction", map[string]interface{}{"outfile": "outfile.tar.bz2"})
+	actionId, err := s.unit.AddAction("fakeaction", map[string]interface{}{"outfile": "outfile.tar.bz2"})
+	c.Assert(err, gc.IsNil)
+
+	action, err := s.State.Action(actionId)
 	c.Assert(err, gc.IsNil)
 	c.Assert(action, gc.NotNil)
+	c.Assert(action.Id(), gc.Equals, actionId)
 	// verify action Id() is of expected form (unit id prefix, + sequence)
 	c.Assert(action.Id(), gc.Matches, "^u#"+s.unit.Name()+"#\\d+")
-
-	// verify can retrieve action by Id
-	action2, err := s.State.Action(action.Id())
-	c.Assert(err, gc.IsNil)
-	c.Assert(action2, gc.NotNil)
-
-	// verify retrieved action looks same as first one.
-	c.Assert(action, gc.DeepEquals, action2)
 }
 
 func (s *UnitSuite) TestAddActionFailsOnDeadUnit(c *gc.C) {
 	unit, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit)
 
 	// make unit state Dying
 	err = unit.Destroy()
@@ -1328,4 +1325,25 @@ func (s *UnitSuite) TestAddActionFailsOnDeadUnit(c *gc.C) {
 	// cannot add action to a dead unit
 	_, err = unit.AddAction("fakeaction2", map[string]interface{}{})
 	c.Assert(err, gc.NotNil)
+}
+
+func (s *UnitSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
+	unit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit)
+
+	unitDead := state.TransactionHook{
+		Before: func() {
+			c.Assert(unit.Destroy(), gc.IsNil)
+			c.Assert(unit.EnsureDead(), gc.IsNil)
+		},
+	}
+	defer state.SetTransactionHooks(c, s.State, unitDead).Check()
+
+	_, err = unit.AddAction("fakeaction", map[string]interface{}{})
+	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
+}
+
+func (s *UnitSuite) TestAddActionFailsOnExcessiveContention(c *gc.C) {
+	//TODO(jcw4): need to figure out how to inject 'contention' into the transaction
 }
