@@ -56,10 +56,9 @@ var (
 // after it has logged in.
 type srvRoot struct {
 	clientAPI
-	srv         *Server
-	rpcConn     *rpc.Conn
-	resources   *common.Resources
-	pingTimeout *pingTimeout
+	srv       *Server
+	rpcConn   *rpc.Conn
+	resources *common.Resources
 
 	entity taggedAuthenticator
 }
@@ -82,9 +81,6 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 // cleaning up to ensure that all outstanding requests return.
 func (r *srvRoot) Kill() {
 	r.resources.StopAll()
-	if r.pingTimeout != nil {
-		r.pingTimeout.stop()
-	}
 }
 
 // requireAgent checks whether the current client is an agent and hence
@@ -347,10 +343,13 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 // is not called frequently enough, the connection
 // will be dropped.
 func (r *srvRoot) Pinger(id string) (pinger, error) {
-	if r.pingTimeout == nil {
+	return nullPinger{}, nil
+
+	pingTimeout, ok := r.resources.Get("pingTimeout").(pinger)
+	if !ok {
 		return nullPinger{}, nil
 	}
-	return r.pingTimeout, nil
+	return pingTimeout, nil
 }
 
 type nullPinger struct{}
@@ -438,8 +437,8 @@ func (pt *pingTimeout) Ping() {
 	}
 }
 
-// stop terminates the ping timeout.
-func (pt *pingTimeout) stop() error {
+// Stop terminates the ping timeout.
+func (pt *pingTimeout) Stop() error {
 	pt.tomb.Kill(nil)
 	return pt.tomb.Wait()
 }
