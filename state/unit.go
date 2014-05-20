@@ -1318,7 +1318,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 		return nil, onAbort(err, fmt.Errorf("cannot assign new sequence for prefix '%s'", prefix))
 	}
 
-	newActionID := fmt.Sprintf("%s%s", prefix, suffix)
+	newActionID := fmt.Sprintf("%s%d", prefix, suffix)
 	doc := actionDoc{Id: newActionID, Name: name, Unit: u.Name(), Payload: payload}
 	ops := []txn.Op{{
 		C:      u.st.actions.Name,

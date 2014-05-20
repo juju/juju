@@ -1291,3 +1291,10 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ann, gc.DeepEquals, make(map[string]string))
 }
+
+func (s *UnitSuite) TestAddAction(c *gc.C) {
+	action, err := s.unit.AddAction("fakeaction", map[string]interface{}{"outfile": "outfile.tar.bz2"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(action, gc.NotNil)
+	c.Assert(action.Id(), gc.Matches, "^u#"+s.unit.Name()+"#\\d+")
+}
