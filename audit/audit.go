@@ -19,5 +19,7 @@ func Audit(user *state.User, format string, args ...interface{}) {
 	if user == nil {
 		panic("user cannot be nil")
 	}
+	// TODO(dfc) we should also refuse to accept state.User objects that
+	// do not have a name, ie they are blank.
 	logger.Logf(loggo.INFO, fmt.Sprintf("user %q: %s", user.Name(), format), args...)
 }

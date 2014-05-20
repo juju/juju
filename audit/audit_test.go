@@ -55,8 +55,8 @@ func (*auditSuite) TestAuditEventWrittenToAuditLogger(c *gc.C) {
 	var w testLogger
 	loggo.ReplaceDefaultWriter(&w)
 
-	// create a new User instance, normally this would come from the state
-	// but as there is no User mock, just create an empty done.
+	// state.User is a struct, not an interface so it cannot be mocked
+	// easily. The username reported later in the test will be blank.
 	var u state.User
 	Audit(&u, "donut eaten, %v donut(s) remain", 7)
 
