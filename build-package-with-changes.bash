@@ -28,23 +28,26 @@ fi
 # Do not set -e because this script must cleanup its resources.
 set -ux
 ssh_options='-o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null"'
-
+EXIT_STATUS=1
 SCRIPTS=$(dirname $0)
 CHANGES=$(readlink -f $3)
 
 if [[ $1 = "localhost" ]]; then
+    # Use the local user and working directory to build juju.
     is_ephemeral="false"
     THERE=$(pwd)
     remote_user=$USER
     instance_name=$1
     eval "set -- $ssh_options"
 elif [[ $1 =~ .*@.* ]]; then
+    # Use the connection information to build juju remotely in ~/juju-build.
     THERE="~"
     is_ephemeral="false"
     remote_user=$(echo $1 | cut -d @ -f1)
     instance_name=$(echo $1 | cut -d @ -f2)
     eval "set -- $ssh_options $2"
 else
+    # Create an instance to build juju remotely in ~/juju-build.
     THERE="~"
     is_ephemeral="true"
     remote_user="ubuntu"
@@ -53,10 +56,9 @@ else
     eval "set -- $ssh_options"
 fi
 
-# This only needed if make-package-with-tarball.bash is run by a spearate job.
-#: ${LOCAL_JENKINS_URL=$JENKINS_URL}
 
 if [[ $is_ephemeral == "true" ]]; then
+    echo "Creating an instance to build juju on."
     instance_id=$($SCRIPTS/ec2-run-instance-get-id)
     $SCRIPTS/ec2-tag-job-instances $instance_id
     set +x
@@ -83,11 +85,6 @@ if [[ $is_ephemeral == "true" ]]; then
 EOT
 fi
 
-# Define common vars for remote scripts; do not make them evalaute
-# what is known in this script to ensure the logs line order is sane.
-juju_version=$(basename $CHANGES _source.changes)
-version=$(echo $juju_version | cut -d _ -f2 | cut -d - -f 1)
-
 
 echo "Installing build deps."
 remote_compliler=$(ssh "$@" $remote_user@$instance_name  <<EOT
@@ -98,11 +95,10 @@ remote_compliler=$(ssh "$@" $remote_user@$instance_name  <<EOT
     fi
 EOT
 )
-
 juju_compliler=$(echo "$remote_compliler" | tail -1)
 DEPS="build-essential fakeroot dpkg-dev debhelper $juju_compliler"
 
-dep_script=$( cat <<EOT
+dep_script=$(cat <<EOT
     sudo apt-add-repository -y ppa:juju/golang;
     sudo apt-get update;
     sudo apt-get install -y $DEPS;
@@ -133,7 +129,6 @@ do
     echo "$file_name"
     source_files="$source_files $source_dir/$file_name"
 done
-
 ssh "$@" $remote_user@$instance_name <<EOT
     test -d $THERE/juju-build/ || mkdir $THERE/juju-build
 EOT
@@ -141,15 +136,11 @@ scp "$@" $source_files $remote_user@$instance_name:$THERE/juju-build/
 
 
 echo "Building binary packages"
+juju_version=$(basename $CHANGES _source.changes)
+version=$(echo $juju_version | cut -d _ -f2 | cut -d - -f 1)
 ssh "$@" $remote_user@$instance_name <<EOT
     set -eux
     cd $THERE/juju-build/
-#    for data in $source_file_data
-#    do
-#        file_sha256=$(echo "$data" | cut -d : -f 1)
-#        file_name=$(echo "$data" | cut -d : -f 3)
-#        test $file_sha256 = $(sha256sum $file_name | cut -d ' ' -f 1)
-#    done
     dpkg-source -x $juju_version.dsc
     cd juju-core-$version
     dpkg-buildpackage -us -uc
