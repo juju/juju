@@ -11,5 +11,5 @@ type ActionSuite struct {
 var _ = gc.Suite(&ActionSuite{})
 
 func (s *ActionSuite) TokenTest(c *gc.C) {
-    // TODO(jcw4) implement
+	// TODO(jcw4) implement
 }
