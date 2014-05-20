@@ -15,12 +15,11 @@ import (
 	apiWatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker"
 )
 
 type notifyWorkerSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	worker worker.Worker
 	actor  *notifyHandler
 }
@@ -28,7 +27,7 @@ type notifyWorkerSuite struct {
 var _ = gc.Suite(&notifyWorkerSuite{})
 
 func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.actor = &notifyHandler{
 		actions: nil,
 		handled: make(chan struct{}, 1),
@@ -42,7 +41,7 @@ func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
 func (s *notifyWorkerSuite) TearDownTest(c *gc.C) {
 	worker.SetMustErr(nil)
 	s.stopWorker(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 type notifyHandler struct {

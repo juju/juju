@@ -21,13 +21,12 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 var _ = gc.Suite(&machineSuite{})
 
 type machineSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var testAddrs = instance.NewAddresses("127.0.0.1")

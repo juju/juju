@@ -16,19 +16,18 @@ import (
 	"launchpad.net/tomb"
 
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/fslock"
 )
 
 type fslockSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	lockDelay time.Duration
 }
 
 var _ = gc.Suite(&fslockSuite{})
 
 func (s *fslockSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.PatchValue(&fslock.LockWaitDelay, 1*time.Millisecond)
 }
 

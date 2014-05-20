@@ -10,14 +10,14 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/rpc/rpcreflect"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 // We test rpcreflect in this package, so that the
 // tests can all share the same testing Root type.
 
 type reflectSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&reflectSuite{})

@@ -15,14 +15,13 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker/uniter"
 )
 
 type RunTestSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&RunTestSuite{})

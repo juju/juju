@@ -20,7 +20,7 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -29,7 +29,7 @@ import (
 func Test(t *stdtesting.T) { gc.TestingT(t) }
 
 type MongoSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	mongodConfigPath string
 	mongodPath       string
 
@@ -50,7 +50,7 @@ var testInfo = params.StateServingInfo{
 }
 
 func (s *MongoSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	// Try to make sure we don't execute any commands accidentally.
 	s.PatchEnvironment("PATH", "")
 

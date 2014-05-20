@@ -15,12 +15,11 @@ import (
 	apiWatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker"
 )
 
 type stringsWorkerSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	worker worker.Worker
 	actor  *stringsHandler
 }
@@ -28,7 +27,7 @@ type stringsWorkerSuite struct {
 var _ = gc.Suite(&stringsWorkerSuite{})
 
 func (s *stringsWorkerSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.actor = &stringsHandler{
 		actions: nil,
 		handled: make(chan []string, 1),
@@ -41,7 +40,7 @@ func (s *stringsWorkerSuite) SetUpTest(c *gc.C) {
 
 func (s *stringsWorkerSuite) TearDownTest(c *gc.C) {
 	s.stopWorker(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 type stringsHandler struct {

@@ -12,12 +12,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upstart"
 )
 
 type EnsureAdminSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&EnsureAdminSuite{})

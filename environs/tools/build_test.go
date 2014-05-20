@@ -12,11 +12,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 type buildSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	restore  func()
 	cwd      string
 	filePath string
@@ -25,7 +25,7 @@ type buildSuite struct {
 var _ = gc.Suite(&buildSuite{})
 
 func (b *buildSuite) SetUpTest(c *gc.C) {
-	b.LoggingSuite.SetUpTest(c)
+	b.BaseSuite.SetUpTest(c)
 
 	dir1 := c.MkDir()
 	dir2 := c.MkDir()
@@ -59,7 +59,7 @@ func (b *buildSuite) SetUpTest(c *gc.C) {
 
 func (b *buildSuite) TearDownTest(c *gc.C) {
 	b.restore()
-	b.LoggingSuite.TearDownTest(c)
+	b.BaseSuite.TearDownTest(c)
 }
 
 func (b *buildSuite) TestFindExecutable(c *gc.C) {

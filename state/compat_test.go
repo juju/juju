@@ -9,14 +9,13 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 // compatSuite contains backwards compatibility tests,
 // for ensuring state operations behave correctly across
 // schema changes.
 type compatSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	testing.MgoSuite
 	state *State
 	env   *Environment
@@ -25,17 +24,17 @@ type compatSuite struct {
 var _ = gc.Suite(&compatSuite{})
 
 func (s *compatSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *compatSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *compatSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.state = TestingInitialize(c, nil, Policy(nil))
 	env, err := s.state.Environment()
@@ -46,7 +45,7 @@ func (s *compatSuite) SetUpTest(c *gc.C) {
 func (s *compatSuite) TearDownTest(c *gc.C) {
 	s.state.Close()
 	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {

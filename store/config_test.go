@@ -11,11 +11,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/store"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 type ConfigSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -27,11 +27,11 @@ bar: false
 `
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 }
 
 func (s *ConfigSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *ConfigSuite) TestReadConfig(c *gc.C) {

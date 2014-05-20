@@ -25,13 +25,11 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/usermanager"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 )
@@ -253,7 +251,7 @@ func (*NewConnSuite) TestConnWithPassword(c *gc.C) {
 }
 
 type ConnSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	coretesting.MgoSuite
 	envtesting.ToolsFixture
 	conn *juju.Conn
@@ -263,7 +261,7 @@ type ConnSuite struct {
 var _ = gc.Suite(&ConnSuite{})
 
 func (s *ConnSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
@@ -292,16 +290,16 @@ func (s *ConnSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *ConnSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *ConnSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
@@ -676,57 +674,4 @@ func (s *DeployLocalSuite) assertMachines(c *gc.C, service *state.Service, expec
 		c.Assert(cons, gc.DeepEquals, expectCons)
 	}
 	c.Assert(unseenIds, gc.DeepEquals, set.NewStrings())
-}
-
-type InitJujuHomeSuite struct {
-	testbase.LoggingSuite
-	originalHome     string
-	originalJujuHome string
-}
-
-var _ = gc.Suite(&InitJujuHomeSuite{})
-
-func (s *InitJujuHomeSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
-	s.originalHome = osenv.Home()
-	s.originalJujuHome = os.Getenv("JUJU_HOME")
-}
-
-func (s *InitJujuHomeSuite) TearDownTest(c *gc.C) {
-	osenv.SetHome(s.originalHome)
-	os.Setenv("JUJU_HOME", s.originalJujuHome)
-	s.LoggingSuite.TearDownTest(c)
-}
-
-func (s *InitJujuHomeSuite) TestJujuHome(c *gc.C) {
-	jujuHome := c.MkDir()
-	os.Setenv("JUJU_HOME", jujuHome)
-	err := juju.InitJujuHome()
-	c.Assert(err, gc.IsNil)
-	c.Assert(osenv.JujuHome(), gc.Equals, jujuHome)
-}
-
-func (s *InitJujuHomeSuite) TestHome(c *gc.C) {
-	osHome := c.MkDir()
-	os.Setenv("JUJU_HOME", "")
-	osenv.SetHome(osHome)
-	err := juju.InitJujuHome()
-	c.Assert(err, gc.IsNil)
-	c.Assert(osenv.JujuHome(), gc.Equals, filepath.Join(osHome, ".juju"))
-}
-
-func (s *InitJujuHomeSuite) TestError(c *gc.C) {
-	os.Setenv("JUJU_HOME", "")
-	osenv.SetHome("")
-	err := juju.InitJujuHome()
-	c.Assert(err, gc.ErrorMatches, "cannot determine juju home.*")
-}
-
-func (s *InitJujuHomeSuite) TestCacheDir(c *gc.C) {
-	jujuHome := c.MkDir()
-	os.Setenv("JUJU_HOME", jujuHome)
-	c.Assert(charm.CacheDir, gc.Equals, "")
-	err := juju.InitJujuHome()
-	c.Assert(err, gc.IsNil)
-	c.Assert(charm.CacheDir, gc.Equals, filepath.Join(jujuHome, "charmcache"))
 }

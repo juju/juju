@@ -11,12 +11,12 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
 type imageSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 func Test(t *testing.T) {
