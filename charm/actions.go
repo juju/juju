@@ -38,8 +38,9 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 	if actionsSpec == nil {
 		return nil, fmt.Errorf("empty actions definition")
 	}
+	// If there's data but the Actions is still empty, there's a problem.
 	if !reflect.DeepEqual(data, []byte{}) && reflect.DeepEqual(actionsSpec, &Actions{}) {
-		return nil, fmt.Errorf("actions.yaml failed to unmarshal -- key mismatch")
+		return nil, fmt.Errorf("actions failed to unmarshal from YAML %s", data)
 	}
 
 	nameRule := regexp.MustCompile("^[^-][a-z-]+[^-]$")
@@ -52,6 +53,12 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 		_, err := gojsonschema.NewJsonSchemaDocument(actionSpec.Params)
 		if err != nil {
 			return nil, fmt.Errorf("invalid params schema for action %q: %v", err)
+		}
+		for paramName, _ := range actionsSpec.ActionSpecs[name].Params {
+			badParam := !nameRule.MatchString(paramName)
+			if badParam {
+				return nil, fmt.Errorf("bad param name %s", paramName)
+			}
 		}
 	}
 	return actionsSpec, nil

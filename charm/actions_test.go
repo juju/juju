@@ -33,7 +33,7 @@ func TestReadGoodActionsYaml(c *gc.C) {
 				"        type: string\n" +
 				"        default: foo.bz2\n",
 			// Actions
-			*charm.Actions{map[string]charm.ActionSpec{
+			&charm.Actions{map[string]charm.ActionSpec{
 				"snapshot": charm.ActionSpec{
 					Description: "Take a snapshot of the database.",
 					Params: map[string]interface{}{
@@ -56,7 +56,7 @@ func TestReadGoodActionsYaml(c *gc.C) {
 				"    description: Take a snapshot of the database.\n" +
 				"    params:\n",
 			// Actions
-			*charm.Actions{map[string]charm.ActionSpec{
+			&charm.Actions{map[string]charm.ActionSpec{
 				"snapshot": charm.ActionSpec{
 					Description: "Take a snapshot of the database.",
 					Params:      map[string]interface{}{}}}},
@@ -65,8 +65,9 @@ func TestReadGoodActionsYaml(c *gc.C) {
 	// Beginning of actual test
 	for i, test := range goodActionsYamlTests {
 		c.Logf("test %d: %s", i, test.description)
-		reader := bytes.NewReader([]byte(t.yaml))
+		reader := bytes.NewReader([]byte(test.yaml))
 		loadedAction, err := charm.ReadActionsYaml(reader)
+		c.Assert(err, gc.IsNil)
 		c.Assert(loadedAction, gc.DeepEquals, test.actions)
 	}
 }
@@ -139,8 +140,8 @@ func TestReadBadActionsYaml(c *gc.C) {
 
 	for i, test := range badActionsYamlTests {
 		c.Logf("test %d: %s", i, test.description)
-		reader := bytes.NewReader([]byte(t.yaml))
-		loadedAction, err := charm.ReadActionsYaml(reader)
+		reader := bytes.NewReader([]byte(test.yaml))
+		_, err := charm.ReadActionsYaml(reader)
 		c.Assert(err, gc.NotNil)
 	}
 }
