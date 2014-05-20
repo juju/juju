@@ -172,16 +172,33 @@ func (s *SuperCommandSuite) TestVersionFlag(c *gc.C) {
 	c.Assert(testVersionFlagCommand.version, gc.Equals, "abc.123")
 }
 
+var loggingTests = []struct {
+	usagePrefix, name string
+	pattern           string
+}{
+	{"juju", "juju", `^.* running juju-.*
+.* ERROR .* BAM!
+`},
+	{"something", "else", `^.* running something else-.*
+.* ERROR .* BAM!
+`},
+	{"", "juju", `^.* running juju-.*
+.* ERROR .* BAM!
+`},
+}
+
 func (s *SuperCommandSuite) TestLogging(c *gc.C) {
-	for _, name := range []string{"juju", "jujutest", "zaphod"} {
-		jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: name, Log: &cmd.Log{}})
+	for _, test := range loggingTests {
+		jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
+			UsagePrefix: test.usagePrefix,
+			Name:        test.name,
+			Log:         &cmd.Log{},
+		})
 		jc.Register(&TestCommand{Name: "blah"})
 		ctx := testing.Context(c)
 		code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
 		c.Assert(code, gc.Equals, 1)
-		c.Assert(bufferString(ctx.Stderr), gc.Matches, fmt.Sprintf(`^.* running %s-.*
-.* ERROR .* BAM!
-`, name))
+		c.Assert(bufferString(ctx.Stderr), gc.Matches, test.pattern)
 	}
 }
 
