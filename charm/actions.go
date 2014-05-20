@@ -38,7 +38,7 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 	if actionsSpec == nil {
 		return nil, fmt.Errorf("empty actions definition")
 	}
-	if data != []byte{} && reflect.DeepEqual(actionsSpec, &Actions{}) {
+	if !reflect.DeepEqual(data, []byte{}) && reflect.DeepEqual(actionsSpec, &Actions{}) {
 		return nil, fmt.Errorf("actions.yaml failed to unmarshal -- key mismatch")
 	}
 

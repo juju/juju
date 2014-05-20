@@ -42,11 +42,11 @@ func TestReadGoodActionsYaml(c *gc.C) {
 							"type":        "string",
 							"default":     "foo.bz2"}}}}}},
 
-		{
-			"A more complex schema with hyphenated names and multiple parameters.",
-			"placeholder",
-			nil,
-		},
+		//{
+		//	"A more complex schema with hyphenated names and multiple parameters.",
+		//	"placeholder",
+		//	nil,
+		//},
 
 		{
 			"A schema with an empty \"params\" key, implying no options.",
