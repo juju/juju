@@ -20,7 +20,7 @@ var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	// Just use a single shared config for the whole suite. There's no use case
-	// for mutating a config, we we assume that nobody will do so here.
+	// for mutating a config, we assume that nobody will do so here.
 	var err error
 	s.config, err = charm.ReadConfig(bytes.NewBuffer([]byte(`
 options:
