@@ -46,7 +46,7 @@ func (s *UserSuite) TestAddUserInvalidNames(c *gc.C) {
 }
 
 func (s *UserSuite) TestAddUserValidName(c *gc.C) {
-	name := "007-Foo.Bar"
+	name := "f00-Bar.ram77"
 	u, err := s.State.AddUser(name, "password")
 	c.Check(u, gc.NotNil)
 	c.Assert(err, gc.IsNil)
