@@ -24,7 +24,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -70,12 +69,13 @@ func registerAmazonTests() {
 // LiveTests contains tests that can be run against the Amazon servers.
 // Each test runs using the same ec2 connection.
 type LiveTests struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	jujutest.LiveTests
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
-	t.LoggingSuite.SetUpSuite(c)
+	t.BaseSuite.SetUpSuite(c)
+	t.LiveTests.SetUpSuite(c)
 	// TODO: Share code from jujutest.LiveTests for creating environment
 	e, err := environs.NewFromAttrs(t.TestConfig)
 	c.Assert(err, gc.IsNil)
@@ -84,7 +84,6 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
 	envtesting.UploadFakeTools(c, e.Storage())
-	t.LiveTests.SetUpSuite(c)
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -93,11 +92,11 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 		return
 	}
 	t.LiveTests.TearDownSuite(c)
-	t.LoggingSuite.TearDownSuite(c)
+	t.BaseSuite.TearDownSuite(c)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
+	t.BaseSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 	t.PatchValue(&version.Current, version.Binary{
 		Number: version.Current.Number,
@@ -109,7 +108,7 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 
 func (t *LiveTests) TearDownTest(c *gc.C) {
 	t.LiveTests.TearDownTest(c)
-	t.LoggingSuite.TearDownTest(c)
+	t.BaseSuite.TearDownTest(c)
 }
 
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
