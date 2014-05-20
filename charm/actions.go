@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"reflect"
 	"regexp"
+
 	"github.com/xeipuuv/gojsonschema"
 	"launchpad.net/goyaml"
 )
@@ -22,11 +23,6 @@ type Actions struct {
 type ActionSpec struct {
 	Description string
 	Params      map[string]interface{}
-}
-
-// NewActions returns a new Actions object without any defined content.
-func NewActions() *Actions {
-	return &Actions{map[string]ActionSpec{}}
 }
 
 // ReadActions builds an Actions spec from a charm's actions.yaml.
