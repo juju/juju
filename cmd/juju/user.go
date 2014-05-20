@@ -4,10 +4,8 @@
 package main
 
 import (
-	//"launchpad.net/gnuflag"
-
 	"launchpad.net/juju-core/cmd"
-	//"launchpad.net/juju-core/cmd/envcmd"
+	"launchpad.net/juju-core/cmd/envcmd"
 )
 
 type UserCommand struct {
@@ -30,6 +28,8 @@ func NewUserCommand() cmd.Command {
 			Purpose:     userCommandPurpose,
 		}),
 	}
-	//usercmd.Register(envcmd.Wrap(&AddKeysCommand{}))
+	// Define each subcommand in a separate "user_FOO.go" source file
+	// (with tests in user_FOO_test.go) and wire in here.
+	usercmd.Register(envcmd.Wrap(&UserAddCommand{}))
 	return usercmd
 }
