@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package mongo
+package mongo_test
 
 import (
 	"encoding/base64"
@@ -18,6 +18,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
@@ -57,17 +58,17 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.mongodPath = filepath.Join(c.MkDir(), "mongod")
 	err := ioutil.WriteFile(s.mongodPath, []byte("#!/bin/bash\n\nprintf %s 'db version v2.4.9'\n"), 0755)
 	c.Assert(err, gc.IsNil)
-	s.PatchValue(&JujuMongodPath, s.mongodPath)
+	s.PatchValue(&mongo.JujuMongodPath, s.mongodPath)
 
 	testPath := c.MkDir()
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
-	s.PatchValue(&mongoConfigPath, s.mongodConfigPath)
+	s.PatchValue(mongo.MongoConfigPath, s.mongodConfigPath)
 
-	s.PatchValue(&upstartConfInstall, func(conf *upstart.Conf) error {
+	s.PatchValue(mongo.UpstartConfInstall, func(conf *upstart.Conf) error {
 		s.installed = append(s.installed, *conf)
 		return s.installError
 	})
-	s.PatchValue(&upstartServiceStopAndRemove, func(svc *upstart.Service) error {
+	s.PatchValue(mongo.UpstartServiceStopAndRemove, func(svc *upstart.Service) error {
 		s.removed = append(s.removed, *svc)
 		return s.removeError
 	})
@@ -79,23 +80,23 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *MongoSuite) TestJujuMongodPath(c *gc.C) {
-	obtained, err := Path()
+	obtained, err := mongo.Path()
 	c.Check(err, gc.IsNil)
 	c.Check(obtained, gc.Equals, s.mongodPath)
 }
 
 func (s *MongoSuite) TestDefaultMongodPath(c *gc.C) {
-	s.PatchValue(&JujuMongodPath, "/not/going/to/exist/mongod")
+	s.PatchValue(&mongo.JujuMongodPath, "/not/going/to/exist/mongod")
 	s.PatchEnvPathPrepend(filepath.Dir(s.mongodPath))
 
-	obtained, err := Path()
+	obtained, err := mongo.Path()
 	c.Check(err, gc.IsNil)
 	c.Check(obtained, gc.Equals, s.mongodPath)
 }
 
 func (s *MongoSuite) TestMakeJournalDirs(c *gc.C) {
 	dir := c.MkDir()
-	err := makeJournalDirs(dir)
+	err := mongo.MakeJournalDirs(dir)
 	c.Assert(err, gc.IsNil)
 
 	testJournalDirs(dir, c)
@@ -126,7 +127,7 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	err := EnsureServer(dataDir, namespace, testInfo, WithHA)
+	err := mongo.EnsureServer(dataDir, namespace, testInfo, mongo.WithHA)
 	c.Assert(err, gc.IsNil)
 
 	testJournalDirs(dbDir, c)
@@ -147,17 +148,17 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(contents, jc.DeepEquals, []byte("ENABLE_MONGODB=no"))
 
-	contents, err = ioutil.ReadFile(sslKeyPath(dataDir))
+	contents, err = ioutil.ReadFile(mongo.SSLKeyPath(dataDir))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(contents), gc.Equals, testInfo.Cert+"\n"+testInfo.PrivateKey)
 
-	contents, err = ioutil.ReadFile(sharedSecretPath(dataDir))
+	contents, err = ioutil.ReadFile(mongo.SharedSecretPath(dataDir))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(contents), gc.Equals, testInfo.SharedSecret)
 
 	s.installed = nil
 	// now check we can call it multiple times without error
-	err = EnsureServer(dataDir, namespace, testInfo, WithHA)
+	err = mongo.EnsureServer(dataDir, namespace, testInfo, mongo.WithHA)
 	c.Assert(err, gc.IsNil)
 	assertInstalled()
 
@@ -193,7 +194,7 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 
 		s.PatchValue(&version.Current.Series, test.series)
 
-		err := EnsureServer(dataDir, namespace, testInfo, WithHA)
+		err := mongo.EnsureServer(dataDir, namespace, testInfo, mongo.WithHA)
 		c.Assert(err, gc.IsNil)
 
 		cmds := getMockShellCalls(c, output)
@@ -214,11 +215,11 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 func (s *MongoSuite) TestUpstartServiceWithHA(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, _, err := upstartService("", dataDir, dataDir, 1234, WithHA)
+	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234, mongo.WithHA)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
 
-	svc, _, err = upstartService("", dataDir, dataDir, 1234, WithoutHA)
+	svc, _, err = mongo.UpstartService("", dataDir, dataDir, 1234, mongo.WithoutHA)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsFalse)
 }
@@ -226,7 +227,7 @@ func (s *MongoSuite) TestUpstartServiceWithHA(c *gc.C) {
 func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, _, err := upstartService("", dataDir, dataDir, 1234, WithHA)
+	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234, mongo.WithHA)
 	c.Assert(err, gc.IsNil)
 	journalPresent := strings.Contains(svc.Cmd, " --journal ") || strings.HasSuffix(svc.Cmd, " --journal")
 	c.Assert(journalPresent, jc.IsTrue)
@@ -235,7 +236,7 @@ func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
 func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	cmd, err := noauthCommand(dataDir, 1234)
+	cmd, err := mongo.NoauthCommand(dataDir, 1234)
 	c.Assert(err, gc.IsNil)
 	var isJournalPresent bool
 	for _, value := range cmd.Args {
@@ -247,7 +248,7 @@ func (s *MongoSuite) TestNoAuthCommandWithJournal(c *gc.C) {
 }
 
 func (s *MongoSuite) TestRemoveService(c *gc.C) {
-	err := RemoveService("namespace")
+	err := mongo.RemoveService("namespace")
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.removed, jc.DeepEquals, []upstart.Service{{
 		Name:    "juju-db-namespace",
@@ -264,11 +265,11 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	// test that we call add-apt-repository only for quantal (and that if it
 	// fails, we return the error)
 	s.PatchValue(&version.Current.Series, "quantal")
-	err := EnsureServer(dir, "", testInfo, WithHA)
+	err := mongo.EnsureServer(dir, "", testInfo, mongo.WithHA)
 	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
 
 	s.PatchValue(&version.Current.Series, "trusty")
-	err = EnsureServer(dir, "", testInfo, WithHA)
+	err = mongo.EnsureServer(dir, "", testInfo, mongo.WithHA)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -277,7 +278,7 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	// created.
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
-	err := EnsureServer(dataDir, "", testInfo, WithHA)
+	err := mongo.EnsureServer(dataDir, "", testInfo, mongo.WithHA)
 	c.Check(err, gc.IsNil)
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))
@@ -285,9 +286,9 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 }
 
 func (s *MongoSuite) TestServiceName(c *gc.C) {
-	name := ServiceName("foo")
+	name := mongo.ServiceName("foo")
 	c.Assert(name, gc.Equals, "juju-db-foo")
-	name = ServiceName("")
+	name = mongo.ServiceName("")
 	c.Assert(name, gc.Equals, "juju-db")
 }
 
@@ -302,7 +303,7 @@ func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 		NetworkName:  "public",
 		NetworkScope: instance.NetworkPublic}}
 
-	address := SelectPeerAddress(addresses)
+	address := mongo.SelectPeerAddress(addresses)
 	c.Assert(address, gc.Equals, "10.0.0.1")
 }
 
@@ -324,12 +325,12 @@ func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 		},
 		Port: 37017}}
 
-	address := SelectPeerHostPort(hostPorts)
+	address := mongo.SelectPeerHostPort(hostPorts)
 	c.Assert(address, gc.Equals, "10.0.0.1:37017")
 }
 
 func (s *MongoSuite) TestGenerateSharedSecret(c *gc.C) {
-	secret, err := GenerateSharedSecret()
+	secret, err := mongo.GenerateSharedSecret()
 	c.Assert(err, gc.IsNil)
 	c.Assert(secret, gc.HasLen, 1024)
 	_, err = base64.StdEncoding.DecodeString(secret)
@@ -343,7 +344,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 	s.PatchValue(&version.Current.Series, "quantal")
 
 	dataDir := c.MkDir()
-	err := EnsureServer(dataDir, "", testInfo, WithHA)
+	err := mongo.EnsureServer(dataDir, "", testInfo, mongo.WithHA)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(getMockShellCalls(c, addAptRepoOut), gc.DeepEquals, [][]string{{

@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package mongo
+package mongo_test
 
 import (
 	"net"
@@ -14,6 +14,7 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/mongo"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/upstart"
 )
@@ -30,14 +31,14 @@ func (s *EnsureAdminSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.serviceStarts = 0
 	s.serviceStops = 0
-	s.PatchValue(&upstartConfInstall, func(conf *upstart.Conf) error {
+	s.PatchValue(mongo.UpstartConfInstall, func(conf *upstart.Conf) error {
 		return nil
 	})
-	s.PatchValue(&upstartServiceStart, func(svc *upstart.Service) error {
+	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
 		s.serviceStarts++
 		return nil
 	})
-	s.PatchValue(&upstartServiceStop, func(svc *upstart.Service) error {
+	s.PatchValue(mongo.UpstartServiceStop, func(svc *upstart.Service) error {
 		s.serviceStops++
 		return nil
 	})
@@ -54,8 +55,8 @@ func (s *EnsureAdminSuite) TestEnsureAdminUser(c *gc.C) {
 	// do anything nasty. Also mock out the Signal method.
 	jujutesting.PatchExecutableAsEchoArgs(c, s, "mongod")
 	mongodDir := filepath.SplitList(os.Getenv("PATH"))[0]
-	s.PatchValue(&JujuMongodPath, filepath.Join(mongodDir, "mongod"))
-	s.PatchValue(&processSignal, func(*os.Process, os.Signal) error {
+	s.PatchValue(&mongo.JujuMongodPath, filepath.Join(mongodDir, "mongod"))
+	s.PatchValue(mongo.ProcessSignal, func(*os.Process, os.Signal) error {
 		return nil
 	})
 
@@ -118,7 +119,7 @@ func (s *EnsureAdminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user
 	c.Assert(err, gc.IsNil)
 	port, err := strconv.Atoi(portString)
 	c.Assert(err, gc.IsNil)
-	return EnsureAdminUser(EnsureAdminUserParams{
+	return mongo.EnsureAdminUser(mongo.EnsureAdminUserParams{
 		DialInfo: dialInfo,
 		Port:     port,
 		User:     user,
