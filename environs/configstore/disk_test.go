@@ -17,7 +17,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 var _ = gc.Suite(&diskInterfaceSuite{})
@@ -63,7 +63,7 @@ func (s *diskInterfaceSuite) TearDownTest(c *gc.C) {
 var _ = gc.Suite(&diskStoreSuite{})
 
 type diskStoreSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 func (*diskStoreSuite) TestNewDisk(c *gc.C) {
