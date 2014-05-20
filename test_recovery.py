@@ -120,10 +120,23 @@ def delete_instance(env, instance_id):
     output = subprocess.check_output(command_args, env=environ)
     print_now(output)
 
+def delete_extra_state_servers(env, instance_id):
+    """Delete the extra state-server instances."""
+    status = env.get_status()
+    for machine, info in status.iter_machines():
+        extra_instance_id = info.get('instance-id')
+        status = info.get('state-server-member-status')
+        if extra_instance_id != instance_id and status is not None:
+            print_now("Deleting state-server-member {}".format(machine))
+            host = get_machine_dns_name(env, machine)
+            delete_instance(env, extra_instance_id)
+            wait_for_state_server_to_shutdown(host)
+
 
 def restore_missing_state_server(env, backup_file):
     """juju-restore creates a replacement state-server for the services."""
     environ = dict(os.environ)
+    print_now("Starting restore.")
     proc = subprocess.Popen(
         ['juju-restore', '-e', env.environment,  '--constraints', 'mem=2G',
          backup_file],
@@ -154,6 +167,12 @@ def wait_for_ha(env):
         raise Exception('Timed out waiting for voting to be enabled.')
 
 
+def wait_for_state_server_to_shutdown(host):
+    print_now("Waiting for port to close on %s" % host)
+    wait_for_port(host, 17070, closed=True)
+    print_now("Closed.")
+
+
 def main():
     parser = ArgumentParser('Test recovery strategies.')
     parser.add_argument(
@@ -165,6 +184,9 @@ def main():
     strategy.add_argument(
         '--backup', action='store_const', dest='strategy', const='backup',
         help="Test backup/restore.")
+    strategy.add_argument(
+        '--ha-backup', action='store_const', dest='strategy', const='ha-backup',
+        help="Test backup/restore of HA.")
     parser.add_argument('juju_path')
     parser.add_argument('env_name')
     args = parser.parse_args()
@@ -176,18 +198,18 @@ def main():
         log_host = bootstrap_host
         try:
             instance_id = deploy_stack(env, args.charm_prefix)
-            if args.strategy == 'ha':
+            if args.strategy in ('ha', 'ha-backup'):
                 env.juju('ensure-availability', '-n', '3')
                 wait_for_ha(env)
                 log_host = get_machine_dns_name(env, 3)
-            else:
+            if args.strategy in ('ha-backup', 'backup'):
                 backup_file = backup_state_server(env)
                 restore_present_state_server(env, backup_file)
                 log_host = None
+            if args.strategy == 'ha-backup':
+                delete_extra_state_servers(env, instance_id)
             delete_instance(env, instance_id)
-            print_now("Waiting for port to close on %s" % bootstrap_host)
-            wait_for_port(bootstrap_host, 17070, closed=True)
-            print_now("Closed.")
+            wait_for_state_server_to_shutdown(bootstrap_host)
             if args.strategy == 'ha':
                 env.get_status(600)
             else:
