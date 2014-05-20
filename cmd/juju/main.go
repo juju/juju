@@ -141,6 +141,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage authorized ssh keys.
 	r.Register(NewAuthorizedKeysCommand())
 
+	// Manage users and access
+	r.Register(NewUserCommand())
+
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
 
