@@ -1312,6 +1312,9 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit.
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
+	if u.doc.Life == Dead {
+		return nil, fmt.Errorf("cannot add action to Dead Unit")
+	}
 	prefix := fmt.Sprintf("u#%s#", u.Name())
 	suffix, err := u.st.sequence(prefix)
 	if err != nil {

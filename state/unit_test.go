@@ -1298,3 +1298,24 @@ func (s *UnitSuite) TestAddAction(c *gc.C) {
 	c.Assert(action, gc.NotNil)
 	c.Assert(action.Id(), gc.Matches, "^u#"+s.unit.Name()+"#\\d+")
 }
+
+func (s *UnitSuite) TestAddActionFailsOnDeadUnit(c *gc.C) {
+	unit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, gc.IsNil)
+
+	// make unit state Dying
+	err = unit.Destroy()
+	c.Assert(err, gc.IsNil)
+
+	// can add action to a dying unit
+	_, err = unit.AddAction("fakeaction1", map[string]interface{}{})
+	c.Assert(err, gc.IsNil)
+
+	// make sure unit is dead
+	err = unit.EnsureDead()
+	c.Assert(err, gc.IsNil)
+
+	// cannot add action to a dead unit
+	_, err = unit.AddAction("fakeaction2", map[string]interface{}{})
+	c.Assert(err, gc.NotNil)
+}
