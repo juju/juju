@@ -45,7 +45,7 @@ create_instance() {
             echo "Universe is not available to install packages from."
             exit 1
         fi
-        sleep 10m
+        sleep 5m
     done
 EOT
 }
