@@ -83,57 +83,6 @@ make_source_package() {
 }
 
 
-make_binary_package() {
-    package_version=$1
-    package_series=$2
-    echo "Phase 3: Creating the binary package for $package_series."
-    cd $PACKAGING_DIR
-    bzr bd --build-dir=$BUILD_DIR -- -uc -us
-    new_package=$(ls ${TMP_DIR}/juju-core_${package_version}*.deb)
-    echo "Made $new_package"
-    ln -s $new_package ${TMP_DIR}/new-${package_series}.deb
-    echo "linked $new_package to ${TMP_DIR}/new-${package_series}.deb"
-    new_local_package=$(ls ${TMP_DIR}/juju-local_${package_version}*.deb)
-    echo "Made $new_local_package"
-    ln -s $new_local_package ${TMP_DIR}/new-local-${package_series}.deb
-    echo "linked $new_local_package to ${TMP_DIR}/new-local-${package_series}.deb"
-    cd $HERE
-}
-
-
-update_source_package_branch() {
-    package_version=$1
-    package_series=$2
-    echo "Phase 4: Backport the source package branch to $package_series."
-    cd $PACKAGING_DIR
-    message="New upstream release candidate."
-    distro="UNRELEASED"
-    DEBEMAIL=$DEBEMAIL dch -b --newversion $package_version \
-        -D $distro "$message"
-    bzr ci -m "$message"
-    bzr tag $package_version
-    cd $HERE
-}
-
-
-make_binary_packages() {
-    make_binary_package $UBUNTU_VERSION $SERIES
-    # Make extra packages for supported series.
-    lts_series=$(grep 'LTS' $SCRIPT_DIR/supported-releases.txt |
-        tr ' ' : |
-        cut -d : -f 1,2)
-    for series_release in $lts_series; do
-        this_release=$(echo "$series_release" | cut -d ':' -f1)
-        this_series=$(echo "$series_release" | cut -d ':' -f2)
-        package_version="${VERSION}-0ubuntu1~${this_release}.${PPATCH}~juju1"
-        update_source_package_branch $package_version $this_series
-        make_binary_package $package_version $this_series
-    done
-    NEW_PACKAGES=$(ls ${TMP_DIR}/new-*.deb)
-    echo "New packages for testing: $NEW_PACKAGES"
-}
-
-
 PPATCH="${PPATCH:-1}"
 while getopts ":p:" o; do
     case "${o}" in
@@ -179,10 +128,6 @@ PACKAGING_DIR="$TMP_DIR/packaging"
 BUILD_DIR="$TMP_DIR/build"
 
 make_source_package_branch
-if [[ $PURPOSE == "testing" ]]; then
-    make_binary_packages
-else
-    make_source_package
-fi
+make_source_package
 echo "You can delete this directory when you are done:"
 echo "  $TMP_DIR"
