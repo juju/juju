@@ -11,18 +11,18 @@ import (
 )
 
 func Test(t *testing.T) {
-        gc.TestingT(t)
+	gc.TestingT(t)
 }
 
-type auditSuite struct {}
+type auditSuite struct{}
 
 var _ = gc.Suite(&auditSuite{})
 
 func (*auditSuite) SetUpTest(c *gc.C) {
-        loggo.ResetLoggers()
+	loggo.ResetLoggers()
 }
 
 func TestAudit(t *testing.T) {
 	var u state.User
-	Audit(&u, "last %v donut(s) eaten", 7)
-} 
+	Audit(&u, "donut eaten, %v donut(s) remain", 7)
+}
