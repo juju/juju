@@ -161,7 +161,7 @@ func (st *State) cleanupDyingUnit(name string) error {
 	} else if err != nil {
 		return err
 	}
-	relations, err := unit.JoinedRelations()
+	relations, err := unit.RelationsJoined()
 	if err != nil {
 		return err
 	}
