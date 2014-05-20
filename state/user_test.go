@@ -38,6 +38,7 @@ func (s *UserSuite) TestAddUserInvalidNames(c *gc.C) {
 		"bar{}",
 		"foo bar",
 		"",
+		"0foo",
 	} {
 		u, err := s.State.AddUser(name, "password")
 		c.Assert(err, gc.ErrorMatches, `invalid user name "`+regexp.QuoteMeta(name)+`"`)
