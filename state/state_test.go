@@ -974,6 +974,34 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestAllRelations(c *gc.C) {
+	const numRelations = 32
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	_, err = mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+	wordpressCharm := s.AddTestingCharm(c, "wordpress")
+	for i := 0; i < numRelations; i++ {
+		serviceName := fmt.Sprintf("wordpress%d", i)
+		wordpress := s.AddTestingService(c, serviceName, wordpressCharm)
+		_, err = wordpress.AddUnit()
+		c.Assert(err, gc.IsNil)
+		eps, err := s.State.InferEndpoints([]string{serviceName, "mysql"})
+		c.Assert(err, gc.IsNil)
+		_, err = s.State.AddRelation(eps...)
+		c.Assert(err, gc.IsNil)
+	}
+
+	relations, _ := s.State.AllRelations()
+
+	c.Assert(len(relations), gc.Equals, numRelations)
+	for i, relation := range relations {
+		c.Assert(relation.Id(), gc.Equals, i)
+		c.Assert(relation, gc.Matches, fmt.Sprintf("wordpress%d:.+ mysql:.+", i))
+	}
+}
+
 var addNetworkErrorsTests = []struct {
 	args      state.NetworkInfo
 	expectErr string
