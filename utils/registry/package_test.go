@@ -1,15 +1,14 @@
-// Copyright 2013 Joyent Inc.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package joyent_test
+package registry_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 )
 
-func TestJoyent(t *testing.T) {
-	registerLocalTests()
+func TestAll(t *stdtesting.T) {
 	gc.TestingT(t)
 }

@@ -5,6 +5,7 @@ package instances
 
 import (
 	"fmt"
+	"sort"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -44,6 +45,8 @@ func (ic *InstanceConstraint) String() string {
 type InstanceSpec struct {
 	InstanceType InstanceType
 	Image        Image
+	// order is used to sort InstanceSpec based on the input InstanceTypes.
+	order int
 }
 
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied InstanceConstraint.
@@ -83,13 +86,17 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	for _, itype := range matchingTypes {
 		for _, image := range possibleImages {
 			if image.match(itype) {
-				specs = append(specs, &InstanceSpec{itype, image})
+				specs = append(specs, &InstanceSpec{
+					InstanceType: itype,
+					Image:        image,
+					order:        len(specs),
+				})
 			}
 		}
 	}
-
-	if spec := preferredSpec(specs); spec != nil {
-		return spec, nil
+	if len(specs) > 0 {
+		sort.Sort(byArch(specs))
+		return specs[0], nil
 	}
 
 	names := make([]string, len(matchingTypes))
@@ -99,21 +106,39 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	return nil, fmt.Errorf("no %q images in %s matching instance types %v", ic.Series, ic.Region, names)
 }
 
-// preferredSpec will if possible return a spec with arch matching that
-// of the host machine.
-func preferredSpec(specs []*InstanceSpec) *InstanceSpec {
-	if len(specs) > 1 {
-		hostArch := arch.HostArch()
-		for _, spec := range specs {
-			if spec.Image.Arch == hostArch {
-				return spec
-			}
-		}
+// byArch sorts InstanceSpecs first by descending word-size, then
+// alphabetically by name, and choose the first spec in the sequence.
+type byArch []*InstanceSpec
+
+func (a byArch) Len() int {
+	return len(a)
+}
+
+func (a byArch) Less(i, j int) bool {
+	iArchName := a[i].Image.Arch
+	jArchName := a[j].Image.Arch
+	iArch := arch.Info[iArchName]
+	jArch := arch.Info[jArchName]
+	// Wider word-size first.
+	switch {
+	case iArch.WordSize > jArch.WordSize:
+		return true
+	case iArch.WordSize < jArch.WordSize:
+		return false
 	}
-	if len(specs) > 0 {
-		return specs[0]
+	// Alphabetically by arch name.
+	switch {
+	case iArchName < jArchName:
+		return true
+	case iArchName > jArchName:
+		return false
 	}
-	return nil
+	// If word-size and name the same, keep stable.
+	return a[i].order < a[j].order
+}
+
+func (a byArch) Swap(i, j int) {
+	a[i], a[j] = a[j], a[i]
 }
 
 // Image holds the attributes that vary amongst relevant images for

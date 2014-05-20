@@ -55,10 +55,9 @@ func (s *openstackstorage) Put(file string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (s *openstackstorage) Get(file string) (r io.ReadCloser, err error) {
-	r, err = s.swift.GetReader(s.containerName, file)
-	err, _ = maybeNotFound(err)
-	if err != nil {
+func (s *openstackstorage) Get(file string) (io.ReadCloser, error) {
+	r, _, err := s.swift.GetReader(s.containerName, file)
+	if err, _ := maybeNotFound(err); err != nil {
 		return nil, err
 	}
 	return r, nil
