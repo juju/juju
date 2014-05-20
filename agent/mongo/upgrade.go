@@ -8,11 +8,14 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
+	"time"
 
 	"labix.org/v2/mgo"
 
 	"launchpad.net/juju-core/upstart"
 )
+
+const mongoSocketTimeout = 10 * time.Second
 
 var (
 	processSignal = (*os.Process).Signal
@@ -51,11 +54,13 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 	if err != nil {
 		return false, fmt.Errorf("can't dial mongo to ensure admin user: %v", err)
 	}
+	session.SetSocketTimeout(mongoSocketTimeout)
 	err = session.DB("admin").Login(p.User, p.Password)
 	session.Close()
 	if err == nil {
 		return false, nil
 	}
+	logger.Debugf("admin login failed: %v", err)
 
 	// Login failed, so we need to add the user.
 	// Stop mongo, so we can start it in --noauth mode.
