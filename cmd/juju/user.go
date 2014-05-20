@@ -15,8 +15,8 @@ type UserCommand struct {
 const userCommandDoc = `
 "juju user" is used to manage the user accounts and access control in
 the Juju environment.
-
 `
+
 const userCommandPurpose = "manage user accounts and access control"
 
 func NewUserCommand() cmd.Command {
