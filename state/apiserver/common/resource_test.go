@@ -147,3 +147,12 @@ func (resourceSuite) TestStopAll(c *gc.C) {
 
 	c.Assert(rs.Count(), gc.Equals, 0)
 }
+
+func (resourceSuite) TestStringResource(c *gc.C) {
+	rs := common.NewResources()
+	r1 := common.StringResource("foobar")
+	id := rs.Register(r1)
+	c.Check(rs.Get(id), gc.Equals, r1)
+	asStr := rs.Get(id).(common.StringResource).String()
+	c.Check(asStr, gc.Equals, "foobar")
+}
