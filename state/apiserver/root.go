@@ -343,8 +343,6 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 // is not called frequently enough, the connection
 // will be dropped.
 func (r *srvRoot) Pinger(id string) (pinger, error) {
-	return nullPinger{}, nil
-
 	pingTimeout, ok := r.resources.Get("pingTimeout").(pinger)
 	if !ok {
 		return nullPinger{}, nil
