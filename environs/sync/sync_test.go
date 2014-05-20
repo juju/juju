@@ -439,6 +439,12 @@ func (s *badBuildSuite) SetUpTest(c *gc.C) {
 	c.Assert(string(out), gc.Equals, "")
 }
 
+func (s *badBuildSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
+	s.ToolsFixture.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
+
 func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
 	// Test that original bundleTools Func fails as expected
 	vers, sha256Hash, err := bundleTools(c)
