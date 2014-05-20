@@ -5,8 +5,7 @@ import ()
 type actionDoc struct {
 	Id      string `bson:"_id"`
 	Name    string
-	Unit    string
-	Payload interface{}
+	Payload map[string]interface{}
 }
 
 // Action represents an instruction to do some "action" and is expected to match
@@ -28,7 +27,7 @@ func (a *Action) Name() string {
 	return a.doc.Name
 }
 
-// Id returns the mongo Id of the Action
+// Id returns the id of the Action
 func (a *Action) Id() string {
 	return a.doc.Id
 }
@@ -36,6 +35,6 @@ func (a *Action) Id() string {
 // Payload will contain a structure representing arguments or parameters to
 // an action, and is expected to be validated by the Unit using the Charm
 // definition of the Action
-func (a *Action) Payload() interface{} {
+func (a *Action) Payload() map[string]interface{} {
 	return a.doc.Payload
 }

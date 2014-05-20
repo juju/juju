@@ -1322,7 +1322,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 	}
 
 	newActionID := fmt.Sprintf("%s%d", prefix, suffix)
-	doc := actionDoc{Id: newActionID, Name: name, Unit: u.Name(), Payload: payload}
+	doc := actionDoc{Id: newActionID, Name: name, Payload: payload}
 	ops := []txn.Op{{
 		C:      u.st.actions.Name,
 		Id:     doc.Id,
