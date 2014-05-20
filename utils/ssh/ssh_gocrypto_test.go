@@ -17,7 +17,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -79,14 +79,14 @@ func (s *sshServer) run(c *gc.C) {
 }
 
 type SSHGoCryptoCommandSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	client ssh.Client
 }
 
 var _ = gc.Suite(&SSHGoCryptoCommandSuite{})
 
 func (s *SSHGoCryptoCommandSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	generateKeyRestorer := overrideGenerateKey(c)
 	s.AddCleanup(func(*gc.C) { generateKeyRestorer.Restore() })
 	client, err := ssh.NewGoCryptoClient()

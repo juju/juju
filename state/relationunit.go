@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 )
 

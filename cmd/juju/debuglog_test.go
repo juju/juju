@@ -9,19 +9,19 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 )
 
 type DebugLogSuite struct {
-	testing.FakeHomeSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&DebugLogSuite{})

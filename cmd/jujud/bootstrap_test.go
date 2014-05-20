@@ -9,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -20,14 +21,12 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/peergrouper"
@@ -38,7 +37,7 @@ var _ = configstore.Default
 // We don't want to use JujuConnSuite because it gives us
 // an already-bootstrapped environment.
 type BootstrapSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	testing.MgoSuite
 	envcfg          string
 	instanceId      instance.Id
@@ -77,19 +76,19 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
 	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
 
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.makeTestEnv(c)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 	dummy.Reset()
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
@@ -98,7 +97,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 var testPassword = "my-admin-secret"

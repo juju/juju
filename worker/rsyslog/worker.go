@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
@@ -122,7 +122,7 @@ func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag, namesp
 func (h *RsyslogConfigHandler) SetUp() (watcher.NotifyWatcher, error) {
 	if h.mode == RsyslogModeAccumulate {
 		if err := h.ensureCertificates(); err != nil {
-			return nil, errgo.Annotate(err, "failed to write rsyslog certificates")
+			return nil, errors.Annotate(err, "failed to write rsyslog certificates")
 		}
 	}
 	return h.st.WatchForEnvironConfigChanges()
@@ -140,7 +140,7 @@ func (h *RsyslogConfigHandler) TearDown() error {
 func (h *RsyslogConfigHandler) Handle() error {
 	cfg, err := h.st.EnvironConfig()
 	if err != nil {
-		return errgo.Annotate(err, "cannot get environ config")
+		return errors.Annotate(err, "cannot get environ config")
 	}
 	rsyslogCACert := cfg.RsyslogCACert()
 	if rsyslogCACert == "" {
@@ -154,20 +154,20 @@ func (h *RsyslogConfigHandler) Handle() error {
 	h.syslogConfig.Port = cfg.SyslogPort()
 	if h.mode == RsyslogModeForwarding {
 		if err := writeFileAtomic(h.syslogConfig.CACertPath(), []byte(rsyslogCACert), 0644, 0, 0); err != nil {
-			return errgo.Annotate(err, "cannot write CA certificate")
+			return errors.Annotate(err, "cannot write CA certificate")
 		}
 	}
 	data, err := h.syslogConfig.Render()
 	if err != nil {
-		return errgo.Annotate(err, "failed to render rsyslog configuration file")
+		return errors.Annotate(err, "failed to render rsyslog configuration file")
 	}
 	if err := writeFileAtomic(h.syslogConfig.ConfigFilePath(), []byte(data), 0644, 0, 0); err != nil {
-		return errgo.Annotate(err, "failed to write rsyslog configuration file")
+		return errors.Annotate(err, "failed to write rsyslog configuration file")
 	}
 	logger.Debugf("Reloading rsyslog configuration")
 	if err := restartRsyslog(); err != nil {
 		logger.Errorf("failed to reload rsyslog configuration")
-		return errgo.Annotate(err, "cannot restart rsyslog")
+		return errors.Annotate(err, "cannot restart rsyslog")
 	}
 	// Record config values so we don't try again.
 	// Do this last so we recover from intermittent

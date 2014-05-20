@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/gomaasapi"
 
@@ -26,7 +27,6 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/state"

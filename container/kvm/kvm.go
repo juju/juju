@@ -8,13 +8,13 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/version"

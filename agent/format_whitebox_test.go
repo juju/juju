@@ -11,12 +11,12 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
 
 type formatSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&formatSuite{})

@@ -10,8 +10,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
@@ -21,7 +20,7 @@ func Test(t *stdtesting.T) {
 }
 
 type AuthorisedKeysKeysSuite struct {
-	testbase.LoggingSuite
+	testing.FakeHomeSuite
 }
 
 const (
@@ -30,12 +29,6 @@ const (
 )
 
 var _ = gc.Suite(&AuthorisedKeysKeysSuite{})
-
-func (s *AuthorisedKeysKeysSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
-	fakeHome := coretesting.MakeEmptyFakeHomeWithoutJuju(c)
-	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
-}
 
 func writeAuthKeysFile(c *gc.C, keys []string) {
 	err := ssh.WriteAuthorisedKeys(testSSHUser, keys)

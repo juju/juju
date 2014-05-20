@@ -23,13 +23,11 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
 type ToolsMetadataSuite struct {
-	testbase.LoggingSuite
-	home             *coretesting.FakeHome
+	coretesting.FakeJujuHomeSuite
 	env              environs.Environ
 	publicStorageDir string
 }
@@ -37,10 +35,8 @@ type ToolsMetadataSuite struct {
 var _ = gc.Suite(&ToolsMetadataSuite{})
 
 func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
-	s.home = coretesting.MakeSampleHome(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.AddCleanup(func(*gc.C) {
-		s.home.Restore()
 		dummy.Reset()
 		loggo.ResetLoggers()
 	})

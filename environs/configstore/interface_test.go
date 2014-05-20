@@ -8,7 +8,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 // interfaceSuite defines a set of tests on a ConfigStorage
@@ -16,7 +16,7 @@ import (
 // The NewStore field must be set up to return a ConfigStorage
 // instance of the type to be tested.
 type interfaceSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	NewStore func(c *gc.C) configstore.Storage
 }
 

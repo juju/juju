@@ -12,11 +12,10 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ConfigSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -28,11 +27,11 @@ bar: false
 `
 
 func (s *ConfigSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 }
 
 func (s *ConfigSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 type SomeConfigCommand struct {

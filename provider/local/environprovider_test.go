@@ -11,11 +11,9 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/container/kvm"
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
@@ -25,31 +23,28 @@ import (
 
 type baseProviderSuite struct {
 	lxctesting.TestSuite
-	home    *coretesting.FakeHome
 	restore func()
 }
 
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
-	s.home = coretesting.MakeFakeHomeNoEnvironments(c, "test")
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.restore = local.MockAddressForInterface()
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {
 	s.restore()
-	s.home.Restore()
 	s.TestSuite.TearDownTest(c)
 }
 
 type prepareSuite struct {
-	coretesting.FakeHomeSuite
+	coretesting.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&prepareSuite{})
 
 func (s *prepareSuite) SetUpTest(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.PatchEnvironment("http_proxy", "")
 	s.PatchEnvironment("HTTP_PROXY", "")
@@ -297,87 +292,6 @@ func (s *prepareSuite) TestPrepareNamespace(c *gc.C) {
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.err)
 		}
-	}
-}
-
-func (s *prepareSuite) TestFastLXCClone(c *gc.C) {
-	s.PatchValue(local.DetectAptProxies, func() (osenv.ProxySettings, error) {
-		return osenv.ProxySettings{}, nil
-	})
-	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) {
-		return true, nil
-	})
-	s.PatchValue(&local.VerifyPrerequisites, func(containerType instance.ContainerType) error {
-		return nil
-	})
-	basecfg, err := config.New(config.UseDefaults, map[string]interface{}{
-		"type": "local",
-		"name": "test",
-	})
-	provider, err := environs.Provider("local")
-	c.Assert(err, gc.IsNil)
-
-	type test struct {
-		systemDefault bool
-		extraConfig   map[string]interface{}
-		expectClone   bool
-		expectAUFS    bool
-	}
-	tests := []test{{
-		extraConfig: map[string]interface{}{
-			"container": "lxc",
-		},
-	}, {
-		extraConfig: map[string]interface{}{
-			"container": "lxc",
-			"lxc-clone": "true",
-		},
-		expectClone: true,
-	}, {
-		systemDefault: true,
-		extraConfig: map[string]interface{}{
-			"container": "lxc",
-		},
-		expectClone: true,
-	}, {
-		systemDefault: true,
-		extraConfig: map[string]interface{}{
-			"container": "kvm",
-		},
-	}, {
-		systemDefault: true,
-		extraConfig: map[string]interface{}{
-			"container": "lxc",
-			"lxc-clone": false,
-		},
-	}, {
-		systemDefault: true,
-		extraConfig: map[string]interface{}{
-			"container":      "lxc",
-			"lxc-clone-aufs": true,
-		},
-		expectClone: true,
-		expectAUFS:  true,
-	}}
-
-	for i, test := range tests {
-		c.Logf("test %d: %v", i, test)
-
-		releaseVersion := "12.04"
-		if test.systemDefault {
-			releaseVersion = "14.04"
-		}
-		s.PatchValue(local.ReleaseVersion, func() string { return releaseVersion })
-		testConfig, err := basecfg.Apply(test.extraConfig)
-		c.Assert(err, gc.IsNil)
-		env, err := provider.Open(testConfig)
-		c.Assert(err, gc.IsNil)
-		localAttributes := env.Config().UnknownAttrs()
-
-		value, _ := localAttributes["lxc-clone"].(bool)
-		c.Assert(value, gc.Equals, test.expectClone)
-		value, _ = localAttributes["lxc-clone-aufs"].(bool)
-		c.Assert(value, gc.Equals, test.expectAUFS)
 	}
 }
 

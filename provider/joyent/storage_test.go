@@ -12,10 +12,10 @@ import (
 	"strings"
 
 	"github.com/joyent/gocommon/errors"
+	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/joyent"
 	jp "launchpad.net/juju-core/provider/joyent"
 )
@@ -117,7 +117,7 @@ func (s *storageSuite) TestGetFileNotExists(c *gc.C) {
 
 	_, err := mantaStorage.Get("noFile")
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, jc.Satisfies, coreerrors.IsNotFound)
+	c.Assert(err, jc.Satisfies, jujuerrors.IsNotFound)
 }
 
 func (s *storageSuite) TestPut(c *gc.C) {
@@ -195,5 +195,5 @@ func (s *storageSuite) TestDeleteContainerNotExists(c *gc.C) {
 
 	err := mantaStorage.DeleteContainer("noContainer")
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, jc.Satisfies, coreerrors.IsNotFound)
+	c.Assert(err, jc.Satisfies, jujuerrors.IsNotFound)
 }

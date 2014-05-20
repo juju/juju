@@ -6,19 +6,18 @@ package environs_test
 import (
 	"io/ioutil"
 
+	"github.com/juju/errors"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type EmptyStorageSuite struct {
-	testbase.LoggingSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&EmptyStorageSuite{})
@@ -42,7 +41,7 @@ func (s *EmptyStorageSuite) TestList(c *gc.C) {
 }
 
 type verifyStorageSuite struct {
-	testbase.LoggingSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&verifyStorageSuite{})
@@ -55,14 +54,17 @@ environments:
         authorized-keys: i-am-a-key
 `
 
+func (s *verifyStorageSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	testing.WriteEnvironments(c, existingEnv)
+}
+
 func (s *verifyStorageSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.LoggingSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {
-	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
-
 	ctx := testing.Context(c)
 	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)
@@ -79,8 +81,6 @@ func (s *verifyStorageSuite) TestVerifyStorage(c *gc.C) {
 }
 
 func (s *verifyStorageSuite) TestVerifyStorageFails(c *gc.C) {
-	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
-
 	ctx := testing.Context(c)
 	environ, err := environs.PrepareFromName("test", ctx, configstore.NewMem())
 	c.Assert(err, gc.IsNil)

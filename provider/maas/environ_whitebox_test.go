@@ -12,6 +12,7 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
@@ -27,7 +28,6 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -68,6 +68,11 @@ func (suite *environSuite) setupFakeProviderStateFile(c *gc.C) {
 func (suite *environSuite) setupFakeTools(c *gc.C) {
 	stor := NewStorage(suite.makeEnviron())
 	envtesting.UploadFakeTools(c, stor)
+}
+
+func (suite *environSuite) setupFakeImageMetadata(c *gc.C) {
+	stor := NewStorage(suite.makeEnviron())
+	UseTestImageMetadata(c, stor)
 }
 
 func (suite *environSuite) addNode(jsonText string) instance.Id {
@@ -594,6 +599,7 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
+	suite.setupFakeImageMetadata(c)
 	env := suite.makeEnviron()
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
@@ -601,6 +607,7 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 }
 
 func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
+	suite.setupFakeImageMetadata(c)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
@@ -611,6 +618,7 @@ func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
 }
 
 func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	suite.setupFakeImageMetadata(c)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)

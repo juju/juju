@@ -18,12 +18,10 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type syncToolsSuite struct {
-	testbase.LoggingSuite
-	home         *coretesting.FakeHome
+	coretesting.FakeJujuHomeSuite
 	configStore  configstore.Storage
 	localStorage string
 
@@ -33,10 +31,10 @@ type syncToolsSuite struct {
 var _ = gc.Suite(&syncToolsSuite{})
 
 func (s *syncToolsSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 
 	// Create a target environments.yaml and make sure its environment is empty.
-	s.home = coretesting.MakeFakeHome(c, `
+	coretesting.WriteEnvironments(c, `
 environments:
     test-target:
         type: dummy
@@ -52,8 +50,7 @@ environments:
 func (s *syncToolsSuite) TearDownTest(c *gc.C) {
 	syncTools = s.origSyncTools
 	dummy.Reset()
-	s.home.Restore()
-	s.LoggingSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *syncToolsSuite) Reset(c *gc.C) {

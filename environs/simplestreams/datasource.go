@@ -9,7 +9,8 @@ import (
 	"net/http"
 	"strings"
 
-	"launchpad.net/juju-core/errors"
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/utils"
 )
 

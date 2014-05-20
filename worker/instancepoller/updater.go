@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"

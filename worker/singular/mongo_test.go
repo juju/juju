@@ -15,7 +15,6 @@ import (
 
 	"launchpad.net/juju-core/replicaset"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/singular"
@@ -24,7 +23,7 @@ import (
 var logger = loggo.GetLogger("juju.singular-test")
 
 type mongoSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var enableUnreliableTests = flag.Bool("juju.unreliabletests", false, "enable unreliable and slow tests")

@@ -14,10 +14,10 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/errors"
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 

@@ -9,8 +9,9 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"

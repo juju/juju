@@ -6,14 +6,13 @@ package environs
 import (
 	"fmt"
 
-	"github.com/errgo/errgo"
+	"github.com/juju/errors"
 
 	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -141,7 +140,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	// These really are directly relevant to running a state server.
 	cert, key, err := cfg.GenerateStateServerCertAndKey()
 	if err != nil {
-		return errgo.Annotate(err, "cannot generate state server certificate")
+		return errors.Annotate(err, "cannot generate state server certificate")
 	}
 
 	srvInfo := params.StateServingInfo{

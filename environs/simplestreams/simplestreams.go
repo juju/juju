@@ -18,9 +18,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 

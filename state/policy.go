@@ -6,9 +6,10 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 )
 
 // Policy is an interface provided to State that may

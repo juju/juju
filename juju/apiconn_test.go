@@ -8,6 +8,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -16,32 +17,30 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type NewAPIConnSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&NewAPIConnSuite{})
 
 func (cs *NewAPIConnSuite) SetUpTest(c *gc.C) {
-	cs.LoggingSuite.SetUpTest(c)
+	cs.FakeJujuHomeSuite.SetUpTest(c)
 	cs.ToolsFixture.SetUpTest(c)
 }
 
 func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	cs.ToolsFixture.TearDownTest(c)
-	cs.LoggingSuite.TearDownTest(c)
+	cs.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
@@ -76,18 +75,18 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 }
 
 type NewAPIClientSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&NewAPIClientSuite{})
 
 func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	cs.LoggingSuite.TearDownTest(c)
+	cs.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
-	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	// The connection logic should not delay the config connection
 	// at all when there is no environment info available.
 	// Make sure of that by providing a suitably long delay
@@ -107,7 +106,7 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 }
 
 func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
-	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	envName := coretesting.SampleCertName + "-2"
 	bootstrapEnv(c, envName, defaultConfigStore(c))
 	apiclient, err := juju.NewAPIClientFromName(envName)
@@ -117,7 +116,6 @@ func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
-	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	store := newConfigStore("noconfig", dummyStoreInfo)
 
 	called := 0
@@ -157,7 +155,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
-	defer coretesting.MakeSampleHome(c).Restore()
+	coretesting.MakeSampleJujuHome(c)
 
 	store := newConfigStore(coretesting.SampleEnvName, &environInfo{
 		bootstrapConfig: map[string]interface{}{
@@ -210,7 +208,6 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {
-	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	expectErr := fmt.Errorf("an error")
 	store := newConfigStoreWithError(expectErr)
 	client, err := juju.NewAPIFromStore("noconfig", store, panicAPIOpen)
@@ -219,7 +216,6 @@ func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
-	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	store := newConfigStore("noconfig", &environInfo{
 		endpoint: configstore.APIEndpoint{
 			Addresses: []string{},
@@ -232,7 +228,6 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
-	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	store := newConfigStore("noconfig", &environInfo{
 		endpoint: configstore.APIEndpoint{
 			Addresses: []string{"foo.invalid"},
@@ -249,7 +244,7 @@ func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
-	defer coretesting.MakeSampleHome(c).Restore()
+	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	bootstrapEnv(c, coretesting.SampleEnvName, store)
 	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.invalid")
@@ -333,7 +328,7 @@ func setEndpointAddress(c *gc.C, store configstore.Storage, envName string, addr
 }
 
 func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
-	defer coretesting.MakeSampleHome(c).Restore()
+	coretesting.MakeSampleJujuHome(c)
 
 	store := configstore.NewMem()
 	bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -403,7 +398,7 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 }
 
 func (s *NewAPIClientSuite) TestBothError(c *gc.C) {
-	defer coretesting.MakeSampleHome(c).Restore()
+	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	bootstrapEnv(c, coretesting.SampleEnvName, store)
 	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.invalid")
@@ -427,8 +422,8 @@ func defaultConfigStore(c *gc.C) configstore.Storage {
 }
 
 // TODO(jam): 2013-08-27 This should move somewhere in api.*
-func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
-	defer coretesting.MakeSampleHome(c).Restore()
+func (s *NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
+	coretesting.MakeSampleJujuHome(c)
 	bootstrapEnv(c, "", defaultConfigStore(c))
 	client, _ := juju.NewAPIClientFromName("")
 	c.Assert(client.Close(), gc.IsNil)
@@ -436,8 +431,8 @@ func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
 	c.Assert(client.Close(), gc.IsNil)
 }
 
-func (*NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
-	defer coretesting.MakeSampleHome(c).Restore()
+func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C) {
+	coretesting.MakeSampleJujuHome(c)
 	store := configstore.NewMem()
 	bootstrapEnv(c, coretesting.SampleEnvName, store)
 	info, err := store.ReadInfo(coretesting.SampleEnvName)
@@ -462,7 +457,7 @@ func (*NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
 	// even when there is an entry in environments.yaml
 	// We can do that by changing the info bootstrap config
 	// so it has a different environment name.
-	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 
 	store := configstore.NewMem()
 	bootstrapEnv(c, coretesting.SampleEnvName, store)
@@ -578,7 +573,7 @@ func (info *infoWithWriteNotify) Write() error {
 }
 
 type APIEndpointForEnvSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&APIEndpointForEnvSuite{})
@@ -605,14 +600,14 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointInStoreCached(c *gc.C) {
 }
 
 func (s *APIEndpointForEnvSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
-	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	_, err := juju.APIEndpointForEnv("no-such-env", false)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(err, gc.ErrorMatches, `environment "no-such-env" not found`)
 }
 
 func (s *APIEndpointForEnvSuite) TestAPIEndpointNotCached(c *gc.C) {
-	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
 	ctx := coretesting.Context(c)
@@ -652,7 +647,6 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointNotCached(c *gc.C) {
 }
 
 func (s *APIEndpointForEnvSuite) TestAPIEndpointRefresh(c *gc.C) {
-	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	store := newConfigStore("env-name", dummyStoreInfo)
 	called := 0
 	expectState := &mockAPIState{
@@ -682,7 +676,6 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointRefresh(c *gc.C) {
 }
 
 func (s *APIEndpointForEnvSuite) TestAPIEndpointNotMachineLocal(c *gc.C) {
-	defer coretesting.MakeEmptyFakeHome(c).Restore()
 	store := newConfigStore("env-name", dummyStoreInfo)
 	called := 0
 	hostPorts := [][]instance.HostPort{

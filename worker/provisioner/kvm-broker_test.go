@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -17,7 +18,6 @@ import (
 	"launchpad.net/juju-core/container/kvm/mock"
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	instancetest "launchpad.net/juju-core/instance/testing"
 	jujutesting "launchpad.net/juju-core/juju/testing"

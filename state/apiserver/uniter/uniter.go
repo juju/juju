@@ -8,8 +8,9 @@ package uniter
 import (
 	"fmt"
 
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"

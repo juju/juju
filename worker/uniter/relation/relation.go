@@ -13,8 +13,9 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter/hook"
 )

@@ -10,11 +10,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"

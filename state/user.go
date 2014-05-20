@@ -4,16 +4,16 @@ import (
 	"fmt"
 	"regexp"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/utils"
 )
 
-var validUser = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9]*$")
+var validUser = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9.-]*[a-zA-Z0-9]$")
 
 func (st *State) checkUserExists(name string) (bool, error) {
 	var count int
