@@ -111,3 +111,15 @@ func (rs *Resources) Count() int {
 	defer rs.mu.Unlock()
 	return len(rs.resources)
 }
+
+// StringResource is just a regular 'string' that matches the Resource
+// interface.
+type StringResource string
+
+func (StringResource) Stop() error {
+	return nil
+}
+
+func (s StringResource) String() string {
+	return string(s)
+}

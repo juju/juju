@@ -73,7 +73,8 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 		resources: common.NewResources(),
 		entity:    entity,
 	}
-	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r, r.srv.dataDir)
+	r.resources.RegisterNamed("dataDir", common.StringResource(r.srv.dataDir))
+	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r)
 	return r
 }
 
