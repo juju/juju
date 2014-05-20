@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-var validUser = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9]*$")
+var validUser = regexp.MustCompile("^[a-zA-Z0-9.-]+$")
 
 func (st *State) checkUserExists(name string) (bool, error) {
 	var count int
