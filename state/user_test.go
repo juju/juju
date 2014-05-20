@@ -39,6 +39,7 @@ func (s *UserSuite) TestAddUserInvalidNames(c *gc.C) {
 		"foo bar",
 		"",
 		"0foo",
+		"a",
 	} {
 		u, err := s.State.AddUser(name, "password")
 		c.Assert(err, gc.ErrorMatches, `invalid user name "`+regexp.QuoteMeta(name)+`"`)
@@ -55,26 +56,26 @@ func (s *UserSuite) TestAddUserValidName(c *gc.C) {
 }
 
 func (s *UserSuite) TestAddUser(c *gc.C) {
-	u, err := s.State.AddUser("a", "b")
+	u, err := s.State.AddUser("aa", "b")
 	c.Check(u, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(u.Name(), gc.Equals, "a")
+	c.Assert(u.Name(), gc.Equals, "aa")
 	c.Assert(u.PasswordValid("b"), jc.IsTrue)
 
-	u1, err := s.State.User("a")
+	u1, err := s.State.User("aa")
 	c.Check(u1, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(u1.Name(), gc.Equals, "a")
+	c.Assert(u1.Name(), gc.Equals, "aa")
 	c.Assert(u1.PasswordValid("b"), jc.IsTrue)
 }
 
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {
-	u, err := s.State.AddUser("a", "b")
+	u, err := s.State.AddUser("aa", "b")
 	c.Check(u, gc.NotNil)
 	c.Assert(err, gc.IsNil)
-	e, err := state.CheckUserExists(s.State, "a")
+	e, err := state.CheckUserExists(s.State, "aa")
 	c.Assert(err, gc.IsNil)
 	c.Assert(e, gc.Equals, true)
 	e, err = state.CheckUserExists(s.State, "notAUser")
