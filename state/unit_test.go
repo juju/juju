@@ -1293,10 +1293,20 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
 }
 
 func (s *UnitSuite) TestAddAction(c *gc.C) {
+	// verify can add an Action
 	action, err := s.unit.AddAction("fakeaction", map[string]interface{}{"outfile": "outfile.tar.bz2"})
 	c.Assert(err, gc.IsNil)
 	c.Assert(action, gc.NotNil)
+	// verify action Id() is of expected form (unit id prefix, + sequence)
 	c.Assert(action.Id(), gc.Matches, "^u#"+s.unit.Name()+"#\\d+")
+
+	// verify can retrieve action by Id
+	action2, err := s.State.Action(action.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(action2, gc.NotNil)
+
+	// verify retrieved action looks same as first one.
+	c.Assert(action, gc.DeepEquals, action2)
 }
 
 func (s *UnitSuite) TestAddActionFailsOnDeadUnit(c *gc.C) {
