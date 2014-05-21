@@ -14,33 +14,32 @@ import (
 
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
 
 type suite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	testing.HTTPSuite
 }
 
 func (s *suite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 }
 
 func (s *suite) TearDownSuite(c *gc.C) {
 	s.HTTPSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
 	s.HTTPSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 var _ = gc.Suite(&suite{})

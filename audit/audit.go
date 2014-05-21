@@ -12,10 +12,13 @@ import (
 
 var logger = loggo.GetLogger("juju.audit")
 
-// Audit records an auditable event against the tagged entity that performed the action.
-func Audit(who interface {
+// Tagger represents anything that implements a Tag method.
+type Tagger interface {
 	Tag() string
-}, format string, args ...interface{}) {
+}
+
+// Audit records an auditable event against the tagged entity that performed the action.
+func Audit(who Tagger, format string, args ...interface{}) {
 	if who == nil {
 		panic("who cannot be nil")
 	}

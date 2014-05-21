@@ -13,7 +13,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/singular"
 )
@@ -25,7 +24,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type singularSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 func (*singularSuite) TestWithMasterError(c *gc.C) {

@@ -58,7 +58,6 @@ func (r *rootSuite) TestPingTimeout(c *gc.C) {
 	// Expect action to be executed about 50ms after last ping.
 	broken := time.Now()
 	var closed time.Time
-	time.Sleep(100 * time.Millisecond)
 	select {
 	case closed = <-closedc:
 	case <-time.After(testing.LongWait):
@@ -66,4 +65,20 @@ func (r *rootSuite) TestPingTimeout(c *gc.C) {
 	}
 	closeDiff := closed.Sub(broken) / time.Millisecond
 	c.Assert(50 <= closeDiff && closeDiff <= 100, gc.Equals, true)
+}
+
+func (r *rootSuite) TestPingTimeoutStopped(c *gc.C) {
+	closedc := make(chan time.Time, 1)
+	action := func() {
+		closedc <- time.Now()
+	}
+	timeout := apiserver.NewPingTimeout(action, 20*time.Millisecond)
+	timeout.Ping()
+	timeout.Stop()
+	// The action should never trigger
+	select {
+	case <-closedc:
+		c.Fatalf("action triggered after Stop()")
+	case <-time.After(testing.ShortWait):
+	}
 }

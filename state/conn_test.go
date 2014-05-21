@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -26,7 +25,7 @@ func TestPackage(t *stdtesting.T) {
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	testing.MgoSuite
-	testbase.LoggingSuite
+	testing.BaseSuite
 	annotations  *mgo.Collection
 	charms       *mgo.Collection
 	machines     *mgo.Collection
@@ -39,17 +38,17 @@ type ConnSuite struct {
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
-	cs.LoggingSuite.SetUpSuite(c)
+	cs.BaseSuite.SetUpSuite(c)
 	cs.MgoSuite.SetUpSuite(c)
 }
 
 func (cs *ConnSuite) TearDownSuite(c *gc.C) {
 	cs.MgoSuite.TearDownSuite(c)
-	cs.LoggingSuite.TearDownSuite(c)
+	cs.BaseSuite.TearDownSuite(c)
 }
 
 func (cs *ConnSuite) SetUpTest(c *gc.C) {
-	cs.LoggingSuite.SetUpTest(c)
+	cs.BaseSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.policy = mockPolicy{}
 	cs.State = state.TestingInitialize(c, nil, &cs.policy)
@@ -69,7 +68,7 @@ func (cs *ConnSuite) TearDownTest(c *gc.C) {
 		cs.State.Close()
 	}
 	cs.MgoSuite.TearDownTest(c)
-	cs.LoggingSuite.TearDownTest(c)
+	cs.BaseSuite.TearDownTest(c)
 }
 
 func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {

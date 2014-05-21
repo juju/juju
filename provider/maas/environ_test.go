@@ -15,11 +15,10 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/maas"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type environSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	envtesting.ToolsFixture
 	testMAASObject  *gomaasapi.TestMAASObject
 	restoreTimeouts func()
@@ -36,26 +35,26 @@ func TestMAAS(t *stdtesting.T) {
 // shared, or into a 'testing' package so we can use it here.
 func (s *environSuite) SetUpSuite(c *gc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(maas.ShortAttempt)
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
 }
 
 func (s *environSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 }
 
 func (s *environSuite) TearDownTest(c *gc.C) {
 	s.testMAASObject.TestServer.Clear()
 	s.ToolsFixture.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *environSuite) TearDownSuite(c *gc.C) {
 	s.testMAASObject.Close()
 	s.restoreTimeouts()
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func getSimpleTestConfig(c *gc.C, extraAttrs coretesting.Attrs) *config.Config {

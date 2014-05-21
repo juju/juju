@@ -13,11 +13,10 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/store"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type DeleteCharmSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&DeleteCharmSuite{})
@@ -27,11 +26,11 @@ mongo-url: localhost:23456
 `
 
 func (s *DeleteCharmSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 }
 
 func (s *DeleteCharmSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *DeleteCharmSuite) TestInit(c *gc.C) {

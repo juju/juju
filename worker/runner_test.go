@@ -12,12 +12,12 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 )
 
 type runnerSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	restartDelay time.Duration
 }
 
@@ -36,14 +36,14 @@ func noImportance(err0, err1 error) bool {
 }
 
 func (s *runnerSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.restartDelay = worker.RestartDelay
 	worker.RestartDelay = 0
 }
 
 func (s *runnerSuite) TearDownTest(c *gc.C) {
 	worker.RestartDelay = s.restartDelay
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (*runnerSuite) TestOneWorkerStart(c *gc.C) {

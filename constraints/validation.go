@@ -44,10 +44,10 @@ type Validator interface {
 
 // NewValidator returns a new constraints Validator instance.
 func NewValidator() Validator {
-	c := validator{}
-	c.conflicts = make(map[string]set.Strings)
-	c.vocab = make(map[string][]interface{})
-	return &c
+	return &validator{
+		conflicts: make(map[string]set.Strings),
+		vocab:     make(map[string][]interface{}),
+	}
 }
 
 type validator struct {
@@ -93,12 +93,12 @@ func (v *validator) checkConflicts(cons Value) error {
 	for attrTag := range attrValues {
 		attrSet.Add(attrTag)
 	}
-	for attrTag := range attrValues {
+	for _, attrTag := range attrSet.SortedValues() {
 		conflicts, ok := v.conflicts[attrTag]
 		if !ok {
 			continue
 		}
-		for _, conflict := range conflicts.Values() {
+		for _, conflict := range conflicts.SortedValues() {
 			if attrSet.Contains(conflict) {
 				return fmt.Errorf("ambiguous constraints: %q overlaps with %q", attrTag, conflict)
 			}

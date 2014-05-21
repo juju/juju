@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -25,7 +24,7 @@ func TestPackage(t *stdtesting.T) {
 var _ = gc.Suite(&updaterSuite{})
 
 type updaterSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 func (*updaterSuite) TestStopsWatcher(c *gc.C) {
