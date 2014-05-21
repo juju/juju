@@ -25,16 +25,24 @@ do
     elif [[ $series == '13.10' ]]; then
         echo "Skipping Saucy"
     elif [[ $series == '14.04' ]]; then
-        echo "Building trusty ppc64"
-        $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@stilson-07 \
-            "$PPC_SSH_OPTIONS" $dsc
+        if [[ -n ${PPC_SSH_OPTIONS:-} ]]; then
+            echo "Building trusty ppc64"
+            $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@stilson-07 \
+                "$PPC_SSH_OPTIONS" $dsc
+        else
+            echo "Skipping trusty ppc64"
+        fi
         echo "Building trusty amd64"
         $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-018c9568 $dsc
         echo "Building trusty i386"
         $RELEASE_TOOLS/build-package-with-dsc.bash m1.medium ami-81dee0e8 $dsc
-        echo "Skipping trusty arm64"
-        # Takes 3 hours and may not build.
-        #$RELEASE_TOOLS/build-package-with-dsc.bash m1.xlarge ami-410d0f28 $dsc
+        if [[ -n ${ARM_SSH_OPTIONS:-} ]]; then
+            echo "Building trusty arm64"
+            $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@arm64vm \
+                "$ARM_SSH_OPTIONS" $dsc
+        else
+            echo "Skipping trusty arm64"
+        fi
     elif [[ $series == '14.10' ]]; then
         echo "Building utopic amd64"
         $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-f83ad690 $dsc
