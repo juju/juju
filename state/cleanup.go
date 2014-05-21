@@ -167,7 +167,7 @@ func (st *State) cleanupDyingUnit(name string) error {
 	for _, relation := range relations {
 		relationUnit, err := relation.Unit(unit)
 		if errors.IsNotFound(err) {
-			return nil
+			continue
 		} else if err != nil {
 			return err
 		}
