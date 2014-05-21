@@ -31,21 +31,21 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 	if err != nil {
 		return nil, err
 	}
-	var actionsSpec *Actions
-	if err := goyaml.Unmarshal(data, actionsSpec); err != nil {
+	unmarshaledActions := newActions()
+	if err := goyaml.Unmarshal(data, unmarshaledActions); err != nil {
 		return nil, err
 	}
-	if actionsSpec == nil {
+	if unmarshaledActions == nil {
 		return nil, fmt.Errorf("empty actions definition")
 	}
 	// If there's data but the Actions is still empty, there's a problem.
-	if !reflect.DeepEqual(data, []byte{}) && reflect.DeepEqual(actionsSpec, &Actions{}) {
+	if !reflect.DeepEqual(data, []byte{}) && reflect.DeepEqual(unmarshaledActions, &Actions{}) {
 		return nil, fmt.Errorf("actions failed to unmarshal from YAML %s", data)
 	}
 
 	nameRule := regexp.MustCompile("^[^-][a-z-]+[^-]$")
 
-	for name, actionSpec := range actionsSpec.ActionSpecs {
+	for name, actionSpec := range unmarshaledActions.ActionSpecs {
 		badName := !nameRule.MatchString(name)
 		if badName {
 			return nil, fmt.Errorf("bad action name %s", name)
@@ -54,15 +54,16 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 		if err != nil {
 			return nil, fmt.Errorf("invalid params schema for action %q: %v", err)
 		}
-		if reflect.DeepEqual(actionsSpec.ActionSpecs[name].Params, map[string]interface{}(nil)) {
-			actionsSpec.ActionSpecs[name].Params = make(map[string]interface{})
-		}
-		for paramName, _ := range actionsSpec.ActionSpecs[name].Params {
+		for paramName, _ := range unmarshaledActions.ActionSpecs[name].Params {
 			badParam := !nameRule.MatchString(paramName)
 			if badParam {
 				return nil, fmt.Errorf("bad param name %s", paramName)
 			}
 		}
 	}
-	return actionsSpec, nil
+	return unmarshaledActions, nil
+}
+
+func newActions() *Actions {
+	return &Actions{map[string]ActionSpec{}}
 }

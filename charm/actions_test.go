@@ -63,7 +63,7 @@ actionspecs:
 			&charm.Actions{map[string]charm.ActionSpec{
 				"snapshot": charm.ActionSpec{
 					Description: "Take a snapshot of the database.",
-					Params:      map[string]interface{}{}}}},
+					Params:      map[string]interface{}(nil)}}},
 		}}
 
 	// Beginning of actual test
