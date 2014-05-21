@@ -14,7 +14,7 @@ type ActionsSuite struct{}
 
 var _ = gc.Suite(&ActionsSuite{})
 
-func TestReadGoodActionsYaml(c *gc.C) {
+func (s *ActionsSuite) TestReadGoodActionsYaml(c *gc.C) {
 
 	var goodActionsYamlTests = []struct {
 		description string
@@ -24,14 +24,16 @@ func TestReadGoodActionsYaml(c *gc.C) {
 		{
 			"A simple snapshot actions YAML with one parameter.",
 			// YAML
-			"actionspecs:\n" +
-				"  snapshot:\n" +
-				"    description: Take a snapshot of the database.\n" +
-				"    params:\n" +
-				"      outfile:\n" +
-				"        description: The file to write out to.\n" +
-				"        type: string\n" +
-				"        default: foo.bz2\n",
+			`
+actionspecs:
+  snapshot:
+    description: Take a snapshot of the database.
+    params:
+      outfile:
+        description: The file to write out to.
+        type: string
+        default: foo.bz2
+`,
 			// Actions
 			&charm.Actions{map[string]charm.ActionSpec{
 				"snapshot": charm.ActionSpec{
@@ -51,10 +53,12 @@ func TestReadGoodActionsYaml(c *gc.C) {
 		{
 			"A schema with an empty \"params\" key, implying no options.",
 			// YAML
-			"actionspecs:\n" +
-				"  snapshot:\n" +
-				"    description: Take a snapshot of the database.\n" +
-				"    params:\n",
+			`
+actionspecs:
+  snapshot:
+    description: Take a snapshot of the database.
+    params:
+`,
 			// Actions
 			&charm.Actions{map[string]charm.ActionSpec{
 				"snapshot": charm.ActionSpec{
@@ -72,7 +76,7 @@ func TestReadGoodActionsYaml(c *gc.C) {
 	}
 }
 
-func TestReadBadActionsYaml(c *gc.C) {
+func (s *ActionsSuite) TestReadBadActionsYaml(c *gc.C) {
 
 	var badActionsYamlTests = []struct {
 		description string
@@ -82,57 +86,65 @@ func TestReadBadActionsYaml(c *gc.C) {
 		{
 			"Malformed YAML: missing key in \"outfile\".",
 			// YAML
-			"actionspecs:\n" +
-				"  snapshot:\n" +
-				"    description: Take a snapshot of the database.\n" +
-				"    params:\n" +
-				"      outfile:\n" +
-				"        The file to write out to.\n" +
-				"        type: string\n" +
-				"        default: foo.bz2\n",
+			`
+actionspecs:
+  snapshot:
+    description: Take a snapshot of the database.
+    params:
+      outfile:
+        The file to write out to.
+        type: string
+        default: foo.bz2
+`,
 			// Actions
 			nil,
 		},
 		{
 			"Malformed JSON-Schema: $schema element misplaced.",
 			// YAML
-			"actionspecs:\n" +
-				"  snapshot:\n" +
-				"  description: Take a snapshot of the database.\n" +
-				"    params:\n" +
-				"      outfile:\n" +
-				"        $schema: http://json-schema.org/draft-03/schema#\n" +
-				"        description: The file to write out to.\n" +
-				"        type: string\n" +
-				"        default: foo.bz2\n",
+			`
+actionspecs:
+  snapshot:
+  description: Take a snapshot of the database.
+    params:
+      outfile:
+        $schema: http://json-schema.org/draft-03/schema#
+        description: The file to write out to.
+        type: string
+        default: foo.bz2
+`,
 			// Actions
 			nil,
 		},
 		{
 			"Malformed Actions: hyphen at beginning of action name.",
 			// YAML
-			"actionspecs:\n" +
-				"  -snapshot:\n" +
-				"    description: Take a snapshot of the database.\n" +
-				"    params:\n" +
-				"      outfile:\n" +
-				"        description: The file to write out to.\n" +
-				"        type: string\n" +
-				"        default: foo.bz2\n",
+			`
+actionspecs:
+  -snapshot:
+    description: Take a snapshot of the database.
+    params:
+      outfile:
+        description: The file to write out to.
+        type: string
+        default: foo.bz2
+`,
 			// Actions
 			nil,
 		},
 		{
 			"Malformed Actions: hyphen after action name.",
 			// YAML
-			"actionspecs:\n" +
-				"  snapshot-:\n" +
-				"    description: Take a snapshot of the database.\n" +
-				"    params:\n" +
-				"      outfile:\n" +
-				"        description: The file to write out to.\n" +
-				"        type: string\n" +
-				"        default: foo.bz2\n",
+			`
+actionspecs:
+  snapshot-:
+    description: Take a snapshot of the database.
+    params:
+      outfile:
+        description: The file to write out to.
+        type: string
+        default: foo.bz2
+`,
 			// Actions
 			nil,
 		},
