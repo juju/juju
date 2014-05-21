@@ -66,7 +66,7 @@ summary="The source package can be uploaded:"
 supported_series=$(grep -E 'DEVEL|LTS|SUPPORTED' \
     $SCRIPT_DIR/supported-releases.txt |
     cut -d ' ' -f 2)
-if [[ $IS_TESTING == 'true']]; then
+if [[ $IS_TESTING == 'true' ]]; then
     test_opt="-t"
 else
     test_opt=""
