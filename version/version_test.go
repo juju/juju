@@ -7,49 +7,50 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"path/filepath"
+	"runtime"
 	"strings"
-	"testing"
+	stdtesting "testing"
 
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
 
 type suite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&suite{})
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
 // N.B. The FORCE-VERSION logic is tested in the environs package.
 
-var cmpTests = []struct {
-	v1, v2  string
-	compare int
-}{
-	{"1.0.0", "1.0.0", 0},
-	{"01.0.0", "1.0.0", 0},
-	{"10.0.0", "9.0.0", 1},
-	{"1.0.0", "1.0.1", -1},
-	{"1.0.1", "1.0.0", 1},
-	{"1.0.0", "1.1.0", -1},
-	{"1.1.0", "1.0.0", 1},
-	{"1.0.0", "2.0.0", -1},
-	{"2.0.0", "1.0.0", 1},
-	{"2.0.0.0", "2.0.0", 0},
-	{"2.0.0.0", "2.0.0.0", 0},
-	{"2.0.0.1", "2.0.0.0", 1},
-	{"2.0.1.10", "2.0.0.0", 1},
-}
-
 func (*suite) TestCompare(c *gc.C) {
+	cmpTests := []struct {
+		v1, v2  string
+		compare int
+	}{
+		{"1.0.0", "1.0.0", 0},
+		{"01.0.0", "1.0.0", 0},
+		{"10.0.0", "9.0.0", 1},
+		{"1.0.0", "1.0.1", -1},
+		{"1.0.1", "1.0.0", 1},
+		{"1.0.0", "1.1.0", -1},
+		{"1.1.0", "1.0.0", 1},
+		{"1.0.0", "2.0.0", -1},
+		{"2.0.0", "1.0.0", 1},
+		{"2.0.0.0", "2.0.0", 0},
+		{"2.0.0.0", "2.0.0.0", 0},
+		{"2.0.0.1", "2.0.0.0", 1},
+		{"2.0.1.10", "2.0.0.0", 1},
+	}
+
 	for i, test := range cmpTests {
 		c.Logf("test %d", i)
 		v1, err := version.Parse(test.v1)
@@ -139,25 +140,25 @@ func binaryVersion(major, minor, patch, build int, series, arch string) version.
 	}
 }
 
-var parseBinaryTests = []struct {
-	v      string
-	err    string
-	expect version.Binary
-}{{
-	v:      "1.2.3-a-b",
-	expect: binaryVersion(1, 2, 3, 0, "a", "b"),
-}, {
-	v:      "1.2.3.4-a-b",
-	expect: binaryVersion(1, 2, 3, 4, "a", "b"),
-}, {
-	v:   "1.2.3--b",
-	err: "invalid binary version.*",
-}, {
-	v:   "1.2.3-a-",
-	err: "invalid binary version.*",
-}}
-
 func (*suite) TestParseBinary(c *gc.C) {
+	parseBinaryTests := []struct {
+		v      string
+		err    string
+		expect version.Binary
+	}{{
+		v:      "1.2.3-a-b",
+		expect: binaryVersion(1, 2, 3, 0, "a", "b"),
+	}, {
+		v:      "1.2.3.4-a-b",
+		expect: binaryVersion(1, 2, 3, 4, "a", "b"),
+	}, {
+		v:   "1.2.3--b",
+		err: "invalid binary version.*",
+	}, {
+		v:   "1.2.3-a-",
+		err: "invalid binary version.*",
+	}}
+
 	for i, test := range parseBinaryTests {
 		c.Logf("test 1: %d", i)
 		got, err := version.ParseBinary(test.v)
@@ -244,28 +245,28 @@ func (*suite) TestNumberMarshalUnmarshal(c *gc.C) {
 	}
 }
 
-var parseMajorMinorTests = []struct {
-	v           string
-	err         string
-	expectMajor int
-	expectMinor int
-}{{
-	v:           "1.2",
-	expectMajor: 1,
-	expectMinor: 2,
-}, {
-	v:           "1",
-	expectMajor: 1,
-	expectMinor: -1,
-}, {
-	v:   "1.2.3",
-	err: "invalid major.minor version number 1.2.3",
-}, {
-	v:   "blah",
-	err: `invalid major version number blah: strconv.ParseInt: parsing "blah": invalid syntax`,
-}}
-
 func (*suite) TestParseMajorMinor(c *gc.C) {
+	parseMajorMinorTests := []struct {
+		v           string
+		err         string
+		expectMajor int
+		expectMinor int
+	}{{
+		v:           "1.2",
+		expectMajor: 1,
+		expectMinor: 2,
+	}, {
+		v:           "1",
+		expectMajor: 1,
+		expectMinor: -1,
+	}, {
+		v:   "1.2.3",
+		err: "invalid major.minor version number 1.2.3",
+	}, {
+		v:   "blah",
+		err: `invalid major version number blah: strconv.ParseInt: parsing "blah": invalid syntax`,
+	}}
+
 	for i, test := range parseMajorMinorTests {
 		c.Logf("test %d", i)
 		major, minor, err := version.ParseMajorMinor(test.v)
@@ -330,4 +331,8 @@ DISTRIB_DESCRIPTION="Ubuntu Trusty Tahr (development branch)"
 		value := version.ReleaseVersion()
 		c.Assert(value, gc.Equals, test.expected)
 	}
+}
+
+func (s *suite) TestCompiler(c *gc.C) {
+	c.Assert(version.Compiler, gc.Equals, runtime.Compiler)
 }

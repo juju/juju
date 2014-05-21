@@ -17,11 +17,10 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type environWatcherSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 
 	testingEnvConfig *config.Config
 }
@@ -49,7 +48,7 @@ func (f *fakeEnvironAccessor) EnvironConfig() (*config.Config, error) {
 
 func (s *environWatcherSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (*environWatcherSuite) TestWatchSuccess(c *gc.C) {

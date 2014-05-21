@@ -36,6 +36,50 @@ func (resourceSuite) TestRegisterGetCount(c *gc.C) {
 	c.Assert(rs.Count(), gc.Equals, 2)
 }
 
+func (resourceSuite) TestRegisterNamedGetCount(c *gc.C) {
+	rs := common.NewResources()
+	defer rs.StopAll()
+	r1 := &fakeResource{}
+	err := rs.RegisterNamed("fake1", r1)
+	c.Assert(err, gc.IsNil)
+	c.Check(rs.Count(), gc.Equals, 1)
+	c.Check(rs.Get("fake1"), gc.Equals, r1)
+}
+
+func (resourceSuite) TestRegisterNamedRepeatedName(c *gc.C) {
+	rs := common.NewResources()
+	defer rs.StopAll()
+	r1 := &fakeResource{}
+	r2 := &fakeResource{}
+	err := rs.RegisterNamed("fake1", r1)
+	c.Assert(err, gc.IsNil)
+	c.Check(rs.Count(), gc.Equals, 1)
+	err = rs.RegisterNamed("fake1", r2)
+	c.Check(err, gc.ErrorMatches, `resource "fake1" already registered`)
+	c.Check(rs.Count(), gc.Equals, 1)
+	c.Check(rs.Get("fake1"), gc.Equals, r1)
+}
+
+func (resourceSuite) TestRegisterNamedIntegerName(c *gc.C) {
+	rs := common.NewResources()
+	defer rs.StopAll()
+	r1 := &fakeResource{}
+	err := rs.RegisterNamed("1", r1)
+	c.Check(err, gc.ErrorMatches, `RegisterNamed does not allow integer names: "1"`)
+	c.Check(rs.Count(), gc.Equals, 0)
+	c.Check(rs.Get("fake1"), gc.IsNil)
+}
+
+func (resourceSuite) TestRegisterNamedIntegerStart(c *gc.C) {
+	rs := common.NewResources()
+	defer rs.StopAll()
+	r1 := &fakeResource{}
+	err := rs.RegisterNamed("1fake", r1)
+	c.Assert(err, gc.IsNil)
+	c.Check(rs.Count(), gc.Equals, 1)
+	c.Check(rs.Get("1fake"), gc.Equals, r1)
+}
+
 func (resourceSuite) TestConcurrency(c *gc.C) {
 	// This test is designed to cause the race detector
 	// to fail if the locking is not done correctly.
@@ -54,6 +98,9 @@ func (resourceSuite) TestConcurrency(c *gc.C) {
 		rs.Register(&fakeResource{})
 	})
 	start(func() {
+		rs.RegisterNamed("named", &fakeResource{})
+	})
+	start(func() {
 		rs.Stop("1")
 	})
 	start(func() {
@@ -64,6 +111,9 @@ func (resourceSuite) TestConcurrency(c *gc.C) {
 	})
 	start(func() {
 		rs.Get("2")
+	})
+	start(func() {
+		rs.Get("named")
 	})
 	wg.Wait()
 }
@@ -96,4 +146,13 @@ func (resourceSuite) TestStopAll(c *gc.C) {
 	c.Assert(rs.Get("2"), gc.IsNil)
 
 	c.Assert(rs.Count(), gc.Equals, 0)
+}
+
+func (resourceSuite) TestStringResource(c *gc.C) {
+	rs := common.NewResources()
+	r1 := common.StringResource("foobar")
+	id := rs.Register(r1)
+	c.Check(rs.Get(id), gc.Equals, r1)
+	asStr := rs.Get(id).(common.StringResource).String()
+	c.Check(asStr, gc.Equals, "foobar")
 }

@@ -5,15 +5,14 @@ package testing
 
 import (
 	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type GitSuite struct {
-	testbase.LoggingSuite
+	BaseSuite
 }
 
 func (t *GitSuite) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
+	t.BaseSuite.SetUpTest(c)
 
 	t.PatchEnvironment("HOME", c.MkDir())
 	t.PatchEnvironment("LC_ALL", "C")

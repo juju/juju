@@ -21,7 +21,6 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
@@ -133,7 +132,7 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 }
 
 type SimpleToolsFixture struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 
 	dataDir  string
 	logDir   string
@@ -145,7 +144,7 @@ type SimpleToolsFixture struct {
 var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
 
 func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
-	fix.LoggingSuite.SetUpTest(c)
+	fix.BaseSuite.SetUpTest(c)
 	fix.dataDir = dataDir
 	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
@@ -173,7 +172,7 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 
 func (fix *SimpleToolsFixture) TearDown(c *gc.C) {
 	os.Setenv("PATH", fix.origPath)
-	fix.LoggingSuite.TearDownTest(c)
+	fix.BaseSuite.TearDownTest(c)
 }
 
 func (fix *SimpleToolsFixture) makeBin(c *gc.C, name, script string) {

@@ -25,7 +25,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -35,7 +34,7 @@ import (
 var _ = gc.Suite(&toolSuite{})
 
 type toolSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var errorImportanceTests = []error{
@@ -90,7 +89,7 @@ func (*toolSuite) TestIsFatal(c *gc.C) {
 }
 
 type apiOpenSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 type fakeAPIOpenConfig struct {

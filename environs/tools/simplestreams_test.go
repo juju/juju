@@ -23,7 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/environs/tools"
 	toolstesting "launchpad.net/juju-core/environs/tools/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -508,7 +508,7 @@ func (s *productSpecSuite) TestLargeNumber(c *gc.C) {
 }
 
 type metadataHelperSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&metadataHelperSuite{})

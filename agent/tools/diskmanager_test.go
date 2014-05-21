@@ -13,7 +13,6 @@ import (
 
 	agenttools "launchpad.net/juju-core/agent/tools"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -23,13 +22,13 @@ var _ = gc.Suite(&DiskManagerSuite{})
 var _ agenttools.ToolsManager = (*agenttools.DiskManager)(nil)
 
 type DiskManagerSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	dataDir string
 	manager agenttools.ToolsManager
 }
 
 func (s *DiskManagerSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.manager = agenttools.NewDiskManager(s.dataDir)
 }

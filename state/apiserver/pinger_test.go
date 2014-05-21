@@ -86,6 +86,25 @@ func (s *stateSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "connection is shut down")
 }
 
+func (s *stateSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
+	// We have to be careful, because Login can take 25ms, so we ping
+	// immediately after connecting.
+	s.PatchValue(apiserver.MaxClientPingInterval, 50*time.Millisecond)
+	st, _ := s.OpenAPIAsNewMachine(c)
+	err := st.Ping()
+	c.Assert(err, gc.IsNil)
+	// As long as we don't wait too long, the connection stays open
+	for i := 0; i < 10; i++ {
+		time.Sleep(10 * time.Millisecond)
+		err = st.Ping()
+		c.Assert(err, gc.IsNil)
+	}
+	// However, once we stop pinging for too long, the connection dies
+	time.Sleep(75 * time.Millisecond)
+	err = st.Ping()
+	c.Assert(err, gc.ErrorMatches, "connection is shut down")
+}
+
 type mongoPingerSuite struct {
 	testing.JujuConnSuite
 }

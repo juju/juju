@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"runtime"
 	"sort"
 	"strings"
 
@@ -298,7 +297,11 @@ func (c *SuperCommand) Run(ctx *Context) error {
 			return err
 		}
 	}
-	logger.Infof("running juju-%s [%s]", version.Current, runtime.Compiler)
+	if c.usagePrefix == "" || c.usagePrefix == c.Name {
+		logger.Infof("running %s [%s %s]", c.Name, version.Current, version.Compiler)
+	} else {
+		logger.Infof("running %s %s [%s %s]", c.usagePrefix, c.Name, version.Current, version.Compiler)
+	}
 	err := c.subcmd.Run(ctx)
 	if err != nil && err != ErrSilent {
 		logger.Errorf("%v", err)

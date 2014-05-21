@@ -14,11 +14,11 @@ import (
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/replicaset"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 type desiredPeerGroupSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&desiredPeerGroupSuite{})

@@ -11,13 +11,13 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata/testing"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 var _ = gc.Suite(&generateSuite{})
 
 type generateSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 func assertFetch(c *gc.C, stor storage.Storage, series, arch, region, endpoint, id string) {

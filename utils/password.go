@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"io"
 
-	"launchpad.net/juju-core/thirdparty/pbkdf2"
+	"code.google.com/p/go.crypto/pbkdf2"
 )
 
 // CompatSalt is because Juju 1.16 and older used a hard-coded salt to compute

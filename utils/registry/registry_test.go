@@ -10,12 +10,12 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/errors"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/registry"
 )
 
 type registrySuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&registrySuite{})

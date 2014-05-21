@@ -10,14 +10,14 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
 
 // TODO integration tests, but how?
 
 type S struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(S{})

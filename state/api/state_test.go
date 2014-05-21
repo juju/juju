@@ -12,7 +12,6 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -26,7 +25,7 @@ type stateSuite struct {
 var _ = gc.Suite(&stateSuite{})
 
 type slideSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&slideSuite{})

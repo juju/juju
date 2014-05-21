@@ -270,7 +270,7 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info: "conflicting --constraints",
 	args: []string{"--constraints", "instance-type=foo mem=4G"},
-	err:  `ambiguous constraints: "mem" overlaps with "instance-type"`,
+	err:  `ambiguous constraints: "instance-type" overlaps with "mem"`,
 }, {
 	info: "bad --series",
 	args: []string{"--series", "1bad1"},
