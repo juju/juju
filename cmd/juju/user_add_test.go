@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-// All of the functionality of the AddUser api call is contained elsewhere
+// All of the functionality of the AddUser api call is contained elsewhere.
 // This suite provides basic tests for the "user add" command
 type UserAddCommandSuite struct {
 	jujutesting.RepoSuite
@@ -28,17 +28,16 @@ func newUserAddCommand() cmd.Command {
 	return envcmd.Wrap(&UserAddCommand{})
 }
 
-func (s *UserAddCommandSuite) TestAddUser(c *gc.C) {
-
-	_, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password"})
+func (s *UserAddCommandSuite) TestUserAdd(c *gc.C) {
+	_, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar"})
 	c.Assert(err, gc.IsNil)
 
-	_, err = testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "newpassword"})
+	_, err = testing.RunCommand(c, newUserAddCommand(), []string{"foobar"})
 	c.Assert(err, gc.ErrorMatches, "Failed to create user: user already exists")
 }
 
 func (s *UserAddCommandSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password", "whoops"})
+	_, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "whoops"})
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
@@ -47,66 +46,89 @@ func (s *UserAddCommandSuite) TestNotEnoughArgs(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `no username supplied`)
 }
 
-func (s *UserAddCommandSuite) TestJenvYamlFileOutput(c *gc.C) {
-	expected := map[string]interface{}{
-		"user":          "foobar",
-		"password":      "password",
-		"state-servers": []interface{}{},
-		"ca-cert":       ""}
-	tempFile, err := ioutil.TempFile("", "adduser-test")
-	tempFile.Close()
+func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
+	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar"})
+
 	c.Assert(err, gc.IsNil)
-	_, err = testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password", "-o", tempFile.Name()})
+	d := decodeYamlFromStdout(c, ctx)
+	c.Assert(d["user"], gc.DeepEquals, "foobar")
+	//XXX test the password is there and has the requird form
+}
+
+func (s *UserAddCommandSuite) TestUserSpecifiedPassword(c *gc.C) {
+	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "--password", "frogdog"})
 	c.Assert(err, gc.IsNil)
-	data, err := ioutil.ReadFile(tempFile.Name())
-	result := map[string]interface{}{}
-	err = goyaml.Unmarshal(data, &result)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, expected)
+
+	d := decodeYamlFromStdout(c, ctx)
+	c.Assert(d["user"], gc.DeepEquals, "foobar")
+	c.Assert(d["password"], gc.DeepEquals, "frogdog")
 }
 
 func (s *UserAddCommandSuite) TestJenvYamlOutput(c *gc.C) {
-	expected := map[string]interface{}{
+	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "--password=password"})
+	c.Assert(err, gc.IsNil)
+	d := decodeYamlFromStdout(c, ctx)
+	c.Assert(d, gc.DeepEquals, map[string]interface{}{
 		"user":          "foobar",
 		"password":      "password",
 		"state-servers": []interface{}{},
-		"ca-cert":       ""}
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password"})
+		"ca-cert":       "",
+	})
+}
+
+func (s *UserAddCommandSuite) TestJenvYamlFileOutput(c *gc.C) {
+	tempFile, err := ioutil.TempFile("", "useradd-test")
+	tempFile.Close()
 	c.Assert(err, gc.IsNil)
-	stdout := ctx.Stdout.(*bytes.Buffer).Bytes()
-	result := map[string]interface{}{}
-	err = goyaml.Unmarshal(stdout, &result)
+
+	_, err = testing.RunCommand(c, newUserAddCommand(),
+		[]string{"foobar", "--password", "password", "-o", tempFile.Name()})
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, expected)
+
+	raw, err := ioutil.ReadFile(tempFile.Name())
+	c.Assert(err, gc.IsNil)
+	d := decodeYaml(c, raw)
+	c.Assert(d, gc.DeepEquals, map[string]interface{}{
+		"user":          "foobar",
+		"password":      "password",
+		"state-servers": []interface{}{},
+		"ca-cert":       "",
+	})
 }
 
 func (s *UserAddCommandSuite) TestJenvJsonOutput(c *gc.C) {
-	expected := `{"User":"foobar","Password":"password","state-servers":null,"ca-cert":""}
-`
-	tempFile, err := ioutil.TempFile("", "adduser-test")
-	tempFile.Close()
+	ctx, err := testing.RunCommand(c, newUserAddCommand(),
+		[]string{"foobar", "--password", "password", "--format", "json"})
 	c.Assert(err, gc.IsNil)
-	_, err = testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password", "-o", tempFile.Name(), "--format", "json"})
-	c.Assert(err, gc.IsNil)
-	data, err := ioutil.ReadFile(tempFile.Name())
-	c.Assert(string(data), gc.DeepEquals, expected)
+
+	c.Assert(testing.Stdout(ctx), gc.Equals,
+		`{"User":"foobar","Password":"password","state-servers":null,"ca-cert":""}
+`)
 }
 
 func (s *UserAddCommandSuite) TestJenvJsonFileOutput(c *gc.C) {
-	expected := `{"User":"foobar","Password":"password","state-servers":null,"ca-cert":""}
-`
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password", "--format", "json"})
+	tempFile, err := ioutil.TempFile("", "useradd-test")
 	c.Assert(err, gc.IsNil)
-	stdout := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(stdout, gc.DeepEquals, expected)
+	tempFile.Close()
+
+	_, err = testing.RunCommand(c, newUserAddCommand(),
+		[]string{"foobar", "--password=password", "-o", tempFile.Name(), "--format", "json"})
+	c.Assert(err, gc.IsNil)
+
+	data, err := ioutil.ReadFile(tempFile.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.DeepEquals,
+		`{"User":"foobar","Password":"password","state-servers":null,"ca-cert":""}
+`)
 }
 
-func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar"})
+func decodeYamlFromStdout(c *gc.C, ctx *cmd.Context) map[string]interface{} {
+	return decodeYaml(c, ctx.Stdout.(*bytes.Buffer).Bytes())
+}
+
+func decodeYaml(c *gc.C, raw []byte) map[string]interface{} {
+	result := map[string]interface{}{}
+	err := goyaml.Unmarshal(raw, &result)
 	c.Assert(err, gc.IsNil)
-	stdout := ctx.Stdout.(*bytes.Buffer).Bytes()
-	var d map[string]interface{}
-	err = goyaml.Unmarshal(stdout, &d)
-	c.Assert(err, gc.IsNil)
-	c.Assert(d["user"], gc.DeepEquals, "foobar")
+	return result
 }
