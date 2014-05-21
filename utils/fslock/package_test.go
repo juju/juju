@@ -20,5 +20,5 @@ var _ = gc.Suite(&Dependencies{})
 func (*Dependencies) TestPackageDependencies(c *gc.C) {
 	// This test is to ensure we don't bring in dependencies without thinking.
 	c.Assert(testbase.FindJujuCoreImports(c, "launchpad.net/juju-core/utils/fslock"),
-		gc.DeepEquals, []string{"juju/osenv", "thirdparty/pbkdf2", "utils"})
+		gc.DeepEquals, []string{"juju/osenv", "utils"})
 }
