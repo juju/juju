@@ -178,7 +178,7 @@ func patchWithServiceListResponse(c *gc.C, services []gwacl.HostedServiceDescrip
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
-func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedService) *[]*gwacl.X509Request {
+func prepareInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedService) []gwacl.DispatcherResponse {
 	descriptors := make([]gwacl.HostedServiceDescriptor, len(services))
 	for i, service := range services {
 		descriptors[i] = service.HostedServiceDescriptor
@@ -193,6 +193,11 @@ func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedSe
 		serviceGetResponse := gwacl.NewDispatcherResponse([]byte(serviceXML), http.StatusOK, nil)
 		responses = append(responses, serviceGetResponse)
 	}
+	return responses
+}
+
+func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedService) *[]*gwacl.X509Request {
+	responses := prepareInstancesResponses(c, prefix, services...)
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
@@ -521,14 +526,28 @@ func (s *environSuite) TestStateInfo(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 
+	responses := prepareInstancesResponses(c, prefix, service)
+	responses = append(responses, prepareDeploymentInfoResponse(c, gwacl.Deployment{
+		RoleInstanceList: []gwacl.RoleInstance{{
+			RoleName:  service.Deployments[0].RoleList[0].RoleName,
+			IPAddress: "1.2.3.4",
+		}},
+		VirtualNetworkName: env.getVirtualNetworkName(),
+	})...)
+	gwacl.PatchManagementAPIResponses(responses)
+
 	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	config := env.Config()
 	dnsName := prefix + "myservice." + AZURE_DOMAIN_NAME
-	stateServerAddr := fmt.Sprintf("%s:%d", dnsName, config.StatePort())
-	apiServerAddr := fmt.Sprintf("%s:%d", dnsName, config.APIPort())
-	c.Check(stateInfo.Addrs, gc.DeepEquals, []string{stateServerAddr})
-	c.Check(apiInfo.Addrs, gc.DeepEquals, []string{apiServerAddr})
+	c.Check(stateInfo.Addrs, jc.SameContents, []string{
+		fmt.Sprintf("1.2.3.4:%d", config.StatePort()),
+		fmt.Sprintf("%s:%d", dnsName, config.StatePort()),
+	})
+	c.Check(apiInfo.Addrs, jc.DeepEquals, []string{
+		fmt.Sprintf("1.2.3.4:%d", config.APIPort()),
+		fmt.Sprintf("%s:%d", dnsName, config.APIPort()),
+	})
 }
 
 // parseCreateServiceRequest reconstructs the original CreateHostedService

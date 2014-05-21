@@ -15,17 +15,20 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
-// getDNSNames queries and returns the DNS names for the given instances,
-// ignoring nil instances or ones without DNS names.
-func getDNSNames(instances []instance.Instance) []string {
+// getAddresses queries and returns the Addresses for the given instances,
+// ignoring nil instances or ones without addresses
+func getAddresses(instances []instance.Instance) []string {
 	names := make([]string, 0)
 	for _, inst := range instances {
-		if inst != nil {
-			name, err := inst.DNSName()
-			// If that fails, just keep looking.
-			if err == nil && name != "" {
-				names = append(names, name)
-			}
+		if inst == nil {
+			continue
+		}
+		addrs, err := inst.Addresses()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			names = append(names, addr.Value)
 		}
 	}
 	return names
@@ -69,23 +72,22 @@ func StateInfo(env environs.Environ) (*state.Info, *api.Info, error) {
 	if _, hasCert := config.CACert(); !hasCert {
 		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	// Wait for the DNS names of any of the instances
-	// to become available.
-	logger.Debugf("waiting for DNS name(s) of state server instances %v", st.StateInstances)
-	var hostnames []string
-	for a := LongAttempt.Start(); len(hostnames) == 0 && a.Next(); {
+	// Wait for the addresses of at least one of the instances to become available.
+	logger.Debugf("waiting for addresses of state server instances %v", st.StateInstances)
+	var addresses []string
+	for a := LongAttempt.Start(); len(addresses) == 0 && a.Next(); {
 		insts, err := env.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
 			logger.Debugf("error getting state instances: %v", err.Error())
 			return nil, nil, err
 		}
-		hostnames = getDNSNames(insts)
+		addresses = getAddresses(insts)
 	}
 
-	if len(hostnames) == 0 {
-		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
+	if len(addresses) == 0 {
+		return nil, nil, fmt.Errorf("timed out waiting for addresses from %v", st.StateInstances)
 	}
 
-	stateInfo, apiInfo := getStateInfo(config, hostnames)
+	stateInfo, apiInfo := getStateInfo(config, addresses)
 	return stateInfo, apiInfo, nil
 }
