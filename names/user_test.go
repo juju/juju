@@ -18,6 +18,7 @@ func (s *userSuite) TestUserTag(c *gc.C) {
 	c.Assert(names.UserTag("admin"), gc.Equals, "user-admin")
 }
 
+// This is third place we are testing username validation. Amalgamate?
 func (s *userSuite) TestIsUser(c *gc.C) {
 	c.Assert(names.IsUser("admin"), jc.IsTrue)
 	c.Assert(names.IsUser("foo42"), jc.IsTrue)

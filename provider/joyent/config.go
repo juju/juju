@@ -57,6 +57,8 @@ const (
 	DefaultPrivateKey   = "~/.ssh/id_rsa"
 )
 
+// What are manta-user and sdc-user? Will they remain consts? Do we want to
+// validate them?
 var environmentVariables = map[string]string{
 	"sdc-user":         SdcAccount,
 	"sdc-key-id":       SdcKeyId,

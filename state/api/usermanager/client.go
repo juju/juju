@@ -4,6 +4,7 @@
 package usermanager
 
 import (
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -26,8 +27,12 @@ func (c *Client) Close() error {
 	return c.st.Close()
 }
 
+// So we are validating username on both client and server sides of api. I'm
+// happy to fall back to just server if this is overkill.
 func (c *Client) AddUser(tag, password string) error {
-	// Do we want to validate tag with names.IsUser?
+	if !names.IsUser(tag) {
+		return nil, fmt.Errorf("invalid user name %q", tag)
+	}
 	u := params.EntityPassword{Tag: tag, Password: password}
 	p := params.EntityPasswords{Changes: []params.EntityPassword{u}}
 	results := new(params.ErrorResults)
@@ -39,7 +44,6 @@ func (c *Client) AddUser(tag, password string) error {
 }
 
 func (c *Client) RemoveUser(tag string) error {
-	// Do we want to validate tag with names.IsUser?
 	u := params.Entity{Tag: tag}
 	p := params.Entities{Entities: []params.Entity{u}}
 	results := new(params.ErrorResults)

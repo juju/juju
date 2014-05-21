@@ -746,6 +746,7 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 	// Create a Linux Configuration with the username and the password
 	// empty and disable SSH with password authentication.
 	hostname := roleName
+	// outside of branch scope, but do we want to allow different users to ssh?
 	username := "ubuntu"
 	password := gwacl.MakeRandomPassword()
 	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
