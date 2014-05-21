@@ -12,7 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/tools"
-	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretools "launchpad.net/juju-core/tools"
@@ -106,7 +106,7 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	localStorage := c.MkDir()
 	vers := version.MustParseBinary("1.9.0-quantal-amd64")
 	versionStrings := []string{vers.String()}
-	expectedTools := ttesting.MakeToolsWithCheckSum(c, localStorage, "releases", versionStrings)
+	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", versionStrings)
 
 	// Now try uploading them.
 	toolsFile := tools.StorageName(vers)
@@ -136,7 +136,7 @@ func (s *toolsSuite) TestUploadFakeSeries(c *gc.C) {
 	localStorage := c.MkDir()
 	vers := version.MustParseBinary("1.9.0-quantal-amd64")
 	versionStrings := []string{vers.String()}
-	expectedTools := ttesting.MakeToolsWithCheckSum(c, localStorage, "releases", versionStrings)
+	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", versionStrings)
 
 	// Now try uploading them.
 	toolsFile := tools.StorageName(vers)
