@@ -174,18 +174,12 @@ func (s *SuperCommandSuite) TestVersionFlag(c *gc.C) {
 }
 
 func (s *SuperCommandSuite) TestLogging(c *gc.C) {
-	saveVersion := version.Current
-	saveCompiler := version.Compiler
-	defer func() {
-		version.Current = saveVersion
-		version.Compiler = saveCompiler
-	}()
-	version.Current = version.Binary{
+	s.PatchValue(&version.Current, version.Binary{
 		Number: version.Number{1, 2, 3, 4},
 		Series: "plan9",
 		Arch:   "mips",
-	}
-	version.Compiler = "llgo"
+	})
+	s.PatchValue(&version.Compiler, "llgo")
 
 	loggingTests := []struct {
 		usagePrefix, name string
