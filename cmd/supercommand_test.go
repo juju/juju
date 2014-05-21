@@ -87,11 +87,11 @@ func (s *SuperCommandSuite) TestRegisterAlias(c *gc.C) {
     help - show help on a command or other topic`)
 }
 
-var commandsDoc = `commands:
+func (s *SuperCommandSuite) TestInfo(c *gc.C) {
+	commandsDoc := `commands:
     flapbabble - flapbabble the juju
     flip       - flip the juju`
 
-func (s *SuperCommandSuite) TestInfo(c *gc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:    "jujutest",
 		Purpose: "to be purposeful",
