@@ -18,7 +18,7 @@ import (
 )
 
 type StoreSuite struct {
-	testing.BaseSuite
+	testing.FakeHomeSuite
 	server *charmtesting.MockStore
 	store  *charm.CharmStore
 }
@@ -26,7 +26,7 @@ type StoreSuite struct {
 var _ = gc.Suite(&StoreSuite{})
 
 func (s *StoreSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+	s.FakeHomeSuite.SetUpSuite(c)
 	s.server = charmtesting.NewMockStore(c, map[string]int{
 		"cs:series/good":   23,
 		"cs:series/unwise": 23,
@@ -36,7 +36,7 @@ func (s *StoreSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *StoreSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
 	s.PatchValue(&charm.CacheDir, c.MkDir())
 	s.store = charm.NewStore(s.server.Address())
 	s.server.Downloads = nil
@@ -49,7 +49,7 @@ func (s *StoreSuite) SetUpTest(c *gc.C) {
 
 func (s *StoreSuite) TearDownSuite(c *gc.C) {
 	s.server.Close()
-	s.BaseSuite.TearDownSuite(c)
+	s.FakeHomeSuite.TearDownSuite(c)
 }
 
 func (s *StoreSuite) TestMissing(c *gc.C) {
@@ -374,7 +374,7 @@ func (s *StoreSuite) TestCharmURL(c *gc.C) {
 }
 
 type LocalRepoSuite struct {
-	testing.BaseSuite
+	testing.FakeHomeSuite
 	repo       *charm.LocalRepository
 	seriesPath string
 }
@@ -382,7 +382,7 @@ type LocalRepoSuite struct {
 var _ = gc.Suite(&LocalRepoSuite{})
 
 func (s *LocalRepoSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
 	root := c.MkDir()
 	s.repo = &charm.LocalRepository{Path: root}
 	s.seriesPath = filepath.Join(root, "quantal")
