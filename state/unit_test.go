@@ -1325,7 +1325,7 @@ func (s *UnitSuite) TestAddActionFailsOnDeadUnit(c *gc.C) {
 
 	// cannot add action to a dead unit
 	_, err = unit.AddAction("fakeaction2", map[string]interface{}{})
-	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
 }
 
 func (s *UnitSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
