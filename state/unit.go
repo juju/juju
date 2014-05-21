@@ -1321,6 +1321,18 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 
 	newActionID := fmt.Sprintf("%s%d", prefix, suffix)
 
+	doc := actionDoc{Id: newActionID, Name: name, Payload: payload}
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDeadDoc,
+	}, {
+		C:      u.st.actions.Name,
+		Id:     doc.Id,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+
 	for i := 0; i < 3; i++ {
 		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
 			return "", err
@@ -1328,25 +1340,6 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 			return "", fmt.Errorf("unit %q is dead", u)
 		}
 
-		sel := bson.D{{"_id", newActionID}}
-		if count, err := u.st.actions.Find(sel).Count(); err != nil {
-			return "", err
-		} else if count == 1 {
-			// Already inserted... should this be an error?
-			return newActionID, nil
-		}
-
-		doc := actionDoc{Id: newActionID, Name: name, Payload: payload}
-		ops := []txn.Op{{
-			C:      u.st.units.Name,
-			Id:     u.doc.Name,
-			Assert: notDeadDoc,
-		}, {
-			C:      u.st.actions.Name,
-			Id:     doc.Id,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		}}
 		if err := u.st.runTransaction(ops); err != txn.ErrAborted {
 			return newActionID, err
 		}
