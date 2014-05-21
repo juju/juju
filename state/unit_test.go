@@ -1302,6 +1302,7 @@ func (s *UnitSuite) TestAddAction(c *gc.C) {
 	c.Assert(action, gc.NotNil)
 	c.Assert(action.Id(), gc.Equals, actionId)
 	// verify action Id() is of expected form (unit id prefix, + sequence)
+	// this is temporary... we shouldn't leak the actual _id.
 	c.Assert(action.Id(), gc.Matches, "^u#"+s.unit.Name()+"#\\d+")
 }
 
