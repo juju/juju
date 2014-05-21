@@ -20,11 +20,15 @@ usage() {
 
 
 PPATCH="1"
-while getopts ":p:" o; do
+IS_TESTING="${IS_TESTING:-false}"
+while getopts "p:t" o; do
     case "${o}" in
         p)
             PPATCH=${OPTARG}
             echo "Setting package patch to $PPATCH"
+            ;;
+        t)
+            IS_TESTING="true"
             ;;
         *)
             usage
@@ -62,9 +66,14 @@ summary="The source package can be uploaded:"
 supported_series=$(grep -E 'DEVEL|LTS|SUPPORTED' \
     $SCRIPT_DIR/supported-releases.txt |
     cut -d ' ' -f 2)
+if [[ $IS_TESTING == 'true']]; then
+    test_opt="-t"
+else
+    test_opt=""
+fi
 for series in $supported_series; do
     source $SCRIPT_DIR/make-package-with-tarball.bash \
-        -p $PPATCH $series $TARBALL "$DEBEMAIL" $FIXED_BUGS
+        $test_opt -p $PPATCH $series $TARBALL "$DEBEMAIL" $FIXED_BUGS
     summary="$summary\n  cd $TMP_DIR"
     summary="$summary\n  dput $PPA juju-core_${UBUNTU_VERSION}_source.changes"
 done
