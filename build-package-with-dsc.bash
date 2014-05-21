@@ -62,7 +62,7 @@ install_build_deps() {
 EOT
     )
     juju_compliler=$(echo "$remote_compliler" | tail -1)
-    DEPS="build-essential fakeroot dpkg-dev debhelper $juju_compliler"
+    DEPS="build-essential fakeroot dpkg-dev debhelper bash-completion $juju_compliler"
 
     DEP_SCRIPT=$(cat <<EOT
         sudo apt-add-repository -y ppa:juju/golang;
