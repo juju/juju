@@ -323,7 +323,7 @@ func (s *localJujuTestSuite) TestConstraintsValidator(c *gc.C) {
 	cons := constraints.MustParse(fmt.Sprintf("arch=%s instance-type=foo tags=bar cpu-power=10 cpu-cores=2", hostArch))
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-cores", "cpu-power", "instance-type", "tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-cores", "cpu-power", "instance-type", "tags"})
 }
 
 func (s *localJujuTestSuite) TestConstraintsValidatorVocab(c *gc.C) {
