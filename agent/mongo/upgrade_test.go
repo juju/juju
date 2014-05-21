@@ -115,20 +115,6 @@ func (s *EnsureAdminSuite) TestEnsureAdminUserError(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `failed to add "whomeverelse" to admin database: not authorized for upsert on admin.system.users`)
 }
 
-func (s *EnsureAdminSuite) TestEnsureBadUsernameError(c *gc.C) {
-	inst := &coretesting.MgoInstance{}
-	err := inst.Start(true)
-	c.Assert(err, gc.IsNil)
-	defer inst.Destroy()
-	dialInfo := inst.DialInfo()
-
-	// Ensure only valid usernames are allowed
-	name := "db.users.remove({})"
-	added, err := s.ensureAdminUser(c, dialInfo, name, "whatever")
-	c.Assert(err, gc.ErrorMatches, `invalid user name "`+regexp.QuoteMeta(name)+`"`)
-	c.Assert(added, jc.IsFalse)
-}
-
 func (s *EnsureAdminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {
 	_, portString, err := net.SplitHostPort(dialInfo.Addrs[0])
 	c.Assert(err, gc.IsNil)
