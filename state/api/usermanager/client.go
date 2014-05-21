@@ -27,6 +27,7 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) AddUser(tag, password string) error {
+	// Do we want to validate tag with utils.IsUsernameValid?
 	u := params.EntityPassword{Tag: tag, Password: password}
 	p := params.EntityPasswords{Changes: []params.EntityPassword{u}}
 	results := new(params.ErrorResults)
@@ -38,6 +39,7 @@ func (c *Client) AddUser(tag, password string) error {
 }
 
 func (c *Client) RemoveUser(tag string) error {
+	// Do we want to validate tag with utils.IsUsernameValid?
 	u := params.Entity{Tag: tag}
 	p := params.Entities{Entities: []params.Entity{u}}
 	results := new(params.ErrorResults)
