@@ -5,7 +5,6 @@ package names
 
 import (
 	"regexp"
-	"strings"
 )
 
 var validName = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9.-]*[a-zA-Z0-9]$")

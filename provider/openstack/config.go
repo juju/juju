@@ -5,7 +5,6 @@ package openstack
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/names"
 	"net/url"
 
 	"launchpad.net/goose/identity"
@@ -146,6 +145,7 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			if cred.User == "" {
 				return nil, fmt.Errorf(format, "User")
 			}
+			// Do we want to validate username here?
 			ecfg.attrs["username"] = cred.User
 		}
 		if ecfg.password() == "" {
@@ -153,10 +153,6 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 				return nil, fmt.Errorf(format, "Secrets")
 			}
 			ecfg.attrs["password"] = cred.Secrets
-		}
-		name := ecfg.attrs["username"]
-		if !names.IsUser(name) {
-			return nil, fmt.Errorf("invalid user name %q", name)
 		}
 	} else if authMode == AuthKeyPair {
 		if ecfg.accessKey() == "" {

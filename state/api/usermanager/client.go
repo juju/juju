@@ -4,6 +4,7 @@
 package usermanager
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -31,7 +32,7 @@ func (c *Client) Close() error {
 // happy to fall back to just server if this is overkill.
 func (c *Client) AddUser(tag, password string) error {
 	if !names.IsUser(tag) {
-		return nil, fmt.Errorf("invalid user name %q", tag)
+		return fmt.Errorf("invalid user name %q", tag)
 	}
 	u := params.EntityPassword{Tag: tag, Password: password}
 	p := params.EntityPasswords{Changes: []params.EntityPassword{u}}
