@@ -8,23 +8,23 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
-	"testing"
+	stdtesting "testing"
 
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
 
 type suite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&suite{})
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 

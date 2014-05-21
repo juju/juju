@@ -10,7 +10,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -55,13 +54,13 @@ func newServer() (*coretesting.MgoInstance, error) {
 }
 
 type MongoSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&MongoSuite{})
 
 func (s *MongoSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	var err error
 	// do all this stuff here, since we don't want to have to redo it for each test
 	root, err = newServer()
@@ -74,7 +73,7 @@ func (s *MongoSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *MongoSuite) TearDownTest(c *gc.C) {
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 	// remove all secondaries from the replicaset on test teardown
 	session, err := root.DialDirect()
 	if err != nil {
@@ -150,7 +149,7 @@ func loadData(session *mgo.Session, c *gc.C) {
 }
 
 func (s *MongoSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 	root.Destroy()
 }
 

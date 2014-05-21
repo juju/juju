@@ -17,11 +17,10 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type DirSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&DirSuite{})

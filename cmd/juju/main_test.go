@@ -259,6 +259,7 @@ var commandNames = []string{
 	"unset-environment",
 	"upgrade-charm",
 	"upgrade-juju",
+	"user",
 	"version",
 }
 

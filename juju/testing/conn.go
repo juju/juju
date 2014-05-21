@@ -30,7 +30,7 @@ import (
 )
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
-// for each test. It also includes testbase.LoggingSuite.
+// for each test. It also includes testing.BaseSuite.
 //
 // It also sets up RootDir to point to a directory hierarchy
 // mirroring the intended juju directory structure, including

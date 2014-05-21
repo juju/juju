@@ -8,19 +8,19 @@ import (
 	"fmt"
 	"io"
 	"sort"
-	"testing"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
-func TestPackage(t *testing.T) { gc.TestingT(t) }
+func TestPackage(t *stdtesting.T) { gc.TestingT(t) }
 
 func bufferBytes(stream io.Writer) []byte {
 	return stream.(*bytes.Buffer).Bytes()
@@ -31,12 +31,12 @@ func bufferString(w io.Writer) string {
 }
 
 type ContextSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	rels map[int]*ContextRelation
 }
 
 func (s *ContextSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.rels = map[int]*ContextRelation{
 		0: {
 			id:   0,

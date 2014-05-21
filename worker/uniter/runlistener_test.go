@@ -9,13 +9,13 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/worker/uniter"
 )
 
 type ListenerSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	socketPath string
 }
 

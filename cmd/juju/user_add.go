@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-const addUserDoc = `
+const userAddCommandDoc = `
 Add users to an existing environment
 The user information is stored within an existing environment, and will be lost
 when the environent is destroyed.
@@ -22,12 +22,12 @@ A jenv file identifying the user and the environment will be written to stdout,
 or to a path you specify with --output.
 
 Examples:
-  juju add-user foobar mypass      (Add user foobar with password mypass)
-  juju add-user foobar             (Add user foobar. A strong password will be generated and printed)
-  juju add-user foobar -o filename (Add user foobar (with generated password) and save example jenv file to filename)
+  juju user add foobar mypass      (Add user foobar with password mypass)
+  juju user add foobar             (Add user foobar. A strong password will be generated and printed)
+  juju user add foobar -o filename (Add user foobar (with generated password) and save example jenv file to filename)
 `
 
-type AddUserCommand struct {
+type UserAddCommand struct {
 	envcmd.EnvCommandBase
 	User             string
 	Password         string
@@ -35,22 +35,22 @@ type AddUserCommand struct {
 	out              cmd.Output
 }
 
-func (c *AddUserCommand) Info() *cmd.Info {
+func (c *UserAddCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "add-user",
+		Name:    "add",
 		Args:    "<username> <password>",
 		Purpose: "adds a user",
-		Doc:     addUserDoc,
+		Doc:     userAddCommandDoc,
 	}
 }
 
-func (c *AddUserCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *UserAddCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
 	})
 }
-func (c *AddUserCommand) Init(args []string) error {
+func (c *UserAddCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return fmt.Errorf("no username supplied")
@@ -66,7 +66,7 @@ func (c *AddUserCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *AddUserCommand) Run(ctx *cmd.Context) error {
+func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 	store, err := configstore.Default()
 	if err != nil {
 		return fmt.Errorf("cannot open environment info storage: %v", err)
