@@ -12,7 +12,7 @@ import (
 
 	"labix.org/v2/mgo/bson"
 
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/names"
 )
 
 // Location represents a charm location, which must declare a path component
@@ -55,7 +55,7 @@ var (
 
 // IsValidUser returns whether user is a valid username in charm URLs.
 func IsValidUser(user string) bool {
-	return utils.IsUsernameValid(user)
+	return names.IsUser(user)
 }
 
 // IsValidSeries returns whether series is a valid series in charm URLs.

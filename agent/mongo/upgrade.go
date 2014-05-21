@@ -12,8 +12,8 @@ import (
 
 	"labix.org/v2/mgo"
 
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/upstart"
-	"launchpad.net/juju-core/utils"
 )
 
 const mongoSocketTimeout = 10 * time.Second
@@ -56,7 +56,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 		return false, fmt.Errorf("can't dial mongo to ensure admin user: %v", err)
 	}
 	// Ensure username is a vaild format before using it
-	if !utils.IsUsernameValid(p.User) {
+	if !names.IsUser(p.User) {
 		return false, fmt.Errorf("invalid user name %q", p.User)
 	}
 	session.SetSocketTimeout(mongoSocketTimeout)

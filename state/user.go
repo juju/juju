@@ -23,7 +23,7 @@ func (st *State) checkUserExists(name string) (bool, error) {
 
 // AddUser adds a user to the state.
 func (st *State) AddUser(name, password string) (*User, error) {
-	if !utils.IsUsernameValid(name) {
+	if !names.IsUser(name) {
 		return nil, fmt.Errorf("invalid user name %q", name)
 	}
 	salt, err := utils.RandomSalt()

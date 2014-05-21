@@ -34,6 +34,7 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 	setupConfigFile(c, s.dir)
 }
 
+// Do we want to validate username before setting it in the config?
 func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
 	assertSetSuccess(c, s.dir, s.svc, []string{
 		"username=hello",
