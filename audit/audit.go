@@ -8,18 +8,19 @@ import (
 	"fmt"
 
 	"github.com/juju/loggo"
-
-	"launchpad.net/juju-core/state"
 )
 
 var logger = loggo.GetLogger("juju.audit")
 
-// Audit records an auditable event against the user who performed the action
-func Audit(user *state.User, format string, args ...interface{}) {
-	if user == nil {
-		panic("user cannot be nil")
+// Audit records an auditable event against the tagged entity that performed the action.
+func Audit(who interface {
+	Tag() string
+}, format string, args ...interface{}) {
+	if who == nil {
+		panic("who cannot be nil")
 	}
-	// TODO(dfc) we should also refuse to accept state.User objects that
-	// do not have a name, ie they are blank.
-	logger.Logf(loggo.INFO, fmt.Sprintf("user %q: %s", user.Name(), format), args...)
+	if who.Tag() == "" {
+		panic("who cannot be blank")
+	}
+	logger.Logf(loggo.INFO, fmt.Sprintf("%s: %s", who.Tag(), format), args...)
 }
