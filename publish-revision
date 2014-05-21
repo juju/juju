@@ -1,17 +1,49 @@
 #!/bin/bash
 set -eux
-# Create package
+
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
 TARFILE=$($SCRIPTS/get-tarfile-name)
+VERSION=$(basename $TARBALL .tar.gz | cut -d '_' -f2)
 wget -q $LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact/$TARFILE
+
+# Make source packages for all supported series.
+$RELEASE_TOOLS/make-source-packages.bash testing $TARFILE \
+    'Curtis Hovey <curtis.hovey@canonical.com>'
+
+# Load the credentials to create instances in ec2.
 set +x
-source $RELEASE_TOOLS/make-package-with-tarball.bash testing $TARFILE \
-    'Curtis C. Hovey <curtis.hovey@canonical.com>'
-# Now that we aren't sourcing credentials, it's safe to enable command echo.
+source $JUJU_HOME/ec2rc
 set -x
 
-for new_package in $NEW_PACKAGES; do
-    mv $new_package $WORKSPACE/
+# Build binary packages for select series.
+for dsc in $(find . -name '*.dsc')
+do
+    series=$(echo "$dsc" | cut -d '~' -f 2 | cut -d '.' -f 1,2)
+    if [[ $series == '12.04' ]]; then
+        echo "Building precise amd64"
+        $RELEASE_TOOLS/build-package-with-dsc.bash localhost '' $dsc
+    elif [[ $series == '13.10' ]]; then
+        echo "Skipping Saucy"
+    elif [[ $series == '14.04' ]]; then
+        echo "Building trusty ppc64"
+        $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@stilson-07 \
+            "$PPC_SSH_OPTIONS" $dsc
+        echo "Building trusty amd64"
+        $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-018c9568 $dsc
+        echo "Building trusty i386"
+        $RELEASE_TOOLS/build-package-with-dsc.bash m1.medium ami-81dee0e8 $dsc
+        echo "Skipping trusty arm64"
+        # Takes 3 hours and may not build.
+        #$RELEASE_TOOLS/build-package-with-dsc.bash m1.xlarge ami-410d0f28 $dsc
+    elif [[ $series == '14.10' ]]; then
+        echo "Building utopic amd64"
+        $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-f83ad690 $dsc
+    fi
+done
+
+# Copy packages to the top of workspace so that they will be archives.
+for package in $(find . -name '*.deb'); do
+    mv $package $WORKSPACE/
 done
 
 mkdir -p new-tools
