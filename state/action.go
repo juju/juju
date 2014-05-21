@@ -3,9 +3,9 @@ package state
 import ()
 
 type actionDoc struct {
-	Id      string `bson:"_id"`
-	Name    string
-	Payload map[string]interface{}
+	Id string `bson:"_id"`
+	//Name    string
+	//Payload map[string]interface{}
 }
 
 // Action represents an instruction to do some "action" and is expected to match
@@ -23,9 +23,9 @@ func newAction(st *State, adoc actionDoc) *Action {
 }
 
 // Name returns the name of the Action
-func (a *Action) Name() string {
-	return a.doc.Name
-}
+//func (a *Action) Name() string {
+//	return a.doc.Name
+//}
 
 // Id returns the id of the Action
 func (a *Action) Id() string {
@@ -35,6 +35,6 @@ func (a *Action) Id() string {
 // Payload will contain a structure representing arguments or parameters to
 // an action, and is expected to be validated by the Unit using the Charm
 // definition of the Action
-func (a *Action) Payload() map[string]interface{} {
-	return a.doc.Payload
-}
+//func (a *Action) Payload() map[string]interface{} {
+//	return a.doc.Payload
+//}
