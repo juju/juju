@@ -84,11 +84,16 @@ make_source_package() {
 
 
 PPATCH="${PPATCH:-1}"
-while getopts ":p:" o; do
+IS_TESTING="${IS_TESTING:-false}"
+while getopts "p:t" o; do
     case "${o}" in
         p)
             PPATCH=${OPTARG}
             echo "Setting package patch to $PPATCH"
+            ;;
+        t)
+            IS_TESTING="true"
+            echo "Package will be for testing"
             ;;
         *)
             usage
@@ -111,9 +116,8 @@ fi
 check_deps
 
 VERSION=$(basename $TARBALL .tar.gz | cut -d '_' -f2)
-if [[ $SERIES == "testing" ]]; then
+if [[ $IS_TESTING == "true" ]]; then
     PURPOSE="testing"
-    SERIES=$(grep DEVEL $SCRIPT_DIR/supported-releases.txt | cut -d ' ' -f 2)
 elif [[ $VERSION =~ ^1.(18|20|22).*$ ]]; then
     PURPOSE="stable"
 else
