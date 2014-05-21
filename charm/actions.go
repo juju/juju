@@ -32,7 +32,7 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 		return nil, err
 	}
 	var actionsSpec *Actions
-	if err := goyaml.Unmarshal(data, &actionsSpec); err != nil {
+	if err := goyaml.Unmarshal(data, actionsSpec); err != nil {
 		return nil, err
 	}
 	if actionsSpec == nil {
@@ -55,7 +55,7 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 			return nil, fmt.Errorf("invalid params schema for action %q: %v", err)
 		}
 		if reflect.DeepEqual(actionsSpec.ActionSpecs[name].Params, map[string]interface{}(nil)) {
-			actionsSpec.ActionSpecs[name].Params = map[string]interface{}{}
+			actionsSpec.ActionSpecs[name].Params = make(map[string]interface{})
 		}
 		for paramName, _ := range actionsSpec.ActionSpecs[name].Params {
 			badParam := !nameRule.MatchString(paramName)
