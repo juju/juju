@@ -51,8 +51,10 @@ func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
 
 	c.Assert(err, gc.IsNil)
 	d := decodeYamlFromStdout(c, ctx)
-	c.Assert(d["user"], gc.DeepEquals, "foobar")
-	//XXX test the password is there and has the requird form
+	c.Assert(d["user"], gc.Equals, "foobar")
+	// Let's not try to assume too much about the password generation
+	// algorithm other than there will be at least 10 characters.
+	c.Assert(d["password"], gc.Matches, "..........+")
 }
 
 func (s *UserAddCommandSuite) TestUserSpecifiedPassword(c *gc.C) {
