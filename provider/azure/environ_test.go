@@ -828,8 +828,9 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 	inst2, err := env.getInstance(service2, service2Role1Name)
 	c.Assert(err, gc.IsNil)
 
-	responses := buildGetServicePropertiesResponses(c, service1, service2)
-	// Failed to delete one of the services.
+	responses := buildGetServicePropertiesResponses(c, service1)
+	// Failed to delete one of the services. This will cause StopInstances to stop
+	// immediately.
 	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil))
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
@@ -838,8 +839,7 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 
 	c.Check(len(*requests), gc.Equals, len(responses))
 	assertOneRequestMatches(c, *requests, "GET", ".*"+service1.ServiceName+".*")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service2.ServiceName+".*")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*("+service1.ServiceName+"|"+service2.ServiceName+").")
+	assertOneRequestMatches(c, *requests, "DELETE", service1.ServiceName)
 }
 
 func (s *environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
@@ -1525,7 +1525,7 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags"})
 }
 
 func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
