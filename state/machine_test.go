@@ -1265,7 +1265,7 @@ func (s *MachineSuite) TestSetAmbiguousConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	cons := constraints.MustParse("mem=4G instance-type=foo")
 	err = machine.SetConstraints(cons)
-	c.Assert(err, gc.ErrorMatches, `cannot set constraints: ambiguous constraints: "mem" overlaps with "instance-type"`)
+	c.Assert(err, gc.ErrorMatches, `cannot set constraints: ambiguous constraints: "instance-type" overlaps with "mem"`)
 }
 
 func (s *MachineSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {

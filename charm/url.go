@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"labix.org/v2/mgo/bson"
+
+	"launchpad.net/juju-core/names"
 )
 
 // Location represents a charm location, which must declare a path component
@@ -47,14 +49,13 @@ type URL struct {
 var ErrUnresolvedUrl error = fmt.Errorf("charm url series is not resolved")
 
 var (
-	validUser   = regexp.MustCompile("^[a-z0-9][a-zA-Z0-9+.-]+$")
 	validSeries = regexp.MustCompile("^[a-z]+([a-z0-9]+)?$")
 	validName   = regexp.MustCompile("^[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*$")
 )
 
 // IsValidUser returns whether user is a valid username in charm URLs.
 func IsValidUser(user string) bool {
-	return validUser.MatchString(user)
+	return names.IsUser(user)
 }
 
 // IsValidSeries returns whether series is a valid series in charm URLs.

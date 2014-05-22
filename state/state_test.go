@@ -1403,7 +1403,7 @@ func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
 func (s *StateSuite) TestSetInvalidConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=4G instance-type=foo")
 	err := s.State.SetEnvironConstraints(cons)
-	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "mem" overlaps with "instance-type"`)
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 }
 
 func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {

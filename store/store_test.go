@@ -32,7 +32,7 @@ var _ = gc.Suite(&TrivialSuite{})
 type StoreSuite struct {
 	testing.MgoSuite
 	testing.HTTPSuite
-	testing.BaseSuite
+	testing.FakeHomeSuite
 	store *store.Store
 }
 
@@ -41,7 +41,7 @@ var noTestMongoJs *bool = flag.Bool("notest-mongojs", false, "Disable MongoDB te
 type TrivialSuite struct{}
 
 func (s *StoreSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+	s.FakeHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 	if os.Getenv("JUJU_NOTEST_MONGOJS") == "1" || testing.MgoServer.WithoutV8 {
@@ -53,11 +53,11 @@ func (s *StoreSuite) SetUpSuite(c *gc.C) {
 func (s *StoreSuite) TearDownSuite(c *gc.C) {
 	s.HTTPSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
+	s.FakeHomeSuite.TearDownSuite(c)
 }
 
 func (s *StoreSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
 	var err error
@@ -71,7 +71,7 @@ func (s *StoreSuite) TearDownTest(c *gc.C) {
 	}
 	s.HTTPSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
+	s.FakeHomeSuite.TearDownTest(c)
 }
 
 // FakeCharmDir is a charm that implements the interface that the
