@@ -33,14 +33,18 @@ sudo DEBIAN_FRONTEND=noninteractive apt-get install -y bzr
 # prevent spurious failure on success
 rm .bash_logout
 afact=lastSuccessfulBuild/artifact
-wget -q ${JENKINS_URL}job/publish-revision/$afact/new-precise.deb
-wget -q ${JENKINS_URL}job/publish-revision/$afact/new-local-precise.deb
+wget -q ${JENKINS_URL}job/build-revision/$afact/buildvars.bash
+source buildvars.bash
+RELEASE=$(lsb_release -sr)
+ARCH=$(dpkg --print-architecture)
+juju_local_deb="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
+juju_core_deb="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
+wget -q ${JENKINS_URL}job/publish-revision/$afact/$juju_local_deb
+wget -q ${JENKINS_UR}job/publish-revision/$afact/$juju_core_deb
 set +e
-sudo dpkg -i new-precise.deb new-local-precise.deb
+sudo dpkg -i $juju_core_deb $juju_local_deb
 set -e
 sudo apt-get install -y -f
-# The one-package-build-for-all-series is broken by mongodb.
-sudo apt-get install -y juju-local rsyslog-gnutls
 export JUJU_REPOSITORY="$HOME/repo"
 mkdir -p $JUJU_REPOSITORY/precise
 bzr branch lp:charms/ubuntu $JUJU_REPOSITORY/precise/ubuntu
