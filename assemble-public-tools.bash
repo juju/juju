@@ -88,7 +88,7 @@ retrieve_packages() {
     [[ $PRIVATE == "true" ]] && return 0
     echo "Phase 3: Retrieving juju-core packages from archives"
     if [[ $IS_TESTING == "true" ]]; then
-        for linked_file in $TEST_DEBS_DIR/*.deb; do
+        for linked_file in $TEST_DEBS_DIR/juju-core_*.deb; do
             # We need the real file location which includes series and arch.
             deb_file=$(readlink -f $linked_file)
             cp $deb_file $DEST_DEBS
