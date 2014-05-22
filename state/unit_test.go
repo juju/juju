@@ -1293,17 +1293,26 @@ func (s *UnitSuite) TestAnnotationRemovalForUnit(c *gc.C) {
 }
 
 func (s *UnitSuite) TestAddAction(c *gc.C) {
+	actionName := "fakeaction"
+	actionParams := map[string]interface{}{"outfile": "outfile.tar.bz2"}
+
 	// verify can add an Action
-	actionId, err := s.unit.AddAction("fakeaction", map[string]interface{}{"outfile": "outfile.tar.bz2"})
+	actionId, err := s.unit.AddAction(actionName, actionParams)
 	c.Assert(err, gc.IsNil)
 
+	// verify we can get it back out by Id
 	action, err := s.State.Action(actionId)
 	c.Assert(err, gc.IsNil)
 	c.Assert(action, gc.NotNil)
 	c.Assert(action.Id(), gc.Equals, actionId)
+
 	// verify action Id() is of expected form (unit id prefix, + sequence)
 	// this is temporary... we shouldn't leak the actual _id.
 	c.Assert(action.Id(), gc.Matches, "^u#"+s.unit.Name()+"#\\d+")
+
+	// verify we get out what we put in
+	c.Assert(action.Name(), gc.Equals, actionName)
+	c.Assert(action.Payload(), gc.DeepEquals, actionParams)
 }
 
 func (s *UnitSuite) TestAddActionFailsOnDeadUnit(c *gc.C) {
