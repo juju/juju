@@ -707,8 +707,8 @@ func relationsInScopeTags(unit *state.Unit) ([]string, error) {
 }
 
 // JoinedRelations returns the tags of all relations for which each supplied unit
-// has entered scope. It should be called RelationsInScope, but I want to hold off
-// on making that change until we have API versioning.
+// has entered scope. It should be called RelationsInScope, but it's not convenient
+// to make that change until we have versioned APIs.
 func (u *UniterAPI) JoinedRelations(args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
