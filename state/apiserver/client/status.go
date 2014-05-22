@@ -49,6 +49,9 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 	if context.machines, err = fetchMachines(conn.State, machineIds); err != nil {
 		return noStatus, err
 	}
+	if context.relations, err = fetchRelations(conn.State); err != nil {
+		return noStatus, err
+	}
 	if context.networks, err = fetchNetworks(conn.State); err != nil {
 		return noStatus, err
 	}
@@ -81,6 +84,7 @@ func (c *Client) Status() (api.LegacyStatus, error) {
 type statusContext struct {
 	machines     map[string][]*state.Machine
 	services     map[string]*state.Service
+	relations    map[string][]*state.Relation
 	units        map[string]map[string]*state.Unit
 	networks     map[string]*state.Network
 	latestCharms map[charm.URL]string
@@ -278,6 +282,26 @@ func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (*set.Strings,
 	return machineIds, nil
 }
 
+// fetchRelations returns a map of all relations keyed by service name.
+//
+// This structure is useful for processRelations() which needs to have
+// the relations for each service. Reading them once here avoids the
+// repeated DB hits to retrieve the relations for each service that
+// used to happen in processRelations().
+func fetchRelations(st *state.State) (map[string][]*state.Relation, error) {
+	relations, err := st.AllRelations()
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string][]*state.Relation)
+	for _, relation := range relations {
+		for _, ep := range relation.Endpoints() {
+			out[ep.ServiceName] = append(out[ep.ServiceName], relation)
+		}
+	}
+	return out, nil
+}
+
 // fetchNetworks returns a map from network name to network.
 func fetchNetworks(st *state.State) (map[string]*state.Network, error) {
 	networks, err := st.AllNetworks()
@@ -471,16 +495,10 @@ func (context *statusContext) unitByName(name string) *state.Unit {
 	return context.units[serviceName][name]
 }
 
-func (*statusContext) processRelations(service *state.Service) (related map[string][]string, subord []string, err error) {
-	// TODO(mue) This way the same relation is read twice (for each service).
-	// Maybe add Relations() to state, read them only once and pass them to each
-	// call of this function.
-	relations, err := service.Relations()
-	if err != nil {
-		return nil, nil, err
-	}
+func (context *statusContext) processRelations(service *state.Service) (related map[string][]string, subord []string, err error) {
 	var subordSet set.Strings
 	related = make(map[string][]string)
+	relations := context.relations[service.Name()]
 	for _, relation := range relations {
 		ep, err := relation.Endpoint(service.Name())
 		if err != nil {
