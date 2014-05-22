@@ -37,16 +37,13 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	// verify can add an Action
 	actionId, err := s.unit.AddAction(actionName, actionParams)
 	c.Assert(err, gc.IsNil)
+	assertSaneActionId(c, actionId, s.unit.Name())
 
 	// verify we can get it back out by Id
 	action, err := s.State.Action(actionId)
 	c.Assert(err, gc.IsNil)
 	c.Assert(action, gc.NotNil)
 	c.Assert(action.Id(), gc.Equals, actionId)
-
-	// verify action Id() is of expected form (unit id prefix, + sequence)
-	// this is temporary... we shouldn't leak the actual _id.
-	c.Assert(action.Id(), gc.Matches, "^u#"+s.unit.Name()+"#\\d+")
 
 	// verify we get out what we put in
 	c.Assert(action.Name(), gc.Equals, actionName)
@@ -63,8 +60,9 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// can add action to a dying unit
-	_, err = unit.AddAction("fakeaction1", map[string]interface{}{})
+	actionId, err := unit.AddAction("fakeaction1", map[string]interface{}{})
 	c.Assert(err, gc.IsNil)
+	assertSaneActionId(c, actionId, s.unit.Name())
 
 	// make sure unit is dead
 	err = unit.EnsureDead()
@@ -90,4 +88,12 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 
 	_, err = unit.AddAction("fakeaction", map[string]interface{}{})
 	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
+}
+
+// assertSaneActionId verifies that the actionId is of the expected
+// form (unit id prefix + sequence)
+// This is a temporary assertion, we shouldn't be leaking the actual
+// mongo _id
+func assertSaneActionId(c *gc.C, actionId, unitName string) {
+	c.Assert(actionId, gc.Matches, "^u#"+unitName+"#\\d+")
 }
