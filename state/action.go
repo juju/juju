@@ -4,17 +4,18 @@ import ()
 
 type actionDoc struct {
 	Id string `bson:"_id"`
-	// Name identifies which action this is.  Actions are defined by charms so
-	// this is necessarily a little vague, but this will tell the Unit which
-	// action to actually perform
+
+	// Name identifies the action; it should match an action defined by
+	// the unit's charm.
 	Name string
-	// Payload is the generic placeholder for parameters passed in to be used
-	// when this action is being performed.
+
+	// Payload holds the action's parameters, if any; it should validate
+	// against the schema defined by the named action in the unit's charm
 	Payload map[string]interface{}
 }
 
-// Action represents an instruction to do some "action" and is expected to match
-// an action definition in a charm.
+// Action represents an instruction to do some "action" and is expected
+// to match an action definition in a charm.
 type Action struct {
 	st  *State
 	doc actionDoc
