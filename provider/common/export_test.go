@@ -4,7 +4,7 @@
 package common
 
 var (
-	GetDNSNames      = getDNSNames
+	GetAddresses     = getAddresses
 	GetStateInfo     = getStateInfo
 	ComposeAddresses = composeAddresses
 	ConnectSSH       = &connectSSH
