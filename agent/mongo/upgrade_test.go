@@ -48,7 +48,7 @@ func (s *EnsureAdminSuite) TestEnsureAdminUser(c *gc.C) {
 	inst := &coretesting.MgoInstance{}
 	err := inst.Start(true)
 	c.Assert(err, gc.IsNil)
-	defer inst.Destroy()
+	defer inst.DestroyWithLog()
 	dialInfo := inst.DialInfo()
 
 	// Mock out mongod, so the --noauth execution doesn't

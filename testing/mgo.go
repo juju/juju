@@ -240,27 +240,38 @@ func (inst *MgoInstance) run() error {
 	return nil
 }
 
-func (inst *MgoInstance) kill() {
-	inst.server.Process.Kill()
+func (inst *MgoInstance) kill(sig os.Signal) {
+	inst.server.Process.Signal(sig)
 	<-inst.exited
 	inst.server = nil
 	inst.exited = nil
 }
 
-func (inst *MgoInstance) Destroy() {
+func (inst *MgoInstance) killAndCleanup(sig os.Signal) {
 	if inst.server != nil {
-		logger.Debugf("killing mongod pid %d in %s on port %d", inst.server.Process.Pid, inst.dir, inst.port)
-		inst.kill()
+		logger.Debugf("killing mongod pid %d in %s on port %d with %s", inst.server.Process.Pid, inst.dir, inst.port, sig)
+		inst.kill(sig)
 		os.RemoveAll(inst.dir)
 		inst.addr, inst.dir = "", ""
 	}
+}
+
+// Destroy kills mongod and cleans up its data directory.
+func (inst *MgoInstance) Destroy() {
+	inst.killAndCleanup(os.Kill)
+}
+
+// DestroyWithLog causes mongod to exit, cleans up its data directory,
+// and captures the last N lines of mongod's log output.
+func (inst *MgoInstance) DestroyWithLog() {
+	inst.killAndCleanup(os.Interrupt)
 }
 
 // Restart restarts the mongo server, useful for
 // testing what happens when a state server goes down.
 func (inst *MgoInstance) Restart() {
 	logger.Debugf("restarting mongod pid %d in %s on port %d", inst.server.Process.Pid, inst.dir, inst.port)
-	inst.kill()
+	inst.kill(os.Kill)
 	if err := inst.Start(inst.ssl); err != nil {
 		panic(err)
 	}
