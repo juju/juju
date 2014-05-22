@@ -147,11 +147,7 @@ func (h *RsyslogConfigHandler) Handle() error {
 	if rsyslogCACert == "" {
 		return nil
 	}
-	// If neither syslog-port nor rsyslog-ca-cert
-	// have changed, we can drop out now.
-	if cfg.Port == h.syslogPort && rsyslogCACert == h.rsyslogCACert {
-		return nil
-	}
+
 	h.syslogConfig.Port = cfg.Port
 	if h.mode == RsyslogModeForwarding {
 		if err := writeFileAtomic(h.syslogConfig.CACertPath(), []byte(rsyslogCACert), 0644, 0, 0); err != nil {
