@@ -26,7 +26,7 @@ do
     series=$(echo "$dsc" | cut -d '~' -f 2 | cut -d '.' -f 1,2)
     if [[ $series == '12.04' ]]; then
         echo "Building precise amd64"
-        $RELEASE_TOOLS/build-package-with-dsc.bash localhost '' $dsc
+        $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-36aa4d5e $dsc
     elif [[ $series == '13.10' ]]; then
         echo "Skipping Saucy"
     elif [[ $series == '14.04' ]]; then
