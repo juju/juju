@@ -11,19 +11,16 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	ft "launchpad.net/juju-core/testing/filetesting"
 )
 
 type EntrySuite struct {
-	testing.BaseSuite
 	basePath string
 }
 
 var _ = gc.Suite(&EntrySuite{})
 
 func (s *EntrySuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
 	s.basePath = c.MkDir()
 }
 
