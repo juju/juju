@@ -2,7 +2,6 @@ package state
 
 import (
 	"fmt"
-	"regexp"
 
 	"github.com/juju/errors"
 	"labix.org/v2/mgo"
@@ -12,8 +11,6 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/utils"
 )
-
-var validUser = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9.-]*[a-zA-Z0-9]$")
 
 func (st *State) checkUserExists(name string) (bool, error) {
 	var count int
@@ -26,7 +23,7 @@ func (st *State) checkUserExists(name string) (bool, error) {
 
 // AddUser adds a user to the state.
 func (st *State) AddUser(name, password string) (*User, error) {
-	if !validUser.MatchString(name) {
+	if !names.IsUser(name) {
 		return nil, fmt.Errorf("invalid user name %q", name)
 	}
 	salt, err := utils.RandomSalt()

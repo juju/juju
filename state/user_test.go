@@ -21,25 +21,8 @@ var _ = gc.Suite(&UserSuite{})
 
 func (s *UserSuite) TestAddUserInvalidNames(c *gc.C) {
 	for _, name := range []string{
-		"bar@ram.u",
-		"#1foo",
-		"&bar",
-		"%bar",
-		"foo()",
-		"'foo'",
-		"[bar]",
-		"foo?",
-		"foo=bar",
-		"bar*",
-		"bar^",
-		"bar!",
-		"bar_foo",
-		"bar+foo",
-		"bar{}",
-		"foo bar",
 		"",
-		"0foo",
-		"a",
+		"b^b",
 	} {
 		u, err := s.State.AddUser(name, "password")
 		c.Assert(err, gc.ErrorMatches, `invalid user name "`+regexp.QuoteMeta(name)+`"`)
