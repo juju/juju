@@ -174,23 +174,9 @@ var validTests = []struct {
 	string string
 	expect bool
 }{
-	// As usernames now use a generic validation, can we rely on tests in
-	// state/user_test.go and remove these? Having said that, I much prefer
-	// these tests and would like to migrate them over.
+
 	{charm.IsValidUser, "", false},
-	{charm.IsValidUser, "bob", true},
-	{charm.IsValidUser, "Bob", true},
-	{charm.IsValidUser, "bOB", true},
 	{charm.IsValidUser, "b^b", false},
-	{charm.IsValidUser, "bob1", true},
-	{charm.IsValidUser, "bob-1", true},
-	{charm.IsValidUser, "bob+1", false},
-	{charm.IsValidUser, "bob.1", true},
-	{charm.IsValidUser, "1bob", false},
-	{charm.IsValidUser, "1-bob", false},
-	{charm.IsValidUser, "1+bob", false},
-	{charm.IsValidUser, "1.bob", false},
-	{charm.IsValidUser, "jim.bob+99-1.", false},
 	{charm.IsValidUser, "jim.bob99-1", true},
 
 	{charm.IsValidName, "", false},

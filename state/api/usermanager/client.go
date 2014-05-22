@@ -28,8 +28,6 @@ func (c *Client) Close() error {
 	return c.st.Close()
 }
 
-// So we are validating username on both client and server sides of api. I'm
-// happy to fall back to just server if this is overkill.
 func (c *Client) AddUser(tag, password string) error {
 	if !names.IsUser(tag) {
 		return fmt.Errorf("invalid user name %q", tag)

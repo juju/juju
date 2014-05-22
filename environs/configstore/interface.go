@@ -72,7 +72,6 @@ type EnvironInfo interface {
 
 	// SetAPICreds sets the API credentials currently
 	// associated with the environment.
-	// Do we want to validate creds.User with names.IsUser?
 	SetAPICredentials(APICredentials)
 
 	// Location returns the location of the source of the environment

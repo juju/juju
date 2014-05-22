@@ -477,7 +477,6 @@ func runMachineUpdate(m *state.Machine, sshArg string) error {
 	return runViaSsh(addr, sshArg)
 }
 
-// Do we want different users to be able to ssh in?
 func runViaSsh(addr string, script string) error {
 	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
 	userAddr := "ubuntu@" + addr

@@ -145,7 +145,6 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			if cred.User == "" {
 				return nil, fmt.Errorf(format, "User")
 			}
-			// Do we want to validate username here?
 			ecfg.attrs["username"] = cred.User
 		}
 		if ecfg.password() == "" {
