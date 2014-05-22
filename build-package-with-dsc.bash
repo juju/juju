@@ -177,8 +177,6 @@ else
     # Remap ssh option strings to $@ to preserve their tokenisation.
     eval "set -- $ssh_options"
 fi
-echo "$@"
-
 
 
 if [[ $IS_EPHEMERAL == "true" ]]; then
