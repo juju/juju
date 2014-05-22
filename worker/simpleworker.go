@@ -18,12 +18,12 @@ type simpleWorker struct {
 // by the doWork function will be returned by the worker's Wait function.
 func NewSimpleWorker(doWork func(stopCh <-chan struct{}) error) Worker {
 	w := &simpleWorker{
-		stopc: make(chan struct{}),
+		stopc: make(chan struct{}, 1),
 		done:  make(chan struct{}),
 	}
 	go func() {
+		defer close(w.done)
 		w.err = doWork(w.stopc)
-		close(w.done)
 	}()
 	return w
 }
@@ -31,12 +31,10 @@ func NewSimpleWorker(doWork func(stopCh <-chan struct{}) error) Worker {
 // Kill implements Worker.Kill() and will close the channel given to the doWork
 // function.
 func (w *simpleWorker) Kill() {
-	defer func() {
-		// Allow any number of calls to Kill - the second and subsequent calls
-		// will panic, but we don't care.
-		recover()
-	}()
-	close(w.stopc)
+	select {
+	case w.stopc <- struct{}{}:
+	default: // stopc is already closed
+	}
 }
 
 // Wait implements Worker.Wait(), and will return the error returned by
