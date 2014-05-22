@@ -50,7 +50,7 @@ do
         fi
     elif [[ $series == '14.10' ]]; then
         echo "Skipping utopic amd64"
-        # The daly images have apt issues.
+        # The daily images have apt issues.
         #$RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-f83ad690 $dsc
     fi
 done
