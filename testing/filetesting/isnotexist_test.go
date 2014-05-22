@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package filetesting_test
+package filetesting
 
 import (
 	"io/ioutil"
@@ -10,8 +10,6 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-
-	ft "launchpad.net/juju-core/testing/filetesting"
 )
 
 type fileSuite struct{}
@@ -25,8 +23,8 @@ func (*fileSuite) TestIsNotExist(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = os.Lstat(path("noexist"))
-	c.Assert(err, jc.Satisfies, ft.IsNotExist)
+	c.Assert(err, jc.Satisfies, isNotExist)
 
 	_, err = os.Lstat(path("file/parent-not-a-dir"))
-	c.Assert(err, jc.Satisfies, ft.IsNotExist)
+	c.Assert(err, jc.Satisfies, isNotExist)
 }
