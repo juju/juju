@@ -40,7 +40,7 @@ ARCH=$(dpkg --print-architecture)
 juju_local_deb="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
 juju_core_deb="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
 wget -q ${JENKINS_URL}job/publish-revision/$afact/$juju_local_deb
-wget -q ${JENKINS_UR}job/publish-revision/$afact/$juju_core_deb
+wget -q ${JENKINS_URL}job/publish-revision/$afact/$juju_core_deb
 set +e
 sudo dpkg -i $juju_core_deb $juju_local_deb
 set -e
