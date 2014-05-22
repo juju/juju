@@ -658,7 +658,7 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.Open(c)
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"amd64", "i386", "ppc64"})
+	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64"})
 }
 
 func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
@@ -684,7 +684,7 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 cpu-power=10")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
@@ -754,7 +754,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
-	c.Assert(image_ids, gc.DeepEquals, []string{"id-y"})
+	c.Assert(image_ids, jc.SameContents, []string{"id-y"})
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
