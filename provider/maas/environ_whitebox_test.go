@@ -603,7 +603,7 @@ func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
 	env := suite.makeEnviron()
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"amd64"})
+	c.Assert(a, jc.SameContents, []string{"amd64"})
 }
 
 func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
@@ -614,7 +614,7 @@ func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "instance-type"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type"})
 }
 
 func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
