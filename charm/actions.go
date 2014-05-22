@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"reflect"
 	"regexp"
 
 	"github.com/xeipuuv/gojsonschema"
@@ -16,7 +15,7 @@ import (
 
 // Actions defines the available actions for the charm.
 type Actions struct {
-	ActionSpecs map[string]ActionSpec
+	ActionSpecs map[string]ActionSpec `yaml:"actions"`
 }
 
 // ActionSpec is a definition of the parameters and traits of an Action.
@@ -31,16 +30,9 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 	if err != nil {
 		return nil, err
 	}
-	unmarshaledActions := newActions()
-	if err := goyaml.Unmarshal(data, unmarshaledActions); err != nil {
+	var unmarshaledActions Actions
+	if err := goyaml.Unmarshal(data, &unmarshaledActions); err != nil {
 		return nil, err
-	}
-	if unmarshaledActions == nil {
-		return nil, fmt.Errorf("empty actions definition")
-	}
-	// If there's data but the Actions is still empty, there's a problem.
-	if !reflect.DeepEqual(data, []byte{}) && reflect.DeepEqual(unmarshaledActions, &Actions{}) {
-		return nil, fmt.Errorf("actions failed to unmarshal from YAML %s", data)
 	}
 
 	nameRule := regexp.MustCompile("^[^-][a-z-]+[^-]$")
@@ -61,9 +53,5 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 			}
 		}
 	}
-	return unmarshaledActions, nil
-}
-
-func newActions() *Actions {
-	return &Actions{map[string]ActionSpec{}}
+	return &unmarshaledActions, nil
 }

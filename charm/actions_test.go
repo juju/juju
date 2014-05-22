@@ -17,16 +17,15 @@ var _ = gc.Suite(&ActionsSuite{})
 func (s *ActionsSuite) TestReadGoodActionsYaml(c *gc.C) {
 
 	var goodActionsYamlTests = []struct {
-		description string
-		yaml        string
-		actions     *charm.Actions
+		description     string
+		yaml            string
+		expectedActions *charm.Actions
 	}{
-		// Test 1
 		{
-			"A simple snapshot actions YAML with one parameter.",
-			// YAML
-			`
-actionspecs:
+			description: "A simple snapshot actions YAML with one parameter.",
+
+			yaml: `
+actions:
   snapshot:
     description: Take a snapshot of the database.
     params:
@@ -35,8 +34,7 @@ actionspecs:
         type: string
         default: foo.bz2
 `,
-			// Actions
-			&charm.Actions{map[string]charm.ActionSpec{
+			expectedActions: &charm.Actions{map[string]charm.ActionSpec{
 				"snapshot": charm.ActionSpec{
 					Description: "Take a snapshot of the database.",
 					Params: map[string]interface{}{
@@ -44,11 +42,18 @@ actionspecs:
 							"description": "The file to write out to.",
 							"type":        "string",
 							"default":     "foo.bz2"}}}}}},
-		// Test 2
+
 		{
-			"A more complex schema with hyphenated names and multiple parameters.",
-			`
-actionspecs:
+			description: "An empty Actions definition.",
+
+			yaml: "",
+
+			expectedActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec(nil)}},
+
+		{
+			description: "A more complex schema with hyphenated names and multiple parameters.",
+			yaml: `
+actions:
   snapshot:
     description: Take a snapshot of the database.
     params:
@@ -81,8 +86,7 @@ actionspecs:
         enum: [rsync, scp]
         default: rsync
 `,
-			// Actions
-			&charm.Actions{map[string]charm.ActionSpec{
+			expectedActions: &charm.Actions{map[string]charm.ActionSpec{
 				"snapshot": charm.ActionSpec{
 					Description: "Take a snapshot of the database.",
 					Params: map[string]interface{}{
@@ -116,21 +120,35 @@ actionspecs:
 							"default":     "rsync"}}}}},
 		},
 
-		// Test 3
 		{
-			"A schema with an empty \"params\" key, implying no options.",
-			// YAML
-			`
-actionspecs:
+			description: "A schema with an empty \"params\" key, implying no options.",
+
+			yaml: `
+actions:
   snapshot:
     description: Take a snapshot of the database.
     params:
 `,
-			// Actions
-			&charm.Actions{map[string]charm.ActionSpec{
+
+			expectedActions: &charm.Actions{map[string]charm.ActionSpec{
 				"snapshot": charm.ActionSpec{
 					Description: "Take a snapshot of the database.",
-					Params:      map[string]interface{}(nil)}}},
+					Params:      nil}}},
+		},
+
+		{
+			description: "A schema with no \"params\" key, implying no options.",
+
+			yaml: `
+actions:
+  snapshot:
+    description: Take a snapshot of the database.
+`,
+
+			expectedActions: &charm.Actions{map[string]charm.ActionSpec{
+				"snapshot": charm.ActionSpec{
+					Description: "Take a snapshot of the database.",
+					Params:      nil}}},
 		}}
 
 	// Beginning of testing loop
@@ -139,23 +157,22 @@ actionspecs:
 		reader := bytes.NewReader([]byte(test.yaml))
 		loadedAction, err := charm.ReadActionsYaml(reader)
 		c.Assert(err, gc.IsNil)
-		c.Assert(loadedAction, gc.DeepEquals, test.actions)
+		c.Assert(loadedAction, gc.DeepEquals, test.expectedActions)
 	}
 }
 
 func (s *ActionsSuite) TestReadBadActionsYaml(c *gc.C) {
 
 	var badActionsYamlTests = []struct {
-		description string
-		yaml        string
-		actions     *charm.Actions
+		description   string
+		yaml          string
+		expectedError string
 	}{
-		// Test 1
 		{
-			"Malformed YAML: missing key in \"outfile\".",
-			// YAML
-			`
-actionspecs:
+			description: "Malformed YAML: missing key in \"outfile\".",
+
+			yaml: `
+actions:
   snapshot:
     description: Take a snapshot of the database.
     params:
@@ -164,16 +181,15 @@ actionspecs:
         type: string
         default: foo.bz2
 `,
-			// Actions
-			nil,
+
+			expectedError: "YAML error: line 7: mapping values are not allowed in this context",
 		},
 
-		// Test 2
 		{
-			"Malformed JSON-Schema: $schema element misplaced.",
-			// YAML
-			`
-actionspecs:
+			description: "Malformed JSON-Schema: $schema element misplaced.",
+
+			yaml: `
+actions:
   snapshot:
   description: Take a snapshot of the database.
     params:
@@ -183,44 +199,32 @@ actionspecs:
         type: string
         default: foo.bz2
 `,
-			// Actions
-			nil,
+
+			expectedError: "YAML error: line 4: mapping values are not allowed in this context",
 		},
 
-		// Test 3
 		{
-			"Malformed Actions: hyphen at beginning of action name.",
-			// YAML
-			`
-actionspecs:
+			description: "Malformed Actions: hyphen at beginning of action name.",
+
+			yaml: `
+actions:
   -snapshot:
     description: Take a snapshot of the database.
-    params:
-      outfile:
-        description: The file to write out to.
-        type: string
-        default: foo.bz2
 `,
-			// Actions
-			nil,
+
+			expectedError: "bad action name -snapshot",
 		},
 
-		// Test 4
 		{
-			"Malformed Actions: hyphen after action name.",
-			// YAML
-			`
-actionspecs:
+			description: "Malformed Actions: hyphen after action name.",
+
+			yaml: `
+actions:
   snapshot-:
     description: Take a snapshot of the database.
-    params:
-      outfile:
-        description: The file to write out to.
-        type: string
-        default: foo.bz2
 `,
-			// Actions
-			nil,
+
+			expectedError: "bad action name snapshot-",
 		},
 	}
 
@@ -228,6 +232,6 @@ actionspecs:
 		c.Logf("test %d: %s", i, test.description)
 		reader := bytes.NewReader([]byte(test.yaml))
 		_, err := charm.ReadActionsYaml(reader)
-		c.Assert(err, gc.NotNil)
+		c.Assert(err.Error(), gc.Equals, test.expectedError)
 	}
 }
