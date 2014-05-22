@@ -177,14 +177,16 @@ else
     # Remap ssh option strings to $@ to preserve their tokenisation.
     eval "set -- $ssh_options"
 fi
+echo "$@"
+
 
 
 if [[ $IS_EPHEMERAL == "true" ]]; then
-    create_instance
+    create_instance "$@"
 fi
-install_build_deps
-upload_source_package_files
-build_binary_packages
-retrieve_binary_packages
-cleanup
+install_build_deps "$@"
+upload_source_package_files "$@"
+build_binary_packages "$@"
+retrieve_binary_packages "$@"
+cleanup "$@"
 exit $EXIT_STATUS
