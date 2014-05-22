@@ -53,7 +53,7 @@ EOT
 
 install_build_deps() {
     echo "Installing build deps."
-    remote_compliler=$(ssh "$@" $REMOTE_USER@$INSTANCE_NAME  <<EOT
+    remote_compiler=$(ssh "$@" $REMOTE_USER@$INSTANCE_NAME  <<EOT
         if [[ \$(uname -p) =~  .*86|armel|armhf.* ]]; then
             echo "golang"
         else
@@ -61,8 +61,8 @@ install_build_deps() {
         fi
 EOT
     )
-    juju_compliler=$(echo "$remote_compliler" | tail -1)
-    DEPS="build-essential fakeroot dpkg-dev debhelper bash-completion $juju_compliler"
+    juju_compiler=$(echo "$remote_compiler" | tail -1)
+    DEPS="build-essential fakeroot dpkg-dev debhelper bash-completion $juju_compiler"
 
     DEP_SCRIPT=$(cat <<EOT
         sudo apt-add-repository -y ppa:juju/golang;
