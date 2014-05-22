@@ -328,7 +328,7 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
 
 
 def get_machine_dns_name(env, machine):
-    for remaining in until_timeout(300):
+    for remaining in until_timeout(600):
         bootstrap = env.get_status().status['machines'][str(machine)]
         host = bootstrap.get('dns-name')
         if host is not None and not host.startswith('172.'):
