@@ -53,7 +53,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	c.Assert(action.Payload(), jc.DeepEquals, actionParams)
 }
 
-func (s *ActionSuite) TestAddActionFailsOnDeadUnit(c *gc.C) {
+func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	unit, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit)
