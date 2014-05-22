@@ -503,6 +503,36 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 	checkImageMetadata(c, env.Storage(), expected)
 }
 
+func (s *BootstrapSuite) TestValidateConstraintsCalledWithMetadatasource(c *gc.C) {
+	validateCalled := 0
+	s.PatchValue(&validateConstraints, func(cons constraints.Value, env environs.Environ) error {
+		c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=4G"))
+		validateCalled++
+		return nil
+	})
+	sourceDir, _ := createImageMetadata(c)
+	resetJujuHome(c)
+	_, err := coretesting.RunCommand(
+		c, envcmd.Wrap(&BootstrapCommand{}),
+		[]string{"--metadata-source", sourceDir, "--constraints", "mem=4G"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(validateCalled, gc.Equals, 1)
+}
+
+func (s *BootstrapSuite) TestValidateConstraintsCalledWithoutMetadatasource(c *gc.C) {
+	validateCalled := 0
+	s.PatchValue(&validateConstraints, func(cons constraints.Value, env environs.Environ) error {
+		c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=4G"))
+		validateCalled++
+		return nil
+	})
+	resetJujuHome(c)
+	_, err := coretesting.RunCommand(
+		c, envcmd.Wrap(&BootstrapCommand{}), []string{"--constraints", "mem=4G"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(validateCalled, gc.Equals, 1)
+}
+
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))

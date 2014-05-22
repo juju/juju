@@ -176,15 +176,14 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	if err != nil {
 		return err
 	}
-	validator, err := environ.ConstraintsValidator()
-	if err != nil {
-		return err
-	}
-	unsupported, err := validator.Validate(c.Constraints)
-	if len(unsupported) > 0 {
-		logger.Warningf("unsupported constraints: %v", err)
-	} else if err != nil {
-		return err
+	// We want to validate constraints early. However, if a custom image metadata
+	// source is specified, we can't validate the arch because that depends on what
+	// images metadata is to be uploaded. So we validate here if no custom metadata
+	// source is specified, and defer till later if not.
+	if c.MetadataSource == "" {
+		if err := validateConstraints(c.Constraints, environ); err != nil {
+			return err
+		}
 	}
 
 	defer cleanup()
@@ -218,6 +217,9 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		} else {
 			logger.Infof("custom image metadata uploaded")
 		}
+		if err := validateConstraints(c.Constraints, environ); err != nil {
+			return err
+		}
 	}
 	// TODO (wallyworld): 2013-09-20 bug 1227931
 	// We can set a custom tools data source instead of doing an
@@ -235,4 +237,18 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 	})
+}
+
+var validateConstraints = func(cons constraints.Value, env environs.Environ) error {
+	validator, err := env.ConstraintsValidator()
+	if err != nil {
+		return err
+	}
+	unsupported, err := validator.Validate(cons)
+	if len(unsupported) > 0 {
+		logger.Warningf("unsupported constraints: %v", err)
+	} else if err != nil {
+		return err
+	}
+	return nil
 }
