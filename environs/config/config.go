@@ -926,6 +926,7 @@ var immutableAttributes = []string{
 	"bootstrap-addresses-delay",
 	"lxc-clone",
 	"lxc-clone-aufs",
+	"syslog-port",
 }
 
 var (
