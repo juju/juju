@@ -35,10 +35,15 @@ out of the vote list and fill it with the old dead ones.
 
 HA
 --
+HA is a work in progress, for the moment we have a basic support which is an
+extension of the regular backup functionality.
+Read carefully before attempting backup/restore on an HA environment.
 
-In the case of HA, the backup process will backup files/db for machine 0
+In the case of HA, the backup process will backup files/db for machine 0,
+support for "any working state server" is plans for the near future.
 We asume, for now, that if you are running restore is because you have
 lost all state-server machines. Out of this restore you will get one
 functioning state-server that you can use to start you other state machines.
-For this, if there is at least one state-server machine up restore will not
-perform the restore.
+BEWARE, only run restore in the case where you no longer have working
+State Servers since otherwise this will take them out of line and possibly
+cripple your environment
