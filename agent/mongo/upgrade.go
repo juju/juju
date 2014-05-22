@@ -12,7 +12,6 @@ import (
 
 	"labix.org/v2/mgo"
 
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/upstart"
 )
 
