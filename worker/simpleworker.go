@@ -3,14 +3,20 @@
 
 package worker
 
+import (
+	"sync"
+)
+
 // simpleWorker implements the worker returned by NewSimpleWorker.
 // The stopc and done channels are used for closing notifications
 // only. No values are sent over them. The err value is set once only,
 // just before the done channel is closed.
 type simpleWorker struct {
-	stopc chan struct{}
-	done  chan struct{}
-	err   error
+	done chan struct{}
+	err  error
+
+	killMutex sync.Mutex
+	stopc     chan struct{}
 }
 
 // NewSimpleWorker returns a worker that runs the given function.  The
@@ -31,9 +37,13 @@ func NewSimpleWorker(doWork func(stopCh <-chan struct{}) error) Worker {
 // Kill implements Worker.Kill() and will close the channel given to the doWork
 // function.
 func (w *simpleWorker) Kill() {
+	w.killMutex.Lock()
+	defer w.killMutex.Unlock()
 	select {
-	case w.stopc <- struct{}{}:
-	default: // stopc is already closed
+	case <-w.stopc:
+		return // stopc is already closed
+	default:
+		close(w.stopc)
 	}
 }
 
