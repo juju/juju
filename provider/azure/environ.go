@@ -769,7 +769,7 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 
 	// Map services to role names we want to delete.
 	serviceInstances := make(map[string]map[string]bool)
-	serviceNames := make([]string, 0)
+	var serviceNames []string
 	for _, id := range ids {
 		serviceName, roleName := env.splitInstanceId(id)
 		if roleName == "" {
