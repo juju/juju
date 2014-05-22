@@ -20,7 +20,7 @@ type RemoveUnitSuite struct {
 var _ = gc.Suite(&RemoveUnitSuite{})
 
 func runRemoveUnit(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveUnitCommand{}), args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveUnitCommand{}), args...)
 	return err
 }
 

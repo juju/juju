@@ -30,20 +30,20 @@ func newUserAddCommand() cmd.Command {
 
 func (s *UserAddCommandSuite) TestAddUser(c *gc.C) {
 
-	_, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password"})
+	_, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "password")
 	c.Assert(err, gc.IsNil)
 
-	_, err = testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "newpassword"})
+	_, err = testing.RunCommand(c, newUserAddCommand(), "foobar", "newpassword")
 	c.Assert(err, gc.ErrorMatches, "Failed to create user: user already exists")
 }
 
 func (s *UserAddCommandSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password", "whoops"})
+	_, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "password", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
 func (s *UserAddCommandSuite) TestNotEnoughArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserAddCommand(), []string{})
+	_, err := testing.RunCommand(c, newUserAddCommand())
 	c.Assert(err, gc.ErrorMatches, `no username supplied`)
 }
 
@@ -56,7 +56,7 @@ func (s *UserAddCommandSuite) TestJenvYamlFileOutput(c *gc.C) {
 	tempFile, err := ioutil.TempFile("", "adduser-test")
 	tempFile.Close()
 	c.Assert(err, gc.IsNil)
-	_, err = testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password", "-o", tempFile.Name()})
+	_, err = testing.RunCommand(c, newUserAddCommand(), "foobar", "password", "-o", tempFile.Name())
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadFile(tempFile.Name())
 	result := map[string]interface{}{}
@@ -71,7 +71,7 @@ func (s *UserAddCommandSuite) TestJenvYamlOutput(c *gc.C) {
 		"password":      "password",
 		"state-servers": []interface{}{},
 		"ca-cert":       ""}
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password"})
+	ctx, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "password")
 	c.Assert(err, gc.IsNil)
 	stdout := ctx.Stdout.(*bytes.Buffer).Bytes()
 	result := map[string]interface{}{}
@@ -86,7 +86,7 @@ func (s *UserAddCommandSuite) TestJenvJsonOutput(c *gc.C) {
 	tempFile, err := ioutil.TempFile("", "adduser-test")
 	tempFile.Close()
 	c.Assert(err, gc.IsNil)
-	_, err = testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password", "-o", tempFile.Name(), "--format", "json"})
+	_, err = testing.RunCommand(c, newUserAddCommand(), "foobar", "password", "-o", tempFile.Name(), "--format", "json")
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadFile(tempFile.Name())
 	c.Assert(string(data), gc.DeepEquals, expected)
@@ -95,14 +95,14 @@ func (s *UserAddCommandSuite) TestJenvJsonOutput(c *gc.C) {
 func (s *UserAddCommandSuite) TestJenvJsonFileOutput(c *gc.C) {
 	expected := `{"User":"foobar","Password":"password","state-servers":null,"ca-cert":""}
 `
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "password", "--format", "json"})
+	ctx, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "password", "--format", "json")
 	c.Assert(err, gc.IsNil)
 	stdout := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(stdout, gc.DeepEquals, expected)
 }
 
 func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar"})
+	ctx, err := testing.RunCommand(c, newUserAddCommand(), "foobar")
 	c.Assert(err, gc.IsNil)
 	stdout := ctx.Stdout.(*bytes.Buffer).Bytes()
 	var d map[string]interface{}

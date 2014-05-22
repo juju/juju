@@ -59,7 +59,7 @@ func (s *syncToolsSuite) Reset(c *gc.C) {
 }
 
 func runSyncToolsCommand(c *gc.C, args ...string) (*cmd.Context, error) {
-	return coretesting.RunCommand(c, envcmd.Wrap(&SyncToolsCommand{}), args)
+	return coretesting.RunCommand(c, envcmd.Wrap(&SyncToolsCommand{}), args...)
 }
 
 func wait(signal chan struct{}) error {

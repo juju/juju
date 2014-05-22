@@ -19,7 +19,7 @@ type ExposeSuite struct {
 var _ = gc.Suite(&ExposeSuite{})
 
 func runExpose(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&ExposeCommand{}), args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&ExposeCommand{}), args...)
 	return err
 }
 
