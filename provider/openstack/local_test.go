@@ -544,7 +544,7 @@ func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 
 	resultMissing := openstack.CollectInstances(env, missing, found)
 
-	c.Assert(resultMissing, jc.SameContents, missing)
+	c.Assert(resultMissing, gc.DeepEquals, missing)
 }
 
 func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
@@ -707,7 +707,7 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 	consB := constraints.MustParse("instance-type=m1.small")
 	cons, err := validator.Merge(consA, consB)
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, jc.SameContents, constraints.MustParse("instance-type=m1.small"))
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("instance-type=m1.small"))
 }
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
