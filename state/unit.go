@@ -1340,8 +1340,13 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 			return "", fmt.Errorf("unit %q is dead", u)
 		}
 
-		if err := u.st.runTransaction(ops); err != txn.ErrAborted {
-			return newActionID, err
+		switch err := u.st.runTransaction(ops); err {
+		case txn.ErrAborted:
+			continue
+		case nil:
+			return newActionID, nil
+		default:
+			return "", err
 		}
 	}
 	return "", ErrExcessiveContention
