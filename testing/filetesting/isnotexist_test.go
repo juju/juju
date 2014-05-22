@@ -12,11 +12,11 @@ import (
 	gc "launchpad.net/gocheck"
 )
 
-type fileSuite struct{}
+type isNotExistSuite struct{}
 
-var _ = gc.Suite(&fileSuite{})
+var _ = gc.Suite(&isNotExistSuite{})
 
-func (*fileSuite) TestIsNotExist(c *gc.C) {
+func (*isNotExistSuite) TestIsNotExist(c *gc.C) {
 	dir := c.MkDir()
 	path := func(s string) string { return filepath.Join(dir, s) }
 	err := ioutil.WriteFile(path("file"), []byte("blah"), 0644)
