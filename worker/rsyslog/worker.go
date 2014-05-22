@@ -139,7 +139,7 @@ func (h *RsyslogConfigHandler) TearDown() error {
 }
 
 func (h *RsyslogConfigHandler) Handle() error {
-	cfg, err := h.st.GetRsyslogConfig()
+	cfg, err := h.st.GetRsyslogConfig(h.tag)
 	if err != nil {
 		return errors.Annotate(err, "cannot get environ config")
 	}

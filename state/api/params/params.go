@@ -683,9 +683,18 @@ type SetRsyslogCertParams struct {
 
 // RsyslogConfigResult holds the result of a GetRsyslogConfig call.
 type RsyslogConfigResult struct {
-	CACert    string
+	Error  *Error
+	CACert string
+	// Port is only used by state servers as the port to listen on.
+	// Clients should use HostPorts for the rsyslog addresses to forward
+	// logs to.
 	Port      int
 	HostPorts []instance.HostPort
+}
+
+// RsyslogConfigResults is the bulk form of RyslogConfigResult
+type RsyslogConfigResults struct {
+	Results []RsyslogConfigResult
 }
 
 // DistributionGroupResult contains the result of

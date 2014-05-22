@@ -60,22 +60,27 @@ func (api *RsyslogAPI) SetRsyslogCert(args params.SetRsyslogCertParams) (params.
 }
 
 // GetRsyslogConfig returns a RsyslogConfigResult.
-func (api *RsyslogAPI) GetRsyslogConfig() (params.RsyslogConfigResult, error) {
+func (api *RsyslogAPI) GetRsyslogConfig(args params.Entities) (params.RsyslogConfigResults, error) {
+	result := params.RsyslogConfigResults{
+		Results: make([]params.RsyslogConfigResult, len(args.Entities)),
+	}
 	cfg, err := api.st.EnvironConfig()
 	if err != nil {
-		return params.RsyslogConfigResult{}, err
+		return result, err
 	}
-
-	rsyslogCfg, err := newRsyslogConfig(cfg, api)
-	if err != nil {
-		return params.RsyslogConfigResult{}, err
+	for i := range args.Entities {
+		rsyslogCfg, err := newRsyslogConfig(cfg, api)
+		if err == nil {
+			result.Results[i] = params.RsyslogConfigResult{
+				CACert:    rsyslogCfg.CACert,
+				Port:      rsyslogCfg.Port,
+				HostPorts: rsyslogCfg.HostPorts,
+			}
+		} else {
+			result.Results[i].Error = common.ServerError(err)
+		}
 	}
-
-	return params.RsyslogConfigResult{
-		CACert:    rsyslogCfg.CACert,
-		Port:      rsyslogCfg.Port,
-		HostPorts: rsyslogCfg.HostPorts,
-	}, nil
+	return result, nil
 }
 
 // WatchForRsyslogChanges starts a watcher to track if there are changes

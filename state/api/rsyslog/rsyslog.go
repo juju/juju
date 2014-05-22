@@ -16,7 +16,8 @@ const rsyslogAPI = "Rsyslog"
 
 // RsyslogConfig holds the values needed for the rsyslog worker
 type RsyslogConfig struct {
-	CACert    string
+	CACert string
+	// Port is only used by state servers as the port to listen on.
 	Port      int
 	HostPorts []instance.HostPort
 }
@@ -75,11 +76,19 @@ func (st *State) WatchForRsyslogChanges(agentTag string) (watcher.NotifyWatcher,
 }
 
 // GetRsyslogConfig returns a RsyslogConfig.
-func (st *State) GetRsyslogConfig() (*RsyslogConfig, error) {
-	var result params.RsyslogConfigResult
-	err := st.caller.Call(rsyslogAPI, "", "GetRsyslogConfig", nil, &result)
+func (st *State) GetRsyslogConfig(agentTag string) (*RsyslogConfig, error) {
+	var results params.RsyslogConfigResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: agentTag}},
+	}
+	err := st.caller.Call(rsyslogAPI, "", "GetRsyslogConfig", args, &results)
 	if err != nil {
 		return nil, err
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		//  TODO: Not directly tested
+		return nil, result.Error
 	}
 	return &RsyslogConfig{
 		CACert:    result.CACert,

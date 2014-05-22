@@ -45,7 +45,7 @@ type Authorizer interface {
 	GetAuthEntity() state.Entity
 }
 
-// AuthEither returns an AuthFunc generator that returns and AuthFunc
+// AuthEither returns an AuthFunc generator that returns an AuthFunc
 // that accepts any tag authorized by either of its arguments.
 func AuthEither(a, b GetAuthFunc) GetAuthFunc {
 	return func() (AuthFunc, error) {
