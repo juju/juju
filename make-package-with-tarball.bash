@@ -73,9 +73,15 @@ make_source_package_branch() {
 
 
 make_source_package() {
-    echo "Phase 2: Creating the source package for ubuntu devel."
+    echo "Phase 2: Creating the source package."
     cd $PACKAGING_DIR
-    bzr bd -S --build-dir=$BUILD_DIR
+    if [[ $PURPOSE == "testing" ]]; then
+        echo "The package is unsigned."
+        bzr bd -S --build-dir=$BUILD_DIR -- -us -uc
+    else
+        echo "The package is signed."
+        bzr bd -S --build-dir=$BUILD_DIR
+    fi
     echo "The source package can be uploaded:"
     echo "  cd $TMP_DIR"
     echo "  dput $PPA juju-core_${UBUNTU_VERSION}_source.changes"
