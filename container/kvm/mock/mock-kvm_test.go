@@ -9,11 +9,11 @@ import (
 
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/container/kvm/mock"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 type MockSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&MockSuite{})

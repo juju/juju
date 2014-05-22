@@ -22,13 +22,13 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
 type storageSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	bin string
 }
 
@@ -56,7 +56,7 @@ func newSSHStorage(host, storageDir, tmpDir string) (*SSHStorage, error) {
 var flockBin string
 
 func (s *storageSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 
 	var err error
 	flockBin, err = exec.LookPath("flock")

@@ -22,7 +22,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -33,7 +32,6 @@ import (
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
-	testbase.LoggingSuite
 	TestConfig coretesting.Attrs
 	envtesting.ToolsFixture
 
@@ -66,14 +64,12 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 }
 
 func (t *Tests) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
 	t.ToolsFixture.SetUpTest(c)
 	t.ConfigStore = configstore.NewMem()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
 	t.ToolsFixture.TearDownTest(c)
-	t.LoggingSuite.TearDownTest(c)
 }
 
 func (t *Tests) TestStartStop(c *gc.C) {

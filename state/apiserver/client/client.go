@@ -36,7 +36,6 @@ type API struct {
 	auth      common.Authorizer
 	resources *common.Resources
 	client    *Client
-	dataDir   string
 	// statusSetter provides common methods for updating an entity's provisioning status.
 	statusSetter *common.StatusSetter
 }
@@ -47,12 +46,11 @@ type Client struct {
 }
 
 // NewAPI creates a new instance of the Client API.
-func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer, datadir string) *API {
+func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) *API {
 	r := &API{
 		state:        st,
 		auth:         authorizer,
 		resources:    resources,
-		dataDir:      datadir,
 		statusSetter: common.NewStatusSetter(st, common.AuthAlways(true)),
 	}
 	r.client = &Client{

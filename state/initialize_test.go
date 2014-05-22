@@ -11,29 +11,28 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type InitializeSuite struct {
 	testing.MgoSuite
-	testbase.LoggingSuite
+	testing.BaseSuite
 	State *state.State
 }
 
 var _ = gc.Suite(&InitializeSuite{})
 
 func (s *InitializeSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *InitializeSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *InitializeSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 }
 
@@ -46,7 +45,7 @@ func (s *InitializeSuite) openState(c *gc.C) {
 func (s *InitializeSuite) TearDownTest(c *gc.C) {
 	s.State.Close()
 	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *InitializeSuite) TestInitialize(c *gc.C) {

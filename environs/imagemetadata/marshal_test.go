@@ -10,13 +10,13 @@ import (
 
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 var _ = gc.Suite(&marshalSuite{})
 
 type marshalSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var expectedIndex = `{

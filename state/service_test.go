@@ -1102,6 +1102,13 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 		}
 	}
 
+	// Check for queued unit cleanups, and run them.
+	dirty, err = s.State.NeedsCleanup()
+	c.Assert(err, gc.IsNil)
+	c.Assert(dirty, gc.Equals, true)
+	err = s.State.Cleanup()
+	c.Assert(err, gc.IsNil)
+
 	// Check we're now clean.
 	dirty, err = s.State.NeedsCleanup()
 	c.Assert(err, gc.IsNil)
@@ -1164,7 +1171,7 @@ func (s *ServiceSuite) TestConstraints(c *gc.C) {
 func (s *ServiceSuite) TestSetInvalidConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=4G instance-type=foo")
 	err := s.mysql.SetConstraints(cons)
-	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "mem" overlaps with "instance-type"`)
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 }
 
 func (s *ServiceSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {

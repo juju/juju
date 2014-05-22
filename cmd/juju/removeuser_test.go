@@ -18,7 +18,7 @@ type RemoveUserSuite struct {
 var _ = gc.Suite(&RemoveUserSuite{})
 
 func (s *RemoveUserSuite) TestRemoveUser(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&AddUserCommand{}), []string{"foobar", "password"})
+	_, err := testing.RunCommand(c, envcmd.Wrap(&UserAddCommand{}), []string{"foobar"})
 	c.Assert(err, gc.IsNil)
 
 	_, err = testing.RunCommand(c, envcmd.Wrap(&RemoveUserCommand{}), []string{"foobar"})

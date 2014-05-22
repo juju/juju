@@ -26,7 +26,7 @@ import (
 	containertesting "launchpad.net/juju-core/container/testing"
 	instancetest "launchpad.net/juju-core/instance/testing"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -447,7 +447,7 @@ func (s *LxcSuite) TestDestroyContainerNoRestartDir(c *gc.C) {
 }
 
 type NetworkSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&NetworkSuite{})

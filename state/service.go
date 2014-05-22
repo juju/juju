@@ -189,7 +189,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	// about is that *some* unit is, or is not, keeping the service from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
 	if s.doc.UnitCount > 0 {
-		ops = append(ops, s.st.newCleanupOp("units", s.doc.Name+"/"))
+		ops = append(ops, s.st.newCleanupOp(cleanupUnitsForDyingService, s.doc.Name+"/"))
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", bson.D{{"$gt", 0}}}}...)
 	} else {
 		notLastRefs = append(notLastRefs, bson.D{{"unitcount", 0}}...)

@@ -13,20 +13,20 @@ import (
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/container/kvm/mock"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 // TestSuite replaces the kvm factory that the manager uses with a mock
 // implementation.
 type TestSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	Factory      mock.ContainerFactory
 	ContainerDir string
 	RemovedDir   string
 }
 
 func (s *TestSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.ContainerDir = c.MkDir()
 	s.PatchValue(&container.ContainerDir, s.ContainerDir)
 	s.RemovedDir = c.MkDir()

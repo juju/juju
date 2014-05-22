@@ -18,17 +18,17 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
 type SimpleStreamsToolsSuite struct {
 	env environs.Environ
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	envtesting.ToolsFixture
 	origCurrentVersion version.Binary
 	customToolsDir     string
@@ -40,14 +40,14 @@ func setupToolsTests() {
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.customToolsDir = c.MkDir()
 	s.publicToolsDir = c.MkDir()
 }
 
 func (s *SimpleStreamsToolsSuite) SetUpTest(c *gc.C) {
 	s.ToolsFixture.DefaultBaseURL = "file://" + s.publicToolsDir
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.origCurrentVersion = version.Current
 	s.reset(c, nil)
@@ -57,7 +57,7 @@ func (s *SimpleStreamsToolsSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	version.Current = s.origCurrentVersion
 	s.ToolsFixture.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *SimpleStreamsToolsSuite) reset(c *gc.C, attrs map[string]interface{}) {
@@ -82,11 +82,11 @@ func (s *SimpleStreamsToolsSuite) removeTools(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) uploadCustom(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return ttesting.UploadToDirectory(c, s.customToolsDir, verses...)
+	return toolstesting.UploadToDirectory(c, s.customToolsDir, verses...)
 }
 
 func (s *SimpleStreamsToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return ttesting.UploadToDirectory(c, s.publicToolsDir, verses...)
+	return toolstesting.UploadToDirectory(c, s.publicToolsDir, verses...)
 }
 
 func (s *SimpleStreamsToolsSuite) resetEnv(c *gc.C, attrs map[string]interface{}) {
@@ -180,7 +180,7 @@ func (s *SimpleStreamsToolsSuite) TestFindTools(c *gc.C) {
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsInControlBucket(c *gc.C) {
 	s.reset(c, nil)
-	custom := ttesting.UploadToStorage(c, s.env.Storage(), envtesting.V110p...)
+	custom := toolstesting.UploadToStorage(c, s.env.Storage(), envtesting.V110p...)
 	s.uploadPublic(c, envtesting.VAll...)
 	actual, err := envtools.FindTools(s.env, 1, 1, coretools.Filter{}, envtools.DoNotAllowRetry)
 	c.Assert(err, gc.IsNil)

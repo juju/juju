@@ -9,14 +9,14 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/testing"
 	ft "launchpad.net/juju-core/testing/filetesting"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
 type ManifestDeployerSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	bundles    *bundleReader
 	targetPath string
 	deployer   charm.Deployer
@@ -29,7 +29,7 @@ var _ = gc.Suite(&ManifestDeployerSuite{})
 // well.
 
 func (s *ManifestDeployerSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.bundles = &bundleReader{}
 	s.targetPath = filepath.Join(c.MkDir(), "target")
 	deployerPath := filepath.Join(c.MkDir(), "deployer")

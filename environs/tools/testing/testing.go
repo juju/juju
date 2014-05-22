@@ -5,7 +5,9 @@ package testing
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
@@ -20,13 +22,53 @@ import (
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
+	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
+	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/version/ubuntu"
 )
+
+func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
+	return func(w io.Writer, forceVersion *version.Number) (vers version.Binary, sha256Hash string, err error) {
+		vers = version.Current
+		if forceVersion != nil {
+			vers.Number = *forceVersion
+		}
+		sha256Hash = fmt.Sprintf("%x", sha256.New().Sum(nil))
+		return vers, sha256Hash, err
+	}
+}
+
+// GetMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
+// a fake tools tarball.
+func GetMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
+	return func(forceVersion *version.Number) (*sync.BuiltTools, error) {
+		vers := version.Current
+		if forceVersion != nil {
+			vers.Number = *forceVersion
+		}
+
+		tgz, checksum := coretesting.TarGz(
+			coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
+
+		toolsDir, err := ioutil.TempDir("", "juju-tools")
+		c.Assert(err, gc.IsNil)
+		name := "name"
+		ioutil.WriteFile(filepath.Join(toolsDir, name), tgz, 0777)
+
+		return &sync.BuiltTools{
+			Dir:         toolsDir,
+			StorageName: name,
+			Version:     vers,
+			Size:        int64(len(tgz)),
+			Sha256Hash:  checksum,
+		}, nil
+	}
+}
 
 // MakeTools creates some fake tools with the given version strings.
 func MakeTools(c *gc.C, metadataDir, subdir string, versionStrings []string) coretools.List {

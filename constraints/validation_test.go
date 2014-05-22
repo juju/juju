@@ -39,7 +39,7 @@ var validationTests = []struct {
 		reds:        []string{"mem", "arch"},
 		blues:       []string{"instance-type"},
 		unsupported: []string{"cpu-cores"},
-		err:         `ambiguous constraints: "mem" overlaps with "instance-type"`,
+		err:         `ambiguous constraints: "instance-type" overlaps with "mem"`,
 	},
 	{
 		cons: "root-disk=8G mem=4G arch=amd64 cpu-cores=4 instance-type=foo",
@@ -67,7 +67,7 @@ var validationTests = []struct {
 		cons:  "root-disk=8G mem=4G cpu-cores=4 instance-type=foo",
 		reds:  []string{"mem", "arch"},
 		blues: []string{"instance-type"},
-		err:   `ambiguous constraints: "mem" overlaps with "instance-type"`,
+		err:   `ambiguous constraints: "instance-type" overlaps with "mem"`,
 	},
 	{
 		cons:  "arch=amd64 mem=4G cpu-cores=4",
@@ -336,7 +336,7 @@ func (s *validationSuite) TestMergeError(c *gc.C) {
 	consFallback := constraints.MustParse("instance-type=foo mem=4G")
 	cons := constraints.MustParse("cpu-cores=2")
 	_, err := validator.Merge(consFallback, cons)
-	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "mem" overlaps with "instance-type"`)
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 	_, err = validator.Merge(cons, consFallback)
-	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "mem" overlaps with "instance-type"`)
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 }

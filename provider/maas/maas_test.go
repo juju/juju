@@ -10,11 +10,10 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type providerSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	envtesting.ToolsFixture
 	testMAASObject  *gomaasapi.TestMAASObject
 	restoreTimeouts func()
@@ -24,7 +23,7 @@ var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(&shortAttempt)
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
@@ -32,20 +31,20 @@ func (s *providerSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 }
 
 func (s *providerSuite) TearDownTest(c *gc.C) {
 	s.testMAASObject.TestServer.Clear()
 	s.ToolsFixture.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *providerSuite) TearDownSuite(c *gc.C) {
 	s.testMAASObject.Close()
 	s.restoreTimeouts()
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 const exampleAgentName = "dfb69555-0bc4-4d1f-85f2-4ee390974984"

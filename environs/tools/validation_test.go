@@ -10,12 +10,12 @@ import (
 
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
 type ValidateSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	metadataDir string
 }
 
@@ -40,7 +40,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, version, series string) error
 }
 
 func (s *ValidateSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.metadataDir = c.MkDir()
 }
 
