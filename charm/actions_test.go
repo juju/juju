@@ -20,136 +20,124 @@ func (s *ActionsSuite) TestReadGoodActionsYaml(c *gc.C) {
 		description     string
 		yaml            string
 		expectedActions *charm.Actions
-	}{
-		{
-			description: "A simple snapshot actions YAML with one parameter.",
-
-			yaml: `
+	}{{
+		description: "A simple snapshot actions YAML with one parameter.",
+		yaml: `
 actions:
-  snapshot:
-    description: Take a snapshot of the database.
-    params:
-      outfile:
-        description: The file to write out to.
-        type: string
-        default: foo.bz2
+   snapshot:
+      description: Take a snapshot of the database.
+      params:
+         outfile:
+            description: The file to write out to.
+            type: string
+            default: foo.bz2
 `,
-			expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-				"snapshot": charm.ActionSpec{
-					Description: "Take a snapshot of the database.",
-					Params: map[string]interface{}{
-						"outfile": map[interface{}]interface{}{
-							"description": "The file to write out to.",
-							"type":        "string",
-							"default":     "foo.bz2"}}}}}},
-
-		{
-			description: "An empty Actions definition.",
-
-			yaml: "",
-
-			expectedActions: &charm.Actions{ActionSpecs: map[string]charm.ActionSpec(nil)}},
-
-		{
-			description: "A more complex schema with hyphenated names and multiple parameters.",
-			yaml: `
+		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
+			"snapshot": charm.ActionSpec{
+				Description: "Take a snapshot of the database.",
+				Params: map[string]interface{}{
+					"outfile": map[interface{}]interface{}{
+						"description": "The file to write out to.",
+						"type":        "string",
+						"default":     "foo.bz2"}}}}},
+	}, {
+		description:     "An empty Actions definition.",
+		yaml:            "",
+		expectedActions: &charm.Actions{},
+	}, {
+		description: "A more complex schema with hyphenated names and multiple parameters.",
+		yaml: `
 actions:
-  snapshot:
-    description: Take a snapshot of the database.
-    params:
-      outfile:
-        description: The file to write out to.
-        type: string
-        default: foo.bz2
-      compression-quality:
-        description: The compression quality.
-        type: number
-        minimum: 0
-        maximum: 9
-        exclusiveMaximum: false
-  remote-sync:
-    description: Sync a file to a remote host.
-    params:
-      file:
-        description: The file to send out.
-        type: string
-        format: uri
-        optional: false
-      remote-uri:
-        description: The host to sync to.
-        type: string
-        format: uri
-        optional: false
-      util:
-        description: The util to perform the sync (rsync or scp.)
-        type: string
-        enum: [rsync, scp]
-        default: rsync
+   snapshot:
+      description: Take a snapshot of the database.
+      params:
+         outfile:
+            description: The file to write out to.
+            type: string
+            default: foo.bz2
+         compression-quality:
+            description: The compression quality.
+            type: number
+            minimum: 0
+            maximum: 9
+            exclusiveMaximum: false
+   remote-sync:
+      description: Sync a file to a remote host.
+      params:
+         file:
+            description: The file to send out.
+            type: string
+            format: uri
+            optional: false
+         remote-uri:
+            description: The host to sync to.
+            type: string
+            format: uri
+            optional: false
+         util:
+            description: The util to perform the sync (rsync or scp.)
+            type: string
+            enum: [rsync, scp]
+            default: rsync
 `,
-			expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-				"snapshot": charm.ActionSpec{
-					Description: "Take a snapshot of the database.",
-					Params: map[string]interface{}{
-						"outfile": map[interface{}]interface{}{
-							"description": "The file to write out to.",
-							"type":        "string",
-							"default":     "foo.bz2"},
-						"compression-quality": map[interface{}]interface{}{
-							"description":      "The compression quality.",
-							"type":             "number",
-							"minimum":          0,
-							"maximum":          9,
-							"exclusiveMaximum": false}}},
-				"remote-sync": charm.ActionSpec{
-					Description: "Sync a file to a remote host.",
-					Params: map[string]interface{}{
-						"file": map[interface{}]interface{}{
-							"description": "The file to send out.",
-							"type":        "string",
-							"format":      "uri",
-							"optional":    false},
-						"remote-uri": map[interface{}]interface{}{
-							"description": "The host to sync to.",
-							"type":        "string",
-							"format":      "uri",
-							"optional":    false},
-						"util": map[interface{}]interface{}{
-							"description": "The util to perform the sync (rsync or scp.)",
-							"type":        "string",
-							"enum":        []interface{}{"rsync", "scp"},
-							"default":     "rsync"}}}}},
-		},
-
-		{
-			description: "A schema with an empty \"params\" key, implying no options.",
-
-			yaml: `
+		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
+			"snapshot": charm.ActionSpec{
+				Description: "Take a snapshot of the database.",
+				Params: map[string]interface{}{
+					"outfile": map[interface{}]interface{}{
+						"description": "The file to write out to.",
+						"type":        "string",
+						"default":     "foo.bz2"},
+					"compression-quality": map[interface{}]interface{}{
+						"description":      "The compression quality.",
+						"type":             "number",
+						"minimum":          0,
+						"maximum":          9,
+						"exclusiveMaximum": false}}},
+			"remote-sync": charm.ActionSpec{
+				Description: "Sync a file to a remote host.",
+				Params: map[string]interface{}{
+					"file": map[interface{}]interface{}{
+						"description": "The file to send out.",
+						"type":        "string",
+						"format":      "uri",
+						"optional":    false},
+					"remote-uri": map[interface{}]interface{}{
+						"description": "The host to sync to.",
+						"type":        "string",
+						"format":      "uri",
+						"optional":    false},
+					"util": map[interface{}]interface{}{
+						"description": "The util to perform the sync (rsync or scp.)",
+						"type":        "string",
+						"enum":        []interface{}{"rsync", "scp"},
+						"default":     "rsync"}}}}},
+	}, {
+		description: "A schema with an empty \"params\" key, implying no options.",
+		yaml: `
 actions:
-  snapshot:
-    description: Take a snapshot of the database.
-    params:
+   snapshot:
+      description: Take a snapshot of the database.
+      params:
 `,
 
-			expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-				"snapshot": charm.ActionSpec{
-					Description: "Take a snapshot of the database.",
-					Params:      nil}}},
-		},
-
-		{
-			description: "A schema with no \"params\" key, implying no options.",
-
-			yaml: `
+		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
+			"snapshot": charm.ActionSpec{
+				Description: "Take a snapshot of the database.",
+				Params:      nil}}},
+	}, {
+		description: "A schema with no \"params\" key, implying no options.",
+		yaml: `
 actions:
-  snapshot:
-    description: Take a snapshot of the database.
+   snapshot:
+      description: Take a snapshot of the database.
 `,
 
-			expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-				"snapshot": charm.ActionSpec{
-					Description: "Take a snapshot of the database.",
-					Params:      nil}}},
-		}}
+		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
+			"snapshot": charm.ActionSpec{
+				Description: "Take a snapshot of the database.",
+				Params:      nil}}},
+	}}
 
 	// Beginning of testing loop
 	for i, test := range goodActionsYamlTests {
@@ -167,71 +155,107 @@ func (s *ActionsSuite) TestReadBadActionsYaml(c *gc.C) {
 		description   string
 		yaml          string
 		expectedError string
-	}{
-		{
-			description: "Malformed YAML: missing key in \"outfile\".",
-
-			yaml: `
+	}{{
+		description: "Malformed YAML: missing key in \"outfile\".",
+		yaml: `
 actions:
-  snapshot:
-    description: Take a snapshot of the database.
-    params:
-      outfile:
-        The file to write out to.
-        type: string
-        default: foo.bz2
+   snapshot:
+      description: Take a snapshot of the database.
+      params:
+         outfile:
+            The file to write out to.
+            type: string
+            default: foo.bz2
 `,
 
-			expectedError: "YAML error: line 7: mapping values are not allowed in this context",
-		},
-
-		{
-			description: "Malformed JSON-Schema: $schema element misplaced.",
-
-			yaml: `
+		expectedError: "YAML error: line 7: mapping values are not allowed in this context",
+	}, {
+		description: "Malformed JSON-Schema: $schema element misplaced.",
+		yaml: `
 actions:
-  snapshot:
-  description: Take a snapshot of the database.
-    params:
-      outfile:
-        $schema: http://json-schema.org/draft-03/schema#
-        description: The file to write out to.
-        type: string
-        default: foo.bz2
+   snapshot:
+   description: Take a snapshot of the database.
+      params:
+         outfile:
+            $schema: http://json-schema.org/draft-03/schema#
+            description: The file to write out to.
+            type: string
+            default: foo.bz2
 `,
 
-			expectedError: "YAML error: line 4: mapping values are not allowed in this context",
-		},
-
-		{
-			description: "Malformed Actions: hyphen at beginning of action name.",
-
-			yaml: `
+		expectedError: "YAML error: line 4: mapping values are not allowed in this context",
+	}, {
+		description: "Malformed Actions: hyphen at beginning of action name.",
+		yaml: `
 actions:
-  -snapshot:
-    description: Take a snapshot of the database.
+   -snapshot:
+      description: Take a snapshot of the database.
 `,
 
-			expectedError: "bad action name -snapshot",
-		},
-
-		{
-			description: "Malformed Actions: hyphen after action name.",
-
-			yaml: `
+		expectedError: "bad action name -snapshot",
+	}, {
+		description: "Malformed Actions: hyphen after action name.",
+		yaml: `
 actions:
-  snapshot-:
-    description: Take a snapshot of the database.
+   snapshot-:
+      description: Take a snapshot of the database.
 `,
 
-			expectedError: "bad action name snapshot-",
-		},
-	}
+		expectedError: "bad action name snapshot-",
+	}, {
+		description: "Malformed Actions: caps in action name.",
+		yaml: `
+actions:
+   Snapshot:
+      description: Take a snapshot of the database.
+`,
+
+		expectedError: "bad action name Snapshot",
+	}, {
+		description: "Malformed Params: hyphen before param name.",
+		yaml: `
+actions:
+   snapshot:
+      description: Take a snapshot of the database.
+      params:
+        -outfile:
+          description: The file to write out to.
+`,
+
+		expectedError: "bad param name -outfile",
+	}, {
+		description: "Malformed Params: hyphen after param name.",
+		yaml: `
+actions:
+   snapshot:
+      description: Take a snapshot of the database.
+      params:
+        outfile-:
+          description: The file to write out to.
+`,
+
+		expectedError: "bad param name outfile-",
+	}, {
+		description: "Malformed Params: caps in param name.",
+		yaml: `
+actions:
+   snapshot:
+      description: Take a snapshot of the database.
+      params:
+        Outfile:
+          description: The file to write out to.
+`,
+
+		expectedError: "bad param name Outfile",
+	}}
 
 	for i, test := range badActionsYamlTests {
 		c.Logf("test %d: %s", i, test.description)
 		reader := bytes.NewReader([]byte(test.yaml))
-		_, err := charm.ReadActionsYaml(reader)
+		unma, err := charm.ReadActionsYaml(reader)
+		c.Logf("test %d: actions yaml was %s", i, test.yaml)
+		c.Logf("test %d: unmarshaled action was %v", i, unma)
+		c.Logf("test %d: error was %s", i, err.Error())
 		c.Assert(err.Error(), gc.Equals, test.expectedError)
 	}
 }
