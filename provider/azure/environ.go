@@ -769,15 +769,18 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 
 	// Map services to role names we want to delete.
 	serviceInstances := make(map[string]map[string]bool)
+	serviceNames := make([]string, 0)
 	for _, id := range ids {
 		serviceName, roleName := env.splitInstanceId(id)
 		if roleName == "" {
 			serviceInstances[serviceName] = nil
+			serviceNames = append(serviceNames, serviceName)
 		} else {
 			deleteRoleNames, ok := serviceInstances[serviceName]
 			if !ok {
 				deleteRoleNames = make(map[string]bool)
 				serviceInstances[serviceName] = deleteRoleNames
+				serviceNames = append(serviceNames, serviceName)
 			}
 			deleteRoleNames[roleName] = true
 		}
@@ -788,7 +791,8 @@ func (env *azureEnviron) StopInstances(ids ...instance.Id) error {
 	//
 	// Note: concurrent operations on Affinity Groups have been
 	// found to cause conflict responses, so we do everything serially.
-	for serviceName, deleteRoleNames := range serviceInstances {
+	for _, serviceName := range serviceNames {
+		deleteRoleNames := serviceInstances[serviceName]
 		service, err := context.GetHostedServiceProperties(serviceName, true)
 		if err != nil {
 			return err
