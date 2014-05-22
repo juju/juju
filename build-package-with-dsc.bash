@@ -74,9 +74,7 @@ EOT
     if [[ $INSTANCE_NAME = "localhost" ]]; then
         eval "$DEP_SCRIPT"
     else
-        ssh "$@" $REMOTE_USER@$INSTANCE_NAME  <<EOT
-        eval "$DEP_SCRIPT"
-EOT
+        ssh "$@" $REMOTE_USER@$INSTANCE_NAME "$DEP_SCRIPT"
     fi
 }
 
