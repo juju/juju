@@ -16,7 +16,7 @@ import (
 )
 
 // getAddresses queries and returns the Addresses for the given instances,
-// ignoring nil instances or ones without addresses
+// ignoring nil instances or ones without addresses.
 func getAddresses(instances []instance.Instance) []string {
 	names := make([]string, 0)
 	for _, inst := range instances {
@@ -25,6 +25,10 @@ func getAddresses(instances []instance.Instance) []string {
 		}
 		addrs, err := inst.Addresses()
 		if err != nil {
+			logger.Debugf(
+				"failed to get addresses for %v: %v (ignoring)",
+				inst.Id(), err,
+			)
 			continue
 		}
 		for _, addr := range addrs {
