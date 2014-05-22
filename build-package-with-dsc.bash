@@ -5,14 +5,14 @@
 
 
 usage() {
-    echo "usage: $0 [<instance-type> <ami> | <[user@]host> '<ssh-optons>'] dsc"
+    echo "usage: $0 [<instance-type> <ami> | <[user@]host> '<ssh-options>'] dsc"
     echo "  Build binary packages on an ec2 instance or a remote host."
     echo ""
     echo "  instance-type: the ec2 instance type, like m1.large."
     echo "  ami: The ec2 image, it defines the series and arch to build."
     echo "  user@host: host to build on. 'user@' is optional."
     echo "      Use localhost to build locally."
-    echo "  ssh-option: a string of all the options to establish a connection."
+    echo "  ssh-options: a string of all the options to establish a connection."
     echo "      Like '-o \"ProxyCommand ssh user@10.10.10.10 nc -q0 %h %p\"'."
     echo "  dsc: The path the the dsc file."
 }
@@ -82,6 +82,9 @@ EOT
 upload_source_package_files() {
     echo "Uploading source package files."
     source_dir=$(dirname $DSC)
+    # The source files are listed between the Checksums-Sha256 and Files
+    # sections in the dsc. The spaces are replaces with ":" to make data easy
+    # to cut.
     source_file_data=$(
         sed -n '/^Checksums-Sha256/,/^Files/!d; /^ /!d; s,^ ,,; s, ,:,gp' $DSC)
     source_files="$DSC"
@@ -95,7 +98,9 @@ upload_source_package_files() {
         source_files="$source_files $source_dir/$file_name"
     done
     ssh "$@" $REMOTE_USER@$INSTANCE_NAME <<EOT
-        test -d $THERE/juju-build/ || mkdir $THERE/juju-build
+        if [[ ! -d $THERE/juju-build/ ]]; then
+            mkdir $THERE/juju-build
+        fi
 EOT
     scp "$@" $source_files $REMOTE_USER@$INSTANCE_NAME:$THERE/juju-build/
 }
@@ -152,6 +157,7 @@ if [[ $1 = "localhost" ]]; then
     THERE=$(pwd)
     REMOTE_USER=$USER
     INSTANCE_NAME=$1
+    # Remap ssh option strings to $@ to preserve their tokenisation.
     eval "set -- $ssh_options"
 elif [[ $1 =~ .*@.* ]]; then
     # Use the connection information to build juju remotely in ~/juju-build.
@@ -159,6 +165,7 @@ elif [[ $1 =~ .*@.* ]]; then
     IS_EPHEMERAL="false"
     REMOTE_USER=$(echo $1 | cut -d @ -f1)
     INSTANCE_NAME=$(echo $1 | cut -d @ -f2)
+    # Remap ssh option strings to $@ to preserve their tokenisation.
     eval "set -- $ssh_options $2"
 else
     # Create an instance to build juju remotely in ~/juju-build.
@@ -167,6 +174,7 @@ else
     REMOTE_USER="ubuntu"
     export INSTANCE_TYPE=$1
     export AMI_IMAGE=$2
+    # Remap ssh option strings to $@ to preserve their tokenisation.
     eval "set -- $ssh_options"
 fi
 
