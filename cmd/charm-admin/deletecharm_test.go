@@ -53,8 +53,7 @@ func (s *DeleteCharmSuite) TestRun(c *gc.C) {
 	}
 	// Delete charm that does not exist, not found error.
 	config := &DeleteCharmCommand{}
-	out, err := testing.RunCommand(c, config,
-		[]string{"--config", configPath, "--url", "cs:unreleased/foo"})
+	out, err := testing.RunCommand(c, config, "--config", configPath, "--url", "cs:unreleased/foo")
 	fmt.Println(out)
 	c.Assert(err, gc.NotNil)
 	// Publish that charm now
@@ -69,8 +68,7 @@ func (s *DeleteCharmSuite) TestRun(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 	// Delete charm, should now succeed
-	_, err = testing.RunCommand(c, config,
-		[]string{"--config", configPath, "--url", "cs:unreleased/foo"})
+	_, err = testing.RunCommand(c, config, "--config", configPath, "--url", "cs:unreleased/foo")
 	c.Assert(err, gc.IsNil)
 	c.Assert(config.Config, gc.NotNil)
 	// Confirm that the charm is gone

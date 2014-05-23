@@ -927,14 +927,18 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// another will require retries.
 	m1, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m1)
 	m2, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m2)
 	m3, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
 	m4, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
-	s.checkStartInstance(c, m1)
-	s.checkStartInstance(c, m2)
+
+	// mockBroker will fail to start machine-3 several times;
+	// keep setting the transient flag to retry until the
+	// instance has started.
 	thatsAllFolks := make(chan struct{})
 	go func() {
 		for {
@@ -949,6 +953,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	}()
 	s.checkStartInstance(c, m3)
 	close(thatsAllFolks)
+
 	// Machine 4 is never provisioned.
 	status, _, _, err := m4.Status()
 	c.Assert(err, gc.IsNil)

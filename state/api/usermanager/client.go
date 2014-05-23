@@ -5,6 +5,7 @@ package usermanager
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"

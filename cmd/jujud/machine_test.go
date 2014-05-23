@@ -39,7 +39,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
@@ -854,7 +854,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 func (s *MachineSuite) TestMachineEnvironWorker(c *gc.C) {
 	proxyDir := c.MkDir()
 	s.agentSuite.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
-	s.agentSuite.PatchValue(&utils.AptConfFile, filepath.Join(proxyDir, "juju-apt-proxy"))
+	s.agentSuite.PatchValue(&apt.ConfFile, filepath.Join(proxyDir, "juju-apt-proxy"))
 
 	s.primeAgent(c, version.Current, state.JobHostUnits)
 	// Make sure there are some proxy settings to write.
@@ -875,7 +875,7 @@ func (s *MachineSuite) TestMachineEnvironWorker(c *gc.C) {
 			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timeout while waiting for proxy settings to change")
 			case <-time.After(10 * time.Millisecond):
-				_, err := os.Stat(utils.AptConfFile)
+				_, err := os.Stat(apt.ConfFile)
 				if os.IsNotExist(err) {
 					continue
 				}

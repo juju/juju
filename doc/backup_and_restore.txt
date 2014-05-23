@@ -1,0 +1,53 @@
+Backup and restore
+==================
+
+Currently backup and restore is run by very different pieces of software.
+This doc is intended as an overview of both since, at least in the current
+status, changes in juju are prone to break both.
+
+Backup
+------
+
+juju-backup is a bash script that runs remote actions on the state-server
+and fetches the result in the form of a tgz file named after the date.
+The process gathers various files relevant to the server such as:
+* /var/log/juju
+* /var/lib/juju
+* ~/.ssh/
+Also it creates a dump of the mongo db, for this it stops the db for a moment, 
+it is a rather short period of time, depending on how much it takes to dump your
+whole db (so backup time most likely should grow over time), during this period
+running juju commands will fail (running services should not be affected)
+which makes it less than ideal to be run as often as a backup process should be.
+
+Restore
+-------
+
+juju-restore is a juju plugin that, if no state-server is present, will
+bootstrap a new node in safe mode (ProvisionerSafeMode reports whether the provisioner 
+should not destroy machines it does not know about) then upload to the tgz backup file
+and:
+* Stop juju-db
+* Stop jujud-machine
+* Loads the backed up db in place of the recently created one
+* Untars the fs files into the current machine
+* Runs a set of bash scripts that replace the dns/instance names of the old
+machine with those of the new machine in the relevant config files and also
+in the db, if this step is not performed peergrouper will kick our machine
+out of the vote list and fill it with the old dead ones.
+* Restarts all services.
+
+HA
+--
+HA is a work in progress, for the moment we have a basic support which is an
+extension of the regular backup functionality.
+Read carefully before attempting backup/restore on an HA environment.
+
+In the case of HA, the backup process will backup files/db for machine 0,
+support for "any working state server" is plans for the near future.
+We assume, for now, that if you are running restore is because you have
+lost all state-server machines. Out of this restore you will get one
+functioning state-server that you can use to start you other state machines.
+BEWARE, only run restore in the case where you no longer have working
+State Servers since otherwise this will take them offline and possibly
+cripple your environment

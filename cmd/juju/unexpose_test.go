@@ -19,7 +19,7 @@ type UnexposeSuite struct {
 var _ = gc.Suite(&UnexposeSuite{})
 
 func runUnexpose(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&UnexposeCommand{}), args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&UnexposeCommand{}), args...)
 	return err
 }
 
