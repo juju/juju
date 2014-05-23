@@ -4,11 +4,22 @@
 package upgrades
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
 )
 
 func updateRsyslogPort(context Context) error {
-	st := context.State()
+	agentConfig := context.AgentConfig()
+	info, ok := agentConfig.StateInfo()
+	if !ok {
+		return fmt.Errorf("Failed to get StateInfo")
+	}
+	st, err := state.Open(info, state.DefaultDialOpts(), nil)
+	if err != nil {
+		return err
+	}
 	attrs := map[string]interface{}{
 		"syslog-port": config.DefaultSyslogPort,
 	}

@@ -23,9 +23,12 @@ func (s *rsyslogPortSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	s.ctx = &mockContext{
-		agentConfig: &mockAgentConfig{dataDir: s.DataDir()},
-		apiState:    apiState,
-		state:       s.State,
+		agentConfig: &mockAgentConfig{
+			dataDir:   s.DataDir(),
+			stateInfo: s.StateInfo(c),
+		},
+		apiState: apiState,
+		state:    s.State,
 	}
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
