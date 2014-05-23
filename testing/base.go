@@ -41,8 +41,8 @@ func (t *BaseSuite) SetUpTest(c *gc.C) {
 	} {
 		t.oldEnvironment[name] = os.Getenv(name)
 	}
-	t.oldHomeEnv = osenv.Home()
-	osenv.SetHome("")
+	t.oldHomeEnv = utils.Home()
+	utils.SetHome("")
 	os.Setenv(osenv.JujuHomeEnvKey, "")
 	os.Setenv(osenv.JujuEnvEnvKey, "")
 	os.Setenv(osenv.JujuLoggingConfigEnvKey, "")
@@ -54,7 +54,7 @@ func (t *BaseSuite) TearDownTest(c *gc.C) {
 	for name, value := range t.oldEnvironment {
 		os.Setenv(name, value)
 	}
-	osenv.SetHome(t.oldHomeEnv)
+	utils.SetHome(t.oldHomeEnv)
 }
 
 type TestFile struct {
@@ -70,7 +70,7 @@ type FakeHome struct {
 
 func MakeFakeHome(c *gc.C) *FakeHome {
 	fakeHome := c.MkDir()
-	osenv.SetHome(fakeHome)
+	utils.SetHome(fakeHome)
 
 	sshPath := filepath.Join(fakeHome, ".ssh")
 	err := os.Mkdir(sshPath, 0777)
@@ -85,7 +85,7 @@ func MakeFakeHome(c *gc.C) *FakeHome {
 
 func (h *FakeHome) AddFiles(c *gc.C, files ...TestFile) {
 	for _, f := range files {
-		path := filepath.Join(osenv.Home(), f.Name)
+		path := filepath.Join(utils.Home(), f.Name)
 		err := os.MkdirAll(filepath.Dir(path), 0700)
 		c.Assert(err, gc.IsNil)
 		err = ioutil.WriteFile(path, []byte(f.Data), 0666)
@@ -121,6 +121,6 @@ func (h *FakeHome) FileExists(path string) bool {
 // HomePath joins the specified path snippets and returns
 // an absolute path under Juju home.
 func HomePath(names ...string) string {
-	all := append([]string{osenv.Home()}, names...)
+	all := append([]string{utils.Home()}, names...)
 	return filepath.Join(all...)
 }
