@@ -16,8 +16,8 @@ func updateRsyslogPort(context Context) error {
 	if !ok {
 		return fmt.Errorf("Failed to get StateInfo")
 	}
-	// we need to re-open state so we can bypass validation
-	// as the syslog-port is normally immutable
+	// we need to re-open state with a nil policay so we can bypass
+	// validation, as the syslog-port is normally immutable
 	st, err := state.Open(info, state.DefaultDialOpts(), nil)
 	if err != nil {
 		return err
