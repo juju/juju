@@ -26,7 +26,7 @@ type ValidateImageMetadataSuite struct {
 var _ = gc.Suite(&ValidateImageMetadataSuite{})
 
 func runValidateImageMetadata(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&ValidateImageMetadataCommand{}), args)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&ValidateImageMetadataCommand{}), args...)
 	return err
 }
 

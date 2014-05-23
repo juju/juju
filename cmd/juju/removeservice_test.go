@@ -19,7 +19,7 @@ type RemoveServiceSuite struct {
 var _ = gc.Suite(&RemoveServiceSuite{})
 
 func runRemoveService(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveServiceCommand{}), args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveServiceCommand{}), args...)
 	return err
 }
 

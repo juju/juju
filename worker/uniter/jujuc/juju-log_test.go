@@ -102,7 +102,7 @@ func (s *JujuLogSuite) TestLogInitMissingMessage(c *gc.C) {
 
 func (s *JujuLogSuite) TestLogDeprecation(c *gc.C) {
 	com := newJujuLogCommand(c)
-	ctx, err := testing.RunCommand(c, com, []string{"--format", "foo", "msg"})
+	ctx, err := testing.RunCommand(c, com, "--format", "foo", "msg")
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stderr(ctx), gc.Equals, "--format flag deprecated for command \"juju-log\"")
 }

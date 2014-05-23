@@ -15,24 +15,24 @@ import (
 )
 
 const userAddCommandDoc = `
-Add users to an existing environment
-The user information is stored within an existing environment, and will be lost
-when the environent is destroyed.
-A jenv file identifying the user and the environment will be written to stdout,
-or to a path you specify with --output.
+Add users to an existing environment.
+
+The user information is stored within an existing environment, and
+will be lost when the environent is destroyed.  A jenv file
+identifying the user and the environment will be written to stdout, or
+to a path you specify with --output.
 
 Examples:
-  juju user add foobar mypass      (Add user foobar with password mypass)
-  juju user add foobar             (Add user foobar. A strong password will be generated and printed)
-  juju user add foobar -o filename (Add user foobar (with generated password) and save example jenv file to filename)
+  juju user add foobar                    (Add user foobar. A strong password will be generated and printed)
+  juju user add foobar --password=mypass  (Add user foobar with password "mypass")
+  juju user add foobar -o filename        (Add user foobar (with generated password) and save example jenv file to filename)
 `
 
 type UserAddCommand struct {
 	envcmd.EnvCommandBase
-	User             string
-	Password         string
-	GeneratePassword bool
-	out              cmd.Output
+	User     string
+	Password string
+	out      cmd.Output
 }
 
 func (c *UserAddCommand) Info() *cmd.Info {
@@ -45,24 +45,22 @@ func (c *UserAddCommand) Info() *cmd.Info {
 }
 
 func (c *UserAddCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&(c.Password), "password", "", "Password for new user")
 	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
 		"yaml": cmd.FormatYaml,
 		"json": cmd.FormatJson,
 	})
 }
+
 func (c *UserAddCommand) Init(args []string) error {
 	switch len(args) {
 	case 0:
 		return fmt.Errorf("no username supplied")
 	case 1:
-		c.GeneratePassword = true
-	case 2:
-		c.Password = args[1]
+		c.User = args[0]
 	default:
-		return cmd.CheckEmpty(args[2:])
+		return cmd.CheckEmpty(args[1:])
 	}
-
-	c.User = args[0]
 	return nil
 }
 
@@ -80,7 +78,7 @@ func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	defer client.Close()
-	if c.GeneratePassword {
+	if c.Password == "" {
 		c.Password, err = utils.RandomPassword()
 		if err != nil {
 			return fmt.Errorf("Failed to generate password: %v", err)

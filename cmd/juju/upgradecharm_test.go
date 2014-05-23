@@ -35,7 +35,7 @@ func (s *UpgradeCharmErrorsSuite) SetUpTest(c *gc.C) {
 var _ = gc.Suite(&UpgradeCharmErrorsSuite{})
 
 func runUpgradeCharm(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&UpgradeCharmCommand{}), args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&UpgradeCharmCommand{}), args...)
 	return err
 }
 

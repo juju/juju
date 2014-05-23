@@ -74,7 +74,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
 	_, err := s.ConfigStore.CreateInfo("emptyenv")
 	c.Assert(err, gc.IsNil)
 
-	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), []string{"-e", "emptyenv"})
+	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), "-e", "emptyenv")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(coretesting.Stderr(context), gc.Equals, "removing empty environment file\n")

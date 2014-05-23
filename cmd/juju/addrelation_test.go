@@ -18,7 +18,7 @@ type AddRelationSuite struct {
 var _ = gc.Suite(&AddRelationSuite{})
 
 func runAddRelation(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&AddRelationCommand{}), args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&AddRelationCommand{}), args...)
 	return err
 }
 

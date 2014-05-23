@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 
 	"github.com/juju/testing"
@@ -18,6 +19,15 @@ import (
 
 	"launchpad.net/juju-core/utils"
 )
+
+func init() {
+	// The default Proxy implementation for HTTP transports,
+	// ProxyFromEnvironment, uses a sync.Once in Go 1.3 onwards.
+	// No tests should be dialing out, so no proxy should be
+	// used.
+	os.Setenv("http_proxy", "")
+	os.Setenv("HTTP_PROXY", "")
+}
 
 type httpSuite struct {
 	Server *httptest.Server

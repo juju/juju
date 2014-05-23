@@ -694,8 +694,8 @@ func (u *UniterAPI) RelationById(args params.RelationIds) (params.RelationResult
 	return result, nil
 }
 
-func joinedRelationTags(unit *state.Unit) ([]string, error) {
-	relations, err := unit.JoinedRelations()
+func relationsInScopeTags(unit *state.Unit) ([]string, error) {
+	relations, err := unit.RelationsInScope()
 	if err != nil {
 		return nil, err
 	}
@@ -706,7 +706,9 @@ func joinedRelationTags(unit *state.Unit) ([]string, error) {
 	return tags, nil
 }
 
-// JoinedRelations returns the tags of all relations each supplied unit has joined.
+// JoinedRelations returns the tags of all relations for which each supplied unit
+// has entered scope. It should be called RelationsInScope, but it's not convenient
+// to make that change until we have versioned APIs.
 func (u *UniterAPI) JoinedRelations(args params.Entities) (params.StringsResults, error) {
 	result := params.StringsResults{
 		Results: make([]params.StringsResult, len(args.Entities)),
@@ -724,7 +726,7 @@ func (u *UniterAPI) JoinedRelations(args params.Entities) (params.StringsResults
 			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
-				result.Results[i].Result, err = joinedRelationTags(unit)
+				result.Results[i].Result, err = relationsInScopeTags(unit)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

@@ -107,12 +107,12 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 	s.PatchValue(&getDebugLogAPI, func(envName string) (DebugLogAPI, error) {
 		return fake, nil
 	})
-	_, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}), []string{
+	_, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}),
 		"-i", "machine-1*", "-x", "machine-1-lxc-1",
 		"--include-module=juju.provisioner",
 		"--lines=500",
 		"--level=WARNING",
-	})
+	)
 	c.Assert(err, gc.IsNil)
 	c.Assert(fake.params, gc.DeepEquals, api.DebugLogParams{
 		IncludeEntity: []string{"machine-1*"},
@@ -127,7 +127,7 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	s.PatchValue(&getDebugLogAPI, func(envName string) (DebugLogAPI, error) {
 		return &fakeDebugLogAPI{log: "this is the log output"}, nil
 	})
-	ctx, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}), nil)
+	ctx, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}))
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "this is the log output")
 }
@@ -140,7 +140,7 @@ func (s *DebugLogSuite) TestTailFallback(c *gc.C) {
 	s.PatchValue(&getDebugLogAPI, func(envName string) (DebugLogAPI, error) {
 		return &fakeDebugLogAPI{err: errors.NotSupportedf("testing")}, nil
 	})
-	ctx, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}), []string{"-n", "100"})
+	ctx, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}), "-n", "100")
 	c.Assert(err, gc.IsNil)
 	c.Check(testing.Stderr(ctx), gc.Equals, "Server does not support new stream log, falling back to tail\n")
 	c.Check(testing.Stdout(ctx), gc.Equals, "[tail -n -100 -f /var/log/juju/all-machines.log]")

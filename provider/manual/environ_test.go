@@ -158,5 +158,5 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 instance-type=foo tags=bar cpu-power=10 cpu-cores=2 mem=1G")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "instance-type", "tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags"})
 }

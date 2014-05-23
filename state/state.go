@@ -1372,6 +1372,28 @@ func (st *State) Relation(id int) (*Relation, error) {
 	return newRelation(st, &doc), nil
 }
 
+// AllRelations returns all relations in the environment ordered by id.
+func (st *State) AllRelations() (relations []*Relation, err error) {
+	docs := relationDocSlice{}
+	err = st.relations.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all relations")
+	}
+	sort.Sort(docs)
+	for _, v := range docs {
+		relations = append(relations, newRelation(st, &v))
+	}
+	return
+}
+
+type relationDocSlice []relationDoc
+
+func (rdc relationDocSlice) Len() int      { return len(rdc) }
+func (rdc relationDocSlice) Swap(i, j int) { rdc[i], rdc[j] = rdc[j], rdc[i] }
+func (rdc relationDocSlice) Less(i, j int) bool {
+	return rdc[i].Id < rdc[j].Id
+}
+
 // Unit returns a unit by name.
 func (st *State) Unit(name string) (*Unit, error) {
 	if !names.IsUnit(name) {
