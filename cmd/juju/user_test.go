@@ -23,7 +23,7 @@ var expectedUserCommmandNames = []string{
 
 func (s *UserCommandSuite) TestHelp(c *gc.C) {
 	// Check the help output
-	ctx, err := coretesting.RunCommand(c, NewUserCommand(), []string{"--help"})
+	ctx, err := coretesting.RunCommand(c, NewUserCommand(), "--help")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Matches,
 		"(?s)usage: user <command> .+"+

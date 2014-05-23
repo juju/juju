@@ -29,25 +29,25 @@ func newUserAddCommand() cmd.Command {
 }
 
 func (s *UserAddCommandSuite) TestUserAdd(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar"})
+	_, err := testing.RunCommand(c, newUserAddCommand(), "foobar")
 	c.Assert(err, gc.IsNil)
 
-	_, err = testing.RunCommand(c, newUserAddCommand(), []string{"foobar"})
+	_, err = testing.RunCommand(c, newUserAddCommand(), "foobar")
 	c.Assert(err, gc.ErrorMatches, "Failed to create user: user already exists")
 }
 
 func (s *UserAddCommandSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "whoops"})
+	_, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "whoops")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
 }
 
 func (s *UserAddCommandSuite) TestNotEnoughArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserAddCommand(), []string{})
+	_, err := testing.RunCommand(c, newUserAddCommand())
 	c.Assert(err, gc.ErrorMatches, `no username supplied`)
 }
 
 func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar"})
+	ctx, err := testing.RunCommand(c, newUserAddCommand(), "foobar")
 
 	c.Assert(err, gc.IsNil)
 	d := decodeYamlFromStdout(c, ctx)
@@ -58,7 +58,7 @@ func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
 }
 
 func (s *UserAddCommandSuite) TestUserSpecifiedPassword(c *gc.C) {
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "--password", "frogdog"})
+	ctx, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "--password", "frogdog")
 	c.Assert(err, gc.IsNil)
 
 	d := decodeYamlFromStdout(c, ctx)
@@ -67,7 +67,7 @@ func (s *UserAddCommandSuite) TestUserSpecifiedPassword(c *gc.C) {
 }
 
 func (s *UserAddCommandSuite) TestJenvYamlOutput(c *gc.C) {
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), []string{"foobar", "--password=password"})
+	ctx, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "--password=password")
 	c.Assert(err, gc.IsNil)
 	d := decodeYamlFromStdout(c, ctx)
 	c.Assert(d, gc.DeepEquals, map[string]interface{}{
@@ -84,7 +84,7 @@ func (s *UserAddCommandSuite) TestJenvYamlFileOutput(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = testing.RunCommand(c, newUserAddCommand(),
-		[]string{"foobar", "--password", "password", "-o", tempFile.Name()})
+		"foobar", "--password", "password", "-o", tempFile.Name())
 	c.Assert(err, gc.IsNil)
 
 	raw, err := ioutil.ReadFile(tempFile.Name())
@@ -100,7 +100,7 @@ func (s *UserAddCommandSuite) TestJenvYamlFileOutput(c *gc.C) {
 
 func (s *UserAddCommandSuite) TestJenvJsonOutput(c *gc.C) {
 	ctx, err := testing.RunCommand(c, newUserAddCommand(),
-		[]string{"foobar", "--password", "password", "--format", "json"})
+		"foobar", "--password", "password", "--format", "json")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(testing.Stdout(ctx), gc.Equals,
@@ -114,7 +114,7 @@ func (s *UserAddCommandSuite) TestJenvJsonFileOutput(c *gc.C) {
 	tempFile.Close()
 
 	_, err = testing.RunCommand(c, newUserAddCommand(),
-		[]string{"foobar", "--password=password", "-o", tempFile.Name(), "--format", "json"})
+		"foobar", "--password=password", "-o", tempFile.Name(), "--format", "json")
 	c.Assert(err, gc.IsNil)
 
 	data, err := ioutil.ReadFile(tempFile.Name())

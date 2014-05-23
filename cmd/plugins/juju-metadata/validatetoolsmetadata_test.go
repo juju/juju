@@ -26,7 +26,7 @@ type ValidateToolsMetadataSuite struct {
 var _ = gc.Suite(&ValidateToolsMetadataSuite{})
 
 func runValidateToolsMetadata(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&ValidateToolsMetadataCommand{}), args)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&ValidateToolsMetadataCommand{}), args...)
 	return err
 }
 

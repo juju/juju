@@ -27,7 +27,7 @@ type DeploySuite struct {
 var _ = gc.Suite(&DeploySuite{})
 
 func runDeploy(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), args)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), args...)
 	return err
 }
 
@@ -85,7 +85,7 @@ func (s *DeploySuite) TestCharmDir(c *gc.C) {
 
 func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 	coretesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), []string{"local:dummy", "-u"})
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "local:dummy", "-u")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
