@@ -6,7 +6,12 @@ package main
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -19,7 +24,7 @@ import (
 // All of the functionality of the AddUser api call is contained elsewhere.
 // This suite provides basic tests for the "user add" command
 type UserAddCommandSuite struct {
-	jujutesting.RepoSuite
+	jujutesting.JujuConnSuite
 }
 
 var _ = gc.Suite(&UserAddCommandSuite{})
@@ -50,87 +55,80 @@ func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
 	ctx, err := testing.RunCommand(c, newUserAddCommand(), "foobar")
 
 	c.Assert(err, gc.IsNil)
-	d := decodeYamlFromStdout(c, ctx)
-	c.Assert(d["user"], gc.Equals, "foobar")
+	user, password, filename := parseUserAddStdout(c, ctx)
+	c.Assert(user, gc.Equals, "foobar")
 	// Let's not try to assume too much about the password generation
 	// algorithm other than there will be at least 10 characters.
-	c.Assert(d["password"], gc.Matches, "..........+")
+	c.Assert(password, gc.Matches, "..........+")
+	c.Assert(filename, gc.Equals, "")
 }
 
 func (s *UserAddCommandSuite) TestUserSpecifiedPassword(c *gc.C) {
 	ctx, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "--password", "frogdog")
 	c.Assert(err, gc.IsNil)
 
-	d := decodeYamlFromStdout(c, ctx)
-	c.Assert(d["user"], gc.DeepEquals, "foobar")
-	c.Assert(d["password"], gc.DeepEquals, "frogdog")
+	user, password, filename := parseUserAddStdout(c, ctx)
+	c.Assert(user, gc.DeepEquals, "foobar")
+	c.Assert(password, gc.DeepEquals, "frogdog")
+	c.Assert(filename, gc.Equals, "")
 }
 
-func (s *UserAddCommandSuite) TestJenvYamlOutput(c *gc.C) {
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "--password=password")
-	c.Assert(err, gc.IsNil)
-	d := decodeYamlFromStdout(c, ctx)
-	c.Assert(d, gc.DeepEquals, map[string]interface{}{
-		"user":          "foobar",
-		"password":      "password",
-		"state-servers": []interface{}{},
-		"ca-cert":       "",
-	})
-}
-
-func (s *UserAddCommandSuite) TestJenvYamlFileOutput(c *gc.C) {
+func (s *UserAddCommandSuite) TestJenvOutput(c *gc.C) {
 	tempFile, err := ioutil.TempFile("", "useradd-test")
+	c.Assert(err, gc.IsNil)
+	defer func() {
+		files, err := filepath.Glob(tempFile.Name() + "*")
+		if err == nil {
+			for _, file := range files {
+				os.Remove(file)
+			}
+		}
+	}()
 	tempFile.Close()
-	c.Assert(err, gc.IsNil)
 
-	_, err = testing.RunCommand(c, newUserAddCommand(),
-		"foobar", "--password", "password", "-o", tempFile.Name())
-	c.Assert(err, gc.IsNil)
-
-	raw, err := ioutil.ReadFile(tempFile.Name())
-	c.Assert(err, gc.IsNil)
-	d := decodeYaml(c, raw)
-	c.Assert(d, gc.DeepEquals, map[string]interface{}{
-		"user":          "foobar",
-		"password":      "password",
-		"state-servers": []interface{}{},
-		"ca-cert":       "",
-	})
-}
-
-func (s *UserAddCommandSuite) TestJenvJsonOutput(c *gc.C) {
 	ctx, err := testing.RunCommand(c, newUserAddCommand(),
-		"foobar", "--password", "password", "--format", "json")
+		"foobar", "--password", "password", "--output", tempFile.Name())
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(testing.Stdout(ctx), gc.Equals,
-		`{"User":"foobar","Password":"password","state-servers":null,"ca-cert":""}
-`)
+	user, password, filename := parseUserAddStdout(c, ctx)
+	c.Assert(user, gc.DeepEquals, "foobar")
+	c.Assert(password, gc.DeepEquals, "password")
+	c.Assert(filename, gc.Equals, tempFile.Name()+".jenv")
+
+	raw, err := ioutil.ReadFile(filename)
+	c.Assert(err, gc.IsNil)
+	d := map[string]interface{}{}
+	err = goyaml.Unmarshal(raw, &d)
+	c.Assert(err, gc.IsNil)
+	c.Assert(d["user"], gc.Equals, "foobar")
+	c.Assert(d["password"], gc.Equals, "password")
+	_, found := d["state-servers"]
+	c.Assert(found, gc.Equals, true)
+	_, found = d["ca-cert"]
+	c.Assert(found, gc.Equals, true)
 }
 
-func (s *UserAddCommandSuite) TestJenvJsonFileOutput(c *gc.C) {
-	tempFile, err := ioutil.TempFile("", "useradd-test")
-	c.Assert(err, gc.IsNil)
-	tempFile.Close()
+// parseUserAddStdout parses the output from the "juju user add"
+// command and checks that it has the correct form, returning the
+// interesting parts. The .jenv filename will be an empty string when
+// it wasn't included in the output.
+func parseUserAddStdout(c *gc.C, ctx *cmd.Context) (user string, password string, filename string) {
+	stdout := strings.TrimSpace(ctx.Stdout.(*bytes.Buffer).String())
+	lines := strings.Split(stdout, "\n")
+	c.Assert(len(lines), jc.LessThan, 3)
 
-	_, err = testing.RunCommand(c, newUserAddCommand(),
-		"foobar", "--password=password", "-o", tempFile.Name(), "--format", "json")
-	c.Assert(err, gc.IsNil)
+	reLine0 := regexp.MustCompile(`^user "(.+)" added with password "(.+)"$`)
+	line0Matches := reLine0.FindStringSubmatch(lines[0])
+	c.Assert(len(line0Matches), gc.Equals, 3)
+	user, password = line0Matches[1], line0Matches[2]
 
-	data, err := ioutil.ReadFile(tempFile.Name())
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(data), gc.DeepEquals,
-		`{"User":"foobar","Password":"password","state-servers":null,"ca-cert":""}
-`)
-}
-
-func decodeYamlFromStdout(c *gc.C, ctx *cmd.Context) map[string]interface{} {
-	return decodeYaml(c, ctx.Stdout.(*bytes.Buffer).Bytes())
-}
-
-func decodeYaml(c *gc.C, raw []byte) map[string]interface{} {
-	result := map[string]interface{}{}
-	err := goyaml.Unmarshal(raw, &result)
-	c.Assert(err, gc.IsNil)
-	return result
+	if len(lines) == 2 {
+		reLine1 := regexp.MustCompile(`^environment file written to (.+)$`)
+		line1Matches := reLine1.FindStringSubmatch(lines[1])
+		c.Assert(len(line1Matches), gc.Equals, 2)
+		filename = line1Matches[1]
+	} else {
+		filename = ""
+	}
+	return
 }
