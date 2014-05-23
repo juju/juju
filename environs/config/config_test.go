@@ -1156,6 +1156,10 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"bootstrap-timeout": 5},
 	err:   `cannot change bootstrap-timeout from 600 to 5`,
 }, {
+	about: "Cannot change the rsyslog port",
+	new:   testing.Attrs{"syslog-port": 8181},
+	err:   `cannot change syslog-port from 6514 to 8181`,
+}, {
 	about: "Cannot change lxc-clone",
 	old:   testing.Attrs{"lxc-clone": false},
 	new:   testing.Attrs{"lxc-clone": true},
