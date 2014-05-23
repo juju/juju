@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"path"
+	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 
@@ -18,7 +19,6 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
-	"path/filepath"
 )
 
 type toolsSuite struct {

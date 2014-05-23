@@ -9,10 +9,10 @@ import (
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	jujutesting "launchpad.net/juju-core/juju/testing"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 )
 
