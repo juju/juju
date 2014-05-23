@@ -20,6 +20,7 @@ func updateRsyslogPort(context Context) error {
 	if err != nil {
 		return err
 	}
+	defer st.Close()
 	attrs := map[string]interface{}{
 		"syslog-port": config.DefaultSyslogPort,
 	}
