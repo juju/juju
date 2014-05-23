@@ -168,7 +168,7 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	// When bootstrapping, we need to allow enough time for mongo
 	// to start as there's no retry loop in place.
 	// 5 minutes should suffice.
-	bootstrapDialOpts := DialOpts{Timeout: 5 * time.Minute}
+	bootstrapDialOpts := state.DialOpts{Timeout: 5 * time.Minute}
 	dialInfo, err := state.DialInfo(info, bootstrapDialOpts)
 	if err != nil {
 		return err
