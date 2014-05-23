@@ -207,15 +207,8 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// SyncTools can use it, and also upload any image metadata.
 	if c.MetadataSource != "" {
 		metadataDir := ctx.AbsPath(c.MetadataSource)
-		logger.Infof("Setting default tools and image metadata sources: %s", metadataDir)
-		tools.DefaultBaseURL = metadataDir
-		if err := imagemetadata.UploadImageMetadata(environ.Storage(), metadataDir); err != nil {
-			// Do not error if image metadata directory doesn't exist.
-			if !os.IsNotExist(err) {
-				return fmt.Errorf("uploading image metadata: %v", err)
-			}
-		} else {
-			logger.Infof("custom image metadata uploaded")
+		if err := uploadCustomMetadata(metadataDir, environ); err != nil {
+			return err
 		}
 		if err := validateConstraints(c.Constraints, environ); err != nil {
 			return err
@@ -237,6 +230,20 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 	})
+}
+
+var uploadCustomMetadata = func(metadataDir string, env environs.Environ) error {
+	logger.Infof("Setting default tools and image metadata sources: %s", metadataDir)
+	tools.DefaultBaseURL = metadataDir
+	if err := imagemetadata.UploadImageMetadata(env.Storage(), metadataDir); err != nil {
+		// Do not error if image metadata directory doesn't exist.
+		if !os.IsNotExist(err) {
+			return fmt.Errorf("uploading image metadata: %v", err)
+		}
+	} else {
+		logger.Infof("custom image metadata uploaded")
+	}
+	return nil
 }
 
 var validateConstraints = func(cons constraints.Value, env environs.Environ) error {

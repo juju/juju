@@ -504,19 +504,24 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestValidateConstraintsCalledWithMetadatasource(c *gc.C) {
-	validateCalled := 0
-	s.PatchValue(&validateConstraints, func(cons constraints.Value, env environs.Environ) error {
-		c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=4G"))
-		validateCalled++
-		return nil
-	})
 	sourceDir, _ := createImageMetadata(c)
 	resetJujuHome(c)
+	var calledFuncs []string
+	s.PatchValue(&uploadCustomMetadata, func(metadataDir string, env environs.Environ) error {
+		c.Assert(metadataDir, gc.DeepEquals, sourceDir)
+		calledFuncs = append(calledFuncs, "uploadCustomMetadata")
+		return nil
+	})
+	s.PatchValue(&validateConstraints, func(cons constraints.Value, env environs.Environ) error {
+		c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=4G"))
+		calledFuncs = append(calledFuncs, "validateConstraints")
+		return nil
+	})
 	_, err := coretesting.RunCommand(
 		c, envcmd.Wrap(&BootstrapCommand{}),
 		[]string{"--metadata-source", sourceDir, "--constraints", "mem=4G"})
 	c.Assert(err, gc.IsNil)
-	c.Assert(validateCalled, gc.Equals, 1)
+	c.Assert(calledFuncs, gc.DeepEquals, []string{"uploadCustomMetadata", "validateConstraints"})
 }
 
 func (s *BootstrapSuite) TestValidateConstraintsCalledWithoutMetadatasource(c *gc.C) {
