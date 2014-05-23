@@ -803,6 +803,7 @@ func (e *NotAssignedError) Error() string {
 	return fmt.Sprintf("unit %q is not assigned to a machine", e.Unit)
 }
 
+// IsNotAssigned verifies that err is an instance of NotAssignedError
 func IsNotAssigned(err error) bool {
 	_, ok := err.(*NotAssignedError)
 	return ok
@@ -1325,6 +1326,49 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	}
 	u.doc.MachineId = ""
 	return nil
+}
+
+// AddAction adds a new Action of type name and using arguments payload to
+// this Unit, and returns its ID
+func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, error) {
+
+	prefix := fmt.Sprintf("u#%s#", u.doc.Name)
+	suffix, err := u.st.sequence(prefix)
+	if err != nil {
+		return "", fmt.Errorf("cannot assign new sequence for prefix '%s'. %s", prefix, err)
+	}
+
+	newActionID := fmt.Sprintf("%s%d", prefix, suffix)
+
+	doc := actionDoc{Id: newActionID, Name: name, Payload: payload}
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDeadDoc,
+	}, {
+		C:      u.st.actions.Name,
+		Id:     doc.Id,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+
+	for i := 0; i < 3; i++ {
+		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
+			return "", err
+		} else if !notDead {
+			return "", fmt.Errorf("unit %q is dead", u)
+		}
+
+		switch err := u.st.runTransaction(ops); err {
+		case txn.ErrAborted:
+			continue
+		case nil:
+			return newActionID, nil
+		default:
+			return "", err
+		}
+	}
+	return "", ErrExcessiveContention
 }
 
 // Resolve marks the unit as having had any previous state transition
