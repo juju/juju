@@ -15,7 +15,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/tailer"
 )
 
@@ -24,7 +23,7 @@ func Test(t *stdtesting.T) {
 }
 
 type tailerSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&tailerSuite{})

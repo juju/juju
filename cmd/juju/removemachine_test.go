@@ -21,7 +21,7 @@ type RemoveMachineSuite struct {
 var _ = gc.Suite(&RemoveMachineSuite{})
 
 func runRemoveMachine(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveMachineCommand{}), args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveMachineCommand{}), args...)
 	return err
 }
 

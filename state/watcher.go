@@ -448,14 +448,54 @@ func (w *minUnitsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-// RelationScopeWatcher observes changes to the set of units
-// in a particular relation scope.
-type RelationScopeWatcher struct {
-	commonWatcher
-	prefix     string
-	ignore     string
-	knownUnits set.Strings
-	out        chan *RelationScopeChange
+// scopeInfo holds a RelationScopeWatcher's last-delivered state, and any
+// known but undelivered changes thereto.
+type scopeInfo struct {
+	base map[string]bool
+	diff map[string]bool
+}
+
+func (info *scopeInfo) add(name string) {
+	if info.base[name] {
+		delete(info.diff, name)
+	} else {
+		info.diff[name] = true
+	}
+}
+
+func (info *scopeInfo) remove(name string) {
+	if info.base[name] {
+		info.diff[name] = false
+	} else {
+		delete(info.diff, name)
+	}
+}
+
+func (info *scopeInfo) commit() {
+	for name, change := range info.diff {
+		if change {
+			info.base[name] = true
+		} else {
+			delete(info.base, name)
+		}
+	}
+	info.diff = map[string]bool{}
+}
+
+func (info *scopeInfo) hasChanges() bool {
+	return len(info.diff) > 0
+}
+
+func (info *scopeInfo) changes() *RelationScopeChange {
+	ch := &RelationScopeChange{}
+	for name, change := range info.diff {
+		if change {
+			ch.Entered = append(ch.Entered, name)
+		} else {
+			ch.Left = append(ch.Left, name)
+		}
+	}
+	return ch
 }
 
 var _ Watcher = (*RelationScopeWatcher)(nil)
@@ -465,6 +505,15 @@ var _ Watcher = (*RelationScopeWatcher)(nil)
 type RelationScopeChange struct {
 	Entered []string
 	Left    []string
+}
+
+// RelationScopeWatcher observes changes to the set of units
+// in a particular relation scope.
+type RelationScopeWatcher struct {
+	commonWatcher
+	prefix string
+	ignore string
+	out    chan *RelationScopeChange
 }
 
 func newRelationScopeWatcher(st *State, scope, ignore string) *RelationScopeWatcher {
@@ -489,58 +538,75 @@ func (w *RelationScopeWatcher) Changes() <-chan *RelationScopeChange {
 	return w.out
 }
 
-func (changes *RelationScopeChange) isEmpty() bool {
-	return len(changes.Entered)+len(changes.Left) == 0
+// initialInfo returns an uncommitted scopeInfo with the current set of units.
+func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
+	docs := []relationScopeDoc{}
+	sel := bson.D{
+		{"_id", bson.D{{"$regex", "^" + w.prefix}}},
+		{"departing", bson.D{{"$ne", true}}},
+	}
+	if err = w.st.relationScopes.Find(sel).All(&docs); err != nil {
+		return nil, err
+	}
+	info = &scopeInfo{
+		base: map[string]bool{},
+		diff: map[string]bool{},
+	}
+	for _, doc := range docs {
+		if name := doc.unitName(); name != w.ignore {
+			info.add(name)
+		}
+	}
+	return info, nil
 }
 
-func (w *RelationScopeWatcher) mergeChange(changes *RelationScopeChange, ch watcher.Change) (err error) {
-	doc := &relationScopeDoc{ch.Id.(string)}
-	if !strings.HasPrefix(doc.Key, w.prefix) {
-		return nil
-	}
-	name := doc.unitName()
-	if name == w.ignore {
-		return nil
-	}
-	if ch.Revno == -1 {
-		if w.knownUnits.Contains(name) {
-			changes.Left = append(changes.Left, name)
-			w.knownUnits.Remove(name)
+// mergeChanges updates info with the contents of the changes in ids. False
+// values are always treated as removed; true values cause the associated
+// document to be read, and whether it's treated as added or removed depends
+// on the value of the document's Departing field.
+func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}]bool) (err error) {
+	existIds := []string{}
+	for id_, exists := range ids {
+		id, ok := id_.(string)
+		if !ok {
+			logger.Warningf("ignoring bad relation scope id: %#v", id_)
+			continue
 		}
-		return nil
+		if exists {
+			existIds = append(existIds, id)
+		} else {
+			doc := &relationScopeDoc{Key: id}
+			info.remove(doc.unitName())
+		}
 	}
-	if !w.knownUnits.Contains(name) {
-		changes.Entered = append(changes.Entered, name)
-		w.knownUnits.Add(name)
+	docs := []relationScopeDoc{}
+	sel := bson.D{{"_id", bson.D{{"$in", existIds}}}}
+	if err := w.st.relationScopes.Find(sel).All(&docs); err != nil {
+		return err
+	}
+	for _, doc := range docs {
+		name := doc.unitName()
+		if doc.Departing {
+			info.remove(name)
+		} else if name != w.ignore {
+			info.add(name)
+		}
 	}
 	return nil
 }
 
-func (w *RelationScopeWatcher) getInitialEvent() (initial *RelationScopeChange, err error) {
-	changes := &RelationScopeChange{}
-	docs := []relationScopeDoc{}
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + w.prefix}}}}
-	err = w.st.relationScopes.Find(sel).All(&docs)
-	if err != nil {
-		return nil, err
-	}
-	for _, doc := range docs {
-		if name := doc.unitName(); name != w.ignore {
-			changes.Entered = append(changes.Entered, name)
-			w.knownUnits.Add(name)
-		}
-	}
-	return changes, nil
-}
-
 func (w *RelationScopeWatcher) loop() error {
-	ch := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(w.st.relationScopes.Name, ch)
-	defer w.st.watcher.UnwatchCollection(w.st.relationScopes.Name, ch)
-	changes, err := w.getInitialEvent()
+	in := make(chan watcher.Change)
+	filter := func(key interface{}) bool {
+		return strings.HasPrefix(key.(string), w.prefix)
+	}
+	w.st.watcher.WatchCollectionWithFilter(w.st.relationScopes.Name, in, filter)
+	defer w.st.watcher.UnwatchCollection(w.st.relationScopes.Name, in)
+	info, err := w.initialInfo()
 	if err != nil {
 		return err
 	}
+	sent := false
 	out := w.out
 	for {
 		select {
@@ -548,15 +614,22 @@ func (w *RelationScopeWatcher) loop() error {
 			return stateWatcherDeadError(w.st.watcher.Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case c := <-ch:
-			if err := w.mergeChange(changes, c); err != nil {
+		case ch := <-in:
+			latest, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if err := w.mergeChanges(info, latest); err != nil {
 				return err
 			}
-			if !changes.isEmpty() {
+			if info.hasChanges() {
 				out = w.out
+			} else if sent {
+				out = nil
 			}
-		case out <- changes:
-			changes = &RelationScopeChange{}
+		case out <- info.changes():
+			info.commit()
+			sent = true
 			out = nil
 		}
 	}
@@ -607,6 +680,15 @@ func emptyRelationUnitsChanges(changes *params.RelationUnitsChange) bool {
 	return len(changes.Changed)+len(changes.Departed) == 0
 }
 
+func setRelationUnitChangeVersion(changes *params.RelationUnitsChange, key string, revno int64) {
+	name := unitNameFromScopeKey(key)
+	settings := params.UnitSettings{Version: revno}
+	if changes.Changed == nil {
+		changes.Changed = map[string]params.UnitSettings{}
+	}
+	changes.Changed[name] = settings
+}
+
 // mergeSettings reads the relation settings node for the unit with the
 // supplied id, and sets a value in the Changed field keyed on the unit's
 // name. It returns the mgo/txn revision number of the settings node.
@@ -615,13 +697,7 @@ func (w *relationUnitsWatcher) mergeSettings(changes *params.RelationUnitsChange
 	if err != nil {
 		return -1, err
 	}
-	name := (&relationScopeDoc{key}).unitName()
-	settings := params.UnitSettings{Version: node.txnRevno}
-	if changes.Changed == nil {
-		changes.Changed = map[string]params.UnitSettings{name: settings}
-	} else {
-		changes.Changed[name] = settings
-	}
+	setRelationUnitChangeVersion(changes, key, node.txnRevno)
 	return node.txnRevno, nil
 }
 
@@ -696,9 +772,11 @@ func (w *relationUnitsWatcher) loop() (err error) {
 				out = nil
 			}
 		case c := <-w.updates:
-			if _, err = w.mergeSettings(&changes, c.Id.(string)); err != nil {
-				return err
+			id, ok := c.Id.(string)
+			if !ok {
+				logger.Warningf("ignoring bad relation scope id: %#v", c.Id)
 			}
+			setRelationUnitChangeVersion(&changes, id, c.Revno)
 			out = w.out
 		case out <- changes:
 			sentInitial = true

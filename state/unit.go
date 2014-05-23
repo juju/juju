@@ -322,12 +322,13 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ServiceName())
+	cleanupOp := u.st.newCleanupOp(cleanupDyingUnit, u.doc.Name)
 	setDyingOps := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}, minUnitsOp}
+	}, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
 	} else if len(u.doc.Subordinates) != 0 {
@@ -482,25 +483,43 @@ func (u *Unit) SubordinateNames() []string {
 	return names
 }
 
-// JoinedRelations returns the relations for which the unit is in scope.
-func (u *Unit) JoinedRelations() ([]*Relation, error) {
+// RelationsJoined returns the relations for which the unit has entered scope
+// and neither left it nor prepared to leave it
+func (u *Unit) RelationsJoined() ([]*Relation, error) {
+	return u.relations(func(ru *RelationUnit) (bool, error) {
+		return ru.Joined()
+	})
+}
+
+// RelationsInScope returns the relations for which the unit has entered scope
+// and not left it.
+func (u *Unit) RelationsInScope() ([]*Relation, error) {
+	return u.relations(func(ru *RelationUnit) (bool, error) {
+		return ru.InScope()
+	})
+}
+
+type relationPredicate func(ru *RelationUnit) (bool, error)
+
+// relations implements RelationsJoined and RelationsInScope.
+func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
 	candidates, err := serviceRelations(u.st, u.doc.Service)
 	if err != nil {
 		return nil, err
 	}
-	var joinedRelations []*Relation
+	var filtered []*Relation
 	for _, relation := range candidates {
 		relationUnit, err := relation.Unit(u)
 		if err != nil {
 			return nil, err
 		}
-		if inScope, err := relationUnit.InScope(); err != nil {
+		if include, err := predicate(relationUnit); err != nil {
 			return nil, err
-		} else if inScope {
-			joinedRelations = append(joinedRelations, relation)
+		} else if include {
+			filtered = append(filtered, relation)
 		}
 	}
-	return joinedRelations, nil
+	return filtered, nil
 }
 
 // DeployerTag returns the tag of the agent responsible for deploying

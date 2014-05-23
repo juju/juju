@@ -18,7 +18,7 @@ type RemoveRelationSuite struct {
 var _ = gc.Suite(&RemoveRelationSuite{})
 
 func runRemoveRelation(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveRelationCommand{}), args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveRelationCommand{}), args...)
 	return err
 }
 

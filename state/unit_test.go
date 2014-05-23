@@ -1018,7 +1018,7 @@ func (s *UnitSuite) TestPrincipalName(c *gc.C) {
 	c.Assert(principal, gc.Equals, "")
 }
 
-func (s *UnitSuite) TestJoinedRelations(c *gc.C) {
+func (s *UnitSuite) TestRelations(c *gc.C) {
 	wordpress0 := s.unit
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysql0, err := mysql.AddUnit()
@@ -1028,35 +1028,48 @@ func (s *UnitSuite) TestJoinedRelations(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 
-	assertJoinedRelations := func(unit *state.Unit, expect ...*state.Relation) {
-		actual, err := unit.JoinedRelations()
-		c.Assert(err, gc.IsNil)
+	assertEquals := func(actual, expect []*state.Relation) {
 		c.Assert(actual, gc.HasLen, len(expect))
 		for i, a := range actual {
 			c.Assert(a.Id(), gc.Equals, expect[i].Id())
 		}
 	}
-	assertJoinedRelations(wordpress0)
-	assertJoinedRelations(mysql0)
+	assertRelationsJoined := func(unit *state.Unit, expect ...*state.Relation) {
+		actual, err := unit.RelationsJoined()
+		c.Assert(err, gc.IsNil)
+		assertEquals(actual, expect)
+	}
+	assertRelationsInScope := func(unit *state.Unit, expect ...*state.Relation) {
+		actual, err := unit.RelationsInScope()
+		c.Assert(err, gc.IsNil)
+		assertEquals(actual, expect)
+	}
+	assertRelations := func(unit *state.Unit, expect ...*state.Relation) {
+		assertRelationsInScope(unit, expect...)
+		assertRelationsJoined(unit, expect...)
+	}
+	assertRelations(wordpress0)
+	assertRelations(mysql0)
 
 	mysql0ru, err := rel.Unit(mysql0)
 	c.Assert(err, gc.IsNil)
 	err = mysql0ru.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	assertJoinedRelations(wordpress0)
-	assertJoinedRelations(mysql0, rel)
+	assertRelations(wordpress0)
+	assertRelations(mysql0, rel)
 
 	wordpress0ru, err := rel.Unit(wordpress0)
 	c.Assert(err, gc.IsNil)
 	err = wordpress0ru.EnterScope(nil)
 	c.Assert(err, gc.IsNil)
-	assertJoinedRelations(wordpress0, rel)
-	assertJoinedRelations(mysql0, rel)
+	assertRelations(wordpress0, rel)
+	assertRelations(mysql0, rel)
 
-	err = mysql0ru.LeaveScope()
+	err = mysql0ru.PrepareLeaveScope()
 	c.Assert(err, gc.IsNil)
-	assertJoinedRelations(wordpress0, rel)
-	assertJoinedRelations(mysql0)
+	assertRelations(wordpress0, rel)
+	assertRelationsInScope(mysql0, rel)
+	assertRelationsJoined(mysql0)
 }
 
 func (s *UnitSuite) TestRemove(c *gc.C) {

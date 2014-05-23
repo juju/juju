@@ -14,7 +14,6 @@ import (
 
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -23,7 +22,7 @@ func TestPackage(t *stdtesting.T) {
 
 type PresenceSuite struct {
 	testing.MgoSuite
-	testbase.LoggingSuite
+	testing.BaseSuite
 	presence *mgo.Collection
 	pings    *mgo.Collection
 }
@@ -31,17 +30,17 @@ type PresenceSuite struct {
 var _ = gc.Suite(&PresenceSuite{})
 
 func (s *PresenceSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *PresenceSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *PresenceSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 
 	db := s.MgoSuite.Session.DB("presence")
@@ -53,7 +52,7 @@ func (s *PresenceSuite) SetUpTest(c *gc.C) {
 
 func (s *PresenceSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 
 	presence.RealTimeSlot()
 	presence.RealPeriod()

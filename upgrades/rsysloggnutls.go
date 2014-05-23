@@ -3,12 +3,10 @@
 
 package upgrades
 
-import (
-	"launchpad.net/juju-core/utils"
-)
+import "launchpad.net/juju-core/utils/apt"
 
 // installRsyslogGnutls installs the rsyslog-gnutls package,
 // which is required for our rsyslog configuration from 1.18.0.
 func installRsyslogGnutls(context Context) error {
-	return utils.AptGetInstall("rsyslog-gnutls")
+	return apt.GetInstall("rsyslog-gnutls")
 }

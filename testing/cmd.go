@@ -70,7 +70,7 @@ func Stderr(ctx *cmd.Context) string {
 // may come from either the parsing of the args, the command initialisation, or
 // the actual running of the command.  Access to the resulting output streams
 // is provided through the returned context instance.
-func RunCommand(c *gc.C, com cmd.Command, args []string) (*cmd.Context, error) {
+func RunCommand(c *gc.C, com cmd.Command, args ...string) (*cmd.Context, error) {
 	if err := InitCommand(com, args); err != nil {
 		return nil, err
 	}

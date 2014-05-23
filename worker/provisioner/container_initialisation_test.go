@@ -17,7 +17,7 @@ import (
 	"launchpad.net/juju-core/state"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -54,7 +54,7 @@ func noImportance(err0, err1 error) bool {
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.CommonProvisionerSuite.setupEnvironmentManager(c)
-	aptCmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
+	aptCmdChan := s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
 
 	// Set up provisioner for the state machine.

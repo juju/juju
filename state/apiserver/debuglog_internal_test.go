@@ -17,11 +17,10 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type debugInternalSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&debugInternalSuite{})

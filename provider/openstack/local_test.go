@@ -36,7 +36,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -119,13 +118,13 @@ func (s *localServer) stop() {
 
 // localLiveSuite runs tests from LiveTests using an Openstack service double.
 type localLiveSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	LiveTests
 	srv localServer
 }
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	c.Logf("Running live tests using openstack service test double")
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
@@ -138,18 +137,18 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 	openstack.RemoveTestImageData(openstack.ImageMetadataStorage(s.Env))
 	s.LiveTests.TearDownSuite(c)
 	s.srv.stop()
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
 	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
 	s.LiveTests.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 // localServerSuite contains tests that run against an Openstack service double.
@@ -157,7 +156,7 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 // to test on a live Openstack server. The service double is started and stopped for
 // each test.
 type localServerSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	jujutest.Tests
 	cred                 *identity.Credentials
 	srv                  localServer
@@ -166,20 +165,14 @@ type localServerSuite struct {
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-	s.Tests.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	c.Logf("Running local tests")
 }
 
-func (s *localServerSuite) TearDownSuite(c *gc.C) {
-	s.Tests.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
-}
-
 func (s *localServerSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.srv.start(c, s.cred)
 	cl := client.NewClient(s.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
@@ -212,7 +205,7 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	}
 	s.Tests.TearDownTest(c)
 	s.srv.stop()
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 // If the bootstrap node is configured to require a public IP address,
@@ -665,7 +658,7 @@ func (s *localServerSuite) TestSupportedArchitectures(c *gc.C) {
 	env := s.Open(c)
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"amd64", "i386", "ppc64"})
+	c.Assert(a, jc.SameContents, []string{"amd64", "i386", "ppc64"})
 }
 
 func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
@@ -675,7 +668,7 @@ func (s *localServerSuite) TestSupportNetworks(c *gc.C) {
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 	// Prevent falling over to the public datasource.
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
 
 	env := s.Open(c)
 
@@ -691,7 +684,7 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 cpu-power=10")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
@@ -719,7 +712,7 @@ func (s *localServerSuite) TestConstraintsMerge(c *gc.C) {
 
 func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 	// Prevent falling over to the public datasource.
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
 
 	env := s.Open(c)
 	spec, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.tiny")
@@ -729,7 +722,7 @@ func (s *localServerSuite) TestFindImageInstanceConstraint(c *gc.C) {
 
 func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 	// Prevent falling over to the public datasource.
-	s.PatchValue(&imagemetadata.DefaultBaseURL, "")
+	s.BaseSuite.PatchValue(&imagemetadata.DefaultBaseURL, "")
 
 	env := s.Open(c)
 	_, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.large")
@@ -761,7 +754,7 @@ func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params.Series = "raring"
 	image_ids, _, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
-	c.Assert(image_ids, gc.DeepEquals, []string{"id-y"})
+	c.Assert(image_ids, jc.SameContents, []string{"id-y"})
 }
 
 func (s *localServerSuite) TestRemoveAll(c *gc.C) {
@@ -854,7 +847,7 @@ func (s *localServerSuite) TestEnsureGroup(c *gc.C) {
 // things that depend on the HTTPS connection, all other functional tests on a
 // local connection should be in localServerSuite
 type localHTTPSServerSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	attrs map[string]interface{}
 	cred  *identity.Credentials
 	srv   localServer
@@ -884,7 +877,7 @@ func (s *localHTTPSServerSuite) createConfigAttrs(c *gc.C) map[string]interface{
 }
 
 func (s *localHTTPSServerSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.srv.UseTLS = true
 	cred := &identity.Credentials{
 		User:       "fred",
@@ -911,7 +904,7 @@ func (s *localHTTPSServerSuite) TearDownTest(c *gc.C) {
 		s.env = nil
 	}
 	s.srv.stop()
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *localHTTPSServerSuite) TestCanUploadTools(c *gc.C) {

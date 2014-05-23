@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -275,33 +276,7 @@ var upgradeJujuTests = []struct {
 	expectUploaded: []string{"2.7.3.2-quantal-amd64", "2.7.3.2-%LTS%-amd64", "2.7.3.2-raring-amd64"},
 }}
 
-// getMockBuildTools returns a sync.BuildToolsTarballFunc implementation which generates
-// a fake tools tarball.
-func (s *UpgradeJujuSuite) getMockBuildTools(c *gc.C) sync.BuildToolsTarballFunc {
-	return func(forceVersion *version.Number) (*sync.BuiltTools, error) {
-		// UploadFakeToolsVersions requires a storage to write to.
-		stor, err := filestorage.NewFileStorageWriter(s.toolsDir)
-		c.Assert(err, gc.IsNil)
-		vers := version.Current
-		if forceVersion != nil {
-			vers.Number = *forceVersion
-		}
-		versions := []version.Binary{vers}
-		uploadedTools, err := envtesting.UploadFakeToolsVersions(stor, versions...)
-		c.Assert(err, gc.IsNil)
-		agentTools := uploadedTools[0]
-		return &sync.BuiltTools{
-			Dir:         s.toolsDir,
-			StorageName: envtools.StorageName(vers),
-			Version:     vers,
-			Size:        agentTools.Size,
-			Sha256Hash:  agentTools.SHA256,
-		}, nil
-	}
-}
-
 func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
-	s.PatchValue(&sync.BuildToolsTarball, s.getMockBuildTools(c))
 	oldVersion := version.Current
 	defer func() {
 		version.Current = oldVersion
@@ -415,12 +390,12 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	}
 	err := s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
 	c.Assert(err, gc.IsNil)
-	s.toolsDir = c.MkDir()
+	s.PatchValue(&sync.BuildToolsTarball, toolstesting.GetMockBuildTools(c))
 }
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
-	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools"})
+	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, "--upload-tools")
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1

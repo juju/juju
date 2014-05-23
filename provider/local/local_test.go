@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 func TestLocal(t *stdtesting.T) {
@@ -21,7 +21,7 @@ func TestLocal(t *stdtesting.T) {
 }
 
 type localSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&localSuite{})

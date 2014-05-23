@@ -21,14 +21,14 @@ import (
 )
 
 type ToolsSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	dataDir string
 }
 
 var _ = gc.Suite(&ToolsSuite{})
 
 func (t *ToolsSuite) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
+	t.BaseSuite.SetUpTest(c)
 	t.dataDir = c.MkDir()
 }
 

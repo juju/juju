@@ -9,7 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -24,7 +24,7 @@ func patchExecutable(patcher EnvironmentPatcher, dir, execName, script string) {
 }
 
 type commandSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&commandSuite{})

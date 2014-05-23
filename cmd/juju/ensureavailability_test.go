@@ -50,7 +50,7 @@ func (s *EnsureAvailabilitySuite) TearDownTest(c *gc.C) {
 }
 
 func runEnsureAvailability(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&EnsureAvailabilityCommand{}), args)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&EnsureAvailabilityCommand{}), args...)
 	return err
 }
 

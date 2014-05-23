@@ -18,7 +18,7 @@ import (
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 )
 
 type baseProviderSuite struct {
@@ -54,7 +54,7 @@ func (s *prepareSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("FTP_PROXY", "")
 	s.PatchEnvironment("no_proxy", "")
 	s.PatchEnvironment("NO_PROXY", "")
-	s.HookCommandOutput(&utils.AptCommandOutput, nil, nil)
+	s.HookCommandOutput(&apt.CommandOutput, nil, nil)
 	s.PatchValue(local.CheckLocalPort, func(port int, desc string) error {
 		return nil
 	})
@@ -222,7 +222,7 @@ Acquire::magic::Proxy "none";
 			restore := testing.PatchEnvironment(key, value)
 			cleanup = append(cleanup, restore)
 		}
-		_, restore := testing.HookCommandOutput(&utils.AptCommandOutput, []byte(test.aptOutput), nil)
+		_, restore := testing.HookCommandOutput(&apt.CommandOutput, []byte(test.aptOutput), nil)
 		cleanup = append(cleanup, restore)
 		testConfig := baseConfig
 		if test.extraConfig != nil {

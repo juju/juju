@@ -174,20 +174,10 @@ var validTests = []struct {
 	string string
 	expect bool
 }{
+
 	{charm.IsValidUser, "", false},
-	{charm.IsValidUser, "bob", true},
-	{charm.IsValidUser, "Bob", false},
-	{charm.IsValidUser, "bOB", true},
 	{charm.IsValidUser, "b^b", false},
-	{charm.IsValidUser, "bob1", true},
-	{charm.IsValidUser, "bob-1", true},
-	{charm.IsValidUser, "bob+1", true},
-	{charm.IsValidUser, "bob.1", true},
-	{charm.IsValidUser, "1bob", true},
-	{charm.IsValidUser, "1-bob", true},
-	{charm.IsValidUser, "1+bob", true},
-	{charm.IsValidUser, "1.bob", true},
-	{charm.IsValidUser, "jim.bob+99-1.", true},
+	{charm.IsValidUser, "jim.bob99-1", true},
 
 	{charm.IsValidName, "", false},
 	{charm.IsValidName, "wordpress", true},

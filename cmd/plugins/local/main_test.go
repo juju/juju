@@ -15,11 +15,10 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/plugins/local"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type mainSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&mainSuite{})
@@ -30,7 +29,7 @@ func (*mainSuite) TestRegisteredCommands(c *gc.C) {
 		// TODO: add some as they get registered
 	}
 	plugin := local.JujuLocalPlugin()
-	ctx, err := coretesting.RunCommand(c, plugin, []string{"help", "commands"})
+	ctx, err := coretesting.RunCommand(c, plugin, "help", "commands")
 	c.Assert(err, gc.IsNil)
 
 	lines := strings.Split(coretesting.Stdout(ctx), "\n")

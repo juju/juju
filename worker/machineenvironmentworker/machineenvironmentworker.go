@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/worker"
 )
@@ -130,8 +131,8 @@ func (w *MachineEnvironmentWorker) handleAptProxyValues(aptSettings osenv.ProxyS
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
 		w.aptProxy = aptSettings
 		// Always finish with a new line.
-		content := utils.AptProxyContent(w.aptProxy) + "\n"
-		err := ioutil.WriteFile(utils.AptConfFile, []byte(content), 0644)
+		content := apt.ProxyContent(w.aptProxy) + "\n"
+		err := ioutil.WriteFile(apt.ConfFile, []byte(content), 0644)
 		if err != nil {
 			// It isn't really fatal, but we should record it.
 			logger.Errorf("error writing apt proxy config file: %v", err)
