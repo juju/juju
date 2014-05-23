@@ -15,6 +15,7 @@ const (
 	cleanupRelationSettings            cleanupKind = "settings"
 	cleanupUnitsForDyingService        cleanupKind = "units"
 	cleanupDyingUnit                   cleanupKind = "dyingUnit"
+	cleanupDeadUnit                    cleanupKind = "deadUnit"
 	cleanupServicesForDyingEnvironment cleanupKind = "services"
 	cleanupForceDestroyedMachine       cleanupKind = "machine"
 )
@@ -67,6 +68,8 @@ func (st *State) Cleanup() error {
 			err = st.cleanupUnitsForDyingService(doc.Prefix)
 		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix)
+		case cleanupDeadUnit:
+			err = st.cleanupDeadUnit(doc.Prefix)
 		case cleanupServicesForDyingEnvironment:
 			err = st.cleanupServicesForDyingEnvironment()
 		case cleanupForceDestroyedMachine:
@@ -175,6 +178,21 @@ func (st *State) cleanupDyingUnit(name string) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// cleanupDeadUnit takes care of all the final cleanup required when
+// a unit is dead.
+func (st *State) cleanupDeadUnit(name string) error {
+	unit, err := st.Unit(name)
+	if errors.IsNotFound(err) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+    unit.Name()
+
 	return nil
 }
 
