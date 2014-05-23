@@ -326,13 +326,26 @@ func (ru *RelationUnit) LeaveScope() error {
 	return fmt.Errorf("cannot leave scope for %s: inconsistent state", desc)
 }
 
-// InScope returns whether the relation unit has entered scope or not.
+// InScope returns whether the relation unit has entered scope and not left it.
 func (ru *RelationUnit) InScope() (bool, error) {
+	return ru.inScope(nil)
+}
+
+// Joined returns whether the relation unit has entered scope and neither left
+// it nor prepared to leave it.
+func (ru *RelationUnit) Joined() (bool, error) {
+	return ru.inScope(bson.D{{"departing", bson.D{{"$ne", true}}}})
+}
+
+// inScope returns whether a scope document exists satisfying the supplied
+// selector.
+func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return false, err
 	}
-	count, err := ru.st.relationScopes.FindId(key).Count()
+	sel = append(sel, bson.D{{"_id", key}}...)
+	count, err := ru.st.relationScopes.Find(sel).Count()
 	if err != nil {
 		return false, err
 	}

@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/tools"
 )
 
@@ -90,11 +91,27 @@ func (env *mockEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 
 type mockInstance struct {
 	id                string
+	addresses         []instance.Address
+	addressesErr      error
+	dnsName           string
+	dnsNameErr        error
 	instance.Instance // stub out other methods with panics
 }
 
 func (inst *mockInstance) Id() instance.Id {
 	return instance.Id(inst.id)
+}
+
+func (inst *mockInstance) Addresses() ([]instance.Address, error) {
+	return inst.addresses, inst.addressesErr
+}
+
+func (inst *mockInstance) DNSName() (string, error) {
+	return inst.dnsName, inst.dnsNameErr
+}
+
+func (inst *mockInstance) WaitDNSName() (string, error) {
+	return common.WaitDNSName(inst)
 }
 
 type mockStorage struct {
