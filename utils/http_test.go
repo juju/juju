@@ -27,8 +27,6 @@ func init() {
 	// used.
 	os.Setenv("http_proxy", "")
 	os.Setenv("HTTP_PROXY", "")
-	os.Setenv("https_proxy", "")
-	os.Setenv("HTTPS_PROXY", "")
 }
 
 type httpSuite struct {
