@@ -27,6 +27,7 @@ import (
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/version"
 )
 
@@ -218,11 +219,11 @@ func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config) {
 
 	// Write out the apt proxy settings
 	if (proxy != osenv.ProxySettings{}) {
-		filename := utils.AptConfFile
+		filename := apt.ConfFile
 		c.AddBootCmd(fmt.Sprintf(
 			`[ -f %s ] || (printf '%%s\n' %s > %s)`,
 			filename,
-			shquote(utils.AptProxyContent(proxy)),
+			shquote(apt.ProxyContent(proxy)),
 			filename))
 	}
 }

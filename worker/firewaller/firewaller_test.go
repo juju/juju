@@ -4,13 +4,13 @@
 package firewaller_test
 
 import (
-	"launchpad.net/juju-core/environs/config"
 	"reflect"
 	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"

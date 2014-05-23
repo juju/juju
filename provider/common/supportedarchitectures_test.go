@@ -4,9 +4,8 @@
 package common_test
 
 import (
-	gc "launchpad.net/gocheck"
-
 	jc "github.com/juju/testing/checkers"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"

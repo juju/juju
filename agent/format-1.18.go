@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
 )

@@ -7,7 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 )
 
 type InitialiserSuite struct {
@@ -17,7 +17,7 @@ type InitialiserSuite struct {
 var _ = gc.Suite(&InitialiserSuite{})
 
 func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
-	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
+	cmdChan := s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
 	container := NewContainerInitialiser("precise")
 	err := container.Initialise()
 	c.Assert(err, gc.IsNil)
@@ -31,7 +31,7 @@ func (s *InitialiserSuite) TestLTSSeriesPackages(c *gc.C) {
 }
 
 func (s *InitialiserSuite) TestNoSeriesPackages(c *gc.C) {
-	cmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
+	cmdChan := s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
 	container := NewContainerInitialiser("")
 	err := container.Initialise()
 	c.Assert(err, gc.IsNil)
