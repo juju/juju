@@ -1,13 +1,20 @@
-package osenv_test
+package utils_test
 
 import (
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/utils"
 )
 
-func (s *importSuite) TestHomeLinux(c *gc.C) {
+type homeSuite struct {
+	testing.CleanupSuite
+}
+
+var _ = gc.Suite(&homeSuite{})
+
+func (s *homeSuite) TestHomeLinux(c *gc.C) {
 	h := "/home/foo/bar"
 	s.PatchEnvironment("HOME", h)
-	c.Check(osenv.Home(), gc.Equals, h)
+	c.Check(utils.Home(), gc.Equals, h)
 }
