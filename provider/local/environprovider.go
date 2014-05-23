@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/version"
 )
 
@@ -81,7 +82,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return environ, nil
 }
 
-var detectAptProxies = utils.DetectAptProxies
+var detectAptProxies = apt.DetectProxies
 
 // Prepare implements environs.EnvironProvider.Prepare.
 func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
