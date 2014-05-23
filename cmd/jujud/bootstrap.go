@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
+	"time"
 	"net"
 
 	"launchpad.net/gnuflag"
@@ -164,7 +165,11 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	if !ok {
 		return fmt.Errorf("no state info available")
 	}
-	dialInfo, err := state.DialInfo(info, state.DefaultDialOpts())
+	// When bootstrapping, we need to allow enough time for mongo
+	// to start as there's no retry loop in place.
+	// 5 minutes should suffice.
+	bootstrapDialOpts := DialOpts{Timeout:  5 * time.Minute}
+	dialInfo, err := state.DialInfo(info, bootstrapDialOpts)
 	if err != nil {
 		return err
 	}
