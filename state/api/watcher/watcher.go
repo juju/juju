@@ -4,9 +4,9 @@
 package watcher
 
 import (
-	"github.com/juju/loggo"
 	"sync"
 
+	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/state/api/base"
