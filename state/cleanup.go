@@ -191,7 +191,7 @@ func (st *State) cleanupDeadUnit(name string) error {
 		return err
 	}
 
-    unit.Name()
+	unit.Name()
 
 	return nil
 }

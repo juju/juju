@@ -1,6 +1,8 @@
 package state
 
-import ()
+import (
+	"fmt"
+)
 
 type actionDoc struct {
 	Id string `bson:"_id"`
@@ -21,11 +23,29 @@ type Action struct {
 	doc actionDoc
 }
 
+// newAction builds an Action from the supplied state and actionDoc
 func newAction(st *State, adoc actionDoc) *Action {
 	return &Action{
 		st:  st,
 		doc: adoc,
 	}
+}
+
+// actionPrefix returns a suitable prefix for an action given the
+// globalKey of a containing item
+func actionPrefix(globalKey string) string {
+	return globalKey + "#a#"
+}
+
+// newActionId generates a new unique key from another globalKey as
+// a prefix, and a generated unique number
+func newActionId(st *State, globalKey string) (string, error) {
+	prefix := actionPrefix(globalKey)
+	suffix, err := st.sequence(prefix)
+	if err != nil {
+		return "", fmt.Errorf("cannot assign new sequence for prefix '%s': %v", prefix, err)
+	}
+	return fmt.Sprintf("%s%d", prefix, suffix), nil
 }
 
 // Name returns the name of the Action

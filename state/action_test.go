@@ -71,6 +71,12 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	// cannot add action to a dead unit
 	_, err = unit.AddAction("fakeaction2", map[string]interface{}{})
 	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
+
+	// make sure unit cleaned up all actions
+	actions, err := unit.Actions()
+	c.Assert(err, gc.IsNil)
+	c.Assert(actions, gc.NotNil)
+	c.Assert(len(actions), gc.Equals, 0)
 }
 
 func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
@@ -95,5 +101,5 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 // This is a temporary assertion, we shouldn't be leaking the actual
 // mongo _id
 func assertSaneActionId(c *gc.C, actionId, unitName string) {
-	c.Assert(actionId, gc.Matches, "^u#"+unitName+"#\\d+")
+	c.Assert(actionId, gc.Matches, "^u#"+unitName+"#a#\\d+")
 }
