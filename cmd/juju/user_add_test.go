@@ -6,7 +6,6 @@ package main
 import (
 	"bytes"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -68,32 +67,21 @@ func (s *UserAddCommandSuite) TestUserSpecifiedPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	user, password, filename := parseUserAddStdout(c, ctx)
-	c.Assert(user, gc.DeepEquals, "foobar")
-	c.Assert(password, gc.DeepEquals, "frogdog")
+	c.Assert(user, gc.Equals, "foobar")
+	c.Assert(password, gc.Equals, "frogdog")
 	c.Assert(filename, gc.Equals, "")
 }
 
 func (s *UserAddCommandSuite) TestJenvOutput(c *gc.C) {
-	tempFile, err := ioutil.TempFile("", "useradd-test")
-	c.Assert(err, gc.IsNil)
-	defer func() {
-		files, err := filepath.Glob(tempFile.Name() + "*")
-		if err == nil {
-			for _, file := range files {
-				os.Remove(file)
-			}
-		}
-	}()
-	tempFile.Close()
-
+	outputName := filepath.Join(c.MkDir(), "output")
 	ctx, err := testing.RunCommand(c, newUserAddCommand(),
-		"foobar", "--password", "password", "--output", tempFile.Name())
+		"foobar", "--password", "password", "--output", outputName)
 	c.Assert(err, gc.IsNil)
 
 	user, password, filename := parseUserAddStdout(c, ctx)
-	c.Assert(user, gc.DeepEquals, "foobar")
-	c.Assert(password, gc.DeepEquals, "password")
-	c.Assert(filename, gc.Equals, tempFile.Name()+".jenv")
+	c.Assert(user, gc.Equals, "foobar")
+	c.Assert(password, gc.Equals, "password")
+	c.Assert(filename, gc.Equals, outputName+".jenv")
 
 	raw, err := ioutil.ReadFile(filename)
 	c.Assert(err, gc.IsNil)
