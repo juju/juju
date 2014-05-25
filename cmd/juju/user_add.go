@@ -22,7 +22,7 @@ Add users to an existing environment.
 The user information is stored within an existing environment, and
 will be lost when the environent is destroyed.  An environment file
 (.jenv) identifying the new user and the environment can be generated
-using -o / --output.
+using --output.
 
 Examples:
   juju user add foobar                    (Add user "foobar". A strong password will be generated and printed)
