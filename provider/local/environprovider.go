@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/apt"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/version"
 )
 
@@ -119,7 +120,7 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 		cfg.HttpsProxy() == "" &&
 		cfg.FtpProxy() == "" &&
 		cfg.NoProxy() == "" {
-		proxy := osenv.DetectProxies()
+		proxy := proxy.DetectProxies()
 		logger.Tracef("Proxies detected %#v", proxy)
 		setIfNotBlank("http-proxy", proxy.Http)
 		setIfNotBlank("https-proxy", proxy.Https)

@@ -8,7 +8,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/proxy"
 )
@@ -31,7 +30,7 @@ func (s *proxySuite) TestDetectNoSettings(c *gc.C) {
 	s.PatchEnvironment("no_proxy", "")
 	s.PatchEnvironment("NO_PROXY", "")
 
-	proxies := osenv.DetectProxies()
+	proxies := proxy.DetectProxies()
 
 	c.Assert(proxies, gc.DeepEquals, proxy.Settings{})
 }
@@ -48,7 +47,7 @@ func (s *proxySuite) TestDetectPrimary(c *gc.C) {
 	s.PatchEnvironment("no_proxy", "10.0.3.1,localhost")
 	s.PatchEnvironment("NO_PROXY", "")
 
-	proxies := osenv.DetectProxies()
+	proxies := proxy.DetectProxies()
 
 	c.Assert(proxies, gc.DeepEquals, proxy.Settings{
 		Http:    "http://user@10.0.0.1",
@@ -70,7 +69,7 @@ func (s *proxySuite) TestDetectFallback(c *gc.C) {
 	s.PatchEnvironment("no_proxy", "")
 	s.PatchEnvironment("NO_PROXY", "10.0.3.1,localhost")
 
-	proxies := osenv.DetectProxies()
+	proxies := proxy.DetectProxies()
 
 	c.Assert(proxies, gc.DeepEquals, proxy.Settings{
 		Http:    "http://user@10.0.0.2",
@@ -92,7 +91,7 @@ func (s *proxySuite) TestDetectPrimaryPreference(c *gc.C) {
 	s.PatchEnvironment("FTP_PROXY", "ftp://user@10.0.0.2")
 	s.PatchEnvironment("NO_PROXY", "localhost")
 
-	proxies := osenv.DetectProxies()
+	proxies := proxy.DetectProxies()
 
 	c.Assert(proxies, gc.DeepEquals, proxy.Settings{
 		Http:    "http://user@10.0.0.1",
@@ -190,7 +189,7 @@ func (s *proxySuite) TestSetEnvironmentValues(c *gc.C) {
 	}
 	proxy.SetEnvironmentValues()
 
-	obtained := osenv.DetectProxies()
+	obtained := proxy.DetectProxies()
 
 	c.Assert(obtained, gc.DeepEquals, proxy)
 

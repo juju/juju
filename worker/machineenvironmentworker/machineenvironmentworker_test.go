@@ -14,7 +14,6 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -79,7 +78,7 @@ func (s *MachineEnvironmentWatcherSuite) waitProxySettings(c *gc.C, expected pro
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timeout while waiting for proxy settings to change")
 		case <-time.After(10 * time.Millisecond):
-			obtained := osenv.DetectProxies()
+			obtained := proxy.DetectProxies()
 			if obtained != expected {
 				c.Logf("proxy settings are %#v, still waiting", obtained)
 				continue
