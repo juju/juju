@@ -66,6 +66,7 @@ type Number struct {
 	Minor int
 	Patch int
 	Build int
+	Tag   string
 }
 
 // Zero is occasionally convenient and readable.
@@ -142,8 +143,8 @@ func (vp *Binary) SetYAML(tag string, value interface{}) bool {
 }
 
 var (
-	binaryPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})(\.\d{1,9})?-([^-]+)-([^-]+)$`)
-	numberPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})(\.\d{1,9})?$`)
+	binaryPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})(\.|-(\w+))(\d{1,9})(\.\d{1,9})?-([^-]+)-([^-]+)$`)
+	numberPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})(\.|-(\w+))(\d{1,9})(\.\d{1,9})?$`)
 )
 
 // MustParse parses a version and panics if it does
@@ -175,12 +176,13 @@ func ParseBinary(s string) (Binary, error) {
 	var v Binary
 	v.Major = atoi(m[1])
 	v.Minor = atoi(m[2])
-	v.Patch = atoi(m[3])
-	if m[4] != "" {
-		v.Build = atoi(m[4][1:])
+	v.Tag = m[4]
+	v.Patch = atoi(m[5])
+	if m[6] != "" {
+		v.Build = atoi(m[6][1:])
 	}
-	v.Series = m[5]
-	v.Arch = m[6]
+	v.Series = m[7]
+	v.Arch = m[8]
 	return v, nil
 }
 
@@ -195,9 +197,10 @@ func Parse(s string) (Number, error) {
 	var v Number
 	v.Major = atoi(m[1])
 	v.Minor = atoi(m[2])
-	v.Patch = atoi(m[3])
-	if m[4] != "" {
-		v.Build = atoi(m[4][1:])
+	v.Tag = m[4]
+	v.Patch = atoi(m[5])
+	if m[6] != "" {
+		v.Build = atoi(m[6][1:])
 	}
 	return v, nil
 }
@@ -213,7 +216,12 @@ func atoi(s string) int {
 }
 
 func (v Number) String() string {
-	s := fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	var s string
+	if v.Tag == "" {
+		s = fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	} else {
+		s = fmt.Sprintf("%d.%d-%s%d", v.Major, v.Minor, v.Tag, v.Patch)
+	}
 	if v.Build > 0 {
 		s += fmt.Sprintf(".%d", v.Build)
 	}
@@ -310,7 +318,7 @@ func isOdd(x int) bool {
 // a nonzero build component is considered to be a development
 // version.
 func (v Number) IsDev() bool {
-	return isOdd(v.Minor) || v.Build > 0
+	return v.Tag != "" || v.Build > 0
 }
 
 // ReleaseVersion looks for the value of DISTRIB_RELEASE in the content of
