@@ -43,3 +43,10 @@ else
 fi
 jenv=$JUJU_HOME/environments/$ENV.jenv
 if [ -e $jenv ]; then rm $jenv; fi
+# Force teardown of generated env names.
+jenv=$JUJU_HOME/environments/$JOB_NAME.jenv
+if [[ -e $jenv ]]; then
+    destroy-environment $JOB_NAME
+    rm $jenv
+fi
+
