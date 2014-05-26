@@ -91,8 +91,8 @@ func (m *localMantaServer) destroyServer() {
 type localLiveSuite struct {
 	providerSuite
 	jujutest.LiveTests
-	cSrv *localCloudAPIServer
-	mSrv *localMantaServer
+	cSrv            *localCloudAPIServer
+	mSrv            *localMantaServer
 	restoreTimeouts func()
 }
 
