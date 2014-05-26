@@ -59,10 +59,18 @@ func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	s.AddSuiteCleanup(func(*gc.C) { restoreMantaUser() })
 	restoreMantaKeyId := testing.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
 	s.AddSuiteCleanup(func(*gc.C) { restoreMantaKeyId() })
-	s.PatchValue(&ssh.KeyBits, 32)
+	s.privateKeyData = generatePrivateKey(c)
+}
+
+func generatePrivateKey(c *gc.C) string {
+	oldBits := ssh.KeyBits
+	defer func() {
+		ssh.KeyBits = oldBits
+	}()
+	ssh.KeyBits = 32
 	private, _, err := ssh.GenerateKey("test-client")
 	c.Assert(err, gc.IsNil)
-	s.privateKeyData = private
+	return private
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {

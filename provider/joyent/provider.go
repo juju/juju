@@ -6,7 +6,6 @@ package joyent
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/joyent/gosign/auth"
 	"github.com/juju/loggo"
@@ -16,16 +15,9 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.provider.joyent")
-
-// Use shortAttempt to poll for short-term events.
-var shortAttempt = utils.AttemptStrategy{
-	Total: 5 * time.Second,
-	Delay: 200 * time.Millisecond,
-}
 
 type joyentProvider struct{}
 
@@ -51,9 +43,6 @@ func (joyentProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config)
 }
 
 func credentials(cfg *environConfig) (*auth.Credentials, error) {
-	if cfg.privateKey() == "" {
-		return nil, errors.New("cannot create credentials without a private key")
-	}
 	authentication, err := auth.NewAuth(cfg.mantaUser(), cfg.privateKey(), cfg.algorithm())
 	if err != nil {
 		return nil, fmt.Errorf("cannot create credentials: %v", err)

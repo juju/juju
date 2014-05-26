@@ -91,9 +91,8 @@ func (m *localMantaServer) destroyServer() {
 type localLiveSuite struct {
 	providerSuite
 	jujutest.LiveTests
-	cSrv            *localCloudAPIServer
-	mSrv            *localMantaServer
-	restoreTimeouts func()
+	cSrv *localCloudAPIServer
+	mSrv *localMantaServer
 }
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
@@ -102,7 +101,7 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)
 	s.mSrv.setupServer(c)
-	s.restoreTimeouts = envtesting.PatchAttemptStrategies(joyent.ShortAttempt)
+	s.AddSuiteCleanup(func(*gc.C) { envtesting.PatchAttemptStrategies(&joyent.ShortAttempt) })
 
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
@@ -115,7 +114,6 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 	joyent.UnregisterExternalTestImageMetadata()
 	s.LiveTests.TearDownSuite(c)
-	s.restoreTimeouts()
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
 	s.providerSuite.TearDownSuite(c)
