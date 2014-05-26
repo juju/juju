@@ -12,8 +12,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -26,10 +26,10 @@ var _ = gc.Suite(&AuthKeysSuite{})
 
 func (s *AuthKeysSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	old := osenv.Home()
+	old := utils.Home()
 	newhome := c.MkDir()
-	osenv.SetHome(newhome)
-	s.AddCleanup(func(*gc.C) { osenv.SetHome(old) })
+	utils.SetHome(newhome)
+	s.AddCleanup(func(*gc.C) { utils.SetHome(old) })
 	s.dotssh = filepath.Join(newhome, ".ssh")
 	err := os.Mkdir(s.dotssh, 0755)
 	c.Assert(err, gc.IsNil)

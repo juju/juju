@@ -21,7 +21,7 @@ import (
 
 	"launchpad.net/juju-core/environs/filestorage"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/utils"
 )
 
 func TestPackage(t *testing.T) {
@@ -210,7 +210,7 @@ func (s *filestorageSuite) TestPutTmpDir(c *gc.C) {
 }
 
 func (s *filestorageSuite) TestPathRelativeToHome(c *gc.C) {
-	homeDir := osenv.Home()
+	homeDir := utils.Home()
 	tempDir, err := ioutil.TempDir(homeDir, "")
 	c.Assert(err, gc.IsNil)
 	defer os.RemoveAll(tempDir)
