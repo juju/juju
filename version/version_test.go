@@ -75,22 +75,22 @@ var parseTests = []struct {
 	v: "0.0.0",
 }, {
 	v:      "0.0.1",
-	expect: version.Number{Major: 0, Minor: 0, Patch: 1, Build: 0},
+	expect: version.Number{Major: 0, Minor: 0, Patch: 1},
 }, {
 	v:      "0.0.2",
-	expect: version.Number{Major: 0, Minor: 0, Patch: 2, Build: 0},
+	expect: version.Number{Major: 0, Minor: 0, Patch: 2},
 }, {
 	v:      "0.1.0",
-	expect: version.Number{Major: 0, Minor: 1, Patch: 0, Build: 0},
+	expect: version.Number{Major: 0, Minor: 1, Patch: 0},
 }, {
 	v:      "0.2.3",
-	expect: version.Number{Major: 0, Minor: 2, Patch: 3, Build: 0},
+	expect: version.Number{Major: 0, Minor: 2, Patch: 3},
 }, {
 	v:      "1.0.0",
-	expect: version.Number{Major: 1, Minor: 0, Patch: 0, Build: 0},
+	expect: version.Number{Major: 1, Minor: 0, Patch: 0},
 }, {
 	v:      "10.234.3456",
-	expect: version.Number{Major: 10, Minor: 234, Patch: 3456, Build: 0},
+	expect: version.Number{Major: 10, Minor: 234, Patch: 3456},
 }, {
 	v:      "10.234.3456.1",
 	expect: version.Number{Major: 10, Minor: 234, Patch: 3456, Build: 1},
@@ -101,16 +101,23 @@ var parseTests = []struct {
 	dev:    true,
 }, {
 	v:      "10.235.3456",
-	expect: version.Number{Major: 10, Minor: 235, Patch: 3456, Build: 0},
+	expect: version.Number{Major: 10, Minor: 235, Patch: 3456},
 }, {
 	v:      "1.21-alpha1",
 	expect: version.Number{Major: 1, Minor: 21, Patch: 1, Tag: "alpha"},
+	dev:    true,
+}, {
+	v:      "1.21-alpha1.1",
+	expect: version.Number{Major: 1, Minor: 21, Patch: 1, Tag: "alpha", Build: 1},
 	dev:    true,
 }, {
 	v:   "1234567890.2.1",
 	err: "invalid version.*",
 }, {
 	v:   "0.2..1",
+	err: "invalid version.*",
+}, {
+	v:   "1.21-alpha",
 	err: "invalid version.*",
 }}
 
