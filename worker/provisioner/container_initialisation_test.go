@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
@@ -26,7 +27,8 @@ import (
 
 type ContainerSetupSuite struct {
 	CommonProvisionerSuite
-	p provisioner.Provisioner
+	p           provisioner.Provisioner
+	agentConfig agent.ConfigSetter
 	// Record the apt commands issued as part of container initialisation
 	aptCmdChan  <-chan *exec.Cmd
 	initLockDir string
@@ -58,8 +60,8 @@ func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.aptCmdChan = aptCmdChan
 
 	// Set up provisioner for the state machine.
-	agentConfig := s.AgentConfigForTag(c, "machine-0")
-	s.p = provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
+	s.agentConfig = s.AgentConfigForTag(c, "machine-0")
+	s.p = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig)
 
 	// Create a new container initialisation lock.
 	s.initLockDir = c.MkDir()
@@ -150,6 +152,18 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		s.assertContainerProvisionerStarted(c, m, ctype)
 	}
+}
+
+func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
+	pr := s.st.Provisioner()
+	expect := func(expect string) {
+		cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cfg[container.ConfigName], gc.Equals, expect)
+	}
+	expect("juju")
+	s.agentConfig.SetValue(agent.Namespace, "any-old-thing")
+	expect("any-old-thing")
 }
 
 func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages []string) {

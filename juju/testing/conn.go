@@ -325,7 +325,7 @@ func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *
 	return service
 }
 
-func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.ConfigSetter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	config, err := agent.NewAgentConfig(
