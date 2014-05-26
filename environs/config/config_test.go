@@ -1346,7 +1346,7 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxySettings))
 	c.Assert(err, gc.IsNil)
 	// The default proxy settings should still be empty.
-	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxySettings.Settings{})
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{})
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
 }
 

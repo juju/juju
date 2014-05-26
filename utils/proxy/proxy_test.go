@@ -5,12 +5,17 @@ package proxy_test
 
 import (
 	"os"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/proxy"
 )
+
+func TestPackage(t *stdtesting.T) {
+	gc.TestingT(t)
+}
 
 type proxySuite struct {
 	testing.BaseSuite
@@ -181,17 +186,17 @@ func (s *proxySuite) TestSetEnvironmentValues(c *gc.C) {
 	s.PatchEnvironment("no_proxy", "initial")
 	s.PatchEnvironment("NO_PROXY", "initial")
 
-	proxy := proxy.Settings{
+	proxySettings := proxy.Settings{
 		Http:  "http proxy",
 		Https: "https proxy",
 		// Ftp left blank to show clearing env.
 		NoProxy: "10.0.3.1,localhost",
 	}
-	proxy.SetEnvironmentValues()
+	proxySettings.SetEnvironmentValues()
 
 	obtained := proxy.DetectProxies()
 
-	c.Assert(obtained, gc.DeepEquals, proxy)
+	c.Assert(obtained, gc.DeepEquals, proxySettings)
 
 	c.Assert(os.Getenv("http_proxy"), gc.Equals, "http proxy")
 	c.Assert(os.Getenv("HTTP_PROXY"), gc.Equals, "http proxy")
