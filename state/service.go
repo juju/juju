@@ -674,7 +674,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeConstraintsOp(s.st, u.globalKey()),
 		removeStatusOp(s.st, u.globalKey()),
 		annotationRemoveOp(s.st, u.globalKey()),
-		u.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
+		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
 	if u.doc.CharmURL != nil {
 		decOps, err := settingsDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
