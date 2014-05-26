@@ -91,13 +91,16 @@ func (s *CleanupSuite) TestCleanupEnvironmentServices(c *gc.C) {
 	}
 
 	// The first cleanup Destroys the service, which
-	// schedules another cleanup to destroy the units.
-	s.assertNeedsCleanup(c)
-	s.assertCleanupRuns(c)
+	// schedules another cleanup to destroy the units,
+	// then we need another pass for the actions cleanup
+	// which is queued on the next pass
+	s.assertCleanupCount(c, 2)
 	for _, unit := range units {
 		err = unit.Refresh()
 		c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	}
+
+	// Now we should have all the cleanups done
 	s.assertDoesNotNeedCleanup(c)
 }
 
