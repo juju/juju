@@ -676,12 +676,7 @@ func (s *MachineSuite) assertAgentOpensState(
 	s.waitStopped(c, job, a, done)
 }
 
-// TODO(jam): 2013-09-02 http://pad.lv/1219661
-// This test has been failing regularly on the Bot. Until someone fixes it so
-// it doesn't crash, it isn't worth having as we can't tell when someone
-// actually breaks something.
 func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
-	c.Skip("does not pass reliably on the bot (http://pad.lv/1219661")
 	s.assertJobWithState(c, state.JobManageEnviron, func(conf agent.Config, agentState *state.State) {
 		st, err := api.Open(conf.APIInfo(), fastDialOpts)
 		c.Assert(err, gc.IsNil)
