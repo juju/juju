@@ -26,7 +26,7 @@ type Settings struct {
 	NoProxy string
 }
 
-func getProxySetting(key string) string {
+func getSetting(key string) string {
 	value := os.Getenv(key)
 	if value == "" {
 		value = os.Getenv(strings.ToUpper(key))
@@ -37,10 +37,10 @@ func getProxySetting(key string) string {
 // DetectProxies returns the proxy settings found the environment.
 func DetectProxies() Settings {
 	return Settings{
-		Http:    getProxySetting(http_proxy),
-		Https:   getProxySetting(https_proxy),
-		Ftp:     getProxySetting(ftp_proxy),
-		NoProxy: getProxySetting(no_proxy),
+		Http:    getSetting(http_proxy),
+		Https:   getSetting(https_proxy),
+		Ftp:     getSetting(ftp_proxy),
+		NoProxy: getSetting(no_proxy),
 	}
 }
 
