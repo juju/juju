@@ -14,10 +14,10 @@ import (
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type DeploySuite struct {
@@ -145,7 +145,7 @@ func (s *DeploySuite) TestConfig(c *gc.C) {
 func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	// Putting a config file in home is okay as $HOME is set to a tempdir
-	setupConfigFile(c, osenv.Home())
+	setupConfigFile(c, utils.Home())
 	err := runDeploy(c, "local:dummy", "dummy-service", "--config", "~/testconfig.yaml")
 	c.Assert(err, gc.IsNil)
 }

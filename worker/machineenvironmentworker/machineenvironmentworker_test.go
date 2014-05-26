@@ -14,7 +14,6 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
@@ -23,6 +22,7 @@ import (
 	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/apt"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
 )
@@ -72,13 +72,13 @@ func (s *MachineEnvironmentWatcherSuite) waitForPostSetup(c *gc.C) {
 	}
 }
 
-func (s *MachineEnvironmentWatcherSuite) waitProxySettings(c *gc.C, expected osenv.ProxySettings) {
+func (s *MachineEnvironmentWatcherSuite) waitProxySettings(c *gc.C, expected proxy.Settings) {
 	for {
 		select {
 		case <-time.After(testing.LongWait):
 			c.Fatalf("timeout while waiting for proxy settings to change")
 		case <-time.After(10 * time.Millisecond):
-			obtained := osenv.DetectProxies()
+			obtained := proxy.DetectProxies()
 			if obtained != expected {
 				c.Logf("proxy settings are %#v, still waiting", obtained)
 				continue
@@ -118,9 +118,9 @@ func (s *MachineEnvironmentWatcherSuite) TestRunStop(c *gc.C) {
 	c.Assert(worker.Stop(envWorker), gc.IsNil)
 }
 
-func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (osenv.ProxySettings, osenv.ProxySettings) {
+func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (proxy.Settings, proxy.Settings) {
 
-	proxySettings := osenv.ProxySettings{
+	proxySettings := proxy.Settings{
 		Http:    "http proxy",
 		Https:   "https proxy",
 		Ftp:     "ftp proxy",
@@ -135,7 +135,7 @@ func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (osenv.ProxySetti
 	// settings that are used for the apt config, and not just the normal
 	// proxy settings which is what we would get if we don't explicitly set
 	// apt values.
-	aptProxySettings := osenv.ProxySettings{
+	aptProxySettings := proxy.Settings{
 		Http:  "apt http proxy",
 		Https: "apt https proxy",
 		Ftp:   "apt ftp proxy",

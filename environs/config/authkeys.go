@@ -12,7 +12,6 @@ import (
 	"path/filepath"
 
 	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 )
@@ -53,7 +52,7 @@ func ReadAuthorizedKeys(path string) (string, error) {
 			continue
 		}
 		if !filepath.IsAbs(f) {
-			f = filepath.Join(osenv.Home(), ".ssh", f)
+			f = filepath.Join(utils.Home(), ".ssh", f)
 		}
 		data, err := ioutil.ReadFile(f)
 		if err != nil {

@@ -16,9 +16,9 @@ import (
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/fslock"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/utils/tailer"
 )
 
@@ -52,7 +52,7 @@ var (
 func templateUserData(
 	series string,
 	authorizedKeys string,
-	aptProxy osenv.ProxySettings,
+	aptProxy proxy.Settings,
 ) ([]byte, error) {
 	config := coreCloudinit.New()
 	config.AddScripts(
@@ -95,7 +95,7 @@ func EnsureCloneTemplate(
 	series string,
 	network *container.NetworkConfig,
 	authorizedKeys string,
-	aptProxy osenv.ProxySettings,
+	aptProxy proxy.Settings,
 ) (golxc.Container, error) {
 	name := fmt.Sprintf("juju-%s-template", series)
 	containerDirectory, err := container.NewDirectory(name)

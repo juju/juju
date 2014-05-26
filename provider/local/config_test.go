@@ -10,10 +10,10 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type configSuite struct {
@@ -66,7 +66,7 @@ func (s *configSuite) TestSetNetworkBridge(c *gc.C) {
 
 func (s *configSuite) TestValidateConfig(c *gc.C) {
 	valid := minimalConfig(c)
-	expectedRootDir := filepath.Join(osenv.Home(), ".juju", "test")
+	expectedRootDir := filepath.Join(utils.Home(), ".juju", "test")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }
@@ -84,7 +84,7 @@ func (s *configSuite) TestValidateConfigWithTildeInRootDir(c *gc.C) {
 	valid := localConfig(c, map[string]interface{}{
 		"root-dir": "~/.juju/foo",
 	})
-	expectedRootDir := filepath.Join(osenv.Home(), ".juju", "foo")
+	expectedRootDir := filepath.Join(utils.Home(), ".juju", "foo")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }

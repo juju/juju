@@ -18,10 +18,10 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
 	utilexec "launchpad.net/juju-core/utils/exec"
+	"launchpad.net/juju-core/utils/proxy"
 	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
@@ -84,12 +84,12 @@ type HookContext struct {
 	serviceOwner string
 
 	// proxySettings are the current proxy settings that the uniter knows about
-	proxySettings osenv.ProxySettings
+	proxySettings proxy.Settings
 }
 
 func NewHookContext(unit *uniter.Unit, id, uuid, envName string,
 	relationId int, remoteUnitName string, relations map[int]*ContextRelation,
-	apiAddrs []string, serviceOwner string, proxySettings osenv.ProxySettings) (*HookContext, error) {
+	apiAddrs []string, serviceOwner string, proxySettings proxy.Settings) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
