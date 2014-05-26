@@ -11,7 +11,6 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state/api/environment"
@@ -19,6 +18,7 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/utils/exec"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -44,8 +44,8 @@ var (
 // proxy file.
 type MachineEnvironmentWorker struct {
 	api      *environment.Facade
-	aptProxy osenv.ProxySettings
-	proxy    osenv.ProxySettings
+	aptProxy proxy.Settings
+	proxy    proxy.Settings
 
 	writeSystemFiles bool
 	// The whole point of the first value is to make sure that the the files
@@ -112,7 +112,7 @@ func (w *MachineEnvironmentWorker) writeEnvironmentFile() error {
 	return nil
 }
 
-func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings osenv.ProxySettings) {
+func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings proxy.Settings) {
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
@@ -126,7 +126,7 @@ func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings osenv.ProxySe
 	}
 }
 
-func (w *MachineEnvironmentWorker) handleAptProxyValues(aptSettings osenv.ProxySettings) {
+func (w *MachineEnvironmentWorker) handleAptProxyValues(aptSettings proxy.Settings) {
 	if w.writeSystemFiles && (aptSettings != w.aptProxy || w.first) {
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
 		w.aptProxy = aptSettings

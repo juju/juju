@@ -1,15 +1,15 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package osenv_test
+package proxy_test
 
 import (
 	"os"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/proxy"
 )
 
 type proxySuite struct {
@@ -32,7 +32,7 @@ func (s *proxySuite) TestDetectNoSettings(c *gc.C) {
 
 	proxies := osenv.DetectProxies()
 
-	c.Assert(proxies, gc.DeepEquals, osenv.ProxySettings{})
+	c.Assert(proxies, gc.DeepEquals, osenv.Settings{})
 }
 
 func (s *proxySuite) TestDetectPrimary(c *gc.C) {
@@ -49,7 +49,7 @@ func (s *proxySuite) TestDetectPrimary(c *gc.C) {
 
 	proxies := osenv.DetectProxies()
 
-	c.Assert(proxies, gc.DeepEquals, osenv.ProxySettings{
+	c.Assert(proxies, gc.DeepEquals, osenv.Settings{
 		Http:    "http://user@10.0.0.1",
 		Https:   "https://user@10.0.0.1",
 		Ftp:     "ftp://user@10.0.0.1",
@@ -71,7 +71,7 @@ func (s *proxySuite) TestDetectFallback(c *gc.C) {
 
 	proxies := osenv.DetectProxies()
 
-	c.Assert(proxies, gc.DeepEquals, osenv.ProxySettings{
+	c.Assert(proxies, gc.DeepEquals, osenv.Settings{
 		Http:    "http://user@10.0.0.2",
 		Https:   "https://user@10.0.0.2",
 		Ftp:     "ftp://user@10.0.0.2",
@@ -93,7 +93,7 @@ func (s *proxySuite) TestDetectPrimaryPreference(c *gc.C) {
 
 	proxies := osenv.DetectProxies()
 
-	c.Assert(proxies, gc.DeepEquals, osenv.ProxySettings{
+	c.Assert(proxies, gc.DeepEquals, osenv.Settings{
 		Http:    "http://user@10.0.0.1",
 		Https:   "https://user@10.0.0.1",
 		Ftp:     "ftp://user@10.0.0.1",
@@ -102,12 +102,12 @@ func (s *proxySuite) TestDetectPrimaryPreference(c *gc.C) {
 }
 
 func (s *proxySuite) TestAsScriptEnvironmentEmpty(c *gc.C) {
-	proxies := osenv.ProxySettings{}
+	proxies := osenv.Settings{}
 	c.Assert(proxies.AsScriptEnvironment(), gc.Equals, "")
 }
 
 func (s *proxySuite) TestAsScriptEnvironmentOneValue(c *gc.C) {
-	proxies := osenv.ProxySettings{
+	proxies := osenv.Settings{
 		Http: "some-value",
 	}
 	expected := `
@@ -117,7 +117,7 @@ export HTTP_PROXY=some-value`[1:]
 }
 
 func (s *proxySuite) TestAsScriptEnvironmentAllValue(c *gc.C) {
-	proxies := osenv.ProxySettings{
+	proxies := osenv.Settings{
 		Http:    "some-value",
 		Https:   "special",
 		Ftp:     "who uses this?",
@@ -136,12 +136,12 @@ export NO_PROXY=10.0.3.1,localhost`[1:]
 }
 
 func (s *proxySuite) TestAsEnvironmentValuesEmpty(c *gc.C) {
-	proxies := osenv.ProxySettings{}
+	proxies := osenv.Settings{}
 	c.Assert(proxies.AsEnvironmentValues(), gc.HasLen, 0)
 }
 
 func (s *proxySuite) TestAsEnvironmentValuesOneValue(c *gc.C) {
-	proxies := osenv.ProxySettings{
+	proxies := osenv.Settings{
 		Http: "some-value",
 	}
 	expected := []string{
@@ -152,7 +152,7 @@ func (s *proxySuite) TestAsEnvironmentValuesOneValue(c *gc.C) {
 }
 
 func (s *proxySuite) TestAsEnvironmentValuesAllValue(c *gc.C) {
-	proxies := osenv.ProxySettings{
+	proxies := osenv.Settings{
 		Http:    "some-value",
 		Https:   "special",
 		Ftp:     "who uses this?",
@@ -181,7 +181,7 @@ func (s *proxySuite) TestSetEnvironmentValues(c *gc.C) {
 	s.PatchEnvironment("no_proxy", "initial")
 	s.PatchEnvironment("NO_PROXY", "initial")
 
-	proxy := osenv.ProxySettings{
+	proxy := osenv.Settings{
 		Http:  "http proxy",
 		Https: "https proxy",
 		// Ftp left blank to show clearing env.

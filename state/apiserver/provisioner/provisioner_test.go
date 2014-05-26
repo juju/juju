@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -25,6 +24,7 @@ import (
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/version"
 )
 
@@ -1161,7 +1161,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	}
 	err := s.State.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
-	expectedProxy := osenv.ProxySettings{
+	expectedProxy := proxy.Settings{
 		Http: "http://proxy.example.com:9000",
 	}
 

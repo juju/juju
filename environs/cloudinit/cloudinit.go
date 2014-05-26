@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -28,6 +27,7 @@ import (
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/apt"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/version"
 )
 
@@ -142,11 +142,11 @@ type MachineConfig struct {
 	MachineAgentServiceName string
 
 	// ProxySettings define normal http, https and ftp proxies.
-	ProxySettings osenv.ProxySettings
+	ProxySettings proxy.Settings
 
 	// AptProxySettings define the http, https and ftp proxy settings to use
 	// for apt, which may or may not be the same as the normal ProxySettings.
-	AptProxySettings osenv.ProxySettings
+	AptProxySettings proxy.Settings
 }
 
 func base64yaml(m *config.Config) string {
@@ -205,7 +205,7 @@ func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 // AddAptCommands update the cloudinit.Config instance with the necessary
 // packages, the request to do the apt-get update/upgrade on boot, and adds
 // the apt proxy settings if there are any.
-func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config) {
+func AddAptCommands(proxy proxy.Settings, c *cloudinit.Config) {
 	// Bring packages up-to-date.
 	c.SetAptUpdate(true)
 	c.SetAptUpgrade(true)
@@ -218,7 +218,7 @@ func AddAptCommands(proxy osenv.ProxySettings, c *cloudinit.Config) {
 	c.AddPackage("rsyslog-gnutls")
 
 	// Write out the apt proxy settings
-	if (proxy != osenv.ProxySettings{}) {
+	if (proxy != proxy.Settings{}) {
 		filename := apt.ConfFile
 		c.AddBootCmd(fmt.Sprintf(
 			`[ -f %s ] || (printf '%%s\n' %s > %s)`,
@@ -263,7 +263,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		// user may not exist (local provider only).
 		`([ ! -e /home/ubuntu/.profile ] || grep -q '.juju-proxy' /home/ubuntu/.profile) || ` +
 			`printf '\n# Added by juju\n[ -f "$HOME/.juju-proxy" ] && . "$HOME/.juju-proxy"\n' >> /home/ubuntu/.profile`)
-	if (cfg.ProxySettings != osenv.ProxySettings{}) {
+	if (cfg.ProxySettings != proxy.Settings{}) {
 		exportedProxyEnv := cfg.ProxySettings.AsScriptEnvironment()
 		c.AddScripts(strings.Split(exportedProxyEnv, "\n")...)
 		c.AddScripts(

@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/apt"
+	"launchpad.net/juju-core/utils/proxy"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -98,7 +98,7 @@ Acquire::magic::Proxy "none";
 
 	proxy, err := apt.DetectProxies()
 	c.Assert(err, gc.IsNil)
-	c.Assert(proxy, gc.DeepEquals, osenv.ProxySettings{
+	c.Assert(proxy, gc.DeepEquals, proxy.Settings{
 		Http:  "10.0.3.1:3142",
 		Https: "false",
 		Ftp:   "none",
@@ -109,7 +109,7 @@ func (s *AptSuite) TestDetectAptProxyNone(c *gc.C) {
 	_ = s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
 	proxy, err := apt.DetectProxies()
 	c.Assert(err, gc.IsNil)
-	c.Assert(proxy, gc.DeepEquals, osenv.ProxySettings{})
+	c.Assert(proxy, gc.DeepEquals, proxy.Settings{})
 }
 
 func (s *AptSuite) TestDetectAptProxyPartial(c *gc.C) {
@@ -122,19 +122,19 @@ Acquire::magic::Proxy "none";
 
 	proxy, err := apt.DetectProxies()
 	c.Assert(err, gc.IsNil)
-	c.Assert(proxy, gc.DeepEquals, osenv.ProxySettings{
+	c.Assert(proxy, gc.DeepEquals, proxy.Settings{
 		Http: "10.0.3.1:3142",
 		Ftp:  "here-it-is",
 	})
 }
 
 func (s *AptSuite) TestAptProxyContentEmpty(c *gc.C) {
-	output := apt.ProxyContent(osenv.ProxySettings{})
+	output := apt.ProxyContent(proxy.Settings{})
 	c.Assert(output, gc.Equals, "")
 }
 
 func (s *AptSuite) TestAptProxyContentPartial(c *gc.C) {
-	proxy := osenv.ProxySettings{
+	proxy := proxy.Settings{
 		Http: "user@10.0.0.1",
 	}
 	output := apt.ProxyContent(proxy)
@@ -143,7 +143,7 @@ func (s *AptSuite) TestAptProxyContentPartial(c *gc.C) {
 }
 
 func (s *AptSuite) TestAptProxyContentRoundtrip(c *gc.C) {
-	proxy := osenv.ProxySettings{
+	proxy := proxy.Settings{
 		Http:  "http://user@10.0.0.1",
 		Https: "https://user@10.0.0.1",
 		Ftp:   "ftp://user@10.0.0.1",

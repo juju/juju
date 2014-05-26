@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/version"
 )
 
@@ -511,8 +512,8 @@ func (c *Config) ProxySSH() bool {
 
 // ProxySettings returns all four proxy settings; http, https, ftp, and no
 // proxy.
-func (c *Config) ProxySettings() osenv.ProxySettings {
-	return osenv.ProxySettings{
+func (c *Config) ProxySettings() proxy.Settings {
+	return proxy.Settings{
 		Http:    c.HttpProxy(),
 		Https:   c.HttpsProxy(),
 		Ftp:     c.FtpProxy(),
@@ -549,8 +550,8 @@ func (c *Config) getWithFallback(key, fallback string) string {
 }
 
 // AptProxySettings returns all three proxy settings; http, https and ftp.
-func (c *Config) AptProxySettings() osenv.ProxySettings {
-	return osenv.ProxySettings{
+func (c *Config) AptProxySettings() proxy.Settings {
+	return proxy.Settings{
 		Http:  c.AptHttpProxy(),
 		Https: c.AptHttpsProxy(),
 		Ftp:   c.AptFtpProxy(),
@@ -1019,7 +1020,7 @@ func addIfNotEmpty(settings map[string]interface{}, key, value string) {
 
 // ProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
-func ProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
+func ProxyConfigMap(proxy proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
 	addIfNotEmpty(settings, "http-proxy", proxy.Http)
 	addIfNotEmpty(settings, "https-proxy", proxy.Https)
@@ -1030,7 +1031,7 @@ func ProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
 
 // AptProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
-func AptProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
+func AptProxyConfigMap(proxy proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
 	addIfNotEmpty(settings, "apt-http-proxy", proxy.Http)
 	addIfNotEmpty(settings, "apt-https-proxy", proxy.Https)

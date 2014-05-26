@@ -16,18 +16,18 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	apiuniter "launchpad.net/juju-core/state/api/uniter"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
-var noProxies = osenv.ProxySettings{}
+var noProxies = proxy.Settings{}
 
 type RunHookSuite struct {
 	HookContextSuite
@@ -133,7 +133,7 @@ var runHookTests = []struct {
 	spec          hookSpec
 	err           string
 	env           map[string]string
-	proxySettings osenv.ProxySettings
+	proxySettings proxy.Settings
 }{
 	{
 		summary: "missing hook is not an error",
@@ -178,7 +178,7 @@ var runHookTests = []struct {
 		summary: "check shell environment for non-relation hook context",
 		relid:   -1,
 		spec:    hookSpec{perm: 0700},
-		proxySettings: osenv.ProxySettings{
+		proxySettings: proxy.Settings{
 			Http: "http", Https: "https", Ftp: "ftp", NoProxy: "no proxy"},
 		env: map[string]string{
 			"JUJU_UNIT_NAME":     "u/0",
@@ -719,7 +719,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 }
 
 func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies osenv.ProxySettings) *uniter.HookContext {
+	remote string, proxies proxy.Settings) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, jc.IsTrue)

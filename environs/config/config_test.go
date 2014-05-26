@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/version"
 )
 
@@ -1320,7 +1321,7 @@ func (s *ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
-	proxy := osenv.ProxySettings{
+	proxy := proxy.Settings{
 		Http:    "http proxy",
 		Https:   "https proxy",
 		Ftp:     "ftp proxy",
@@ -1337,7 +1338,7 @@ func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
-	proxy := osenv.ProxySettings{
+	proxy := proxy.Settings{
 		Http:  "http proxy",
 		Https: "https proxy",
 		Ftp:   "ftp proxy",
@@ -1345,7 +1346,7 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxy))
 	c.Assert(err, gc.IsNil)
 	// The default proxy settings should still be empty.
-	c.Assert(cfg.ProxySettings(), gc.DeepEquals, osenv.ProxySettings{})
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{})
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
 }
 
