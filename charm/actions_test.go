@@ -252,10 +252,7 @@ actions:
 	for i, test := range badActionsYamlTests {
 		c.Logf("test %d: %s", i, test.description)
 		reader := bytes.NewReader([]byte(test.yaml))
-		unma, err := charm.ReadActionsYaml(reader)
-		c.Logf("test %d: actions yaml was %s", i, test.yaml)
-		c.Logf("test %d: unmarshaled action was %v", i, unma)
-		c.Logf("test %d: error was %s", i, err.Error())
+		_, err := charm.ReadActionsYaml(reader)
 		c.Assert(err.Error(), gc.Equals, test.expectedError)
 	}
 }
