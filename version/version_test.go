@@ -136,13 +136,14 @@ func (*suite) TestParse(c *gc.C) {
 	}
 }
 
-func binaryVersion(major, minor, patch, build int, series, arch string) version.Binary {
+func binaryVersion(major, minor, patch, build int, tag, series, arch string) version.Binary {
 	return version.Binary{
 		Number: version.Number{
 			Major: major,
 			Minor: minor,
 			Patch: patch,
 			Build: build,
+			Tag:   tag,
 		},
 		Series: series,
 		Arch:   arch,
@@ -156,10 +157,22 @@ func (*suite) TestParseBinary(c *gc.C) {
 		expect version.Binary
 	}{{
 		v:      "1.2.3-a-b",
-		expect: binaryVersion(1, 2, 3, 0, "a", "b"),
+		expect: binaryVersion(1, 2, 3, 0, "", "a", "b"),
 	}, {
 		v:      "1.2.3.4-a-b",
-		expect: binaryVersion(1, 2, 3, 4, "a", "b"),
+		expect: binaryVersion(1, 2, 3, 4, "", "a", "b"),
+	}, {
+		v:      "1.2-alpha3-a-b",
+		expect: binaryVersion(1, 2, 3, 0, "alpha", "a", "b"),
+	}, {
+		v:      "1.2-alpha3.4-a-b",
+		expect: binaryVersion(1, 2, 3, 4, "alpha", "a", "b"),
+	}, {
+		v:   "1.2.3",
+		err: "invalid binary version.*",
+	}, {
+		v:   "1.2-beta1",
+		err: "invalid binary version.*",
 	}, {
 		v:   "1.2.3--b",
 		err: "invalid binary version.*",
