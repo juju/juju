@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -277,4 +278,28 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 		},
 	})
 	s.assertEnvironKeys(c, append(initialKeys, key3))
+}
+
+func (s *keyManagerSuite) TestCallSSHImportId(c *gc.C) {
+	const sshImportIdScript = `#!/bin/sh
+cat<<EOF
+2014-05-26 15:17:46,055 INFO Authorized key ['2048', '08:9a:ab:df:90:d8:c2:6a:18:95:c3:e0:e3:c8:2c:70', 'ian@wallyworld', '(RSA)']
+ssh-rsa AAAAB3NzaC1yc2EAAAABIwAAAQEA4OrXnYsxashjP64y5heB1jCgCERz4cTExsqY6n1ANFXP8AlIxLYHx/g4EE1of/DQ0+uDtimQjJfhvwoglmNkOW4WdWQtaFr1qhMivtSDXEnXI7RZQue9xqH6B3u8yweMqMjqr5mLqJ5eY1HEoFtLBh3tHPHKNM62w/Eb2LLCD2JblbuHmFvLnwxGWNp0jMU69DE/bDvKtmOx4idXBGnqTImOCcDTaNy1srSEiJIprwYqJSOXO61pIs9COQVG1EOadqqvgBE0koITMFPPIWm4dBxbh2DREVFSZIz6DuwPwWXaNk8YqcGH5bU4Y7o6I0iUyVrKT4yG0AjMNc1BaEocGQ== ian@wallyworld # ssh-import-id lp:wallyworld
+2014-05-26 15:17:46,056 INFO [1] SSH keys [Authorized]
+EOF`
+	testing.PatchExecutable(c, s, "ssh-import-id", sshImportIdScript)
+	output, err := keymanager.RunSSHImportId("lp:wallyworld")
+	c.Assert(err, gc.IsNil)
+	lines := strings.Split(output, "\n")
+	var key string
+	for _, line := range lines {
+		if !strings.HasPrefix(line, "ssh-") {
+			continue
+		}
+		_, _, err := ssh.KeyFingerprint(line)
+		if err == nil {
+			key = line
+		}
+	}
+	c.Assert(key, gc.Not(gc.Equals), "")
 }
