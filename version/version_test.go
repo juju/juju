@@ -134,6 +134,12 @@ var parseTests = []struct {
 }, {
 	v:   "1.21-alpha",
 	err: "invalid version.*",
+}, {
+	v:   "1.21-alpha1beta",
+	err: "invalid version.*",
+}, {
+	v:   "1.21-alpha-dev",
+	err: "invalid version.*",
 }}
 
 func (*suite) TestParse(c *gc.C) {
