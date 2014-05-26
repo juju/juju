@@ -168,43 +168,22 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 	}
 }
 
-var brokenConfig = `
-'
-`
-
-// breakJuju writes a dummy environment with incomplete configuration.
-// environMethod is called.
-func breakJuju(c *gc.C, environMethod string) (msg string) {
-	path := osenv.JujuHomePath("environments.yaml")
-	err := ioutil.WriteFile(path, []byte(brokenConfig), 0666)
-	c.Assert(err, gc.IsNil)
-	return `cannot parse "[^"]*": YAML error.*`
-}
-
-func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *gc.C) {
-	c.Skip("breaks test isolation: lp:1233601")
-	// Check global args work when specified before command
-	msg := breakJuju(c, "Bootstrap")
+func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 	logpath := filepath.Join(c.MkDir(), "log")
-	out := badrun(c, 1, "--log-file", logpath, "bootstrap")
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .*%s\n`, msg)
-	c.Assert(out, gc.Matches, fullmsg)
-	content, err := ioutil.ReadFile(logpath)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(content), gc.Matches, fullmsg)
-}
-
-func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *gc.C) {
-	c.Skip("breaks test isolation: lp:1233601")
-	// Check global args work when specified after command
-	msg := breakJuju(c, "Bootstrap")
-	logpath := filepath.Join(c.MkDir(), "log")
-	out := badrun(c, 1, "bootstrap", "--log-file", logpath)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .*%s\n`, msg)
-	c.Assert(out, gc.Matches, fullmsg)
-	content, err := ioutil.ReadFile(logpath)
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(content), gc.Matches, fullmsg)
+	tests := [][]string{
+		{"--log-file", logpath, "--debug", "env"}, // global flags before
+		{"env", "--log-file", logpath, "--debug"}, // after
+		{"--log-file", logpath, "env", "--debug"}, // mixed
+	}
+	for i, test := range tests {
+		c.Logf("test %d: %v", i, test)
+		badrun(c, 0, test...)
+		content, err := ioutil.ReadFile(logpath)
+		c.Assert(err, gc.IsNil)
+		c.Assert(string(content), gc.Matches, "(.|\n)*running juju(.|\n)*command finished(.|\n)*")
+		err = os.Remove(logpath)
+		c.Assert(err, gc.IsNil)
+	}
 }
 
 var commandNames = []string{

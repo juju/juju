@@ -121,10 +121,6 @@ func (t *localLiveSuite) TearDownSuite(c *gc.C) {
 	t.restoreEC2Patching()
 }
 
-func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *gc.C) {
-	c.Skip("broken under ec2 - see https://bugs.launchpad.net/juju-core/+bug/1233278")
-}
-
 // localServer represents a fake EC2 server running within
 // the test process itself.
 type localServer struct {
