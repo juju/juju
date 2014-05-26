@@ -1368,18 +1368,8 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 
 // Actions returns the list of Actions pending for this unit, or an
 // error if there was an issue getting the list
-func (u *Unit) Actions() ([]Action, error) {
-	actions := []Action{}
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + actionPrefix(u.globalKey())}}}}
-	iter := u.st.actions.Find(sel).Iter()
-	doc := actionDoc{}
-	for iter.Next(&doc) {
-		actions = append(actions, *newAction(u.st, doc))
-	}
-	if err := iter.Err(); err != nil {
-		return actions, err
-	}
-	return actions, nil
+func (u *Unit) Actions() ([]*Action, error) {
+	return u.st.UnitActions(u.doc.Name)
 }
 
 // Resolve marks the unit as having had any previous state transition

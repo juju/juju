@@ -1408,6 +1408,21 @@ func (st *State) Action(id string) (*Action, error) {
 	return newAction(st, doc), nil
 }
 
+// UnitActions returns a list of pending actions for a unit named name
+func (st *State) UnitActions(name string) ([]*Action, error) {
+	actions := []*Action{}
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + actionPrefix(unitGlobalKey(name))}}}}
+	iter := st.actions.Find(sel).Iter()
+	doc := actionDoc{}
+	for iter.Next(&doc) {
+		actions = append(actions, newAction(st, doc))
+	}
+	if err := iter.Err(); err != nil {
+		return actions, err
+	}
+	return actions, nil
+}
+
 // Unit returns a unit by name.
 func (st *State) Unit(name string) (*Unit, error) {
 	if !names.IsUnit(name) {

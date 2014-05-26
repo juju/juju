@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
@@ -15,7 +18,7 @@ const (
 	cleanupRelationSettings            cleanupKind = "settings"
 	cleanupUnitsForDyingService        cleanupKind = "units"
 	cleanupDyingUnit                   cleanupKind = "dyingUnit"
-	cleanupDeadUnit                    cleanupKind = "deadUnit"
+	cleanupRemovedUnit                 cleanupKind = "removedUnit"
 	cleanupServicesForDyingEnvironment cleanupKind = "services"
 	cleanupForceDestroyedMachine       cleanupKind = "machine"
 )
@@ -68,8 +71,8 @@ func (st *State) Cleanup() error {
 			err = st.cleanupUnitsForDyingService(doc.Prefix)
 		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix)
-		case cleanupDeadUnit:
-			err = st.cleanupDeadUnit(doc.Prefix)
+		case cleanupRemovedUnit:
+			err = st.cleanupRemovedUnit(doc.Prefix)
 		case cleanupServicesForDyingEnvironment:
 			err = st.cleanupServicesForDyingEnvironment()
 		case cleanupForceDestroyedMachine:
@@ -181,18 +184,21 @@ func (st *State) cleanupDyingUnit(name string) error {
 	return nil
 }
 
-// cleanupDeadUnit takes care of all the final cleanup required when
-// a unit is dead.
-func (st *State) cleanupDeadUnit(name string) error {
-	unit, err := st.Unit(name)
-	if errors.IsNotFound(err) {
-		return nil
-	} else if err != nil {
+// cleanupRemovedUnit takes care of all the final cleanup required when
+// a unit is removed.
+func (st *State) cleanupRemovedUnit(name string) error {
+	// st.Unit(name) is likely to remove 'IsNotFound' here, but we still
+	// need to cleanup actions, so we just get them from the state using
+	// the unit Name
+	actions, err := st.UnitActions(name)
+	if err != nil {
 		return err
 	}
-
-	unit.Name()
-
+	for _, action := range actions {
+		if err = action.Fail("unit removed"); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

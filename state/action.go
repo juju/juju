@@ -1,7 +1,12 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
 	"fmt"
+
+	"labix.org/v2/mgo/txn"
 )
 
 type actionDoc struct {
@@ -63,4 +68,15 @@ func (a *Action) Id() string {
 // definition of the Action
 func (a *Action) Payload() map[string]interface{} {
 	return a.doc.Payload
+}
+
+// Fail removes an Action from the queue, and documents the reason for the
+// failure.
+func (a *Action) Fail(reason string) error {
+	// TODO(jcw4) add logging
+	return a.st.runTransaction([]txn.Op{{
+		C:      a.st.actions.Name,
+		Id:     a.doc.Id,
+		Remove: true,
+	}})
 }
