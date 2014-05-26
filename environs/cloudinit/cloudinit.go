@@ -205,7 +205,7 @@ func ConfigureBasic(cfg *MachineConfig, c *cloudinit.Config) error {
 // AddAptCommands update the cloudinit.Config instance with the necessary
 // packages, the request to do the apt-get update/upgrade on boot, and adds
 // the apt proxy settings if there are any.
-func AddAptCommands(proxy proxy.Settings, c *cloudinit.Config) {
+func AddAptCommands(proxySettings proxy.Settings, c *cloudinit.Config) {
 	// Bring packages up-to-date.
 	c.SetAptUpdate(true)
 	c.SetAptUpgrade(true)
@@ -218,12 +218,12 @@ func AddAptCommands(proxy proxy.Settings, c *cloudinit.Config) {
 	c.AddPackage("rsyslog-gnutls")
 
 	// Write out the apt proxy settings
-	if (proxy != proxy.Settings{}) {
+	if (proxySettings != proxy.Settings{}) {
 		filename := apt.ConfFile
 		c.AddBootCmd(fmt.Sprintf(
 			`[ -f %s ] || (printf '%%s\n' %s > %s)`,
 			filename,
-			shquote(apt.ProxyContent(proxy)),
+			shquote(apt.ProxyContent(proxySettings)),
 			filename))
 	}
 }

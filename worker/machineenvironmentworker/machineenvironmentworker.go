@@ -18,7 +18,7 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/utils/exec"
-	"launchpad.net/juju-core/utils/proxy"
+	proxyutils "launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -44,8 +44,8 @@ var (
 // proxy file.
 type MachineEnvironmentWorker struct {
 	api      *environment.Facade
-	aptProxy proxy.Settings
-	proxy    proxy.Settings
+	aptProxy proxyutils.Settings
+	proxy    proxyutils.Settings
 
 	writeSystemFiles bool
 	// The whole point of the first value is to make sure that the the files
@@ -112,7 +112,7 @@ func (w *MachineEnvironmentWorker) writeEnvironmentFile() error {
 	return nil
 }
 
-func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings proxy.Settings) {
+func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
@@ -126,7 +126,7 @@ func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings proxy.Setting
 	}
 }
 
-func (w *MachineEnvironmentWorker) handleAptProxyValues(aptSettings proxy.Settings) {
+func (w *MachineEnvironmentWorker) handleAptProxyValues(aptSettings proxyutils.Settings) {
 	if w.writeSystemFiles && (aptSettings != w.aptProxy || w.first) {
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
 		w.aptProxy = aptSettings

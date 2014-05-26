@@ -180,17 +180,17 @@ func DetectProxies() (result proxy.Settings, err error) {
 
 // ProxyContent produces the format expected by the apt config files
 // from the ProxySettings struct.
-func ProxyContent(proxy proxy.Settings) string {
+func ProxyContent(proxySettings proxy.Settings) string {
 	lines := []string{}
-	addLine := func(proxy, value string) {
+	addLine := func(proxySettings, value string) {
 		if value != "" {
 			lines = append(lines, fmt.Sprintf(
-				"Acquire::%s::Proxy %q;", proxy, value))
+				"Acquire::%s::Proxy %q;", proxySettings, value))
 		}
 	}
-	addLine("http", proxy.Http)
-	addLine("https", proxy.Https)
-	addLine("ftp", proxy.Ftp)
+	addLine("http", proxySettings.Http)
+	addLine("https", proxySettings.Https)
+	addLine("ftp", proxySettings.Ftp)
 	return strings.Join(lines, "\n")
 }
 

@@ -27,7 +27,7 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
-	"launchpad.net/juju-core/utils/proxy"
+	proxyutils "launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
@@ -79,7 +79,7 @@ type Uniter struct {
 	hookLock     *fslock.Lock
 	runListener  *RunListener
 
-	proxy      proxy.Settings
+	proxy      proxyutils.Settings
 	proxyMutex sync.Mutex
 
 	ranConfigChanged bool

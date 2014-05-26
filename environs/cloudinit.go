@@ -75,7 +75,7 @@ func NewBootstrapMachineConfig(privateSystemSSHKey string) *cloudinit.MachineCon
 func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
-	proxy, aptProxy proxy.Settings,
+	proxySettings, aptProxySettings proxy.Settings,
 ) error {
 	if authorizedKeys == "" {
 		return fmt.Errorf("environment configuration has no authorized-keys")
@@ -87,8 +87,8 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	mcfg.AgentEnvironment[agent.ProviderType] = providerType
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
 	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
-	mcfg.ProxySettings = proxy
-	mcfg.AptProxySettings = aptProxy
+	mcfg.ProxySettings = proxySettings
+	mcfg.AptProxySettings = aptProxySettings
 	return nil
 }
 

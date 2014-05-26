@@ -1020,21 +1020,21 @@ func addIfNotEmpty(settings map[string]interface{}, key, value string) {
 
 // ProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
-func ProxyConfigMap(proxy proxy.Settings) map[string]interface{} {
+func ProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, "http-proxy", proxy.Http)
-	addIfNotEmpty(settings, "https-proxy", proxy.Https)
-	addIfNotEmpty(settings, "ftp-proxy", proxy.Ftp)
-	addIfNotEmpty(settings, "no-proxy", proxy.NoProxy)
+	addIfNotEmpty(settings, "http-proxy", proxySettings.Http)
+	addIfNotEmpty(settings, "https-proxy", proxySettings.Https)
+	addIfNotEmpty(settings, "ftp-proxy", proxySettings.Ftp)
+	addIfNotEmpty(settings, "no-proxy", proxySettings.NoProxy)
 	return settings
 }
 
 // AptProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
-func AptProxyConfigMap(proxy proxy.Settings) map[string]interface{} {
+func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, "apt-http-proxy", proxy.Http)
-	addIfNotEmpty(settings, "apt-https-proxy", proxy.Https)
-	addIfNotEmpty(settings, "apt-ftp-proxy", proxy.Ftp)
+	addIfNotEmpty(settings, "apt-http-proxy", proxySettings.Http)
+	addIfNotEmpty(settings, "apt-https-proxy", proxySettings.Https)
+	addIfNotEmpty(settings, "apt-ftp-proxy", proxySettings.Ftp)
 	return settings
 }

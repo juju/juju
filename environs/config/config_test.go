@@ -1321,33 +1321,33 @@ func (s *ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
-	proxy := proxy.Settings{
+	proxySettings := proxy.Settings{
 		Http:    "http proxy",
 		Https:   "https proxy",
 		Ftp:     "ftp proxy",
 		NoProxy: "no proxy",
 	}
-	cfg, err := cfg.Apply(config.ProxyConfigMap(proxy))
+	cfg, err := cfg.Apply(config.ProxyConfigMap(proxySettings))
 	c.Assert(err, gc.IsNil)
-	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy)
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxySettings)
 	// Apt proxy and proxy differ by the content of the no-proxy values.
-	proxy.NoProxy = ""
-	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
+	proxySettings.NoProxy = ""
+	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
 }
 
 func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
-	proxy := proxy.Settings{
+	proxySettings := proxy.Settings{
 		Http:  "http proxy",
 		Https: "https proxy",
 		Ftp:   "ftp proxy",
 	}
-	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxy))
+	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxySettings))
 	c.Assert(err, gc.IsNil)
 	// The default proxy settings should still be empty.
-	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{})
-	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxySettings.Settings{})
+	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
 }
 
 func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
