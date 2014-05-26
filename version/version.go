@@ -24,7 +24,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.19.3"
+const version = "1.20-beta1"
 
 // lsbReleaseFile is the name of the file that is read in order to determine
 // the release version of ubuntu.
@@ -318,14 +318,9 @@ func (vp *Number) SetYAML(tag string, value interface{}) bool {
 	return true
 }
 
-func isOdd(x int) bool {
-	return x%2 != 0
-}
-
-// IsDev returns whether the version represents a development
-// version. A version with an odd-numbered minor component or
-// a nonzero build component is considered to be a development
-// version.
+// IsDev returns whether the version represents a development version. A
+// version with a tag or a nonzero build component is considered to be a
+// development version.
 func (v Number) IsDev() bool {
 	return v.Tag != "" || v.Build > 0
 }
