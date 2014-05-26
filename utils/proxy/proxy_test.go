@@ -5,17 +5,12 @@ package proxy_test
 
 import (
 	"os"
-	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/proxy"
 )
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type proxySuite struct {
 	testing.BaseSuite
