@@ -22,14 +22,6 @@ type importSuite struct {
 
 var _ = gc.Suite(&importSuite{})
 
-func (*importSuite) TestDependencies(c *gc.C) {
-	// TODO (frankban): restore this test once juju-core/utils is on Github.
-	c.Skip("waiting for juju-core/utils to be migrated to github")
-	// This test is to ensure we don't bring in dependencies at all.
-	c.Assert(testbase.FindJujuCoreImports(c, "launchpad.net/juju-core/juju/osenv"),
-		gc.HasLen, 0)
-}
-
 // TODO (frankban): remove this test once juju-core/utils is on Github.
 func (*importSuite) TestTemporaryDependencies(c *gc.C) {
 	c.Assert(testbase.FindJujuCoreImports(c, "launchpad.net/juju-core/juju/osenv"),
