@@ -26,6 +26,9 @@ import (
 // number of the release package.
 const version = "1.20-beta1"
 
+// The version that we switched over from old style numbering to new style.
+var switchOverVersion = MustParse("1.19.3")
+
 // lsbReleaseFile is the name of the file that is read in order to determine
 // the release version of ubuntu.
 var lsbReleaseFile = "/etc/lsb-release"
@@ -318,10 +321,18 @@ func (vp *Number) SetYAML(tag string, value interface{}) bool {
 	return true
 }
 
+func isOdd(x int) bool {
+	return x%2 != 0
+}
+
 // IsDev returns whether the version represents a development version. A
 // version with a tag or a nonzero build component is considered to be a
-// development version.
+// development version.  Versions older than or equal to 1.19.3 (the switch
+// over time) check for odd minor versions.
 func (v Number) IsDev() bool {
+	if v.Compare(switchOverVersion) <= 0 {
+		return isOdd(v.Minor) || v.Build > 0
+	}
 	return v.Tag != "" || v.Build > 0
 }
 
