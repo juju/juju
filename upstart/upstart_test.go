@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
@@ -21,7 +21,7 @@ import (
 func Test(t *testing.T) { gc.TestingT(t) }
 
 type UpstartSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	testPath string
 	service  *upstart.Service
 }

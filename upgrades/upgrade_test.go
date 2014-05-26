@@ -17,7 +17,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/version"
 )
@@ -37,7 +36,7 @@ func assertExpectedSteps(c *gc.C, steps []upgrades.Step, expectedSteps []string)
 }
 
 type upgradeSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&upgradeSuite{})

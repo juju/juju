@@ -85,6 +85,9 @@ remote_cmd() {
 		$LIBJUJU/agents/machine-* \
 		$LIBJUJU/tools \
 		$LIBJUJU/server.pem \
+		$LIBJUJU/system-identity \
+		$LIBJUJU/nonce.txt \
+		$LIBJUJU/shared-secret \
 		~/.ssh/authorized_keys \
 		/etc/rsyslog.d/*juju.conf \
 		/var/log/juju/all-machines.log \

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
@@ -19,7 +20,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/replicaset"
@@ -974,6 +974,34 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestAllRelations(c *gc.C) {
+	const numRelations = 32
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	_, err = mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+	wordpressCharm := s.AddTestingCharm(c, "wordpress")
+	for i := 0; i < numRelations; i++ {
+		serviceName := fmt.Sprintf("wordpress%d", i)
+		wordpress := s.AddTestingService(c, serviceName, wordpressCharm)
+		_, err = wordpress.AddUnit()
+		c.Assert(err, gc.IsNil)
+		eps, err := s.State.InferEndpoints([]string{serviceName, "mysql"})
+		c.Assert(err, gc.IsNil)
+		_, err = s.State.AddRelation(eps...)
+		c.Assert(err, gc.IsNil)
+	}
+
+	relations, _ := s.State.AllRelations()
+
+	c.Assert(len(relations), gc.Equals, numRelations)
+	for i, relation := range relations {
+		c.Assert(relation.Id(), gc.Equals, i)
+		c.Assert(relation, gc.Matches, fmt.Sprintf("wordpress%d:.+ mysql:.+", i))
+	}
+}
+
 var addNetworkErrorsTests = []struct {
 	args      state.NetworkInfo
 	expectErr string
@@ -1403,7 +1431,7 @@ func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
 func (s *StateSuite) TestSetInvalidConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=4G instance-type=foo")
 	err := s.State.SetEnvironConstraints(cons)
-	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "mem" overlaps with "instance-type"`)
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 }
 
 func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {

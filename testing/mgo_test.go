@@ -10,11 +10,10 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type mgoSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	testing.MgoSuite
 }
 
@@ -25,22 +24,22 @@ func TestMgoSuite(t *stdtesting.T) {
 }
 
 func (s *mgoSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *mgoSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *mgoSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 }
 
 func (s *mgoSuite) TearDownTest(c *gc.C) {
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 }
 

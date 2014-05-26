@@ -9,12 +9,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
@@ -398,7 +398,7 @@ func (m *Machine) ForceDestroy() error {
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
-		}, m.st.newCleanupOp("machine", m.doc.Id)}
+		}, m.st.newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}
 		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
 		}

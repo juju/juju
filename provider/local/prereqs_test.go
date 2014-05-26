@@ -12,12 +12,12 @@ import (
 
 	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/testing/testbase"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/apt"
 )
 
 type prereqsSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	tmpdir         string
 	testMongodPath string
 }
@@ -43,7 +43,7 @@ func init() {
 }
 
 func (s *prereqsSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.tmpdir = c.MkDir()
 	s.testMongodPath = filepath.Join(s.tmpdir, "mongod")
 
@@ -59,7 +59,7 @@ func (s *prereqsSuite) SetUpTest(c *gc.C) {
 	// simulate package installation query responses.
 	err = os.Symlink("/bin/true", filepath.Join(s.tmpdir, "dpkg-query"))
 	c.Assert(err, gc.IsNil)
-	s.PatchValue(&isPackageInstalled, utils.IsPackageInstalled)
+	s.PatchValue(&isPackageInstalled, apt.IsPackageInstalled)
 }
 
 func (*prereqsSuite) TestSupportedOS(c *gc.C) {

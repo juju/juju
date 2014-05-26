@@ -7,7 +7,8 @@ import (
 	stderrors "errors"
 	"sync"
 
-	"launchpad.net/juju-core/errors"
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
@@ -180,6 +181,7 @@ func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticat
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}
 	}
-	newRoot.pingTimeout = newPingTimeout(action, maxClientPingInterval)
+	pingTimeout := newPingTimeout(action, maxClientPingInterval)
+	newRoot.resources.RegisterNamed("pingTimeout", pingTimeout)
 	return nil
 }

@@ -20,7 +20,6 @@ import (
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 var dottedConfig = `
@@ -29,23 +28,23 @@ options:
 `
 
 type storeManagerStateSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	testing.MgoSuite
 	State *State
 }
 
 func (s *storeManagerStateSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.State = TestingInitialize(c, nil, Policy(nil))
 	s.State.AddUser(AdminUser, "pass")
@@ -54,7 +53,7 @@ func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
 	s.State.Close()
 	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *storeManagerStateSuite) Reset(c *gc.C) {

@@ -16,7 +16,7 @@ import (
 	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
 	containertesting "launchpad.net/juju-core/container/testing"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
 
@@ -98,7 +98,7 @@ func (s *KVMSuite) TestCreateContainer(c *gc.C) {
 func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 	instance := containertesting.CreateContainer(c, s.manager, "1/lxc/0")
 
-	err := s.manager.DestroyContainer(instance)
+	err := s.manager.DestroyContainer(instance.Id())
 	c.Assert(err, gc.IsNil)
 
 	name := string(instance.Id())
@@ -109,7 +109,7 @@ func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 }
 
 type ConstraintsSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&ConstraintsSuite{})

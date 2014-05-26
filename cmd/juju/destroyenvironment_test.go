@@ -6,13 +6,13 @@ package main
 import (
 	"bytes"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
@@ -74,7 +74,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
 	_, err := s.ConfigStore.CreateInfo("emptyenv")
 	c.Assert(err, gc.IsNil)
 
-	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), []string{"-e", "emptyenv"})
+	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), "-e", "emptyenv")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(coretesting.Stderr(context), gc.Equals, "removing empty environment file\n")

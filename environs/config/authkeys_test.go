@@ -13,19 +13,19 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
 type AuthKeysSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	dotssh string // ~/.ssh
 }
 
 var _ = gc.Suite(&AuthKeysSuite{})
 
 func (s *AuthKeysSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	old := osenv.Home()
 	newhome := c.MkDir()
 	osenv.SetHome(newhome)
@@ -37,7 +37,7 @@ func (s *AuthKeysSuite) SetUpTest(c *gc.C) {
 
 func (s *AuthKeysSuite) TearDownTest(c *gc.C) {
 	ssh.ClearClientKeys()
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *AuthKeysSuite) TestReadAuthorizedKeysErrors(c *gc.C) {

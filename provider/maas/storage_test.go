@@ -12,12 +12,12 @@ import (
 	"net/url"
 	"sync"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/errors"
 )
 
 type storageSuite struct {

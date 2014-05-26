@@ -10,10 +10,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"launchpad.net/goamz/s3"
 
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 )
 

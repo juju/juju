@@ -5,21 +5,21 @@ package voyeur
 
 import (
 	"fmt"
-	"testing"
+	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 type suite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&suite{})
 
-func Test(t *testing.T) { gc.TestingT(t) }
+func Test(t *stdtesting.T) { gc.TestingT(t) }
 
 func ExampleWatcher_Next() {
 	v := NewValue(nil)

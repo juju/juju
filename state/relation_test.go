@@ -4,11 +4,11 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 )
 
@@ -263,8 +263,12 @@ func assertOneRelation(c *gc.C, srv *state.Service, relId int, endpoints ...stat
 	rels, err := srv.Relations()
 	c.Assert(err, gc.IsNil)
 	c.Assert(rels, gc.HasLen, 1)
+
 	rel := rels[0]
 	c.Assert(rel.Id(), gc.Equals, relId)
+
+	c.Assert(rel.Endpoints(), jc.SameContents, endpoints)
+
 	name := srv.Name()
 	expectEp := endpoints[0]
 	ep, err := rel.Endpoint(name)

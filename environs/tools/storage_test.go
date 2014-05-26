@@ -13,21 +13,21 @@ import (
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
 type StorageSuite struct {
 	env environs.Environ
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	dataDir string
 }
 
 var _ = gc.Suite(&StorageSuite{})
 
 func (s *StorageSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
 	s.env, err = environs.Prepare(cfg, testing.Context(c), configstore.NewMem())
@@ -37,7 +37,7 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 
 func (s *StorageSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *StorageSuite) TestStorageName(c *gc.C) {

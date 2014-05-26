@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/version"
 )
 
@@ -81,7 +82,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return environ, nil
 }
 
-var detectAptProxies = utils.DetectAptProxies
+var detectAptProxies = apt.DetectProxies
 
 // Prepare implements environs.EnvironProvider.Prepare.
 func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
@@ -222,13 +223,6 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	// Always assign the normalized path.
 	localConfig.attrs["root-dir"] = dir
-
-	if containerType != instance.KVM {
-		fastOptionAvailable := useFastLXC(containerType)
-		if _, found := localConfig.attrs["lxc-clone"]; !found {
-			localConfig.attrs["lxc-clone"] = fastOptionAvailable
-		}
-	}
 
 	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(localConfig.attrs)

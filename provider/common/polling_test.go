@@ -38,37 +38,15 @@ func (s *pollingSuite) TearDownSuite(c *gc.C) {
 	common.LongAttempt = s.originalLongAttempt
 }
 
-// dnsNameFakeInstance is a fake environs.Instance implementation where
-// DNSName returns whatever you tell it to, and WaitDNSName delegates to the
-// shared WaitDNSName implementation.  All the other methods are empty stubs.
-type dnsNameFakeInstance struct {
-	// embed a nil Instance to panic on unimplemented method
-	instance.Instance
-	name string
-	err  error
-}
-
-var _ instance.Instance = (*dnsNameFakeInstance)(nil)
-
-func (inst *dnsNameFakeInstance) DNSName() (string, error) {
-	return inst.name, inst.err
-}
-
-func (inst *dnsNameFakeInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
-}
-
-func (*dnsNameFakeInstance) Id() instance.Id { return "" }
-
 func (pollingSuite) TestWaitDNSNameReturnsDNSNameIfAvailable(c *gc.C) {
-	inst := dnsNameFakeInstance{name: "anansi"}
+	inst := mockInstance{dnsName: "anansi"}
 	name, err := common.WaitDNSName(&inst)
 	c.Assert(err, gc.IsNil)
 	c.Check(name, gc.Equals, "anansi")
 }
 
 func (pollingSuite) TestWaitDNSNamePollsOnErrNoDNSName(c *gc.C) {
-	inst := dnsNameFakeInstance{err: instance.ErrNoDNSName}
+	inst := mockInstance{dnsNameErr: instance.ErrNoDNSName}
 	_, err := common.WaitDNSName(&inst)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, ".*timed out trying to get DNS address.*")
@@ -76,14 +54,14 @@ func (pollingSuite) TestWaitDNSNamePollsOnErrNoDNSName(c *gc.C) {
 
 func (pollingSuite) TestWaitDNSNamePropagatesFailure(c *gc.C) {
 	failure := errors.New("deliberate failure")
-	inst := dnsNameFakeInstance{err: failure}
+	inst := mockInstance{dnsNameErr: failure}
 	_, err := common.WaitDNSName(&inst)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.Equals, failure)
 }
 
 func (pollingSuite) TestInstanceWaitDNSDelegatesToSharedWaitDNS(c *gc.C) {
-	inst := dnsNameFakeInstance{name: "anansi"}
+	inst := mockInstance{dnsName: "anansi"}
 	name, err := inst.WaitDNSName()
 	c.Assert(err, gc.IsNil)
 	c.Check(name, gc.Equals, "anansi")

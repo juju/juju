@@ -10,34 +10,18 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
-type imageSuite struct {
-	testbase.LoggingSuite
-}
-
-var _ = gc.Suite(&imageSuite{})
-
-func (s *imageSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-	UseTestImageData(TestImagesData)
-}
-
-func (s *imageSuite) TearDownSuite(c *gc.C) {
-	UseTestImageData(nil)
-	s.LoggingSuite.TearDownTest(c)
-}
-
-type specSuite struct {
-	testbase.LoggingSuite
-}
-
 var _ = gc.Suite(&specSuite{})
 
+type specSuite struct {
+	testing.BaseSuite
+}
+
 func (s *specSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	UseTestImageData(TestImagesData)
 	UseTestInstanceTypeData(TestInstanceTypeCosts)
 	UseTestRegionData(TestRegions)
@@ -47,7 +31,7 @@ func (s *specSuite) TearDownSuite(c *gc.C) {
 	UseTestInstanceTypeData(nil)
 	UseTestImageData(nil)
 	UseTestRegionData(nil)
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 var findInstanceSpecTests = []struct {

@@ -10,12 +10,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 )
 
@@ -216,7 +216,7 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 			Update: bson.D{{"$inc", bson.D{{"relationcount", -1}}}},
 		})
 	}
-	cleanupOp := r.st.newCleanupOp("settings", fmt.Sprintf("r#%d#", r.Id()))
+	cleanupOp := r.st.newCleanupOp(cleanupRelationSettings, fmt.Sprintf("r#%d#", r.Id()))
 	return append(ops, cleanupOp), nil
 }
 
@@ -237,6 +237,11 @@ func (r *Relation) Endpoint(serviceName string) (Endpoint, error) {
 		}
 	}
 	return Endpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
+}
+
+// Endpoints returns the endpoints for the relation.
+func (r *Relation) Endpoints() []Endpoint {
+	return r.doc.Endpoints
 }
 
 // RelatedEndpoints returns the endpoints of the relation r with which

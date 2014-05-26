@@ -6,12 +6,12 @@ package uniter_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -1065,9 +1065,7 @@ func (s *uniterSuite) TestJoinedRelations(c *gc.C) {
 			{rel.Tag()},
 		},
 	}
-	result, err := s.uniter.JoinedRelations(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResults{
+	expect := params.StringsResults{
 		Results: []params.StringsResult{
 			{Result: []string{rel.Tag()}},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -1076,7 +1074,16 @@ func (s *uniterSuite) TestJoinedRelations(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
-	})
+	}
+	check := func() {
+		result, err := s.uniter.JoinedRelations(args)
+		c.Assert(err, gc.IsNil)
+		c.Assert(result, gc.DeepEquals, expect)
+	}
+	check()
+	err = relUnit.PrepareLeaveScope()
+	c.Assert(err, gc.IsNil)
+	check()
 }
 
 func (s *uniterSuite) TestReadSettings(c *gc.C) {

@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/joyent/gosign/auth"
 	"github.com/juju/loggo"
 
-	"github.com/joyent/gosign/auth"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"

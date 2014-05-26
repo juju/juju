@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -37,6 +38,8 @@ var Current = Binary{
 	Series: osVersion(),
 	Arch:   arch.HostArch(),
 }
+
+var Compiler = runtime.Compiler
 
 func init() {
 	toolsDir := filepath.Dir(os.Args[0])

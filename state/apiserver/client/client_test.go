@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -20,8 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/manual"
 	envstorage "launchpad.net/juju-core/environs/storage"
-	ttesting "launchpad.net/juju-core/environs/tools/testing"
-	"launchpad.net/juju-core/errors"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
@@ -1607,7 +1607,7 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
-	ttesting.UploadToStorage(c, s.Conn.Environ.Storage(), version.MustParseBinary("2.12.0-precise-amd64"))
+	toolstesting.UploadToStorage(c, s.Conn.Environ.Storage(), version.MustParseBinary("2.12.0-precise-amd64"))
 	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)

@@ -16,7 +16,7 @@ import (
 
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -24,7 +24,7 @@ func Test(t *stdtesting.T) {
 }
 
 type storeSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&storeSuite{})
@@ -270,7 +270,7 @@ func (s *storeSuite) TestGet(c *gc.C) {
 }
 
 type storeManagerSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&storeManagerSuite{})

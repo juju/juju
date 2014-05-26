@@ -33,14 +33,13 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
 
 type ProviderSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&ProviderSuite{})
@@ -184,6 +183,7 @@ func (srv *localServer) stopServer(c *gc.C) {
 // accessed by using the "test" region, which is changed to point to the
 // network address of the local server.
 type localServerSuite struct {
+	coretesting.BaseSuite
 	jujutest.Tests
 	srv                localServer
 	restoreEC2Patching func()
@@ -192,15 +192,16 @@ type localServerSuite struct {
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.TestConfig = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
-	t.Tests.SetUpSuite(c)
+	t.BaseSuite.SetUpSuite(c)
 }
 
 func (t *localServerSuite) TearDownSuite(c *gc.C) {
-	t.Tests.TearDownSuite(c)
+	t.BaseSuite.TearDownSuite(c)
 	t.restoreEC2Patching()
 }
 
 func (t *localServerSuite) SetUpTest(c *gc.C) {
+	t.BaseSuite.SetUpTest(c)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
 	t.PatchValue(&version.Current, version.Binary{
@@ -213,6 +214,7 @@ func (t *localServerSuite) SetUpTest(c *gc.C) {
 func (t *localServerSuite) TearDownTest(c *gc.C) {
 	t.Tests.TearDownTest(c)
 	t.srv.stopServer(c)
+	t.BaseSuite.TearDownTest(c)
 }
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
@@ -455,24 +457,24 @@ func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	restoreEC2Patching func()
 	srv                localServer
 	env                environs.Environ
 }
 
 func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
-	t.LoggingSuite.SetUpSuite(c)
+	t.BaseSuite.SetUpSuite(c)
 	t.restoreEC2Patching = patchEC2ForTesting()
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
 	t.restoreEC2Patching()
-	t.LoggingSuite.TearDownSuite(c)
+	t.BaseSuite.TearDownSuite(c)
 }
 
 func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
+	t.BaseSuite.SetUpTest(c)
 	t.srv.config = &s3test.Config{
 		Send409Conflict: true,
 	}
@@ -487,7 +489,7 @@ func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 
 func (t *localNonUSEastSuite) TearDownTest(c *gc.C) {
 	t.srv.stopServer(c)
-	t.LoggingSuite.TearDownTest(c)
+	t.BaseSuite.TearDownTest(c)
 }
 
 func patchEC2ForTesting() func() {

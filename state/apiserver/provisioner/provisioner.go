@@ -203,7 +203,12 @@ func (p *ProvisionerAPI) ContainerManagerConfig(args params.ContainerManagerConf
 	cfg[container.ConfigName] = "juju"
 	switch args.Type {
 	case instance.LXC:
-		cfg["use-clone"] = fmt.Sprint(config.LXCUseClone())
+		if useLxcClone, ok := config.LXCUseClone(); ok {
+			cfg["use-clone"] = fmt.Sprint(useLxcClone)
+		}
+		if useLxcCloneAufs, ok := config.LXCUseCloneAUFS(); ok {
+			cfg["use-aufs"] = fmt.Sprint(useLxcCloneAufs)
+		}
 	}
 	result.ManagerConfig = cfg
 	return result, nil

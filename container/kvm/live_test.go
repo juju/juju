@@ -19,13 +19,12 @@ import (
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
 type LiveSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	ContainerDir string
 	RemovedDir   string
 }
@@ -33,7 +32,7 @@ type LiveSuite struct {
 var _ = gc.Suite(&LiveSuite{})
 
 func (s *LiveSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	// Skip if not linux
 	if runtime.GOOS != "linux" {
 		c.Skip("not running linux")
@@ -75,7 +74,7 @@ func shutdownMachines(manager container.Manager) func(*gc.C) {
 		instances, err := manager.ListContainers()
 		c.Assert(err, gc.IsNil)
 		for _, instance := range instances {
-			err := manager.DestroyContainer(instance)
+			err := manager.DestroyContainer(instance.Id())
 			c.Check(err, gc.IsNil)
 		}
 	}

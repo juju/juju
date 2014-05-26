@@ -6,13 +6,11 @@ package testing
 import (
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -103,162 +101,53 @@ const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
 
 const SampleCertName = "erewhemos"
 
-type TestFile struct {
-	Name, Data string
+// FakeHomeSuite sets up a fake home directory before running tests.
+type FakeHomeSuite struct {
+	BaseSuite
+	Home *FakeHome
 }
 
-type FakeHome struct {
-	oldHomeEnv     string
-	oldEnvironment map[string]string
-	oldJujuHome    string
-	files          []TestFile
+func (s *FakeHomeSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+	s.Home = MakeFakeHome(c)
 }
 
-// MakeFakeHomeNoEnvironments creates a new temporary directory through the
-// test checker, and overrides the HOME environment variable to point to this
-// new temporary directory.
-//
-// No ~/.juju/environments.yaml exists, but CAKeys are written for each of the
-// 'certNames' specified, and the id_rsa.pub file is written to to the .ssh
-// dir.
-func MakeFakeHomeNoEnvironments(c *gc.C, certNames ...string) *FakeHome {
-	fake := MakeEmptyFakeHome(c)
+// FakeJujuHomeSuite isolates the user's home directory and
+// sets up a Juju home with a sample environment and certificate.
+type FakeJujuHomeSuite struct {
+	FakeHomeSuite
+	oldJujuHome string
+}
 
+func (s *FakeJujuHomeSuite) SetUpTest(c *gc.C) {
+	s.FakeHomeSuite.SetUpTest(c)
+	jujuHome := HomePath(".juju")
+	err := os.Mkdir(jujuHome, 0700)
+	c.Assert(err, gc.IsNil)
+	s.oldJujuHome = osenv.SetJujuHome(jujuHome)
+	WriteEnvironments(c, SingleEnvConfig, SampleCertName)
+}
+
+func (s *FakeJujuHomeSuite) TearDownTest(c *gc.C) {
+	osenv.SetJujuHome(s.oldJujuHome)
+	s.FakeHomeSuite.TearDownTest(c)
+}
+
+// MakeSampleJujuHome sets up a sample Juju environment.
+func MakeSampleJujuHome(c *gc.C) {
+	WriteEnvironments(c, SingleEnvConfig, SampleCertName)
+}
+
+// WriteEnvironments creates an environments file with envConfig and certs
+// from certNames.
+func WriteEnvironments(c *gc.C, envConfig string, certNames ...string) {
+	envs := osenv.JujuHomePath("environments.yaml")
+	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
+	c.Assert(err, gc.IsNil)
 	for _, name := range certNames {
 		err := ioutil.WriteFile(osenv.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
 		c.Assert(err, gc.IsNil)
 		err = ioutil.WriteFile(osenv.JujuHomePath(name+"-private-key.pem"), []byte(CAKey), 0600)
 		c.Assert(err, gc.IsNil)
 	}
-
-	err := os.Mkdir(HomePath(".ssh"), 0777)
-	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(HomePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
-	c.Assert(err, gc.IsNil)
-
-	return fake
-}
-
-// MakeFakeHome creates a new temporary directory through the test checker,
-// and overrides the HOME environment variable to point to this new temporary
-// directory.
-//
-// A new ~/.juju/environments.yaml file is created with the content of the
-// `envConfig` parameter, and CAKeys are written for each of the 'certNames'
-// specified.
-func MakeFakeHome(c *gc.C, envConfig string, certNames ...string) *FakeHome {
-	fake := MakeFakeHomeNoEnvironments(c, certNames...)
-
-	envs := osenv.JujuHomePath("environments.yaml")
-	err := ioutil.WriteFile(envs, []byte(envConfig), 0644)
-	c.Assert(err, gc.IsNil)
-
-	return fake
-}
-
-func MakeEmptyFakeHome(c *gc.C) *FakeHome {
-	fake := MakeEmptyFakeHomeWithoutJuju(c)
-	err := os.Mkdir(osenv.JujuHome(), 0700)
-	c.Assert(err, gc.IsNil)
-	return fake
-}
-
-func MakeEmptyFakeHomeWithoutJuju(c *gc.C) *FakeHome {
-	oldHomeEnv := osenv.Home()
-	oldEnvironment := make(map[string]string)
-	for _, name := range []string{
-		osenv.JujuHomeEnvKey,
-		osenv.JujuEnvEnvKey,
-		osenv.JujuLoggingConfigEnvKey,
-	} {
-		oldEnvironment[name] = os.Getenv(name)
-	}
-	fakeHome := c.MkDir()
-	osenv.SetHome(fakeHome)
-	os.Setenv(osenv.JujuHomeEnvKey, "")
-	os.Setenv(osenv.JujuEnvEnvKey, "")
-	os.Setenv(osenv.JujuLoggingConfigEnvKey, "")
-	jujuHome := filepath.Join(fakeHome, ".juju")
-	oldJujuHome := osenv.SetJujuHome(jujuHome)
-	return &FakeHome{
-		oldHomeEnv:     oldHomeEnv,
-		oldEnvironment: oldEnvironment,
-		oldJujuHome:    oldJujuHome,
-		files:          []TestFile{},
-	}
-}
-
-func HomePath(names ...string) string {
-	all := append([]string{osenv.Home()}, names...)
-	return filepath.Join(all...)
-}
-
-func (h *FakeHome) Restore() {
-	osenv.SetJujuHome(h.oldJujuHome)
-	for name, value := range h.oldEnvironment {
-		os.Setenv(name, value)
-	}
-	osenv.SetHome(h.oldHomeEnv)
-}
-
-func (h *FakeHome) AddFiles(c *gc.C, files []TestFile) {
-	for _, f := range files {
-		path := HomePath(f.Name)
-		err := os.MkdirAll(filepath.Dir(path), 0700)
-		c.Assert(err, gc.IsNil)
-		err = ioutil.WriteFile(path, []byte(f.Data), 0666)
-		c.Assert(err, gc.IsNil)
-		h.files = append(h.files, f)
-	}
-}
-
-// FileContents returns the test file contents for the
-// given specified path (which may be relative, so
-// we compare with the base filename only).
-func (h *FakeHome) FileContents(c *gc.C, path string) string {
-	for _, f := range h.files {
-		if filepath.Base(f.Name) == filepath.Base(path) {
-			return f.Data
-		}
-	}
-	c.Fatalf("path attribute holds unknown test file: %q", path)
-	panic("unreachable")
-}
-
-// FileExists returns if the given relative file path exists
-// in the fake home.
-func (h *FakeHome) FileExists(path string) bool {
-	for _, f := range h.files {
-		if f.Name == path {
-			return true
-		}
-	}
-	return false
-}
-
-func MakeFakeHomeWithFiles(c *gc.C, files []TestFile) *FakeHome {
-	fake := MakeEmptyFakeHome(c)
-	fake.AddFiles(c, files)
-	return fake
-}
-
-func MakeSampleHome(c *gc.C, files ...TestFile) *FakeHome {
-	fake := MakeFakeHome(c, SingleEnvConfig, SampleCertName)
-	fake.AddFiles(c, files)
-	return fake
-}
-
-func MakeMultipleEnvHome(c *gc.C) *FakeHome {
-	return MakeFakeHome(c, MultipleEnvConfig, SampleCertName, SampleCertName+"-2")
-}
-
-type FakeHomeSuite struct {
-	testbase.LoggingSuite
-	Home *FakeHome
-}
-
-func (s *FakeHomeSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
-	s.Home = MakeSampleHome(c)
-	s.AddCleanup(func(*gc.C) { s.Home.Restore() })
 }

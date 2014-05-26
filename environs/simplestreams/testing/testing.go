@@ -13,7 +13,7 @@ import (
 
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version/ubuntu"
 )
 
@@ -506,7 +506,7 @@ func AssertExpectedSources(c *gc.C, obtained []simplestreams.DataSource, baseURL
 }
 
 type LocalLiveSimplestreamsSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	Source          simplestreams.DataSource
 	RequireSigned   bool
 	DataType        string
@@ -514,11 +514,11 @@ type LocalLiveSimplestreamsSuite struct {
 }
 
 func (s *LocalLiveSimplestreamsSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TearDownSuite(c *gc.C) {
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 const (

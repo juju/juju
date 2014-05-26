@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package osenv
+package osenv_test
 
 import (
 	"path/filepath"
@@ -9,46 +9,47 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/testing"
 )
 
-type importSuite struct {
-	testbase.LoggingSuite
+type varsSuite struct {
+	testing.BaseSuite
 }
 
-var _ = gc.Suite(&importSuite{})
+var _ = gc.Suite(&varsSuite{})
 
-func (s *importSuite) TestJujuHomeWin(c *gc.C) {
+func (s *varsSuite) TestJujuHomeWin(c *gc.C) {
 	path := `P:\FooBar\AppData`
 	s.PatchEnvironment("APPDATA", path)
-	c.Assert(jujuHomeWin(), gc.Equals, filepath.Join(path, "Juju"))
+	c.Assert(osenv.JujuHomeWin(), gc.Equals, filepath.Join(path, "Juju"))
 }
 
-func (s *importSuite) TestJujuHomeLinux(c *gc.C) {
+func (s *varsSuite) TestJujuHomeLinux(c *gc.C) {
 	path := `/foo/bar/baz/`
 	s.PatchEnvironment("HOME", path)
-	c.Assert(jujuHomeLinux(), gc.Equals, filepath.Join(path, ".juju"))
+	c.Assert(osenv.JujuHomeLinux(), gc.Equals, filepath.Join(path, ".juju"))
 }
 
-func (s *importSuite) TestJujuHomeEnvVar(c *gc.C) {
+func (s *varsSuite) TestJujuHomeEnvVar(c *gc.C) {
 	path := "/foo/bar/baz"
-	s.PatchEnvironment(JujuHomeEnvKey, path)
-	c.Assert(JujuHomeDir(), gc.Equals, path)
+	s.PatchEnvironment(osenv.JujuHomeEnvKey, path)
+	c.Assert(osenv.JujuHomeDir(), gc.Equals, path)
 }
 
-func (s *importSuite) TestBlankJujuHomeEnvVar(c *gc.C) {
-	s.PatchEnvironment(JujuHomeEnvKey, "")
+func (s *varsSuite) TestBlankJujuHomeEnvVar(c *gc.C) {
+	s.PatchEnvironment(osenv.JujuHomeEnvKey, "")
 
 	if runtime.GOOS == "windows" {
 		s.PatchEnvironment("APPDATA", `P:\foobar`)
 	} else {
 		s.PatchEnvironment("HOME", "/foobar")
 	}
-	c.Assert(JujuHomeDir(), gc.Not(gc.Equals), "")
+	c.Assert(osenv.JujuHomeDir(), gc.Not(gc.Equals), "")
 
 	if runtime.GOOS == "windows" {
-		c.Assert(JujuHomeDir(), gc.Equals, jujuHomeWin())
+		c.Assert(osenv.JujuHomeDir(), gc.Equals, osenv.JujuHomeWin())
 	} else {
-		c.Assert(JujuHomeDir(), gc.Equals, jujuHomeLinux())
+		c.Assert(osenv.JujuHomeDir(), gc.Equals, osenv.JujuHomeLinux())
 	}
 }

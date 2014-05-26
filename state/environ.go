@@ -4,11 +4,11 @@
 package state
 
 import (
+	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 )
 
@@ -105,7 +105,7 @@ func (e *Environment) Destroy() error {
 		Id:     e.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 		Assert: isEnvAliveDoc,
-	}, e.st.newCleanupOp("services", "")}
+	}, e.st.newCleanupOp(cleanupServicesForDyingEnvironment, "")}
 	err := e.st.runTransaction(ops)
 	switch err {
 	case nil, txn.ErrAborted:

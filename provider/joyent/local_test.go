@@ -25,15 +25,11 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
-
-type ProviderSuite struct{}
-
-var _ = gc.Suite(&ProviderSuite{})
 
 func registerLocalTests() {
 	gc.Suite(&localServerSuite{})
@@ -93,16 +89,15 @@ func (m *localMantaServer) destroyServer() {
 }
 
 type localLiveSuite struct {
-	testbase.LoggingSuite
-	LiveTests
-	cSrv            *localCloudAPIServer
-	mSrv            *localMantaServer
+	providerSuite
+	jujutest.LiveTests
+	cSrv *localCloudAPIServer
+	mSrv *localMantaServer
 	restoreTimeouts func()
 }
 
 func (s *localLiveSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
-	s.AddSuiteCleanup(CreateTestKey(c))
+	s.providerSuite.SetUpSuite(c)
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)
@@ -113,12 +108,8 @@ func (s *localLiveSuite) SetUpSuite(c *gc.C) {
 	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"image-metadata-url": "test://host",
 	})
+	s.LiveTests.UploadArches = []string{arch.AMD64}
 	s.LiveTests.SetUpSuite(c)
-
-	creds := joyent.MakeCredentials(c, s.TestConfig)
-	joyent.UseExternalTestImageMetadata(creds)
-	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
-	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
 func (s *localLiveSuite) TearDownSuite(c *gc.C) {
@@ -127,17 +118,21 @@ func (s *localLiveSuite) TearDownSuite(c *gc.C) {
 	s.restoreTimeouts()
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
-	s.LoggingSuite.TearDownSuite(c)
+	s.providerSuite.TearDownSuite(c)
 }
 
 func (s *localLiveSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.providerSuite.SetUpTest(c)
+	creds := joyent.MakeCredentials(c, s.TestConfig)
+	joyent.UseExternalTestImageMetadata(creds)
+	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
+	s.AddCleanup(func(*gc.C) { restoreFinishBootstrap() })
 	s.LiveTests.SetUpTest(c)
 }
 
 func (s *localLiveSuite) TearDownTest(c *gc.C) {
 	s.LiveTests.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.providerSuite.TearDownTest(c)
 }
 
 // localServerSuite contains tests that run against an Joyent service double.
@@ -145,32 +140,29 @@ func (s *localLiveSuite) TearDownTest(c *gc.C) {
 // to test on a live Joyent server. The service double is started and stopped for
 // each test.
 type localServerSuite struct {
+	providerSuite
 	jujutest.Tests
 	cSrv *localCloudAPIServer
 	mSrv *localMantaServer
 }
 
 func (s *localServerSuite) SetUpSuite(c *gc.C) {
-	s.Tests.SetUpSuite(c)
+	s.providerSuite.SetUpSuite(c)
 	restoreFinishBootstrap := envtesting.DisableFinishBootstrap()
 	s.AddSuiteCleanup(func(*gc.C) { restoreFinishBootstrap() })
 }
 
-func (s *localServerSuite) TearDownSuite(c *gc.C) {
-	s.Tests.TearDownSuite(c)
-}
-
 func (s *localServerSuite) SetUpTest(c *gc.C) {
-	s.AddSuiteCleanup(CreateTestKey(c))
+	s.providerSuite.SetUpTest(c)
 
 	s.cSrv = &localCloudAPIServer{}
 	s.mSrv = &localMantaServer{}
 	s.cSrv.setupServer(c)
 	s.mSrv.setupServer(c)
 
+	s.Tests.ToolsFixture.UploadArches = []string{arch.AMD64}
 	s.Tests.SetUpTest(c)
 	s.TestConfig = GetFakeConfig(s.cSrv.Server.URL, s.mSrv.Server.URL)
-
 	// Put some fake image metadata in place.
 	creds := joyent.MakeCredentials(c, s.TestConfig)
 	joyent.UseExternalTestImageMetadata(creds)
@@ -181,6 +173,7 @@ func (s *localServerSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	s.cSrv.destroyServer()
 	s.mSrv.destroyServer()
+	s.providerSuite.TearDownTest(c)
 }
 
 func bootstrapContext(c *gc.C) environs.BootstrapContext {
@@ -192,17 +185,17 @@ func bootstrapContext(c *gc.C) environs.BootstrapContext {
 // allocate a public address.
 func (s *localServerSuite) TestStartInstance(c *gc.C) {
 	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
+	s.Tests.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "100")
-	err = env.StopInstances([]instance.Instance{inst})
+	err = env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
+	s.Tests.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstanceWithConstraints(c, env, "100", constraints.MustParse("mem=1024"))
@@ -261,23 +254,23 @@ var instanceGathering = []struct {
 
 func (s *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
+	s.Tests.UploadFakeTools(c, env.Storage())
 	inst, _ := testing.AssertStartInstance(c, env, "100")
 	c.Assert(inst.Status(), gc.Equals, "running")
-	err := env.StopInstances([]instance.Instance{inst})
+	err := env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
+	s.Tests.UploadFakeTools(c, env.Storage())
 	inst0, _ := testing.AssertStartInstance(c, env, "100")
 	id0 := inst0.Id()
 	inst1, _ := testing.AssertStartInstance(c, env, "101")
 	id1 := inst1.Id()
 	c.Logf("id0: %s, id1: %s", id0, id1)
 	defer func() {
-		err := env.StopInstances([]instance.Instance{inst0, inst1})
+		err := env.StopInstances(inst0.Id(), inst1.Id())
 		c.Assert(err, gc.IsNil)
 	}()
 
@@ -312,7 +305,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := s.Prepare(c)
-	envtesting.UploadFakeTools(c, env.Storage())
+	s.Tests.UploadFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(bootstrapContext(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
@@ -432,7 +425,7 @@ func (s *localServerSuite) TestConstraintsValidator(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags"})
 }
 
 func (s *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {

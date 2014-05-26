@@ -22,7 +22,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/machineenvironmentworker"
 )
@@ -55,7 +55,7 @@ func (s *MachineEnvironmentWatcherSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
 	s.started = false
 	s.PatchValue(&machineenvironmentworker.Started, s.setStarted)
-	s.PatchValue(&utils.AptConfFile, path.Join(proxyDir, "juju-apt-proxy"))
+	s.PatchValue(&apt.ConfFile, path.Join(proxyDir, "juju-apt-proxy"))
 	s.proxyFile = path.Join(proxyDir, machineenvironmentworker.ProxyFile)
 }
 
@@ -159,7 +159,7 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
 
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
-	s.waitForFile(c, utils.AptConfFile, utils.AptProxyContent(aptProxySettings)+"\n")
+	s.waitForFile(c, apt.ConfFile, apt.ProxyContent(aptProxySettings)+"\n")
 }
 
 func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
@@ -172,7 +172,7 @@ func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
 
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
-	s.waitForFile(c, utils.AptConfFile, utils.AptProxyContent(aptProxySettings)+"\n")
+	s.waitForFile(c, apt.ConfFile, apt.ProxyContent(aptProxySettings)+"\n")
 }
 
 func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine1(c *gc.C) {
@@ -184,7 +184,7 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine1(c *gc.C) 
 
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")
-	s.waitForFile(c, utils.AptConfFile, utils.AptProxyContent(aptProxySettings)+"\n")
+	s.waitForFile(c, apt.ConfFile, apt.ProxyContent(aptProxySettings)+"\n")
 }
 
 func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine0(c *gc.C) {
@@ -197,7 +197,7 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine0(c *gc.C) 
 
 	s.waitProxySettings(c, proxySettings)
 
-	c.Assert(utils.AptConfFile, jc.DoesNotExist)
+	c.Assert(apt.ConfFile, jc.DoesNotExist)
 	c.Assert(s.proxyFile, jc.DoesNotExist)
 }
 

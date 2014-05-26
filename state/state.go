@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The state package enables reading, observing, and changing
+// Package state enables reading, observing, and changing
 // the state stored in MongoDB of a whole environment
 // managed by juju.
 package state
@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -24,7 +25,6 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -64,6 +64,7 @@ type State struct {
 	settingsrefs      *mgo.Collection
 	constraints       *mgo.Collection
 	units             *mgo.Collection
+	actions           *mgo.Collection
 	users             *mgo.Collection
 	presence          *mgo.Collection
 	cleanups          *mgo.Collection
@@ -316,7 +317,7 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 	}
 
 	validAttrs := validCfg.AllAttrs()
-	for k, _ := range oldConfig.AllAttrs() {
+	for k := range oldConfig.AllAttrs() {
 		if _, ok := validAttrs[k]; !ok {
 			settings.Delete(k)
 		}
@@ -1370,6 +1371,41 @@ func (st *State) Relation(id int) (*Relation, error) {
 		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
 	}
 	return newRelation(st, &doc), nil
+}
+
+// AllRelations returns all relations in the environment ordered by id.
+func (st *State) AllRelations() (relations []*Relation, err error) {
+	docs := relationDocSlice{}
+	err = st.relations.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all relations")
+	}
+	sort.Sort(docs)
+	for _, v := range docs {
+		relations = append(relations, newRelation(st, &v))
+	}
+	return
+}
+
+type relationDocSlice []relationDoc
+
+func (rdc relationDocSlice) Len() int      { return len(rdc) }
+func (rdc relationDocSlice) Swap(i, j int) { rdc[i], rdc[j] = rdc[j], rdc[i] }
+func (rdc relationDocSlice) Less(i, j int) bool {
+	return rdc[i].Id < rdc[j].Id
+}
+
+// Action returns an Action by Id.
+func (st *State) Action(id string) (*Action, error) {
+	doc := actionDoc{}
+	err := st.actions.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("action %q", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get action %q: %v", id, err)
+	}
+	return newAction(st, doc), nil
 }
 
 // Unit returns a unit by name.

@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sort"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -18,11 +19,9 @@ import (
 	"launchpad.net/juju-core/environs/configstore"
 	"launchpad.net/juju-core/environs/storage"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -33,7 +32,6 @@ import (
 // is opened once for each test, and some potentially expensive operations
 // may be executed.
 type Tests struct {
-	testbase.LoggingSuite
 	TestConfig coretesting.Attrs
 	envtesting.ToolsFixture
 
@@ -66,19 +64,17 @@ func (t *Tests) Prepare(c *gc.C) environs.Environ {
 }
 
 func (t *Tests) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
 	t.ToolsFixture.SetUpTest(c)
 	t.ConfigStore = configstore.NewMem()
 }
 
 func (t *Tests) TearDownTest(c *gc.C) {
 	t.ToolsFixture.TearDownTest(c)
-	t.LoggingSuite.TearDownTest(c)
 }
 
 func (t *Tests) TestStartStop(c *gc.C) {
 	e := t.Prepare(c)
-	envtesting.UploadFakeTools(c, e.Storage())
+	t.UploadFakeTools(c, e.Storage())
 	cfg, err := e.Config().Apply(map[string]interface{}{
 		"agent-version": version.Current.Number.String(),
 	})
@@ -114,7 +110,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 	c.Assert(insts, gc.HasLen, 2)
 	c.Assert(insts[0].Id(), gc.Not(gc.Equals), insts[1].Id())
 
-	err = e.StopInstances([]instance.Instance{inst0})
+	err = e.StopInstances(inst0.Id())
 	c.Assert(err, gc.IsNil)
 
 	insts, err = e.Instances([]instance.Id{id0, id1})
@@ -129,7 +125,7 @@ func (t *Tests) TestStartStop(c *gc.C) {
 
 func (t *Tests) TestBootstrap(c *gc.C) {
 	e := t.Prepare(c)
-	envtesting.UploadFakeTools(c, e.Storage())
+	t.UploadFakeTools(c, e.Storage())
 	err := bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(coretesting.Context(c), e, environs.BootstrapParams{})
@@ -143,7 +139,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	envtesting.UploadFakeTools(c, e2.Storage())
+	t.UploadFakeTools(c, e2.Storage())
 	err = bootstrap.EnsureNotBootstrapped(e2)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
@@ -156,7 +152,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	// Prepare again because Destroy invalidates old environments.
 	e3 := t.Prepare(c)
-	envtesting.UploadFakeTools(c, e3.Storage())
+	t.UploadFakeTools(c, e3.Storage())
 
 	err = bootstrap.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.IsNil)

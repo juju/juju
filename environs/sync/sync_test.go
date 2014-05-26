@@ -12,7 +12,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strings"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -27,7 +26,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
@@ -41,7 +40,7 @@ func TestPackage(t *testing.T) {
 }
 
 type syncSuite struct {
-	testbase.LoggingSuite
+	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 	targetEnv    environs.Environ
 	origVersion  version.Binary
@@ -51,23 +50,24 @@ type syncSuite struct {
 
 var _ = gc.Suite(&syncSuite{})
 var _ = gc.Suite(&uploadSuite{})
+var _ = gc.Suite(&badBuildSuite{})
 
 func (s *syncSuite) setUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.origVersion = version.Current
 	// It's important that this be v1.8.x to match the test data.
 	version.Current.Number = version.MustParse("1.8.3")
 
 	// Create a target environments.yaml.
-	fakeHome := coretesting.MakeFakeHome(c, `
+	envConfig := `
 environments:
     test-target:
         type: dummy
         state-server: false
         authorized-keys: "not-really-one"
-`)
-	s.AddCleanup(func(*gc.C) { fakeHome.Restore() })
+`
+	coretesting.WriteEnvironments(c, envConfig)
 	var err error
 	s.targetEnv, err = environs.PrepareFromName("test-target", coretesting.Context(c), configstore.NewMem())
 	c.Assert(err, gc.IsNil)
@@ -87,8 +87,8 @@ environments:
 	for i, vers := range vAll {
 		versionStrings[i] = vers.String()
 	}
-	ttesting.MakeTools(c, baseDir, "releases", versionStrings)
-	ttesting.MakeTools(c, s.localStorage, "releases", versionStrings)
+	toolstesting.MakeTools(c, baseDir, "releases", versionStrings)
+	toolstesting.MakeTools(c, s.localStorage, "releases", versionStrings)
 
 	// Switch the default tools location.
 	baseURL, err := s.storage.URL(storage.BaseToolsPath)
@@ -100,7 +100,7 @@ func (s *syncSuite) tearDownTest(c *gc.C) {
 	dummy.Reset()
 	version.Current = s.origVersion
 	s.ToolsFixture.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 var tests = []struct {
@@ -255,12 +255,12 @@ func assertMirrors(c *gc.C, stor storage.StorageReader, expectMirrors bool) {
 
 type uploadSuite struct {
 	env environs.Environ
-	testbase.LoggingSuite
+	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 }
 
 func (s *uploadSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	// We only want to use simplestreams to find any synced tools.
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
@@ -272,7 +272,7 @@ func (s *uploadSuite) SetUpTest(c *gc.C) {
 func (s *uploadSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	s.ToolsFixture.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 func (s *uploadSuite) TestUpload(c *gc.C) {
@@ -280,6 +280,8 @@ func (s *uploadSuite) TestUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
+	// TODO(waigani) Does this test need to download tools? If not,
+	// sync.bundleTools can be mocked to improve test speed.
 	dir := downloadTools(c, t)
 	out, err := exec.Command(filepath.Join(dir, "jujud"), "version").CombinedOutput()
 	c.Assert(err, gc.IsNil)
@@ -308,38 +310,14 @@ func (s *uploadSuite) TestUploadAndForceVersion(c *gc.C) {
 	c.Assert(t.Version, gc.Equals, vers)
 }
 
-// Test that the upload procedure fails correctly
-// when the build process fails (because of a bad Go source
-// file in this case).
-func (s *uploadSuite) TestUploadBadBuild(c *gc.C) {
-	gopath := c.MkDir()
-	join := append([]string{gopath, "src"}, strings.Split("launchpad.net/juju-core/cmd/broken", "/")...)
-	pkgdir := filepath.Join(join...)
-	err := os.MkdirAll(pkgdir, 0777)
-	c.Assert(err, gc.IsNil)
-
-	err = ioutil.WriteFile(filepath.Join(pkgdir, "broken.go"), []byte("nope"), 0666)
-	c.Assert(err, gc.IsNil)
-
-	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
-	os.Setenv("GOPATH", gopath)
-
-	t, err := sync.Upload(s.env.Storage(), nil)
-	c.Assert(t, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
-}
-
 func (s *uploadSuite) TestSyncTools(c *gc.C) {
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	builtTools, err := sync.BuildToolsTarball(nil)
 	c.Assert(err, gc.IsNil)
 	t, err := sync.SyncBuiltTools(s.env.Storage(), builtTools)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
-	dir := downloadTools(c, t)
-	out, err := exec.Command(filepath.Join(dir, "jujud"), "version").CombinedOutput()
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(out), gc.Equals, version.Current.String()+"\n")
 }
 
 func (s *uploadSuite) TestSyncToolsFakeSeries(c *gc.C) {
@@ -385,7 +363,7 @@ func (s *uploadSuite) assertUploadedTools(c *gc.C, t *coretools.Tools, uploadedS
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}
-	metadata := ttesting.ParseMetadataFromStorage(c, s.env.Storage(), false)
+	metadata := toolstesting.ParseMetadataFromStorage(c, s.env.Storage(), false)
 	c.Assert(metadata, gc.HasLen, 3)
 	for i, tm := range metadata {
 		c.Assert(tm.Release, gc.Equals, expectSeries[i])
@@ -417,4 +395,150 @@ func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
 	_, err = io.Copy(&buf, resp.Body)
 	c.Assert(err, gc.IsNil)
 	return buf.Bytes()
+}
+
+func bundleTools(c *gc.C) (version.Binary, string, error) {
+	f, err := ioutil.TempFile("", "juju-tgz")
+	c.Assert(err, gc.IsNil)
+	defer f.Close()
+	defer os.Remove(f.Name())
+
+	return envtools.BundleTools(f, &version.Current.Number)
+}
+
+type badBuildSuite struct {
+	env environs.Environ
+	testbase.LoggingSuite
+	envtesting.ToolsFixture
+}
+
+var badGo = `
+#!/bin/bash --norc
+exit 1
+`[1:]
+
+func (s *badBuildSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
+	s.ToolsFixture.SetUpTest(c)
+	// We only want to use simplestreams to find any synced tools.
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
+	c.Assert(err, gc.IsNil)
+	s.env, err = environs.Prepare(cfg, coretesting.Context(c), configstore.NewMem())
+	c.Assert(err, gc.IsNil)
+
+	// Mock go cmd
+	testPath := c.MkDir()
+	s.PatchEnvPathPrepend(testPath)
+	path := filepath.Join(testPath, "go")
+	err = ioutil.WriteFile(path, []byte(badGo), 0755)
+	c.Assert(err, gc.IsNil)
+
+	// Check mocked go cmd errors
+	out, err := exec.Command("go").CombinedOutput()
+	c.Assert(err, gc.ErrorMatches, "exit status 1")
+	c.Assert(string(out), gc.Equals, "")
+}
+
+func (s *badBuildSuite) TearDownTest(c *gc.C) {
+	dummy.Reset()
+	s.ToolsFixture.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
+}
+
+func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
+	// Test that original bundleTools Func fails as expected
+	vers, sha256Hash, err := bundleTools(c)
+	c.Assert(vers, gc.DeepEquals, version.Binary{})
+	c.Assert(sha256Hash, gc.Equals, "")
+	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; `)
+
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
+
+	// Test that BundleTools func passes after it is
+	// mocked out
+	vers, sha256Hash, err = bundleTools(c)
+	c.Assert(err, gc.IsNil)
+	c.Assert(vers.Number, gc.Equals, version.Current.Number)
+	c.Assert(sha256Hash, gc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+}
+
+func (s *badBuildSuite) TestUploadToolsBadBuild(c *gc.C) {
+	// Test that original Upload Func fails as expected
+	t, err := sync.Upload(s.env.Storage(), nil)
+	c.Assert(t, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; `)
+
+	// Test that Upload func passes after BundleTools func is mocked out
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
+	t, err = sync.Upload(s.env.Storage(), nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(t.Version, gc.Equals, version.Current)
+	c.Assert(t.URL, gc.Not(gc.Equals), "")
+}
+
+func (s *badBuildSuite) TestBuildToolsBadBuild(c *gc.C) {
+	// Test that original BuildToolsTarball fails
+	builtTools, err := sync.BuildToolsTarball(nil)
+	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; `)
+	c.Assert(builtTools, gc.IsNil)
+
+	// Test that BuildToolsTarball func passes after BundleTools func is
+	// mocked out
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
+	builtTools, err = sync.BuildToolsTarball(nil)
+	c.Assert(builtTools.Version, gc.Equals, version.Current)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *uploadSuite) TestMockBundleTools(c *gc.C) {
+	var (
+		writer       io.Writer
+		forceVersion *version.Number
+		n            int
+		p            bytes.Buffer
+	)
+	p.WriteString("Hello World")
+
+	s.PatchValue(&envtools.BundleTools, func(writerArg io.Writer, forceVersionArg *version.Number) (vers version.Binary, sha256Hash string, err error) {
+		writer = writerArg
+		n, err = writer.Write(p.Bytes())
+		c.Assert(err, gc.IsNil)
+		forceVersion = forceVersionArg
+		return
+	})
+
+	_, err := sync.BuildToolsTarball(&version.Current.Number)
+	c.Assert(err, gc.IsNil)
+	c.Assert(*forceVersion, gc.Equals, version.Current.Number)
+	c.Assert(writer, gc.NotNil)
+	c.Assert(n, gc.Equals, len(p.Bytes()))
+}
+
+func (s *uploadSuite) TestMockBuildTools(c *gc.C) {
+	s.PatchValue(&version.Current, version.MustParseBinary("1.9.1-trusty-amd64"))
+	buildToolsFunc := toolstesting.GetMockBuildTools(c)
+	builtTools, err := buildToolsFunc(nil)
+	c.Assert(err, gc.IsNil)
+
+	builtTools.Dir = ""
+
+	expectedBuiltTools := &sync.BuiltTools{
+		StorageName: "name",
+		Version:     version.Current,
+		Size:        127,
+		Sha256Hash:  "6a19d08ca4913382ca86508aa38eb8ee5b9ae2d74333fe8d862c0f9e29b82c39",
+	}
+	c.Assert(builtTools, gc.DeepEquals, expectedBuiltTools)
+
+	vers := version.MustParseBinary("1.5.3-trusty-amd64")
+	builtTools, err = buildToolsFunc(&vers.Number)
+	c.Assert(err, gc.IsNil)
+	builtTools.Dir = ""
+	expectedBuiltTools = &sync.BuiltTools{
+		StorageName: "name",
+		Version:     vers,
+		Size:        127,
+		Sha256Hash:  "cad8ccedab8f26807ff379ddc2f2f78d9a7cac1276e001154cee5e39b9ddcc38",
+	}
+	c.Assert(builtTools, gc.DeepEquals, expectedBuiltTools)
 }

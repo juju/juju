@@ -156,6 +156,7 @@ func UseExternalTestImageMetadata(creds *auth.Credentials) {
 
 func UnregisterExternalTestImageMetadata() {
 	testRoundTripper.Sub = nil
+	imagemetadata.DefaultBaseURL = origImagesUrl
 }
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {

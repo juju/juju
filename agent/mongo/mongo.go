@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/version"
 )
 
@@ -285,6 +286,7 @@ func upstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*u
 		" --noprealloc" +
 		" --syslog" +
 		" --smallfiles" +
+		" --journal" +
 		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir))
 	if withHA {
 		mongoCmd += " --replSet " + ReplicaSetName
@@ -309,10 +311,10 @@ func aptGetInstallMongod() error {
 		}
 	}
 	pkg := packageForSeries(version.Current.Series)
-	cmds := utils.AptGetPreparePackages([]string{pkg}, version.Current.Series)
+	cmds := apt.GetPreparePackages([]string{pkg}, version.Current.Series)
 	logger.Infof("installing %s", pkg)
 	for _, cmd := range cmds {
-		if err := utils.AptGetInstall(cmd...); err != nil {
+		if err := apt.GetInstall(cmd...); err != nil {
 			return err
 		}
 	}
@@ -321,13 +323,13 @@ func aptGetInstallMongod() error {
 
 func addAptRepository(name string) error {
 	// add-apt-repository requires python-software-properties
-	cmds := utils.AptGetPreparePackages(
+	cmds := apt.GetPreparePackages(
 		[]string{"python-software-properties"},
 		version.Current.Series,
 	)
 	logger.Infof("installing python-software-properties")
 	for _, cmd := range cmds {
-		if err := utils.AptGetInstall(cmd...); err != nil {
+		if err := apt.GetInstall(cmd...); err != nil {
 			return err
 		}
 	}
@@ -373,6 +375,7 @@ func noauthCommand(dataDir string, port int) (*exec.Cmd, error) {
 		"--noprealloc",
 		"--syslog",
 		"--smallfiles",
+		"--journal",
 	)
 	return cmd, nil
 }

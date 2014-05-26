@@ -14,12 +14,13 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/tools"
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)
 type startInstanceFunc func(string, constraints.Value, []string, []string, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error)
-type stopInstancesFunc func([]instance.Instance) error
+type stopInstancesFunc func([]instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config
 type setConfigFunc func(*config.Config) error
@@ -60,8 +61,8 @@ func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (instan
 		args.MachineConfig)
 }
 
-func (env *mockEnviron) StopInstances(instances []instance.Instance) error {
-	return env.stopInstances(instances)
+func (env *mockEnviron) StopInstances(ids ...instance.Id) error {
+	return env.stopInstances(ids)
 }
 
 func (env *mockEnviron) Config() *config.Config {
@@ -90,11 +91,27 @@ func (env *mockEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 
 type mockInstance struct {
 	id                string
+	addresses         []instance.Address
+	addressesErr      error
+	dnsName           string
+	dnsNameErr        error
 	instance.Instance // stub out other methods with panics
 }
 
 func (inst *mockInstance) Id() instance.Id {
 	return instance.Id(inst.id)
+}
+
+func (inst *mockInstance) Addresses() ([]instance.Address, error) {
+	return inst.addresses, inst.addressesErr
+}
+
+func (inst *mockInstance) DNSName() (string, error) {
+	return inst.dnsName, inst.dnsNameErr
+}
+
+func (inst *mockInstance) WaitDNSName() (string, error) {
+	return common.WaitDNSName(inst)
 }
 
 type mockStorage struct {

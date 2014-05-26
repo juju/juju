@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -27,14 +26,14 @@ func Test(t *stdtesting.T) {
 }
 
 type ConfigSuite struct {
-	testbase.LoggingSuite
+	testing.FakeJujuHomeSuite
 	home string
 }
 
 var _ = gc.Suite(&ConfigSuite{})
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	// Make sure that the defaults are used, which
 	// is <root>=WARNING
 	loggo.ResetLoggers()
@@ -61,7 +60,8 @@ var sampleConfig = testing.Attrs{
 type configTest struct {
 	about       string
 	useDefaults config.Defaulting
-	attrs       map[string]interface{}
+	attrs       testing.Attrs
+	expected    testing.Attrs
 	err         string
 }
 
@@ -138,6 +138,33 @@ var configTests = []configTest{
 			"type":                 "my-type",
 			"name":                 "my-name",
 			"authorized-keys-path": "~/.ssh/authorized_keys2",
+		},
+	}, {
+		about:       "LXC clone values",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":           "my-type",
+			"name":           "my-name",
+			"default-series": "precise",
+			"lxc-clone":      true,
+			"lxc-clone-aufs": true,
+		},
+	}, {
+		about:       "Deprecated lxc-use-clone used",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"lxc-use-clone": true,
+		},
+	}, {
+		about:       "Deprecated lxc-use-clone ignored",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":          "my-type",
+			"name":          "my-name",
+			"lxc-use-clone": false,
+			"lxc-clone":     true,
 		},
 	}, {
 		about:       "CA cert & key from path",
@@ -696,7 +723,7 @@ type testFile struct {
 	name, data string
 }
 
-func (*ConfigSuite) TestConfig(c *gc.C) {
+func (s *ConfigSuite) TestConfig(c *gc.C) {
 	files := []testing.TestFile{
 		{".ssh/id_dsa.pub", "dsa"},
 		{".ssh/id_rsa.pub", "rsa\n"},
@@ -711,11 +738,10 @@ func (*ConfigSuite) TestConfig(c *gc.C) {
 		{"othercert.pem", caCert3},
 		{"otherkey.pem", caKey3},
 	}
-	h := testing.MakeFakeHomeWithFiles(c, files)
-	defer h.Restore()
+	s.FakeHomeSuite.Home.AddFiles(c, files...)
 	for i, test := range configTests {
 		c.Logf("test %d. %s", i, test.about)
-		test.check(c, h)
+		test.check(c, s.FakeHomeSuite.Home)
 	}
 }
 
@@ -741,12 +767,10 @@ var noCertFilesTests = []configTest{
 	},
 }
 
-func (*ConfigSuite) TestConfigNoCertFiles(c *gc.C) {
-	h := testing.MakeEmptyFakeHome(c)
-	defer h.Restore()
+func (s *ConfigSuite) TestConfigNoCertFiles(c *gc.C) {
 	for i, test := range noCertFilesTests {
 		c.Logf("test %d. %s", i, test.about)
-		test.check(c, h)
+		test.check(c, s.FakeHomeSuite.Home)
 	}
 }
 
@@ -803,17 +827,16 @@ var emptyCertFilesTests = []configTest{
 	}, */
 }
 
-func (*ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
+func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 	files := []testing.TestFile{
 		{".juju/my-name-cert.pem", ""},
 		{".juju/my-name-private-key.pem", ""},
 	}
-	h := testing.MakeFakeHomeWithFiles(c, files)
-	defer h.Restore()
+	s.FakeHomeSuite.Home.AddFiles(c, files...)
 
 	for i, test := range emptyCertFilesTests {
 		c.Logf("test %d. %s", i, test.about)
-		test.check(c, h)
+		test.check(c, s.FakeHomeSuite.Home)
 	}
 }
 
@@ -981,6 +1004,27 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(oldURLAttrPresent, jc.IsFalse)
 		c.Assert(oldToolsURL, gc.Equals, "")
 	}
+
+	useLxcClone, useLxcClonePresent := cfg.LXCUseClone()
+	oldUseClone, oldUseClonePresent := cfg.AllAttrs()["lxc-use-clone"]
+	if v, ok := test.attrs["lxc-clone"]; ok {
+		c.Assert(useLxcClone, gc.Equals, v)
+		c.Assert(useLxcClonePresent, jc.IsTrue)
+	} else {
+		if oldUseClonePresent {
+			c.Assert(useLxcClonePresent, jc.IsTrue)
+			c.Assert(useLxcClone, gc.Equals, oldUseClone)
+		} else {
+			c.Assert(useLxcClonePresent, jc.IsFalse)
+			c.Assert(useLxcClone, gc.Equals, false)
+		}
+	}
+	useLxcCloneAufs, ok := cfg.LXCUseCloneAUFS()
+	if v, ok := test.attrs["lxc-clone-aufs"]; ok {
+		c.Assert(useLxcCloneAufs, gc.Equals, v)
+	} else {
+		c.Assert(useLxcCloneAufs, gc.Equals, false)
+	}
 }
 
 func (test configTest) assertDuration(c *gc.C, name string, actual time.Duration, defaultInSeconds int) {
@@ -1028,7 +1072,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["tools-url"] = ""
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false
-	attrs["lxc-use-clone"] = false
+	attrs["lxc-clone-aufs"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
@@ -1112,18 +1156,22 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"bootstrap-timeout": 5},
 	err:   `cannot change bootstrap-timeout from 600 to 5`,
 }, {
-	about: "Cannot change lxc-use-clone",
-	old:   testing.Attrs{"lxc-use-clone": false},
-	new:   testing.Attrs{"lxc-use-clone": true},
-	err:   `cannot change lxc-use-clone from false to true`,
+	about: "Cannot change lxc-clone",
+	old:   testing.Attrs{"lxc-clone": false},
+	new:   testing.Attrs{"lxc-clone": true},
+	err:   `cannot change lxc-clone from false to true`,
+}, {
+	about: "Cannot change lxc-clone-aufs",
+	old:   testing.Attrs{"lxc-clone-aufs": false},
+	new:   testing.Attrs{"lxc-clone-aufs": true},
+	err:   `cannot change lxc-clone-aufs from false to true`,
 }}
 
-func (*ConfigSuite) TestValidateChange(c *gc.C) {
+func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 	files := []testing.TestFile{
 		{".ssh/identity.pub", "identity"},
 	}
-	h := testing.MakeFakeHomeWithFiles(c, files)
-	defer h.Restore()
+	s.FakeHomeSuite.Home.AddFiles(c, files...)
 
 	for i, test := range validationTests {
 		c.Logf("test %d: %s", i, test.about)
@@ -1131,23 +1179,23 @@ func (*ConfigSuite) TestValidateChange(c *gc.C) {
 		oldConfig := newTestConfig(c, test.old)
 		err := config.Validate(newConfig, oldConfig)
 		if test.err == "" {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 		} else {
-			c.Assert(err, gc.ErrorMatches, test.err)
+			c.Check(err, gc.ErrorMatches, test.err)
 		}
 	}
 }
 
-func makeFakeHome(c *gc.C) *testing.FakeHome {
-	return testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
+func (s *ConfigSuite) addJujuFiles(c *gc.C) {
+	s.FakeHomeSuite.Home.AddFiles(c, []testing.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
 		{".juju/myenv-cert.pem", caCert},
 		{".juju/myenv-private-key.pem", caKey},
-	})
+	}...)
 }
 
-func (*ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
-	defer makeFakeHome(c).Restore()
+func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
+	s.addJujuFiles(c)
 	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":    "myenv",
 		"type":    "other",
@@ -1199,32 +1247,30 @@ func newTestConfig(c *gc.C, explicit testing.Attrs) *config.Config {
 	return result
 }
 
-func (*ConfigSuite) TestLoggingConfig(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestLoggingConfig(c *gc.C) {
+	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{
 		"logging-config": "<root>=WARNING;juju=DEBUG"})
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING;juju=DEBUG;unit=DEBUG")
 }
 
-func (*ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestLoggingConfigWithUnit(c *gc.C) {
+	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{
 		"logging-config": "<root>=WARNING;unit=INFO"})
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=WARNING;unit=INFO")
 }
 
 func (s *ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
-	defer makeFakeHome(c).Restore()
+	s.addJujuFiles(c)
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "<root>=INFO")
 
 	config := newTestConfig(c, nil)
 	c.Assert(config.LoggingConfig(), gc.Equals, "<root>=INFO;unit=DEBUG")
 }
 
-func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
-	defer makeFakeHome(c).Restore()
+func (s *ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
+	s.addJujuFiles(c)
 
 	config := newTestConfig(c, testing.Attrs{
 		"http-proxy":  "http://user@10.0.0.1",
@@ -1241,9 +1287,8 @@ func (*ConfigSuite) TestProxyValuesWithFallback(c *gc.C) {
 	c.Assert(config.NoProxy(), gc.Equals, "localhost,10.0.3.1")
 }
 
-func (*ConfigSuite) TestProxyValues(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestProxyValues(c *gc.C) {
+	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{
 		"http-proxy":      "http://user@10.0.0.1",
 		"https-proxy":     "https://user@10.0.0.1",
@@ -1260,9 +1305,8 @@ func (*ConfigSuite) TestProxyValues(c *gc.C) {
 	c.Assert(config.AptFtpProxy(), gc.Equals, "ftp://user@10.0.0.2")
 }
 
-func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
+	s.addJujuFiles(c)
 	config := newTestConfig(c, testing.Attrs{})
 	c.Assert(config.HttpProxy(), gc.Equals, "")
 	c.Assert(config.AptHttpProxy(), gc.Equals, "")
@@ -1273,9 +1317,8 @@ func (*ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 	c.Assert(config.NoProxy(), gc.Equals, "")
 }
 
-func (*ConfigSuite) TestProxyConfigMap(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
+	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
 	proxy := osenv.ProxySettings{
 		Http:    "http proxy",
@@ -1291,9 +1334,8 @@ func (*ConfigSuite) TestProxyConfigMap(c *gc.C) {
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
 }
 
-func (*ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
-	defer makeFakeHome(c).Restore()
-
+func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
+	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
 	proxy := osenv.ProxySettings{
 		Http:  "http proxy",
@@ -1307,12 +1349,9 @@ func (*ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
 }
 
-func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
-	// In order to test missing certs, it checks the JUJU_HOME dir, so we need
-	// a fake home.
-	defer testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
-		{".ssh/id_rsa.pub", "rsa\n"},
-	}).Restore()
+func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
+	// Add a cert.
+	s.FakeHomeSuite.Home.AddFiles(c, testing.TestFile{".ssh/id_rsa.pub", "rsa\n"})
 
 	for _, test := range []struct {
 		configValues map[string]interface{}

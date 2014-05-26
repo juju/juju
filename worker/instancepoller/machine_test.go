@@ -13,21 +13,20 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 var _ = gc.Suite(&machineSuite{})
 
 type machineSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var testAddrs = instance.NewAddresses("127.0.0.1")

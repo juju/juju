@@ -45,7 +45,7 @@ func (s *AddUnitSuite) TestInitErrors(c *gc.C) {
 }
 
 func runAddUnit(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&AddUnitCommand{}), args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&AddUnitCommand{}), args...)
 	return err
 }
 

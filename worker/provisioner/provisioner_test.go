@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -17,7 +18,6 @@ import (
 	"launchpad.net/juju-core/environs/network"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
@@ -254,8 +254,8 @@ func (s *CommonProvisionerSuite) checkStopSomeInstances(c *gc.C,
 		case o := <-s.op:
 			switch o := o.(type) {
 			case dummy.OpStopInstances:
-				for _, stoppedInstance := range o.Instances {
-					instId := string(stoppedInstance.Id())
+				for _, id := range o.Ids {
+					instId := string(id)
 					instanceIdsToStop.Remove(instId)
 					if instanceIdsToKeep.Contains(instId) {
 						c.Errorf("provisioner unexpectedly stopped instance %s", instId)
@@ -927,14 +927,18 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	// another will require retries.
 	m1, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m1)
 	m2, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m2)
 	m3, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
 	m4, err := s.addMachine()
 	c.Assert(err, gc.IsNil)
-	s.checkStartInstance(c, m1)
-	s.checkStartInstance(c, m2)
+
+	// mockBroker will fail to start machine-3 several times;
+	// keep setting the transient flag to retry until the
+	// instance has started.
 	thatsAllFolks := make(chan struct{})
 	go func() {
 		for {
@@ -949,6 +953,7 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	}()
 	s.checkStartInstance(c, m3)
 	close(thatsAllFolks)
+
 	// Machine 4 is never provisioned.
 	status, _, _, err := m4.Status()
 	c.Assert(err, gc.IsNil)

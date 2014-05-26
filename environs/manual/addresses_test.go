@@ -10,7 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 const (
@@ -19,7 +19,7 @@ const (
 )
 
 type addressesSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	netLookupHostCalled int
 }
 

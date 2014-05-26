@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
@@ -75,6 +76,14 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 	return result, nil
 }
 
+func (c *Client) getDataDir() string {
+	dataResource, ok := c.api.resources.Get("dataDir").(common.StringResource)
+	if !ok {
+		return ""
+	}
+	return dataResource.String()
+}
+
 // Run the commands specified on the machines identified through the
 // list of machines, units and services.
 func (c *Client) Run(run params.RunParams) (results params.RunResults, err error) {
@@ -110,7 +119,7 @@ func (c *Client) Run(run params.RunParams) (results params.RunResults, err error
 		execParam := remoteParamsForMachine(machine, command, run.Timeout)
 		params = append(params, execParam)
 	}
-	return ParallelExecute(c.api.dataDir, params), nil
+	return ParallelExecute(c.getDataDir(), params), nil
 }
 
 // RunOnAllMachines attempts to run the specified command on all the machines.
@@ -125,7 +134,7 @@ func (c *Client) RunOnAllMachines(run params.RunParams) (params.RunResults, erro
 	for _, machine := range machines {
 		params = append(params, remoteParamsForMachine(machine, command, run.Timeout))
 	}
-	return ParallelExecute(c.api.dataDir, params), nil
+	return ParallelExecute(c.getDataDir(), params), nil
 }
 
 // RemoteExec extends the standard ssh.ExecParams by providing the machine and

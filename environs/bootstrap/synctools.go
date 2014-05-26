@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/sync"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/arch"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/set"
@@ -94,7 +95,8 @@ func uploadVersion(vers version.Number, existing coretools.List) version.Number 
 
 // Unless otherwise specified, we will upload tools for all lts series on bootstrap
 // when --upload-tools is used.
-var toolsLtsSeries = []string{"precise", "trusty"}
+// ToolsLtsSeries records the known lts series.
+var ToolsLtsSeries = []string{"precise", "trusty"}
 
 // SeriesToUpload returns the supplied series with duplicates removed if
 // non-empty; otherwise it returns a default list of series we should
@@ -103,7 +105,7 @@ func SeriesToUpload(cfg *config.Config, series []string) []string {
 	unique := set.NewStrings(series...)
 	if unique.IsEmpty() {
 		unique.Add(version.Current.Series)
-		for _, toolsSeries := range toolsLtsSeries {
+		for _, toolsSeries := range ToolsLtsSeries {
 			unique.Add(toolsSeries)
 		}
 		if series, ok := cfg.DefaultSeries(); ok {

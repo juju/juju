@@ -9,17 +9,17 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 type aggregateSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&aggregateSuite{})
@@ -116,32 +116,54 @@ func (s *aggregateSuite) TestMultipleResponseHandling(c *gc.C) {
 	c.Assert(len(testGetter.ids), gc.DeepEquals, 2)
 }
 
+type batchingInstanceGetter struct {
+	testInstanceGetter
+	wg         sync.WaitGroup
+	aggregator *aggregator
+	batchSize  int
+	started    int
+}
+
+func (g *batchingInstanceGetter) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	insts, err := g.testInstanceGetter.Instances(ids)
+	g.startRequests()
+	return insts, err
+}
+
+func (g *batchingInstanceGetter) startRequests() {
+	n := len(g.results) - g.started
+	if n > g.batchSize {
+		n = g.batchSize
+	}
+	for i := 0; i < n; i++ {
+		g.startRequest()
+	}
+}
+
+func (g *batchingInstanceGetter) startRequest() {
+	g.started++
+	go func() {
+		_, err := g.aggregator.instanceInfo("foo")
+		if err != nil {
+			panic(err)
+		}
+		g.wg.Done()
+	}()
+}
+
 func (s *aggregateSuite) TestBatching(c *gc.C) {
 	s.PatchValue(&gatherTime, 10*time.Millisecond)
-	testGetter := new(testInstanceGetter)
-
-	aggregator := newAggregator(testGetter)
-	for i := 0; i < 100; i++ {
-		testGetter.results = append(testGetter.results, newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"}))
+	var testGetter batchingInstanceGetter
+	testGetter.aggregator = newAggregator(&testGetter)
+	testGetter.results = make([]instance.Instance, 100)
+	for i := range testGetter.results {
+		testGetter.results[i] = newTestInstance("foobar", []string{"127.0.0.1", "192.168.1.1"})
 	}
-	var wg sync.WaitGroup
-	makeRequest := func() {
-		_, err := aggregator.instanceInfo("foo")
-		c.Check(err, gc.IsNil)
-		wg.Done()
-	}
-	startTime := time.Now()
-	wg.Add(100)
-	for i := 0; i < 100; i++ {
-		go makeRequest()
-		time.Sleep(time.Millisecond)
-	}
-	wg.Wait()
-	totalTime := time.Now().Sub(startTime)
-	// +1 because we expect one extra call for the first request
-	expectedMax := int32((totalTime / (10 * time.Millisecond)) + 1)
-	c.Assert(testGetter.counter, jc.LessThan, expectedMax+1)
-	c.Assert(testGetter.counter, jc.GreaterThan, 10)
+	testGetter.batchSize = 10
+	testGetter.wg.Add(len(testGetter.results))
+	testGetter.startRequest()
+	testGetter.wg.Wait()
+	c.Assert(testGetter.counter, gc.Equals, int32(len(testGetter.results)/testGetter.batchSize)+1)
 }
 
 func (s *aggregateSuite) TestError(c *gc.C) {
@@ -163,7 +185,8 @@ func (s *aggregateSuite) TestPartialErrResponse(c *gc.C) {
 	aggregator := newAggregator(testGetter)
 	_, err := aggregator.instanceInfo("foo")
 
-	c.Assert(err, gc.DeepEquals, errors.NotFoundf("instance foo"))
+	c.Assert(err, gc.ErrorMatches, "instance foo not found")
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *aggregateSuite) TestAddressesError(c *gc.C) {

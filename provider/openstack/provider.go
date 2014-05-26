@@ -6,7 +6,6 @@
 package openstack
 
 import (
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -15,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	jujuerrors "github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/goose/client"
 	gooseerrors "launchpad.net/goose/errors"
@@ -31,7 +31,6 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/names"
@@ -902,28 +901,33 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	return inst, inst.hardwareCharacteristics(), nil, nil
 }
 
-func (e *environ) StopInstances(insts []instance.Instance) error {
-	ids := make([]instance.Id, len(insts))
-	securityGroupNames := make([]string, len(insts))
-	for i, inst := range insts {
-		instanceValue, ok := inst.(*openstackInstance)
-		if !ok {
-			return errors.New("Incompatible instance.Instance supplied")
+func (e *environ) StopInstances(ids ...instance.Id) error {
+	// If in instance firewall mode, gather the security group names.
+	var securityGroupNames []string
+	if e.Config().FirewallMode() == config.FwInstance {
+		instances, err := e.Instances(ids)
+		if err == environs.ErrNoInstances {
+			return nil
 		}
-		ids[i] = instanceValue.Id()
-		openstackName := instanceValue.getServerDetail().Name
-		lastDashPos := strings.LastIndex(openstackName, "-")
-		if lastDashPos == -1 {
-			return fmt.Errorf("cannot identify instance ID in openstack server name %q", openstackName)
+		securityGroupNames = make([]string, 0, len(ids))
+		for _, inst := range instances {
+			if inst == nil {
+				continue
+			}
+			openstackName := inst.(*openstackInstance).getServerDetail().Name
+			lastDashPos := strings.LastIndex(openstackName, "-")
+			if lastDashPos == -1 {
+				return fmt.Errorf("cannot identify machine ID in openstack server name %q", openstackName)
+			}
+			securityGroupName := e.machineGroupName(openstackName[lastDashPos+1:])
+			securityGroupNames = append(securityGroupNames, securityGroupName)
 		}
-		securityGroupNames[i] = e.machineGroupName(openstackName[lastDashPos+1:])
 	}
 	logger.Debugf("terminating instances %v", ids)
-	err := e.terminateInstances(ids)
-	if err != nil {
+	if err := e.terminateInstances(ids); err != nil {
 		return err
 	}
-	if e.Config().FirewallMode() == config.FwInstance {
+	if securityGroupNames != nil {
 		return e.deleteSecurityGroups(securityGroupNames)
 	}
 	return nil
@@ -1001,7 +1005,7 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // given instance on the given network. This is not implemented on the
 // OpenStack provider yet.
 func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
-	return instance.Address{}, coreerrors.NotImplementedf("AllocateAddress")
+	return instance.Address{}, jujuerrors.NotImplementedf("AllocateAddress")
 }
 
 func (e *environ) AllInstances() (insts []instance.Instance, err error) {

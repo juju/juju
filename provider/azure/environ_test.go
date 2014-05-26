@@ -178,7 +178,7 @@ func patchWithServiceListResponse(c *gc.C, services []gwacl.HostedServiceDescrip
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
-func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedService) *[]*gwacl.X509Request {
+func prepareInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedService) []gwacl.DispatcherResponse {
 	descriptors := make([]gwacl.HostedServiceDescriptor, len(services))
 	for i, service := range services {
 		descriptors[i] = service.HostedServiceDescriptor
@@ -193,6 +193,11 @@ func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedSe
 		serviceGetResponse := gwacl.NewDispatcherResponse([]byte(serviceXML), http.StatusOK, nil)
 		responses = append(responses, serviceGetResponse)
 	}
+	return responses
+}
+
+func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedService) *[]*gwacl.X509Request {
+	responses := prepareInstancesResponses(c, prefix, services...)
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
@@ -521,14 +526,28 @@ func (s *environSuite) TestStateInfo(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 
+	responses := prepareInstancesResponses(c, prefix, service)
+	responses = append(responses, prepareDeploymentInfoResponse(c, gwacl.Deployment{
+		RoleInstanceList: []gwacl.RoleInstance{{
+			RoleName:  service.Deployments[0].RoleList[0].RoleName,
+			IPAddress: "1.2.3.4",
+		}},
+		VirtualNetworkName: env.getVirtualNetworkName(),
+	})...)
+	gwacl.PatchManagementAPIResponses(responses)
+
 	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	config := env.Config()
 	dnsName := prefix + "myservice." + AZURE_DOMAIN_NAME
-	stateServerAddr := fmt.Sprintf("%s:%d", dnsName, config.StatePort())
-	apiServerAddr := fmt.Sprintf("%s:%d", dnsName, config.APIPort())
-	c.Check(stateInfo.Addrs, gc.DeepEquals, []string{stateServerAddr})
-	c.Check(apiInfo.Addrs, gc.DeepEquals, []string{apiServerAddr})
+	c.Check(stateInfo.Addrs, jc.SameContents, []string{
+		fmt.Sprintf("1.2.3.4:%d", config.StatePort()),
+		fmt.Sprintf("%s:%d", dnsName, config.StatePort()),
+	})
+	c.Check(apiInfo.Addrs, jc.DeepEquals, []string{
+		fmt.Sprintf("1.2.3.4:%d", config.APIPort()),
+		fmt.Sprintf("%s:%d", dnsName, config.APIPort()),
+	})
 }
 
 // parseCreateServiceRequest reconstructs the original CreateHostedService
@@ -762,10 +781,11 @@ func makeDeployment(env *azureEnviron, serviceName string) *gwacl.HostedService 
 
 func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	env := makeEnviron(c)
+	prefix := env.getEnvPrefix()
 	service1Name := "service1"
-	service1 := makeLegacyDeployment(env, service1Name)
+	service1 := makeLegacyDeployment(env, prefix+service1Name)
 	service2Name := "service2"
-	service2 := makeDeployment(env, service2Name)
+	service2 := makeDeployment(env, prefix+service2Name)
 
 	inst1, err := env.getInstance(service1, "")
 	c.Assert(err, gc.IsNil)
@@ -781,7 +801,7 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 	responses = append(responses, buildGetServicePropertiesResponses(c, service2)...)
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteHostedService
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	err = env.StopInstances([]instance.Instance{inst1, inst2, inst3})
+	err = env.StopInstances(inst1.Id(), inst2.Id(), inst3.Id())
 	c.Check(err, gc.IsNil)
 
 	// One GET and DELETE per service
@@ -795,7 +815,7 @@ func (s *environSuite) TestStopInstancesDestroysMachines(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 	env := makeEnviron(c)
-	service := makeDeployment(env, "service")
+	service := makeDeployment(env, env.getEnvPrefix()+"service")
 
 	role1Name := service.Deployments[0].RoleList[0].RoleName
 	inst1, err := env.getInstance(service, role1Name)
@@ -804,7 +824,7 @@ func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 	responses := buildGetServicePropertiesResponses(c, service)
 	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteRole
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	err = env.StopInstances([]instance.Instance{inst1})
+	err = env.StopInstances(inst1.Id())
 	c.Check(err, gc.IsNil)
 
 	// One GET for the service, and one DELETE for the role.
@@ -817,8 +837,9 @@ func (s *environSuite) TestStopInstancesServiceSubset(c *gc.C) {
 
 func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 	env := makeEnviron(c)
-	service1 := makeDeployment(env, "service1")
-	service2 := makeDeployment(env, "service2")
+	prefix := env.getEnvPrefix()
+	service1 := makeDeployment(env, prefix+"service1")
+	service2 := makeDeployment(env, prefix+"service2")
 	service1Role1Name := service1.Deployments[0].RoleList[0].RoleName
 	inst1, err := env.getInstance(service1, service1Role1Name)
 	c.Assert(err, gc.IsNil)
@@ -826,26 +847,23 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 	inst2, err := env.getInstance(service2, service2Role1Name)
 	c.Assert(err, gc.IsNil)
 
-	responses := buildGetServicePropertiesResponses(c, service1, service2)
-	// Failed to delete one of the services.
+	responses := buildGetServicePropertiesResponses(c, service1)
+	// Failed to delete one of the services. This will cause StopInstances to stop
+	// immediately.
 	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil))
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
-	instances := []instance.Instance{inst1, inst2}
-	err = env.StopInstances(instances)
+	err = env.StopInstances(inst1.Id(), inst2.Id())
 	c.Check(err, gc.ErrorMatches, ".*Conflict.*")
 
 	c.Check(len(*requests), gc.Equals, len(responses))
 	assertOneRequestMatches(c, *requests, "GET", ".*"+service1.ServiceName+".*")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service2.ServiceName+".*")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*("+service1.ServiceName+"|"+service2.ServiceName+").")
+	assertOneRequestMatches(c, *requests, "DELETE", service1.ServiceName)
 }
 
 func (s *environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
 	env := makeEnviron(c)
-	instances := []instance.Instance{}
-
-	err := env.StopInstances(instances)
+	err := env.StopInstances()
 	c.Check(err, gc.IsNil)
 }
 
@@ -1526,7 +1544,7 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags"})
 }
 
 func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {

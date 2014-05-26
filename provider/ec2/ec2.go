@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/common"
@@ -537,11 +537,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	return inst, &hc, nil, nil
 }
 
-func (e *environ) StopInstances(insts []instance.Instance) error {
-	ids := make([]instance.Id, len(insts))
-	for i, inst := range insts {
-		ids[i] = inst.(*ec2Instance).Id()
-	}
+func (e *environ) StopInstances(ids ...instance.Id) error {
 	return e.terminateInstances(ids)
 }
 

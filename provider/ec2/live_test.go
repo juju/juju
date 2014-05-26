@@ -24,7 +24,6 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -70,12 +69,13 @@ func registerAmazonTests() {
 // LiveTests contains tests that can be run against the Amazon servers.
 // Each test runs using the same ec2 connection.
 type LiveTests struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 	jujutest.LiveTests
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
-	t.LoggingSuite.SetUpSuite(c)
+	t.BaseSuite.SetUpSuite(c)
+	t.LiveTests.SetUpSuite(c)
 	// TODO: Share code from jujutest.LiveTests for creating environment
 	e, err := environs.NewFromAttrs(t.TestConfig)
 	c.Assert(err, gc.IsNil)
@@ -84,7 +84,6 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	// starting instances without any need to check if those instances
 	// are running will find them in the public bucket.
 	envtesting.UploadFakeTools(c, e.Storage())
-	t.LiveTests.SetUpSuite(c)
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
@@ -93,11 +92,11 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 		return
 	}
 	t.LiveTests.TearDownSuite(c)
-	t.LoggingSuite.TearDownSuite(c)
+	t.BaseSuite.TearDownSuite(c)
 }
 
 func (t *LiveTests) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
+	t.BaseSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 	t.PatchValue(&version.Current, version.Binary{
 		Number: version.Current.Number,
@@ -109,14 +108,14 @@ func (t *LiveTests) SetUpTest(c *gc.C) {
 
 func (t *LiveTests) TearDownTest(c *gc.C) {
 	t.LiveTests.TearDownTest(c)
-	t.LoggingSuite.TearDownTest(c)
+	t.BaseSuite.TearDownTest(c)
 }
 
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
 func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	inst, hc := testing.AssertStartInstance(c, t.Env, "30")
-	defer t.Env.StopInstances([]instance.Instance{inst})
+	defer t.Env.StopInstances(inst.Id())
 	// Sanity check for hardware characteristics.
 	c.Assert(hc.Arch, gc.NotNil)
 	c.Assert(hc.Mem, gc.NotNil)
@@ -140,7 +139,7 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=2G")
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, t.Env, "30", cons)
-	defer t.Env.StopInstances([]instance.Instance{inst})
+	defer t.Env.StopInstances(inst.Id())
 	ec2inst := ec2.InstanceEC2(inst)
 	c.Assert(ec2inst.InstanceType, gc.Equals, "m1.medium")
 	c.Assert(*hc.Arch, gc.Equals, "amd64")
@@ -187,14 +186,14 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	inst0, _ := testing.AssertStartInstance(c, t.Env, "98")
-	defer t.Env.StopInstances([]instance.Instance{inst0})
+	defer t.Env.StopInstances(inst0.Id())
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "99")
-	defer t.Env.StopInstances([]instance.Instance{inst1})
+	defer t.Env.StopInstances(inst1.Id())
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
 	c.Assert(err, gc.IsNil)
@@ -343,7 +342,7 @@ func (t *LiveTests) TestStopInstances(c *gc.C) {
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
 	inst2, _ := testing.AssertStartInstance(c, t.Env, "41")
 
-	err := t.Env.StopInstances([]instance.Instance{inst0, inst1, inst2})
+	err := t.Env.StopInstances(inst0.Id(), inst1.Id(), inst2.Id())
 	c.Check(err, gc.IsNil)
 
 	var insts []instance.Instance

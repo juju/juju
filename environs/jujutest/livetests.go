@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -24,7 +25,6 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
@@ -33,7 +33,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -43,7 +42,6 @@ import (
 // (e.g. Amazon EC2).  The Environ is opened once only for all the tests
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
-	testbase.LoggingSuite
 	envtesting.ToolsFixture
 
 	// TestConfig contains the configuration attributes for opening an environment.
@@ -75,13 +73,7 @@ type LiveTests struct {
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
-	t.LoggingSuite.SetUpSuite(c)
 	t.ConfigStore = configstore.NewMem()
-}
-
-func (t *LiveTests) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
-	t.ToolsFixture.SetUpTest(c)
 }
 
 func publicAttrs(e environs.Environ) map[string]interface{} {
@@ -101,12 +93,6 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 	if t.Env != nil {
 		t.Destroy(c)
 	}
-	t.LoggingSuite.TearDownSuite(c)
-}
-
-func (t *LiveTests) TearDownTest(c *gc.C) {
-	t.ToolsFixture.TearDownTest(c)
-	t.LoggingSuite.TearDownTest(c)
 }
 
 // PrepareOnce ensures that the environment is
@@ -136,7 +122,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		_, err := sync.Upload(t.Env.Storage(), nil, coretesting.FakeDefaultSeries)
 		c.Assert(err, gc.IsNil)
 	}
-	envtesting.UploadFakeTools(c, t.Env.Storage())
+	t.UploadFakeTools(c, t.Env.Storage())
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, environs.BootstrapParams{Constraints: cons})
@@ -171,7 +157,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *gc.C) {
 	t.PrepareOnce(c)
-	envtesting.UploadFakeTools(c, t.Env.Storage())
+	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst, _ := testing.AssertStartInstance(c, t.Env, "0")
 	c.Assert(inst, gc.NotNil)
@@ -208,7 +194,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	c.Check(insts[0].Id(), gc.Equals, id0)
 	c.Check(insts[1], gc.IsNil)
 
-	err = t.Env.StopInstances([]instance.Instance{inst})
+	err = t.Env.StopInstances(inst.Id())
 	c.Assert(err, gc.IsNil)
 
 	// The machine may not be marked as shutting down
@@ -225,11 +211,11 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 
 func (t *LiveTests) TestPorts(c *gc.C) {
 	t.PrepareOnce(c)
-	envtesting.UploadFakeTools(c, t.Env.Storage())
+	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
 	c.Assert(inst1, gc.NotNil)
-	defer t.Env.StopInstances([]instance.Instance{inst1})
+	defer t.Env.StopInstances(inst1.Id())
 	ports, err := inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
@@ -239,7 +225,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
-	defer t.Env.StopInstances([]instance.Instance{inst2})
+	defer t.Env.StopInstances(inst2.Id())
 
 	// Open some ports and check they're there.
 	err = inst1.OpenPorts("1", []instance.Port{{"udp", 67}, {"tcp", 45}})
@@ -314,7 +300,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	t.PrepareOnce(c)
-	envtesting.UploadFakeTools(c, t.Env.Storage())
+	t.UploadFakeTools(c, t.Env.Storage())
 
 	// Change configuration.
 	oldConfig := t.Env.Config()
@@ -332,7 +318,7 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 
 	// Create instances and check open ports on both instances.
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
-	defer t.Env.StopInstances([]instance.Instance{inst1})
+	defer t.Env.StopInstances(inst1.Id())
 	ports, err := t.Env.Ports()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
@@ -341,7 +327,7 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	ports, err = t.Env.Ports()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
-	defer t.Env.StopInstances([]instance.Instance{inst2})
+	defer t.Env.StopInstances(inst2.Id())
 
 	err = t.Env.OpenPorts([]instance.Port{{"udp", 67}, {"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
 	c.Assert(err, gc.IsNil)
@@ -865,7 +851,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 		MachineConfig: machineConfig,
 	})
 	if inst != nil {
-		err := t.Env.StopInstances([]instance.Instance{inst})
+		err := t.Env.StopInstances(inst.Id())
 		c.Check(err, gc.IsNil)
 	}
 	c.Assert(inst, gc.IsNil)
