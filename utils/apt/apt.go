@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/proxy"
 )
 
 var (
@@ -160,7 +160,7 @@ func ConfigProxy() (string, error) {
 
 // DetectProxies will parse the results of ConfigProxy to return a
 // ProxySettings instance.
-func DetectProxies() (result osenv.ProxySettings, err error) {
+func DetectProxies() (result proxy.Settings, err error) {
 	output, err := ConfigProxy()
 	if err != nil {
 		return result, err
@@ -180,17 +180,17 @@ func DetectProxies() (result osenv.ProxySettings, err error) {
 
 // ProxyContent produces the format expected by the apt config files
 // from the ProxySettings struct.
-func ProxyContent(proxy osenv.ProxySettings) string {
+func ProxyContent(proxySettings proxy.Settings) string {
 	lines := []string{}
-	addLine := func(proxy, value string) {
+	addLine := func(proxySettings, value string) {
 		if value != "" {
 			lines = append(lines, fmt.Sprintf(
-				"Acquire::%s::Proxy %q;", proxy, value))
+				"Acquire::%s::Proxy %q;", proxySettings, value))
 		}
 	}
-	addLine("http", proxy.Http)
-	addLine("https", proxy.Https)
-	addLine("ftp", proxy.Ftp)
+	addLine("http", proxySettings.Http)
+	addLine("https", proxySettings.Https)
+	addLine("ftp", proxySettings.Ftp)
 	return strings.Join(lines, "\n")
 }
 
