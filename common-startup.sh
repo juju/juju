@@ -47,6 +47,8 @@ if [ -e $jenv ]; then rm $jenv; fi
 jenv=$JUJU_HOME/environments/$JOB_NAME.jenv
 if [[ -e $jenv ]]; then
     destroy-environment $JOB_NAME
-    rm $jenv
+    if [[ -e $jenv ]]; then
+        rm $jenv
+    fi
 fi
 
