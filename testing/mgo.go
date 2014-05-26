@@ -83,7 +83,7 @@ func (m *MgoInstance) Port() int {
 
 // We specify a timeout to mgo.Dial, to prevent
 // mongod failures hanging the tests.
-const mgoDialTimeout = 15 * time.Second
+const mgoDialTimeout = 60 * time.Second
 
 // MgoSuite is a suite that deletes all content from the shared MongoDB
 // server at the end of every test and supplies a connection to the shared

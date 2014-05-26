@@ -16,6 +16,7 @@ import (
 	jp "launchpad.net/juju-core/provider/joyent"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/ssh"
 )
 
 func newConfig(c *gc.C, attrs coretesting.Attrs) *config.Config {
@@ -37,13 +38,13 @@ func validAttrs() coretesting.Attrs {
 		"private-key-path": "~/.ssh/provider_id_rsa",
 		"algorithm":        "rsa-sha256",
 		"control-dir":      "juju-test",
-		"private-key":      "key",
 	})
 }
 
 type ConfigSuite struct {
 	coretesting.FakeJujuHomeSuite
 	originalValues map[string]testing.Restorer
+	privateKeyData string
 }
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -58,6 +59,18 @@ func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	s.AddSuiteCleanup(func(*gc.C) { restoreMantaUser() })
 	restoreMantaKeyId := testing.PatchEnvironment(jp.MantaKeyId, "ff:ee:dd:cc:bb:aa:99:88:77:66:55:44:33:22:11:00")
 	s.AddSuiteCleanup(func(*gc.C) { restoreMantaKeyId() })
+	s.privateKeyData = generatePrivateKey(c)
+}
+
+func generatePrivateKey(c *gc.C) string {
+	oldBits := ssh.KeyBits
+	defer func() {
+		ssh.KeyBits = oldBits
+	}()
+	ssh.KeyBits = 32
+	private, _, err := ssh.GenerateKey("test-client")
+	c.Assert(err, gc.IsNil)
+	return private
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
@@ -216,17 +229,21 @@ var newConfigTests = []struct {
 	expect: coretesting.Attrs{"unknown-field": 12345},
 }}
 
-func (*ConfigSuite) TestNewEnvironConfig(c *gc.C) {
+func (s *ConfigSuite) TestNewEnvironConfig(c *gc.C) {
 	for i, test := range newConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		for k, v := range test.envVars {
 			os.Setenv(k, v)
 		}
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
+		attrs["private-key"] = s.privateKeyData
 		testConfig := newConfig(c, attrs)
 		environ, err := environs.New(testConfig)
 		if test.err == "" {
 			c.Check(err, gc.IsNil)
+			if err != nil {
+				continue
+			}
 			attrs := environ.Config().AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)
@@ -278,14 +295,20 @@ var changeConfigTests = []struct {
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
-	baseConfig := newConfig(c, validAttrs())
+	attrs := validAttrs()
+	attrs["private-key"] = s.privateKeyData
+	baseConfig := newConfig(c, attrs)
 	for i, test := range changeConfigTests {
 		c.Logf("test %d: %s", i, test.info)
 		attrs := validAttrs().Merge(test.insert).Delete(test.remove...)
+		attrs["private-key"] = s.privateKeyData
 		testConfig := newConfig(c, attrs)
 		validatedConfig, err := jp.Provider.Validate(testConfig, baseConfig)
 		if test.err == "" {
 			c.Check(err, gc.IsNil)
+			if err != nil {
+				continue
+			}
 			attrs := validatedConfig.AllAttrs()
 			for field, value := range test.expect {
 				c.Check(attrs[field], gc.Equals, value)

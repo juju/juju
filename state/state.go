@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The state package enables reading, observing, and changing
+// Package state enables reading, observing, and changing
 // the state stored in MongoDB of a whole environment
 // managed by juju.
 package state
@@ -64,6 +64,7 @@ type State struct {
 	settingsrefs      *mgo.Collection
 	constraints       *mgo.Collection
 	units             *mgo.Collection
+	actions           *mgo.Collection
 	users             *mgo.Collection
 	presence          *mgo.Collection
 	cleanups          *mgo.Collection
@@ -316,7 +317,7 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 	}
 
 	validAttrs := validCfg.AllAttrs()
-	for k, _ := range oldConfig.AllAttrs() {
+	for k := range oldConfig.AllAttrs() {
 		if _, ok := validAttrs[k]; !ok {
 			settings.Delete(k)
 		}
@@ -1392,6 +1393,19 @@ func (rdc relationDocSlice) Len() int      { return len(rdc) }
 func (rdc relationDocSlice) Swap(i, j int) { rdc[i], rdc[j] = rdc[j], rdc[i] }
 func (rdc relationDocSlice) Less(i, j int) bool {
 	return rdc[i].Id < rdc[j].Id
+}
+
+// Action returns an Action by Id.
+func (st *State) Action(id string) (*Action, error) {
+	doc := actionDoc{}
+	err := st.actions.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("action %q", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get action %q: %v", id, err)
+	}
+	return newAction(st, doc), nil
 }
 
 // Unit returns a unit by name.
