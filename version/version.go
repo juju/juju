@@ -240,6 +240,15 @@ func (v Number) Compare(w Number) int {
 		less = v.Major < w.Major
 	case v.Minor != w.Minor:
 		less = v.Minor < w.Minor
+	case v.Tag != w.Tag:
+		switch {
+		case v.Tag == "":
+			less = false
+		case w.Tag == "":
+			less = true
+		default:
+			less = v.Tag < w.Tag
+		}
 	case v.Patch != w.Patch:
 		less = v.Patch < w.Patch
 	case v.Build != w.Build:
