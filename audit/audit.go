@@ -25,7 +25,7 @@ func Audit(user Tagger, format string, args ...interface{}) {
 	if user.Tag() == "" {
 		panic("user tag cannot be blank")
 	}
-	// Logf is called directly, rathern than Infof so that the caller of Audit is
+	// Logf is called directly, rather than Infof so that the caller of Audit is
 	// recorded, not Audit itself.
 	logger.Logf(loggo.INFO, fmt.Sprintf("%s: %s", user.Tag(), format), args...)
 }
