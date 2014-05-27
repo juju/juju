@@ -32,12 +32,12 @@ func runAddMachine(c *gc.C, args ...string) (*cmd.Context, error) {
 
 func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	cxt, err := runAddMachine(c)
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "created machine machine-0\n")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine machine-0\n")
 	c.Assert(err, gc.IsNil)
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Life(), gc.Equals, state.Alive)
-	c.Assert(m.Series(), gc.DeepEquals, "precise")
+	c.Assert(m.Series(), gc.Equals, "precise")
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
@@ -45,7 +45,7 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {
 	cxt, err := runAddMachine(c, "--series", "series")
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "created machine machine-0\n")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine machine-0\n")
 	c.Assert(err, gc.IsNil)
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
@@ -54,7 +54,7 @@ func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddMachineWithConstraints(c *gc.C) {
 	cxt, err := runAddMachine(c, "--constraints", "mem=4G")
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "created machine machine-0\n")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine machine-0\n")
 	c.Assert(err, gc.IsNil)
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
@@ -81,7 +81,7 @@ func (s *AddMachineSuite) _assertAddContainer(c *gc.C, parentId, containerId str
 func (s *AddMachineSuite) TestAddContainerToNewMachine(c *gc.C) {
 	for i, ctype := range instance.ContainerTypes {
 		cxt, err := runAddMachine(c, string(ctype))
-		c.Assert(testing.Stderr(cxt), gc.DeepEquals, "created container machine-"+strconv.Itoa(i)+"-"+string(ctype)+"-0\n")
+		c.Assert(testing.Stderr(cxt), gc.Equals, "created container machine-"+strconv.Itoa(i)+"-"+string(ctype)+"-0\n")
 		c.Assert(err, gc.IsNil)
 		s._assertAddContainer(c, strconv.Itoa(i), fmt.Sprintf("%d/%s/0", i, ctype), ctype)
 	}
@@ -89,18 +89,18 @@ func (s *AddMachineSuite) TestAddContainerToNewMachine(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	cxt, err := runAddMachine(c)
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "created machine machine-0\n")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine machine-0\n")
 	c.Assert(err, gc.IsNil)
 	for i, container := range instance.ContainerTypes {
 		machineNum := strconv.Itoa(i + 1)
 		cxt, err = runAddMachine(c)
-		c.Assert(testing.Stderr(cxt), gc.DeepEquals, "created machine machine-"+machineNum+"\n")
+		c.Assert(testing.Stderr(cxt), gc.Equals, "created machine machine-"+machineNum+"\n")
 		c.Assert(err, gc.IsNil)
 		cxt, err := runAddMachine(c, fmt.Sprintf("%s:%s", container, machineNum))
 		if string(container) == "machine" {
-			c.Assert(testing.Stderr(cxt), gc.DeepEquals, "created container machine-"+machineNum+"\n")
+			c.Assert(testing.Stderr(cxt), gc.Equals, "created container machine-"+machineNum+"\n")
 		} else {
-			c.Assert(testing.Stderr(cxt), gc.DeepEquals, "created container machine-"+machineNum+"-"+string(container)+"-0\n")
+			c.Assert(testing.Stderr(cxt), gc.Equals, "created container machine-"+machineNum+"-"+string(container)+"-0\n")
 		}
 		c.Assert(err, gc.IsNil)
 		s._assertAddContainer(c, machineNum, fmt.Sprintf("%s/%s/0", machineNum, container), container)
@@ -109,33 +109,34 @@ func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddUnsupportedContainerToMachine(c *gc.C) {
 	cxt, err := runAddMachine(c)
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "created machine machine-0\n")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine machine-0\n")
 	c.Assert(err, gc.IsNil)
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	m.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	cxt, err = runAddMachine(c, "lxc:0")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxc containers")
 }
 
 func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
 	cxt, err := runAddMachine(c, ":lxc")
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, `cannot add a new machine: :lxc placement is invalid`)
 	cxt, err = runAddMachine(c, "lxc:")
 	c.Assert(cxt, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `invalid value "" for "lxc" scope: expected machine-id`)
 	cxt, err = runAddMachine(c, "2")
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, `machine-id cannot be specified when adding machines`)
 	cxt, err = runAddMachine(c, "foo")
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, `cannot add a new machine: foo placement is invalid`)
 	cxt, err = runAddMachine(c, "foo:bar")
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, `invalid environment name "foo"`)
 	cxt, err = runAddMachine(c, "dummyenv:invalid")
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "")
 	c.Check(err, gc.ErrorMatches, `cannot add a new machine: invalid placement is invalid`)
 	cxt, err = runAddMachine(c, "lxc", "--constraints", "container=lxc")
 	c.Assert(cxt, gc.IsNil)
