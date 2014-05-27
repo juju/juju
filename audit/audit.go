@@ -10,7 +10,7 @@ import (
 	"github.com/juju/loggo"
 )
 
-var logger = loggo.GetLogger("juju.audit")
+var logger = loggo.GetLogger("audit")
 
 // Tagger represents anything that implements a Tag method.
 type Tagger interface {
@@ -18,12 +18,14 @@ type Tagger interface {
 }
 
 // Audit records an auditable event against the tagged entity that performed the action.
-func Audit(who Tagger, format string, args ...interface{}) {
-	if who == nil {
-		panic("who cannot be nil")
+func Audit(user Tagger, format string, args ...interface{}) {
+	if user == nil {
+		panic("user cannot be nil")
 	}
-	if who.Tag() == "" {
-		panic("who cannot be blank")
+	if user.Tag() == "" {
+		panic("user tag cannot be blank")
 	}
-	logger.Logf(loggo.INFO, fmt.Sprintf("%s: %s", who.Tag(), format), args...)
+	// Logf is called directly, rathern than Infof so that the caller of Audit is
+	// recorded, not Audit itself.
+	logger.Logf(loggo.INFO, fmt.Sprintf("%s: %s", user.Tag(), format), args...)
 }

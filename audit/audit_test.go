@@ -5,10 +5,10 @@ package audit
 
 import (
 	"testing"
-	"time"
 
 	"github.com/juju/loggo"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 )
 
@@ -23,30 +23,8 @@ var _ = gc.Suite(&auditSuite{})
 func (*auditSuite) SetUpTest(c *gc.C) {
 	loggo.ResetLoggers()
 	loggo.ResetWriters()
-	err := loggo.ConfigureLoggers(`<root>=ERROR; juju.audit=INFO`)
+	err := loggo.ConfigureLoggers(`<root>=ERROR; audit=INFO`)
 	c.Assert(err, gc.IsNil)
-}
-
-// testLogger implements loggo.Writer.
-// The struct members represent the contents of the last line written.
-type testLogger struct {
-	loggo.Level
-	Name      string
-	Filename  string
-	Line      int
-	Timestamp time.Time
-	Message   string
-}
-
-// Write implements loggo.Writer. Each invocation will replace the conents of
-// the fields inside this testLogger implementation with the values logged.
-func (l *testLogger) Write(level loggo.Level, name, filename string, line int, timestamp time.Time, message string) {
-	l.Level = level
-	l.Name = name
-	l.Filename = filename
-	l.Line = line
-	l.Timestamp = timestamp
-	l.Message = message
 }
 
 type mockUser struct {
@@ -56,26 +34,26 @@ type mockUser struct {
 func (u *mockUser) Tag() string { return u.tag }
 
 func (*auditSuite) TestAuditEventWrittenToAuditLogger(c *gc.C) {
-	var w testLogger
-	loggo.ReplaceDefaultWriter(&w)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("audit-log", &tw, loggo.DEBUG), gc.IsNil)
 
 	u := &mockUser{tag: "user-agnus"}
 	Audit(u, "donut eaten, %v donut(s) remain", 7)
 
-	c.Check(w.Level, gc.Equals, loggo.INFO)
-	c.Check(w.Name, gc.Equals, "juju.audit")
-	c.Check(w.Filename, gc.Matches, ".*audit_test.go$") // TODO(dfc) this should be the function which called audit.Audit
-	c.Check(w.Line, gc.Not(gc.Equals), 0)
-	c.Check(w.Timestamp.IsZero(), gc.Equals, false)
-	c.Check(w.Message, gc.Equals, `user-agnus: donut eaten, 7 donut(s) remain`)
+	// Add deprecated message to be checked.
+	messages := []jc.SimpleMessage{
+		{loggo.INFO, `user-agnus: donut eaten, 7 donut\(s\) remain`},
+	}
+
+	c.Check(tw.Log, jc.LogMatches, messages)
 }
 
 func (*auditSuite) TestAuditWithNilUserWillPanic(c *gc.C) {
 	f := func() { Audit(nil, "should never be written") }
-	c.Assert(f, gc.PanicMatches, "who cannot be nil")
+	c.Assert(f, gc.PanicMatches, "user cannot be nil")
 }
 
 func (*auditSuite) TestAuditWithEmptyTagWillPanic(c *gc.C) {
 	f := func() { Audit(&mockUser{}, "should never be written") }
-	c.Assert(f, gc.PanicMatches, "who cannot be blank")
+	c.Assert(f, gc.PanicMatches, "user tag cannot be blank")
 }
