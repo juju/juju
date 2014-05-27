@@ -305,6 +305,47 @@ func (s *CleanupSuite) TestCleanupDyingUnitAlreadyRemoved(c *gc.C) {
 	s.assertCleanupCount(c, 1)
 }
 
+func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
+	s.assertDoesNotNeedCleanup(c)
+
+	// Create a service with a unit.
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	unit, err := mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
+
+	// Add a couple actions to the unit
+	_, err = unit.AddAction("action1", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit.AddAction("action2", nil)
+	c.Assert(err, gc.IsNil)
+
+	// make sure unit still has actions
+	actions, err := s.State.UnitActions(unit.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions), gc.Equals, 2)
+
+	// destroy unit and run cleanups
+	err = mysql.Destroy()
+	c.Assert(err, gc.IsNil)
+	s.assertCleanupRuns(c)
+
+	// make sure unit still has actions, after first cleanup pass
+	actions, err = s.State.UnitActions(unit.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions), gc.Equals, 2)
+
+	// second cleanup pass
+	s.assertCleanupRuns(c)
+
+	// make sure unit has no actions, after second cleanup pass
+	actions, err = s.State.UnitActions(unit.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions), gc.Equals, 0)
+}
+
 func (s *CleanupSuite) TestNothingToCleanup(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 	s.assertCleanupRuns(c)

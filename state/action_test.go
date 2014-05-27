@@ -71,17 +71,6 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	// cannot add action to a dead unit
 	_, err = unit.AddAction("fakeaction2", map[string]interface{}{})
 	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
-
-	// make sure state.Cleanup() removes all pending actions, after
-	// Remove()'ing the unit
-	err = unit.Remove()
-	c.Assert(err, gc.IsNil)
-	err = s.State.Cleanup()
-	c.Assert(err, gc.IsNil)
-	actions, err := unit.Actions()
-	c.Assert(err, gc.IsNil)
-	c.Assert(actions, gc.NotNil)
-	c.Assert(len(actions), gc.Equals, 0)
 }
 
 func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
