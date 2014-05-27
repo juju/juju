@@ -108,7 +108,6 @@ EOT
 
 build_binary_packages() {
     echo "Building binary packages"
-    # XXX sinzui 2014-05-27: this is not -alpha/beta away: 
     juju_version=$(basename $DSC .dsc)
     version=$(echo $juju_version | cut -d _ -f2 | sed -r 's,-0ubuntu.*$,,;')
     ssh "$@" $REMOTE_USER@$INSTANCE_NAME <<EOT
