@@ -9,6 +9,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -25,6 +26,7 @@ type rsyslogSuite struct {
 	*commontesting.EnvironWatcherTest
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
+	rsyslog    *rsyslog.RsyslogAPI
 }
 
 var _ = gc.Suite(&rsyslogSuite{})
@@ -34,6 +36,7 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		LoggedIn:       true,
 		EnvironManager: true,
+		MachineAgent:   true,
 	}
 	s.resources = common.NewResources()
 	api, err := rsyslog.NewRsyslogAPI(s.State, s.resources, s.authorizer)
@@ -43,28 +46,37 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 }
 
 func verifyRsyslogCACert(c *gc.C, st *apirsyslog.State, expected string) {
-	cfg, err := st.EnvironConfig()
+	cfg, err := st.GetRsyslogConfig("foo")
 	c.Assert(err, gc.IsNil)
-	c.Assert(cfg.RsyslogCACert(), gc.DeepEquals, expected)
+	c.Assert(cfg.CACert, gc.DeepEquals, expected)
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := st.Rsyslog().SetRsyslogCert(coretesting.CACert)
+	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	err := m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
+
+	err = st.Rsyslog().SetRsyslogCert(coretesting.CACert)
 	c.Assert(err, gc.IsNil)
 	verifyRsyslogCACert(c, st.Rsyslog(), coretesting.CACert)
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertNil(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := st.Rsyslog().SetRsyslogCert("")
+	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	err := m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
+
+	err = st.Rsyslog().SetRsyslogCert("")
 	c.Assert(err, gc.ErrorMatches, "no certificates found")
 	verifyRsyslogCACert(c, st.Rsyslog(), "")
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := st.Rsyslog().SetRsyslogCert(string(pem.EncodeToMemory(&pem.Block{
+	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	err := m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
+
+	err = st.Rsyslog().SetRsyslogCert(string(pem.EncodeToMemory(&pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: []byte("not a valid certificate"),
 	})))
@@ -73,10 +85,35 @@ func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
 }
 
 func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	err := st.Rsyslog().SetRsyslogCert(coretesting.CACert)
+	// create a machine-0 so we have an addresss to log to
+	m, err := s.State.AddMachine("trusty", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+	err = m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
+
+	unitState, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
+	err = unitState.Rsyslog().SetRsyslogCert(coretesting.CACert)
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	// Verify no change was effected.
-	verifyRsyslogCACert(c, st.Rsyslog(), "")
+	verifyRsyslogCACert(c, unitState.Rsyslog(), "")
+}
+
+func (s *rsyslogSuite) TestUpgraderAPIAllowsUnitAgent(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.UnitAgent = true
+	anAuthorizer.MachineAgent = false
+	anUpgrader, err := rsyslog.NewRsyslogAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, gc.IsNil)
+	c.Check(anUpgrader, gc.NotNil)
+}
+
+func (s *rsyslogSuite) TestUpgraderAPIRefusesNonUnitNonMachineAgent(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.UnitAgent = false
+	anAuthorizer.MachineAgent = false
+	anUpgrader, err := rsyslog.NewRsyslogAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, gc.NotNil)
+	c.Check(anUpgrader, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
