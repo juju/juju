@@ -33,9 +33,3 @@ func ReplaceFile(source, destination string) error {
 	}
 	return nil
 }
-
-// IsNotExist returns true if the error is consistent with an attempt to
-// reference a file that does not exist.
-func IsNotExist(err error) bool {
-	return os.IsNotExist(err)
-}

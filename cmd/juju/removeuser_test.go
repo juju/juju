@@ -18,19 +18,19 @@ type RemoveUserSuite struct {
 var _ = gc.Suite(&RemoveUserSuite{})
 
 func (s *RemoveUserSuite) TestRemoveUser(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&UserAddCommand{}), []string{"foobar"})
+	_, err := testing.RunCommand(c, envcmd.Wrap(&UserAddCommand{}), "foobar")
 	c.Assert(err, gc.IsNil)
 
-	_, err = testing.RunCommand(c, envcmd.Wrap(&RemoveUserCommand{}), []string{"foobar"})
+	_, err = testing.RunCommand(c, envcmd.Wrap(&RemoveUserCommand{}), "foobar")
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *RemoveUserSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveUserCommand{}), []string{"foobar", "password"})
+	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveUserCommand{}), "foobar", "password")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["password"\]`)
 }
 
 func (s *RemoveUserSuite) TestNotEnoughArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveUserCommand{}), []string{})
+	_, err := testing.RunCommand(c, envcmd.Wrap(&RemoveUserCommand{}))
 	c.Assert(err, gc.ErrorMatches, `no username supplied`)
 }

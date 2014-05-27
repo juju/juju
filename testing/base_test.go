@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type TestingBaseSuite struct {
@@ -19,7 +20,7 @@ type TestingBaseSuite struct {
 var _ = gc.Suite(&TestingBaseSuite{})
 
 func (s *TestingBaseSuite) SetUpTest(c *gc.C) {
-	osenv.SetHome("/home/eric")
+	utils.SetHome("/home/eric")
 	os.Setenv("JUJU_HOME", "/home/eric/juju")
 	osenv.SetJujuHome("/home/eric/juju")
 
@@ -30,11 +31,11 @@ func (s *TestingBaseSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 
 	// Test that the environment is restored.
-	c.Assert(osenv.Home(), gc.Equals, "/home/eric")
+	c.Assert(utils.Home(), gc.Equals, "/home/eric")
 	c.Assert(os.Getenv("JUJU_HOME"), gc.Equals, "/home/eric/juju")
 }
 
 func (s *TestingBaseSuite) TestFakeHomeReplacesEnvironment(c *gc.C) {
-	c.Assert(osenv.Home(), gc.Not(gc.Equals), "/home/eric")
+	c.Assert(utils.Home(), gc.Not(gc.Equals), "/home/eric")
 	c.Assert(os.Getenv("JUJU_HOME"), gc.Equals, "")
 }

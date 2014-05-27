@@ -24,7 +24,10 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.19.3"
+const version = "1.20-beta1"
+
+// The version that we switched over from old style numbering to new style.
+var switchOverVersion = MustParse("1.19.3")
 
 // lsbReleaseFile is the name of the file that is read in order to determine
 // the release version of ubuntu.
@@ -53,17 +56,19 @@ func init() {
 	Current.Number = MustParse(strings.TrimSpace(string(v)))
 }
 
-// Number represents a juju version.  When bugs are fixed the patch
-// number is incremented; when new features are added the minor number
-// is incremented and patch is reset; and when compatibility is broken
-// the major version is incremented and minor and patch are reset.  The
-// build number is automatically assigned and has no well defined
-// sequence.  If the build number is greater than zero or the minor
-// version is odd, it indicates that the release is still in
-// development.
+// Number represents a juju version.  When bugs are fixed the patch number is
+// incremented; when new features are added the minor number is incremented
+// and patch is reset; and when compatibility is broken the major version is
+// incremented and minor and patch are reset.  The build number is
+// automatically assigned and has no well defined sequence.  If the build
+// number is greater than zero or the tag is non-empty it indicates that the
+// release is still in development.  For versions older than 1.19.3,
+// development releases were indicated by an odd Minor number of any non-zero
+// build number.
 type Number struct {
 	Major int
 	Minor int
+	Tag   string
 	Patch int
 	Build int
 }
@@ -142,8 +147,8 @@ func (vp *Binary) SetYAML(tag string, value interface{}) bool {
 }
 
 var (
-	binaryPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})(\.\d{1,9})?-([^-]+)-([^-]+)$`)
-	numberPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})\.(\d{1,9})(\.\d{1,9})?$`)
+	binaryPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})(\.|-(\w+))(\d{1,9})(\.\d{1,9})?-([^-]+)-([^-]+)$`)
+	numberPat = regexp.MustCompile(`^(\d{1,9})\.(\d{1,9})(\.|-(\w+))(\d{1,9})(\.\d{1,9})?$`)
 )
 
 // MustParse parses a version and panics if it does
@@ -175,12 +180,13 @@ func ParseBinary(s string) (Binary, error) {
 	var v Binary
 	v.Major = atoi(m[1])
 	v.Minor = atoi(m[2])
-	v.Patch = atoi(m[3])
-	if m[4] != "" {
-		v.Build = atoi(m[4][1:])
+	v.Tag = m[4]
+	v.Patch = atoi(m[5])
+	if m[6] != "" {
+		v.Build = atoi(m[6][1:])
 	}
-	v.Series = m[5]
-	v.Arch = m[6]
+	v.Series = m[7]
+	v.Arch = m[8]
 	return v, nil
 }
 
@@ -195,9 +201,10 @@ func Parse(s string) (Number, error) {
 	var v Number
 	v.Major = atoi(m[1])
 	v.Minor = atoi(m[2])
-	v.Patch = atoi(m[3])
-	if m[4] != "" {
-		v.Build = atoi(m[4][1:])
+	v.Tag = m[4]
+	v.Patch = atoi(m[5])
+	if m[6] != "" {
+		v.Build = atoi(m[6][1:])
 	}
 	return v, nil
 }
@@ -213,7 +220,12 @@ func atoi(s string) int {
 }
 
 func (v Number) String() string {
-	s := fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	var s string
+	if v.Tag == "" {
+		s = fmt.Sprintf("%d.%d.%d", v.Major, v.Minor, v.Patch)
+	} else {
+		s = fmt.Sprintf("%d.%d-%s%d", v.Major, v.Minor, v.Tag, v.Patch)
+	}
 	if v.Build > 0 {
 		s += fmt.Sprintf(".%d", v.Build)
 	}
@@ -232,6 +244,15 @@ func (v Number) Compare(w Number) int {
 		less = v.Major < w.Major
 	case v.Minor != w.Minor:
 		less = v.Minor < w.Minor
+	case v.Tag != w.Tag:
+		switch {
+		case v.Tag == "":
+			less = false
+		case w.Tag == "":
+			less = true
+		default:
+			less = v.Tag < w.Tag
+		}
 	case v.Patch != w.Patch:
 		less = v.Patch < w.Patch
 	case v.Build != w.Build:
@@ -305,12 +326,15 @@ func isOdd(x int) bool {
 	return x%2 != 0
 }
 
-// IsDev returns whether the version represents a development
-// version. A version with an odd-numbered minor component or
-// a nonzero build component is considered to be a development
-// version.
+// IsDev returns whether the version represents a development version. A
+// version with a tag or a nonzero build component is considered to be a
+// development version.  Versions older than or equal to 1.19.3 (the switch
+// over time) check for odd minor versions.
 func (v Number) IsDev() bool {
-	return isOdd(v.Minor) || v.Build > 0
+	if v.Compare(switchOverVersion) <= 0 {
+		return isOdd(v.Minor) || v.Build > 0
+	}
+	return v.Tag != "" || v.Build > 0
 }
 
 // ReleaseVersion looks for the value of DISTRIB_RELEASE in the content of

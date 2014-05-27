@@ -46,33 +46,14 @@ func newServer(c *gc.C) *coretesting.MgoInstance {
 
 var _ = gc.Suite(&MongoSuite{})
 
-func (s *MongoSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+func (s *MongoSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
 	s.root = newServer(c)
 	s.dialAndTestInitiate(c)
 }
 
 func (s *MongoSuite) TearDownTest(c *gc.C) {
-	// remove all secondaries from the replicaset on test teardown
-	session, err := s.root.DialDirect()
-	if err != nil {
-		c.Logf("Failed to dial root during test cleanup: %v", err)
-		return
-	}
-	defer session.Close()
-	mems, err := CurrentMembers(session)
-	if err != nil {
-		c.Logf("Failed to get list of memners during test cleanup: %v", err)
-		return
-	}
-	addrs := []string{}
-	for _, m := range mems {
-		if s.root.Addr() != m.Address {
-			addrs = append(addrs, m.Address)
-		}
-	}
-	err = Remove(session, addrs...)
-	c.Assert(err, gc.IsNil)
+	s.root.Destroy()
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -124,11 +105,6 @@ func loadData(session *mgo.Session, c *gc.C) {
 		err := session.DB("testing").C(fmt.Sprintf("data%d", col)).Insert(foos)
 		c.Assert(err, gc.IsNil)
 	}
-}
-
-func (s *MongoSuite) TearDownSuite(c *gc.C) {
-	s.root.Destroy()
-	s.BaseSuite.TearDownSuite(c)
 }
 
 func attemptLoop(c *gc.C, strategy utils.AttemptStrategy, desc string, f func() error) {

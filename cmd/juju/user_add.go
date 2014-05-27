@@ -5,8 +5,11 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/environs/configstore"
@@ -18,21 +21,21 @@ const userAddCommandDoc = `
 Add users to an existing environment.
 
 The user information is stored within an existing environment, and
-will be lost when the environent is destroyed.  A jenv file
-identifying the user and the environment will be written to stdout, or
-to a path you specify with --output.
+will be lost when the environent is destroyed.  An environment file
+(.jenv) identifying the new user and the environment can be generated
+using --output.
 
 Examples:
-  juju user add foobar                    (Add user foobar. A strong password will be generated and printed)
-  juju user add foobar --password=mypass  (Add user foobar with password "mypass")
-  juju user add foobar -o filename        (Add user foobar (with generated password) and save example jenv file to filename)
+  juju user add foobar                    (Add user "foobar". A strong password will be generated and printed)
+  juju user add foobar --password=mypass  (Add user "foobar" with password "mypass")
+  juju user add foobar --output filename  (Add user "foobar" and save environment file to "filename")
 `
 
 type UserAddCommand struct {
 	envcmd.EnvCommandBase
 	User     string
 	Password string
-	out      cmd.Output
+	outPath  string
 }
 
 func (c *UserAddCommand) Info() *cmd.Info {
@@ -46,10 +49,8 @@ func (c *UserAddCommand) Info() *cmd.Info {
 
 func (c *UserAddCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&(c.Password), "password", "", "Password for new user")
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
-	})
+	f.StringVar(&(c.outPath), "o", "", "Output an environment file for new user")
+	f.StringVar(&(c.outPath), "output", "", "")
 }
 
 func (c *UserAddCommand) Init(args []string) error {
@@ -65,14 +66,6 @@ func (c *UserAddCommand) Init(args []string) error {
 }
 
 func (c *UserAddCommand) Run(ctx *cmd.Context) error {
-	store, err := configstore.Default()
-	if err != nil {
-		return fmt.Errorf("cannot open environment info storage: %v", err)
-	}
-	storeInfo, err := store.ReadInfo(c.EnvName)
-	if err != nil {
-		return err
-	}
 	client, err := juju.NewUserManagerClient(c.EnvName)
 	if err != nil {
 		return err
@@ -84,14 +77,57 @@ func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 			return fmt.Errorf("Failed to generate password: %v", err)
 		}
 	}
-	outputInfo := configstore.EnvironInfoData{}
-	outputInfo.User = c.User
-	outputInfo.Password = c.Password
-	outputInfo.StateServers = storeInfo.APIEndpoint().Addresses
-	outputInfo.CACert = storeInfo.APIEndpoint().CACert
-	err = c.out.Write(ctx, outputInfo)
+
+	err = client.AddUser(c.User, c.Password)
 	if err != nil {
 		return err
 	}
-	return client.AddUser(c.User, c.Password)
+	fmt.Fprintf(ctx.Stdout, "user \"%s\" added with password \"%s\"\n", c.User, c.Password)
+
+	if c.outPath != "" {
+		outPath := NormaliseJenvPath(ctx, c.outPath)
+		err := GenerateUserJenv(c.EnvName, c.User, c.Password, outPath)
+		if err == nil {
+			fmt.Fprintf(ctx.Stdout, "environment file written to %s\n", outPath)
+		}
+	}
+	return err
+}
+
+func NormaliseJenvPath(ctx *cmd.Context, outPath string) string {
+	if !strings.HasSuffix(outPath, ".jenv") {
+		outPath = outPath + ".jenv"
+	}
+	return ctx.AbsPath(outPath)
+}
+
+func GenerateUserJenv(envName, user, password, outPath string) (err error) {
+	store, err := configstore.Default()
+	if err != nil {
+		return
+	}
+	storeInfo, err := store.ReadInfo(envName)
+	if err != nil {
+		return
+	}
+	outputInfo := configstore.EnvironInfoData{}
+	outputInfo.User = user
+	outputInfo.Password = password
+	outputInfo.StateServers = storeInfo.APIEndpoint().Addresses
+	outputInfo.CACert = storeInfo.APIEndpoint().CACert
+	yaml, err := cmd.FormatYaml(outputInfo)
+	if err != nil {
+		return
+	}
+
+	outFile, err := os.Create(outPath)
+	if err != nil {
+		return
+	}
+	defer outFile.Close()
+	_, err = outFile.Write(yaml)
+	if err != nil {
+		return
+	}
+	return
 }

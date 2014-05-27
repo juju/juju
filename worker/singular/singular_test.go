@@ -10,8 +10,8 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
-
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/singular"

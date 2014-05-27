@@ -12,8 +12,8 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
-
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"

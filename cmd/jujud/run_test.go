@@ -86,7 +86,7 @@ func (s *RunTestSuite) TestInsideContext(c *gc.C) {
 func (s *RunTestSuite) TestMissingAgent(c *gc.C) {
 	s.PatchValue(&AgentDir, c.MkDir())
 
-	_, err := testing.RunCommand(c, &RunCommand{}, []string{"foo", "bar"})
+	_, err := testing.RunCommand(c, &RunCommand{}, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, `unit "foo" not found on this machine`)
 }
 
@@ -102,7 +102,7 @@ func waitForResult(running <-chan *cmd.Context) (*cmd.Context, error) {
 func startRunAsync(c *gc.C, params []string) <-chan *cmd.Context {
 	resultChannel := make(chan *cmd.Context)
 	go func() {
-		ctx, err := testing.RunCommand(c, &RunCommand{}, params)
+		ctx, err := testing.RunCommand(c, &RunCommand{}, params...)
 		c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 		c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
 		resultChannel <- ctx
@@ -115,7 +115,7 @@ func (s *RunTestSuite) TestNoContext(c *gc.C) {
 	s.PatchValue(&LockDir, c.MkDir())
 	s.PatchValue(&AgentDir, c.MkDir())
 
-	ctx, err := testing.RunCommand(c, &RunCommand{}, []string{"--no-context", "echo done"})
+	ctx, err := testing.RunCommand(c, &RunCommand{}, "--no-context", "echo done")
 	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 0")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "done\n")
@@ -157,7 +157,7 @@ func (s *RunTestSuite) TestMissingSocket(c *gc.C) {
 	err := os.Mkdir(testAgentDir, 0755)
 	c.Assert(err, gc.IsNil)
 
-	_, err = testing.RunCommand(c, &RunCommand{}, []string{"foo", "bar"})
+	_, err = testing.RunCommand(c, &RunCommand{}, "foo", "bar")
 	c.Assert(err, gc.ErrorMatches, `dial unix .*/run.socket: no such file or directory`)
 }
 
@@ -165,7 +165,7 @@ func (s *RunTestSuite) TestRunning(c *gc.C) {
 	loggo.GetLogger("worker.uniter").SetLogLevel(loggo.TRACE)
 	s.runListenerForAgent(c, "foo")
 
-	ctx, err := testing.RunCommand(c, &RunCommand{}, []string{"foo", "bar"})
+	ctx, err := testing.RunCommand(c, &RunCommand{}, "foo", "bar")
 	c.Check(cmd.IsRcPassthroughError(err), jc.IsTrue)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 42")
 	c.Assert(testing.Stdout(ctx), gc.Equals, "bar stdout")

@@ -29,7 +29,7 @@ func (*mainSuite) TestRegisteredCommands(c *gc.C) {
 		// TODO: add some as they get registered
 	}
 	plugin := local.JujuLocalPlugin()
-	ctx, err := coretesting.RunCommand(c, plugin, []string{"help", "commands"})
+	ctx, err := coretesting.RunCommand(c, plugin, "help", "commands")
 	c.Assert(err, gc.IsNil)
 
 	lines := strings.Split(coretesting.Stdout(ctx), "\n")

@@ -12,8 +12,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type FileVarSuite struct {
@@ -41,7 +41,7 @@ func (s *FileVarSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *FileVarSuite) TestTildeFileVar(c *gc.C) {
-	path := filepath.Join(osenv.Home(), "config.yaml")
+	path := filepath.Join(utils.Home(), "config.yaml")
 	err := ioutil.WriteFile(path, []byte("abc"), 0644)
 	c.Assert(err, gc.IsNil)
 

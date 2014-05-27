@@ -9,6 +9,7 @@ import (
 
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 )
 
 var requiredPackages = []string{
@@ -33,7 +34,7 @@ func (ci *containerInitialiser) Initialise() error {
 }
 
 func ensureDependencies() error {
-	return utils.AptGetInstall(requiredPackages...)
+	return apt.GetInstall(requiredPackages...)
 }
 
 const kvmNeedsUbuntu = `Sorry, KVM support with the local provider is only supported
@@ -69,7 +70,7 @@ func VerifyKVMEnabled() error {
 	// Check for other packages needed.
 	toInstall := []string{}
 	for _, pkg := range requiredPackages {
-		if !utils.IsPackageInstalled(pkg) {
+		if !apt.IsPackageInstalled(pkg) {
 			toInstall = append(toInstall, pkg)
 		}
 	}

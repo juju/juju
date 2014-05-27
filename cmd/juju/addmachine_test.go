@@ -25,7 +25,7 @@ type AddMachineSuite struct {
 var _ = gc.Suite(&AddMachineSuite{})
 
 func runAddMachine(c *gc.C, args ...string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&AddMachineCommand{}), args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&AddMachineCommand{}), args...)
 	return err
 }
 

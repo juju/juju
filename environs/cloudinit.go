@@ -13,12 +13,12 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/proxy"
 )
 
 // DataDir is the default data directory.
@@ -75,7 +75,7 @@ func NewBootstrapMachineConfig(privateSystemSSHKey string) *cloudinit.MachineCon
 func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
-	proxy, aptProxy osenv.ProxySettings,
+	proxySettings, aptProxySettings proxy.Settings,
 ) error {
 	if authorizedKeys == "" {
 		return fmt.Errorf("environment configuration has no authorized-keys")
@@ -87,8 +87,8 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	mcfg.AgentEnvironment[agent.ProviderType] = providerType
 	mcfg.AgentEnvironment[agent.ContainerType] = string(mcfg.MachineContainerType)
 	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
-	mcfg.ProxySettings = proxy
-	mcfg.AptProxySettings = aptProxy
+	mcfg.ProxySettings = proxySettings
+	mcfg.AptProxySettings = aptProxySettings
 	return nil
 }
 

@@ -41,6 +41,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/utils/shell"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/terminationworker"
@@ -164,8 +165,8 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		return err
 	}
 	// don't write proxy settings for local machine
-	mcfg.AptProxySettings = osenv.ProxySettings{}
-	mcfg.ProxySettings = osenv.ProxySettings{}
+	mcfg.AptProxySettings = proxy.Settings{}
+	mcfg.ProxySettings = proxy.Settings{}
 	cloudcfg := coreCloudinit.New()
 	// Since rsyslogd is restricted by apparmor to only write to /var/log/**
 	// we now provide a symlink to the written file in the local log dir.

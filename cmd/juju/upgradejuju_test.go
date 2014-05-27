@@ -133,23 +133,23 @@ var upgradeJujuTests = []struct {
 	expectErr:      "no more recent supported versions available",
 }, {
 	about:          "latest supported stable, when client is dev",
-	tools:          []string{"2.1.1-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64", "3.0.1-quantal-amd64"},
-	currentVersion: "2.1.0-quantal-amd64",
+	tools:          []string{"2.1-dev1-quantal-amd64", "2.2.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
+	currentVersion: "2.1-dev0-quantal-amd64",
 	agentVersion:   "2.0.0",
 	expectVersion:  "2.2.0",
 }, {
 	about:          "latest current, when agent is dev",
-	tools:          []string{"2.1.1-quantal-amd64", "2.2.0-quantal-amd64", "2.3.0-quantal-amd64", "3.0.1-quantal-amd64"},
+	tools:          []string{"2.1-dev1-quantal-amd64", "2.2.0-quantal-amd64", "2.3-dev0-quantal-amd64", "3.0.1-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
-	agentVersion:   "2.1.0",
+	agentVersion:   "2.1-dev0",
 	expectVersion:  "2.2.0",
 }, {
 	about:          "specified version",
-	tools:          []string{"2.3.0-quantal-amd64"},
+	tools:          []string{"2.3-dev0-quantal-amd64"},
 	currentVersion: "2.0.0-quantal-amd64",
 	agentVersion:   "2.0.0",
-	args:           []string{"--version", "2.3.0"},
-	expectVersion:  "2.3.0",
+	args:           []string{"--version", "2.3-dev0"},
+	expectVersion:  "2.3-dev0",
 }, {
 	about:          "specified major version",
 	tools:          []string{"3.2.0-quantal-amd64"},
@@ -208,9 +208,9 @@ var upgradeJujuTests = []struct {
 	about:          "minor version downgrade to incompatible version",
 	tools:          []string{"3.2.0-quantal-amd64"},
 	currentVersion: "3.2.0-quantal-amd64",
-	agentVersion:   "3.3.0",
+	agentVersion:   "3.3-dev0",
 	args:           []string{"--version", "3.2.0"},
-	expectErr:      "cannot change version from 3.3.0 to 3.2.0",
+	expectErr:      "cannot change version from 3.3-dev0 to 3.2.0",
 }, {
 	about:          "nothing available",
 	currentVersion: "2.0.0-quantal-amd64",
@@ -395,7 +395,7 @@ func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 
 func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	s.Reset(c)
-	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, []string{"--upload-tools"})
+	_, err := coretesting.RunCommand(c, &UpgradeJujuCommand{}, "--upload-tools")
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1

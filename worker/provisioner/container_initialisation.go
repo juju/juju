@@ -156,19 +156,10 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 	var initialiser container.Initialiser
 	var broker environs.InstanceBroker
 
-	// Ask the provisioner for the container manager configuration.
-	managerConfigResult, err := cs.provisioner.ContainerManagerConfig(
-		params.ContainerManagerConfigParams{Type: containerType},
-	)
-	if params.IsCodeNotImplemented(err) {
-		// We currently don't support upgrading;
-		// revert to the old configuration.
-		managerConfigResult.ManagerConfig = container.ManagerConfig{container.ConfigName: "juju"}
-	}
+	managerConfig, err := containerManagerConfig(containerType, cs.provisioner, cs.config)
 	if err != nil {
 		return nil, nil, err
 	}
-	managerConfig := container.ManagerConfig(managerConfigResult.ManagerConfig)
 
 	switch containerType {
 	case instance.LXC:
@@ -193,6 +184,31 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 		return nil, nil, fmt.Errorf("unknown container type: %v", containerType)
 	}
 	return initialiser, broker, nil
+}
+
+func containerManagerConfig(
+	containerType instance.ContainerType,
+	provisioner *apiprovisioner.State,
+	agentConfig agent.Config,
+) (container.ManagerConfig, error) {
+	// Ask the provisioner for the container manager configuration.
+	managerConfigResult, err := provisioner.ContainerManagerConfig(
+		params.ContainerManagerConfigParams{Type: containerType},
+	)
+	if params.IsCodeNotImplemented(err) {
+		// We currently don't support upgrading;
+		// revert to the old configuration.
+		managerConfigResult.ManagerConfig = container.ManagerConfig{container.ConfigName: "juju"}
+	}
+	if err != nil {
+		return nil, err
+	}
+	// If a namespace is specified, that should instead be used as the config name.
+	if namespace := agentConfig.Value(agent.Namespace); namespace != "" {
+		managerConfigResult.ManagerConfig[container.ConfigName] = namespace
+	}
+	managerConfig := container.ManagerConfig(managerConfigResult.ManagerConfig)
+	return managerConfig, nil
 }
 
 // Override for testing.

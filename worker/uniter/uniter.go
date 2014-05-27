@@ -21,13 +21,13 @@ import (
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/uniter"
 	apiwatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
+	proxyutils "launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
@@ -79,7 +79,7 @@ type Uniter struct {
 	hookLock     *fslock.Lock
 	runListener  *RunListener
 
-	proxy      osenv.ProxySettings
+	proxy      proxyutils.Settings
 	proxyMutex sync.Mutex
 
 	ranConfigChanged bool

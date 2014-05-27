@@ -177,11 +177,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 		panic("JujuConnSuite.setUpConn without teardown")
 	}
 	s.RootDir = c.MkDir()
-	s.oldHome = osenv.Home()
+	s.oldHome = utils.Home()
 	home := filepath.Join(s.RootDir, "/home/ubuntu")
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, gc.IsNil)
-	osenv.SetHome(home)
+	utils.SetHome(home)
 	s.oldJujuHome = osenv.SetJujuHome(filepath.Join(home, ".juju"))
 	err = os.Mkdir(osenv.JujuHome(), 0777)
 	c.Assert(err, gc.IsNil)
@@ -278,7 +278,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	dummy.Reset()
 	s.Conn = nil
 	s.State = nil
-	osenv.SetHome(s.oldHome)
+	utils.SetHome(s.oldHome)
 	osenv.SetJujuHome(s.oldJujuHome)
 	s.oldHome = ""
 	s.RootDir = ""
@@ -325,7 +325,7 @@ func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *
 	return service
 }
 
-func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.Config {
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.ConfigSetter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	config, err := agent.NewAgentConfig(

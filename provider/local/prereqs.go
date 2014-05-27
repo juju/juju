@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/container/kvm"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 )
 
 var notLinuxError = errors.New("The local provider is currently only available for Linux")
@@ -46,7 +47,7 @@ The local provider is currently only available for Linux`
 var lxclsPath = "lxc-ls"
 
 // isPackageInstalled is a variable to support testing.
-var isPackageInstalled = utils.IsPackageInstalled
+var isPackageInstalled = apt.IsPackageInstalled
 
 // The operating system the process is running in.
 // This is a variable only to support unit testing.

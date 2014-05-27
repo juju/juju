@@ -63,7 +63,7 @@ func (s *ConfigSuite) TestReadConfig(c *gc.C) {
 	args := []string{"--config", cfgPath}
 	err = testing.InitCommand(config, args)
 	c.Assert(err, gc.IsNil)
-	_, err = testing.RunCommand(c, config, args)
+	_, err = testing.RunCommand(c, config, args...)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(config.Config, gc.NotNil)

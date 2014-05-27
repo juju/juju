@@ -258,9 +258,9 @@ func (s *RunSuite) TestRunForMachineAndUnit(c *gc.C) {
 	jsonFormatted, err := cmd.FormatJson(unformatted)
 	c.Assert(err, gc.IsNil)
 
-	context, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}), []string{
+	context, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}),
 		"--format=json", "--machine=0", "--unit=unit/0", "hostname",
-	})
+	)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
@@ -287,9 +287,7 @@ func (s *RunSuite) TestAllMachines(c *gc.C) {
 	jsonFormatted, err := cmd.FormatJson(unformatted)
 	c.Assert(err, gc.IsNil)
 
-	context, err := testing.RunCommand(c, &RunCommand{}, []string{
-		"--format=json", "--all", "hostname",
-	})
+	context, err := testing.RunCommand(c, &RunCommand{}, "--format=json", "--all", "hostname")
 	c.Assert(err, gc.IsNil)
 
 	c.Check(testing.Stdout(context), gc.Equals, string(jsonFormatted)+"\n")
@@ -338,7 +336,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 			args = append(args, "--format", test.format)
 		}
 		args = append(args, "--all", "ignored")
-		context, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}), args)
+		context, err := testing.RunCommand(c, envcmd.Wrap(&RunCommand{}), args...)
 		if test.errorMatch != "" {
 			c.Check(err, gc.ErrorMatches, test.errorMatch)
 		} else {
