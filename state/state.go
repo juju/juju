@@ -1411,8 +1411,8 @@ func (st *State) Action(id string) (*Action, error) {
 // UnitActions returns a list of pending actions for a unit named name
 func (st *State) UnitActions(name string) ([]*Action, error) {
 	actions := []*Action{}
-	actionId := actionPrefix(unitGlobalKey(name))
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + actionId}}}}
+	prefix := actionPrefix(unitGlobalKey(name))
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
 	iter := st.actions.Find(sel).Iter()
 	doc := actionDoc{}
 	for iter.Next(&doc) {

@@ -344,6 +344,9 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	actions, err = s.State.UnitActions(unit.Name())
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 0)
+
+	// check no cleanups
+	s.assertDoesNotNeedCleanup(c)
 }
 
 func (s *CleanupSuite) TestNothingToCleanup(c *gc.C) {
