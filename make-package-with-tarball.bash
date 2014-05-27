@@ -124,10 +124,10 @@ check_deps
 VERSION=$(basename $TARBALL .tar.gz | cut -d '_' -f2)
 if [[ $IS_TESTING == "true" ]]; then
     PURPOSE="testing"
-elif [[ $VERSION =~ ^1.(18|20|22).*$ ]]; then
-    PURPOSE="stable"
-else
+elif [[ $VERSION =~ ^.*(19|alpha|beta).*$ ]]; then
     PURPOSE="devel"
+else
+    PURPOSE="stable"
 fi
 RELEASE=$(cat $SCRIPT_DIR/supported-releases.txt |
     grep $SERIES | cut -d ' ' -f 1)
