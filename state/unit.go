@@ -1366,12 +1366,6 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 	return "", ErrExcessiveContention
 }
 
-// Actions returns the list of Actions pending for this unit, or an
-// error if there was an issue getting the list
-func (u *Unit) Actions() ([]*Action, error) {
-	return u.st.UnitActions(u.doc.Name)
-}
-
 // Resolve marks the unit as having had any previous state transition
 // problems resolved, and informs the unit that it may attempt to
 // reestablish normal workflow. The retryHooks parameter informs
