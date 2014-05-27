@@ -34,6 +34,10 @@ cd ~/juju-release-tools
 bzr pull
 cd ~/juju-ci-tools
 bzr pull
+if [[ -d ~/ci-director ]]; then
+    cd ~/ci-director
+    bzr pull
+fi
 EOT
 }
 
