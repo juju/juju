@@ -28,7 +28,7 @@ import (
 )
 
 type BootstrapSuite struct {
-	coretesting.FakeHomeSuite
+	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 }
 
@@ -39,7 +39,7 @@ type cleaner interface {
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.PatchValue(common.ConnectSSH, func(_ ssh.Client, host, checkHostScript string) error {
 		return fmt.Errorf("mock connection failure to %s", host)

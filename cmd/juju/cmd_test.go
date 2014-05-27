@@ -22,7 +22,6 @@ import (
 
 type CmdSuite struct {
 	testing.JujuConnSuite
-	home *coretesting.FakeHome
 }
 
 var _ = gc.Suite(&CmdSuite{})
@@ -50,11 +49,10 @@ environments:
 
 func (s *CmdSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.home = coretesting.MakeFakeHome(c, envConfig, "peckham", "walthamstow", "brokenenv")
+	coretesting.WriteEnvironments(c, envConfig, "peckham", "walthamstow", "brokenenv")
 }
 
 func (s *CmdSuite) TearDownTest(c *gc.C) {
-	s.home.Restore()
 	s.JujuConnSuite.TearDownTest(c)
 }
 

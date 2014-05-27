@@ -31,7 +31,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type MainSuite struct {
-	testing.FakeHomeSuite
+	testing.FakeJujuHomeSuite
 }
 
 var _ = gc.Suite(&MainSuite{})
@@ -79,7 +79,6 @@ func syncToolsHelpText() string {
 }
 
 func (s *MainSuite) TestRunMain(c *gc.C) {
-	defer testing.MakeSampleHome(c).Restore()
 	// The test array structure needs to be inline here as some of the
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is
@@ -184,7 +183,6 @@ func breakJuju(c *gc.C, environMethod string) (msg string) {
 
 func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *gc.C) {
 	c.Skip("breaks test isolation: lp:1233601")
-	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified before command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")
@@ -198,7 +196,6 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *gc.C) {
 
 func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *gc.C) {
 	c.Skip("breaks test isolation: lp:1233601")
-	defer testing.MakeFakeHomeNoEnvironments(c, "one").Restore()
 	// Check global args work when specified after command
 	msg := breakJuju(c, "Bootstrap")
 	logpath := filepath.Join(c.MkDir(), "log")

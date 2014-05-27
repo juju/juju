@@ -140,23 +140,28 @@ With gocheck tests are grouped into Suites. Each suite has distinct
 set-up and tear-down logic.  Suites are often composed of other suites
 that provide specific set-up and tear-down behaviour.
 
-There are three main suites:
+There are four main suites:
 
-  * /testing/testbase.LoggingSuite (testing/testbase/log.go)
+  * /testing.BaseSuite (testing/base.go)
   * /testing.FakeHomeSuite (testing/environ.go)
+  * /testing.FakeJujuHomeSuite (testing/environ.go)
   * /juju/testing.JujuConnSuite (juju/testing/conn.go)
 
-The second two have the LoggingSuite functionality included through
-composition.  The LoggingSuite is also composed of the LoggingSuite from 
-github.com/juju/testing, which brings in the CleanupSuite from the same.
-The CleanupSuite has the functionality around patching environment
-variables and normal variables for the duration of a test. It also
-provides a clean-up stack that gets called when the test teardown happens.
+The last three have the BaseSuite functionality included through
+composition.  The BaseSuite isolates a user's home directory from accidental
+modification (by setting $HOME to "") and errors if there is an attempt to do
+outgoing http access. It also clears the relevant $JUJU_* environment variables.
+The BaseSuite is also composed of the core LoggingSuite, and also LoggingSuite
+from  github.com/juju/testing, which brings in the CleanupSuite from the same.
+The CleanupSuite has the functionality around patching environment variables
+and normal variables for the duration of a test. It also provides a clean-up
+stack that gets called when the test teardown happens.
 
-The FakeHomeSuite creates a temporary directory and sets the HOME environment
-variable to it. It also creates ~/.juju and a simple environments.yaml file,
-~/.ssh with a fake id_rsa.pub key, it isolates the test from the JUJU_HOME,
-JUJU_ENV, and JUJU_LOGGING_CONFIG environment variables.
+All test suites should embedd BaseSuite. Those that need the extra functionality
+can instead embedd one of the fake home suites:
+
+* FakeHomeSuite: creates a fake home directory with ~/.ssh and fake ssh keys.
+* FakeJujuHomeSuite: as above but also sets up a ~/.juju with a fake environment.
 
 The JujuConnSuite does this and more. It also sets up a state server and api
 server.  This is one problem with the JujuConnSuite, it almost always does a
@@ -169,7 +174,7 @@ something like:
 
 ```go
 type ToolsSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	dataDir string
 }
 
@@ -186,19 +191,21 @@ the dataDir, you would do something like this:
 
 ```go
 func (t *ToolsSuite) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
+	t.BaseSuite.SetUpTest(c)
 	t.dataDir = c.MkDir()
 }
 ```
 
 If the test suite has multiple contained suites, please call them in the
 order that they are defined, and make sure something that is composed from
-the LoggingSuite is first.  They should be torn down in the reverse order.
+the BaseSuite is first.  They should be torn down in the reverse order.
 
-Even if the code that is being tested currently has no logging in it, it
-is a good idea to use the LoggingSuite as a base for two reasons:
+Even if the code that is being tested currently has no logging or outbound
+network access in it, it is a good idea to use the BaseSuite as a base:
+ * it isolates the user's home directory against accidental modification
+ * if someone does add outbound network access later, it will be caught
  * it brings in something composed of the CleanupSuite
- * if someone does add logging later, it is captured and doesn't polute
+ * if someone does add logging later, it is captured and doesn't pollute
    the logging output
 
 
