@@ -44,3 +44,14 @@ func (environStatePolicy) ConstraintsValidator(cfg *config.Config) (constraints.
 	}
 	return env.ConstraintsValidator()
 }
+
+func (environStatePolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDistributor, error) {
+	env, err := New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if p, ok := env.(state.InstanceDistributor); ok {
+		return p, nil
+	}
+	return nil, errors.NewNotImplementedError("InstanceDistributor")
+}

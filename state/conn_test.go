@@ -105,6 +105,7 @@ type mockPolicy struct {
 	getConfigValidator      func(string) (state.ConfigValidator, error)
 	getEnvironCapability    func(*config.Config) (state.EnvironCapability, error)
 	getConstraintsValidator func(*config.Config) (constraints.Validator, error)
+	getInstanceDistributor  func(*config.Config) (state.InstanceDistributor, error)
 }
 
 func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
@@ -133,4 +134,11 @@ func (p *mockPolicy) ConstraintsValidator(cfg *config.Config) (constraints.Valid
 		return p.getConstraintsValidator(cfg)
 	}
 	return nil, errors.NewNotImplemented(nil, "ConstraintsValidator")
+}
+
+func (p *mockPolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDistributor, error) {
+	if p.getInstanceDistributor != nil {
+		return p.getInstanceDistributor(cfg)
+	}
+	return nil, errors.NewNotImplemented(nil, "InstanceDistributor")
 }
