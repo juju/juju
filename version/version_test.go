@@ -44,6 +44,14 @@ func (*suite) TestCompare(c *gc.C) {
 		{"1.0.0", "1.1.0", -1},
 		{"1.1.0", "1.0.0", 1},
 		{"1.0.0", "2.0.0", -1},
+		{"1.2-alpha1", "1.2.0", -1},
+		{"1.2-alpha2", "1.2-alpha1", 1},
+		{"1.2-alpha2.1", "1.2-alpha2", 1},
+		{"1.2-alpha2.2", "1.2-alpha2.1", 1},
+		{"1.2-beta1", "1.2-alpha1", 1},
+		{"1.2-beta1", "1.2-alpha2.1", 1},
+		{"1.2-beta1", "1.2.0", -1},
+		{"1.2.1", "1.2.0", 1},
 		{"2.0.0", "1.0.0", 1},
 		{"2.0.0.0", "2.0.0", 0},
 		{"2.0.0.0", "2.0.0.0", 0},
@@ -75,40 +83,62 @@ var parseTests = []struct {
 	v: "0.0.0",
 }, {
 	v:      "0.0.1",
-	expect: version.Number{0, 0, 1, 0},
+	expect: version.Number{Major: 0, Minor: 0, Patch: 1},
 }, {
 	v:      "0.0.2",
-	expect: version.Number{0, 0, 2, 0},
+	expect: version.Number{Major: 0, Minor: 0, Patch: 2},
 }, {
 	v:      "0.1.0",
-	expect: version.Number{0, 1, 0, 0},
+	expect: version.Number{Major: 0, Minor: 1, Patch: 0},
 	dev:    true,
 }, {
 	v:      "0.2.3",
-	expect: version.Number{0, 2, 3, 0},
+	expect: version.Number{Major: 0, Minor: 2, Patch: 3},
 }, {
 	v:      "1.0.0",
-	expect: version.Number{1, 0, 0, 0},
+	expect: version.Number{Major: 1, Minor: 0, Patch: 0},
 }, {
 	v:      "10.234.3456",
-	expect: version.Number{10, 234, 3456, 0},
+	expect: version.Number{Major: 10, Minor: 234, Patch: 3456},
 }, {
 	v:      "10.234.3456.1",
-	expect: version.Number{10, 234, 3456, 1},
+	expect: version.Number{Major: 10, Minor: 234, Patch: 3456, Build: 1},
 	dev:    true,
 }, {
 	v:      "10.234.3456.64",
-	expect: version.Number{10, 234, 3456, 64},
+	expect: version.Number{Major: 10, Minor: 234, Patch: 3456, Build: 64},
 	dev:    true,
 }, {
 	v:      "10.235.3456",
-	expect: version.Number{10, 235, 3456, 0},
+	expect: version.Number{Major: 10, Minor: 235, Patch: 3456},
+}, {
+	v:      "1.21-alpha1",
+	expect: version.Number{Major: 1, Minor: 21, Patch: 1, Tag: "alpha"},
 	dev:    true,
+}, {
+	v:      "1.21-alpha1.1",
+	expect: version.Number{Major: 1, Minor: 21, Patch: 1, Tag: "alpha", Build: 1},
+	dev:    true,
+}, {
+	v:      "1.21.0",
+	expect: version.Number{Major: 1, Minor: 21},
 }, {
 	v:   "1234567890.2.1",
 	err: "invalid version.*",
 }, {
 	v:   "0.2..1",
+	err: "invalid version.*",
+}, {
+	v:   "1.21.alpha1",
+	err: "invalid version.*",
+}, {
+	v:   "1.21-alpha",
+	err: "invalid version.*",
+}, {
+	v:   "1.21-alpha1beta",
+	err: "invalid version.*",
+}, {
+	v:   "1.21-alpha-dev",
 	err: "invalid version.*",
 }}
 
@@ -127,13 +157,14 @@ func (*suite) TestParse(c *gc.C) {
 	}
 }
 
-func binaryVersion(major, minor, patch, build int, series, arch string) version.Binary {
+func binaryVersion(major, minor, patch, build int, tag, series, arch string) version.Binary {
 	return version.Binary{
 		Number: version.Number{
 			Major: major,
 			Minor: minor,
 			Patch: patch,
 			Build: build,
+			Tag:   tag,
 		},
 		Series: series,
 		Arch:   arch,
@@ -147,10 +178,22 @@ func (*suite) TestParseBinary(c *gc.C) {
 		expect version.Binary
 	}{{
 		v:      "1.2.3-a-b",
-		expect: binaryVersion(1, 2, 3, 0, "a", "b"),
+		expect: binaryVersion(1, 2, 3, 0, "", "a", "b"),
 	}, {
 		v:      "1.2.3.4-a-b",
-		expect: binaryVersion(1, 2, 3, 4, "a", "b"),
+		expect: binaryVersion(1, 2, 3, 4, "", "a", "b"),
+	}, {
+		v:      "1.2-alpha3-a-b",
+		expect: binaryVersion(1, 2, 3, 0, "alpha", "a", "b"),
+	}, {
+		v:      "1.2-alpha3.4-a-b",
+		expect: binaryVersion(1, 2, 3, 4, "alpha", "a", "b"),
+	}, {
+		v:   "1.2.3",
+		err: "invalid binary version.*",
+	}, {
+		v:   "1.2-beta1",
+		err: "invalid binary version.*",
 	}, {
 		v:   "1.2.3--b",
 		err: "invalid binary version.*",
