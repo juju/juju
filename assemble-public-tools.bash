@@ -115,8 +115,7 @@ get_version() {
     # Defines $version. $version can be different than $RELEASE used to
     # match the packages in the archives.
     control_version=$1
-    version=$(basename "$control_version" ~juju1 |
-        sed -n 's/^\([0-9]\+\).\([0-9]\+\).\([0-9]\+\)[-+][0-9].*/\1.\2.\3/p')
+    version=$(echo "$control_version" | sed -r 's,-0ubuntu.*$,,;')
     if [ "${version}" == "" ] ; then
         echo "Invalid version: $control_version"
         exit 3
@@ -130,7 +129,6 @@ get_series() {
     ubuntu_devel=$(grep DEVEL $SCRIPT_DIR/supported-releases.txt |
         cut -d ' ' -f 1)
     pkg_series=$(basename "$control_version" ~juju1 |
-        cut -d '-' -f 2 |
         sed -r "s/(^[0-9]ubuntu[0-9])$/\1~$ubuntu_devel/;" |
         sed -r "s/.*(ubuntu|~)([0-9][0-9]\.[0-9][0-9]).*/\2/")
     series=$(cat $SCRIPT_DIR/supported-releases.txt |
@@ -147,7 +145,12 @@ get_arch() {
     control_file=$1
     arch=$(sed -n 's/^Architecture: \([a-z]\+\)/\1/p' $control_file)
     case "${arch}" in
-        "amd64" | "i386" | "armel" | "armhf" | "arm64" | "ppc64el" | "powerpc" )
+        "amd64" | "i386" | "armel" | "armhf" | "arm64" )
+            # The ubuntu arch matches the juju arch.
+            ;;
+        "ppc64el" )
+            # Map the ubuntu arch to the juju arch.
+            arch="ppc64"
             ;;
         *)
             echo "Invalid arch: $arch"
@@ -198,17 +201,6 @@ archive_tools() {
             tar cvfz $tool -C $change_dir jujud
             added_tools[${#added_tools[@]}]="$tool"
             echo "Created ${tool}."
-            # Hack to create ppc64 because it is not clear if juju wants
-            # this name instead of ppc64el.
-            if [[ $arch == 'ppc64el' ]]; then
-                tool="${DEST_TOOLS}/juju-${version}-${series}-ppc64.tgz"
-                if [[ ! -e $tool ]]; then
-                    echo "Creating ppc64 from ppc64el: $tool"
-                    tar cvfz $tool -C $change_dir jujud
-                    added_tools[${#added_tools[@]}]="$tool"
-                    echo "Created ${tool}."
-                fi
-            fi
         fi
         rm -r ${WORK}/juju/*
     done
