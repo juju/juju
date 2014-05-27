@@ -63,9 +63,9 @@ func Stdout(ctx *cmd.Context) string {
 // Stderr takes a command Context that we assume has been created in this
 // package, and gets the content of the Stderr buffer as a string.
 func Stderr(ctx *cmd.Context) string {
-	if ctx == nil || ctx.Stderr == nil || ctx.Stderr.(*bytes.Buffer) == nil {
-		return ""
-	}
+	/*if ctx == nil || ctx.Stderr == nil || ctx.Stderr.(*bytes.Buffer) == nil {
+	  return ""
+	}*/
 	return ctx.Stderr.(*bytes.Buffer).String()
 }
 

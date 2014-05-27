@@ -123,7 +123,7 @@ func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
 	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "")
 	c.Check(err, gc.ErrorMatches, `cannot add a new machine: :lxc placement is invalid`)
 	cxt, err = runAddMachine(c, "lxc:")
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "")
+	c.Assert(cxt, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `invalid value "" for "lxc" scope: expected machine-id`)
 	cxt, err = runAddMachine(c, "2")
 	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "")
@@ -138,6 +138,6 @@ func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
 	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "")
 	c.Check(err, gc.ErrorMatches, `cannot add a new machine: invalid placement is invalid`)
 	cxt, err = runAddMachine(c, "lxc", "--constraints", "container=lxc")
-	c.Assert(testing.Stderr(cxt), gc.DeepEquals, "")
+	c.Assert(cxt, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, `container constraint "lxc" not allowed when adding a machine`)
 }
