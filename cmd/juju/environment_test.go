@@ -218,11 +218,6 @@ var unsetEnvTests = []struct {
 			"xyz":  123,
 		},
 	}, {
-		args: []string{"syslog-port"},
-		expected: attributes{
-			"syslog-port": config.DefaultSyslogPort,
-		},
-	}, {
 		args:       []string{"xyz2", "xyz"},
 		unexpected: []string{"xyz"},
 	},
@@ -230,8 +225,7 @@ var unsetEnvTests = []struct {
 
 func (s *UnsetEnvironmentSuite) initConfig(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{
-		"syslog-port": 1234,
-		"xyz":         123,
+		"xyz": 123,
 	}, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
