@@ -187,9 +187,6 @@ func (st *State) cleanupDyingUnit(name string) error {
 // cleanupRemovedUnit takes care of all the final cleanup required when
 // a unit is removed.
 func (st *State) cleanupRemovedUnit(name string) error {
-	// st.Unit(name) is likely to remove 'IsNotFound' here, but we still
-	// need to cleanup actions, so we just get them from the state using
-	// the unit Name
 	actions, err := st.UnitActions(name)
 	if err != nil {
 		return err
