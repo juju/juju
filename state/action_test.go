@@ -92,12 +92,16 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 }
 
 func (s *ActionSuite) TestFail(c *gc.C) {
+	// TODO(jcw4): when action results are implemented we should be
+	// checking for a Fail result after calling Fail(), rather than
+	// sniffing the logs
 	defer loggo.ResetWriters()
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
 	tw := &loggo.TestWriter{}
 	c.Assert(loggo.RegisterWriter("actions-tester", tw, loggo.DEBUG), gc.IsNil)
 
+	// get unit, add an action, retrieve that action
 	unit, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit)
@@ -108,10 +112,18 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	action, err := s.State.Action(actionId)
 	c.Assert(err, gc.IsNil)
 
+	// fail the action, and verify that it succeeds (right now, just by
+	// sniffing the logs)
 	reason := "test fail reason"
 	err = action.Fail(reason)
 	c.Assert(err, gc.IsNil)
+	// TODO(jcw4): replace with action results check when they're implemented
 	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{loggo.WARNING, reason}})
+
+	// validate that a failed action is no longer returned by UnitActions.
+	actions, err := s.State.UnitActions(unit.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions), gc.Equals, 0)
 }
 
 // assertSaneActionId verifies that the actionId is of the expected
