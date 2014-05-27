@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -88,6 +89,29 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 
 	_, err = unit.AddAction("fakeaction", map[string]interface{}{})
 	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
+}
+
+func (s *ActionSuite) TestFail(c *gc.C) {
+	defer loggo.ResetWriters()
+	logger := loggo.GetLogger("test")
+	logger.SetLogLevel(loggo.DEBUG)
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("actions-tester", tw, loggo.DEBUG), gc.IsNil)
+
+	unit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit)
+
+	actionId, err := unit.AddAction("action1", nil)
+	c.Assert(err, gc.IsNil)
+
+	action, err := s.State.Action(actionId)
+	c.Assert(err, gc.IsNil)
+
+	reason := "test fail reason"
+	err = action.Fail(reason)
+	c.Assert(err, gc.IsNil)
+	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{loggo.WARNING, reason}})
 }
 
 // assertSaneActionId verifies that the actionId is of the expected
