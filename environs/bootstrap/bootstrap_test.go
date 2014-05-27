@@ -149,7 +149,7 @@ var bootstrapSetAgentVersionTests = []envtesting.BootstrapToolsTest{
 	}, {
 		Info:          "dev cli has different arch to available",
 		Available:     envtesting.V1all,
-		CliVersion:    envtesting.V310qppc64,
+		CliVersion:    envtesting.V31d0qppc64,
 		DefaultSeries: "precise",
 		Expect:        []version.Binary{envtesting.V3101qppc64},
 	}}
