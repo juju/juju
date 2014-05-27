@@ -73,7 +73,8 @@ func (a *Action) Payload() map[string]interface{} {
 // Fail removes an Action from the queue, and documents the reason for the
 // failure.
 func (a *Action) Fail(reason string) error {
-	// TODO(jcw4) add logging
+	// TODO(jcw4) replace with code to generate a result that records this failure
+	logger.Warningf("action '%s' failed because '%s'", a.doc.Name, reason)
 	return a.st.runTransaction([]txn.Op{{
 		C:      a.st.actions.Name,
 		Id:     a.doc.Id,
