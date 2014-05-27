@@ -161,7 +161,8 @@ fi
 
 check_deps
 publish_to_aws
-publish_to_canonistack
+# XXX sinzui 2014-05-27: swift is giving 503.
+#publish_to_canonistack
 publish_to_hp
 publish_to_azure
 publish_to_joyent
