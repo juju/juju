@@ -9,7 +9,7 @@ import (
 	"io/ioutil"
 	"regexp"
 
-	"github.com/xeipuuv/gojsonschema"
+	"github.com/binary132/gojsonschema"
 	"launchpad.net/goyaml"
 )
 
