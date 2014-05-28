@@ -2,6 +2,7 @@ package utils_test
 
 import (
 	"os"
+	"github.com/juju/testing"
 
 	gc "launchpad.net/gocheck"
 

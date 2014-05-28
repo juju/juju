@@ -4,14 +4,14 @@
 package cmd_test
 
 import (
-	"testing"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
-func Test(t *testing.T) { gc.TestingT(t) }
+func Test(t *stdtesting.T) { gc.TestingT(t) }
 
 type Dependencies struct{}
 
@@ -21,7 +21,7 @@ func (*Dependencies) TestPackageDependencies(c *gc.C) {
 	// This test is to ensure we don't bring in dependencies without thinking.
 	// Looking at the "environs/config", it is just for JujuHome.  This should
 	// really be moved into "juju/osenv".
-	c.Assert(testbase.FindJujuCoreImports(c, "launchpad.net/juju-core/cmd"),
+	c.Assert(coretesting.FindJujuCoreImports(c, "launchpad.net/juju-core/cmd"),
 		gc.DeepEquals,
 		[]string{"juju/arch", "juju/osenv", "names", "utils", "version"})
 }
