@@ -378,7 +378,7 @@ func (s *agentSuite) TestProperAddressChosenForManageEnviron(c *gc.C) {
 	},
 	}
 	for _, eachDataSet := range addresses {
-		apiInfo.Addrs = []string{eachDataSet.provided, }
+		apiInfo.Addrs = []string{eachDataSet.provided}
 		err := pickBestHosts(&apiInfo, eachDataSet.jobs)
 		c.Assert(err, gc.IsNil)
 		c.Assert(apiInfo.Addrs[0], gc.Equals, eachDataSet.expected)
@@ -387,18 +387,18 @@ func (s *agentSuite) TestProperAddressChosenForManageEnviron(c *gc.C) {
 
 func (s *agentSuite) TestBestHostPickerFailsWithIncompleteAddress(c *gc.C) {
 	apiInfo := api.Info{}
-	apiInfo.Addrs = []string{"this is an invalid hostname", }
+	apiInfo.Addrs = []string{"this is an invalid hostname"}
 	err := pickBestHosts(&apiInfo, []params.MachineJob{params.JobManageEnviron})
 	c.Check(apiInfo.Addrs[0], gc.Equals, "this is an invalid hostname")
-	c.Assert(err, gc.ErrorMatches, "missing port in address this is an invalid hostname")	
+	c.Assert(err, gc.ErrorMatches, "missing port in address this is an invalid hostname")
 }
 
 func (s *agentSuite) TestBestHostPickerFailsWithMalformedPort(c *gc.C) {
 	apiInfo := api.Info{}
-	apiInfo.Addrs = []string{"localhost:invalidport", }
+	apiInfo.Addrs = []string{"localhost:invalidport"}
 	err := pickBestHosts(&apiInfo, []params.MachineJob{params.JobManageEnviron})
 	c.Check(apiInfo.Addrs[0], gc.Equals, "localhost:invalidport")
-	c.Assert(err, gc.ErrorMatches, "bad port number \"invalidport\"")	
+	c.Assert(err, gc.ErrorMatches, "bad port number \"invalidport\"")
 }
 
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
