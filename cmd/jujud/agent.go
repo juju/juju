@@ -6,7 +6,9 @@ package main
 import (
 	"fmt"
 	"io"
+	"net"
 	"path/filepath"
+	"strconv"
 	"sync"
 	"time"
 
@@ -207,10 +209,21 @@ func openAPIState(
 	// be interrupted.
 	info := agentConfig.APIInfo()
 	// Ensure that we conect trough localhost
-        for _, job := agentConfig.Jobs(){
+	agentConfigJobs := agentConfig.Jobs()
+        for _, job := range agentConfigJobs {
                 if job == params.JobManageEnviron {
-                        info.Addrs = []string{"localhost:17070", }
-                }
+			firstAddr := info.Addrs[0]
+			_ , port, err := net.SplitHostPort(firstAddr)
+			if err != nil {
+				return nil, nil, err 
+			}
+			portNum, err := strconv.Atoi(port)
+			if err != nil {
+				return nil, nil, fmt.Errorf("bad port number %q", port)
+			}   
+                        info.Addrs = []string{fmt.Sprintf("localhost:%d", portNum), }
+			break
+               }
         }
 	
 	st, err := apiOpen(info, api.DialOpts{})
