@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
@@ -15,6 +18,7 @@ const (
 	cleanupRelationSettings            cleanupKind = "settings"
 	cleanupUnitsForDyingService        cleanupKind = "units"
 	cleanupDyingUnit                   cleanupKind = "dyingUnit"
+	cleanupRemovedUnit                 cleanupKind = "removedUnit"
 	cleanupServicesForDyingEnvironment cleanupKind = "services"
 	cleanupForceDestroyedMachine       cleanupKind = "machine"
 )
@@ -67,6 +71,8 @@ func (st *State) Cleanup() error {
 			err = st.cleanupUnitsForDyingService(doc.Prefix)
 		case cleanupDyingUnit:
 			err = st.cleanupDyingUnit(doc.Prefix)
+		case cleanupRemovedUnit:
+			err = st.cleanupRemovedUnit(doc.Prefix)
 		case cleanupServicesForDyingEnvironment:
 			err = st.cleanupServicesForDyingEnvironment()
 		case cleanupForceDestroyedMachine:
@@ -172,6 +178,21 @@ func (st *State) cleanupDyingUnit(name string) error {
 			return err
 		}
 		if err := relationUnit.PrepareLeaveScope(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// cleanupRemovedUnit takes care of all the final cleanup required when
+// a unit is removed.
+func (st *State) cleanupRemovedUnit(name string) error {
+	actions, err := st.UnitActions(name)
+	if err != nil {
+		return err
+	}
+	for _, action := range actions {
+		if err = action.Fail("unit removed"); err != nil {
 			return err
 		}
 	}
