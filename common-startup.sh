@@ -37,12 +37,17 @@ export NEW_JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
 
 # Tear down any resources and data last from a previous test.
 if [ "$ENV" == "manual" ]; then
-  ec2-terminate-job-instances
+    ec2-terminate-job-instances
 else
-  destroy-environment $ENV
+    jenv=$JUJU_HOME/environments/$ENV.jenv
+    if [[ -e $jenv ]]; then
+        destroy-environment $ENV
+        if [[ -e $jenv ]]; then
+            rm $jenv
+        fi
+    fi
 fi
-jenv=$JUJU_HOME/environments/$ENV.jenv
-if [ -e $jenv ]; then rm $jenv; fi
+
 # Force teardown of generated env names.
 jenv=$JUJU_HOME/environments/$JOB_NAME.jenv
 if [[ -e $jenv ]]; then
