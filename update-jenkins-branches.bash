@@ -44,7 +44,7 @@ EOT
 
 CLOUD_CITY=${1:-false}
 SLAVES=$(juju status *-slave | grep public-address | sed -r 's,^.*: ,,')
-if [[ -z slaves ]]; then
+if [[ -z $SLAVES ]]; then
     echo "Set JUJU_HOME to juju-qa's environments and switch to juju-ci."
     exit 1
 fi
