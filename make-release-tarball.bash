@@ -11,9 +11,11 @@ DEFAULT_JUJU_CORE="lp:juju-core"
 
 
 usage() {
-    echo "usage: $0 REVNO [JUJU_CORE_BRANCH]"
-    echo "  REVNO: The juju-core revno to build"
-    echo "  JUJU_CORE_BRANCH: The juju-core branch; defaults to ${DEFAULT_JUJU_CORE}"
+    echo "usage: $0 <BZR_REVNO|GIT_REVISION> [BZR_JUJU_CORE_BRANCH|GIT_REPO]"
+    echo "  BZR_REVNO: The juju-core bzr revno to build"
+    echo "  GIT_REVISION: The juju-core git revision or branch to build,"
+    echo "  BZR_JUJU_CORE_BRANCH: The juju-core bzr branch; defaults to ${DEFAULT_JUJU_CORE}"
+    echo "  GIT_REPO: The juju-core git repo"
     exit 1
 }
 
@@ -22,10 +24,11 @@ check_deps() {
     echo "Phase 0: Checking requirements."
     has_deps=1
     which bzr || has_deps=0
+    which git || has_deps=0
     which hg || has_deps=0
     which go || has_deps=0
     if [[ $has_deps == 0 ]]; then
-        echo "Install bzr, hg and golang."
+        echo "Install bzr, hg, git, and golang."
         exit 2
     fi
 }
