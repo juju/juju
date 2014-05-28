@@ -127,7 +127,7 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	err := mongo.EnsureServer(dataDir, namespace, testInfo, mongo.WithHA)
+	err := mongo.EnsureServer(dataDir, namespace, testInfo)
 	c.Assert(err, gc.IsNil)
 
 	testJournalDirs(dbDir, c)
