@@ -18,12 +18,12 @@ type LoggingSuite struct {
 }
 
 func (t *LoggingSuite) SetUpSuite(c *gc.C) {
-	t.LoggingSuite.SetUpSuite(c)
+	t.LoggingCleanupSuite.SetUpSuite(c)
 	t.setUp(c)
 }
 
 func (t *LoggingSuite) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
+	t.LoggingCleanupSuite.SetUpTest(c)
 	t.PatchEnvironment("JUJU_LOGGING_CONFIG", "")
 	t.setUp(c)
 }
