@@ -6,15 +6,11 @@ import yaml
 
 from collections import defaultdict
 from cStringIO import StringIO
-from datetime import datetime, timedelta
-import httplib
+from datetime import datetime
 import os
-import socket
 import subprocess
 import sys
 import tempfile
-from time import sleep
-import urllib2
 
 from jujuconfig import get_selected_environment
 
@@ -291,7 +287,12 @@ class Environment:
             raise Exception('Some versions did not update.')
 
     def get_matching_agent_version(self, no_build=False):
-        version_number = self.client.version.split('-')[0]
+        # strip the series and srch from the built version.
+        version_parts = self.client.version.split('-')
+        if len(version_parts) == 4:
+            version_number = '-'.join(version_parts[0:2])
+        else:
+            version_number = version_parts[0]
         if not no_build and self.local:
             version_number += '.1'
         return version_number

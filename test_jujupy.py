@@ -4,7 +4,6 @@ from contextlib import contextmanager
 from datetime import timedelta
 import os
 import shutil
-from StringIO import StringIO
 import subprocess
 import tempfile
 from textwrap import dedent
@@ -57,7 +56,7 @@ class TestUntilTimeout(TestCase):
             for d in deltas:
                 yield iterator.start + d
             assert False
-        with patch.object(iterator, 'now', now_iter().next) as mock:
+        with patch.object(iterator, 'now', now_iter().next):
             yield iterator
 
     def test_timeout(self):
@@ -256,7 +255,7 @@ class TestJujuClientDevel(TestCase):
         with patch.object(client, 'get_juju_output', get_juju_output):
             client.get_status(env)
 
-    def test_get_status_raises_on_timeout(self):
+    def test_get_status_raises_on_timeout_1(self):
         client = JujuClientDevelFake(None, None)
         def get_juju_output(environment, command):
             raise subprocess.CalledProcessError(1, command)
@@ -268,7 +267,7 @@ class TestJujuClientDevel(TestCase):
                         Exception, 'Timed out waiting for juju status'):
                     client.get_status(env)
 
-    def test_get_status_raises_on_timeout(self):
+    def test_get_status_raises_on_timeout_2(self):
         client = JujuClientDevelFake(None, None)
         env = Environment('foo', '')
         with patch('jujupy.until_timeout', return_value=iter([1])) as mock_ut:
@@ -591,10 +590,12 @@ class TestEnvironment(TestCase):
 
     def test_get_matching_agent_version(self):
         env = Environment('foo', MagicMock(), {'type': 'local'})
-        env.client.version = '1.234-76'
-        self.assertEqual('1.234.1', env.get_matching_agent_version())
-        self.assertEqual('1.234', env.get_matching_agent_version(
+        env.client.version = '1.23-series-arch'
+        self.assertEqual('1.23.1', env.get_matching_agent_version())
+        self.assertEqual('1.23', env.get_matching_agent_version(
                          no_build=True))
+        env.client.version = '1.20-beta1-series-arch'
+        self.assertEqual('1.20-beta1.1', env.get_matching_agent_version())
 
     def test_upgrade_juju_local(self):
         env = Environment('foo', MagicMock(), {'type': 'local'})
