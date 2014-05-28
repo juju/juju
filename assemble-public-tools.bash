@@ -145,12 +145,8 @@ get_arch() {
     control_file=$1
     arch=$(sed -n 's/^Architecture: \([a-z]\+\)/\1/p' $control_file)
     case "${arch}" in
-        "amd64" | "i386" | "armel" | "armhf" | "arm64" )
+        "amd64" | "i386" | "armel" | "armhf" | "arm64" | "ppc64el" )
             # The ubuntu arch matches the juju arch.
-            ;;
-        "ppc64el" )
-            # Map the ubuntu arch to the juju arch.
-            arch="ppc64"
             ;;
         *)
             echo "Invalid arch: $arch"
