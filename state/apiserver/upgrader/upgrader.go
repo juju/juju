@@ -126,6 +126,16 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
 		if u.authorizer.AuthOwner(entity.Tag) {
+			// Only return the globally desired agent version if the
+			// asking entity is a machine agent with JobManageEnviron or
+			// if this API server is running the globally desired agent
+			// version. Otherwise report this API server's current
+			// agent version.
+			//
+			// This ensures that state machine agents will upgrade
+			// first - once they have restarted and are running the
+			// new version other agents will start to see the new
+			// agent version.
 			if !isNewerVersion || u.entityIsManager(entity.Tag) {
 				results[i].Version = &agentVersion
 			} else {
