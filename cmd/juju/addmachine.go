@@ -4,18 +4,18 @@
 package main
 
 import (
-	"fmt"
+  "fmt"
 
-	"launchpad.net/gnuflag"
+  "launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/envcmd"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/manual"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
+  "launchpad.net/juju-core/cmd"
+  "launchpad.net/juju-core/cmd/envcmd"
+  "launchpad.net/juju-core/constraints"
+  "launchpad.net/juju-core/environs/manual"
+  "launchpad.net/juju-core/instance"
+  "launchpad.net/juju-core/juju"
+  "launchpad.net/juju-core/names"
+  "launchpad.net/juju-core/state/api/params"
 )
 
 // sshHostPrefix is the prefix for a machine to be "manually provisioned".
@@ -55,112 +55,107 @@ See Also:
 
 // AddMachineCommand starts a new machine and registers it in the environment.
 type AddMachineCommand struct {
-	envcmd.EnvCommandBase
-	// If specified, use this series, else use the environment default-series
-	Series string
-	// If specified, these constraints are merged with those already in the environment.
-	Constraints constraints.Value
-	// Placement is passed verbatim to the API, to be parsed and evaluated server-side.
-	Placement *instance.Placement
+  envcmd.EnvCommandBase
+  // If specified, use this series, else use the environment default-series
+  Series string
+  // If specified, these constraints are merged with those already in the environment.
+  Constraints constraints.Value
+  // Placement is passed verbatim to the API, to be parsed and evaluated server-side.
+  Placement *instance.Placement
 }
 
 func (c *AddMachineCommand) Info() *cmd.Info {
-	return &cmd.Info{
-		Name:    "add-machine",
-		Args:    "[<container>:machine | <container> | ssh:[user@]host]",
-		Purpose: "start a new, empty machine and optionally a container, or add a container to a machine",
-		Doc:     addMachineDoc,
-	}
+  return &cmd.Info{
+    Name:    "add-machine",
+    Args:    "[<container>:machine | <container> | ssh:[user@]host]",
+    Purpose: "start a new, empty machine and optionally a container, or add a container to a machine",
+    Doc:     addMachineDoc,
+  }
 }
 
 func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&c.Series, "series", "", "the charm series")
-	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
+  f.StringVar(&c.Series, "series", "", "the charm series")
+  f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
 }
 
 func (c *AddMachineCommand) Init(args []string) error {
-	if c.Constraints.Container != nil {
-		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
-	}
-	placement, err := cmd.ZeroOrOneArgs(args)
-	if err != nil {
-		return err
-	}
-	c.Placement, err = instance.ParsePlacement(placement)
-	if err == instance.ErrPlacementScopeMissing {
-		placement = c.EnvName + ":" + placement
-		c.Placement, err = instance.ParsePlacement(placement)
-	}
-	if err != nil {
-		return err
-	}
-	return nil
+  if c.Constraints.Container != nil {
+    return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
+  }
+  placement, err := cmd.ZeroOrOneArgs(args)
+  if err != nil {
+    return err
+  }
+  c.Placement, err = instance.ParsePlacement(placement)
+  if err == instance.ErrPlacementScopeMissing {
+    placement = c.EnvName + ":" + placement
+    c.Placement, err = instance.ParsePlacement(placement)
+  }
+  if err != nil {
+    return err
+  }
+  return nil
 }
 
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
-	if c.Placement != nil && c.Placement.Scope == "ssh" {
-		args := manual.ProvisionMachineArgs{
-			Host:    c.Placement.Directive,
-			EnvName: c.EnvName,
-			Stdin:   ctx.Stdin,
-			Stdout:  ctx.Stdout,
-			Stderr:  ctx.Stderr,
-		}
-		_, err := manual.ProvisionMachine(args)
-		return err
-	}
+  if c.Placement != nil && c.Placement.Scope == "ssh" {
+    args := manual.ProvisionMachineArgs{
+      Host:    c.Placement.Directive,
+      EnvName: c.EnvName,
+      Stdin:   ctx.Stdin,
+      Stdout:  ctx.Stdout,
+      Stderr:  ctx.Stderr,
+    }
+    _, err := manual.ProvisionMachine(args)
+    return err
+  }
 
-	client, err := juju.NewAPIClientFromName(c.EnvName)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
+  client, err := juju.NewAPIClientFromName(c.EnvName)
+  if err != nil {
+    return err
+  }
+  defer client.Close()
 
-	if c.Placement != nil && c.Placement.Scope == instance.MachineScope {
-		// It does not make sense to add-machine <id>.
-		return fmt.Errorf("machine-id cannot be specified when adding machines")
-	}
+  if c.Placement != nil && c.Placement.Scope == instance.MachineScope {
+    // It does not make sense to add-machine <id>.
+    return fmt.Errorf("machine-id cannot be specified when adding machines")
+  }
 
-	machineParams := params.AddMachineParams{
-		Placement:   c.Placement,
-		Series:      c.Series,
-		Constraints: c.Constraints,
-		Jobs:        []params.MachineJob{params.JobHostUnits},
-	}
-	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
-	if params.IsCodeNotImplemented(err) {
-		if c.Placement != nil {
-			containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
-			if parseErr != nil {
-				// The user specified a non-container placement directive:
-				// return original API not implemented error.
-				return err
-			}
-			machineParams.ContainerType = containerType
-			machineParams.ParentId = c.Placement.Directive
-			machineParams.Placement = nil
-		}
-		logger.Infof(
-			"AddMachinesWithPlacement not supported by the API server, " +
-				"falling back to 1.18 compatibility mode",
-		)
-		results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
-	}
-	if err != nil {
-		return err
-	}
+  machineParams := params.AddMachineParams{
+    Placement:   c.Placement,
+    Series:      c.Series,
+    Constraints: c.Constraints,
+    Jobs:        []params.MachineJob{params.JobHostUnits},
+  }
+  results, err := client.AddMachines([]params.AddMachineParams{machineParams})
+  if params.IsCodeNotImplemented(err) {
+    if c.Placement != nil {
+      containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
+      if parseErr != nil {
+        // The user specified a non-container placement directive:
+        // return original API not implemented error.
+        return err
+      }
+      machineParams.ContainerType = containerType
+      machineParams.ParentId = c.Placement.Directive
+      machineParams.Placement = nil
+    }
+    logger.Infof(
+      "AddMachinesWithPlacement not supported by the API server, " +
+        "falling back to 1.18 compatibility mode",
+    )
+    results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
+  }
+  if err != nil {
+    return err
+  }
 
-	// Currently, only one machine is added, but in future there may be several added in one call.
-	machineInfo := results[0]
-	if machineInfo.Error != nil {
-		return machineInfo.Error
-	}
-	machineId := machineInfo.Machine
-
-	if names.IsContainerMachine(machineId) {
-		ctx.Infof("created container %v", names.MachineTag(machineId))
-	} else {
-		ctx.Infof("created machine %v", names.MachineTag(machineId))
-	}
-	return nil
+  // Currently, only one machine is added, but in future there may be several added in one call.
+  machineInfo := results[0]
+  if machineInfo.Error != nil {
+    return machineInfo.Error
+  }
+  machineId := machineInfo.Machine
+  ctx.Infof("created %v", names.MachineTag(machineId))
+  return nil
 }
