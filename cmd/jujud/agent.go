@@ -33,7 +33,6 @@ import (
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
-
 var apiOpen = api.Open
 
 // requiredError is useful when complaining about missing command-line options.
@@ -210,22 +209,22 @@ func openAPIState(
 	info := agentConfig.APIInfo()
 	// Ensure that we conect trough localhost
 	agentConfigJobs := agentConfig.Jobs()
-        for _, job := range agentConfigJobs {
-                if job == params.JobManageEnviron {
+	for _, job := range agentConfigJobs {
+		if job == params.JobManageEnviron {
 			firstAddr := info.Addrs[0]
-			_ , port, err := net.SplitHostPort(firstAddr)
+			_, port, err := net.SplitHostPort(firstAddr)
 			if err != nil {
-				return nil, nil, err 
+				return nil, nil, err
 			}
 			portNum, err := strconv.Atoi(port)
 			if err != nil {
 				return nil, nil, fmt.Errorf("bad port number %q", port)
-			}   
-                        info.Addrs = []string{fmt.Sprintf("localhost:%d", portNum), }
+			}
+			info.Addrs = []string{fmt.Sprintf("localhost:%d", portNum)}
 			break
-               }
-        }
-	
+		}
+	}
+
 	st, err := apiOpen(info, api.DialOpts{})
 	usedOldPassword := false
 	if params.IsCodeUnauthorized(err) {

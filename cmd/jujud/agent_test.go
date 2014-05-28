@@ -129,7 +129,7 @@ func (s *apiOpenSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
 	}, {
 		openErr:    &params.Error{Code: params.CodeUnauthorized},
 		replaceErr: worker.ErrTerminateAgent,
-	}} 
+	}}
 	for i, test := range errReplacePairs {
 		c.Logf("test %d", i)
 		apiError = test.openErr
