@@ -16,6 +16,13 @@ def parse_version(string):
 
 
 def ls_remote(repo_url, ref, head=False, tag=False):
+    """Return a tuple fo the matching commit hash and ref.
+
+    None, None is returned when no matching commit was found.
+
+    :raise: an exception when more than one commit matched
+    :return: a tuple of commit, ref
+    """
     command = ['git', 'ls-remote']
     if head:
         command.append('--heads')
@@ -34,16 +41,15 @@ def ls_remote(repo_url, ref, head=False, tag=False):
 
 
 def get_git_revision_info(branch, revision_spec):
-    """Find the commit, ref and juju-core version of a branch.
+    """Find the commit and juju-core version of a branch.
 
     Returns a tuple comparable to revno, revision-id, version.
-    The branch in the and revision_spec can be mistmatched...git will
-    will select the revision even if it is not in the branch.
+    The revno is always None. The revision-id is the commit hash.
 
     :param branch: The location of the git branch.
     :param revision_spec: a human-readable revision spec like 'HEAD', '1.18.0',
         or '1dcf4e4fe1'
-    :return: a tuple of ref, commit, version
+    :return: a tuple of None, revision-id, version
     """
     protocol, branch_name, repo_name = branch.split(':')
     repo_url = 'https://{}.git'.format(repo_name)
