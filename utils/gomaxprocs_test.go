@@ -8,12 +8,12 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
 type gomaxprocsSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	setmaxprocs    chan int
 	numCPUResponse int
 	setMaxProcs    int
@@ -22,7 +22,7 @@ type gomaxprocsSuite struct {
 var _ = gc.Suite(&gomaxprocsSuite{})
 
 func (s *gomaxprocsSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	// always stub out GOMAXPROCS so we don't actually change anything
 	s.numCPUResponse = 2
 	s.setMaxProcs = -1

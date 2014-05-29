@@ -974,6 +974,34 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestAllRelations(c *gc.C) {
+	const numRelations = 32
+	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	_, err = mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+	wordpressCharm := s.AddTestingCharm(c, "wordpress")
+	for i := 0; i < numRelations; i++ {
+		serviceName := fmt.Sprintf("wordpress%d", i)
+		wordpress := s.AddTestingService(c, serviceName, wordpressCharm)
+		_, err = wordpress.AddUnit()
+		c.Assert(err, gc.IsNil)
+		eps, err := s.State.InferEndpoints([]string{serviceName, "mysql"})
+		c.Assert(err, gc.IsNil)
+		_, err = s.State.AddRelation(eps...)
+		c.Assert(err, gc.IsNil)
+	}
+
+	relations, _ := s.State.AllRelations()
+
+	c.Assert(len(relations), gc.Equals, numRelations)
+	for i, relation := range relations {
+		c.Assert(relation.Id(), gc.Equals, i)
+		c.Assert(relation, gc.Matches, fmt.Sprintf("wordpress%d:.+ mysql:.+", i))
+	}
+}
+
 var addNetworkErrorsTests = []struct {
 	args      state.NetworkInfo
 	expectErr string
@@ -1403,7 +1431,7 @@ func (s *StateSuite) TestEnvironConstraints(c *gc.C) {
 func (s *StateSuite) TestSetInvalidConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=4G instance-type=foo")
 	err := s.State.SetEnvironConstraints(cons)
-	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "mem" overlaps with "instance-type"`)
+	c.Assert(err, gc.ErrorMatches, `ambiguous constraints: "instance-type" overlaps with "mem"`)
 }
 
 func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
@@ -3372,4 +3400,46 @@ func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
 	// Stop, check closed.
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *StateSuite) TestUnitActionsFindsRightActions(c *gc.C) {
+	// Add simple service and two units
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+
+	unit1, err := mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	unit2, err := mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	// Add 3 actions to first unit, and 2 to the second unit
+	_, err = unit1.AddAction("action1.1", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit1.AddAction("action1.2", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit1.AddAction("action1.3", nil)
+	c.Assert(err, gc.IsNil)
+
+	_, err = unit2.AddAction("action2.1", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit2.AddAction("action2.2", nil)
+	c.Assert(err, gc.IsNil)
+
+	// Verify that calling UnitActions with unit1.Name() returns only
+	// the three actions added to unit1
+	actions1, err := s.State.UnitActions(unit1.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions1), gc.Equals, 3)
+	for _, action := range actions1 {
+		c.Assert(action.Name(), gc.Matches, "^action1\\..")
+	}
+
+	// Verify that calling UnitActions with unit2.Name() returns only
+	// the two actions added to unit1
+	actions2, err := s.State.UnitActions(unit2.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions2), gc.Equals, 2)
+	for _, action := range actions2 {
+		c.Assert(action.Name(), gc.Matches, "^action2\\..")
+	}
 }

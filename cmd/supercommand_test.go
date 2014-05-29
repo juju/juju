@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/version"
 )
 
 func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
@@ -86,11 +87,11 @@ func (s *SuperCommandSuite) TestRegisterAlias(c *gc.C) {
     help - show help on a command or other topic`)
 }
 
-var commandsDoc = `commands:
+func (s *SuperCommandSuite) TestInfo(c *gc.C) {
+	commandsDoc := `commands:
     flapbabble - flapbabble the juju
     flip       - flip the juju`
 
-func (s *SuperCommandSuite) TestInfo(c *gc.C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:    "jujutest",
 		Purpose: "to be purposeful",
@@ -173,14 +174,42 @@ func (s *SuperCommandSuite) TestVersionFlag(c *gc.C) {
 }
 
 func (s *SuperCommandSuite) TestLogging(c *gc.C) {
-	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", Log: &cmd.Log{}})
-	jc.Register(&TestCommand{Name: "blah"})
-	ctx := testing.Context(c)
-	code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
-	c.Assert(code, gc.Equals, 1)
-	c.Assert(bufferString(ctx.Stderr), gc.Matches, `^.* running juju-.*
+	s.PatchValue(&version.Current, version.MustParseBinary("1.2.3.4-plan9-mips"))
+	s.PatchValue(&version.Compiler, "llgo")
+
+	loggingTests := []struct {
+		usagePrefix, name string
+		pattern           string
+	}{
+		{"juju", "juju", `^.* running juju \[1.2.3.4-plan9-mips llgo\]
 .* ERROR .* BAM!
-`)
+`},
+		{"something", "else", `^.* running something else \[1.2.3.4-plan9-mips llgo\]
+.* ERROR .* BAM!
+`},
+		{"", "juju", `^.* running juju \[1.2.3.4-plan9-mips llgo\]
+.* ERROR .* BAM!
+`},
+		{"", "myapp", `^.* running myapp \[1.2.3.4-plan9-mips llgo\]
+.* ERROR .* BAM!
+`},
+		{"same", "same", `^.* running same \[1.2.3.4-plan9-mips llgo\]
+.* ERROR .* BAM!
+`},
+	}
+
+	for _, test := range loggingTests {
+		jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
+			UsagePrefix: test.usagePrefix,
+			Name:        test.name,
+			Log:         &cmd.Log{},
+		})
+		jc.Register(&TestCommand{Name: "blah"})
+		ctx := testing.Context(c)
+		code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
+		c.Assert(code, gc.Equals, 1)
+		c.Assert(bufferString(ctx.Stderr), gc.Matches, test.pattern)
+	}
 }
 
 func (s *SuperCommandSuite) TestDescription(c *gc.C) {

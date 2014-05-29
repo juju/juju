@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"time"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
@@ -164,7 +165,11 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	if !ok {
 		return fmt.Errorf("no state info available")
 	}
-	dialInfo, err := state.DialInfo(info, state.DefaultDialOpts())
+	// When bootstrapping, we need to allow enough time for mongo
+	// to start as there's no retry loop in place.
+	// 5 minutes should suffice.
+	bootstrapDialOpts := state.DialOpts{Timeout: 5 * time.Minute}
+	dialInfo, err := state.DialInfo(info, bootstrapDialOpts)
 	if err != nil {
 		return err
 	}
@@ -180,19 +185,13 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	}
 
 	logger.Debugf("calling ensureMongoServer")
-	withHA := shouldEnableHA(agentConfig)
 	err = ensureMongoServer(
 		agentConfig.DataDir(),
 		agentConfig.Value(agent.Namespace),
 		servingInfo,
-		withHA,
 	)
 	if err != nil {
 		return err
-	}
-	// If we are not doing HA, there is no need to set up replica set.
-	if !withHA {
-		return nil
 	}
 
 	peerAddr := mongo.SelectPeerAddress(addrs)

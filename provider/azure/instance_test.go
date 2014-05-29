@@ -13,11 +13,11 @@ import (
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
 type instanceSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	env        *azureEnviron
 	service    *gwacl.HostedService
 	deployment *gwacl.Deployment

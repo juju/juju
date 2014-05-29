@@ -62,7 +62,7 @@ func (s *retryProvisioningSuite) TestResolved(c *gc.C) {
 
 	for i, t := range resolvedMachineTests {
 		c.Logf("test %d: %v", i, t.args)
-		context, err := testing.RunCommand(c, envcmd.Wrap(&RetryProvisioningCommand{}), t.args)
+		context, err := testing.RunCommand(c, envcmd.Wrap(&RetryProvisioningCommand{}), t.args...)
 		if t.err != "" {
 			c.Check(err, gc.ErrorMatches, t.err)
 			continue

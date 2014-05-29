@@ -25,7 +25,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -35,7 +34,7 @@ import (
 var _ = gc.Suite(&toolSuite{})
 
 type toolSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var errorImportanceTests = []error{
@@ -90,7 +89,7 @@ func (*toolSuite) TestIsFatal(c *gc.C) {
 }
 
 type apiOpenSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 type fakeAPIOpenConfig struct {
@@ -234,7 +233,7 @@ func (s *agentSuite) SetUpSuite(c *gc.C) {
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
 	worker.RestartDelay = 250 * time.Millisecond
-	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo, bool) error {
+	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo) error {
 		return nil
 	})
 }

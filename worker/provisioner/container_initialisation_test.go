@@ -12,12 +12,13 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	apiprovisioner "launchpad.net/juju-core/state/api/provisioner"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -26,7 +27,8 @@ import (
 
 type ContainerSetupSuite struct {
 	CommonProvisionerSuite
-	p provisioner.Provisioner
+	p           provisioner.Provisioner
+	agentConfig agent.ConfigSetter
 	// Record the apt commands issued as part of container initialisation
 	aptCmdChan  <-chan *exec.Cmd
 	initLockDir string
@@ -54,12 +56,12 @@ func noImportance(err0, err1 error) bool {
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.CommonProvisionerSuite.setupEnvironmentManager(c)
-	aptCmdChan := s.HookCommandOutput(&utils.AptCommandOutput, []byte{}, nil)
+	aptCmdChan := s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
 
 	// Set up provisioner for the state machine.
-	agentConfig := s.AgentConfigForTag(c, "machine-0")
-	s.p = provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
+	s.agentConfig = s.AgentConfigForTag(c, "machine-0")
+	s.p = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig)
 
 	// Create a new container initialisation lock.
 	s.initLockDir = c.MkDir()
@@ -150,6 +152,18 @@ func (s *ContainerSetupSuite) TestContainerProvisionerStarted(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		s.assertContainerProvisionerStarted(c, m, ctype)
 	}
+}
+
+func (s *ContainerSetupSuite) TestContainerManagerConfigName(c *gc.C) {
+	pr := s.st.Provisioner()
+	expect := func(expect string) {
+		cfg, err := provisioner.ContainerManagerConfig(instance.KVM, pr, s.agentConfig)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cfg[container.ConfigName], gc.Equals, expect)
+	}
+	expect("juju")
+	s.agentConfig.SetValue(agent.Namespace, "any-old-thing")
+	expect("any-old-thing")
 }
 
 func (s *ContainerSetupSuite) assertContainerInitialised(c *gc.C, ctype instance.ContainerType, packages []string) {

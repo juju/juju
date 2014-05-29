@@ -14,10 +14,10 @@ import (
 	"launchpad.net/juju-core/cmd/envcmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type DeploySuite struct {
@@ -27,7 +27,7 @@ type DeploySuite struct {
 var _ = gc.Suite(&DeploySuite{})
 
 func runDeploy(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), args)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), args...)
 	return err
 }
 
@@ -85,7 +85,7 @@ func (s *DeploySuite) TestCharmDir(c *gc.C) {
 
 func (s *DeploySuite) TestUpgradeReportsDeprecated(c *gc.C) {
 	coretesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), []string{"local:dummy", "-u"})
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&DeployCommand{}), "local:dummy", "-u")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(coretesting.Stdout(ctx), gc.Equals, "")
@@ -145,7 +145,7 @@ func (s *DeploySuite) TestConfig(c *gc.C) {
 func (s *DeploySuite) TestRelativeConfigPath(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	// Putting a config file in home is okay as $HOME is set to a tempdir
-	setupConfigFile(c, osenv.Home())
+	setupConfigFile(c, utils.Home())
 	err := runDeploy(c, "local:dummy", "dummy-service", "--config", "~/testconfig.yaml")
 	c.Assert(err, gc.IsNil)
 }
@@ -172,14 +172,14 @@ func (s *DeploySuite) TestConstraints(c *gc.C) {
 
 func (s *DeploySuite) TestNetworks(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--exclude-networks", "net3,net4")
+	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
 	includeNetworks, excludeNetworks, err := service.Networks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(includeNetworks, gc.DeepEquals, []string{"net1", "net2"})
-	c.Assert(excludeNetworks, gc.DeepEquals, []string{"net3", "net4"})
+	c.Assert(excludeNetworks, gc.HasLen, 0)
 }
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {

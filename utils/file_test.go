@@ -13,7 +13,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -24,13 +23,13 @@ type fileSuite struct {
 var _ = gc.Suite(&fileSuite{})
 
 func (s *fileSuite) SetUpTest(c *gc.C) {
-	s.oldHome = osenv.Home()
-	err := osenv.SetHome("/home/test-user")
+	s.oldHome = utils.Home()
+	err := utils.SetHome("/home/test-user")
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *fileSuite) TearDownTest(c *gc.C) {
-	err := osenv.SetHome(s.oldHome)
+	err := utils.SetHome(s.oldHome)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -184,17 +183,4 @@ func (*fileSuite) TestAtomicWriteFile(c *gc.C) {
 		// Remove the file to reset scenario.
 		c.Assert(os.Remove(path), gc.IsNil)
 	}
-}
-
-func (*fileSuite) TestIsNotExist(c *gc.C) {
-	dir := c.MkDir()
-	path := func(s string) string { return filepath.Join(dir, s) }
-	err := ioutil.WriteFile(path("file"), []byte("blah"), 0644)
-	c.Assert(err, gc.IsNil)
-
-	_, err = os.Lstat(path("noexist"))
-	c.Assert(err, jc.Satisfies, utils.IsNotExist)
-
-	_, err = os.Lstat(path("file/parent-not-a-dir"))
-	c.Assert(err, jc.Satisfies, utils.IsNotExist)
 }

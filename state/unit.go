@@ -322,12 +322,13 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
 	minUnitsOp := minUnitsTriggerOp(u.st, u.ServiceName())
+	cleanupOp := u.st.newCleanupOp(cleanupDyingUnit, u.doc.Name)
 	setDyingOps := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
-	}, minUnitsOp}
+	}, cleanupOp, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
 	} else if len(u.doc.Subordinates) != 0 {
@@ -482,25 +483,43 @@ func (u *Unit) SubordinateNames() []string {
 	return names
 }
 
-// JoinedRelations returns the relations for which the unit is in scope.
-func (u *Unit) JoinedRelations() ([]*Relation, error) {
+// RelationsJoined returns the relations for which the unit has entered scope
+// and neither left it nor prepared to leave it
+func (u *Unit) RelationsJoined() ([]*Relation, error) {
+	return u.relations(func(ru *RelationUnit) (bool, error) {
+		return ru.Joined()
+	})
+}
+
+// RelationsInScope returns the relations for which the unit has entered scope
+// and not left it.
+func (u *Unit) RelationsInScope() ([]*Relation, error) {
+	return u.relations(func(ru *RelationUnit) (bool, error) {
+		return ru.InScope()
+	})
+}
+
+type relationPredicate func(ru *RelationUnit) (bool, error)
+
+// relations implements RelationsJoined and RelationsInScope.
+func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
 	candidates, err := serviceRelations(u.st, u.doc.Service)
 	if err != nil {
 		return nil, err
 	}
-	var joinedRelations []*Relation
+	var filtered []*Relation
 	for _, relation := range candidates {
 		relationUnit, err := relation.Unit(u)
 		if err != nil {
 			return nil, err
 		}
-		if inScope, err := relationUnit.InScope(); err != nil {
+		if include, err := predicate(relationUnit); err != nil {
 			return nil, err
-		} else if inScope {
-			joinedRelations = append(joinedRelations, relation)
+		} else if include {
+			filtered = append(filtered, relation)
 		}
 	}
-	return joinedRelations, nil
+	return filtered, nil
 }
 
 // DeployerTag returns the tag of the agent responsible for deploying
@@ -784,6 +803,7 @@ func (e *NotAssignedError) Error() string {
 	return fmt.Sprintf("unit %q is not assigned to a machine", e.Unit)
 }
 
+// IsNotAssigned verifies that err is an instance of NotAssignedError
 func IsNotAssigned(err error) bool {
 	_, ok := err.(*NotAssignedError)
 	return ok
@@ -1306,6 +1326,44 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	}
 	u.doc.MachineId = ""
 	return nil
+}
+
+// AddAction adds a new Action of type name and using arguments payload to
+// this Unit, and returns its ID
+func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, error) {
+	actionId, err := newActionId(u.st, u.globalKey())
+	if err != nil {
+		return "", fmt.Errorf("cannot add action; error generating key: %v", err)
+	}
+	doc := actionDoc{Id: actionId, Name: name, Payload: payload}
+	ops := []txn.Op{{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: notDeadDoc,
+	}, {
+		C:      u.st.actions.Name,
+		Id:     doc.Id,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
+
+	for i := 0; i < 3; i++ {
+		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
+			return "", err
+		} else if !notDead {
+			return "", fmt.Errorf("unit %q is dead", u)
+		}
+
+		switch err := u.st.runTransaction(ops); err {
+		case txn.ErrAborted:
+			continue
+		case nil:
+			return actionId, nil
+		default:
+			return "", err
+		}
+	}
+	return "", ErrExcessiveContention
 }
 
 // Resolve marks the unit as having had any previous state transition

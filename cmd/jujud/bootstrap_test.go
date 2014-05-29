@@ -27,7 +27,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/peergrouper"
@@ -38,7 +37,7 @@ var _ = configstore.Default
 // We don't want to use JujuConnSuite because it gives us
 // an already-bootstrapped environment.
 type BootstrapSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	testing.MgoSuite
 	envcfg          string
 	instanceId      instance.Id
@@ -55,15 +54,14 @@ type fakeEnsure struct {
 	initiateCount  int
 	dataDir        string
 	namespace      string
-	withHA         bool
 	info           params.StateServingInfo
 	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo, withHA bool) error {
+func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo) error {
 	f.ensureCount++
-	f.dataDir, f.namespace, f.info, f.withHA = dataDir, namespace, info, withHA
+	f.dataDir, f.namespace, f.info = dataDir, namespace, info
 	return f.err
 }
 
@@ -77,19 +75,19 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.PatchValue(&ensureMongoServer, s.fakeEnsureMongo.fakeEnsureMongo)
 	s.PatchValue(&maybeInitiateMongoServer, s.fakeEnsureMongo.fakeInitiateMongo)
 
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.makeTestEnv(c)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 	dummy.Reset()
 }
 
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
@@ -98,7 +96,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 var testPassword = "my-admin-secret"
@@ -158,7 +156,6 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
-	c.Assert(s.fakeEnsureMongo.withHA, jc.IsTrue)
 
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)

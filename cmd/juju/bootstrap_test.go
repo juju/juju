@@ -27,7 +27,7 @@ import (
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
-	ttesting "launchpad.net/juju-core/environs/tools/testing"
+	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/juju/arch"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -56,6 +56,8 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	// Set up a local source with tools.
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
+
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -149,32 +151,7 @@ func (s *BootstrapSuite) runAllowRetriesTest(c *gc.C, test bootstrapRetryTest) {
 	c.Check(stripped, gc.Matches, test.err)
 }
 
-// mockUploadTools simulates the effect of tools.Upload, but skips the time-
-// consuming build from source.
-// TODO(fwereade) better factor agent/tools such that build logic is
-// exposed and can itself be neatly mocked?
-func mockUploadTools(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error) {
-	vers := version.Current
-	if forceVersion != nil {
-		vers.Number = *forceVersion
-	}
-	versions := []version.Binary{vers}
-	for _, series := range series {
-		if series != version.Current.Series {
-			newVers := vers
-			newVers.Series = series
-			versions = append(versions, newVers)
-		}
-	}
-	agentTools, err := envtesting.UploadFakeToolsVersions(stor, versions...)
-	if err != nil {
-		return nil, err
-	}
-	return agentTools[0], nil
-}
-
 func (s *BootstrapSuite) TestTest(c *gc.C) {
-	s.PatchValue(&sync.Upload, mockUploadTools)
 	for i, test := range bootstrapTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		test.run(c)
@@ -293,7 +270,7 @@ var bootstrapTests = []bootstrapTest{{
 }, {
 	info: "conflicting --constraints",
 	args: []string{"--constraints", "instance-type=foo mem=4G"},
-	err:  `ambiguous constraints: "mem" overlaps with "instance-type"`,
+	err:  `ambiguous constraints: "instance-type" overlaps with "mem"`,
 }, {
 	info: "bad --series",
 	args: []string{"--series", "1bad1"},
@@ -400,10 +377,10 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	defaultSeriesVersion.Minor = 11
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
 	c.Assert(err, gc.IsNil)
 
-	_, err = coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
+	_, err = coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 }
 
@@ -425,8 +402,7 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 	})
 	resetJujuHome(c)
 
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}),
-		[]string{"--upload-tools", argVariant, "foo,bar"})
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--upload-tools", argVariant, "foo,bar")
 
 	c.Assert(err, gc.IsNil)
 	c.Check(_bootstrap.uploadToolsSeries, gc.DeepEquals, []string{"foo", "bar"})
@@ -464,7 +440,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), []string{"--metadata-source", c.MkDir()})
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", c.MkDir())
 	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: Juju "+
 		"cannot bootstrap because no tools are available for your "+
 		"environment(.|\n)*")
@@ -518,12 +494,46 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 	devVersion.Minor = 11
 	s.PatchValue(&version.Current, devVersion)
 
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), []string{"--metadata-source", sourceDir})
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", sourceDir)
 	c.Assert(err, gc.IsNil)
 	c.Assert(imagemetadata.DefaultBaseURL, gc.Equals, imagemetadata.UbuntuCloudImagesURL)
 
 	// Now check the image metadata has been uploaded.
 	checkImageMetadata(c, env.Storage(), expected)
+}
+
+func (s *BootstrapSuite) TestValidateConstraintsCalledWithMetadatasource(c *gc.C) {
+	sourceDir, _ := createImageMetadata(c)
+	resetJujuHome(c)
+	var calledFuncs []string
+	s.PatchValue(&uploadCustomMetadata, func(metadataDir string, env environs.Environ) error {
+		c.Assert(metadataDir, gc.DeepEquals, sourceDir)
+		calledFuncs = append(calledFuncs, "uploadCustomMetadata")
+		return nil
+	})
+	s.PatchValue(&validateConstraints, func(cons constraints.Value, env environs.Environ) error {
+		c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=4G"))
+		calledFuncs = append(calledFuncs, "validateConstraints")
+		return nil
+	})
+	_, err := coretesting.RunCommand(
+		c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", sourceDir, "--constraints", "mem=4G")
+	c.Assert(err, gc.IsNil)
+	c.Assert(calledFuncs, gc.DeepEquals, []string{"uploadCustomMetadata", "validateConstraints"})
+}
+
+func (s *BootstrapSuite) TestValidateConstraintsCalledWithoutMetadatasource(c *gc.C) {
+	validateCalled := 0
+	s.PatchValue(&validateConstraints, func(cons constraints.Value, env environs.Environ) error {
+		c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=4G"))
+		validateCalled++
+		return nil
+	})
+	resetJujuHome(c)
+	_, err := coretesting.RunCommand(
+		c, envcmd.Wrap(&BootstrapCommand{}), "--constraints", "mem=4G")
+	c.Assert(err, gc.IsNil)
+	c.Assert(validateCalled, gc.Equals, 1)
 }
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
@@ -534,7 +544,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	// Bootstrap the environment with the valid source.
 	// The bootstrapping has to show no error, because the tools
 	// are automatically synchronized.
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), []string{"--metadata-source", sourceDir})
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", sourceDir)
 	c.Assert(err, gc.IsNil)
 
 	// Now check the available tools which are the 1.2.0 envtools.
@@ -542,7 +552,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 }
 
 func (s *BootstrapSuite) setupAutoUploadTest(c *gc.C, vers, series string) environs.Environ {
-	s.PatchValue(&sync.Upload, mockUploadTools)
+	s.PatchValue(&envtools.BundleTools, toolstesting.GetMockBundleTools(c))
 	sourceDir := createToolsSource(c, vAll)
 	s.PatchValue(&envtools.DefaultBaseURL, sourceDir)
 
@@ -603,7 +613,7 @@ func (s *BootstrapSuite) TestAutoUploadOnlyForDev(c *gc.C) {
 func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
 
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
 	c.Assert(err, gc.ErrorMatches, "cannot upload bootstrap tools: Juju "+
 		"cannot bootstrap because no tools are available for your "+
 		"environment(.|\n)*")
@@ -617,7 +627,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.7.3", "precise")
 	s.PatchValue(&sync.Upload, uploadToolsAlwaysFails)
 
-	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), nil)
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
 
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
 		"uploading tools for series \\[precise .* raring\\]\n")
@@ -659,7 +669,7 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 		versionStrings[i] = vers.String()
 	}
 	source := c.MkDir()
-	ttesting.MakeTools(c, source, "releases", versionStrings)
+	toolstesting.MakeTools(c, source, "releases", versionStrings)
 	return source
 }
 

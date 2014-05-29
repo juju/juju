@@ -4,14 +4,14 @@
 package uniter
 
 import (
-	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/utils/proxy"
 )
 
 func SetUniterObserver(u *Uniter, observer UniterExecutionObserver) {
 	u.observer = observer
 }
 
-func (u *Uniter) GetProxyValues() osenv.ProxySettings {
+func (u *Uniter) GetProxyValues() proxy.Settings {
 	u.proxyMutex.Lock()
 	defer u.proxyMutex.Unlock()
 	return u.proxy

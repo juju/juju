@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package utils
+package apt
 
 import (
 	"bytes"
@@ -13,36 +13,37 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/proxy"
 )
 
 var (
-	aptLogger  = loggo.GetLogger("juju.utils.apt")
-	aptProxyRE = regexp.MustCompile(`(?im)^\s*Acquire::(?P<protocol>[a-z]+)::Proxy\s+"(?P<proxy>[^"]+)";\s*$`)
+	logger  = loggo.GetLogger("juju.utils.apt")
+	proxyRE = regexp.MustCompile(`(?im)^\s*Acquire::(?P<protocol>[a-z]+)::Proxy\s+"(?P<proxy>[^"]+)";\s*$`)
 
-	// AptConfFile is the full file path for the proxy settings that are
+	// ConfFile is the full file path for the proxy settings that are
 	// written by cloud-init and the machine environ worker.
-	AptConfFile = "/etc/apt/apt.conf.d/42-juju-proxy-settings"
+	ConfFile = "/etc/apt/apt.conf.d/42-juju-proxy-settings"
 )
 
 // Some helpful functions for running apt in a sane way
 
-// AptCommandOutput calls cmd.Output, this is used as an overloading point so we
+// CommandOutput calls cmd.Output, this is used as an overloading point so we
 // can test what *would* be run without actually executing another program
-var AptCommandOutput = (*exec.Cmd).CombinedOutput
+var CommandOutput = (*exec.Cmd).CombinedOutput
 
-// This is the default apt-get command used in cloud-init, the various settings
+// getCommand is the default apt-get command used in cloud-init, the various settings
 // mean that apt won't actually block waiting for a prompt from the user.
-var aptGetCommand = []string{
+var getCommand = []string{
 	"apt-get", "--option=Dpkg::Options::=--force-confold",
 	"--option=Dpkg::options::=--force-unsafe-io", "--assume-yes", "--quiet",
 }
 
-// aptEnvOptions are options we need to pass to apt-get to not have it prompt
+// getEnvOptions are options we need to pass to apt-get to not have it prompt
 // the user
-var aptGetEnvOptions = []string{"DEBIAN_FRONTEND=noninteractive"}
+var getEnvOptions = []string{"DEBIAN_FRONTEND=noninteractive"}
 
-// cloudArchivePackages maintaines a list of packages that AptGetPreparePackages
+// cloudArchivePackages maintaines a list of packages that GetPreparePackages
 // should reference when determining the --target-release for a given series.
 // http://reqorts.qa.ubuntu.com/reports/ubuntu-server/cloud-archive/cloud-tools_versions.html
 var cloudArchivePackages = map[string]bool{
@@ -83,13 +84,12 @@ func targetRelease(series string) string {
 	}
 }
 
-// AptGetPreparePackages returns a slice of installCommands. Each item
-// in the slice is suitable for passing directly to AptGetInstall.
-//
-// AptGetPreparePackages will inspect the series passed to it
-// and properly generate an installCommand entry with a --target-release
+// GetPreparePackages returns a slice of installCommands. Each item
+// in the slice is suitable for passing directly to Apt.
+// It inspects the series passed to it
+// and properly generates an installCommand entry with a --target-release
 // should the series be an LTS release with cloud archive packages.
-func AptGetPreparePackages(packages []string, series string) [][]string {
+func GetPreparePackages(packages []string, series string) [][]string {
 	var installCommands [][]string
 	if target := targetRelease(series); target == "" {
 		return append(installCommands, packages)
@@ -120,27 +120,27 @@ func AptGetPreparePackages(packages []string, series string) [][]string {
 	}
 }
 
-// AptGetInstall runs 'apt-get install packages' for the packages listed here
-func AptGetInstall(packages ...string) error {
-	cmdArgs := append([]string(nil), aptGetCommand...)
+// GetInstall runs 'apt-get install packages' for the packages listed here
+func GetInstall(packages ...string) error {
+	cmdArgs := append([]string(nil), getCommand...)
 	cmdArgs = append(cmdArgs, "install")
 	cmdArgs = append(cmdArgs, packages...)
-	aptLogger.Infof("Running: %s", cmdArgs)
+	logger.Infof("Running: %s", cmdArgs)
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-	cmd.Env = append(os.Environ(), aptGetEnvOptions...)
-	out, err := AptCommandOutput(cmd)
+	cmd.Env = append(os.Environ(), getEnvOptions...)
+	out, err := CommandOutput(cmd)
 	if err != nil {
-		aptLogger.Errorf("apt-get command failed: %v\nargs: %#v\n%s",
+		logger.Errorf("apt-get command failed: %v\nargs: %#v\n%s",
 			err, cmdArgs, string(out))
 		return fmt.Errorf("apt-get failed: %v", err)
 	}
 	return nil
 }
 
-// AptConfigProxy will consult apt-config about the configured proxy
+// ConfigProxy will consult apt-config about the configured proxy
 // settings. If there are no proxy settings configured, an empty string is
 // returned.
-func AptConfigProxy() (string, error) {
+func ConfigProxy() (string, error) {
 	cmdArgs := []string{
 		"apt-config",
 		"dump",
@@ -149,23 +149,23 @@ func AptConfigProxy() (string, error) {
 		"Acquire::ftp::Proxy",
 	}
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
-	out, err := AptCommandOutput(cmd)
+	out, err := CommandOutput(cmd)
 	if err != nil {
-		aptLogger.Errorf("apt-config command failed: %v\nargs: %#v\n%s",
+		logger.Errorf("apt-config command failed: %v\nargs: %#v\n%s",
 			err, cmdArgs, string(out))
 		return "", fmt.Errorf("apt-config failed: %v", err)
 	}
-	return string(bytes.Join(aptProxyRE.FindAll(out, -1), []byte("\n"))), nil
+	return string(bytes.Join(proxyRE.FindAll(out, -1), []byte("\n"))), nil
 }
 
-// DetectAptProxies will parse the results of AptConfigProxy to return a
+// DetectProxies will parse the results of ConfigProxy to return a
 // ProxySettings instance.
-func DetectAptProxies() (result osenv.ProxySettings, err error) {
-	output, err := AptConfigProxy()
+func DetectProxies() (result proxy.Settings, err error) {
+	output, err := ConfigProxy()
 	if err != nil {
 		return result, err
 	}
-	for _, match := range aptProxyRE.FindAllStringSubmatch(output, -1) {
+	for _, match := range proxyRE.FindAllStringSubmatch(output, -1) {
 		switch match[1] {
 		case "http":
 			result.Http = match[2]
@@ -178,34 +178,25 @@ func DetectAptProxies() (result osenv.ProxySettings, err error) {
 	return result, nil
 }
 
-// AptProxyContent produces the format expected by the apt config files
+// ProxyContent produces the format expected by the apt config files
 // from the ProxySettings struct.
-func AptProxyContent(proxy osenv.ProxySettings) string {
+func ProxyContent(proxySettings proxy.Settings) string {
 	lines := []string{}
-	addLine := func(proxy, value string) {
+	addLine := func(proxySettings, value string) {
 		if value != "" {
 			lines = append(lines, fmt.Sprintf(
-				"Acquire::%s::Proxy %q;", proxy, value))
+				"Acquire::%s::Proxy %q;", proxySettings, value))
 		}
 	}
-	addLine("http", proxy.Http)
-	addLine("https", proxy.Https)
-	addLine("ftp", proxy.Ftp)
+	addLine("http", proxySettings.Http)
+	addLine("https", proxySettings.Https)
+	addLine("ftp", proxySettings.Ftp)
 	return strings.Join(lines, "\n")
-}
-
-// IsUbuntu executes lxb_release to see if the host OS is Ubuntu.
-func IsUbuntu() bool {
-	out, err := RunCommand("lsb_release", "-i", "-s")
-	if err != nil {
-		return false
-	}
-	return strings.TrimSpace(out) == "Ubuntu"
 }
 
 // IsPackageInstalled uses dpkg-query to determine if the `packageName`
 // package is installed.
 func IsPackageInstalled(packageName string) bool {
-	_, err := RunCommand("dpkg-query", "--status", packageName)
+	_, err := utils.RunCommand("dpkg-query", "--status", packageName)
 	return err == nil
 }

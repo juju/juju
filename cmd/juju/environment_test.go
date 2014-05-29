@@ -46,7 +46,7 @@ var singleValueTests = []struct {
 
 func (s *GetEnvironmentSuite) TestSingleValue(c *gc.C) {
 	for _, t := range singleValueTests {
-		context, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), []string{t.key})
+		context, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), t.key)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
@@ -58,12 +58,12 @@ func (s *GetEnvironmentSuite) TestSingleValue(c *gc.C) {
 }
 
 func (s *GetEnvironmentSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), []string{"name", "type"})
+	_, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), "name", "type")
 	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["type"\]`)
 }
 
 func (s *GetEnvironmentSuite) TestAllValues(c *gc.C) {
-	context, _ := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), []string{})
+	context, _ := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}))
 	output := strings.TrimSpace(testing.Stdout(context))
 
 	// Make sure that all the environment keys are there. The admin
@@ -132,7 +132,7 @@ func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 	c.Assert(series, gc.Equals, "precise") // default-series set in RepoSuite.SetUpTest
 
-	_, err = testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), []string{"default-series=raring"})
+	_, err = testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
 	c.Assert(err, gc.IsNil)
 
 	stateConfig, err = s.State.EnvironConfig()
@@ -144,7 +144,7 @@ func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 }
 
 func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), []string{"ssl-hostname-verification=false"})
+	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "ssl-hostname-verification=false")
 	c.Assert(err, gc.IsNil)
 
 	stateConfig, err := s.State.EnvironConfig()
@@ -153,7 +153,7 @@ func (s *SetEnvironmentSuite) TestChangeBooleanAttribute(c *gc.C) {
 }
 
 func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), []string{"default-series=spartan", "broken=nope", "secret=sekrit"})
+	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=spartan", "broken=nope", "secret=sekrit")
 	c.Assert(err, gc.IsNil)
 
 	stateConfig, err := s.State.EnvironConfig()
@@ -165,10 +165,10 @@ func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
 }
 
 func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *gc.C) {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), []string{"default-series=raring"})
+	_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), "default-series=raring")
 	c.Assert(err, gc.IsNil)
 
-	context, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), []string{"default-series"})
+	context, err := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}), "default-series")
 	c.Assert(err, gc.IsNil)
 	output := strings.TrimSpace(testing.Stdout(context))
 
@@ -186,7 +186,7 @@ var immutableConfigTests = map[string]string{
 func (s *SetEnvironmentSuite) TestImmutableConfigValues(c *gc.C) {
 	for name, value := range immutableConfigTests {
 		param := fmt.Sprintf("%s=%s", name, value)
-		_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), []string{param})
+		_, err := testing.RunCommand(c, envcmd.Wrap(&SetEnvironmentCommand{}), param)
 		errorPattern := fmt.Sprintf("cannot change %s from .* to [\"]?%v[\"]?", name, value)
 		c.Assert(err, gc.ErrorMatches, errorPattern)
 	}
@@ -218,11 +218,6 @@ var unsetEnvTests = []struct {
 			"xyz":  123,
 		},
 	}, {
-		args: []string{"syslog-port"},
-		expected: attributes{
-			"syslog-port": config.DefaultSyslogPort,
-		},
-	}, {
 		args:       []string{"xyz2", "xyz"},
 		unexpected: []string{"xyz"},
 	},
@@ -230,8 +225,7 @@ var unsetEnvTests = []struct {
 
 func (s *UnsetEnvironmentSuite) initConfig(c *gc.C) {
 	err := s.State.UpdateEnvironConfig(map[string]interface{}{
-		"syslog-port": 1234,
-		"xyz":         123,
+		"xyz": 123,
 	}, nil, nil)
 	c.Assert(err, gc.IsNil)
 }
@@ -240,7 +234,7 @@ func (s *UnsetEnvironmentSuite) TestUnsetEnvironment(c *gc.C) {
 	for _, t := range unsetEnvTests {
 		c.Logf("testing unset-env %v", t.args)
 		s.initConfig(c)
-		_, err := testing.RunCommand(c, envcmd.Wrap(&UnsetEnvironmentCommand{}), t.args)
+		_, err := testing.RunCommand(c, envcmd.Wrap(&UnsetEnvironmentCommand{}), t.args...)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {

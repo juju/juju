@@ -18,6 +18,8 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/version"
 )
 
@@ -81,7 +83,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return environ, nil
 }
 
-var detectAptProxies = utils.DetectAptProxies
+var detectAptProxies = apt.DetectProxies
 
 // Prepare implements environs.EnvironProvider.Prepare.
 func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config) (environs.Environ, error) {
@@ -118,23 +120,23 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 		cfg.HttpsProxy() == "" &&
 		cfg.FtpProxy() == "" &&
 		cfg.NoProxy() == "" {
-		proxy := osenv.DetectProxies()
-		logger.Tracef("Proxies detected %#v", proxy)
-		setIfNotBlank("http-proxy", proxy.Http)
-		setIfNotBlank("https-proxy", proxy.Https)
-		setIfNotBlank("ftp-proxy", proxy.Ftp)
-		setIfNotBlank("no-proxy", proxy.NoProxy)
+		proxySettings := proxy.DetectProxies()
+		logger.Tracef("Proxies detected %#v", proxySettings)
+		setIfNotBlank("http-proxy", proxySettings.Http)
+		setIfNotBlank("https-proxy", proxySettings.Https)
+		setIfNotBlank("ftp-proxy", proxySettings.Ftp)
+		setIfNotBlank("no-proxy", proxySettings.NoProxy)
 	}
 	if cfg.AptHttpProxy() == "" &&
 		cfg.AptHttpsProxy() == "" &&
 		cfg.AptFtpProxy() == "" {
-		proxy, err := detectAptProxies()
+		proxySettings, err := detectAptProxies()
 		if err != nil {
 			return nil, err
 		}
-		setIfNotBlank("apt-http-proxy", proxy.Http)
-		setIfNotBlank("apt-https-proxy", proxy.Https)
-		setIfNotBlank("apt-ftp-proxy", proxy.Ftp)
+		setIfNotBlank("apt-http-proxy", proxySettings.Http)
+		setIfNotBlank("apt-https-proxy", proxySettings.Https)
+		setIfNotBlank("apt-ftp-proxy", proxySettings.Ftp)
 	}
 	if len(attrs) > 0 {
 		cfg, err = cfg.Apply(attrs)

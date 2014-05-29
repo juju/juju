@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 
 	"github.com/juju/testing"
@@ -18,6 +19,15 @@ import (
 
 	"launchpad.net/juju-core/utils"
 )
+
+func init() {
+	// The default Proxy implementation for HTTP transports,
+	// ProxyFromEnvironment, uses a sync.Once in Go 1.3 onwards.
+	// No tests should be dialing out, so no proxy should be
+	// used.
+	os.Setenv("http_proxy", "")
+	os.Setenv("HTTP_PROXY", "")
+}
 
 type httpSuite struct {
 	Server *httptest.Server
@@ -102,6 +112,8 @@ func (s *dialSuite) TestDialRejectsNonLocal(c *gc.C) {
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 	_, err := utils.Dial("tcp", "10.0.0.1:80")
 	c.Assert(err, gc.ErrorMatches, `access to address "10.0.0.1:80" not allowed`)
+	_, err = utils.Dial("tcp", "somehost:80")
+	c.Assert(err, gc.ErrorMatches, `access to address "somehost:80" not allowed`)
 }
 
 func (s *dialSuite) assertDial(c *gc.C, addr string) {
@@ -125,6 +137,7 @@ func (s *dialSuite) TestDialAllowsNonLocal(c *gc.C) {
 func (s *dialSuite) TestDialAllowsLocal(c *gc.C) {
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 	s.assertDial(c, "127.0.0.1:1234")
+	s.assertDial(c, "localhost:1234")
 }
 
 func (s *dialSuite) TestInsecureClientNoAccess(c *gc.C) {

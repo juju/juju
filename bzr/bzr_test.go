@@ -8,22 +8,22 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"testing"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/bzr"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/testing"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
 var _ = gc.Suite(&BzrSuite{})
 
 type BzrSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	b *bzr.Branch
 }
 
@@ -32,7 +32,7 @@ email = testing <test@example.com>
 `
 
 func (s *BzrSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	bzrdir := c.MkDir()
 	s.PatchEnvironment("BZR_HOME", bzrdir)
 	err := os.Mkdir(filepath.Join(bzrdir, ".bazaar"), 0755)

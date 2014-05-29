@@ -91,7 +91,7 @@ func (s *SignMetadataSuite) TestSignMetadata(c *gc.C) {
 }
 
 func runSignMetadata(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, &SignMetadataCommand{}, args)
+	_, err := coretesting.RunCommand(c, &SignMetadataCommand{}, args...)
 	return err
 }
 

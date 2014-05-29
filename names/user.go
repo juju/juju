@@ -4,13 +4,14 @@
 package names
 
 import (
-	"strings"
+	"regexp"
 )
 
+var validName = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9.-]*[a-zA-Z0-9]$")
+
 // IsUser returns whether id is a valid user id.
-// TODO(rog) stricter constraints
 func IsUser(name string) bool {
-	return !strings.Contains(name, "/") && name != ""
+	return validName.MatchString(name)
 }
 
 // UserTag returns the tag for the user with the given name.

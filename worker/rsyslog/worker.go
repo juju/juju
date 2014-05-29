@@ -53,7 +53,7 @@ type RsyslogConfigHandler struct {
 	mode            RsyslogMode
 	syslogConfig    *syslog.SyslogConfig
 	rsyslogConfPath string
-
+	tag             string
 	// We store the syslog-port and rsyslog-ca-cert
 	// values after writing the rsyslog configuration,
 	// so we can decide whether a change has occurred.
@@ -63,8 +63,8 @@ type RsyslogConfigHandler struct {
 
 var _ worker.NotifyWatchHandler = (*RsyslogConfigHandler)(nil)
 
-// NewRsyslogConfigWorker returns a worker.Worker that watches
-// for config changes and updates rsyslog configuration based
+// NewRsyslogConfigWorker returns a worker.Worker that uses
+// WatchForRsyslogChanges and updates rsyslog configuration based
 // on changes. The worker will remove the configuration file
 // on teardown.
 func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag, namespace string, stateServerAddrs []string) (worker.Worker, error) {
@@ -116,6 +116,7 @@ func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag, namesp
 		st:           st,
 		mode:         mode,
 		syslogConfig: syslogConfig,
+		tag:          tag,
 	}, nil
 }
 
@@ -125,7 +126,7 @@ func (h *RsyslogConfigHandler) SetUp() (watcher.NotifyWatcher, error) {
 			return nil, errors.Annotate(err, "failed to write rsyslog certificates")
 		}
 	}
-	return h.st.WatchForEnvironConfigChanges()
+	return h.st.WatchForRsyslogChanges(h.tag)
 }
 
 var restartRsyslog = syslog.Restart
@@ -138,20 +139,16 @@ func (h *RsyslogConfigHandler) TearDown() error {
 }
 
 func (h *RsyslogConfigHandler) Handle() error {
-	cfg, err := h.st.EnvironConfig()
+	cfg, err := h.st.GetRsyslogConfig(h.tag)
 	if err != nil {
 		return errors.Annotate(err, "cannot get environ config")
 	}
-	rsyslogCACert := cfg.RsyslogCACert()
+	rsyslogCACert := cfg.CACert
 	if rsyslogCACert == "" {
 		return nil
 	}
-	// If neither syslog-port nor rsyslog-ca-cert
-	// have changed, we can drop out now.
-	if cfg.SyslogPort() == h.syslogPort && rsyslogCACert == h.rsyslogCACert {
-		return nil
-	}
-	h.syslogConfig.Port = cfg.SyslogPort()
+
+	h.syslogConfig.Port = cfg.Port
 	if h.mode == RsyslogModeForwarding {
 		if err := writeFileAtomic(h.syslogConfig.CACertPath(), []byte(rsyslogCACert), 0644, 0, 0); err != nil {
 			return errors.Annotate(err, "cannot write CA certificate")
@@ -172,7 +169,7 @@ func (h *RsyslogConfigHandler) Handle() error {
 	// Record config values so we don't try again.
 	// Do this last so we recover from intermittent
 	// failures.
-	h.syslogPort = cfg.SyslogPort()
+	h.syslogPort = cfg.Port
 	h.rsyslogCACert = rsyslogCACert
 	return nil
 }

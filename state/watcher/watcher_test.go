@@ -14,7 +14,6 @@ import (
 
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 // Test tuning parameters.
@@ -47,7 +46,7 @@ func TestPackage(t *stdtesting.T) {
 
 type watcherSuite struct {
 	testing.MgoSuite
-	testbase.LoggingSuite
+	testing.BaseSuite
 
 	log       *mgo.Collection
 	stash     *mgo.Collection
@@ -71,19 +70,19 @@ func (s *FastPeriodSuite) SetUpSuite(c *gc.C) {
 var _ = gc.Suite(&FastPeriodSuite{})
 
 func (s *watcherSuite) SetUpSuite(c *gc.C) {
-	s.LoggingSuite.SetUpSuite(c)
+	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.oldPeriod = watcher.Period
 }
 
 func (s *watcherSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
-	s.LoggingSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 	watcher.Period = s.oldPeriod
 }
 
 func (s *watcherSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
+	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 
 	db := s.MgoSuite.Session.DB("juju")
@@ -103,7 +102,7 @@ func (s *watcherSuite) TearDownTest(c *gc.C) {
 	c.Assert(s.w.Stop(), gc.IsNil)
 
 	s.MgoSuite.TearDownTest(c)
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 type M map[string]interface{}

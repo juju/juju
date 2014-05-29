@@ -17,13 +17,13 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata/testing"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 var _ = gc.Suite(&uploadSuite{})
 
 type uploadSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 func createImageMetadata(c *gc.C) (sourceDir string, destDir string, destStor storage.Storage, metadata *imagemetadata.ImageMetadata) {

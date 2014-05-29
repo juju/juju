@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The state package enables reading, observing, and changing
+// Package state enables reading, observing, and changing
 // the state stored in MongoDB of a whole environment
 // managed by juju.
 package state
@@ -64,6 +64,7 @@ type State struct {
 	settingsrefs      *mgo.Collection
 	constraints       *mgo.Collection
 	units             *mgo.Collection
+	actions           *mgo.Collection
 	users             *mgo.Collection
 	presence          *mgo.Collection
 	cleanups          *mgo.Collection
@@ -316,7 +317,7 @@ func (st *State) UpdateEnvironConfig(updateAttrs map[string]interface{}, removeA
 	}
 
 	validAttrs := validCfg.AllAttrs()
-	for k, _ := range oldConfig.AllAttrs() {
+	for k := range oldConfig.AllAttrs() {
 		if _, ok := validAttrs[k]; !ok {
 			settings.Delete(k)
 		}
@@ -1370,6 +1371,57 @@ func (st *State) Relation(id int) (*Relation, error) {
 		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
 	}
 	return newRelation(st, &doc), nil
+}
+
+// AllRelations returns all relations in the environment ordered by id.
+func (st *State) AllRelations() (relations []*Relation, err error) {
+	docs := relationDocSlice{}
+	err = st.relations.Find(nil).All(&docs)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot get all relations")
+	}
+	sort.Sort(docs)
+	for _, v := range docs {
+		relations = append(relations, newRelation(st, &v))
+	}
+	return
+}
+
+type relationDocSlice []relationDoc
+
+func (rdc relationDocSlice) Len() int      { return len(rdc) }
+func (rdc relationDocSlice) Swap(i, j int) { rdc[i], rdc[j] = rdc[j], rdc[i] }
+func (rdc relationDocSlice) Less(i, j int) bool {
+	return rdc[i].Id < rdc[j].Id
+}
+
+// Action returns an Action by Id.
+func (st *State) Action(id string) (*Action, error) {
+	doc := actionDoc{}
+	err := st.actions.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("action %q", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get action %q: %v", id, err)
+	}
+	return newAction(st, doc), nil
+}
+
+// UnitActions returns a list of pending actions for a unit named name
+func (st *State) UnitActions(name string) ([]*Action, error) {
+	actions := []*Action{}
+	prefix := actionPrefix(unitGlobalKey(name))
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
+	iter := st.actions.Find(sel).Iter()
+	doc := actionDoc{}
+	for iter.Next(&doc) {
+		actions = append(actions, newAction(st, doc))
+	}
+	if err := iter.Err(); err != nil {
+		return actions, err
+	}
+	return actions, nil
 }
 
 // Unit returns a unit by name.

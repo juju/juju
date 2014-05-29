@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/version"
 )
 
@@ -511,8 +512,8 @@ func (c *Config) ProxySSH() bool {
 
 // ProxySettings returns all four proxy settings; http, https, ftp, and no
 // proxy.
-func (c *Config) ProxySettings() osenv.ProxySettings {
-	return osenv.ProxySettings{
+func (c *Config) ProxySettings() proxy.Settings {
+	return proxy.Settings{
 		Http:    c.HttpProxy(),
 		Https:   c.HttpsProxy(),
 		Ftp:     c.FtpProxy(),
@@ -549,8 +550,8 @@ func (c *Config) getWithFallback(key, fallback string) string {
 }
 
 // AptProxySettings returns all three proxy settings; http, https and ftp.
-func (c *Config) AptProxySettings() osenv.ProxySettings {
-	return osenv.ProxySettings{
+func (c *Config) AptProxySettings() proxy.Settings {
+	return proxy.Settings{
 		Http:  c.AptHttpProxy(),
 		Https: c.AptHttpsProxy(),
 		Ftp:   c.AptFtpProxy(),
@@ -926,6 +927,7 @@ var immutableAttributes = []string{
 	"bootstrap-addresses-delay",
 	"lxc-clone",
 	"lxc-clone-aufs",
+	"syslog-port",
 }
 
 var (
@@ -1019,21 +1021,21 @@ func addIfNotEmpty(settings map[string]interface{}, key, value string) {
 
 // ProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
-func ProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
+func ProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, "http-proxy", proxy.Http)
-	addIfNotEmpty(settings, "https-proxy", proxy.Https)
-	addIfNotEmpty(settings, "ftp-proxy", proxy.Ftp)
-	addIfNotEmpty(settings, "no-proxy", proxy.NoProxy)
+	addIfNotEmpty(settings, "http-proxy", proxySettings.Http)
+	addIfNotEmpty(settings, "https-proxy", proxySettings.Https)
+	addIfNotEmpty(settings, "ftp-proxy", proxySettings.Ftp)
+	addIfNotEmpty(settings, "no-proxy", proxySettings.NoProxy)
 	return settings
 }
 
 // AptProxyConfigMap returns a map suitable to be applied to a Config to update
 // proxy settings.
-func AptProxyConfigMap(proxy osenv.ProxySettings) map[string]interface{} {
+func AptProxyConfigMap(proxySettings proxy.Settings) map[string]interface{} {
 	settings := make(map[string]interface{})
-	addIfNotEmpty(settings, "apt-http-proxy", proxy.Http)
-	addIfNotEmpty(settings, "apt-https-proxy", proxy.Https)
-	addIfNotEmpty(settings, "apt-ftp-proxy", proxy.Ftp)
+	addIfNotEmpty(settings, "apt-http-proxy", proxySettings.Http)
+	addIfNotEmpty(settings, "apt-https-proxy", proxySettings.Https)
+	addIfNotEmpty(settings, "apt-ftp-proxy", proxySettings.Ftp)
 	return settings
 }

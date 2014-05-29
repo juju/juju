@@ -11,13 +11,14 @@ import (
 	"github.com/juju/loggo"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state/api/environment"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/utils/exec"
+	proxyutils "launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -43,8 +44,8 @@ var (
 // proxy file.
 type MachineEnvironmentWorker struct {
 	api      *environment.Facade
-	aptProxy osenv.ProxySettings
-	proxy    osenv.ProxySettings
+	aptProxy proxyutils.Settings
+	proxy    proxyutils.Settings
 
 	writeSystemFiles bool
 	// The whole point of the first value is to make sure that the the files
@@ -111,7 +112,7 @@ func (w *MachineEnvironmentWorker) writeEnvironmentFile() error {
 	return nil
 }
 
-func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings osenv.ProxySettings) {
+func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings proxyutils.Settings) {
 	if proxySettings != w.proxy || w.first {
 		logger.Debugf("new proxy settings %#v", proxySettings)
 		w.proxy = proxySettings
@@ -125,13 +126,13 @@ func (w *MachineEnvironmentWorker) handleProxyValues(proxySettings osenv.ProxySe
 	}
 }
 
-func (w *MachineEnvironmentWorker) handleAptProxyValues(aptSettings osenv.ProxySettings) {
+func (w *MachineEnvironmentWorker) handleAptProxyValues(aptSettings proxyutils.Settings) {
 	if w.writeSystemFiles && (aptSettings != w.aptProxy || w.first) {
 		logger.Debugf("new apt proxy settings %#v", aptSettings)
 		w.aptProxy = aptSettings
 		// Always finish with a new line.
-		content := utils.AptProxyContent(w.aptProxy) + "\n"
-		err := ioutil.WriteFile(utils.AptConfFile, []byte(content), 0644)
+		content := apt.ProxyContent(w.aptProxy) + "\n"
+		err := ioutil.WriteFile(apt.ConfFile, []byte(content), 0644)
 		if err != nil {
 			// It isn't really fatal, but we should record it.
 			logger.Errorf("error writing apt proxy config file: %v", err)

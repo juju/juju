@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"strconv"
 	"text/template"
 
 	"github.com/juju/loggo"
@@ -125,12 +126,12 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	initctl start juju-db
 
 	mongoAdminEval() {
-		mongo --ssl -u admin -p {{.Creds.OldPassword | shquote}} localhost:37017/admin --eval "$1"
+		mongo --ssl -u admin -p {{.AgentConfig.Credentials.OldPassword | shquote}} localhost:{{.AgentConfig.StatePort}}/admin --eval "$1"
 	}
 
 
 	mongoEval() {
-		mongo --ssl -u {{.Creds.Tag}} -p {{.Creds.Password | shquote}} localhost:37017/juju --eval "$1"
+		mongo --ssl -u {{.AgentConfig.Credentials.Tag}} -p {{.AgentConfig.Credentials.Password | shquote}} localhost:{{.AgentConfig.StatePort}}/juju --eval "$1"
 	}
 
 	# wait for mongo to come up after starting the juju-db upstart service.
@@ -140,17 +141,25 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		sleep 5
 	done
 
+	# Create a new replicaSet conf and re initiate it
+	mongoAdminEval '
+		conf = { "_id" : "juju", "version" : 1, "members" : [ { "_id" : 1, "host" : "{{ .PrivateAddress | printf "%s:"}}{{.AgentConfig.StatePort}}" , "tags" : { "juju-machine-id" : "0" } }]}
+		rs.initiate(conf)
+	'
+
+	sleep 60
+
+	# Remove all state machines but 0, to restore HA
 	mongoEval '
 		db = db.getSiblingDB("juju")
 		db.machines.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
 		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
+		db.machines.remove({_id: {$ne:"0"}, hasvote: true})
+		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : [0]}})
+		db.stateServers.update({"_id":"e"}, {$set:{"votingmachineids" : [0]}})
 	'
 	
-	# Create a new replicaSet conf and re initiate it
-	mongoAdminEval '
-		conf = { "_id" : "juju", "version" : 1, "members" : [ { "_id" : 1, "host" : "{{ .PrivateAddress | printf "%s:37017" }}" , "tags" : { "juju-machine-id" : "0" } }]}
-		rs.initiate(conf)
-	'
+
 
 	# Give time to replset to initiate
 	for i in $(seq 1 20)
@@ -163,6 +172,13 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 
 	# Update the agent.conf for machine-0 with the new addresses
 	cd /var/lib/juju/agents
+
+	# Remove extra state machines from conf
+	REMOVECOUNT=$(grep -Ec "^-.*{{.AgentConfig.ApiPort}}$" /var/lib/juju/agents/machine-0/agent.conf )
+	awk '/\-.*{{.AgentConfig.ApiPort}}$/{i++}i<1' machine-0/agent.conf > machine-0/agent.conf.new
+	awk -v removecount=$REMOVECOUNT '/\-.*{{.AgentConfig.ApiPort}}$/{i++}i==removecount' machine-0/agent.conf >> machine-0/agent.conf.new
+	mv machine-0/agent.conf.new  machine-0/agent.conf
+
 	sed -i.old -r -e "/^(stateaddresses):/{
 		n
 		s/- .*(:[0-9]+)/- {{.Address}}\1/
@@ -170,18 +186,19 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		n
 		s/- .*(:[0-9]+)/- {{.PrivateAddress}}\1/
 	}"  machine-0/agent.conf
+	
 
 	initctl start juju-db
 	initctl start jujud-machine-0
 `)
 
-func updateBootstrapMachineScript(instanceId instance.Id, creds credentials, addr, paddr string) string {
+func updateBootstrapMachineScript(instanceId instance.Id, agentConf agentConfig, addr, paddr string) string {
 	return execTemplate(updateBootstrapMachineTemplate, struct {
 		NewInstanceId  instance.Id
-		Creds          credentials
+		AgentConfig    agentConfig
 		Address        string
 		PrivateAddress string
-	}{instanceId, creds, addr, paddr})
+	}{instanceId, agentConf, addr, paddr})
 }
 
 func (c *restoreCommand) Run(ctx *cmd.Context) error {
@@ -192,9 +209,9 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err := c.Log.Start(ctx); err != nil {
 		return err
 	}
-	creds, err := extractCreds(c.backupFile)
+	agentConf, err := extractConfig(c.backupFile)
 	if err != nil {
-		return fmt.Errorf("cannot extract credentials from backup file: %v", err)
+		return fmt.Errorf("cannot extract configuration from backup file: %v", err)
 	}
 	progress("extracted credentials from backup file")
 	store, err := configstore.Default()
@@ -215,7 +232,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("cannot connect to bootstrap instance: %v", err)
 	}
 	progress("restoring bootstrap machine")
-	newInstId, machine0Addr, err := restoreBootstrapMachine(conn, c.backupFile, creds)
+	newInstId, machine0Addr, err := restoreBootstrapMachine(conn, c.backupFile, agentConf)
 	if err != nil {
 		return fmt.Errorf("cannot restore bootstrap machine: %v", err)
 	}
@@ -237,8 +254,8 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
 		CACert:   caCert,
-		Tag:      creds.Tag,
-		Password: creds.Password,
+		Tag:      agentConf.Credentials.Tag,
+		Password: agentConf.Credentials.Password,
 	}, state.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return fmt.Errorf("cannot open state: %v", err)
@@ -303,7 +320,7 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	return env, nil
 }
 
-func restoreBootstrapMachine(conn *juju.APIConn, backupFile string, creds credentials) (newInstId instance.Id, addr string, err error) {
+func restoreBootstrapMachine(conn *juju.APIConn, backupFile string, agentConf agentConfig) (newInstId instance.Id, addr string, err error) {
 	client := conn.State.Client()
 	addr, err = client.PublicAddress("0")
 	if err != nil {
@@ -328,7 +345,7 @@ func restoreBootstrapMachine(conn *juju.APIConn, backupFile string, creds creden
 		return "", "", fmt.Errorf("cannot copy backup file to bootstrap instance: %v", err)
 	}
 	progress("updating bootstrap machine")
-	if err := runViaSsh(addr, updateBootstrapMachineScript(newInstId, creds, addr, paddr)); err != nil {
+	if err := runViaSsh(addr, updateBootstrapMachineScript(newInstId, agentConf, addr, paddr)); err != nil {
 		return "", "", fmt.Errorf("update script failed: %v", err)
 	}
 	return newInstId, addr, nil
@@ -340,50 +357,71 @@ type credentials struct {
 	OldPassword string
 }
 
-func extractCreds(backupFile string) (credentials, error) {
+type agentConfig struct {
+	Credentials credentials
+	ApiPort     string
+	StatePort   string
+}
+
+func extractConfig(backupFile string) (agentConfig, error) {
 	f, err := os.Open(backupFile)
 	if err != nil {
-		return credentials{}, err
+		return agentConfig{}, err
 	}
 	defer f.Close()
 	gzr, err := gzip.NewReader(f)
 	if err != nil {
-		return credentials{}, fmt.Errorf("cannot unzip %q: %v", backupFile, err)
+		return agentConfig{}, fmt.Errorf("cannot unzip %q: %v", backupFile, err)
 	}
 	defer gzr.Close()
 	outerTar, err := findFileInTar(gzr, "juju-backup/root.tar")
 	if err != nil {
-		return credentials{}, err
+		return agentConfig{}, err
 	}
 	agentConf, err := findFileInTar(outerTar, "var/lib/juju/agents/machine-0/agent.conf")
 	if err != nil {
-		return credentials{}, err
+		return agentConfig{}, err
 	}
 	data, err := ioutil.ReadAll(agentConf)
 	if err != nil {
-		return credentials{}, fmt.Errorf("failed to read agent config file: %v", err)
+		return agentConfig{}, fmt.Errorf("failed to read agent config file: %v", err)
 	}
 	var conf interface{}
 	if err := goyaml.Unmarshal(data, &conf); err != nil {
-		return credentials{}, fmt.Errorf("cannot unmarshal agent config file: %v", err)
+		return agentConfig{}, fmt.Errorf("cannot unmarshal agent config file: %v", err)
 	}
 	m, ok := conf.(map[interface{}]interface{})
 	if !ok {
-		return credentials{}, fmt.Errorf("config file unmarshalled to %T not %T", conf, m)
+		return agentConfig{}, fmt.Errorf("config file unmarshalled to %T not %T", conf, m)
 	}
 	password, ok := m["statepassword"].(string)
 	if !ok || password == "" {
-		return credentials{}, fmt.Errorf("agent password not found in configuration")
+		return agentConfig{}, fmt.Errorf("agent password not found in configuration")
 	}
 	oldPassword, ok := m["oldpassword"].(string)
 	if !ok || oldPassword == "" {
-		return credentials{}, fmt.Errorf("agent old password not found in configuration")
+		return agentConfig{}, fmt.Errorf("agent old password not found in configuration")
+	}
+	statePortNum, ok := m["stateport"].(int)
+	if !ok {
+		return agentConfig{}, fmt.Errorf("state port not found in configuration")
 	}
 
-	return credentials{
-		Tag:         "machine-0",
-		Password:    password,
-		OldPassword: oldPassword,
+	statePort := strconv.Itoa(statePortNum)
+	apiPortNum, ok := m["apiport"].(int)
+	if !ok {
+		return agentConfig{}, fmt.Errorf("api port not found in configuration")
+	}
+	apiPort := strconv.Itoa(apiPortNum)
+
+	return agentConfig{
+		Credentials: credentials{
+			Tag:         "machine-0",
+			Password:    password,
+			OldPassword: oldPassword,
+		},
+		StatePort: statePort,
+		ApiPort:   apiPort,
 	}, nil
 }
 

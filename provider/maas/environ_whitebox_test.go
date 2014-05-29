@@ -70,6 +70,11 @@ func (suite *environSuite) setupFakeTools(c *gc.C) {
 	envtesting.UploadFakeTools(c, stor)
 }
 
+func (suite *environSuite) setupFakeImageMetadata(c *gc.C) {
+	stor := NewStorage(suite.makeEnviron())
+	UseTestImageMetadata(c, stor)
+}
+
 func (suite *environSuite) addNode(jsonText string) instance.Id {
 	node := suite.testMAASObject.TestServer.NewNode(jsonText)
 	resourceURI, _ := node.GetField("resource_uri")
@@ -594,23 +599,26 @@ func (suite *environSuite) TestGetToolsMetadataSources(c *gc.C) {
 }
 
 func (suite *environSuite) TestSupportedArchitectures(c *gc.C) {
+	suite.setupFakeImageMetadata(c)
 	env := suite.makeEnviron()
 	a, err := env.SupportedArchitectures()
 	c.Assert(err, gc.IsNil)
-	c.Assert(a, gc.DeepEquals, []string{"amd64"})
+	c.Assert(a, jc.SameContents, []string{"amd64"})
 }
 
 func (suite *environSuite) TestConstraintsValidator(c *gc.C) {
+	suite.setupFakeImageMetadata(c)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
 	cons := constraints.MustParse("arch=amd64 cpu-power=10 instance-type=foo")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "instance-type"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type"})
 }
 
 func (suite *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
+	suite.setupFakeImageMetadata(c)
 	env := suite.makeEnviron()
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)

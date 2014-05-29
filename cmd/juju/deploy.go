@@ -27,14 +27,13 @@ import (
 type DeployCommand struct {
 	envcmd.EnvCommandBase
 	UnitCommandBase
-	CharmName       string
-	ServiceName     string
-	Config          cmd.FileVar
-	Constraints     constraints.Value
-	Networks        string
-	ExcludeNetworks string
-	BumpRevision    bool   // Remove this once the 1.16 support is dropped.
-	RepoPath        string // defaults to JUJU_REPOSITORY
+	CharmName    string
+	ServiceName  string
+	Config       cmd.FileVar
+	Constraints  constraints.Value
+	Networks     string
+	BumpRevision bool   // Remove this once the 1.16 support is dropped.
+	RepoPath     string // defaults to JUJU_REPOSITORY
 }
 
 const deployDoc = `
@@ -88,18 +87,17 @@ Examples:
    juju deploy mysql --to 23       (deploy to machine 23)
    juju deploy mysql --to 24/lxc/3 (deploy to lxc container 3 on host machine 24)
    juju deploy mysql --to lxc:25   (deploy to a new lxc container on host machine 25)
-   
+
    juju deploy mysql -n 5 --constraints mem=8G (deploy 5 instances of mysql with at least 8 GB of RAM each)
 
-   juju deploy mysql --networks=storage,mynet --exclude-networks=logging
+   juju deploy mysql --networks=storage,mynet
 
 Like constraints, service-specific network requirements can be
-specified with --networks and --exclude-networks arguments, both can
-take a comma-delimited list of provider-specific network names/labels.
+specified with the --networks argument, which takes a comma-delimited
+list of provider-specific network names/labels.
 These instruct juju to ensure to add all the networks specified with
---networks to all new machines deployed to host units of the service
-and to ensure none of the networks in --exclude-networks are added to
-the service's machines. Not supported on all providers.
+--networks to all new machines deployed to host units of the service.
+Not supported on all providers.
 
 See Also:
    juju help constraints
@@ -124,7 +122,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
 	f.StringVar(&c.Networks, "networks", "", "enable networks for service")
-	f.StringVar(&c.ExcludeNetworks, "exclude-networks", "", "disable networks for service")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 }
 
@@ -186,23 +183,15 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
 	var includeNetworks []string
-	var excludeNetworks []string
-	haveNetworks := false
 	if c.Networks != "" {
 		includeNetworks = parseNetworks(c.Networks)
-		haveNetworks = true
-	}
-	if c.ExcludeNetworks != "" {
-		excludeNetworks = parseNetworks(c.ExcludeNetworks)
-		haveNetworks = true
-	}
-	if haveNetworks {
+
 		env, err := environs.New(conf)
 		if err != nil {
 			return err
 		}
 		if !env.SupportNetworks() {
-			return errors.New("cannot use --networks/--exclude-networks: not supported by the environment")
+			return errors.New("cannot use --networks: not supported by the environment")
 		}
 	}
 
@@ -242,11 +231,11 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		c.Constraints,
 		c.ToMachineSpec,
 		includeNetworks,
-		excludeNetworks,
+		nil,
 	)
 	if params.IsCodeNotImplemented(err) {
-		if haveNetworks {
-			return errors.New("cannot use --networks/--exclude-networks: not supported by the API server")
+		if len(includeNetworks) > 0 {
+			return errors.New("cannot use --networks: not supported by the API server")
 		}
 		err = client.ServiceDeploy(
 			curl.String(),
@@ -294,8 +283,7 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 }
 
 // parseNetworks returns a list of network tags by parsing the
-// comma-delimited string value of --networks or --exclude-networks
-// arguments.
+// comma-delimited string value of --networks argument.
 func parseNetworks(networksValue string) (networks []string) {
 	parts := strings.Split(networksValue, ",")
 	for _, part := range parts {

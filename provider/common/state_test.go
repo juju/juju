@@ -4,47 +4,61 @@
 package common_test
 
 import (
+	"errors"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider/common"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type StateSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 }
 
 var _ = gc.Suite(&StateSuite{})
 
-func (suite *StateSuite) TestGetDNSNamesAcceptsNil(c *gc.C) {
-	result := common.GetDNSNames(nil)
+func (suite *StateSuite) TestGetAddressesAcceptsNil(c *gc.C) {
+	result := common.GetAddresses(nil)
 	c.Check(result, gc.DeepEquals, []string{})
 }
 
-func (suite *StateSuite) TestGetDNSNamesReturnsNames(c *gc.C) {
+func (suite *StateSuite) TestGetAddressesReturnsNames(c *gc.C) {
 	instances := []instance.Instance{
-		&dnsNameFakeInstance{name: "foo"},
-		&dnsNameFakeInstance{name: "bar"},
+		&mockInstance{addresses: instance.NewAddresses("foo")},
+		&mockInstance{addresses: instance.NewAddresses("bar")},
 	}
-
-	c.Check(common.GetDNSNames(instances), gc.DeepEquals, []string{"foo", "bar"})
+	c.Check(common.GetAddresses(instances), gc.DeepEquals, []string{"foo", "bar"})
 }
 
-func (suite *StateSuite) TestGetDNSNamesIgnoresNils(c *gc.C) {
-	c.Check(common.GetDNSNames([]instance.Instance{nil, nil}), gc.DeepEquals, []string{})
+func (suite *StateSuite) TestGetAddressesIgnoresNils(c *gc.C) {
+	instances := []instance.Instance{
+		nil,
+		&mockInstance{addresses: instance.NewAddresses("foo")},
+		nil,
+		&mockInstance{addresses: instance.NewAddresses("bar")},
+		nil,
+	}
+	c.Check(common.GetAddresses(instances), gc.DeepEquals, []string{"foo", "bar"})
+	c.Check(common.GetAddresses(nil), gc.DeepEquals, []string{})
 }
 
-func (suite *StateSuite) TestGetDNSNamesIgnoresInstancesWithoutNames(c *gc.C) {
-	instances := []instance.Instance{&dnsNameFakeInstance{err: instance.ErrNoDNSName}}
-	c.Check(common.GetDNSNames(instances), gc.DeepEquals, []string{})
+func (suite *StateSuite) TestGetAddressesIgnoresInstancesWithoutAddrs(c *gc.C) {
+	instances := []instance.Instance{&mockInstance{}}
+	c.Check(common.GetAddresses(instances), gc.DeepEquals, []string{})
 }
 
-func (suite *StateSuite) TestGetDNSNamesIgnoresInstancesWithBlankNames(c *gc.C) {
-	instances := []instance.Instance{&dnsNameFakeInstance{name: ""}}
-	c.Check(common.GetDNSNames(instances), gc.DeepEquals, []string{})
+func (suite *StateSuite) TestGetAddressesIgnoresAddressesErrors(c *gc.C) {
+	instances := []instance.Instance{
+		&mockInstance{
+			addresses:    instance.NewAddresses("one"),
+			addressesErr: errors.New("ignored"),
+		},
+		&mockInstance{addresses: instance.NewAddresses("two", "three")},
+	}
+	c.Check(common.GetAddresses(instances), gc.DeepEquals, []string{"two", "three"})
 }
 
 func (suite *StateSuite) TestComposeAddressesAcceptsNil(c *gc.C) {

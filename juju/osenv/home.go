@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // jujuHome stores the path to the juju configuration
@@ -62,7 +64,7 @@ func JujuHomeDir() string {
 
 // jujuHomeLinux returns the directory where juju should store application-specific files on Linux.
 func jujuHomeLinux() string {
-	home := Home()
+	home := utils.Home()
 	if home == "" {
 		return ""
 	}

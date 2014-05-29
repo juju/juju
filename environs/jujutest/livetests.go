@@ -33,7 +33,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -43,7 +42,6 @@ import (
 // (e.g. Amazon EC2).  The Environ is opened once only for all the tests
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
-	testbase.LoggingSuite
 	envtesting.ToolsFixture
 
 	// TestConfig contains the configuration attributes for opening an environment.
@@ -75,13 +73,7 @@ type LiveTests struct {
 }
 
 func (t *LiveTests) SetUpSuite(c *gc.C) {
-	t.LoggingSuite.SetUpSuite(c)
 	t.ConfigStore = configstore.NewMem()
-}
-
-func (t *LiveTests) SetUpTest(c *gc.C) {
-	t.LoggingSuite.SetUpTest(c)
-	t.ToolsFixture.SetUpTest(c)
 }
 
 func publicAttrs(e environs.Environ) map[string]interface{} {
@@ -101,12 +93,6 @@ func (t *LiveTests) TearDownSuite(c *gc.C) {
 	if t.Env != nil {
 		t.Destroy(c)
 	}
-	t.LoggingSuite.TearDownSuite(c)
-}
-
-func (t *LiveTests) TearDownTest(c *gc.C) {
-	t.ToolsFixture.TearDownTest(c)
-	t.LoggingSuite.TearDownTest(c)
 }
 
 // PrepareOnce ensures that the environment is
@@ -136,7 +122,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 		_, err := sync.Upload(t.Env.Storage(), nil, coretesting.FakeDefaultSeries)
 		c.Assert(err, gc.IsNil)
 	}
-	envtesting.UploadFakeTools(c, t.Env.Storage())
+	t.UploadFakeTools(c, t.Env.Storage())
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, environs.BootstrapParams{Constraints: cons})
@@ -171,7 +157,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *gc.C) {
 	t.PrepareOnce(c)
-	envtesting.UploadFakeTools(c, t.Env.Storage())
+	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst, _ := testing.AssertStartInstance(c, t.Env, "0")
 	c.Assert(inst, gc.NotNil)
@@ -225,7 +211,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 
 func (t *LiveTests) TestPorts(c *gc.C) {
 	t.PrepareOnce(c)
-	envtesting.UploadFakeTools(c, t.Env.Storage())
+	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
 	c.Assert(inst1, gc.NotNil)
@@ -314,7 +300,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 
 func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	t.PrepareOnce(c)
-	envtesting.UploadFakeTools(c, t.Env.Storage())
+	t.UploadFakeTools(c, t.Env.Storage())
 
 	// Change configuration.
 	oldConfig := t.Env.Config()

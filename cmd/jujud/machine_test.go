@@ -25,7 +25,6 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/juju/osenv"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/dummy"
@@ -39,7 +38,8 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
@@ -466,6 +466,33 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	}
 }
 
+func (s *MachineSuite) TestEnsureLocalEnvironDoesntRunPeergrouper(c *gc.C) {
+	started := make(chan struct{}, 1)
+	s.agentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
+		c.Check(st, gc.NotNil)
+		select {
+		case started <- struct{}{}:
+		default:
+		}
+		return newDummyWorker(), nil
+	})
+	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, m)
+	err := a.ChangeConfig(func(config agent.ConfigSetter) {
+		config.SetValue(agent.ProviderType, "local")
+	})
+	c.Assert(err, gc.IsNil)
+	defer func() { c.Check(a.Stop(), gc.IsNil) }()
+	go func() {
+		c.Check(a.Run(nil), gc.IsNil)
+	}()
+	select {
+	case <-started:
+		c.Fatalf("local environment should not start peergrouper")
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
 func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	// If it has been enabled, the JobManageEnviron agent should call utils.UseMultipleCPUs
 	usefulVersion := version.Current
@@ -649,12 +676,7 @@ func (s *MachineSuite) assertAgentOpensState(
 	s.waitStopped(c, job, a, done)
 }
 
-// TODO(jam): 2013-09-02 http://pad.lv/1219661
-// This test has been failing regularly on the Bot. Until someone fixes it so
-// it doesn't crash, it isn't worth having as we can't tell when someone
-// actually breaks something.
 func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
-	c.Skip("does not pass reliably on the bot (http://pad.lv/1219661")
 	s.assertJobWithState(c, state.JobManageEnviron, func(conf agent.Config, agentState *state.State) {
 		st, err := api.Open(conf.APIInfo(), fastDialOpts)
 		c.Assert(err, gc.IsNil)
@@ -827,11 +849,11 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 func (s *MachineSuite) TestMachineEnvironWorker(c *gc.C) {
 	proxyDir := c.MkDir()
 	s.agentSuite.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
-	s.agentSuite.PatchValue(&utils.AptConfFile, filepath.Join(proxyDir, "juju-apt-proxy"))
+	s.agentSuite.PatchValue(&apt.ConfFile, filepath.Join(proxyDir, "juju-apt-proxy"))
 
 	s.primeAgent(c, version.Current, state.JobHostUnits)
 	// Make sure there are some proxy settings to write.
-	proxySettings := osenv.ProxySettings{
+	proxySettings := proxy.Settings{
 		Http:  "http proxy",
 		Https: "https proxy",
 		Ftp:   "ftp proxy",
@@ -848,7 +870,7 @@ func (s *MachineSuite) TestMachineEnvironWorker(c *gc.C) {
 			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timeout while waiting for proxy settings to change")
 			case <-time.After(10 * time.Millisecond):
-				_, err := os.Stat(utils.AptConfFile)
+				_, err := os.Stat(apt.ConfFile)
 				if os.IsNotExist(err) {
 					continue
 				}

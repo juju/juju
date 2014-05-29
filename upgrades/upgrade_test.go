@@ -17,7 +17,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/upgrades"
 	"launchpad.net/juju-core/version"
 )
@@ -37,7 +36,7 @@ func assertExpectedSteps(c *gc.C, steps []upgrades.Step, expectedSteps []string)
 }
 
 type upgradeSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&upgradeSuite{})
@@ -108,6 +107,7 @@ type mockAgentConfig struct {
 	jobs         []params.MachineJob
 	apiAddresses []string
 	values       map[string]string
+	stateInfo    *state.Info
 }
 
 func (mock *mockAgentConfig) Tag() string {
@@ -136,6 +136,10 @@ func (mock *mockAgentConfig) APIAddresses() ([]string, error) {
 
 func (mock *mockAgentConfig) Value(name string) string {
 	return mock.values[name]
+}
+
+func (mock *mockAgentConfig) StateInfo() (*state.Info, bool) {
+	return mock.stateInfo, true
 }
 
 func targets(targets ...upgrades.Target) (upgradeTargets []upgrades.Target) {

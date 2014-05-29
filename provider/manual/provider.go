@@ -141,7 +141,7 @@ manual:
     bootstrap-host: somehost.example.com
     
     # bootstrap-user specifies the user to authenticate as when
-    # connecting to the bootstrap machine. If defaults to
+    # connecting to the bootstrap machine. It defaults to
     # the current user.
     # bootstrap-user: joebloggs
     

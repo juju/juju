@@ -20,7 +20,7 @@ type ResolvedSuite struct {
 var _ = gc.Suite(&ResolvedSuite{})
 
 func runResolved(c *gc.C, args []string) error {
-	_, err := testing.RunCommand(c, envcmd.Wrap(&ResolvedCommand{}), args)
+	_, err := testing.RunCommand(c, envcmd.Wrap(&ResolvedCommand{}), args...)
 	return err
 }
 

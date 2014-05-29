@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/utils/ssh"
 	"launchpad.net/juju-core/version"
 )
@@ -615,8 +615,8 @@ type ContainerConfig struct {
 	ProviderType            string
 	AuthorizedKeys          string
 	SSLHostnameVerification bool
-	Proxy                   osenv.ProxySettings
-	AptProxy                osenv.ProxySettings
+	Proxy                   proxy.Settings
+	AptProxy                proxy.Settings
 }
 
 // ProvisioningScriptParams contains the parameters for the
@@ -679,6 +679,22 @@ type StatusParams struct {
 // SetRsyslogCertParams holds parameters for the SetRsyslogCert call.
 type SetRsyslogCertParams struct {
 	CACert []byte
+}
+
+// RsyslogConfigResult holds the result of a GetRsyslogConfig call.
+type RsyslogConfigResult struct {
+	Error  *Error
+	CACert string
+	// Port is only used by state servers as the port to listen on.
+	// Clients should use HostPorts for the rsyslog addresses to forward
+	// logs to.
+	Port      int
+	HostPorts []instance.HostPort
+}
+
+// RsyslogConfigResults is the bulk form of RyslogConfigResult
+type RsyslogConfigResults struct {
+	Results []RsyslogConfigResult
 }
 
 // DistributionGroupResult contains the result of

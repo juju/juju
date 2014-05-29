@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/version"
 )
 
@@ -133,13 +134,6 @@ func RemoveService(namespace string) error {
 	return upstartServiceStopAndRemove(svc)
 }
 
-const (
-	// WithHA is used when we want to start a mongo service with HA support.
-	WithHA = true
-	// WithoutHA is used when we want to start a mongo service without HA support.
-	WithoutHA = false
-)
-
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
@@ -149,7 +143,7 @@ const (
 // The namespace is a unique identifier to prevent multiple instances of mongo
 // on this machine from colliding. This should be empty unless using
 // the local provider.
-func EnsureServer(dataDir string, namespace string, info params.StateServingInfo, withHA bool) error {
+func EnsureServer(dataDir string, namespace string, info params.StateServingInfo) error {
 	logger.Infof("Ensuring mongo server is running; data directory %s; port %d", dataDir, info.StatePort)
 	dbDir := filepath.Join(dataDir, "db")
 
@@ -186,7 +180,7 @@ func EnsureServer(dataDir string, namespace string, info params.StateServingInfo
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 
-	upstartConf, mongoPath, err := upstartService(namespace, dataDir, dbDir, info.StatePort, withHA)
+	upstartConf, mongoPath, err := upstartService(namespace, dataDir, dbDir, info.StatePort)
 	if err != nil {
 		return err
 	}
@@ -267,7 +261,7 @@ func sharedSecretPath(dataDir string) string {
 // upstartService returns the upstart config for the mongo state service.
 // It also returns the path to the mongod executable that the upstart config
 // will be using.
-func upstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*upstart.Conf, string, error) {
+func upstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, string, error) {
 	svc := upstart.NewService(ServiceName(namespace))
 
 	mongoPath, err := Path()
@@ -285,10 +279,9 @@ func upstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*u
 		" --noprealloc" +
 		" --syslog" +
 		" --smallfiles" +
-		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir))
-	if withHA {
-		mongoCmd += " --replSet " + ReplicaSetName
-	}
+		" --journal" +
+		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
+		" --replSet " + ReplicaSetName
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
@@ -309,10 +302,10 @@ func aptGetInstallMongod() error {
 		}
 	}
 	pkg := packageForSeries(version.Current.Series)
-	cmds := utils.AptGetPreparePackages([]string{pkg}, version.Current.Series)
+	cmds := apt.GetPreparePackages([]string{pkg}, version.Current.Series)
 	logger.Infof("installing %s", pkg)
 	for _, cmd := range cmds {
-		if err := utils.AptGetInstall(cmd...); err != nil {
+		if err := apt.GetInstall(cmd...); err != nil {
 			return err
 		}
 	}
@@ -321,13 +314,13 @@ func aptGetInstallMongod() error {
 
 func addAptRepository(name string) error {
 	// add-apt-repository requires python-software-properties
-	cmds := utils.AptGetPreparePackages(
+	cmds := apt.GetPreparePackages(
 		[]string{"python-software-properties"},
 		version.Current.Series,
 	)
 	logger.Infof("installing python-software-properties")
 	for _, cmd := range cmds {
-		if err := utils.AptGetInstall(cmd...); err != nil {
+		if err := apt.GetInstall(cmd...); err != nil {
 			return err
 		}
 	}
@@ -373,6 +366,7 @@ func noauthCommand(dataDir string, port int) (*exec.Cmd, error) {
 		"--noprealloc",
 		"--syslog",
 		"--smallfiles",
+		"--journal",
 	)
 	return cmd, nil
 }

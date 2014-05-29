@@ -25,8 +25,8 @@ import (
 	lxctesting "launchpad.net/juju-core/container/lxc/testing"
 	containertesting "launchpad.net/juju-core/container/testing"
 	instancetest "launchpad.net/juju-core/instance/testing"
-	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/proxy"
 )
 
 func Test(t *stdtesting.T) {
@@ -262,7 +262,7 @@ func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	s.ensureTemplateStopped(name)
 	network := container.BridgeNetworkConfig("nic42")
 	authorizedKeys := "authorized keys list"
-	aptProxy := osenv.ProxySettings{}
+	aptProxy := proxy.Settings{}
 	template, err := lxc.EnsureCloneTemplate(
 		"ext4", "series", network, authorizedKeys, aptProxy)
 	c.Assert(err, gc.IsNil)
@@ -447,7 +447,7 @@ func (s *LxcSuite) TestDestroyContainerNoRestartDir(c *gc.C) {
 }
 
 type NetworkSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&NetworkSuite{})

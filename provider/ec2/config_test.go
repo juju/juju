@@ -16,15 +16,14 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	"launchpad.net/juju-core/utils"
 )
 
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type ConfigSuite struct {
-	testbase.LoggingSuite
+	testing.BaseSuite
 	savedHome, savedAccessKey, savedSecretKey string
 }
 
@@ -243,8 +242,8 @@ func indent(s string, with string) string {
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
-	s.savedHome = osenv.Home()
+	s.BaseSuite.SetUpTest(c)
+	s.savedHome = utils.Home()
 	s.savedAccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
 	s.savedSecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
 
@@ -255,18 +254,18 @@ func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	err = ioutil.WriteFile(filepath.Join(sshDir, "id_rsa.pub"), []byte("sshkey\n"), 0666)
 	c.Assert(err, gc.IsNil)
 
-	osenv.SetHome(home)
+	utils.SetHome(home)
 	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", testAuth.SecretKey)
 	aws.Regions["configtest"] = configTestRegion
 }
 
 func (s *ConfigSuite) TearDownTest(c *gc.C) {
-	osenv.SetHome(s.savedHome)
+	utils.SetHome(s.savedHome)
 	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
 	delete(aws.Regions, "configtest")
-	s.LoggingSuite.TearDownTest(c)
+	s.BaseSuite.TearDownTest(c)
 }
 
 func (s *ConfigSuite) TestConfig(c *gc.C) {

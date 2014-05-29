@@ -178,7 +178,7 @@ func patchWithServiceListResponse(c *gc.C, services []gwacl.HostedServiceDescrip
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
-func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedService) *[]*gwacl.X509Request {
+func prepareInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedService) []gwacl.DispatcherResponse {
 	descriptors := make([]gwacl.HostedServiceDescriptor, len(services))
 	for i, service := range services {
 		descriptors[i] = service.HostedServiceDescriptor
@@ -193,6 +193,11 @@ func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedSe
 		serviceGetResponse := gwacl.NewDispatcherResponse([]byte(serviceXML), http.StatusOK, nil)
 		responses = append(responses, serviceGetResponse)
 	}
+	return responses
+}
+
+func patchInstancesResponses(c *gc.C, prefix string, services ...*gwacl.HostedService) *[]*gwacl.X509Request {
+	responses := prepareInstancesResponses(c, prefix, services...)
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
@@ -521,14 +526,28 @@ func (s *environSuite) TestStateInfo(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 
+	responses := prepareInstancesResponses(c, prefix, service)
+	responses = append(responses, prepareDeploymentInfoResponse(c, gwacl.Deployment{
+		RoleInstanceList: []gwacl.RoleInstance{{
+			RoleName:  service.Deployments[0].RoleList[0].RoleName,
+			IPAddress: "1.2.3.4",
+		}},
+		VirtualNetworkName: env.getVirtualNetworkName(),
+	})...)
+	gwacl.PatchManagementAPIResponses(responses)
+
 	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	config := env.Config()
 	dnsName := prefix + "myservice." + AZURE_DOMAIN_NAME
-	stateServerAddr := fmt.Sprintf("%s:%d", dnsName, config.StatePort())
-	apiServerAddr := fmt.Sprintf("%s:%d", dnsName, config.APIPort())
-	c.Check(stateInfo.Addrs, gc.DeepEquals, []string{stateServerAddr})
-	c.Check(apiInfo.Addrs, gc.DeepEquals, []string{apiServerAddr})
+	c.Check(stateInfo.Addrs, jc.SameContents, []string{
+		fmt.Sprintf("1.2.3.4:%d", config.StatePort()),
+		fmt.Sprintf("%s:%d", dnsName, config.StatePort()),
+	})
+	c.Check(apiInfo.Addrs, jc.DeepEquals, []string{
+		fmt.Sprintf("1.2.3.4:%d", config.APIPort()),
+		fmt.Sprintf("%s:%d", dnsName, config.APIPort()),
+	})
 }
 
 // parseCreateServiceRequest reconstructs the original CreateHostedService
@@ -828,8 +847,9 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 	inst2, err := env.getInstance(service2, service2Role1Name)
 	c.Assert(err, gc.IsNil)
 
-	responses := buildGetServicePropertiesResponses(c, service1, service2)
-	// Failed to delete one of the services.
+	responses := buildGetServicePropertiesResponses(c, service1)
+	// Failed to delete one of the services. This will cause StopInstances to stop
+	// immediately.
 	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil))
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
@@ -838,8 +858,7 @@ func (s *environSuite) TestStopInstancesWhenStoppingMachinesFails(c *gc.C) {
 
 	c.Check(len(*requests), gc.Equals, len(responses))
 	assertOneRequestMatches(c, *requests, "GET", ".*"+service1.ServiceName+".*")
-	assertOneRequestMatches(c, *requests, "GET", ".*"+service2.ServiceName+".*")
-	assertOneRequestMatches(c, *requests, "DELETE", ".*("+service1.ServiceName+"|"+service2.ServiceName+").")
+	assertOneRequestMatches(c, *requests, "DELETE", service1.ServiceName)
 }
 
 func (s *environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
@@ -1525,7 +1544,7 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	cons := constraints.MustParse("arch=amd64 tags=bar cpu-power=10")
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(unsupported, gc.DeepEquals, []string{"cpu-power", "tags"})
+	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "tags"})
 }
 
 func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {

@@ -217,7 +217,7 @@ func (s *RelationSetSuite) TestRunDeprecationWarning(c *gc.C) {
 	hctx := s.GetHookContext(c, 0, "")
 	com, _ := jujuc.NewCommand(hctx, "relation-set")
 	// The rel= is needed to make this a valid command.
-	ctx, err := testing.RunCommand(c, com, []string{"--format", "foo", "rel="})
+	ctx, err := testing.RunCommand(c, com, "--format", "foo", "rel=")
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "")

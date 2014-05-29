@@ -7,9 +7,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/joyent/gosign/auth"
 	"github.com/juju/loggo"
 
-	"github.com/joyent/gosign/auth"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -43,10 +43,10 @@ func (joyentProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Config)
 }
 
 func credentials(cfg *environConfig) (*auth.Credentials, error) {
-	if cfg.privateKey() == "" {
-		return nil, errors.New("cannot create credentials without a private key")
+	authentication, err := auth.NewAuth(cfg.mantaUser(), cfg.privateKey(), cfg.algorithm())
+	if err != nil {
+		return nil, fmt.Errorf("cannot create credentials: %v", err)
 	}
-	authentication := auth.Auth{User: cfg.mantaUser(), PrivateKey: cfg.privateKey(), Algorithm: cfg.algorithm()}
 	return &auth.Credentials{
 		UserAuthentication: authentication,
 		MantaKeyId:         cfg.mantaKeyId(),

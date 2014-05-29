@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"text/template"
+	"time"
 
 	"github.com/joyent/gosign/auth"
 	gc "launchpad.net/gocheck"
@@ -20,7 +21,14 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/storage"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
+
+// Use ShortAttempt to poll for short-term events.
+var ShortAttempt = utils.AttemptStrategy{
+	Total: 5 * time.Second,
+	Delay: 200 * time.Millisecond,
+}
 
 var Provider environs.EnvironProvider = GetProviderInstance()
 var EnvironmentVariables = environmentVariables
@@ -152,6 +160,7 @@ func UseExternalTestImageMetadata(creds *auth.Credentials) {
 
 func UnregisterExternalTestImageMetadata() {
 	testRoundTripper.Sub = nil
+	imagemetadata.DefaultBaseURL = origImagesUrl
 }
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {

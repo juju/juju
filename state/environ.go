@@ -105,7 +105,7 @@ func (e *Environment) Destroy() error {
 		Id:     e.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 		Assert: isEnvAliveDoc,
-	}, e.st.newCleanupOp("services", "")}
+	}, e.st.newCleanupOp(cleanupServicesForDyingEnvironment, "")}
 	err := e.st.runTransaction(ops)
 	switch err {
 	case nil, txn.ErrAborted:

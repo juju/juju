@@ -10,11 +10,11 @@ import (
 
 	"launchpad.net/juju-core/environs/bootstrap"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/testing/testbase"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type interruptibleStorageSuite struct {
-	testbase.LoggingSuite
+	coretesting.BaseSuite
 }
 
 var _ = gc.Suite(&interruptibleStorageSuite{})

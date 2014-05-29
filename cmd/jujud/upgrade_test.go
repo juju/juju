@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/version"
 )
 
@@ -36,7 +36,7 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 
 	// Capture all apt commands.
 	s.aptCmds = nil
-	aptCmds := s.agentSuite.HookCommandOutput(&utils.AptCommandOutput, nil, nil)
+	aptCmds := s.agentSuite.HookCommandOutput(&apt.CommandOutput, nil, nil)
 	go func() {
 		for cmd := range aptCmds {
 			s.aptCmds = append(s.aptCmds, cmd)

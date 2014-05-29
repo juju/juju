@@ -30,6 +30,11 @@ import (
 type ToolsFixture struct {
 	origDefaultURL string
 	DefaultBaseURL string
+
+	// UploadArches holds the architectures of tools to
+	// upload in UploadFakeTools. If empty, it will default
+	// to just version.Current.Arch.
+	UploadArches []string
 }
 
 func (s *ToolsFixture) SetUpTest(c *gc.C) {
@@ -39,6 +44,26 @@ func (s *ToolsFixture) SetUpTest(c *gc.C) {
 
 func (s *ToolsFixture) TearDownTest(c *gc.C) {
 	envtools.DefaultBaseURL = s.origDefaultURL
+}
+
+// UploadFakeTools uploads fake tools of the architectures in
+// s.UploadArches for each LTS release to the specified storage.
+func (s *ToolsFixture) UploadFakeTools(c *gc.C, stor storage.Storage) {
+	arches := s.UploadArches
+	if len(arches) == 0 {
+		arches = []string{version.Current.Arch}
+	}
+	var versions []version.Binary
+	for _, arch := range arches {
+		v := version.Current
+		v.Arch = arch
+		for _, series := range bootstrap.ToolsLtsSeries {
+			v.Series = series
+			versions = append(versions, v)
+		}
+	}
+	_, err := UploadFakeToolsVersions(stor, versions...)
+	c.Assert(err, gc.IsNil)
 }
 
 // RemoveFakeToolsMetadata deletes the fake simplestreams tools metadata from the supplied storage.
@@ -270,8 +295,8 @@ var (
 	V220all = []version.Binary{V220p64, V220p32, V220q64, V220q32}
 	VAll    = append(V1all, V220all...)
 
-	V310qppc64  = version.MustParseBinary("3.1.0-quantal-ppc64")
-	V3101qppc64 = version.MustParseBinary("3.1.0.1-quantal-ppc64")
+	V31d0qppc64  = version.MustParseBinary("3.1-dev0-quantal-ppc64")
+	V31d01qppc64 = version.MustParseBinary("3.1-dev0.1-quantal-ppc64")
 )
 
 type BootstrapToolsTest struct {
