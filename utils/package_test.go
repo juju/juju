@@ -4,20 +4,11 @@
 package utils_test
 
 import (
-	"github.com/juju/testing"
-	gc "launchpad.net/gocheck"
+	"testing"
 
-	"launchpad.net/juju-core/testing/testbase"
+	gc "launchpad.net/gocheck"
 )
 
-type importSuite struct {
-	testing.CleanupSuite
-}
-
-var _ = gc.Suite(&importSuite{})
-
-func (*importSuite) TestDependencies(c *gc.C) {
-	// This test is to ensure we don't bring in dependencies at all.
-	c.Assert(testbase.FindJujuCoreImports(c, "launchpad.net/juju-core/utils"),
-		gc.HasLen, 0)
+func TestPackage(t *testing.T) {
+	gc.TestingT(t)
 }

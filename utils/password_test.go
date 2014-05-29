@@ -4,21 +4,24 @@
 package utils_test
 
 import (
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/utils"
 )
 
-type passwordSuite struct{}
+type passwordSuite struct {
+	testing.IsolationSuite
+}
 
-var _ = gc.Suite(passwordSuite{})
+var _ = gc.Suite(&passwordSuite{})
 
 // Base64 *can* include a tail of '=' characters, but all the tests here
 // explicitly *don't* want those because it is wasteful.
 var base64Chars = "^[A-Za-z0-9+/]+$"
 
-func (passwordSuite) TestRandomBytes(c *gc.C) {
+func (*passwordSuite) TestRandomBytes(c *gc.C) {
 	b, err := utils.RandomBytes(16)
 	c.Assert(err, gc.IsNil)
 	c.Assert(b, gc.HasLen, 16)
@@ -31,7 +34,7 @@ func (passwordSuite) TestRandomBytes(c *gc.C) {
 	c.Errorf("all same bytes in result of RandomBytes")
 }
 
-func (passwordSuite) TestRandomPassword(c *gc.C) {
+func (*passwordSuite) TestRandomPassword(c *gc.C) {
 	p, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	if len(p) < 18 {
@@ -40,7 +43,7 @@ func (passwordSuite) TestRandomPassword(c *gc.C) {
 	c.Assert(p, gc.Matches, base64Chars)
 }
 
-func (passwordSuite) TestRandomSalt(c *gc.C) {
+func (*passwordSuite) TestRandomSalt(c *gc.C) {
 	salt, err := utils.RandomSalt()
 	c.Assert(err, gc.IsNil)
 	if len(salt) < 12 {
@@ -54,7 +57,7 @@ var testPasswords = []string{"", "a", "a longer password than i would usually bo
 
 var testSalts = []string{"abcd", "abcdefgh", "abcdefghijklmnop", utils.CompatSalt}
 
-func (passwordSuite) TestUserPasswordHash(c *gc.C) {
+func (*passwordSuite) TestUserPasswordHash(c *gc.C) {
 	seenHashes := make(map[string]bool)
 	for i, password := range testPasswords {
 		for j, salt := range testSalts {
@@ -73,7 +76,7 @@ func (passwordSuite) TestUserPasswordHash(c *gc.C) {
 	}
 }
 
-func (passwordSuite) TestAgentPasswordHash(c *gc.C) {
+func (*passwordSuite) TestAgentPasswordHash(c *gc.C) {
 	seenValues := make(map[string]bool)
 	for i := 0; i < 1000; i++ {
 		password, err := utils.RandomPassword()

@@ -7,9 +7,9 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -24,7 +24,7 @@ func patchExecutable(patcher EnvironmentPatcher, dir, execName, script string) {
 }
 
 type commandSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&commandSuite{})

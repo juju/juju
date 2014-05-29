@@ -10,6 +10,7 @@ import (
 	"os/user"
 	"path/filepath"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -17,19 +18,14 @@ import (
 )
 
 type fileSuite struct {
-	oldHome string
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&fileSuite{})
 
 func (s *fileSuite) SetUpTest(c *gc.C) {
-	s.oldHome = utils.Home()
+	s.IsolationSuite.SetUpTest(c)
 	err := utils.SetHome("/home/test-user")
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *fileSuite) TearDownTest(c *gc.C) {
-	err := utils.SetHome(s.oldHome)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -175,7 +171,7 @@ func (*fileSuite) TestAtomicWriteFile(c *gc.C) {
 		contents = []byte("new\ncontents")
 		err = test.change(path, contents)
 		c.Assert(err, gc.IsNil)
-		data, err = ioutil.ReadFile(path)
+		data, err := ioutil.ReadFile(path)
 		c.Assert(err, gc.IsNil)
 		c.Assert(data, jc.DeepEquals, contents)
 		assertDirContents(name)
