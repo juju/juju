@@ -32,7 +32,7 @@ func runAddMachine(c *gc.C, args ...string) (*cmd.Context, error) {
 func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	cxt, err := runAddMachine(c)
 	c.Assert(err, gc.IsNil)
-	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine-0\n")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine 0\n")
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Life(), gc.Equals, state.Alive)
@@ -45,7 +45,7 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {
 	cxt, err := runAddMachine(c, "--series", "series")
 	c.Assert(err, gc.IsNil)
-	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine-0\n")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine 0\n")
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Series(), gc.DeepEquals, "series")
@@ -54,7 +54,7 @@ func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {
 func (s *AddMachineSuite) TestAddMachineWithConstraints(c *gc.C) {
 	cxt, err := runAddMachine(c, "--constraints", "mem=4G")
 	c.Assert(err, gc.IsNil)
-	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine-0\n")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine 0\n")
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	mcons, err := m.Constraints()
@@ -81,7 +81,7 @@ func (s *AddMachineSuite) TestAddContainerToNewMachine(c *gc.C) {
 	for i, ctype := range instance.ContainerTypes {
 		cxt, err := runAddMachine(c, string(ctype))
 		c.Assert(err, gc.IsNil)
-		c.Assert(testing.Stderr(cxt), gc.Equals, "created machine-"+strconv.Itoa(i)+"-"+string(ctype)+"-0\n")
+		c.Assert(testing.Stderr(cxt), gc.Equals, "created container "+strconv.Itoa(i)+"/"+string(ctype)+"/0\n")
 		s._assertAddContainer(c, strconv.Itoa(i), fmt.Sprintf("%d/%s/0", i, ctype), ctype)
 	}
 }
@@ -89,18 +89,18 @@ func (s *AddMachineSuite) TestAddContainerToNewMachine(c *gc.C) {
 func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	cxt, err := runAddMachine(c)
 	c.Assert(err, gc.IsNil)
-	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine-0\n")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine 0\n")
 	for i, container := range instance.ContainerTypes {
 		machineNum := strconv.Itoa(i + 1)
 		cxt, err = runAddMachine(c)
 		c.Assert(err, gc.IsNil)
-		c.Assert(testing.Stderr(cxt), gc.Equals, "created machine-"+machineNum+"\n")
+		c.Assert(testing.Stderr(cxt), gc.Equals, "created machine "+machineNum+"\n")
 		cxt, err := runAddMachine(c, fmt.Sprintf("%s:%s", container, machineNum))
 		c.Assert(err, gc.IsNil)
 		if string(container) == "machine" {
-			c.Assert(testing.Stderr(cxt), gc.Equals, "created machine-"+machineNum+"\n")
+			c.Assert(testing.Stderr(cxt), gc.Equals, "created machine "+machineNum+"\n")
 		} else {
-			c.Assert(testing.Stderr(cxt), gc.Equals, "created machine-"+machineNum+"-"+string(container)+"-0\n")
+			c.Assert(testing.Stderr(cxt), gc.Equals, "created container "+machineNum+"/"+string(container)+"/0\n")
 		}
 		s._assertAddContainer(c, machineNum, fmt.Sprintf("%s/%s/0", machineNum, container), container)
 	}
@@ -109,7 +109,7 @@ func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *gc.C) {
 func (s *AddMachineSuite) TestAddUnsupportedContainerToMachine(c *gc.C) {
 	cxt, err := runAddMachine(c)
 	c.Assert(err, gc.IsNil)
-	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine-0\n")
+	c.Assert(testing.Stderr(cxt), gc.Equals, "created machine 0\n")
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	m.SetSupportedContainers([]instance.ContainerType{instance.KVM})

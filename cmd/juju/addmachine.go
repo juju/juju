@@ -156,6 +156,10 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		return machineInfo.Error
 	}
 	machineId := machineInfo.Machine
-	ctx.Infof("created %v", names.MachineTag(machineId))
+	if names.IsContainerMachine(machineId) {
+		ctx.Infof("created container %v", machineId)
+	} else {
+		ctx.Infof("created machine %v", machineId)
+	}
 	return nil
 }
