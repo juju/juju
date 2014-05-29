@@ -3,20 +3,20 @@ code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
 github.com/binary132/gojsonpointer	git	57ab5e9c764219a3e0c4d7759797fefdcab22e9c	
 github.com/binary132/gojsonreference	git	75785fb7b21f9bf2051dca600da83ff57bc6582a	
 github.com/binary132/gojsonschema	git	640782bf48d45ba2b22fd1e8a80842667c52af00	
-github.com/joyent/gocommon	git	98b151a080efe19bcde223d2d3b04389963d2347	
-github.com/joyent/gomanta	git	ff785814c0ebb4050420a2f1d47895b35b8808f2	
-github.com/joyent/gosdc	git	10bbe92c5d98c8b38a0b7f62ee042c7252150efc	
-github.com/joyent/gosign	git	476720af5427223da5420afbbadf620bfb760345	
-github.com/juju/errgo	git	96d8f88c102000c1e7150b957c7c493911519338	
+github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40	
+github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	
+github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	
+github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	
+github.com/juju/errgo	git	26caa7d4884f6048c5687fa44c410e5d5d95e554	
 github.com/juju/errors	git	075df0417dbcc39d24ee18248d2f8d6e3eed598b	
-github.com/juju/loggo	git	fa3acf9ab9ed09aea29030558528e24a254d27af	
+github.com/juju/loggo	git	7e8c70b24b80b95b2284f09306aac0bd93588db8	
 github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb	
-github.com/juju/testing	git	9c0e0686136637876ae659e9056897575236e11f	
+github.com/juju/testing	git	0f4fb4f667cdc8e1a6c763434f7b486e2256df6a	
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j	273
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
 launchpad.net/goamz	bzr	roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9	44
 launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20140225173054-xu9zlkf9kxhvow02	87
-launchpad.net/golxc	bzr	tim.penhey@canonical.com-20140311005930-b14361bwnocu3krh	8
+launchpad.net/golxc	bzr	francesco.banconi@canonical.com-20140528132419-q1lubarf0uepk4a1	9
 launchpad.net/gomaasapi	bzr	andrew.wilkins@canonical.com-20140513111813-kstzbs2kx1ujl3m3	50
 launchpad.net/goose	bzr	tarmac-20140516070929-jdddyozs81236kk0	124
 launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50
