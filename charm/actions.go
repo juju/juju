@@ -43,8 +43,9 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 		}
 		_, err := gojsonschema.NewJsonSchemaDocument(actionSpec.Params)
 		if err != nil {
-			return nil, fmt.Errorf("invalid params schema for action %q: %v", err)
+			return nil, fmt.Errorf("invalid params schema for action schema %s: %v", name, err)
 		}
+
 		for paramName, _ := range unmarshaledActions.ActionSpecs[name].Params {
 			if valid := nameRule.MatchString(paramName); !valid {
 				return nil, fmt.Errorf("bad param name %s", paramName)

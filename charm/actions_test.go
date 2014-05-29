@@ -156,6 +156,34 @@ func (s *ActionsSuite) TestReadBadActionsYaml(c *gc.C) {
 		yaml          string
 		expectedError string
 	}{{
+		description: "Invalid JSON-Schema: $schema key not a string.",
+		yaml: `
+actions:
+   snapshot:
+      description: Take a snapshot of the database.
+      params:
+         $schema: 5
+         outfile:
+            description: The file to write out to.
+            type: string
+            default: foo.bz2
+`,
+		expectedError: "invalid params schema for action schema snapshot: $schema must be of type string",
+	}, {
+		description: "Invalid JSON-Schema: $schema key not in params root.",
+		yaml: `
+actions:
+   snapshot:
+      description: Take a snapshot of the database.
+      params:
+         outfile:
+            $schema: foo
+            description: The file to write out to.
+            type: string
+            default: foo.bz2
+`,
+		expectedError: "invalid params schema for action schema snapshot: $schema must be of type string",
+	}, {
 		description: "Malformed YAML: missing key in \"outfile\".",
 		yaml: `
 actions:
