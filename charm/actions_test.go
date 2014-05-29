@@ -41,6 +41,28 @@ actions:
 						"type":        "string",
 						"default":     "foo.bz2"}}}}},
 	}, {
+		description: "An Actions YAML with one parameter and a $schema.",
+		yaml: `
+actions:
+   snapshot:
+      description: Take a snapshot of the database.
+      params:
+         $schema: http://json-schema.org/draft-03/schema#
+         outfile:
+            description: The file to write out to.
+            type: string
+            default: foo.bz2
+`,
+		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
+			"snapshot": charm.ActionSpec{
+				Description: "Take a snapshot of the database.",
+				Params: map[string]interface{}{
+					"$schema": "http://json-schema.org/draft-03/schema#",
+					"outfile": map[interface{}]interface{}{
+						"description": "The file to write out to.",
+						"type":        "string",
+						"default":     "foo.bz2"}}}}},
+	}, {
 		description:     "An empty Actions definition.",
 		yaml:            "",
 		expectedActions: &charm.Actions{},
@@ -177,12 +199,13 @@ actions:
       description: Take a snapshot of the database.
       params:
          outfile:
-            $schema: foo
+            $schema: http://json-schema.org/draft-03/schema#
             description: The file to write out to.
             type: string
             default: foo.bz2
 `,
-		expectedError: "invalid params schema for action schema snapshot: $schema must be of type string",
+		// TODO: Fill me in!
+		expectedError: "???",
 	}, {
 		description: "Malformed YAML: missing key in \"outfile\".",
 		yaml: `

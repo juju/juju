@@ -13,7 +13,8 @@ import (
 	"launchpad.net/goyaml"
 )
 
-var nameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
+var actionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
+var paramNameRule = regexp.MustCompile("^[a-z$](?:[a-z-]*[a-z])?$")
 
 // Actions defines the available actions for the charm.
 type Actions struct {
@@ -38,7 +39,7 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 	}
 
 	for name, actionSpec := range unmarshaledActions.ActionSpecs {
-		if valid := nameRule.MatchString(name); !valid {
+		if valid := actionNameRule.MatchString(name); !valid {
 			return nil, fmt.Errorf("bad action name %s", name)
 		}
 		_, err := gojsonschema.NewJsonSchemaDocument(actionSpec.Params)
@@ -47,7 +48,7 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 		}
 
 		for paramName, _ := range unmarshaledActions.ActionSpecs[name].Params {
-			if valid := nameRule.MatchString(paramName); !valid {
+			if valid := paramNameRule.MatchString(paramName); !valid {
 				return nil, fmt.Errorf("bad param name %s", paramName)
 			}
 		}
