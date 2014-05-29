@@ -6,12 +6,15 @@ package set_test
 import (
 	"sort"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/utils/set"
 )
 
-type stringSetSuite struct{}
+type stringSetSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(stringSetSuite{})
 
