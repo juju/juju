@@ -15,8 +15,14 @@ def parse_version(string):
     return re.search('^const version = "(.*)"', string, re.M).group(1)
 
 
-def ls_remote(repo_url, ref):
-    found = subprocess.check_output(['git', 'ls-remote',  repo_url, ref])
+def ls_remote(repo_url, ref, head=False, tag=False):
+    command = ['git', 'ls-remote']
+    if head:
+        command.append('--heads')
+    if tag:
+        command.append('--tags')
+    command.extend([repo_url, ref])
+    found = subprocess.check_output(command)
     if len(found) > 0:
         commit, ref = found.split('\t')
         return commit, ref.strip()
@@ -39,15 +45,11 @@ def get_git_revision_info(branch, revision_spec):
     protocol, branch_name, repo_name = branch.split(':')
     repo_url = 'https://{}.git'.format(repo_name)
     if revision_spec in (None, '-1', 'HEAD'):
-        commit, ref = ls_remote(repo_url, branch_name)
+        commit, ref = ls_remote(repo_url, branch_name, head=True)
     else:
-        commit, ref = ls_remote(repo_url, revision_spec)
+        commit, ref = ls_remote(repo_url, revision_spec, tag=True)
     if commit is None:
         commit = revision_spec
-        if revision_spec is not None and len(revision_spec) > 10:
-            ref = revision_spec[0:10]
-        else:
-            ref = revision_spec
     domain, user, repo = repo_name.split('/')
     template = 'https://raw.githubusercontent.com/{}/{}/{}/version/version.go'
     file_url = template.format(user, repo, commit)
@@ -56,7 +58,7 @@ def get_git_revision_info(branch, revision_spec):
         version = parse_version(response.read())
     except urllib2.HTTPError:
         version = 'UNKNOWN'
-    return ref, commit, version
+    return None, commit, version
 
 
 def get_bzr_revision_info(branch, revision_spec):
