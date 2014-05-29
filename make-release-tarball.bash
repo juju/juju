@@ -59,7 +59,9 @@ WORK=$TMP_DIR/RELEASE
 
 if [[ $IS_BZR == 'true' ]]; then
     echo "Getting juju core and all its dependencies."
-    GOPATH=$WORK go get -v -d $PACKAGE/...
+    GOPATH=$WORK go get -v -d $PACKAGE/... || \
+        GOPATH=$WORK go get -v -d $PACKAGE/... || \
+        GOPATH=$WORK go get -v -d $PACKAGE/...
     echo "Setting juju core tree to $JUJU_CORE_BRANCH $REVNO."
     (cd "$WORK/src/$PACKAGE/" &&
      bzr pull --no-aliases --remember --overwrite -r $REVNO $JUJU_CORE_BRANCH)
@@ -81,7 +83,9 @@ else
         git checkout $REVISION
     fi
     echo "Getting juju core's dependencies."
-    GOPATH=$WORK go get -v -d ./...
+    GOPATH=$WORK go get -v -d ./... || \
+        GOPATH=$WORK go get -v -d ./... || \
+        GOPATH=$WORK go get -v -d ./... 
     cd $HERE
 fi
 
