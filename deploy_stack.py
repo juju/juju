@@ -220,14 +220,17 @@ def bootstrap_from_env(juju_home, env):
             if e.errno != errno.EEXIST:
                 raise
         os.symlink(new_jenv_path, jenv_path)
-        temp_environments = get_environments_path(temp_juju_home)
-        with open(temp_environments, 'w') as config_file:
-            yaml.safe_dump(new_config, config_file)
-        with scoped_environ():
-            os.environ['JUJU_HOME'] = temp_juju_home
-            env.bootstrap()
-        # replace symlink with file before deleting temp home.
-        os.rename(new_jenv_path, jenv_path)
+        try:
+            temp_environments = get_environments_path(temp_juju_home)
+            with open(temp_environments, 'w') as config_file:
+                yaml.safe_dump(new_config, config_file)
+            with scoped_environ():
+                os.environ['JUJU_HOME'] = temp_juju_home
+                env.bootstrap()
+            # replace symlink with file before deleting temp home.
+            os.rename(new_jenv_path, jenv_path)
+        except:
+            os.unlink(jenv_path)
 
 
 def deploy_job():
