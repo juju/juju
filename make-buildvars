@@ -24,10 +24,13 @@ def ls_remote(repo_url, ref, head=False, tag=False):
     command.extend([repo_url, ref])
     found = subprocess.check_output(command)
     if len(found) > 0:
+        found = found.strip()
         if len(found.split('\n')) > 1:
-            raise Exception("more than one revision matched the branch or tag.")
+            raise Exception(
+                "more than one revision matched the branch or tag:\n{}".format(
+                    found))
         commit, ref = found.split('\t')
-        return commit, ref.strip()
+        return commit, ref
     else:
         return None, None
 
