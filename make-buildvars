@@ -23,16 +23,14 @@ def ls_remote(repo_url, ref, head=False, tag=False):
         command.append('--tags')
     command.extend([repo_url, ref])
     found = subprocess.check_output(command)
-    if len(found) > 0:
-        found = found.strip()
-        if len(found.split('\n')) > 1:
-            raise Exception(
-                "more than one revision matched the branch or tag:\n{}".format(
-                    found))
-        commit, ref = found.split('\t')
-        return commit, ref
-    else:
+    found = found.strip()
+    if len(found) == 0:
         return None, None
+    if len(found.split('\n')) > 1:
+        raise Exception(
+            "More than one commit matched the branch or tag:\n{}".format(found))
+    commit, ref = found.split('\t')
+    return commit, ref
 
 
 def get_git_revision_info(branch, revision_spec):
@@ -58,11 +56,8 @@ def get_git_revision_info(branch, revision_spec):
     domain, user, repo = repo_name.split('/')
     template = 'https://raw.githubusercontent.com/{}/{}/{}/version/version.go'
     file_url = template.format(user, repo, commit)
-    try:
-        response = urllib2.urlopen(file_url)
-        version = parse_version(response.read())
-    except urllib2.HTTPError:
-        version = 'UNKNOWN'
+    response = urllib2.urlopen(file_url)
+    version = parse_version(response.read())
     return None, commit, version
 
 
