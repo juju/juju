@@ -6,14 +6,13 @@ package voyeur
 import (
 	"fmt"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-
-	"launchpad.net/juju-core/testing"
 )
 
 type suite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&suite{})
