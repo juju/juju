@@ -2,14 +2,72 @@
 
 from textwrap import dedent
 import re
+import subprocess
 import sys
+import urllib2
 
 from bzrlib.branch import Branch
 from bzrlib.plugin import load_plugins
 from bzrlib.revisionspec import RevisionSpec
 
 
-def get_revision_info(branch, revision_spec):
+def parse_version(string):
+    return re.search('^const version = "(.*)"', string, re.M).group(1)
+
+
+def ls_remote(repo_url, ref, head=False, tag=False):
+    """Return a tuple fo the matching commit hash and ref.
+
+    None, None is returned when no matching commit was found.
+
+    :raise: an exception when more than one commit matched
+    :return: a tuple of commit, ref
+    """
+    command = ['git', 'ls-remote']
+    if head:
+        command.append('--heads')
+    if tag:
+        command.append('--tags')
+    command.extend([repo_url, ref])
+    found = subprocess.check_output(command)
+    found = found.strip()
+    if len(found) == 0:
+        return None, None
+    if len(found.split('\n')) > 1:
+        raise Exception(
+            "More than one commit matched the branch or tag:\n{}".format(found))
+    commit, ref = found.split('\t')
+    return commit, ref
+
+
+def get_git_revision_info(branch, revision_spec):
+    """Find the commit and juju-core version of a branch.
+
+    Returns a tuple comparable to revno, revision-id, version.
+    The revno is always None. The revision-id is the commit hash.
+
+    :param branch: The location of the git branch.
+    :param revision_spec: a human-readable revision spec like 'HEAD', '1.18.0',
+        or '1dcf4e4fe1'
+    :return: a tuple of None, revision-id, version
+    """
+    protocol, branch_name, repo_name = branch.split(':')
+    repo_url = 'https://{}.git'.format(repo_name)
+    if revision_spec in (None, '-1', 'HEAD'):
+        commit, ref = ls_remote(repo_url, branch_name, head=True)
+    else:
+        commit, ref = ls_remote(repo_url, revision_spec, tag=True)
+    if commit is None:
+        commit = revision_spec
+    domain, user, repo = repo_name.split('/')
+    template = 'https://raw.githubusercontent.com/{}/{}/{}/version/version.go'
+    file_url = template.format(user, repo, commit)
+    response = urllib2.urlopen(file_url)
+    version = parse_version(response.read())
+    return None, commit, version
+
+
+def get_bzr_revision_info(branch, revision_spec):
     """Find the revision_id, revno and juju-core version of a branch.
 
     :param branch: The location of the branch.
@@ -28,20 +86,31 @@ def get_revision_info(branch, revision_spec):
             v_bytes = tree.get_file_text(file_id, path='version/version.go')
         finally:
             tree.unlock()
-        version = re.search('^const version = "(.*)"', v_bytes, re.M).group(1)
+        version = parse_version(v_bytes)
         return info.revno, info.rev_id, version
     finally:
         candidate.unlock()
 
+
 if __name__ == '__main__':
     load_plugins()
     branch = sys.argv[1]
-    revision_spec = sys.argv[2] if len(sys.argv) > 2 else 'revno:-1'
-    revno, revision_id, version = get_revision_info(branch, revision_spec)
+    if sys.argv[1].startswith('lp:'):
+        revision_spec = sys.argv[2] if len(sys.argv) > 2 else 'revno:-1'
+        revno, revision_id, version = get_bzr_revision_info(
+            branch, revision_spec)
+    else:
+        revision_spec = sys.argv[2] if len(sys.argv) > 2 else None
+        revno, revision_id, version = get_git_revision_info(
+            branch, revision_spec)
     with open('buildvars.bash', 'w') as f:
+        if revno is None:
+            revno_var = ''
+        else:
+            revno_var = 'export REVNO=%s' % revno
         f.write(dedent("""\
             export BRANCH=%s
-            export REVNO=%s
             export REVISION_ID='%s'
             export VERSION=%s
-        """ % (branch, revno, revision_id, version)))
+            %s
+        """ % (branch, revision_id, version, revno_var)))
