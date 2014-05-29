@@ -98,9 +98,13 @@ if __name__ == '__main__':
         revno, revision_id, version = get_git_revision_info(
             branch, revision_spec)
     with open('buildvars.bash', 'w') as f:
+        if revno is None:
+            revno_var = ''
+        else:
+            revno_var = 'export REVNO=%s' % revno
         f.write(dedent("""\
             export BRANCH=%s
-            export REVNO=%s
             export REVISION_ID='%s'
             export VERSION=%s
-        """ % (branch, revno, revision_id, version)))
+            %s
+        """ % (branch, revision_id, version, revno_var)))
