@@ -9,27 +9,34 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
 type SSHCommandSuite struct {
-	testing.BaseSuite
-	testbin string
-	fakessh string
-	fakescp string
-	client  ssh.Client
+	testing.IsolationSuite
+	originalPath string
+	testbin      string
+	fakessh      string
+	fakescp      string
+	client       ssh.Client
 }
 
 var _ = gc.Suite(&SSHCommandSuite{})
 
 const echoCommandScript = "#!/bin/sh\necho $0 \"$@\" | tee $0.args"
 
+func (s *SSHCommandSuite) SetUpSuite(c *gc.C) {
+	s.originalPath = os.Getenv("PATH")
+	s.IsolationSuite.SetUpSuite(c)
+}
+
 func (s *SSHCommandSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
+	os.Setenv("PATH", s.originalPath)
 	s.testbin = c.MkDir()
 	s.fakessh = filepath.Join(s.testbin, "ssh")
 	s.fakescp = filepath.Join(s.testbin, "scp")

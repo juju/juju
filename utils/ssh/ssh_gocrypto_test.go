@@ -14,10 +14,10 @@ import (
 	"sync"
 
 	cryptossh "code.google.com/p/go.crypto/ssh"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
@@ -79,14 +79,14 @@ func (s *sshServer) run(c *gc.C) {
 }
 
 type SSHGoCryptoCommandSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 	client ssh.Client
 }
 
 var _ = gc.Suite(&SSHGoCryptoCommandSuite{})
 
 func (s *SSHGoCryptoCommandSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	generateKeyRestorer := overrideGenerateKey(c)
 	s.AddCleanup(func(*gc.C) { generateKeyRestorer.Restore() })
 	client, err := ssh.NewGoCryptoClient()
