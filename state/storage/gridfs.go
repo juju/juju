@@ -47,7 +47,7 @@ func (g *gridFSStorage) Get(path string) (io.ReadCloser, error) {
 }
 
 // Put is defined on ResourceStorage.
-func (g *gridFSStorage) Put(path string, r io.Reader, length int64) (checksum string, error error) {
+func (g *gridFSStorage) Put(path string, r io.Reader, length int64) (checksum string, err error) {
 	file, err := g.gridFS().Create(path)
 	if err != nil {
 		return "", errors.Annotatef(err, "failed to create GridFS file %q", path)
@@ -55,20 +55,15 @@ func (g *gridFSStorage) Put(path string, r io.Reader, length int64) (checksum st
 	defer func() {
 		if err != nil {
 			file.Close()
-			if err := g.Remove(path); err != nil {
-				logger.Warningf("error cleaning up after failed write: %v", err)
+			if removeErr := g.Remove(path); removeErr != nil {
+				logger.Warningf("error cleaning up after failed write: %v", removeErr)
 			}
 		}
 	}()
-	num, err := io.Copy(file, r)
-	if err != nil {
+	if _, err = io.CopyN(file, r, length); err != nil {
 		return "", errors.Annotatef(err, "failed to write data")
 	}
-	if num != length {
-		return "", errors.Errorf("expected to write %d bytes, only wrote %d", length, num)
-	}
-	err = file.Close()
-	if err != nil {
+	if err = file.Close(); err != nil {
 		return "", errors.Annotatef(err, "failed to flush data")
 	}
 	return file.MD5(), nil
