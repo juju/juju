@@ -1331,16 +1331,11 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, error) {
-
-	prefix := fmt.Sprintf("u#%s#", u.doc.Name)
-	suffix, err := u.st.sequence(prefix)
+	actionId, err := newActionId(u.st, u.globalKey())
 	if err != nil {
-		return "", fmt.Errorf("cannot assign new sequence for prefix '%s'. %s", prefix, err)
+		return "", fmt.Errorf("cannot add action; error generating key: %v", err)
 	}
-
-	newActionID := fmt.Sprintf("%s%d", prefix, suffix)
-
-	doc := actionDoc{Id: newActionID, Name: name, Payload: payload}
+	doc := actionDoc{Id: actionId, Name: name, Payload: payload}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -1363,7 +1358,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 		case txn.ErrAborted:
 			continue
 		case nil:
-			return newActionID, nil
+			return actionId, nil
 		default:
 			return "", err
 		}
