@@ -11,11 +11,14 @@ DEFAULT_BZR_JUJU_CORE="lp:juju-core"
 DEFAULT_GIT_JUJU_CORE="https://github.com/juju/core.git"
 
 usage() {
-    echo "usage: $0 <BZR_REVNO|GIT_REVISION> [BZR_BRANCH|GIT_REPO]"
-    echo "  BZR_REVNO: The juju-core bzr revno to build"
-    echo "  GIT_REVISION: The juju-core git revision or branch to build,"
-    echo "  BZR_BRANCH: The juju-core bzr branch; defaults to $DEFAULT_BZR_JUJU_CORE"
-    echo "  GIT_REPO: The juju-core git repo; defaults to $DEFAULT_GIT_JUJU_CORE="
+    echo "usage: $0 <BZR_REVNO|GIT_REV> [BZR_BRANCH|GIT_REPO] [MERGE_REF] [MERGE_REPO] [MERGE_REV]"
+    echo "  BZR_REVNO: The juju core bzr revno to build"
+    echo "  GIT_REV: The juju core git revision or branch to build"
+    echo "  BZR_BRANCH: The juju core bzr branch; defaults to $DEFAULT_BZR_JUJU_CORE"
+    echo "  GIT_REPO: The juju core git repo; defaults to $DEFAULT_GIT_JUJU_CORE"
+    echo "  MERGE_REF: The git branch or tag to merge"
+    echo "  MERGE_REPO: The git repo that contains the MERGE_REF"
+    echo "  MERGE_REV: The optional git specific commit to merge"
     exit 1
 }
 
@@ -37,6 +40,11 @@ check_deps() {
 test $# -ge 1 ||  usage
 check_deps
 
+MERGE_REPO=""
+MERGE_REF=""
+MERGE_REV=""
+
+
 
 if echo "$1" | grep -E '^[0-9-]*$'; then
     IS_BZR="true"
@@ -48,6 +56,13 @@ else
     REVISION=$1
     JUJU_CORE_REPO=${2:-$DEFAULT_GIT_JUJU_CORE}
     PACKAGE="github.com/juju/core"
+    if [[ $# -ge 4 ]]; then
+        MERGE_REF=$3
+        MERGE_REPO=$4
+        if [[ $# -eq 5 ]]; then
+            MERGE_REV=$5
+        fi
+    fi
 fi
 
 
@@ -81,6 +96,16 @@ else
         git checkout origin/$REVISION
     else
         git checkout $REVISION
+    fi
+    if [[ "$MERGE_REF" != "" && "$MERGE_REPO" != "" ]]; then
+        if [[ "$MERGE_REV" != "" ]]; then
+            echo "Merging $MERGE_REV in $MERGE_REF from $MERGE_REPO into $REVISION"
+            git fetch $MERGE_REPO $MERGE_REF
+            git merge $MERGE_REV
+        else
+            echo "Pulling $MERGE_REF from $MERGE_REPO into $REVISION"
+            git pull $MERGE_REPO $MERGE_REF
+        fi
     fi
     echo "Getting juju core's dependencies."
     GOPATH=$WORK go get -v -d ./... || \
