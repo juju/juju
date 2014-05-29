@@ -8,16 +8,16 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/utils/proxy"
 )
 
 type AptSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&AptSuite{})
