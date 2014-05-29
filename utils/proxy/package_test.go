@@ -4,11 +4,11 @@
 package proxy_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	gc "launchpad.net/gocheck"
 )
 
-func TestPackage(t *stdtesting.T) {
+func TestPackage(t *testing.T) {
 	gc.TestingT(t)
 }

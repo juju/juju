@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -17,10 +16,6 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/tailer"
 )
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type tailerSuite struct {
 	testing.BaseSuite

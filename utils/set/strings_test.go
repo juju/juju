@@ -5,16 +5,11 @@ package set_test
 
 import (
 	"sort"
-	"testing"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/utils/set"
 )
-
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}
 
 type stringSetSuite struct{}
 

@@ -6,7 +6,6 @@ package syslog_test
 import (
 	"io/ioutil"
 	"path/filepath"
-	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
@@ -14,10 +13,6 @@ import (
 	"launchpad.net/juju-core/utils/syslog"
 	syslogtesting "launchpad.net/juju-core/utils/syslog/testing"
 )
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type SyslogConfigSuite struct {
 	configDir string

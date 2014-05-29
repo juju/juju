@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -16,10 +15,6 @@ import (
 	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/utils/proxy"
 )
-
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type AptSuite struct {
 	testing.BaseSuite

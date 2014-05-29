@@ -6,17 +6,12 @@ package parallel_test
 import (
 	"sort"
 	"sync"
-	stdtesting "testing"
 	"time"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/utils/parallel"
 )
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type parallelSuite struct{}
 
