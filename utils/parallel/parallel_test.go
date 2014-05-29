@@ -8,12 +8,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/utils/parallel"
 )
 
-type parallelSuite struct{}
+type parallelSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&parallelSuite{})
 

@@ -12,22 +12,22 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/fslock"
 )
 
 type fslockSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 	lockDelay time.Duration
 }
 
 var _ = gc.Suite(&fslockSuite{})
 
 func (s *fslockSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+	s.IsolationSuite.SetUpSuite(c)
 	s.PatchValue(&fslock.LockWaitDelay, 1*time.Millisecond)
 }
 
@@ -133,7 +133,7 @@ func (s *fslockSuite) TestLockBlocks(c *gc.C) {
 	select {
 	case <-acquired:
 		c.Fatalf("Unexpected lock acquisition")
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(50 * time.Millisecond):
 		// all good
 	}
 
@@ -143,7 +143,7 @@ func (s *fslockSuite) TestLockBlocks(c *gc.C) {
 	select {
 	case <-acquired:
 		// all good
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(10 * time.Second):
 		c.Fatalf("Expected lock acquisition")
 	}
 
