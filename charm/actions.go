@@ -23,7 +23,7 @@ type Actions struct {
 }
 
 // ActionSpec is a definition of the parameters and traits of an Action.
-// The Params map is expected to conform to JSON-Schema v.4 as defined at
+// The Params map is expected to conform to JSON-Schema Draft 4 as defined at
 // http://json-schema.org/draft-04/schema# (see http://json-schema.org/latest/json-schema-core.html)
 type ActionSpec struct {
 	Description string
