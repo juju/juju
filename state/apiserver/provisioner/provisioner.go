@@ -416,33 +416,12 @@ func commonServiceInstances(st *state.State, m *state.Machine) ([]instance.Id, e
 		if !unit.IsPrincipal() {
 			continue
 		}
-		service, err := unit.Service()
+		instanceIds, err := state.ServiceInstances(st, unit.ServiceName())
 		if err != nil {
 			return nil, err
 		}
-		allUnits, err := service.AllUnits()
-		if err != nil {
-			return nil, err
-		}
-		for _, unit := range allUnits {
-			machineId, err := unit.AssignedMachineId()
-			if state.IsNotAssigned(err) {
-				continue
-			} else if err != nil {
-				return nil, err
-			}
-			machine, err := st.Machine(machineId)
-			if err != nil {
-				return nil, err
-			}
-			instanceId, err := machine.InstanceId()
-			if err == nil {
-				instanceIdSet.Add(string(instanceId))
-			} else if state.IsNotProvisionedError(err) {
-				continue
-			} else {
-				return nil, err
-			}
+		for _, instanceId := range instanceIds {
+			instanceIdSet.Add(string(instanceId))
 		}
 	}
 	instanceIds := make([]instance.Id, instanceIdSet.Size())

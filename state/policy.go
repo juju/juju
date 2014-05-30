@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 )
 
 // Policy is an interface provided to State that may
@@ -22,21 +23,24 @@ import (
 // be ignored. Any other error will cause an error
 // in the use of the policy.
 type Policy interface {
-	// Prechecker takes a *config.Config and returns
-	// a (possibly nil) Prechecker or an error.
+	// Prechecker takes a *config.Config and returns a Prechecker or an error.
 	Prechecker(*config.Config) (Prechecker, error)
 
-	// ConfigValidator takes a provider type name and returns
-	// a (possibly nil) ConfigValidator or an error.
+	// ConfigValidator takes a provider type name and returns a ConfigValidator
+	// or an error.
 	ConfigValidator(providerType string) (ConfigValidator, error)
 
-	// EnvironCapability takes a *config.Config and returns
-	// a (possibly nil) EnvironCapability or an error.
+	// EnvironCapability takes a *config.Config and returns an EnvironCapability
+	// or an error.
 	EnvironCapability(*config.Config) (EnvironCapability, error)
 
-	// ConstraintsValidator takes a *config.Config and returns
-	// a (possibly nil) constraints.Validator or an error.
+	// ConstraintsValidator takes a *config.Config and returns a
+	// constraints.Validator or an error.
 	ConstraintsValidator(*config.Config) (constraints.Validator, error)
+
+	// InstanceDistributor takes a *config.Config and returns an
+	// InstanceDistributor or an error.
+	InstanceDistributor(*config.Config) (InstanceDistributor, error)
 }
 
 // Prechecker is a policy interface that is provided to State
@@ -186,4 +190,22 @@ func (st *State) supportsUnitPlacement() error {
 		return fmt.Errorf("policy returned nil EnvironCapability without an error")
 	}
 	return capability.SupportsUnitPlacement()
+}
+
+// InstanceDistributor is a policy interface that is provided
+// to State to perform distribution of units across instances
+// for high availability.
+type InstanceDistributor interface {
+	// DistributeInstance takes a set of clean, empty
+	// instances, and a distribution group, and returns
+	// the subset of candidates which the policy will
+	// allow entry into the distribution group.
+	//
+	// The AssignClean and AssignCleanEmpty unit
+	// assignment policies will attempt to assign a
+	// unit to each of the resulting instances until
+	// one is successful. If no instances can be assigned
+	// to (e.g. because of concurrent deployments), then
+	// a new machine will be allocated.
+	DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error)
 }
