@@ -6,8 +6,8 @@ package cmd_test
 import (
 	stdtesting "testing"
 
-	gc "launchpad.net/gocheck"
 	jc "github.com/juju/testing/checkers"
+	gc "launchpad.net/gocheck"
 
 	coretesting "launchpad.net/juju-core/testing"
 )

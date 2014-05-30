@@ -7,8 +7,8 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/testing"
-	coretesting "launchpad.net/juju-core/testing"
 	gc "launchpad.net/gocheck"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 func Test(t *stdtesting.T) {

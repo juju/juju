@@ -4,8 +4,8 @@
 package testing
 
 import (
-	gc "launchpad.net/gocheck"
 	"github.com/juju/testing"
+	gc "launchpad.net/gocheck"
 )
 
 const jujuPkgPrefix = "launchpad.net/juju-core/"

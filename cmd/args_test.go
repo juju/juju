@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/juju/testing"
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
-	"github.com/juju/testing"
 
 	"launchpad.net/juju-core/cmd"
 )

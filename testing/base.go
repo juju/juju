@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	gc "launchpad.net/gocheck"
 	"github.com/juju/testing"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/utils"

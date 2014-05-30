@@ -14,9 +14,9 @@ import (
 	"sort"
 	"testing"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
-	gitjujutesting "github.com/juju/testing"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"

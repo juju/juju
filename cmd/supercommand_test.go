@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"strings"
 
+	gitjujutesting "github.com/juju/testing"
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
-	gitjujutesting "github.com/juju/testing"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
