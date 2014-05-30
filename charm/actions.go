@@ -16,12 +16,15 @@ import (
 var actionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
 var paramNameRule = regexp.MustCompile("^[a-z$](?:[a-z-]*[a-z])?$")
 
-// Actions defines the available actions for the charm.
+// Actions defines the available actions for the charm.  Additional params
+// may be added as metadata at a future time (e.g. version.)
 type Actions struct {
 	ActionSpecs map[string]ActionSpec `yaml:"actions"`
 }
 
 // ActionSpec is a definition of the parameters and traits of an Action.
+// The Params map is expected to conform to JSON-Schema v.4 as defined at
+// http://json-schema.org/draft-04/schema# (see http://json-schema.org/latest/json-schema-core.html)
 type ActionSpec struct {
 	Description string
 	Params      map[string]interface{}
