@@ -1,5 +1,6 @@
 #!/bin/bash
 set -eux
+: ${SCRIPTS=$(readlink -f $(dirname $0))}
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
 
 export INSTANCE_TYPE=$1
