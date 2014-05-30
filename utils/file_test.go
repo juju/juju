@@ -27,6 +27,7 @@ func (*fileSuite) TestNormalizePath(c *gc.C) {
 	home := c.MkDir()
 	err := utils.SetHome(home)
 	c.Assert(err, gc.IsNil)
+	// TODO (frankban) bug 1324841: improve the isolation of this suite.
 	currentUser, err := user.Current()
 	c.Assert(err, gc.IsNil)
 	for i, test := range []struct {
