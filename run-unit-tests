@@ -1,9 +1,15 @@
 #!/bin/bash
 set -eux
+: ${SCRIPTS=$(readlink -f $(dirname $0))}
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
 
 export INSTANCE_TYPE=$1
 export AMI_IMAGE=$2
+if [ ${3-} == "--force-archive" ]; then
+  FIXUP_SOURCES="sudo sed s/ec2.archive.ubuntu.com/archive.ubuntu.com/ /etc/apt/sources.list -i"
+else
+  FIXUP_SOURCES=""
+fi
 
 afact='lastSuccessfulBuild/artifact'
 test -f buildvars.bash && rm buildvars.bash
@@ -19,7 +25,7 @@ $SCRIPTS/ec2-tag-job-instances $instance_id
 set +x
 echo Starting instance $instance_id
 instance_name=$($SCRIPTS/ec2-get-name $instance_id)
-echo Instance has ip $instance_name
+echo Instance has name $instance_name
 sleep 30
 $SCRIPTS/wait-for-port $instance_name 22
 
@@ -46,6 +52,7 @@ for attempt in \$(seq 10); do
   fi
   sleep 10
 done
+$FIXUP_SOURCES
 sudo apt-get update
 sudo apt-get upgrade -y
 sudo apt-get install -y build-essential
