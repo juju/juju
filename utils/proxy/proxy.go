@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package osenv
+package proxy
 
 import (
 	"fmt"
@@ -17,16 +17,16 @@ const (
 	no_proxy    = "no_proxy"
 )
 
-// ProxySettings holds the values for the http, https and ftp proxies as well
-// as the no_proxy value found by Detect Proxies.
-type ProxySettings struct {
+// Settings holds the values for the HTTP, HTTPS and FTP proxies as well as the
+// no_proxy value found by Detect Proxies.
+type Settings struct {
 	Http    string
 	Https   string
 	Ftp     string
 	NoProxy string
 }
 
-func getProxySetting(key string) string {
+func getSetting(key string) string {
 	value := os.Getenv(key)
 	if value == "" {
 		value = os.Getenv(strings.ToUpper(key))
@@ -35,19 +35,19 @@ func getProxySetting(key string) string {
 }
 
 // DetectProxies returns the proxy settings found the environment.
-func DetectProxies() ProxySettings {
-	return ProxySettings{
-		Http:    getProxySetting(http_proxy),
-		Https:   getProxySetting(https_proxy),
-		Ftp:     getProxySetting(ftp_proxy),
-		NoProxy: getProxySetting(no_proxy),
+func DetectProxies() Settings {
+	return Settings{
+		Http:    getSetting(http_proxy),
+		Https:   getSetting(https_proxy),
+		Ftp:     getSetting(ftp_proxy),
+		NoProxy: getSetting(no_proxy),
 	}
 }
 
 // AsScriptEnvironment returns a potentially multi-line string in a format
 // that specifies exported key=value lines. There are two lines for each non-
 // empty proxy value, one lower-case and one upper-case.
-func (s *ProxySettings) AsScriptEnvironment() string {
+func (s *Settings) AsScriptEnvironment() string {
 	lines := []string{}
 	addLine := func(proxy, value string) {
 		if value != "" {
@@ -67,7 +67,7 @@ func (s *ProxySettings) AsScriptEnvironment() string {
 // AsEnvironmentValues returns a slice of strings of the format "key=value"
 // suitable to be used in a command environment. There are two values for each
 // non-empty proxy value, one lower-case and one upper-case.
-func (s *ProxySettings) AsEnvironmentValues() []string {
+func (s *Settings) AsEnvironmentValues() []string {
 	lines := []string{}
 	addLine := func(proxy, value string) {
 		if value != "" {
@@ -91,7 +91,7 @@ func (s *ProxySettings) AsEnvironmentValues() []string {
 // http_proxy, HTTP_PROXY
 // https_proxy, HTTPS_PROXY
 // ftp_proxy, FTP_PROXY
-func (s *ProxySettings) SetEnvironmentValues() {
+func (s *Settings) SetEnvironmentValues() {
 	setenv := func(proxy, value string) {
 		os.Setenv(proxy, value)
 		os.Setenv(strings.ToUpper(proxy), value)

@@ -54,15 +54,14 @@ type fakeEnsure struct {
 	initiateCount  int
 	dataDir        string
 	namespace      string
-	withHA         bool
 	info           params.StateServingInfo
 	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo, withHA bool) error {
+func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo) error {
 	f.ensureCount++
-	f.dataDir, f.namespace, f.info, f.withHA = dataDir, namespace, info, withHA
+	f.dataDir, f.namespace, f.info = dataDir, namespace, info
 	return f.err
 }
 
@@ -157,7 +156,6 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
-	c.Assert(s.fakeEnsureMongo.withHA, jc.IsTrue)
 
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)

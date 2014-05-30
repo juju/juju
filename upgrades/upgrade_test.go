@@ -107,6 +107,7 @@ type mockAgentConfig struct {
 	jobs         []params.MachineJob
 	apiAddresses []string
 	values       map[string]string
+	stateInfo    *state.Info
 }
 
 func (mock *mockAgentConfig) Tag() string {
@@ -135,6 +136,10 @@ func (mock *mockAgentConfig) APIAddresses() ([]string, error) {
 
 func (mock *mockAgentConfig) Value(name string) string {
 	return mock.values[name]
+}
+
+func (mock *mockAgentConfig) StateInfo() (*state.Info, bool) {
+	return mock.stateInfo, true
 }
 
 func targets(targets ...upgrades.Target) (upgradeTargets []upgrades.Target) {

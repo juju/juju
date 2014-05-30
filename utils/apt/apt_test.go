@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/apt"
+	"launchpad.net/juju-core/utils/proxy"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -96,9 +96,9 @@ Acquire::magic::Proxy "none";
 `
 	_ = s.HookCommandOutput(&apt.CommandOutput, []byte(output), nil)
 
-	proxy, err := apt.DetectProxies()
+	proxySettings, err := apt.DetectProxies()
 	c.Assert(err, gc.IsNil)
-	c.Assert(proxy, gc.DeepEquals, osenv.ProxySettings{
+	c.Assert(proxySettings, gc.DeepEquals, proxy.Settings{
 		Http:  "10.0.3.1:3142",
 		Https: "false",
 		Ftp:   "none",
@@ -107,9 +107,9 @@ Acquire::magic::Proxy "none";
 
 func (s *AptSuite) TestDetectAptProxyNone(c *gc.C) {
 	_ = s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
-	proxy, err := apt.DetectProxies()
+	proxySettings, err := apt.DetectProxies()
 	c.Assert(err, gc.IsNil)
-	c.Assert(proxy, gc.DeepEquals, osenv.ProxySettings{})
+	c.Assert(proxySettings, gc.DeepEquals, proxy.Settings{})
 }
 
 func (s *AptSuite) TestDetectAptProxyPartial(c *gc.C) {
@@ -120,41 +120,41 @@ Acquire::magic::Proxy "none";
 `
 	_ = s.HookCommandOutput(&apt.CommandOutput, []byte(output), nil)
 
-	proxy, err := apt.DetectProxies()
+	proxySettings, err := apt.DetectProxies()
 	c.Assert(err, gc.IsNil)
-	c.Assert(proxy, gc.DeepEquals, osenv.ProxySettings{
+	c.Assert(proxySettings, gc.DeepEquals, proxy.Settings{
 		Http: "10.0.3.1:3142",
 		Ftp:  "here-it-is",
 	})
 }
 
 func (s *AptSuite) TestAptProxyContentEmpty(c *gc.C) {
-	output := apt.ProxyContent(osenv.ProxySettings{})
+	output := apt.ProxyContent(proxy.Settings{})
 	c.Assert(output, gc.Equals, "")
 }
 
 func (s *AptSuite) TestAptProxyContentPartial(c *gc.C) {
-	proxy := osenv.ProxySettings{
+	proxySettings := proxy.Settings{
 		Http: "user@10.0.0.1",
 	}
-	output := apt.ProxyContent(proxy)
+	output := apt.ProxyContent(proxySettings)
 	expected := `Acquire::http::Proxy "user@10.0.0.1";`
 	c.Assert(output, gc.Equals, expected)
 }
 
 func (s *AptSuite) TestAptProxyContentRoundtrip(c *gc.C) {
-	proxy := osenv.ProxySettings{
+	proxySettings := proxy.Settings{
 		Http:  "http://user@10.0.0.1",
 		Https: "https://user@10.0.0.1",
 		Ftp:   "ftp://user@10.0.0.1",
 	}
-	output := apt.ProxyContent(proxy)
+	output := apt.ProxyContent(proxySettings)
 
 	s.HookCommandOutput(&apt.CommandOutput, []byte(output), nil)
 
 	detected, err := apt.DetectProxies()
 	c.Assert(err, gc.IsNil)
-	c.Assert(detected, gc.DeepEquals, proxy)
+	c.Assert(detected, gc.DeepEquals, proxySettings)
 }
 
 func (s *AptSuite) TestConfigProxyConfiguredFilterOutput(c *gc.C) {

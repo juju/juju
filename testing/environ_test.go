@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 type fakeHomeSuite struct {
@@ -20,7 +21,7 @@ type fakeHomeSuite struct {
 var _ = gc.Suite(&fakeHomeSuite{})
 
 func (s *fakeHomeSuite) SetUpTest(c *gc.C) {
-	osenv.SetHome("/home/eric")
+	utils.SetHome("/home/eric")
 	os.Setenv("JUJU_HOME", "/home/eric/juju")
 	osenv.SetJujuHome("/home/eric/juju")
 
@@ -31,7 +32,7 @@ func (s *fakeHomeSuite) TearDownTest(c *gc.C) {
 	s.FakeJujuHomeSuite.TearDownTest(c)
 
 	// Test that the environment is restored.
-	c.Assert(osenv.Home(), gc.Equals, "/home/eric")
+	c.Assert(utils.Home(), gc.Equals, "/home/eric")
 	c.Assert(os.Getenv("JUJU_HOME"), gc.Equals, "/home/eric/juju")
 	c.Assert(osenv.JujuHome(), gc.Equals, "/home/eric/juju")
 }
@@ -49,6 +50,6 @@ func (s *fakeHomeSuite) TestFakeHomeSetsUpHome(c *gc.C) {
 }
 
 func (s *fakeHomeSuite) TestFakeHomeSetsConfigJujuHome(c *gc.C) {
-	expected := filepath.Join(osenv.Home(), ".juju")
+	expected := filepath.Join(utils.Home(), ".juju")
 	c.Assert(osenv.JujuHome(), gc.Equals, expected)
 }

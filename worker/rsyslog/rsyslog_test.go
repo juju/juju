@@ -16,6 +16,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -30,6 +31,9 @@ func TestPackage(t *stdtesting.T) {
 
 type RsyslogSuite struct {
 	jujutesting.JujuConnSuite
+
+	st      *api.State
+	machine *state.Machine
 }
 
 var _ = gc.Suite(&RsyslogSuite{})
@@ -50,6 +54,10 @@ func (s *RsyslogSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(rsyslog.RestartRsyslog, func() error { return nil })
 	s.PatchValue(rsyslog.LogDir, c.MkDir())
 	s.PatchValue(rsyslog.RsyslogConfDir, c.MkDir())
+
+	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	c.Assert(err, gc.IsNil)
 }
 
 func waitForFile(c *gc.C, file string) {
@@ -87,7 +95,7 @@ func (s *RsyslogSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *RsyslogSuite) TestTearDown(c *gc.C) {
-	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st, m := s.st, s.machine
 	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", []string{"0.1.2.3"})
 	c.Assert(err, gc.IsNil)
 	confFile := filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf")
@@ -131,7 +139,7 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 }
 
 func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
-	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st, m := s.st, s.machine
 	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", nil)
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -165,7 +173,7 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 }
 
 func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
-	_, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	m := s.machine
 	syslogConfig := syslog.NewAccumulateConfig(m.Tag(), *rsyslog.LogDir, 6541, "", []string{"192.168.1", "127.0.0.1"})
 	rendered, err := syslogConfig.Render()
 	c.Assert(err, gc.IsNil)
@@ -178,7 +186,11 @@ func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
 }
 
 func (s *RsyslogSuite) TestNamespace(c *gc.C) {
-	st, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
+	st := s.st
+	// set the rsyslog cert
+	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
+	c.Assert(err, gc.IsNil)
+
 	// namespace only takes effect in filenames
 	// for machine-0; all others assume isolation.
 	s.testNamespace(c, st, "machine-0", "", "25-juju.conf", *rsyslog.LogDir)
@@ -201,19 +213,23 @@ func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag, namespace, exp
 
 	err := os.MkdirAll(expectedLogDir, 0755)
 	c.Assert(err, gc.IsNil)
-	err = s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
-	c.Assert(err, gc.IsNil)
 	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, tag, namespace, []string{"0.1.2.3"})
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 
-	// Ensure that ca-cert.pem gets written to the expected log dir.
-	waitForFile(c, filepath.Join(expectedLogDir, "ca-cert.pem"))
+	// change the API HostPorts to trigger an rsyslog restart
+	newHostPorts := instance.AddressesWithPort(instance.NewAddresses("127.0.0.1"), 6541)
+	err = s.State.SetAPIHostPorts([][]instance.HostPort{newHostPorts})
+	c.Assert(err, gc.IsNil)
 
 	// Wait for rsyslog to be restarted, so we can check to see
 	// what the name of the config file is.
 	waitForRestart(c, restarted)
+
+	// Ensure that ca-cert.pem gets written to the expected log dir.
+	waitForFile(c, filepath.Join(expectedLogDir, "ca-cert.pem"))
+
 	dir, err := os.Open(*rsyslog.RsyslogConfDir)
 	c.Assert(err, gc.IsNil)
 	names, err := dir.Readdirnames(-1)
@@ -221,43 +237,4 @@ func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag, namespace, exp
 	c.Assert(err, gc.IsNil)
 	c.Assert(names, gc.HasLen, 1)
 	c.Assert(names[0], gc.Equals, expectedFilename)
-}
-
-func (s *RsyslogSuite) TestConfigChange(c *gc.C) {
-	var restarted bool
-	s.PatchValue(rsyslog.RestartRsyslog, func() error {
-		restarted = true
-		return nil
-	})
-
-	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	handler, err := rsyslog.NewRsyslogConfigHandler(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "", []string{"0.1.2.3"})
-	c.Assert(err, gc.IsNil)
-
-	assertRestart := func(v bool) {
-		err := handler.Handle()
-		c.Assert(err, gc.IsNil)
-		c.Assert(restarted, gc.Equals, v)
-		restarted = false
-		// Handling again should not restart, as no changes have been made.
-		err = handler.Handle()
-		c.Assert(err, gc.IsNil)
-		c.Assert(restarted, jc.IsFalse)
-	}
-
-	err = s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
-	c.Assert(err, gc.IsNil)
-	assertRestart(true)
-
-	err = s.APIState.Client().EnvironmentSet(map[string]interface{}{"syslog-port": 1})
-	c.Assert(err, gc.IsNil)
-	assertRestart(true)
-
-	err = s.APIState.Client().EnvironmentSet(map[string]interface{}{"unrelated": "anything"})
-	c.Assert(err, gc.IsNil)
-	assertRestart(false)
-
-	err = s.APIState.Client().EnvironmentSet(map[string]interface{}{"syslog-port": 2})
-	c.Assert(err, gc.IsNil)
-	assertRestart(true)
 }

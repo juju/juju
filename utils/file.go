@@ -13,8 +13,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
-
-	"launchpad.net/juju-core/juju/osenv"
 )
 
 // UserHomeDir returns the home directory for the specified user, or the
@@ -26,13 +24,13 @@ func UserHomeDir(userName string) (homeDir string, err error) {
 		// Ordinarily, we'd always use user.Current() to get the current user
 		// and then get the HomeDir from that. But our tests rely on poking
 		// a value into $HOME in order to override the normal home dir for the
-		// current user. So on *nix, we're forced to use osenv.Home() to make
+		// current user. So on *nix, we're forced to use Home() to make
 		// the tests pass. All of our tests currently construct paths with the
 		// default user in mind eg "~/foo".
 		if runtime.GOOS == "windows" {
 			u, err = user.Current()
 		} else {
-			return osenv.Home(), nil
+			return Home(), nil
 		}
 	} else {
 		u, err = user.Lookup(userName)

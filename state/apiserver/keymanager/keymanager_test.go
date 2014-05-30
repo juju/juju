@@ -278,21 +278,3 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 	})
 	s.assertEnvironKeys(c, append(initialKeys, key3))
 }
-
-func (s *keyManagerSuite) TestCallSSHImportId(c *gc.C) {
-	c.Skip("the landing bot does not run ssh-import-id successfully")
-	output, err := keymanager.RunSSHImportId("lp:wallyworld")
-	c.Assert(err, gc.IsNil)
-	lines := strings.Split(output, "\n")
-	var key string
-	for _, line := range lines {
-		if !strings.HasPrefix(line, "ssh-") {
-			continue
-		}
-		_, _, err := ssh.KeyFingerprint(line)
-		if err == nil {
-			key = line
-		}
-	}
-	c.Assert(key, gc.Not(gc.Equals), "")
-}

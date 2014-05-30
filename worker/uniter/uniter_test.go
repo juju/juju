@@ -26,7 +26,6 @@ import (
 	"launchpad.net/juju-core/agent/tools"
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -37,6 +36,7 @@ import (
 	"launchpad.net/juju-core/utils"
 	utilexec "launchpad.net/juju-core/utils/exec"
 	"launchpad.net/juju-core/utils/fslock"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/charm"
@@ -2195,7 +2195,7 @@ var verifyHookSyncLockLocked = custom{func(c *gc.C, ctx *context) {
 	c.Assert(lock.IsLocked(), jc.IsTrue)
 }}
 
-type setProxySettings osenv.ProxySettings
+type setProxySettings proxy.Settings
 
 func (s setProxySettings) step(c *gc.C, ctx *context) {
 	attrs := map[string]interface{}{
@@ -2207,7 +2207,7 @@ func (s setProxySettings) step(c *gc.C, ctx *context) {
 	err := ctx.st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	// wait for the new values...
-	expected := (osenv.ProxySettings)(s)
+	expected := (proxy.Settings)(s)
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		if ctx.uniter.GetProxyValues() == expected {
 			// Also confirm that the values were specified for the environment.

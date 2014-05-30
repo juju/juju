@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/proxy"
 	"launchpad.net/juju-core/version"
 )
 
@@ -1156,6 +1157,10 @@ var validationTests = []validationTest{{
 	new:   testing.Attrs{"bootstrap-timeout": 5},
 	err:   `cannot change bootstrap-timeout from 600 to 5`,
 }, {
+	about: "Cannot change the rsyslog port",
+	new:   testing.Attrs{"syslog-port": 8181},
+	err:   `cannot change syslog-port from 6514 to 8181`,
+}, {
 	about: "Cannot change lxc-clone",
 	old:   testing.Attrs{"lxc-clone": false},
 	new:   testing.Attrs{"lxc-clone": true},
@@ -1320,33 +1325,33 @@ func (s *ConfigSuite) TestProxyValuesNotSet(c *gc.C) {
 func (s *ConfigSuite) TestProxyConfigMap(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
-	proxy := osenv.ProxySettings{
+	proxySettings := proxy.Settings{
 		Http:    "http proxy",
 		Https:   "https proxy",
 		Ftp:     "ftp proxy",
 		NoProxy: "no proxy",
 	}
-	cfg, err := cfg.Apply(config.ProxyConfigMap(proxy))
+	cfg, err := cfg.Apply(config.ProxyConfigMap(proxySettings))
 	c.Assert(err, gc.IsNil)
-	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy)
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxySettings)
 	// Apt proxy and proxy differ by the content of the no-proxy values.
-	proxy.NoProxy = ""
-	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
+	proxySettings.NoProxy = ""
+	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
 }
 
 func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 	s.addJujuFiles(c)
 	cfg := newTestConfig(c, testing.Attrs{})
-	proxy := osenv.ProxySettings{
+	proxySettings := proxy.Settings{
 		Http:  "http proxy",
 		Https: "https proxy",
 		Ftp:   "ftp proxy",
 	}
-	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxy))
+	cfg, err := cfg.Apply(config.AptProxyConfigMap(proxySettings))
 	c.Assert(err, gc.IsNil)
 	// The default proxy settings should still be empty.
-	c.Assert(cfg.ProxySettings(), gc.DeepEquals, osenv.ProxySettings{})
-	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxy)
+	c.Assert(cfg.ProxySettings(), gc.DeepEquals, proxy.Settings{})
+	c.Assert(cfg.AptProxySettings(), gc.DeepEquals, proxySettings)
 }
 
 func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
