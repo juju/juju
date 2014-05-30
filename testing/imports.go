@@ -4,12 +4,8 @@
 package testing
 
 import (
-	"go/build"
-	"path/filepath"
-	"sort"
-	"strings"
-
 	gc "launchpad.net/gocheck"
+	"github.com/juju/testing"
 )
 
 const jujuPkgPrefix = "launchpad.net/juju-core/"
@@ -18,40 +14,7 @@ const jujuPkgPrefix = "launchpad.net/juju-core/"
 // imported by the packageName parameter.  The resulting list removes the
 // common prefix "launchpad.net/juju-core/" leaving just the short names.
 func FindJujuCoreImports(c *gc.C, packageName string) []string {
-	var result []string
-	allpkgs := make(map[string]bool)
-
-	findJujuCoreImports(c, packageName, allpkgs)
-	for name := range allpkgs {
-		result = append(result, name[len(jujuPkgPrefix):])
-	}
-	sort.Strings(result)
-	return result
-}
-
-// findJujuCoreImports recursively adds all imported packages of given
-// package (packageName) to allpkgs map.
-func findJujuCoreImports(c *gc.C, packageName string, allpkgs map[string]bool) {
-
-	var imports []string
-
-	for _, root := range build.Default.SrcDirs() {
-		fullpath := filepath.Join(root, packageName)
-		pkg, err := build.ImportDir(fullpath, 0)
-		if err == nil {
-			imports = pkg.Imports
-			break
-		}
-	}
-	if imports == nil {
-		c.Fatalf(packageName + " not found")
-	}
-
-	for _, name := range imports {
-		if strings.HasPrefix(name, jujuPkgPrefix) {
-			allpkgs[name] = true
-			findJujuCoreImports(c, name, allpkgs)
-		}
-	}
-
+	imps, err := testing.FindImports(packageName, jujuPkgPrefix)
+	c.Assert(err, gc.IsNil)
+	return imps
 }

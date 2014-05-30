@@ -7,14 +7,14 @@ import (
 	"flag"
 
 	"github.com/juju/loggo"
-	"github.com/juju/testing/logging"
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 )
 
 // LoggingSuite redirects the juju logger to the test logger
 // when embedded in a gocheck suite type.
 type LoggingSuite struct {
-	logging.LoggingSuite
+	testing.IsolationSuite
 }
 
 func (t *LoggingSuite) SetUpSuite(c *gc.C) {
