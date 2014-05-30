@@ -6,6 +6,7 @@ package api_test
 import (
 	"io"
 	"net"
+	"sort"
 
 	gc "launchpad.net/gocheck"
 
@@ -37,7 +38,9 @@ func (s *apiclientSuite) TestSortLocalhost(c *gc.C) {
 		"notlocalhost2",
 		"notlocalhost3",
 	}
-	sortedAddrs := api.SortLocalHostFirst(addrs)
+	var sortedAddrs []string
+	sortedAddrs = append(sortedAddrs, addrs...)
+	sort.Sort(api.LocalFirst(sortedAddrs))
 	c.Assert(addrs, gc.Not(gc.DeepEquals), sortedAddrs)
 	c.Assert(sortedAddrs, gc.HasLen, 6)
 	c.Assert(sortedAddrs, gc.DeepEquals, expectedAddrs)
@@ -61,7 +64,9 @@ func (s *apiclientSuite) TestSortLocalhostIdempotent(c *gc.C) {
 		"notlocalhost2",
 		"notlocalhost3",
 	}
-	sortedAddrs := api.SortLocalHostFirst(addrs)
+	var sortedAddrs []string
+	sortedAddrs = append(sortedAddrs, addrs...)
+	sort.Sort(api.LocalFirst(sortedAddrs))
 	c.Assert(sortedAddrs, gc.DeepEquals, expectedAddrs)
 
 }
@@ -73,7 +78,7 @@ func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	server, err := net.Dial("tcp", serverAddr)
 	c.Assert(err, gc.IsNil)
 	defer server.Close()
-	listener, err := net.Listen("tcp", "localhost:27017")
+	listener, err := net.Listen("tcp", "localhost:26104")
 	c.Assert(err, gc.IsNil)
 	defer listener.Close()
 	go func() {
@@ -88,11 +93,11 @@ func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	}()
 
 	// Check that we are using our working address to connect
-	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", "localhost:27017"}
+	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", "localhost:26104"}
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
-	c.Assert(st.Addr(), gc.Equals, "localhost:27017")
+	c.Assert(st.Addr(), gc.Equals, "localhost:26104")
 }
 
 func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {

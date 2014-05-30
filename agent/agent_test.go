@@ -458,7 +458,7 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPesent(c *gc.C) {
 			break
 		}
 	}
-	c.Assert(localhostAddressFound, gc.Equals, true)
+	c.Assert(localhostAddressFound, jc.IsTrue)
 }
 
 func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfo(c *gc.C) {

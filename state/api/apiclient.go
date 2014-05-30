@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"sort"
 	"strings"
 	"time"
 
@@ -109,17 +110,16 @@ func DefaultDialOpts() DialOpts {
 	}
 }
 
-func SortLocalHostFirst(addrs []string) []string {
-	sortedAddrs := append([]string{}, addrs...)
-	nextSwapIndex := 0
-	for addrIndex, addr := range addrs {
-		if strings.HasPrefix(addr, "localhost") {
-			sortedAddrs[nextSwapIndex], sortedAddrs[addrIndex] = sortedAddrs[addrIndex], sortedAddrs[nextSwapIndex]
-			nextSwapIndex++
-		}
-	}
-	return sortedAddrs
+type LocalFirst []string
 
+func (l LocalFirst) Len() int {
+	return len(l)
+}
+func (l LocalFirst) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+func (l LocalFirst) Less(i, j int) bool {
+	return strings.HasPrefix(l[i], "localhost") && !strings.HasPrefix(l[j], "localhost")
 }
 
 func Open(info *Info, opts DialOpts) (*State, error) {
@@ -136,7 +136,9 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, nil)
 	defer try.Kill()
-	addrs := SortLocalHostFirst(info.Addrs)
+	var addrs []string
+	addrs = append(addrs, info.Addrs...)
+	sort.Sort(LocalFirst(addrs))
 	for _, addr := range addrs {
 		err := dialWebsocket(addr, opts, pool, try)
 		if err == parallel.ErrStopped {

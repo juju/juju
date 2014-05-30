@@ -611,8 +611,8 @@ func (c *configInternal) APIInfo() *api.Info {
 		port := servingInfo.APIPort
 		localApiAddr := fmt.Sprintf("localhost:%d", port)
 		addrInAddrs := false
-		for _, eachAddress := range addrs {
-			if eachAddress == localApiAddr {
+		for _, addr := range addrs {
+			if addr == localApiAddr {
 				addrInAddrs = true
 				break
 			}
