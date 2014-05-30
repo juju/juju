@@ -6,9 +6,7 @@ package main
 import (
 	"fmt"
 	"io"
-	"net"
 	"path/filepath"
-	"strconv"
 	"sync"
 	"time"
 
@@ -193,25 +191,6 @@ type apiOpener interface {
 
 type configChanger func(c *agent.Config)
 
-func pickBestHosts(apiInfo *api.Info, jobs []params.MachineJob) error {
-	for _, job := range jobs {
-		if job == params.JobManageEnviron {
-			firstAddr := apiInfo.Addrs[0]
-			_, port, err := net.SplitHostPort(firstAddr)
-			if err != nil {
-				return err
-			}
-			portNum, err := strconv.Atoi(port)
-			if err != nil {
-				return fmt.Errorf("bad port number %q", port)
-			}
-			apiInfo.Addrs = []string{fmt.Sprintf("localhost:%d", portNum)}
-			break
-		}
-	}
-	return nil
-}
-
 // openAPIState opens the API using the given information, and
 // returns the opened state and the api entity with
 // the given tag. The given changeConfig function is
@@ -226,12 +205,6 @@ func openAPIState(
 	// then the worker that's calling this cannot
 	// be interrupted.
 	info := agentConfig.APIInfo()
-	// Ensure that we conect trough localhost
-	agentConfigJobs := agentConfig.Jobs()
-	if err := pickBestHosts(info, agentConfigJobs); err != nil {
-		return nil, nil, err
-	}
-
 	st, err := apiOpen(info, api.DialOpts{})
 	usedOldPassword := false
 	if params.IsCodeUnauthorized(err) {

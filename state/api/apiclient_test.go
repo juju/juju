@@ -20,6 +20,81 @@ type apiclientSuite struct {
 
 var _ = gc.Suite(&apiclientSuite{})
 
+func (s *apiclientSuite) TestSortLocalhost(c *gc.C) {
+	addrs := []string{
+		"notlocalhost1",
+		"notlocalhost2",
+		"notlocalhost3",
+		"localhost1",
+		"localhost2",
+		"localhost3",
+	}
+	expectedAddrs := []string{
+		"localhost1",
+		"localhost2",
+		"localhost3",
+		"notlocalhost1",
+		"notlocalhost2",
+		"notlocalhost3",
+	}
+	sortedAddrs := api.SortLocalHostFirst(addrs)
+	c.Assert(addrs, gc.Not(gc.DeepEquals), sortedAddrs)
+	c.Assert(sortedAddrs, gc.HasLen, 6)
+	c.Assert(sortedAddrs, gc.DeepEquals, expectedAddrs)
+
+}
+
+func (s *apiclientSuite) TestSortLocalhostIdempotent(c *gc.C) {
+	addrs := []string{
+		"localhost1",
+		"localhost2",
+		"localhost3",
+		"notlocalhost1",
+		"notlocalhost2",
+		"notlocalhost3",
+	}
+	expectedAddrs := []string{
+		"localhost1",
+		"localhost2",
+		"localhost3",
+		"notlocalhost1",
+		"notlocalhost2",
+		"notlocalhost3",
+	}
+	sortedAddrs := api.SortLocalHostFirst(addrs)
+	c.Assert(sortedAddrs, gc.DeepEquals, expectedAddrs)
+
+}
+
+func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
+	// Create a socket that proxies to the API server though our localhost address.
+	info := s.APIInfo(c)
+	serverAddr := info.Addrs[0]
+	server, err := net.Dial("tcp", serverAddr)
+	c.Assert(err, gc.IsNil)
+	defer server.Close()
+	listener, err := net.Listen("tcp", "localhost:27017")
+	c.Assert(err, gc.IsNil)
+	defer listener.Close()
+	go func() {
+		for {
+			client, err := listener.Accept()
+			if err != nil {
+				return
+			}
+			go io.Copy(client, server)
+			go io.Copy(server, client)
+		}
+	}()
+
+	// Check that we are using our working address to connect
+	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", "localhost:27017"}
+	st, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	c.Assert(st.Addr(), gc.Equals, "localhost:27017")
+}
+
 func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
 	// Create a socket that proxies to the API server.
 	info := s.APIInfo(c)
