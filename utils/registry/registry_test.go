@@ -7,15 +7,15 @@ import (
 	"reflect"
 
 	"github.com/juju/errors"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/registry"
 )
 
 type registrySuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&registrySuite{})

@@ -6,15 +6,15 @@ package utils_test
 import (
 	"fmt"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
 type IsUbuntuSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&IsUbuntuSuite{})

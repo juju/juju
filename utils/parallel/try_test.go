@@ -11,11 +11,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/parallel"
+)
+
+const (
+	shortWait = 50 * time.Millisecond
+	longWait  = 10 * time.Second
 )
 
 type result string
@@ -24,7 +29,9 @@ func (r result) Close() error {
 	return nil
 }
 
-type trySuite struct{}
+type trySuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&trySuite{})
 
@@ -51,12 +58,12 @@ func (*trySuite) TestOneFailure(c *gc.C) {
 	select {
 	case <-try.Dead():
 		c.Fatalf("try died before it should")
-	case <-time.After(testing.ShortWait):
+	case <-time.After(shortWait):
 	}
 	try.Close()
 	select {
 	case <-try.Dead():
-	case <-time.After(testing.LongWait):
+	case <-time.After(longWait):
 		c.Fatalf("timed out waiting for Try to complete")
 	}
 	val, err := try.Result()
@@ -73,7 +80,7 @@ func (*trySuite) TestStartReturnsErrorAfterClose(c *gc.C) {
 	err = try.Start(tryFunc(0, result("goodbye"), nil))
 	c.Assert(err, gc.Equals, parallel.ErrClosed)
 	// Wait for the first try to deliver its result
-	time.Sleep(testing.ShortWait)
+	time.Sleep(shortWait)
 	try.Kill()
 	err = try.Wait()
 	c.Assert(err, gc.Equals, expectErr)
@@ -140,7 +147,7 @@ func (*trySuite) TestStartBlocksForMaxParallel(c *gc.C) {
 		close(started)
 	}()
 	// Check we can start the first three.
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(longWait)
 	for i := 0; i < 3; i++ {
 		select {
 		case <-started:
@@ -149,7 +156,7 @@ func (*trySuite) TestStartBlocksForMaxParallel(c *gc.C) {
 		}
 	}
 	// Check we block when going above maxParallel.
-	timeout = time.After(testing.ShortWait)
+	timeout = time.After(shortWait)
 	select {
 	case <-started:
 		c.Fatalf("Start did not block")
@@ -161,7 +168,7 @@ func (*trySuite) TestStartBlocksForMaxParallel(c *gc.C) {
 	begin <- struct{}{}
 
 	// Check we can start another two.
-	timeout = time.After(testing.LongWait)
+	timeout = time.After(longWait)
 	for i := 0; i < 2; i++ {
 		select {
 		case <-started:
@@ -171,7 +178,7 @@ func (*trySuite) TestStartBlocksForMaxParallel(c *gc.C) {
 	}
 
 	// Check we block again when going above maxParallel.
-	timeout = time.After(testing.ShortWait)
+	timeout = time.After(shortWait)
 	select {
 	case <-started:
 		c.Fatalf("Start did not block")
@@ -182,7 +189,7 @@ func (*trySuite) TestStartBlocksForMaxParallel(c *gc.C) {
 	// unblocking last remaining Start request.
 	try.Close()
 
-	timeout = time.After(testing.LongWait)
+	timeout = time.After(longWait)
 	select {
 	case <-started:
 	case <-timeout:
@@ -209,7 +216,7 @@ func (*trySuite) TestAllConcurrent(c *gc.C) {
 			return result("hello"), nil
 		})
 	}
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(longWait)
 	for i := 0; i < 10; i++ {
 		select {
 		case reply := <-started:
@@ -280,7 +287,7 @@ func (*trySuite) TestTriesAreStopped(c *gc.C) {
 
 	select {
 	case <-stopped:
-	case <-time.After(testing.LongWait):
+	case <-time.After(longWait):
 		c.Fatalf("timed out waiting for stop")
 	}
 }
@@ -321,7 +328,7 @@ func (*trySuite) TestExtraResultsAreClosed(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(val, gc.Equals, results[0])
 
-	timeout := time.After(testing.ShortWait)
+	timeout := time.After(shortWait)
 	for i, r := range results[1:] {
 		begin[i+1] <- struct{}{}
 		select {
@@ -333,7 +340,7 @@ func (*trySuite) TestExtraResultsAreClosed(c *gc.C) {
 	select {
 	case <-results[0].closed:
 		c.Fatalf("result was inappropriately closed")
-	case <-time.After(testing.ShortWait):
+	case <-time.After(shortWait):
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"os/user"
 	"path/filepath"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -17,26 +18,19 @@ import (
 )
 
 type fileSuite struct {
-	oldHome string
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&fileSuite{})
 
-func (s *fileSuite) SetUpTest(c *gc.C) {
-	s.oldHome = utils.Home()
-	err := utils.SetHome("/home/test-user")
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *fileSuite) TearDownTest(c *gc.C) {
-	err := utils.SetHome(s.oldHome)
-	c.Assert(err, gc.IsNil)
-}
-
 func (*fileSuite) TestNormalizePath(c *gc.C) {
+	home := c.MkDir()
+	err := utils.SetHome(home)
+	c.Assert(err, gc.IsNil)
+	// TODO (frankban) bug 1324841: improve the isolation of this suite.
 	currentUser, err := user.Current()
 	c.Assert(err, gc.IsNil)
-	for _, test := range []struct {
+	for i, test := range []struct {
 		path     string
 		expected string
 		err      string
@@ -45,26 +39,27 @@ func (*fileSuite) TestNormalizePath(c *gc.C) {
 		expected: "/var/lib/juju",
 	}, {
 		path:     "~/foo",
-		expected: "/home/test-user/foo",
+		expected: filepath.Join(home, "foo"),
 	}, {
 		path:     "~/foo//../bar",
-		expected: "/home/test-user/bar",
+		expected: filepath.Join(home, "bar"),
 	}, {
 		path:     "~",
-		expected: "/home/test-user",
+		expected: home,
 	}, {
 		path:     "~" + currentUser.Username,
 		expected: currentUser.HomeDir,
 	}, {
 		path:     "~" + currentUser.Username + "/foo",
-		expected: currentUser.HomeDir + "/foo",
+		expected: filepath.Join(currentUser.HomeDir, "foo"),
 	}, {
 		path:     "~" + currentUser.Username + "/foo//../bar",
-		expected: currentUser.HomeDir + "/bar",
+		expected: filepath.Join(currentUser.HomeDir, "bar"),
 	}, {
 		path: "~foobar/path",
 		err:  "user: unknown user foobar",
 	}} {
+		c.Logf("test %d: %s", i, test.path)
 		actual, err := utils.NormalizePath(test.path)
 		if test.err != "" {
 			c.Check(err, gc.ErrorMatches, test.err)
@@ -175,7 +170,7 @@ func (*fileSuite) TestAtomicWriteFile(c *gc.C) {
 		contents = []byte("new\ncontents")
 		err = test.change(path, contents)
 		c.Assert(err, gc.IsNil)
-		data, err = ioutil.ReadFile(path)
+		data, err := ioutil.ReadFile(path)
 		c.Assert(err, gc.IsNil)
 		c.Assert(data, jc.DeepEquals, contents)
 		assertDirContents(name)

@@ -674,6 +674,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 		removeConstraintsOp(s.st, u.globalKey()),
 		removeStatusOp(s.st, u.globalKey()),
 		annotationRemoveOp(s.st, u.globalKey()),
+		s.st.newCleanupOp(cleanupRemovedUnit, u.doc.Name),
 	)
 	if u.doc.CharmURL != nil {
 		decOps, err := settingsDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
@@ -722,13 +723,17 @@ func (s *Service) Unit(name string) (*Unit, error) {
 
 // AllUnits returns all units of the service.
 func (s *Service) AllUnits() (units []*Unit, err error) {
+	return allUnits(s.st, s.doc.Name)
+}
+
+func allUnits(st *State, service string) (units []*Unit, err error) {
 	docs := []unitDoc{}
-	err = s.st.units.Find(bson.D{{"service", s.doc.Name}}).All(&docs)
+	err = st.units.Find(bson.D{{"service", service}}).All(&docs)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get all units from service %q: %v", s, err)
+		return nil, fmt.Errorf("cannot get all units from service %q: %v", service, err)
 	}
 	for i := range docs {
-		units = append(units, newUnit(s.st, &docs[i]))
+		units = append(units, newUnit(st, &docs[i]))
 	}
 	return units, nil
 }

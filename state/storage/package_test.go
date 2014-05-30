@@ -1,14 +1,14 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package fslock_test
+package storage_test
 
 import (
 	stdtesting "testing"
 
-	gc "launchpad.net/gocheck"
+	"launchpad.net/juju-core/testing"
 )
 
-func Test(t *testing.T) {
-	gc.TestingT(t)
+func Test(t *stdtesting.T) {
+	testing.MgoTestPackageSsl(t, false)
 }

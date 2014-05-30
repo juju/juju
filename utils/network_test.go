@@ -6,12 +6,14 @@ package utils_test
 import (
 	"net"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/utils"
 )
 
 type networkSuite struct {
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&networkSuite{})

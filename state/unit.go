@@ -1277,14 +1277,63 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		return nil, err
 	}
 
-	// TODO(rog) Fix so this is more efficient when there are concurrent uses.
-	// Possible solution: pick the highest and the smallest id of all
-	// unused machines, and try to assign to the first one >= a random id in the
-	// middle.
-	iter := query.Batch(1).Prefetch(0).Iter()
-	var mdoc machineDoc
-	for iter.Next(&mdoc) {
-		m := newMachine(u.st, &mdoc)
+	// Find all of the candidate machines, and associated
+	// instances for those that are provisioned. Instances
+	// will be distributed across in preference to
+	// unprovisioned machines.
+	var mdocs []*machineDoc
+	if err := query.All(&mdocs); err != nil {
+		assignContextf(&err, u, context)
+		return nil, err
+	}
+	var unprovisioned []*Machine
+	var instances []instance.Id
+	instanceMachines := make(map[instance.Id]*Machine)
+	for _, mdoc := range mdocs {
+		m := newMachine(u.st, mdoc)
+		instance, err := m.InstanceId()
+		if IsNotProvisionedError(err) {
+			unprovisioned = append(unprovisioned, m)
+		} else if err != nil {
+			assignContextf(&err, u, context)
+			return nil, err
+		} else {
+			instances = append(instances, instance)
+			instanceMachines[instance] = m
+		}
+	}
+
+	// Filter the list of instances that are suitable for
+	// distribution, and then map them back to machines.
+	//
+	// TODO(axw) 2014-05-30 #1324904
+	// Shuffle machines to reduce likelihood of collisions.
+	// The partition of provisioned/unprovisioned machines
+	// must be maintained.
+	if instances, err = distributeUnit(u, instances); err != nil {
+		assignContextf(&err, u, context)
+		return nil, err
+	}
+	machines := make([]*Machine, len(instances), len(instances)+len(unprovisioned))
+	for i, instance := range instances {
+		m, ok := instanceMachines[instance]
+		if !ok {
+			err := fmt.Errorf("invalid instance returned: %v", instance)
+			assignContextf(&err, u, context)
+			return nil, err
+		}
+		machines[i] = m
+	}
+	machines = append(machines, unprovisioned...)
+
+	// TODO(axw) 2014-05-30 #1253704
+	// We should not select a machine that is in the process
+	// of being provisioned. There's no point asserting that
+	// the machine hasn't been provisioned, as there'll still
+	// be a period of time during which the machine may be
+	// provisioned without the fact having yet been recorded
+	// in state.
+	for _, m := range machines {
 		err := u.assignToMachine(m, true)
 		if err == nil {
 			return m, nil
@@ -1293,10 +1342,6 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 			assignContextf(&err, u, context)
 			return nil, err
 		}
-	}
-	if err := iter.Err(); err != nil {
-		assignContextf(&err, u, context)
-		return nil, err
 	}
 	return nil, noCleanMachines
 }
@@ -1331,16 +1376,11 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, error) {
-
-	prefix := fmt.Sprintf("u#%s#", u.doc.Name)
-	suffix, err := u.st.sequence(prefix)
+	actionId, err := newActionId(u.st, u.globalKey())
 	if err != nil {
-		return "", fmt.Errorf("cannot assign new sequence for prefix '%s'. %s", prefix, err)
+		return "", fmt.Errorf("cannot add action; error generating key: %v", err)
 	}
-
-	newActionID := fmt.Sprintf("%s%d", prefix, suffix)
-
-	doc := actionDoc{Id: newActionID, Name: name, Payload: payload}
+	doc := actionDoc{Id: actionId, Name: name, Payload: payload}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -1363,7 +1403,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 		case txn.ErrAborted:
 			continue
 		case nil:
-			return newActionID, nil
+			return actionId, nil
 		default:
 			return "", err
 		}

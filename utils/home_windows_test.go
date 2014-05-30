@@ -10,7 +10,7 @@ import (
 )
 
 type homeSuite struct {
-	testing.CleanupSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&homeSuite{})
