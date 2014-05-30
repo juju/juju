@@ -5,6 +5,11 @@ set -eux
 
 export INSTANCE_TYPE=$1
 export AMI_IMAGE=$2
+if [ ${3-} == "--force-archive" ]; then
+  FIXUP_SOURCES="sudo sed s/ec2.archive.ubuntu.com/archive.ubuntu.com/ /etc/apt/sources.list -i"
+else
+  FIXUP_SOURCES=""
+fi
 
 afact='lastSuccessfulBuild/artifact'
 test -f buildvars.bash && rm buildvars.bash
@@ -47,6 +52,7 @@ for attempt in \$(seq 10); do
   fi
   sleep 10
 done
+$FIXUP_SOURCES
 sudo apt-get update
 sudo apt-get upgrade -y
 sudo apt-get install -y build-essential
