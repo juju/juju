@@ -9,13 +9,13 @@ import (
 
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
+	"github.com/juju/testing"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/testing/testbase"
 )
 
 type ArgsSuite struct {
-	testbase.LoggingSuite
+	testing.LoggingSuite
 }
 
 var _ = gc.Suite(&ArgsSuite{})

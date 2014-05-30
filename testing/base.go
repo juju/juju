@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
+	"github.com/juju/testing"
 
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -22,14 +22,21 @@ import (
 // - protection of user's home directory
 // - scrubbing of env vars
 type BaseSuite struct {
-	testbase.LoggingSuite
+	testing.LoggingSuite
+	testing.CleanupSuite
 	oldHomeEnv     string
 	oldEnvironment map[string]string
 }
 
 func (t *BaseSuite) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
+	t.CleanupSuite.SetUpSuite(c)
 	t.PatchValue(&utils.OutgoingAccessAllowed, false)
+}
+
+func (t *BaseSuite) TearDownSuite(c *gc.C) {
+	t.CleanupSuite.TearDownSuite(c)
+	t.LoggingSuite.TearDownSuite(c)
 }
 
 func (t *BaseSuite) SetUpTest(c *gc.C) {
@@ -47,9 +54,11 @@ func (t *BaseSuite) SetUpTest(c *gc.C) {
 	os.Setenv(osenv.JujuEnvEnvKey, "")
 	os.Setenv(osenv.JujuLoggingConfigEnvKey, "")
 	t.LoggingSuite.SetUpTest(c)
+	t.CleanupSuite.SetUpTest(c)
 }
 
 func (t *BaseSuite) TearDownTest(c *gc.C) {
+	t.CleanupSuite.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 	for name, value := range t.oldEnvironment {
 		os.Setenv(name, value)

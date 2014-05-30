@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
+	jc "github.com/juju/testing/checkers"
 
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -22,6 +23,6 @@ func (*Dependencies) TestPackageDependencies(c *gc.C) {
 	// Looking at the "environs/config", it is just for JujuHome.  This should
 	// really be moved into "juju/osenv".
 	c.Assert(coretesting.FindJujuCoreImports(c, "launchpad.net/juju-core/cmd"),
-		gc.DeepEquals,
+		jc.DeepEquals,
 		[]string{"juju/arch", "juju/osenv", "names", "utils", "version"})
 }

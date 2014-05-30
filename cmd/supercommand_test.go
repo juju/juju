@@ -10,10 +10,10 @@ import (
 
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
+	gitjujutesting "github.com/juju/testing"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	"launchpad.net/juju-core/version"
 )
 
@@ -25,7 +25,7 @@ func initDefenestrate(args []string) (*cmd.SuperCommand, *TestCommand, error) {
 }
 
 type SuperCommandSuite struct {
-	testbase.LoggingSuite
+	gitjujutesting.IsolationSuite
 }
 
 var _ = gc.Suite(&SuperCommandSuite{})
