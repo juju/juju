@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
+
 	coretesting "launchpad.net/juju-core/testing"
 )
 

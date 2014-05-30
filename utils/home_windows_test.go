@@ -1,9 +1,9 @@
 package utils_test
 
 import (
-	"github.com/juju/testing"
 	"os"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/utils"
