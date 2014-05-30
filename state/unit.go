@@ -1306,11 +1306,11 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	// Filter the list of instances that are suitable for
 	// distribution, and then map them back to machines.
 	//
-	// TODO(axw) 2014-03-27 #XXXXXX
+	// TODO(axw) 2014-05-30 #1324904
 	// Shuffle machines to reduce likelihood of collisions.
 	// The partition of provisioned/unprovisioned machines
 	// must be maintained.
-	if instances, err = u.distribute(instances); err != nil {
+	if instances, err = distributeUnit(u, instances); err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}
@@ -1326,7 +1326,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	}
 	machines = append(machines, unprovisioned...)
 
-	// TODO(axw) 2014-03-27 #XXXXXX
+	// TODO(axw) 2014-05-30 #1253704
 	// We should not select a machine that is in the process
 	// of being provisioned. There's no point asserting that
 	// the machine hasn't been provisioned, as there'll still

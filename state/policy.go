@@ -201,11 +201,11 @@ type InstanceDistributor interface {
 	// the subset of candidates which the policy will
 	// allow entry into the distribution group.
 	//
-	// TODO(axw) move this comment
-	// The unit assigner will attempt to assign a unit
-	// to each of the resulting instances until it
-	// succeeds. If no instances can be assigned
-	// (e.g. because of concurrent deployments), then
+	// The AssignClean and AssignCleanEmpty unit
+	// assignment policies will attempt to assign a
+	// unit to each of the resulting instances until
+	// one is successful. If no instances can be assigned
+	// to (e.g. because of concurrent deployments), then
 	// a new machine will be allocated.
 	DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error)
 }
