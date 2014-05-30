@@ -16,6 +16,9 @@ import (
 // the unit to. If there is no InstanceDistributor, or the distribution group
 // is empty, then all of the candidates will be returned.
 func (u *Unit) distribute(candidates []instance.Id) ([]instance.Id, error) {
+	if len(candidates) == 0 {
+		return nil, nil
+	}
 	if u.st.policy == nil {
 		return candidates, nil
 	}
