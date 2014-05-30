@@ -98,7 +98,6 @@ bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make build
 # Hack match for i386.
 sed -i 's/x86/86/' Makefile
-make install
 export JUJU_NOTEST_MONGOJS=1
 make check
 EOT
@@ -112,15 +111,6 @@ rm -r /tmp/gocheck-* || true
 rm -r /tmp/juju-* || true
 rm -r /tmp/test-* || true
 EOT
-
-# Capture the jujud to make a tool.
-version=$(echo $juju_version | cut -d _ -f2)
-scp "$@" $remote_user@$instance_name:~/$juju_version/bin/jujud ./
-series_arch=$(ssh "$@" $remote_user@$instance_name \
-    "echo \$(lsb_release -sc)-\$(uname -p | sed -r 's/.*ppc.*/ppc64el/')")
-tool="./juju-${version}-${series_arch}.tgz"
-tar cvfz $tool jujud
-echo "Created $tool."
 
 
 if [[ $is_ephemeral == "true" ]]; then
