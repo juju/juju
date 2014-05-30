@@ -4,11 +4,11 @@
 package registry_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	gc "launchpad.net/gocheck"
 )
 
-func TestAll(t *stdtesting.T) {
+func TestAll(t *testing.T) {
 	gc.TestingT(t)
 }

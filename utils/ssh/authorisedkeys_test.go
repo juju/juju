@@ -6,7 +6,6 @@ package ssh_test
 import (
 	"encoding/base64"
 	"strings"
-	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
@@ -14,10 +13,6 @@ import (
 	"launchpad.net/juju-core/utils/ssh"
 	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
 )
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 type AuthorisedKeysKeysSuite struct {
 	testing.FakeHomeSuite

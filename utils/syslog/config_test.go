@@ -6,8 +6,8 @@ package syslog_test
 import (
 	"io/ioutil"
 	"path/filepath"
-	stdtesting "testing"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
@@ -15,34 +15,32 @@ import (
 	syslogtesting "launchpad.net/juju-core/utils/syslog/testing"
 )
 
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
-
-type SyslogConfigSuite struct {
+type syslogConfigSuite struct {
+	testing.IsolationSuite
 	configDir string
 }
 
-var _ = gc.Suite(&SyslogConfigSuite{})
+var _ = gc.Suite(&syslogConfigSuite{})
 
-func (s *SyslogConfigSuite) SetUpTest(c *gc.C) {
+func (s *syslogConfigSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 	s.configDir = c.MkDir()
 }
 
-func (s *SyslogConfigSuite) assertRsyslogConfigPath(c *gc.C, slConfig *syslog.SyslogConfig) {
+func (s *syslogConfigSuite) assertRsyslogConfigPath(c *gc.C, slConfig *syslog.SyslogConfig) {
 	slConfig.ConfigDir = s.configDir
 	slConfig.ConfigFileName = "rsyslog.conf"
 	c.Assert(slConfig.ConfigFilePath(), gc.Equals, filepath.Join(s.configDir, "rsyslog.conf"))
 }
 
-func (s *SyslogConfigSuite) assertRsyslogConfigContents(c *gc.C, slConfig *syslog.SyslogConfig,
+func (s *syslogConfigSuite) assertRsyslogConfigContents(c *gc.C, slConfig *syslog.SyslogConfig,
 	expectedConf string) {
 	data, err := slConfig.Render()
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, expectedConf)
 }
 
-func (s *SyslogConfigSuite) TestAccumulateConfigRender(c *gc.C) {
+func (s *syslogConfigSuite) TestAccumulateConfigRender(c *gc.C) {
 	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "", []string{"foo"})
 	s.assertRsyslogConfigContents(
 		c,
@@ -51,7 +49,7 @@ func (s *SyslogConfigSuite) TestAccumulateConfigRender(c *gc.C) {
 	)
 }
 
-func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
+func (s *syslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
 	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "", []string{"foo"})
 	syslogConfigRenderer.ConfigDir = s.configDir
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
@@ -67,7 +65,7 @@ func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
 	)
 }
 
-func (s *SyslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
+func (s *syslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
 	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine", agent.DefaultLogDir, 8888, "namespace", []string{"foo"})
 	syslogConfigRenderer.LogDir += "-namespace"
 	s.assertRsyslogConfigContents(
@@ -77,7 +75,7 @@ func (s *SyslogConfigSuite) TestAccumulateConfigRenderWithNamespace(c *gc.C) {
 	)
 }
 
-func (s *SyslogConfigSuite) TestForwardConfigRender(c *gc.C) {
+func (s *syslogConfigSuite) TestForwardConfigRender(c *gc.C) {
 	syslogConfigRenderer := syslog.NewForwardConfig(
 		"some-machine", agent.DefaultLogDir, 999, "", []string{"server"},
 	)
@@ -88,7 +86,7 @@ func (s *SyslogConfigSuite) TestForwardConfigRender(c *gc.C) {
 	)
 }
 
-func (s *SyslogConfigSuite) TestForwardConfigRenderWithNamespace(c *gc.C) {
+func (s *syslogConfigSuite) TestForwardConfigRenderWithNamespace(c *gc.C) {
 	syslogConfigRenderer := syslog.NewForwardConfig(
 		"some-machine", agent.DefaultLogDir, 999, "namespace", []string{"server"},
 	)
@@ -99,7 +97,7 @@ func (s *SyslogConfigSuite) TestForwardConfigRenderWithNamespace(c *gc.C) {
 	)
 }
 
-func (s *SyslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
+func (s *syslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
 	syslogConfigRenderer := syslog.NewForwardConfig(
 		"some-machine", agent.DefaultLogDir, 999, "", []string{"server"},
 	)

@@ -11,14 +11,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/shell"
 )
 
 type scriptSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&scriptSuite{})
