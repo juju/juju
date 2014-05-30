@@ -12,22 +12,27 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/fslock"
 )
 
+const (
+	shortWait = 50 * time.Millisecond
+	longWait  = 10 * time.Second
+)
+
 type fslockSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 	lockDelay time.Duration
 }
 
 var _ = gc.Suite(&fslockSuite{})
 
 func (s *fslockSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
+	s.IsolationSuite.SetUpSuite(c)
 	s.PatchValue(&fslock.LockWaitDelay, 1*time.Millisecond)
 }
 
@@ -133,7 +138,7 @@ func (s *fslockSuite) TestLockBlocks(c *gc.C) {
 	select {
 	case <-acquired:
 		c.Fatalf("Unexpected lock acquisition")
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(shortWait):
 		// all good
 	}
 
@@ -143,7 +148,7 @@ func (s *fslockSuite) TestLockBlocks(c *gc.C) {
 	select {
 	case <-acquired:
 		// all good
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(longWait):
 		c.Fatalf("Expected lock acquisition")
 	}
 
@@ -155,7 +160,7 @@ func (s *fslockSuite) TestLockWithTimeoutUnlocked(c *gc.C) {
 	lock, err := fslock.NewLock(dir, "testing")
 	c.Assert(err, gc.IsNil)
 
-	err = lock.LockWithTimeout(10*time.Millisecond, "")
+	err = lock.LockWithTimeout(shortWait, "")
 	c.Assert(err, gc.IsNil)
 }
 
@@ -169,7 +174,7 @@ func (s *fslockSuite) TestLockWithTimeoutLocked(c *gc.C) {
 	err = lock1.Lock("")
 	c.Assert(err, gc.IsNil)
 
-	err = lock2.LockWithTimeout(10*time.Millisecond, "")
+	err = lock2.LockWithTimeout(shortWait, "")
 	c.Assert(err, gc.Equals, fslock.ErrTimeout)
 }
 
@@ -259,7 +264,7 @@ func (s *fslockSuite) TestInitialMessageWhenLocking(c *gc.C) {
 	err = lock.Unlock()
 	c.Assert(err, gc.IsNil)
 
-	err = lock.LockWithTimeout(10*time.Millisecond, "initial timeout message")
+	err = lock.LockWithTimeout(shortWait, "initial timeout message")
 	c.Assert(err, gc.IsNil)
 	c.Assert(lock.Message(), gc.Equals, "initial timeout message")
 }

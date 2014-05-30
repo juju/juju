@@ -4,6 +4,8 @@
 package environs
 
 import (
+	"github.com/juju/errors"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
@@ -43,4 +45,15 @@ func (environStatePolicy) ConstraintsValidator(cfg *config.Config) (constraints.
 		return nil, err
 	}
 	return env.ConstraintsValidator()
+}
+
+func (environStatePolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDistributor, error) {
+	env, err := New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	if p, ok := env.(state.InstanceDistributor); ok {
+		return p, nil
+	}
+	return nil, errors.NotImplementedf("InstanceDistributor")
 }

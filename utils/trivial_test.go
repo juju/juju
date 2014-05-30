@@ -9,25 +9,22 @@ import (
 	"io/ioutil"
 	"path/filepath"
 	"strings"
-	"testing"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/utils"
 )
 
-func Test(t *testing.T) {
-	gc.TestingT(t)
+type utilsSuite struct {
+	testing.IsolationSuite
 }
 
-type utilsSuite struct{}
+var _ = gc.Suite(&utilsSuite{})
 
-var _ = gc.Suite(utilsSuite{})
-
-var (
-	data = []byte(strings.Repeat("some data to be compressed\n", 100))
-	// compressedData was produced by the gzip command.
-	compressedData = []byte{
+func (*utilsSuite) TestCompression(c *gc.C) {
+	data := []byte(strings.Repeat("some data to be compressed\n", 100))
+	compressedData := []byte{
 		0x1f, 0x8b, 0x08, 0x00, 0x33, 0xb5, 0xf6, 0x50,
 		0x00, 0x03, 0xed, 0xc9, 0xb1, 0x0d, 0x00, 0x20,
 		0x08, 0x45, 0xc1, 0xde, 0x29, 0x58, 0x0d, 0xe5,
@@ -38,9 +35,6 @@ var (
 		0x67, 0x3d, 0x71, 0x71, 0x6e, 0xbf, 0x8c, 0x0a,
 		0x00, 0x00,
 	}
-)
-
-func (*utilsSuite) TestCompression(c *gc.C) {
 	cdata := utils.Gzip(data)
 	c.Assert(len(cdata) < len(data), gc.Equals, true)
 	data1, err := utils.Gunzip(cdata)

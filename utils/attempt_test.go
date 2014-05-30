@@ -38,7 +38,7 @@ func ExampleAttempt_HasNext() {
 	return
 }
 
-func (utilsSuite) TestAttemptTiming(c *gc.C) {
+func (*utilsSuite) TestAttemptTiming(c *gc.C) {
 	testAttempt := utils.AttemptStrategy{
 		Total: 0.25e9,
 		Delay: 0.1e9,
@@ -61,7 +61,7 @@ func (utilsSuite) TestAttemptTiming(c *gc.C) {
 	}
 }
 
-func (utilsSuite) TestAttemptNextHasNext(c *gc.C) {
+func (*utilsSuite) TestAttemptNextHasNext(c *gc.C) {
 	a := utils.AttemptStrategy{}.Start()
 	c.Assert(a.Next(), gc.Equals, true)
 	c.Assert(a.Next(), gc.Equals, false)

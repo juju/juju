@@ -30,6 +30,7 @@ func init() {
 }
 
 type httpSuite struct {
+	testing.IsolationSuite
 	Server *httptest.Server
 }
 
@@ -42,6 +43,7 @@ func (t *trivialResponseHandler) ServeHTTP(w http.ResponseWriter, r *http.Reques
 }
 
 func (s *httpSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
 	s.Server = httptest.NewTLSServer(&trivialResponseHandler{})
 }
 
@@ -49,6 +51,7 @@ func (s *httpSuite) TearDownTest(c *gc.C) {
 	if s.Server != nil {
 		s.Server.Close()
 	}
+	s.IsolationSuite.TearDownTest(c)
 }
 
 func (s *httpSuite) TestDefaultClientFails(c *gc.C) {
@@ -103,7 +106,7 @@ func (s *httpSuite) TestBasicAuthHeader(c *gc.C) {
 }
 
 type dialSuite struct {
-	testing.CleanupSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&dialSuite{})

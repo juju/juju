@@ -13,16 +13,16 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	ft "launchpad.net/juju-core/testing/filetesting"
 	"launchpad.net/juju-core/utils/zip"
 )
 
 type ZipSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&ZipSuite{})

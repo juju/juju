@@ -6,14 +6,14 @@ package utils_test
 import (
 	"os"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
 type gomaxprocsSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 	setmaxprocs    chan int
 	numCPUResponse int
 	setMaxProcs    int
@@ -22,7 +22,7 @@ type gomaxprocsSuite struct {
 var _ = gc.Suite(&gomaxprocsSuite{})
 
 func (s *gomaxprocsSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
 	// always stub out GOMAXPROCS so we don't actually change anything
 	s.numCPUResponse = 2
 	s.setMaxProcs = -1

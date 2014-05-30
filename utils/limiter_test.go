@@ -7,14 +7,18 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
 
-type limiterSuite struct{}
+const longWait = 10 * time.Second
+
+type limiterSuite struct {
+	testing.IsolationSuite
+}
 
 var _ = gc.Suite(&limiterSuite{})
 
@@ -63,14 +67,14 @@ func (*limiterSuite) TestAcquireWaitBlocksUntilRelease(c *gc.C) {
 	start <- true
 	select {
 	case <-waiting:
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(longWait):
 		c.Fatalf("timed out waiting for 'waiting' to trigger")
 	}
 	c.Check(l.Acquire(), jc.IsFalse)
 	l.Release()
 	select {
 	case <-done:
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(longWait):
 		c.Fatalf("timed out waiting for 'done' to trigger")
 	}
 	c.Check(calls, gc.DeepEquals, []string{"true", "true", "false", "waited", "false"})

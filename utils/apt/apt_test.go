@@ -7,22 +7,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	stdtesting "testing"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/apt"
 	"launchpad.net/juju-core/utils/proxy"
 )
 
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
-
 type AptSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&AptSuite{})

@@ -11,12 +11,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
 type GenerateSuite struct {
-	coretesting.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&GenerateSuite{})

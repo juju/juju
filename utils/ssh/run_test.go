@@ -5,28 +5,41 @@ package ssh_test
 
 import (
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"time"
 
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/ssh"
 )
 
+const shortWait = 50 * time.Millisecond
+
 type ExecuteSSHCommandSuite struct {
-	testing.BaseSuite
-	testbin string
-	fakessh string
+	testing.IsolationSuite
+	originalPath string
+	testbin      string
+	fakessh      string
 }
 
 var _ = gc.Suite(&ExecuteSSHCommandSuite{})
 
+func (s *ExecuteSSHCommandSuite) SetUpSuite(c *gc.C) {
+	s.originalPath = os.Getenv("PATH")
+	s.IsolationSuite.SetUpSuite(c)
+}
+
 func (s *ExecuteSSHCommandSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
+	s.IsolationSuite.SetUpTest(c)
+	err := os.Setenv("PATH", s.originalPath)
+	c.Assert(err, gc.IsNil)
 	s.testbin = c.MkDir()
 	s.fakessh = filepath.Join(s.testbin, "ssh")
 	s.PatchEnvPathPrepend(s.testbin)
+
 }
 
 func (s *ExecuteSSHCommandSuite) fakeSSH(c *gc.C, cmd string) {
@@ -40,7 +53,7 @@ func (s *ExecuteSSHCommandSuite) TestCaptureOutput(c *gc.C) {
 	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
 		Host:    "hostname",
 		Command: "sudo apt-get update\nsudo apt-get upgrade",
-		Timeout: testing.ShortWait,
+		Timeout: shortWait,
 	})
 
 	c.Assert(err, gc.IsNil)
@@ -56,7 +69,7 @@ func (s *ExecuteSSHCommandSuite) TestIdentityFile(c *gc.C) {
 	response, err := ssh.ExecuteCommandOnMachine(ssh.ExecParams{
 		IdentityFile: "identity-file",
 		Host:         "hostname",
-		Timeout:      testing.ShortWait,
+		Timeout:      shortWait,
 	})
 
 	c.Assert(err, gc.IsNil)
@@ -70,7 +83,7 @@ func (s *ExecuteSSHCommandSuite) TestTimoutCaptureOutput(c *gc.C) {
 		IdentityFile: "identity-file",
 		Host:         "hostname",
 		Command:      "ignored",
-		Timeout:      testing.ShortWait,
+		Timeout:      shortWait,
 	})
 
 	c.Check(err, gc.ErrorMatches, "command timed out")
@@ -86,7 +99,7 @@ func (s *ExecuteSSHCommandSuite) TestCapturesReturnCode(c *gc.C) {
 		IdentityFile: "identity-file",
 		Host:         "hostname",
 		Command:      "echo stdout; exit 42",
-		Timeout:      testing.ShortWait,
+		Timeout:      shortWait,
 	})
 
 	c.Check(err, gc.IsNil)

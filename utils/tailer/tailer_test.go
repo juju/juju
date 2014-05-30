@@ -9,21 +9,16 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	stdtesting "testing"
 	"time"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/tailer"
 )
 
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
-
 type tailerSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&tailerSuite{})
@@ -410,7 +405,7 @@ func assertCollected(c *gc.C, linec chan string, compare []string, injection fun
 	if len(compare) == 0 {
 		return
 	}
-	timeout := time.After(testing.LongWait)
+	timeout := time.After(10 * time.Second)
 	lines := []string{}
 	for {
 		select {
