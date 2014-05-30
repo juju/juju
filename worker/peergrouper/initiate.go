@@ -5,13 +5,20 @@ package peergrouper
 
 import (
 	"fmt"
+	"time"
 
 	"labix.org/v2/mgo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/mongo"
 	"launchpad.net/juju-core/replicaset"
+	"launchpad.net/juju-core/utils"
 )
+
+var initiateAttemptStrategy = utils.AttemptStrategy{
+	Total: 30 * time.Second,
+	Delay: 1 * time.Second,
+}
 
 // InitiateMongoParams holds parameters for the MaybeInitiateMongo call.
 type InitiateMongoParams struct {
@@ -53,24 +60,35 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 	}
 	defer session.Close()
 
-	cfg, err := replicaset.CurrentConfig(session)
-	if err == nil && len(cfg.Members) > 0 {
-		logger.Infof("replica set configuration already found: %#v", cfg)
-		return nil
+	// Initiate may fail while mongo is initialising, so we retry until
+	// we succssfully populate the replicaset config.
+	for attempt := initiateAttemptStrategy.Start(); attempt.Next(); {
+		var cfg *replicaset.Config
+		cfg, err = replicaset.CurrentConfig(session)
+		if err == nil && len(cfg.Members) > 0 {
+			logger.Infof("replica set configuration already found: %#v", cfg)
+			return nil
+		}
+		if err != nil && err != mgo.ErrNotFound {
+			return fmt.Errorf("cannot get replica set configuration: %v", err)
+		}
+		err = replicaset.Initiate(
+			session,
+			p.MemberHostPort,
+			mongo.ReplicaSetName,
+			map[string]string{
+				jujuMachineTag: agent.BootstrapMachineId,
+			},
+		)
+		if err == nil {
+			logger.Infof("replica set initiated")
+			return nil
+		}
+		if attempt.HasNext() {
+			logger.Debugf("replica set initiation failed, will retry: %v", err)
+		}
+		// Release sockets, which may have been closed by mgo.
+		session.Refresh()
 	}
-	if err != nil && err != mgo.ErrNotFound {
-		return fmt.Errorf("cannot get replica set configuration: %v", err)
-	}
-	err = replicaset.Initiate(
-		session,
-		p.MemberHostPort,
-		mongo.ReplicaSetName,
-		map[string]string{
-			jujuMachineTag: agent.BootstrapMachineId,
-		},
-	)
-	if err != nil {
-		return fmt.Errorf("cannot initiate replica set: %v", err)
-	}
-	return nil
+	return fmt.Errorf("cannot initiate replica set: %v", err)
 }
