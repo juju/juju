@@ -192,21 +192,6 @@ actions:
 `,
 		expectedError: "invalid params schema for action schema snapshot: $schema must be of type string",
 	}, {
-		description: "Invalid JSON-Schema: $schema key not in params root.",
-		yaml: `
-actions:
-   snapshot:
-      description: Take a snapshot of the database.
-      params:
-         outfile:
-            $schema: http://json-schema.org/draft-03/schema#
-            description: The file to write out to.
-            type: string
-            default: foo.bz2
-`,
-		// TODO: Fill me in!
-		expectedError: "???",
-	}, {
 		description: "Malformed YAML: missing key in \"outfile\".",
 		yaml: `
 actions:
@@ -304,6 +289,7 @@ actions:
 		c.Logf("test %d: %s", i, test.description)
 		reader := bytes.NewReader([]byte(test.yaml))
 		_, err := charm.ReadActionsYaml(reader)
+		c.Assert(err, gc.Not(gc.IsNil))
 		c.Assert(err.Error(), gc.Equals, test.expectedError)
 	}
 }
