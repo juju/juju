@@ -90,18 +90,19 @@ func (s *MongoSuite) TestInitiateWaitsForStatus(c *gc.C) {
 
 	// create a new server that hasn't been initiated
 	s.root = newServer(c)
-
 	session := s.root.MustDialDirect()
 	defer session.Close()
 
 	i := 0
 	mockStatus := func(session *mgo.Session) (*Status, error) {
 		status := &Status{}
+		var err error
 		if i >= 20 {
-			return status, nil
+			err = fmt.Errorf("bang!")
+		} else {
+			i += 1
 		}
-		i += 1
-		return status, fmt.Errorf("bang!")
+		return status, err
 	}
 
 	s.PatchValue(&getCurrentStatus, mockStatus)
