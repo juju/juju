@@ -49,9 +49,10 @@ do
             echo "Skipping trusty arm64"
         fi
     elif [[ $series == '14.10' ]]; then
-        echo "Skipping utopic amd64"
+        echo "Building utopic amd64"
         # The daily images have apt issues.
         #$RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-f83ad690 $dsc
+        # Future utopic slave?
         $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@54.85.78.43 \
                 "$UTOPIC_SSH_OPTIONS" $dsc
     fi
