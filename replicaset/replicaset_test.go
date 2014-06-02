@@ -97,7 +97,7 @@ func (s *MongoSuite) TestInitiateWaitsForStatus(c *gc.C) {
 	i := 0
 	mockStatus := func(session *mgo.Session) (*Status, error) {
 		status := &Status{}
-		if i > 5 {
+		if i >= 20 {
 			return status, nil
 		}
 		i += 1
@@ -106,7 +106,7 @@ func (s *MongoSuite) TestInitiateWaitsForStatus(c *gc.C) {
 
 	s.PatchValue(&getCurrentStatus, mockStatus)
 	Initiate(session, s.root.Addr(), rsName, initialTags)
-	c.Assert(i, gc.Equals, 6)
+	c.Assert(i, gc.Equals, 20)
 }
 
 func loadData(session *mgo.Session, c *gc.C) {

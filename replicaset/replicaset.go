@@ -23,9 +23,9 @@ const (
 	// attempts to replSetInitiate.
 	initiateAttemptDelay = 100 * time.Millisecond
 
-	// initiateStatusDelay is the amount of time to sleep between failed
+	// maxInitiateStatusAttempts is the maximum number of
 	// attempts to get the replicaset status after initiate
-	initiateStatusDelay = 500 * time.Millisecond
+	maxInitiateStatusAttempts = 50
 
 	// rsMembersUnreachableError is the error message returned from mongo
 	// when it thinks that replicaset members are unreachable. This can
@@ -70,13 +70,13 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 		break
 	}
 
-	for i := 0; i < maxInitiateAttempts; i++ {
+	for i := 0; i < maxInitiateStatusAttempts; i++ {
 		status, err := getCurrentStatus(monotonicSession)
 		if err != nil {
 			logger.Warningf("Initiate: fetching replicaset status failed: %v", err)
 		}
 		if err != nil || len(status.Members) == 0 {
-			time.Sleep(initiateStatusDelay)
+			time.Sleep(initiateAttemptDelay)
 			continue
 		}
 		break
