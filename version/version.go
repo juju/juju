@@ -27,7 +27,7 @@ import (
 const version = "1.19.4"
 
 // The version that we switched over from old style numbering to new style.
-var switchOverVersion = MustParse("1.19.3")
+var switchOverVersion = MustParse("1.19.9")
 
 // lsbReleaseFile is the name of the file that is read in order to determine
 // the release version of ubuntu.
