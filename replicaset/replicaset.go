@@ -75,7 +75,7 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 		if err != nil {
 			logger.Warningf("Initiate: fetching replicaset status failed: %v", err)
 		}
-		if err != nil || (len(status.Members) == 0) {
+		if err != nil || len(status.Members) == 0 {
 			time.Sleep(initiateAttemptDelay)
 			continue
 		}
