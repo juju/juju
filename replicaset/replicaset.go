@@ -23,6 +23,10 @@ const (
 	// attempts to replSetInitiate.
 	initiateAttemptDelay = 100 * time.Millisecond
 
+	// initiateConfigDelay is the amount of time to sleep between failed
+	// attempts to get the replicaset config after initiate
+	initiateConfigDelay = 500 * time.Millisecond
+
 	// rsMembersUnreachableError is the error message returned from mongo
 	// when it thinks that replicaset members are unreachable. This can
 	// occur if replSetInitiate is executed shortly after starting up mongo.
@@ -60,6 +64,19 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 		err = monotonicSession.Run(bson.D{{"replSetInitiate", cfg}}, nil)
 		if err != nil && err.Error() == rsMembersUnreachableError {
 			time.Sleep(initiateAttemptDelay)
+			continue
+		}
+		break
+	}
+
+	var config *Config
+	for i := 0; i < maxInitiateAttempts; i++ {
+		config, err = CurrentConfig(monotonicSession)
+		if err != nil {
+			logger.Warningf("Initiate: fetching config failed: %v", err)
+		}
+		if err != nil || len(config.Members) == 0 {
+			time.Sleep(initiateConfigDelay)
 			continue
 		}
 		break
