@@ -52,6 +52,8 @@ do
         echo "Skipping utopic amd64"
         # The daily images have apt issues.
         #$RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-f83ad690 $dsc
+        $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@54.85.78.43 \
+                "$UTOPIC_SSH_OPTIONS" $dsc
     fi
 done
 
