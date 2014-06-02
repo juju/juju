@@ -24,10 +24,10 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.19.3"
+const version = "1.19.4"
 
 // The version that we switched over from old style numbering to new style.
-var switchOverVersion = MustParse("1.19.3")
+var switchOverVersion = MustParse("1.19.9")
 
 // lsbReleaseFile is the name of the file that is read in order to determine
 // the release version of ubuntu.
