@@ -8,7 +8,7 @@ github.com/juju/errgo	git	26caa7d4884f6048c5687fa44c410e5d5d95e554
 github.com/juju/errors	git	075df0417dbcc39d24ee18248d2f8d6e3eed598b	
 github.com/juju/loggo	git	7e8c70b24b80b95b2284f09306aac0bd93588db8	
 github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb	
-github.com/juju/testing	git	19ba9ed2fe2116c19ae9dac494dd57142a403594	
+github.com/juju/testing	git	77f66ce9a8a203fd6af74b38fb207666d5cdeae6	
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j	273
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
 launchpad.net/goamz	bzr	roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9	44
