@@ -4,7 +4,7 @@
 package exec_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
 	gc "launchpad.net/gocheck"
 )
