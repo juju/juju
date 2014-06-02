@@ -21,9 +21,9 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/upgrader"
-	"launchpad.net/juju-core/utils/set"
 )
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
