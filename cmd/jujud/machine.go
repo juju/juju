@@ -693,7 +693,8 @@ func (a *MachineAgent) upgradeWorker(
 			return nil
 		default:
 		}
-		// If the machine agent is a state server, wait until state is opened.
+		// If the machine agent is a state server, open state before
+		// running upgrade steps
 		needsState := false
 		for _, job := range jobs {
 			if job == params.JobManageEnviron {
