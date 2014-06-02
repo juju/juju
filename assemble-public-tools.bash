@@ -293,9 +293,11 @@ cleanup() {
         rm ${DEST_DEBS}/*.deb
     fi
     if [[ $IS_TESTING == "true" ]]; then
+        set +u
         for tool in "${added_tools[@]}"; do
             rm $tool
         done
+        set -u
     fi
     rm -r $WORK
     rm -r $JUJU_PATH
