@@ -15,7 +15,6 @@ import (
 
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	coretest "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
@@ -37,7 +36,7 @@ func (t *ToolsSuite) TestPackageDependencies(c *gc.C) {
 	// or any of the other bigger packages that'll drag in yet more dependencies.
 	// Only imports that start with "launchpad.net/juju-core" are checked, and the
 	// resulting slice has that prefix removed to keep the output short.
-	c.Assert(testbase.FindJujuCoreImports(c, "launchpad.net/juju-core/agent/tools"),
+	c.Assert(testing.FindJujuCoreImports(c, "launchpad.net/juju-core/agent/tools"),
 		gc.DeepEquals,
 		[]string{"juju/arch", "tools", "utils/set", "version"})
 }

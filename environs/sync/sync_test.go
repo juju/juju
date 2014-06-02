@@ -14,6 +14,7 @@ import (
 	"sort"
 	"testing"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -29,7 +30,6 @@ import (
 	toolstesting "launchpad.net/juju-core/environs/tools/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/testbase"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -408,7 +408,8 @@ func bundleTools(c *gc.C) (version.Binary, string, error) {
 
 type badBuildSuite struct {
 	env environs.Environ
-	testbase.LoggingSuite
+	gitjujutesting.LoggingSuite
+	gitjujutesting.CleanupSuite
 	envtesting.ToolsFixture
 }
 
@@ -417,7 +418,18 @@ var badGo = `
 exit 1
 `[1:]
 
+func (s *badBuildSuite) SetUpSuite(c *gc.C) {
+	s.CleanupSuite.SetUpSuite(c)
+	s.LoggingSuite.SetUpSuite(c)
+}
+
+func (s *badBuildSuite) TearDownSuite(c *gc.C) {
+	s.LoggingSuite.TearDownSuite(c)
+	s.CleanupSuite.TearDownSuite(c)
+}
+
 func (s *badBuildSuite) SetUpTest(c *gc.C) {
+	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	// We only want to use simplestreams to find any synced tools.
@@ -443,6 +455,7 @@ func (s *badBuildSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	s.ToolsFixture.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
+	s.CleanupSuite.TearDownTest(c)
 }
 
 func (s *badBuildSuite) TestBundleToolsBadBuild(c *gc.C) {
