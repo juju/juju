@@ -294,10 +294,15 @@ cleanup() {
     fi
     if [[ $IS_TESTING == "true" ]]; then
         set +u
+        if [[ -z "${added_tools[@]}" ]]; then
+            echo "No tools were added from the build debs."
+            echo "The branch version may be out of date; $RELEASE is published?"
+            exit 5
+        fi
+        set -u
         for tool in "${added_tools[@]}"; do
             rm $tool
         done
-        set -u
     fi
     rm -r $WORK
     rm -r $JUJU_PATH
