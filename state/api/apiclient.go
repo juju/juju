@@ -124,13 +124,13 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	try := parallel.NewTry(0, nil)
 	defer try.Kill()
 	var addrs []string
-	for _, addr := range info.Addrs{
-		if strings.HasPrefix(addr, "localhost:"){
-		addrs = append(addrs, addr)
-		break
+	for _, addr := range info.Addrs {
+		if strings.HasPrefix(addr, "localhost:") {
+			addrs = append(addrs, addr)
+			break
 		}
 	}
-	if len(addrs) == 0{
+	if len(addrs) == 0 {
 		addrs = info.Addrs
 	}
 	for _, addr := range addrs {
