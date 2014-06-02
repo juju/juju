@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"time"
 
@@ -110,18 +109,6 @@ func DefaultDialOpts() DialOpts {
 	}
 }
 
-type LocalFirst []string
-
-func (l LocalFirst) Len() int {
-	return len(l)
-}
-func (l LocalFirst) Swap(i, j int) {
-	l[i], l[j] = l[j], l[i]
-}
-func (l LocalFirst) Less(i, j int) bool {
-	return strings.HasPrefix(l[i], "localhost") && !strings.HasPrefix(l[j], "localhost")
-}
-
 func Open(info *Info, opts DialOpts) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, fmt.Errorf("no API addresses to connect to")
@@ -137,8 +124,15 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	try := parallel.NewTry(0, nil)
 	defer try.Kill()
 	var addrs []string
-	addrs = append(addrs, info.Addrs...)
-	sort.Sort(LocalFirst(addrs))
+	for _, addr := range info.Addrs{
+		if strings.HasPrefix(addr, "localhost:"){
+		addrs = append(addrs, addr)
+		break
+		}
+	}
+	if len(addrs) == 0{
+		addrs = info.Addrs
+	}
 	for _, addr := range addrs {
 		err := dialWebsocket(addr, opts, pool, try)
 		if err == parallel.ErrStopped {

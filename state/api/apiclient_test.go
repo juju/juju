@@ -6,7 +6,6 @@ package api_test
 import (
 	"io"
 	"net"
-	"sort"
 
 	gc "launchpad.net/gocheck"
 
@@ -20,56 +19,6 @@ type apiclientSuite struct {
 }
 
 var _ = gc.Suite(&apiclientSuite{})
-
-func (s *apiclientSuite) TestSortLocalhost(c *gc.C) {
-	addrs := []string{
-		"notlocalhost1",
-		"notlocalhost2",
-		"notlocalhost3",
-		"localhost1",
-		"localhost2",
-		"localhost3",
-	}
-	expectedAddrs := []string{
-		"localhost1",
-		"localhost2",
-		"localhost3",
-		"notlocalhost1",
-		"notlocalhost2",
-		"notlocalhost3",
-	}
-	var sortedAddrs []string
-	sortedAddrs = append(sortedAddrs, addrs...)
-	sort.Sort(api.LocalFirst(sortedAddrs))
-	c.Assert(addrs, gc.Not(gc.DeepEquals), sortedAddrs)
-	c.Assert(sortedAddrs, gc.HasLen, 6)
-	c.Assert(sortedAddrs, gc.DeepEquals, expectedAddrs)
-
-}
-
-func (s *apiclientSuite) TestSortLocalhostIdempotent(c *gc.C) {
-	addrs := []string{
-		"localhost1",
-		"localhost2",
-		"localhost3",
-		"notlocalhost1",
-		"notlocalhost2",
-		"notlocalhost3",
-	}
-	expectedAddrs := []string{
-		"localhost1",
-		"localhost2",
-		"localhost3",
-		"notlocalhost1",
-		"notlocalhost2",
-		"notlocalhost3",
-	}
-	var sortedAddrs []string
-	sortedAddrs = append(sortedAddrs, addrs...)
-	sort.Sort(api.LocalFirst(sortedAddrs))
-	c.Assert(sortedAddrs, gc.DeepEquals, expectedAddrs)
-
-}
 
 func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	// Create a socket that proxies to the API server though our localhost address.
