@@ -21,6 +21,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/upgrader"
 )
@@ -185,8 +186,10 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 }
 
 func uploadFakeTools(stor storage.Storage) error {
+	toolsSeries := set.NewStrings(bootstrap.ToolsLtsSeries...)
+	toolsSeries.Add(version.Current.Series)
 	var versions []version.Binary
-	for _, series := range bootstrap.ToolsLtsSeries {
+	for _, series := range toolsSeries.Values() {
 		vers := version.Current
 		vers.Series = series
 		versions = append(versions, vers)
