@@ -117,6 +117,12 @@ var findInstanceSpecTests = []struct {
 		cons:   "instance-type=c1.medium",
 		itype:  "c1.medium",
 		image:  "ami-00000034",
+	}, {
+		series: "precise",
+		arches: both,
+		cons:   "mem=4G root-disk=16384M",
+		itype:  "m1.large",
+		image:  "ami-00000033",
 	},
 }
 

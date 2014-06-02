@@ -54,7 +54,6 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(800),
 		Mem:      15360,
 		Cost:     480,
-		RootDisk: 65536,
 	},
 	{
 		Name:     "t1.micro",
@@ -80,7 +79,6 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(2000),
 		Mem:      7168,
 		Cost:     580,
-		RootDisk: 32768,
 	},
 	{
 		Name:     "cc1.4xlarge",
@@ -89,7 +87,6 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(3350),
 		Mem:      23552,
 		Cost:     1300,
-		RootDisk: 32768,
 		VirtType: &hvm,
 	}, {
 		Name:     "cc2.8xlarge",
@@ -98,7 +95,6 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(8800),
 		Mem:      61952,
 		Cost:     2400,
-		RootDisk: 131072,
 		VirtType: &hvm,
 	},
 }
