@@ -211,6 +211,15 @@ archive_tools() {
         fi
         rm -r ${WORK}/juju/*
     done
+    if [[ $IS_TESTING == "true" ]]; then
+        set +u
+        if [[ -z "${added_tools[@]}" ]]; then
+            echo "No tools were added from the built debs."
+            echo "The branch version may be out of date; $RELEASE is published?"
+            exit 5
+        fi
+        set -u
+    fi
 }
 
 
@@ -293,13 +302,6 @@ cleanup() {
         rm ${DEST_DEBS}/*.deb
     fi
     if [[ $IS_TESTING == "true" ]]; then
-        set +u
-        if [[ -z "${added_tools[@]}" ]]; then
-            echo "No tools were added from the build debs."
-            echo "The branch version may be out of date; $RELEASE is published?"
-            exit 5
-        fi
-        set -u
         for tool in "${added_tools[@]}"; do
             rm $tool
         done
