@@ -98,15 +98,20 @@ func (s *MongoSuite) TestInitiateWaitsForStatus(c *gc.C) {
 		status := &Status{}
 		var err error
 		i += 1
-		if i >= 20 {
+		if i < 20 {
 			err = fmt.Errorf("bang!")
+		} else if i > 20 {
+			// when i == 20 then len(status.Members) == 0
+			// so we will be called one more time until we populate
+			// Members
+			status.Members = append(status.Members, MemberStatus{Id: 1})
 		}
 		return status, err
 	}
 
 	s.PatchValue(&getCurrentStatus, mockStatus)
 	Initiate(session, s.root.Addr(), rsName, initialTags)
-	c.Assert(i, gc.Equals, 20)
+	c.Assert(i, gc.Equals, 21)
 }
 
 func loadData(session *mgo.Session, c *gc.C) {
