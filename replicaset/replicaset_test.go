@@ -85,6 +85,30 @@ func (s *MongoSuite) dialAndTestInitiate(c *gc.C) {
 	loadData(session, c)
 }
 
+func (s *MongoSuite) TestInitiateWaitsForStatus(c *gc.C) {
+	s.root.Destroy()
+
+	// create a new server that hasn't been initiated
+	s.root = newServer(c)
+
+	session := s.root.MustDialDirect()
+	defer session.Close()
+
+	i := 0
+	mockStatus := func(session *mgo.Session) (*Status, error) {
+		status := &Status{}
+		if i > 5 {
+			return status, nil
+		}
+		i += 1
+		return status, fmt.Errorf("bang!")
+	}
+
+	s.PatchValue(&getCurrentStatus, mockStatus)
+	Initiate(session, s.root.Addr(), rsName, initialTags)
+	c.Assert(i, gc.Equals, 6)
+}
+
 func loadData(session *mgo.Session, c *gc.C) {
 	type foo struct {
 		Name    string

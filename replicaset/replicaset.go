@@ -23,9 +23,9 @@ const (
 	// attempts to replSetInitiate.
 	initiateAttemptDelay = 100 * time.Millisecond
 
-	// initiateConfigDelay is the amount of time to sleep between failed
-	// attempts to get the replicaset config after initiate
-	initiateConfigDelay = 500 * time.Millisecond
+	// initiateStatusDelay is the amount of time to sleep between failed
+	// attempts to get the replicaset status after initiate
+	initiateStatusDelay = 500 * time.Millisecond
 
 	// rsMembersUnreachableError is the error message returned from mongo
 	// when it thinks that replicaset members are unreachable. This can
@@ -34,6 +34,7 @@ const (
 )
 
 var logger = loggo.GetLogger("juju.replicaset")
+var getCurrentStatus = CurrentStatus
 
 // Initiate sets up a replica set with the given replica set name with the
 // single given member.  It need be called only once for a given mongo replica
@@ -69,14 +70,13 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 		break
 	}
 
-	var config *Config
 	for i := 0; i < maxInitiateAttempts; i++ {
-		config, err = CurrentConfig(monotonicSession)
+		status, err := getCurrentStatus(monotonicSession)
 		if err != nil {
-			logger.Warningf("Initiate: fetching config failed: %v", err)
+			logger.Warningf("Initiate: fetching replicaset status failed: %v", err)
 		}
-		if err != nil || len(config.Members) == 0 {
-			time.Sleep(initiateConfigDelay)
+		if err != nil || len(status.Members) == 0 {
+			time.Sleep(initiateStatusDelay)
 			continue
 		}
 		break
