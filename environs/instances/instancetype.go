@@ -49,7 +49,7 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 	if cons.Mem != nil && itype.Mem < *cons.Mem {
 		return nothing, false
 	}
-	if cons.RootDisk != nil && itype.RootDisk < *cons.RootDisk {
+	if cons.RootDisk != nil && itype.RootDisk > 0 && itype.RootDisk < *cons.RootDisk {
 		return nothing, false
 	}
 	if cons.Tags != nil && len(*cons.Tags) > 0 && !tagsMatch(*cons.Tags, itype.Tags) {
