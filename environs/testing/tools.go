@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/upgrader"
+	"launchpad.net/juju-core/utils/set"
 )
 
 // ToolsFixture is used as a fixture to stub out the default tools URL so we
@@ -185,8 +186,10 @@ func MustUploadFakeToolsVersions(stor storage.Storage, versions ...version.Binar
 }
 
 func uploadFakeTools(stor storage.Storage) error {
+	toolsSeries := set.NewStrings(bootstrap.ToolsLtsSeries...)
+	toolsSeries.Add(version.Current.Series)
 	var versions []version.Binary
-	for _, series := range bootstrap.ToolsLtsSeries {
+	for _, series := range toolsSeries.Values() {
 		vers := version.Current
 		vers.Series = series
 		versions = append(versions, vers)
