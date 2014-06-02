@@ -437,13 +437,45 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(reread, jc.DeepEquals, conf)
 }
 
-func (*suite) TestSetPassword(c *gc.C) {
+func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPesent(c *gc.C) {
 	attrParams := attributeParams
 	servingInfo := params.StateServingInfo{
 		Cert:           "old cert",
 		PrivateKey:     "old key",
 		StatePort:      69,
-		APIPort:        47,
+		APIPort:        1492,
+		SharedSecret:   "shared",
+		SystemIdentity: "identity",
+	}
+	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
+	c.Assert(err, gc.IsNil)
+	apiinfo := conf.APIInfo()
+	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
+	localhostAddressFound := false
+	for _, eachApiAddress := range apiinfo.Addrs {
+		if eachApiAddress == "localhost:1492" {
+			localhostAddressFound = true
+			break
+		}
+	}
+	c.Assert(localhostAddressFound, jc.IsTrue)
+}
+
+func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfo(c *gc.C) {
+	attrParams := attributeParams
+	conf, err := agent.NewAgentConfig(attrParams)
+	c.Assert(err, gc.IsNil)
+	apiinfo := conf.APIInfo()
+	c.Assert(apiinfo.Addrs, gc.DeepEquals, attrParams.APIAddresses)
+}
+
+func (*suite) TestSetPassword(c *gc.C) {
+	attrParams := attributeParams
+	servingInfo := params.StateServingInfo{
+		Cert:           "old cert",
+		PrivateKey:     "old key",
+		StatePort:      1234,
+		APIPort:        1235,
 		SharedSecret:   "shared",
 		SystemIdentity: "identity",
 	}

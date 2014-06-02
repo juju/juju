@@ -8,6 +8,8 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"sort"
+	"strings"
 	"time"
 
 	"code.google.com/p/go.net/websocket"
@@ -108,6 +110,18 @@ func DefaultDialOpts() DialOpts {
 	}
 }
 
+type LocalFirst []string
+
+func (l LocalFirst) Len() int {
+	return len(l)
+}
+func (l LocalFirst) Swap(i, j int) {
+	l[i], l[j] = l[j], l[i]
+}
+func (l LocalFirst) Less(i, j int) bool {
+	return strings.HasPrefix(l[i], "localhost") && !strings.HasPrefix(l[j], "localhost")
+}
+
 func Open(info *Info, opts DialOpts) (*State, error) {
 	if len(info.Addrs) == 0 {
 		return nil, fmt.Errorf("no API addresses to connect to")
@@ -122,7 +136,10 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, nil)
 	defer try.Kill()
-	for _, addr := range info.Addrs {
+	var addrs []string
+	addrs = append(addrs, info.Addrs...)
+	sort.Sort(LocalFirst(addrs))
+	for _, addr := range addrs {
 		err := dialWebsocket(addr, opts, pool, try)
 		if err == parallel.ErrStopped {
 			break
