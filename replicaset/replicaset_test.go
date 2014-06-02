@@ -97,10 +97,9 @@ func (s *MongoSuite) TestInitiateWaitsForStatus(c *gc.C) {
 	mockStatus := func(session *mgo.Session) (*Status, error) {
 		status := &Status{}
 		var err error
+		i += 1
 		if i >= 20 {
 			err = fmt.Errorf("bang!")
-		} else {
-			i += 1
 		}
 		return status, err
 	}
