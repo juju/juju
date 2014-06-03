@@ -20,10 +20,14 @@ JUJU_UNINSTALL = os.path.join('\\', 'Progra~2', 'Juju', 'unins000.exe')
 CI_DIR = os.path.abspath(os.path.join('\\', 'Users', 'Administrator', 'ci'))
 TMP_DIR = os.path.abspath(os.path.join(CI_DIR, 'tmp'))
 GOPATH = os.path.join(CI_DIR, 'gogo')
-JUJU_CMD_DIR = os.path.join(
+OLD_JUJU_CMD_DIR = os.path.join(
     GOPATH, 'src', 'launchpad.net', 'juju-core', 'cmd', 'juju')
-ISS_DIR = os.path.join(
+OLD_ISS_DIR = os.path.join(
     GOPATH, 'src', 'launchpad.net', 'juju-core', 'scripts', 'win-installer')
+JUJU_CMD_DIR = os.path.join(
+    GOPATH, 'src', 'github.com', 'juju', 'juju', 'cmd', 'juju')
+ISS_DIR = os.path.join(
+    GOPATH, 'src', 'github.com', 'juju', 'juju', 'scripts', 'win-installer')
 
 
 class WorkingDirectory:
@@ -95,6 +99,16 @@ def move_source_to_gopath(tarball_name):
     print('Moved {0} to {1}'.format(dir_path, GOPATH))
 
 
+def set_package_path():
+    # Use the old package path while 1.18.x is supported.
+    if os.path.exists(OLD_JUJU_CMD_DIR):
+        global JUJU_CMD_DIR
+        JUJU_CMD_DIR = OLD_JUJU_CMD_DIR
+    if os.path.exists(OLD_ISS_DIR):
+        global ISS_DIR
+        ISS_DIR = OLD_ISS_DIR
+
+
 def build():
     env = dict(os.environ)
     env['GOPATH'] = GOPATH
@@ -147,6 +161,7 @@ def main():
         setup(tarball_name)
         untar(tarball_path)
         move_source_to_gopath(tarball_name)
+        set_package_path()
         build()
         installer_name = package(version)
         install(installer_name)
