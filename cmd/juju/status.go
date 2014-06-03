@@ -68,13 +68,22 @@ Error details:
 %v
 `
 
+type statusAPI interface {
+	Status(patterns []string) (*api.Status, error)
+	Close() error
+}
+
+var newApiClientForStatus = func(envName string) (statusAPI, error) {
+	return juju.NewAPIClientFromName(envName)
+}
+
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	// Just verify the pattern validity client side, do not use the matcher
 	_, err := client.NewUnitMatcher(c.patterns)
 	if err != nil {
 		return err
 	}
-	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
+	apiclient, err := newApiClientForStatus(c.EnvName)
 	if err != nil {
 		return fmt.Errorf(connectionError, c.EnvName, err)
 	}
@@ -227,6 +236,10 @@ func formatStatus(status *api.Status) formattedStatus {
 	if status == nil {
 		return formattedStatus{}
 	}
+	relations := make(map[int]api.RelationStatus)
+	for _, relation := range status.Relations {
+		relations[relation.Id] = relation
+	}
 	out := formattedStatus{
 		Environment: status.EnvironmentName,
 		Machines:    make(map[string]machineStatus),
@@ -235,8 +248,8 @@ func formatStatus(status *api.Status) formattedStatus {
 	for k, m := range status.Machines {
 		out.Machines[k] = formatMachine(m)
 	}
-	for k, s := range status.Services {
-		out.Services[k] = formatService(s)
+	for sn, s := range status.Services {
+		out.Services[sn] = formatService(sn, s, relations)
 	}
 	for k, n := range status.Networks {
 		if out.Networks == nil {
@@ -248,20 +261,44 @@ func formatStatus(status *api.Status) formattedStatus {
 }
 
 func formatMachine(machine api.MachineStatus) machineStatus {
-	out := machineStatus{
-		Err:            machine.Err,
-		AgentState:     machine.AgentState,
-		AgentStateInfo: machine.AgentStateInfo,
-		AgentVersion:   machine.AgentVersion,
-		DNSName:        machine.DNSName,
-		InstanceId:     machine.InstanceId,
-		InstanceState:  machine.InstanceState,
-		Life:           machine.Life,
-		Series:         machine.Series,
-		Id:             machine.Id,
-		Containers:     make(map[string]machineStatus),
-		Hardware:       machine.Hardware,
+	var out machineStatus
+
+	if machine.Agent.Status == "" {
+		// Older server
+		// TODO: this will go away at some point (v1.21?).
+		out = machineStatus{
+			AgentState:     machine.AgentState,
+			AgentStateInfo: machine.AgentStateInfo,
+			AgentVersion:   machine.AgentVersion,
+			Life:           machine.Life,
+			Err:            machine.Err,
+			DNSName:        machine.DNSName,
+			InstanceId:     machine.InstanceId,
+			InstanceState:  machine.InstanceState,
+			Series:         machine.Series,
+			Id:             machine.Id,
+			Containers:     make(map[string]machineStatus),
+			Hardware:       machine.Hardware,
+		}
+	} else {
+		// New server
+		agent := machine.Agent
+		out = machineStatus{
+			AgentState:     machine.AgentState,
+			AgentStateInfo: adjustInfoIfAgentDown(machine.AgentState, agent.Status, agent.Info),
+			AgentVersion:   agent.Version,
+			Life:           agent.Life,
+			Err:            agent.Err,
+			DNSName:        machine.DNSName,
+			InstanceId:     machine.InstanceId,
+			InstanceState:  machine.InstanceState,
+			Series:         machine.Series,
+			Id:             machine.Id,
+			Containers:     make(map[string]machineStatus),
+			Hardware:       machine.Hardware,
+		}
 	}
+
 	for k, m := range machine.Containers {
 		out.Containers[k] = formatMachine(m)
 	}
@@ -290,7 +327,7 @@ func makeHAStatus(hasVote, wantsVote bool) string {
 	return s
 }
 
-func formatService(service api.ServiceStatus) serviceStatus {
+func formatService(name string, service api.ServiceStatus, relations map[int]api.RelationStatus) serviceStatus {
 	out := serviceStatus{
 		Err:           service.Err,
 		Charm:         service.Charm,
@@ -309,16 +346,16 @@ func formatService(service api.ServiceStatus) serviceStatus {
 		out.Networks["disabled"] = service.Networks.Disabled
 	}
 	for k, m := range service.Units {
-		out.Units[k] = formatUnit(m)
+		out.Units[k] = formatUnit(m, name, relations)
 	}
 	return out
 }
 
-func formatUnit(unit api.UnitStatus) unitStatus {
+func formatUnit(unit api.UnitStatus, serviceName string, relations map[int]api.RelationStatus) unitStatus {
 	out := unitStatus{
 		Err:            unit.Err,
 		AgentState:     unit.AgentState,
-		AgentStateInfo: unit.AgentStateInfo,
+		AgentStateInfo: getUnitStatusInfo(unit, serviceName, relations),
 		AgentVersion:   unit.AgentVersion,
 		Life:           unit.Life,
 		Machine:        unit.Machine,
@@ -328,9 +365,60 @@ func formatUnit(unit api.UnitStatus) unitStatus {
 		Subordinates:   make(map[string]unitStatus),
 	}
 	for k, m := range unit.Subordinates {
-		out.Subordinates[k] = formatUnit(m)
+		out.Subordinates[k] = formatUnit(m, serviceName, relations)
 	}
 	return out
+}
+
+func getUnitStatusInfo(unit api.UnitStatus, serviceName string, relations map[int]api.RelationStatus) string {
+	if unit.Agent.Status == "" {
+		// Old client that doesn't support this field and others.
+		// Just return the info string as-is.
+		return unit.AgentStateInfo
+	}
+	statusInfo := unit.Agent.Info
+	if unit.Agent.Status == params.StatusError {
+		if relation, ok := relations[getRelationIdFromData(unit)]; ok {
+			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {
+				statusInfo = statusInfo + " for " + ep.String()
+			}
+		}
+	}
+	return adjustInfoIfAgentDown(unit.AgentState, unit.Agent.Status, statusInfo)
+}
+
+func getRelationIdFromData(unit api.UnitStatus) int {
+	if relationId_, ok := unit.Agent.Data["relation-id"]; ok {
+		if relationId, ok := relationId_.(float64); ok {
+			return int(relationId)
+		} else {
+			logger.Infof("relation-id found status data but was unexpected "+
+				"type: %q. Status output may be lacking some detail.", relationId_)
+		}
+	}
+	return -1
+}
+
+func findOtherEndpoint(endpoints []api.EndpointStatus, serviceName string) (api.EndpointStatus, bool) {
+	for _, endpoint := range endpoints {
+		if endpoint.ServiceName != serviceName {
+			return endpoint, true
+		}
+	}
+	return api.EndpointStatus{}, false
+}
+
+// adjustInfoIfAgentDown modifies the agent status info string if the
+// agent is down. The original status and info is included in
+// parentheses.
+func adjustInfoIfAgentDown(status, origStatus params.Status, info string) string {
+	if status == params.StatusDown {
+		if info == "" {
+			return fmt.Sprintf("(%s)", origStatus)
+		}
+		return fmt.Sprintf("(%s: %s)", origStatus, info)
+	}
+	return info
 }
 
 func formatNetwork(network api.NetworkStatus) networkStatus {

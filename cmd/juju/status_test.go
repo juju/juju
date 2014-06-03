@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -517,7 +518,7 @@ var statusTests = []testCase{
 
 		addUnit{"dummy-service", "1"},
 		addAliveUnit{"exposed-service", "2"},
-		setUnitStatus{"exposed-service/0", params.StatusError, "You Require More Vespene Gas"},
+		setUnitStatus{"exposed-service/0", params.StatusError, "You Require More Vespene Gas", nil},
 		// Open multiple ports with different protocols,
 		// ensure they're sorted on protocol, then number.
 		openUnitPort{"exposed-service/0", "udp", 10},
@@ -525,7 +526,7 @@ var statusTests = []testCase{
 		openUnitPort{"exposed-service/0", "tcp", 3},
 		openUnitPort{"exposed-service/0", "tcp", 2},
 		// Simulate some status with no info, while the agent is down.
-		setUnitStatus{"dummy-service/0", params.StatusStarted, ""},
+		setUnitStatus{"dummy-service/0", params.StatusStarted, "", nil},
 		expect{
 			"add two units, one alive (in error state), one down",
 			M{
@@ -788,6 +789,140 @@ var statusTests = []testCase{
 			},
 		},
 	), test(
+		"a unit with a hook relation error",
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+
+		addCharm{"wordpress"},
+		addService{name: "wordpress", charm: "wordpress"},
+		addAliveUnit{"wordpress", "1"},
+
+		addCharm{"mysql"},
+		addService{name: "mysql", charm: "mysql"},
+		addAliveUnit{"mysql", "1"},
+
+		relateServices{"wordpress", "mysql"},
+
+		setUnitStatus{"wordpress/0", params.StatusError,
+			"hook failed: some-relation-changed",
+			params.StatusData{"relation-id": 0}},
+
+		expect{
+			"a unit with a hook relation error",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "cs:quantal/wordpress-3",
+						"exposed": false,
+						"relations": M{
+							"db": L{"mysql"},
+						},
+						"units": M{
+							"wordpress/0": M{
+								"machine":          "1",
+								"agent-state":      "error",
+								"agent-state-info": "hook failed: some-relation-changed for mysql:server",
+								"public-address":   "dummyenv-1.dns",
+							},
+						},
+					},
+					"mysql": M{
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": false,
+						"relations": M{
+							"server": L{"wordpress"},
+						},
+						"units": M{
+							"mysql/0": M{
+								"machine":        "1",
+								"agent-state":    "pending",
+								"public-address": "dummyenv-1.dns",
+							},
+						},
+					},
+				},
+			},
+		},
+	), test(
+		"a unit with a hook relation error when the agent is down",
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		setAddresses{"0", []network.Address{network.NewAddress("dummyenv-0.dns", network.ScopeUnknown)}},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		setAddresses{"1", []network.Address{network.NewAddress("dummyenv-1.dns", network.ScopeUnknown)}},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+
+		addCharm{"wordpress"},
+		addService{name: "wordpress", charm: "wordpress"},
+		addUnit{"wordpress", "1"},
+
+		addCharm{"mysql"},
+		addService{name: "mysql", charm: "mysql"},
+		addAliveUnit{"mysql", "1"},
+
+		relateServices{"wordpress", "mysql"},
+
+		setUnitStatus{"wordpress/0", params.StatusError,
+			"hook failed: some-relation-changed",
+			params.StatusData{"relation-id": 0}},
+
+		expect{
+			"a unit with a hook relation error when the agent is down",
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"0": machine0,
+					"1": machine1,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "cs:quantal/wordpress-3",
+						"exposed": false,
+						"relations": M{
+							"db": L{"mysql"},
+						},
+						"units": M{
+							"wordpress/0": M{
+								"machine":          "1",
+								"agent-state":      "down",
+								"agent-state-info": "(error: hook failed: some-relation-changed for mysql:server)",
+								"public-address":   "dummyenv-1.dns",
+							},
+						},
+					},
+					"mysql": M{
+						"charm":   "cs:quantal/mysql-1",
+						"exposed": false,
+						"relations": M{
+							"server": L{"wordpress"},
+						},
+						"units": M{
+							"mysql/0": M{
+								"machine":        "1",
+								"agent-state":    "pending",
+								"public-address": "dummyenv-1.dns",
+							},
+						},
+					},
+				},
+			},
+		},
+	), test(
 		"add a dying service",
 		addCharm{"dummy"},
 		addService{name: "dummy-service", charm: "dummy"},
@@ -839,7 +974,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"project", "1"},
-		setUnitStatus{"project/0", params.StatusStarted, ""},
+		setUnitStatus{"project/0", params.StatusStarted, "", nil},
 
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
@@ -848,7 +983,7 @@ var statusTests = []testCase{
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
-		setUnitStatus{"mysql/0", params.StatusStarted, ""},
+		setUnitStatus{"mysql/0", params.StatusStarted, "", nil},
 
 		addService{name: "varnish", charm: "varnish"},
 		setServiceExposed{"varnish", true},
@@ -958,19 +1093,19 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"riak", "1"},
-		setUnitStatus{"riak/0", params.StatusStarted, ""},
+		setUnitStatus{"riak/0", params.StatusStarted, "", nil},
 		addMachine{machineId: "2", job: state.JobHostUnits},
 		setAddresses{"2", []network.Address{network.NewAddress("dummyenv-2.dns", network.ScopeUnknown)}},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
 		addAliveUnit{"riak", "2"},
-		setUnitStatus{"riak/1", params.StatusStarted, ""},
+		setUnitStatus{"riak/1", params.StatusStarted, "", nil},
 		addMachine{machineId: "3", job: state.JobHostUnits},
 		setAddresses{"3", []network.Address{network.NewAddress("dummyenv-3.dns", network.ScopeUnknown)}},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", params.StatusStarted, ""},
 		addAliveUnit{"riak", "3"},
-		setUnitStatus{"riak/2", params.StatusStarted, ""},
+		setUnitStatus{"riak/2", params.StatusStarted, "", nil},
 
 		expect{
 			"multiples related peer units",
@@ -1030,7 +1165,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
-		setUnitStatus{"wordpress/0", params.StatusStarted, ""},
+		setUnitStatus{"wordpress/0", params.StatusStarted, "", nil},
 
 		addService{name: "mysql", charm: "mysql"},
 		setServiceExposed{"mysql", true},
@@ -1039,7 +1174,7 @@ var statusTests = []testCase{
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
-		setUnitStatus{"mysql/0", params.StatusStarted, ""},
+		setUnitStatus{"mysql/0", params.StatusStarted, "", nil},
 
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
@@ -1052,8 +1187,8 @@ var statusTests = []testCase{
 		addSubordinate{"mysql/0", "logging"},
 
 		setUnitsAlive{"logging"},
-		setUnitStatus{"logging/0", params.StatusStarted, ""},
-		setUnitStatus{"logging/1", params.StatusError, "somehow lost in all those logs"},
+		setUnitStatus{"logging/0", params.StatusStarted, "", nil},
+		setUnitStatus{"logging/1", params.StatusError, "somehow lost in all those logs", nil},
 
 		expect{
 			"multiples related peer units",
@@ -1247,7 +1382,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
-		setUnitStatus{"wordpress/0", params.StatusStarted, ""},
+		setUnitStatus{"wordpress/0", params.StatusStarted, "", nil},
 
 		addService{name: "logging", charm: "logging"},
 		setServiceExposed{"logging", true},
@@ -1261,10 +1396,10 @@ var statusTests = []testCase{
 		addSubordinate{"wordpress/0", "monitoring"},
 
 		setUnitsAlive{"logging"},
-		setUnitStatus{"logging/0", params.StatusStarted, ""},
+		setUnitStatus{"logging/0", params.StatusStarted, "", nil},
 
 		setUnitsAlive{"monitoring"},
-		setUnitStatus{"monitoring/0", params.StatusStarted, ""},
+		setUnitStatus{"monitoring/0", params.StatusStarted, "", nil},
 
 		// scoped on monitoring; make sure logging doesn't show up.
 		scopedExpect{
@@ -1323,7 +1458,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"mysql", "1"},
-		setUnitStatus{"mysql/0", params.StatusStarted, ""},
+		setUnitStatus{"mysql/0", params.StatusStarted, "", nil},
 
 		// A container on machine 1.
 		addContainer{"1", "1/lxc/0", state.JobHostUnits},
@@ -1331,7 +1466,7 @@ var statusTests = []testCase{
 		startAliveMachine{"1/lxc/0"},
 		setMachineStatus{"1/lxc/0", params.StatusStarted, ""},
 		addAliveUnit{"mysql", "1/lxc/0"},
-		setUnitStatus{"mysql/1", params.StatusStarted, ""},
+		setUnitStatus{"mysql/1", params.StatusStarted, "", nil},
 		addContainer{"1", "1/lxc/1", state.JobHostUnits},
 
 		// A nested container.
@@ -1828,12 +1963,13 @@ type setUnitStatus struct {
 	unitName   string
 	status     params.Status
 	statusInfo string
+	statusData params.StatusData
 }
 
 func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, gc.IsNil)
-	err = u.SetStatus(sus.status, sus.statusInfo, nil)
+	err = u.SetStatus(sus.status, sus.statusInfo, sus.statusData)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -2028,4 +2164,150 @@ func (s *StatusSuite) TestStatusFilterErrors(c *gc.C) {
 	code, _, stderr = runStatus(c, "*", "[*")
 	c.Assert(code, gc.Not(gc.Equals), 0)
 	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
+}
+
+type fakeApiClient struct {
+	statusReturn *api.Status
+	patternsUsed []string
+	closeCalled  bool
+}
+
+func newFakeApiClient(statusReturn *api.Status) fakeApiClient {
+	return fakeApiClient{
+		statusReturn: statusReturn,
+	}
+}
+
+func (a *fakeApiClient) Status(patterns []string) (*api.Status, error) {
+	a.patternsUsed = patterns
+	return a.statusReturn, nil
+}
+
+func (a *fakeApiClient) Close() error {
+	a.closeCalled = true
+	return nil
+}
+
+// Check that the client works with an older server which doesn't the
+// top level Relations field nor the unit and machine level Agent
+// field (they were introduced at the same time).
+func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
+	// Construct an older style status response
+	client := newFakeApiClient(&api.Status{
+		EnvironmentName: "dummyenv",
+		Machines: map[string]api.MachineStatus{
+			"0": {
+				// Agent field intentionally not set
+				Id:             "0",
+				InstanceId:     instance.Id("dummyenv-0"),
+				AgentState:     "down",
+				AgentStateInfo: "(started)",
+				Series:         "quantal",
+				Containers:     map[string]api.MachineStatus{},
+				Jobs:           []params.MachineJob{params.JobManageEnviron},
+				HasVote:        false,
+				WantsVote:      true,
+			},
+			"1": {
+				// Agent field intentionally not set
+				Id:             "1",
+				InstanceId:     instance.Id("dummyenv-1"),
+				AgentState:     "started",
+				AgentStateInfo: "hello",
+				Series:         "quantal",
+				Containers:     map[string]api.MachineStatus{},
+				Jobs:           []params.MachineJob{params.JobHostUnits},
+				HasVote:        false,
+				WantsVote:      false,
+			},
+		},
+		Services: map[string]api.ServiceStatus{
+			"mysql": api.ServiceStatus{
+				Charm: "local:quantal/mysql-1",
+				Relations: map[string][]string{
+					"server": []string{"wordpress"},
+				},
+				Units: map[string]api.UnitStatus{
+					"mysql/0": api.UnitStatus{
+						// Agent field intentionally not set
+						Machine:    "1",
+						AgentState: "pending",
+					},
+				},
+			},
+			"wordpress": api.ServiceStatus{
+				Charm: "local:quantal/wordpress-3",
+				Relations: map[string][]string{
+					"db": []string{"mysql"},
+				},
+				Units: map[string]api.UnitStatus{
+					"wordpress/0": api.UnitStatus{
+						// Agent field intentionally not set
+						AgentState:     "error",
+						AgentStateInfo: "blam",
+						Machine:        "1",
+					},
+				},
+			},
+		},
+		Networks: map[string]api.NetworkStatus{},
+		// Relations field intentionally not set
+	})
+	s.PatchValue(&newApiClientForStatus, func(_ string) (statusAPI, error) {
+		return &client, nil
+	})
+
+	expected := expect{
+		"sane output with an older client that doesn't return Agent or Relations fields",
+		M{
+			"environment": "dummyenv",
+			"machines": M{
+				"0": M{
+					"agent-state":                "down",
+					"agent-state-info":           "(started)",
+					"instance-id":                "dummyenv-0",
+					"series":                     "quantal",
+					"state-server-member-status": "adding-vote",
+				},
+				"1": M{
+					"agent-state":      "started",
+					"agent-state-info": "hello",
+					"instance-id":      "dummyenv-1",
+					"series":           "quantal",
+				},
+			},
+			"services": M{
+				"mysql": M{
+					"charm":   "local:quantal/mysql-1",
+					"exposed": false,
+					"relations": M{
+						"server": L{"wordpress"},
+					},
+					"units": M{
+						"mysql/0": M{
+							"machine":     "1",
+							"agent-state": "pending",
+						},
+					},
+				},
+				"wordpress": M{
+					"charm":   "local:quantal/wordpress-3",
+					"exposed": false,
+					"relations": M{
+						"db": L{"mysql"},
+					},
+					"units": M{
+						"wordpress/0": M{
+							"machine":          "1",
+							"agent-state":      "error",
+							"agent-state-info": "blam",
+						},
+					},
+				},
+			},
+		},
+	}
+	ctx := s.newContext()
+	defer s.resetContext(c, ctx)
+	ctx.run(c, []stepper{expected})
 }
