@@ -35,6 +35,7 @@ func (s *BundleSuite) SetUpSuite(c *gc.C) {
 }
 
 var dummyManifest = []string{
+	"actions.yaml",
 	"config.yaml",
 	"empty",
 	"empty/.gitkeep",
@@ -53,6 +54,8 @@ func (s *BundleSuite) TestReadBundle(c *gc.C) {
 }
 
 func (s *BundleSuite) TestReadBundleWithoutConfig(c *gc.C) {
+	// Technically varnish has no config AND no actions.
+	// Perhaps we should make this more orthogonal?
 	path := testing.Charms.BundlePath(c.MkDir(), "varnish")
 	bundle, err := charm.ReadBundle(path)
 	c.Assert(err, gc.IsNil)
@@ -60,6 +63,17 @@ func (s *BundleSuite) TestReadBundleWithoutConfig(c *gc.C) {
 	// A lacking config.yaml file still causes a proper
 	// Config value to be returned.
 	c.Assert(bundle.Config().Options, gc.HasLen, 0)
+}
+
+func (s *BundleSuite) TestReadBundleWithoutActions(c *gc.C) {
+	// Wordpress has config but no actions.
+	path := testing.Charms.BundlePath(c.MkDir(), "wordpress")
+	bundle, err := charm.ReadBundle(path)
+	c.Assert(err, gc.IsNil)
+
+	// A lacking actions.yaml file still causes a proper
+	// Config value to be returned.
+	c.Assert(bundle.Actions().ActionSpecs, gc.HasLen, 0)
 }
 
 func (s *BundleSuite) TestReadBundleBytes(c *gc.C) {

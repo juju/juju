@@ -96,6 +96,10 @@ func (d *FakeCharmDir) Config() *charm.Config {
 	return &charm.Config{make(map[string]charm.Option)}
 }
 
+func (d *FakeCharmDir) Actions() *charm.Actions {
+	return &charm.Actions{make(map[string]charm.ActionSpec)}
+}
+
 func (d *FakeCharmDir) SetRevision(revision int) {
 	d.revision = revision
 }

@@ -523,6 +523,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 			URL:          curl,
 			Meta:         ch.Meta(),
 			Config:       ch.Config(),
+			Actions:      ch.Actions(),
 			BundleURL:    bundleURL,
 			BundleSha256: bundleSha256,
 		}
@@ -873,6 +874,7 @@ func (st *State) updateCharmDoc(
 	updateFields := bson.D{{"$set", bson.D{
 		{"meta", ch.Meta()},
 		{"config", ch.Config()},
+		{"actions", ch.Actions()},
 		{"bundleurl", bundleURL},
 		{"bundlesha256", bundleSha256},
 		{"pendingupload", false},

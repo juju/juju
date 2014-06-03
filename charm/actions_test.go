@@ -15,6 +15,11 @@ type ActionsSuite struct{}
 
 var _ = gc.Suite(&ActionsSuite{})
 
+func (s *ActionsSuite) TestNewActions(c *gc.C) {
+	emptyAction := charm.NewActions()
+	c.Assert(emptyAction, gc.DeepEquals, &charm.Actions{})
+}
+
 func (s *ActionsSuite) TestReadGoodActionsYaml(c *gc.C) {
 
 	var goodActionsYamlTests = []struct {
@@ -37,7 +42,7 @@ actions:
 			"snapshot": charm.ActionSpec{
 				Description: "Take a snapshot of the database.",
 				Params: map[string]interface{}{
-					"outfile": map[interface{}]interface{}{
+					"outfile": map[string]interface{}{
 						"description": "The file to write out to.",
 						"type":        "string",
 						"default":     "foo.bz2"}}}}},
@@ -59,7 +64,7 @@ actions:
 				Description: "Take a snapshot of the database.",
 				Params: map[string]interface{}{
 					"$schema": "http://json-schema.org/draft-03/schema#",
-					"outfile": map[interface{}]interface{}{
+					"outfile": map[string]interface{}{
 						"description": "The file to write out to.",
 						"type":        "string",
 						"default":     "foo.bz2"}}}}},
@@ -107,11 +112,11 @@ actions:
 			"snapshot": charm.ActionSpec{
 				Description: "Take a snapshot of the database.",
 				Params: map[string]interface{}{
-					"outfile": map[interface{}]interface{}{
+					"outfile": map[string]interface{}{
 						"description": "The file to write out to.",
 						"type":        "string",
 						"default":     "foo.bz2"},
-					"compression-quality": map[interface{}]interface{}{
+					"compression-quality": map[string]interface{}{
 						"description":      "The compression quality.",
 						"type":             "number",
 						"minimum":          0,
@@ -120,17 +125,17 @@ actions:
 			"remote-sync": charm.ActionSpec{
 				Description: "Sync a file to a remote host.",
 				Params: map[string]interface{}{
-					"file": map[interface{}]interface{}{
+					"file": map[string]interface{}{
 						"description": "The file to send out.",
 						"type":        "string",
 						"format":      "uri",
 						"optional":    false},
-					"remote-uri": map[interface{}]interface{}{
+					"remote-uri": map[string]interface{}{
 						"description": "The host to sync to.",
 						"type":        "string",
 						"format":      "uri",
 						"optional":    false},
-					"util": map[interface{}]interface{}{
+					"util": map[string]interface{}{
 						"description": "The util to perform the sync (rsync or scp.)",
 						"type":        "string",
 						"enum":        []interface{}{"rsync", "scp"},
@@ -290,7 +295,7 @@ actions:
 		c.Logf("test %d: %s", i, test.description)
 		reader := bytes.NewReader([]byte(test.yaml))
 		_, err := charm.ReadActionsYaml(reader)
-		c.Assert(err, gc.Not(gc.IsNil))
+		c.Assert(err, gc.NotNil)
 		c.Assert(err.Error(), gc.Equals, test.expectedError)
 	}
 }
