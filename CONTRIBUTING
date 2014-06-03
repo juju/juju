@@ -52,7 +52,7 @@ More detailed instructions for the general process are on the github site:
 To make sure that any changes you commit pass a basic sanity check, make sure to
 add the check script as a git hook:
 
-$ ln -s ../../check .git/hooks/pre-push
+$ ln -s ../../scripts/pre-push.bash .git/hooks/pre-push
 
 Using pre-push requires git 1.8.2 or later, alternatively running the check as a
 pre-commit hook also works.
