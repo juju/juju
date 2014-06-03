@@ -4,9 +4,10 @@
 package api_test
 
 import (
+	"fmt"
 	"io"
 	"net"
-	"sort"
+	"strconv"
 
 	gc "launchpad.net/gocheck"
 
@@ -21,56 +22,6 @@ type apiclientSuite struct {
 
 var _ = gc.Suite(&apiclientSuite{})
 
-func (s *apiclientSuite) TestSortLocalhost(c *gc.C) {
-	addrs := []string{
-		"notlocalhost1",
-		"notlocalhost2",
-		"notlocalhost3",
-		"localhost1",
-		"localhost2",
-		"localhost3",
-	}
-	expectedAddrs := []string{
-		"localhost1",
-		"localhost2",
-		"localhost3",
-		"notlocalhost1",
-		"notlocalhost2",
-		"notlocalhost3",
-	}
-	var sortedAddrs []string
-	sortedAddrs = append(sortedAddrs, addrs...)
-	sort.Sort(api.LocalFirst(sortedAddrs))
-	c.Assert(addrs, gc.Not(gc.DeepEquals), sortedAddrs)
-	c.Assert(sortedAddrs, gc.HasLen, 6)
-	c.Assert(sortedAddrs, gc.DeepEquals, expectedAddrs)
-
-}
-
-func (s *apiclientSuite) TestSortLocalhostIdempotent(c *gc.C) {
-	addrs := []string{
-		"localhost1",
-		"localhost2",
-		"localhost3",
-		"notlocalhost1",
-		"notlocalhost2",
-		"notlocalhost3",
-	}
-	expectedAddrs := []string{
-		"localhost1",
-		"localhost2",
-		"localhost3",
-		"notlocalhost1",
-		"notlocalhost2",
-		"notlocalhost3",
-	}
-	var sortedAddrs []string
-	sortedAddrs = append(sortedAddrs, addrs...)
-	sort.Sort(api.LocalFirst(sortedAddrs))
-	c.Assert(sortedAddrs, gc.DeepEquals, expectedAddrs)
-
-}
-
 func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	// Create a socket that proxies to the API server though our localhost address.
 	info := s.APIInfo(c)
@@ -78,7 +29,7 @@ func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	server, err := net.Dial("tcp", serverAddr)
 	c.Assert(err, gc.IsNil)
 	defer server.Close()
-	listener, err := net.Listen("tcp", "localhost:26104")
+	listener, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, gc.IsNil)
 	defer listener.Close()
 	go func() {
@@ -93,11 +44,19 @@ func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	}()
 
 	// Check that we are using our working address to connect
-	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", "localhost:26104"}
+	listenerAddress := listener.Addr().String()
+	// listenAddress contains the actual IP address, but APIHostPorts
+	// is going to report localhost, so just find the port
+	_, port, err := net.SplitHostPort(listenerAddress)
+	c.Check(err, gc.IsNil)
+	portNum, err := strconv.Atoi(port)
+	c.Check(err, gc.IsNil)
+	expectedHostPort := fmt.Sprintf("localhost:%d", portNum)
+	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", expectedHostPort}
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
-	c.Assert(st.Addr(), gc.Equals, "localhost:26104")
+	c.Assert(st.Addr(), gc.Equals, expectedHostPort)
 }
 
 func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
