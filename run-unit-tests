@@ -15,7 +15,15 @@ afact='lastSuccessfulBuild/artifact'
 test -f buildvars.bash && rm buildvars.bash
 wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
-echo "Testing $BRANCH $REVNO"
+set +u
+if [[ -n "$REVNO" ]]
+    rev=$REVNO
+else
+    rev=$REVISION_ID
+fi
+set -u
+echo "Testing $BRANCH $rev"
+
 
 tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
 juju_version=$(basename $tarfile .tar.gz)

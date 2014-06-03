@@ -23,7 +23,14 @@ touch $artifacts_path/empty
 afact='lastSuccessfulBuild/artifact'
 wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
-echo "Testing $BRANCH $REVNO on $ENV"
+set +u
+if [[ -n "$REVNO" ]]
+    rev=$REVNO
+else
+    rev=$REVISION_ID
+fi
+set -u
+echo "Testing $BRANCH $rev on $ENV"
 
 # Provide the juju-core and juju-local packages to the test
 RELEASE=$(lsb_release -sr)
