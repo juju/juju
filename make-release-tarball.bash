@@ -8,7 +8,7 @@ unset GOBIN
 
 # build release tarball from a bzr or git branch
 DEFAULT_BZR_JUJU_CORE="lp:juju-core"
-DEFAULT_GIT_JUJU_CORE="https://github.com/juju/core.git"
+DEFAULT_GIT_JUJU_CORE="https://github.com/juju/juju.git"
 
 usage() {
     echo "usage: $0 <BZR_REVNO|GIT_REV> [BZR_BRANCH|GIT_REPO] [MERGE_REF] [MERGE_REPO] [MERGE_REV]"
@@ -55,7 +55,7 @@ else
     IS_BZR="false"
     REVISION=$1
     JUJU_CORE_REPO=${2:-$DEFAULT_GIT_JUJU_CORE}
-    PACKAGE="github.com/juju/core"
+    PACKAGE="github.com/juju/juju"
     if [[ $# -ge 4 ]]; then
         MERGE_REF=$3
         MERGE_REPO=$4
