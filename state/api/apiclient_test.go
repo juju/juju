@@ -45,6 +45,8 @@ func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 
 	// Check that we are using our working address to connect
 	listenerAddress := listener.Addr().String()
+	// listenAddress contains the actual IP address, but APIHostPorts
+	// is going to report localhost, so just find the port
 	_, port, err := net.SplitHostPort(listenerAddress)
 	c.Check(err, gc.IsNil)
 	portNum, err := strconv.Atoi(port)
