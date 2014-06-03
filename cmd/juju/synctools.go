@@ -7,11 +7,11 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/envcmd"
-	"launchpad.net/juju-core/environs/filestorage"
-	"launchpad.net/juju-core/environs/sync"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/version"
 )
 
 var syncTools = sync.SyncTools

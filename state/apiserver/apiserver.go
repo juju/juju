@@ -16,11 +16,11 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/rpc"
-	"launchpad.net/juju-core/rpc/jsoncodec"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver")

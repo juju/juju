@@ -4,7 +4,7 @@
 package watcher
 
 import (
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/state/api/params"
 )
 
 // NotifyWatcher will send events when something changes.

@@ -6,7 +6,7 @@ package cmd
 import (
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/version"
 )
 
 // VersionCommand is a cmd.Command that prints the current version.

@@ -3,7 +3,7 @@
 package local
 
 import (
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/utils"
 )
 
 // getAddressForInterface is a variable so we can change the implementation

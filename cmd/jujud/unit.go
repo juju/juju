@@ -11,15 +11,15 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/apiaddressupdater"
-	workerlogger "launchpad.net/juju-core/worker/logger"
-	"launchpad.net/juju-core/worker/rsyslog"
-	"launchpad.net/juju-core/worker/uniter"
-	"launchpad.net/juju-core/worker/upgrader"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/apiaddressupdater"
+	workerlogger "github.com/juju/juju/worker/logger"
+	"github.com/juju/juju/worker/rsyslog"
+	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/upgrader"
 )
 
 var agentLogger = loggo.GetLogger("juju.jujud")

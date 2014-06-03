@@ -8,7 +8,7 @@ import (
 
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/state"
+	"github.com/juju/juju/state"
 )
 
 // machineErrorRetry is a notify watcher that fires when it is

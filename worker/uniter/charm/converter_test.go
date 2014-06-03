@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
-	ft "launchpad.net/juju-core/testing/filetesting"
-	"launchpad.net/juju-core/worker/uniter/charm"
+	"github.com/juju/juju/testing"
+	ft "github.com/juju/juju/testing/filetesting"
+	"github.com/juju/juju/worker/uniter/charm"
 )
 
 type ConverterSuite struct {

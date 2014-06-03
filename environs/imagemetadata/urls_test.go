@@ -8,14 +8,14 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/environs/imagemetadata"
-	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
-	"launchpad.net/juju-core/provider/dummy"
-	"launchpad.net/juju-core/testing"
-	coretesting "launchpad.net/juju-core/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/imagemetadata"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type URLsSuite struct {

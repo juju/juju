@@ -17,10 +17,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	coretesting "launchpad.net/juju-core/testing"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&machineSuite{})

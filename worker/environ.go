@@ -11,11 +11,11 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state"
-	apiwatcher "launchpad.net/juju-core/state/api/watcher"
-	"launchpad.net/juju-core/state/watcher"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
+	apiwatcher "github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/state/watcher"
 )
 
 var ErrTerminateAgent = errors.New("agent should be terminated")

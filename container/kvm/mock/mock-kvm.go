@@ -6,7 +6,7 @@ package mock
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/container/kvm"
+	"github.com/juju/juju/container/kvm"
 )
 
 // This file provides a mock implementation of the kvm interfaces

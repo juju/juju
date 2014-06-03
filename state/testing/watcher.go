@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/testing"
 )
 
 type Stopper interface {

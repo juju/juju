@@ -3,7 +3,7 @@
 
 // Juju is devops distilled.
 //
-// Project homepage: https://launchpad.net/juju-core
+// Project homepage: https://github.com/juju/juju
 //
 // For more information please refer to the README file
 // in this directory.

@@ -14,13 +14,13 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/ssh"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.conn")

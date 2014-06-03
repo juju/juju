@@ -15,10 +15,10 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/state/api/params"
 )
 
 // Service represents the state of a service.

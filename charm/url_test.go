@@ -11,7 +11,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/charm"
+	"github.com/juju/juju/charm"
 )
 
 type URLSuite struct{}

@@ -10,9 +10,9 @@ import (
 	"fmt"
 	"sort"
 
-	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/juju/arch"
-	"launchpad.net/juju-core/version/ubuntu"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/version/ubuntu"
 )
 
 func init() {

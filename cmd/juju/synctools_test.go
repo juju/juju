@@ -11,13 +11,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/envcmd"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/environs/sync"
-	"launchpad.net/juju-core/provider/dummy"
-	coretesting "launchpad.net/juju-core/testing"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/sync"
+	"github.com/juju/juju/provider/dummy"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type syncToolsSuite struct {

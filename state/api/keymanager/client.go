@@ -4,9 +4,9 @@
 package keymanager
 
 import (
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/utils/ssh"
+	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/utils/ssh"
 )
 
 // Client provides access to the keymanager, used to add/delete/list authorised ssh keys.

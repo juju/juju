@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/container"
+	"github.com/juju/juju/container"
 )
 
 type kvmContainer struct {

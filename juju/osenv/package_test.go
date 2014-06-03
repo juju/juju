@@ -9,7 +9,7 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	coretesting "launchpad.net/juju-core/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -24,6 +24,6 @@ var _ = gc.Suite(&importSuite{})
 
 // TODO (frankban): remove this test once juju-core/utils is on Github.
 func (*importSuite) TestTemporaryDependencies(c *gc.C) {
-	c.Assert(coretesting.FindJujuCoreImports(c, "launchpad.net/juju-core/juju/osenv"),
+	c.Assert(coretesting.FindJujuCoreImports(c, "github.com/juju/juju/juju/osenv"),
 		gc.DeepEquals, []string{"utils"})
 }

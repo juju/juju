@@ -4,8 +4,8 @@
 package peergrouper
 
 import (
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
 )
 
 type publisher struct {

@@ -18,9 +18,9 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils/set"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/set"
 )
 
 type BundleSuite struct {
@@ -37,6 +37,7 @@ func (s *BundleSuite) SetUpSuite(c *gc.C) {
 var dummyManifest = []string{
 	"config.yaml",
 	"empty",
+	"empty/.gitkeep",
 	"hooks",
 	"hooks/install",
 	"metadata.yaml",

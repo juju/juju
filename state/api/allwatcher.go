@@ -4,7 +4,7 @@
 package api
 
 import (
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/state/api/params"
 )
 
 // AllWatcher holds information allowing us to get Deltas describing changes

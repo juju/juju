@@ -13,14 +13,14 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/environs/filestorage"
-	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/storage"
-	envtools "launchpad.net/juju-core/environs/tools"
-	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/version/ubuntu"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
+	envtools "github.com/juju/juju/environs/tools"
+	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/version"
+	"github.com/juju/juju/version/ubuntu"
 )
 
 var logger = loggo.GetLogger("juju.environs.sync")
@@ -183,7 +183,7 @@ func copyOneToolsPackage(tool *coretools.Tools, dest storage.Storage) error {
 // uploading.
 type UploadFunc func(stor storage.Storage, forceVersion *version.Number, series ...string) (*coretools.Tools, error)
 
-// Upload builds whatever version of launchpad.net/juju-core is in $GOPATH,
+// Upload builds whatever version of github.com/juju/juju is in $GOPATH,
 // uploads it to the given storage, and returns a Tools instance describing
 // them. If forceVersion is not nil, the uploaded tools bundle will report
 // the given version number; if any fakeSeries are supplied, additional copies

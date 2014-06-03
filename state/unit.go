@@ -14,15 +14,15 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/version"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")

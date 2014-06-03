@@ -5,7 +5,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/state/apiserver/common"
+	"github.com/juju/juju/state/apiserver/common"
 )
 
 type resourceSuite struct{}

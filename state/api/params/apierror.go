@@ -6,7 +6,7 @@ package params
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/rpc"
+	"github.com/juju/juju/rpc"
 )
 
 // Error is the type of error returned by any call to the state API

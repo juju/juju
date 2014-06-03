@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/replicaset"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/replicaset"
+	"github.com/juju/juju/testing"
 )
 
 type desiredPeerGroupSuite struct {

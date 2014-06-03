@@ -4,7 +4,7 @@
 package testing
 
 import (
-	"launchpad.net/juju-core/state"
+	"github.com/juju/juju/state"
 )
 
 // FakeAuthorizer implements the common.Authorizer interface.

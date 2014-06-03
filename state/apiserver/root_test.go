@@ -8,9 +8,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/rpc/rpcreflect"
-	"launchpad.net/juju-core/state/apiserver"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/rpc/rpcreflect"
+	"github.com/juju/juju/state/apiserver"
+	"github.com/juju/juju/testing"
 )
 
 type rootSuite struct{}

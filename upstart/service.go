@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"path"
 
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/utils"
 )
 
 const (

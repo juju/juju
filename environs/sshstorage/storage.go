@@ -18,8 +18,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/ssh"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.environs.sshstorage")

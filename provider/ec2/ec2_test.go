@@ -7,7 +7,7 @@ import (
 	amzec2 "launchpad.net/goamz/ec2"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/constraints"
+	"github.com/juju/juju/constraints"
 )
 
 type Suite struct{}

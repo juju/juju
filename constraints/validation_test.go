@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/constraints"
+	"github.com/juju/juju/constraints"
 )
 
 type validationSuite struct{}

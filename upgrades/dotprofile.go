@@ -6,7 +6,7 @@ package upgrades
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/utils/exec"
+	"github.com/juju/juju/utils/exec"
 )
 
 // As of the middle of the 1.17 cycle, the proxy settings are written out to

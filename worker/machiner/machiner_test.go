@@ -10,16 +10,16 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	apimachiner "launchpad.net/juju-core/state/api/machiner"
-	"launchpad.net/juju-core/state/api/params"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/machiner"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
+	apimachiner "github.com/juju/juju/state/api/machiner"
+	"github.com/juju/juju/state/api/params"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/machiner"
 )
 
 // worstCase is used for timeouts when timing out

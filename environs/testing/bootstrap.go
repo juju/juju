@@ -7,11 +7,11 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider/common"
-	"launchpad.net/juju-core/utils/ssh"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.environs.testing")

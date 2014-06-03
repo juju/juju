@@ -9,10 +9,10 @@ import (
 
 	"labix.org/v2/mgo"
 
-	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/mongo"
-	"launchpad.net/juju-core/replicaset"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/agent/mongo"
+	"github.com/juju/juju/replicaset"
+	"github.com/juju/juju/utils"
 )
 
 var initiateAttemptStrategy = utils.AttemptStrategy{

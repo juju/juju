@@ -13,8 +13,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {

@@ -4,8 +4,8 @@
 package manual
 
 import (
-	"launchpad.net/juju-core/environs/manual"
-	"launchpad.net/juju-core/instance"
+	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/instance"
 )
 
 type manualBootstrapInstance struct {

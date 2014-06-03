@@ -10,10 +10,10 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gwacl"
 
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/simplestreams"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/simplestreams"
 )
 
 // preferredTypes is a list of machine types, in order of preference so that

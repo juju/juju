@@ -6,7 +6,7 @@ package uniter_test
 import (
 	gc "launchpad.net/gocheck"
 
-	apitesting "launchpad.net/juju-core/state/api/testing"
+	apitesting "github.com/juju/juju/state/api/testing"
 )
 
 type stateSuite struct {

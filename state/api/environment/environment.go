@@ -4,8 +4,8 @@
 package environment
 
 import (
-	"launchpad.net/juju-core/state/api/base"
-	"launchpad.net/juju-core/state/api/common"
+	"github.com/juju/juju/state/api/base"
+	"github.com/juju/juju/state/api/common"
 )
 
 const apiName = "Environment"

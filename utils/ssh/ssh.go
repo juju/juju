@@ -14,7 +14,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"launchpad.net/juju-core/cmd"
+	"github.com/juju/juju/cmd"
 )
 
 // Options is a client-implementation independent SSH options set.

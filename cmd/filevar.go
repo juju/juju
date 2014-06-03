@@ -7,7 +7,7 @@ import (
 	"errors"
 	"io/ioutil"
 
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/utils"
 )
 
 // FileVar represents a path to a file.

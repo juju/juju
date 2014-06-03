@@ -6,9 +6,9 @@ package uniter_test
 import (
 	gc "launchpad.net/gocheck"
 
-	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/state/api/uniter"
-	"launchpad.net/juju-core/utils"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/state/api/uniter"
+	"github.com/juju/juju/utils"
 )
 
 type charmSuite struct {

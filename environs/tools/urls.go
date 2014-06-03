@@ -8,10 +8,10 @@ import (
 	"net/url"
 	"strings"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/utils"
 )
 
 // SupportsCustomSources represents an environment that

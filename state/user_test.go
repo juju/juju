@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/utils"
 )
 
 type UserSuite struct {

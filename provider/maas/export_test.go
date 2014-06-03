@@ -9,8 +9,8 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/storage"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/storage"
 )
 
 var (

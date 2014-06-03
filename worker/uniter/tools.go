@@ -8,7 +8,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"launchpad.net/juju-core/worker/uniter/jujuc"
+	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
 // EnsureJujucSymlinks creates a symbolic link to jujuc within dir for each

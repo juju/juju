@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"strings"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/state"
 )
 
 // DeployServiceParams contains the arguments required to deploy the referenced

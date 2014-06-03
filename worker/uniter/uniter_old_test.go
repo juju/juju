@@ -13,9 +13,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	ft "launchpad.net/juju-core/testing/filetesting"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
+	ft "github.com/juju/juju/testing/filetesting"
 )
 
 // These tests are copies of the old git-deployer-related tests, to test that

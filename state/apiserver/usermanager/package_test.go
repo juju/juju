@@ -6,7 +6,7 @@ package usermanager_test
 import (
 	stdtesting "testing"
 
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {

@@ -6,7 +6,7 @@ package peergrouper_test
 import (
 	stdtesting "testing"
 
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/testing"
 )
 
 func TestPackage(t *stdtesting.T) {

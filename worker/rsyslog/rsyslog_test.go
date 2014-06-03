@@ -15,14 +15,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/instance"
-	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils/syslog"
-	"launchpad.net/juju-core/worker/rsyslog"
+	"github.com/juju/juju/cert"
+	"github.com/juju/juju/instance"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/syslog"
+	"github.com/juju/juju/worker/rsyslog"
 )
 
 func TestPackage(t *stdtesting.T) {

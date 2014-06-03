@@ -8,3 +8,4 @@ cmd/charmload/charmload
 .emacs.desktop
 .emacs.desktop.lock
 *.test
+*.sw[nop]

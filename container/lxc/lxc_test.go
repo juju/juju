@@ -18,15 +18,15 @@ import (
 	"launchpad.net/golxc"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/container/lxc/mock"
-	lxctesting "launchpad.net/juju-core/container/lxc/testing"
-	containertesting "launchpad.net/juju-core/container/testing"
-	instancetest "launchpad.net/juju-core/instance/testing"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils/proxy"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/lxc"
+	"github.com/juju/juju/container/lxc/mock"
+	lxctesting "github.com/juju/juju/container/lxc/testing"
+	containertesting "github.com/juju/juju/container/testing"
+	instancetest "github.com/juju/juju/instance/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/proxy"
 )
 
 func Test(t *stdtesting.T) {

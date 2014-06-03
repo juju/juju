@@ -22,7 +22,7 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/utils"
 )
 
 const (

@@ -10,8 +10,8 @@ import (
 
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/version"
 )
 
 var format_1_18 = formatter_1_18{}

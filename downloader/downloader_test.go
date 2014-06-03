@@ -12,9 +12,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/downloader"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/downloader"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/utils"
 )
 
 type suite struct {

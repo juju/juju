@@ -18,7 +18,7 @@ go tool vet \
 	.
 
 # check this branch builds cleanly
-go build launchpad.net/juju-core/...
+go build github.com/juju/juju/...
 
 # check that all tests are wired up
 ./scripts/checktesting.bash

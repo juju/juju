@@ -13,17 +13,17 @@ import (
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/network"
-	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/arch"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/network"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/utils"
 )
 
 var (

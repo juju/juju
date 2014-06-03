@@ -10,18 +10,18 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/provider/dummy"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	apifirewaller "launchpad.net/juju-core/state/api/firewaller"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/firewaller"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
+	apifirewaller "github.com/juju/juju/state/api/firewaller"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/firewaller"
 )
 
 func TestPackage(t *stdtesting.T) {

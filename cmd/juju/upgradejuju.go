@@ -11,18 +11,18 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/envcmd"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/bootstrap"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/sync"
-	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
-	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/sync"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/juju"
+	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
+	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 // UpgradeJujuCommand upgrades the agents in a juju installation.

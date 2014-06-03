@@ -8,7 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/worker/uniter/debug"
+	"github.com/juju/juju/worker/uniter/debug"
 )
 
 type DebugHooksCommonSuite struct{}

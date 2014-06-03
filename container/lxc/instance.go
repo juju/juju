@@ -9,7 +9,7 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/golxc"
 
-	"launchpad.net/juju-core/instance"
+	"github.com/juju/juju/instance"
 )
 
 type lxcInstance struct {

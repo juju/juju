@@ -7,7 +7,7 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/state"
+	"github.com/juju/juju/state"
 )
 
 type MinUnitsSuite struct {

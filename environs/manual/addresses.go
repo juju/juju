@@ -6,7 +6,7 @@ package manual
 import (
 	"net"
 
-	"launchpad.net/juju-core/instance"
+	"github.com/juju/juju/instance"
 )
 
 var netLookupHost = net.LookupHost

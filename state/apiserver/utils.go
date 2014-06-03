@@ -6,7 +6,7 @@ package apiserver
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/state"
+	"github.com/juju/juju/state"
 )
 
 // isMachineWithJob returns whether the given entity is a machine that

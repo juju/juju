@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/bootstrap"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
 )
 
 // getAddresses queries and returns the Addresses for the given instances,

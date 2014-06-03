@@ -6,9 +6,9 @@ package main
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/envcmd"
-	"launchpad.net/juju-core/juju"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/juju"
 )
 
 // RemoveRelationCommand causes an existing service relation to be shut down.

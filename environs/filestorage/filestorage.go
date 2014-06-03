@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/utils"
 )
 
 // fileStorageReader implements StorageReader backed

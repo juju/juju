@@ -14,11 +14,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider/dummy"
-	_ "launchpad.net/juju-core/provider/manual"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/dummy"
+	_ "github.com/juju/juju/provider/manual"
+	"github.com/juju/juju/testing"
 )
 
 type suite struct {

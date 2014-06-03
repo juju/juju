@@ -8,7 +8,7 @@ import (
 	"math"
 	"reflect"
 
-	"launchpad.net/juju-core/utils/set"
+	"github.com/juju/juju/utils/set"
 )
 
 // Validator defines operations on constraints attributes which are

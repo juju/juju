@@ -13,8 +13,8 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/goamz/s3"
 
-	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/utils"
 )
 
 func init() {

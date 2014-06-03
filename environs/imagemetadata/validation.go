@@ -6,7 +6,7 @@ package imagemetadata
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs/simplestreams"
+	"github.com/juju/juju/environs/simplestreams"
 )
 
 // ValidateImageMetadata attempts to load image metadata for the specified cloud attributes and stream

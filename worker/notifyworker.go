@@ -6,8 +6,8 @@ package worker
 import (
 	"launchpad.net/tomb"
 
-	apiWatcher "launchpad.net/juju-core/state/api/watcher"
-	"launchpad.net/juju-core/state/watcher"
+	apiWatcher "github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/state/watcher"
 )
 
 // mustErr is defined as a variable to allow the test suite

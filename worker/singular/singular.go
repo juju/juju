@@ -10,7 +10,7 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/worker"
+	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.singular")

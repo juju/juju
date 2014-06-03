@@ -9,8 +9,8 @@ import (
 
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
 )
 
 type notSupportedError struct {

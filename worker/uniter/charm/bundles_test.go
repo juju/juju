@@ -16,14 +16,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	corecharm "launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/uniter"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/worker/uniter/charm"
+	corecharm "github.com/juju/juju/charm"
+	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/uniter"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/worker/uniter/charm"
 )
 
 type BundlesDirSuite struct {

@@ -13,11 +13,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/testing"
-	coretesting "launchpad.net/juju-core/testing"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type RUs []*state.RelationUnit

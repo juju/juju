@@ -11,8 +11,8 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/instance"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
 )
 
 // constraintsDoc is the mongodb representation of a constraints.Value.

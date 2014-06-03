@@ -10,7 +10,7 @@ import (
 
 	"launchpad.net/lpad"
 
-	"launchpad.net/juju-core/charm"
+	"github.com/juju/juju/charm"
 )
 
 type PublishBranchError struct {

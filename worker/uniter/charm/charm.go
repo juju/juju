@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/set"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/set"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.charm")

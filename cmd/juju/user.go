@@ -4,8 +4,8 @@
 package main
 
 import (
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/envcmd"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/envcmd"
 )
 
 type UserCommand struct {

@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/utils"
 )
 
 var (

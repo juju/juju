@@ -8,8 +8,8 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/environs"
 )
 
 // InitCommand is used to write out a boilerplate environments.yaml file.

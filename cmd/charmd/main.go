@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"launchpad.net/juju-core/store"
+	"github.com/juju/juju/store"
 )
 
 func main() {

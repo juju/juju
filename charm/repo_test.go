@@ -11,10 +11,10 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/charm"
-	charmtesting "launchpad.net/juju-core/charm/testing"
-	env_config "launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
+	env_config "github.com/juju/juju/environs/config"
+	"github.com/juju/juju/testing"
 )
 
 type StoreSuite struct {
@@ -92,9 +92,9 @@ func (s *StoreSuite) TestLatest(c *gc.C) {
 	revInfo, err := s.store.Latest(urls...)
 	c.Assert(err, gc.IsNil)
 	c.Assert(revInfo, gc.DeepEquals, []charm.CharmRevision{
-		{23, "2c9f01a53a73c221d5360207e7bb2f887ff83c32b04e58aca76c4d99fd071ec7", nil},
-		{23, "2c9f01a53a73c221d5360207e7bb2f887ff83c32b04e58aca76c4d99fd071ec7", nil},
-		{23, "2c9f01a53a73c221d5360207e7bb2f887ff83c32b04e58aca76c4d99fd071ec7", nil},
+		{23, "a8ee5b388d4fed702c58bd175d9a9a207c917a2699a6ef82d4ca574d6d702de3", nil},
+		{23, "a8ee5b388d4fed702c58bd175d9a9a207c917a2699a6ef82d4ca574d6d702de3", nil},
+		{23, "a8ee5b388d4fed702c58bd175d9a9a207c917a2699a6ef82d4ca574d6d702de3", nil},
 	})
 }
 

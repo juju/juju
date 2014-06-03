@@ -16,7 +16,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
-	"launchpad.net/juju-core/environs/storage"
+	"github.com/juju/juju/environs/storage"
 )
 
 type storageSuite struct {

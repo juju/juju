@@ -10,8 +10,8 @@ import (
 	"github.com/juju/ratelimit"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/instance"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 )
 
 type instanceGetter interface {

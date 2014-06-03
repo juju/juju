@@ -6,16 +6,16 @@ package common_test
 import (
 	"io"
 
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/network"
-	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider/common"
-	"launchpad.net/juju-core/tools"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/network"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/tools"
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)

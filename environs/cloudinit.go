@@ -8,17 +8,17 @@ import (
 
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/agent"
-	coreCloudinit "launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/proxy"
+	"github.com/juju/juju/agent"
+	coreCloudinit "github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/proxy"
 )
 
 // DataDir is the default data directory.

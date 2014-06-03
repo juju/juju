@@ -11,8 +11,8 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/utils"
 )
 
 // BaseSuite provides required functionality for all test suites

@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/utils/apt"
-	"launchpad.net/juju-core/utils/proxy"
+	"github.com/juju/juju/utils/apt"
+	"github.com/juju/juju/utils/proxy"
 )
 
 type AptSuite struct {

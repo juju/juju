@@ -8,7 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/osenv"
+	"github.com/juju/juju/juju/osenv"
 )
 
 type JujuHomeSuite struct {

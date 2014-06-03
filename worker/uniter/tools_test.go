@@ -11,10 +11,10 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/worker/uniter"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
+	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
 type ToolsSuite struct {

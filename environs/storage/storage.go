@@ -8,8 +8,8 @@ import (
 	"io"
 	"path"
 
-	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/utils"
 )
 
 // RemoveAll is a default implementation for StorageWriter.RemoveAll.

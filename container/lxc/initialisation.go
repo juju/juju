@@ -4,8 +4,8 @@
 package lxc
 
 import (
-	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/utils/apt"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/utils/apt"
 )
 
 var requiredPackages = []string{

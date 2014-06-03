@@ -4,8 +4,8 @@
 package deployer
 
 import (
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/state/api/params"
 )
 
 // Unit represents a juju unit as seen by the deployer worker.

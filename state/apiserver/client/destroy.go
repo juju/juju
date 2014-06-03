@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"strings"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
 )
 
 // DestroyEnvironment destroys all services and non-manager machine

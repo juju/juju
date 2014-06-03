@@ -6,8 +6,8 @@ package lxc
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils/apt"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/apt"
 )
 
 type InitialiserSuite struct {

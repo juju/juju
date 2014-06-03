@@ -14,9 +14,9 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/mongo"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/upstart"
+	"github.com/juju/juju/agent/mongo"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/upstart"
 )
 
 type EnsureAdminSuite struct {

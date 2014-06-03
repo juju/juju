@@ -6,8 +6,8 @@ package apiserver
 import (
 	"reflect"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
 )
 
 var (

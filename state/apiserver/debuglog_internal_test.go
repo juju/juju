@@ -16,7 +16,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/testing"
 )
 
 type debugInternalSuite struct {

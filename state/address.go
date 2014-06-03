@@ -9,7 +9,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/instance"
+	"github.com/juju/juju/instance"
 )
 
 // stateServerAddresses returns the list of internal addresses of the state

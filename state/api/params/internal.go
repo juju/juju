@@ -6,12 +6,12 @@ package params
 import (
 	"time"
 
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/network"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils/exec"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/network"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/utils/exec"
+	"github.com/juju/juju/version"
 )
 
 // MachineContainersParams holds the arguments for making a SetSupportedContainers

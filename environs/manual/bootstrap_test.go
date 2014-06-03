@@ -10,17 +10,17 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/bootstrap"
-	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/environs/filestorage"
-	"launchpad.net/juju-core/environs/manual"
-	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/testing"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type bootstrapSuite struct {

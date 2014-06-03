@@ -64,7 +64,7 @@ Getting juju-core
 
 The easiest way to get the source for `juju-core` is to use the `go get` command.
 
-    go get -v launchpad.net/juju-core/...
+    go get -v github.com/juju/juju/...
 
 This command will checkout the source of `juju-core` and inspect it for any unmet
 Go package dependencies, downloading those as well. `go get` will also build and
@@ -74,16 +74,16 @@ install `juju-core` and its dependencies. To checkout without installing, use th
     go help get
 
 At this point you will have the bzr working copy of the `juju-core` source at
-`$GOPATH/launchpad.net/juju-core`. The source for any dependent packages will
+`$GOPATH/github.com/juju/juju`. The source for any dependent packages will
 also be available inside `$GOPATH`. You can use `bzr pull`, or the less convenient
-`go get -u launchpad.net/juju-core/...` to update the source from time to time.
+`go get -u github.com/juju/juju/...` to update the source from time to time.
 If you want to know more about contributing to `juju-core`, please read the
 `CONTRIBUTING` companion to this file.
 
 Building juju-core
 ==================
 
-    go install -v launchpad.net/juju-core/...
+    go install -v github.com/juju/juju/...
 
 Will build juju and install the binary commands into `$GOPATH/bin`. It is likely
 if you have just completed the previous step to get the `juju-core` source, the

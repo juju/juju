@@ -8,12 +8,12 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/utils/proxy"
-	"launchpad.net/juju-core/utils/ssh"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/utils/proxy"
+	"github.com/juju/juju/utils/ssh"
+	"github.com/juju/juju/version"
 )
 
 // Entity identifies a single entity.

@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/set"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/set"
 )
 
 const (

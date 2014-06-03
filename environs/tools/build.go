@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/version"
 )
 
 // Archive writes the executable files found in the given directory in
@@ -186,7 +186,7 @@ func copyExistingJujud(dir string) error {
 func buildJujud(dir string) error {
 	logger.Infof("building jujud")
 	cmds := [][]string{
-		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, "jujud"), "launchpad.net/juju-core/cmd/jujud"},
+		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, "jujud"), "github.com/juju/juju/cmd/jujud"},
 	}
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)

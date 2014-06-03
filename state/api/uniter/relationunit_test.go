@@ -7,12 +7,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/api/uniter"
-	statetesting "launchpad.net/juju-core/state/testing"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/api/uniter"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 // commonRelationSuiteMixin contains fields used by both relationSuite

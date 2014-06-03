@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/utils"
 )
 
 // A DataSource retrieves simplestreams metadata.

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"io"
 
-	"launchpad.net/juju-core/environs/storage"
+	"github.com/juju/juju/environs/storage"
 )
 
 var interruptedError = errors.New("interrupted")

@@ -6,7 +6,7 @@ package upgrader_test
 import (
 	stdtesting "testing"
 
-	coretesting "launchpad.net/juju-core/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 func TestAll(t *stdtesting.T) {

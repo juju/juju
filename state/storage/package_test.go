@@ -6,7 +6,7 @@ package storage_test
 import (
 	stdtesting "testing"
 
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {

@@ -9,10 +9,10 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
-	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/common"
+	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 )
 
 type unitsWatcherSuite struct{}

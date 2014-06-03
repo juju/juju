@@ -9,8 +9,8 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils"
 )
 
 const rsName = "juju"

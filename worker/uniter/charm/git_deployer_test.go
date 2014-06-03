@@ -10,9 +10,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	corecharm "launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker/uniter/charm"
+	corecharm "github.com/juju/juju/charm"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/uniter/charm"
 )
 
 type GitDeployerSuite struct {

@@ -6,13 +6,13 @@ package common
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
+	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 type EntityFinderEnvironConfigGetter interface {

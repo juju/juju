@@ -6,9 +6,9 @@ package usermanager
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
 )
 
 // TODO(mattyw) 2014-03-07 bug #1288750

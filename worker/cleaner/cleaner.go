@@ -6,9 +6,9 @@ package cleaner
 import (
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/watcher"
-	"launchpad.net/juju-core/worker"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.cleaner")

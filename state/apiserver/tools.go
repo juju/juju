@@ -14,14 +14,14 @@ import (
 	"path"
 	"strings"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/filestorage"
-	"launchpad.net/juju-core/environs/sync"
-	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/sync"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 // toolsHandler handles tool upload through HTTPS in the API server.

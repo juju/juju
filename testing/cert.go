@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"time"
 
-	"launchpad.net/juju-core/cert"
+	"github.com/juju/juju/cert"
 )
 
 func init() {

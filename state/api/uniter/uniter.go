@@ -6,11 +6,11 @@ package uniter
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/base"
-	"launchpad.net/juju-core/state/api/common"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/state/api/base"
+	"github.com/juju/juju/state/api/common"
+	"github.com/juju/juju/state/api/params"
 )
 
 const uniterFacade = "Uniter"

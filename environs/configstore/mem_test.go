@@ -6,7 +6,7 @@ package configstore_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/configstore"
+	"github.com/juju/juju/environs/configstore"
 )
 
 var _ = gc.Suite(&memInterfaceSuite{})

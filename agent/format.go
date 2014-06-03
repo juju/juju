@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/utils"
 )
 
 // Current agent config format is defined as follows:

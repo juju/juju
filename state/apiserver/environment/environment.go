@@ -4,8 +4,8 @@
 package environment
 
 import (
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/apiserver/common"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/apiserver/common"
 )
 
 // EnvironmentAPI implements the API used by the machine environment worker.

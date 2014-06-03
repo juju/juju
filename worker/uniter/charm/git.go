@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"launchpad.net/juju-core/charm"
+	"github.com/juju/juju/charm"
 )
 
 // GitDir exposes a specialized subset of git operations on a directory.

@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/ssh"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/ssh"
 )
 
 type ClientKeysSuite struct {

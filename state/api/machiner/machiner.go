@@ -4,9 +4,9 @@
 package machiner
 
 import (
-	"launchpad.net/juju-core/state/api/base"
-	"launchpad.net/juju-core/state/api/common"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/state/api/base"
+	"github.com/juju/juju/state/api/common"
+	"github.com/juju/juju/state/api/params"
 )
 
 const machinerFacade = "Machiner"

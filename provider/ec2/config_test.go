@@ -14,10 +14,10 @@ import (
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/utils"
 )
 
 // Use local suite since this file lives in the ec2 package

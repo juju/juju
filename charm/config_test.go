@@ -9,7 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/charm"
+	"github.com/juju/juju/charm"
 )
 
 type ConfigSuite struct {

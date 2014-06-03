@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"strings"
 
-	"launchpad.net/juju-core/juju/arch"
+	"github.com/juju/juju/juju/arch"
 )
 
 var ErrNoDNSName = errors.New("DNS name not allocated")

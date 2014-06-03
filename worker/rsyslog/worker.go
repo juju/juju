@@ -13,14 +13,14 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/names"
-	apirsyslog "launchpad.net/juju-core/state/api/rsyslog"
-	"launchpad.net/juju-core/state/api/watcher"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/syslog"
-	"launchpad.net/juju-core/worker"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cert"
+	"github.com/juju/juju/names"
+	apirsyslog "github.com/juju/juju/state/api/rsyslog"
+	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/syslog"
+	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.rsyslog")

@@ -12,8 +12,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/bzr"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/bzr"
+	"github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {

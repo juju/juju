@@ -10,11 +10,11 @@ import (
 	"github.com/joyent/gosign/auth"
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/environs/simplestreams"
-	envtools "launchpad.net/juju-core/environs/tools"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
+	envtools "github.com/juju/juju/environs/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.joyent")

@@ -12,7 +12,7 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/manual"
+	"github.com/juju/juju/environs/manual"
 )
 
 // sshscript should only print the result on the first execution,

@@ -6,10 +6,10 @@ package logger
 import (
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/watcher"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/state/watcher"
 )
 
 var logger = loggo.GetLogger("juju.api.logger")

@@ -17,9 +17,9 @@ import (
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/store"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/store"
+	"github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {

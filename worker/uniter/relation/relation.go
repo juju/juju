@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/worker/uniter/hook"
+	"github.com/juju/juju/charm/hooks"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/worker/uniter/hook"
 )
 
 // State describes the state of a relation.

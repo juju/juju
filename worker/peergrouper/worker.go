@@ -11,11 +11,11 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent/mongo"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/replicaset"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/worker"
+	"github.com/juju/juju/agent/mongo"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/replicaset"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker"
 )
 
 type stateInterface interface {

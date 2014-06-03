@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/utils/set"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/utils/set"
 )
 
 // NewDeployer returns a Deployer of whatever kind is currently in use for the

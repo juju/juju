@@ -1,6 +1,6 @@
 #!/bin/bash
 exitstatus=0
-for i in $(go list -f '{{.Dir}}' launchpad.net/juju-core/...)
+for i in $(go list -f '{{.Dir}}' github.com/juju/juju/...)
 do
 	src=$i/*_test.go
 	# The -s flag is needed to suppress errors when

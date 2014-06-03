@@ -6,7 +6,7 @@ package testing
 import (
 	"strings"
 
-	sshtesting "launchpad.net/juju-core/utils/ssh/testing"
+	sshtesting "github.com/juju/juju/utils/ssh/testing"
 )
 
 var importResponses = map[string]string{

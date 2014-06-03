@@ -10,14 +10,14 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/container/kvm"
-	kvmtesting "launchpad.net/juju-core/container/kvm/testing"
-	containertesting "launchpad.net/juju-core/container/testing"
-	"launchpad.net/juju-core/instance"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/kvm"
+	kvmtesting "github.com/juju/juju/container/kvm/testing"
+	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/instance"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type KVMSuite struct {

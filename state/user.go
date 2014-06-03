@@ -8,8 +8,8 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/utils"
 )
 
 func (st *State) checkUserExists(name string) (bool, error) {

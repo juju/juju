@@ -6,8 +6,8 @@ package common
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
 )
 
 // Remover implements a common Remove method for use by various facades.

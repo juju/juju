@@ -13,8 +13,8 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/proxy"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/proxy"
 )
 
 var (

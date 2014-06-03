@@ -11,7 +11,7 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/cmd"
+	"github.com/juju/juju/cmd"
 )
 
 func bufferString(stream io.Writer) string {

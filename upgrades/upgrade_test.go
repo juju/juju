@@ -12,13 +12,13 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/upgrades"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
+	"github.com/juju/juju/version"
 )
 
 func TestPackage(t *stdtesting.T) {

@@ -8,7 +8,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/testing"
 )
 
 // compatSuite contains backwards compatibility tests,

@@ -10,9 +10,9 @@ import (
 	"os"
 	"strings"
 
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/schema"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/schema"
+	"github.com/juju/juju/utils"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to

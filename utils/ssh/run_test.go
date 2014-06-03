@@ -13,7 +13,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/utils/ssh"
+	"github.com/juju/juju/utils/ssh"
 )
 
 const shortWait = 50 * time.Millisecond

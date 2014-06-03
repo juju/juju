@@ -14,10 +14,10 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/envcmd"
-	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/envcmd"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/testing"
 )
 
 // All of the functionality of the AddUser api call is contained elsewhere.

@@ -6,8 +6,8 @@ package instancepoller
 import (
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/worker"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/worker"
 )
 
 type updaterWorker struct {

@@ -6,10 +6,10 @@ package uniter
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/charm/hooks"
-	apiuniter "launchpad.net/juju-core/state/api/uniter"
-	"launchpad.net/juju-core/worker/uniter/hook"
-	"launchpad.net/juju-core/worker/uniter/relation"
+	"github.com/juju/juju/charm/hooks"
+	apiuniter "github.com/juju/juju/state/api/uniter"
+	"github.com/juju/juju/worker/uniter/hook"
+	"github.com/juju/juju/worker/uniter/relation"
 )
 
 // Relationer manages a unit's presence in a relation.

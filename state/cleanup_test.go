@@ -10,9 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
 )
 
 type CleanupSuite struct {

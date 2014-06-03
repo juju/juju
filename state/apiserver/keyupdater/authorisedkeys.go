@@ -6,11 +6,11 @@ package keyupdater
 import (
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/utils/ssh"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/utils/ssh"
 )
 
 // KeyUpdater defines the methods on the keyupdater API end point.

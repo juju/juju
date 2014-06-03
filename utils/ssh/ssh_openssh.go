@@ -11,7 +11,7 @@ import (
 	"os/exec"
 	"strings"
 
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/utils"
 )
 
 var opensshCommonOptions = []string{"-o", "StrictHostKeyChecking no"}

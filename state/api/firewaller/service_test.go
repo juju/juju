@@ -7,9 +7,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/state/api/firewaller"
-	"launchpad.net/juju-core/state/api/params"
-	statetesting "launchpad.net/juju-core/state/testing"
+	"github.com/juju/juju/state/api/firewaller"
+	"github.com/juju/juju/state/api/params"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type serviceSuite struct {

@@ -9,7 +9,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/instance"
+	"github.com/juju/juju/instance"
 )
 
 // machineContainers holds the machine ids of all the containers belonging to a parent machine.

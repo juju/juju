@@ -4,8 +4,8 @@
 package upgrader
 
 import (
-	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/version"
 )
 
 // UpgradeReadyError is returned by an Upgrader to report that

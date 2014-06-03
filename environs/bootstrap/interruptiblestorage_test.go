@@ -8,9 +8,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/bootstrap"
-	envtesting "launchpad.net/juju-core/environs/testing"
-	coretesting "launchpad.net/juju-core/testing"
+	"github.com/juju/juju/environs/bootstrap"
+	envtesting "github.com/juju/juju/environs/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type interruptibleStorageSuite struct {

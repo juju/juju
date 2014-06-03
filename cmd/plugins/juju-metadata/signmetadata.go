@@ -13,8 +13,8 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/simplestreams"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/environs/simplestreams"
 )
 
 var signMetadataDoc = `

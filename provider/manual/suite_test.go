@@ -8,8 +8,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/provider/manual"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/provider/manual"
 )
 
 func Test(t *testing.T) {

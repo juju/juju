@@ -14,7 +14,7 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/utils/tailer"
+	"github.com/juju/juju/utils/tailer"
 )
 
 type tailerSuite struct {

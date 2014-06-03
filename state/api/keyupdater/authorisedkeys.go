@@ -6,9 +6,9 @@ package keyupdater
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/state/api/base"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/api/watcher"
+	"github.com/juju/juju/state/api/base"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/api/watcher"
 )
 
 // State provides access to a worker's view of the state.

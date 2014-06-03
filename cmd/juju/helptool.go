@@ -8,9 +8,9 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
 // dummyHookContext implements jujuc.Context,

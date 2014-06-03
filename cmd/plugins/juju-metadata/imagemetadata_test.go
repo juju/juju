@@ -14,11 +14,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/envcmd"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider/dummy"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/testing"
 )
 
 type ImageMetadataSuite struct {

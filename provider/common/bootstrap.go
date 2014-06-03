@@ -13,18 +13,18 @@ import (
 
 	"github.com/juju/loggo"
 
-	coreCloudinit "launchpad.net/juju-core/cloudinit"
-	"launchpad.net/juju-core/cloudinit/sshinit"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/bootstrap"
-	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
-	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/parallel"
-	"launchpad.net/juju-core/utils/shell"
-	"launchpad.net/juju-core/utils/ssh"
+	coreCloudinit "github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/cloudinit/sshinit"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/parallel"
+	"github.com/juju/juju/utils/shell"
+	"github.com/juju/juju/utils/ssh"
 )
 
 var logger = loggo.GetLogger("juju.provider.common")

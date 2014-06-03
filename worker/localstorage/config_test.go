@@ -9,7 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/worker/localstorage"
+	"github.com/juju/juju/worker/localstorage"
 )
 
 type configSuite struct{}

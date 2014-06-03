@@ -11,14 +11,14 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	lxctesting "launchpad.net/juju-core/container/lxc/testing"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/provider"
-	"launchpad.net/juju-core/provider/local"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils/apt"
-	"launchpad.net/juju-core/utils/proxy"
+	lxctesting "github.com/juju/juju/container/lxc/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/provider"
+	"github.com/juju/juju/provider/local"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/apt"
+	"github.com/juju/juju/utils/proxy"
 )
 
 type baseProviderSuite struct {

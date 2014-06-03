@@ -9,7 +9,7 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/cmd"
+	"github.com/juju/juju/cmd"
 )
 
 // RelationIdsCommand implements the relation-ids command.

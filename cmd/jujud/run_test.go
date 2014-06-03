@@ -13,11 +13,11 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils/exec"
-	"launchpad.net/juju-core/utils/fslock"
-	"launchpad.net/juju-core/worker/uniter"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/exec"
+	"github.com/juju/juju/utils/fslock"
+	"github.com/juju/juju/worker/uniter"
 )
 
 type RunTestSuite struct {

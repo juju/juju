@@ -6,10 +6,10 @@ package firewaller_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	apitesting "launchpad.net/juju-core/state/api/testing"
-	statetesting "launchpad.net/juju-core/state/testing"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state"
+	apitesting "github.com/juju/juju/state/api/testing"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type stateSuite struct {

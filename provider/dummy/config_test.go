@@ -6,11 +6,11 @@ package dummy_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/provider/dummy"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&ConfigSuite{})

@@ -7,9 +7,9 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 
-	"launchpad.net/juju-core/environs/config"
-	envtesting "launchpad.net/juju-core/environs/testing"
-	coretesting "launchpad.net/juju-core/testing"
+	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type providerSuite struct {

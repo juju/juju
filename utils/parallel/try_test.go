@@ -15,7 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/utils/parallel"
+	"github.com/juju/juju/utils/parallel"
 )
 
 const (

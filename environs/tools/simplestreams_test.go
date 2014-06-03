@@ -16,17 +16,17 @@ import (
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/filestorage"
-	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/simplestreams"
-	sstesting "launchpad.net/juju-core/environs/simplestreams/testing"
-	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/environs/tools"
-	toolstesting "launchpad.net/juju-core/environs/tools/testing"
-	coretesting "launchpad.net/juju-core/testing"
-	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/jujutest"
+	"github.com/juju/juju/environs/simplestreams"
+	sstesting "github.com/juju/juju/environs/simplestreams/testing"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/environs/tools"
+	toolstesting "github.com/juju/juju/environs/tools/testing"
+	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/version"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")

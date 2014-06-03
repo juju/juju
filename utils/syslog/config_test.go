@@ -10,9 +10,9 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/utils/syslog"
-	syslogtesting "launchpad.net/juju-core/utils/syslog/testing"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/utils/syslog"
+	syslogtesting "github.com/juju/juju/utils/syslog/testing"
 )
 
 type syslogConfigSuite struct {

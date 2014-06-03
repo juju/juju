@@ -11,11 +11,11 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/utils/exec"
-	"launchpad.net/juju-core/utils/fslock"
-	"launchpad.net/juju-core/worker/uniter"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/utils/exec"
+	"github.com/juju/juju/utils/fslock"
+	"github.com/juju/juju/worker/uniter"
 )
 
 var (

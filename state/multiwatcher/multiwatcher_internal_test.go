@@ -14,9 +14,9 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/testing"
 )
 
 func Test(t *stdtesting.T) {

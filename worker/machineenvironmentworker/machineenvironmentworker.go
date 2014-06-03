@@ -10,16 +10,16 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/provider"
-	"launchpad.net/juju-core/state/api/environment"
-	"launchpad.net/juju-core/state/api/watcher"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/apt"
-	"launchpad.net/juju-core/utils/exec"
-	proxyutils "launchpad.net/juju-core/utils/proxy"
-	"launchpad.net/juju-core/worker"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/provider"
+	"github.com/juju/juju/state/api/environment"
+	"github.com/juju/juju/state/api/watcher"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/apt"
+	"github.com/juju/juju/utils/exec"
+	proxyutils "github.com/juju/juju/utils/proxy"
+	"github.com/juju/juju/worker"
 )
 
 var (

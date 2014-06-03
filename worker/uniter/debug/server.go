@@ -12,7 +12,7 @@ import (
 
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/utils/set"
+	"github.com/juju/juju/utils/set"
 )
 
 // ServerSession represents a "juju debug-hooks" session.

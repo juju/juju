@@ -47,7 +47,7 @@ All changes to `juju-core` must be performed on a branch, that branch reviewed,
 then submitted. An overview of the commands used to do so follows. These
 examples use the `bzr` command, which is assumed to be aliased to `cobzr`, as
 described above. It is also assumed that your working directory is
-$GOPATH/src/launchpad.net/juju-core.
+$GOPATH/src/github.com/juju/juju.
 
 First, create a branch for your change using the following command
 
@@ -84,8 +84,8 @@ group is alphabetically sorted. eg:
         gc "launchpad.net/gocheck"
         "github.com/juju/loggo"
 
-        "launchpad.net/juju-core/state"
-        "launchpad.net/juju-core/worker"
+        "github.com/juju/juju/state"
+        "github.com/juju/juju/worker"
     )
 
 Because "launchpad.net/gocheck" will be referenced frequently in test suites,
@@ -100,7 +100,7 @@ at http://go.pkgdoc.org/pkg/launchpad.net/gocheck. `gocheck` is integrated
 into the source of each package so the standard `go test` command is used
 to run `gocheck` tests. For example
 
-    go test launchpad.net/juju-core/...
+    go test github.com/juju/juju/...
 
 will run all the tests in the `juju-core` project. By default `gocheck` prints
 only minimal output, and as `gocheck` is hooked into the testing framework via
@@ -127,10 +127,10 @@ to match a subset of test names.
 Finally, because by default `go test` runs the tests in the current package, and
 is not recursive, the following commands are equal, and will produce no output.
 
-    cd $GOPATH/src/launchpad.net/juju-core
+    cd $GOPATH/src/github.com/juju/juju
     go test
 
-    go test launchpad.net/juju-core
+    go test github.com/juju/juju
 
 MongoDB
 -------
@@ -143,7 +143,7 @@ that supports Javascript for map-reduce functions. These functions are not
 supported by juju-mongodb and the associated tests will fail unless disabled
 with an environment variable:
 
-    JUJU_NOTEST_MONGOJS=1 go test launchpad.net/juju-core/...
+    JUJU_NOTEST_MONGOJS=1 go test github.com/juju/juju/...
 
 Proposing
 =========
@@ -222,7 +222,7 @@ lbox hooks
 
 Before proposing, `lbox` runs a number of hooks to improve code quality and
 ensure that code is properly formatted. These checks are in
-`$GOPATH/src/launchpad.net/juju-core/.lbox.check`. They are run automatically
+`$GOPATH/src/github.com/juju/juju/.lbox.check`. They are run automatically
 by `lbox` before proposing or submitting. If these hooks fail you will have
 to resolve those errors before trying again. For example
 
@@ -247,6 +247,6 @@ installation with all freshly downloaded directories.
 The bash commands used to generate it from scratch are as follows:
 
     % export GOPATH=/tmp/juju-build
-    % go get launchpad.net/juju-core/...
-    % go test launchpad.net/juju-core/...
-    % godeps -t $(go list launchpad.net/juju-core/...) > dependencies.tsv
+    % go get github.com/juju/juju/...
+    % go test github.com/juju/juju/...
+    % godeps -t $(go list github.com/juju/juju/...) > dependencies.tsv

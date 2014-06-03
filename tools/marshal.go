@@ -6,7 +6,7 @@ package tools
 import (
 	"labix.org/v2/mgo/bson"
 
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/version"
 )
 
 type toolsDoc struct {

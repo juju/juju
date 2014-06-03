@@ -8,8 +8,8 @@ import (
 
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/state/api/params"
 )
 
 // RelationGetCommand implements the relation-get command.

@@ -4,11 +4,11 @@
 package state
 
 import (
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 // EntityFinder is implemented by *State. See State.FindEntity

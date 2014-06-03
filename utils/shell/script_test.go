@@ -14,7 +14,7 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/utils/shell"
+	"github.com/juju/juju/utils/shell"
 )
 
 type scriptSuite struct {

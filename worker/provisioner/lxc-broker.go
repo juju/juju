@@ -8,14 +8,14 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/container"
-	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/network"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/tools"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/lxc"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/network"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/tools"
 )
 
 var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")

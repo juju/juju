@@ -13,8 +13,8 @@ import (
 
 	"code.google.com/p/go.crypto/ssh"
 
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/set"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/set"
 )
 
 const clientKeyName = "juju_id_rsa"

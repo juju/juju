@@ -10,9 +10,9 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state/api/params"
 )
 
 var (

@@ -6,12 +6,12 @@ package client
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
-	envtools "launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/tools"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
+	envtools "github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/tools"
 )
 
 func findInstanceTools(env environs.Environ, series, arch string) (*tools.Tools, error) {

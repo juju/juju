@@ -6,8 +6,8 @@ package common
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
 )
 
 // StatusSetter implements a common SetStatus method for use by

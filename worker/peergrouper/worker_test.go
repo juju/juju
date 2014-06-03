@@ -11,12 +11,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/testing"
-	statetesting "launchpad.net/juju-core/state/testing"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils/voyeur"
-	"launchpad.net/juju-core/worker"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
+	statetesting "github.com/juju/juju/state/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/voyeur"
+	"github.com/juju/juju/worker"
 )
 
 type workerJujuConnSuite struct {

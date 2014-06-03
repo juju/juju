@@ -19,12 +19,12 @@ import (
 
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/storage"
-	coretools "launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/utils/set"
-	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/version/ubuntu"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
+	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/utils/set"
+	"github.com/juju/juju/version"
+	"github.com/juju/juju/version/ubuntu"
 )
 
 func init() {

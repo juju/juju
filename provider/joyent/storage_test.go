@@ -16,8 +16,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/provider/joyent"
-	jp "launchpad.net/juju-core/provider/joyent"
+	"github.com/juju/juju/provider/joyent"
+	jp "github.com/juju/juju/provider/joyent"
 )
 
 type storageSuite struct {

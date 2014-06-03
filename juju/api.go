@@ -10,15 +10,15 @@ import (
 
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/keymanager"
-	"launchpad.net/juju-core/state/api/usermanager"
-	"launchpad.net/juju-core/utils/parallel"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/keymanager"
+	"github.com/juju/juju/state/api/usermanager"
+	"github.com/juju/juju/utils/parallel"
 )
 
 // The following are variables so that they can be

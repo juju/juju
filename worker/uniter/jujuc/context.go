@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/state/api/params"
 )
 
 // Context is the interface that all hook helper commands

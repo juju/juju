@@ -8,7 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	coretesting "launchpad.net/juju-core/testing"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type UserCommandSuite struct {

@@ -4,10 +4,10 @@
 package common
 
 import (
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/utils/set"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/utils/set"
 )
 
 // SupportedArchitectures returns all the image architectures for env matching the constraints.

@@ -4,8 +4,8 @@
 package testing
 
 import (
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/version"
 )
 
 // SetAgentVersion sets the current agent version in the state's

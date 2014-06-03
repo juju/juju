@@ -8,8 +8,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
 type HelpToolSuite struct {

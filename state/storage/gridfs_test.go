@@ -11,8 +11,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/state/storage"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/state/storage"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&gridfsSuite{})

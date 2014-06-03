@@ -16,8 +16,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/configstore"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&diskInterfaceSuite{})

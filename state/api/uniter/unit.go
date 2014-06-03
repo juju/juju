@@ -7,10 +7,10 @@ import (
 	"errors"
 	"fmt"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/api/watcher"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/api/watcher"
 )
 
 // Unit represents a juju unit as seen by a uniter worker.

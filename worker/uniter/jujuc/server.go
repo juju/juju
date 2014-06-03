@@ -17,8 +17,8 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/utils/exec"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/utils/exec"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")

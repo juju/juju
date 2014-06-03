@@ -6,7 +6,7 @@ ifndef GOPATH
 $(warning You need to set up a GOPATH.  See the README file.)
 endif
 
-PROJECT := launchpad.net/juju-core
+PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
 ifeq ($(shell uname -p | sed -r 's/.*(x86|armel|armhf).*/golang/'), golang)

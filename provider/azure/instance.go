@@ -11,9 +11,9 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/gwacl"
 
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/provider/common"
-	"launchpad.net/juju-core/worker/firewaller"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/worker/firewaller"
 )
 
 const AZURE_DOMAIN_NAME = "cloudapp.net"

@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/downloader"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/downloader"
+	"github.com/juju/juju/utils"
 )
 
 // BundlesDir is responsible for storing and retrieving charm bundles

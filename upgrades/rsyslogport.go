@@ -6,8 +6,8 @@ package upgrades
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state"
 )
 
 func updateRsyslogPort(context Context) error {

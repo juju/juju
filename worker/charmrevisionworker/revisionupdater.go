@@ -10,8 +10,8 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/state/api/charmrevisionupdater"
-	"launchpad.net/juju-core/worker"
+	"github.com/juju/juju/state/api/charmrevisionupdater"
+	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.charmrevisionworker")

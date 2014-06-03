@@ -14,9 +14,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/version"
 )
 
 type format_1_16Suite struct {

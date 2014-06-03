@@ -11,7 +11,7 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 
-	"launchpad.net/juju-core/provider/openstack"
+	"github.com/juju/juju/provider/openstack"
 )
 
 var live = flag.Bool("live", false, "Include live OpenStack tests")

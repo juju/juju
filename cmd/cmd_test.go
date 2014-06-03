@@ -12,9 +12,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/testing"
+	"github.com/juju/juju/utils"
 )
 
 type CmdSuite struct{}

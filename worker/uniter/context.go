@@ -17,13 +17,13 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/api/uniter"
-	utilexec "launchpad.net/juju-core/utils/exec"
-	"launchpad.net/juju-core/utils/proxy"
-	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
+	"github.com/juju/juju/charm"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/api/uniter"
+	utilexec "github.com/juju/juju/utils/exec"
+	"github.com/juju/juju/utils/proxy"
+	unitdebug "github.com/juju/juju/worker/uniter/debug"
+	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
 type missingHookError struct {

@@ -9,11 +9,11 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/charm"
-	charmtesting "launchpad.net/juju-core/charm/testing"
-	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
-	coretesting "launchpad.net/juju-core/testing"
+	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	coretesting "github.com/juju/juju/testing"
 )
 
 // CharmSuite provides infrastructure to set up and perform tests associated

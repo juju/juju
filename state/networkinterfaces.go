@@ -8,7 +8,7 @@ import (
 
 	"labix.org/v2/mgo/bson"
 
-	"launchpad.net/juju-core/names"
+	"github.com/juju/juju/names"
 )
 
 // NetworkInterface represents the state of a machine network

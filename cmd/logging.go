@@ -12,7 +12,7 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
-	"launchpad.net/juju-core/juju/osenv"
+	"github.com/juju/juju/juju/osenv"
 )
 
 // WriterFactory defines the single method to create a new

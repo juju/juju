@@ -16,13 +16,13 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/cert"
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/utils"
 )
 
 // mongoSocketTimeout should be long enough that

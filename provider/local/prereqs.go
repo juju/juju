@@ -9,10 +9,10 @@ import (
 	"os/exec"
 	"runtime"
 
-	"launchpad.net/juju-core/container/kvm"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/apt"
+	"github.com/juju/juju/container/kvm"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/apt"
 )
 
 var notLinuxError = errors.New("The local provider is currently only available for Linux")

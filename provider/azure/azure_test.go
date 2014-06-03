@@ -8,8 +8,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/testing"
+	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/testing"
 )
 
 func TestAzureProvider(t *stdtesting.T) {

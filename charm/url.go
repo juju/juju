@@ -12,7 +12,7 @@ import (
 
 	"labix.org/v2/mgo/bson"
 
-	"launchpad.net/juju-core/names"
+	"github.com/juju/juju/names"
 )
 
 // Location represents a charm location, which must declare a path component

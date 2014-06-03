@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/utils/exec"
+	"github.com/juju/juju/utils/exec"
 )
 
 type execSuite struct {

@@ -6,12 +6,12 @@ package imagemetadata_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/filestorage"
-	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/environs/imagemetadata/testing"
-	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/storage"
-	coretesting "launchpad.net/juju-core/testing"
+	"github.com/juju/juju/environs/filestorage"
+	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/imagemetadata/testing"
+	"github.com/juju/juju/environs/simplestreams"
+	"github.com/juju/juju/environs/storage"
+	coretesting "github.com/juju/juju/testing"
 )
 
 var _ = gc.Suite(&generateSuite{})

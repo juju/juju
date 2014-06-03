@@ -9,13 +9,13 @@ import (
 
 	"github.com/juju/errors"
 
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/rpc"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/utils"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/utils"
 )
 
 func newStateServer(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier, limiter utils.Limiter) *initialRoot {

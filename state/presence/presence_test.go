@@ -12,8 +12,8 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/state/presence"
-	"launchpad.net/juju-core/testing"
+	"github.com/juju/juju/state/presence"
+	"github.com/juju/juju/testing"
 )
 
 func TestPackage(t *stdtesting.T) {

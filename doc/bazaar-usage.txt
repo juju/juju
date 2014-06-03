@@ -35,7 +35,7 @@ $GOPATH.
 
 These steps assume that you have juju-core already available in $GOPATH/src.
 
-  $ cd $GOPATH/src/launchpad.net/juju-core
+  $ cd $GOPATH/src/github.com/juju/juju
   $ bzr reconfigure --lightweight-checkout --bind-to ~/src/juju-core/trunk
 
 Now when you look at that branch, you should see the following
@@ -78,7 +78,7 @@ a new branch `new-work`, and go `bzr push` it goes to
 Making a branch to work in
 ==========================
 
-Inside the $GOPATH/src/launchpad.net/juju-core directory, you can create a new
+Inside the $GOPATH/src/github.com/juju/juju directory, you can create a new
 branch to work on using:
 
   $ bzr switch -b new-work

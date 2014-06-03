@@ -12,15 +12,15 @@ import (
 
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/provider"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/apt"
-	"launchpad.net/juju-core/utils/proxy"
-	"launchpad.net/juju-core/version"
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/provider"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/apt"
+	"github.com/juju/juju/utils/proxy"
+	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.provider.local")

@@ -6,10 +6,10 @@ package main
 import (
 	"os"
 
-	"launchpad.net/juju-core/cmd/plugins/local"
+	"github.com/juju/juju/cmd/plugins/local"
 
 	// Import only the local provider.
-	_ "launchpad.net/juju-core/provider/local"
+	_ "github.com/juju/juju/provider/local"
 )
 
 func main() {

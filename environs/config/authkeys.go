@@ -11,9 +11,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/ssh"
+	"github.com/juju/juju/cert"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/ssh"
 )
 
 const (

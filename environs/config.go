@@ -13,8 +13,8 @@ import (
 	"github.com/juju/loggo"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/osenv"
 )
 
 var logger = loggo.GetLogger("juju.environs")

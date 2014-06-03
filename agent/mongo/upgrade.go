@@ -12,7 +12,7 @@ import (
 
 	"labix.org/v2/mgo"
 
-	"launchpad.net/juju-core/upstart"
+	"github.com/juju/juju/upstart"
 )
 
 const mongoSocketTimeout = 10 * time.Second

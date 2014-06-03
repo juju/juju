@@ -6,13 +6,13 @@ package keyupdater_test
 import (
 	gc "launchpad.net/gocheck"
 
-	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/apiserver/keyupdater"
-	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
-	statetesting "launchpad.net/juju-core/state/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/state/apiserver/keyupdater"
+	apiservertesting "github.com/juju/juju/state/apiserver/testing"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type authorisedKeysSuite struct {

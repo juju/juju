@@ -6,8 +6,8 @@ package cloudinit
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/utils/ssh"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/ssh"
 )
 
 // CloudToolsPrefsPath defines the default location of

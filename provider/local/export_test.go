@@ -6,7 +6,7 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs/config"
+	"github.com/juju/juju/environs/config"
 )
 
 var (

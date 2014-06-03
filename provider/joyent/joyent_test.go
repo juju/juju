@@ -10,10 +10,10 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	envtesting "launchpad.net/juju-core/environs/testing"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/version"
+	envtesting "github.com/juju/juju/environs/testing"
+	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/utils"
+	"github.com/juju/juju/version"
 )
 
 const (

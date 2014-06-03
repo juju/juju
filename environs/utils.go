@@ -3,8 +3,8 @@ package environs
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs/storage"
-	"launchpad.net/juju-core/state"
+	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/state"
 )
 
 // GetStorage creates an Environ from the config in state and returns
