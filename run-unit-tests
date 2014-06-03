@@ -54,7 +54,7 @@ export GOPATH=\$HOME/$juju_version
 if [[ -d \$GOPATH/src/launchpad.net/juju-core ]]; then
     cd \$GOPATH/src/launchpad.net/juju-core
 else
-    \$GOPATH/src/github.com/juju/juju
+    cd \$GOPATH/src/github.com/juju/juju
 fi
 for attempt in \$(seq 10); do
   if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
