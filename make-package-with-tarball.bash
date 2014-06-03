@@ -8,8 +8,10 @@ set -e
 HERE=$(pwd)
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 
-DEFAULT_JUJUDB_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-packaging"
-DEFAULT_MONGODB_PACKAGING_BRANCH="lp:~juju-qa/juju-core/devel-mongodb-packaging"
+PACKAGING_DEFAULT_JUJUDB="lp:~juju-qa/juju-core/packaging-default-juju-mongodb"
+PACKAGING_DEFAULT_MONGODB="lp:~juju-qa/juju-core/packaging-default-mongodb-server"
+PACKAGING_1_18_JUJUDB="lp:~juju-qa/juju-core/packaging-1-18-juju-mongodb"
+PACKAGING_1_18_DEFAULT_MONGODB="lp:~juju-qa/juju-core/packaging-1-18-mongodb-server"
 
 
 usage() {
@@ -37,11 +39,20 @@ check_deps() {
 
 make_source_package_branch() {
     echo "Phase 1: Updating the source package branch."
-    if [[ $SERIES == "saucy" || $SERIES == "precise" ]]; then
-        PACKAGING_BRANCH=$DEFAULT_MONGODB_PACKAGING_BRANCH
-        
+    if [[ $VERSION =~ ^1.18.*$ ]]; then
+        # Packaging binaries in launchpad.net/juju-core.
+        if [[ $SERIES == "saucy" || $SERIES == "precise" ]]; then
+            PACKAGING_BRANCH=$PACKAGING_1_18_MONGODB
+        else
+            PACKAGING_BRANCH=$PACKAGING_1_18_JUJUDB
+        fi
     else
-        PACKAGING_BRANCH=$DEFAULT_JUJUDB_PACKAGING_BRANCH
+        # Packaging binaries in github.com/juju/juju.
+        if [[ $SERIES == "saucy" || $SERIES == "precise" ]]; then
+            PACKAGING_BRANCH=$PACKAGING_DEFAULT_MONGODB
+        else
+            PACKAGING_BRANCH=$PACKAGING_DEFAULT_JUJUDB
+        fi
     fi
     echo "Using $PACKAGING_BRANCH"
     bzr branch $PACKAGING_BRANCH $PACKAGING_DIR
