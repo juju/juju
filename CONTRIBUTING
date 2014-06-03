@@ -1,79 +1,86 @@
 Getting started
 ===============
 
-Before contributing to `juju-core` please read the following sections describing
+Before contributing to `juju` please read the following sections describing
 the tools and conventions of this project. This file is a companion to README
 and it is assumed that file has been read prior.
 
-cobzr
------
+Test
 
-juju-core uses bzr for source control. To make the bzr branching strategy more
-palatable for the go toolset `juju-core` recommends using the `cobzr` helper.
-`cobzr` allows the user to juggle multiple branches in place in a way that is
-compatible with GOPATH. While it is possible to manage bzr branches manually,
-the remainder of this document will assume cobzr is in use as practiced by the
-juju-core team.
+git
+---
 
-To install `cobzr`,
+Juju uses git for source control, and is hosted on github. It also has dependencies
+hosted elsewhere with other version control tools. To get started, install git and
+configure your username:
 
-    go get launchpad.net/cobzr
+$ cat ~/.gitconfig
+[user]
+        name = A. Hacker
+	email = a.hacker@example.com
 
-TODO(dfc) document PPA version
+Sign up for github (a free account is fine):
 
-It is recommended to use alias `cobzr` to `bzr`.
+<https://github.com/join>
 
-    alias bzr=cobzr
+Add your ssh public key to your account:
 
-As `cobzr` passes any options it does not handle to `bzr`, it is safe, and recommended
-to add this alias command to your login shell.
+<https://github.com/settings/ssh>
 
-lbox
-----
+Fork
+====
 
-`juju-core` uses `lbox` for code review and submission. In addition `lbox` enables
-the use of prerequisite branches.
+To get your own copy of the source code, hit the "Fork" button on the web page for
+the juju branch:
 
-To install lbox
+<https://github.com/juju/juju>
 
-    go get launchpad.net/lbox
+Then clone it locally, making sure the repo goes into the correct place in GOPATH,
+replace USERNAME with your github user name:
 
-TODO(dfc) document PPA version
+$ mkdir -p $GOPATH/src/github.com/juju
+$ cd $GOPATH/src/github.com/juju
+$ git clone git@github.com:USERNAME/juju.git
+$ cd juju
+$ git remote add upstream https://github.com/juju/juju.git
+$ git fetch upstream
 
-Branching
-=========
+More detailed instructions for the general process are on the github site:
 
-All changes to `juju-core` must be performed on a branch, that branch reviewed,
-then submitted. An overview of the commands used to do so follows. These
-examples use the `bzr` command, which is assumed to be aliased to `cobzr`, as
-described above. It is also assumed that your working directory is
-$GOPATH/src/github.com/juju/juju.
+<https://help.github.com/articles/fork-a-repo>
 
-First, create a branch for your change using the following command
+To make sure that any changes you commit pass a basic sanity check, make sure to
+add the check script as a git hook:
 
-    bzr branch lp:juju-core/ add-CONTRIBUTING
+$ ln -s ../../scripts/pre-push.bash .git/hooks/pre-push
 
-This will branch `juju-core` and create a new branch called `add-CONTRIBUTING` in
-your local workspace. Importantly this will not switch to this branch immediately,
-so to switch to this branch use the following
+Using pre-push requires git 1.8.2 or later, alternatively running the check as a
+pre-commit hook also works.
 
-    bzr switch add-CONTRIBUTING
+Working
+=======
 
-At this point your previous branch will be stashed and the working copy updated
-to match the state of the `add-CONTRIBUTING` branch. You must ensure any
-outstanding changes to the previous branch are committed or reverted to avoid
-local merge issues.
+All development should be done on feature branches based on a current copy of master.
+When starting a new line of work, first check the branch is on master:
 
-You can also list any branches you are currently working on by
+$ git branch
+* master
+  old_feature
 
-    bzr branch
+Pull in the latest changes from upstream, assuming you've done the setup as above:
+
+$ git pull upstream master
+
+Make a new branch for your work:
+
+$ git checkout -b new_feature
 
 
 Imports
 -------
 
 Import statements are grouped into 3 sections: standard library, 3rd party
-libraries, juju-core imports. The tool "go fmt" can be used to ensure each
+libraries, juju imports. The tool "go fmt" can be used to ensure each
 group is alphabetically sorted. eg:
 
     import (
@@ -91,18 +98,19 @@ group is alphabetically sorted. eg:
 Because "launchpad.net/gocheck" will be referenced frequently in test suites,
 its name gets a default short name of just "gc".
 
+
 Testing
 =======
 
-`juju-core` uses the `gocheck` testing framework. `gocheck` is automatically
-installed as a dependency of `juju-core`. You can read more about `gocheck`
+`juju` uses the `gocheck` testing framework. `gocheck` is automatically
+installed as a dependency of `juju`. You can read more about `gocheck`
 at http://go.pkgdoc.org/pkg/launchpad.net/gocheck. `gocheck` is integrated
 into the source of each package so the standard `go test` command is used
 to run `gocheck` tests. For example
 
     go test github.com/juju/juju/...
 
-will run all the tests in the `juju-core` project. By default `gocheck` prints
+will run all the tests in the `juju` project. By default `gocheck` prints
 only minimal output, and as `gocheck` is hooked into the testing framework via
 a single `go test` test per package, the usual `go test -v` flags are less
 useful. As a replacement the following commands produce more output from
@@ -148,101 +156,49 @@ with an environment variable:
 Proposing
 =========
 
-All code review is done on rietveld (http://code.google.com/p/rietveld/), not
-on launchpad.
+When ready for feedback, push your feature branch to github, optionally after
+collapsing multiple commits into discrete changes:
 
-Note: If this is your first time using `lbox` you will also be prompted to visit
-lauchpad to authorise an oauth token for `lbox`
+$ git rebase -i --autosquash master
+$ git push origin new_feature
 
-Once your change is ready, and you have successfully run all the tests you can
-propose your branch for merging
+Go to the web page and hit the "Pull Request" button, selecting master as the target.
 
-    lbox propose
+<https://github.com/USERNAME/juju>
 
-`lbox` will prompt you for a branch description and will create a rietveld code
-review for this change, linking it to the launchpad branch, and mailing
-reviewers. The `lbox` tool manages the state of the launchpad review, with the
-exception of marking reviews as rejected or work in progress by the reviewer.
-If you abandon a proposal, you should mark it as rejected in launchpad to avoid
-wasting the time of others. If you decide to start again, you should add a
-comment to the abandoned rietveld proposal linking it to your replacement.
+This creates a numbered pull request on the github site, where members of the juju
+project can see and comment on the changes.
 
-If your proposal requires additional work, then you can use the `lbox propose`
-command again to re-propose, this will also instruct rietveld to mail off any
-comments to your reviewers and upload fresh diff.
+Make sure to add a clear description of why and what has been changed, and include
+the launchpad bug number if one exists.
 
-If your branch requires another branch as a prerequisite use the `-req` flag to
-indicate so
-
-    lbox propose -req lp:dave-cheney/add-README
-
-This will produce a diff in rietveld which masks the changes from your prereq.
-
-It is sometimes useful to be able to review your branch in rietveld without
-proposing, do to this the `-wip` flag is used
-
-    lbox propose -wip
-
-You can also edit the description of your change with `-edit`. This is useful
-when combined with the `-wip` flag to avoid sending too many mails to reviewers
-while preparing your proposal.
-
-    lbox propose -edit
-
-By default, lbox creates a new bug in launchpad for each proposed branch, and
-assigns the branch to it. If you wish to assign it to an existing bug instead,
-use the `-bug` flag to link the branch inside launchpad.
-
-    lbox propose -bug 1234567
-
-There is currently a bug with `lbox` when linking a branch to a bug which sets
-the milestone field to the last milestone defined on the project. Generally
-this is not what you want, so you should visit the bug's page and correct the
-milestone, if set.
+Its often helpful to mention newly created proposals in the #juju-dev IRC channel on
+Freenode, especially if you'd like a specific developer to be aware of the proposal.
 
 Code review
 ===========
 
-`juju-core` operates on a two positive, no negative review process. You may not
-submit your proposal until it has received two LGTM comments. If any NOT LGTM
-comments are received, those comments should be resolved to the satisfaction
-of the objecting reviewer before submitting. Once your have received at least
-two positive reviews, you can submit your branch by going to the launchpad
-merge proposal page and:
+A branch needs at least one approval review in order to land. By convention, this is
+signaled by LGTM in a review comment. In the rare case where a propsal has an issue
+that means it should not land, NOT LGTM can be used as a veto. Often several rounds
+of suggestions are made without either marker, and LGTM is added when the comments
+are addressed.
 
-    - copy and paste the merge proposal description into the
-    commit message.
-    - mark the proposal as Approved.
-
-The merge proposal will then be tested and merged into trunk assuming
-all tests pass cleanly.
-
-lbox hooks
-----------
-
-Before proposing, `lbox` runs a number of hooks to improve code quality and
-ensure that code is properly formatted. These checks are in
-`$GOPATH/src/github.com/juju/juju/.lbox.check`. They are run automatically
-by `lbox` before proposing or submitting. If these hooks fail you will have
-to resolve those errors before trying again. For example
-
-    % lbox propose
-    gofmt is sad:
-
-        version/version.go
+After a proposal has recieved an LGTM, the landing must be notified to test and merge
+the code into master. This is done by a member of the juju project adding the magic
+string $$merge$$ in a comment.
 
 Dependency management
 =====================
 
-In the top-level directory, there is a file, dependencies.tsv, that
-holds the revision ids of all the external projects that juju-core
-depends on. The tab-separated columns in the file are
-the project name, the type version control system used by
+In the top-level directory, there is a file, dependencies.tsv, that holds the
+revision ids of all the external projects that juju depends on. The tab-separated
+columns in the file are the project name, the type version control system used by
 that project, and the revision id and number respectively.
 
-This file is generated by running the godeps command (which you
-can get with `go get launchpad.net/godeps') on a juju-core
-installation with all freshly downloaded directories.
+This file is generated by running the godeps command (which you can obtain using the
+command `go get launchpad.net/godeps') on a juju installation with all freshly
+downloaded directories.
 
 The bash commands used to generate it from scratch are as follows:
 
