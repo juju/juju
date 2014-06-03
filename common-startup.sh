@@ -24,7 +24,7 @@ afact='lastSuccessfulBuild/artifact'
 wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
 source buildvars.bash
 set +u
-if [[ -n "$REVNO" ]]
+if [[ -n "$REVNO" ]]; then
     rev=$REVNO
 else
     rev=$REVISION_ID
