@@ -43,7 +43,11 @@ set -eux
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
 tar -xzvf $tarfile
 export GOPATH=\$HOME/$juju_version
-cd \$GOPATH/src/launchpad.net/juju-core
+if [[ -d \$GOPATH/src/launchpad.net/juju-core ]]; then
+    cd \$GOPATH/src/launchpad.net/juju-core
+else
+    \$GOPATH/src/github.com/juju/juju
+fi
 for attempt in \$(seq 10); do
   if grep ec2.archive.ubuntu.com /etc/apt/sources.list > /dev/null; then
     break

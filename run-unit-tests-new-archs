@@ -93,7 +93,11 @@ if [[ -d \$GOPATH ]]; then
   rm -r \$GOPATH
 fi
 tar -xzvf $tarfile
-cd \$GOPATH/src/launchpad.net/juju-core
+if [[ -d \$GOPATH/src/launchpad.net/juju-core ]]; then
+    cd \$GOPATH/src/launchpad.net/juju-core
+else
+    \$GOPATH/src/github.com/juju/juju
+fi
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
 make build
 # Hack match for i386.
