@@ -1,18 +1,16 @@
-juju-core
-=========
+juju
+====
 
 juju is devops distilled.
 
 Getting started
 ===============
 
-`juju-core` is written in Go (http://golang.org), a modern, compiled, statically
-typed, concurrent language. This document describes how to build `juju-core`
-from source.
+`juju` is written in Go (http://golang.org), a modern, compiled, statically typed,
+concurrent language. This document describes how to build `juju` from source.
 
-If you are looking for binary releases of `juju-core`, they are
-available from the Juju stable PPA, `https://launchpad.net/~juju/+archive/stable`,
-and can be installed with:
+If you are looking for binary releases of `juju`, they are available from the Juju
+stable PPA, `https://launchpad.net/~juju/+archive/stable`, and can be installed with:
 
     sudo apt-add-repository ppa:juju/stable
     sudo apt-get update
@@ -59,42 +57,42 @@ Add `$GOPATH/bin` to your `PATH`, so you can run the go programs you install:
     PATH="$PATH:$GOPATH/bin"
 
 
-Getting juju-core
-=================
+Getting juju
+============
 
-The easiest way to get the source for `juju-core` is to use the `go get` command.
+The easiest way to get the source for `juju` is to use the `go get` command.
 
     go get -v github.com/juju/juju/...
 
-This command will checkout the source of `juju-core` and inspect it for any unmet
+This command will checkout the source of `juju` and inspect it for any unmet
 Go package dependencies, downloading those as well. `go get` will also build and
-install `juju-core` and its dependencies. To checkout without installing, use the
+install `juju` and its dependencies. To checkout without installing, use the
 `-d` flag. More details on the `go get` flags are available using
 
     go help get
 
-At this point you will have the bzr working copy of the `juju-core` source at
+At this point you will have the bzr working copy of the `juju` source at
 `$GOPATH/github.com/juju/juju`. The source for any dependent packages will
 also be available inside `$GOPATH`. You can use `bzr pull`, or the less convenient
 `go get -u github.com/juju/juju/...` to update the source from time to time.
-If you want to know more about contributing to `juju-core`, please read the
+If you want to know more about contributing to `juju`, please read the
 `CONTRIBUTING` companion to this file.
 
-Building juju-core
-==================
+Building juju
+=============
 
     go install -v github.com/juju/juju/...
 
 Will build juju and install the binary commands into `$GOPATH/bin`. It is likely
-if you have just completed the previous step to get the `juju-core` source, the
+if you have just completed the previous step to get the `juju` source, the
 install process will produce no output, as the final executables are up-to-date.
 
-Using juju-core
-===============
+Using juju
+==========
 
 After following the steps above you will have the `juju` client installed in
 `GOPATH/bin/juju`. You should ensure that this version of `juju` appears earlier
-in your path than any packaged versions of `juju-core`, or older Python juju
+in your path than any packaged versions of `juju`, or older Python juju
 commands. You can verify this using
 
     which juju
@@ -112,7 +110,7 @@ provider because it uses LXC, which requires root privileges)
 --------------
 
 The `juju` client program, and the juju 'tools' are deployed in lockstep. When a
-release of `juju-core` is made, the compiled tools matching that version of juju
+release of `juju` is made, the compiled tools matching that version of juju
 are extracted and uploaded to a known location. This consumes a release version
 number, and implies that no tools are available for the next, development, version
 of juju. Therefore, when using the development version of juju you will need to
@@ -127,9 +125,8 @@ Installing bash completion for juju
 
     make install-etc
 
-Will install Bash completion for `juju` cli to
-`/etc/bash_completion.d/juju-core` It does dynamic completion for commands
-requiring service, unit or machine names (like e.g. juju status <service>,
-juju ssh <instance>, juju terminate-machine <machine#>, etc),
-by parsing cached `juju status` output for speedup. It also does
-command flags completion by parsing `juju help ...` output.
+Will install Bash completion for `juju` cli to `/etc/bash_completion.d/juju`. It does
+dynamic completion for commands requiring service, unit or machine names (like e.g.
+juju status <service>, juju ssh <instance>, juju terminate-machine <machine#>, etc),
+by parsing cached `juju status` output for speedup. It also does command flags
+completion by parsing `juju help ...` output.
