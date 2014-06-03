@@ -4,8 +4,10 @@
 package api_test
 
 import (
+	"fmt"
 	"io"
 	"net"
+	"strconv"
 
 	gc "launchpad.net/gocheck"
 
@@ -27,7 +29,7 @@ func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	server, err := net.Dial("tcp", serverAddr)
 	c.Assert(err, gc.IsNil)
 	defer server.Close()
-	listener, err := net.Listen("tcp", "localhost:26104")
+	listener, err := net.Listen("tcp", "localhost:0")
 	c.Assert(err, gc.IsNil)
 	defer listener.Close()
 	go func() {
@@ -42,11 +44,17 @@ func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	}()
 
 	// Check that we are using our working address to connect
-	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", "localhost:26104"}
+	listenerAddress := listener.Addr().String()
+	_, port, err := net.SplitHostPort(listenerAddress)
+	c.Check(err, gc.IsNil)
+	portNum, err := strconv.Atoi(port)
+	c.Check(err, gc.IsNil)
+	expectedHostPort := fmt.Sprintf("localhost:%d", portNum)
+	info.Addrs = []string{"fakeAddress:1", "fakeAddress:1", expectedHostPort}
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
-	c.Assert(st.Addr(), gc.Equals, "localhost:26104")
+	c.Assert(st.Addr(), gc.Equals, expectedHostPort)
 }
 
 func (s *apiclientSuite) TestOpenMultiple(c *gc.C) {
