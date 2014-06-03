@@ -206,12 +206,12 @@ func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 }
 
 type agentAliver interface {
-	AgentAlive() (bool, error)
+	AgentPresence() (bool, error)
 }
 
 func (s *serverSuite) assertAlive(c *gc.C, entity agentAliver, isAlive bool) {
 	s.State.StartSync()
-	alive, err := entity.AgentAlive()
+	alive, err := entity.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, isAlive)
 }

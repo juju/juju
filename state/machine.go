@@ -647,13 +647,14 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// AgentAlive returns whether the respective remote agent is alive.
-func (m *Machine) AgentAlive() (bool, error) {
-	return m.st.pwatcher.Alive(m.globalKey())
+// AgentPresence returns whether the respective remote agent is alive.
+func (m *Machine) AgentPresence() (bool, error) {
+	b, err := m.st.pwatcher.Alive(m.globalKey())
+	return b, err
 }
 
-// WaitAgentAlive blocks until the respective agent is alive.
-func (m *Machine) WaitAgentAlive(timeout time.Duration) (err error) {
+// WaitAgentPresence blocks until the respective agent is alive.
+func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.Maskf(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
 	m.st.pwatcher.Watch(m.globalKey(), ch)
@@ -673,9 +674,9 @@ func (m *Machine) WaitAgentAlive(timeout time.Duration) (err error) {
 	panic(fmt.Sprintf("presence reported dead status twice in a row for machine %v", m))
 }
 
-// SetAgentAlive signals that the agent for machine m is alive.
+// SetAgentPresence signals that the agent for machine m is alive.
 // It returns the started pinger.
-func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
+func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	p := presence.NewPinger(m.st.presence, m.globalKey())
 	err := p.Start()
 	if err != nil {

@@ -605,7 +605,7 @@ type lifer interface {
 
 type stateAgent interface {
 	lifer
-	AgentAlive() (bool, error)
+	AgentPresence() (bool, error)
 	AgentTools() (*tools.Tools, error)
 	Status() (params.Status, string, params.StatusData, error)
 }
@@ -633,8 +633,7 @@ func processAgent(entity stateAgent) (
 		// in enquiring about the agent liveness.
 		return
 	}
-
-	agentAlive, err := entity.AgentAlive()
+	agentAlive, err := entity.AgentPresence()
 	if err != nil {
 		return
 	}

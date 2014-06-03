@@ -595,7 +595,7 @@ var stateServerAvailable = func(m *Machine) (bool, error) {
 	// TODO(axw) #1271504 2014-01-22
 	// Check the state server's associated mongo health;
 	// requires coordination with worker/peergrouper.
-	return m.AgentAlive()
+	return m.AgentPresence()
 }
 
 type ensureAvailabilityIntent struct {
