@@ -71,6 +71,7 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 	}
 
 	for i := 0; i < maxInitiateStatusAttempts; i++ {
+		monotonicSession.Refresh()
 		status, err := getCurrentStatus(monotonicSession)
 		if err != nil {
 			logger.Warningf("Initiate: fetching replicaset status failed: %v", err)
