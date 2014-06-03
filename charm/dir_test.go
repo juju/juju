@@ -42,6 +42,16 @@ func (s *DirSuite) TestReadDirWithoutConfig(c *gc.C) {
 	c.Assert(dir.Config().Options, gc.HasLen, 0)
 }
 
+func (s *DirSuite) TestReadDirWithoutActions(c *gc.C) {
+	path := testing.Charms.DirPath("wordpress")
+	dir, err := charm.ReadDir(path)
+	c.Assert(err, gc.IsNil)
+
+	// A lacking actions.yaml file still causes a proper
+	// Actions value to be returned.
+	c.Assert(dir.Actions().ActionSpecs, gc.HasLen, 0)
+}
+
 func (s *DirSuite) TestBundleTo(c *gc.C) {
 	baseDir := c.MkDir()
 	charmDir := testing.Charms.ClonedDirPath(baseDir, "dummy")

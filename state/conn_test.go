@@ -94,6 +94,12 @@ func (s *ConnSuite) AddConfigCharm(c *gc.C, name, configYaml string, revision in
 	return state.AddCustomCharm(c, s.State, name, "config.yaml", configYaml, "quantal", revision)
 }
 
+// AddActionsCharm clones a testing charm, replaces its actions schema with
+// the given YAML, and adds it to the state, using the given revision.
+func (s *ConnSuite) AddActionsCharm(c *gc.C, name, actionsYaml string, revision int) *state.Charm {
+	return state.AddCustomCharm(c, s.State, name, "actions.yaml", actionsYaml, "quantal", revision)
+}
+
 // AddMetaCharm clones a testing charm, replaces its metadata with the
 // given YAML string and adds it to the state, using the given revision.
 func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *state.Charm {

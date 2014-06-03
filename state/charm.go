@@ -14,6 +14,7 @@ type charmDoc struct {
 	URL           *charm.URL `bson:"_id"`
 	Meta          *charm.Meta
 	Config        *charm.Config
+	Actions       *charm.Actions
 	BundleURL     *url.URL
 	BundleSha256  string
 	PendingUpload bool
@@ -54,6 +55,11 @@ func (c *Charm) Meta() *charm.Meta {
 // Config returns the configuration of the charm.
 func (c *Charm) Config() *charm.Config {
 	return c.doc.Config
+}
+
+// Actions returns the actions definition of the charm.
+func (c *Charm) Actions() *charm.Actions {
+	return c.doc.Actions
 }
 
 // BundleURL returns the url to the charm bundle in
