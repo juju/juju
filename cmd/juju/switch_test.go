@@ -4,11 +4,14 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs/configstore"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/testing"
 )
@@ -18,6 +21,29 @@ type SwitchSimpleSuite struct {
 }
 
 var _ = gc.Suite(&SwitchSimpleSuite{})
+
+var testCreds = configstore.APICredentials{
+	User:     "joe",
+	Password: "baloney",
+}
+
+var apiEndpoint = configstore.APIEndpoint{
+	Addresses: []string{"example.com", "kremvax.ru"},
+	CACert:    "cert",
+}
+
+func patchEnvWithUser(c *gc.C, envName string) {
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+
+	// Patch APICredentials so that <envName>.jenv file is avaliable for
+	// switch to read the envirionment user from.
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	info, err := store.CreateInfo(envName)
+	info.SetAPIEndpoint(apiEndpoint)
+	info.SetAPICredentials(testCreds)
+	info.Write()
+}
 
 func (*SwitchSimpleSuite) TestNoEnvironment(c *gc.C) {
 	envPath := testing.HomePath(".juju", "environments.yaml")
@@ -109,6 +135,49 @@ func (*SwitchSimpleSuite) TestListEnvironmentsAndChange(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	_, err := testing.RunCommand(c, &SwitchCommand{}, "--list", "erewhemos-2")
 	c.Assert(err, gc.ErrorMatches, "cannot switch and list at the same time")
+}
+
+func (*SwitchSimpleSuite) TestListEnvironmentInfoYaml(c *gc.C) {
+	patchEnvWithUser(c, "erewhemos")
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--format", "yaml")
+	c.Assert(err, gc.IsNil)
+	output := EnvInfo{}
+	goyaml.Unmarshal([]byte(testing.Stdout(context)), &output)
+	expected := EnvInfo{
+		Username:     "joe",
+		EnvironName:  "erewhemos",
+		StateServers: []string{"example.com", "kremvax.ru"},
+	}
+	c.Assert(output, gc.DeepEquals, expected)
+}
+
+func (*SwitchSimpleSuite) TestListEnvironmentInfoJson(c *gc.C) {
+	patchEnvWithUser(c, "erewhemos")
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--format", "json")
+	c.Assert(err, gc.IsNil)
+	output := EnvInfo{}
+	json.Unmarshal([]byte(testing.Stdout(context)), &output)
+	expected := EnvInfo{
+		Username:     "joe",
+		EnvironName:  "erewhemos",
+		StateServers: []string{"example.com", "kremvax.ru"},
+	}
+	c.Assert(output, gc.DeepEquals, expected)
+}
+
+func (*SwitchSimpleSuite) TestListEnvironmentInfoShowOldEnv(c *gc.C) {
+	patchEnvWithUser(c, "erewhemos-2")
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "erewhemos-2", "--format", "json")
+	c.Assert(err, gc.IsNil)
+	output := EnvInfo{}
+	json.Unmarshal([]byte(testing.Stdout(context)), &output)
+	expected := EnvInfo{
+		Username:            "joe",
+		EnvironName:         "erewhemos-2",
+		PreviousEnvironName: "erewhemos",
+		StateServers:        []string{"example.com", "kremvax.ru"},
+	}
+	c.Assert(output, gc.DeepEquals, expected)
 }
 
 func (*SwitchSimpleSuite) TestTooManyParams(c *gc.C) {
