@@ -178,7 +178,7 @@ func (s *storageSuite) TestWriteFailure(c *gc.C) {
 		invocations++
 		switch invocations {
 		case 1, 3:
-			return s.sshCommand(c, host, "true")
+			return s.sshCommand(c, host, "head -n 1 > /dev/null")
 		case 2:
 			// Note: must close stdin before responding the first time, or
 			// the second command will race with closing stdin, and may
