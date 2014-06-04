@@ -1,0 +1,10 @@
+--- ../trunk/state/api/state.go	2014-06-02 09:30:45.488635000 +0400
++++ ./state/api/state.go	2014-05-28 17:33:14.733866000 +0400
+@@ -16,6 +16,7 @@
+ 	"launchpad.net/juju-core/state/api/keyupdater"
+ 	apilogger "launchpad.net/juju-core/state/api/logger"
+ 	"launchpad.net/juju-core/state/api/machiner"
++	"launchpad.net/juju-core/state/api/networker"
+ 	"launchpad.net/juju-core/state/api/params"
+ 	"launchpad.net/juju-core/state/api/provisioner"
+ 	"launchpad.net/juju-core/state/api/rsyslog"

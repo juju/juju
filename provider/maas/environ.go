@@ -538,7 +538,7 @@ EOF
 			// We have a VLAN and need to create and register it after
 			// its parent interface was brought up.
 			script("vconfig add %s %d", info.InterfaceName, info.VLANTag)
-			vlan := fmt.Sprintf("%s.%d", info.InterfaceName, info.VLANTag)
+			vlan := info.ActualInterfaceName()
 			script(ifaceConfig, vlan, vlan)
 			script("ifup %s", vlan)
 		}
