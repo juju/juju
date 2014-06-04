@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
@@ -93,6 +94,12 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 	}
 	logger.Debugf("connection established")
 
+	_, err = replicaset.CurrentConfig(session)
+	if err == nil {
+		// set mongo to write-majority (writes only returned after replicated
+		// to a majority of replica-set members)
+		session.SetSafe(&mgo.Safe{WMode: "majority", J: true})
+	}
 	st, err := newState(session, info, policy)
 	if err != nil {
 		session.Close()
