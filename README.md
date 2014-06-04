@@ -71,10 +71,11 @@ install `juju` and its dependencies. To checkout without installing, use the
 
     go help get
 
-At this point you will have the bzr working copy of the `juju` source at
+At this point you will have the git local repository of the `juju` source at
 `$GOPATH/github.com/juju/juju`. The source for any dependent packages will
-also be available inside `$GOPATH`. You can use `bzr pull`, or the less convenient
-`go get -u github.com/juju/juju/...` to update the source from time to time.
+also be available inside `$GOPATH`. You can use `git pull --rebase`, or the 
+less convenient `go get -u github.com/juju/juju/...` to update the source
+from time to time.
 If you want to know more about contributing to `juju`, please read the
 `CONTRIBUTING` companion to this file.
 
