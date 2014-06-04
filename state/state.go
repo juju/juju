@@ -65,6 +65,7 @@ type State struct {
 	constraints       *mgo.Collection
 	units             *mgo.Collection
 	actions           *mgo.Collection
+	actionresults     *mgo.Collection
 	users             *mgo.Collection
 	presence          *mgo.Collection
 	cleanups          *mgo.Collection
@@ -1424,6 +1425,34 @@ func (st *State) UnitActions(name string) ([]*Action, error) {
 		return actions, err
 	}
 	return actions, nil
+}
+
+// ActionResult returns an ActionResult by Id.
+func (st *State) ActionResult(id string) (*ActionResult, error) {
+	doc := actionResultDoc{}
+	err := st.actionresults.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("action result %q", id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("cannot get actionresult %q: %v", id, err)
+	}
+	return newActionResult(st, doc), nil
+}
+
+// ActionResults returns actionresults that match the given id prefix.
+func (st *State) ActionResults(prefix string) ([]*ActionResult, error) {
+	results := []*ActionResult{}
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
+	iter := st.actionresults.Find(sel).Iter()
+	doc := actionResultDoc{}
+	for iter.Next(&doc) {
+		results = append(results, newActionResult(st, doc))
+	}
+	if err := iter.Err(); err != nil {
+		return results, err
+	}
+	return results, nil
 }
 
 // Unit returns a unit by name.
