@@ -272,8 +272,8 @@ class Environment:
                             self.environment)
         return status
 
-    def wait_for_version(self, version):
-        for ignored in until_timeout(300):
+    def wait_for_version(self, version, timeout=300):
+        for ignored in until_timeout(timeout):
             try:
                 versions = self.get_status().get_agent_versions()
             except CannotConnectEnv:
