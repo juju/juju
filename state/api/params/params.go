@@ -382,10 +382,20 @@ type ModifyUserSSHKeys struct {
 	Keys []string
 }
 
+// ModifyUsers holds the parameters for making a UserManager Add or Modify calls.
+type ModifyUsers struct {
+	Changes []ModifyUser
+}
+
 // ModifyUser stores the parameters used for a UserManager.Add|Remove call
 type ModifyUser struct {
-	Tag      string
-	Password string
+	// Tag is here purely for backwards compatability. Older clients will
+	// attempt to use the EntityPassword structure, so we need a Tag here
+	// (which will be treated as Username)
+	Tag         string
+	Username    string
+	DisplayName string
+	Password    string
 }
 
 // MarshalJSON implements json.Marshaler.

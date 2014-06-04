@@ -24,60 +24,60 @@ func (s *UserSuite) TestAddUserInvalidNames(c *gc.C) {
 		"",
 		"b^b",
 	} {
-		u, err := s.State.AddUser(name, "password")
+		u, err := s.State.AddUser(name, "ignored", "ignored")
 		c.Assert(err, gc.ErrorMatches, `invalid user name "`+regexp.QuoteMeta(name)+`"`)
 		c.Assert(u, gc.IsNil)
 	}
 }
 
-func (s *UserSuite) TestAddUserValidName(c *gc.C) {
-	name := "f00-Bar.ram77"
-	u, err := s.State.AddUser(name, "password")
-	c.Check(u, gc.NotNil)
+func (s *UserSuite) addUser(c *gc.C, name, displayName, password string) *state.User {
+	user, err := s.State.AddUser(name, displayName, password)
 	c.Assert(err, gc.IsNil)
-	c.Assert(u.Name(), gc.Equals, name)
+	c.Assert(user, gc.NotNil)
+	c.Assert(user.Name(), gc.Equals, name)
+	c.Assert(user.DisplayName(), gc.Equals, displayName)
+	c.Assert(user.PasswordValid(password), jc.IsTrue)
+	return user
+}
+
+func (s *UserSuite) makeUser(c *gc.C) *state.User {
+	return s.addUser(c, "someuser", "displayName", "a-password")
 }
 
 func (s *UserSuite) TestAddUser(c *gc.C) {
-	u, err := s.State.AddUser("aa", "b")
-	c.Check(u, gc.NotNil)
+	name := "f00-Bar.ram77"
+	displayName := "Display"
+	password := "password"
+
+	s.addUser(c, name, displayName, password)
+
+	user, err := s.State.User(name)
 	c.Assert(err, gc.IsNil)
-
-	c.Assert(u.Name(), gc.Equals, "aa")
-	c.Assert(u.PasswordValid("b"), jc.IsTrue)
-
-	u1, err := s.State.User("aa")
-	c.Check(u1, gc.NotNil)
-	c.Assert(err, gc.IsNil)
-
-	c.Assert(u1.Name(), gc.Equals, "aa")
-	c.Assert(u1.PasswordValid("b"), jc.IsTrue)
+	c.Check(user, gc.NotNil)
+	c.Assert(user.Name(), gc.Equals, name)
+	c.Assert(user.DisplayName(), gc.Equals, displayName)
+	c.Assert(user.PasswordValid(password), jc.IsTrue)
 }
 
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {
-	u, err := s.State.AddUser("aa", "b")
-	c.Check(u, gc.NotNil)
+	user := s.makeUser(c)
+	exists, err := state.CheckUserExists(s.State, user.Name())
 	c.Assert(err, gc.IsNil)
-	e, err := state.CheckUserExists(s.State, "aa")
+	c.Assert(exists, jc.IsTrue)
+	exists, err = state.CheckUserExists(s.State, "notAUser")
 	c.Assert(err, gc.IsNil)
-	c.Assert(e, gc.Equals, true)
-	e, err = state.CheckUserExists(s.State, "notAUser")
-	c.Assert(err, gc.IsNil)
-	c.Assert(e, gc.Equals, false)
+	c.Assert(exists, jc.IsFalse)
 }
 
 func (s *UserSuite) TestSetPassword(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "password")
-	c.Assert(err, gc.IsNil)
-
+	user := s.makeUser(c)
 	testSetPassword(c, func() (state.Authenticator, error) {
-		return s.State.User(u.Name())
+		return s.State.User(user.Name())
 	})
 }
 
 func (s *UserSuite) TestAddUserSetsSalt(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "a-password")
-	c.Assert(err, gc.IsNil)
+	u := s.makeUser(c)
 	salt, hash := state.GetUserPasswordSaltAndHash(u)
 	c.Check(hash, gc.Not(gc.Equals), "")
 	c.Check(salt, gc.Not(gc.Equals), "")
@@ -86,8 +86,7 @@ func (s *UserSuite) TestAddUserSetsSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "a-password")
-	c.Assert(err, gc.IsNil)
+	u := s.makeUser(c)
 	origSalt, origHash := state.GetUserPasswordSaltAndHash(u)
 	c.Check(origSalt, gc.Not(gc.Equals), "")
 	// Even though the password is the same, we take this opportunity to
@@ -101,10 +100,9 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "password")
-	c.Assert(err, gc.IsNil)
+	u := s.makeUser(c)
 
-	err = u.SetPasswordHash(utils.UserPasswordHash("foo", utils.CompatSalt), utils.CompatSalt)
+	err := u.SetPasswordHash(utils.UserPasswordHash("foo", utils.CompatSalt), utils.CompatSalt)
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(u.PasswordValid("foo"), jc.IsTrue)
@@ -120,10 +118,9 @@ func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "password")
-	c.Assert(err, gc.IsNil)
+	u := s.makeUser(c)
 
-	err = u.SetPasswordHash(utils.UserPasswordHash("foo", "salted"), "salted")
+	err := u.SetPasswordHash(utils.UserPasswordHash("foo", "salted"), "salted")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(u.PasswordValid("foo"), jc.IsTrue)
@@ -133,11 +130,10 @@ func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "password")
-	c.Assert(err, gc.IsNil)
+	u := s.makeUser(c)
 
 	compatHash := utils.UserPasswordHash("foo", utils.CompatSalt)
-	err = u.SetPasswordHash(compatHash, "")
+	err := u.SetPasswordHash(compatHash, "")
 	c.Assert(err, gc.IsNil)
 	beforeSalt, beforeHash := state.GetUserPasswordSaltAndHash(u)
 	c.Assert(beforeSalt, gc.Equals, "")
@@ -160,20 +156,11 @@ func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
 	c.Assert(lastHash, gc.Equals, afterHash)
 }
 
-func (s *UserSuite) TestName(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "password")
-	c.Assert(err, gc.IsNil)
-
-	c.Assert(u.Name(), gc.Equals, "someuser")
-	c.Assert(u.Tag(), gc.Equals, "user-someuser")
-}
-
 func (s *UserSuite) TestDeactivate(c *gc.C) {
-	u, err := s.State.AddUser("someuser", "password")
-	c.Assert(err, gc.IsNil)
+	u := s.makeUser(c)
 	c.Assert(u.IsDeactivated(), gc.Equals, false)
 
-	err = u.Deactivate()
+	err := u.Deactivate()
 	c.Assert(err, gc.IsNil)
 	c.Assert(u.IsDeactivated(), gc.Equals, true)
 	c.Assert(u.PasswordValid(""), gc.Equals, false)

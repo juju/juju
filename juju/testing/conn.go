@@ -98,6 +98,12 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.setUpConn(c)
 }
 
+func (s *JujuConnSuite) AddUser(c *gc.C, username string) *state.User {
+	user, err := s.State.AddUser(username, "", "password")
+	c.Assert(err, gc.IsNil)
+	return user
+}
+
 func (s *JujuConnSuite) StateInfo(c *gc.C) *state.Info {
 	info, _, err := s.Conn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
