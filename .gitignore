@@ -7,5 +7,6 @@ cmd/charmload/charmload
 ./TAGS
 .emacs.desktop
 .emacs.desktop.lock
+Godeps/_workspace
 *.test
 *.sw[nop]

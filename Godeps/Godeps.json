@@ -1,0 +1,155 @@
+{
+	"ImportPath": "github.com/juju/juju",
+	"GoVersion": "go1.3beta2",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "code.google.com/p/go.crypto/cast5",
+			"Comment": "null-185",
+			"Rev": "6478cc9340cbbe6c04511280c5007722269108e9"
+		},
+		{
+			"ImportPath": "code.google.com/p/go.crypto/openpgp",
+			"Comment": "null-185",
+			"Rev": "6478cc9340cbbe6c04511280c5007722269108e9"
+		},
+		{
+			"ImportPath": "code.google.com/p/go.crypto/pbkdf2",
+			"Comment": "null-185",
+			"Rev": "6478cc9340cbbe6c04511280c5007722269108e9"
+		},
+		{
+			"ImportPath": "code.google.com/p/go.crypto/ssh",
+			"Comment": "null-185",
+			"Rev": "6478cc9340cbbe6c04511280c5007722269108e9"
+		},
+		{
+			"ImportPath": "code.google.com/p/go.net/websocket",
+			"Comment": "null-117",
+			"Rev": "c17ad62118ea511e1051721b429779fa40bddc74"
+		},
+		{
+			"ImportPath": "github.com/binary132/gojsonpointer",
+			"Rev": "57ab5e9c764219a3e0c4d7759797fefdcab22e9c"
+		},
+		{
+			"ImportPath": "github.com/binary132/gojsonreference",
+			"Rev": "75785fb7b21f9bf2051dca600da83ff57bc6582a"
+		},
+		{
+			"ImportPath": "github.com/binary132/gojsonschema",
+			"Rev": "640782bf48d45ba2b22fd1e8a80842667c52af00"
+		},
+		{
+			"ImportPath": "github.com/joyent/gocommon",
+			"Rev": "40c7818502f7c1ebbb13dab185a26e77b746ff40"
+		},
+		{
+			"ImportPath": "github.com/joyent/gomanta/localservices",
+			"Rev": "cabd97b029d931836571f00b7e48c331809a30b7"
+		},
+		{
+			"ImportPath": "github.com/joyent/gomanta/manta",
+			"Rev": "cabd97b029d931836571f00b7e48c331809a30b7"
+		},
+		{
+			"ImportPath": "github.com/joyent/gosdc/cloudapi",
+			"Rev": "2f11feadd2d9891e92296a1077c3e2e56939547d"
+		},
+		{
+			"ImportPath": "github.com/joyent/gosdc/localservices",
+			"Rev": "2f11feadd2d9891e92296a1077c3e2e56939547d"
+		},
+		{
+			"ImportPath": "github.com/joyent/gosign/auth",
+			"Rev": "0da0d5f1342065321c97812b1f4ac0c2b0bab56c"
+		},
+		{
+			"ImportPath": "github.com/juju/errgo",
+			"Rev": "26caa7d4884f6048c5687fa44c410e5d5d95e554"
+		},
+		{
+			"ImportPath": "github.com/juju/errors",
+			"Rev": "075df0417dbcc39d24ee18248d2f8d6e3eed598b"
+		},
+		{
+			"ImportPath": "github.com/juju/loggo",
+			"Rev": "7e8c70b24b80b95b2284f09306aac0bd93588db8"
+		},
+		{
+			"ImportPath": "github.com/juju/ratelimit",
+			"Rev": "0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb"
+		},
+		{
+			"ImportPath": "github.com/juju/testing",
+			"Rev": "77f66ce9a8a203fd6af74b38fb207666d5cdeae6"
+		},
+		{
+			"ImportPath": "labix.org/v2/mgo",
+			"Comment": "275",
+			"Rev": "gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j"
+		},
+		{
+			"ImportPath": "launchpad.net/gnuflag",
+			"Comment": "12",
+			"Rev": "roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk"
+		},
+		{
+			"ImportPath": "launchpad.net/goamz/aws",
+			"Comment": "46",
+			"Rev": "roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9"
+		},
+		{
+			"ImportPath": "launchpad.net/goamz/ec2",
+			"Comment": "46",
+			"Rev": "roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9"
+		},
+		{
+			"ImportPath": "launchpad.net/goamz/s3",
+			"Comment": "46",
+			"Rev": "roger.peppe@canonical.com-20131218155244-hbnkvlkkzy3vmlh9"
+		},
+		{
+			"ImportPath": "launchpad.net/gocheck",
+			"Comment": "87",
+			"Rev": "gustavo@niemeyer.net-20140225173054-xu9zlkf9kxhvow02"
+		},
+		{
+			"ImportPath": "launchpad.net/golxc",
+			"Comment": "9",
+			"Rev": "francesco.banconi@canonical.com-20140528132419-q1lubarf0uepk4a1"
+		},
+		{
+			"ImportPath": "launchpad.net/gomaasapi",
+			"Comment": "50",
+			"Rev": "andrew.wilkins@canonical.com-20140513111813-kstzbs2kx1ujl3m3"
+		},
+		{
+			"ImportPath": "launchpad.net/goose",
+			"Comment": "124",
+			"Rev": "tarmac-20140516070929-jdddyozs81236kk0"
+		},
+		{
+			"ImportPath": "launchpad.net/goyaml",
+			"Comment": "50",
+			"Rev": "gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s"
+		},
+		{
+			"ImportPath": "launchpad.net/gwacl",
+			"Comment": "234",
+			"Rev": "tarmac-20140312041035-ac7gw7kcqjx7db63"
+		},
+		{
+			"ImportPath": "launchpad.net/lpad",
+			"Comment": "64",
+			"Rev": "gustavo@niemeyer.net-20120626194701-536yx0g9jdq2ik3h"
+		},
+		{
+			"ImportPath": "launchpad.net/tomb",
+			"Comment": "17",
+			"Rev": "gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4"
+		}
+	]
+}
