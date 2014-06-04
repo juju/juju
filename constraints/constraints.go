@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/names"
 )
 
 // The following constants list the supported constraint attribute names, as defined
@@ -27,6 +28,7 @@ const (
 	RootDisk     = "root-disk"
 	Tags         = "tags"
 	InstanceType = "instance-type"
+	Networks     = "networks"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -70,6 +72,12 @@ type Value struct {
 	// InstanceType, if not nil, indicates that the specified cloud instance type
 	// be used. Only valid for clouds which support instance types.
 	InstanceType *string `json:"instance-type,omitempty" yaml:"instance-type,omitempty"`
+
+	// Networks, if not nil, holds a list of juju network names that
+	// should be available (or not) on the machine. Positive and
+	// negative values are accepted, and the difference is the latter
+	// have a "^" prefix to the name.
+	Networks *[]string `json:"networks,omitempty" yaml:"networks,omitempty"`
 }
 
 // fieldNames records a mapping from the constraint tag to struct field name.
@@ -105,6 +113,42 @@ func IsEmpty(v *Value) bool {
 // HasInstanceType returns true if the constraints.Value specifies an instance type.
 func (v *Value) HasInstanceType() bool {
 	return v.InstanceType != nil && *v.InstanceType != ""
+}
+
+// extractNetworks returns the list of networks to include or exclude
+// (without the "^" prefixes).
+func (v *Value) extractNetworks() (include, exclude []string) {
+	if v.Networks == nil {
+		return nil, nil
+	}
+	for _, name := range *v.Networks {
+		if strings.HasPrefix(name, "^") {
+			exclude = append(exclude, strings.TrimPrefix(name, "^"))
+		} else {
+			include = append(include, name)
+		}
+	}
+	return include, exclude
+}
+
+// IncludeNetworks returns a list of networks to include when starting
+// a machine, if specified.
+func (v *Value) IncludeNetworks() []string {
+	include, _ := v.extractNetworks()
+	return include
+}
+
+// ExcludeNetworks returns a list of networks to exclude when starting
+// a machine, if specified. They are given in the networks constraint
+// with a "^" prefix to the name, which is stripped before returning.
+func (v *Value) ExcludeNetworks() []string {
+	_, exclude := v.extractNetworks()
+	return exclude
+}
+
+// HaveNetworks returns whether any network constraints were specified.
+func (v *Value) HaveNetworks() bool {
+	return v.Networks != nil && len(*v.Networks) > 0
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
@@ -143,6 +187,10 @@ func (v Value) String() string {
 		s := strings.Join(*v.Tags, ",")
 		strs = append(strs, "tags="+s)
 	}
+	if v.Networks != nil {
+		s := strings.Join(*v.Networks, ",")
+		strs = append(strs, "networks="+s)
+	}
 	return strings.Join(strs, " ")
 }
 
@@ -170,6 +218,16 @@ func Parse(args ...string) (Value, error) {
 		}
 	}
 	return cons, nil
+}
+
+// Merge returns the effective constraints after merging any given
+// existing values.
+func Merge(values ...Value) (Value, error) {
+	var args []string
+	for _, value := range values {
+		args = append(args, value.String())
+	}
+	return Parse(args...)
 }
 
 // MustParse constructs a constraints.Value from the supplied arguments,
@@ -270,6 +328,8 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setTags(str)
 	case InstanceType:
 		err = v.setInstanceType(str)
+	case Networks:
+		err = v.setNetworks(str)
 	default:
 		return fmt.Errorf("unknown constraint %q", name)
 	}
@@ -309,7 +369,13 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 		case RootDisk:
 			v.RootDisk, err = parseUint64(vstr)
 		case Tags:
-			v.Tags, err = parseYamlTags(val)
+			v.Tags, err = parseYamlStrings("tags", val)
+		case Networks:
+			var networks *[]string
+			networks, err = parseYamlStrings("networks", val)
+			if err == nil {
+				err = v.validateNetworks(networks)
+			}
 		default:
 			return false
 		}
@@ -397,7 +463,34 @@ func (v *Value) setTags(str string) error {
 	if v.Tags != nil {
 		return fmt.Errorf("already set")
 	}
-	v.Tags = parseTags(str)
+	v.Tags = parseCommaDelimited(str)
+	return nil
+}
+
+func (v *Value) setNetworks(str string) error {
+	if v.Networks != nil {
+		return fmt.Errorf("already set")
+	}
+	networks := parseCommaDelimited(str)
+	if err := v.validateNetworks(networks); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (v *Value) validateNetworks(networks *[]string) error {
+	if networks == nil {
+		return nil
+	}
+	for _, netName := range *networks {
+		if strings.HasPrefix(netName, "^") {
+			netName = strings.TrimPrefix(netName, "^")
+		}
+		if !names.IsNetwork(netName) {
+			return fmt.Errorf("%q is not a valid network name", netName)
+		}
+	}
+	v.Networks = networks
 	return nil
 }
 
@@ -431,8 +524,9 @@ func parseSize(str string) (*uint64, error) {
 	return &value, nil
 }
 
-// parseTags returns the tags in the value s.  We expect the tags to be comma delimited strings.
-func parseTags(s string) *[]string {
+// parseCommaDelimited returns the items in the value s. We expect the
+// tags to be comma delimited strings. It is used for tags and networks.
+func parseCommaDelimited(s string) *[]string {
 	if s == "" {
 		return &[]string{}
 	}
@@ -440,20 +534,20 @@ func parseTags(s string) *[]string {
 	return &t
 }
 
-func parseYamlTags(val interface{}) (*[]string, error) {
+func parseYamlStrings(entityName string, val interface{}) (*[]string, error) {
 	ifcs, ok := val.([]interface{})
 	if !ok {
-		return nil, fmt.Errorf("unexpected type passed to tags: %T", val)
+		return nil, fmt.Errorf("unexpected type passed to %s: %T", entityName, val)
 	}
-	tags := make([]string, len(ifcs))
+	items := make([]string, len(ifcs))
 	for n, ifc := range ifcs {
 		s, ok := ifc.(string)
 		if !ok {
-			return nil, fmt.Errorf("unexpected type passed as a tag: %T", ifc)
+			return nil, fmt.Errorf("unexpected type passed as in %s: %T", entityName, ifc)
 		}
-		tags[n] = s
+		items[n] = s
 	}
-	return &tags, nil
+	return &items, nil
 }
 
 var mbSuffixes = map[string]float64{
