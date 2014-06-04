@@ -964,20 +964,21 @@ func (m *Machine) SetMachineAddresses(addresses ...instance.Address) (err error)
 }
 
 // RequestedNetworks returns the list of network names the machine
-// should be on (includeNetworks) or not (excludeNetworks).
-func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string, err error) {
+// should be on. Unlike networks specified with constraints, these
+// networks are required to be present on the machine.
+func (m *Machine) RequestedNetworks() ([]string, error) {
 	return readRequestedNetworks(m.st, m.globalKey())
 }
 
 // Networks returns the list of configured networks on the machine.
 // The configured and requested networks on a machine must match.
 func (m *Machine) Networks() ([]*Network, error) {
-	includeNetworks, _, err := m.RequestedNetworks()
+	requestedNetworks, err := m.RequestedNetworks()
 	if err != nil {
 		return nil, err
 	}
 	docs := []networkDoc{}
-	sel := bson.D{{"_id", bson.D{{"$in", includeNetworks}}}}
+	sel := bson.D{{"_id", bson.D{{"$in", requestedNetworks}}}}
 	err = m.st.networks.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err

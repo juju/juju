@@ -324,6 +324,15 @@ tags
    Multiple tags must be delimited by a comma. Tags are currently only supported
    by the MaaS environment.
 
+networks
+   Networks defines the list of networks to ensure are available or not on the
+   machine. Both positive and negative network constraints can be specified, the
+   later have a "^" prefix to the name. Multiple networks must be delimited by a
+   comma. Not supported on all providers. Example: networks=storage,db,^logging
+   specifies to select machines with "storage" and "db" networks but not "logging"
+   network. Positive network constraints do not imply the networks will be enabled,
+   use the --networks argument for that, just that they could be enabled.
+
 Example:
 
    juju add-machine --constraints "arch=amd64 mem=8G tags=foo,bar"

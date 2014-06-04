@@ -397,15 +397,17 @@ func (s *ConnSuite) TestPutCharmUpload(c *gc.C) {
 	c.Assert(sch.Revision(), gc.Equals, rev+1)
 }
 
-func (s *ConnSuite) assertAssignedMachineRequestedNetworks(c *gc.C, unit *state.Unit, expectInclude, expectExclude []string) {
+func (s *ConnSuite) assertAssignedMachineRequestedNetworks(c *gc.C, unit *state.Unit, includeNets, excludeNets []string) {
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, gc.IsNil)
 	machine, err := s.conn.State.Machine(machineId)
 	c.Assert(err, gc.IsNil)
-	include, exclude, err := machine.RequestedNetworks()
+	networks, err := machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
-	c.Assert(include, jc.DeepEquals, expectInclude)
-	c.Assert(exclude, jc.DeepEquals, expectExclude)
+	c.Assert(networks, jc.DeepEquals, includeNets)
+	cons, err := machine.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons.ExcludeNetworks(), jc.DeepEquals, excludeNets)
 }
 
 func (s *ConnSuite) TestAddUnits(c *gc.C) {
@@ -414,7 +416,9 @@ func (s *ConnSuite) TestAddUnits(c *gc.C) {
 	curl := coretesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
-	svc, err := s.conn.State.AddService("testriak", "user-admin", sch, withNets, withoutNets)
+	svc, err := s.conn.State.AddService("testriak", "user-admin", sch, withNets)
+	c.Assert(err, gc.IsNil)
+	err = svc.SetConstraints(constraints.MustParse("networks=^" + strings.Join(withoutNets, ",^")))
 	c.Assert(err, gc.IsNil)
 	units, err := juju.AddUnits(s.conn.State, svc, 2, "")
 	c.Assert(err, gc.IsNil)
@@ -612,8 +616,8 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
-	cons := constraints.MustParse("mem=2G")
-	err = s.State.SetEnvironConstraints(cons)
+	envCons := constraints.MustParse("mem=2G")
+	err = s.State.SetEnvironConstraints(envCons)
 	c.Assert(err, gc.IsNil)
 	serviceCons := constraints.MustParse("cpu-cores=2")
 	service, err := juju.DeployService(s.State,
@@ -635,9 +639,11 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	machine, err = s.State.Machine(id)
 	c.Assert(err, gc.IsNil)
-	expectedCons, err := machine.Constraints()
+	machineCons, err := machine.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, expectedCons)
+	unitCons, err := units[0].Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineCons, gc.DeepEquals, *unitCons)
 }
 
 func (s *DeployLocalSuite) assertCharm(c *gc.C, service *state.Service, expect *charm.URL) {

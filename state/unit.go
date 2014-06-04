@@ -1031,8 +1031,8 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 	return fmt.Errorf("cannot add container within machine: transaction aborted for unknown reason")
 }
 
-// constraints is a helper function to return a unit's deployment constraints.
-func (u *Unit) constraints() (*constraints.Value, error) {
+// Constraints returns the unit's deployment constraints.
+func (u *Unit) Constraints() (*constraints.Value, error) {
 	cons, err := readConstraints(u.st, u.globalKey())
 	if errors.IsNotFound(err) {
 		// Lack of constraints indicates lack of unit.
@@ -1054,7 +1054,7 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
 	}
-	cons, err := u.constraints()
+	cons, err := u.Constraints()
 	if err != nil {
 		return err
 	}
@@ -1083,16 +1083,15 @@ func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	if err != nil {
 		return err
 	}
-	includeNetworks, excludeNetworks, err := svc.Networks()
+	requestedNetworks, err := svc.Networks()
 	if err != nil {
 		return err
 	}
 	template := MachineTemplate{
-		Series:          u.doc.Series,
-		Constraints:     *cons,
-		Jobs:            []MachineJob{JobHostUnits},
-		IncludeNetworks: includeNetworks,
-		ExcludeNetworks: excludeNetworks,
+		Series:            u.doc.Series,
+		Constraints:       *cons,
+		Jobs:              []MachineJob{JobHostUnits},
+		RequestedNetworks: requestedNetworks,
 	}
 	err = u.assignToNewMachine(template, host.Id, *cons.Container)
 	if err == machineNotCleanErr {
@@ -1113,7 +1112,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	}
 	// Get the ops necessary to create a new machine, and the machine doc that
 	// will be added with those operations (which includes the machine id).
-	cons, err := u.constraints()
+	cons, err := u.Constraints()
 	if err != nil {
 		return err
 	}
@@ -1126,16 +1125,15 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	if err != nil {
 		return err
 	}
-	includeNetworks, excludeNetworks, err := svc.Networks()
+	requestedNetworks, err := svc.Networks()
 	if err != nil {
 		return err
 	}
 	template := MachineTemplate{
-		Series:          u.doc.Series,
-		Constraints:     *cons,
-		Jobs:            []MachineJob{JobHostUnits},
-		IncludeNetworks: includeNetworks,
-		ExcludeNetworks: excludeNetworks,
+		Series:            u.doc.Series,
+		Constraints:       *cons,
+		Jobs:              []MachineJob{JobHostUnits},
+		RequestedNetworks: requestedNetworks,
 	}
 	return u.assignToNewMachine(template, "", containerType)
 }
@@ -1266,7 +1264,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	}
 
 	// Get the unit constraints to see what deployment requirements we have to adhere to.
-	cons, err := u.constraints()
+	cons, err := u.Constraints()
 	if err != nil {
 		assignContextf(&err, u, context)
 		return nil, err

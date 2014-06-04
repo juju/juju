@@ -33,6 +33,7 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils"
+	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/version"
 )
 
@@ -743,7 +744,7 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f2")
 	suite.getNetwork("WLAN", 1, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "WLAN", "aa:bb:cc:dd:ee:ff")
-	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance)
+	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance, set.NewStrings("LAN", "Virt"))
 	c.Assert(err, gc.IsNil)
 
 	// Note: order of networks is based on lshwXML
@@ -755,7 +756,9 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			ProviderId:    "WLAN",
 			VLANTag:       0,
 			InterfaceName: "wlan0",
-			IsVirtual:     false},
+			IsVirtual:     false,
+			Disabled:      true,
+		},
 		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:f1",
 			CIDR:          "192.168.2.1/24",
@@ -763,7 +766,9 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			ProviderId:    "LAN",
 			VLANTag:       42,
 			InterfaceName: "eth0",
-			IsVirtual:     true},
+			IsVirtual:     true,
+			Disabled:      false,
+		},
 		network.Info{
 			MACAddress:    "aa:bb:cc:dd:ee:f2",
 			CIDR:          "192.168.3.1/24",
@@ -771,7 +776,9 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			ProviderId:    "Virt",
 			VLANTag:       0,
 			InterfaceName: "vnet1",
-			IsVirtual:     false},
+			IsVirtual:     false,
+			Disabled:      false,
+		},
 	})
 }
 
@@ -791,7 +798,7 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "LAN", "aa:bb:cc:dd:ee:f1")
 	suite.getNetwork("Virt", 3, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
-	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance)
+	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance, set.NewStrings("LAN"))
 	c.Assert(err, gc.IsNil)
 
 	// Note: order of networks is based on lshwXML
@@ -803,7 +810,9 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 			ProviderId:    "LAN",
 			VLANTag:       42,
 			InterfaceName: "eth0",
-			IsVirtual:     true},
+			IsVirtual:     true,
+			Disabled:      false,
+		},
 	})
 }
 
@@ -821,7 +830,7 @@ func (suite *environSuite) TestSetupNetworksNoMatch(c *gc.C) {
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
 	suite.getNetwork("Virt", 3, 0)
 	suite.testMAASObject.TestServer.ConnectNodeToNetworkWithMACAddress("node1", "Virt", "aa:bb:cc:dd:ee:f3")
-	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance)
+	networkInfo, err := suite.makeEnviron().setupNetworks(test_instance, set.NewStrings("Virt"))
 	c.Assert(err, gc.IsNil)
 
 	// Note: order of networks is based on lshwXML

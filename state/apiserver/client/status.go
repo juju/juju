@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/charm"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/state"
@@ -439,11 +440,28 @@ func (context *statusContext) processService(service *state.Service) (status api
 		status.Err = err
 		return
 	}
-	includeNetworks, excludeNetworks, err := service.Networks()
-	if err == nil {
+	networks, err := service.Networks()
+	if err != nil {
+		status.Err = err
+		return
+	}
+	var cons constraints.Value
+	if service.IsPrincipal() {
+		// Only principals can have constraints.
+		cons, err = service.Constraints()
+		if err != nil {
+			status.Err = err
+			return
+		}
+	}
+	if len(networks) > 0 || cons.HaveNetworks() {
+		// Only the explicitly requested networks (using "juju deploy
+		// <svc> --networks=...") will be enabled, and altough when
+		// specified, networks constraints will be used for instance
+		// selection, they won't be actually enabled.
 		status.Networks = api.NetworksSpecification{
-			Enabled:  includeNetworks,
-			Disabled: excludeNetworks,
+			Enabled:  networks,
+			Disabled: append(cons.IncludeNetworks(), cons.ExcludeNetworks()...),
 		}
 	}
 	if service.IsPrincipal() {

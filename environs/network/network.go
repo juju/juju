@@ -34,4 +34,8 @@ type Info struct {
 	// IsVirtual is true when the interface is a virtual device, as
 	// opposed to a physical device.
 	IsVirtual bool
+
+	// Disabled is true when the interface needs to be disabled on the
+	// machine, e.g. not to configure it.
+	Disabled bool
 }
