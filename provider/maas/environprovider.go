@@ -71,6 +71,18 @@ maas:
     #
     maas-oauth: '<add your OAuth credentials from MAAS here>'
 
+    # maas-server bootstrap ssh connection options
+    #
+
+    # bootstrap-timeout time to wait contacting a state server, in seconds.
+    # bootstrap-timeout: 600
+
+    # bootstrap-retry-delay time between attempts to connect to an address, in seconds.
+    # bootstrap-retry-delay: 5
+
+    # bootstrap-addresses-delay time between refreshing the addresses, in seconds.
+    # bootstrap-addresses-delay: 10
+
 `[1:]
 
 // BoilerplateConfig is specified in the EnvironProvider interface.
