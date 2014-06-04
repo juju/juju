@@ -23,27 +23,13 @@ const (
 	// attempts to replSetInitiate.
 	initiateAttemptDelay = 100 * time.Millisecond
 
-	// maxInitiateStatusAttempts is the maximum number of
-	// attempts to get the replicaset status after initiate
-	maxInitiateStatusAttempts = 60
-
-	// initiateStatusDelay is the amount of time to sleep between failed
-	// attempts to fetch the status of the replica set after initiate
-	initiateStatusDelay = 250 * time.Millisecond
-
 	// rsMembersUnreachableError is the error message returned from mongo
 	// when it thinks that replicaset members are unreachable. This can
 	// occur if replSetInitiate is executed shortly after starting up mongo.
 	rsMembersUnreachableError = "all members and seeds must be reachable to initiate set"
-
-	// rsReceivedInitiateError is the error message returned from mongo
-	// when it has received the instruction to initiate but has not yet
-	// completed. We just need to wait for it to complete.
-	rsReceivedInitiateError = "Received replSetInitiate - should come online shortly"
 )
 
 var logger = loggo.GetLogger("juju.replicaset")
-var getCurrentStatus = CurrentStatus
 
 // Initiate sets up a replica set with the given replica set name with the
 // single given member.  It need be called only once for a given mongo replica
@@ -79,20 +65,6 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 		break
 	}
 
-	for i := 0; i < maxInitiateStatusAttempts; i++ {
-		monotonicSession.Refresh()
-		status, err := getCurrentStatus(monotonicSession)
-		if err != nil {
-			if !strings.Contains(err.Error(), rsReceivedInitiateError) {
-				logger.Warningf("Initiate: fetching replicaset status failed: %v", err)
-			}
-		}
-		if err != nil || len(status.Members) == 0 {
-			time.Sleep(initiateStatusDelay)
-			continue
-		}
-		break
-	}
 	return err
 }
 
