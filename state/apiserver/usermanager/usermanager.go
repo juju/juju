@@ -6,6 +6,7 @@ package usermanager
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/state"
@@ -17,7 +18,7 @@ var logger = loggo.GetLogger("juju.state.apiserver.usermanager")
 
 // UserManager defines the methods on the usermanager API end point.
 type UserManager interface {
-	AddUser(arg params.EntityPasswords) (params.ErrorResults, error)
+	AddUser(arg params.ModifyUsers) (params.ErrorResults, error)
 	RemoveUser(arg params.Entities) (params.ErrorResults, error)
 }
 
@@ -48,7 +49,7 @@ func NewUserManagerAPI(
 		nil
 }
 
-func (api *UserManagerAPI) AddUser(args params.EntityPasswords) (params.ErrorResults, error) {
+func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
@@ -65,9 +66,13 @@ func (api *UserManagerAPI) AddUser(args params.EntityPasswords) (params.ErrorRes
 			result.Results[0].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		_, err := api.state.AddUser(arg.Tag, arg.Password)
+		username := arg.Username
+		if username == "" {
+			username = arg.Tag
+		}
+		_, err := api.state.AddUser(username, arg.DisplayName, arg.Password)
 		if err != nil {
-			err = fmt.Errorf("Failed to create user: %v", err)
+			err = errors.Annotate(err, "failed to create user")
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		}

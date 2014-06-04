@@ -121,7 +121,7 @@ func initUsersAndBootstrapMachine(c ConfigSetter, st *state.State, cfg Bootstrap
 func initBootstrapUser(st *state.State, passwordHash string) error {
 	logger.Debugf("adding admin user")
 	// Set up initial authentication.
-	u, err := st.AddUser("admin", "")
+	u, err := st.AddUser("admin", "", "")
 	if err != nil {
 		return err
 	}

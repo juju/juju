@@ -2372,7 +2372,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
 	_, err = svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddUser("arble", "pass")
+	_, err = s.State.AddUser("arble", "", "pass")
 	c.Assert(err, gc.IsNil)
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "ser-vice2"})
@@ -2464,7 +2464,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Parse a user entity name.
-	user, err := s.State.AddUser("arble", "pass")
+	user, err := s.State.AddUser("arble", "", "pass")
 	c.Assert(err, gc.IsNil)
 	coll, id, err = state.ParseTag(s.State, user.Tag())
 	c.Assert(coll, gc.Equals, "users")

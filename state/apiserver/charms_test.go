@@ -36,12 +36,9 @@ type authHttpSuite struct {
 
 func (s *authHttpSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	password, err := utils.RandomPassword()
-	c.Assert(err, gc.IsNil)
-	user, err := s.State.AddUser("joe", password)
-	c.Assert(err, gc.IsNil)
+	user := s.AddUser(c, "joe")
 	s.userTag = user.Tag()
-	s.password = password
+	s.password = "password"
 }
 
 func (s *authHttpSuite) sendRequest(c *gc.C, tag, password, method, uri, contentType string, body io.Reader) (*http.Response, error) {
