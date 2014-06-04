@@ -6,11 +6,11 @@ package networker
 import (
 	"github.com/juju/loggo"
 
-	"launchpad.net/juju-core/environs/network"
-	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
+	"github.com/juju/juju/environs/network"
+	"github.com/juju/juju/names"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/common"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.networker")

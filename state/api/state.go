@@ -16,7 +16,7 @@ import (
 	"github.com/juju/juju/state/api/keyupdater"
 	apilogger "github.com/juju/juju/state/api/logger"
 	"github.com/juju/juju/state/api/machiner"
-	"github.com/juju-core/state/api/networker"
+	"github.com/juju/juju/state/api/networker"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/provisioner"
 	"github.com/juju/juju/state/api/rsyslog"

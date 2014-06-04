@@ -6,9 +6,9 @@ package networker
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs/network"
-	"launchpad.net/juju-core/state/api/base"
-	"launchpad.net/juju-core/state/api/params"
+	"github.com/juju/juju/environs/network"
+	"github.com/juju/juju/state/api/base"
+	"github.com/juju/juju/state/api/params"
 )
 
 const networkerFacade = "Networker"

@@ -23,7 +23,7 @@ import (
 	"github.com/juju/juju/state/apiserver/keyupdater"
 	loggerapi "github.com/juju/juju/state/apiserver/logger"
 	"github.com/juju/juju/state/apiserver/machine"
-	"github.com/juju-core/state/api/networker"
+	"github.com/juju/juju/state/apiserver/networker"
 	"github.com/juju/juju/state/apiserver/provisioner"
 	"github.com/juju/juju/state/apiserver/rsyslog"
 	"github.com/juju/juju/state/apiserver/uniter"
