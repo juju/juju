@@ -88,7 +88,7 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 			}
 		}
 		if err != nil || len(status.Members) == 0 {
-			time.Sleep(initiateAttemptDelay)
+			time.Sleep(initiateStatusDelay)
 			continue
 		}
 		break
