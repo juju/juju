@@ -55,6 +55,7 @@ type JujuConnSuite struct {
 	State        *state.State
 	APIConn      *juju.APIConn
 	APIState     *api.State
+	apiStates    []*api.State // additional api.States to close on teardown
 	ConfigStore  configstore.Storage
 	BackingState *state.State // The State being used by the API server
 	RootDir      string       // The faked-up root directory.
@@ -130,10 +131,7 @@ func (s *JujuConnSuite) openAPIAs(c *gc.C, tag, password, nonce string) *api.Sta
 	apiState, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiState, gc.NotNil)
-	s.AddCleanup(func(c *gc.C) {
-		err := apiState.Close()
-		c.Check(err, gc.IsNil)
-	})
+	s.apiStates = append(s.apiStates, apiState)
 	return apiState
 }
 
@@ -273,6 +271,12 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	if err := s.State.SetAdminMongoPassword(""); err != nil && serverAlive {
 		c.Logf("cannot reset admin password: %v", err)
 	}
+	for _, st := range s.apiStates {
+		err := st.Close()
+		if serverAlive {
+			c.Assert(err, gc.IsNil)
+		}
+	}
 	err := s.Conn.Close()
 	if serverAlive {
 		c.Assert(err, gc.IsNil)
@@ -282,6 +286,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 	dummy.Reset()
+	s.apiStates = nil
 	s.Conn = nil
 	s.State = nil
 	utils.SetHome(s.oldHome)
