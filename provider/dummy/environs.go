@@ -34,6 +34,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/schema"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -49,7 +50,6 @@ import (
 	"github.com/juju/juju/names"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/schema"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/apiserver"
