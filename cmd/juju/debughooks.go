@@ -9,9 +9,10 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/charm/hooks"
 	"github.com/juju/juju/cmd"
-	"github.com/juju/juju/names"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 )
 

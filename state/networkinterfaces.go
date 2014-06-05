@@ -6,9 +6,8 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	"labix.org/v2/mgo/bson"
-
-	"github.com/juju/juju/names"
 )
 
 // NetworkInterface represents the state of a machine network

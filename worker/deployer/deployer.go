@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/names"
 	apideployer "github.com/juju/juju/state/api/deployer"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"

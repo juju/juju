@@ -24,5 +24,5 @@ func (*Dependencies) TestPackageDependencies(c *gc.C) {
 	// really be moved into "juju/osenv".
 	c.Assert(coretesting.FindJujuCoreImports(c, "github.com/juju/juju/cmd"),
 		jc.DeepEquals,
-		[]string{"juju/arch", "juju/osenv", "names", "utils", "version"})
+		[]string{"juju/arch", "juju/osenv", "utils", "version"})
 }

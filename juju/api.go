@@ -9,12 +9,12 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/keymanager"
 	"github.com/juju/juju/state/api/usermanager"

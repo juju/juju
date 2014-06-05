@@ -11,13 +11,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api/params"
 )
 
