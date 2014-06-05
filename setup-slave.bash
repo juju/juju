@@ -1,12 +1,12 @@
 #!/bin/bash
+# setup-slave.bash arm64-slave [./cloud-city] [jenkins-master-ip]
 set -eux
 
 SLAVE=$1
-MASTER_ADDRESS=${2:-162.213.35.54}
+LOCAL_CLOUD_CITY="${2:-./cloud-city}"
 MASTER="http://juju-ci.vapour.ws:8080/"
-LOCAL_CLOUD_CITY="~/Work/cloud-city"
 KEY="staging-juju-rsa"
-SLAVE_ADDRESS=$(juju status ppc-slave |
+SLAVE_ADDRESS=$(juju status $SLAVE |
     grep public-address |
     cut -d : -f 2 |
     sed 's/ //g')
@@ -14,6 +14,7 @@ SLAVE_ADDRESS=$(juju status ppc-slave |
 # Register the slave with the master.
 # This should be a charm responsability.
 juju ssh $SLAVE/0 <<EOT
+echo 'jenkins ALL=(ALL) NOPASSWD:ALL' | sudo tee -a /etc/sudoers.d/91-jenkins
 cd /usr/share/jenkins/bin
 test -d /var/run/jenkins || sudo mkdir /var/run/jenkins
 sudo ./download-slave.sh $MASTER
@@ -33,7 +34,7 @@ chmod 700 ./.ssh/
 cat ./authorized_keys >> ./.ssh/authorized_keys
 chmod 600 ./.ssh/authorized_keys
 rm ./authorized_keys
-exit
+logout
 EOT
 
 # Install ssh rules for juju to repeatedly create instances.
@@ -68,6 +69,7 @@ juju ssh $SLAVE/0 <<EOT
 sudo apt-add-repository -y ppa:juju/stable
 sudo apt-get update
 sudo apt-get install -y juju-local juju
+logout
 EOT
 
 # Configure Jenkins with launch command
