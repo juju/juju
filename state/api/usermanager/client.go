@@ -6,7 +6,8 @@ package usermanager
 import (
 	"fmt"
 
-	"github.com/juju/juju/names"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 )
@@ -29,14 +30,15 @@ func (c *Client) Close() error {
 	return c.st.Close()
 }
 
-func (c *Client) AddUser(tag, password string) error {
-	if !names.IsUser(tag) {
-		return fmt.Errorf("invalid user name %q", tag)
+func (c *Client) AddUser(username, displayName, password string) error {
+	if !names.IsUser(username) {
+		return fmt.Errorf("invalid user name %q", username)
 	}
-	u := params.EntityPassword{Tag: tag, Password: password}
-	p := params.EntityPasswords{Changes: []params.EntityPassword{u}}
+	userArgs := params.ModifyUsers{
+		Changes: []params.ModifyUser{{Username: username, DisplayName: displayName, Password: password}},
+	}
 	results := new(params.ErrorResults)
-	err := c.call("AddUser", p, results)
+	err := c.call("AddUser", userArgs, results)
 	if err != nil {
 		return err
 	}

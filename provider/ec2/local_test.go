@@ -149,6 +149,18 @@ func (srv *localServer) startServer(c *gc.C) {
 	storage := ec2.BucketStorage(s3inst.Bucket("juju-dist"))
 	envtesting.UploadFakeTools(c, storage)
 	srv.addSpice(c)
+
+	zones := make([]amzec2.AvailabilityZoneInfo, 3)
+	zones[0].Region = "test"
+	zones[0].Name = "test-available"
+	zones[0].State = "available"
+	zones[1].Region = "test"
+	zones[1].Name = "test-impaired"
+	zones[1].State = "impaired"
+	zones[2].Region = "test"
+	zones[2].Name = "test-unavailable"
+	zones[2].State = "unavailable"
+	srv.ec2srv.SetAvailabilityZones(zones)
 }
 
 // addSpice adds some "spice" to the local server
@@ -321,6 +333,68 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Assert(*hc.CpuPower, gc.Equals, uint64(100))
 }
 
+func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
+	inst, err := t.testStartInstanceAvailZone(c, "test-available")
+	c.Assert(err, gc.IsNil)
+	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "test-available")
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneImpaired(c *gc.C) {
+	_, err := t.testStartInstanceAvailZone(c, "test-impaired")
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-impaired" is impaired`)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
+	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
+	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+}
+
+func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	params := environs.StartInstanceParams{Placement: "zone=" + zone}
+	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil, nil)
+	return inst, err
+}
+
+func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
+	var resultZones []amzec2.AvailabilityZoneInfo
+	var resultErr error
+	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
+		resp := &amzec2.AvailabilityZonesResp{
+			Zones: append([]amzec2.AvailabilityZoneInfo{}, resultZones...),
+		}
+		return resp, resultErr
+	})
+	env := t.Prepare(c)
+
+	resultErr = fmt.Errorf("failed to get availability zones")
+	zones, err := ec2.GetAvailabilityZones(env)
+	c.Assert(err, gc.Equals, resultErr)
+	c.Assert(zones, gc.IsNil)
+
+	resultErr = nil
+	resultZones = make([]amzec2.AvailabilityZoneInfo, 1)
+	resultZones[0].Name = "whatever"
+	zones, err = ec2.GetAvailabilityZones(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(zones, gc.HasLen, 1)
+	c.Assert(zones[0].Name, gc.Equals, "whatever")
+
+	// A successful result is cached, currently for the lifetime
+	// of the Environ. This will change if/when we have long-lived
+	// Environs to cut down repeated IaaS requests.
+	resultErr = fmt.Errorf("failed to get availability zones")
+	resultZones[0].Name = "andever"
+	zones, err = ec2.GetAvailabilityZones(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(zones, gc.HasLen, 1)
+	c.Assert(zones[0].Name, gc.Equals, "whatever")
+}
+
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
@@ -412,6 +486,27 @@ func (t *localServerSuite) TestPrecheckInstanceUnsupportedArch(c *gc.C) {
 	placement := ""
 	err := env.PrecheckInstance("precise", cons, placement)
 	c.Assert(err, gc.ErrorMatches, `invalid AWS instance type "cc1.4xlarge" and arch "i386" specified`)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
+	env := t.Prepare(c)
+	placement := "zone=test-available"
+	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	c.Assert(err, gc.IsNil)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
+	env := t.Prepare(c)
+	placement := "zone=test-unavailable"
+	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	c.Assert(err, gc.IsNil)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
+	env := t.Prepare(c)
+	placement := "zone=test-unknown"
+	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {

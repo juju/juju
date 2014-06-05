@@ -6,10 +6,10 @@ package ec2
 import (
 	"fmt"
 
+	"github.com/juju/schema"
 	"launchpad.net/goamz/aws"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/schema"
 )
 
 var configFields = schema.Fields{

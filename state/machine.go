@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"

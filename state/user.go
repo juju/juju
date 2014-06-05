@@ -4,11 +4,11 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/utils"
 )
 
@@ -22,9 +22,9 @@ func (st *State) checkUserExists(name string) (bool, error) {
 }
 
 // AddUser adds a user to the state.
-func (st *State) AddUser(name, password string) (*User, error) {
-	if !names.IsUser(name) {
-		return nil, fmt.Errorf("invalid user name %q", name)
+func (st *State) AddUser(username, displayName, password string) (*User, error) {
+	if !names.IsUser(username) {
+		return nil, errors.Errorf("invalid user name %q", username)
 	}
 	salt, err := utils.RandomSalt()
 	if err != nil {
@@ -33,23 +33,24 @@ func (st *State) AddUser(name, password string) (*User, error) {
 	u := &User{
 		st: st,
 		doc: userDoc{
-			Name:         name,
+			Name:         username,
+			DisplayName:  displayName,
 			PasswordHash: utils.UserPasswordHash(password, salt),
 			PasswordSalt: salt,
 		},
 	}
 	ops := []txn.Op{{
 		C:      st.users.Name,
-		Id:     name,
+		Id:     username,
 		Assert: txn.DocMissing,
 		Insert: &u.doc,
 	}}
 	err = st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		err = fmt.Errorf("user already exists")
+		err = errors.New("user already exists")
 	}
 	if err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return u, nil
 }
@@ -68,7 +69,7 @@ func (st *State) getUser(name string, udoc *userDoc) error {
 func (st *State) User(name string) (*User, error) {
 	u := &User{st: st}
 	if err := st.getUser(name, &u.doc); err != nil {
-		return nil, err
+		return nil, errors.Trace(err)
 	}
 	return u, nil
 }
@@ -81,7 +82,8 @@ type User struct {
 
 type userDoc struct {
 	Name         string `bson:"_id_"`
-	Deactivated  bool   // Removing users means they still exist, but are marked deactivated
+	DisplayName  string
+	Deactivated  bool // Removing users means they still exist, but are marked deactivated
 	PasswordHash string
 	PasswordSalt string
 }
@@ -89,6 +91,11 @@ type userDoc struct {
 // Name returns the user name,
 func (u *User) Name() string {
 	return u.doc.Name
+}
+
+// DisplayName returns the display name of the user.
+func (u *User) DisplayName() string {
+	return u.doc.DisplayName
 }
 
 // Tag returns the Tag for

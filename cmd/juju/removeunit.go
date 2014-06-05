@@ -7,10 +7,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/names"
 )
 
 // RemoveUnitCommand is responsible for destroying service units.

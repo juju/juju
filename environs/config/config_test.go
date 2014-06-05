@@ -10,13 +10,13 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/schema"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/schema"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/version"

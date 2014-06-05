@@ -9,12 +9,12 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/names"
 )
 
 // RelationUnit holds information about a single unit in a relation, and

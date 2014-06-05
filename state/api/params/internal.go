@@ -336,7 +336,7 @@ type NetworkInterface struct {
 	MACAddress string
 
 	// InterfaceName is the OS-specific network device name (e.g.
-	// "eth0" or "eth1.42" for a VLAN virtual interface).
+	// "eth1", even for for a VLAN eth1.42 virtual interface).
 	InterfaceName string
 
 	// NetworkTag is this interface's network tag.
@@ -374,6 +374,17 @@ type RequestedNetworkResult struct {
 // RequestedNetworksResults holds multiple requested networks results.
 type RequestedNetworksResults struct {
 	Results []RequestedNetworkResult
+}
+
+// MachineNetworkInfoResult holds network info for a single machine.
+type MachineNetworkInfoResult struct {
+	Error *Error
+	Info  []network.Info
+}
+
+// MachineNetworkInfoResults holds network info for multiple machines.
+type MachineNetworkInfoResults struct {
+	Results []MachineNetworkInfoResult
 }
 
 // EntityStatus holds an entity tag, status and extra info.

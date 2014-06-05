@@ -7,9 +7,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/names"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver/agent"
@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/state/apiserver/keyupdater"
 	loggerapi "github.com/juju/juju/state/apiserver/logger"
 	"github.com/juju/juju/state/apiserver/machine"
+	"github.com/juju/juju/state/apiserver/networker"
 	"github.com/juju/juju/state/apiserver/provisioner"
 	"github.com/juju/juju/state/apiserver/rsyslog"
 	"github.com/juju/juju/state/apiserver/uniter"
@@ -133,6 +134,17 @@ func (r *srvRoot) Machiner(id string) (*machine.MachinerAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return machine.NewMachinerAPI(r.srv.state, r.resources, r)
+}
+
+// Networker returns an object that provides access to the
+// Networker API facade. The id argument is reserved for future use
+// and currently needs to be empty.
+func (r *srvRoot) Networker(id string) (*networker.NetworkerAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return networker.NewNetworkerAPI(r.srv.state, r.resources, r)
 }
 
 // Provisioner returns an object that provides access to the

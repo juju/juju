@@ -5,10 +5,10 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
+	"github.com/juju/names"
 	"labix.org/v2/mgo/bson"
-
-	"github.com/juju/juju/names"
 )
 
 // NetworkInterface represents the state of a machine network
@@ -26,14 +26,15 @@ type NetworkInterfaceInfo struct {
 	MACAddress string
 
 	// InterfaceName is the OS-specific network device name (e.g.
-	// "eth0" or "eth1.42" for a VLAN virtual interface).
+	// "eth0", or "eth1.42" for a VLAN virtual interface, or
+	// "eth1:suffix" for a network alias).
 	InterfaceName string
 
 	// NetworkName is this interface's network name.
 	NetworkName string
 
 	// IsVirtual is true when the interface is a virtual device, as
-	// opposed to a physical device.
+	// opposed to a physical device (e.g. a VLAN or a network alias).
 	IsVirtual bool
 }
 
@@ -81,6 +82,15 @@ func (ni *NetworkInterface) MACAddress() string {
 
 // InterfaceName returns the name of the interface.
 func (ni *NetworkInterface) InterfaceName() string {
+	return ni.doc.InterfaceName
+}
+
+// RawInterfaceName return the name of the raw interface.
+func (ni *NetworkInterface) RawInterfaceName() string {
+	nw, err := ni.st.Network(ni.doc.NetworkName)
+	if err == nil {
+		return strings.TrimSuffix(ni.doc.InterfaceName, fmt.Sprintf(".%d", nw.VLANTag()))
+	}
 	return ni.doc.InterfaceName
 }
 

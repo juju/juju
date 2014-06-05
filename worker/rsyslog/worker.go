@@ -12,10 +12,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/names"
 	apirsyslog "github.com/juju/juju/state/api/rsyslog"
 	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/utils"

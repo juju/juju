@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/charm"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/names"
 )
 
 // UpgradeCharm is responsible for upgrading a service's charm.
