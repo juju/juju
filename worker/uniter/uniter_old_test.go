@@ -15,7 +15,7 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
-	ft "github.com/juju/juju/testing/filetesting"
+	ft "github.com/juju/testing/filetesting"
 )
 
 // These tests are copies of the old git-deployer-related tests, to test that

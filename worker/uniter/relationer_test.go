@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/state/api"
 	apiuniter "github.com/juju/juju/state/api/uniter"
 	coretesting "github.com/juju/juju/testing"
-	ft "github.com/juju/juju/testing/filetesting"
+	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/hook"

@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	apiuniter "github.com/juju/juju/state/api/uniter"
 	coretesting "github.com/juju/juju/testing"
-	ft "github.com/juju/juju/testing/filetesting"
+	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/juju/utils"
 	utilexec "github.com/juju/juju/utils/exec"
 	"github.com/juju/juju/utils/fslock"
