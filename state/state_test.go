@@ -2077,6 +2077,21 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
+	info := state.TestingStateInfo()
+	err := tryOpenState(info)
+	c.Assert(err, gc.IsNil)
+
+	di, err := state.DialInfo(info, state.TestingDialOpts())
+	c.Assert(err, gc.IsNil)
+	session, err := mgo.DialWithInfo(di)
+	c.Assert(err, gc.IsNil)
+	defer session.Close()
+
+	safe := session.Safe()
+	c.Assert(safe.WMode, gc.Not(gc.Equals), "majority")
+}
+
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
