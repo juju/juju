@@ -6,8 +6,9 @@ package manual
 import (
 	"fmt"
 
+	"github.com/juju/schema"
+
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/schema"
 )
 
 const defaultStoragePort = 8040
