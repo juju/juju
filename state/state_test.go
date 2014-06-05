@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/peergrouper"
 )
 
 var goodPassword = "foo-12345678901234567890"
@@ -2079,17 +2080,38 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 
 func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
 	info := state.TestingStateInfo()
-	err := tryOpenState(info)
+	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
+	defer st.Close()
 
-	di, err := state.DialInfo(info, state.TestingDialOpts())
-	c.Assert(err, gc.IsNil)
-	session, err := mgo.DialWithInfo(di)
-	c.Assert(err, gc.IsNil)
-	defer session.Close()
-
+	session := st.MongoSession()
 	safe := session.Safe()
 	c.Assert(safe.WMode, gc.Not(gc.Equals), "majority")
+}
+
+func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
+	inst := testing.MgoInstance{Params: []string{"--replSet", "juju"}}
+	err := inst.Start(true)
+	c.Assert(err, gc.IsNil)
+	defer inst.Destroy()
+
+	info := inst.DialInfo()
+	args := peergrouper.InitiateMongoParams{
+		DialInfo:       info,
+		MemberHostPort: inst.Addr(),
+	}
+
+	err = peergrouper.MaybeInitiateMongoServer(args)
+	c.Assert(err, gc.IsNil)
+
+	stateInfo := &state.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}
+	st, err := state.Open(stateInfo, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	session := st.MongoSession()
+	safe := session.Safe()
+	c.Assert(safe.WMode, gc.Equals, "majority")
 }
 
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
