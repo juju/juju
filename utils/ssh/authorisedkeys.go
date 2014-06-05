@@ -16,8 +16,7 @@ import (
 
 	"code.google.com/p/go.crypto/ssh"
 	"github.com/juju/loggo"
-
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.utils.ssh")

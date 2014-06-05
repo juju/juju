@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/utils/ssh"
 )
 

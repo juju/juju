@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/state/api/upgrader"
 	"github.com/juju/juju/state/watcher"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 

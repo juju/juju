@@ -9,13 +9,13 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/voyeur"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/voyeur"
 	"github.com/juju/juju/worker"
 )
 

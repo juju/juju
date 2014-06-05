@@ -15,10 +15,10 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils"
 )
 
 type maasStorage struct {

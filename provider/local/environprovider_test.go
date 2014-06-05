@@ -9,6 +9,8 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/testing"
+	"github.com/juju/utils/apt"
+	"github.com/juju/utils/proxy"
 	gc "launchpad.net/gocheck"
 
 	lxctesting "github.com/juju/juju/container/lxc/testing"
@@ -17,8 +19,6 @@ import (
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/local"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/apt"
-	"github.com/juju/juju/utils/proxy"
 )
 
 type baseProviderSuite struct {

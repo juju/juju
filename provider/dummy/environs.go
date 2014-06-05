@@ -36,6 +36,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/schema"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -54,7 +55,6 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/apiserver"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")

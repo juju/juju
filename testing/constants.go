@@ -6,7 +6,7 @@ package testing
 import (
 	"time"
 
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 // ShortWait is a reasonable amount of time to block waiting for something that

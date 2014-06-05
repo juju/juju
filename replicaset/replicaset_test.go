@@ -6,11 +6,11 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 const rsName = "juju"

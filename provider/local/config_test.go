@@ -6,6 +6,7 @@ package local_test
 import (
 	"path/filepath"
 
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 type configSuite struct {

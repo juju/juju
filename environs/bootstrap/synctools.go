@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -15,7 +16,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/arch"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/version/ubuntu"
 )

@@ -10,15 +10,15 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
+	"github.com/juju/utils/apt"
+	"github.com/juju/utils/exec"
+	proxyutils "github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state/api/environment"
 	"github.com/juju/juju/state/api/watcher"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/apt"
-	"github.com/juju/juju/utils/exec"
-	proxyutils "github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker"
 )
 

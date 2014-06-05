@@ -6,8 +6,9 @@ package charm_test
 import (
 	"bytes"
 
-	"github.com/juju/juju/charm"
 	gc "launchpad.net/gocheck"
+
+	"github.com/juju/juju/charm"
 )
 
 type ActionsSuite struct{}

@@ -4,8 +4,9 @@
 package upgrader
 
 import (
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 )
 
 var (
