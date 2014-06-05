@@ -60,6 +60,16 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) string {
 	return network.SelectPublicAddress(convertNovaAddresses(addresses))
 }
 
+func InstanceServerDetail(inst instance.Instance) *nova.ServerDetail {
+	return inst.(*openstackInstance).serverDetail
+}
+
+func GetAvailabilityZones(e environs.Environ) ([]nova.AvailabilityZone, error) {
+	return e.(*environ).getAvailabilityZones()
+}
+
+var NovaListAvailabilityZones = &novaListAvailabilityZones
+
 var indexData = `
 		{
 		 "index": {
