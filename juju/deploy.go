@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state"
 )
 

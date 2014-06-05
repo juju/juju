@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/names"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/constraints"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api/params"
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 	apiwatcher "github.com/juju/juju/state/api/watcher"

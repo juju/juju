@@ -7,9 +7,9 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/names"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver/agent"
