@@ -160,18 +160,14 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 		Tag:          s.machine.Tag(),
 	}
 
-	// Create the resource registry separately.
-	s.resources = common.NewResources()
-
 	// Create a networker API for the machine.
 	var err error
 	s.networker, err = networker.NewNetworkerAPI(
 		s.State,
-		s.resources,
+		nil,
 		s.authorizer,
 	)
 	c.Assert(err, gc.IsNil)
-
 }
 
 func (s *networkerSuite) TestNetworkerNonMachineAgent(c *gc.C) {

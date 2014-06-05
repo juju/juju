@@ -45,7 +45,7 @@ func NewNetworkerAPI(
 				return false
 			}
 			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
-				// Until reach top-level machine.
+				// Until a top-level machine is reached.
 				if names.MachineTag(parentId) == authEntityTag {
 					// All containers with the authenticated machine as a
 					// parent are accessible by it.
@@ -101,12 +101,15 @@ func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineN
 	if err != nil {
 		return result, err
 	}
+	id := ""
 	for i, entity := range args.Entities {
 		if !canAccess(entity.Tag) {
 			err = common.ErrPerm
 		} else {
-			_, id, _ := names.ParseTag(entity.Tag, names.MachineTagKind)
-			result.Results[i].Info, err = n.oneMachineInfo(id)
+			_, id, err = names.ParseTag(entity.Tag, names.MachineTagKind)
+			if err == nil {
+				result.Results[i].Info, err = n.oneMachineInfo(id)
+			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
