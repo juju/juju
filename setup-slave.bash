@@ -40,7 +40,7 @@ EOT
 # Install ssh rules for juju to repeatedly create instances.
 ssh -i $LOCAL_CLOUD_CITY/$KEY jenkins@$SLAVE_ADDRESS \
 "cat << EOC | tee -a /var/lib/jenkins/.ssh/config
-Host 10.55.*
+Host 10.*
   StrictHostKeyChecking no
   UserKnownHostsFile /dev/null
   User ubuntu
@@ -53,7 +53,6 @@ bzr branch lp:~juju-qa/+junk/cloud-city \
 
 # Realise the private branch, then get the other branches.
 ssh -i $LOCAL_CLOUD_CITY/$KEY jenkins@$SLAVE_ADDRESS <<EOT
-ssh ppc-slave/0 -l jenkins
 bzr checkout cloud-city cloud-city
 bzr branch lp:juju-release-tools juju-release-tools
 bzr branch lp:juju-ci-tools juju-ci-tools
@@ -61,6 +60,7 @@ bzr branch lp:juju-ci-tools/repository repository
 chmod 600 cloud-city/$KEY*
 ln -s cloud-city/$KEY .ssh/id_rsa
 ln -s cloud-city/$KEY.pub .ssh/id_rsa.pub
+logout
 EOT
 
 # Install stable juju.
