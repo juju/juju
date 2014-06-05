@@ -53,6 +53,36 @@ func (s *ActionsSuite) TestStripBadInterfacesOK(c *gc.C) {
 			"key3": map[string]interface{}{
 				"foo1": "val1",
 				"foo2": "val2"}},
+	}, {
+		description: "Substitute nested inner map[i]i.",
+		acceptableInterface: map[string]interface{}{
+			"key1a": "val1a",
+			"key2a": "val2a",
+			"key3a": map[interface{}]interface{}{
+				"key1b": "val1b",
+				"key2b": map[interface{}]interface{}{
+					"key1c": "val1c"}}},
+		expectedInterface: map[string]interface{}{
+			"key1a": "val1a",
+			"key2a": "val2a",
+			"key3a": map[string]interface{}{
+				"key1b": "val1b",
+				"key2b": map[string]interface{}{
+					"key1c": "val1c"}}},
+	}, {
+		description: "Substitute nested map[i]i within []i.",
+		acceptableInterface: map[string]interface{}{
+			"key1a": "val1a",
+			"key2a": []interface{}{5, "foo", map[string]interface{}{
+				"key1b": "val1b",
+				"key2b": map[interface{}]interface{}{
+					"key1c": "val1c"}}}},
+		expectedInterface: map[string]interface{}{
+			"key1a": "val1a",
+			"key2a": []interface{}{5, "foo", map[string]interface{}{
+				"key1b": "val1b",
+				"key2b": map[string]interface{}{
+					"key1c": "val1c"}}}},
 	}}
 
 	for i, test := range goodInterfaceTests {
@@ -77,6 +107,17 @@ func (s *ActionsSuite) TestStripBadInterfacesFail(c *gc.C) {
 			"key3": map[interface{}]interface{}{
 				"foo1": "val1",
 				5:      "val2"}},
+		expectedError: "map keyed with non-string value",
+	}, {
+		description: "An inner []interface{} containing a map[i]i with an int key.",
+		failInterface: map[string]interface{}{
+			"key1a": "val1b",
+			"key2a": "val2b",
+			"key3a": []interface{}{"foo1", 5, map[interface{}]interface{}{
+				"key1b": "val1b",
+				"key2b": map[interface{}]interface{}{
+					"key1c": "val1c",
+					5:       "val2c"}}}},
 		expectedError: "map keyed with non-string value",
 	}}
 
