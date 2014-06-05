@@ -32,17 +32,12 @@ type networkerSuite struct {
 
 	st        *api.State
 	networker *networker.State
-
-	expectedMachineInfo   []network.Info
-	expectedContainerInfo []network.Info
 }
 
 var _ = gc.Suite(&networkerSuite{})
 
-func (s *networkerSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
-	// Create several networks.
+// Create several networks.
+func (s *networkerSuite) setUpNetworks(c *gc.C) {
 	s.networks = []state.NetworkInfo{{
 		Name:       "net1",
 		ProviderId: "net1",
@@ -69,8 +64,10 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 		CIDR:       "0.5.2.0/24",
 		VLANTag:    0,
 	}}
+}
 
-	// Create a machine to login and use.
+// Create a machine and login to it.
+func (s *networkerSuite) setUpMachine(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -109,12 +106,15 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
+}
 
-	// Create and provision a container.
+// Create and provision a container and a nested container.
+func (s *networkerSuite) setUpContainers(c *gc.C) {
 	template := state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
+	var err error
 	s.container, err = s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	s.containerIfaces = []state.NetworkInterfaceInfo{{
@@ -133,11 +133,11 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 		NetworkName:   "vlan42",
 		IsVirtual:     true,
 	}}
+	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	err = s.container.SetInstanceInfo("i-container", "fake_nonce", &hwChars, s.networks[:2],
 		s.containerIfaces)
 	c.Assert(err, gc.IsNil)
 
-	// Create and provision a nested container.
 	s.nestedContainer, err = s.State.AddMachineInsideMachine(template, s.container.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 	s.nestedContainerIfaces = []state.NetworkInterfaceInfo{{
@@ -146,16 +146,36 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 		NetworkName:   "net1",
 		IsVirtual:     false,
 	}}
-	err = s.nestedContainer.SetInstanceInfo("i-nested", "fake_nonce", &hwChars, s.networks[:1],
+	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", &hwChars, s.networks[:1],
 		s.nestedContainerIfaces)
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *networkerSuite) SetUpTest(c *gc.C) {
+	s.JujuConnSuite.SetUpTest(c)
+
+	s.setUpNetworks(c)
+	s.setUpMachine(c)
+	s.setUpContainers(c)
 
 	// Create the networker API facade.
 	s.networker = s.st.Networker()
 	c.Assert(s.networker, gc.NotNil)
+}
 
-	// Expected results of MachineNetworkInfo for a machine and a containers
-	s.expectedMachineInfo = []network.Info{{
+func (s *networkerSuite) TestMachineNetworkInfoPermissionDenied(c *gc.C) {
+	tags := []string{"foo-42", "unit-mysql-0", "service-mysql", "user-foo", "machine-1"}
+	for _, tag := range tags {
+		info, err := s.networker.MachineNetworkInfo(tag)
+		c.Assert(err, gc.ErrorMatches, "permission denied")
+		c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+		c.Assert(info, gc.IsNil)
+	}
+}
+
+func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
+	// Expected results of MachineNetworkInfo for a machine and containers
+	expectedMachineInfo := []network.Info{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		CIDR:          "0.1.2.0/24",
 		NetworkName:   "net1",
@@ -196,7 +216,7 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 		InterfaceName: "eth2",
 		IsVirtual:     false,
 	}}
-	s.expectedContainerInfo = []network.Info{{
+	expectedContainerInfo := []network.Info{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",
 		CIDR:          "0.1.2.0/24",
 		NetworkName:   "net1",
@@ -221,24 +241,25 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 		InterfaceName: "eth1",
 		IsVirtual:     true,
 	}}
-}
+	expectedNestedContainerInfo := []network.Info{{
+		MACAddress:    "aa:bb:cc:dd:ee:d0",
+		CIDR:          "0.1.2.0/24",
+		NetworkName:   "net1",
+		ProviderId:    "net1",
+		VLANTag:       0,
+		InterfaceName: "eth0",
+		IsVirtual:     false,
+	}}
 
-func (s *networkerSuite) TestMachineNetworkInfoPermissionDenied(c *gc.C) {
-	tags := []string{"foo-42", "unit-mysql-0", "service-mysql", "user-foo", "machine-1", s.nestedContainer.Tag()}
-	for _, tag := range tags {
-		info, err := s.networker.MachineNetworkInfo(tag)
-		c.Assert(err, gc.ErrorMatches, "permission denied")
-		c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-		c.Assert(info, gc.IsNil)
-	}
-}
-
-func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 	results, err := s.networker.MachineNetworkInfo("machine-0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, s.expectedMachineInfo)
+	c.Assert(results, gc.DeepEquals, expectedMachineInfo)
 
 	results, err = s.networker.MachineNetworkInfo("machine-0-lxc-0")
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, s.expectedContainerInfo)
+	c.Assert(results, gc.DeepEquals, expectedContainerInfo)
+
+	results, err = s.networker.MachineNetworkInfo("machine-0-lxc-0-lxc-0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, expectedNestedContainerInfo)
 }

@@ -20,10 +20,10 @@ type Network struct {
 
 // NetworkInfo describes a single network.
 type NetworkInfo struct {
-	// Name is juju-internal name of the network (limited to lower letters, digits and "dash" characters).
+	// Name is juju-internal name of the network.
 	Name string
 
-	// ProviderId is a provider-specific network id (may contain any printable characters).
+	// ProviderId is a provider-specific network.
 	ProviderId network.Id
 
 	// CIDR of the network, in 123.45.67.89/24 format.

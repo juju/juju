@@ -335,13 +335,9 @@ type NetworkInterface struct {
 	// (e.g. "aa:bb:cc:dd:ee:ff").
 	MACAddress string
 
-	// InterfaceName is the raw OS-specific network device name (e.g.
+	// InterfaceName is the OS-specific network device name (e.g.
 	// "eth1", even for for a VLAN eth1.42 virtual interface).
 	InterfaceName string
-
-	// VLANTag is needs to be between 1 and 4094 for VLANs and 0 for
-	// normal networks. It's defined by IEEE 802.1Q standard.
-	VLANTag int
 
 	// NetworkTag is this interface's network tag.
 	NetworkTag string

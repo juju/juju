@@ -18,7 +18,6 @@ var logger = loggo.GetLogger("juju.state.apiserver.networker")
 // NetworkerAPI provides access to the Networker API facade.
 type NetworkerAPI struct {
 	st          *state.State
-	resources   *common.Resources
 	authorizer  common.Authorizer
 	getAuthFunc common.GetAuthFunc
 }
@@ -26,7 +25,7 @@ type NetworkerAPI struct {
 // NewNetworkerAPI creates a new client-side Networker API facade.
 func NewNetworkerAPI(
 	st *state.State,
-	resources *common.Resources,
+	_ *common.Resources,
 	authorizer common.Authorizer,
 ) (*NetworkerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
@@ -42,37 +41,34 @@ func NewNetworkerAPI(
 			}
 			_, id, err := names.ParseTag(tag, names.MachineTagKind)
 			if err != nil {
+				// Only machine tags are allowed.
 				return false
 			}
-			parentId := state.ParentId(id)
-			if parentId == "" {
-				// Top-level machines.
-				return false
+			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
+				// Until reach top-level machine.
+				if names.MachineTag(parentId) == authEntityTag {
+					// All containers with the authenticated machine as a
+					// parent are accessible by it.
+					return true
+				}
 			}
-			// All containers with the authenticated machine as a
-			// parent are accessible by it.
-			return names.MachineTag(parentId) == authEntityTag
+			// Not found authorized machine agent among ancestors of the current one.
+			return false
 		}, nil
 	}
 
 	return &NetworkerAPI{
 		st:          st,
-		resources:   resources,
 		authorizer:  authorizer,
 		getAuthFunc: getAuthFunc,
 	}, nil
 }
 
-func (n *NetworkerAPI) machineNetworkInfo(canAccess common.AuthFunc, tag string) ([]network.Info, error) {
-	if !canAccess(tag) {
-		return nil, common.ErrPerm
-	}
-	entity, err := n.st.FindEntity(tag)
+func (n *NetworkerAPI) oneMachineInfo(id string) ([]network.Info, error) {
+	machine, err := n.st.Machine(id)
 	if err != nil {
 		return nil, err
 	}
-	// The authorization function guarantees that the tag represents a machine.
-	machine := entity.(*state.Machine)
 	ifaces, err := machine.NetworkInterfaces()
 	if err != nil {
 		return nil, err
@@ -106,7 +102,12 @@ func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineN
 		return result, err
 	}
 	for i, entity := range args.Entities {
-		result.Results[i].Info, err = n.machineNetworkInfo(canAccess, entity.Tag)
+		if !canAccess(entity.Tag) {
+			err = common.ErrPerm
+		} else {
+			_, id, _ := names.ParseTag(entity.Tag, names.MachineTagKind)
+			result.Results[i].Info, err = n.oneMachineInfo(id)
+		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

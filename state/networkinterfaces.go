@@ -88,13 +88,9 @@ func (ni *NetworkInterface) InterfaceName() string {
 
 // RawInterfaceName return the name of the raw interface.
 func (ni *NetworkInterface) RawInterfaceName() string {
-	i := strings.Index(ni.doc.InterfaceName, ".")
-	if i > 0 {
-		return ni.doc.InterfaceName[:i]
-	}
-	i = strings.Index(ni.doc.InterfaceName, ":")
-	if i > 0 {
-		return ni.doc.InterfaceName[:i]
+	nw, err := ni.st.Network(ni.doc.NetworkName)
+	if err == nil {
+		return strings.TrimSuffix(ni.doc.InterfaceName, fmt.Sprintf(".%d", nw.VLANTag()))
 	}
 	return ni.doc.InterfaceName
 }

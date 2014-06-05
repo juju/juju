@@ -40,6 +40,8 @@ type Info struct {
 	IsVirtual bool
 }
 
+// ActualInterfaceName returns raw interface name for raw interface (e.g. "eth0") and
+// virtual interface name for virtual interface (e.g. "eth0.42")
 func (i *Info) ActualInterfaceName() string {
 	if i.VLANTag > 0 {
 		return fmt.Sprintf("%s.%d", i.InterfaceName, i.VLANTag)
