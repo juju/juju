@@ -5,21 +5,37 @@ set -eux
 
 export INSTANCE_TYPE=$1
 export AMI_IMAGE=$2
-if [ ${3-} == "--force-archive" ]; then
-  FIXUP_SOURCES="sudo sed s/ec2.archive.ubuntu.com/archive.ubuntu.com/ /etc/apt/sources.list -i"
-else
-  FIXUP_SOURCES=""
+shift; shift
+
+FIXUP_SOURCES=""
+IS_LOCAL="false"
+while [[ "${1-}" != "" ]]; do
+    case $1 in
+        --force-archive)
+            FIXUP_SOURCES="sudo sed s/ec2.archive.ubuntu.com/archive.ubuntu.com/ /etc/apt/sources.list -i"
+            ;;
+        --local)
+            IS_LOCAL="true"
+            shift
+            tarfile=$1
+            ;;
+    esac
+    shift
+done
+
+if [[ $IS_LOCAL == "false" ]]; then
+    archive="$LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact"
+    test -f buildvars.bash && rm buildvars.bash
+    wget -q $archive/buildvars.bash
+    source buildvars.bash
+    rev=${REVNO-$(echo $REVISION_ID | head -c8)}
+    echo "Testing $BRANCH $rev"
+
+    tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
+    test -f $tarfile && rm $tarfile
+    wget -q $archive/$tarfile
 fi
-
-afact='lastSuccessfulBuild/artifact'
-test -f buildvars.bash && rm buildvars.bash
-wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
-source buildvars.bash
-rev=${REVNO-$(echo $REVISION_ID | head -c8)}
-echo "Testing $BRANCH $rev"
-
-
-tarfile=$($SCRIPTS/get-tarfile-name $revision_build)
+tarfile_path=$(readlink -f $tarfile)
 juju_version=$(basename $tarfile .tar.gz)
 instance_id=$($SCRIPTS/ec2-run-instance-get-id)
 $SCRIPTS/ec2-tag-job-instances $instance_id
@@ -36,8 +52,7 @@ $SCRIPTS/wait-for-port $instance_name 22
 set -x
 set +e
 scp -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
-    $HOME/jobs/build-revision/builds/$revision_build/archive/$tarfile \
-    ubuntu@$instance_name:~/
+    $tarfile_path ubuntu@$instance_name:~/
 
 ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     ubuntu@$instance_name  <<EOT
