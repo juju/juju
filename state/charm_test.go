@@ -51,10 +51,9 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 	)
 	actions := dummy.Actions()
 	c.Assert(actions, gc.NotNil)
-	//c.Assert(actions.ActionSpecs, gc.Not(gc.HasLen), 0)
-	//c.Assert(actions.ActionSpecs["snapshot"], gc.NotNil)
-	//c.Assert(actions.ActionSpecs["snapshot"].Params, gc.Not(gc.HasLen), 0)
-	//testActionSpecParams := actions.ActionSpecs["snapshot"].Params.(map[string]interface{})
+	c.Assert(actions.ActionSpecs, gc.Not(gc.HasLen), 0)
+	c.Assert(actions.ActionSpecs["snapshot"], gc.NotNil)
+	c.Assert(actions.ActionSpecs["snapshot"].Params, gc.Not(gc.HasLen), 0)
 	c.Assert(actions.ActionSpecs["snapshot"], gc.DeepEquals,
 		charm.ActionSpec{
 			Description: "Take a snapshot of the database.",
@@ -160,8 +159,6 @@ func (s *CharmTestHelperSuite) TestActionsCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	forEachStandardCharm(c, func(name string) {
-		// chd := testing.Charms.Dir(name)
-
 		ch := s.AddActionsCharm(c, name, actionsYaml, 123)
 		c.Assert(ch.Actions(), gc.DeepEquals, actions)
 	})
