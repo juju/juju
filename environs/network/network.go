@@ -3,6 +3,10 @@
 
 package network
 
+import (
+	"fmt"
+)
+
 // Id defines a provider-specific network id.
 type Id string
 
@@ -27,11 +31,20 @@ type Info struct {
 	// normal networks. It's defined by IEEE 802.1Q standard.
 	VLANTag int
 
-	// InterfaceName is the OS-specific network device name (e.g.
-	// "eth0" or "eth1.42" for a VLAN virtual interface).
+	// InterfaceName is the raw OS-specific network device name (e.g.
+	// "eth1", even for a VLAN eth1.42 virtual interface).
 	InterfaceName string
 
 	// IsVirtual is true when the interface is a virtual device, as
-	// opposed to a physical device.
+	// opposed to a physical device (e.g. a VLAN or a network alias)
 	IsVirtual bool
+}
+
+// ActualInterfaceName returns raw interface name for raw interface (e.g. "eth0") and
+// virtual interface name for virtual interface (e.g. "eth0.42")
+func (i *Info) ActualInterfaceName() string {
+	if i.VLANTag > 0 {
+		return fmt.Sprintf("%s.%d", i.InterfaceName, i.VLANTag)
+	}
+	return i.InterfaceName
 }
