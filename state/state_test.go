@@ -2087,6 +2087,7 @@ func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
 	session := st.MongoSession()
 	safe := session.Safe()
 	c.Assert(safe.WMode, gc.Not(gc.Equals), "majority")
+	c.Assert(safe.J, gc.Equals, true)
 }
 
 func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
@@ -2112,6 +2113,7 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 	session := st.MongoSession()
 	safe := session.Safe()
 	c.Assert(safe.WMode, gc.Equals, "majority")
+	c.Assert(safe.J, gc.Equals, true)
 }
 
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {

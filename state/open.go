@@ -95,11 +95,14 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 	logger.Debugf("connection established")
 
 	_, err = replicaset.CurrentConfig(session)
+	safe := &mgo.Safe{J: true}
 	if err == nil {
 		// set mongo to write-majority (writes only returned after replicated
 		// to a majority of replica-set members)
-		session.SetSafe(&mgo.Safe{WMode: "majority", J: true})
+		safe.WMode = "majority"
 	}
+	session.SetSafe(safe)
+
 	st, err := newState(session, info, policy)
 	if err != nil {
 		session.Close()
