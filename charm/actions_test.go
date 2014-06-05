@@ -1,12 +1,12 @@
 // Copyright 2011, 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charm_test
+package charm
 
 import (
 	"bytes"
 
-	"github.com/juju/juju/charm"
+	// "github.com/juju/juju/charm"
 	gc "launchpad.net/gocheck"
 )
 
@@ -15,8 +15,77 @@ type ActionsSuite struct{}
 var _ = gc.Suite(&ActionsSuite{})
 
 func (s *ActionsSuite) TestNewActions(c *gc.C) {
-	emptyAction := charm.NewActions()
-	c.Assert(emptyAction, gc.DeepEquals, &charm.Actions{})
+	emptyAction := NewActions()
+	c.Assert(emptyAction, gc.DeepEquals, &Actions{})
+}
+
+func (s *ActionsSuite) TestStripBadInterfacesOK(c *gc.C) {
+
+	var goodInterfaceTests = []struct {
+		description         string
+		acceptableInterface map[string]interface{}
+		expectedInterface   map[string]interface{}
+	}{{
+		description: "An interface requiring no changes.",
+		acceptableInterface: map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": map[string]interface{}{
+				"foo1": "val1",
+				"foo2": "val2"}},
+		expectedInterface: map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": map[string]interface{}{
+				"foo1": "val1",
+				"foo2": "val2"}},
+	}, {
+		description: "Substitute a single inner map[i]i.",
+		acceptableInterface: map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": map[interface{}]interface{}{
+				"foo1": "val1",
+				"foo2": "val2"}},
+		expectedInterface: map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": map[string]interface{}{
+				"foo1": "val1",
+				"foo2": "val2"}},
+	}}
+
+	for i, test := range goodInterfaceTests {
+		c.Logf("test %d: %s", i, test.description)
+		cleanedInterfaceMap, err := stripBadInterfaces(test.acceptableInterface)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cleanedInterfaceMap, gc.DeepEquals, test.expectedInterface)
+	}
+}
+
+func (s *ActionsSuite) TestStripBadInterfacesFail(c *gc.C) {
+
+	var badInterfaceTests = []struct {
+		description   string
+		failInterface map[string]interface{}
+		expectedError string
+	}{{
+		description: "An inner map[interface{}]interface{} with an int key.",
+		failInterface: map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": map[interface{}]interface{}{
+				"foo1": "val1",
+				5:      "val2"}},
+		expectedError: "map keyed with non-string value",
+	}}
+
+	for i, test := range badInterfaceTests {
+		c.Logf("test %d: %s", i, test.description)
+		_, err := stripBadInterfaces(test.failInterface)
+		c.Assert(err, gc.NotNil)
+		c.Assert(err.Error(), gc.Equals, test.expectedError)
+	}
 }
 
 func (s *ActionsSuite) TestReadGoodActionsYaml(c *gc.C) {
@@ -24,7 +93,7 @@ func (s *ActionsSuite) TestReadGoodActionsYaml(c *gc.C) {
 	var goodActionsYamlTests = []struct {
 		description     string
 		yaml            string
-		expectedActions *charm.Actions
+		expectedActions *Actions
 	}{{
 		description: "A simple snapshot actions YAML with one parameter.",
 		yaml: `
@@ -37,8 +106,8 @@ actions:
             type: string
             default: foo.bz2
 `,
-		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-			"snapshot": charm.ActionSpec{
+		expectedActions: &Actions{map[string]ActionSpec{
+			"snapshot": ActionSpec{
 				Description: "Take a snapshot of the database.",
 				Params: map[string]interface{}{
 					"outfile": map[string]interface{}{
@@ -58,8 +127,8 @@ actions:
             type: string
             default: foo.bz2
 `,
-		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-			"snapshot": charm.ActionSpec{
+		expectedActions: &Actions{map[string]ActionSpec{
+			"snapshot": ActionSpec{
 				Description: "Take a snapshot of the database.",
 				Params: map[string]interface{}{
 					"$schema": "http://json-schema.org/draft-03/schema#",
@@ -70,7 +139,7 @@ actions:
 	}, {
 		description:     "An empty Actions definition.",
 		yaml:            "",
-		expectedActions: &charm.Actions{},
+		expectedActions: &Actions{},
 	}, {
 		description: "A more complex schema with hyphenated names and multiple parameters.",
 		yaml: `
@@ -107,8 +176,8 @@ actions:
             enum: [rsync, scp]
             default: rsync
 `,
-		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-			"snapshot": charm.ActionSpec{
+		expectedActions: &Actions{map[string]ActionSpec{
+			"snapshot": ActionSpec{
 				Description: "Take a snapshot of the database.",
 				Params: map[string]interface{}{
 					"outfile": map[string]interface{}{
@@ -121,7 +190,7 @@ actions:
 						"minimum":          0,
 						"maximum":          9,
 						"exclusiveMaximum": false}}},
-			"remote-sync": charm.ActionSpec{
+			"remote-sync": ActionSpec{
 				Description: "Sync a file to a remote host.",
 				Params: map[string]interface{}{
 					"file": map[string]interface{}{
@@ -148,10 +217,10 @@ actions:
       params:
 `,
 
-		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-			"snapshot": charm.ActionSpec{
+		expectedActions: &Actions{map[string]ActionSpec{
+			"snapshot": ActionSpec{
 				Description: "Take a snapshot of the database.",
-				Params:      nil}}},
+				Params:      map[string]interface{}{}}}},
 	}, {
 		description: "A schema with no \"params\" key, implying no options.",
 		yaml: `
@@ -160,17 +229,17 @@ actions:
       description: Take a snapshot of the database.
 `,
 
-		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-			"snapshot": charm.ActionSpec{
+		expectedActions: &Actions{map[string]ActionSpec{
+			"snapshot": ActionSpec{
 				Description: "Take a snapshot of the database.",
-				Params:      nil}}},
+				Params:      map[string]interface{}{}}}},
 	}}
 
 	// Beginning of testing loop
 	for i, test := range goodActionsYamlTests {
 		c.Logf("test %d: %s", i, test.description)
 		reader := bytes.NewReader([]byte(test.yaml))
-		loadedAction, err := charm.ReadActionsYaml(reader)
+		loadedAction, err := ReadActionsYaml(reader)
 		c.Assert(err, gc.IsNil)
 		c.Assert(loadedAction, gc.DeepEquals, test.expectedActions)
 	}
@@ -293,7 +362,7 @@ actions:
 	for i, test := range badActionsYamlTests {
 		c.Logf("test %d: %s", i, test.description)
 		reader := bytes.NewReader([]byte(test.yaml))
-		_, err := charm.ReadActionsYaml(reader)
+		_, err := ReadActionsYaml(reader)
 		c.Assert(err, gc.NotNil)
 		c.Assert(err.Error(), gc.Equals, test.expectedError)
 	}

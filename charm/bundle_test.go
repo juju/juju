@@ -72,7 +72,7 @@ func (s *BundleSuite) TestReadBundleWithoutActions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// A lacking actions.yaml file still causes a proper
-	// Config value to be returned.
+	// Actions value to be returned.
 	c.Assert(bundle.Actions().ActionSpecs, gc.HasLen, 0)
 }
 
