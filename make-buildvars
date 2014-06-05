@@ -108,6 +108,6 @@ if __name__ == '__main__':
             export BRANCH=%s
             export REVISION_ID='%s'
             export VERSION=%s
-        """ % (branch, revision_id, version, revno_var)))
+        """ % (branch, revision_id, version)))
         if revno is not None:
             f.write('export REVNO=%s\n' % revno)
