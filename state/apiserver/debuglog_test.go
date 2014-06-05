@@ -95,14 +95,14 @@ func (s *debugLogSuite) TestReadFromEnvUUIDPath(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	s.ensureLogFile(c)
-	reader := s.openWebsocketCustomPath(c, fmt.Sprintf("/%s/log", environ.UUID()))
+	reader := s.openWebsocketCustomPath(c, fmt.Sprintf("/environment/%s/log", environ.UUID()))
 	s.assertLogReader(c, reader)
 }
 
 func (s *debugLogSuite) TestReadRejectsWrongEnvUUIDPath(c *gc.C) {
 	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
 	s.ensureLogFile(c)
-	reader := s.openWebsocketCustomPath(c, "/dead-beef-123456/log")
+	reader := s.openWebsocketCustomPath(c, "/environment/dead-beef-123456/log")
 	s.assertErrorResponse(c, reader, `unknown environment: "dead-beef-123456"`)
 	s.assertWebsocketClosed(c, reader)
 }

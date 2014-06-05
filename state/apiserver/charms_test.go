@@ -251,7 +251,7 @@ func (s *charmsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = fmt.Sprintf("/%s/charms", environ.UUID())
+	url.Path = fmt.Sprintf("/environment/%s/charms", environ.UUID())
 	resp, err := s.uploadRequest(c, url.String(), true, ch.Path)
 	c.Assert(err, gc.IsNil)
 	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
@@ -261,7 +261,7 @@ func (s *charmsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 func (s *charmsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
 	url := s.charmsURL(c, "series=quantal")
-	url.Path = "/dead-beef-123456/charms"
+	url.Path = "/environment/dead-beef-123456/charms"
 	resp, err := s.authRequest(c, "POST", url.String(), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
@@ -434,7 +434,7 @@ func (s *charmsSuite) TestGetAllowsEnvUUIDPath(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = fmt.Sprintf("/%s/charms", environ.UUID())
+	url.Path = fmt.Sprintf("/environment/%s/charms", environ.UUID())
 	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
@@ -443,7 +443,7 @@ func (s *charmsSuite) TestGetAllowsEnvUUIDPath(c *gc.C) {
 func (s *charmsSuite) TestGetRejectsWrongEnvUUIDPath(c *gc.C) {
 	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
 	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
-	url.Path = "/dead-beef-123456/charms"
+	url.Path = "/environment/dead-beef-123456/charms"
 	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)

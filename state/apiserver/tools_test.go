@@ -158,7 +158,7 @@ func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	url := s.toolsURL(c, "binaryVersion="+vers.String())
-	url.Path = fmt.Sprintf("/%s/tools", environ.UUID())
+	url.Path = fmt.Sprintf("/environment/%s/tools", environ.UUID())
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
 	c.Assert(err, gc.IsNil)
 	// Check the response.
@@ -172,7 +172,7 @@ func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 func (s *toolsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
 	// Check that we cannot access the tools at https://host:port/BADENVUUID/tools
 	url := s.toolsURL(c, "")
-	url.Path = "/dead-beef-123456/tools"
+	url.Path = "/environment/dead-beef-123456/tools"
 	resp, err := s.authRequest(c, "POST", url.String(), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)

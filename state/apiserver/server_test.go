@@ -12,7 +12,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"code.google.com/go.net/websocket"
+	"code.google.com/p/go.net/websocket"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -246,8 +246,8 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	conn, err := dialWebsocket(c, addr, "/")
 	c.Assert(err, gc.IsNil)
 	conn.Close()
-	// '/ENVIRONUUID/api' should be fine
-	conn, err = dialWebsocket(c, addr, "/environ-uuid/api")
+	// '/environment/ENVIRONUUID/api' should be fine
+	conn, err = dialWebsocket(c, addr, "/environment/dead-beef-123456/api")
 	c.Assert(err, gc.IsNil)
 	conn.Close()
 

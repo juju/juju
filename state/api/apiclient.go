@@ -208,7 +208,7 @@ func setUpWebsocket(addr, environUUID string, rootCAs *x509.CertPool) (*websocke
 	const origin = "http://localhost/"
 	tail := "/"
 	if environUUID != "" {
-		tail = "/" + environUUID + "/api"
+		tail = "/environment/" + environUUID + "/api"
 	}
 	cfg, err := websocket.NewConfig("wss://"+addr+tail, origin)
 	if err != nil {

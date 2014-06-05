@@ -171,6 +171,6 @@ func (*websocketSuite) TestSetUpWebsocketConfig(c *gc.C) {
 func (*websocketSuite) TestSetUpWebsocketConfigHandlesEnvironUUID(c *gc.C) {
 	conf, err := api.SetUpWebsocket("0.1.2.3:1234", "dead-beef-1234", nil)
 	c.Assert(err, gc.IsNil)
-	c.Check(conf.Location.String(), gc.Equals, "wss://0.1.2.3:1234/dead-beef-1234/api")
+	c.Check(conf.Location.String(), gc.Equals, "wss://0.1.2.3:1234/environment/dead-beef-1234/api")
 	c.Check(conf.Origin.String(), gc.Equals, "http://localhost/")
 }

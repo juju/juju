@@ -182,11 +182,11 @@ func (srv *Server) run(lis net.Listener) {
 	// registered first.
 	mux := pat.New()
 	// For backwards compatibility we register all the old paths
-	handleAll(mux, "/:envuuid/log",
+	handleAll(mux, "/environment/:envuuid/log",
 		&debugLogHandler{
 			httpHandler: httpHandler{state: srv.state},
 			logDir:      srv.logDir})
-	handleAll(mux, "/:envuuid/charms",
+	handleAll(mux, "/environment/:envuuid/charms",
 		&charmsHandler{
 			httpHandler: httpHandler{state: srv.state},
 			dataDir:     srv.dataDir})
@@ -194,9 +194,9 @@ func (srv *Server) run(lis net.Listener) {
 	// where we only want to support specific request methods. However, our
 	// tests currently assert that errors come back as application/json and
 	// pat only does "text/plain" responses.
-	handleAll(mux, "/:envuuid/tools",
+	handleAll(mux, "/environment/:envuuid/tools",
 		&toolsHandler{httpHandler{state: srv.state}})
-	handleAll(mux, "/:envuuid/api", http.HandlerFunc(srv.apiHandler))
+	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log",
 		&debugLogHandler{
