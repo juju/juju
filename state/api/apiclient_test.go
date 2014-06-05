@@ -130,10 +130,11 @@ func (s *apiclientSuite) TestOpenPassesEnvironTag(c *gc.C) {
 	info := s.APIInfo(c)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	/// TODO: we want to test this eventually, but for now s.APIInfo uses
-	/// conn.StateInfo() which doesn't know about EnvironTag.
-	/// c.Check(info.EnvironTag, gc.Equals, env.Tag())
-	/// c.Assert(info.EnvironTag, gc.Not(gc.Equals), "")
+	// TODO(jam): 2014-06-05 http://pad.lv/1326802
+	// we want to test this eventually, but for now s.APIInfo uses
+	// conn.StateInfo() which doesn't know about EnvironTag.
+	// c.Check(info.EnvironTag, gc.Equals, env.Tag())
+	// c.Assert(info.EnvironTag, gc.Not(gc.Equals), "")
 	// We start by ensuring we have an invalid tag, and Open should fail.
 	info.EnvironTag = "environment-bad-tag"
 	_, err = api.Open(info, api.DialOpts{})

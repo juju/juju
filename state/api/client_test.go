@@ -195,7 +195,7 @@ func (s *clientSuite) TestDebugLogRootPath(c *gc.C) {
 
 func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
-	// If the server supports it, we log at "/ENV-UUID/log"
+	// If the server supports it, we should log at "/environment/UUID/log"
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	info := s.APIInfo(c)
@@ -206,7 +206,7 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 	reader, err := apistate.Client().WatchDebugLog(api.DebugLogParams{})
 	c.Assert(err, gc.IsNil)
 	connectURL := connectURLFromReader(c, reader)
-	c.ExpectFailure("debug log always goes to /log for compatibility")
+	c.ExpectFailure("debug log always goes to /log for compatibility http://pad.lv/1326799")
 	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/%s/log", environ.UUID()))
 }
 
@@ -230,7 +230,7 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	info.EnvironTag = "environment-dead-beef-123456"
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef-123456"`)
-	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(apistate, gc.IsNil)
 }
 

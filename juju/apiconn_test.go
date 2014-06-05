@@ -126,11 +126,8 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 		environTag: "environment-fake-uuid",
 	}
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		c.Check(apiInfo.Tag, gc.Equals, "user-foo")
-		c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
-		c.Check(apiInfo.Password, gc.Equals, "foopass")
+		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag, gc.Equals, "environment-fake-uuid")
-		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 		called++
 		return expectState, nil
 	}
@@ -236,31 +233,50 @@ func (s *NewAPIClientSuite) TestWithInfoNoAddresses(c *gc.C) {
 	c.Assert(st, gc.IsNil)
 }
 
+var noTagStoreInfo = &environInfo{
+	creds: configstore.APICredentials{
+		User:     "foo",
+		Password: "foopass",
+	},
+	endpoint: configstore.APIEndpoint{
+		Addresses: []string{"foo.invalid"},
+		CACert:    "certificated",
+	},
+}
+
+func mockedAPIState(hasHostPort, hasEnvironTag bool) *mockAPIState {
+	apiHostPorts := [][]instance.HostPort{}
+	if hasHostPort {
+		address := instance.NewAddress("0.1.2.3", instance.NetworkUnknown)
+		apiHostPorts = [][]instance.HostPort{
+			instance.AddressesWithPort([]instance.Address{address}, 1234),
+		}
+	}
+	environTag := ""
+	if hasEnvironTag {
+		environTag = "environment-fake-uuid"
+	}
+	return &mockAPIState{
+		apiHostPorts: apiHostPorts,
+		environTag:   environTag,
+	}
+}
+
+func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
+	c.Check(apiInfo.Tag, gc.Equals, "user-foo")
+	c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
+	c.Check(apiInfo.Password, gc.Equals, "foopass")
+	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
+}
+
 func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
-	store := newConfigStore("noconfig", &environInfo{
-		creds: configstore.APICredentials{
-			User:     "foo",
-			Password: "foopass",
-		},
-		endpoint: configstore.APIEndpoint{
-			Addresses: []string{"foo.invalid"},
-			CACert:    "certificated",
-		},
-	})
+	store := newConfigStore("noconfig", noTagStoreInfo)
 
 	called := 0
-	expectState := &mockAPIState{
-		apiHostPorts: [][]instance.HostPort{
-			instance.AddressesWithPort([]instance.Address{instance.NewAddress("0.1.2.3", instance.NetworkUnknown)}, 1234),
-		},
-		environTag: "environment-fake-uuid",
-	}
+	expectState := mockedAPIState(true, true)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		c.Check(apiInfo.Tag, gc.Equals, "user-foo")
-		c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
-		c.Check(apiInfo.Password, gc.Equals, "foopass")
+		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag, gc.Equals, "")
-		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 		called++
 		return expectState, nil
 	}
@@ -283,28 +299,13 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	// The local cache doesn't have an EnvironTag, which the API does
 	// return. However, the API doesn't have apiHostPorts, we don't want to
 	// override the local cache with bad endpoints.
-	store := newConfigStore("noconfig", &environInfo{
-		creds: configstore.APICredentials{
-			User:     "foo",
-			Password: "foopass",
-		},
-		endpoint: configstore.APIEndpoint{
-			Addresses: []string{"foo.invalid"},
-			CACert:    "certificated",
-		},
-	})
+	store := newConfigStore("noconfig", noTagStoreInfo)
 
 	called := 0
-	expectState := &mockAPIState{
-		apiHostPorts: [][]instance.HostPort{},
-		environTag:   "environment-fake-uuid",
-	}
+	expectState := mockedAPIState(false, true)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		c.Check(apiInfo.Tag, gc.Equals, "user-foo")
-		c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
-		c.Check(apiInfo.Password, gc.Equals, "foopass")
+		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag, gc.Equals, "")
-		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 		called++
 		return expectState, nil
 	}
@@ -330,17 +331,10 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	called := 0
 	// State returns a new set of APIHostPorts but not a new EnvironTag. We
 	// shouldn't override the cached value with environ tag of "".
-	expectState := &mockAPIState{
-		apiHostPorts: [][]instance.HostPort{
-			instance.AddressesWithPort([]instance.Address{instance.NewAddress("0.1.2.3", instance.NetworkUnknown)}, 1234),
-		},
-	}
+	expectState := mockedAPIState(true, false)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		c.Check(apiInfo.Tag, gc.Equals, "user-foo")
-		c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
-		c.Check(apiInfo.Password, gc.Equals, "foopass")
+		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag, gc.Equals, "environment-fake-uuid")
-		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 		called++
 		return expectState, nil
 	}
@@ -759,12 +753,7 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointNotCached(c *gc.C) {
 	c.Check(savedInfo.APIEndpoint().Addresses, gc.HasLen, 0)
 
 	called := 0
-	expectState := &mockAPIState{
-		apiHostPorts: [][]instance.HostPort{
-			instance.AddressesWithPort([]instance.Address{instance.NewAddress("0.1.2.3", instance.NetworkUnknown)}, 1234),
-		},
-		environTag: "environment-fake-uuid",
-	}
+	expectState := mockedAPIState(true, true)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		c.Check(apiInfo.Tag, gc.Equals, "user-admin")
 		c.Check(string(apiInfo.CACert), gc.Equals, coretesting.CACert)
@@ -785,16 +774,9 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointNotCached(c *gc.C) {
 func (s *APIEndpointForEnvSuite) TestAPIEndpointRefresh(c *gc.C) {
 	store := newConfigStore("env-name", dummyStoreInfo)
 	called := 0
-	expectState := &mockAPIState{
-		apiHostPorts: [][]instance.HostPort{
-			instance.AddressesWithPort([]instance.Address{instance.NewAddress("0.1.2.3", instance.NetworkUnknown)}, 1234),
-		},
-	}
+	expectState := mockedAPIState(true, false)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		c.Check(apiInfo.Tag, gc.Equals, "user-foo")
-		c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
-		c.Check(apiInfo.Password, gc.Equals, "foopass")
-		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
+		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		called++
 		return expectState, nil
 	}
