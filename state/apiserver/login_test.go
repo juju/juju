@@ -59,11 +59,14 @@ func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 		"", "",
 	)
 	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
 	info := &api.Info{
-		Tag:      "",
-		Password: "",
-		Addrs:    []string{srv.Addr()},
-		CACert:   coretesting.CACert,
+		Tag:        "",
+		Password:   "",
+		EnvironTag: env.Tag(),
+		Addrs:      []string{srv.Addr()},
+		CACert:     coretesting.CACert,
 	}
 	return info, func() {
 		err := srv.Stop()
@@ -181,7 +184,7 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 		// Now that we are logged in, we see the entity's tag
 		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
 		// long, though we expect it to be in the 'ms' range.
-		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[umn]?s {"RequestId":1,"Response":{"Servers":\[\]}} Admin\[""\].Login`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[umn]?s {"RequestId":1,"Response":.*} Admin\[""\].Login`,
 		`<- \[[0-9A-F]+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
 		`-> \[[0-9A-F]+\] machine-0 [0-9.umns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
 	})
@@ -459,4 +462,26 @@ func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 	for err := range errResults {
 		c.Check(err, gc.IsNil)
 	}
+}
+
+func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+	// If we call api.Open without giving a username and password, then it
+	// won't call Login, so we can call it ourselves.
+	// We Login without passing an EnvironTag, to show that it still lets
+	// us in, and that we can find out the real EnvironTag from the
+	// response.
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	var result params.LoginResult
+	creds := &params.Creds{
+		AuthTag:  "user-admin",
+		Password: "dummy-secret",
+	}
+	err = st.Call("Admin", "", "Login", creds, &result)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.EnvironTag, gc.Equals, env.Tag())
 }

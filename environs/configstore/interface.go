@@ -19,6 +19,10 @@ type APIEndpoint struct {
 	// CACert holds the CA certificate that
 	// signed the API server's key.
 	CACert string
+
+	// EnvironUUID holds the UUID for the environment we are connecting to.
+	// This may be empty if the environment has not been bootstrapped.
+	EnvironUUID string
 }
 
 // APICredentials hold credentials for connecting to an API endpoint.

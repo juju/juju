@@ -55,6 +55,11 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				socket.Close()
 				return
 			}
+			if err := h.validateEnvironUUID(req); err != nil {
+				h.sendError(socket, err)
+				socket.Close()
+				return
+			}
 			stream, err := newLogStream(req.URL.Query())
 			if err != nil {
 				h.sendError(socket, err)

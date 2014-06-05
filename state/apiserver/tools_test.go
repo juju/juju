@@ -5,10 +5,11 @@ package apiserver_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"path"
-	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 
@@ -101,17 +102,21 @@ func (s *toolsSuite) TestUploadFailsWithInvalidContentType(c *gc.C) {
 		c, resp, http.StatusBadRequest, "expected Content-Type: application/x-tar-gz, got: application/octet-stream")
 }
 
-func (s *toolsSuite) TestUpload(c *gc.C) {
-	// Make some fake tools.
+func (s *toolsSuite) setupToolsForUpload(c *gc.C) (coretools.List, version.Binary, string) {
 	localStorage := c.MkDir()
 	vers := version.MustParseBinary("1.9.0-quantal-amd64")
 	versionStrings := []string{vers.String()}
 	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", versionStrings)
-
-	// Now try uploading them.
 	toolsFile := tools.StorageName(vers)
+	return expectedTools, vers, path.Join(localStorage, toolsFile)
+}
+
+func (s *toolsSuite) TestUpload(c *gc.C) {
+	// Make some fake tools.
+	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
+	// Now try uploading them.
 	resp, err := s.uploadRequest(
-		c, s.toolsURI(c, "?binaryVersion="+vers.String()), true, path.Join(localStorage, toolsFile))
+		c, s.toolsURI(c, "?binaryVersion="+vers.String()), true, toolPath)
 	c.Assert(err, gc.IsNil)
 
 	// Check the response.
@@ -126,22 +131,59 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	uploadedData, err := ioutil.ReadAll(r)
 	c.Assert(err, gc.IsNil)
-	expectedData, err := ioutil.ReadFile(filepath.Join(localStorage, tools.StorageName(vers)))
+	expectedData, err := ioutil.ReadFile(toolPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(uploadedData, gc.DeepEquals, expectedData)
 }
 
+func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
+	// Backwards compatibility check, that we can upload tools to
+	// https://host:port/tools
+	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
+	url := s.toolsURL(c, "binaryVersion="+vers.String())
+	url.Path = "/tools"
+	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
+	c.Assert(err, gc.IsNil)
+	// Check the response.
+	stor := s.Conn.Environ.Storage()
+	toolsURL, err := stor.URL(tools.StorageName(vers))
+	c.Assert(err, gc.IsNil)
+	expectedTools[0].URL = toolsURL
+	s.assertUploadResponse(c, resp, expectedTools[0])
+}
+
+func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
+	// Check that we can upload tools to https://host:port/ENVUUID/tools
+	environ, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
+	url := s.toolsURL(c, "binaryVersion="+vers.String())
+	url.Path = fmt.Sprintf("/%s/tools", environ.UUID())
+	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
+	c.Assert(err, gc.IsNil)
+	// Check the response.
+	stor := s.Conn.Environ.Storage()
+	toolsURL, err := stor.URL(tools.StorageName(vers))
+	c.Assert(err, gc.IsNil)
+	expectedTools[0].URL = toolsURL
+	s.assertUploadResponse(c, resp, expectedTools[0])
+}
+
+func (s *toolsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
+	// Check that we cannot access the tools at https://host:port/BADENVUUID/tools
+	url := s.toolsURL(c, "")
+	url.Path = "/dead-beef-123456/tools"
+	resp, err := s.authRequest(c, "POST", url.String(), "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+}
+
 func (s *toolsSuite) TestUploadFakeSeries(c *gc.C) {
 	// Make some fake tools.
-	localStorage := c.MkDir()
-	vers := version.MustParseBinary("1.9.0-quantal-amd64")
-	versionStrings := []string{vers.String()}
-	expectedTools := toolstesting.MakeToolsWithCheckSum(c, localStorage, "releases", versionStrings)
-
+	expectedTools, vers, toolPath := s.setupToolsForUpload(c)
 	// Now try uploading them.
-	toolsFile := tools.StorageName(vers)
 	params := "?binaryVersion=" + vers.String() + "&series=precise,trusty"
-	resp, err := s.uploadRequest(c, s.toolsURI(c, params), true, path.Join(localStorage, toolsFile))
+	resp, err := s.uploadRequest(c, s.toolsURI(c, params), true, toolPath)
 	c.Assert(err, gc.IsNil)
 
 	// Check the response.
@@ -159,16 +201,24 @@ func (s *toolsSuite) TestUploadFakeSeries(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		uploadedData, err := ioutil.ReadAll(r)
 		c.Assert(err, gc.IsNil)
-		expectedData, err := ioutil.ReadFile(filepath.Join(localStorage, tools.StorageName(vers)))
+		expectedData, err := ioutil.ReadFile(toolPath)
 		c.Assert(err, gc.IsNil)
 		c.Assert(uploadedData, gc.DeepEquals, expectedData)
 	}
 }
 
+func (s *toolsSuite) toolsURL(c *gc.C, query string) *url.URL {
+	uri := s.baseURL(c)
+	uri.Path += "/tools"
+	uri.RawQuery = query
+	return uri
+}
+
 func (s *toolsSuite) toolsURI(c *gc.C, query string) string {
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
-	return "https://" + info.Addrs[0] + "/tools" + query
+	if query != "" && query[0] == '?' {
+		query = query[1:]
+	}
+	return s.toolsURL(c, query).String()
 }
 
 func (s *toolsSuite) assertUploadResponse(c *gc.C, resp *http.Response, agentTools *coretools.Tools) {

@@ -729,7 +729,8 @@ type APIHostPortsResult struct {
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
-	Servers [][]instance.HostPort
+	Servers    [][]instance.HostPort
+	EnvironTag string
 }
 
 // EnsureAvailability contains arguments for

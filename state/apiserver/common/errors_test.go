@@ -105,6 +105,10 @@ var errorTransformTests = []struct {
 	err:  unhashableError{"foo"},
 	code: "",
 }, {
+	err:        common.UnknownEnvironmentError("dead-beef-123456"),
+	code:       params.CodeNotFound,
+	helperFunc: params.IsCodeNotFound,
+}, {
 	err:  nil,
 	code: "",
 }}
@@ -128,4 +132,9 @@ func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 			}
 		}
 	}
+}
+
+func (s *errorsSuite) TestUnknownEnvironment(c *gc.C) {
+	err := common.UnknownEnvironmentError("dead-beef")
+	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef"`)
 }
