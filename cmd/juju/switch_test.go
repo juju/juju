@@ -66,6 +66,41 @@ func (*SwitchSimpleSuite) TestShowsDefault(c *gc.C) {
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos\n")
 }
 
+func (*SwitchSimpleSuite) TestNoJenvYAML(c *gc.C) {
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--format", "yaml")
+	c.Assert(err, gc.IsNil)
+	output := EnvInfo{}
+	goyaml.Unmarshal([]byte(testing.Stdout(context)), &output)
+	expected := EnvInfo{
+		Username:    "",
+		EnvironName: "erewhemos",
+	}
+	c.Assert(output, gc.DeepEquals, expected)
+}
+
+func (*SwitchSimpleSuite) TestNoJenvJson(c *gc.C) {
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--format", "json")
+	c.Assert(err, gc.IsNil)
+	output := EnvInfo{}
+	json.Unmarshal([]byte(testing.Stdout(context)), &output)
+	expected := EnvInfo{
+		Username:    "",
+		EnvironName: "erewhemos",
+	}
+	c.Assert(output, gc.DeepEquals, expected)
+}
+
+func (*SwitchSimpleSuite) TestEnvInfoOmitFields(c *gc.C) {
+	jsonInfo, err := json.Marshal(EnvInfo{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(jsonInfo), gc.Equals, `{"user-name":"","environ-name":""}`)
+	yamlInfo, err := goyaml.Marshal(EnvInfo{})
+	c.Assert(string(yamlInfo), gc.Equals, `user-name: ""`+"\n"+`environ-name: ""`+"\n")
+
+}
+
 func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecidence(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	s.FakeHomeSuite.Home.AddFiles(c, testing.TestFile{".juju/current-environment", "fubar"})
@@ -137,7 +172,7 @@ func (*SwitchSimpleSuite) TestListEnvironmentsAndChange(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot switch and list at the same time")
 }
 
-func (*SwitchSimpleSuite) TestListEnvironmentInfoYaml(c *gc.C) {
+func (*SwitchSimpleSuite) TestShowEnvironmentInfoYaml(c *gc.C) {
 	patchEnvWithUser(c, "erewhemos")
 	context, err := testing.RunCommand(c, &SwitchCommand{}, "--format", "yaml")
 	c.Assert(err, gc.IsNil)
@@ -151,7 +186,7 @@ func (*SwitchSimpleSuite) TestListEnvironmentInfoYaml(c *gc.C) {
 	c.Assert(output, gc.DeepEquals, expected)
 }
 
-func (*SwitchSimpleSuite) TestListEnvironmentInfoJson(c *gc.C) {
+func (*SwitchSimpleSuite) TestShowEnvironmentInfoJson(c *gc.C) {
 	patchEnvWithUser(c, "erewhemos")
 	context, err := testing.RunCommand(c, &SwitchCommand{}, "--format", "json")
 	c.Assert(err, gc.IsNil)
@@ -165,7 +200,7 @@ func (*SwitchSimpleSuite) TestListEnvironmentInfoJson(c *gc.C) {
 	c.Assert(output, gc.DeepEquals, expected)
 }
 
-func (*SwitchSimpleSuite) TestListEnvironmentInfoShowOldEnv(c *gc.C) {
+func (*SwitchSimpleSuite) TestShowEnvironmentInfoAndOldEnv(c *gc.C) {
 	patchEnvWithUser(c, "erewhemos-2")
 	context, err := testing.RunCommand(c, &SwitchCommand{}, "erewhemos-2", "--format", "json")
 	c.Assert(err, gc.IsNil)

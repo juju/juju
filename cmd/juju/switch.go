@@ -8,13 +8,13 @@ import (
 	"os"
 	"sort"
 
+	"launchpad.net/gnuflag"
+
 	"github.com/juju/errors"
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
-	"launchpad.net/gnuflag"
 )
 
 type SwitchCommand struct {
@@ -48,21 +48,34 @@ local
 $ juju switch ec2
 local -> ec2 
 
+# List all available environments to switch to
+$ juju switch --list
+amazon
+azure
+hpcloud
+joyent
+local
+maas
+manual
+openstack
+
+# List all available environments to switch to
+$ juju switch -l
+amazon
+azure
+hpcloud
+joyent
+local
+maas
+manual
+openstack
+
 # Show username, API endpoints and environment name
 $ juju switch --format yaml
 environ-name: local
 state-servers:
-		- example.com
-		- kremvax.ru
-		cacert: cert
-username: joe
-
-# Show username, API endpoints and environment name
-$ juju switch -e # Single character  option, same as above
-environ-name: local
-state-servers:
-		- example.com
-		- kremvax.ru
+	- example.com
+	- kremvax.ru
 username: joe
 
 # Show infomation for the environment you are switching to. Include 
@@ -71,9 +84,8 @@ $ juju switch local --format yaml
 environ-name: local
 previous-environ-name: ec2
 state-servers:
-		- example.com
-		- kremvax.ru
-		cacert: cert
+	- example.com
+	- kremvax.ru
 username: joe
 
 # Format environment information as json
@@ -87,7 +99,7 @@ type EnvInfo struct {
 	Username            string   `yaml:"user-name" json:"user-name"`
 	EnvironName         string   `yaml:"environ-name" json:"environ-name"`
 	PreviousEnvironName string   `yaml:"previous-environ-name,omitempty" json:"previous-environ-name,omitempty"`
-	StateServers        []string `json:"state-servers" yaml:"state-servers"`
+	StateServers        []string `yaml:"state-servers,omitempty" json:"state-servers,omitempty"`
 }
 
 func (c *SwitchCommand) Info() *cmd.Info {
@@ -124,7 +136,7 @@ func validEnvironmentName(name string, names []string) bool {
 	return false
 }
 
-func (c *SwitchCommand) Run(ctx *cmd.Context) (err error) {
+func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	// Switch is an alternative way of dealing with environments than using
 	// the JUJU_ENV environment setting, and as such, doesn't play too well.
 	// If JUJU_ENV is set we should report that as the current environment,
@@ -153,7 +165,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) (err error) {
 	jujuEnv := os.Getenv("JUJU_ENV")
 	if jujuEnv != "" {
 		if c.EnvName == "" {
-			if info, err = c.envInfo(ctx, jujuEnv, ""); err != nil {
+			if info, err = buildEnvInfo(jujuEnv, ""); err != nil {
 				return err
 			}
 		} else {
@@ -172,7 +184,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) (err error) {
 			return errors.New("no currently specified environment")
 		case c.EnvName == "":
 			// Simply print the current environment.
-			if info, err = c.envInfo(ctx, currentEnv, ""); err != nil {
+			if info, err = buildEnvInfo(currentEnv, ""); err != nil {
 				return err
 			}
 		default:
@@ -183,7 +195,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) (err error) {
 			if err := envcmd.WriteCurrentEnvironment(c.EnvName); err != nil {
 				return err
 			}
-			if info, err = c.envInfo(ctx, c.EnvName, currentEnv); err != nil {
+			if info, err = buildEnvInfo(c.EnvName, currentEnv); err != nil {
 				return err
 			}
 		}
@@ -196,46 +208,24 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) (err error) {
 	return nil
 }
 
-// envInfo builds and returns an EnvInfo
-func (c *SwitchCommand) envInfo(ctx *cmd.Context, envName string, oldEnvName string) (info EnvInfo, err error) {
-	info.EnvironName = envName
-	info.PreviousEnvironName = oldEnvName
-	if info.Username, err = user(envName); err != nil {
-		return EnvInfo{}, err
-	}
-	if info.StateServers, err = stateServers(envName); err != nil {
-		return EnvInfo{}, err
-	}
-	return info, nil
-}
-
-// user returns the juju user for the given environment name, envName.
-func user(envName string) (username string, err error) {
+// buildEnvInfo builds and returns an EnvInfo
+func buildEnvInfo(envName string, oldEnvName string) (info EnvInfo, err error) {
 	store, err := configstore.Default()
 	if err != nil {
-		return "", err
+		return EnvInfo{}, err
 	}
-	info, err := store.ReadInfo(envName)
+	cfgEnvInfo, err := store.ReadInfo(envName)
 	if err != nil {
 		if !errors.IsNotFound(err) {
-			return "", err
+			return EnvInfo{}, err
 		}
 	} else {
-		username = info.APICredentials().User
+		info.Username = cfgEnvInfo.APICredentials().User
+		info.StateServers = cfgEnvInfo.APIEndpoint().Addresses
 	}
-	return username, nil
-}
-
-func stateServers(envName string) (addresses []string, err error) {
-	apiEndpoint, err := juju.APIEndpointForEnv(envName, false)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return nil, err
-		}
-	} else {
-		addresses = apiEndpoint.Addresses
-	}
-	return addresses, nil
+	info.EnvironName = envName
+	info.PreviousEnvironName = oldEnvName
+	return info, nil
 }
 
 func (c *SwitchCommand) formatSimple(value interface{}) (output []byte, err error) {
