@@ -270,6 +270,8 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
 	environTag := ""
 	if endpoint.EnvironUUID != "" {
+		// Note: we should be validating that EnvironUUID contains a
+		// valid UUID.
 		environTag = names.EnvironTag(endpoint.EnvironUUID)
 	}
 	apiInfo := &api.Info{
@@ -349,13 +351,14 @@ func environAPIInfo(environ environs.Environ) (*api.Info, error) {
 // cacheAPIInfo updates the local environment settings (.jenv file)
 // with the provided apiInfo, assuming we've just successfully
 // connected to the API server.
-func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
+func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
+	defer errors.Contextf(&err, "failed to cache API credentials")
 	environUUID := ""
 	if apiInfo.EnvironTag != "" {
 		var err error
 		_, environUUID, err = names.ParseTag(apiInfo.Tag, names.EnvironTagKind)
 		if err != nil {
-			return fmt.Errorf("invalid API environment tag: %v", err)
+			return err
 		}
 	}
 	info.SetAPIEndpoint(configstore.APIEndpoint{
@@ -365,7 +368,7 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) error {
 	})
 	_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
 	if err != nil {
-		return fmt.Errorf("invalid API user tag: %v", err)
+		return err
 	}
 	info.SetAPICredentials(configstore.APICredentials{
 		User:     username,
