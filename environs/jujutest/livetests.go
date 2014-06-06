@@ -17,6 +17,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -436,7 +437,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
-	url := coretesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
+	url := charmtesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, gc.IsNil)
 	svc, err := conn.State.AddService("dummy", "user-admin", sch, nil)

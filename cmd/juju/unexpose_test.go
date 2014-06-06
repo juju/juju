@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
@@ -31,7 +32,7 @@ func (s *UnexposeSuite) assertExposed(c *gc.C, service string, expected bool) {
 }
 
 func (s *UnexposeSuite) TestUnexpose(c *gc.C) {
-	testing.Charms.BundlePath(s.SeriesPath, "dummy")
+	charmtesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")

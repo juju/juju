@@ -20,11 +20,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
-	coretesting "github.com/juju/juju/testing"
 )
 
 type authHttpSuite struct {
@@ -150,7 +150,7 @@ func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 
 func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	// Add the dummy charm with revision 1.
-	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -178,7 +178,7 @@ func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 
 func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	// Make a dummy charm dir with revision 123.
-	dir := coretesting.Charms.ClonedDir(c.MkDir(), "dummy")
+	dir := charmtesting.Charms.ClonedDir(c.MkDir(), "dummy")
 	dir.SetDiskRevision(123)
 	// Now bundle the dir.
 	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
@@ -229,7 +229,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	dirPath := filepath.Join(rootDir, "subdir1", "subdir2")
 	err := os.MkdirAll(dirPath, 0755)
 	c.Assert(err, gc.IsNil)
-	dir := coretesting.Charms.ClonedDir(dirPath, "dummy")
+	dir := charmtesting.Charms.ClonedDir(dirPath, "dummy")
 	// Now tweak the path the dir thinks it is in and bundle it.
 	dir.Path = rootDir
 	tempFile, err := ioutil.TempFile(c.MkDir(), "charm")
@@ -302,7 +302,7 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 
 func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 	// Add the dummy charm.
-	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
@@ -321,7 +321,7 @@ func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 
 func (s *charmsSuite) TestGetReturnsForbiddenWithDirectory(c *gc.C) {
 	// Add the dummy charm.
-	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
@@ -335,7 +335,7 @@ func (s *charmsSuite) TestGetReturnsForbiddenWithDirectory(c *gc.C) {
 
 func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 	// Add the dummy charm.
-	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
@@ -369,7 +369,7 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 
 func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 	// Add the dummy charm.
-	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
@@ -393,7 +393,7 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create and save a bundle in it.
-	charmDir := coretesting.Charms.ClonedDir(c.MkDir(), "dummy")
+	charmDir := charmtesting.Charms.ClonedDir(c.MkDir(), "dummy")
 	testPath := filepath.Join(charmDir.Path, "utils.js")
 	contents := "// blah blah"
 	err = ioutil.WriteFile(testPath, []byte(contents), 0755)

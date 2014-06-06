@@ -17,6 +17,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -848,7 +849,7 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
 }
 
-func (s *clientSuite) deployServiceForTests(c *gc.C, store *coretesting.MockCharmStore) {
+func (s *clientSuite) deployServiceForTests(c *gc.C, store *charmtesting.MockCharmStore) {
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(curl.String(),
 		"service", 1, "", constraints.Value{}, "",
@@ -1140,19 +1141,19 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	}
 }
 
-func makeMockCharmStore() (store *coretesting.MockCharmStore, restore func()) {
-	mockStore := coretesting.NewMockCharmStore()
+func makeMockCharmStore() (store *charmtesting.MockCharmStore, restore func()) {
+	mockStore := charmtesting.NewMockCharmStore()
 	origStore := client.CharmStore
 	client.CharmStore = mockStore
 	return mockStore, func() { client.CharmStore = origStore }
 }
 
-func addCharm(c *gc.C, store *coretesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
+func addCharm(c *gc.C, store *charmtesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
 	return addSeriesCharm(c, store, "precise", name)
 }
 
-func addSeriesCharm(c *gc.C, store *coretesting.MockCharmStore, series, name string) (*charm.URL, charm.Charm) {
-	bundle := coretesting.Charms.Bundle(c.MkDir(), name)
+func addSeriesCharm(c *gc.C, store *charmtesting.MockCharmStore, series, name string) (*charm.URL, charm.Charm) {
+	bundle := charmtesting.Charms.Bundle(c.MkDir(), name)
 	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
 	err := store.SetCharm(curl, bundle)
@@ -1962,7 +1963,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 
 	// Add a charm, without uploading it to storage, to
 	// check that AddCharm does not try to do it.
-	charmDir := coretesting.Charms.Dir("dummy")
+	charmDir := charmtesting.Charms.Dir("dummy")
 	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
 	curl := charm.MustParseURL("cs:quantal/" + ident)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)

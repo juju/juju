@@ -16,8 +16,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/store"
-	"github.com/juju/juju/testing"
 )
 
 func (s *StoreSuite) dummyBranch(c *gc.C, suffix string) bzrDir {
@@ -30,7 +30,7 @@ func (s *StoreSuite) dummyBranch(c *gc.C, suffix string) bzrDir {
 	branch := bzrDir(tmpDir)
 	branch.init()
 
-	copyCharmDir(branch.path(), testing.Charms.Dir("dummy"))
+	copyCharmDir(branch.path(), charmtesting.Charms.Dir("dummy"))
 	branch.add()
 	branch.commit("Imported charm.")
 	return branch

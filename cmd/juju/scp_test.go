@@ -15,6 +15,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/instance"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -102,7 +103,7 @@ var scpTests = []struct {
 
 func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	m := s.makeMachines(4, c, true)
-	ch := coretesting.Charms.Dir("dummy")
+	ch := charmtesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

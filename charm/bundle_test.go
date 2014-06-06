@@ -20,18 +20,18 @@ import (
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/testing"
+	charmtesting "github.com/juju/juju/charm/testing"
 )
 
 type BundleSuite struct {
-	repo       *testing.Repo
+	repo       *charmtesting.Repo
 	bundlePath string
 }
 
 var _ = gc.Suite(&BundleSuite{})
 
 func (s *BundleSuite) SetUpSuite(c *gc.C) {
-	s.bundlePath = testing.Charms.BundlePath(c.MkDir(), "dummy")
+	s.bundlePath = charmtesting.Charms.BundlePath(c.MkDir(), "dummy")
 }
 
 var dummyManifest = []string{
@@ -53,7 +53,7 @@ func (s *BundleSuite) TestReadBundle(c *gc.C) {
 }
 
 func (s *BundleSuite) TestReadBundleWithoutConfig(c *gc.C) {
-	path := testing.Charms.BundlePath(c.MkDir(), "varnish")
+	path := charmtesting.Charms.BundlePath(c.MkDir(), "varnish")
 	bundle, err := charm.ReadBundle(path)
 	c.Assert(err, gc.IsNil)
 
@@ -95,7 +95,7 @@ func (s *BundleSuite) TestManifestNoRevision(c *gc.C) {
 }
 
 func (s *BundleSuite) TestManifestSymlink(c *gc.C) {
-	srcPath := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	srcPath := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	if err := os.Symlink("../target", filepath.Join(srcPath, "hooks/symlink")); err != nil {
 		c.Skip("cannot symlink")
 	}
@@ -158,7 +158,7 @@ func (s *BundleSuite) prepareBundle(c *gc.C, charmDir *charm.Dir, bundlePath str
 }
 
 func (s *BundleSuite) TestExpandToSetsHooksExecutable(c *gc.C) {
-	charmDir := testing.Charms.ClonedDir(c.MkDir(), "all-hooks")
+	charmDir := charmtesting.Charms.ClonedDir(c.MkDir(), "all-hooks")
 	// Bundle manually, so we can check ExpandTo(), unaffected
 	// by BundleTo()'s behavior
 	bundlePath := filepath.Join(c.MkDir(), "bundle.charm")
@@ -184,7 +184,7 @@ func (s *BundleSuite) TestExpandToSetsHooksExecutable(c *gc.C) {
 
 func (s *BundleSuite) TestBundleFileModes(c *gc.C) {
 	// Apply subtler mode differences than can be expressed in Bazaar.
-	srcPath := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	srcPath := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	modes := []struct {
 		path string
 		mode os.FileMode
@@ -231,7 +231,7 @@ func (s *BundleSuite) TestBundleFileModes(c *gc.C) {
 }
 
 func (s *BundleSuite) TestBundleRevisionFile(c *gc.C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	charmDir := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	revPath := filepath.Join(charmDir, "revision")
 
 	// Missing revision file
@@ -278,7 +278,7 @@ func (s *BundleSuite) TestBundleSetRevision(c *gc.C) {
 }
 
 func (s *BundleSuite) TestExpandToWithBadLink(c *gc.C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	charmDir := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	badLink := filepath.Join(charmDir, "hooks", "badlink")
 
 	// Symlink targeting a path outside of the charm.

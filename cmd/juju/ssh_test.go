@@ -13,6 +13,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/instance"
@@ -95,7 +96,7 @@ var sshTests = []struct {
 
 func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	m := s.makeMachines(3, c, true)
-	ch := coretesting.Charms.Dir("dummy")
+	ch := charmtesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

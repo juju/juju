@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -315,10 +316,10 @@ func (s *JujuConnSuite) WriteConfig(configData string) {
 }
 
 func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
-	ch := testing.Charms.Dir(name)
+	ch := charmtesting.Charms.Dir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charm.InferRepository(curl.Reference, testing.Charms.Path())
+	repo, err := charm.InferRepository(curl.Reference, charmtesting.Charms.Path())
 	c.Assert(err, gc.IsNil)
 	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, gc.IsNil)
