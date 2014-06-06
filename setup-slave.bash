@@ -14,6 +14,7 @@ SLAVE_ADDRESS=$(juju status $SLAVE |
 # Copy the authorized_keys so that we can ssh as jenkins.
 juju ssh $SLAVE/0 <<EOT
 set -eux
+echo 'jenkins ALL=(ALL) NOPASSWD:ALL' | sudo tee -a /etc/sudoers.d/91-jenkins
 cp /home/ubuntu/.ssh/authorized_keys /home/ubuntu/authorized_keys
 sudo chown jenkins:jenkins /home/ubuntu/authorized_keys
 sudo mv /home/ubuntu/authorized_keys /var/lib/jenkins/
