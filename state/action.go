@@ -96,14 +96,17 @@ func (a *Action) Fail(reason string) error {
 
 // removeAndLog takes the action off of the pending queue, and creates an
 // actionresult to capture the outcome of the action.
-func (a *Action) removeAndLog(endState ActionResultState, output string) error {
-	result, err := newActionResultDoc(a, endState, output)
+func (a *Action) removeAndLog(finalStatus ActionStatus, output string) error {
+	result, err := newActionResultDoc(a, finalStatus, output)
 	if err != nil {
 		return err
 	}
-	ops := addActionResultOps(a.st, result)
-	return a.st.runTransaction(append(ops, []txn.Op{{
-		C:      a.st.actions.Name,
-		Id:     a.doc.Id,
-		Remove: true}}...))
+	return a.st.runTransaction([]txn.Op{
+		addActionResultOp(a.st, result),
+		{
+			C:      a.st.actions.Name,
+			Id:     a.doc.Id,
+			Remove: true,
+		},
+	})
 }

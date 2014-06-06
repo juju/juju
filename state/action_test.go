@@ -154,8 +154,8 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	results, err = s.State.ActionResults(action.Id())
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
-	c.Assert(results[0].Name(), gc.Equals, action.Name())
-	c.Assert(results[0].Result(), gc.Equals, state.ActionFailed)
+	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
 	c.Assert(results[0].Output(), gc.Equals, reason)
 
 	// validate that a failed action is no longer returned by UnitActions.
@@ -191,8 +191,8 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 
-	c.Assert(results[0].Name(), gc.Equals, action.Name())
-	c.Assert(results[0].Result(), gc.Equals, state.ActionCompleted)
+	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
 	c.Assert(results[0].Output(), gc.Equals, output)
 
 	// validate that a completed action is no longer returned by UnitActions.

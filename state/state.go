@@ -1443,7 +1443,7 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 // ActionResults returns actionresults that match the given id prefix.
 func (st *State) ActionResults(prefix string) ([]*ActionResult, error) {
 	results := []*ActionResult{}
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
+	sel := bson.D{{"_id", bson.RegEx{Pattern: "^" + regexp.QuoteMeta(prefix)}}}
 	iter := st.actionresults.Find(sel).Iter()
 	doc := actionResultDoc{}
 	for iter.Next(&doc) {

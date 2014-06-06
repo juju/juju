@@ -10,32 +10,31 @@ import (
 	"labix.org/v2/mgo/txn"
 )
 
-// ActionResultState represents the possible end states for an action.
-type ActionResultState string
+// ActionStatus represents the possible end states for an action.
+type ActionStatus string
 
 const (
 	// Fail signifies that the action did not complete successfully.
-	ActionFailed ActionResultState = "fail"
+	ActionFailed ActionStatus = "fail"
 
 	// Complete indicates that the action ran to completion as intended.
-	ActionCompleted ActionResultState = "complete"
+	ActionCompleted ActionStatus = "complete"
 )
 
 type actionResultDoc struct {
 	Id string `bson:"_id"`
 
-	// Name identifies the action that was run.
-	Name string
+	// ActionName identifies the action that was run.
+	ActionName string
 
 	// Payload describes the parameters passed in for the action
 	// when it was run.
 	Payload map[string]interface{}
 
-	// Result represents the end state of the Action; ActionFailed for an
+	// Status represents the end state of the Action; ActionFailed for an
 	// action that was removed prematurely, or that failed, and
 	// ActionCompleted for an action that successfully completed.
-	// TODO(jcw4) better name? EndResult? ExitState? Status? blech.
-	Result ActionResultState
+	Status ActionStatus
 
 	// Output captures any text emitted by the action.
 	Output string
@@ -79,29 +78,27 @@ func newActionResultId(st *State, globalKey string) (string, error) {
 }
 
 // newActionResultDoc builds a new doc
-func newActionResultDoc(action *Action, result ActionResultState, output string) (*actionResultDoc, error) {
+func newActionResultDoc(action *Action, status ActionStatus, output string) (*actionResultDoc, error) {
 	id, err := newActionResultId(action.st, action.Id())
 	if err != nil {
 		return nil, err
 	}
 	return &actionResultDoc{
-		Id:      id,
-		Name:    action.Name(),
-		Payload: action.Payload(),
-		Result:  result,
-		Output:  output,
+		Id:         id,
+		ActionName: action.Name(),
+		Payload:    action.Payload(),
+		Status:     status,
+		Output:     output,
 	}, nil
 }
 
-// addActionResultOps builds the []txn.Op used to add an action result
-func addActionResultOps(st *State, doc *actionResultDoc) []txn.Op {
-	return []txn.Op{
-		{
-			C:      st.actionresults.Name,
-			Id:     doc.Id,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		},
+// addActionResultOp builds the txn.Op used to add an actionresult
+func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
+	return txn.Op{
+		C:      st.actionresults.Name,
+		Id:     doc.Id,
+		Assert: txn.DocMissing,
+		Insert: doc,
 	}
 }
 
@@ -116,9 +113,9 @@ func (a *ActionResult) Id() string {
 	return a.doc.Id
 }
 
-// Name returns the name of the ActionResult.
-func (a *ActionResult) Name() string {
-	return a.doc.Name
+// ActionName returns the name of the Action.
+func (a *ActionResult) ActionName() string {
+	return a.doc.ActionName
 }
 
 // Payload will contain a structure representing arguments or parameters
@@ -127,9 +124,9 @@ func (a *ActionResult) Payload() map[string]interface{} {
 	return a.doc.Payload
 }
 
-// Result returns the final state of the action.
-func (a *ActionResult) Result() ActionResultState {
-	return a.doc.Result
+// Status returns the final state of the action.
+func (a *ActionResult) Status() ActionStatus {
+	return a.doc.Status
 }
 
 // Output returns the text caputured from the action as it was executed.
