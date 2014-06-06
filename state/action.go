@@ -12,6 +12,11 @@ import (
 )
 
 type actionDoc struct {
+	// Id is the key for this document.  Action.Id() has a specfic form
+	// to facilitate filtering the actions collection for a given unit,
+	// or in the future a given service.
+	// The format of the Action.Id() will be:
+	//   <unit globalKey> + actionMarker + <generated state sequence>
 	Id string `bson:"_id"`
 
 	// Name identifies the action; it should match an action defined by

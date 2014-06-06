@@ -22,6 +22,9 @@ const (
 )
 
 type actionResultDoc struct {
+	// Id is the key for this document.  The format of the id encodes
+	// the id of the Action that was used to produce this ActionResult.
+	// The format is: <action id> + actionResultMarker + <generated sequence>
 	Id string `bson:"_id"`
 
 	// ActionName identifies the action that was run.
