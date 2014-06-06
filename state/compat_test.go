@@ -58,12 +58,12 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 		Id:     s.env.doc.UUID,
 		Update: bson.D{{"$unset", bson.D{{"life", nil}}}},
 	}}
-	err := s.state.runTransaction(ops)
+	err := s.state.RunTransaction(ops)
 	c.Assert(err, gc.IsNil)
 
 	// Now check the assertAliveOp and Destroy work as if
 	// the environment is Alive.
-	err = s.state.runTransaction([]txn.Op{s.env.assertAliveOp()})
+	err = s.state.RunTransaction([]txn.Op{s.env.assertAliveOp()})
 	c.Assert(err, gc.IsNil)
 	err = s.env.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -79,7 +79,7 @@ func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	// requested networks collection. We remove it here to test
 	// backwards compatibility.
 	ops := []txn.Op{removeRequestedNetworksOp(s.state, service.globalKey())}
-	err = s.state.runTransaction(ops)
+	err = s.state.RunTransaction(ops)
 	c.Assert(err, gc.IsNil)
 
 	// Now check the trying to fetch service's networks is OK.
@@ -95,7 +95,7 @@ func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 	// requested networks collection. We remove it here to test
 	// backwards compatibility.
 	ops := []txn.Op{removeRequestedNetworksOp(s.state, machine.globalKey())}
-	err = s.state.runTransaction(ops)
+	err = s.state.RunTransaction(ops)
 	c.Assert(err, gc.IsNil)
 
 	// Now check the trying to fetch machine's networks is OK.

@@ -44,22 +44,21 @@ func (s *Service) SetMinUnits(minUnits int) (err error) {
 	// it, the former should be able to re-create the document in the second
 	// attempt. If the referred-to service advanced its life cycle to a not
 	// alive state, an error is returned after the first failing attempt.
-	for i := 0; i < 2; i++ {
+	txns := func(attempt int) (ops []txn.Op, err error) {
+		if attempt > 1 {
+			if err := service.Refresh(); err != nil {
+				return nil, err
+			}
+		}
 		if service.doc.Life != Alive {
-			return errors.New("service is no longer alive")
+			return nil, errors.New("service is no longer alive")
 		}
 		if minUnits == service.doc.MinUnits {
-			return nil
+			return []txn.Op{}, nil
 		}
-		ops := setMinUnitsOps(service, minUnits)
-		if err := s.st.runTransaction(ops); err != txn.ErrAborted {
-			return err
-		}
-		if err := service.Refresh(); err != nil {
-			return err
-		}
+		return setMinUnitsOps(service, minUnits), nil
 	}
-	return ErrExcessiveContention
+	return s.st.Run(txns)
 }
 
 // setMinUnitsOps returns the operations required to set MinUnits on the
@@ -150,7 +149,7 @@ func (s *Service) EnsureMinUnits() (err error) {
 			return err
 		}
 		// Add missing unit.
-		switch err := s.st.runTransaction(ops); err {
+		switch err := s.st.RunTransaction(ops); err {
 		case nil:
 			// Assign the new unit.
 			unit, err := service.Unit(name)

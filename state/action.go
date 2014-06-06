@@ -108,7 +108,7 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, output string) error {
 	if err != nil {
 		return err
 	}
-	return a.st.runTransaction([]txn.Op{
+	return a.st.RunTransaction([]txn.Op{
 		addActionResultOp(a.st, result),
 		{
 			C:      a.st.actions.Name,

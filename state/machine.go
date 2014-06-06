@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
+	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -247,7 +248,7 @@ func (m *Machine) SetHasVote(hasVote bool) error {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err := m.st.RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set HasVote of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.HasVote = hasVote
@@ -315,7 +316,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err := m.st.RunTransaction(ops); err != nil {
 		return onAbort(err, errDead)
 	}
 	m.doc.Tools = tools
@@ -347,7 +348,7 @@ func (m *Machine) setPasswordHash(passwordHash string) error {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err := m.st.RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.PasswordHash = passwordHash
@@ -400,7 +401,7 @@ func (m *Machine) ForceDestroy() error {
 			Id:     m.doc.Id,
 			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
 		}, m.st.newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}
-		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
+		if err := m.st.RunTransaction(ops); err != txn.ErrAborted {
 			return err
 		}
 	}
@@ -508,20 +509,20 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}},
 		{"hasvote", bson.D{{"$ne", true}}},
 	}
-	// 3 attempts: one with original data, one with refreshed data, and a final
+	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
-	for i := 0; i < 3; i++ {
+	txns := func(attempt int) (ops []txn.Op, err error) {
 		// If the transaction was aborted, grab a fresh copy of the machine data.
 		// We don't write to original, because the expectation is that state-
 		// changing methods only set the requested change on the receiver; a case
 		// could perhaps be made that this is not a helpful convention in the
 		// context of the new state API, but we maintain consistency in the
 		// face of uncertainty.
-		if i != 0 {
+		if attempt != 1 {
 			if m, err = m.st.Machine(m.doc.Id); errors.IsNotFound(err) {
-				return nil
+				return ops, nil
 			} else if err != nil {
-				return err
+				return nil, err
 			}
 		}
 		// Check that the life change is sane, and collect the assertions
@@ -529,12 +530,12 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		switch life {
 		case Dying:
 			if m.doc.Life != Alive {
-				return nil
+				return ops, nil
 			}
 			op.Assert = append(advanceAsserts, isAliveDoc...)
 		case Dead:
 			if m.doc.Life == Dead {
-				return nil
+				return ops, nil
 			}
 			op.Assert = append(advanceAsserts, notDeadDoc...)
 		default:
@@ -546,28 +547,25 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			// (NOTE: When we enable multiple JobManageEnviron machines,
 			// this restriction will be lifted, but we will assert that the
 			// machine is not voting)
-			return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+			return nil, fmt.Errorf("machine %s is required by the environment", m.doc.Id)
 		}
 		if m.doc.HasVote {
-			return fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
+			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
 		}
 		if len(m.doc.Principals) != 0 {
-			return &HasAssignedUnitsError{
+			return ops, &HasAssignedUnitsError{
 				MachineId: m.doc.Id,
 				UnitNames: m.doc.Principals,
 			}
 		}
-		// Run the transaction...
-		if err := m.st.runTransaction([]txn.Op{op}); err != txn.ErrAborted {
-			return err
-		}
-		// ...and retry on abort.
+		return []txn.Op{op}, nil
 	}
-	// In very rare circumstances, the final iteration above will have determined
-	// no cause of failure, and attempted a final transaction: if this also failed,
-	// we can be sure that the machine document is changing very fast, in a somewhat
-	// surprising fashion, and that it is sensible to back off for now.
-	return fmt.Errorf("machine %s cannot advance lifecycle: %v", m, ErrExcessiveContention)
+	defer func() {
+		if err == statetxn.ErrExcessiveContention {
+			err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
+		}
+	}()
+	return m.st.Run(txns)
 }
 
 func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
@@ -632,7 +630,7 @@ func (m *Machine) Remove() (err error) {
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
-	return onAbort(m.st.runTransaction(ops), nil)
+	return onAbort(m.st.RunTransaction(ops), nil)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -744,7 +742,7 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 		},
 	}
 
-	if err = m.st.runTransaction(ops); err == nil {
+	if err = m.st.RunTransaction(ops); err == nil {
 		return nil
 	} else if err != txn.ErrAborted {
 		return err
@@ -819,7 +817,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		},
 	}
 
-	if err = m.st.runTransaction(ops); err == nil {
+	if err = m.st.RunTransaction(ops); err == nil {
 		m.doc.Nonce = nonce
 		// SCHEMACHANGE
 		// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
@@ -928,7 +926,7 @@ func (m *Machine) SetAddresses(addresses ...network.Address) (err error) {
 		},
 	}
 
-	if err = m.st.runTransaction(ops); err != nil {
+	if err = m.st.RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set addresses of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.Addresses = stateAddresses
@@ -957,7 +955,7 @@ func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) 
 		},
 	}
 
-	if err = m.st.runTransaction(ops); err != nil {
+	if err = m.st.RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.MachineAddresses = stateAddresses
@@ -1043,7 +1041,7 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 		Insert: doc,
 	}}
 
-	err = m.st.runTransaction(ops)
+	err = m.st.RunTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
 		if _, err = m.st.Network(args.NetworkName); err != nil {
@@ -1128,28 +1126,28 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		},
 		setConstraintsOp(m.st, m.globalKey(), cons),
 	}
-	// 3 attempts is enough to push the ErrExcessiveContention case out of the
+	// make multiple attempts to push the ErrExcessiveContention case out of the
 	// realm of plausibility: it implies local state indicating unprovisioned,
 	// and remote state indicating provisioned (reasonable); but which changes
 	// back to unprovisioned and then to provisioned again with *very* specific
 	// timing in the course of this loop.
-	for i := 0; i < 3; i++ {
+	txns := func(attempt int) ([]txn.Op, error) {
+		if attempt > 1 {
+			if m, err = m.st.Machine(m.doc.Id); err != nil {
+				return nil, err
+			}
+		}
 		if m.doc.Life != Alive {
-			return errNotAlive
+			return nil, errNotAlive
 		}
 		if _, err := m.InstanceId(); err == nil {
-			return fmt.Errorf("machine is already provisioned")
+			return nil, fmt.Errorf("machine is already provisioned")
 		} else if !IsNotProvisionedError(err) {
-			return err
+			return nil, err
 		}
-		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
-			return err
-		}
-		if m, err = m.st.Machine(m.doc.Id); err != nil {
-			return err
-		}
+		return ops, nil
 	}
-	return ErrExcessiveContention
+	return m.st.Run(txns)
 }
 
 // Status returns the status of the machine.
@@ -1185,7 +1183,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 	},
 		updateStatusOp(m.st, m.globalKey(), doc),
 	}
-	if err := m.st.runTransaction(ops); err != nil {
+	if err := m.st.RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))
 	}
 	return nil
@@ -1249,7 +1247,7 @@ func (m *Machine) updateSupportedContainers(supportedContainers []instance.Conta
 				}}},
 		},
 	}
-	if err = m.st.runTransaction(ops); err != nil {
+	if err = m.st.RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot update supported containers of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.SupportedContainers = supportedContainers

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
+	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -117,7 +118,7 @@ func Initialize(info *Info, cfg *config.Config, opts mongo.DialOpts, policy Poli
 			Insert: &apiHostPortsDoc{},
 		},
 	}
-	if err := st.runTransaction(ops); err == txn.ErrAborted {
+	if err := st.RunTransaction(ops); err == txn.ErrAborted {
 		// The config was created in the meantime.
 		return st, nil
 	} else if err != nil {
@@ -239,8 +240,9 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
-	st.runner = txn.NewRunner(db.C("txns"))
-	st.runner.ChangeLog(db.C("txns.log"))
+	mgoRunner := txn.NewRunner(db.C("txns"))
+	mgoRunner.ChangeLog(db.C("txns.log"))
+	st.TransactionRunner = statetxn.NewRunner(mgoRunner)
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, item := range indexes {
@@ -249,8 +251,6 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
-	st.transactionHooks = make(chan ([]transactionHook), 1)
-	st.transactionHooks <- nil
 
 	// TODO(rog) delete this when we can assume there are no
 	// pre-1.18 environments running.
@@ -315,7 +315,7 @@ func (st *State) createStateServersDoc() error {
 		Insert: &doc,
 	}}
 
-	return st.runTransaction(ops)
+	return st.RunTransaction(ops)
 }
 
 // createAPIAddressesDoc creates the API addresses document
@@ -330,7 +330,7 @@ func (st *State) createAPIAddressesDoc() error {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}}
-	return onAbort(st.runTransaction(ops), nil)
+	return onAbort(st.RunTransaction(ops), nil)
 }
 
 // createStateServingInfoDoc creates the state serving info document
@@ -343,7 +343,7 @@ func (st *State) createStateServingInfoDoc() error {
 		Assert: txn.DocMissing,
 		Insert: &info,
 	}}
-	return onAbort(st.runTransaction(ops), nil)
+	return onAbort(st.RunTransaction(ops), nil)
 }
 
 // CACert returns the certificate used to validate the state connection.
