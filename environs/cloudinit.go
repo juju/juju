@@ -32,8 +32,10 @@ const CloudInitOutputLog = "/var/log/cloud-init-output.log"
 // NewMachineConfig sets up a basic machine configuration, for a non-bootstrap
 // node.  You'll still need to supply more information, but this takes care of
 // the fixed entries and the ones that are always needed.
-func NewMachineConfig(machineID, machineNonce string, includeNetworks, excludeNetworks []string,
-	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
+func NewMachineConfig(
+	machineID, machineNonce string, networks []string,
+	stateInfo *state.Info, apiInfo *api.Info,
+) *cloudinit.MachineConfig {
 	mcfg := &cloudinit.MachineConfig{
 		// Fixed entries.
 		DataDir:                 DataDir,
@@ -43,12 +45,11 @@ func NewMachineConfig(machineID, machineNonce string, includeNetworks, excludeNe
 		MachineAgentServiceName: "jujud-" + names.MachineTag(machineID),
 
 		// Parameter entries.
-		MachineId:       machineID,
-		MachineNonce:    machineNonce,
-		IncludeNetworks: includeNetworks,
-		ExcludeNetworks: excludeNetworks,
-		StateInfo:       stateInfo,
-		APIInfo:         apiInfo,
+		MachineId:    machineID,
+		MachineNonce: machineNonce,
+		Networks:     networks,
+		StateInfo:    stateInfo,
+		APIInfo:      apiInfo,
 	}
 	return mcfg
 }
@@ -59,7 +60,7 @@ func NewMachineConfig(machineID, machineNonce string, includeNetworks, excludeNe
 func NewBootstrapMachineConfig(privateSystemSSHKey string) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	mcfg := NewMachineConfig("0", state.BootstrapNonce, nil, nil, nil, nil)
+	mcfg := NewMachineConfig("0", state.BootstrapNonce, nil, nil, nil)
 	mcfg.Bootstrap = true
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}

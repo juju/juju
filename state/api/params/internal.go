@@ -367,9 +367,8 @@ type InstancesInfo struct {
 
 // RequestedNetworkResult holds requested networks or an error.
 type RequestedNetworkResult struct {
-	Error           *Error
-	IncludeNetworks []string
-	ExcludeNetworks []string
+	Error    *Error
+	Networks []string
 }
 
 // RequestedNetworksResults holds multiple requested networks results.
@@ -614,11 +613,10 @@ type AgentVersionResult struct {
 
 // ProvisioningInfo holds machine provisioning info.
 type ProvisioningInfo struct {
-	Constraints     constraints.Value
-	Series          string
-	Placement       string
-	IncludeNetworks []string
-	ExcludeNetworks []string
+	Constraints constraints.Value
+	Series      string
+	Placement   string
+	Networks    []string
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

@@ -316,15 +316,15 @@ var statusTests = []testCase{
 		}},
 		addCharm{"dummy"},
 		addService{
-			name:            "networks-service",
-			charm:           "dummy",
-			withNetworks:    []string{"net1", "net2"},
-			withoutNetworks: []string{"net3", "net4"},
+			name:     "networks-service",
+			charm:    "dummy",
+			networks: []string{"net1", "net2"},
+			cons:     constraints.MustParse("networks=foo,bar,^no,^good"),
 		},
 		addService{
-			name:            "no-networks-service",
-			charm:           "dummy",
-			withoutNetworks: []string{"mynet"},
+			name:  "no-networks-service",
+			charm: "dummy",
+			cons:  constraints.MustParse("networks=^mynet"),
 		},
 		addNetwork{
 			name:       "net1",
@@ -352,7 +352,7 @@ var statusTests = []testCase{
 						"exposed": false,
 						"networks": M{
 							"enabled":  L{"net1", "net2"},
-							"disabled": L{"net3", "net4"},
+							"disabled": L{"foo", "bar", "no", "good"},
 						},
 					},
 					"no-networks-service": M{
@@ -1724,17 +1724,21 @@ func (ac addCharmWithRevision) step(c *gc.C, ctx *context) {
 }
 
 type addService struct {
-	name            string
-	charm           string
-	withNetworks    []string
-	withoutNetworks []string
+	name     string
+	charm    string
+	networks []string
+	cons     constraints.Value
 }
 
 func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
 	c.Assert(ok, gc.Equals, true)
-	_, err := ctx.st.AddService(as.name, "user-admin", ch, as.withNetworks, as.withoutNetworks)
+	svc, err := ctx.st.AddService(as.name, "user-admin", ch, as.networks)
 	c.Assert(err, gc.IsNil)
+	if svc.IsPrincipal() {
+		err = svc.SetConstraints(as.cons)
+		c.Assert(err, gc.IsNil)
+	}
 }
 
 type setServiceExposed struct {
