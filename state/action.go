@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"labix.org/v2/mgo/txn"
@@ -109,4 +110,11 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, output string) error {
 			Remove: true,
 		},
 	})
+}
+
+var validAction = regexp.MustCompile("^.+" + regexp.QuoteMeta(actionMarker) + "\\d+$")
+
+// IsAction returns whether actionId is a valid action Id.
+func IsAction(actionId string) bool {
+	return validAction.MatchString(actionId)
 }

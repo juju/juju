@@ -141,7 +141,7 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ensure no action results for this action
-	results, err := s.State.ActionResults(action.Id())
+	results, err := s.State.ActionResultsForAction(action.Id())
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 0)
 
@@ -151,9 +151,19 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ensure we now have a result for this action
-	results, err = s.State.ActionResults(action.Id())
+	results, err = s.State.ActionResultsForAction(action.Id())
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
+
+	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
+	c.Assert(results[0].Output(), gc.Equals, reason)
+
+	// ensure we find the same results when searching by unit name
+	results, err = s.State.ActionResultsForUnit(unit.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 1)
+
 	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
 	c.Assert(results[0].Output(), gc.Equals, reason)
@@ -177,7 +187,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ensure no action results for this action
-	results, err := s.State.ActionResults(action.Id())
+	results, err := s.State.ActionResultsForAction(action.Id())
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 0)
 
@@ -187,7 +197,16 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ensure we now have a result for this action
-	results, err = s.State.ActionResults(action.Id())
+	results, err = s.State.ActionResultsForAction(action.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 1)
+
+	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
+	c.Assert(results[0].Output(), gc.Equals, output)
+
+	// ensure we find the same results when searching by unit name
+	results, err = s.State.ActionResultsForUnit(unit.Name())
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 

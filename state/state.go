@@ -1440,8 +1440,27 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 	return newActionResult(st, doc), nil
 }
 
-// ActionResults returns actionresults that match the given id prefix.
-func (st *State) ActionResults(prefix string) ([]*ActionResult, error) {
+// ActionResultsForUnit returns actionresults that were generated from
+// actions queued to the unit with the given name.
+func (st *State) ActionResultsForUnit(name string) ([]*ActionResult, error) {
+	if !names.IsUnit(name) {
+		return nil, fmt.Errorf("%q is not a valid unit name", name)
+	}
+	return st.actionResults(unitGlobalKey(name) + actionMarker)
+}
+
+// ActionResultsForAction returns actionresults that were generated from
+// action with given actionId
+func (st *State) ActionResultsForAction(actionId string) ([]*ActionResult, error) {
+	if !IsAction(actionId) {
+		return nil, fmt.Errorf("%q is not a valid action id", actionId)
+	}
+	return st.actionResults(actionId + actionResultMarker)
+}
+
+// actionResults returns actionresults that match the given id prefix.
+// We assume the prefix has been scrubbed before calling this
+func (st *State) actionResults(prefix string) ([]*ActionResult, error) {
 	results := []*ActionResult{}
 	sel := bson.D{{"_id", bson.RegEx{Pattern: "^" + regexp.QuoteMeta(prefix)}}}
 	iter := st.actionresults.Find(sel).Iter()
