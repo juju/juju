@@ -1,26 +1,139 @@
 // Copyright 2011, 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package charm_test
+package charm
 
 import (
 	"bytes"
 
 	gc "launchpad.net/gocheck"
-
-	"github.com/juju/juju/charm"
 )
 
 type ActionsSuite struct{}
 
 var _ = gc.Suite(&ActionsSuite{})
 
+func (s *ActionsSuite) TestNewActions(c *gc.C) {
+	emptyAction := NewActions()
+	c.Assert(emptyAction, gc.DeepEquals, &Actions{})
+}
+
+func (s *ActionsSuite) TestCleanseOK(c *gc.C) {
+
+	var goodInterfaceTests = []struct {
+		description         string
+		acceptableInterface map[string]interface{}
+		expectedInterface   map[string]interface{}
+	}{{
+		description: "An interface requiring no changes.",
+		acceptableInterface: map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": map[string]interface{}{
+				"foo1": "val1",
+				"foo2": "val2"}},
+		expectedInterface: map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": map[string]interface{}{
+				"foo1": "val1",
+				"foo2": "val2"}},
+	}, {
+		description: "Substitute a single inner map[i]i.",
+		acceptableInterface: map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": map[interface{}]interface{}{
+				"foo1": "val1",
+				"foo2": "val2"}},
+		expectedInterface: map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": map[string]interface{}{
+				"foo1": "val1",
+				"foo2": "val2"}},
+	}, {
+		description: "Substitute nested inner map[i]i.",
+		acceptableInterface: map[string]interface{}{
+			"key1a": "val1a",
+			"key2a": "val2a",
+			"key3a": map[interface{}]interface{}{
+				"key1b": "val1b",
+				"key2b": map[interface{}]interface{}{
+					"key1c": "val1c"}}},
+		expectedInterface: map[string]interface{}{
+			"key1a": "val1a",
+			"key2a": "val2a",
+			"key3a": map[string]interface{}{
+				"key1b": "val1b",
+				"key2b": map[string]interface{}{
+					"key1c": "val1c"}}},
+	}, {
+		description: "Substitute nested map[i]i within []i.",
+		acceptableInterface: map[string]interface{}{
+			"key1a": "val1a",
+			"key2a": []interface{}{5, "foo", map[string]interface{}{
+				"key1b": "val1b",
+				"key2b": map[interface{}]interface{}{
+					"key1c": "val1c"}}}},
+		expectedInterface: map[string]interface{}{
+			"key1a": "val1a",
+			"key2a": []interface{}{5, "foo", map[string]interface{}{
+				"key1b": "val1b",
+				"key2b": map[string]interface{}{
+					"key1c": "val1c"}}}},
+	}}
+
+	for i, test := range goodInterfaceTests {
+		c.Logf("test %d: %s", i, test.description)
+		cleansedInterfaceMap, err := cleanse(test.acceptableInterface)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cleansedInterfaceMap, gc.DeepEquals, test.expectedInterface)
+	}
+}
+
+func (s *ActionsSuite) TestCleanseFail(c *gc.C) {
+
+	var badInterfaceTests = []struct {
+		description   string
+		failInterface map[string]interface{}
+		expectedError string
+	}{{
+		description: "An inner map[interface{}]interface{} with an int key.",
+		failInterface: map[string]interface{}{
+			"key1": "value1",
+			"key2": "value2",
+			"key3": map[interface{}]interface{}{
+				"foo1": "val1",
+				5:      "val2"}},
+		expectedError: "map keyed with non-string value",
+	}, {
+		description: "An inner []interface{} containing a map[i]i with an int key.",
+		failInterface: map[string]interface{}{
+			"key1a": "val1b",
+			"key2a": "val2b",
+			"key3a": []interface{}{"foo1", 5, map[interface{}]interface{}{
+				"key1b": "val1b",
+				"key2b": map[interface{}]interface{}{
+					"key1c": "val1c",
+					5:       "val2c"}}}},
+		expectedError: "map keyed with non-string value",
+	}}
+
+	for i, test := range badInterfaceTests {
+		c.Logf("test %d: %s", i, test.description)
+		_, err := cleanse(test.failInterface)
+		c.Assert(err, gc.NotNil)
+		c.Assert(err.Error(), gc.Equals, test.expectedError)
+	}
+}
+
 func (s *ActionsSuite) TestReadGoodActionsYaml(c *gc.C) {
 
 	var goodActionsYamlTests = []struct {
 		description     string
 		yaml            string
-		expectedActions *charm.Actions
+		expectedActions *Actions
 	}{{
 		description: "A simple snapshot actions YAML with one parameter.",
 		yaml: `
@@ -33,11 +146,11 @@ actions:
             type: string
             default: foo.bz2
 `,
-		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-			"snapshot": charm.ActionSpec{
+		expectedActions: &Actions{map[string]ActionSpec{
+			"snapshot": ActionSpec{
 				Description: "Take a snapshot of the database.",
 				Params: map[string]interface{}{
-					"outfile": map[interface{}]interface{}{
+					"outfile": map[string]interface{}{
 						"description": "The file to write out to.",
 						"type":        "string",
 						"default":     "foo.bz2"}}}}},
@@ -54,19 +167,19 @@ actions:
             type: string
             default: foo.bz2
 `,
-		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-			"snapshot": charm.ActionSpec{
+		expectedActions: &Actions{map[string]ActionSpec{
+			"snapshot": ActionSpec{
 				Description: "Take a snapshot of the database.",
 				Params: map[string]interface{}{
 					"$schema": "http://json-schema.org/draft-03/schema#",
-					"outfile": map[interface{}]interface{}{
+					"outfile": map[string]interface{}{
 						"description": "The file to write out to.",
 						"type":        "string",
 						"default":     "foo.bz2"}}}}},
 	}, {
 		description:     "An empty Actions definition.",
 		yaml:            "",
-		expectedActions: &charm.Actions{},
+		expectedActions: &Actions{},
 	}, {
 		description: "A more complex schema with hyphenated names and multiple parameters.",
 		yaml: `
@@ -103,34 +216,34 @@ actions:
             enum: [rsync, scp]
             default: rsync
 `,
-		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-			"snapshot": charm.ActionSpec{
+		expectedActions: &Actions{map[string]ActionSpec{
+			"snapshot": ActionSpec{
 				Description: "Take a snapshot of the database.",
 				Params: map[string]interface{}{
-					"outfile": map[interface{}]interface{}{
+					"outfile": map[string]interface{}{
 						"description": "The file to write out to.",
 						"type":        "string",
 						"default":     "foo.bz2"},
-					"compression-quality": map[interface{}]interface{}{
+					"compression-quality": map[string]interface{}{
 						"description":      "The compression quality.",
 						"type":             "number",
 						"minimum":          0,
 						"maximum":          9,
 						"exclusiveMaximum": false}}},
-			"remote-sync": charm.ActionSpec{
+			"remote-sync": ActionSpec{
 				Description: "Sync a file to a remote host.",
 				Params: map[string]interface{}{
-					"file": map[interface{}]interface{}{
+					"file": map[string]interface{}{
 						"description": "The file to send out.",
 						"type":        "string",
 						"format":      "uri",
 						"optional":    false},
-					"remote-uri": map[interface{}]interface{}{
+					"remote-uri": map[string]interface{}{
 						"description": "The host to sync to.",
 						"type":        "string",
 						"format":      "uri",
 						"optional":    false},
-					"util": map[interface{}]interface{}{
+					"util": map[string]interface{}{
 						"description": "The util to perform the sync (rsync or scp.)",
 						"type":        "string",
 						"enum":        []interface{}{"rsync", "scp"},
@@ -144,10 +257,10 @@ actions:
       params:
 `,
 
-		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-			"snapshot": charm.ActionSpec{
+		expectedActions: &Actions{map[string]ActionSpec{
+			"snapshot": ActionSpec{
 				Description: "Take a snapshot of the database.",
-				Params:      nil}}},
+				Params:      map[string]interface{}{}}}},
 	}, {
 		description: "A schema with no \"params\" key, implying no options.",
 		yaml: `
@@ -156,17 +269,17 @@ actions:
       description: Take a snapshot of the database.
 `,
 
-		expectedActions: &charm.Actions{map[string]charm.ActionSpec{
-			"snapshot": charm.ActionSpec{
+		expectedActions: &Actions{map[string]ActionSpec{
+			"snapshot": ActionSpec{
 				Description: "Take a snapshot of the database.",
-				Params:      nil}}},
+				Params:      map[string]interface{}{}}}},
 	}}
 
 	// Beginning of testing loop
 	for i, test := range goodActionsYamlTests {
 		c.Logf("test %d: %s", i, test.description)
 		reader := bytes.NewReader([]byte(test.yaml))
-		loadedAction, err := charm.ReadActionsYaml(reader)
+		loadedAction, err := ReadActionsYaml(reader)
 		c.Assert(err, gc.IsNil)
 		c.Assert(loadedAction, gc.DeepEquals, test.expectedActions)
 	}
@@ -289,8 +402,8 @@ actions:
 	for i, test := range badActionsYamlTests {
 		c.Logf("test %d: %s", i, test.description)
 		reader := bytes.NewReader([]byte(test.yaml))
-		_, err := charm.ReadActionsYaml(reader)
-		c.Assert(err, gc.Not(gc.IsNil))
+		_, err := ReadActionsYaml(reader)
+		c.Assert(err, gc.NotNil)
 		c.Assert(err.Error(), gc.Equals, test.expectedError)
 	}
 }

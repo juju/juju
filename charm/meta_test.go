@@ -509,6 +509,10 @@ func (c *dummyCharm) Config() *charm.Config {
 	panic("unused")
 }
 
+func (c *dummyCharm) Actions() *charm.Actions {
+	panic("unused")
+}
+
 func (c *dummyCharm) Revision() int {
 	panic("unused")
 }
