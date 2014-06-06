@@ -18,3 +18,20 @@ type ResourceStorage interface {
 	// Remove deletes the data at the specified path.
 	Remove(path string) error
 }
+
+// ResourceCatalog instances persist Resources.
+// Resources with the same Path value are not duplicated; instead a reference count is incremented.
+// Similarly, when a Resources is removed, the reference count is decremented. When the reference
+// count reaches zero, the Resource is deleted.
+type ResourceCatalog interface {
+	// Get fetches a Resource with the given id.
+	Get(id string) (*Resource, error)
+
+	// Put ensures a Resource entry exists for the given ResourceHash, returning the id and path.
+	// If the Resource exists, it's reference count is incremented, otherwise a new entry is created.
+	Put(rh *ResourceHash) (id, path string, err error)
+
+	// Remove decrements the reference count for a Resource with the given id, deleting it
+	// if the reference count reaches zero.
+	Remove(id string) error
+}
