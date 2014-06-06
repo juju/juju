@@ -344,7 +344,7 @@ func (f *filter) loop(unitTag string) (err error) {
 			}
 			var ids []int
 			for _, key := range keys {
-				relationTag := names.RelationTag(key).String()
+				relationTag := names.NewRelationTag(key).String()
 				rel, err := f.st.Relation(relationTag)
 				if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 					// If it's actually gone, this unit cannot have entered

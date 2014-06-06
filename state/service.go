@@ -68,7 +68,7 @@ func (s *Service) Name() string {
 // as a file name.  The returned name will be different from other
 // Tag values returned by any other entities from the same state.
 func (s *Service) Tag() string {
-	return names.ServiceTag(s.Name()).String()
+	return names.NewServiceTag(s.Name()).String()
 }
 
 // serviceGlobalKey returns the global database key for the service

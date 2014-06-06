@@ -135,7 +135,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // guaranteed to persist for the lifetime of the relation, regardless
 // of the lifetime of the unit.
 func (ru *RelationUnit) ReadSettings(uname string) (params.RelationSettings, error) {
-	tag := names.UnitTag(uname)
+	tag := names.NewUnitTag(uname)
 	var results params.RelationSettingsResults
 	args := params.RelationUnitPairs{
 		RelationUnitPairs: []params.RelationUnitPair{{

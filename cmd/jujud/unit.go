@@ -111,5 +111,5 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 }
 
 func (a *UnitAgent) Tag() string {
-	return names.UnitTag(a.UnitName).String()
+	return names.NewUnitTag(a.UnitName).String()
 }

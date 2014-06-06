@@ -107,7 +107,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
-	serviceTag := names.ServiceTag(u.ServiceName())
+	serviceTag := names.NewServiceTag(u.ServiceName())
 	service := &Service{
 		st:  u.st,
 		tag: serviceTag.String(),
@@ -151,7 +151,7 @@ func (u *Unit) ServiceName() string {
 
 // ServiceTag returns the service tag.
 func (u *Unit) ServiceTag() string {
-	return names.ServiceTag(u.ServiceName()).String()
+	return names.NewServiceTag(u.ServiceName()).String()
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as

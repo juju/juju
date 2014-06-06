@@ -289,7 +289,7 @@ func parseNetworks(networksValue string) (networks []string) {
 	for _, part := range parts {
 		network := strings.TrimSpace(part)
 		if network != "" {
-			networks = append(networks, names.NetworkTag(network).String())
+			networks = append(networks, names.NewNetworkTag(network).String())
 		}
 	}
 	return networks

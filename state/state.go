@@ -208,7 +208,7 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 			case "machines":
 				agentTags = append(agentTags, names.NewMachineTag(doc.Id).String())
 			case "units":
-				agentTags = append(agentTags, names.UnitTag(doc.Id).String())
+				agentTags = append(agentTags, names.NewUnitTag(doc.Id).String())
 			}
 		}
 		if err := iter.Err(); err != nil {

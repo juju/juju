@@ -152,10 +152,10 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	if err := result.Error; err != nil {
 		return nil, err
 	}
-	relationTag := names.RelationTag(result.Key)
+	relationTag := names.NewRelationTag(result.Key).String()
 	return &Relation{
 		id:   result.Id,
-		tag:  relationTag.String(),
+		tag:  relationTag,
 		life: result.Life,
 		st:   st,
 	}, nil

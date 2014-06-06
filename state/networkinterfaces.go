@@ -101,7 +101,7 @@ func (ni *NetworkInterface) NetworkName() string {
 
 // NetworkTag returns the network tag of the interface.
 func (ni *NetworkInterface) NetworkTag() string {
-	return names.NetworkTag(ni.doc.NetworkName).String()
+	return names.NewNetworkTag(ni.doc.NetworkName).String()
 }
 
 // MachineId returns the machine id of the interface.
