@@ -133,7 +133,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	}
 
 	// Now run the complete transaction, or figure out why we can't.
-	if err := ru.st.runTransaction(ops); err != txn.ErrAborted {
+	if err := ru.st.RunTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if count, err := ru.st.relationScopes.FindId(ruKey).Count(); err != nil {
@@ -240,7 +240,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 		Id:     key,
 		Update: bson.D{{"$set", bson.D{{"departing", true}}}},
 	}}
-	return ru.st.runTransaction(ops)
+	return ru.st.RunTransaction(ops)
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -276,14 +276,21 @@ func (ru *RelationUnit) LeaveScope() error {
 	// Destroy changes the Life attribute in memory (units could join before
 	// the database is actually changed).
 	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
-	for attempt := 0; attempt < 3; attempt++ {
+	txns := func(attempt int) (ops []txn.Op, err error) {
+		if attempt > 1 {
+			if err := ru.relation.Refresh(); errors.IsNotFound(err) {
+				return ops, nil
+			} else if err != nil {
+				return nil, err
+			}
+		}
 		count, err := ru.st.relationScopes.FindId(key).Count()
 		if err != nil {
-			return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
+			return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 		} else if count == 0 {
-			return nil
+			return ops, nil
 		}
-		ops := []txn.Op{{
+		ops = []txn.Op{{
 			C:      ru.st.relationScopes.Name,
 			Id:     key,
 			Assert: txn.DocExists,
@@ -306,23 +313,18 @@ func (ru *RelationUnit) LeaveScope() error {
 		} else {
 			relOps, err := ru.relation.removeOps("", ru.unit)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			ops = append(ops, relOps...)
 		}
-		if err = ru.st.runTransaction(ops); err != txn.ErrAborted {
-			if err != nil {
-				return fmt.Errorf("cannot leave scope for %s: %v", desc, err)
-			}
-			return err
-		}
-		if err := ru.relation.Refresh(); errors.IsNotFound(err) {
+		return ops, nil
+	}
+	if err = ru.st.Run(txns); err == nil {
+		if err = ru.relation.Refresh(); err == nil || errors.IsNotFound(err) {
 			return nil
-		} else if err != nil {
-			return err
 		}
 	}
-	return fmt.Errorf("cannot leave scope for %s: inconsistent state", desc)
+	return fmt.Errorf("cannot leave scope for %s: %v", desc, err)
 }
 
 // InScope returns whether the relation unit has entered scope and not left it.

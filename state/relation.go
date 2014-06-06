@@ -111,23 +111,28 @@ func (r *Relation) Destroy() (err error) {
 	// in scope have changed between 0 and not-0. The chances of 5 successive
 	// attempts each hitting this change -- which is itself an unlikely one --
 	// are considered to be extremely small.
-	for attempt := 0; attempt < 5; attempt++ {
-		ops, _, err := rel.destroyOps("")
+	txns := func(attempt int) (ops []txn.Op, err error) {
+		if attempt > 1 {
+			if err := rel.Refresh(); errors.IsNotFound(err) {
+				return []txn.Op{}, nil
+			} else if err != nil {
+				return nil, err
+			}
+		}
+		ops, _, err = rel.destroyOps("")
 		if err == errAlreadyDying {
-			return nil
+			return ops, nil
 		} else if err != nil {
-			return err
+			return nil, err
 		}
-		if err := rel.st.runTransaction(ops); err != txn.ErrAborted {
-			return err
-		}
-		if err := rel.Refresh(); errors.IsNotFound(err) {
+		return ops, nil
+	}
+	if err = rel.st.Run(txns); err == nil {
+		if err = rel.Refresh(); err == nil || errors.IsNotFound(err) {
 			return nil
-		} else if err != nil {
-			return err
 		}
 	}
-	return ErrExcessiveContention
+	return err
 }
 
 var errAlreadyDying = stderrors.New("entity is already dying and cannot be destroyed")
