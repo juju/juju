@@ -75,7 +75,7 @@ func (a *Action) Payload() map[string]interface{} {
 func (a *Action) Fail(reason string) error {
 	// TODO(jcw4) replace with code to generate a result that records this failure
 	logger.Warningf("action '%s' failed because '%s'", a.doc.Name, reason)
-	return a.st.runTransaction([]txn.Op{{
+	return a.st.RunTransaction([]txn.Op{{
 		C:      a.st.actions.Name,
 		Id:     a.doc.Id,
 		Remove: true,

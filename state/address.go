@@ -102,7 +102,7 @@ func (st *State) SetAPIHostPorts(hps [][]instance.HostPort) error {
 			{"apihostports", doc.APIHostPorts},
 		}}},
 	}}
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set API addresses: %v", err)
 	}
 	return nil

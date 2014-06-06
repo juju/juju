@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/state/txn"
 	"github.com/juju/juju/testing"
 )
 
@@ -43,7 +44,7 @@ var errorTransformTests = []struct {
 	code:       params.CodeCannotEnterScope,
 	helperFunc: params.IsCodeCannotEnterScope,
 }, {
-	err:        state.ErrExcessiveContention,
+	err:        txn.ErrExcessiveContention,
 	code:       params.CodeExcessiveContention,
 	helperFunc: params.IsCodeExcessiveContention,
 }, {

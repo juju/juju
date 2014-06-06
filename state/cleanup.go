@@ -89,7 +89,7 @@ func (st *State) Cleanup() error {
 			Id:     doc.Id,
 			Remove: true,
 		}}
-		if err := st.runTransaction(ops); err != nil {
+		if err := st.RunTransaction(ops); err != nil {
 			logger.Warningf("cannot remove empty cleanup document: %v", err)
 		}
 	}

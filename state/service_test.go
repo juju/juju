@@ -1010,7 +1010,7 @@ func (s *ServiceSuite) TestDestroyWithReferencedRelation(c *gc.C) {
 	s.assertDestroyWithReferencedRelation(c, true)
 }
 
-func (s *ServiceSuite) TestDestroyWithreferencedRelationStaleCount(c *gc.C) {
+func (s *ServiceSuite) TestDestroyWithReferencedRelationStaleCount(c *gc.C) {
 	s.assertDestroyWithReferencedRelation(c, false)
 }
 

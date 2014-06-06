@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
@@ -45,6 +46,7 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
+	statetxn.TransactionRunner
 	info              *Info
 	policy            Policy
 	db                *mgo.Database
@@ -71,50 +73,11 @@ type State struct {
 	annotations       *mgo.Collection
 	statuses          *mgo.Collection
 	stateServers      *mgo.Collection
-	runner            *txn.Runner
-	transactionHooks  chan ([]transactionHook)
 	watcher           *watcher.Watcher
 	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
-}
-
-// transactionHook holds a pair of functions to be called before and after a
-// mgo/txn transaction is run. It is only used in testing.
-type transactionHook struct {
-	Before func()
-	After  func()
-}
-
-// runTransaction runs the supplied operations as a single mgo/txn transaction,
-// and includes a mechanism whereby tests can use SetTransactionHooks to induce
-// arbitrary state mutations before and after particular transactions.
-func (st *State) runTransaction(ops []txn.Op) error {
-	transactionHooks := <-st.transactionHooks
-	st.transactionHooks <- nil
-	if len(transactionHooks) > 0 {
-		// Note that this code should only ever be triggered
-		// during tests. If we see the log messages below
-		// in a production run, something is wrong.
-		defer func() {
-			if transactionHooks[0].After != nil {
-				logger.Infof("transaction 'after' hook start")
-				transactionHooks[0].After()
-				logger.Infof("transaction 'after' hook end")
-			}
-			if <-st.transactionHooks != nil {
-				panic("concurrent use of transaction hooks")
-			}
-			st.transactionHooks <- transactionHooks[1:]
-		}()
-		if transactionHooks[0].Before != nil {
-			logger.Infof("transaction 'before' hook start")
-			transactionHooks[0].Before()
-			logger.Infof("transaction 'before' hook end")
-		}
-	}
-	return st.runner.Run(ops, "", nil)
 }
 
 // Ping probes the state's database connection to ensure
@@ -224,42 +187,43 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 // SetEnvironAgentVersion changes the agent version for the
 // environment to the given version, only if the environment is in a
 // stable state (all agents are running the current version).
-func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
-	for i := 0; i < 5; i++ {
+func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
+	txns := func(attempt int) (ops []txn.Op, err error) {
 		settings, err := readSettings(st, environGlobalKey)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		agentVersion, ok := settings.Get("agent-version")
 		if !ok {
-			return fmt.Errorf("no agent version set in the environment")
+			return nil, fmt.Errorf("no agent version set in the environment")
 		}
 		currentVersion, ok := agentVersion.(string)
 		if !ok {
-			return fmt.Errorf("invalid agent version format: expected string, got %v", agentVersion)
+			return nil, fmt.Errorf("invalid agent version format: expected string, got %v", agentVersion)
 		}
 		if newVersion.String() == currentVersion {
 			// Nothing to do.
-			return nil
+			return ops, nil
 		}
 
 		if err := st.checkCanUpgrade(currentVersion, newVersion.String()); err != nil {
-			return err
+			return nil, err
 		}
 
-		ops := []txn.Op{{
+		ops = []txn.Op{{
 			C:      st.settings.Name,
 			Id:     environGlobalKey,
 			Assert: bson.D{{"txn-revno", settings.txnRevno}},
 			Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
 		}}
-		if err := st.runTransaction(ops); err == nil {
-			return nil
-		} else if err != txn.ErrAborted {
-			return fmt.Errorf("cannot set agent-version: %v", err)
-		}
+		return ops, nil
 	}
-	return ErrExcessiveContention
+	defer func() {
+		if err == statetxn.ErrExcessiveContention {
+			err = errors.Annotate(err, "cannot set agent version")
+		}
+	}()
+	return st.Run(txns)
 }
 
 func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
@@ -600,7 +564,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
 
-	for attempt := 0; attempt < 3; attempt++ {
+	txns := func(attempt int) (ops []txn.Op, err error) {
 		// Find the highest revision of that charm in state.
 		var docs []charmDoc
 		err = st.charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}).Select(bson.D{{"_id", 1}}).All(&docs)
@@ -627,24 +591,18 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 			URL:           chosenUrl,
 			PendingUpload: true,
 		}
-		ops := []txn.Op{{
+		ops = []txn.Op{{
 			C:      st.charms.Name,
 			Id:     uploadedCharm.URL,
 			Assert: txn.DocMissing,
 			Insert: uploadedCharm,
 		}}
-		// Run the transaction, and retry on abort.
-		if err = st.runTransaction(ops); err == txn.ErrAborted {
-			continue
-		} else if err != nil {
-			return nil, err
-		}
-		break
+		return ops, nil
 	}
-	if err != nil {
-		return nil, ErrExcessiveContention
+	if err = st.Run(txns); err == nil {
+		return chosenUrl, nil
 	}
-	return chosenUrl, nil
+	return nil, err
 }
 
 // PrepareStoreCharmUpload must be called before a charm store charm
@@ -669,7 +627,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		uploadedCharm charmDoc
 		err           error
 	)
-	for attempt := 0; attempt < 3; attempt++ {
+	txns := func(attempt int) (ops []txn.Op, err error) {
 		// Find an uploaded or pending charm with the given exact curl.
 		err = st.charms.FindId(curl).One(&uploadedCharm)
 		if err != nil && err != mgo.ErrNotFound {
@@ -677,8 +635,8 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		} else if err == nil && !uploadedCharm.Placeholder {
 			// The charm exists and it's either uploaded or still
 			// pending, but it's not a placeholder. In any case, we
-			// just return what we got.
-			return newCharm(st, &uploadedCharm)
+			// just return an empty txn slice.
+			return ops, nil
 		} else if err == mgo.ErrNotFound {
 			// Prepare the pending charm document for insertion.
 			uploadedCharm = charmDoc{
@@ -688,7 +646,6 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			}
 		}
 
-		var ops []txn.Op
 		if uploadedCharm.Placeholder {
 			// Convert the placeholder to a pending charm, while
 			// asserting the fields updated after an upload have not
@@ -718,18 +675,12 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 				Insert: uploadedCharm,
 			}}
 		}
-
-		// Run the transaction, and retry on abort.
-		err = st.runTransaction(ops)
-		if err == txn.ErrAborted {
-			continue
-		} else if err != nil {
-			return nil, err
-		} else if err == nil {
-			return newCharm(st, &uploadedCharm)
-		}
+		return ops, nil
 	}
-	return nil, ErrExcessiveContention
+	if err = st.Run(txns); err == nil {
+		return newCharm(st, &uploadedCharm)
+	}
+	return nil, err
 }
 
 var (
@@ -749,22 +700,21 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		return fmt.Errorf("expected charm URL with revision, got %q", curl)
 	}
 
-	for attempt := 0; attempt < 3; attempt++ {
+	txns := func(attempt int) (ops []txn.Op, err error) {
 		// See if the charm already exists in state and exit early if that's the case.
 		var doc charmDoc
 		err = st.charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
-			return err
+			return nil, err
 		}
 		if err == nil {
-			return nil
+			return ops, nil
 		}
 
 		// Delete all previous placeholders so we don't fill up the database with unused data.
-		var ops []txn.Op
 		ops, err = st.deleteOldPlaceholderCharmsOps(curl)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		// Add the new charm doc.
 		placeholderCharm := &charmDoc{
@@ -777,19 +727,9 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 			Assert: txn.DocMissing,
 			Insert: placeholderCharm,
 		})
-
-		// Run the transaction, and retry on abort.
-		if err = st.runTransaction(ops); err == txn.ErrAborted {
-			continue
-		} else if err != nil {
-			return err
-		}
-		break
+		return ops, nil
 	}
-	if err != nil {
-		return ErrExcessiveContention
-	}
-	return nil
+	return st.Run(txns)
 }
 
 // deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
@@ -884,7 +824,7 @@ func (st *State) updateCharmDoc(
 		Assert: preReq,
 		Update: updateFields,
 	}}
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.RunTransaction(ops); err != nil {
 		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
 	}
 	return st.Charm(curl)
@@ -997,7 +937,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 	}
 	ops = append(ops, peerOps...)
 
-	if err := st.runTransaction(ops); err == txn.ErrAborted {
+	if err := st.RunTransaction(ops); err == txn.ErrAborted {
 		err := env.Refresh()
 		if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
 			return nil, fmt.Errorf("environment is no longer alive")
@@ -1052,7 +992,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
-	err = st.runTransaction(ops)
+	err = st.RunTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
 		if _, err = st.Network(args.Name); err == nil {
@@ -1273,7 +1213,8 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	// If a service's charm is upgraded while we're trying to add a relation,
 	// we'll need to re-validate service sanity. This is probably relatively
 	// rare, so we only try 3 times.
-	for attempt := 0; attempt < 3; attempt++ {
+	var doc *relationDoc
+	txns := func(attempt int) (ops []txn.Op, err error) {
 		// Perform initial relation sanity check.
 		if exists, err := isNotDead(st.relations, key); err != nil {
 			return nil, err
@@ -1281,7 +1222,6 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			return nil, fmt.Errorf("relation already exists")
 		}
 		// Collect per-service operations, checking sanity as we go.
-		var ops []txn.Op
 		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
@@ -1318,7 +1258,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, err
 			}
 		}
-		doc := &relationDoc{
+		doc = &relationDoc{
 			Key:       key,
 			Id:        id,
 			Endpoints: eps,
@@ -1330,15 +1270,12 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Assert: txn.DocMissing,
 			Insert: doc,
 		})
-		// Run the transaction, and retry on abort.
-		if err = st.runTransaction(ops); err == txn.ErrAborted {
-			continue
-		} else if err != nil {
-			return nil, err
-		}
+		return ops, nil
+	}
+	if err = st.Run(txns); err == nil {
 		return &Relation{st, *doc}, nil
 	}
-	return nil, ErrExcessiveContention
+	return nil, err
 }
 
 // EndpointsRelation returns the existing relation with the given endpoints.
@@ -1576,15 +1513,10 @@ func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
 		Id:     stateServingInfoKey,
 		Update: bson.D{{"$set", info}},
 	}}
-	if err := st.runTransaction(ops); err != nil {
+	if err := st.RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set state serving info: %v", err)
 	}
 	return nil
-}
-
-// ResumeTransactions resumes all pending transactions.
-func (st *State) ResumeTransactions() error {
-	return st.runner.ResumeAll()
 }
 
 var tagPrefix = map[byte]string{

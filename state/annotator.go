@@ -7,10 +7,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
+
+	"github.com/juju/errors"
 )
 
 // annotatorDoc represents the internal state of annotations for an Entity in
@@ -53,36 +54,31 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 			toUpdate["annotations."+key] = value
 		}
 	}
-	// Two attempts should be enough to update annotations even with racing
-	// clients - if the document does not already exist, one of the clients
-	// will create it and the others will fail, then all the rest of the
-	// clients should succeed on their second attempt. If the referred-to
-	// entity has disappeared, and removed its annotations in the meantime,
-	// we consider that worthy of an error (will be fixed when new entities
-	// can never share names with old ones).
-	for i := 0; i < 2; i++ {
+	// Set up and call the necessary transactions - if the document does not
+	// already exist, one of the clients will create it and the others will
+	// fail, then all the rest of the clients should succeed on their second
+	// attempt. If the referred-to entity has disappeared, and removed its
+	// annotations in the meantime, we consider that worthy of an error
+	// (will be fixed when new entities can never share names with old ones).
+	txns := func(attempt int) ([]txn.Op, error) {
 		var ops []txn.Op
 		if count, err := a.st.annotations.FindId(a.globalKey).Count(); err != nil {
-			return err
+			return nil, err
 		} else if count == 0 {
 			// Check that the annotator entity was not previously destroyed.
-			if i != 0 {
-				return fmt.Errorf("%s no longer exists", a.tag)
+			if attempt != 1 {
+				return nil, fmt.Errorf("%s no longer exists", a.tag)
 			}
 			ops, err = a.insertOps(toInsert)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		} else {
 			ops = a.updateOps(toUpdate, toRemove)
 		}
-		if err := a.st.runTransaction(ops); err == nil {
-			return nil
-		} else if err != txn.ErrAborted {
-			return err
-		}
+		return ops, nil
 	}
-	return ErrExcessiveContention
+	return a.st.Run(txns)
 }
 
 // insertOps returns the operations required to insert annotations in MongoDB.

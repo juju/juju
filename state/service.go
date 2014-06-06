@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state/api/params"
+	statetxn "github.com/juju/juju/state/txn"
 )
 
 // Service represents the state of a service.
@@ -111,25 +112,26 @@ func (s *Service) Destroy() (err error) {
 		}
 	}()
 	svc := &Service{st: s.st, doc: s.doc}
-	for i := 0; i < 5; i++ {
-		switch ops, err := svc.destroyOps(); err {
+	txns := func(attempt int) (ops []txn.Op, err error) {
+		if attempt > 1 {
+			if err := svc.Refresh(); errors.IsNotFound(err) {
+				return []txn.Op{}, nil
+			} else if err != nil {
+				return nil, err
+			}
+		}
+		switch ops, err = svc.destroyOps(); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return nil
+			return []txn.Op{}, nil
 		case nil:
-			if err := svc.st.runTransaction(ops); err != txn.ErrAborted {
-				return err
-			}
+			return ops, nil
 		default:
-			return err
+			return nil, err
 		}
-		if err := svc.Refresh(); errors.IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
+		return nil, statetxn.ErrExcessiveContention
 	}
-	return ErrExcessiveContention
+	return s.st.Run(txns)
 }
 
 // destroyOps returns the operations required to destroy the service. If it
@@ -255,7 +257,7 @@ func (s *Service) setExposed(exposed bool) (err error) {
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
 	}}
-	if err := s.st.runTransaction(ops); err != nil {
+	if err := s.st.RunTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, onAbort(err, errNotAlive))
 	}
 	s.doc.Exposed = exposed
@@ -467,12 +469,20 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	if ch.URL().Series != s.doc.Series {
 		return fmt.Errorf("cannot change a service's series")
 	}
-	for i := 0; i < 5; i++ {
-		var ops []txn.Op
+	txns := func(attempt int) (ops []txn.Op, err error) {
+		if attempt > 1 {
+			// If the service is not alive, fail out immediately; otherwise,
+			// data changed underneath us, so retry.
+			if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
+				return nil, err
+			} else if !alive {
+				return nil, fmt.Errorf("service %q is not alive", s.doc.Name)
+			}
+		}
 		// Make sure the service doesn't have this charm already.
 		sel := bson.D{{"_id", s.doc.Name}, {"charmurl", ch.URL()}}
 		if count, err := s.st.services.Find(sel).Count(); err != nil {
-			return err
+			return ops, err
 		} else if count == 1 {
 			// Charm URL already set; just update the force flag.
 			sameCharm := bson.D{{"charmurl", ch.URL()}}
@@ -486,27 +496,17 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			// Change the charm URL.
 			ops, err = s.changeCharmOps(ch, force)
 			if err != nil {
-				return err
+				return nil, err
 			}
 		}
-
-		if err := s.st.runTransaction(ops); err == nil {
-			s.doc.CharmURL = ch.URL()
-			s.doc.ForceCharm = force
-			return nil
-		} else if err != txn.ErrAborted {
-			return err
-		}
-
-		// If the service is not alive, fail out immediately; otherwise,
-		// data changed underneath us, so retry.
-		if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
-			return err
-		} else if !alive {
-			return fmt.Errorf("service %q is not alive", s.doc.Name)
-		}
+		return ops, nil
 	}
-	return ErrExcessiveContention
+	if err = s.st.Run(txns); err == nil {
+		s.doc.CharmURL = ch.URL()
+		s.doc.ForceCharm = force
+		return nil
+	}
+	return err
 }
 
 // String returns the service name.
@@ -627,7 +627,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
+	if err := s.st.RunTransaction(ops); err == txn.ErrAborted {
 		if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
 			return nil, err
 		} else if !alive {
@@ -639,8 +639,6 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	}
 	return s.Unit(name)
 }
-
-var ErrExcessiveContention = stderrors.New("state changing too quickly; try again soon")
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
@@ -830,7 +828,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 		},
 		setConstraintsOp(s.st, s.globalKey(), cons),
 	}
-	return onAbort(s.st.runTransaction(ops), errNotAlive)
+	return onAbort(s.st.RunTransaction(ops), errNotAlive)
 }
 
 // Networks returns the networks a service is associated with.

@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/state/txn"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -185,7 +186,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 }
 
 func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
-	defer state.SetBeforeHooks(c, s.State, func() {
+	defer txn.SetBeforeHooks(c, s.State.TransactionRunner, func() {
 		c.Assert(s.machine.Destroy(), gc.IsNil)
 	}).Check()
 	err := s.machine.Destroy()
@@ -197,7 +198,7 @@ func (s *MachineSuite) TestDestroyCancel(c *gc.C) {
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	defer state.SetBeforeHooks(c, s.State, func() {
+	defer txn.SetBeforeHooks(c, s.State.TransactionRunner, func() {
 		c.Assert(unit.AssignToMachine(s.machine), gc.IsNil)
 	}).Check()
 	err = s.machine.Destroy()
@@ -209,12 +210,12 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	perturb := state.TransactionHook{
+	perturb := txn.TransactionHook{
 		Before: func() { c.Assert(unit.AssignToMachine(s.machine), gc.IsNil) },
 		After:  func() { c.Assert(unit.UnassignFromMachine(), gc.IsNil) },
 	}
-	defer state.SetTransactionHooks(
-		c, s.State, perturb, perturb, perturb,
+	defer txn.SetTransactionHooks(
+		c, s.State.TransactionRunner, perturb, perturb, perturb,
 	).Check()
 	err = s.machine.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 1 cannot advance lifecycle: state changing too quickly; try again soon")
@@ -291,7 +292,7 @@ func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, gc.IsNil)
 
-	defer state.SetBeforeHooks(c, s.State, func() {
+	defer txn.SetBeforeHooks(c, s.State.TransactionRunner, func() {
 		c.Assert(s.machine.Remove(), gc.IsNil)
 	}).Check()
 	err = s.machine.Remove()
