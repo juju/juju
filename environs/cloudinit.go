@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/utils"
 	"github.com/juju/juju/utils/proxy"
-	"github.com/juju/names"
 )
 
 // DataDir is the default data directory.

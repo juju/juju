@@ -130,8 +130,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
-	u, err := s.State.AddUser("inactive", "password")
-	c.Assert(err, gc.IsNil)
+	u := s.AddUser(c, "inactive")
 	err = u.Deactivate()
 	c.Assert(err, gc.IsNil)
 

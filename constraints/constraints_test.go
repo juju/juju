@@ -5,6 +5,8 @@ package constraints_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
@@ -263,6 +265,21 @@ var parseConstraintsTests = []struct {
 		args:    []string{"tags="},
 	},
 
+	// networks
+	{
+		summary: "single network",
+		args:    []string{"networks=net1"},
+	}, {
+		summary: "multiple networks - positive",
+		args:    []string{"networks=net1,net2"},
+	}, {
+		summary: "multiple networks - positive and negative",
+		args:    []string{"networks=net1,^net2,net3,^net4"},
+	}, {
+		summary: "no networks",
+		args:    []string{"networks="},
+	},
+
 	// instance type
 	{
 		summary: "set instance type",
@@ -277,12 +294,12 @@ var parseConstraintsTests = []struct {
 		summary: "kitchen sink together",
 		args: []string{
 			"root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc " +
-				"tags=foo,bar instance-type=foo"},
+				"tags=foo,bar networks=net1,^net2 instance-type=foo"},
 	}, {
 		summary: "kitchen sink separately",
 		args: []string{
 			"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=armhf",
-			"container=lxc", "tags=foo,bar", "instance-type=foo"},
+			"container=lxc", "tags=foo,bar", "networks=net1,^net2", "instance-type=foo"},
 	},
 }
 
@@ -302,15 +319,74 @@ func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
 	}
 }
 
-func (s *ConstraintsSuite) TestParseMissingTags(c *gc.C) {
-	con := constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G")
-	c.Check(con.Tags, gc.IsNil)
+func (s *ConstraintsSuite) TestMerge(c *gc.C) {
+	con1 := constraints.MustParse("arch=amd64 mem=4G")
+	con2 := constraints.MustParse("cpu-cores=42")
+	con3 := constraints.MustParse("root-disk=8G container=lxc networks=net1,^net2")
+	merged, err := constraints.Merge(con1, con2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(merged, jc.DeepEquals, constraints.MustParse("arch=amd64 mem=4G cpu-cores=42"))
+	merged, err = constraints.Merge(con1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(merged, jc.DeepEquals, con1)
+	merged, err = constraints.Merge(con1, con2, con3)
+	c.Assert(err, gc.IsNil)
+	c.Assert(merged, jc.DeepEquals, constraints.MustParse("arch=amd64 mem=4G cpu-cores=42 root-disk=8G container=lxc networks=net1,^net2"))
+	merged, err = constraints.Merge()
+	c.Assert(err, gc.IsNil)
+	c.Assert(merged, jc.DeepEquals, constraints.Value{})
+	foo := "foo"
+	merged, err = constraints.Merge(constraints.Value{Arch: &foo}, con2)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, `bad "arch" constraint: "foo" not recognized`)
+	c.Assert(merged, jc.DeepEquals, constraints.Value{})
+	merged, err = constraints.Merge(con1, con1)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, `bad "arch" constraint: already set`)
+	c.Assert(merged, jc.DeepEquals, constraints.Value{})
 }
 
-func (s *ConstraintsSuite) TestParseNoTags(c *gc.C) {
-	con := constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G tags=")
+func (s *ConstraintsSuite) TestParseMissingTagsAndNetworks(c *gc.C) {
+	con := constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G")
+	c.Check(con.Tags, gc.IsNil)
+	c.Check(con.Networks, gc.IsNil)
+}
+
+func (s *ConstraintsSuite) TestParseNoTagsNoNetworks(c *gc.C) {
+	con := constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 root-disk=8G tags= networks=")
 	c.Assert(con.Tags, gc.Not(gc.IsNil))
+	c.Assert(con.Networks, gc.Not(gc.IsNil))
 	c.Check(*con.Tags, gc.HasLen, 0)
+	c.Check(*con.Networks, gc.HasLen, 0)
+}
+
+func (s *ConstraintsSuite) TestIncludeExcludeAndHaveNetworks(c *gc.C) {
+	con := constraints.MustParse("networks=net1,^net2,net3,^net4")
+	c.Assert(con.Networks, gc.Not(gc.IsNil))
+	c.Check(*con.Networks, gc.HasLen, 4)
+	c.Check(con.IncludeNetworks(), jc.SameContents, []string{"net1", "net3"})
+	c.Check(con.ExcludeNetworks(), jc.SameContents, []string{"net2", "net4"})
+	c.Check(con.HaveNetworks(), jc.IsTrue)
+	con = constraints.MustParse("mem=4G")
+	c.Check(con.HaveNetworks(), jc.IsFalse)
+	con = constraints.MustParse("mem=4G networks=^net1,^net2")
+	c.Check(con.HaveNetworks(), jc.IsTrue)
+}
+
+func (s *ConstraintsSuite) TestInvalidNetworks(c *gc.C) {
+	invalidNames := []string{
+		"%ne$t", "^net#2", "_", "tcp:ip",
+		"^^mynet", "^^^^^^^^", "net^x",
+		"-foo", "net/3", "^net_4", "&#!",
+	}
+	for _, name := range invalidNames {
+		con, err := constraints.Parse("networks=" + name)
+		expectName := strings.TrimPrefix(name, "^")
+		expectErr := fmt.Sprintf(`bad "networks" constraint: %q is not a valid network name`, expectName)
+		c.Check(err, gc.NotNil)
+		c.Check(err.Error(), gc.Equals, expectErr)
+		c.Check(con, jc.DeepEquals, constraints.Value{})
+	}
 }
 
 func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
@@ -321,6 +397,8 @@ func (s *ConstraintsSuite) TestIsEmpty(c *gc.C) {
 	con = constraints.MustParse("")
 	c.Check(&con, jc.Satisfies, constraints.IsEmpty)
 	con = constraints.MustParse("tags=")
+	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
+	con = constraints.MustParse("networks=")
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
 	con = constraints.MustParse("mem=")
 	c.Check(&con, gc.Not(jc.Satisfies), constraints.IsEmpty)
@@ -378,6 +456,9 @@ var constraintsRoundtripTests = []roundTrip{
 	{"Tags1", constraints.Value{Tags: nil}},
 	{"Tags2", constraints.Value{Tags: &[]string{}}},
 	{"Tags3", constraints.Value{Tags: &[]string{"foo", "bar"}}},
+	{"Networks1", constraints.Value{Networks: nil}},
+	{"Networks2", constraints.Value{Networks: &[]string{}}},
+	{"Networks3", constraints.Value{Networks: &[]string{"net1", "^net2"}}},
 	{"InstanceType1", constraints.Value{InstanceType: strp("")}},
 	{"InstanceType2", constraints.Value{InstanceType: strp("foo")}},
 	{"All", constraints.Value{
@@ -388,6 +469,7 @@ var constraintsRoundtripTests = []roundTrip{
 		Mem:          uint64p(18000000000),
 		RootDisk:     uint64p(24000000000),
 		Tags:         &[]string{"foo", "bar"},
+		Networks:     &[]string{"net1", "^net2"},
 		InstanceType: strp("foo"),
 	}},
 }
@@ -399,7 +481,7 @@ func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *gc.C) {
 		val := constraints.ConstraintsValue{&cons}
 		err := val.Set(t.Value.String())
 		c.Check(err, gc.IsNil)
-		c.Check(cons, gc.DeepEquals, t.Value)
+		c.Check(cons, jc.DeepEquals, t.Value)
 	}
 }
 
@@ -408,7 +490,7 @@ func (s *ConstraintsSuite) TestRoundtripString(c *gc.C) {
 		c.Logf("test %s", t.Name)
 		cons, err := constraints.Parse(t.Value.String())
 		c.Check(err, gc.IsNil)
-		c.Check(cons, gc.DeepEquals, t.Value)
+		c.Check(cons, jc.DeepEquals, t.Value)
 	}
 }
 
@@ -420,7 +502,7 @@ func (s *ConstraintsSuite) TestRoundtripJson(c *gc.C) {
 		var cons constraints.Value
 		err = json.Unmarshal(data, &cons)
 		c.Check(err, gc.IsNil)
-		c.Check(cons, gc.DeepEquals, t.Value)
+		c.Check(cons, jc.DeepEquals, t.Value)
 	}
 }
 
@@ -432,7 +514,7 @@ func (s *ConstraintsSuite) TestRoundtripYaml(c *gc.C) {
 		var cons constraints.Value
 		err = goyaml.Unmarshal(data, &cons)
 		c.Check(err, gc.IsNil)
-		c.Check(cons, gc.DeepEquals, t.Value)
+		c.Check(cons, jc.DeepEquals, t.Value)
 	}
 }
 
@@ -466,57 +548,53 @@ func (s *ConstraintsSuite) TestHasInstanceType(c *gc.C) {
 	c.Check(cons.HasInstanceType(), jc.IsTrue)
 }
 
+const initialWithoutCons = "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 networks=net1,^net2 tags=foo container=lxc instance-type=bar"
+
 var withoutTests = []struct {
 	initial string
 	without []string
 	final   string
-}{
-	{
-		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		without: []string{"root-disk"},
-		final:   "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-	},
-	{
-		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		without: []string{"mem"},
-		final:   "root-disk=8G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-	},
-	{
-		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		without: []string{"arch"},
-		final:   "root-disk=8G mem=4G cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-	},
-	{
-		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		without: []string{"cpu-power"},
-		final:   "root-disk=8G mem=4G arch=amd64 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-	},
-	{
-		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		without: []string{"cpu-cores"},
-		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 tags=foo container=lxc instance-type=bar",
-	},
-	{
-		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		without: []string{"tags"},
-		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 container=lxc instance-type=bar",
-	},
-	{
-		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		without: []string{"container"},
-		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo instance-type=bar",
-	},
-	{
-		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		without: []string{"instance-type"},
-		final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc",
-	},
-	{
-		initial: "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-		without: []string{"root-disk", "mem", "arch"},
-		final:   "cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
-	},
-}
+}{{
+	initial: initialWithoutCons,
+	without: []string{"root-disk"},
+	final:   "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo networks=net1,^net2 container=lxc instance-type=bar",
+}, {
+	initial: initialWithoutCons,
+	without: []string{"mem"},
+	final:   "root-disk=8G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo networks=net1,^net2 container=lxc instance-type=bar",
+}, {
+	initial: initialWithoutCons,
+	without: []string{"arch"},
+	final:   "root-disk=8G mem=4G cpu-power=1000 cpu-cores=4 tags=foo networks=net1,^net2 container=lxc instance-type=bar",
+}, {
+	initial: initialWithoutCons,
+	without: []string{"cpu-power"},
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-cores=4 tags=foo networks=net1,^net2 container=lxc instance-type=bar",
+}, {
+	initial: initialWithoutCons,
+	without: []string{"cpu-cores"},
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 tags=foo networks=net1,^net2 container=lxc instance-type=bar",
+}, {
+	initial: initialWithoutCons,
+	without: []string{"tags"},
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 networks=net1,^net2 container=lxc instance-type=bar",
+}, {
+	initial: initialWithoutCons,
+	without: []string{"networks"},
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo container=lxc instance-type=bar",
+}, {
+	initial: initialWithoutCons,
+	without: []string{"container"},
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo networks=net1,^net2 instance-type=bar",
+}, {
+	initial: initialWithoutCons,
+	without: []string{"instance-type"},
+	final:   "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 tags=foo networks=net1,^net2 container=lxc",
+}, {
+	initial: initialWithoutCons,
+	without: []string{"root-disk", "mem", "arch"},
+	final:   "cpu-power=1000 cpu-cores=4 tags=foo networks=net1,^net2 container=lxc instance-type=bar",
+}}
 
 func (s *ConstraintsSuite) TestWithout(c *gc.C) {
 	for i, t := range withoutTests {
@@ -524,7 +602,7 @@ func (s *ConstraintsSuite) TestWithout(c *gc.C) {
 		initial := constraints.MustParse(t.initial)
 		final, err := constraints.Without(initial, t.without...)
 		c.Assert(err, gc.IsNil)
-		c.Check(final, gc.DeepEquals, constraints.MustParse(t.final))
+		c.Check(final, jc.DeepEquals, constraints.MustParse(t.final))
 	}
 }
 
@@ -537,7 +615,7 @@ func (s *ConstraintsSuite) TestWithoutError(c *gc.C) {
 func (s *ConstraintsSuite) TestAttributesWithValues(c *gc.C) {
 	for i, consStr := range []string{
 		"",
-		"root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 instance-type=foo tags=foo,bar",
+		"root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4 instance-type=foo tags=foo,bar networks=net1,^net2",
 	} {
 		c.Logf("test %d", i)
 		cons := constraints.MustParse(consStr)
@@ -576,6 +654,11 @@ func (s *ConstraintsSuite) TestAttributesWithValues(c *gc.C) {
 		} else {
 			assertMissing("tags")
 		}
+		if cons.Networks != nil {
+			c.Check(obtained["networks"], gc.DeepEquals, *cons.Networks)
+		} else {
+			assertMissing("networks")
+		}
 		if cons.InstanceType != nil {
 			c.Check(obtained["instance-type"], gc.Equals, *cons.InstanceType)
 		} else {
@@ -590,13 +673,13 @@ var hasAnyTests = []struct {
 	expected []string
 }{
 	{
-		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
-		attrs:    []string{"root-disk", "tags", "mem"},
-		expected: []string{"root-disk", "mem"},
+		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 networks=net1,^net2 cpu-cores=4",
+		attrs:    []string{"root-disk", "tags", "mem", "networks"},
+		expected: []string{"root-disk", "mem", "networks"},
 	},
 	{
 		cons:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
-		attrs:    []string{"tags"},
+		attrs:    []string{"tags", "networks"},
 		expected: []string{},
 	},
 }
@@ -606,6 +689,6 @@ func (s *ConstraintsSuite) TestHasAny(c *gc.C) {
 		c.Logf("test %d", i)
 		cons := constraints.MustParse(t.cons)
 		obtained := constraints.HasAny(cons, t.attrs...)
-		c.Check(obtained, gc.DeepEquals, t.expected)
+		c.Check(obtained, jc.DeepEquals, t.expected)
 	}
 }

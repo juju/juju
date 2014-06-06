@@ -27,7 +27,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/api/usermanager"
 	"github.com/juju/juju/state/apiserver/client"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
@@ -834,12 +833,10 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 
-	usermanager := usermanager.NewClient(s.APIState)
-	err := usermanager.AddUser("foobar", "password")
-	c.Assert(err, gc.IsNil)
+	s.AddUser(c, "foobar")
 	s.APIState = s.OpenAPIAs(c, "user-foobar", "password")
 
-	err = s.APIState.Client().ServiceDeploy(
+	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
 	)
 	c.Assert(err, gc.IsNil)

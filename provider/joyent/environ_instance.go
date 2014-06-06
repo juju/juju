@@ -12,6 +12,7 @@ import (
 	"github.com/joyent/gocommon/client"
 	"github.com/joyent/gosdc/cloudapi"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils"
-	"github.com/juju/names"
 )
 
 var (

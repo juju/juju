@@ -28,8 +28,8 @@ See Also:
 const setConstraintsDoc = `
 set-constraints sets machine constraints on the system, which are used as the
 default constraints for all new machines provisioned in the environment (unless
-overridden).  You can also set constraints on a specific service by using juju 
-set-constraints <service>. 
+overridden).  You can also set constraints on a specific service by using juju
+set-constraints <service>.
 
 Constraints set on a service are combined with environment constraints for
 commands (such as juju deploy) that provision machines for services.  Where

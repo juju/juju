@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 
+	"github.com/juju/schema"
+
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/schema"
 )
 
 var configFields = schema.Fields{
