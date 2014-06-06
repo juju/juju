@@ -16,12 +16,12 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
+	"github.com/juju/utils"
+	"github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/version"
 )
 

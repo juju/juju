@@ -10,9 +10,10 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/utils/ssh"
 )
 

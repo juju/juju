@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/utils"
 )
 
 // ValidateImageMetadataCommand

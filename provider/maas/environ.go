@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/gomaasapi"
 
@@ -32,8 +34,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 )
 
 const (

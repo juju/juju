@@ -8,11 +8,11 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	envtesting "github.com/juju/juju/environs/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 

@@ -4,8 +4,9 @@
 package testing
 
 import (
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/utils"
 )
 
 // impatientAttempt is an extremely short polling time suitable for tests.

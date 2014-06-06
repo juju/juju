@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 
 	ft "github.com/juju/testing/filetesting"
+	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/worker/uniter/charm"
 )
 

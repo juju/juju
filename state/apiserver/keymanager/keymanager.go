@@ -4,20 +4,19 @@
 package keymanager
 
 import (
-	stderrors "errors"
 	"fmt"
 	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -379,7 +378,7 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 		keysToWrite = append(keysToWrite, key)
 	}
 	if len(keysToWrite) == 0 {
-		return params.ErrorResults{}, common.ServerError(stderrors.New("cannot delete all keys"))
+		return params.ErrorResults{}, common.ServerError(fmt.Errorf("cannot delete all keys"))
 	}
 
 	err = api.writeSSHKeys(keysToWrite)

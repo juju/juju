@@ -12,9 +12,8 @@ import (
 	"sync"
 
 	"code.google.com/p/go.crypto/ssh"
-
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 )
 
 const clientKeyName = "juju_id_rsa"

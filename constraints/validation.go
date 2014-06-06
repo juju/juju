@@ -8,7 +8,7 @@ import (
 	"math"
 	"reflect"
 
-	"github.com/juju/juju/utils/set"
+	"github.com/juju/utils/set"
 )
 
 // Validator defines operations on constraints attributes which are

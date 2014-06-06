@@ -6,6 +6,7 @@ package firewaller_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/juju/testing"
@@ -13,7 +14,6 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/firewaller"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 // NOTE: This suite is intended for embedding into other suites,

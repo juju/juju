@@ -7,11 +7,11 @@ import (
 	"errors"
 	"time"
 
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/utils"
 )
 
 type pollingSuite struct {

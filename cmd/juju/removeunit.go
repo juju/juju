@@ -4,7 +4,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/juju/names"
@@ -32,7 +31,7 @@ func (c *RemoveUnitCommand) Info() *cmd.Info {
 func (c *RemoveUnitCommand) Init(args []string) error {
 	c.UnitNames = args
 	if len(c.UnitNames) == 0 {
-		return errors.New("no units specified")
+		return fmt.Errorf("no units specified")
 	}
 	for _, name := range c.UnitNames {
 		if !names.IsUnit(name) {

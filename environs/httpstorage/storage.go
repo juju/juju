@@ -17,9 +17,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.environs.httpstorage")

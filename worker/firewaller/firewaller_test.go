@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/config"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/state/api"
 	apifirewaller "github.com/juju/juju/state/api/firewaller"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/firewaller"
 )

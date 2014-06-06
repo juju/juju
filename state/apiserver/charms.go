@@ -22,11 +22,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	ziputil "github.com/juju/utils/zip"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/api/params"
-	ziputil "github.com/juju/juju/utils/zip"
 )
 
 // charmsHandler handles charm upload through HTTPS in the API server.

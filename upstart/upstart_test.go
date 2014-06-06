@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upstart"
-	"github.com/juju/juju/utils"
 )
 
 func Test(t *testing.T) { gc.TestingT(t) }
