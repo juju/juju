@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -14,7 +15,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	apirsyslog "github.com/juju/juju/state/api/rsyslog"

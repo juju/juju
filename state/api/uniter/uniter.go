@@ -6,8 +6,9 @@ package uniter
 import (
 	"fmt"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/common"
 	"github.com/juju/juju/state/api/params"

@@ -6,7 +6,8 @@ package usermanager
 import (
 	"fmt"
 
-	"github.com/juju/juju/names"
+	"github.com/juju/names"
+
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 )

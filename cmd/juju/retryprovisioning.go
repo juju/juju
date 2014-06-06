@@ -6,10 +6,11 @@ package main
 import (
 	"fmt"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/names"
 )
 
 // RetryProvisioningCommand updates machines' error status to tell

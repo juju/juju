@@ -5,6 +5,7 @@ package ec2
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 	"time"
 
@@ -65,6 +66,9 @@ type environ struct {
 	ec2Unlocked     *ec2.EC2
 	s3Unlocked      *s3.S3
 	storageUnlocked storage.Storage
+
+	availabilityZonesMutex sync.Mutex
+	availabilityZones      []ec2.AvailabilityZoneInfo
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -395,10 +399,57 @@ func archMatches(arches []string, arch *string) bool {
 	return false
 }
 
+var ec2AvailabilityZones = (*ec2.EC2).AvailabilityZones
+
+// getAvailabilityZones returns a slice of availability zones
+// for the configured region.
+func (e *environ) getAvailabilityZones() ([]ec2.AvailabilityZoneInfo, error) {
+	e.availabilityZonesMutex.Lock()
+	defer e.availabilityZonesMutex.Unlock()
+	if e.availabilityZones == nil {
+		filter := ec2.NewFilter()
+		filter.Add("region-name", e.ecfg().region())
+		resp, err := ec2AvailabilityZones(e.ec2(), filter)
+		if err != nil {
+			return nil, err
+		}
+		e.availabilityZones = resp.Zones
+	}
+	return e.availabilityZones, nil
+}
+
+type ec2Placement struct {
+	availabilityZone ec2.AvailabilityZoneInfo
+}
+
+func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
+	pos := strings.IndexRune(placement, '=')
+	if pos == -1 {
+		return nil, fmt.Errorf("unknown placement directive: %v", placement)
+	}
+	switch key, value := placement[:pos], placement[pos+1:]; key {
+	case "zone":
+		availabilityZone := value
+		zones, err := e.getAvailabilityZones()
+		if err != nil {
+			return nil, err
+		}
+		for _, z := range zones {
+			if z.Name == availabilityZone {
+				return &ec2Placement{availabilityZone: z}, nil
+			}
+		}
+		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
+	}
+	return nil, fmt.Errorf("unknown placement directive: %v", placement)
+}
+
 // PrecheckInstance is defined on the state.Prechecker interface.
 func (e *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" {
-		return fmt.Errorf("unknown placement directive: %s", placement)
+		if _, err := e.parsePlacement(placement); err != nil {
+			return err
+		}
 	}
 	if !cons.HasInstanceType() {
 		return nil
@@ -455,6 +506,18 @@ const ebsStorage = "ebs"
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+	var availabilityZone string
+	if args.Placement != "" {
+		placement, err := e.parsePlacement(args.Placement)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if placement.availabilityZone.State != "available" {
+			return nil, nil, nil, fmt.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
+		}
+		availabilityZone = placement.availabilityZone.Name
+	}
+
 	if args.MachineConfig.HasNetworks() {
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
 	}
@@ -501,6 +564,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	device, diskSize := getDiskSize(args.Constraints)
 	for a := shortAttempt.Start(); a.Next(); {
 		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
+			AvailZone:           availabilityZone,
 			ImageId:             spec.Image.Id,
 			MinCount:            1,
 			MaxCount:            1,

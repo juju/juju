@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -450,9 +450,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})
-			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
-				return peergrouperNew(st)
-			})
+			if shouldEnableHA(agentConfig) {
+				a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
+					return peergrouperNew(st)
+				})
+			}
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
@@ -505,6 +507,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 		return fmt.Errorf("state worker was started with no state serving info")
 	}
 	namespace := agentConfig.Value(agent.Namespace)
+	withHA := shouldEnableHA(agentConfig)
 
 	// When upgrading from a pre-HA-capable environment,
 	// we must add machine-0 to the admin database and
@@ -541,7 +544,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 		}
 		st.Close()
 		addrs = m.Addresses()
-		shouldInitiateMongoServer = true
+		shouldInitiateMongoServer = withHA
 	}
 
 	// ensureMongoServer installs/upgrades the upstart config as necessary.
@@ -549,6 +552,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 		agentConfig.DataDir(),
 		namespace,
 		servingInfo,
+		withHA,
 	); err != nil {
 		return err
 	}
@@ -606,6 +610,16 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 
 func isPreHAVersion(v version.Number) bool {
 	return v.Compare(version.MustParse("1.19.0")) < 0
+}
+
+// shouldEnableHA reports whether HA should be enabled.
+//
+// Eventually this should always be true, and ideally
+// it should be true before 1.20 is released or we'll
+// have more upgrade scenarios on our hands.
+func shouldEnableHA(agentConfig agent.Config) bool {
+	providerType := agentConfig.Value(agent.ProviderType)
+	return providerType != provider.Local
 }
 
 func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err error) {

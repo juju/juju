@@ -5,18 +5,17 @@ package main
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
 	"unicode/utf8"
 
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api/params"
 )
 
@@ -80,7 +79,7 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *RunCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("no commands specified")
+		return fmt.Errorf("no commands specified")
 	}
 	c.commands, args = args[0], args[1:]
 
