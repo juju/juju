@@ -15,12 +15,12 @@ import (
 	"syscall"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/set"
 )
 
 type BundleSuite struct {

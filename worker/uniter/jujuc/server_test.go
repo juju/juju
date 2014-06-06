@@ -14,12 +14,12 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/exec"
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/exec"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
 

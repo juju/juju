@@ -11,9 +11,9 @@ import (
 	"strings"
 
 	"github.com/juju/schema"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/utils"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to

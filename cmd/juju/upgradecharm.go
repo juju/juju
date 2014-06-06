@@ -4,7 +4,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"os"
 
@@ -90,7 +89,7 @@ func (c *UpgradeCharmCommand) Init(args []string) error {
 		}
 		c.ServiceName = args[0]
 	case 0:
-		return errors.New("no service specified")
+		return fmt.Errorf("no service specified")
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}

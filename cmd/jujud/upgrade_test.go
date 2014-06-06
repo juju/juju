@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/apt"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/apt"
 	"github.com/juju/juju/version"
 )
 

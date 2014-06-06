@@ -7,10 +7,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/utils"
 )
 
 type manualProvider struct{}

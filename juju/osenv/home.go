@@ -9,7 +9,7 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 // jujuHome stores the path to the juju configuration

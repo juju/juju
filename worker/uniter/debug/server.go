@@ -10,9 +10,8 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/juju/utils/set"
 	"launchpad.net/goyaml"
-
-	"github.com/juju/juju/utils/set"
 )
 
 // ServerSession represents a "juju debug-hooks" session.

@@ -14,8 +14,7 @@ import (
 	"strings"
 
 	"code.google.com/p/go.crypto/ssh"
-
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 const sshDefaultPort = 22

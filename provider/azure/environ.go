@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/constraints"
@@ -29,8 +31,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 )
 
 const (

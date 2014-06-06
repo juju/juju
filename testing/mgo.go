@@ -22,11 +22,11 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/utils"
 )
 
 var (

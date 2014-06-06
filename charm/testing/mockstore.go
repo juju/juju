@@ -15,11 +15,11 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.charm.testing.mockstore")
