@@ -17,10 +17,10 @@ check_access() {
     url=$2
     echo "Checking $USER_AT_HOST can access $name at $url..."
     set +e
-    result=$(ssh -i $SSH_KEY $USER_AT_HOST curl --connect-timeout 2 --head $url || echo "fail")
+    result=$(ssh -i $SSH_KEY $USER_AT_HOST \
+        curl --connect-timeout 5 --silent --head $url || echo "fail")
     set -e
-    result=$(tail -1 $result)
-    echo "== $result"
+    result=$(echo "$result" | tail -1)
     if [[ $result == "fail" ]]; then
         echo "...FAIL"
         NETWORK_ACCESS="false"
@@ -36,7 +36,7 @@ check_url_access() {
     if [[ -n "$option_url" ]]; then
         check_access $option $option_url
     else
-        echo "...! You must verify that $USER_AT_HOST can access $option"
+        echo "! You must verify that $USER_AT_HOST can access $option"
     fi
 }
 
@@ -66,9 +66,9 @@ echo "Checking $USER_AT_HOST can access the cloud provider's storage"
 provider=$(juju get-env -e $ENV "type")
 if [[ $provider == "ec2" ]]; then
     control_bucket=$(juju get-env -e $ENV control-bucket)
-    check_access "s3" http://s3ss.amazon.com/$control_bucket
+    check_access "s3" http://s3.amazon.com/$control_bucket
 else
-    echo "...! You must verify that $USER_AT_HOST can access the cloud storage."
+    echo "! You must verify that $USER_AT_HOST can access the cloud storage."
 fi
 
 
