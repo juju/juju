@@ -70,10 +70,6 @@ func checkDummy(c *gc.C, f charm.Charm, path string) {
 	c.Assert(f.Revision(), gc.Equals, 1)
 	c.Assert(f.Meta().Name, gc.Equals, "dummy")
 	c.Assert(f.Config().Options["title"].Default, gc.Equals, "My Title")
-	c.Assert(f.Actions().ActionSpecs["snapshot"], gc.NotNil)
-	c.Assert(f.Actions().ActionSpecs["snapshot"].Description, gc.Equals, "Take a snapshot of the database.")
-	c.Assert(f.Actions().ActionSpecs["snapshot"].Params, gc.NotNil)
-	c.Assert(f.Actions().ActionSpecs["snapshot"].Params["outfile"], gc.NotNil)
 	c.Assert(f.Actions(), gc.DeepEquals,
 		&charm.Actions{
 			map[string]charm.ActionSpec{
