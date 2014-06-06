@@ -12,6 +12,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
+	"github.com/juju/utils/apt"
+	"github.com/juju/utils/proxy"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
@@ -25,9 +28,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upstart"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/apt"
-	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/version"
 )
 

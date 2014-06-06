@@ -14,6 +14,9 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils/exec"
+	"github.com/juju/utils/fslock"
+	proxyutils "github.com/juju/utils/proxy"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent/tools"
@@ -25,9 +28,6 @@ import (
 	"github.com/juju/juju/state/api/uniter"
 	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/utils/exec"
-	"github.com/juju/juju/utils/fslock"
-	proxyutils "github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"

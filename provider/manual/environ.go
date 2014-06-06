@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/mongo"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/juju/worker/terminationworker"

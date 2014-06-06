@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/juju/testing"
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/apiserver"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 type stateSuite struct {

@@ -14,9 +14,9 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils"
 )
 
 // IsSameStorage returns whether the storage instances are the same.

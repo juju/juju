@@ -11,8 +11,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/utils/set"
+
 	"github.com/juju/juju/environs/simplestreams"
-	"github.com/juju/juju/utils/set"
 )
 
 const (

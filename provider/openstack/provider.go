@@ -17,6 +17,7 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"launchpad.net/goose/client"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
@@ -38,7 +39,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")

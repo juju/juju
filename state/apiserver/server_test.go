@@ -9,6 +9,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 func TestAll(t *stdtesting.T) {

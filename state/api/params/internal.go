@@ -6,11 +6,12 @@ package params
 import (
 	"time"
 
+	"github.com/juju/utils/exec"
+
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/exec"
 	"github.com/juju/juju/version"
 )
 

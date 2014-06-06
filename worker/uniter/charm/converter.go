@@ -8,8 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/utils/set"
+
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/utils/set"
 )
 
 // NewDeployer returns a Deployer of whatever kind is currently in use for the

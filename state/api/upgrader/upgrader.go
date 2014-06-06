@@ -6,11 +6,12 @@ package upgrader
 import (
 	"fmt"
 
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 

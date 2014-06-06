@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 // Current agent config format is defined as follows:

@@ -7,8 +7,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/utils"
 )
 
 // Use ShortAttempt to poll for short-term events.

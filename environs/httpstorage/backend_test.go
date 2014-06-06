@@ -17,12 +17,12 @@ import (
 	stdtesting "testing"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/httpstorage"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 const testAuthkey = "jabberwocky"

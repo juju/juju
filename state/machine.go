@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -20,8 +22,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/version"
 )
 

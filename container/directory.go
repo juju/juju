@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 var (

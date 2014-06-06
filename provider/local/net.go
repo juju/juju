@@ -3,7 +3,7 @@
 package local
 
 import (
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 // getAddressForInterface is a variable so we can change the implementation

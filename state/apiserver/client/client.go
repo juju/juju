@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/environs"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 
