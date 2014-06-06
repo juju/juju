@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/state/api/keyupdater"
 	apilogger "github.com/juju/juju/state/api/logger"
 	"github.com/juju/juju/state/api/machiner"
+	"github.com/juju/juju/state/api/networker"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/provisioner"
 	"github.com/juju/juju/state/api/rsyslog"
@@ -102,6 +103,12 @@ func (st *State) Client() *Client {
 // required by the machiner worker.
 func (st *State) Machiner() *machiner.State {
 	return machiner.NewState(st)
+}
+
+// Networker returns a version of the state that provides functionality
+// required by the networker worker.
+func (st *State) Networker() *networker.State {
+	return networker.NewState(st)
 }
 
 // Provisioner returns a version of the state that provides functionality

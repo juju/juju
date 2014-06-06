@@ -4,8 +4,9 @@
 package lxc
 
 import (
+	"github.com/juju/utils/apt"
+
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/utils/apt"
 )
 
 var requiredPackages = []string{

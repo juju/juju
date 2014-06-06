@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/utils/set"
 )
 
 // ProvisionerAPI provides access to the Provisioner API facade.

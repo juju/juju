@@ -6,11 +6,11 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/utils"
 )
 
 // RepoSuite acts as a JujuConnSuite but also sets up

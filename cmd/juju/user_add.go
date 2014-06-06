@@ -9,13 +9,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/utils"
 )
 
 const userAddCommandDoc = `

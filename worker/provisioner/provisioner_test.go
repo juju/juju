@@ -11,6 +11,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -28,8 +30,6 @@ import (
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 	apiserverprovisioner "github.com/juju/juju/state/apiserver/provisioner"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/worker/provisioner"
 )
 

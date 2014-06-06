@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/juju/juju/utils/set"
-	ziputil "github.com/juju/juju/utils/zip"
+	"github.com/juju/utils/set"
+	ziputil "github.com/juju/utils/zip"
 )
 
 // The Bundle type encapsulates access to data and operations

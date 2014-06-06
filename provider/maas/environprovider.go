@@ -7,10 +7,10 @@ import (
 	"errors"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/utils"
 )
 
 // Logger for the MAAS provider.

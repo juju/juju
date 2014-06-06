@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/proxy"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -24,7 +25,6 @@ import (
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/version"
 )
 

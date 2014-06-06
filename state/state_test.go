@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 

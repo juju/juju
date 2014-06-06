@@ -8,10 +8,10 @@ import (
 	"net/url"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.charm")

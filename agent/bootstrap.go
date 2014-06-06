@@ -7,13 +7,13 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 

@@ -15,6 +15,8 @@ import (
 	"syscall"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/mongo"
@@ -41,8 +43,6 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/upstart"
-	"github.com/juju/juju/utils/proxy"
-	"github.com/juju/juju/utils/shell"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
 )

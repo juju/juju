@@ -22,8 +22,7 @@ type importSuite struct {
 
 var _ = gc.Suite(&importSuite{})
 
-// TODO (frankban): remove this test once juju-core/utils is on Github.
-func (*importSuite) TestTemporaryDependencies(c *gc.C) {
+func (*importSuite) TestDependencies(c *gc.C) {
 	c.Assert(coretesting.FindJujuCoreImports(c, "github.com/juju/juju/juju/osenv"),
-		gc.DeepEquals, []string{"utils"})
+		gc.HasLen, 0)
 }

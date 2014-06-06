@@ -5,11 +5,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	"github.com/juju/juju/utils"
 )
 
 func (st *State) checkUserExists(name string) (bool, error) {

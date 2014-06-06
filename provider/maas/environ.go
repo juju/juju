@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/gomaasapi"
 
@@ -32,8 +34,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 )
 
 const (
@@ -546,11 +546,11 @@ EOF
 			script("ifup %s", info.InterfaceName)
 			configured.Add(info.InterfaceName)
 		}
-		if info.VLANTag > 0 && !info.Disabled {
+		if info.VLANTag > 0 {
 			// We have a VLAN and need to create and register it after
 			// its parent interface was brought up.
 			script("vconfig add %s %d", info.InterfaceName, info.VLANTag)
-			vlan := fmt.Sprintf("%s.%d", info.InterfaceName, info.VLANTag)
+			vlan := info.ActualInterfaceName()
 			script(ifaceConfig, vlan, vlan)
 			script("ifup %s", vlan)
 		}

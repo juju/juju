@@ -4,7 +4,6 @@
 package juju
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -38,7 +37,7 @@ type DeployServiceParams struct {
 // DeployService takes a charm and various parameters and deploys it.
 func DeployService(st *state.State, args DeployServiceParams) (*state.Service, error) {
 	if args.NumUnits > 1 && args.ToMachineSpec != "" {
-		return nil, errors.New("cannot use --num-units with --to")
+		return nil, fmt.Errorf("cannot use --num-units with --to")
 	}
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {

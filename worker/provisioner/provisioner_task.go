@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/constraints"
@@ -21,8 +23,6 @@ import (
 	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/worker"
 )
 
