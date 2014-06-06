@@ -144,7 +144,7 @@ func (manager *containerManager) CreateContainer(
 	network *container.NetworkConfig,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	start := time.Now()
-	name := names.MachineTag(machineConfig.MachineId)
+	name := names.MachineTag(machineConfig.MachineId).String()
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}

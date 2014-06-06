@@ -141,7 +141,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.RelationSettings, err
 		RelationUnitPairs: []params.RelationUnitPair{{
 			Relation:   ru.relation.tag,
 			LocalUnit:  ru.unit.tag,
-			RemoteUnit: tag,
+			RemoteUnit: tag.String(),
 		}},
 	}
 	err := ru.st.call("ReadRemoteSettings", args, &results)

@@ -421,7 +421,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			checkEnvConfig(c, test.cfg.Config, x, scripts)
 		}
 		checkPackage(c, x, "git", true)
-		tag := names.MachineTag(test.cfg.MachineId)
+		tag := names.MachineTag(test.cfg.MachineId).String()
 		acfg := getAgentConfig(c, tag, scripts)
 		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
 		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"

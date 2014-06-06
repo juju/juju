@@ -151,7 +151,7 @@ func (f *FirewallerAPI) GetAssignedMachine(args params.Entities) (params.StringR
 			var machineId string
 			machineId, err = unit.AssignedMachineId()
 			if err == nil {
-				result.Results[i].Result = names.MachineTag(machineId)
+				result.Results[i].Result = names.MachineTag(machineId).String()
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

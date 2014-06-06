@@ -217,7 +217,7 @@ func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner {
-	machineTag := names.MachineTag(s.machineId)
+	machineTag := names.MachineTag(s.machineId).String()
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	tools, err := s.provisioner.Tools(agentConfig.Tag())
 	c.Assert(err, gc.IsNil)

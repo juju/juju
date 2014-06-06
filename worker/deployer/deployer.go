@@ -97,7 +97,7 @@ func (d *Deployer) Handle(unitNames []string) error {
 // changed ensures that the named unit is deployed, recalled, or removed, as
 // indicated by its state.
 func (d *Deployer) changed(unitName string) error {
-	unitTag := names.UnitTag(unitName)
+	unitTag := names.UnitTag(unitName).String()
 	// Determine unit life state, and whether we're responsible for it.
 	logger.Infof("checking unit %q", unitName)
 	var life params.Life

@@ -795,7 +795,7 @@ func (a *MachineAgent) WorkersStarted() <-chan struct{} {
 }
 
 func (a *MachineAgent) Tag() string {
-	return names.MachineTag(a.MachineId)
+	return names.MachineTag(a.MachineId).String()
 }
 
 func (a *MachineAgent) createJujuRun(dataDir string) error {

@@ -211,7 +211,7 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 // as a file name.  The returned name will be different from other
 // Tag values returned by any other entities from the same state.
 func (m *Machine) Tag() string {
-	return names.MachineTag(m.Id())
+	return names.MachineTag(m.Id()).String()
 }
 
 // Life returns whether the machine is Alive, Dying or Dead.

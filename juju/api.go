@@ -270,7 +270,7 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 	apiInfo := &api.Info{
 		Addrs:    endpoint.Addresses,
 		CACert:   endpoint.CACert,
-		Tag:      names.UserTag(info.APICredentials().User),
+		Tag:      names.UserTag(info.APICredentials().User).String(),
 		Password: info.APICredentials().Password,
 	}
 	st, err := apiOpen(apiInfo, api.DefaultDialOpts())

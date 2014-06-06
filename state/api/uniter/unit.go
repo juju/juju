@@ -110,7 +110,7 @@ func (u *Unit) Service() (*Service, error) {
 	serviceTag := names.ServiceTag(u.ServiceName())
 	service := &Service{
 		st:  u.st,
-		tag: serviceTag,
+		tag: serviceTag.String(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
@@ -151,7 +151,7 @@ func (u *Unit) ServiceName() string {
 
 // ServiceTag returns the service tag.
 func (u *Unit) ServiceTag() string {
-	return names.ServiceTag(u.ServiceName())
+	return names.ServiceTag(u.ServiceName()).String()
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as

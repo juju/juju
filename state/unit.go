@@ -526,9 +526,9 @@ func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerTag() (string, bool) {
 	if u.doc.Principal != "" {
-		return names.UnitTag(u.doc.Principal), true
+		return names.UnitTag(u.doc.Principal).String(), true
 	} else if u.doc.MachineId != "" {
-		return names.MachineTag(u.doc.MachineId), true
+		return names.MachineTag(u.doc.MachineId).String(), true
 	}
 	return "", false
 }
@@ -760,7 +760,7 @@ func (u *Unit) AgentAlive() (bool, error) {
 // as a file name.  The returned name will be different from other
 // Tag values returned by any other entities from the same state.
 func (u *Unit) Tag() string {
-	return names.UnitTag(u.Name())
+	return names.UnitTag(u.Name()).String()
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.

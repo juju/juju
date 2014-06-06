@@ -61,7 +61,7 @@ type BootstrapMachineConfig struct {
 const BootstrapMachineId = "0"
 
 func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
-	if c.Tag() != names.MachineTag(BootstrapMachineId) {
+	if c.Tag() != names.MachineTag(BootstrapMachineId).String() {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
 	servingInfo, ok := c.StateServingInfo()

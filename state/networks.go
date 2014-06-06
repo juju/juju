@@ -78,7 +78,7 @@ func (n *Network) ProviderId() network.Id {
 
 // Tag returns the network tag.
 func (n *Network) Tag() string {
-	return names.NetworkTag(n.doc.Name)
+	return names.NetworkTag(n.doc.Name).String()
 }
 
 // CIDR returns the network CIDR (e.g. 192.168.50.0/24).

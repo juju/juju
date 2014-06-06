@@ -321,7 +321,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// It would be cleaner to change bootstrap-state to
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
-	machineTag := names.MachineTag(cfg.MachineId)
+	machineTag := names.MachineTag(cfg.MachineId).String()
 	_, err = cfg.addAgentInfo(c, machineTag)
 	if err != nil {
 		return err
@@ -623,13 +623,13 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if len(cfg.StateInfo.Addrs) == 0 {
 			return fmt.Errorf("missing state hosts")
 		}
-		if cfg.StateInfo.Tag != names.MachineTag(cfg.MachineId) {
+		if cfg.StateInfo.Tag != names.MachineTag(cfg.MachineId).String() {
 			return fmt.Errorf("entity tag must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
 			return fmt.Errorf("missing API hosts")
 		}
-		if cfg.APIInfo.Tag != names.MachineTag(cfg.MachineId) {
+		if cfg.APIInfo.Tag != names.MachineTag(cfg.MachineId).String() {
 			return fmt.Errorf("entity tag must match started machine")
 		}
 		if cfg.StateServingInfo != nil {

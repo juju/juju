@@ -73,7 +73,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	}
 
 	// Link the current tools for use by the new agent.
-	tag := names.UnitTag(unitName)
+	tag := names.UnitTag(unitName).String()
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
 	_, err = tools.ChangeAgentTools(dataDir, tag, version.Current)
@@ -162,7 +162,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if err := svc.StopAndRemove(); err != nil {
 		return err
 	}
-	tag := names.UnitTag(unitName)
+	tag := names.UnitTag(unitName).String()
 	dataDir := ctx.agentConfig.DataDir()
 	agentDir := agent.Dir(dataDir, tag)
 	if err := os.RemoveAll(agentDir); err != nil {
@@ -207,7 +207,7 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 // upstartService returns an upstart.Service corresponding to the specified
 // unit.
 func (ctx *SimpleContext) upstartService(unitName string) *upstart.Service {
-	tag := names.UnitTag(unitName)
+	tag := names.UnitTag(unitName).String()
 	svcName := "jujud-" + tag
 	svc := upstart.NewService(svcName)
 	svc.InitDir = ctx.initDir

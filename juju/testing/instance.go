@@ -26,7 +26,7 @@ import (
 func FakeStateInfo(machineId string) *state.Info {
 	return &state.Info{
 		Addrs:    []string{"0.1.2.3:1234"},
-		Tag:      names.MachineTag(machineId),
+		Tag:      names.MachineTag(machineId).String(),
 		Password: "unimportant",
 		CACert:   testing.CACert,
 	}
@@ -38,7 +38,7 @@ func FakeStateInfo(machineId string) *state.Info {
 func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
 		Addrs:    []string{"0.1.2.3:1234"},
-		Tag:      names.MachineTag(machineId),
+		Tag:      names.MachineTag(machineId).String(),
 		Password: "unimportant",
 		CACert:   testing.CACert,
 	}

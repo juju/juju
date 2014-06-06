@@ -75,7 +75,7 @@ func (c *RunCommand) Init(args []string) error {
 		// change it to the unit tag as that is the format of the agent directory
 		// on disk (unit-service-2).
 		if names.IsUnit(c.unit) {
-			c.unit = names.UnitTag(c.unit)
+			c.unit = names.UnitTag(c.unit).String()
 		}
 	}
 	if len(args) < 1 {

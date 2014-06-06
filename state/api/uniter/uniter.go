@@ -155,7 +155,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	relationTag := names.RelationTag(result.Key)
 	return &Relation{
 		id:   result.Id,
-		tag:  relationTag,
+		tag:  relationTag.String(),
 		life: result.Life,
 		st:   st,
 	}, nil

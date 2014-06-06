@@ -47,7 +47,7 @@ func (st *State) Environment() (*Environment, error) {
 // The returned name will be different from other Tag values returned
 // by any other entities from the same state.
 func (e *Environment) Tag() string {
-	return names.EnvironTag(e.doc.UUID)
+	return names.EnvironTag(e.doc.UUID).String()
 }
 
 // UUID returns the universally unique identifier of the environment.

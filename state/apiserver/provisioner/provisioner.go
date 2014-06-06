@@ -70,7 +70,7 @@ func NewProvisionerAPI(
 			}
 			// All containers with the authenticated machine as a
 			// parent are accessible by it.
-			return isMachineAgent && names.MachineTag(parentId) == authEntityTag
+			return isMachineAgent && names.MachineTag(parentId).String() == authEntityTag
 		}, nil
 	}
 	// Both provisioner types can watch the environment.
