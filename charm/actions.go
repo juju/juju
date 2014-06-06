@@ -51,23 +51,25 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 			return nil, fmt.Errorf("bad action name %s", name)
 		}
 
-		// Make sure the names of parameters are acceptable.
-		for paramName, _ := range unmarshaledActions.ActionSpecs[name].Params {
+		// Make sure the parameters are acceptable.
+		cleansedParams := make(map[string]interface{})
+		for paramName, param := range unmarshaledActions.ActionSpecs[name].Params {
 			if valid := paramNameRule.MatchString(paramName); !valid {
 				return nil, fmt.Errorf("bad param name %s", paramName)
 			}
+
+			// Clean any map[interface{}]interface{}s out so they don't
+			// cause problems with BSON serialization later.
+			cleansedParam, err := cleanse(param)
+			if err != nil {
+				return nil, err
+			}
+			cleansedParams[paramName] = cleansedParam
 		}
 
-		// Clean any map[interface{}]interface{}s out so they don't
-		// cause problems with BSON serialization later.
-		cleanedParams, err := cleanseStringMap(actionSpec.Params)
-		if err != nil {
-			return nil, fmt.Errorf("invalid params schema for action schema %s: %v", name, err)
-		}
-
-		// Now substitute the cleaned value into the original.
+		// Now substitute the cleansed map into the original.
 		var swap = unmarshaledActions.ActionSpecs[name]
-		swap.Params = cleanedParams
+		swap.Params = cleansedParams
 		unmarshaledActions.ActionSpecs[name] = swap
 
 		// Make sure the new Params doc conforms to JSON-Schema
@@ -81,99 +83,51 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 	return &unmarshaledActions, nil
 }
 
-func cleanseMap(input map[interface{}]interface{}) (map[string]interface{}, error) {
-	output := make(map[string]interface{})
+func cleanse(input interface{}) (interface{}, error) {
+	switch typedInput := input.(type) {
 
-	for inKey, inValue := range input {
-		typedKey, ok := inKey.(string)
-		if !ok {
-			return nil, errors.New("map keyed with non-string value")
+	// In this case, recurse in.
+	case map[string]interface{}:
+		newMap := make(map[string]interface{})
+		for key, value := range typedInput {
+			newValue, err := cleanse(value)
+			if err != nil {
+				return nil, err
+			}
+			newMap[key] = newValue
 		}
-		output[typedKey] = inValue
-	}
+		return newMap, nil
 
-	return cleanseStringMap(output)
-}
-
-func cleanseSlice(input []interface{}) ([]interface{}, error) {
-	output := make([]interface{}, 0)
-
-	for _, sliceVal := range input {
-		switch typedSliceVal := sliceVal.(type) {
-
-		case map[string]interface{}:
-			newSliceVal, err := cleanseStringMap(typedSliceVal)
+	// Coerce keys to strings and error out if there's a problem; then recurse.
+	case map[interface{}]interface{}:
+		newMap := make(map[string]interface{})
+		for key, value := range typedInput {
+			typedKey, ok := key.(string)
+			if !ok {
+				return nil, errors.New("map keyed with non-string value")
+			}
+			newMapValue, err := cleanse(value)
 			if err != nil {
 				return nil, err
 			}
-			output = append(output, newSliceVal)
-
-		// Rebuild inner map[interface{}]interface{}s
-		// using recursive technique.
-		case map[interface{}]interface{}:
-			newSliceVal, err := cleanseMap(typedSliceVal)
-			if err != nil {
-				return nil, err
-			}
-			output = append(output, newSliceVal)
-
-		case []interface{}:
-			newSliceVal, err := cleanseSlice(typedSliceVal)
-			if err != nil {
-				return nil, err
-			}
-			output = append(output, newSliceVal)
-
-		// Otherwise, just use the same value
-		default:
-			output = append(output, sliceVal)
+			newMap[typedKey] = newMapValue
 		}
-	}
-	return output, nil
-}
+		return newMap, nil
 
-// stripBadInterfaces recurses through the values of a map[string]interface{}
-// and attempts to build a copy where any map[interface{}]interface{}s in the
-// original are rebuilt as map[string]interface{}s.  If any inner maps have
-// keys which are not of type string, the function will fail with an error.
-// This function does not mutate the original map.
-func cleanseStringMap(input map[string]interface{}) (map[string]interface{}, error) {
-	output := make(map[string]interface{})
-
-	for key, val := range input {
-		switch typedVal := val.(type) {
-		// If the value is already a map[string]interface{}, recurse
-		// into it and return the conformed version or error.
-		case map[string]interface{}:
-			newValue, err := cleanseStringMap(typedVal)
+	// Recurse
+	case []interface{}:
+		newSlice := make([]interface{}, 0)
+		for _, sliceValue := range typedInput {
+			newSliceValue, err := cleanse(sliceValue)
 			if err != nil {
-				return nil, err
+				return nil, errors.New("map keyed with non-string value")
 			}
-			output[key] = newValue
-
-		// If the value is a map[interface{}]interface{}, check that
-		// its keys are strings and build a new map[string]interface{}
-		// using the typed keys, and same values.  Then recurse on
-		// the new map, returning the conformed version or error.
-		case map[interface{}]interface{}:
-			cleansedVal, err := cleanseMap(typedVal)
-			if err != nil {
-				output[key] = cleansedVal
-			}
-
-		// If the value is an interface{} slice, step through it and
-		// recursively rebuild any map[interface{}]interface{}s in it.
-		case []interface{}:
-			cleansedVal, err := cleanseSlice(typedVal)
-			if err != nil {
-				output[key] = cleansedVal
-			}
-
-		// If the value is something else, it's fine to use.
-		default:
-			output[key] = val
+			newSlice = append(newSlice, newSliceValue)
 		}
-	}
+		return newSlice, nil
 
-	return output, nil
+	// Other kinds of values are OK.
+	default:
+		return input, nil
+	}
 }

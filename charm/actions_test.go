@@ -18,7 +18,7 @@ func (s *ActionsSuite) TestNewActions(c *gc.C) {
 	c.Assert(emptyAction, gc.DeepEquals, &Actions{})
 }
 
-func (s *ActionsSuite) TestStripBadInterfacesOK(c *gc.C) {
+func (s *ActionsSuite) TestCleanseOK(c *gc.C) {
 
 	var goodInterfaceTests = []struct {
 		description         string
@@ -86,13 +86,13 @@ func (s *ActionsSuite) TestStripBadInterfacesOK(c *gc.C) {
 
 	for i, test := range goodInterfaceTests {
 		c.Logf("test %d: %s", i, test.description)
-		cleanedInterfaceMap, err := stripBadInterfaces(test.acceptableInterface)
+		cleansedInterfaceMap, err := cleanse(test.acceptableInterface)
 		c.Assert(err, gc.IsNil)
-		c.Assert(cleanedInterfaceMap, gc.DeepEquals, test.expectedInterface)
+		c.Assert(cleansedInterfaceMap, gc.DeepEquals, test.expectedInterface)
 	}
 }
 
-func (s *ActionsSuite) TestStripBadInterfacesFail(c *gc.C) {
+func (s *ActionsSuite) TestCleanseFail(c *gc.C) {
 
 	var badInterfaceTests = []struct {
 		description   string
@@ -122,7 +122,7 @@ func (s *ActionsSuite) TestStripBadInterfacesFail(c *gc.C) {
 
 	for i, test := range badInterfaceTests {
 		c.Logf("test %d: %s", i, test.description)
-		_, err := stripBadInterfaces(test.failInterface)
+		_, err := cleanse(test.failInterface)
 		c.Assert(err, gc.NotNil)
 		c.Assert(err.Error(), gc.Equals, test.expectedError)
 	}
