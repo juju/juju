@@ -15,8 +15,8 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/cmd"
-	"github.com/juju/utils/exec"
 	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/utils/exec"
 
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
