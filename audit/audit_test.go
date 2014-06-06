@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/juju/loggo"
-
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 )

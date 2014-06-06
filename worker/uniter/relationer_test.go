@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	ft "github.com/juju/testing/filetesting"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm/hooks"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/state/api"
 	apiuniter "github.com/juju/juju/state/api/uniter"
 	coretesting "github.com/juju/juju/testing"
-	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/hook"

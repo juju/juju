@@ -15,9 +15,9 @@ import (
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	ft "github.com/juju/testing/filetesting"
 	gc "launchpad.net/gocheck"
 
-	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/juju/utils/zip"
 )
 

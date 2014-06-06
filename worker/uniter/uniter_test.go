@@ -20,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	ft "github.com/juju/testing/filetesting"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -32,7 +33,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	apiuniter "github.com/juju/juju/state/api/uniter"
 	coretesting "github.com/juju/juju/testing"
-	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/juju/utils"
 	utilexec "github.com/juju/juju/utils/exec"
 	"github.com/juju/juju/utils/fslock"
