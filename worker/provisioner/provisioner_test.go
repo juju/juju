@@ -182,7 +182,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 				c.Assert(o.MachineId, gc.Equals, m.Id())
 				nonceParts := strings.SplitN(o.MachineNonce, ":", 2)
 				c.Assert(nonceParts, gc.HasLen, 2)
-				c.Assert(nonceParts[0], gc.Equals, names.MachineTag("0"))
+				c.Assert(nonceParts[0], gc.Equals, names.NewMachineTag("0").String())
 				c.Assert(nonceParts[1], jc.Satisfies, utils.IsValidUUIDString)
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.IncludeNetworks, jc.DeepEquals, includeNetworks)

@@ -528,7 +528,7 @@ func (u *Unit) DeployerTag() (string, bool) {
 	if u.doc.Principal != "" {
 		return names.UnitTag(u.doc.Principal).String(), true
 	} else if u.doc.MachineId != "" {
-		return names.MachineTag(u.doc.MachineId).String(), true
+		return names.NewMachineTag(u.doc.MachineId).String(), true
 	}
 	return "", false
 }

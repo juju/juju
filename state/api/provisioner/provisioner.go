@@ -144,7 +144,7 @@ func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResul
 			continue
 		}
 		machines[i] = &Machine{
-			tag:  names.MachineTag(status.Id).String(),
+			tag:  names.NewMachineTag(status.Id).String(),
 			life: status.Life,
 			st:   st,
 		}

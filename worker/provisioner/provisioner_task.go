@@ -276,7 +276,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	// change list.
 	// TODO(thumper): update for API server later to get all machines in one go.
 	for _, id := range ids {
-		machineTag := names.MachineTag(id).String()
+		machineTag := names.NewMachineTag(id).String()
 		machine, err := task.machineGetter.Machine(machineTag)
 		switch {
 		case params.IsCodeNotFoundOrCodeUnauthorized(err):

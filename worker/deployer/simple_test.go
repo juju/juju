@@ -246,7 +246,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
-	tag := names.UnitTag(name)
+	tag := names.UnitTag(name).String()
 	confPath, agentDir, toolsDir := fix.paths(tag)
 	for _, path := range []string{confPath, agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)

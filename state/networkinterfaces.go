@@ -111,7 +111,7 @@ func (ni *NetworkInterface) MachineId() string {
 
 // MachineTag returns the machine tag of the interface.
 func (ni *NetworkInterface) MachineTag() string {
-	return names.MachineTag(ni.doc.MachineId).String()
+	return names.NewMachineTag(ni.doc.MachineId).String()
 }
 
 // IsVirtual returns whether the interface represents a virtual
