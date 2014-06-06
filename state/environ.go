@@ -9,7 +9,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"github.com/juju/juju/names"
+	"github.com/juju/names"
 )
 
 // environGlobalKey is the key for the environment, its

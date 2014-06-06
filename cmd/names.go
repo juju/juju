@@ -6,7 +6,7 @@ package cmd
 import (
 	"regexp"
 
-	"github.com/juju/juju/names"
+	"github.com/juju/names"
 )
 
 const (

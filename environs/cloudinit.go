@@ -13,12 +13,12 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/utils"
 	"github.com/juju/juju/utils/proxy"
+	"github.com/juju/names"
 )
 
 // DataDir is the default data directory.

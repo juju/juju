@@ -14,7 +14,7 @@ import (
 	"labix.org/v2/mgo/txn"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/names"
+	"github.com/juju/names"
 )
 
 // RelationUnit holds information about a single unit in a relation, and

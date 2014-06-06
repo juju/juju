@@ -14,11 +14,11 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/keymanager"
 	"github.com/juju/juju/state/api/usermanager"
 	"github.com/juju/juju/utils/parallel"
+	"github.com/juju/names"
 )
 
 // The following are variables so that they can be

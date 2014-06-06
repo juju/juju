@@ -16,7 +16,7 @@ import (
 	"labix.org/v2/mgo/txn"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/names"
+	"github.com/juju/names"
 )
 
 // relationKey returns a string describing the relation defined by

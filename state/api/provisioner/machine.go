@@ -4,11 +4,11 @@
 package provisioner
 
 import (
-	"errors"
 	"fmt"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 )
@@ -246,7 +246,7 @@ func (m *Machine) SetPassword(password string) error {
 // to the lifecycles of containers of the specified type on the machine.
 func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.StringsWatcher, error) {
 	if string(ctype) == "" {
-		return nil, errors.New("container type must be specified")
+		return nil, fmt.Errorf("container type must be specified")
 	}
 	supported := false
 	for _, c := range instance.ContainerTypes {

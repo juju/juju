@@ -6,12 +6,12 @@ package firewaller
 import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	apifirewaller "github.com/juju/juju/state/api/firewaller"
 	"github.com/juju/juju/state/api/params"
 	apiwatcher "github.com/juju/juju/state/api/watcher"

@@ -6,6 +6,7 @@ package testing
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/testing"

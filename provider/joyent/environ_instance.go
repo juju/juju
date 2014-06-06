@@ -21,9 +21,9 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils"
+	"github.com/juju/names"
 )
 
 var (
