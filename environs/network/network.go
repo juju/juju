@@ -38,6 +38,10 @@ type Info struct {
 	// IsVirtual is true when the interface is a virtual device, as
 	// opposed to a physical device (e.g. a VLAN or a network alias)
 	IsVirtual bool
+
+	// Disabled is true when the interface needs to be disabled on the
+	// machine, e.g. not to configure it.
+	Disabled bool
 }
 
 // ActualInterfaceName returns raw interface name for raw interface (e.g. "eth0") and

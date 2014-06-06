@@ -233,10 +233,9 @@ func (s *MachineSuite) TestRemove(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.machine.Containers()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	include, exclude, err := s.machine.RequestedNetworks()
+	networks, err := s.machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
-	c.Assert(include, gc.HasLen, 0)
-	c.Assert(exclude, gc.HasLen, 0)
+	c.Assert(networks, gc.HasLen, 0)
 	ifaces, err := s.machine.NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ifaces, gc.HasLen, 0)
@@ -368,33 +367,34 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 func (s *MachineSuite) TestRequestedNetworks(c *gc.C) {
 	// s.machine is created without requested networks, so check
 	// they're empty when we read them.
-	include, exclude, err := s.machine.RequestedNetworks()
+	networks, err := s.machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
-	c.Assert(include, gc.HasLen, 0)
-	c.Assert(exclude, gc.HasLen, 0)
+	c.Assert(networks, gc.HasLen, 0)
 
 	// Now create a machine with networks and read them back.
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:          "quantal",
-		Jobs:            []state.MachineJob{state.JobHostUnits},
-		IncludeNetworks: []string{"net1", "mynet"},
-		ExcludeNetworks: []string{"private-net", "logging"},
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		Constraints:       constraints.MustParse("networks=mynet,^private-net,^logging"),
+		RequestedNetworks: []string{"net1", "net2"},
 	})
 	c.Assert(err, gc.IsNil)
-	include, exclude, err = machine.RequestedNetworks()
+	networks, err = machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
-	c.Assert(include, jc.DeepEquals, []string{"net1", "mynet"})
-	c.Assert(exclude, jc.DeepEquals, []string{"private-net", "logging"})
+	c.Assert(networks, jc.DeepEquals, []string{"net1", "net2"})
+	cons, err := machine.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons.IncludeNetworks(), jc.DeepEquals, []string{"mynet"})
+	c.Assert(cons.ExcludeNetworks(), jc.DeepEquals, []string{"private-net", "logging"})
 
 	// Finally, networks should be removed with the machine.
 	err = machine.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = machine.Remove()
 	c.Assert(err, gc.IsNil)
-	include, exclude, err = machine.RequestedNetworks()
+	networks, err = machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
-	c.Assert(include, gc.HasLen, 0)
-	c.Assert(exclude, gc.HasLen, 0)
+	c.Assert(networks, gc.HasLen, 0)
 }
 
 func addNetworkAndInterface(c *gc.C, st *state.State, machine *state.Machine,
@@ -429,10 +429,9 @@ func (s *MachineSuite) TestNetworks(c *gc.C) {
 	// Networks() uses them to determine which networks are bound to
 	// the machine.
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:          "quantal",
-		Jobs:            []state.MachineJob{state.JobHostUnits},
-		IncludeNetworks: []string{"net1", "net2"},
-		ExcludeNetworks: []string{"net3", "net4"},
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		RequestedNetworks: []string{"net1", "net2"},
 	})
 	c.Assert(err, gc.IsNil)
 
@@ -458,9 +457,9 @@ func (s *MachineSuite) TestMachineNetworkInterfaces(c *gc.C) {
 	c.Assert(ifaces, gc.HasLen, 0)
 
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:          "quantal",
-		Jobs:            []state.MachineJob{state.JobHostUnits},
-		IncludeNetworks: []string{"net1", "vlan42", "net2"},
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		RequestedNetworks: []string{"net1", "vlan42", "net2"},
 	})
 	c.Assert(err, gc.IsNil)
 
@@ -544,9 +543,9 @@ var addNetworkInterfaceErrorsTests = []struct {
 
 func (s *MachineSuite) TestAddNetworkInterfaceErrors(c *gc.C) {
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:          "quantal",
-		Jobs:            []state.MachineJob{state.JobHostUnits},
-		IncludeNetworks: []string{"net1"},
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		RequestedNetworks: []string{"net1"},
 	})
 	c.Assert(err, gc.IsNil)
 	addNetworkAndInterface(

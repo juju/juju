@@ -297,19 +297,18 @@ func (c *Client) ServiceUnexpose(service string) error {
 }
 
 // ServiceDeployWithNetworks works exactly like ServiceDeploy, but
-// allows the specification of networks that will be included or
-// excluded on the machines where the service is deployed. Networks
-// are specified with network tags (see names.NetworkTag).
-func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, includeNetworks, excludeNetworks []string) error {
+// allows the specification of requested networks that must be present
+// on the machines where the service is deployed. Another way to specify
+// networks to include/exclude is using constraints.
+func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, networks []string) error {
 	params := params.ServiceDeploy{
-		ServiceName:     serviceName,
-		CharmUrl:        charmURL,
-		NumUnits:        numUnits,
-		ConfigYAML:      configYAML,
-		Constraints:     cons,
-		ToMachineSpec:   toMachineSpec,
-		IncludeNetworks: includeNetworks,
-		ExcludeNetworks: excludeNetworks,
+		ServiceName:   serviceName,
+		CharmUrl:      charmURL,
+		NumUnits:      numUnits,
+		ConfigYAML:    configYAML,
+		Constraints:   cons,
+		ToMachineSpec: toMachineSpec,
+		Networks:      networks,
 	}
 	return c.st.Call("Client", "", "ServiceDeployWithNetworks", params, nil)
 }

@@ -10,6 +10,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
@@ -52,8 +53,8 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 		"wordpress",
 		s.AddTestingCharm(c, "wordpress"),
 		[]string{"net1", "net2"},
-		[]string{"net3", "net4"},
 	)
+	s.wordpress.SetConstraints(constraints.MustParse("networks=net3,^net4,^net5"))
 	s.machines = make([]*state.Machine, 3)
 	for i := range s.machines {
 		var err error
