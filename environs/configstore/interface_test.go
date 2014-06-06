@@ -39,6 +39,20 @@ func (s *interfaceSuite) TestCreate(c *gc.C) {
 	c.Assert(info.Initialized(), jc.IsFalse)
 }
 
+func (s *interfaceSuite) TestList(c *gc.C) {
+	store := s.NewStore(c)
+	_, err := store.CreateInfo("enva")
+	c.Assert(err, gc.IsNil)
+	_, err = store.CreateInfo("envb")
+	c.Assert(err, gc.IsNil)
+	_, err = store.CreateInfo("envc")
+	c.Assert(err, gc.IsNil)
+
+	environs, err := store.List()
+	c.Assert(err, gc.IsNil)
+	c.Assert(environs, jc.SameContents, []string{"enva", "envb", "envc"})
+}
+
 func (s *interfaceSuite) TestSetAPIEndpointAndCredentials(c *gc.C) {
 	store := s.NewStore(c)
 
