@@ -3,25 +3,24 @@ High Availability (HA)
 
 
 High Availability in general terms means that we have 3 or more (up to 7) 
-State Machines, 
-each one of which can be used as the master.
+State Machines, each one of which can be used as the master.
 
 This is an overview of how it works:
 
 ### Mongo
 _Mongo_ is always started in [replicaset mode](http://docs.mongodb.org/manual/replication/).
 
- If not in HA, this will behave as if it ware a single mongodb and, in practical 
+ If not in HA, this will behave as if it were a single mongodb and, in practical 
 terms there is no difference with a regular setup.
 
 ### Voting
 
-A voting member of the replicaset is a one that has a saying on which member is master.
+A voting member of the replicaset is a one that has a say on which member is master.
 
-A non voting member its just a storage backup.
+A non-voting member is just a storage backup.
 
-Currently we dont support non voting members; instead when a member is non voting it
-mens that said State Server is going to be removed entirely
+Currently we don't support non-voting members; instead when a member is non-voting it
+means that said State Server is going to be removed entirely.
 
 ### Ensure availability
 
@@ -29,31 +28,31 @@ There is a `ensure-availabiity` command for juju, it takes `-n` (minimum number
  of state machines) as an optional parameter; if it's not provided it will 
 default to 3.
 
- This needs to be an odd number in order to prevent ties on the voting.
+ This needs to be an odd number in order to prevent ties during voting.
  
  The number cannot be larger than seven (making the current possibilities: 3, 
 5 and 7) due to limitations of mongodb, which cannot have more than 7
 replica set members.
  
  Currently the number can be increased but not decreased (this is planned). 
-In the first case juju will bring up as many machines as necessary to meet the 
+In the first case Juju will bring up as many machines as necessary to meet the 
 requirement; in the second nothing will happen since the rule tries to have 
 _"at least that many"_
  
  At present there is no way to reduce the number of machines, you can kill by 
 hand enough machines to reduce to a number you need, but this is risky and 
 **not recommended**. If you kill less than half of the machines (half+1
- remaining) running `ensure-availability` 
-again will add more machines to replace the dead ones, if you kill more there 
-is no way to recover as there are not enough voting machines.
+remaining) running `ensure-availability` again will add more machines to 
+replace the dead ones. If you kill more there is no way to recover as there 
+are not enough voting machines.
  
- The EnsureAvailability API cal will report what is going to be done after 
+ The EnsureAvailability API call will report what is going to be done after 
 running it. 
 
 ### The API 
 
  There is an API server running on all State Machines, these talk to all
-the pers but queries and updates are addressed to the mongo master instance.
+the peers but queries and updates are addressed to the mongo master instance.
  
  Unit and machine agents connect to any of the API servers, by trying to connect
 to all the addresses concurrently, but not simultaneously. It starts to try each
@@ -63,7 +62,7 @@ connected address will be stored; it will be tried first when next connecting.
 ### The peergrouper worker:
  
  It looks at the current state and decides what the peergroup members should 
-look like, it continually tries to maintain those members.
+look like and continually tries to maintain those members.
 
  The reason for its existence is that it can often take a while for mongo to 
 allow a peer group change, so we can't change it directly in the 
@@ -79,10 +78,10 @@ It feeds all that information into `desiredPeerGroup`, which provides the peer
 group that we want to be and continually tries to set that peer group in mongo 
 until it succeeds.
  
-**NOTE:** There is one current situation that doesn't work currently which is 
-that if you've only got one state server, you can't switch to another one 
+**NOTE:** There is one situation which currently doesn't work which is 
+that if you've only got one state server, you can't switch to another one.
 
-### The singleton Workers
+### The Singleton Workers
 
 The following workers require only a single instance to be running
 at any one moment:
@@ -90,7 +89,7 @@ at any one moment:
  * The environment provisioner
  * The firewaller
  * The charm revision updater
- * The state cleaner.
+ * The state cleaner
  * The transaction resumer
  * The minunits worker
 
