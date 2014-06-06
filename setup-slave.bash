@@ -11,16 +11,6 @@ SLAVE_ADDRESS=$(juju status $SLAVE |
     cut -d : -f 2 |
     sed 's/ //g')
 
-# Register the slave with the master.
-# This should be a charm responsability.
-juju ssh $SLAVE/0 <<EOT
-echo 'jenkins ALL=(ALL) NOPASSWD:ALL' | sudo tee -a /etc/sudoers.d/91-jenkins
-cd /usr/share/jenkins/bin
-test -d /var/run/jenkins || sudo mkdir /var/run/jenkins
-sudo ./download-slave.sh $MASTER
-logout
-EOT
-
 # Copy the authorized_keys so that we can ssh as jenkins.
 juju ssh $SLAVE/0 <<EOT
 set -eux
@@ -34,7 +24,6 @@ chmod 700 ./.ssh/
 cat ./authorized_keys >> ./.ssh/authorized_keys
 chmod 600 ./.ssh/authorized_keys
 rm ./authorized_keys
-logout
 EOT
 
 # Install ssh rules for juju to repeatedly create instances.
@@ -60,7 +49,6 @@ bzr branch lp:juju-ci-tools/repository repository
 chmod 600 cloud-city/$KEY*
 ln -s cloud-city/$KEY .ssh/id_rsa
 ln -s cloud-city/$KEY.pub .ssh/id_rsa.pub
-logout
 EOT
 
 # Install stable juju.
@@ -68,7 +56,6 @@ juju ssh $SLAVE/0 <<EOT
 sudo apt-add-repository -y ppa:juju/stable
 sudo apt-get update
 sudo apt-get install -y juju-local juju
-logout
 EOT
 
 # Configure Jenkins with launch command
