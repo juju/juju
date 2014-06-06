@@ -7,13 +7,13 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"

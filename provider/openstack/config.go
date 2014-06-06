@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/juju/schema"
 	"launchpad.net/goose/identity"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/schema"
 )
 
 var configFields = schema.Fields{

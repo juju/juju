@@ -10,9 +10,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/names"
 	"labix.org/v2/mgo/bson"
-
-	"github.com/juju/juju/names"
 )
 
 // Location represents a charm location, which must declare a path component

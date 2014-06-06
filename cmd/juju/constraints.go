@@ -6,13 +6,13 @@ package main
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/names"
 )
 
 const getConstraintsDoc = `
@@ -28,8 +28,8 @@ See Also:
 const setConstraintsDoc = `
 set-constraints sets machine constraints on the system, which are used as the
 default constraints for all new machines provisioned in the environment (unless
-overridden).  You can also set constraints on a specific service by using juju 
-set-constraints <service>. 
+overridden).  You can also set constraints on a specific service by using juju
+set-constraints <service>.
 
 Constraints set on a service are combined with environment constraints for
 commands (such as juju deploy) that provision machines for services.  Where

@@ -4,11 +4,10 @@
 package main
 
 import (
-	"bytes"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
-	"regexp"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -16,107 +15,180 @@ import (
 
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
 )
 
 // All of the functionality of the AddUser api call is contained elsewhere.
 // This suite provides basic tests for the "user add" command
 type UserAddCommandSuite struct {
-	jujutesting.JujuConnSuite
+	testing.FakeJujuHomeSuite
+	mockAPI *mockAddUserAPI
 }
 
 var _ = gc.Suite(&UserAddCommandSuite{})
+
+func (s *UserAddCommandSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+	s.mockAPI = &mockAddUserAPI{}
+	s.PatchValue(&getAddUserAPI, func(c *UserAddCommand) (addUserAPI, error) {
+		return s.mockAPI, nil
+	})
+}
 
 func newUserAddCommand() cmd.Command {
 	return envcmd.Wrap(&UserAddCommand{})
 }
 
-func (s *UserAddCommandSuite) TestUserAdd(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserAddCommand(), "foobar")
+func (s *UserAddCommandSuite) TestAddUserJustUsername(c *gc.C) {
+	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar")
 	c.Assert(err, gc.IsNil)
-
-	_, err = testing.RunCommand(c, newUserAddCommand(), "foobar")
-	c.Assert(err, gc.ErrorMatches, "Failed to create user: user already exists")
+	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
+	c.Assert(s.mockAPI.displayname, gc.Equals, "")
+	// Password is generated
+	c.Assert(s.mockAPI.password, gc.Not(gc.Equals), "")
+	expected := fmt.Sprintf(`user "foobar" added with password %q`, s.mockAPI.password)
+	c.Assert(testing.Stdout(context), gc.Equals, expected+"\n")
 }
 
-func (s *UserAddCommandSuite) TestTooManyArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "whoops")
-	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["whoops"\]`)
-}
-
-func (s *UserAddCommandSuite) TestNotEnoughArgs(c *gc.C) {
-	_, err := testing.RunCommand(c, newUserAddCommand())
-	c.Assert(err, gc.ErrorMatches, `no username supplied`)
-}
-
-func (s *UserAddCommandSuite) TestGeneratePassword(c *gc.C) {
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), "foobar")
-
+func (s *UserAddCommandSuite) TestAddUserUsernameAndDisplayname(c *gc.C) {
+	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "Foo Bar")
 	c.Assert(err, gc.IsNil)
-	user, password, filename := parseUserAddStdout(c, ctx)
-	c.Assert(user, gc.Equals, "foobar")
-	// Let's not try to assume too much about the password generation
-	// algorithm other than there will be at least 10 characters.
-	c.Assert(password, gc.Matches, "..........+")
-	c.Assert(filename, gc.Equals, "")
+	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
+	c.Assert(s.mockAPI.displayname, gc.Equals, "Foo Bar")
+	// Password is generated
+	c.Assert(s.mockAPI.password, gc.Not(gc.Equals), "")
+	expected := fmt.Sprintf(`user "Foo Bar (foobar)" added with password %q`, s.mockAPI.password)
+	c.Assert(testing.Stdout(context), gc.Equals, expected+"\n")
 }
 
-func (s *UserAddCommandSuite) TestUserSpecifiedPassword(c *gc.C) {
-	ctx, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "--password", "frogdog")
+func (s *UserAddCommandSuite) TestAddUserUsernameAndDisplaynameWithPassword(c *gc.C) {
+	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar", "Foo Bar", "--password", "password")
 	c.Assert(err, gc.IsNil)
+	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
+	c.Assert(s.mockAPI.displayname, gc.Equals, "Foo Bar")
+	c.Assert(s.mockAPI.password, gc.Equals, "password")
+	expected := `user "Foo Bar (foobar)" added with password "password"`
+	c.Assert(testing.Stdout(context), gc.Equals, expected+"\n")
+}
 
-	user, password, filename := parseUserAddStdout(c, ctx)
-	c.Assert(user, gc.Equals, "foobar")
-	c.Assert(password, gc.Equals, "frogdog")
-	c.Assert(filename, gc.Equals, "")
+func (s *UserAddCommandSuite) TestAddUserErrorResponse(c *gc.C) {
+	s.mockAPI.failMessage = "failed to create user, chaos ensues"
+	context, err := testing.RunCommand(c, newUserAddCommand(), "foobar")
+	c.Assert(err, gc.ErrorMatches, "failed to create user, chaos ensues")
+	c.Assert(s.mockAPI.username, gc.Equals, "foobar")
+	c.Assert(s.mockAPI.displayname, gc.Equals, "")
+	c.Assert(testing.Stdout(context), gc.Equals, "")
+}
+
+func (s *UserAddCommandSuite) TestInit(c *gc.C) {
+	for i, test := range []struct {
+		args        []string
+		user        string
+		displayname string
+		password    string
+		outPath     string
+		errorString string
+	}{
+		{
+			errorString: "no username supplied",
+		}, {
+			args: []string{"foobar"},
+			user: "foobar",
+		}, {
+			args:        []string{"foobar", "Foo Bar"},
+			user:        "foobar",
+			displayname: "Foo Bar",
+		}, {
+			args:        []string{"foobar", "Foo Bar", "extra"},
+			errorString: `unrecognized args: \["extra"\]`,
+		}, {
+			args:     []string{"foobar", "--password", "password"},
+			user:     "foobar",
+			password: "password",
+		}, {
+			args:    []string{"foobar", "--output", "somefile"},
+			user:    "foobar",
+			outPath: "somefile",
+		}, {
+			args:    []string{"foobar", "-o", "somefile"},
+			user:    "foobar",
+			outPath: "somefile",
+		},
+	} {
+		c.Logf("test %d", i)
+		addUserCmd := &UserAddCommand{}
+		err := testing.InitCommand(addUserCmd, test.args)
+		if test.errorString == "" {
+			c.Check(addUserCmd.User, gc.Equals, test.user)
+			c.Check(addUserCmd.DisplayName, gc.Equals, test.displayname)
+			c.Check(addUserCmd.Password, gc.Equals, test.password)
+			c.Check(addUserCmd.outPath, gc.Equals, test.outPath)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.errorString)
+		}
+	}
+}
+
+func fakeBootstrapEnvironment(c *gc.C, envName string) {
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	envInfo, err := store.CreateInfo(envName)
+	c.Assert(err, gc.IsNil)
+	envInfo.SetBootstrapConfig(map[string]interface{}{"random": "extra data"})
+	envInfo.SetAPIEndpoint(configstore.APIEndpoint{
+		Addresses: []string{"localhost:12345"},
+		CACert:    testing.CACert,
+	})
+	envInfo.SetAPICredentials(configstore.APICredentials{
+		User:     "admin",
+		Password: "password",
+	})
+	err = envInfo.Write()
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *UserAddCommandSuite) TestJenvOutput(c *gc.C) {
+	fakeBootstrapEnvironment(c, "erewhemos")
 	outputName := filepath.Join(c.MkDir(), "output")
 	ctx, err := testing.RunCommand(c, newUserAddCommand(),
 		"foobar", "--password", "password", "--output", outputName)
 	c.Assert(err, gc.IsNil)
 
-	user, password, filename := parseUserAddStdout(c, ctx)
-	c.Assert(user, gc.Equals, "foobar")
-	c.Assert(password, gc.Equals, "password")
-	c.Assert(filename, gc.Equals, outputName+".jenv")
+	expected := fmt.Sprintf(`user "foobar" added with password %q`, s.mockAPI.password)
+	expected = fmt.Sprintf("%s\nenvironment file written to %s.jenv\n", expected, outputName)
+	c.Assert(testing.Stdout(ctx), gc.Equals, expected)
 
-	raw, err := ioutil.ReadFile(filename)
+	raw, err := ioutil.ReadFile(outputName + ".jenv")
 	c.Assert(err, gc.IsNil)
 	d := map[string]interface{}{}
 	err = goyaml.Unmarshal(raw, &d)
 	c.Assert(err, gc.IsNil)
 	c.Assert(d["user"], gc.Equals, "foobar")
 	c.Assert(d["password"], gc.Equals, "password")
-	_, found := d["state-servers"]
-	c.Assert(found, gc.Equals, true)
-	_, found = d["ca-cert"]
-	c.Assert(found, gc.Equals, true)
+	c.Assert(d["state-servers"], gc.DeepEquals, []interface{}{"localhost:12345"})
+	c.Assert(d["ca-cert"], gc.DeepEquals, testing.CACert)
+	_, found := d["bootstrap-config"]
+	c.Assert(found, jc.IsFalse)
 }
 
-// parseUserAddStdout parses the output from the "juju user add"
-// command and checks that it has the correct form, returning the
-// interesting parts. The .jenv filename will be an empty string when
-// it wasn't included in the output.
-func parseUserAddStdout(c *gc.C, ctx *cmd.Context) (user string, password string, filename string) {
-	stdout := strings.TrimSpace(ctx.Stdout.(*bytes.Buffer).String())
-	lines := strings.Split(stdout, "\n")
-	c.Assert(len(lines), jc.LessThan, 3)
+type mockAddUserAPI struct {
+	failMessage string
+	username    string
+	displayname string
+	password    string
+}
 
-	reLine0 := regexp.MustCompile(`^user "(.+)" added with password "(.+)"$`)
-	line0Matches := reLine0.FindStringSubmatch(lines[0])
-	c.Assert(len(line0Matches), gc.Equals, 3)
-	user, password = line0Matches[1], line0Matches[2]
-
-	if len(lines) == 2 {
-		reLine1 := regexp.MustCompile(`^environment file written to (.+)$`)
-		line1Matches := reLine1.FindStringSubmatch(lines[1])
-		c.Assert(len(line1Matches), gc.Equals, 2)
-		filename = line1Matches[1]
-	} else {
-		filename = ""
+func (m *mockAddUserAPI) AddUser(username, displayname, password string) error {
+	m.username = username
+	m.displayname = displayname
+	m.password = password
+	if m.failMessage == "" {
+		return nil
 	}
-	return
+	return errors.New(m.failMessage)
+}
+
+func (*mockAddUserAPI) Close() error {
+	return nil
 }

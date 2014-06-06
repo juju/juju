@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api/params"
 )
 

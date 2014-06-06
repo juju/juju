@@ -6,12 +6,12 @@ package main
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/names"
 )
 
 // RemoveMachineCommand causes an existing machine to be destroyed.

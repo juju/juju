@@ -25,6 +25,7 @@ type constraintsDoc struct {
 	InstanceType *string
 	Container    *instance.ContainerType
 	Tags         *[]string `bson:",omitempty"`
+	Networks     *[]string `bson:",omitempty"`
 }
 
 func (doc constraintsDoc) value() constraints.Value {
@@ -34,9 +35,10 @@ func (doc constraintsDoc) value() constraints.Value {
 		CpuPower:     doc.CpuPower,
 		Mem:          doc.Mem,
 		RootDisk:     doc.RootDisk,
+		InstanceType: doc.InstanceType,
 		Container:    doc.Container,
 		Tags:         doc.Tags,
-		InstanceType: doc.InstanceType,
+		Networks:     doc.Networks,
 	}
 }
 
@@ -47,9 +49,10 @@ func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 		CpuPower:     cons.CpuPower,
 		Mem:          cons.Mem,
 		RootDisk:     cons.RootDisk,
+		InstanceType: cons.InstanceType,
 		Container:    cons.Container,
 		Tags:         cons.Tags,
-		InstanceType: cons.InstanceType,
+		Networks:     cons.Networks,
 	}
 }
 

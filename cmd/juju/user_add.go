@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
@@ -33,40 +34,49 @@ Examples:
 
 type UserAddCommand struct {
 	envcmd.EnvCommandBase
-	User     string
-	Password string
-	outPath  string
+	User        string
+	DisplayName string
+	Password    string
+	outPath     string
 }
 
 func (c *UserAddCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add",
-		Args:    "<username> <password>",
+		Args:    "<username> [<display name>]",
 		Purpose: "adds a user",
 		Doc:     userAddCommandDoc,
 	}
 }
 
 func (c *UserAddCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.StringVar(&(c.Password), "password", "", "Password for new user")
-	f.StringVar(&(c.outPath), "o", "", "Output an environment file for new user")
-	f.StringVar(&(c.outPath), "output", "", "")
+	f.StringVar(&c.Password, "password", "", "Password for new user")
+	f.StringVar(&c.outPath, "o", "", "Output an environment file for new user")
+	f.StringVar(&c.outPath, "output", "", "")
 }
 
 func (c *UserAddCommand) Init(args []string) error {
-	switch len(args) {
-	case 0:
+	if len(args) == 0 {
 		return fmt.Errorf("no username supplied")
-	case 1:
-		c.User = args[0]
-	default:
-		return cmd.CheckEmpty(args[1:])
 	}
-	return nil
+	c.User, args = args[0], args[1:]
+	if len(args) > 0 {
+		c.DisplayName, args = args[0], args[1:]
+	}
+	return cmd.CheckEmpty(args)
+}
+
+type addUserAPI interface {
+	AddUser(username, displayname, password string) error
+	Close() error
+}
+
+var getAddUserAPI = func(c *UserAddCommand) (addUserAPI, error) {
+	return juju.NewUserManagerClient(c.EnvName)
 }
 
 func (c *UserAddCommand) Run(ctx *cmd.Context) error {
-	client, err := juju.NewUserManagerClient(c.EnvName)
+	client, err := getAddUserAPI(c)
 	if err != nil {
 		return err
 	}
@@ -74,19 +84,24 @@ func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 	if c.Password == "" {
 		c.Password, err = utils.RandomPassword()
 		if err != nil {
-			return fmt.Errorf("Failed to generate password: %v", err)
+			return errors.Annotate(err, "failed to generate password")
 		}
 	}
 
-	err = client.AddUser(c.User, c.Password)
+	err = client.AddUser(c.User, c.DisplayName, c.Password)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(ctx.Stdout, "user \"%s\" added with password \"%s\"\n", c.User, c.Password)
+	user := c.User
+	if c.DisplayName != "" {
+		user = fmt.Sprintf("%s (%s)", c.DisplayName, user)
+	}
+
+	fmt.Fprintf(ctx.Stdout, "user %q added with password %q\n", user, c.Password)
 
 	if c.outPath != "" {
 		outPath := NormaliseJenvPath(ctx, c.outPath)
-		err := GenerateUserJenv(c.EnvName, c.User, c.Password, outPath)
+		err = GenerateUserJenv(c.EnvName, c.User, c.Password, outPath)
 		if err == nil {
 			fmt.Fprintf(ctx.Stdout, "environment file written to %s\n", outPath)
 		}
@@ -101,14 +116,14 @@ func NormaliseJenvPath(ctx *cmd.Context, outPath string) string {
 	return ctx.AbsPath(outPath)
 }
 
-func GenerateUserJenv(envName, user, password, outPath string) (err error) {
+func GenerateUserJenv(envName, user, password, outPath string) error {
 	store, err := configstore.Default()
 	if err != nil {
-		return
+		return errors.Trace(err)
 	}
 	storeInfo, err := store.ReadInfo(envName)
 	if err != nil {
-		return
+		return errors.Trace(err)
 	}
 	outputInfo := configstore.EnvironInfoData{}
 	outputInfo.User = user
@@ -117,17 +132,17 @@ func GenerateUserJenv(envName, user, password, outPath string) (err error) {
 	outputInfo.CACert = storeInfo.APIEndpoint().CACert
 	yaml, err := cmd.FormatYaml(outputInfo)
 	if err != nil {
-		return
+		return errors.Trace(err)
 	}
 
 	outFile, err := os.Create(outPath)
 	if err != nil {
-		return
+		return errors.Trace(err)
 	}
 	defer outFile.Close()
-	_, err = outFile.Write(yaml)
+	outFile.Write(yaml)
 	if err != nil {
-		return
+		return errors.Trace(err)
 	}
-	return
+	return nil
 }

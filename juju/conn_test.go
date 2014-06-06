@@ -501,7 +501,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 
 func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
 	usermanager := usermanager.NewClient(s.APIState)
-	err := usermanager.AddUser("foobar", "")
+	err := usermanager.AddUser("foobar", "", "")
 	c.Assert(err, gc.IsNil)
 	service, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{

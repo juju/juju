@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/charm"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 )

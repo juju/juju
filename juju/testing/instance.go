@@ -6,6 +6,7 @@ package testing
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -14,7 +15,6 @@ import (
 	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/testing"
@@ -114,12 +114,30 @@ func StartInstanceWithConstraintsAndNetworks(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
+	params := environs.StartInstanceParams{Constraints: cons}
+	return StartInstanceWithParams(
+		env, machineId, params, includeNetworks, excludeNetworks)
+}
+
+// StartInstanceWithParams is a test helper function that starts an instance
+// with the given parameters, and a plausible but invalid configuration, and
+// returns the result of Environ.StartInstance. The provided params's
+// MachineConfig and Tools field values will be ignored.
+func StartInstanceWithParams(
+	env environs.Environ, machineId string,
+	params environs.StartInstanceParams,
+	includeNetworks, excludeNetworks []string,
+) (
+	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
+) {
 	series := config.PreferredSeries(env.Config())
 	agentVersion, ok := env.Config().AgentVersion()
 	if !ok {
 		return nil, nil, nil, fmt.Errorf("missing agent version in environment config")
 	}
-	possibleTools, err := tools.FindInstanceTools(env, agentVersion, series, cons.Arch)
+	possibleTools, err := tools.FindInstanceTools(
+		env, agentVersion, series, params.Constraints.Arch,
+	)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -130,9 +148,7 @@ func StartInstanceWithConstraintsAndNetworks(
 		machineId, machineNonce,
 		includeNetworks, excludeNetworks,
 		stateInfo, apiInfo)
-	return env.StartInstance(environs.StartInstanceParams{
-		Constraints:   cons,
-		Tools:         possibleTools,
-		MachineConfig: machineConfig,
-	})
+	params.Tools = possibleTools
+	params.MachineConfig = machineConfig
+	return env.StartInstance(params)
 }

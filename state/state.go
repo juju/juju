@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"

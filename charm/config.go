@@ -9,9 +9,8 @@ import (
 	"io/ioutil"
 	"strconv"
 
+	"github.com/juju/schema"
 	"launchpad.net/goyaml"
-
-	"github.com/juju/juju/schema"
 )
 
 // Settings is a group of charm config option names and values. A Settings
