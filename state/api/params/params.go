@@ -741,3 +741,53 @@ type EnsureAvailability struct {
 	// If this is empty, then the environment's default series is used.
 	Series string
 }
+
+// Backup results contains the result of the Backup API call.
+type BackupResults struct {
+	Error *Error
+
+	// Name is the filename of the backup that is being created.
+	Name string
+}
+
+// Restore contains the arguments for the Backup.Restore API call.
+type Restore struct {
+	// Name is the name of the backup file from which to restore.
+	Name String
+}
+
+// BackupDownload contains the arguments for the Backup.Download API call.
+type BackupDownload struct {
+	// Name is the name of the backup file to download.
+	Name String
+}
+
+// BackupDownload contains the reuslts of the Backup.Download API call.
+type BackupDownloadResults struct {
+	Error *Error
+
+	// URL is where the backup file can be retrieved from.
+	URL String
+}
+
+// BackupCancelResults contains the results of the call to the Backup.Cancel API
+// call.  If Error is empty, Name will contain the name of the Backup that was
+// cancelled.
+type BackupCancelResults struct {
+	Error *Error
+	Name  string
+}
+
+// RestoreResults contains the results from Backup.Restore API call.
+type RestoreResults struct {
+	// TODO(Nate): Detailed output of what was restored?
+	// Or is that what juju status is for?
+	Error *Error
+}
+
+// BackupListResults contains a list of the currently available backup files,
+// as well a the name of an in-progress backup, if any.
+type BackupListResults struct {
+	Backups    []string
+	InProgress string
+}
