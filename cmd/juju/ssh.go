@@ -4,7 +4,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -94,7 +93,7 @@ func (c *SSHCommand) Info() *cmd.Info {
 
 func (c *SSHCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("no target name specified")
+		return fmt.Errorf("no target name specified")
 	}
 	c.Target, c.Args = args[0], args[1:]
 	return nil

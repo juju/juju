@@ -4,7 +4,6 @@
 package keymanager
 
 import (
-	stderrors "errors"
 	"fmt"
 	"strings"
 
@@ -379,7 +378,7 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 		keysToWrite = append(keysToWrite, key)
 	}
 	if len(keysToWrite) == 0 {
-		return params.ErrorResults{}, common.ServerError(stderrors.New("cannot delete all keys"))
+		return params.ErrorResults{}, common.ServerError(fmt.Errorf("cannot delete all keys"))
 	}
 
 	err = api.writeSSHKeys(keysToWrite)
