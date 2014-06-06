@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -122,17 +123,17 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	c.Assert(hc.RootDisk, gc.NotNil)
 	c.Assert(hc.CpuCores, gc.NotNil)
 	c.Assert(hc.CpuPower, gc.NotNil)
-	dns, err := inst.WaitDNSName()
+	addresses, err := jujutesting.WaitInstanceAddresses(t.Env, inst.Id())
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
 	c.Assert(err, gc.IsNil)
-	c.Assert(dns, gc.Not(gc.Equals), "")
+	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 
 	insts, err := t.Env.Instances([]instance.Id{inst.Id()})
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(insts), gc.Equals, 1)
 
 	ec2inst := ec2.InstanceEC2(insts[0])
-	c.Assert(ec2inst.DNSName, gc.Equals, dns)
+	c.Assert(ec2inst.DNSName, gc.Equals, addresses[0].Value)
 	c.Assert(ec2inst.InstanceType, gc.Equals, "m1.small")
 }
 

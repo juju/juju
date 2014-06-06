@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 )
 
 type localInstance struct {
@@ -47,20 +46,6 @@ func (inst *localInstance) Addresses() ([]instance.Address, error) {
 		return addrs, nil
 	}
 	return nil, errors.NotImplementedf("localInstance.Addresses")
-}
-
-// DNSName implements instance.Instance.DNSName.
-func (inst *localInstance) DNSName() (string, error) {
-	if inst.id == bootstrapInstanceId {
-		return inst.env.bridgeAddress, nil
-	}
-	// Get the IPv4 address from eth0
-	return getAddressForInterface("eth0")
-}
-
-// WaitDNSName implements instance.Instance.WaitDNSName.
-func (inst *localInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.

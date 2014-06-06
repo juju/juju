@@ -30,7 +30,7 @@ func (s *instanceTest) TestString(c *gc.C) {
 	jsonValue := `{"hostname": "thethingintheplace", "system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	instance := &maasInstance{maasObject: &obj, environ: s.makeEnviron()}
-	hostname, err := instance.DNSName()
+	hostname, err := instance.hostname()
 	c.Assert(err, gc.IsNil)
 	expected := hostname + ":" + string(instance.Id())
 	c.Assert(fmt.Sprint(instance), gc.Equals, expected)
@@ -41,7 +41,7 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	instance := &maasInstance{maasObject: &obj, environ: s.makeEnviron()}
-	_, err := instance.DNSName()
+	_, err := instance.hostname()
 	c.Assert(err, gc.NotNil)
 	expected := fmt.Sprintf("<DNSName failed: %q>", err) + ":" + string(instance.Id())
 	c.Assert(fmt.Sprint(instance), gc.Equals, expected)
@@ -59,23 +59,6 @@ func (s *instanceTest) TestRefreshInstance(c *gc.C) {
 	testField, err := (*instance.maasObject).GetField("test2")
 	c.Check(err, gc.IsNil)
 	c.Check(testField, gc.Equals, "test2")
-}
-
-func (s *instanceTest) TestDNSName(c *gc.C) {
-	jsonValue := `{"hostname": "DNS name", "system_id": "system_id"}`
-	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
-
-	dnsName, err := instance.DNSName()
-
-	c.Check(err, gc.IsNil)
-	c.Check(dnsName, gc.Equals, "DNS name")
-
-	// WaitDNSName() currently simply calls DNSName().
-	dnsName, err = instance.WaitDNSName()
-
-	c.Check(err, gc.IsNil)
-	c.Check(dnsName, gc.Equals, "DNS name")
 }
 
 func (s *instanceTest) TestAddresses(c *gc.C) {

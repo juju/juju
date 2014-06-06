@@ -426,8 +426,10 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, gc.IsNil)
 	s.instanceId = inst.Id()
-	s.bootstrapName, err = inst.DNSName()
+
+	addresses, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
+	s.bootstrapName = instance.SelectPublicAddress(addresses)
 	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()
 }
 

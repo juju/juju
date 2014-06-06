@@ -248,9 +248,9 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// else happens after the machine is brought up.
 	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
 	c.Assert(inst, gc.NotNil)
-	bootstrapDNS, err := insts[0].DNSName()
+	addresses, err := insts[0].Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(bootstrapDNS, gc.Not(gc.Equals), "")
+	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, gc.IsNil)
 	c.Logf("first instance: UserData: %q", userData)

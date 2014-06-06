@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -185,9 +186,9 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	}
 	c.Assert(found, gc.Equals, true, gc.Commentf("expected %v in %v", inst, insts))
 
-	dns, err := inst.WaitDNSName()
+	addresses, err := jujutesting.WaitInstanceAddresses(t.Env, inst.Id())
 	c.Assert(err, gc.IsNil)
-	c.Assert(dns, gc.Not(gc.Equals), "")
+	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 
 	insts, err = t.Env.Instances([]instance.Id{id0, ""})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
