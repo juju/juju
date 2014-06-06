@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"

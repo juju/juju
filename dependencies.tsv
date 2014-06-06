@@ -23,3 +23,18 @@ launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50
 launchpad.net/gwacl	bzr	tarmac-20140312041035-ac7gw7kcqjx7db63	234
 launchpad.net/lpad	bzr	gustavo@niemeyer.net-20120626194701-536yx0g9jdq2ik3h	64
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17
+code.google.com/p/go.crypto	hg	6478cc9340cbbe6c04511280c5007722269108e9	184
+code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
+github.com/binary132/gojsonpointer	git	57ab5e9c764219a3e0c4d7759797fefdcab22e9c	
+github.com/binary132/gojsonreference	git	75785fb7b21f9bf2051dca600da83ff57bc6582a	
+github.com/binary132/gojsonschema	git	640782bf48d45ba2b22fd1e8a80842667c52af00	
+github.com/juju/errgo	git	26caa7d4884f6048c5687fa44c410e5d5d95e554	
+github.com/juju/errors	git	075df0417dbcc39d24ee18248d2f8d6e3eed598b	
+github.com/juju/loggo	git	7e8c70b24b80b95b2284f09306aac0bd93588db8	
+github.com/juju/names	git	8328a811f68114991579c14a6cc55fa10fbde600	
+github.com/juju/testing	git	2fb482c88da0f220c82f684a0658eb378ab54b35	
+labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j	273
+launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
+launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20140225173054-xu9zlkf9kxhvow02	87
+launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50
+launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17
