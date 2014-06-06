@@ -736,12 +736,21 @@ type LoginResult struct {
 
 // EnsureAvailability contains arguments for
 // the EnsureAvailability client API call.
-type EnsureAvailability struct {
-	NumStateServers int
-	Constraints     constraints.Value
+type EnsureAvailabilityParams struct {
+	NumStateServers int               `bson:num-state-servers`
+	Constraints     constraints.Value `bson:constraints,omitempty`
 	// Series is the series to associate with new state server machines.
 	// If this is empty, then the environment's default series is used.
-	Series string
+	Series string `bson:series,omitempty`
+}
+
+// EnsureAvailabilityResult lists the servers
+// that have been added, removed or maintained in the
+// pool as a result of an ensure-availability operation.
+type EnsureAvailabilityResult struct {
+	Added      []string `bson:added,omitempty`
+	Maintained []string `bson:maintained,omitempty`
+	Removed    []string `bson:removed,omitempty`
 }
 
 type UserInfo struct {

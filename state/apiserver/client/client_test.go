@@ -2216,8 +2216,12 @@ func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 1)
 	c.Assert(machines[0].Series(), gc.Equals, "quantal")
-	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
+	ensureAvailabilityResult, err := s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
+	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"0"})
+	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"1", "2"})
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+
 	machines, err = s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
@@ -2231,7 +2235,11 @@ func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 	pingerC := s.setAgentPresence(c, "2")
 	defer assertKill(c, pingerC)
 
-	err = s.APIState.Client().EnsureAvailability(5, emptyCons, "non-default")
+	ensureAvailabilityResult, err = s.APIState.Client().EnsureAvailability(5, emptyCons, "non-default")
+	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"0", "1", "2"})
+	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"3", "4"})
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+
 	c.Assert(err, gc.IsNil)
 	machines, err = s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
@@ -2246,12 +2254,17 @@ func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
+
 	pinger := s.setAgentPresence(c, "0")
 	defer assertKill(c, pinger)
 
-	err = s.APIState.Client().EnsureAvailability(
+	ensureAvailabilityResult, err := s.APIState.Client().EnsureAvailability(
 		3, constraints.MustParse("mem=4G"), defaultSeries)
 	c.Assert(err, gc.IsNil)
+	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"0"})
+	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"1", "2"})
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
@@ -2275,8 +2288,12 @@ func (s *clientSuite) TestClientEnsureAvailability0Preserves(c *gc.C) {
 
 	// A value of 0 says either "if I'm not HA, make me HA" or "preserve my
 	// current HA settings".
-	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	ensureAvailabilityResult, err := s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
+	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"0"})
+	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"1", "2"})
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+
 	machines, err := s.State.AllMachines()
 	c.Assert(machines, gc.HasLen, 3)
 
@@ -2285,8 +2302,12 @@ func (s *clientSuite) TestClientEnsureAvailability0Preserves(c *gc.C) {
 
 	// Now, we keep agent 1 alive, but not agent 2, calling
 	// EnsureAvailability(0) again will cause us to start another machine
-	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	ensureAvailabilityResult, err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
+	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"0", "1", "2"})
+	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"3"})
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+
 	machines, err = s.State.AllMachines()
 	c.Assert(machines, gc.HasLen, 4)
 }
@@ -2298,8 +2319,12 @@ func (s *clientSuite) TestClientEnsureAvailability0Preserves5(c *gc.C) {
 	defer assertKill(c, pingerA)
 
 	// Start off with 5 servers
-	err = s.APIState.Client().EnsureAvailability(5, emptyCons, defaultSeries)
+	ensureAvailabilityResult, err := s.APIState.Client().EnsureAvailability(5, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
+	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"0"})
+	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"1", "2", "3", "4"})
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+
 	machines, err := s.State.AllMachines()
 	c.Assert(machines, gc.HasLen, 5)
 	pingerB := s.setAgentPresence(c, "1")
@@ -2311,7 +2336,11 @@ func (s *clientSuite) TestClientEnsureAvailability0Preserves5(c *gc.C) {
 	pingerD := s.setAgentPresence(c, "3")
 	defer assertKill(c, pingerD)
 	// Keeping all alive but one, will bring up 1 more server to preserve 5
-	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	ensureAvailabilityResult, err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
+	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"0", "1", "2", "3", "4"})
+	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"5"})
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+
 	c.Assert(err, gc.IsNil)
 	machines, err = s.State.AllMachines()
 	c.Assert(machines, gc.HasLen, 6)
@@ -2320,14 +2349,19 @@ func (s *clientSuite) TestClientEnsureAvailability0Preserves5(c *gc.C) {
 func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
+
 	pinger := s.setAgentPresence(c, "0")
 	assertKill(c, pinger)
 
-	err = s.APIState.Client().EnsureAvailability(-1, emptyCons, defaultSeries)
+	_, err = s.APIState.Client().EnsureAvailability(-1, emptyCons, defaultSeries)
 	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and non-negative")
-	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
+	ensureAvailabilityResult, err := s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
-	err = s.APIState.Client().EnsureAvailability(1, emptyCons, defaultSeries)
+	c.Assert(ensureAvailabilityResult.Maintained, gc.DeepEquals, []string{"0"})
+	c.Assert(ensureAvailabilityResult.Added, gc.DeepEquals, []string{"1", "2"})
+	c.Assert(ensureAvailabilityResult.Removed, gc.HasLen, 0)
+
+	_, err = s.APIState.Client().EnsureAvailability(1, emptyCons, defaultSeries)
 	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
 }
 
@@ -2370,4 +2404,81 @@ func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	result, err := s.APIState.Client().AgentVersion()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.Equals, current)
+}
+
+func (s *clientSuite) TestEnsureAvailabilityResultFromSSI(c *gc.C) {
+	type ensureAvailabilityResultTest struct {
+		about      string
+		ssiBefore  []string
+		ssiAfter   []string
+		added      []string
+		removed    []string
+		maintained []string
+	}
+
+	var ensureAvailabilityResultTests = []ensureAvailabilityResultTest{
+		ensureAvailabilityResultTest{
+			about:      "no change",
+			ssiBefore:  []string{"0", "1", "2"},
+			ssiAfter:   []string{"0", "1", "2"},
+			added:      []string{},
+			removed:    []string{},
+			maintained: []string{"0", "1", "2"},
+		},
+		ensureAvailabilityResultTest{
+			about:      "added",
+			ssiBefore:  []string{"0"},
+			ssiAfter:   []string{"0", "1", "2"},
+			added:      []string{"1", "2"},
+			removed:    []string{},
+			maintained: []string{"0"},
+		},
+		ensureAvailabilityResultTest{
+			about:      "removed",
+			ssiBefore:  []string{"0", "1", "2"},
+			ssiAfter:   []string{"1"},
+			added:      []string{},
+			removed:    []string{"0", "2"},
+			maintained: []string{"1"},
+		},
+		ensureAvailabilityResultTest{
+			about:      "added and removed",
+			ssiBefore:  []string{"0", "1", "2"},
+			ssiAfter:   []string{"0", "2", "3", "4"},
+			added:      []string{"3", "4"},
+			removed:    []string{"1"},
+			maintained: []string{"0", "2"},
+		},
+		ensureAvailabilityResultTest{
+			about:      "added at end",
+			ssiBefore:  []string{"0", "1", "2"},
+			ssiAfter:   []string{"0", "1", "2", "3", "4"},
+			added:      []string{"3", "4"},
+			removed:    []string{},
+			maintained: []string{"0", "1", "2"},
+		},
+		ensureAvailabilityResultTest{
+			about:      "removed at end",
+			ssiBefore:  []string{"0", "1", "2", "3", "4"},
+			ssiAfter:   []string{"0", "1", "2"},
+			added:      []string{},
+			removed:    []string{"3", "4"},
+			maintained: []string{"0", "1", "2"},
+		},
+	}
+
+	for i, tst := range ensureAvailabilityResultTests {
+		c.Logf("test %d. %s", i, tst.about)
+
+		before := state.StateServerInfo{
+			MachineIds: tst.ssiBefore,
+		}
+		after := state.StateServerInfo{
+			MachineIds: tst.ssiAfter,
+		}
+		result := client.EnsureAvailabilityResultFromSSI(&before, &after)
+		c.Assert(result.Added, gc.DeepEquals, tst.added)
+		c.Assert(result.Removed, gc.DeepEquals, tst.removed)
+		c.Assert(result.Maintained, gc.DeepEquals, tst.maintained)
+	}
 }

@@ -4,11 +4,15 @@
 package main
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 
+	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -49,14 +53,19 @@ func (s *EnsureAvailabilitySuite) TearDownTest(c *gc.C) {
 	s.RepoSuite.TearDownTest(c)
 }
 
-func runEnsureAvailability(c *gc.C, args ...string) error {
-	_, err := coretesting.RunCommand(c, envcmd.Wrap(&EnsureAvailabilityCommand{}), args...)
-	return err
+func runEnsureAvailability(c *gc.C, args ...string) (*cmd.Context, error) {
+	return coretesting.RunCommand(c, envcmd.Wrap(&EnsureAvailabilityCommand{}), args...)
+}
+
+func stdout(ctx *cmd.Context) string {
+	return ctx.Stdout.(*bytes.Buffer).String()
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
-	err := runEnsureAvailability(c, "-n", "1")
+	ctx, err := runEnsureAvailability(c, "-n", "1")
 	c.Assert(err, gc.IsNil)
+	c.Assert(stdout(ctx), gc.Equals, "maintaining machines: \"0\"\n\n")
+
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Life(), gc.Equals, state.Alive)
@@ -66,17 +75,56 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 }
 
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormats(c *gc.C) {
+	type formatTest struct {
+		Name      string
+		Unmarshal func(in []byte, out interface{}) (err error)
+	}
+	formats := []formatTest{
+		formatTest{
+			Name:      "yaml",
+			Unmarshal: goyaml.Unmarshal,
+		},
+		formatTest{
+			Name:      "json",
+			Unmarshal: json.Unmarshal,
+		},
+	}
+
+	expected := map[string][]string{
+		"maintained": []string{"0"},
+	}
+
+	for _, format := range formats {
+		c.Logf("testing format: %s", format.Name)
+
+		ctx, err := runEnsureAvailability(c, "-n", "1", "--format", format.Name)
+		c.Assert(err, gc.IsNil)
+
+		var result map[string][]string
+		err = format.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &result)
+		c.Assert(err, gc.IsNil)
+		c.Assert(result, gc.DeepEquals, expected)
+	}
+}
+
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithSeries(c *gc.C) {
-	err := runEnsureAvailability(c, "--series", "series", "-n", "3")
+	ctx, err := runEnsureAvailability(c, "--series", "series", "-n", "3")
 	c.Assert(err, gc.IsNil)
+	c.Assert(stdout(ctx), gc.Equals,
+		"maintaining machines: \"0\"\nadding machines: \"1\", \"2\"\n\n")
+
 	m, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Series(), gc.DeepEquals, "series")
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithConstraints(c *gc.C) {
-	err := runEnsureAvailability(c, "--constraints", "mem=4G", "-n", "3")
+	ctx, err := runEnsureAvailability(c, "--constraints", "mem=4G", "-n", "3")
 	c.Assert(err, gc.IsNil)
+	c.Assert(stdout(ctx), gc.Equals,
+		"maintaining machines: \"0\"\nadding machines: \"1\", \"2\"\n\n")
+
 	m, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
 	mcons, err := m.Constraints()
@@ -87,7 +135,7 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithConstraints(c *gc.C)
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityIdempotent(c *gc.C) {
 	for i := 0; i < 2; i++ {
-		err := runEnsureAvailability(c, "-n", "1")
+		_, err := runEnsureAvailability(c, "-n", "1")
 		c.Assert(err, gc.IsNil)
 	}
 	machines, err := s.State.AllMachines()
@@ -102,7 +150,10 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityIdempotent(c *gc.C) {
 	// Running ensure-availability with constraints or series
 	// will have no effect unless new machines are
 	// created.
-	err = runEnsureAvailability(c, "-n", "1", "--constraints", "mem=4G")
+	ctx, err := runEnsureAvailability(c, "-n", "1", "--constraints", "mem=4G")
+	c.Assert(stdout(ctx), gc.Equals,
+		"maintaining machines: \"0\"\n\n")
+
 	c.Assert(err, gc.IsNil)
 	m, err = s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
@@ -112,8 +163,10 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityIdempotent(c *gc.C) {
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityMultiple(c *gc.C) {
-	err := runEnsureAvailability(c, "-n", "3", "--constraints", "mem=4G")
+	ctx, err := runEnsureAvailability(c, "-n", "3", "--constraints", "mem=4G")
 	c.Assert(err, gc.IsNil)
+	c.Assert(stdout(ctx), gc.Equals,
+		"maintaining machines: \"0\"\nadding machines: \"1\", \"2\"\n\n")
 
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
@@ -131,26 +184,35 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityMultiple(c *gc.C) {
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
 	for _, n := range []int{-1, 2} {
-		err := runEnsureAvailability(c, "-n", fmt.Sprint(n))
+		_, err := runEnsureAvailability(c, "-n", fmt.Sprint(n))
 		c.Assert(err, gc.ErrorMatches, "must specify a number of state servers odd and non-negative")
 	}
-	err := runEnsureAvailability(c, "-n", "3")
+	ctx, err := runEnsureAvailability(c, "-n", "3")
 	c.Assert(err, gc.IsNil)
-	err = runEnsureAvailability(c, "-n", "1")
+	c.Assert(stdout(ctx), gc.Equals,
+		"maintaining machines: \"0\"\nadding machines: \"1\", \"2\"\n\n")
+
+	_, err = runEnsureAvailability(c, "-n", "1")
 	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityAllows0(c *gc.C) {
-	err := runEnsureAvailability(c, "-n", "0")
+	ctx, err := runEnsureAvailability(c, "-n", "0")
 	c.Assert(err, gc.IsNil)
+	c.Assert(stdout(ctx), gc.Equals,
+		"maintaining machines: \"0\"\nadding machines: \"1\", \"2\"\n\n")
+
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityDefaultsTo3(c *gc.C) {
-	err := runEnsureAvailability(c)
+	ctx, err := runEnsureAvailability(c)
 	c.Assert(err, gc.IsNil)
+	c.Assert(stdout(ctx), gc.Equals,
+		"maintaining machines: \"0\"\nadding machines: \"1\", \"2\"\n\n")
+
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 3)
