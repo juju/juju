@@ -65,6 +65,7 @@ EOT
     DEPS="build-essential fakeroot dpkg-dev debhelper bash-completion $juju_compiler"
 
     DEP_SCRIPT=$(cat <<EOT
+        sudo sed s/ec2.archive.ubuntu.com/archive.ubuntu.com/ /etc/apt/sources.list -i
         sudo apt-add-repository -y ppa:juju/golang;
         sudo apt-get update;
         sudo apt-get install -y $DEPS;
