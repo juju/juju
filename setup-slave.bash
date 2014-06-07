@@ -54,4 +54,4 @@ sudo apt-get install -y juju-local juju uvtool-libvirt uvtool
 EOT
 
 # Configure Jenkins with launch command
-echo "Set the slave's launch method to to use the ssh gateway.
+echo "Set the slave's launch method to to use the ssh gateway."
