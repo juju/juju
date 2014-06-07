@@ -12,19 +12,13 @@ SLAVE_ADDRESS=$(juju status $SLAVE |
     sed 's/ //g')
 
 # Copy the authorized_keys so that we can ssh as jenkins.
-juju ssh $SLAVE/0 <<EOT
-set -eux
+ssh -i $LOCAL_CLOUD_CITY/$KEY ubuntu@$SLAVE_ADDRESS <<EOT
 echo 'jenkins ALL=(ALL) NOPASSWD:ALL' | sudo tee -a /etc/sudoers.d/91-jenkins
-cp /home/ubuntu/.ssh/authorized_keys /home/ubuntu/authorized_keys
-sudo chown jenkins:jenkins /home/ubuntu/authorized_keys
-sudo mv /home/ubuntu/authorized_keys /var/lib/jenkins/
-sudo su jenkins
-cd /var/lib/jenkins/
-test -d ./.ssh/ || mkdir -p ./.ssh/
-chmod 700 ./.ssh/
-cat ./authorized_keys >> ./.ssh/authorized_keys
-chmod 600 ./.ssh/authorized_keys
-rm ./authorized_keys
+test -d /var/lib/jenkins/.ssh/ || sudo mkdir -p /var/lib/jenkins/.ssh/
+cat ./.ssh/authorized_keys | sudo tee -a /var/lib/jenkins/.ssh/authorized_keys
+sudo chmod 700 /var/lib/jenkins/.ssh/
+sudo chmod 600 ./.ssh/authorized_keys
+sudo chown -R jenkins:jenkins /var/lib/jenkins/.ssh
 EOT
 
 # Install ssh rules for juju to repeatedly create instances.
@@ -48,12 +42,12 @@ bzr branch lp:juju-release-tools juju-release-tools
 bzr branch lp:juju-ci-tools juju-ci-tools
 bzr branch lp:juju-ci-tools/repository repository
 chmod 600 cloud-city/$KEY*
-ln -s cloud-city/$KEY .ssh/id_rsa
-ln -s cloud-city/$KEY.pub .ssh/id_rsa.pub
+ln -s $HOME/cloud-city/$KEY .ssh/id_rsa
+ln -s $HOME/cloud-city/$KEY.pub .ssh/id_rsa.pub
 EOT
 
 # Install stable juju.
-juju ssh $SLAVE/0 <<EOT
+ssh -i $LOCAL_CLOUD_CITY/$KEY jenkins@$SLAVE_ADDRESS <<EOT
 sudo apt-add-repository -y ppa:juju/stable
 sudo apt-get update
 sudo apt-get install -y juju-local juju
