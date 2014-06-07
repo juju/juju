@@ -1406,7 +1406,7 @@ func (st *State) Action(id string) (*Action, error) {
 		return nil, errors.NotFoundf("action %q", id)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot get action %q: %v", id, err)
+		return nil, errors.Errorf("cannot get action %q: %v", id, err)
 	}
 	return newAction(st, doc), nil
 }
@@ -1435,7 +1435,7 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 		return nil, errors.NotFoundf("action result %q", id)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot get actionresult %q: %v", id, err)
+		return nil, errors.Errorf("cannot get actionresult %q: %v", id, err)
 	}
 	return newActionResult(st, doc), nil
 }
@@ -1444,7 +1444,7 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 // actions queued to the unit with the given name.
 func (st *State) ActionResultsForUnit(name string) ([]*ActionResult, error) {
 	if !names.IsUnit(name) {
-		return nil, fmt.Errorf("%q is not a valid unit name", name)
+		return nil, errors.Errorf("%q is not a valid unit name", name)
 	}
 	return st.actionResults(unitGlobalKey(name) + actionMarker)
 }
@@ -1453,7 +1453,7 @@ func (st *State) ActionResultsForUnit(name string) ([]*ActionResult, error) {
 // action with given actionId
 func (st *State) ActionResultsForAction(actionId string) ([]*ActionResult, error) {
 	if !IsAction(actionId) {
-		return nil, fmt.Errorf("%q is not a valid action id", actionId)
+		return nil, errors.Errorf("%q is not a valid action id", actionId)
 	}
 	return st.actionResults(actionId + actionResultMarker)
 }

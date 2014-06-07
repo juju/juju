@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo/txn"
 )
 
@@ -60,7 +61,7 @@ func newActionId(st *State, globalKey string) (string, error) {
 	prefix := actionPrefix(globalKey)
 	suffix, err := st.sequence(prefix)
 	if err != nil {
-		return "", fmt.Errorf("cannot assign new sequence for prefix '%s': %v", prefix, err)
+		return "", errors.Errorf("cannot assign new sequence for prefix '%s': %v", prefix, err)
 	}
 	return fmt.Sprintf("%s%d", prefix, suffix), nil
 }
