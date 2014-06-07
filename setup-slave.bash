@@ -50,7 +50,7 @@ EOT
 ssh -i $LOCAL_CLOUD_CITY/$KEY jenkins@$SLAVE_ADDRESS <<EOT
 sudo apt-add-repository -y ppa:juju/stable
 sudo apt-get update
-sudo apt-get install -y juju-local juju
+sudo apt-get install -y juju-local juju uvtool-libvirt uvtool
 EOT
 
 # Configure Jenkins with launch command
