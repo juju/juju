@@ -13,12 +13,12 @@ import (
 
 	"code.google.com/p/go.net/websocket"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state/api/params"
