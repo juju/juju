@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -49,7 +50,7 @@ type JujuConnSuite struct {
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
-	testing.FakeHomeSuite
+	gitjujutesting.FakeHomeSuite
 	testing.MgoSuite
 	envtesting.ToolsFixture
 	Conn         *juju.Conn

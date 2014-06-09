@@ -14,6 +14,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
@@ -33,7 +34,7 @@ var _ = gc.Suite(&TrivialSuite{})
 type StoreSuite struct {
 	testing.MgoSuite
 	testing.HTTPSuite
-	testing.FakeHomeSuite
+	gitjujutesting.FakeHomeSuite
 	store *store.Store
 }
 
@@ -95,6 +96,10 @@ func (d *FakeCharmDir) Meta() *charm.Meta {
 
 func (d *FakeCharmDir) Config() *charm.Config {
 	return &charm.Config{make(map[string]charm.Option)}
+}
+
+func (d *FakeCharmDir) Actions() *charm.Actions {
+	return &charm.Actions{make(map[string]charm.ActionSpec)}
 }
 
 func (d *FakeCharmDir) SetRevision(revision int) {

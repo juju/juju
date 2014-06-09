@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
 	gc "launchpad.net/gocheck"
@@ -725,7 +726,7 @@ type testFile struct {
 }
 
 func (s *ConfigSuite) TestConfig(c *gc.C) {
-	files := []testing.TestFile{
+	files := []gitjujutesting.TestFile{
 		{".ssh/id_dsa.pub", "dsa"},
 		{".ssh/id_rsa.pub", "rsa\n"},
 		{".ssh/identity.pub", "identity"},
@@ -829,7 +830,7 @@ var emptyCertFilesTests = []configTest{
 }
 
 func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
-	files := []testing.TestFile{
+	files := []gitjujutesting.TestFile{
 		{".juju/my-name-cert.pem", ""},
 		{".juju/my-name-private-key.pem", ""},
 	}
@@ -841,7 +842,7 @@ func (s *ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 	}
 }
 
-func (test configTest) check(c *gc.C, home *testing.FakeHome) {
+func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	cfg, err := config.New(test.useDefaults, test.attrs)
 	if test.err != "" {
 		c.Check(cfg, gc.IsNil)
@@ -1038,7 +1039,7 @@ func (test configTest) assertDuration(c *gc.C, name string, actual time.Duration
 }
 
 func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
-	// Normally this is handled by testing.FakeHome
+	// Normally this is handled by gitjujutesting.FakeHome
 	s.PatchEnvironment(osenv.JujuLoggingConfigEnvKey, "")
 	attrs := map[string]interface{}{
 		"type":                      "my-type",
@@ -1173,7 +1174,7 @@ var validationTests = []validationTest{{
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
-	files := []testing.TestFile{
+	files := []gitjujutesting.TestFile{
 		{".ssh/identity.pub", "identity"},
 	}
 	s.FakeHomeSuite.Home.AddFiles(c, files...)
@@ -1192,7 +1193,7 @@ func (s *ConfigSuite) TestValidateChange(c *gc.C) {
 }
 
 func (s *ConfigSuite) addJujuFiles(c *gc.C) {
-	s.FakeHomeSuite.Home.AddFiles(c, []testing.TestFile{
+	s.FakeHomeSuite.Home.AddFiles(c, []gitjujutesting.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
 		{".juju/myenv-cert.pem", caCert},
 		{".juju/myenv-private-key.pem", caKey},
@@ -1356,7 +1357,7 @@ func (s *ConfigSuite) TestAptProxyConfigMap(c *gc.C) {
 
 func (s *ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 	// Add a cert.
-	s.FakeHomeSuite.Home.AddFiles(c, testing.TestFile{".ssh/id_rsa.pub", "rsa\n"})
+	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".ssh/id_rsa.pub", "rsa\n"})
 
 	for _, test := range []struct {
 		configValues map[string]interface{}

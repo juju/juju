@@ -50,6 +50,7 @@ type MachineStatus struct {
 	Err            error
 	AgentState     params.Status
 	AgentStateInfo string
+	AgentStateData params.StatusData
 	AgentVersion   string
 	DNSName        string
 	InstanceId     instance.Id
@@ -82,6 +83,7 @@ type UnitStatus struct {
 	Err            error
 	AgentState     params.Status
 	AgentStateInfo string
+	AgentStateData params.StatusData
 	AgentVersion   string
 	Life           string
 	Machine        string
@@ -89,6 +91,27 @@ type UnitStatus struct {
 	PublicAddress  string
 	Charm          string
 	Subordinates   map[string]UnitStatus
+}
+
+// RelationStatus holds status info about a relation.
+type RelationStatus struct {
+	Id        int
+	Key       string
+	Interface string
+	Scope     charm.RelationScope
+	Endpoints []EndpointStatus
+}
+
+// EndpointStatus holds status info about a single endpoint
+type EndpointStatus struct {
+	ServiceName string
+	Name        string
+	Role        charm.RelationRole
+	Subordinate bool
+}
+
+func (epStatus *EndpointStatus) String() string {
+	return epStatus.ServiceName + ":" + epStatus.Name
 }
 
 // NetworkStatus holds status info about a network.
@@ -105,6 +128,7 @@ type Status struct {
 	Machines        map[string]MachineStatus
 	Services        map[string]ServiceStatus
 	Networks        map[string]NetworkStatus
+	Relations       []RelationStatus
 }
 
 // Status returns the status of the juju environment.

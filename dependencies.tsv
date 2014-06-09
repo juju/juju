@@ -13,7 +13,7 @@ github.com/juju/loggo	git	7e8c70b24b80b95b2284f09306aac0bd93588db8
 github.com/juju/names	git	8328a811f68114991579c14a6cc55fa10fbde600	
 github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb	
 github.com/juju/schema	git	1887e824896b58a0f376fb8517b5eebb825828b8	
-github.com/juju/testing	git	6ddd2ffd711ddc941a84346ec464a1383cffa7f9	
+github.com/juju/testing	git	2d3d9a49bdbcd5c971a6d44672f62b1e30d89d96	
 github.com/juju/utils	git	5e72dc2c1b8337e087cccea1ee33699fb607f7c5	
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j	273
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12

@@ -279,7 +279,7 @@ func opClientServiceUnexpose(c *gc.C, st *api.State, mst *state.State) (func(), 
 }
 
 func opClientResolved(c *gc.C, st *api.State, _ *state.State) (func(), error) {
-	err := st.Client().Resolved("wordpress/0", false)
+	err := st.Client().Resolved("wordpress/1", false)
 	// There are several scenarios in which this test is called, one is
 	// that the user is not authorized.  In that case we want to exit now,
 	// letting the error percolate out so the caller knows that the
@@ -292,7 +292,7 @@ func opClientResolved(c *gc.C, st *api.State, _ *state.State) (func(), error) {
 	// the error.  Therefore, since it is complaining it means that the
 	// call to Resolved worked, so we're happy.
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, `unit "wordpress/0" is not in an error state`)
+	c.Assert(err.Error(), gc.Equals, `unit "wordpress/1" is not in an error state`)
 	return func() {}, nil
 }
 
