@@ -262,3 +262,23 @@ func CheckUserExists(st *State, name string) (bool, error) {
 }
 
 var StateServerAvailable = &stateServerAvailable
+
+//
+// ActionResult private funcs
+//
+
+const ActionResultMarker string = actionResultMarker
+
+func GetActionResultIdPrefix(actionResultId string) string {
+	return getActionResultIdPrefix(actionResultId)
+}
+
+//
+// Action private funcs
+//
+
+const ActionMarker string = actionMarker
+
+func GetActionIdPrefix(actionId string) string {
+	return getActionIdPrefix(actionId)
+}
