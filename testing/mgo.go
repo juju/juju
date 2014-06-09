@@ -295,7 +295,6 @@ func (s *MgoSuite) SetUpSuite(c *gc.C) {
 	if MgoServer.addr == "" {
 		c.Fatalf("No Mongo Server Address, MgoSuite tests must be run with MgoTestPackage")
 	}
-	mgo.SetDebug(true)
 	mgo.SetStats(true)
 	// Make tests that use password authentication faster.
 	utils.FastInsecureHash = true
