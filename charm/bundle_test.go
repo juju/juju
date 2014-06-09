@@ -67,7 +67,7 @@ func (s *BundleSuite) TestReadBundleWithoutConfig(c *gc.C) {
 
 func (s *BundleSuite) TestReadBundleWithoutActions(c *gc.C) {
 	// Wordpress has config but no actions.
-	path := testing.Charms.BundlePath(c.MkDir(), "wordpress")
+	path := charmtesting.Charms.BundlePath(c.MkDir(), "wordpress")
 	bundle, err := charm.ReadBundle(path)
 	c.Assert(err, gc.IsNil)
 

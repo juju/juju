@@ -44,7 +44,7 @@ func (s *DirSuite) TestReadDirWithoutConfig(c *gc.C) {
 }
 
 func (s *DirSuite) TestReadDirWithoutActions(c *gc.C) {
-	path := testing.Charms.DirPath("wordpress")
+	path := charmtesting.Charms.DirPath("wordpress")
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, gc.IsNil)
 
