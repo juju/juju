@@ -253,11 +253,12 @@ def deploy_job():
     debug = bool(os.environ.get('DEBUG') == 'true')
     log_dir = os.path.join(os.environ['WORKSPACE'], 'artifacts')
     bootstrap_host = os.environ.get('BOOTSTRAP_HOST')
+    series = os.environ.get('SERIES')
     return _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
-                       bootstrap_host, machines, log_dir, debug)
+                       bootstrap_host, machines, series, log_dir, debug)
 
 def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
-                bootstrap_host, machines, log_dir, debug):
+                bootstrap_host, machines, series, log_dir, debug):
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
@@ -281,6 +282,8 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
             env.config['bootstrap-host'] = instances[0][1]
             bootstrap_id = instances[0][0]
             machines.extend(i[1] for i in instances[1:])
+        if series:
+            env.config['default-series'] = series
         try:
             host = env.config.get('bootstrap-host')
             env.config['agent-version'] = env.get_matching_agent_version()
