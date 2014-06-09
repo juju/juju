@@ -652,7 +652,24 @@ func processAgent(entity stateAgent) (out agentStatus) {
 
 	if entity.Life() != state.Dead && !agentAlive {
 		// The agent *should* be alive but is not.
-		// Add the original status to the info, so it's not lost.
+
+		// Status and info is about to be munged so save the original
+		// values in the data map.
+		out.Data["orig-state"] = out.Status
+		out.Data["orig-state-info"] = out.Info
+
+		// Modify Info to indicate the previous status and info.
+		//
+		// TODO: This is only done for compatibility with older
+		// clients. At some point we should change this so that Info is
+		// left alone and orig-state (above) is used by clients when
+		// Status == StatusDown.
+		//
+		// Better yet, Status shouldn't be changed here in the API at
+		// all! Status changes should only happen in State. One
+		// problem caused by this is that this status change won't be
+		// seen by clients using a watcher because it didn't happen in
+		// State.
 		if out.Info != "" {
 			out.Info = fmt.Sprintf("(%s: %s)", out.Status, out.Info)
 		} else {
