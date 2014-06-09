@@ -24,7 +24,7 @@ EOT
 # Install ssh rules for juju to repeatedly create instances.
 ssh -i $LOCAL_CLOUD_CITY/$KEY jenkins@$SLAVE_ADDRESS \
 "cat << EOC | tee -a /var/lib/jenkins/.ssh/config
-Host 10.*
+Host 10.* 192.168.*
   StrictHostKeyChecking no
   UserKnownHostsFile /dev/null
   User ubuntu
