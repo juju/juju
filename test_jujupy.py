@@ -553,6 +553,12 @@ class TestEnvironment(TestCase):
         env = Environment('local', '', {'type': 'local'})
         self.assertTrue(env.local, 'Does not respect config type.')
 
+    def test_kvm_from_config(self):
+        env = Environment('local', '', {'type': 'local'})
+        self.assertFalse(env.kvm, 'Does not respect config type.')
+        env = Environment('local', '', {'type': 'local', 'container': 'kvm'})
+        self.assertTrue(env.kvm, 'Does not respect config type.')
+
     def test_hpcloud_from_config(self):
         env = Environment('cloud', '', {'auth-url': 'before.keystone.after'})
         self.assertFalse(env.hpcloud, 'Does not respect config type.')

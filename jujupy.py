@@ -218,6 +218,8 @@ class Environment:
         self.config = config
         if self.config is not None:
             self.local = bool(self.config.get('type') == 'local')
+            self.kvm = (
+                self.local and bool(self.config.get('container') == 'kvm'))
             self.hpcloud = bool(
                 'hpcloudsvc' in self.config.get('auth-url', ''))
         else:
