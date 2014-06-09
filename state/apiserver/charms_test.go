@@ -234,7 +234,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 }
 
 func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
-	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
 	// Backwards compatibility check, that we can upload charms to
 	// https://host:port/charms
 	url := s.charmsURL(c, "series=quantal")
@@ -247,7 +247,7 @@ func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 
 func (s *charmsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	// Check that we can upload charms to https://host:port/ENVUUID/charms
-	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	url := s.charmsURL(c, "series=quantal")
@@ -412,7 +412,7 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 }
 
 func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
-	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
@@ -426,7 +426,7 @@ func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
 }
 
 func (s *charmsSuite) TestGetAllowsEnvUUIDPath(c *gc.C) {
-	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
