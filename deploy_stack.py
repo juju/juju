@@ -113,8 +113,12 @@ def deploy_dummy_stack(env, charm_prefix):
     env.wait_for_started()
     # Wait up to 30 seconds for token to be created.
     logging.info('Retrieving token.')
+    if env.kvm:
+        timeout = 300
+    else:
+        timeout = 30
     get_token="""
-        for x in $(seq 30); do
+        for x in $(seq {}); do
           if [ -f /var/run/dummy-sink/token ]; then
             if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
               break
@@ -123,7 +127,7 @@ def deploy_dummy_stack(env, charm_prefix):
           sleep 1
         done
         cat /var/run/dummy-sink/token
-    """
+    """.format(timeout)
     result = env.client.get_juju_output(env, 'ssh', 'dummy-sink/0', get_token)
     result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
     if result != token:
