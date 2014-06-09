@@ -11,6 +11,7 @@ import (
 	"text/template"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -27,7 +28,7 @@ var _ = gc.Suite(&PluginSuite{})
 func (suite *PluginSuite) SetUpTest(c *gc.C) {
 	suite.FakeJujuHomeSuite.SetUpTest(c)
 	suite.oldPath = os.Getenv("PATH")
-	os.Setenv("PATH", "/bin:"+testing.HomePath())
+	os.Setenv("PATH", "/bin:"+gitjujutesting.HomePath())
 }
 
 func (suite *PluginSuite) TearDownTest(c *gc.C) {
@@ -172,13 +173,13 @@ func (suite *PluginSuite) TestJujuEnvVars(c *gc.C) {
 
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
 	content := fmt.Sprintf("#!/bin/bash --norc\necho %s $*", name)
-	filename := testing.HomePath(JujuPluginPrefix + name)
+	filename := gitjujutesting.HomePath(JujuPluginPrefix + name)
 	ioutil.WriteFile(filename, []byte(content), perm)
 }
 
 func (suite *PluginSuite) makeFailingPlugin(name string, exitStatus int) {
 	content := fmt.Sprintf("#!/bin/bash --norc\necho failing\nexit %d", exitStatus)
-	filename := testing.HomePath(JujuPluginPrefix + name)
+	filename := gitjujutesting.HomePath(JujuPluginPrefix + name)
 	ioutil.WriteFile(filename, []byte(content), 0755)
 }
 
@@ -225,13 +226,13 @@ func (suite *PluginSuite) makeFullPlugin(params PluginParams) {
 	// Create a new template and parse the plugin into it.
 	t := template.Must(template.New("plugin").Parse(pluginTemplate))
 	content := &bytes.Buffer{}
-	filename := testing.HomePath("juju-" + params.Name)
+	filename := gitjujutesting.HomePath("juju-" + params.Name)
 	// Create the files in the temp dirs, so we don't pollute the working space
 	if params.Creates != "" {
-		params.Creates = testing.HomePath(params.Creates)
+		params.Creates = gitjujutesting.HomePath(params.Creates)
 	}
 	if params.DependsOn != "" {
-		params.DependsOn = testing.HomePath(params.DependsOn)
+		params.DependsOn = gitjujutesting.HomePath(params.DependsOn)
 	}
 	t.Execute(content, params)
 	ioutil.WriteFile(filename, content.Bytes(), 0755)

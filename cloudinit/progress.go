@@ -6,7 +6,7 @@ package cloudinit
 import (
 	"fmt"
 
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 // progressFd is the file descriptor to which progress is logged.

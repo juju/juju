@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 type DeploySuite struct {
@@ -161,25 +161,27 @@ func (s *DeploySuite) TestConfigError(c *gc.C) {
 
 func (s *DeploySuite) TestConstraints(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "--constraints", "mem=2G cpu-cores=2")
+	err := runDeploy(c, "local:dummy", "--constraints", "mem=2G cpu-cores=2 networks=net1,^net2")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
 	cons, err := service.Constraints()
 	c.Assert(err, gc.IsNil)
-	c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2"))
+	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,^net2"))
 }
 
 func (s *DeploySuite) TestNetworks(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ")
+	err := runDeploy(c, "local:dummy", "--networks", ", net1, net2 , ", "--constraints", "mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
-	includeNetworks, excludeNetworks, err := service.Networks()
+	networks, err := service.Networks()
 	c.Assert(err, gc.IsNil)
-	c.Assert(includeNetworks, gc.DeepEquals, []string{"net1", "net2"})
-	c.Assert(excludeNetworks, gc.HasLen, 0)
+	c.Assert(networks, jc.DeepEquals, []string{"net1", "net2"})
+	cons, err := service.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, jc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2 networks=net1,net0,^net3,^net4"))
 }
 
 func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {

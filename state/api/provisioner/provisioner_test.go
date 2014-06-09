@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -23,7 +24,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 
@@ -390,13 +390,13 @@ func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
+	cons := constraints.MustParse("cpu-cores=12 mem=8G networks=^net3,^net4")
 	template := state.MachineTemplate{
-		Series:          "quantal",
-		Jobs:            []state.MachineJob{state.JobHostUnits},
-		Placement:       "valid",
-		Constraints:     constraints.MustParse("cpu-cores=12", "mem=8G"),
-		IncludeNetworks: []string{"net1", "net2"},
-		ExcludeNetworks: []string{"net3", "net4"},
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		Placement:         "valid",
+		Constraints:       cons,
+		RequestedNetworks: []string{"net1", "net2"},
 	}
 	machine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
@@ -407,8 +407,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(provisioningInfo.Series, gc.Equals, template.Series)
 	c.Assert(provisioningInfo.Placement, gc.Equals, template.Placement)
 	c.Assert(provisioningInfo.Constraints, gc.DeepEquals, template.Constraints)
-	c.Assert(provisioningInfo.IncludeNetworks, gc.DeepEquals, template.IncludeNetworks)
-	c.Assert(provisioningInfo.ExcludeNetworks, gc.DeepEquals, template.ExcludeNetworks)
+	c.Assert(provisioningInfo.Networks, gc.DeepEquals, template.RequestedNetworks)
 }
 
 func (s *provisionerSuite) TestProvisioningInfoMachineNotFound(c *gc.C) {

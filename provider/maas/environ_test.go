@@ -198,15 +198,19 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 	nwInfo := []network.Info{
 		// physical eth0 won't be touched, but it can have VLANs on it.
-		{InterfaceName: "eth0", VLANTag: 0},
-		{InterfaceName: "eth0", VLANTag: 99},
+		{InterfaceName: "eth0", VLANTag: 0, Disabled: false},
+		{InterfaceName: "eth0", VLANTag: 99, Disabled: false},
 		// physical NIC given explicitly, then a couple of virtual ones using it.
-		{InterfaceName: "eth1", VLANTag: 0},
-		{InterfaceName: "eth1", VLANTag: 42},
-		{InterfaceName: "eth1", VLANTag: 69},
-		{InterfaceName: "eth2", VLANTag: 0},
+		{InterfaceName: "eth1", VLANTag: 0, Disabled: false},
+		{InterfaceName: "eth1", VLANTag: 42, Disabled: false},
+		{InterfaceName: "eth1", VLANTag: 69, Disabled: false},
+		{InterfaceName: "eth2", VLANTag: 0, Disabled: false},
 		// physical NIC not given, ensure it gets brought up first, before the virtual one.
-		{InterfaceName: "eth3", VLANTag: 123},
+		{InterfaceName: "eth3", VLANTag: 123, Disabled: false},
+		// disabled NICs should still be configured (for now)
+		{InterfaceName: "eth4", VLANTag: 0, Disabled: true},
+		{InterfaceName: "eth4", VLANTag: 12, Disabled: true},
+		{InterfaceName: "eth5", VLANTag: 66, Disabled: true},
 	}
 	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid", nwInfo)
 	c.Assert(err, gc.IsNil)
@@ -240,5 +244,15 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 		"vconfig add eth3 123",
 		"cat >> /etc/network/interfaces << EOF\n\nauto eth3.123\niface eth3.123 inet dhcp\nEOF\n",
 		"ifup eth3.123",
+		"cat >> /etc/network/interfaces << EOF\n\nauto eth4\niface eth4 inet dhcp\nEOF\n",
+		"ifup eth4",
+		"vconfig add eth4 12",
+		"cat >> /etc/network/interfaces << EOF\n\nauto eth4.12\niface eth4.12 inet dhcp\nEOF\n",
+		"ifup eth4.12",
+		"cat >> /etc/network/interfaces << EOF\n\nauto eth5\niface eth5 inet dhcp\nEOF\n",
+		"ifup eth5",
+		"vconfig add eth5 66",
+		"cat >> /etc/network/interfaces << EOF\n\nauto eth5.66\niface eth5.66 inet dhcp\nEOF\n",
+		"ifup eth5.66",
 	})
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 
@@ -523,6 +523,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 			URL:          curl,
 			Meta:         ch.Meta(),
 			Config:       ch.Config(),
+			Actions:      ch.Actions(),
 			BundleURL:    bundleURL,
 			BundleSha256: bundleSha256,
 		}
@@ -873,6 +874,7 @@ func (st *State) updateCharmDoc(
 	updateFields := bson.D{{"$set", bson.D{
 		{"meta", ch.Meta()},
 		{"config", ch.Config()},
+		{"actions", ch.Actions()},
 		{"bundleurl", bundleURL},
 		{"bundlesha256", bundleSha256},
 		{"pendingupload", false},
@@ -923,7 +925,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // AddService creates a new service, running the supplied charm, with the
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
-func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, excludeNetworks []string) (service *Service, err error) {
+func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string) (service *Service, err error) {
 	defer errors.Maskf(&err, "cannot add service %q", name)
 	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
 	if err != nil || kind != names.UserTagKind {
@@ -971,7 +973,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, includeNetworks, e
 		// Once we can add networks independently of machine
 		// provisioning, we should check the given networks are valid
 		// and known before setting them.
-		createRequestedNetworksOp(st, svc.globalKey(), includeNetworks, excludeNetworks),
+		createRequestedNetworksOp(st, svc.globalKey(), networks),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
 			C:      st.users.Name,

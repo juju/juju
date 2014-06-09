@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/constraints"
@@ -21,8 +23,6 @@ import (
 	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/worker"
 )
 
@@ -548,10 +548,8 @@ func (task *provisionerTask) provisioningInfo(machine *apiprovisioner.Machine) (
 		}
 		return nil, err
 	}
-	includeNetworks := pInfo.IncludeNetworks
-	excludeNetworks := pInfo.ExcludeNetworks
 	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid.String())
-	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, includeNetworks, excludeNetworks, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, pInfo.Networks, stateInfo, apiInfo)
 	return &provisioningInfo{
 		Constraints:   pInfo.Constraints,
 		Series:        pInfo.Series,

@@ -5,7 +5,6 @@ package main
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -80,7 +79,7 @@ func (c *RunCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *RunCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("no commands specified")
+		return fmt.Errorf("no commands specified")
 	}
 	c.commands, args = args[0], args[1:]
 

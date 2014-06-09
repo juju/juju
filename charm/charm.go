@@ -18,6 +18,7 @@ var logger = loggo.GetLogger("juju.charm")
 type Charm interface {
 	Meta() *Meta
 	Config() *Config
+	Actions() *Actions
 	Revision() int
 }
 

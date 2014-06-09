@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
+	"github.com/juju/utils/parallel"
+	"github.com/juju/utils/shell"
 
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
@@ -21,9 +24,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/parallel"
-	"github.com/juju/juju/utils/shell"
 	"github.com/juju/juju/utils/ssh"
 )
 

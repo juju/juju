@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -33,7 +34,6 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
@@ -356,7 +356,7 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 	c.Assert(err, gc.IsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
-	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil, nil)
+	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
 	return inst, err
 }
 

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/juju/juju/utils/exec"
+	"github.com/juju/utils/exec"
 )
 
 var ubuntuHome = "/home/ubuntu"

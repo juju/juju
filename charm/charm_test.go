@@ -70,6 +70,17 @@ func checkDummy(c *gc.C, f charm.Charm, path string) {
 	c.Assert(f.Revision(), gc.Equals, 1)
 	c.Assert(f.Meta().Name, gc.Equals, "dummy")
 	c.Assert(f.Config().Options["title"].Default, gc.Equals, "My Title")
+	c.Assert(f.Actions(), gc.DeepEquals,
+		&charm.Actions{
+			map[string]charm.ActionSpec{
+				"snapshot": charm.ActionSpec{
+					Description: "Take a snapshot of the database.",
+					Params: map[string]interface{}{
+						"outfile": map[string]interface{}{
+							"description": "The file to write out to.",
+							"type":        "string",
+							"default":     "foo.bz2",
+						}}}}})
 	switch f := f.(type) {
 	case *charm.Bundle:
 		c.Assert(f.Path, gc.Equals, path)

@@ -9,10 +9,10 @@ import (
 	"path"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/downloader"
-	"github.com/juju/juju/utils"
 )
 
 // BundlesDir is responsible for storing and retrieving charm bundles

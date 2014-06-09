@@ -8,6 +8,7 @@ import (
 	"os"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/shell"
 	gc "launchpad.net/gocheck"
 
 	coreCloudinit "github.com/juju/juju/cloudinit"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/client"
-	"github.com/juju/juju/utils/shell"
 	"github.com/juju/juju/version"
 )
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/utils/set"
 )
 
 // ProvisionerAPI provides access to the Provisioner API facade.
@@ -340,16 +340,15 @@ func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	// added before provisioning, we should convert both
 	// slices from juju network names to provider-specific
 	// ids before returning them.
-	includeNetworks, excludeNetworks, err := m.RequestedNetworks()
+	networks, err := m.RequestedNetworks()
 	if err != nil {
 		return nil, err
 	}
 	return &params.ProvisioningInfo{
-		Constraints:     cons,
-		Series:          m.Series(),
-		Placement:       m.Placement(),
-		IncludeNetworks: includeNetworks,
-		ExcludeNetworks: excludeNetworks,
+		Constraints: cons,
+		Series:      m.Series(),
+		Placement:   m.Placement(),
+		Networks:    networks,
 	}, nil
 }
 
@@ -502,9 +501,8 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Request
 	for i, entity := range args.Entities {
 		machine, err := p.getMachine(canAccess, entity.Tag)
 		if err == nil {
-			var includeNetworks []string
-			var excludeNetworks []string
-			includeNetworks, excludeNetworks, err = machine.RequestedNetworks()
+			var networks []string
+			networks, err = machine.RequestedNetworks()
 			if err == nil {
 				// TODO(dimitern) For now, since network names and
 				// provider ids are the same, we return what we got
@@ -512,8 +510,7 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Request
 				// added before provisioning, we should convert both
 				// slices from juju network names to provider-specific
 				// ids before returning them.
-				result.Results[i].IncludeNetworks = includeNetworks
-				result.Results[i].ExcludeNetworks = excludeNetworks
+				result.Results[i].Networks = networks
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

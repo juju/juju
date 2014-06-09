@@ -4,10 +4,10 @@
 package lxc
 
 import (
+	"github.com/juju/utils/apt"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/apt"
 )
 
 type InitialiserSuite struct {

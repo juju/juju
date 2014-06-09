@@ -11,13 +11,13 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/utils"
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 // Use local suite since this file lives in the ec2 package

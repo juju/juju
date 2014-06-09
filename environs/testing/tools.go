@@ -9,6 +9,8 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
 	agenttools "github.com/juju/juju/agent/tools"
@@ -20,8 +22,6 @@ import (
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
 )

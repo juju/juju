@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -20,8 +22,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/version"
 )
 
@@ -964,20 +964,21 @@ func (m *Machine) SetMachineAddresses(addresses ...instance.Address) (err error)
 }
 
 // RequestedNetworks returns the list of network names the machine
-// should be on (includeNetworks) or not (excludeNetworks).
-func (m *Machine) RequestedNetworks() (includeNetworks, excludeNetworks []string, err error) {
+// should be on. Unlike networks specified with constraints, these
+// networks are required to be present on the machine.
+func (m *Machine) RequestedNetworks() ([]string, error) {
 	return readRequestedNetworks(m.st, m.globalKey())
 }
 
 // Networks returns the list of configured networks on the machine.
 // The configured and requested networks on a machine must match.
 func (m *Machine) Networks() ([]*Network, error) {
-	includeNetworks, _, err := m.RequestedNetworks()
+	requestedNetworks, err := m.RequestedNetworks()
 	if err != nil {
 		return nil, err
 	}
 	docs := []networkDoc{}
-	sel := bson.D{{"_id", bson.D{{"$in", includeNetworks}}}}
+	sel := bson.D{{"_id", bson.D{{"$in", requestedNetworks}}}}
 	err = m.st.networks.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err

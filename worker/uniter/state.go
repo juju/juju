@@ -8,9 +8,9 @@ import (
 	"os"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/utils"
 	uhook "github.com/juju/juju/worker/uniter/hook"
 )
 

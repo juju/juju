@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/set"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/tomb"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/utils/set"
 )
 
 var watchLogger = loggo.GetLogger("juju.state.watch")

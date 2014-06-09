@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 // CacheDir stores the charm cache directory path.

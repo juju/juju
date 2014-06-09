@@ -5,7 +5,6 @@ package main
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"sort"
 
@@ -37,7 +36,7 @@ func (c *DebugHooksCommand) Info() *cmd.Info {
 
 func (c *DebugHooksCommand) Init(args []string) error {
 	if len(args) < 1 {
-		return errors.New("no unit name specified")
+		return fmt.Errorf("no unit name specified")
 	}
 	c.Target = args[0]
 	if !names.IsUnit(c.Target) {

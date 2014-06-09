@@ -11,15 +11,15 @@ import (
 	"syscall"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
+	"github.com/juju/utils/apt"
+	"github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/provider"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/apt"
-	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/version"
 )
 

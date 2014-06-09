@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/networker"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 type networkerSuite struct {

@@ -11,8 +11,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/utils/ssh"
 )
 

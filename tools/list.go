@@ -8,7 +8,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/juju/juju/utils/set"
+	"github.com/juju/utils/set"
+
 	"github.com/juju/juju/version"
 )
 
