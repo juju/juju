@@ -109,9 +109,9 @@ func (c *EnsureAvailabilityCommand) Init(args []string) error {
 }
 
 type formattedResult struct {
-	Maintained []string `json:"maintained,omitempty" yaml:",flow,omitempty"`
-	Removed    []string `json:"removed,omitempty" yaml:",flow,omitempty"`
-	Added      []string `json:"added,omitempty" yaml:",flow,omitempty"`
+	Maintained []string `json:"maintained,omitempty" yaml:"maintained,flow,omitempty"`
+	Removed    []string `json:"removed,omitempty" yaml:"removed,flow,omitempty"`
+	Added      []string `json:"added,omitempty" yaml:"added,flow,omitempty"`
 }
 
 // Run connects to the environment specified on the command line
