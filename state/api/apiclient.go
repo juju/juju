@@ -189,7 +189,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		}
 	}
 	st.broken = make(chan struct{})
-	go st.heartbeatMonitor()
+	go st.heartbeatMonitor(PingPeriod)
 	return st, nil
 }
 
@@ -251,13 +251,13 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 	}
 }
 
-func (s *State) heartbeatMonitor() {
+func (s *State) heartbeatMonitor(pingPeriod time.Duration) {
 	for {
 		if err := s.Ping(); err != nil {
 			close(s.broken)
 			return
 		}
-		time.Sleep(PingPeriod)
+		time.Sleep(pingPeriod)
 	}
 }
 
