@@ -807,7 +807,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 				InterfaceName: fmt.Sprintf("eth%d", i),
 				VLANTag:       i,
 				MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
-				IsVirtual:     i > 0,
 			}
 		}
 	}

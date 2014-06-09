@@ -514,7 +514,6 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 		NetworkName:   "net1",
 		VLANTag:       0,
 		CIDR:          "0.1.2.0/24",
-		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		InterfaceName: "eth1",
@@ -522,7 +521,6 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 		NetworkName:   "net2",
 		VLANTag:       1,
 		CIDR:          "0.2.2.0/24",
-		IsVirtual:     true,
 	}}
 	m, err := s.addMachineWithRequestedNetworks(requestedNetworks, cons)
 	c.Assert(err, gc.IsNil)
