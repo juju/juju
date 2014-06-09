@@ -6,6 +6,7 @@ package main
 import (
 	gc "launchpad.net/gocheck"
 
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -25,7 +26,7 @@ func runRemoveService(c *gc.C, args ...string) error {
 
 func (s *RemoveServiceSuite) TestSuccess(c *gc.C) {
 	// Destroy a service that exists.
-	testing.Charms.BundlePath(s.SeriesPath, "riak")
+	charmtesting.Charms.BundlePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
 	err = runRemoveService(c, "riak")

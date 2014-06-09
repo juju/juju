@@ -13,7 +13,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/testing"
+	charmtesting "github.com/juju/juju/charm/testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -25,11 +25,11 @@ type CharmSuite struct{}
 var _ = gc.Suite(&CharmSuite{})
 
 func (s *CharmSuite) TestRead(c *gc.C) {
-	bPath := testing.Charms.BundlePath(c.MkDir(), "dummy")
+	bPath := charmtesting.Charms.BundlePath(c.MkDir(), "dummy")
 	ch, err := charm.Read(bPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "dummy")
-	dPath := testing.Charms.DirPath("dummy")
+	dPath := charmtesting.Charms.DirPath("dummy")
 	ch, err = charm.Read(dPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "dummy")

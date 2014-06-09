@@ -391,11 +391,11 @@ func (s *LocalRepoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LocalRepoSuite) addBundle(name string) string {
-	return testing.Charms.BundlePath(s.seriesPath, name)
+	return charmtesting.Charms.BundlePath(s.seriesPath, name)
 }
 
 func (s *LocalRepoSuite) addDir(name string) string {
-	return testing.Charms.ClonedDirPath(s.seriesPath, name)
+	return charmtesting.Charms.ClonedDirPath(s.seriesPath, name)
 }
 
 func (s *LocalRepoSuite) checkNotFoundErr(c *gc.C, err error, charmURL *charm.URL) {
@@ -518,7 +518,7 @@ func (s *LocalRepoSuite) TestIgnoresUnpromisingNames(c *gc.C) {
 }
 
 func (s *LocalRepoSuite) TestFindsSymlinks(c *gc.C) {
-	realPath := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	realPath := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	linkPath := filepath.Join(s.seriesPath, "dummy")
 	err := os.Symlink(realPath, linkPath)
 	c.Assert(err, gc.IsNil)

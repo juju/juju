@@ -12,8 +12,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type CharmSuite struct {
@@ -95,7 +95,7 @@ func assertCustomCharm(c *gc.C, ch *state.Charm, series string, meta *charm.Meta
 }
 
 func assertStandardCharm(c *gc.C, ch *state.Charm, series string) {
-	chd := testing.Charms.Dir(ch.Meta().Name)
+	chd := charmtesting.Charms.Dir(ch.Meta().Name)
 	assertCustomCharm(c, ch, series, chd.Meta(), chd.Config(), chd.Revision())
 }
 
@@ -110,7 +110,7 @@ func forEachStandardCharm(c *gc.C, f func(name string)) {
 
 func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
-		chd := testing.Charms.Dir(name)
+		chd := charmtesting.Charms.Dir(name)
 		meta := chd.Meta()
 		config := chd.Config()
 		revision := chd.Revision()
@@ -136,7 +136,7 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	forEachStandardCharm(c, func(name string) {
-		chd := testing.Charms.Dir(name)
+		chd := charmtesting.Charms.Dir(name)
 		meta := chd.Meta()
 
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
@@ -171,7 +171,7 @@ description: blah blah
 
 func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
-		chd := testing.Charms.Dir(name)
+		chd := charmtesting.Charms.Dir(name)
 		config := chd.Config()
 		metaYaml := "name: " + name + metaYamlSnippet
 		meta, err := charm.ReadMeta(bytes.NewBuffer([]byte(metaYaml)))

@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/store"
 	"github.com/juju/juju/testing"
 )
@@ -64,7 +65,7 @@ func (s *DeleteCharmSuite) TestRun(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		pub, err := s.CharmPublisher([]*charm.URL{url}, "such-digest-much-unique")
 		c.Assert(err, gc.IsNil)
-		err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
+		err = pub.Publish(charmtesting.Charms.ClonedDir(c.MkDir(), "dummy"))
 		c.Assert(err, gc.IsNil)
 	}
 	// Delete charm, should now succeed
