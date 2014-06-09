@@ -55,7 +55,7 @@ Examples:
 func formatSimple(value interface{}) ([]byte, error) {
 	ensureAvailabilityResult, ok := value.(formattedResult)
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("unexpected result type for ensure-availability call")
 	}
 
 	buff := &bytes.Buffer{}
