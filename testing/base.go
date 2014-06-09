@@ -13,24 +13,24 @@ import (
 	"github.com/juju/juju/juju/osenv"
 )
 
-// JujuOsEnvSuite isolates the tests from Juju environment variables.
+// JujuOSEnvSuite isolates the tests from Juju environment variables.
 // This is intended to be only used by existing suites, usually embedded in
 // BaseSuite and in FakeJujuHomeSuite. Eventually the tests relying on
-// JujuOsEnvSuite will be converted to use the IsolationSuite in
+// JujuOSEnvSuite will be converted to use the IsolationSuite in
 // github.com/juju/testing, and this suite will be removed.
-// Do not use JujuOsEnvSuite when writing new tests.
-type JujuOsEnvSuite struct {
+// Do not use JujuOSEnvSuite when writing new tests.
+type JujuOSEnvSuite struct {
 	oldHomeEnv     string
 	oldEnvironment map[string]string
 }
 
-func (s *JujuOsEnvSuite) SetUpSuite(c *gc.C) {
+func (s *JujuOSEnvSuite) SetUpSuite(c *gc.C) {
 }
 
-func (s *JujuOsEnvSuite) TearDownSuite(c *gc.C) {
+func (s *JujuOSEnvSuite) TearDownSuite(c *gc.C) {
 }
 
-func (s *JujuOsEnvSuite) SetUpTest(c *gc.C) {
+func (s *JujuOSEnvSuite) SetUpTest(c *gc.C) {
 	s.oldEnvironment = make(map[string]string)
 	for _, name := range []string{
 		osenv.JujuHomeEnvKey,
@@ -44,7 +44,7 @@ func (s *JujuOsEnvSuite) SetUpTest(c *gc.C) {
 	utils.SetHome("")
 }
 
-func (s *JujuOsEnvSuite) TearDownTest(c *gc.C) {
+func (s *JujuOSEnvSuite) TearDownTest(c *gc.C) {
 	for name, value := range s.oldEnvironment {
 		os.Setenv(name, value)
 	}
@@ -61,18 +61,18 @@ func (s *JujuOsEnvSuite) TearDownTest(c *gc.C) {
 type BaseSuite struct {
 	testing.CleanupSuite
 	testing.LoggingSuite
-	JujuOsEnvSuite
+	JujuOSEnvSuite
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
-	s.JujuOsEnvSuite.SetUpSuite(c)
+	s.JujuOSEnvSuite.SetUpSuite(c)
 	s.PatchValue(&utils.OutgoingAccessAllowed, false)
 }
 
 func (s *BaseSuite) TearDownSuite(c *gc.C) {
-	s.JujuOsEnvSuite.TearDownSuite(c)
+	s.JujuOSEnvSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 	s.CleanupSuite.TearDownSuite(c)
 }
@@ -80,11 +80,11 @@ func (s *BaseSuite) TearDownSuite(c *gc.C) {
 func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
-	s.JujuOsEnvSuite.SetUpTest(c)
+	s.JujuOSEnvSuite.SetUpTest(c)
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {
-	s.JujuOsEnvSuite.TearDownTest(c)
+	s.JujuOSEnvSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	s.CleanupSuite.TearDownTest(c)
 }
