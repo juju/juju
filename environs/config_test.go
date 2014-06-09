@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -144,7 +145,7 @@ environments:
 }
 
 func (*suite) TestNoEnv(c *gc.C) {
-	envPath := testing.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, gc.IsNil)
 	es, err := environs.ReadEnvirons("")
@@ -215,7 +216,7 @@ environments:
 `
 	outfile, err := environs.WriteEnvirons("", env)
 	c.Assert(err, gc.IsNil)
-	path := testing.HomePath(".juju", "environments.yaml")
+	path := gitjujutesting.HomePath(".juju", "environments.yaml")
 	c.Assert(path, gc.Equals, outfile)
 
 	envs, err := environs.ReadEnvirons("")
@@ -228,7 +229,7 @@ environments:
 func (s *suite) TestConfigPerm(c *gc.C) {
 	testing.MakeSampleJujuHome(c)
 
-	path := testing.HomePath(".juju")
+	path := gitjujutesting.HomePath(".juju")
 	info, err := os.Lstat(path)
 	c.Assert(err, gc.IsNil)
 	oldPerm := info.Mode().Perm()

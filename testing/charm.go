@@ -45,7 +45,7 @@ func (r *Repo) init() {
 var Charms = &Repo{}
 
 func clone(dst, src string) string {
-	check(exec.Command("cp", "-r", src, dst).Run())
+	check(exec.Command("/bin/cp", "-r", src, dst).Run())
 	return filepath.Join(dst, filepath.Base(src))
 }
 

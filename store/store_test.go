@@ -14,6 +14,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
@@ -32,7 +33,7 @@ var _ = gc.Suite(&TrivialSuite{})
 type StoreSuite struct {
 	testing.MgoSuite
 	testing.HTTPSuite
-	testing.FakeHomeSuite
+	gitjujutesting.FakeHomeSuite
 	store *store.Store
 }
 

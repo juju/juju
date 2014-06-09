@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -675,7 +676,7 @@ func createToolsSource(c *gc.C, versions []version.Binary) string {
 
 // resetJujuHome restores an new, clean Juju home environment without tools.
 func resetJujuHome(c *gc.C) environs.Environ {
-	jenvDir := coretesting.HomePath(".juju", "environments")
+	jenvDir := gitjujutesting.HomePath(".juju", "environments")
 	err := os.RemoveAll(jenvDir)
 	c.Assert(err, gc.IsNil)
 	coretesting.WriteEnvironments(c, envConfig)
