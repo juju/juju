@@ -1020,16 +1020,6 @@ func SetInstanceStatus(inst instance.Instance, status string) {
 	inst0.mu.Unlock()
 }
 
-func (inst *dummyInstance) DNSName() (string, error) {
-	defer delay()
-	inst.mu.Lock()
-	defer inst.mu.Unlock()
-	if len(inst.addresses) == 0 {
-		return "", instance.ErrNoDNSName
-	}
-	return inst.addresses[0].String(), nil
-}
-
 func (*dummyInstance) Refresh() error {
 	return nil
 }
@@ -1038,10 +1028,6 @@ func (inst *dummyInstance) Addresses() ([]instance.Address, error) {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
 	return append([]instance.Address{}, inst.addresses...), nil
-}
-
-func (inst *dummyInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
 }
 
 func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {

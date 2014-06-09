@@ -19,6 +19,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/store"
 	"github.com/juju/juju/testing"
 )
@@ -132,7 +133,7 @@ func (s *StoreSuite) TestCharmPublisher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(pub.Revision(), gc.Equals, 0)
 
-	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
+	err = pub.Publish(charmtesting.Charms.ClonedDir(c.MkDir(), "dummy"))
 	c.Assert(err, gc.IsNil)
 
 	for _, url := range urls {
@@ -170,7 +171,7 @@ func (s *StoreSuite) TestDeleteCharm(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(pub.Revision(), gc.Equals, i)
 
-		err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
+		err = pub.Publish(charmtesting.Charms.ClonedDir(c.MkDir(), "dummy"))
 		c.Assert(err, gc.IsNil)
 	}
 

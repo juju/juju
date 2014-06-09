@@ -16,6 +16,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -26,14 +27,14 @@ type DirSuite struct {
 var _ = gc.Suite(&DirSuite{})
 
 func (s *DirSuite) TestReadDir(c *gc.C) {
-	path := testing.Charms.DirPath("dummy")
+	path := charmtesting.Charms.DirPath("dummy")
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, gc.IsNil)
 	checkDummy(c, dir, path)
 }
 
 func (s *DirSuite) TestReadDirWithoutConfig(c *gc.C) {
-	path := testing.Charms.DirPath("varnish")
+	path := charmtesting.Charms.DirPath("varnish")
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, gc.IsNil)
 
@@ -43,7 +44,7 @@ func (s *DirSuite) TestReadDirWithoutConfig(c *gc.C) {
 }
 
 func (s *DirSuite) TestReadDirWithoutActions(c *gc.C) {
-	path := testing.Charms.DirPath("wordpress")
+	path := charmtesting.Charms.DirPath("wordpress")
 	dir, err := charm.ReadDir(path)
 	c.Assert(err, gc.IsNil)
 
@@ -54,7 +55,7 @@ func (s *DirSuite) TestReadDirWithoutActions(c *gc.C) {
 
 func (s *DirSuite) TestBundleTo(c *gc.C) {
 	baseDir := c.MkDir()
-	charmDir := testing.Charms.ClonedDirPath(baseDir, "dummy")
+	charmDir := charmtesting.Charms.ClonedDirPath(baseDir, "dummy")
 	var haveSymlinks = true
 	if err := os.Symlink("../target", filepath.Join(charmDir, "hooks/symlink")); err != nil {
 		haveSymlinks = false
@@ -141,7 +142,7 @@ func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *gc.C) {
 		}
 	}
 
-	dir := testing.Charms.Dir("all-hooks")
+	dir := charmtesting.Charms.Dir("all-hooks")
 	path := filepath.Join(c.MkDir(), "bundle.charm")
 	file, err := os.Create(path)
 	c.Assert(err, gc.IsNil)
@@ -180,7 +181,7 @@ func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *gc.C) {
 }
 
 func (s *DirSuite) TestBundleToWithBadType(c *gc.C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	charmDir := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	badFile := filepath.Join(charmDir, "hooks", "badfile")
 
 	// Symlink targeting a path outside of the charm.
@@ -217,7 +218,7 @@ func (s *DirSuite) TestBundleToWithBadType(c *gc.C) {
 }
 
 func (s *DirSuite) TestDirRevisionFile(c *gc.C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	charmDir := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	revPath := filepath.Join(charmDir, "revision")
 
 	// Missing revision file
@@ -248,7 +249,7 @@ func (s *DirSuite) TestDirRevisionFile(c *gc.C) {
 }
 
 func (s *DirSuite) TestDirSetRevision(c *gc.C) {
-	dir := testing.Charms.ClonedDir(c.MkDir(), "dummy")
+	dir := charmtesting.Charms.ClonedDir(c.MkDir(), "dummy")
 	c.Assert(dir.Revision(), gc.Equals, 1)
 	dir.SetRevision(42)
 	c.Assert(dir.Revision(), gc.Equals, 42)
@@ -262,7 +263,7 @@ func (s *DirSuite) TestDirSetRevision(c *gc.C) {
 }
 
 func (s *DirSuite) TestDirSetDiskRevision(c *gc.C) {
-	charmDir := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	charmDir := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	dir, err := charm.ReadDir(charmDir)
 	c.Assert(err, gc.IsNil)
 

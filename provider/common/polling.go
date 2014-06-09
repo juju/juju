@@ -4,12 +4,9 @@
 package common
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/utils"
-
-	"github.com/juju/juju/instance"
 )
 
 // Use ShortAttempt to poll for short-term events.
@@ -28,16 +25,4 @@ var ShortAttempt = utils.AttemptStrategy{
 var LongAttempt = utils.AttemptStrategy{
 	Total: 3 * time.Minute,
 	Delay: 1 * time.Second,
-}
-
-// WaitDNSName is an implementation that the providers can use.  It builds on
-// the provider's implementation of Instance.DNSName.
-func WaitDNSName(inst instance.Instance) (string, error) {
-	for a := LongAttempt.Start(); a.Next(); {
-		name, err := inst.DNSName()
-		if err == nil || err != instance.ErrNoDNSName {
-			return name, err
-		}
-	}
-	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
 }

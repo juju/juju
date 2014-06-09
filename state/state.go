@@ -65,6 +65,7 @@ type State struct {
 	constraints       *mgo.Collection
 	units             *mgo.Collection
 	actions           *mgo.Collection
+	actionresults     *mgo.Collection
 	users             *mgo.Collection
 	presence          *mgo.Collection
 	cleanups          *mgo.Collection
@@ -1405,7 +1406,7 @@ func (st *State) Action(id string) (*Action, error) {
 		return nil, errors.NotFoundf("action %q", id)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot get action %q: %v", id, err)
+		return nil, errors.Errorf("cannot get action %q: %v", id, err)
 	}
 	return newAction(st, doc), nil
 }
@@ -1424,6 +1425,53 @@ func (st *State) UnitActions(name string) ([]*Action, error) {
 		return actions, err
 	}
 	return actions, nil
+}
+
+// ActionResult returns an ActionResult by Id.
+func (st *State) ActionResult(id string) (*ActionResult, error) {
+	doc := actionResultDoc{}
+	err := st.actionresults.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("action result %q", id)
+	}
+	if err != nil {
+		return nil, errors.Errorf("cannot get actionresult %q: %v", id, err)
+	}
+	return newActionResult(st, doc), nil
+}
+
+// ActionResultsForUnit returns actionresults that were generated from
+// actions queued to the unit with the given name.
+func (st *State) ActionResultsForUnit(name string) ([]*ActionResult, error) {
+	if !names.IsUnit(name) {
+		return nil, errors.Errorf("%q is not a valid unit name", name)
+	}
+	return st.actionResults(unitGlobalKey(name) + actionMarker)
+}
+
+// ActionResultsForAction returns actionresults that were generated from
+// action with given actionId
+func (st *State) ActionResultsForAction(actionId string) ([]*ActionResult, error) {
+	if !IsAction(actionId) {
+		return nil, errors.Errorf("%q is not a valid action id", actionId)
+	}
+	return st.actionResults(actionId + actionResultMarker)
+}
+
+// actionResults returns actionresults that match the given id prefix.
+// We assume the prefix has been scrubbed before calling this
+func (st *State) actionResults(prefix string) ([]*ActionResult, error) {
+	results := []*ActionResult{}
+	sel := bson.D{{"_id", bson.RegEx{Pattern: "^" + regexp.QuoteMeta(prefix)}}}
+	iter := st.actionresults.Find(sel).Iter()
+	doc := actionResultDoc{}
+	for iter.Next(&doc) {
+		results = append(results, newActionResult(st, doc))
+	}
+	if err := iter.Err(); err != nil {
+		return results, err
+	}
+	return results, nil
 }
 
 // Unit returns a unit by name.

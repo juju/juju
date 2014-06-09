@@ -38,16 +38,6 @@ func (kvm *kvmInstance) Addresses() ([]instance.Address, error) {
 	return nil, nil
 }
 
-// DNSName implements instance.Instance.DNSName.
-func (kvm *kvmInstance) DNSName() (string, error) {
-	return "", instance.ErrNoDNSName
-}
-
-// WaitDNSName implements instance.Instance.WaitDNSName.
-func (kvm *kvmInstance) WaitDNSName() (string, error) {
-	return "", instance.ErrNoDNSName
-}
-
 // OpenPorts implements instance.Instance.OpenPorts.
 func (kvm *kvmInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	return fmt.Errorf("not implemented")

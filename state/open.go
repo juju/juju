@@ -303,6 +303,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		constraints:       db.C("constraints"),
 		units:             db.C("units"),
 		actions:           db.C("actions"),
+		actionresults:     db.C("actionresults"),
 		users:             db.C("users"),
 		presence:          pdb.C("presence"),
 		cleanups:          db.C("cleanups"),

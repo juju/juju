@@ -12,11 +12,10 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/worker/firewaller"
 )
 
-const AZURE_DOMAIN_NAME = "cloudapp.net"
+const AzureDomainName = "cloudapp.net"
 
 type azureInstance struct {
 	environ              *azureEnviron
@@ -100,12 +99,8 @@ func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
 			return nil, err
 		}
 	}
-	name, err := azInstance.DNSName()
-	if err != nil {
-		return nil, err
-	}
 	host := instance.Address{
-		Value:        name,
+		Value:        fmt.Sprintf("%s.%s", azInstance.serviceName(), AzureDomainName),
 		Type:         instance.HostName,
 		NetworkName:  "",
 		NetworkScope: instance.NetworkPublic,
@@ -122,22 +117,6 @@ func (azInstance *azureInstance) ipAddress() string {
 		return ""
 	}
 	return azInstance.roleInstance.IPAddress
-}
-
-// DNSName is specified in the Instance interface.
-func (azInstance *azureInstance) DNSName() (string, error) {
-	// For deployments in the Production slot, the instance's DNS name
-	// is its service name, in the cloudapp.net domain.
-	// (For Staging deployments it's all much weirder: they get random
-	// names assigned, which somehow don't seem to resolve from the
-	// outside.)
-	name := fmt.Sprintf("%s.%s", azInstance.serviceName(), AZURE_DOMAIN_NAME)
-	return name, nil
-}
-
-// WaitDNSName is specified in the Instance interface.
-func (azInstance *azureInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(azInstance)
 }
 
 // OpenPorts is specified in the Instance interface.

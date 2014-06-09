@@ -424,22 +424,6 @@ func convertNovaAddresses(addresses map[string][]nova.IPAddress) []instance.Addr
 	return machineAddresses
 }
 
-func (inst *openstackInstance) DNSName() (string, error) {
-	addresses, err := inst.Addresses()
-	if err != nil {
-		return "", err
-	}
-	addr := instance.SelectPublicAddress(addresses)
-	if addr == "" {
-		return "", instance.ErrNoDNSName
-	}
-	return addr, nil
-}
-
-func (inst *openstackInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
-}
-
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
 func (inst *openstackInstance) OpenPorts(machineId string, ports []instance.Port) error {

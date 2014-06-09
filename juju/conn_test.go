@@ -19,6 +19,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -310,7 +311,7 @@ func (s *ConnSuite) TestNewConnFromState(c *gc.C) {
 }
 
 func (s *ConnSuite) TestPutCharmBasic(c *gc.C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
+	curl := charmtesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
 	curl.Revision = -1 // make sure we trigger the repo.Latest logic.
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
@@ -329,7 +330,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 	w, err := os.Create(filepath.Join(dir, "riak.charm"))
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, w)
-	charmDir := coretesting.Charms.Dir("riak")
+	charmDir := charmtesting.Charms.Dir("riak")
 	err = charmDir.BundleTo(w)
 	c.Assert(err, gc.IsNil)
 
@@ -358,7 +359,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 
 func (s *ConnSuite) TestPutCharmUpload(c *gc.C) {
 	repo := &charm.LocalRepository{Path: c.MkDir()}
-	curl := coretesting.Charms.ClonedURL(repo.Path, "quantal", "riak")
+	curl := charmtesting.Charms.ClonedURL(repo.Path, "quantal", "riak")
 
 	// Put charm for the first time.
 	sch, err := s.conn.PutCharm(curl, repo, false)
@@ -413,7 +414,7 @@ func (s *ConnSuite) assertAssignedMachineRequestedNetworks(c *gc.C, unit *state.
 func (s *ConnSuite) TestAddUnits(c *gc.C) {
 	withNets := []string{"net1", "net2"}
 	withoutNets := []string{"net3", "net4"}
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
+	curl := charmtesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
 	svc, err := s.conn.State.AddService("testriak", "user-admin", sch, withNets)
@@ -472,7 +473,7 @@ var _ = gc.Suite(&DeployLocalSuite{})
 
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.repo = &charm.LocalRepository{Path: coretesting.Charms.Path()}
+	s.repo = &charm.LocalRepository{Path: charmtesting.Charms.Path()}
 	s.oldCacheDir, charm.CacheDir = charm.CacheDir, c.MkDir()
 }
 

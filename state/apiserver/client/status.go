@@ -351,13 +351,10 @@ func (context *statusContext) processMachine(machines []*state.Machine, host *ap
 
 func (context *statusContext) makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 	status.Id = machine.Id()
-	agentStatus := processAgent(machine)
-	status.Life = agentStatus.Life
-	status.AgentVersion = agentStatus.Version
-	status.AgentState = agentStatus.Status
-	status.AgentStateInfo = agentStatus.Info
-	status.AgentStateData = agentStatus.Data
-	status.Err = agentStatus.Err
+	status.Agent, status.AgentState, status.AgentStateInfo = processAgent(machine)
+	status.AgentVersion = status.Agent.Version
+	status.Life = status.Agent.Life
+	status.Err = status.Agent.Err
 	status.Series = machine.Series()
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	status.WantsVote = machine.WantsVote()
@@ -551,13 +548,10 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
 		status.Charm = curl.String()
 	}
-	agentStatus := processAgent(unit)
-	status.Life = agentStatus.Life
-	status.AgentVersion = agentStatus.Version
-	status.AgentState = agentStatus.Status
-	status.AgentStateInfo = agentStatus.Info
-	status.AgentStateData = agentStatus.Data
-	status.Err = agentStatus.Err
+	status.Agent, status.AgentState, status.AgentStateInfo = processAgent(unit)
+	status.AgentVersion = status.Agent.Version
+	status.Life = status.Agent.Life
+	status.Err = status.Agent.Err
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]api.UnitStatus)
 		for _, name := range subUnits {
@@ -616,17 +610,10 @@ type stateAgent interface {
 	Status() (params.Status, string, params.StatusData, error)
 }
 
-type agentStatus struct {
-	Life    string
-	Version string
-	Status  params.Status
-	Info    string
-	Data    params.StatusData
-	Err     error
-}
-
 // processAgent retrieves version and status information from the given entity.
-func processAgent(entity stateAgent) (out agentStatus) {
+func processAgent(entity stateAgent) (
+	out api.AgentStatus, compatStatus params.Status, compatInfo string) {
+
 	out.Life = processLife(entity)
 
 	if t, err := entity.AgentTools(); err == nil {
@@ -634,6 +621,8 @@ func processAgent(entity stateAgent) (out agentStatus) {
 	}
 
 	out.Status, out.Info, out.Data, out.Err = entity.Status()
+	compatStatus = out.Status
+	compatInfo = out.Info
 	out.Data = filterStatusData(out.Data)
 	if out.Err != nil {
 		return
@@ -651,14 +640,27 @@ func processAgent(entity stateAgent) (out agentStatus) {
 	}
 
 	if entity.Life() != state.Dead && !agentAlive {
-		// The agent *should* be alive but is not.
-		// Add the original status to the info, so it's not lost.
+		// The agent *should* be alive but is not. Set status to
+		// StatusDown and munge Info to indicate the previous status and
+		// info. This is unfortunately making presentation decisions
+		// on behalf of the client (crappy).
+		//
+		// This is munging is only being left in place for
+		// compatibility with older clients.  TODO: At some point we
+		// should change this so that Info left alone. API version may
+		// help here.
+		//
+		// Better yet, Status shouldn't be changed here in the API at
+		// all! Status changes should only happen in State. One
+		// problem caused by this is that this status change won't be
+		// seen by clients using a watcher because it didn't happen in
+		// State.
 		if out.Info != "" {
-			out.Info = fmt.Sprintf("(%s: %s)", out.Status, out.Info)
+			compatInfo = fmt.Sprintf("(%s: %s)", out.Status, out.Info)
 		} else {
-			out.Info = fmt.Sprintf("(%s)", out.Status)
+			compatInfo = fmt.Sprintf("(%s)", out.Status)
 		}
-		out.Status = params.StatusDown
+		compatStatus = params.StatusDown
 	}
 
 	return

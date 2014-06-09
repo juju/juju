@@ -317,9 +317,9 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(stateData.StateInstances[0], gc.Equals, insts[0].Id())
 
-	bootstrapDNS, err := insts[0].DNSName()
+	addresses, err := insts[0].Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(bootstrapDNS, gc.Not(gc.Equals), "")
+	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
