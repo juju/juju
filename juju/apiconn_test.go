@@ -17,9 +17,9 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/api"
 	coretesting "github.com/juju/juju/testing"
@@ -120,8 +120,11 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 
 	called := 0
 	expectState := &mockAPIState{
-		apiHostPorts: [][]instance.HostPort{
-			instance.AddressesWithPort([]instance.Address{instance.NewAddress("0.1.2.3", instance.NetworkUnknown)}, 1234),
+		apiHostPorts: [][]network.HostPort{
+			network.AddressesWithPort(
+				[]network.Address{network.NewAddress("0.1.2.3", network.ScopeUnknown)},
+				1234,
+			),
 		},
 		environTag: "environment-fake-uuid",
 	}
@@ -245,11 +248,11 @@ var noTagStoreInfo = &environInfo{
 }
 
 func mockedAPIState(hasHostPort, hasEnvironTag bool) *mockAPIState {
-	apiHostPorts := [][]instance.HostPort{}
+	apiHostPorts := [][]network.HostPort{}
 	if hasHostPort {
-		address := instance.NewAddress("0.1.2.3", instance.NetworkUnknown)
-		apiHostPorts = [][]instance.HostPort{
-			instance.AddressesWithPort([]instance.Address{address}, 1234),
+		address := network.NewAddress("0.1.2.3", network.ScopeUnknown)
+		apiHostPorts = [][]network.HostPort{
+			network.AddressesWithPort([]network.Address{address}, 1234),
 		}
 	}
 	environTag := ""
@@ -796,19 +799,19 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointRefresh(c *gc.C) {
 func (s *APIEndpointForEnvSuite) TestAPIEndpointNotMachineLocal(c *gc.C) {
 	store := newConfigStore("env-name", dummyStoreInfo)
 	called := 0
-	hostPorts := [][]instance.HostPort{
-		instance.AddressesWithPort([]instance.Address{
-			instance.NewAddress("1.0.0.1", instance.NetworkPublic),
-			instance.NewAddress("192.0.0.1", instance.NetworkCloudLocal),
-			instance.NewAddress("127.0.0.1", instance.NetworkMachineLocal),
-			instance.NewAddress("localhost", instance.NetworkMachineLocal),
+	hostPorts := [][]network.HostPort{
+		network.AddressesWithPort([]network.Address{
+			network.NewAddress("1.0.0.1", network.ScopePublic),
+			network.NewAddress("192.0.0.1", network.ScopeCloudLocal),
+			network.NewAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewAddress("localhost", network.ScopeMachineLocal),
 		}, 1234),
-		instance.AddressesWithPort([]instance.Address{
-			instance.NewAddress("1.0.0.2", instance.NetworkUnknown),
-			instance.NewAddress("2002:0:0:0:0:0:100:2", instance.NetworkUnknown),
-			instance.NewAddress("::1", instance.NetworkMachineLocal),
-			instance.NewAddress("127.0.0.1", instance.NetworkMachineLocal),
-			instance.NewAddress("localhost", instance.NetworkMachineLocal),
+		network.AddressesWithPort([]network.Address{
+			network.NewAddress("1.0.0.2", network.ScopeUnknown),
+			network.NewAddress("2002:0:0:0:0:0:100:2", network.ScopeUnknown),
+			network.NewAddress("::1", network.ScopeMachineLocal),
+			network.NewAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewAddress("localhost", network.ScopeMachineLocal),
 		}, 1235),
 	}
 

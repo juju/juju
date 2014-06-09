@@ -6,7 +6,7 @@ package testing
 import (
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/watcher"
 	statetesting "github.com/juju/juju/state/testing"
@@ -27,13 +27,13 @@ func NewAPIAddresserTests(facade APIAddresserFacade, st *state.State) *APIAddres
 type APIAddresserFacade interface {
 	APIAddresses() ([]string, error)
 	CACert() (string, error)
-	APIHostPorts() ([][]instance.HostPort, error)
+	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
 }
 
 func (s *APIAddresserTests) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		Port:    1234,
 	}}}
 
@@ -46,18 +46,18 @@ func (s *APIAddresserTests) TestAPIAddresses(c *gc.C) {
 }
 
 func (s *APIAddresserTests) TestAPIHostPorts(c *gc.C) {
-	expectServerAddrs := [][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.24", instance.NetworkUnknown),
+	expectServerAddrs := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.24", network.ScopeUnknown),
 		Port:    999,
 	}, {
-		Address: instance.NewAddress("example.com", instance.NetworkUnknown),
+		Address: network.NewAddress("example.com", network.ScopeUnknown),
 		Port:    1234,
 	}}, {{
-		Address: instance.Address{
-			Value:        "2001:DB8::1",
-			Type:         instance.Ipv6Address,
-			NetworkName:  "someNetwork",
-			NetworkScope: instance.NetworkCloudLocal,
+		Address: network.Address{
+			Value:       "2001:DB8::1",
+			Type:        network.IPv6Address,
+			NetworkName: "someNetwork",
+			Scope:       network.ScopeCloudLocal,
 		},
 		Port: 999,
 	}}}
@@ -77,8 +77,8 @@ func (s *APIAddresserTests) TestCACert(c *gc.C) {
 }
 
 func (s *APIAddresserTests) TestWatchAPIHostPorts(c *gc.C) {
-	expectServerAddrs := [][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+	expectServerAddrs := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		Port:    1234,
 	}}}
 	err := s.state.SetAPIHostPorts(expectServerAddrs)

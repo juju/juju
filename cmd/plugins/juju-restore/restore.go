@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -508,7 +509,7 @@ func updateAllMachines(st *state.State, stateAddr string) error {
 // runMachineUpdate connects via ssh to the machine and runs the update script
 func runMachineUpdate(m *state.Machine, sshArg string) error {
 	progress("updating machine: %v\n", m)
-	addr := instance.SelectPublicAddress(m.Addresses())
+	addr := network.SelectPublicAddress(m.Addresses())
 	if addr == "" {
 		return fmt.Errorf("no appropriate public address found")
 	}

@@ -9,7 +9,7 @@ import (
 	"github.com/juju/names"
 	"labix.org/v2/mgo/bson"
 
-	"github.com/juju/juju/environs/network"
+	"github.com/juju/juju/network"
 )
 
 // Network represents the state of a network.

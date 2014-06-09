@@ -6,7 +6,7 @@ package machine_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
@@ -153,9 +153,9 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(s.machine0.Addresses(), gc.HasLen, 0)
 	c.Assert(s.machine1.Addresses(), gc.HasLen, 0)
 
-	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
-		instance.NewAddress("8.8.8.8", instance.NetworkUnknown),
+	addresses := []network.Address{
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+		network.NewAddress("8.8.8.8", network.ScopeUnknown),
 	}
 
 	args := params.SetMachinesAddresses{MachineAddresses: []params.MachineAddresses{

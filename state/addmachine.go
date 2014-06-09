@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 )
@@ -40,7 +41,7 @@ type MachineTemplate struct {
 
 	// Addresses holds the addresses to be associated with the
 	// new machine.
-	Addresses []instance.Address
+	Addresses []network.Address
 
 	// InstanceId holds the instance id to associate with the machine.
 	// If this is empty, the provisioner will try to provision the machine.

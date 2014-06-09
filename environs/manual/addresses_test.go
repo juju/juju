@@ -9,7 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -40,10 +40,10 @@ func (s *addressesSuite) TestHostAddress(c *gc.C) {
 	addr, err := manual.HostAddress(validHost)
 	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
 	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, instance.Address{
-		Value:        validHost,
-		Type:         instance.HostName,
-		NetworkScope: instance.NetworkPublic,
+	c.Assert(addr, gc.Equals, network.Address{
+		Value: validHost,
+		Type:  network.HostName,
+		Scope: network.ScopePublic,
 	})
 }
 
@@ -51,17 +51,17 @@ func (s *addressesSuite) TestHostAddressError(c *gc.C) {
 	addr, err := manual.HostAddress(invalidHost)
 	c.Assert(s.netLookupHostCalled, gc.Equals, 1)
 	c.Assert(err, gc.ErrorMatches, "invalid host: "+invalidHost)
-	c.Assert(addr, gc.Equals, instance.Address{})
+	c.Assert(addr, gc.Equals, network.Address{})
 }
 
 func (s *addressesSuite) TestHostAddressIPv4(c *gc.C) {
 	addr, err := manual.HostAddress("127.0.0.1")
 	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
 	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, instance.Address{
-		Value:        "127.0.0.1",
-		Type:         instance.Ipv4Address,
-		NetworkScope: instance.NetworkPublic,
+	c.Assert(addr, gc.Equals, network.Address{
+		Value: "127.0.0.1",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
 	})
 }
 
@@ -69,9 +69,9 @@ func (s *addressesSuite) TestHostAddressIPv6(c *gc.C) {
 	addr, err := manual.HostAddress("::1")
 	c.Assert(s.netLookupHostCalled, gc.Equals, 0)
 	c.Assert(err, gc.IsNil)
-	c.Assert(addr, gc.Equals, instance.Address{
-		Value:        "::1",
-		Type:         instance.Ipv6Address,
-		NetworkScope: instance.NetworkPublic,
+	c.Assert(addr, gc.Equals, network.Address{
+		Value: "::1",
+		Type:  network.IPv6Address,
+		Scope: network.ScopePublic,
 	})
 }

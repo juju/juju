@@ -19,8 +19,8 @@ import (
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -287,21 +287,21 @@ func (s *agentSuite) primeAPIHostPorts(c *gc.C) {
 	hostPort, err := parseHostPort(apiInfo.Addrs[0])
 	c.Assert(err, gc.IsNil)
 
-	err = s.State.SetAPIHostPorts([][]instance.HostPort{{hostPort}})
+	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort}})
 	c.Assert(err, gc.IsNil)
 }
 
-func parseHostPort(s string) (instance.HostPort, error) {
+func parseHostPort(s string) (network.HostPort, error) {
 	addr, port, err := net.SplitHostPort(s)
 	if err != nil {
-		return instance.HostPort{}, err
+		return network.HostPort{}, err
 	}
 	portNum, err := strconv.Atoi(port)
 	if err != nil {
-		return instance.HostPort{}, fmt.Errorf("bad port number %q", port)
+		return network.HostPort{}, fmt.Errorf("bad port number %q", port)
 	}
-	addrs := instance.NewAddresses(addr)
-	hostPorts := instance.AddressesWithPort(addrs, portNum)
+	addrs := network.NewAddresses(addr)
+	hostPorts := network.AddressesWithPort(addrs, portNum)
 	return hostPorts[0], nil
 }
 

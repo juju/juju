@@ -14,7 +14,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -875,7 +875,7 @@ func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		machine, err := s.State.Machine(mId)
 		c.Assert(err, gc.IsNil)
-		privateAddr := instance.NewAddress(fmt.Sprintf("riak%d.example.com", i), instance.NetworkCloudLocal)
+		privateAddr := network.NewAddress(fmt.Sprintf("riak%d.example.com", i), network.ScopeCloudLocal)
 		machine.SetAddresses(privateAddr)
 		ru, err := rel.Unit(unit)
 		c.Assert(err, gc.IsNil)

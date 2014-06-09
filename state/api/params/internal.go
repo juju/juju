@@ -9,8 +9,8 @@ import (
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -58,16 +58,16 @@ type StringsResult struct {
 }
 
 // PortsResults holds the bulk operation result of an API call
-// that returns a slice of instance.Port.
+// that returns a slice of network.Port.
 type PortsResults struct {
 	Results []PortsResult
 }
 
 // PortsResult holds the result of an API call that returns a slice
-// of instance.Port or an error.
+// of network.Port or an error.
 type PortsResult struct {
 	Error *Error
-	Ports []instance.Port
+	Ports []network.Port
 }
 
 // StringsResults holds the bulk operation result of an API call
@@ -419,7 +419,7 @@ type StatusResults struct {
 // MachineAddresses holds an machine tag and addresses.
 type MachineAddresses struct {
 	Tag       string
-	Addresses []instance.Address
+	Addresses []network.Address
 }
 
 // SetMachinesAddresses holds the parameters for making a SetMachineAddresses call.

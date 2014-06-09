@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -91,22 +92,22 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	for i, m := range machines {
-		err := m.SetAddresses(instance.Address{
-			Type:         instance.Ipv4Address,
-			NetworkScope: instance.NetworkCloudLocal,
-			Value:        fmt.Sprintf("10.0.0.%d", i),
-		}, instance.Address{
-			Type:         instance.Ipv6Address,
-			NetworkScope: instance.NetworkCloudLocal,
-			Value:        "::1",
-		}, instance.Address{
-			Type:         instance.Ipv4Address,
-			NetworkScope: instance.NetworkMachineLocal,
-			Value:        "127.0.0.1",
-		}, instance.Address{
-			Type:         instance.Ipv4Address,
-			NetworkScope: instance.NetworkPublic,
-			Value:        "5.4.3.2",
+		err := m.SetAddresses(network.Address{
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+			Value: fmt.Sprintf("10.0.0.%d", i),
+		}, network.Address{
+			Type:  network.IPv6Address,
+			Scope: network.ScopeCloudLocal,
+			Value: "::1",
+		}, network.Address{
+			Type:  network.IPv4Address,
+			Scope: network.ScopeMachineLocal,
+			Value: "127.0.0.1",
+		}, network.Address{
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
+			Value: "5.4.3.2",
 		})
 		c.Assert(err, gc.IsNil)
 	}
@@ -3376,28 +3377,28 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
-	newHostPorts := [][]instance.HostPort{{{
-		Address: instance.Address{
-			Value:        "0.2.4.6",
-			Type:         instance.Ipv4Address,
-			NetworkName:  "net",
-			NetworkScope: instance.NetworkCloudLocal,
+	newHostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value:       "0.2.4.6",
+			Type:        network.IPv4Address,
+			NetworkName: "net",
+			Scope:       network.ScopeCloudLocal,
 		},
 		Port: 1,
 	}, {
-		Address: instance.Address{
-			Value:        "0.4.8.16",
-			Type:         instance.Ipv4Address,
-			NetworkName:  "foo",
-			NetworkScope: instance.NetworkPublic,
+		Address: network.Address{
+			Value:       "0.4.8.16",
+			Type:        network.IPv4Address,
+			NetworkName: "foo",
+			Scope:       network.ScopePublic,
 		},
 		Port: 2,
 	}}, {{
-		Address: instance.Address{
-			Value:        "0.6.1.2",
-			Type:         instance.Ipv4Address,
-			NetworkName:  "net",
-			NetworkScope: instance.NetworkCloudLocal,
+		Address: network.Address{
+			Value:       "0.6.1.2",
+			Type:        network.IPv4Address,
+			NetworkName: "net",
+			Scope:       network.ScopeCloudLocal,
 		},
 		Port: 5,
 	}}}
@@ -3408,12 +3409,12 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	newHostPorts = [][]instance.HostPort{{{
-		Address: instance.Address{
-			Value:        "0.2.4.6",
-			Type:         instance.Ipv6Address,
-			NetworkName:  "net",
-			NetworkScope: instance.NetworkCloudLocal,
+	newHostPorts = [][]network.HostPort{{{
+		Address: network.Address{
+			Value:       "0.2.4.6",
+			Type:        network.IPv6Address,
+			NetworkName: "net",
+			Scope:       network.ScopeCloudLocal,
 		},
 		Port: 13,
 	}}}
@@ -3433,8 +3434,8 @@ func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.State.SetAPIHostPorts([][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+	err := s.State.SetAPIHostPorts([][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		Port:    99,
 	}}})
 	c.Assert(err, gc.IsNil)

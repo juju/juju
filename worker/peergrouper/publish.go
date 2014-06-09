@@ -5,6 +5,7 @@ package peergrouper
 
 import (
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -18,7 +19,7 @@ func newPublisher(st *state.State) *publisher {
 	}
 }
 
-func (pub *publisher) publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+func (pub *publisher) publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 	// TODO(rog) publish instanceIds in environment storage.
 	return pub.st.SetAPIHostPorts(apiServers)
 }

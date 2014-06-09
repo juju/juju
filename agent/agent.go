@@ -19,7 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -146,7 +146,7 @@ type ConfigSetterOnly interface {
 	SetUpgradedToVersion(newVersion version.Number)
 
 	// SetAPIHostPorts sets the API host/port addresses to connect to.
-	SetAPIHostPorts(servers [][]instance.HostPort)
+	SetAPIHostPorts(servers [][]network.HostPort)
 
 	// Migrate takes an existing agent config and applies the given
 	// parameters to change it.
@@ -434,13 +434,13 @@ func (c *configInternal) SetUpgradedToVersion(newVersion version.Number) {
 	c.upgradedToVersion = newVersion
 }
 
-func (c *configInternal) SetAPIHostPorts(servers [][]instance.HostPort) {
+func (c *configInternal) SetAPIHostPorts(servers [][]network.HostPort) {
 	if c.apiDetails == nil {
 		return
 	}
 	var addrs []string
 	for _, serverHostPorts := range servers {
-		addr := instance.SelectInternalHostPort(serverHostPorts, false)
+		addr := network.SelectInternalHostPort(serverHostPorts, false)
 		if addr != "" {
 			addrs = append(addrs, addr)
 		}

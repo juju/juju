@@ -6,8 +6,8 @@ package environs
 import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/cloudinit"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
 

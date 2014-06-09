@@ -43,12 +43,12 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
@@ -112,7 +112,7 @@ type OpAllocateAddress struct {
 	Env        string
 	InstanceId instance.Id
 	NetworkId  network.Id
-	Address    instance.Address
+	Address    network.Address
 }
 
 type OpStartInstance struct {
@@ -137,14 +137,14 @@ type OpOpenPorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []instance.Port
+	Ports      []network.Port
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []instance.Port
+	Ports      []network.Port
 }
 
 type OpPutFile struct {
@@ -179,7 +179,7 @@ type environState struct {
 	maxId        int // maximum instance id allocated so far.
 	maxAddr      int // maximum allocated address last byte
 	insts        map[instance.Id]*dummyInstance
-	globalPorts  map[instance.Port]bool
+	globalPorts  map[network.Port]bool
 	bootstrapped bool
 	storageDelay time.Duration
 	storage      *storageServer
@@ -291,7 +291,7 @@ func newState(name string, ops chan<- Operation, policy state.Policy) *environSt
 		ops:         ops,
 		statePolicy: policy,
 		insts:       make(map[instance.Id]*dummyInstance),
-		globalPorts: make(map[instance.Port]bool),
+		globalPorts: make(map[network.Port]bool),
 	}
 	s.storage = newStorageServer(s, "/"+name+"/private")
 	s.listen()
@@ -748,8 +748,8 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
-		addresses:    instance.NewAddresses(idString + ".dns"),
-		ports:        make(map[instance.Port]bool),
+		addresses:    network.NewAddresses(idString + ".dns"),
+		ports:        make(map[network.Port]bool),
 		machineId:    machineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -882,14 +882,14 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network.
-func (env *environ) AllocateAddress(instId instance.Id, netId network.Id) (instance.Address, error) {
+func (env *environ) AllocateAddress(instId instance.Id, netId network.Id) (network.Address, error) {
 	if err := env.checkBroken("AllocateAddress"); err != nil {
-		return instance.Address{}, err
+		return network.Address{}, err
 	}
 
 	estate, err := env.state()
 	if err != nil {
-		return instance.Address{}, err
+		return network.Address{}, err
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
@@ -898,9 +898,9 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id) (insta
 	// and addresses, make sure we return a valid address
 	// for the given network, and we also have the network
 	// already registered.
-	newAddress := instance.NewAddress(
+	newAddress := network.NewAddress(
 		fmt.Sprintf("0.1.2.%d", estate.maxAddr),
-		instance.NetworkCloudLocal,
+		network.ScopeCloudLocal,
 	)
 	estate.ops <- OpAllocateAddress{
 		Env:        env.name,
@@ -929,7 +929,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) OpenPorts(ports []instance.Port) error {
+func (e *environ) OpenPorts(ports []network.Port) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment", mode)
 	}
@@ -945,7 +945,7 @@ func (e *environ) OpenPorts(ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []instance.Port) error {
+func (e *environ) ClosePorts(ports []network.Port) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment", mode)
 	}
@@ -961,7 +961,7 @@ func (e *environ) ClosePorts(ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() (ports []instance.Port, err error) {
+func (e *environ) Ports() (ports []network.Port, err error) {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment", mode)
 	}
@@ -974,7 +974,7 @@ func (e *environ) Ports() (ports []instance.Port, err error) {
 	for p := range estate.globalPorts {
 		ports = append(ports, p)
 	}
-	instance.SortPorts(ports)
+	network.SortPorts(ports)
 	return
 }
 
@@ -984,7 +984,7 @@ func (*environ) Provider() environs.EnvironProvider {
 
 type dummyInstance struct {
 	state        *environState
-	ports        map[instance.Port]bool
+	ports        map[network.Port]bool
 	id           instance.Id
 	status       string
 	machineId    string
@@ -992,7 +992,7 @@ type dummyInstance struct {
 	firewallMode string
 
 	mu        sync.Mutex
-	addresses []instance.Address
+	addresses []network.Address
 }
 
 func (inst *dummyInstance) Id() instance.Id {
@@ -1005,7 +1005,7 @@ func (inst *dummyInstance) Status() string {
 
 // SetInstanceAddresses sets the addresses associated with the given
 // dummy instance.
-func SetInstanceAddresses(inst instance.Instance, addrs []instance.Address) {
+func SetInstanceAddresses(inst instance.Instance, addrs []network.Address) {
 	inst0 := inst.(*dummyInstance)
 	inst0.mu.Lock()
 	inst0.addresses = append(inst0.addresses[:0], addrs...)
@@ -1025,13 +1025,13 @@ func (*dummyInstance) Refresh() error {
 	return nil
 }
 
-func (inst *dummyInstance) Addresses() ([]instance.Address, error) {
+func (inst *dummyInstance) Addresses() ([]network.Address, error) {
 	inst.mu.Lock()
 	defer inst.mu.Unlock()
-	return append([]instance.Address{}, inst.addresses...), nil
+	return append([]network.Address{}, inst.addresses...), nil
 }
 
-func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {
+func (inst *dummyInstance) OpenPorts(machineId string, ports []network.Port) error {
 	defer delay()
 	logger.Infof("openPorts %s, %#v", machineId, ports)
 	if inst.firewallMode != config.FwInstance {
@@ -1055,7 +1055,7 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) er
 	return nil
 }
 
-func (inst *dummyInstance) ClosePorts(machineId string, ports []instance.Port) error {
+func (inst *dummyInstance) ClosePorts(machineId string, ports []network.Port) error {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
@@ -1078,7 +1078,7 @@ func (inst *dummyInstance) ClosePorts(machineId string, ports []instance.Port) e
 	return nil
 }
 
-func (inst *dummyInstance) Ports(machineId string) (ports []instance.Port, err error) {
+func (inst *dummyInstance) Ports(machineId string) (ports []network.Port, err error) {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
@@ -1092,7 +1092,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []instance.Port, err e
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
-	instance.SortPorts(ports)
+	network.SortPorts(ports)
 	return
 }
 

@@ -1,16 +1,19 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package instance
+package network
 
 import (
 	"bytes"
 	"net"
-	"strconv"
 )
 
 // Private network ranges for IPv4.
 // See: http://tools.ietf.org/html/rfc1918
+//
+// TODO(dimitern) 2014-06-10 LP bug #1328429
+// Improve private IP address detection here
+// by adding missing CIDRs for private networks.
 var (
 	classAPrivate = mustParseCIDR("10.0.0.0/8")
 	classBPrivate = mustParseCIDR("172.16.0.0/12")
@@ -26,60 +29,36 @@ func mustParseCIDR(s string) *net.IPNet {
 }
 
 // AddressType represents the possible ways of specifying a machine location by
-// either a hostname resolvable by dns lookup, or ipv4 or ipv6 address.
+// either a hostname resolvable by dns lookup, or IPv4 or IPv6 address.
 type AddressType string
 
 const (
 	HostName    AddressType = "hostname"
-	Ipv4Address AddressType = "ipv4"
-	Ipv6Address AddressType = "ipv6"
+	IPv4Address AddressType = "ipv4"
+	IPv6Address AddressType = "ipv6"
 )
 
-// NetworkScope denotes the context a location may apply to. If a name or
-// address can be reached from the wider internet, it is considered public. A
-// private network address is either specific to the cloud or cloud subnet a
-// machine belongs to, or to the machine itself for containers.
-type NetworkScope string
+// Scope denotes the context a location may apply to. If a name or
+// address can be reached from the wider internet, it is considered
+// public. A private network address is either specific to the cloud
+// or cloud subnet a machine belongs to, or to the machine itself for
+// containers.
+type Scope string
 
 const (
-	NetworkUnknown      NetworkScope = ""
-	NetworkPublic       NetworkScope = "public"
-	NetworkCloudLocal   NetworkScope = "local-cloud"
-	NetworkMachineLocal NetworkScope = "local-machine"
+	ScopeUnknown      Scope = ""
+	ScopePublic       Scope = "public"
+	ScopeCloudLocal   Scope = "local-cloud"
+	ScopeMachineLocal Scope = "local-machine"
 )
 
-// Address represents the location of a machine, including metadata about what
-// kind of location the address describes.
+// Address represents the location of a machine, including metadata
+// about what kind of location the address describes.
 type Address struct {
 	Value       string
 	Type        AddressType
 	NetworkName string
-	NetworkScope
-}
-
-// HostPort associates an address with a port.
-type HostPort struct {
-	Address
-	Port int
-}
-
-// AddressesWithPort returns the given addresses all
-// associated with the given port.
-func AddressesWithPort(addrs []Address, port int) []HostPort {
-	hps := make([]HostPort, len(addrs))
-	for i, addr := range addrs {
-		hps[i] = HostPort{
-			Address: addr,
-			Port:    port,
-		}
-	}
-	return hps
-}
-
-// NetAddr returns the host-port as an address
-// suitable for calling net.Dial.
-func (hp HostPort) NetAddr() string {
-	return net.JoinHostPort(hp.Value, strconv.Itoa(hp.Port))
+	Scope
 }
 
 // String returns a string representation of the address,
@@ -93,8 +72,8 @@ func (hp HostPort) NetAddr() string {
 // will be omitted.
 func (a Address) String() string {
 	var buf bytes.Buffer
-	if a.NetworkScope != NetworkUnknown {
-		buf.WriteString(string(a.NetworkScope))
+	if a.Scope != ScopeUnknown {
+		buf.WriteString(string(a.Scope))
 		buf.WriteByte(':')
 	}
 	buf.WriteString(a.Value)
@@ -109,11 +88,12 @@ func (a Address) String() string {
 // NewAddresses is a convenience function to create addresses from a string slice
 func NewAddresses(inAddresses ...string) (outAddresses []Address) {
 	for _, address := range inAddresses {
-		outAddresses = append(outAddresses, NewAddress(address, NetworkUnknown))
+		outAddresses = append(outAddresses, NewAddress(address, ScopeUnknown))
 	}
 	return outAddresses
 }
 
+// DeriveAddressType attempts to detect the type of address given.
 func DeriveAddressType(value string) AddressType {
 	ip := net.ParseIP(value)
 	switch {
@@ -121,9 +101,9 @@ func DeriveAddressType(value string) AddressType {
 		// TODO(gz): Check value is a valid hostname
 		return HostName
 	case ip.To4() != nil:
-		return Ipv4Address
+		return IPv4Address
 	case ip.To16() != nil:
-		return Ipv6Address
+		return IPv6Address
 	default:
 		panic("Unknown form of IP address")
 	}
@@ -135,46 +115,46 @@ func isIPv4PrivateNetworkAddress(ip net.IP) bool {
 		classCPrivate.Contains(ip)
 }
 
-// deriveNetworkScope attempts to derive the network scope from an address's
-// type and value, returning the original network scope if no deduction can
-// be made.
-func deriveNetworkScope(addr Address) NetworkScope {
+// deriveScope attempts to derive the network scope from an address's
+// type and value, returning the original network scope if no
+// deduction can be made.
+func deriveScope(addr Address) Scope {
 	if addr.Type == HostName {
-		return addr.NetworkScope
+		return addr.Scope
 	}
 	ip := net.ParseIP(addr.Value)
 	if ip == nil {
-		return addr.NetworkScope
+		return addr.Scope
 	}
 	if ip.IsLoopback() {
-		return NetworkMachineLocal
+		return ScopeMachineLocal
 	}
 	switch addr.Type {
-	case Ipv4Address:
+	case IPv4Address:
 		if isIPv4PrivateNetworkAddress(ip) {
-			return NetworkCloudLocal
+			return ScopeCloudLocal
 		}
 		// If it's not loopback, and it's not a private
 		// network address, then it's publicly routable.
-		return NetworkPublic
-	case Ipv6Address:
+		return ScopePublic
+	case IPv6Address:
 		// TODO(axw) check for IPv6 unique local address, if/when we care.
 	}
-	return addr.NetworkScope
+	return addr.Scope
 }
 
 // NewAddress creates a new Address, deriving its type from the value.
 //
-// If the specified scope is NetworkUnknown, then NewAddress will
+// If the specified scope is ScopeUnknown, then NewAddress will
 // attempt derive the scope based on reserved IP address ranges.
-func NewAddress(value string, scope NetworkScope) Address {
+func NewAddress(value string, scope Scope) Address {
 	addr := Address{
-		Value:        value,
-		Type:         DeriveAddressType(value),
-		NetworkScope: scope,
+		Value: value,
+		Type:  DeriveAddressType(value),
+		Scope: scope,
 	}
-	if scope == NetworkUnknown {
-		addr.NetworkScope = deriveNetworkScope(addr)
+	if scope == ScopeUnknown {
+		addr.Scope = deriveScope(addr)
 	}
 	return addr
 }
@@ -182,6 +162,8 @@ func NewAddress(value string, scope NetworkScope) Address {
 // SelectPublicAddress picks one address from a slice that would
 // be appropriate to display as a publicly accessible endpoint.
 // If there are no suitable addresses, the empty string is returned.
+//
+// TODO(dimitern) Make this work properly with #IPv6 addresses.
 func SelectPublicAddress(addresses []Address) string {
 	index := bestAddressIndex(len(addresses), func(i int) Address {
 		return addresses[i]
@@ -230,10 +212,10 @@ func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
 }
 
 func publicMatch(addr Address) scopeMatch {
-	switch addr.NetworkScope {
-	case NetworkPublic:
+	switch addr.Scope {
+	case ScopePublic:
 		return exactScope
-	case NetworkCloudLocal, NetworkUnknown:
+	case ScopeCloudLocal, ScopeUnknown:
 		return fallbackScope
 	}
 	return invalidScope
@@ -247,17 +229,17 @@ func internalAddressMatcher(machineLocal bool) func(Address) scopeMatch {
 }
 
 func cloudLocalMatch(addr Address) scopeMatch {
-	switch addr.NetworkScope {
-	case NetworkCloudLocal:
+	switch addr.Scope {
+	case ScopeCloudLocal:
 		return exactScope
-	case NetworkPublic, NetworkUnknown:
+	case ScopePublic, ScopeUnknown:
 		return fallbackScope
 	}
 	return invalidScope
 }
 
 func cloudOrMachineLocalMatch(addr Address) scopeMatch {
-	if addr.NetworkScope == NetworkMachineLocal {
+	if addr.Scope == ScopeMachineLocal {
 		return exactScope
 	}
 	return cloudLocalMatch(addr)
@@ -279,7 +261,7 @@ func bestAddressIndex(numAddr int, getAddr func(i int) Address, match func(addr 
 	fallbackAddressIndex := -1
 	for i := 0; i < numAddr; i++ {
 		addr := getAddr(i)
-		if addr.Type != Ipv6Address {
+		if addr.Type != IPv6Address {
 			switch match(addr) {
 			case exactScope:
 				return i

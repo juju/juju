@@ -22,8 +22,8 @@ import (
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -761,8 +761,8 @@ func (c *Client) UploadTools(
 	return jsonResponse.Tools, nil
 }
 
-// APIHostPorts returns a slice of instance.HostPort for each API server.
-func (c *Client) APIHostPorts() ([][]instance.HostPort, error) {
+// APIHostPorts returns a slice of network.HostPort for each API server.
+func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 	var result params.APIHostPortsResult
 	if err := c.call("APIHostPorts", nil, &result); err != nil {
 		return nil, err

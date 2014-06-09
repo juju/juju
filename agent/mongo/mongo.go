@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils/apt"
 	"labix.org/v2/mgo"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/upstart"
@@ -57,7 +57,7 @@ var (
 // WithAddresses represents an entity that has a set of
 // addresses. e.g. a state Machine object
 type WithAddresses interface {
-	Addresses() []instance.Address
+	Addresses() []network.Address
 }
 
 // IsMaster returns a boolean that represents whether the given
@@ -89,14 +89,14 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 
 // SelectPeerAddress returns the address to use as the
 // mongo replica set peer address by selecting it from the given addresses.
-func SelectPeerAddress(addrs []instance.Address) string {
-	return instance.SelectInternalAddress(addrs, false)
+func SelectPeerAddress(addrs []network.Address) string {
+	return network.SelectInternalAddress(addrs, false)
 }
 
 // SelectPeerHostPort returns the HostPort to use as the
 // mongo replica set peer by selecting it from the given hostPorts.
-func SelectPeerHostPort(hostPorts []instance.HostPort) string {
-	return instance.SelectInternalHostPort(hostPorts, false)
+func SelectPeerHostPort(hostPorts []network.HostPort) string {
+	return network.SelectInternalHostPort(hostPorts, false)
 }
 
 // GenerateSharedSecret generates a pseudo-random shared secret (keyfile)

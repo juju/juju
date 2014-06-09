@@ -22,11 +22,11 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -943,8 +943,8 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network. This is not implemented on the
 // Azure provider yet.
-func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
-	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
+func (*azureEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
+	return network.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
 // AllInstances is specified in the InstanceBroker interface.
@@ -1025,20 +1025,20 @@ func (env *azureEnviron) Destroy() error {
 
 // OpenPorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) OpenPorts(ports []instance.Port) error {
+func (env *azureEnviron) OpenPorts(ports []network.Port) error {
 	return nil
 }
 
 // ClosePorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) ClosePorts(ports []instance.Port) error {
+func (env *azureEnviron) ClosePorts(ports []network.Port) error {
 	return nil
 }
 
 // Ports is specified in the Environ interface.
-func (env *azureEnviron) Ports() ([]instance.Port, error) {
+func (env *azureEnviron) Ports() ([]network.Port, error) {
 	// TODO: implement this.
-	return []instance.Port{}, nil
+	return []network.Port{}, nil
 }
 
 // Provider is specified in the Environ interface.

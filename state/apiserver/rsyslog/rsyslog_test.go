@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	apirsyslog "github.com/juju/juju/state/api/rsyslog"
@@ -53,7 +53,7 @@ func verifyRsyslogCACert(c *gc.C, st *apirsyslog.State, expected string) {
 
 func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err := m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
 	err = st.Rsyslog().SetRsyslogCert(coretesting.CACert)
@@ -63,7 +63,7 @@ func (s *rsyslogSuite) TestSetRsyslogCert(c *gc.C) {
 
 func (s *rsyslogSuite) TestSetRsyslogCertNil(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err := m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
 	err = st.Rsyslog().SetRsyslogCert("")
@@ -73,7 +73,7 @@ func (s *rsyslogSuite) TestSetRsyslogCertNil(c *gc.C) {
 
 func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err := m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
 	err = st.Rsyslog().SetRsyslogCert(string(pem.EncodeToMemory(&pem.Block{
@@ -88,7 +88,7 @@ func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 	// create a machine-0 so we have an addresss to log to
 	m, err := s.State.AddMachine("trusty", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err = m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
 	unitState, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)

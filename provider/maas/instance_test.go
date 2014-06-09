@@ -8,7 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 type instanceTest struct {
@@ -70,10 +70,10 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 
-	expected := []instance.Address{
-		{Value: "testing.invalid", Type: instance.HostName, NetworkScope: instance.NetworkPublic},
-		instance.NewAddress("1.2.3.4", instance.NetworkUnknown),
-		instance.NewAddress("fe80::d806:dbff:fe23:1199", instance.NetworkUnknown),
+	expected := []network.Address{
+		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
+		network.NewAddress("1.2.3.4", network.ScopeUnknown),
+		network.NewAddress("fe80::d806:dbff:fe23:1199", network.ScopeUnknown),
 	}
 
 	addr, err := inst.Addresses()
@@ -94,8 +94,8 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 
 	addr, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Check(addr, gc.DeepEquals, []instance.Address{
-		{Value: "testing.invalid", Type: instance.HostName, NetworkScope: instance.NetworkPublic},
+	c.Check(addr, gc.DeepEquals, []network.Address{
+		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
 	})
 }
 

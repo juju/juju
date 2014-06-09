@@ -16,7 +16,7 @@ import (
 
 	"github.com/juju/juju/charm"
 	charmtesting "github.com/juju/juju/charm/testing"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -119,11 +119,13 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 	s.addUnit(srv, m[2], c)
 	srv = s.AddTestingService(c, "ipv6-svc", dummyCharm)
 	s.addUnit(srv, m[3], c)
+	// TODO(dimitern) This is a horrible hack and needs to
+	// be fixed as we implement proper #IPv6 support.
 	// Simulate machine 3 has a public IPv6 address.
-	ipv6Addr := instance.Address{
-		Value:        "2001:db8::",
-		Type:         instance.Ipv4Address, // ..because SelectPublicAddress ignores IPv6 addresses
-		NetworkScope: instance.NetworkPublic,
+	ipv6Addr := network.Address{
+		Value: "2001:db8::",
+		Type:  network.IPv4Address, // ..because SelectPublicAddress ignores IPv6 addresses
+		Scope: network.ScopePublic,
 	}
 	err = m[3].SetAddresses(ipv6Addr)
 	c.Assert(err, gc.IsNil)

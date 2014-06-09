@@ -31,8 +31,8 @@ import (
 	"github.com/juju/juju/agent/tools"
 	corecharm "github.com/juju/juju/charm"
 	charmtesting "github.com/juju/juju/charm/testing"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -1278,14 +1278,14 @@ func assertAssignUnit(c *gc.C, st *state.State, u *state.Unit) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetAddresses(instance.Address{
-		Type:         instance.Ipv4Address,
-		NetworkScope: instance.NetworkCloudLocal,
-		Value:        "private.address.example.com",
-	}, instance.Address{
-		Type:         instance.Ipv4Address,
-		NetworkScope: instance.NetworkPublic,
-		Value:        "public.address.example.com",
+	err = machine.SetAddresses(network.Address{
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+		Value: "private.address.example.com",
+	}, network.Address{
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
+		Value: "public.address.example.com",
 	})
 	c.Assert(err, gc.IsNil)
 }

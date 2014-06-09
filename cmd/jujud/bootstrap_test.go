@@ -24,6 +24,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -429,7 +430,7 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 
 	addresses, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
-	s.bootstrapName = instance.SelectPublicAddress(addresses)
+	s.bootstrapName = network.SelectPublicAddress(addresses)
 	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()
 }
 
