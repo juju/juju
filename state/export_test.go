@@ -15,7 +15,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
@@ -143,11 +142,11 @@ func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
-	return AddTestingServiceWithNetworks(c, st, name, ch, nil, nil)
+	return AddTestingServiceWithNetworks(c, st, name, ch, nil)
 }
 
-func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, includeNetworks, excludeNetworks []string) *Service {
-	service, err := st.AddService(name, "user-admin", ch, includeNetworks, excludeNetworks)
+func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, networks []string) *Service {
+	service, err := st.AddService(name, "user-admin", ch, networks)
 	c.Assert(err, gc.IsNil)
 	return service
 }
@@ -262,7 +261,3 @@ func CheckUserExists(st *State, name string) (bool, error) {
 }
 
 var StateServerAvailable = &stateServerAvailable
-
-func UnitConstraints(u *Unit) (*constraints.Value, error) {
-	return u.constraints()
-}

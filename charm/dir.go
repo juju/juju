@@ -22,6 +22,7 @@ type Dir struct {
 	Path     string
 	meta     *Meta
 	config   *Config
+	actions  *Actions
 	revision int
 }
 
@@ -47,6 +48,18 @@ func ReadDir(path string) (dir *Dir, err error) {
 		return nil, err
 	} else {
 		dir.config, err = ReadConfig(file)
+		file.Close()
+		if err != nil {
+			return nil, err
+		}
+	}
+	file, err = os.Open(dir.join("actions.yaml"))
+	if _, ok := err.(*os.PathError); ok {
+		dir.actions = NewActions()
+	} else if err != nil {
+		return nil, err
+	} else {
+		dir.actions, err = ReadActionsYaml(file)
 		file.Close()
 		if err != nil {
 			return nil, err
@@ -88,6 +101,12 @@ func (dir *Dir) Meta() *Meta {
 // for the charm expanded in dir.
 func (dir *Dir) Config() *Config {
 	return dir.config
+}
+
+// Actions returns the Actions representing the actions.yaml file
+// for the charm expanded in dir.
+func (dir *Dir) Actions() *Actions {
+	return dir.actions
 }
 
 // SetRevision changes the charm revision number. This affects

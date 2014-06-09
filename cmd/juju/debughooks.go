@@ -5,13 +5,13 @@ package main
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"sort"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/charm/hooks"
 	"github.com/juju/juju/cmd"
-	"github.com/juju/juju/names"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 )
 
@@ -36,7 +36,7 @@ func (c *DebugHooksCommand) Info() *cmd.Info {
 
 func (c *DebugHooksCommand) Init(args []string) error {
 	if len(args) < 1 {
-		return errors.New("no unit name specified")
+		return fmt.Errorf("no unit name specified")
 	}
 	c.Target = args[0]
 	if !names.IsUnit(c.Target) {

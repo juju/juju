@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"launchpad.net/goamz/s3"
 
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils"
 )
 
 func init() {

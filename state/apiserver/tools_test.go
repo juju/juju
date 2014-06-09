@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"path"
 
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/tools"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 

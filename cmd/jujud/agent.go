@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"github.com/juju/utils/fslock"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
@@ -22,8 +24,6 @@ import (
 	apideployer "github.com/juju/juju/state/api/deployer"
 	"github.com/juju/juju/state/api/params"
 	apirsyslog "github.com/juju/juju/state/api/rsyslog"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/fslock"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/deployer"

@@ -8,11 +8,11 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/utils"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/utils"
 )
 
 // extractSystemId extracts the 'system_id' part from an InstanceId.

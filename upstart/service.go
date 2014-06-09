@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"path"
 
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 const (

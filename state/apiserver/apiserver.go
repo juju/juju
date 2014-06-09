@@ -15,13 +15,13 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"github.com/bmizerany/pat"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver/common"
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver")

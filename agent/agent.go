@@ -17,12 +17,12 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 

@@ -11,13 +11,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api/params"
 )
 
@@ -833,8 +833,10 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 	return onAbort(s.st.runTransaction(ops), errNotAlive)
 }
 
-// Networks returns the networks a service is associated with.
-func (s *Service) Networks() (includeNetworks, excludeNetworks []string, err error) {
+// Networks returns the networks a service is associated with. Unlike
+// networks specified with constraints, these networks are required to
+// be present on machines hosting this service's units.
+func (s *Service) Networks() ([]string, error) {
 	return readRequestedNetworks(s.st, s.globalKey())
 }
 

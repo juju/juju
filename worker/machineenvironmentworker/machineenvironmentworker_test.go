@@ -9,20 +9,20 @@ import (
 	"path"
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/apt"
+	"github.com/juju/utils/proxy"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/environment"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/apt"
-	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/machineenvironmentworker"
 )

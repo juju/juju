@@ -123,7 +123,7 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 			c.Check(addUserCmd.User, gc.Equals, test.user)
 			c.Check(addUserCmd.DisplayName, gc.Equals, test.displayname)
 			c.Check(addUserCmd.Password, gc.Equals, test.password)
-			c.Check(addUserCmd.outPath, gc.Equals, test.outPath)
+			c.Check(addUserCmd.OutPath, gc.Equals, test.outPath)
 		} else {
 			c.Check(err, gc.ErrorMatches, test.errorString)
 		}

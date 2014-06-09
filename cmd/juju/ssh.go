@@ -4,22 +4,21 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"time"
 
+	"github.com/juju/names"
+	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -94,7 +93,7 @@ func (c *SSHCommand) Info() *cmd.Info {
 
 func (c *SSHCommand) Init(args []string) error {
 	if len(args) == 0 {
-		return errors.New("no target name specified")
+		return fmt.Errorf("no target name specified")
 	}
 	c.Target, c.Args = args[0], args[1:]
 	return nil

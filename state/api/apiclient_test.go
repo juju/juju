@@ -9,13 +9,13 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/juju/utils/parallel"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/parallel"
 )
 
 type apiclientSuite struct {

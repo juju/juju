@@ -13,6 +13,8 @@ import (
 
 	"code.google.com/p/go.net/websocket"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
+	"github.com/juju/utils/parallel"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/instance"
@@ -20,8 +22,6 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/parallel"
 )
 
 var logger = loggo.GetLogger("juju.state.api")

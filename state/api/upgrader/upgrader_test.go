@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	envtesting "github.com/juju/juju/environs/testing"
@@ -19,7 +20,6 @@ import (
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 

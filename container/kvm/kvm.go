@@ -10,13 +10,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/version"
 )
 

@@ -71,7 +71,7 @@ func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	_, err := s.state.AddUser(AdminUser, "", "pass")
 	c.Assert(err, gc.IsNil)
 	charm := addCharm(c, s.state, "quantal", testing.Charms.Dir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil, nil)
+	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all services have associated document in the
 	// requested networks collection. We remove it here to test
@@ -81,10 +81,9 @@ func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Now check the trying to fetch service's networks is OK.
-	include, exclude, err := service.Networks()
+	networks, err := service.Networks()
 	c.Assert(err, gc.IsNil)
-	c.Assert(include, gc.HasLen, 0)
-	c.Assert(exclude, gc.HasLen, 0)
+	c.Assert(networks, gc.HasLen, 0)
 }
 
 func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
@@ -98,8 +97,7 @@ func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Now check the trying to fetch machine's networks is OK.
-	include, exclude, err := machine.RequestedNetworks()
+	networks, err := machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
-	c.Assert(include, gc.HasLen, 0)
-	c.Assert(exclude, gc.HasLen, 0)
+	c.Assert(networks, gc.HasLen, 0)
 }

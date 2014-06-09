@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/environs"
@@ -19,13 +21,11 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 
@@ -289,34 +289,29 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		return err
 	}
 	// Convert network tags to names for any given networks.
-	includeNetworks, err := networkTagsToNames(args.IncludeNetworks)
-	if err != nil {
-		return err
-	}
-	excludeNetworks, err := networkTagsToNames(args.ExcludeNetworks)
+	requestedNetworks, err := networkTagsToNames(args.Networks)
 	if err != nil {
 		return err
 	}
 
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
-			ServiceName:     args.ServiceName,
-			ServiceOwner:    c.api.auth.GetAuthTag(),
-			Charm:           ch,
-			NumUnits:        args.NumUnits,
-			ConfigSettings:  settings,
-			Constraints:     args.Constraints,
-			ToMachineSpec:   args.ToMachineSpec,
-			IncludeNetworks: includeNetworks,
-			ExcludeNetworks: excludeNetworks,
+			ServiceName:    args.ServiceName,
+			ServiceOwner:   c.api.auth.GetAuthTag(),
+			Charm:          ch,
+			NumUnits:       args.NumUnits,
+			ConfigSettings: settings,
+			Constraints:    args.Constraints,
+			ToMachineSpec:  args.ToMachineSpec,
+			Networks:       requestedNetworks,
 		})
 	return err
 }
 
 // ServiceDeployWithNetworks works exactly like ServiceDeploy, but
 // allows specifying networks to include or exclude on the machine
-// where the charm gets deployed. Each given network to
-// include/exclude needs to be specified using its network tag.
+// where the charm gets deployed (either with args.Network or with
+// constraints).
 func (c *Client) ServiceDeployWithNetworks(args params.ServiceDeploy) error {
 	return c.ServiceDeploy(args)
 }

@@ -17,11 +17,11 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils"
 )
 
 func TestPackage(t *testing.T) {

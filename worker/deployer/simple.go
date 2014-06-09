@@ -11,10 +11,11 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"

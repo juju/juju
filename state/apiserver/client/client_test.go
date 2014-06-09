@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/state/apiserver/client"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 
@@ -684,26 +684,28 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 	curl, bundle := addCharm(c, store, "dummy")
-	mem4g := constraints.MustParse("mem=4G")
+	cons := constraints.MustParse("mem=4G networks=^net3")
 
 	// Check for invalid network tags handling.
 	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", mem4g, "",
-		[]string{"net1", "net2"}, []string{"net3"},
+		curl.String(), "service", 3, "", cons, "",
+		[]string{"net1", "net2"},
 	)
 	c.Assert(err, gc.ErrorMatches, `"net1" is not a valid network tag`)
 
 	err = s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", mem4g, "",
-		[]string{"network-net1", "network-net2"}, []string{"network-net3"},
+		curl.String(), "service", 3, "", cons, "",
+		[]string{"network-net1", "network-net2"},
 	)
 	c.Assert(err, gc.IsNil)
-	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
 
-	include, exclude, err := service.Networks()
+	networks, err := service.Networks()
 	c.Assert(err, gc.IsNil)
-	c.Assert(include, gc.DeepEquals, []string{"net1", "net2"})
-	c.Assert(exclude, gc.DeepEquals, []string{"net3"})
+	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
+	serviceCons, err := service.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(serviceCons, gc.DeepEquals, cons)
 }
 
 func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {

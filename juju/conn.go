@@ -13,13 +13,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/utils/ssh"
 )
 

@@ -8,11 +8,11 @@ import (
 	"runtime"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/cmd"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"

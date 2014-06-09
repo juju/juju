@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -780,7 +780,7 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, nil, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, stateInfo, apiInfo)
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",

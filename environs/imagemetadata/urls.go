@@ -8,10 +8,11 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils"
 )
 
 // SupportsCustomSources represents an environment that

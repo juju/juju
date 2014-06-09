@@ -5,10 +5,10 @@ package charm_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	ft "github.com/juju/testing/filetesting"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"
-	ft "github.com/juju/juju/testing/filetesting"
 	"github.com/juju/juju/worker/uniter/charm"
 )
 

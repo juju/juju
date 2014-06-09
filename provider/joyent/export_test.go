@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/joyent/gosign/auth"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 // Use ShortAttempt to poll for short-term events.

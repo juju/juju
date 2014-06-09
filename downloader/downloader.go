@@ -11,9 +11,8 @@ import (
 	"os"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"launchpad.net/tomb"
-
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.downloader")

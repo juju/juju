@@ -49,6 +49,22 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 			Type:        "string",
 		},
 	)
+	actions := dummy.Actions()
+	c.Assert(actions, gc.NotNil)
+	c.Assert(actions.ActionSpecs, gc.Not(gc.HasLen), 0)
+	c.Assert(actions.ActionSpecs["snapshot"], gc.NotNil)
+	c.Assert(actions.ActionSpecs["snapshot"].Params, gc.Not(gc.HasLen), 0)
+	c.Assert(actions.ActionSpecs["snapshot"], gc.DeepEquals,
+		charm.ActionSpec{
+			Description: "Take a snapshot of the database.",
+			Params: map[string]interface{}{
+				"outfile": map[string]interface{}{
+					"description": "The file to write out to.",
+					"type":        "string",
+					"default":     "foo.bz2",
+				},
+			},
+		})
 }
 
 func (s *CharmSuite) TestCharmNotFound(c *gc.C) {
@@ -125,6 +141,26 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
 		assertCustomCharm(c, ch, "quantal", meta, config, 123)
+	})
+}
+
+var actionsYaml = `
+actions:
+   dump:
+      description: Dump the database to STDOUT.
+      params:
+         redirect-file:
+            description: Redirect to a log file.
+            type: string
+`
+
+func (s *CharmTestHelperSuite) TestActionsCharm(c *gc.C) {
+	actions, err := charm.ReadActionsYaml(bytes.NewBuffer([]byte(actionsYaml)))
+	c.Assert(err, gc.IsNil)
+
+	forEachStandardCharm(c, func(name string) {
+		ch := s.AddActionsCharm(c, name, actionsYaml, 123)
+		c.Assert(ch.Actions(), gc.DeepEquals, actions)
 	})
 }
 

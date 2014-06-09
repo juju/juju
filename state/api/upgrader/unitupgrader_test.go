@@ -6,6 +6,7 @@ package upgrader_test
 import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -15,7 +16,6 @@ import (
 	"github.com/juju/juju/state/api/upgrader"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 

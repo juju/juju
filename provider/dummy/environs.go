@@ -34,6 +34,9 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
+	"github.com/juju/schema"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -46,15 +49,12 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/schema"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/apiserver"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
@@ -116,17 +116,16 @@ type OpAllocateAddress struct {
 }
 
 type OpStartInstance struct {
-	Env             string
-	MachineId       string
-	MachineNonce    string
-	Instance        instance.Instance
-	Constraints     constraints.Value
-	IncludeNetworks []string
-	ExcludeNetworks []string
-	NetworkInfo     []network.Info
-	Info            *state.Info
-	APIInfo         *api.Info
-	Secret          string
+	Env          string
+	MachineId    string
+	MachineNonce string
+	Instance     instance.Instance
+	Constraints  constraints.Value
+	Networks     []string
+	NetworkInfo  []network.Info
+	Info         *state.Info
+	APIInfo      *api.Info
+	Secret       string
 }
 
 type OpStopInstances struct {
@@ -790,8 +789,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	// Simulate networks added when requested.
-	networkInfo := make([]network.Info, len(args.MachineConfig.IncludeNetworks))
-	for i, netName := range args.MachineConfig.IncludeNetworks {
+	networks := append(args.Constraints.IncludeNetworks(), args.MachineConfig.Networks...)
+	networkInfo := make([]network.Info, len(networks))
+	for i, netName := range networks {
 		if strings.HasPrefix(netName, "bad-") {
 			// Simulate we didn't get correct information for the network.
 			networkInfo[i] = network.Info{
@@ -814,17 +814,16 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:             e.name,
-		MachineId:       machineId,
-		MachineNonce:    args.MachineConfig.MachineNonce,
-		Constraints:     args.Constraints,
-		IncludeNetworks: args.MachineConfig.IncludeNetworks,
-		ExcludeNetworks: args.MachineConfig.ExcludeNetworks,
-		NetworkInfo:     networkInfo,
-		Instance:        i,
-		Info:            args.MachineConfig.StateInfo,
-		APIInfo:         args.MachineConfig.APIInfo,
-		Secret:          e.ecfg().secret(),
+		Env:          e.name,
+		MachineId:    machineId,
+		MachineNonce: args.MachineConfig.MachineNonce,
+		Constraints:  args.Constraints,
+		Networks:     args.MachineConfig.Networks,
+		NetworkInfo:  networkInfo,
+		Instance:     i,
+		Info:         args.MachineConfig.StateInfo,
+		APIInfo:      args.MachineConfig.APIInfo,
+		Secret:       e.ecfg().secret(),
 	}
 	return i, hc, networkInfo, nil
 }

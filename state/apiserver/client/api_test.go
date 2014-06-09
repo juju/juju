@@ -152,6 +152,7 @@ var scenarioStatus = &api.Status{
 			InstanceId:     instance.Id("i-machine-0"),
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
+			AgentStateData: params.StatusData{},
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
 			Jobs:           []params.MachineJob{params.JobManageEnviron},
@@ -163,6 +164,7 @@ var scenarioStatus = &api.Status{
 			InstanceId:     instance.Id("i-machine-1"),
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
+			AgentStateData: params.StatusData{},
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
 			Jobs:           []params.MachineJob{params.JobHostUnits},
@@ -174,6 +176,7 @@ var scenarioStatus = &api.Status{
 			InstanceId:     instance.Id("i-machine-2"),
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
+			AgentStateData: params.StatusData{},
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
 			Jobs:           []params.MachineJob{params.JobHostUnits},
@@ -203,24 +206,53 @@ var scenarioStatus = &api.Status{
 			SubordinateTo: []string{},
 			Units: map[string]api.UnitStatus{
 				"wordpress/0": api.UnitStatus{
-					AgentState: "pending",
-					Machine:    "1",
+					AgentState:     "down",
+					AgentStateInfo: "(error: blam)",
+					AgentStateData: params.StatusData{
+						"relation-id": "0",
+					},
+					Machine: "1",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/0": api.UnitStatus{
-							AgentState: "pending",
+							AgentState:     "pending",
+							AgentStateData: params.StatusData{},
 						},
 					},
 				},
 				"wordpress/1": api.UnitStatus{
-					AgentState: "pending",
-					Machine:    "2",
+					AgentState:     "pending",
+					AgentStateData: params.StatusData{},
+					Machine:        "2",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/1": api.UnitStatus{
-							AgentState: "pending",
+							AgentState:     "pending",
+							AgentStateData: params.StatusData{},
 						},
 					},
 				},
 			},
+		},
+	},
+	Relations: []api.RelationStatus{
+		api.RelationStatus{
+			Id:  0,
+			Key: "logging:logging-directory wordpress:logging-dir",
+			Endpoints: []api.EndpointStatus{
+				api.EndpointStatus{
+					ServiceName: "logging",
+					Name:        "logging-directory",
+					Role:        "requirer",
+					Subordinate: true,
+				},
+				api.EndpointStatus{
+					ServiceName: "wordpress",
+					Name:        "logging-dir",
+					Role:        "provider",
+					Subordinate: false,
+				},
+			},
+			Interface: "logging",
+			Scope:     "container",
 		},
 	},
 	Networks: map[string]api.NetworkStatus{},
@@ -252,7 +284,8 @@ var scenarioStatus = &api.Status{
 // service-wordpress
 // service-logging
 // unit-wordpress-0
-//     deployer-name=machine-1
+//  deployer-name=machine-1
+//  status=down with error and status data attached
 // unit-logging-0
 //  deployer-name=unit-wordpress-0
 // unit-wordpress-1
@@ -326,6 +359,18 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 
 		wru, err := rel.Unit(wu)
 		c.Assert(err, gc.IsNil)
+
+		// Put wordpress/0 in error state (with extra status data set)
+		if i == 0 {
+			sd := params.StatusData{
+				"relation-id": "0",
+				// these this should get filtered out
+				// (not in StatusData whitelist)
+				"remote-unit": "logging/0",
+				"foo":         "bar",
+			}
+			wu.SetStatus(params.StatusError, "blam", sd)
+		}
 
 		// Create the subordinate unit as a side-effect of entering
 		// scope in the principal's relation-unit.

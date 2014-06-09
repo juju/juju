@@ -8,14 +8,14 @@ import (
 	"sync"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
+	"github.com/juju/utils"
 
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 	"github.com/juju/juju/state/presence"
-	"github.com/juju/juju/utils"
 )
 
 func newStateServer(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier, limiter utils.Limiter) *initialRoot {

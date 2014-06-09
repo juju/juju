@@ -8,14 +8,15 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/proxy"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
@@ -24,7 +25,6 @@ import (
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/version"
 )
 
@@ -728,13 +728,13 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 }
 
 func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
+	cons := constraints.MustParse("cpu-cores=123 mem=8G networks=^net3,^net4")
 	template := state.MachineTemplate{
-		Series:          "quantal",
-		Jobs:            []state.MachineJob{state.JobHostUnits},
-		Constraints:     constraints.MustParse("cpu-cores=123", "mem=8G"),
-		Placement:       "valid",
-		IncludeNetworks: []string{"net1", "net2"},
-		ExcludeNetworks: []string{"net3", "net4"},
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		Constraints:       cons,
+		Placement:         "valid",
+		RequestedNetworks: []string{"net1", "net2"},
 	}
 	placementMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
@@ -750,22 +750,16 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
-			{
-				Result: &params.ProvisioningInfo{
-					Series:          "quantal",
-					IncludeNetworks: []string{},
-					ExcludeNetworks: []string{},
-				},
-			},
-			{
-				Result: &params.ProvisioningInfo{
-					Series:          "quantal",
-					Constraints:     template.Constraints,
-					Placement:       template.Placement,
-					IncludeNetworks: template.IncludeNetworks,
-					ExcludeNetworks: template.ExcludeNetworks,
-				},
-			},
+			{Result: &params.ProvisioningInfo{
+				Series:   "quantal",
+				Networks: []string{},
+			}},
+			{Result: &params.ProvisioningInfo{
+				Series:      "quantal",
+				Constraints: template.Constraints,
+				Placement:   template.Placement,
+				Networks:    template.RequestedNetworks,
+			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -796,9 +790,8 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, params.ProvisioningInfoResults{
 		Results: []params.ProvisioningInfoResult{
 			{Result: &params.ProvisioningInfo{
-				Series:          "quantal",
-				IncludeNetworks: []string{},
-				ExcludeNetworks: []string{},
+				Series:   "quantal",
+				Networks: []string{},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -810,10 +803,11 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 
 func (s *withoutStateServerSuite) TestConstraints(c *gc.C) {
 	// Add a machine with some constraints.
+	cons := constraints.MustParse("cpu-cores=123", "mem=8G", "networks=net3,^net4")
 	template := state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
-		Constraints: constraints.MustParse("cpu-cores=123", "mem=8G"),
+		Constraints: cons,
 	}
 	consMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
@@ -844,15 +838,14 @@ func (s *withoutStateServerSuite) TestConstraints(c *gc.C) {
 func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
 	// Add a machine with some requested networks.
 	template := state.MachineTemplate{
-		Series:          "quantal",
-		Jobs:            []state.MachineJob{state.JobHostUnits},
-		IncludeNetworks: []string{"net1", "net2"},
-		ExcludeNetworks: []string{"net3", "net4"},
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		RequestedNetworks: []string{"net1", "net2"},
 	}
 	netsMachine, err := s.State.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
-	includeNetsMachine0, excludeNetsMachine0, err := s.machines[0].RequestedNetworks()
+	networksMachine0, err := s.machines[0].RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -867,12 +860,10 @@ func (s *withoutStateServerSuite) TestRequestedNetworks(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.RequestedNetworksResults{
 		Results: []params.RequestedNetworkResult{
 			{
-				IncludeNetworks: includeNetsMachine0,
-				ExcludeNetworks: excludeNetsMachine0,
+				Networks: networksMachine0,
 			},
 			{
-				IncludeNetworks: template.IncludeNetworks,
-				ExcludeNetworks: template.ExcludeNetworks,
+				Networks: template.RequestedNetworks,
 			},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},

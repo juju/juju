@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.environs.configstore")

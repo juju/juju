@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -54,14 +54,15 @@ type fakeEnsure struct {
 	initiateCount  int
 	dataDir        string
 	namespace      string
+	withHA         bool
 	info           params.StateServingInfo
 	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo) error {
+func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo, withHA bool) error {
 	f.ensureCount++
-	f.dataDir, f.namespace, f.info = dataDir, namespace, info
+	f.dataDir, f.namespace, f.info, f.withHA = dataDir, namespace, info, withHA
 	return f.err
 }
 
@@ -156,6 +157,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.withHA, jc.IsTrue)
 
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)

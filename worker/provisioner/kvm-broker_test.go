@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -21,7 +22,6 @@ import (
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/names"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -85,7 +85,7 @@ func (s *kvmBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, nil, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, stateInfo, apiInfo)
 	cons := constraints.Value{}
 	possibleTools := s.broker.(coretools.HasTools).Tools("precise")
 	kvm, _, _, err := s.broker.StartInstance(environs.StartInstanceParams{
