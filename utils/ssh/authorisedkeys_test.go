@@ -7,15 +7,15 @@ import (
 	"encoding/base64"
 	"strings"
 
+	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 )
 
 type AuthorisedKeysKeysSuite struct {
-	testing.FakeHomeSuite
+	gitjujutesting.FakeHomeSuite
 }
 
 const (

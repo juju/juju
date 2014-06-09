@@ -7,6 +7,8 @@ import (
 	"os"
 	"path/filepath"
 
+	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
@@ -37,16 +39,11 @@ func (s *fakeHomeSuite) TearDownTest(c *gc.C) {
 	c.Assert(osenv.JujuHome(), gc.Equals, "/home/eric/juju")
 }
 
-func (s *fakeHomeSuite) TestFakeHomeSetsUpHome(c *gc.C) {
-	sshDir := testing.HomePath(".ssh")
-	_, err := os.Stat(sshDir)
-	c.Assert(err, gc.IsNil)
-	jujuDir := testing.HomePath(".juju")
-	_, err = os.Stat(jujuDir)
-	c.Assert(err, gc.IsNil)
-	envFile := testing.HomePath(".juju", "environments.yaml")
-	_, err = os.Stat(envFile)
-	c.Assert(err, gc.IsNil)
+func (s *fakeHomeSuite) TestFakeHomeSetsUpJujuHome(c *gc.C) {
+	jujuDir := gitjujutesting.HomePath(".juju")
+	c.Assert(jujuDir, jc.IsDirectory)
+	envFile := filepath.Join(jujuDir, "environments.yaml")
+	c.Assert(envFile, jc.IsNonEmptyFile)
 }
 
 func (s *fakeHomeSuite) TestFakeHomeSetsConfigJujuHome(c *gc.C) {

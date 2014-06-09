@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
@@ -18,7 +19,7 @@ import (
 )
 
 type StoreSuite struct {
-	testing.FakeHomeSuite
+	gitjujutesting.FakeHomeSuite
 	server *charmtesting.MockStore
 	store  *charm.CharmStore
 }
@@ -374,7 +375,7 @@ func (s *StoreSuite) TestCharmURL(c *gc.C) {
 }
 
 type LocalRepoSuite struct {
-	testing.FakeHomeSuite
+	gitjujutesting.FakeHomeSuite
 	repo       *charm.LocalRepository
 	seriesPath string
 }

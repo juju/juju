@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/config"
@@ -101,27 +102,28 @@ const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
 
 const SampleCertName = "erewhemos"
 
-// FakeHomeSuite sets up a fake home directory before running tests.
-type FakeHomeSuite struct {
-	BaseSuite
-	Home *FakeHome
-}
-
-func (s *FakeHomeSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.Home = MakeFakeHome(c)
-}
-
 // FakeJujuHomeSuite isolates the user's home directory and
 // sets up a Juju home with a sample environment and certificate.
 type FakeJujuHomeSuite struct {
-	FakeHomeSuite
+	JujuOsEnvSuite
+	gitjujutesting.FakeHomeSuite
 	oldJujuHome string
 }
 
-func (s *FakeJujuHomeSuite) SetUpTest(c *gc.C) {
+func (s *FakeJujuHomeSuite) SetUpSuite(c *gc.C) {
+	s.JujuOsEnvSuite.SetUpTest(c)
 	s.FakeHomeSuite.SetUpTest(c)
-	jujuHome := HomePath(".juju")
+}
+
+func (s *FakeJujuHomeSuite) TearDownSuite(c *gc.C) {
+	s.FakeHomeSuite.SetUpTest(c)
+	s.JujuOsEnvSuite.SetUpTest(c)
+}
+
+func (s *FakeJujuHomeSuite) SetUpTest(c *gc.C) {
+	s.JujuOsEnvSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
+	jujuHome := gitjujutesting.HomePath(".juju")
 	err := os.Mkdir(jujuHome, 0700)
 	c.Assert(err, gc.IsNil)
 	s.oldJujuHome = osenv.SetJujuHome(jujuHome)
@@ -131,6 +133,7 @@ func (s *FakeJujuHomeSuite) SetUpTest(c *gc.C) {
 func (s *FakeJujuHomeSuite) TearDownTest(c *gc.C) {
 	osenv.SetJujuHome(s.oldJujuHome)
 	s.FakeHomeSuite.TearDownTest(c)
+	s.JujuOsEnvSuite.TearDownTest(c)
 }
 
 // MakeSampleJujuHome sets up a sample Juju environment.
