@@ -14,6 +14,11 @@ import (
 	"launchpad.net/goyaml"
 )
 
+const (
+	// charm/json-schema-v4-draft.json
+	SCHEMA_VERSION = "file://json-schema-v4-draft.json"
+)
+
 var actionNameRule = regexp.MustCompile("^[a-z](?:[a-z-]*[a-z])?$")
 var paramNameRule = regexp.MustCompile("^[a-z$](?:[a-z-]*[a-z])?$")
 
@@ -53,7 +58,7 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 
 		// Make sure the parameters are acceptable.
 		cleansedParams := make(map[string]interface{})
-		for paramName, param := range unmarshaledActions.ActionSpecs[name].Params {
+		for paramName, param := range actionSpec.Params {
 			if valid := paramNameRule.MatchString(paramName); !valid {
 				return nil, fmt.Errorf("bad param name %s", paramName)
 			}
@@ -67,18 +72,40 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 			cleansedParams[paramName] = cleansedParam
 		}
 
+		// // Make sure the returned value coerces properly
+		// cleansedTypedParams, ok := cleansedParams.(map[string]interface{})
+		// if !ok {
+		// 	return nil, fmt.Errorf("cleansed map not a map[string]interface{}")
+		// }
+
 		// Now substitute the cleansed map into the original.
 		var swap = unmarshaledActions.ActionSpecs[name]
 		swap.Params = cleansedParams
 		unmarshaledActions.ActionSpecs[name] = swap
 
-		// Make sure the new Params doc conforms to JSON-Schema
-		// Draft 4 (http://json-schema.org/latest/json-schema-core.html)
-		_, err = gojsonschema.NewJsonSchemaDocument(actionSpec.Params)
+		// Make sure the new Params doc can be loaded as a JSON-Schema
+		// document.
+		_, err = gojsonschema.NewJsonSchemaDocument(unmarshaledActions.ActionSpecs[name].Params)
 		if err != nil {
-			return nil, fmt.Errorf("invalid params schema for action schema %s: %v", name, err)
+			return nil, fmt.Errorf("invalid params schema for action %s: %v", name, err)
 		}
 
+		// Make sure the new Params doc conforms to JSON-Schema
+		// Draft 4 (http://json-schema.org/latest/json-schema-core.html)
+		jsonSchemaDefinition, err := gojsonschema.NewJsonSchemaDocument(SCHEMA_VERSION)
+		if err != nil {
+			return nil, fmt.Errorf("invalid json-schema at %s: %v", SCHEMA_VERSION, err)
+		}
+
+		validationResults := jsonSchemaDefinition.Validate(cleansedParams)
+
+		if !validationResults.Valid() {
+			errorStrings := make([]string, 0)
+			for i, schemaError := range validationResults.Errors() {
+				errorStrings = append(errorStrings, "json-schema error "+string(i)+": "+schemaError.String())
+			}
+			return nil, fmt.Errorf("Invalid params schema for action %s: %v", name, errorStrings)
+		}
 	}
 	return &unmarshaledActions, nil
 }

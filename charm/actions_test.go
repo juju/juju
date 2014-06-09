@@ -161,7 +161,7 @@ actions:
    snapshot:
       description: Take a snapshot of the database.
       params:
-         $schema: http://json-schema.org/draft-03/schema#
+         $schema: http://json-schema.org/draft-04/schema#
          outfile:
             description: The file to write out to.
             type: string
@@ -171,7 +171,7 @@ actions:
 			"snapshot": ActionSpec{
 				Description: "Take a snapshot of the database.",
 				Params: map[string]interface{}{
-					"$schema": "http://json-schema.org/draft-03/schema#",
+					"$schema": "http://json-schema.org/draft-04/schema#",
 					"outfile": map[string]interface{}{
 						"description": "The file to write out to.",
 						"type":        "string",
@@ -304,7 +304,7 @@ actions:
             type: string
             default: foo.bz2
 `,
-		expectedError: "invalid params schema for action schema snapshot: $schema must be of type string",
+		expectedError: "invalid params schema for action snapshot: $schema must be of type string",
 	}, {
 		description: "Malformed YAML: missing key in \"outfile\".",
 		yaml: `
@@ -327,7 +327,7 @@ actions:
    description: Take a snapshot of the database.
       params:
          outfile:
-            $schema: http://json-schema.org/draft-03/schema#
+            $schema: http://json-schema.org/draft-04/schema#
             description: The file to write out to.
             type: string
             default: foo.bz2
