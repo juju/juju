@@ -162,13 +162,10 @@ func (s *clientSuite) TestParamsEncoded(c *gc.C) {
 	reader, err := client.WatchDebugLog(params)
 	c.Assert(err, gc.IsNil)
 
-	bufReader := bufio.NewReader(reader)
-	location, err := bufReader.ReadString('\n')
-	c.Assert(err, gc.IsNil)
-	connectUrl, err := url.Parse(strings.TrimSpace(location))
-	c.Assert(err, gc.IsNil)
+	connectURL := connectURLFromReader(c, reader)
 
-	values := connectUrl.Query()
+	c.Assert(connectURL.Path, gc.Matches, "/log")
+	values := connectURL.Query()
 	c.Assert(values, jc.DeepEquals, url.Values{
 		"includeEntity": params.IncludeEntity,
 		"includeModule": params.IncludeModule,
@@ -179,6 +176,62 @@ func (s *clientSuite) TestParamsEncoded(c *gc.C) {
 		"level":         {"ERROR"},
 		"replay":        {"true"},
 	})
+}
+
+func (s *clientSuite) TestDebugLogRootPath(c *gc.C) {
+	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
+
+	// If the server is old, we log at "/log"
+	info := s.APIInfo(c)
+	info.EnvironTag = ""
+	apistate, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	defer apistate.Close()
+	reader, err := apistate.Client().WatchDebugLog(api.DebugLogParams{})
+	c.Assert(err, gc.IsNil)
+	connectURL := connectURLFromReader(c, reader)
+	c.Assert(connectURL.Path, gc.Matches, "/log")
+}
+
+func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
+	s.PatchValue(api.WebsocketDialConfig, echoURL(c))
+	// If the server supports it, we should log at "/environment/UUID/log"
+	environ, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	info := s.APIInfo(c)
+	info.EnvironTag = environ.Tag()
+	apistate, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	defer apistate.Close()
+	reader, err := apistate.Client().WatchDebugLog(api.DebugLogParams{})
+	c.Assert(err, gc.IsNil)
+	connectURL := connectURLFromReader(c, reader)
+	c.ExpectFailure("debug log always goes to /log for compatibility http://pad.lv/1326799")
+	c.Assert(connectURL.Path, gc.Matches, fmt.Sprintf("/%s/log", environ.UUID()))
+}
+
+func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
+	info := s.APIInfo(c)
+	// Backwards compatibility, passing EnvironTag = "" should just work
+	info.EnvironTag = ""
+	apistate, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	apistate.Close()
+
+	// Passing in the correct environment UUID should also work
+	environ, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	info.EnvironTag = environ.Tag()
+	apistate, err = api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	apistate.Close()
+
+	// Passing in a bad environment UUID should fail with a known error
+	info.EnvironTag = "environment-dead-beef-123456"
+	apistate, err = api.Open(info, api.DialOpts{})
+	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef-123456"`)
+	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
+	c.Assert(apistate, gc.IsNil)
 }
 
 // badReader raises err when Read is called.
@@ -202,4 +255,14 @@ func echoURL(c *gc.C) func(*websocket.Config) (io.ReadCloser, error) {
 		}()
 		return pr, nil
 	}
+}
+
+func connectURLFromReader(c *gc.C, rc io.ReadCloser) *url.URL {
+	bufReader := bufio.NewReader(rc)
+	location, err := bufReader.ReadString('\n')
+	c.Assert(err, gc.IsNil)
+	connectURL, err := url.Parse(strings.TrimSpace(location))
+	c.Assert(err, gc.IsNil)
+	rc.Close()
+	return connectURL
 }

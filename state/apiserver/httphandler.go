@@ -57,6 +57,32 @@ func (h *httpHandler) authenticate(r *http.Request) error {
 	return err
 }
 
+func (h *httpHandler) getEnvironUUID(r *http.Request) string {
+	return r.URL.Query().Get(":envuuid")
+}
+
+func (h *httpHandler) validateEnvironUUID(r *http.Request) error {
+	// Note: this is only true until we have support for multiple
+	// environments. For now, there is only one, so we make sure that is
+	// the one being addressed.
+	envUUID := h.getEnvironUUID(r)
+	logger.Tracef("got a request for env %q", envUUID)
+	if envUUID == "" {
+		return nil
+	}
+	env, err := h.state.Environment()
+	if err != nil {
+		logger.Infof("error looking up environment: %v", err)
+		return err
+	}
+	if env.UUID() != envUUID {
+		logger.Infof("environment uuid mismatch: %v != %v",
+			envUUID, env.UUID())
+		return common.UnknownEnvironmentError(envUUID)
+	}
+	return nil
+}
+
 // authError sends an unauthorized error.
 func (h *httpHandler) authError(w http.ResponseWriter, sender errorSender) {
 	w.Header().Set("WWW-Authenticate", `Basic realm="juju"`)

@@ -105,8 +105,16 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
 
+	environ, err := a.root.srv.state.Environment()
+	if err != nil {
+		return params.LoginResult{}, err
+	}
+
 	a.root.rpcConn.Serve(newRoot, serverError)
-	return params.LoginResult{hostPorts}, nil
+	return params.LoginResult{
+		Servers:    hostPorts,
+		EnvironTag: environ.Tag(),
+	}, nil
 }
 
 var doCheckCreds = checkCreds
@@ -184,4 +192,16 @@ func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticat
 	pingTimeout := newPingTimeout(action, maxClientPingInterval)
 	newRoot.resources.RegisterNamed("pingTimeout", pingTimeout)
 	return nil
+}
+
+// errRoot implements the API that a client first sees
+// when connecting to the API. It exposes the same API as initialRoot, except
+// it returns the requested error when the client makes any request.
+type errRoot struct {
+	err error
+}
+
+// Admin conforms to the same API as initialRoot, but we'll always return (nil, err)
+func (r *errRoot) Admin(id string) (*srvAdmin, error) {
+	return nil, r.err
 }
