@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 )
 
@@ -40,15 +41,22 @@ type Server struct {
 	dataDir     string
 	logDir      string
 	limiter     utils.Limiter
+	validator   LoginValidator
 }
+
+// LoginValidator functions are used to decide whether login requests
+// are to be allowed. The validator is called before credentials are
+// checked.
+type LoginValidator func(params.Creds) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Addr    string
-	Cert    []byte
-	Key     []byte
-	DataDir string
-	LogDir  string
+	Addr      string
+	Cert      []byte
+	Key       []byte
+	DataDir   string
+	LogDir    string
+	Validator LoginValidator
 }
 
 // NewServer serves the given state by accepting requests on the given
@@ -65,11 +73,12 @@ func NewServer(s *state.State, cfg ServerConfig) (*Server, error) {
 		return nil, err
 	}
 	srv := &Server{
-		state:   s,
-		addr:    lis.Addr(),
-		dataDir: cfg.DataDir,
-		logDir:  cfg.LogDir,
-		limiter: utils.NewLimiter(loginRateLimit),
+		state:     s,
+		addr:      lis.Addr(),
+		dataDir:   cfg.DataDir,
+		logDir:    cfg.LogDir,
+		limiter:   utils.NewLimiter(loginRateLimit),
+		validator: cfg.Validator,
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using
 	// as an RPC server.
