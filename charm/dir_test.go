@@ -17,11 +17,11 @@ import (
 
 	"github.com/juju/juju/charm"
 	charmtesting "github.com/juju/juju/charm/testing"
-	"github.com/juju/juju/testing"
+	"github.com/juju/testing"
 )
 
 type DirSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&DirSuite{})
