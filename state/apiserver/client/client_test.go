@@ -13,9 +13,11 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -30,7 +32,6 @@ import (
 	"github.com/juju/juju/state/apiserver/client"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 
@@ -684,26 +685,28 @@ func (s *clientSuite) TestClientServiceDeployWithNetworks(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 	curl, bundle := addCharm(c, store, "dummy")
-	mem4g := constraints.MustParse("mem=4G")
+	cons := constraints.MustParse("mem=4G networks=^net3")
 
 	// Check for invalid network tags handling.
 	err := s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", mem4g, "",
-		[]string{"net1", "net2"}, []string{"net3"},
+		curl.String(), "service", 3, "", cons, "",
+		[]string{"net1", "net2"},
 	)
 	c.Assert(err, gc.ErrorMatches, `"net1" is not a valid network tag`)
 
 	err = s.APIState.Client().ServiceDeployWithNetworks(
-		curl.String(), "service", 3, "", mem4g, "",
-		[]string{"network-net1", "network-net2"}, []string{"network-net3"},
+		curl.String(), "service", 3, "", cons, "",
+		[]string{"network-net1", "network-net2"},
 	)
 	c.Assert(err, gc.IsNil)
-	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, mem4g)
+	service := s.assertPrincipalDeployed(c, "service", curl, false, bundle, cons)
 
-	include, exclude, err := service.Networks()
+	networks, err := service.Networks()
 	c.Assert(err, gc.IsNil)
-	c.Assert(include, gc.DeepEquals, []string{"net1", "net2"})
-	c.Assert(exclude, gc.DeepEquals, []string{"net3"})
+	c.Assert(networks, gc.DeepEquals, []string{"net1", "net2"})
+	serviceCons, err := service.Constraints()
+	c.Assert(err, gc.IsNil)
+	c.Assert(serviceCons, gc.DeepEquals, cons)
 }
 
 func (s *clientSuite) assertPrincipalDeployed(c *gc.C, serviceName string, curl *charm.URL, forced bool, bundle charm.Charm, cons constraints.Value) *state.Service {
@@ -846,7 +849,7 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
 }
 
-func (s *clientSuite) deployServiceForTests(c *gc.C, store *coretesting.MockCharmStore) {
+func (s *clientSuite) deployServiceForTests(c *gc.C, store *charmtesting.MockCharmStore) {
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(curl.String(),
 		"service", 1, "", constraints.Value{}, "",
@@ -1138,19 +1141,19 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	}
 }
 
-func makeMockCharmStore() (store *coretesting.MockCharmStore, restore func()) {
-	mockStore := coretesting.NewMockCharmStore()
+func makeMockCharmStore() (store *charmtesting.MockCharmStore, restore func()) {
+	mockStore := charmtesting.NewMockCharmStore()
 	origStore := client.CharmStore
 	client.CharmStore = mockStore
 	return mockStore, func() { client.CharmStore = origStore }
 }
 
-func addCharm(c *gc.C, store *coretesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
+func addCharm(c *gc.C, store *charmtesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
 	return addSeriesCharm(c, store, "precise", name)
 }
 
-func addSeriesCharm(c *gc.C, store *coretesting.MockCharmStore, series, name string) (*charm.URL, charm.Charm) {
-	bundle := coretesting.Charms.Bundle(c.MkDir(), name)
+func addSeriesCharm(c *gc.C, store *charmtesting.MockCharmStore, series, name string) (*charm.URL, charm.Charm) {
+	bundle := charmtesting.Charms.Bundle(c.MkDir(), name)
 	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
 	err := store.SetCharm(curl, bundle)
@@ -1960,7 +1963,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 
 	// Add a charm, without uploading it to storage, to
 	// check that AddCharm does not try to do it.
-	charmDir := coretesting.Charms.Dir("dummy")
+	charmDir := charmtesting.Charms.Dir("dummy")
 	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
 	curl := charm.MustParseURL("cs:quantal/" + ident)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)

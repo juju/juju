@@ -104,7 +104,7 @@ func (s *constraintsValidationSuite) TestServiceConstraints(c *gc.C) {
 		c.Check(err, gc.IsNil)
 		u, err := service.AddUnit()
 		c.Check(err, gc.IsNil)
-		ucons, err := state.UnitConstraints(u)
+		ucons, err := u.Constraints()
 		c.Check(err, gc.IsNil)
 		c.Check(*ucons, jc.DeepEquals, constraints.MustParse(t.expected))
 	}

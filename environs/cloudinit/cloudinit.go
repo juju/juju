@@ -12,6 +12,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/utils"
+	"github.com/juju/utils/apt"
+	"github.com/juju/utils/proxy"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
@@ -25,9 +28,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/upstart"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/apt"
-	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/version"
 )
 
@@ -98,11 +98,8 @@ type MachineConfig struct {
 	// is.  If the machine is not a container, then the type is "".
 	MachineContainerType instance.ContainerType
 
-	// IncludeNetworks holds a list of networks the machine should be on.
-	IncludeNetworks []string
-
-	// ExcludeNetworks holds a list of networks the machine should not be on.
-	ExcludeNetworks []string
+	// Networks holds a list of networks the machine should be on.
+	Networks []string
 
 	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
@@ -537,7 +534,7 @@ func MaybeAddCloudArchiveCloudTools(c *cloudinit.Config, series string) {
 
 // HasNetworks returns if there are any networks set.
 func (cfg *MachineConfig) HasNetworks() bool {
-	return len(cfg.IncludeNetworks) > 0 || len(cfg.ExcludeNetworks) > 0
+	return len(cfg.Networks) > 0 || cfg.Constraints.HaveNetworks()
 }
 
 func shquote(p string) string {

@@ -8,16 +8,17 @@ import (
 	"os"
 	"path/filepath"
 
+	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 type FileVarSuite struct {
-	testing.FakeHomeSuite
+	gitjujutesting.FakeHomeSuite
 	ctx         *cmd.Context
 	ValidPath   string
 	InvalidPath string // invalid path refers to a file which is not readable

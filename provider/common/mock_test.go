@@ -19,7 +19,7 @@ import (
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)
-type startInstanceFunc func(string, constraints.Value, []string, []string, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error)
+type startInstanceFunc func(string, constraints.Value, []string, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error)
 type stopInstancesFunc func([]instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config
@@ -55,8 +55,7 @@ func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (instan
 	return env.startInstance(
 		args.Placement,
 		args.Constraints,
-		args.MachineConfig.IncludeNetworks,
-		args.MachineConfig.ExcludeNetworks,
+		args.MachineConfig.Networks,
 		args.Tools,
 		args.MachineConfig)
 }

@@ -13,7 +13,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/testing"
+	charmtesting "github.com/juju/juju/charm/testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -25,11 +25,11 @@ type CharmSuite struct{}
 var _ = gc.Suite(&CharmSuite{})
 
 func (s *CharmSuite) TestRead(c *gc.C) {
-	bPath := testing.Charms.BundlePath(c.MkDir(), "dummy")
+	bPath := charmtesting.Charms.BundlePath(c.MkDir(), "dummy")
 	ch, err := charm.Read(bPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "dummy")
-	dPath := testing.Charms.DirPath("dummy")
+	dPath := charmtesting.Charms.DirPath("dummy")
 	ch, err = charm.Read(dPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ch.Meta().Name, gc.Equals, "dummy")
@@ -70,6 +70,17 @@ func checkDummy(c *gc.C, f charm.Charm, path string) {
 	c.Assert(f.Revision(), gc.Equals, 1)
 	c.Assert(f.Meta().Name, gc.Equals, "dummy")
 	c.Assert(f.Config().Options["title"].Default, gc.Equals, "My Title")
+	c.Assert(f.Actions(), gc.DeepEquals,
+		&charm.Actions{
+			map[string]charm.ActionSpec{
+				"snapshot": charm.ActionSpec{
+					Description: "Take a snapshot of the database.",
+					Params: map[string]interface{}{
+						"outfile": map[string]interface{}{
+							"description": "The file to write out to.",
+							"type":        "string",
+							"default":     "foo.bz2",
+						}}}}})
 	switch f := f.(type) {
 	case *charm.Bundle:
 		c.Assert(f.Path, gc.Equals, path)

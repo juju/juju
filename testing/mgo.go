@@ -22,11 +22,11 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/utils"
 )
 
 var (
@@ -295,7 +295,6 @@ func (s *MgoSuite) SetUpSuite(c *gc.C) {
 	if MgoServer.addr == "" {
 		c.Fatalf("No Mongo Server Address, MgoSuite tests must be run with MgoTestPackage")
 	}
-	mgo.SetDebug(true)
 	mgo.SetStats(true)
 	// Make tests that use password authentication faster.
 	utils.FastInsecureHash = true

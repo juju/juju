@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/utils"
+	"github.com/juju/utils/apt"
+
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/apt"
 )
 
 var requiredPackages = []string{

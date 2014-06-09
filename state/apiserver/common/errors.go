@@ -45,6 +45,23 @@ func IsNoAddressSetError(err error) bool {
 	return ok
 }
 
+type unknownEnvironmentError struct {
+	uuid string
+}
+
+func (e *unknownEnvironmentError) Error() string {
+	return fmt.Sprintf("unknown environment: %q", e.uuid)
+}
+
+func UnknownEnvironmentError(uuid string) error {
+	return &unknownEnvironmentError{uuid: uuid}
+}
+
+func IsUnknownEnviromentError(err error) bool {
+	_, ok := err.(*unknownEnvironmentError)
+	return ok
+}
+
 var (
 	ErrBadId          = stderrors.New("id not found")
 	ErrBadCreds       = stderrors.New("invalid entity name or password")
@@ -106,6 +123,8 @@ func ServerError(err error) *params.Error {
 		code = params.CodeNoAddressSet
 	case state.IsNotProvisionedError(err):
 		code = params.CodeNotProvisioned
+	case IsUnknownEnviromentError(err):
+		code = params.CodeNotFound
 	default:
 		code = params.ErrCode(err)
 	}

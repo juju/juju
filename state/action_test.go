@@ -4,7 +4,6 @@
 package state_test
 
 import (
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -131,15 +130,6 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 }
 
 func (s *ActionSuite) TestFail(c *gc.C) {
-	// TODO(jcw4): when action results are implemented we should be
-	// checking for a Fail result after calling Fail(), rather than
-	// sniffing the logs
-	defer loggo.ResetWriters()
-	logger := loggo.GetLogger("test")
-	logger.SetLogLevel(loggo.DEBUG)
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("actions-tester", tw, loggo.DEBUG), gc.IsNil)
-
 	// get unit, add an action, retrieve that action
 	unit, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
@@ -151,18 +141,113 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	action, err := s.State.Action(id)
 	c.Assert(err, gc.IsNil)
 
-	// fail the action, and verify that it succeeds (right now, just by
-	// sniffing the logs)
+	// ensure no action results for this action
+	results, err := s.State.ActionResultsForAction(action.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 0)
+
+	// fail the action, and verify that it succeeds
 	reason := "test fail reason"
 	err = action.Fail(reason)
 	c.Assert(err, gc.IsNil)
-	// TODO(jcw4): replace with action results check when they're implemented
-	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{loggo.WARNING, reason}})
+
+	// ensure we now have a result for this action
+	results, err = s.State.ActionResultsForAction(action.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 1)
+
+	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
+	c.Assert(results[0].Output(), gc.Equals, reason)
+
+	// ensure we find the same results when searching by unit name
+	results, err = s.State.ActionResultsForUnit(unit.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 1)
+
+	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
+	c.Assert(results[0].Output(), gc.Equals, reason)
 
 	// validate that a failed action is no longer returned by UnitActions.
 	actions, err := s.State.UnitActions(unit.Name())
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 0)
+}
+
+func (s *ActionSuite) TestComplete(c *gc.C) {
+	// get unit, add an action, retrieve that action
+	unit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit)
+
+	id, err := unit.AddAction("action1", nil)
+	c.Assert(err, gc.IsNil)
+
+	action, err := s.State.Action(id)
+	c.Assert(err, gc.IsNil)
+
+	// ensure no action results for this action
+	results, err := s.State.ActionResultsForAction(action.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 0)
+
+	// complete the action, and verify that it succeeds
+	output := "action ran successfully"
+	err = action.Complete(output)
+	c.Assert(err, gc.IsNil)
+
+	// ensure we now have a result for this action
+	results, err = s.State.ActionResultsForAction(action.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 1)
+
+	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
+	c.Assert(results[0].Output(), gc.Equals, output)
+
+	// ensure we find the same results when searching by unit name
+	results, err = s.State.ActionResultsForUnit(unit.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 1)
+
+	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
+	c.Assert(results[0].Output(), gc.Equals, output)
+
+	// validate that a completed action is no longer returned by UnitActions.
+	actions, err := s.State.UnitActions(unit.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(actions), gc.Equals, 0)
+}
+
+func (s *ActionSuite) TestGetActionIdPrefix(c *gc.C) {
+	getPrefixTest(c, state.GetActionIdPrefix, state.ActionMarker)
+}
+
+func (s *ActionSuite) TestGetActionResultIdPrefix(c *gc.C) {
+	getPrefixTest(c, state.GetActionResultIdPrefix, state.ActionResultMarker)
+}
+
+type getPrefixFn func(string) string
+
+func getPrefixTest(c *gc.C, fn getPrefixFn, marker string) {
+	tests := []struct {
+		given    string
+		expected string
+	}{
+		{given: "asdf" + marker + "asdf" + marker, expected: "asdf"},
+		{given: "asdf" + marker + "asdf", expected: "asdf"},
+		{given: "asdf" + marker, expected: "asdf"},
+		{given: marker, expected: ""},
+		{given: marker + "asdf", expected: ""},
+		{given: "", expected: ""},
+	}
+
+	for _, test := range tests {
+		obtained := fn(test.given)
+		c.Assert(obtained, gc.Equals, test.expected)
+	}
 }
 
 // assertSaneActionId verifies that the id is of the expected

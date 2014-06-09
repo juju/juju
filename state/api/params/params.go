@@ -8,10 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/juju/utils/proxy"
+
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
@@ -154,10 +155,7 @@ type ServiceDeploy struct {
 	ConfigYAML    string // Takes precedence over config if both are present.
 	Constraints   constraints.Value
 	ToMachineSpec string
-	// The following fields are supported from 1.17.7 onwards and
-	// ignored before that.
-	IncludeNetworks []string
-	ExcludeNetworks []string
+	Networks      []string
 }
 
 // ServiceUpdate holds the parameters for making the ServiceUpdate call.
@@ -729,7 +727,8 @@ type APIHostPortsResult struct {
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
-	Servers [][]instance.HostPort
+	Servers    [][]instance.HostPort
+	EnvironTag string
 }
 
 // EnsureAvailability contains arguments for

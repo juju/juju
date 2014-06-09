@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/juju/utils"
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	"github.com/juju/juju/environs/simplestreams"
 	sstesting "github.com/juju/juju/environs/simplestreams/testing"
-	"github.com/juju/juju/utils"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")

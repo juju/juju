@@ -10,6 +10,7 @@ type mockAPIState struct {
 	close func(juju.APIState) error
 
 	apiHostPorts [][]instance.HostPort
+	environTag   string
 }
 
 func (s *mockAPIState) Close() error {
@@ -21,6 +22,10 @@ func (s *mockAPIState) Close() error {
 
 func (s *mockAPIState) APIHostPorts() [][]instance.HostPort {
 	return s.apiHostPorts
+}
+
+func (s *mockAPIState) EnvironTag() string {
+	return s.environTag
 }
 
 func panicAPIOpen(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {

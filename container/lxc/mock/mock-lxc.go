@@ -11,10 +11,10 @@ import (
 	"sync"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/container"
-	"github.com/juju/juju/utils"
 )
 
 // This file provides a mock implementation of the golxc interfaces

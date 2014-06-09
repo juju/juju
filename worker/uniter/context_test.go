@@ -12,6 +12,8 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	"github.com/juju/utils/proxy"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
@@ -21,8 +23,6 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	apiuniter "github.com/juju/juju/state/api/uniter"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )

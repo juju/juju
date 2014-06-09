@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
@@ -40,7 +41,7 @@ func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentSet(c *gc.C) {
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *gc.C) {
-	envPath := coretesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, gc.IsNil)
 	env, err := envcmd.GetDefaultEnvironment()
@@ -109,7 +110,7 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInit(c *gc.C) {
 }
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInitErrors(c *gc.C) {
-	envPath := coretesting.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, gc.IsNil)
 	cmd, _ := prepareEnvCommand(c, "")

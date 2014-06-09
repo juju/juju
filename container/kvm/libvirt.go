@@ -19,7 +19,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
 )
 
 var (

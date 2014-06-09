@@ -519,6 +519,7 @@ func (p *CharmPublisher) Revision() int {
 type CharmDir interface {
 	Meta() *charm.Meta
 	Config() *charm.Config
+	Actions() *charm.Actions
 	SetRevision(revision int)
 	BundleTo(w io.Writer) error
 }
@@ -668,6 +669,7 @@ func (w *charmWriter) finish() error {
 		id.(bson.ObjectId),
 		w.charm.Meta(),
 		w.charm.Config(),
+		w.charm.Actions(),
 	}
 	if err = charms.Insert(&charm); err != nil {
 		err = maybeConflict(err)
@@ -685,6 +687,7 @@ type CharmInfo struct {
 	fileId   bson.ObjectId
 	meta     *charm.Meta
 	config   *charm.Config
+	actions  *charm.Actions
 }
 
 // Statically ensure CharmInfo is a charm.Charm.
@@ -719,6 +722,11 @@ func (ci *CharmInfo) Meta() *charm.Meta {
 // Config returns the charm.Config details for the stored charm.
 func (ci *CharmInfo) Config() *charm.Config {
 	return ci.config
+}
+
+// Actions returns the charm.ACtions details for the stored charm.
+func (ci *CharmInfo) Actions() *charm.Actions {
+	return ci.actions
 }
 
 var ltsReleases = map[string]bool{
@@ -814,6 +822,7 @@ func (s *Store) getRevisions(url *charm.URL, n int) ([]*CharmInfo, error) {
 			cdoc.FileId,
 			cdoc.Meta,
 			cdoc.Config,
+			cdoc.Actions,
 		})
 	}
 	return infos, nil
@@ -908,6 +917,7 @@ type charmDoc struct {
 	FileId   bson.ObjectId
 	Meta     *charm.Meta
 	Config   *charm.Config
+	Actions  *charm.Actions
 }
 
 // LockUpdates acquires a server-side lock for updating a single charm

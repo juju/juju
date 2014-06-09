@@ -4,11 +4,11 @@
 package uniter_test
 
 import (
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/state/api/uniter"
-	"github.com/juju/juju/utils"
 )
 
 type charmSuite struct {

@@ -9,13 +9,13 @@ import (
 	"path"
 	"sort"
 
+	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils/set"
 )
 
 // ParseMetadataFromDir loads ImageMetadata from the specified directory.

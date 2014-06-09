@@ -12,24 +12,20 @@ import (
 // service or machine. The document ID field is the globalKey of a
 // service or a machine.
 type requestedNetworksDoc struct {
-	Id              string   `bson:"_id"`
-	IncludeNetworks []string `bson:"include"`
-	ExcludeNetworks []string `bson:"exclude"`
+	Id       string   `bson:"_id"`
+	Networks []string `bson:"networks"`
 }
 
-func newRequestedNetworksDoc(includeNetworks, excludeNetworks []string) *requestedNetworksDoc {
-	return &requestedNetworksDoc{
-		IncludeNetworks: includeNetworks,
-		ExcludeNetworks: excludeNetworks,
-	}
+func newRequestedNetworksDoc(networks []string) *requestedNetworksDoc {
+	return &requestedNetworksDoc{Networks: networks}
 }
 
-func createRequestedNetworksOp(st *State, id string, includeNetworks, excludeNetworks []string) txn.Op {
+func createRequestedNetworksOp(st *State, id string, networks []string) txn.Op {
 	return txn.Op{
 		C:      st.requestedNetworks.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
-		Insert: newRequestedNetworksDoc(includeNetworks, excludeNetworks),
+		Insert: newRequestedNetworksDoc(networks),
 	}
 }
 
@@ -43,17 +39,15 @@ func removeRequestedNetworksOp(st *State, id string) txn.Op {
 	}
 }
 
-func readRequestedNetworks(st *State, id string) (includeNetworks, excludeNetworks []string, err error) {
+func readRequestedNetworks(st *State, id string) ([]string, error) {
 	doc := requestedNetworksDoc{}
-	if err = st.requestedNetworks.FindId(id).One(&doc); err == mgo.ErrNotFound {
+	err := st.requestedNetworks.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
 		// In 1.17.7+ we always create a requestedNetworksDoc for each
 		// service or machine we create, but in legacy databases this
 		// is not the case. We ignore the error here for
 		// backwards-compatibility.
-		err = nil
-	} else if err == nil {
-		includeNetworks = doc.IncludeNetworks
-		excludeNetworks = doc.ExcludeNetworks
+		return nil, nil
 	}
-	return includeNetworks, excludeNetworks, err
+	return doc.Networks, err
 }

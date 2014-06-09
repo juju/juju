@@ -16,12 +16,12 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	utilexec "github.com/juju/utils/exec"
+	"github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/uniter"
-	utilexec "github.com/juju/juju/utils/exec"
-	"github.com/juju/juju/utils/proxy"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )

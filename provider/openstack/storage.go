@@ -10,11 +10,11 @@ import (
 	"time"
 
 	jujuerrors "github.com/juju/errors"
+	"github.com/juju/utils"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/swift"
 
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils"
 )
 
 // openstackstorage implements storage.Storage on an OpenStack container.

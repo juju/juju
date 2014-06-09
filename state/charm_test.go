@@ -12,8 +12,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/testing"
 )
 
 type CharmSuite struct {
@@ -49,6 +49,22 @@ func (s *CharmSuite) TestCharm(c *gc.C) {
 			Type:        "string",
 		},
 	)
+	actions := dummy.Actions()
+	c.Assert(actions, gc.NotNil)
+	c.Assert(actions.ActionSpecs, gc.Not(gc.HasLen), 0)
+	c.Assert(actions.ActionSpecs["snapshot"], gc.NotNil)
+	c.Assert(actions.ActionSpecs["snapshot"].Params, gc.Not(gc.HasLen), 0)
+	c.Assert(actions.ActionSpecs["snapshot"], gc.DeepEquals,
+		charm.ActionSpec{
+			Description: "Take a snapshot of the database.",
+			Params: map[string]interface{}{
+				"outfile": map[string]interface{}{
+					"description": "The file to write out to.",
+					"type":        "string",
+					"default":     "foo.bz2",
+				},
+			},
+		})
 }
 
 func (s *CharmSuite) TestCharmNotFound(c *gc.C) {
@@ -79,7 +95,7 @@ func assertCustomCharm(c *gc.C, ch *state.Charm, series string, meta *charm.Meta
 }
 
 func assertStandardCharm(c *gc.C, ch *state.Charm, series string) {
-	chd := testing.Charms.Dir(ch.Meta().Name)
+	chd := charmtesting.Charms.Dir(ch.Meta().Name)
 	assertCustomCharm(c, ch, series, chd.Meta(), chd.Config(), chd.Revision())
 }
 
@@ -94,7 +110,7 @@ func forEachStandardCharm(c *gc.C, f func(name string)) {
 
 func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
-		chd := testing.Charms.Dir(name)
+		chd := charmtesting.Charms.Dir(name)
 		meta := chd.Meta()
 		config := chd.Config()
 		revision := chd.Revision()
@@ -120,11 +136,31 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	forEachStandardCharm(c, func(name string) {
-		chd := testing.Charms.Dir(name)
+		chd := charmtesting.Charms.Dir(name)
 		meta := chd.Meta()
 
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
 		assertCustomCharm(c, ch, "quantal", meta, config, 123)
+	})
+}
+
+var actionsYaml = `
+actions:
+   dump:
+      description: Dump the database to STDOUT.
+      params:
+         redirect-file:
+            description: Redirect to a log file.
+            type: string
+`
+
+func (s *CharmTestHelperSuite) TestActionsCharm(c *gc.C) {
+	actions, err := charm.ReadActionsYaml(bytes.NewBuffer([]byte(actionsYaml)))
+	c.Assert(err, gc.IsNil)
+
+	forEachStandardCharm(c, func(name string) {
+		ch := s.AddActionsCharm(c, name, actionsYaml, 123)
+		c.Assert(ch.Actions(), gc.DeepEquals, actions)
 	})
 }
 
@@ -135,7 +171,7 @@ description: blah blah
 
 func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
-		chd := testing.Charms.Dir(name)
+		chd := charmtesting.Charms.Dir(name)
 		config := chd.Config()
 		metaYaml := "name: " + name + metaYamlSnippet
 		meta, err := charm.ReadMeta(bytes.NewBuffer([]byte(metaYaml)))

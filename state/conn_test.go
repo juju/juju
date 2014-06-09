@@ -79,8 +79,8 @@ func (s *ConnSuite) AddTestingService(c *gc.C, name string, ch *state.Charm) *st
 	return state.AddTestingService(c, s.State, name, ch)
 }
 
-func (s *ConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, includeNetworks, excludeNetworks []string) *state.Service {
-	return state.AddTestingServiceWithNetworks(c, s.State, name, ch, includeNetworks, excludeNetworks)
+func (s *ConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *state.Charm, networks []string) *state.Service {
+	return state.AddTestingServiceWithNetworks(c, s.State, name, ch, networks)
 }
 
 func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
@@ -92,6 +92,12 @@ func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
 // revision.
 func (s *ConnSuite) AddConfigCharm(c *gc.C, name, configYaml string, revision int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "config.yaml", configYaml, "quantal", revision)
+}
+
+// AddActionsCharm clones a testing charm, replaces its actions schema with
+// the given YAML, and adds it to the state, using the given revision.
+func (s *ConnSuite) AddActionsCharm(c *gc.C, name, actionsYaml string, revision int) *state.Charm {
+	return state.AddCustomCharm(c, s.State, name, "actions.yaml", actionsYaml, "quantal", revision)
 }
 
 // AddMetaCharm clones a testing charm, replaces its metadata with the

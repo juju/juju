@@ -14,15 +14,16 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	corecharm "github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/uniter"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/worker/uniter/charm"
 )
 
@@ -77,7 +78,7 @@ func (s *BundlesDirSuite) AddCharm(c *gc.C) (*uniter.Charm, *state.Charm, []byte
 	curl := corecharm.MustParseURL("cs:quantal/dummy-1")
 	surl, err := url.Parse(s.URL("/some/charm.bundle"))
 	c.Assert(err, gc.IsNil)
-	bunpath := coretesting.Charms.BundlePath(c.MkDir(), "dummy")
+	bunpath := charmtesting.Charms.BundlePath(c.MkDir(), "dummy")
 	bun, err := corecharm.ReadBundle(bunpath)
 	c.Assert(err, gc.IsNil)
 	bundata, hash := readHash(c, bunpath)

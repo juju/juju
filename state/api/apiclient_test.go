@@ -9,11 +9,13 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/juju/utils/parallel"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/utils/parallel"
+	"github.com/juju/juju/state/api/params"
+	coretesting "github.com/juju/juju/testing"
 )
 
 type apiclientSuite struct {
@@ -21,6 +23,12 @@ type apiclientSuite struct {
 }
 
 var _ = gc.Suite(&apiclientSuite{})
+
+type websocketSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&websocketSuite{})
 
 func (s *apiclientSuite) TestOpenPrefersLocalhostIfPresent(c *gc.C) {
 	// Create a socket that proxies to the API server though our localhost address.
@@ -115,7 +123,34 @@ func (s *apiclientSuite) TestOpenMultipleError(c *gc.C) {
 	addr := listener.Addr().String()
 	info.Addrs = []string{addr, addr, addr}
 	_, err = api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `timed out connecting to "wss://.*/"`)
+	c.Assert(err, gc.ErrorMatches, `unable to connect to "wss://.*/"`)
+}
+
+func (s *apiclientSuite) TestOpenPassesEnvironTag(c *gc.C) {
+	info := s.APIInfo(c)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	// TODO(jam): 2014-06-05 http://pad.lv/1326802
+	// we want to test this eventually, but for now s.APIInfo uses
+	// conn.StateInfo() which doesn't know about EnvironTag.
+	// c.Check(info.EnvironTag, gc.Equals, env.Tag())
+	// c.Assert(info.EnvironTag, gc.Not(gc.Equals), "")
+	// We start by ensuring we have an invalid tag, and Open should fail.
+	info.EnvironTag = "environment-bad-tag"
+	_, err = api.Open(info, api.DialOpts{})
+	c.Check(err, gc.ErrorMatches, `unknown environment: "bad-tag"`)
+	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	// Now set it to the right tag, and we should succeed.
+	info.EnvironTag = env.Tag()
+	st, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	st.Close()
+	// Backwards compatibility, we should succeed if we pass just "" as the
+	// environ tag
+	info.EnvironTag = ""
+	st, err = api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	st.Close()
 }
 
 func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
@@ -125,4 +160,18 @@ func (s *apiclientSuite) TestDialWebsocketStopped(c *gc.C) {
 	result, err := f(stopped)
 	c.Assert(err, gc.Equals, parallel.ErrStopped)
 	c.Assert(result, gc.IsNil)
+}
+
+func (*websocketSuite) TestSetUpWebsocketConfig(c *gc.C) {
+	conf, err := api.SetUpWebsocket("0.1.2.3:1234", "", nil)
+	c.Assert(err, gc.IsNil)
+	c.Check(conf.Location.String(), gc.Equals, "wss://0.1.2.3:1234/")
+	c.Check(conf.Origin.String(), gc.Equals, "http://localhost/")
+}
+
+func (*websocketSuite) TestSetUpWebsocketConfigHandlesEnvironUUID(c *gc.C) {
+	conf, err := api.SetUpWebsocket("0.1.2.3:1234", "dead-beef-1234", nil)
+	c.Assert(err, gc.IsNil)
+	c.Check(conf.Location.String(), gc.Equals, "wss://0.1.2.3:1234/environment/dead-beef-1234/api")
+	c.Check(conf.Origin.String(), gc.Equals, "http://localhost/")
 }

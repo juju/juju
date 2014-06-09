@@ -4,13 +4,20 @@
 package apiserver_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"fmt"
 	"io"
+	"net"
 	stdtesting "testing"
 	"time"
 
+	"code.google.com/p/go.net/websocket"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/cert"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
@@ -18,7 +25,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -207,4 +213,49 @@ func (s *serverSuite) assertAlive(c *gc.C, entity agentAliver, isAlive bool) {
 	alive, err := entity.AgentAlive()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, isAlive)
+}
+
+func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
+	origin := "http://localhost/"
+	url := fmt.Sprintf("wss://%s%s", addr, path)
+	config, err := websocket.NewConfig(url, origin)
+	c.Assert(err, gc.IsNil)
+	pool := x509.NewCertPool()
+	xcert, err := cert.ParseCert(coretesting.CACert)
+	c.Assert(err, gc.IsNil)
+	pool.AddCert(xcert)
+	config.TlsConfig = &tls.Config{RootCAs: pool}
+	return websocket.DialConfig(config)
+}
+
+func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
+	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
+	// for the correct location, but other Paths should fail.
+	srv, err := apiserver.NewServer(
+		s.State, "localhost:0",
+		[]byte(coretesting.ServerCert), []byte(coretesting.ServerKey),
+		"", "")
+	c.Assert(err, gc.IsNil)
+	defer srv.Stop()
+	// We have to use 'localhost' because that is what the TLS cert says.
+	// So find just the Port for the server
+	_, portString, err := net.SplitHostPort(srv.Addr())
+	c.Assert(err, gc.IsNil)
+	addr := "localhost:" + portString
+	// '/' should be fine
+	conn, err := dialWebsocket(c, addr, "/")
+	c.Assert(err, gc.IsNil)
+	conn.Close()
+	// '/environment/ENVIRONUUID/api' should be fine
+	conn, err = dialWebsocket(c, addr, "/environment/dead-beef-123456/api")
+	c.Assert(err, gc.IsNil)
+	conn.Close()
+
+	// '/randompath' is not ok
+	conn, err = dialWebsocket(c, addr, "/randompath")
+	// Unfortunately go.net/websocket just returns Bad Status, it doesn't
+	// give us any information (whether this was a 404 Not Found, Internal
+	// Server Error, 200 OK, etc.)
+	c.Assert(err, gc.ErrorMatches, `websocket.Dial wss://localhost:\d+/randompath: bad status`)
+	c.Assert(conn, gc.IsNil)
 }

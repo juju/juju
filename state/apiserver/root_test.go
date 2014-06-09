@@ -4,8 +4,11 @@
 package apiserver_test
 
 import (
+	"fmt"
+	"reflect"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -81,4 +84,29 @@ func (r *rootSuite) TestPingTimeoutStopped(c *gc.C) {
 		c.Fatalf("action triggered after Stop()")
 	case <-time.After(testing.ShortWait):
 	}
+}
+
+type errRootSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&errRootSuite{})
+
+func (s *errRootSuite) TestErrorRoot(c *gc.C) {
+	origErr := fmt.Errorf("my custom error")
+	errRoot := apiserver.NewErrRoot(origErr)
+	st, err := errRoot.Admin("")
+	c.Check(st, gc.IsNil)
+	c.Check(err, gc.Equals, origErr)
+}
+
+func (s *errRootSuite) TestErrorRootViaRPC(c *gc.C) {
+	origErr := fmt.Errorf("my custom error")
+	errRoot := apiserver.NewErrRoot(origErr)
+	val := rpcreflect.ValueOf(reflect.ValueOf(errRoot))
+	caller, err := val.MethodCaller("Admin", "Login")
+	c.Assert(err, gc.IsNil)
+	resp, err := caller.Call("", reflect.Value{})
+	c.Check(err, gc.Equals, origErr)
+	c.Check(resp.IsValid(), jc.IsFalse)
 }

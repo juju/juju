@@ -10,6 +10,7 @@ import (
 	"time"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/exec"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/client"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/exec"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -76,16 +76,16 @@ func (s *runSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
 
 func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddService("magic", "user-admin", charm, nil, nil)
+	magic, err := s.State.AddService("magic", "user-admin", charm, nil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 
-	notAssigned, err := s.State.AddService("not-assigned", "user-admin", charm, nil, nil)
+	notAssigned, err := s.State.AddService("not-assigned", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	_, err = notAssigned.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.State.AddService("no-units", "user-admin", charm, nil, nil)
+	_, err = s.State.AddService("no-units", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 
 	for i, test := range []struct {
@@ -241,7 +241,7 @@ func (s *runSuite) TestRunMachineAndService(c *gc.C) {
 	s.addMachineWithAddress(c, "10.3.2.1")
 
 	charm := s.AddTestingCharm(c, "dummy")
-	magic, err := s.State.AddService("magic", "user-admin", charm, nil, nil)
+	magic, err := s.State.AddService("magic", "user-admin", charm, nil)
 	s.addUnit(c, magic)
 	s.addUnit(c, magic)
 

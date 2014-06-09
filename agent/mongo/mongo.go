@@ -15,14 +15,14 @@ import (
 	"path/filepath"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
+	"github.com/juju/utils/apt"
 	"labix.org/v2/mgo"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/upstart"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/apt"
 	"github.com/juju/juju/version"
 )
 

@@ -53,13 +53,9 @@ type MachineTemplate struct {
 	// be associated with the machine.
 	HardwareCharacteristics instance.HardwareCharacteristics
 
-	// IncludeNetworks holds a list of network names the machine
+	// RequestedNetworks holds a list of network names the machine
 	// should be part of.
-	IncludeNetworks []string
-
-	// ExcludeNetworks holds a list of network names the machine
-	// should not be part of.
-	ExcludeNetworks []string
+	RequestedNetworks []string
 
 	// Nonce holds a unique value that can be used to check
 	// if a new instance was really started for this machine.
@@ -431,10 +427,7 @@ func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate)
 		// Once we can add networks independently of machine
 		// provisioning, we should check the given networks are valid
 		// and known before setting them.
-		createRequestedNetworksOp(st, machineGlobalKey(mdoc.Id),
-			template.IncludeNetworks,
-			template.ExcludeNetworks,
-		),
+		createRequestedNetworksOp(st, machineGlobalKey(mdoc.Id), template.RequestedNetworks),
 	}
 }
 

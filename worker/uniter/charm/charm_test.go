@@ -9,11 +9,12 @@ import (
 	"path/filepath"
 	stdtesting "testing"
 
+	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
 	corecharm "github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/worker/uniter/charm"
 )
 
@@ -63,7 +64,7 @@ func (br *bundleReader) Read(info charm.BundleInfo, abort <-chan struct{}) (char
 
 func (br *bundleReader) AddCustomBundle(c *gc.C, url *corecharm.URL, customize func(path string)) charm.BundleInfo {
 	base := c.MkDir()
-	dirpath := coretesting.Charms.ClonedDirPath(base, "dummy")
+	dirpath := charmtesting.Charms.ClonedDirPath(base, "dummy")
 	if customize != nil {
 		customize(dirpath)
 	}

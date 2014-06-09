@@ -18,6 +18,7 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 
@@ -50,6 +50,7 @@ type MachineStatus struct {
 	Err            error
 	AgentState     params.Status
 	AgentStateInfo string
+	AgentStateData params.StatusData
 	AgentVersion   string
 	DNSName        string
 	InstanceId     instance.Id
@@ -82,6 +83,7 @@ type UnitStatus struct {
 	Err            error
 	AgentState     params.Status
 	AgentStateInfo string
+	AgentStateData params.StatusData
 	AgentVersion   string
 	Life           string
 	Machine        string
@@ -89,6 +91,27 @@ type UnitStatus struct {
 	PublicAddress  string
 	Charm          string
 	Subordinates   map[string]UnitStatus
+}
+
+// RelationStatus holds status info about a relation.
+type RelationStatus struct {
+	Id        int
+	Key       string
+	Interface string
+	Scope     charm.RelationScope
+	Endpoints []EndpointStatus
+}
+
+// EndpointStatus holds status info about a single endpoint
+type EndpointStatus struct {
+	ServiceName string
+	Name        string
+	Role        charm.RelationRole
+	Subordinate bool
+}
+
+func (epStatus *EndpointStatus) String() string {
+	return epStatus.ServiceName + ":" + epStatus.Name
 }
 
 // NetworkStatus holds status info about a network.
@@ -105,6 +128,7 @@ type Status struct {
 	Machines        map[string]MachineStatus
 	Services        map[string]ServiceStatus
 	Networks        map[string]NetworkStatus
+	Relations       []RelationStatus
 }
 
 // Status returns the status of the juju environment.
@@ -297,19 +321,18 @@ func (c *Client) ServiceUnexpose(service string) error {
 }
 
 // ServiceDeployWithNetworks works exactly like ServiceDeploy, but
-// allows the specification of networks that will be included or
-// excluded on the machines where the service is deployed. Networks
-// are specified with network tags (see names.NetworkTag).
-func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, includeNetworks, excludeNetworks []string) error {
+// allows the specification of requested networks that must be present
+// on the machines where the service is deployed. Another way to specify
+// networks to include/exclude is using constraints.
+func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, numUnits int, configYAML string, cons constraints.Value, toMachineSpec string, networks []string) error {
 	params := params.ServiceDeploy{
-		ServiceName:     serviceName,
-		CharmUrl:        charmURL,
-		NumUnits:        numUnits,
-		ConfigYAML:      configYAML,
-		Constraints:     cons,
-		ToMachineSpec:   toMachineSpec,
-		IncludeNetworks: includeNetworks,
-		ExcludeNetworks: excludeNetworks,
+		ServiceName:   serviceName,
+		CharmUrl:      charmURL,
+		NumUnits:      numUnits,
+		ConfigYAML:    configYAML,
+		Constraints:   cons,
+		ToMachineSpec: toMachineSpec,
+		Networks:      networks,
 	}
 	return c.st.Call("Client", "", "ServiceDeployWithNetworks", params, nil)
 }

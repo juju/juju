@@ -192,6 +192,16 @@ func (s *debugInternalSuite) TestCountedFilterLineWithLimit(c *gc.C) {
 	c.Check(stream.countedFilterLine(line), jc.IsFalse)
 }
 
+type chanWriter struct {
+	ch chan []byte
+}
+
+func (w *chanWriter) Write(buf []byte) (n int, err error) {
+	bufcopy := append([]byte{}, buf...)
+	w.ch <- bufcopy
+	return len(buf), nil
+}
+
 func (s *debugInternalSuite) testStreamInternal(c *gc.C, fromTheStart bool, backlog, maxLines uint, expected, errMatch string) {
 
 	dir := c.MkDir()
@@ -214,8 +224,10 @@ line 3
 	}
 	err = stream.positionLogFile(logFileReader)
 	c.Assert(err, gc.IsNil)
-	output := &bytes.Buffer{}
-	stream.start(logFileReader, output)
+	var output bytes.Buffer
+	writer := &chanWriter{make(chan []byte)}
+	stream.start(logFileReader, writer)
+	defer stream.logTailer.Wait()
 
 	go func() {
 		defer stream.tomb.Done()
@@ -228,8 +240,8 @@ line 3
 	timeout := time.After(testing.LongWait)
 	for output.String() != expected {
 		select {
-		case <-time.After(testing.ShortWait):
-			// do nothing
+		case buf := <-writer.ch:
+			output.Write(buf)
 		case <-timeout:
 			c.Fatalf("expected data didn't arrive:\n\tobtained: %#v\n\texpected: %#v", output.String(), expected)
 		}
