@@ -682,6 +682,12 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	if err != nil {
 		return nil, err
 	}
+	// We preform a manual sync here so that the
+	// presence pinger has the most up-to-date information when it
+	// starts. This ensures that commands run immediately after bootstrap
+	// like status or ensure-availability will have an accurate values
+	// for agent-state.
+	m.st.StartSync()
 	return p, nil
 }
 

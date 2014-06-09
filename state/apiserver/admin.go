@@ -6,7 +6,6 @@ package apiserver
 import (
 	stderrors "errors"
 	"sync"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -193,15 +192,9 @@ func (p *machinePinger) Stop() error {
 	return p.Pinger.Kill()
 }
 
-// waitPeriod is the amount of time we should wait for the machine agents presence.
-// We use the waitPeriod with WaitAgentPresence. Without this the machine agent improperly
-// reports itself as down for the duration of the "period" that is defined in state/presence.
-var waitPeriod time.Duration = 5
-
 func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticator) error {
 	agentPresencer, ok := entity.(interface {
 		SetAgentPresence() (*presence.Pinger, error)
-		WaitAgentPresence(timeout time.Duration) error
 	})
 	if !ok {
 		return nil
@@ -214,6 +207,7 @@ func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticat
 	if err != nil {
 		return err
 	}
+
 	newRoot.resources.Register(&machinePinger{pinger})
 	action := func() {
 		if err := newRoot.rpcConn.Close(); err != nil {
@@ -222,7 +216,6 @@ func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticat
 	}
 	pingTimeout := newPingTimeout(action, maxClientPingInterval)
 	newRoot.resources.RegisterNamed("pingTimeout", pingTimeout)
-	agentPresencer.WaitAgentPresence(waitPeriod)
 
 	return nil
 }
