@@ -4,12 +4,15 @@
 package main
 
 import (
+	"encoding/json"
 	"os"
 
 	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environs/configstore"
 	_ "github.com/juju/juju/juju"
 	"github.com/juju/juju/testing"
 )
@@ -19,6 +22,29 @@ type SwitchSimpleSuite struct {
 }
 
 var _ = gc.Suite(&SwitchSimpleSuite{})
+
+var testCreds = configstore.APICredentials{
+	User:     "joe",
+	Password: "baloney",
+}
+
+var apiEndpoint = configstore.APIEndpoint{
+	Addresses: []string{"example.com", "kremvax.ru"},
+	CACert:    "cert",
+}
+
+func patchEnvWithUser(c *gc.C, envName string) {
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+
+	// Patch APICredentials so that <envName>.jenv file is avaliable for
+	// switch to read the envirionment user from.
+	store, err := configstore.Default()
+	c.Assert(err, gc.IsNil)
+	info, err := store.CreateInfo(envName)
+	info.SetAPIEndpoint(apiEndpoint)
+	info.SetAPICredentials(testCreds)
+	info.Write()
+}
 
 func (*SwitchSimpleSuite) TestNoEnvironment(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
@@ -39,6 +65,41 @@ func (*SwitchSimpleSuite) TestShowsDefault(c *gc.C) {
 	context, err := testing.RunCommand(c, &SwitchCommand{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "erewhemos\n")
+}
+
+func (*SwitchSimpleSuite) TestNoJenvYAML(c *gc.C) {
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--format", "yaml")
+	c.Assert(err, gc.IsNil)
+	output := EnvInfo{}
+	goyaml.Unmarshal([]byte(testing.Stdout(context)), &output)
+	expected := EnvInfo{
+		Username:    "",
+		EnvironName: "erewhemos",
+	}
+	c.Assert(output, gc.DeepEquals, expected)
+}
+
+func (*SwitchSimpleSuite) TestNoJenvJson(c *gc.C) {
+	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--format", "json")
+	c.Assert(err, gc.IsNil)
+	output := EnvInfo{}
+	json.Unmarshal([]byte(testing.Stdout(context)), &output)
+	expected := EnvInfo{
+		Username:    "",
+		EnvironName: "erewhemos",
+	}
+	c.Assert(output, gc.DeepEquals, expected)
+}
+
+func (*SwitchSimpleSuite) TestEnvInfoOmitFields(c *gc.C) {
+	jsonInfo, err := json.Marshal(EnvInfo{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(jsonInfo), gc.Equals, `{"user-name":"","environ-name":""}`)
+	yamlInfo, err := goyaml.Marshal(EnvInfo{})
+	c.Assert(string(yamlInfo), gc.Equals, `user-name: ""`+"\n"+`environ-name: ""`+"\n")
+
 }
 
 func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecidence(c *gc.C) {
@@ -110,6 +171,49 @@ func (*SwitchSimpleSuite) TestListEnvironmentsAndChange(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
 	_, err := testing.RunCommand(c, &SwitchCommand{}, "--list", "erewhemos-2")
 	c.Assert(err, gc.ErrorMatches, "cannot switch and list at the same time")
+}
+
+func (*SwitchSimpleSuite) TestShowEnvironmentInfoYaml(c *gc.C) {
+	patchEnvWithUser(c, "erewhemos")
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--format", "yaml")
+	c.Assert(err, gc.IsNil)
+	output := EnvInfo{}
+	goyaml.Unmarshal([]byte(testing.Stdout(context)), &output)
+	expected := EnvInfo{
+		Username:     "joe",
+		EnvironName:  "erewhemos",
+		StateServers: []string{"example.com", "kremvax.ru"},
+	}
+	c.Assert(output, gc.DeepEquals, expected)
+}
+
+func (*SwitchSimpleSuite) TestShowEnvironmentInfoJson(c *gc.C) {
+	patchEnvWithUser(c, "erewhemos")
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "--format", "json")
+	c.Assert(err, gc.IsNil)
+	output := EnvInfo{}
+	json.Unmarshal([]byte(testing.Stdout(context)), &output)
+	expected := EnvInfo{
+		Username:     "joe",
+		EnvironName:  "erewhemos",
+		StateServers: []string{"example.com", "kremvax.ru"},
+	}
+	c.Assert(output, gc.DeepEquals, expected)
+}
+
+func (*SwitchSimpleSuite) TestShowEnvironmentInfoAndOldEnv(c *gc.C) {
+	patchEnvWithUser(c, "erewhemos-2")
+	context, err := testing.RunCommand(c, &SwitchCommand{}, "erewhemos-2", "--format", "json")
+	c.Assert(err, gc.IsNil)
+	output := EnvInfo{}
+	json.Unmarshal([]byte(testing.Stdout(context)), &output)
+	expected := EnvInfo{
+		Username:            "joe",
+		EnvironName:         "erewhemos-2",
+		PreviousEnvironName: "erewhemos",
+		StateServers:        []string{"example.com", "kremvax.ru"},
+	}
+	c.Assert(output, gc.DeepEquals, expected)
 }
 
 func (*SwitchSimpleSuite) TestTooManyParams(c *gc.C) {
