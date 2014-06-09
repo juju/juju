@@ -753,13 +753,13 @@ type BackupResults struct {
 // Restore contains the arguments for the Backup.Restore API call.
 type Restore struct {
 	// Name is the name of the backup file from which to restore.
-	Name String
+	Name string
 }
 
 // BackupDownload contains the arguments for the Backup.Download API call.
 type BackupDownload struct {
 	// Name is the name of the backup file to download.
-	Name String
+	Name string
 }
 
 // BackupDownload contains the reuslts of the Backup.Download API call.
@@ -767,7 +767,7 @@ type BackupDownloadResults struct {
 	Error *Error
 
 	// URL is where the backup file can be retrieved from.
-	URL String
+	URL string
 }
 
 // BackupCancelResults contains the results of the call to the Backup.Cancel API

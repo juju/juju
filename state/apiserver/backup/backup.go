@@ -23,7 +23,7 @@ func NewBackupAPI(
 		st:    st,
 		resrc: resources,
 		auth:  authorizer,
-	}
+	}, nil
 }
 
 // Backup tells the environment to perform a backup, saving state to a file,
@@ -39,7 +39,7 @@ func (b *BackupAPI) Backup() params.BackupResults {
 // that this is a destructive, irreversible process and should only be performed
 // on a newly bootstrapped environment, and cannot be stopped or undone.
 func (b *BackupAPI) Restore(p params.Restore) params.RestoreResults {
-	return params.BackupResults{}
+	return params.RestoreResults{}
 }
 
 // List returns the list of backup files that exist on the server, plus the name
