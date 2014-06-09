@@ -3,6 +3,7 @@ code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
 github.com/binary132/gojsonpointer	git	57ab5e9c764219a3e0c4d7759797fefdcab22e9c	
 github.com/binary132/gojsonreference	git	75785fb7b21f9bf2051dca600da83ff57bc6582a	
 github.com/binary132/gojsonschema	git	640782bf48d45ba2b22fd1e8a80842667c52af00	
+github.com/bmizerany/pat	git	48be7df2c27e1cec821a3284a683ce6ef90d9052	
 github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40	
 github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	

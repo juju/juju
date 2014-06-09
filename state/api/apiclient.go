@@ -13,6 +13,7 @@ import (
 
 	"code.google.com/p/go.net/websocket"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/parallel"
 
@@ -36,6 +37,9 @@ type State struct {
 	// addr is the address used to connect to the API server.
 	addr string
 
+	// environTag holds the environment tag once we're connected
+	environTag string
+
 	// hostPorts is the API server addresses returned from Login,
 	// which the client may cache and use for failover.
 	hostPorts [][]instance.HostPort
@@ -50,6 +54,7 @@ type State struct {
 	// tag and password hold the cached login credentials.
 	tag      string
 	password string
+
 	// serverRoot holds the cached API server address and port we used
 	// to login, with a https:// prefix.
 	serverRoot string
@@ -81,6 +86,10 @@ type Info struct {
 	// Nonce holds the nonce used when provisioning the machine. Used
 	// only by the machine agent.
 	Nonce string `yaml:",omitempty"`
+
+	// Environ holds the environ tag for the environment we are trying to
+	// connect to.
+	EnvironTag string
 }
 
 // DialOpts holds configuration parameters that control the
@@ -120,6 +129,14 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	pool.AddCert(xcert)
 
+	environUUID := ""
+	if info.EnvironTag != "" {
+		_, envUUID, err := names.ParseTag(info.EnvironTag, names.EnvironTagKind)
+		if err != nil {
+			return nil, err
+		}
+		environUUID = envUUID
+	}
 	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, nil)
 	defer try.Kill()
@@ -134,7 +151,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		addrs = info.Addrs
 	}
 	for _, addr := range addrs {
-		err := dialWebsocket(addr, opts, pool, try)
+		err := dialWebsocket(addr, environUUID, opts, pool, try)
 		if err == parallel.ErrStopped {
 			break
 		}
@@ -176,20 +193,32 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	return st, nil
 }
 
-func dialWebsocket(addr string, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {
+func dialWebsocket(addr, environUUID string, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {
+	cfg, err := setUpWebsocket(addr, environUUID, rootCAs)
+	if err != nil {
+		return err
+	}
+	return try.Start(newWebsocketDialer(cfg, opts))
+}
+
+func setUpWebsocket(addr, environUUID string, rootCAs *x509.CertPool) (*websocket.Config, error) {
 	// origin is required by the WebSocket API, used for "origin policy"
 	// in websockets. We pass localhost to satisfy the API; it is
 	// inconsequential to us.
 	const origin = "http://localhost/"
-	cfg, err := websocket.NewConfig("wss://"+addr+"/", origin)
+	tail := "/"
+	if environUUID != "" {
+		tail = "/environment/" + environUUID + "/api"
+	}
+	cfg, err := websocket.NewConfig("wss://"+addr+tail, origin)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	cfg.TlsConfig = &tls.Config{
 		RootCAs:    rootCAs,
 		ServerName: "anything",
 	}
-	return try.Start(newWebsocketDialer(cfg, opts))
+	return cfg, nil
 }
 
 // newWebsocketDialer returns a function that
@@ -215,7 +244,7 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 				logger.Debugf("error dialing %q, will retry: %v", cfg.Location, err)
 			} else {
 				logger.Infof("error dialing %q: %v", cfg.Location, err)
-				return nil, fmt.Errorf("timed out connecting to %q", cfg.Location)
+				return nil, fmt.Errorf("unable to connect to %q", cfg.Location)
 			}
 		}
 		panic("unreachable")
@@ -270,6 +299,12 @@ func (s *State) RPCClient() *rpc.Conn {
 // Addr returns the address used to connect to the API server.
 func (s *State) Addr() string {
 	return s.addr
+}
+
+// EnvironTag returns the Environment Tag describing the environment we are
+// connected to.
+func (s *State) EnvironTag() string {
+	return s.environTag
 }
 
 // APIHostPorts returns addresses that may be used to connect

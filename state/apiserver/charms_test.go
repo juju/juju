@@ -53,6 +53,16 @@ func (s *authHttpSuite) sendRequest(c *gc.C, tag, password, method, uri, content
 	return utils.GetNonValidatingHTTPClient().Do(req)
 }
 
+func (s *authHttpSuite) baseURL(c *gc.C) *url.URL {
+	_, info, err := s.APIConn.Environ.StateInfo()
+	c.Assert(err, gc.IsNil)
+	return &url.URL{
+		Scheme: "https",
+		Host:   info.Addrs[0],
+		Path:   "",
+	}
+}
+
 func (s *authHttpSuite) authRequest(c *gc.C, method, uri, contentType string, body io.Reader) (*http.Response, error) {
 	return s.sendRequest(c, s.userTag, s.password, method, uri, contentType, body)
 }
@@ -223,6 +233,40 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	c.Assert(downloadedSHA256, gc.Equals, expectedSHA256)
 }
 
+func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
+	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	// Backwards compatibility check, that we can upload charms to
+	// https://host:port/charms
+	url := s.charmsURL(c, "series=quantal")
+	url.Path = "/charms"
+	resp, err := s.uploadRequest(c, url.String(), true, ch.Path)
+	c.Assert(err, gc.IsNil)
+	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
+	s.assertUploadResponse(c, resp, expectedURL.String())
+}
+
+func (s *charmsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
+	// Check that we can upload charms to https://host:port/ENVUUID/charms
+	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	environ, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	url := s.charmsURL(c, "series=quantal")
+	url.Path = fmt.Sprintf("/environment/%s/charms", environ.UUID())
+	resp, err := s.uploadRequest(c, url.String(), true, ch.Path)
+	c.Assert(err, gc.IsNil)
+	expectedURL := charm.MustParseURL("local:quantal/dummy-1")
+	s.assertUploadResponse(c, resp, expectedURL.String())
+}
+
+func (s *charmsSuite) TestUploadRejectsWrongEnvUUIDPath(c *gc.C) {
+	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
+	url := s.charmsURL(c, "series=quantal")
+	url.Path = "/environment/dead-beef-123456/charms"
+	resp, err := s.authRequest(c, "POST", url.String(), "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+}
+
 func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	// Make a clone of the dummy charm in a nested directory.
 	rootDir := c.MkDir()
@@ -367,6 +411,44 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 	}
 }
 
+func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
+	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	_, err := s.uploadRequest(
+		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
+	c.Assert(err, gc.IsNil)
+	// Backwards compatibility check, that we can GET from charms at
+	// https://host:port/charms
+	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
+	url.Path = "/charms"
+	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
+}
+
+func (s *charmsSuite) TestGetAllowsEnvUUIDPath(c *gc.C) {
+	ch := coretesting.Charms.Bundle(c.MkDir(), "dummy")
+	_, err := s.uploadRequest(
+		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
+	c.Assert(err, gc.IsNil)
+	// Check that we can GET from charms at https://host:port/ENVUUID/charms
+	environ, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
+	url.Path = fmt.Sprintf("/environment/%s/charms", environ.UUID())
+	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertGetFileResponse(c, resp, "1", "text/plain; charset=utf-8")
+}
+
+func (s *charmsSuite) TestGetRejectsWrongEnvUUIDPath(c *gc.C) {
+	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
+	url := s.charmsURL(c, "url=local:quantal/dummy-1&file=revision")
+	url.Path = "/environment/dead-beef-123456/charms"
+	resp, err := s.authRequest(c, "GET", url.String(), "", nil)
+	c.Assert(err, gc.IsNil)
+	s.assertErrorResponse(c, resp, http.StatusNotFound, `unknown environment: "dead-beef-123456"`)
+}
+
 func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 	// Add the dummy charm.
 	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
@@ -413,10 +495,18 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	s.assertGetFileResponse(c, resp, contents, "application/javascript")
 }
 
+func (s *charmsSuite) charmsURL(c *gc.C, query string) *url.URL {
+	uri := s.baseURL(c)
+	uri.Path += "/charms"
+	uri.RawQuery = query
+	return uri
+}
+
 func (s *charmsSuite) charmsURI(c *gc.C, query string) string {
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
-	return "https://" + info.Addrs[0] + "/charms" + query
+	if query != "" && query[0] == '?' {
+		query = query[1:]
+	}
+	return s.charmsURL(c, query).String()
 }
 
 func (s *charmsSuite) assertUploadResponse(c *gc.C, resp *http.Response, expCharmURL string) {

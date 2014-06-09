@@ -7,6 +7,7 @@ var (
 	NewWebsocketDialer = newWebsocketDialer
 
 	WebsocketDialConfig = &websocketDialConfig
+	SetUpWebsocket      = setUpWebsocket
 	SlideAddressToFront = slideAddressToFront
 )
 
