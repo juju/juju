@@ -33,7 +33,7 @@ var (
 
 	ServerCert, ServerKey = mustNewServer()
 
-	Certs = getCerts()
+	Certs = serverCerts()
 )
 
 func verifyCertificates() error {
@@ -83,7 +83,7 @@ func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.Privat
 	return cert, key
 }
 
-func getCerts() *gitjujutesting.Certs {
+func serverCerts() *gitjujutesting.Certs {
 	serverCert, serverKey := mustParseCertAndKey(ServerCert, ServerKey)
 	return &gitjujutesting.Certs{
 		CACert:     CACertX509,
