@@ -440,17 +440,17 @@ func (st *State) Machine(id string) (*Machine, error) {
 // *User, *Service or *Environment, depending
 // on the tag.
 func (st *State) FindEntity(tag string) (Entity, error) {
-	kind, id, err := names.ParseTag(tag, "")
-	switch kind {
-	case names.MachineTagKind:
+	t, id, err := names.ParseTag(tag, "")
+	switch t.(type) {
+	case names.MachineTag:
 		return st.Machine(id)
-	case names.UnitTagKind:
+	case names.UnitTag:
 		return st.Unit(id)
-	case names.UserTagKind:
+	case names.UserTag:
 		return st.User(id)
-	case names.ServiceTagKind:
+	case names.ServiceTag:
 		return st.Service(id)
-	case names.EnvironTagKind:
+	case names.EnvironTag:
 		env, err := st.Environment()
 		if err != nil {
 			return nil, err
@@ -474,9 +474,9 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 			}
 		}
 		return env, nil
-	case names.RelationTagKind:
+	case names.RelationTag:
 		return st.KeyRelation(id)
-	case names.NetworkTagKind:
+	case names.NetworkTag:
 		return st.Network(id)
 	}
 	return nil, err
@@ -485,24 +485,24 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 // parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
 func (st *State) parseTag(tag string) (coll string, id string, err error) {
-	kind, id, err := names.ParseTag(tag, "")
+	t, id, err := names.ParseTag(tag, "")
 	if err != nil {
 		return "", "", err
 	}
-	switch kind {
-	case names.MachineTagKind:
+	switch t.(type) {
+	case names.MachineTag:
 		coll = st.machines.Name
-	case names.ServiceTagKind:
+	case names.ServiceTag:
 		coll = st.services.Name
-	case names.UnitTagKind:
+	case names.UnitTag:
 		coll = st.units.Name
-	case names.UserTagKind:
+	case names.UserTag:
 		coll = st.users.Name
-	case names.RelationTagKind:
+	case names.RelationTag:
 		coll = st.relations.Name
-	case names.EnvironTagKind:
+	case names.EnvironTag:
 		coll = st.environments.Name
-	case names.NetworkTagKind:
+	case names.NetworkTag:
 		coll = st.networks.Name
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
@@ -928,8 +928,8 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // they will be created automatically.
 func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string) (service *Service, err error) {
 	defer errors.Maskf(&err, "cannot add service %q", name)
-	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
-	if err != nil || kind != names.UserTagKind {
+	tag, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
+	if err != nil || tag.Kind() != names.UserTagKind {
 		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
 	}
 	// Sanity checks.
