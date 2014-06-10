@@ -62,10 +62,12 @@ def prepare_environment(env, already_bootstrapped, machines):
 
 
 def destroy_environment(environment):
-    if environment.config['type'] != 'manual':
-        environment.destroy_environment()
-    else:
+    if environment.config['type'] == 'manual':
         destroy_job_instances(os.environ['JOB_NAME'])
+    elif environment.config['type'] == 'azure':
+        destroy_job_instances(os.environ['BUILD_TAG'])
+    else:
+        environment.destroy_environment()
 
 
 def destroy_job_instances(job_name):
@@ -245,7 +247,10 @@ def deploy_job():
         raise Exception('Missing environment variables: %s' %
                         ', '.join(sorted(missing)))
     base_env = os.environ['ENV']
-    job_name = os.environ['JOB_NAME']
+    if 'azure' in base_env:
+        job_name = os.environ['BUILD_TAG']
+    else:
+        job_name = os.environ['JOB_NAME']
     charm_prefix = os.environ['CHARM_PREFIX']
     machines = os.environ.get('MANUAL_MACHINES', '').split()
     new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
