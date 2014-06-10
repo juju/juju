@@ -27,19 +27,19 @@ type ZonedEnviron interface {
 	// AvailabilityZones returns all availability zones in the environment.
 	AvailabilityZones() ([]AvailabilityZone, error)
 
-	// InstanceAvailabilityZones returns the names of the availability zones
-	// for the specified instances. The error returned follows the same rules as
-	// Environ.Instances.
-	InstanceAvailabilityZones(ids []instance.Id) ([]string, error)
+	// InstanceAvailabilityZoneNames returns the names of the availability
+	// zones for the specified instances. The error returned follows the same
+	// rules as Environ.Instances.
+	InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error)
 }
 
-// BestAvailabilityZone returns the availability zones with the
-// fewest instances from the specified group, along with the
-// instances from the group currently allocated to those zones.
+// BestAvailabilityZoneAllocations returns the availability zones with the
+// fewest instances from the specified group, along with the instances from
+// the group currently allocated to those zones.
 //
-// If the specified group is empty, then it will behave as if the
-// result of AllInstances were provided.
-func BestAvailabilityZones(env ZonedEnviron, group []instance.Id) (map[string][]instance.Id, error) {
+// If the specified group is empty, then it will behave as if the result of
+// AllInstances were provided.
+func BestAvailabilityZoneAllocations(env ZonedEnviron, group []instance.Id) (map[string][]instance.Id, error) {
 	if len(group) == 0 {
 		instances, err := env.AllInstances()
 		if err != nil {
@@ -50,7 +50,7 @@ func BestAvailabilityZones(env ZonedEnviron, group []instance.Id) (map[string][]
 			group[i] = inst.Id()
 		}
 	}
-	instanceZones, err := env.InstanceAvailabilityZones(group)
+	instanceZones, err := env.InstanceAvailabilityZoneNames(group)
 	if err != nil && err != environs.ErrPartialInstances {
 		return nil, err
 	}
@@ -106,14 +106,14 @@ func BestAvailabilityZones(env ZonedEnviron, group []instance.Id) (map[string][]
 	return zoneInstances, nil
 }
 
-var internalBestAvailabilityZones = BestAvailabilityZones
+var internalBestAvailabilityZoneAllocations = BestAvailabilityZoneAllocations
 
 // DistributeInstances is a common function for implement the
 // state.InstanceDistributor policy based on availability zone
 // spread.
 func DistributeInstances(env ZonedEnviron, candidates, group []instance.Id) ([]instance.Id, error) {
 	// Determine the best availability zones for the group.
-	bestAvailabilityZones, err := internalBestAvailabilityZones(env, group)
+	bestAvailabilityZones, err := internalBestAvailabilityZoneAllocations(env, group)
 	if err != nil {
 		return nil, err
 	}

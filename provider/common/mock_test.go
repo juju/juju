@@ -89,20 +89,20 @@ func (env *mockEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 }
 
 type availabilityZonesFunc func() ([]common.AvailabilityZone, error)
-type instanceAvailabilityZonesFunc func([]instance.Id) ([]string, error)
+type instanceAvailabilityZoneNamesFunc func([]instance.Id) ([]string, error)
 
 type mockZonedEnviron struct {
 	mockEnviron
-	availabilityZones         availabilityZonesFunc
-	instanceAvailabilityZones instanceAvailabilityZonesFunc
+	availabilityZones             availabilityZonesFunc
+	instanceAvailabilityZoneNames instanceAvailabilityZoneNamesFunc
 }
 
 func (env *mockZonedEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	return env.availabilityZones()
 }
 
-func (env *mockZonedEnviron) InstanceAvailabilityZones(ids []instance.Id) ([]string, error) {
-	return env.instanceAvailabilityZones(ids)
+func (env *mockZonedEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	return env.instanceAvailabilityZoneNames(ids)
 }
 
 type mockInstance struct {
