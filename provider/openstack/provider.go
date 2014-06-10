@@ -300,6 +300,9 @@ type environ struct {
 	// An ordered list of paths in which to find the simplestreams index files used to
 	// look up tools ids.
 	toolsSources []simplestreams.DataSource
+
+	availabilityZonesMutex sync.Mutex
+	availabilityZones      []nova.AvailabilityZone
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -536,10 +539,54 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
+var novaListAvailabilityZones = (*nova.Client).ListAvailabilityZones
+
+// getAvailabilityZones returns a slice of availability zones.
+func (e *environ) getAvailabilityZones() ([]nova.AvailabilityZone, error) {
+	e.availabilityZonesMutex.Lock()
+	defer e.availabilityZonesMutex.Unlock()
+	if e.availabilityZones == nil {
+		zones, err := novaListAvailabilityZones(e.nova())
+		if err != nil {
+			return nil, err
+		}
+		e.availabilityZones = zones
+	}
+	return e.availabilityZones, nil
+}
+
+type openstackPlacement struct {
+	availabilityZone nova.AvailabilityZone
+}
+
+func (e *environ) parsePlacement(placement string) (*openstackPlacement, error) {
+	pos := strings.IndexRune(placement, '=')
+	if pos == -1 {
+		return nil, fmt.Errorf("unknown placement directive: %v", placement)
+	}
+	switch key, value := placement[:pos], placement[pos+1:]; key {
+	case "zone":
+		availabilityZone := value
+		zones, err := e.getAvailabilityZones()
+		if err != nil {
+			return nil, err
+		}
+		for _, z := range zones {
+			if z.Name == availabilityZone {
+				return &openstackPlacement{availabilityZone: z}, nil
+			}
+		}
+		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
+	}
+	return nil, fmt.Errorf("unknown placement directive: %v", placement)
+}
+
 // PrecheckInstance is defined on the state.Prechecker interface.
 func (e *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" {
-		return fmt.Errorf("unknown placement directive: %s", placement)
+		if _, err := e.parsePlacement(placement); err != nil {
+			return err
+		}
 	}
 	if !cons.HasInstanceType() {
 		return nil
@@ -783,6 +830,17 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+	var availabilityZone string
+	if args.Placement != "" {
+		placement, err := e.parsePlacement(args.Placement)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if !placement.availabilityZone.State.Available {
+			return nil, nil, nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
+		}
+		availabilityZone = placement.availabilityZone.Name
+	}
 
 	if args.MachineConfig.HasNetworks() {
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
@@ -850,6 +908,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		UserData:           userData,
 		SecurityGroupNames: groupNames,
 		Networks:           networks,
+		AvailabilityZone:   availabilityZone,
 	}
 	var server *nova.Entity
 	for a := shortAttempt.Start(); a.Next(); {
