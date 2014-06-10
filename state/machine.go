@@ -559,12 +559,10 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		return []txn.Op{op}, nil
 	}
-	defer func() {
-		if err == statetxn.ErrExcessiveContention {
-			err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
-		}
-	}()
-	return m.st.Run(txns)
+	if err = m.st.Run(txns); err == statetxn.ErrExcessiveContention {
+		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
+	}
+	return err
 }
 
 func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {

@@ -540,12 +540,10 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
 		return st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
 	}
-	defer func() {
-		if err == statetxn.ErrExcessiveContention {
-			err = errors.Annotate(err, "failed to create new state server machines")
-		}
-	}()
-	return st.Run(txns)
+	if err = st.Run(txns); err == statetxn.ErrExcessiveContention {
+		err = errors.Annotate(err, "failed to create new state server machines")
+	}
+	return err
 }
 
 // ensureAvailabilityIntentionOps returns operations to fulfil the desired intent.
