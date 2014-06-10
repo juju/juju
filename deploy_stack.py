@@ -247,7 +247,7 @@ def deploy_job():
     base_env = os.environ['ENV']
     job_name = os.environ['JOB_NAME']
     charm_prefix = os.environ['CHARM_PREFIX']
-    machines = os.environ.get('MACHINES', '').split()
+    machines = os.environ.get('MANUAL_MACHINES', '').split()
     new_path = '%s:%s' % (os.environ['NEW_JUJU_BIN'], os.environ['PATH'])
     upgrade = bool(os.environ.get('UPGRADE') == 'true')
     debug = bool(os.environ.get('DEBUG') == 'true')
