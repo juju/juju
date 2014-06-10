@@ -288,7 +288,7 @@ func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 
-	container := s.Factory.New(string(machine1.Id()))
+	container := s.ContainerFactory.New(string(machine1.Id()))
 	c.Assert(container.IsConstructed(), jc.IsFalse)
 }
 

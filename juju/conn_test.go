@@ -32,7 +32,7 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/usermanager"
+	"github.com/juju/juju/state/factory"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -506,9 +506,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
-	usermanager := usermanager.NewClient(s.APIState)
-	err := usermanager.AddUser("foobar", "", "")
-	c.Assert(err, gc.IsNil)
+	s.Factory.MakeUser(factory.UserParams{Username: "foobar"})
 	service, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{
 			ServiceName:  "bobwithowner",

@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/client"
+	"github.com/juju/juju/state/factory"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -837,8 +838,8 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 
-	s.AddUser(c, "foobar")
-	s.APIState = s.OpenAPIAs(c, "user-foobar", "password")
+	user := s.Factory.MakeUser(factory.UserParams{Password: "password"})
+	s.APIState = s.OpenAPIAs(c, user.Tag(), "password")
 
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
@@ -847,7 +848,7 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 
 	service, err := s.State.Service("service")
 	c.Assert(err, gc.IsNil)
-	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
+	c.Assert(service.GetOwnerTag(), gc.Equals, user.Tag())
 }
 
 func (s *clientSuite) deployServiceForTests(c *gc.C, store *charmtesting.MockCharmStore) {

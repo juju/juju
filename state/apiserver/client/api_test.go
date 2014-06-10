@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/factory"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -330,7 +331,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 	setDefaultPassword(c, u)
 	add(u)
 
-	u = s.AddUser(c, "other")
+	u = s.Factory.MakeUser(factory.UserParams{Username: "other"})
 	setDefaultPassword(c, u)
 	add(u)
 

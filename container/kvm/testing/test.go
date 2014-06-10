@@ -20,9 +20,9 @@ import (
 // implementation.
 type TestSuite struct {
 	testing.BaseSuite
-	Factory      mock.ContainerFactory
-	ContainerDir string
-	RemovedDir   string
+	ContainerFactory mock.ContainerFactory
+	ContainerDir     string
+	RemovedDir       string
 }
 
 func (s *TestSuite) SetUpTest(c *gc.C) {
@@ -31,6 +31,6 @@ func (s *TestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&container.ContainerDir, s.ContainerDir)
 	s.RemovedDir = c.MkDir()
 	s.PatchValue(&container.RemovedContainerDir, s.RemovedDir)
-	s.Factory = mock.MockFactory()
-	s.PatchValue(&kvm.KvmObjectFactory, s.Factory)
+	s.ContainerFactory = mock.MockFactory()
+	s.PatchValue(&kvm.KvmObjectFactory, s.ContainerFactory)
 }

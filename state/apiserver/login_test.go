@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
+	"github.com/juju/juju/state/factory"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -133,7 +134,8 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
-	u := s.AddUser(c, "inactive")
+	password := "password"
+	u := s.Factory.MakeUser(factory.UserParams{Password: password})
 	err = u.Deactivate()
 	c.Assert(err, gc.IsNil)
 
@@ -141,7 +143,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
 
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login("user-inactive", "password", "")
+	err = st.Login(u.Tag(), password, "")
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 
 	_, err = st.Client().Status([]string{})
@@ -178,8 +180,8 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	apiConn.Close()
 
 	c.Assert(tw.Log, jc.LogMatches, []string{
-		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login","Params":` +
-			`{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
+		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login",` +
+			`"Params":{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
 			`}`,
 		// Now that we are logged in, we see the entity's tag
 		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s

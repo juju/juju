@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	"github.com/juju/juju/state/apiserver/usermanager"
@@ -17,6 +18,7 @@ type userManagerSuite struct {
 
 	usermanager *usermanager.UserManagerAPI
 	authorizer  apiservertesting.FakeAuthorizer
+	user        *state.User
 }
 
 var _ = gc.Suite(&userManagerSuite{})
@@ -24,13 +26,14 @@ var _ = gc.Suite(&userManagerSuite{})
 func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
+	user, err := s.State.User("admin")
+	c.Assert(err, gc.IsNil)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      "user-admin",
 		LoggedIn: true,
 		Client:   true,
+		Entity:   user,
 	}
-
-	var err error
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, s.authorizer)
 	c.Assert(err, gc.IsNil)
 }
