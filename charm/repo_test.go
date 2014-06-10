@@ -14,8 +14,6 @@ import (
 
 	"github.com/juju/juju/charm"
 	charmtesting "github.com/juju/juju/charm/testing"
-	env_config "github.com/juju/juju/environs/config"
-	"github.com/juju/juju/testing"
 )
 
 type StoreSuite struct {
@@ -275,9 +273,7 @@ func (s *StoreSuite) TestEventError(c *gc.C) {
 }
 
 func (s *StoreSuite) TestAuthorization(c *gc.C) {
-	config := testing.CustomEnvironConfig(c,
-		testing.Attrs{"charm-store-auth": "token=value"})
-	store := env_config.SpecializeCharmRepo(s.store, config)
+	store := s.store.WithAuthAttrs("token=value")
 
 	base := "cs:series/good"
 	charmURL := charm.MustParseURL(base)
@@ -290,8 +286,7 @@ func (s *StoreSuite) TestAuthorization(c *gc.C) {
 }
 
 func (s *StoreSuite) TestNilAuthorization(c *gc.C) {
-	config := testing.EnvironConfig(c)
-	store := env_config.SpecializeCharmRepo(s.store, config)
+	store := s.store.WithAuthAttrs("")
 
 	base := "cs:series/good"
 	charmURL := charm.MustParseURL(base)
