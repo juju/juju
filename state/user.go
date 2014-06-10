@@ -119,12 +119,14 @@ func (u *User) DateCreated() time.Time {
 }
 
 // LastConnection returns when this user last connected through the API in UTC.
-func (u *User) LastConnection() time.Time {
+func (u *User) LastConnection() *time.Time {
 	result := u.doc.LastConnection
-	if !result.IsZero() {
-		result = result.UTC()
+	if result.IsZero() {
+		return nil
 	}
-	return result
+
+	result = result.UTC()
+	return &result
 }
 
 func (u *User) UpdateLastConnection() error {

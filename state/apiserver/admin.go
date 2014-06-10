@@ -160,10 +160,7 @@ func getAndUpdateLastConnectionForEntity(entity taggedAuthenticator) *time.Time 
 	if user, ok := entity.(*state.User); ok {
 		result := user.LastConnection()
 		user.UpdateLastConnection()
-		if result.IsZero() {
-			return nil
-		}
-		return &result
+		return result
 	}
 	return nil
 }
