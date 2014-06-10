@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"go/build"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
+
+	"github.com/juju/utils/fs"
 
 	"github.com/juju/juju/charm"
 )
@@ -45,8 +46,9 @@ func (r *Repo) init() {
 var Charms = &Repo{}
 
 func clone(dst, src string) string {
-	check(exec.Command("/bin/cp", "-r", src, dst).Run())
-	return filepath.Join(dst, filepath.Base(src))
+	dst = filepath.Join(dst, filepath.Base(src))
+	check(fs.Copy(src, dst))
+	return dst
 }
 
 // DirPath returns the path to a charm directory with the given name in the
