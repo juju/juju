@@ -403,3 +403,93 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(tools), gc.Equals, 1)
 }
+
+func (s *UpgradeJujuSuite) TestUpgradeUploadToolsDry(c *gc.C) {
+	tools := []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"}
+	currentVersion := "2.0.0-quantal-amd64"
+	agentVersion := "2.0.0"
+
+	version.Current = version.MustParseBinary(currentVersion)
+	com := &UpgradeJujuCommand{}
+	err := coretesting.InitCommand(envcmd.Wrap(com), []string{"--upload-tools", "--dry"})
+	c.Assert(err, gc.IsNil)
+	toolsDir := c.MkDir()
+	updateAttrs := map[string]interface{}{
+		"agent-version":      agentVersion,
+		"tools-metadata-url": "file://" + toolsDir,
+	}
+
+	err = s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+	c.Assert(err, gc.IsNil)
+	versions := make([]version.Binary, len(tools))
+	for i, v := range tools {
+		versions[i] = version.MustParseBinary(v)
+	}
+	if len(versions) > 0 {
+		envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
+		stor, err := filestorage.NewFileStorageWriter(toolsDir)
+		c.Assert(err, gc.IsNil)
+		envtesting.MustUploadFakeToolsVersions(stor, versions...)
+	}
+
+	ctx := coretesting.Context(c)
+	err = com.Run(ctx)
+	c.Assert(err, gc.IsNil)
+
+	// Check agent version doesn't change
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVer, ok := cfg.AgentVersion()
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(agentVer, gc.Equals, version.MustParse(agentVersion))
+	expectedOutput := `upgrade version chosen: 2.2.3
+available tools: 2.0.0-precise-amd64;2.0.0-quantal-amd64;2.2.0-quantal-amd64;2.2.2-quantal-i386;2.2.3-quantal-amd64
+`
+	output := coretesting.Stderr(ctx)
+	c.Assert(output, gc.Equals, expectedOutput)
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeDry(c *gc.C) {
+	tools := []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"}
+	currentVersion := "2.0.0-quantal-amd64"
+	agentVersion := "2.0.0"
+
+	version.Current = version.MustParseBinary(currentVersion)
+	com := &UpgradeJujuCommand{}
+	err := coretesting.InitCommand(envcmd.Wrap(com), []string{"--dry"})
+	c.Assert(err, gc.IsNil)
+	toolsDir := c.MkDir()
+	updateAttrs := map[string]interface{}{
+		"agent-version":      agentVersion,
+		"tools-metadata-url": "file://" + toolsDir,
+	}
+
+	err = s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+	c.Assert(err, gc.IsNil)
+	versions := make([]version.Binary, len(tools))
+	for i, v := range tools {
+		versions[i] = version.MustParseBinary(v)
+	}
+	if len(versions) > 0 {
+		envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
+		stor, err := filestorage.NewFileStorageWriter(toolsDir)
+		c.Assert(err, gc.IsNil)
+		envtesting.MustUploadFakeToolsVersions(stor, versions...)
+	}
+
+	ctx := coretesting.Context(c)
+	err = com.Run(ctx)
+	c.Assert(err, gc.IsNil)
+
+	// Check agent version doesn't change
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVer, ok := cfg.AgentVersion()
+	c.Assert(ok, gc.Equals, true)
+	c.Assert(agentVer, gc.Equals, version.MustParse(agentVersion))
+	expectedOutput := `upgrade version chosen: 2.2.3
+available tools: 2.2.0-quantal-amd64;2.2.2-quantal-i386;2.2.3-quantal-amd64
+`
+	output := coretesting.Stderr(ctx)
+	c.Assert(output, gc.Equals, expectedOutput)
+}
