@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -27,7 +28,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -426,8 +426,10 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, gc.IsNil)
 	s.instanceId = inst.Id()
-	s.bootstrapName, err = inst.DNSName()
+
+	addresses, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
+	s.bootstrapName = instance.SelectPublicAddress(addresses)
 	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()
 }
 

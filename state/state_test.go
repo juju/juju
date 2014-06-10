@@ -14,11 +14,13 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -27,8 +29,8 @@ import (
 	"github.com/juju/juju/state/api/params"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/peergrouper"
 )
 
 var goodPassword = "foo-12345678901234567890"
@@ -145,7 +147,7 @@ func (s *StateSuite) TestIsNotFound(c *gc.C) {
 
 func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSHA256 string) {
 	var err error
-	ch = testing.Charms.Dir("dummy")
+	ch = charmtesting.Charms.Dir("dummy")
 	if curlOverride != "" {
 		curl = charm.MustParseURL(curlOverride)
 	} else {
@@ -176,7 +178,7 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	// Check that adding charms updates any existing placeholder charm
 	// with the same URL.
-	ch := testing.Charms.Dir("dummy")
+	ch := charmtesting.Charms.Dir("dummy")
 
 	// Add a placeholder charm.
 	curl := charm.MustParseURL("cs:quantal/dummy-1")
@@ -399,7 +401,7 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddStoreCharmPlaceholderErrors(c *gc.C) {
-	ch := testing.Charms.Dir("dummy")
+	ch := charmtesting.Charms.Dir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -1027,29 +1029,32 @@ var addNetworkErrorsTests = []struct {
 	state.NetworkInfo{"net1", "provider-id", "0.3.1.0/24", 0},
 	`cannot add network "net1": network "net1" already exists`,
 }, {
-	state.NetworkInfo{"net2", "provider-net1", "0.3.1.0/24", 0},
-	`cannot add network "net2": network with provider id "provider-net1" already exists`,
+	state.NetworkInfo{"net42", "provider-net1", "0.3.1.0/24", 0},
+	`cannot add network "net42": network with provider id "provider-net1" already exists`,
 }}
 
 func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
+	includeNetworks := []string{"net1", "net2", "net3", "net4"}
 	machine, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:          "quantal",
-		Jobs:            []state.MachineJob{state.JobHostUnits},
-		IncludeNetworks: []string{"net1", "net2"},
-		ExcludeNetworks: []string{"net3", "net4"},
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		Constraints:       constraints.MustParse("networks=net3,net4,^net5,^net6"),
+		RequestedNetworks: includeNetworks[:2], // net1, net2
 	})
 	c.Assert(err, gc.IsNil)
 
-	net1, _ := addNetworkAndInterface(
-		c, s.State, machine,
-		"net1", "provider-net1", "0.1.2.0/24", 0, false,
-		"aa:bb:cc:dd:ee:f0", "eth0")
+	for i, netName := range includeNetworks {
+		stateNet, _ := addNetworkAndInterface(
+			c, s.State, machine,
+			netName, "provider-"+netName, fmt.Sprintf("0.%02d.2.0/24", i), 0, false,
+			fmt.Sprintf("aa:%02x:cc:dd:ee:f0", i), fmt.Sprintf("eth%d", i))
 
-	net, err := s.State.Network("net1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(net, gc.DeepEquals, net1)
-	c.Assert(net.Name(), gc.Equals, "net1")
-	c.Assert(string(net.ProviderId()), gc.Equals, "provider-net1")
+		net, err := s.State.Network(netName)
+		c.Check(err, gc.IsNil)
+		c.Check(net, gc.DeepEquals, stateNet)
+		c.Check(net.Name(), gc.Equals, netName)
+		c.Check(string(net.ProviderId()), gc.Equals, "provider-"+netName)
+	}
 	_, err = s.State.Network("missing")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `network "missing" not found`)
@@ -1066,17 +1071,17 @@ func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
 
 func (s *StateSuite) TestAllNetworks(c *gc.C) {
 	machine1, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:          "quantal",
-		Jobs:            []state.MachineJob{state.JobHostUnits},
-		IncludeNetworks: []string{"net1", "net2"},
-		ExcludeNetworks: []string{"net3", "net4"},
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		Constraints:       constraints.MustParse("networks=^net3,^net4"),
+		RequestedNetworks: []string{"net1", "net2"},
 	})
 	c.Assert(err, gc.IsNil)
 	machine2, err := s.State.AddOneMachine(state.MachineTemplate{
-		Series:          "quantal",
-		Jobs:            []state.MachineJob{state.JobHostUnits},
-		IncludeNetworks: []string{"net3", "net4"},
-		ExcludeNetworks: []string{"net1", "net2"},
+		Series:            "quantal",
+		Jobs:              []state.MachineJob{state.JobHostUnits},
+		Constraints:       constraints.MustParse("networks=^net1,^net2"),
+		RequestedNetworks: []string{"net3", "net4"},
 	})
 	c.Assert(err, gc.IsNil)
 
@@ -1105,19 +1110,19 @@ func (s *StateSuite) TestAllNetworks(c *gc.C) {
 
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("haha/borken", "user-admin", charm, nil, nil)
+	_, err := s.State.AddService("haha/borken", "user-admin", charm, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "haha/borken": invalid name`)
 	_, err = s.State.Service("haha/borken")
 	c.Assert(err, gc.ErrorMatches, `"haha/borken" is not a valid service name`)
 
 	// set that a nil charm is handled correctly
-	_, err = s.State.AddService("umadbro", "user-admin", nil, nil, nil)
+	_, err = s.State.AddService("umadbro", "user-admin", nil, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "umadbro": charm is nil`)
 
-	wordpress, err := s.State.AddService("wordpress", "user-admin", charm, nil, nil)
+	wordpress, err := s.State.AddService("wordpress", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(wordpress.Name(), gc.Equals, "wordpress")
-	mysql, err := s.State.AddService("mysql", "user-admin", charm, nil, nil)
+	mysql, err := s.State.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(mysql.Name(), gc.Equals, "mysql")
 
@@ -1144,7 +1149,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDying(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddService("s1", "user-admin", charm, nil, nil)
+	_, err = s.State.AddService("s1", "user-admin", charm, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
@@ -1159,7 +1164,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
-	_, err = s.State.AddService("s1", "user-admin", charm, nil, nil)
+	_, err = s.State.AddService("s1", "user-admin", charm, nil)
 	c.Assert(err, gc.ErrorMatches, `cannot add service "s1": environment is no longer alive`)
 }
 
@@ -1171,19 +1176,19 @@ func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 
 func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", state.AdminUser, charm, nil, nil)
+	_, err := s.State.AddService("wordpress", state.AdminUser, charm, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin")
 }
 
 func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "machine-3", charm, nil, nil)
+	_, err := s.State.AddService("wordpress", "machine-3", charm, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag machine-3")
 }
 
 func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
-	_, err := s.State.AddService("wordpress", "user-notAuser", charm, nil, nil)
+	_, err := s.State.AddService("wordpress", "user-notAuser", charm, nil)
 	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": user notAuser doesn't exist")
 }
 
@@ -1194,13 +1199,13 @@ func (s *StateSuite) TestAllServices(c *gc.C) {
 	c.Assert(len(services), gc.Equals, 0)
 
 	// Check that after adding services the result is ok.
-	_, err = s.State.AddService("wordpress", "user-admin", charm, nil, nil)
+	_, err = s.State.AddService("wordpress", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(services), gc.Equals, 1)
 
-	_, err = s.State.AddService("mysql", "user-admin", charm, nil, nil)
+	_, err = s.State.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	services, err = s.State.AllServices()
 	c.Assert(err, gc.IsNil)
@@ -2077,6 +2082,45 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
+	info := state.TestingStateInfo()
+	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	session := st.MongoSession()
+	safe := session.Safe()
+	c.Assert(safe.WMode, gc.Not(gc.Equals), "majority")
+	c.Assert(safe.J, gc.Equals, true)
+}
+
+func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
+	inst := testing.MgoInstance{Params: []string{"--replSet", "juju"}}
+	err := inst.Start(true)
+	c.Assert(err, gc.IsNil)
+	defer inst.Destroy()
+
+	info := inst.DialInfo()
+	args := peergrouper.InitiateMongoParams{
+		DialInfo:       info,
+		MemberHostPort: inst.Addr(),
+	}
+
+	err = peergrouper.MaybeInitiateMongoServer(args)
+	c.Assert(err, gc.IsNil)
+
+	stateInfo := &state.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}
+	dialOpts := state.DialOpts{Timeout: time.Second * 30}
+	st, err := state.Open(stateInfo, dialOpts, state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	stateSession := st.MongoSession()
+	safe := stateSession.Safe()
+	c.Assert(safe.WMode, gc.Equals, "majority")
+	c.Assert(safe.J, gc.Equals, true)
+}
+
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
@@ -2727,7 +2771,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Add a service and 4 units: one with a different version, one
 	// with an empty version, one with the current version, and one
 	// with the new version.
-	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"), nil, nil)
+	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"), nil)
 	c.Assert(err, gc.IsNil)
 	unit0, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -2777,7 +2821,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) 
 	// Add a machine and a unit with the current version.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"), nil, nil)
+	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"), nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)

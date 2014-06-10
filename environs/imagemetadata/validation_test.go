@@ -7,13 +7,13 @@ import (
 	"path"
 	"path/filepath"
 
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 type ValidateSuite struct {

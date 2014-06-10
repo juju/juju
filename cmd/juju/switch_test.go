@@ -6,6 +6,7 @@ package main
 import (
 	"os"
 
+	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -20,7 +21,7 @@ type SwitchSimpleSuite struct {
 var _ = gc.Suite(&SwitchSimpleSuite{})
 
 func (*SwitchSimpleSuite) TestNoEnvironment(c *gc.C) {
-	envPath := testing.HomePath(".juju", "environments.yaml")
+	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, gc.IsNil)
 	_, err = testing.RunCommand(c, &SwitchCommand{})
@@ -42,7 +43,7 @@ func (*SwitchSimpleSuite) TestShowsDefault(c *gc.C) {
 
 func (s *SwitchSimpleSuite) TestCurrentEnvironmentHasPrecidence(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	s.FakeHomeSuite.Home.AddFiles(c, testing.TestFile{".juju/current-environment", "fubar"})
+	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-environment", "fubar"})
 	context, err := testing.RunCommand(c, &SwitchCommand{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(context), gc.Equals, "fubar\n")
@@ -58,7 +59,7 @@ func (*SwitchSimpleSuite) TestShowsJujuEnv(c *gc.C) {
 
 func (s *SwitchSimpleSuite) TestJujuEnvOverCurrentEnvironment(c *gc.C) {
 	testing.WriteEnvironments(c, testing.MultipleEnvConfig)
-	s.FakeHomeSuite.Home.AddFiles(c, testing.TestFile{".juju/current-environment", "fubar"})
+	s.FakeHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{".juju/current-environment", "fubar"})
 	os.Setenv("JUJU_ENV", "using-env")
 	context, err := testing.RunCommand(c, &SwitchCommand{})
 	c.Assert(err, gc.IsNil)

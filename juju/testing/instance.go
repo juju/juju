@@ -44,6 +44,24 @@ func FakeAPIInfo(machineId string) *api.Info {
 	}
 }
 
+// WaitAddresses waits until the specified instance has addresses, and returns them.
+func WaitInstanceAddresses(env environs.Environ, instId instance.Id) ([]instance.Address, error) {
+	for a := testing.LongAttempt.Start(); a.Next(); {
+		insts, err := env.Instances([]instance.Id{instId})
+		if err != nil {
+			return nil, err
+		}
+		addresses, err := insts[0].Addresses()
+		if err != nil {
+			return nil, err
+		}
+		if len(addresses) > 0 {
+			return addresses, nil
+		}
+	}
+	return nil, fmt.Errorf("timed out trying to get addresses for %v", instId)
+}
+
 // AssertStartInstance is a test helper function that starts an instance with a
 // plausible but invalid configuration, and checks that it succeeds.
 func AssertStartInstance(
@@ -87,7 +105,7 @@ func StartInstanceWithConstraints(
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
-	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nil, nil)
+	return StartInstanceWithConstraintsAndNetworks(env, machineId, cons, nil)
 }
 
 // AssertStartInstanceWithNetworks is a test helper function that starts an
@@ -95,12 +113,12 @@ func StartInstanceWithConstraints(
 // configuration, and returns the result of Environ.StartInstance.
 func AssertStartInstanceWithNetworks(
 	c *gc.C, env environs.Environ, machineId string, cons constraints.Value,
-	includeNetworks, excludeNetworks []string,
+	networks []string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics,
 ) {
 	inst, hc, _, err := StartInstanceWithConstraintsAndNetworks(
-		env, machineId, cons, includeNetworks, excludeNetworks)
+		env, machineId, cons, networks)
 	c.Assert(err, gc.IsNil)
 	return inst, hc
 }
@@ -110,13 +128,13 @@ func AssertStartInstanceWithNetworks(
 // configuration, and returns the result of Environ.StartInstance.
 func StartInstanceWithConstraintsAndNetworks(
 	env environs.Environ, machineId string, cons constraints.Value,
-	includeNetworks, excludeNetworks []string,
+	networks []string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
 	params := environs.StartInstanceParams{Constraints: cons}
 	return StartInstanceWithParams(
-		env, machineId, params, includeNetworks, excludeNetworks)
+		env, machineId, params, networks)
 }
 
 // StartInstanceWithParams is a test helper function that starts an instance
@@ -126,7 +144,7 @@ func StartInstanceWithConstraintsAndNetworks(
 func StartInstanceWithParams(
 	env environs.Environ, machineId string,
 	params environs.StartInstanceParams,
-	includeNetworks, excludeNetworks []string,
+	networks []string,
 ) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
@@ -146,7 +164,7 @@ func StartInstanceWithParams(
 	apiInfo := FakeAPIInfo(machineId)
 	machineConfig := environs.NewMachineConfig(
 		machineId, machineNonce,
-		includeNetworks, excludeNetworks,
+		networks,
 		stateInfo, apiInfo)
 	params.Tools = possibleTools
 	params.MachineConfig = machineConfig

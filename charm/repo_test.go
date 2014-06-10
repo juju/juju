@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
@@ -18,7 +19,7 @@ import (
 )
 
 type StoreSuite struct {
-	testing.FakeHomeSuite
+	gitjujutesting.FakeHomeSuite
 	server *charmtesting.MockStore
 	store  *charm.CharmStore
 }
@@ -92,9 +93,9 @@ func (s *StoreSuite) TestLatest(c *gc.C) {
 	revInfo, err := s.store.Latest(urls...)
 	c.Assert(err, gc.IsNil)
 	c.Assert(revInfo, gc.DeepEquals, []charm.CharmRevision{
-		{23, "a8ee5b388d4fed702c58bd175d9a9a207c917a2699a6ef82d4ca574d6d702de3", nil},
-		{23, "a8ee5b388d4fed702c58bd175d9a9a207c917a2699a6ef82d4ca574d6d702de3", nil},
-		{23, "a8ee5b388d4fed702c58bd175d9a9a207c917a2699a6ef82d4ca574d6d702de3", nil},
+		{23, "c89d9b522cebbd68061048ed2910180e1b63b6afaa373d1fe1c47ff9970be126", nil},
+		{23, "c89d9b522cebbd68061048ed2910180e1b63b6afaa373d1fe1c47ff9970be126", nil},
+		{23, "c89d9b522cebbd68061048ed2910180e1b63b6afaa373d1fe1c47ff9970be126", nil},
 	})
 }
 
@@ -374,7 +375,7 @@ func (s *StoreSuite) TestCharmURL(c *gc.C) {
 }
 
 type LocalRepoSuite struct {
-	testing.FakeHomeSuite
+	gitjujutesting.FakeHomeSuite
 	repo       *charm.LocalRepository
 	seriesPath string
 }
@@ -390,11 +391,11 @@ func (s *LocalRepoSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *LocalRepoSuite) addBundle(name string) string {
-	return testing.Charms.BundlePath(s.seriesPath, name)
+	return charmtesting.Charms.BundlePath(s.seriesPath, name)
 }
 
 func (s *LocalRepoSuite) addDir(name string) string {
-	return testing.Charms.ClonedDirPath(s.seriesPath, name)
+	return charmtesting.Charms.ClonedDirPath(s.seriesPath, name)
 }
 
 func (s *LocalRepoSuite) checkNotFoundErr(c *gc.C, err error, charmURL *charm.URL) {
@@ -517,7 +518,7 @@ func (s *LocalRepoSuite) TestIgnoresUnpromisingNames(c *gc.C) {
 }
 
 func (s *LocalRepoSuite) TestFindsSymlinks(c *gc.C) {
-	realPath := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	realPath := charmtesting.Charms.ClonedDirPath(c.MkDir(), "dummy")
 	linkPath := filepath.Join(s.seriesPath, "dummy")
 	err := os.Symlink(realPath, linkPath)
 	c.Assert(err, gc.IsNil)

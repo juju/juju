@@ -15,11 +15,10 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.charm.testing.mockstore")
@@ -44,7 +43,7 @@ type MockStore struct {
 // NewMockStore creates a mock charm store containing the specified charms.
 func NewMockStore(c *gc.C, charms map[string]int) *MockStore {
 	s := &MockStore{charms: charms, DefaultSeries: "precise"}
-	f, err := os.Open(testing.Charms.BundlePath(c.MkDir(), "dummy"))
+	f, err := os.Open(Charms.BundlePath(c.MkDir(), "dummy"))
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
 	buf := &bytes.Buffer{}

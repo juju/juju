@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/apt"
+	"github.com/juju/utils/proxy"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -21,8 +23,6 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/environment"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/apt"
-	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/machineenvironmentworker"
 )

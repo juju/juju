@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 
+	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/bzr"
@@ -74,7 +75,7 @@ func (s *PublishSuite) TearDownSuite(c *gc.C) {
 func (s *PublishSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
-	s.FakeJujuHomeSuite.Home.AddFiles(c, testing.TestFile{
+	s.FakeJujuHomeSuite.Home.AddFiles(c, gitjujutesting.TestFile{
 		Name: ".bazaar/bazaar.conf",
 		Data: "[DEFAULT]\nemail = Test <testing@testing.invalid>\n",
 	})

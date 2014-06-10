@@ -8,9 +8,9 @@ import (
 	"io"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils"
 )
 
 // EmptyStorage holds a StorageReader object that contains no files and

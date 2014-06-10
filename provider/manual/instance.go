@@ -33,14 +33,6 @@ func (inst manualBootstrapInstance) Addresses() (addresses []instance.Address, e
 	return []instance.Address{addr}, nil
 }
 
-func (inst manualBootstrapInstance) DNSName() (string, error) {
-	return inst.host, nil
-}
-
-func (i manualBootstrapInstance) WaitDNSName() (string, error) {
-	return i.DNSName()
-}
-
 func (manualBootstrapInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	return nil
 }

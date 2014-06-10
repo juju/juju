@@ -17,6 +17,7 @@ import (
 	jujuerrors "github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils"
 	"launchpad.net/goose/client"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
@@ -38,7 +39,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.provider.openstack")
@@ -422,22 +422,6 @@ func convertNovaAddresses(addresses map[string][]nova.IPAddress) []instance.Addr
 		}
 	}
 	return machineAddresses
-}
-
-func (inst *openstackInstance) DNSName() (string, error) {
-	addresses, err := inst.Addresses()
-	if err != nil {
-		return "", err
-	}
-	addr := instance.SelectPublicAddress(addresses)
-	if addr == "" {
-		return "", instance.ErrNoDNSName
-	}
-	return addr, nil
-}
-
-func (inst *openstackInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
 }
 
 // TODO: following 30 lines nearly verbatim from environs/ec2

@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
+	"github.com/juju/utils/shell"
 
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
@@ -22,8 +24,6 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/shell"
 )
 
 const manualInstancePrefix = "manual:"

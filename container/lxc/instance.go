@@ -39,16 +39,6 @@ func (lxc *lxcInstance) Addresses() ([]instance.Address, error) {
 	return nil, errors.NotImplementedf("lxcInstance.Addresses")
 }
 
-// DNSName implements instance.Instance.DNSName.
-func (lxc *lxcInstance) DNSName() (string, error) {
-	return "", instance.ErrNoDNSName
-}
-
-// WaitDNSName implements instance.Instance.WaitDNSName.
-func (lxc *lxcInstance) WaitDNSName() (string, error) {
-	return "", instance.ErrNoDNSName
-}
-
 // OpenPorts implements instance.Instance.OpenPorts.
 func (lxc *lxcInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	return fmt.Errorf("not implemented")

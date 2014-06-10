@@ -17,9 +17,9 @@ import (
 	je "github.com/joyent/gocommon/errors"
 	"github.com/joyent/gomanta/manta"
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils"
 )
 
 type JoyentStorage struct {

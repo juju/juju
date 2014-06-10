@@ -36,3 +36,7 @@ func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 	doCheckCreds = delayedCheckCreds
 	return
 }
+
+func NewErrRoot(err error) *errRoot {
+	return &errRoot{err}
+}

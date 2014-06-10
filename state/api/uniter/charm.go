@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/utils"
 )
 
 // This module implements a subset of the interface provided by

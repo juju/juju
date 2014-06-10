@@ -16,10 +16,10 @@ import (
 
 	"code.google.com/p/go.net/websocket"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/tailer"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/utils/tailer"
 )
 
 // debugLogHandler takes requests to watch the debug log.
@@ -52,6 +52,11 @@ func (h *debugLogHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			logger.Infof("debug log handler starting")
 			if err := h.authenticate(req); err != nil {
 				h.sendError(socket, fmt.Errorf("auth failed: %v", err))
+				socket.Close()
+				return
+			}
+			if err := h.validateEnvironUUID(req); err != nil {
+				h.sendError(socket, err)
 				socket.Close()
 				return
 			}

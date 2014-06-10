@@ -13,9 +13,11 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -28,13 +30,13 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
+	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 
@@ -184,9 +186,9 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 	}
 	c.Assert(found, gc.Equals, true, gc.Commentf("expected %v in %v", inst, insts))
 
-	dns, err := inst.WaitDNSName()
+	addresses, err := jujutesting.WaitInstanceAddresses(t.Env, inst.Id())
 	c.Assert(err, gc.IsNil)
-	c.Assert(dns, gc.Not(gc.Equals), "")
+	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 
 	insts, err = t.Env.Instances([]instance.Id{id0, ""})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
@@ -436,10 +438,10 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
-	url := coretesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
+	url := charmtesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{Path: repoDir}, false)
 	c.Assert(err, gc.IsNil)
-	svc, err := conn.State.AddService("dummy", "user-admin", sch, nil, nil)
+	svc, err := conn.State.AddService("dummy", "user-admin", sch, nil)
 	c.Assert(err, gc.IsNil)
 	units, err := juju.AddUnits(conn.State, svc, 1, "")
 	c.Assert(err, gc.IsNil)
@@ -842,7 +844,7 @@ func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *gc.C) {
 	machineId := "4"
 	stateInfo := testing.FakeStateInfo(machineId)
 	apiInfo := testing.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, "", nil, nil, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, "", nil, stateInfo, apiInfo)
 
 	t.PrepareOnce(c)
 	possibleTools := envtesting.AssertUploadFakeToolsVersions(c, t.Env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))

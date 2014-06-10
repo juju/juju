@@ -4,6 +4,7 @@
 package ec2
 
 import (
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -11,7 +12,6 @@ import (
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 var _ = gc.Suite(&specSuite{})

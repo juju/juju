@@ -11,15 +11,15 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/utils"
+	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/tailer"
 	"launchpad.net/golxc"
 
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/fslock"
-	"github.com/juju/juju/utils/proxy"
-	"github.com/juju/juju/utils/tailer"
 )
 
 const (

@@ -11,10 +11,10 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/juju/osenv"
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.environs.configstore")
@@ -32,6 +32,7 @@ type diskStore struct {
 type EnvironInfoData struct {
 	User         string
 	Password     string
+	EnvironUUID  string                 `json:"environ-uuid,omitempty" yaml:"environ-uuid,omitempty"`
 	StateServers []string               `json:"state-servers" yaml:"state-servers"`
 	CACert       string                 `json:"ca-cert" yaml:"ca-cert"`
 	Config       map[string]interface{} `json:"bootstrap-config,omitempty" yaml:"bootstrap-config,omitempty"`
@@ -138,8 +139,9 @@ func (info *environInfo) APICredentials() APICredentials {
 // APIEndpoint implements EnvironInfo.APIEndpoint.
 func (info *environInfo) APIEndpoint() APIEndpoint {
 	return APIEndpoint{
-		Addresses: info.EnvInfo.StateServers,
-		CACert:    info.EnvInfo.CACert,
+		Addresses:   info.EnvInfo.StateServers,
+		CACert:      info.EnvInfo.CACert,
+		EnvironUUID: info.EnvInfo.EnvironUUID,
 	}
 }
 
@@ -155,6 +157,7 @@ func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
 func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
 	info.EnvInfo.StateServers = endpoint.Addresses
 	info.EnvInfo.CACert = endpoint.CACert
+	info.EnvInfo.EnvironUUID = endpoint.EnvironUUID
 }
 
 // SetAPICredentials implements EnvironInfo.SetAPICredentials.

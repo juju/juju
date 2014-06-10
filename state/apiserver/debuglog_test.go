@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -17,11 +18,11 @@ import (
 
 	"code.google.com/p/go.net/websocket"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 )
 
 type debugLogSuite struct {
@@ -67,14 +68,43 @@ func (s *debugLogSuite) TestBadParams(c *gc.C) {
 	s.assertWebsocketClosed(c, reader)
 }
 
-func (s *debugLogSuite) TestServesLog(c *gc.C) {
-	s.ensureLogFile(c)
-	reader := s.openWebsocket(c, nil)
+func (s *debugLogSuite) assertLogReader(c *gc.C, reader *bufio.Reader) {
 	s.assertLogFollowing(c, reader)
 	s.writeLogLines(c, logLineCount)
 
 	linesRead := s.readLogLines(c, reader, logLineCount)
 	c.Assert(linesRead, jc.DeepEquals, logLines)
+}
+
+func (s *debugLogSuite) TestServesLog(c *gc.C) {
+	s.ensureLogFile(c)
+	reader := s.openWebsocket(c, nil)
+	s.assertLogReader(c, reader)
+}
+
+func (s *debugLogSuite) TestReadFromTopLevelPath(c *gc.C) {
+	// Backwards compatibility check, that we can read the log file at
+	// https://host:port/log
+	s.ensureLogFile(c)
+	reader := s.openWebsocketCustomPath(c, "/log")
+	s.assertLogReader(c, reader)
+}
+
+func (s *debugLogSuite) TestReadFromEnvUUIDPath(c *gc.C) {
+	// Check that we can read the log at https://host:port/ENVUUID/log
+	environ, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	s.ensureLogFile(c)
+	reader := s.openWebsocketCustomPath(c, fmt.Sprintf("/environment/%s/log", environ.UUID()))
+	s.assertLogReader(c, reader)
+}
+
+func (s *debugLogSuite) TestReadRejectsWrongEnvUUIDPath(c *gc.C) {
+	// Check that we cannot upload charms to https://host:port/BADENVUUID/charms
+	s.ensureLogFile(c)
+	reader := s.openWebsocketCustomPath(c, "/environment/dead-beef-123456/log")
+	s.assertErrorResponse(c, reader, `unknown environment: "dead-beef-123456"`)
+	s.assertWebsocketClosed(c, reader)
 }
 
 func (s *debugLogSuite) TestReadsFromEnd(c *gc.C) {
@@ -167,6 +197,16 @@ func (s *debugLogSuite) openWebsocket(c *gc.C, values url.Values) *bufio.Reader 
 	return bufio.NewReader(conn)
 }
 
+func (s *debugLogSuite) openWebsocketCustomPath(c *gc.C, path string) *bufio.Reader {
+	server := s.logURL(c, "wss", nil)
+	server.Path = path
+	header := utils.BasicAuthHeader(s.userTag, s.password)
+	conn, err := s.dialWebsocketFromURL(c, server.String(), header)
+	c.Assert(err, gc.IsNil)
+	s.AddCleanup(func(_ *gc.C) { conn.Close() })
+	return bufio.NewReader(conn)
+}
+
 func (s *debugLogSuite) ensureLogFile(c *gc.C) {
 	if s.logFile != nil {
 		return
@@ -192,6 +232,10 @@ func (s *debugLogSuite) writeLogLines(c *gc.C, count int) {
 
 func (s *debugLogSuite) dialWebsocketInternal(c *gc.C, queryParams url.Values, header http.Header) (*websocket.Conn, error) {
 	server := s.logURL(c, "wss", queryParams).String()
+	return s.dialWebsocketFromURL(c, server, header)
+}
+
+func (s *debugLogSuite) dialWebsocketFromURL(c *gc.C, server string, header http.Header) (*websocket.Conn, error) {
 	c.Logf("dialing %v", server)
 	config, err := websocket.NewConfig(server, "http://localhost/")
 	c.Assert(err, gc.IsNil)
@@ -208,18 +252,15 @@ func (s *debugLogSuite) dialWebsocket(c *gc.C, queryParams url.Values) (*websock
 }
 
 func (s *debugLogSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *url.URL {
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+	logURL := s.baseURL(c)
 	query := ""
 	if queryParams != nil {
 		query = queryParams.Encode()
 	}
-	return &url.URL{
-		Scheme:   scheme,
-		Host:     info.Addrs[0],
-		Path:     "/log",
-		RawQuery: query,
-	}
+	logURL.Scheme = scheme
+	logURL.Path += "/log"
+	logURL.RawQuery = query
+	return logURL
 }
 
 func (s *debugLogSuite) assertWebsocketClosed(c *gc.C, reader *bufio.Reader) {

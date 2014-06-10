@@ -54,8 +54,28 @@ func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {
 	s.State.SetAPIHostPorts([][]instance.HostPort{badServer})
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
+	defer apistate.Close()
 	hostports := apistate.APIHostPorts()
 	c.Check(hostports, gc.DeepEquals, [][]instance.HostPort{serverhostports, badServer})
+}
+
+func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	info := s.APIInfo(c)
+	tag := info.Tag
+	password := info.Password
+	info.Tag = ""
+	info.Password = ""
+	apistate, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	defer apistate.Close()
+	// We haven't called Login yet, so the EnvironTag shouldn't be set.
+	c.Check(apistate.EnvironTag(), gc.Equals, "")
+	err = apistate.Login(tag, password, "")
+	c.Assert(err, gc.IsNil)
+	// Now that we've logged in, EnvironTag should be updated correctly.
+	c.Check(apistate.EnvironTag(), gc.Equals, env.Tag())
 }
 
 func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
@@ -91,6 +111,7 @@ func (s *stateSuite) TestAPIHostPortsMovesConnectedValueFirst(c *gc.C) {
 	s.State.SetAPIHostPorts(current)
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
+	defer apistate.Close()
 	hostports := apistate.APIHostPorts()
 	// We should have rotate the server we connected to as the first item,
 	// and the address of that server as the first address

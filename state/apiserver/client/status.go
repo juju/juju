@@ -10,15 +10,16 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/charm"
+	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils/set"
 )
 
 // FullStatus gives the information needed for juju status over the api
@@ -61,6 +62,7 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 		Machines:        context.processMachines(),
 		Services:        context.processServices(),
 		Networks:        context.processNetworks(),
+		Relations:       context.processRelations(),
 	}, nil
 }
 
@@ -284,10 +286,10 @@ func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (*set.Strings,
 
 // fetchRelations returns a map of all relations keyed by service name.
 //
-// This structure is useful for processRelations() which needs to have
-// the relations for each service. Reading them once here avoids the
-// repeated DB hits to retrieve the relations for each service that
-// used to happen in processRelations().
+// This structure is useful for processServiceRelations() which needs
+// to have the relations for each service. Reading them once here
+// avoids the repeated DB hits to retrieve the relations for each
+// service that used to happen in processServiceRelations().
 func fetchRelations(st *state.State) (map[string][]*state.Relation, error) {
 	relations, err := st.AllRelations()
 	if err != nil {
@@ -349,11 +351,13 @@ func (context *statusContext) processMachine(machines []*state.Machine, host *ap
 
 func (context *statusContext) makeMachineStatus(machine *state.Machine) (status api.MachineStatus) {
 	status.Id = machine.Id()
-	status.Life,
-		status.AgentVersion,
-		status.AgentState,
-		status.AgentStateInfo,
-		status.Err = processAgent(machine)
+	agentStatus := processAgent(machine)
+	status.Life = agentStatus.Life
+	status.AgentVersion = agentStatus.Version
+	status.AgentState = agentStatus.Status
+	status.AgentStateInfo = agentStatus.Info
+	status.AgentStateData = agentStatus.Data
+	status.Err = agentStatus.Err
 	status.Series = machine.Series()
 	status.Jobs = paramsJobsFromJobs(machine.Jobs())
 	status.WantsVote = machine.WantsVote()
@@ -390,6 +394,52 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 	return
 }
 
+func (context *statusContext) processRelations() []api.RelationStatus {
+	var out []api.RelationStatus
+	relations := context.getAllRelations()
+	for _, relation := range relations {
+		var eps []api.EndpointStatus
+		var scope charm.RelationScope
+		var relationInterface string
+		for _, ep := range relation.Endpoints() {
+			eps = append(eps, api.EndpointStatus{
+				ServiceName: ep.ServiceName,
+				Name:        ep.Name,
+				Role:        ep.Role,
+				Subordinate: context.isSubordinate(&ep),
+			})
+			// these should match on both sides so use the last
+			relationInterface = ep.Interface
+			scope = ep.Scope
+		}
+		relStatus := api.RelationStatus{
+			Id:        relation.Id(),
+			Key:       relation.String(),
+			Interface: relationInterface,
+			Scope:     scope,
+			Endpoints: eps,
+		}
+		out = append(out, relStatus)
+	}
+	return out
+}
+
+// This method exists only to dedup the loaded relations as they will
+// appear multiple times in context.relations.
+func (context *statusContext) getAllRelations() []*state.Relation {
+	var out []*state.Relation
+	seenRelations := make(map[int]bool)
+	for _, relations := range context.relations {
+		for _, relation := range relations {
+			if _, found := seenRelations[relation.Id()]; !found {
+				out = append(out, relation)
+				seenRelations[relation.Id()] = true
+			}
+		}
+	}
+	return out
+}
+
 func (context *statusContext) processNetworks() map[string]api.NetworkStatus {
 	networksMap := make(map[string]api.NetworkStatus)
 	for name, network := range context.networks {
@@ -404,6 +454,18 @@ func (context *statusContext) makeNetworkStatus(network *state.Network) api.Netw
 		CIDR:       network.CIDR(),
 		VLANTag:    network.VLANTag(),
 	}
+}
+
+func (context *statusContext) isSubordinate(ep *state.Endpoint) bool {
+	service := context.services[ep.ServiceName]
+	if service == nil {
+		return false
+	}
+	return isSubordinate(ep, service)
+}
+
+func isSubordinate(ep *state.Endpoint, service *state.Service) bool {
+	return ep.Scope == charm.ScopeContainer && !service.IsPrincipal()
 }
 
 // paramsJobsFromJobs converts state jobs to params jobs.
@@ -434,16 +496,33 @@ func (context *statusContext) processService(service *state.Service) (status api
 		status.CanUpgradeTo = latestCharm
 	}
 	var err error
-	status.Relations, status.SubordinateTo, err = context.processRelations(service)
+	status.Relations, status.SubordinateTo, err = context.processServiceRelations(service)
 	if err != nil {
 		status.Err = err
 		return
 	}
-	includeNetworks, excludeNetworks, err := service.Networks()
-	if err == nil {
+	networks, err := service.Networks()
+	if err != nil {
+		status.Err = err
+		return
+	}
+	var cons constraints.Value
+	if service.IsPrincipal() {
+		// Only principals can have constraints.
+		cons, err = service.Constraints()
+		if err != nil {
+			status.Err = err
+			return
+		}
+	}
+	if len(networks) > 0 || cons.HaveNetworks() {
+		// Only the explicitly requested networks (using "juju deploy
+		// <svc> --networks=...") will be enabled, and altough when
+		// specified, networks constraints will be used for instance
+		// selection, they won't be actually enabled.
 		status.Networks = api.NetworksSpecification{
-			Enabled:  includeNetworks,
-			Disabled: excludeNetworks,
+			Enabled:  networks,
+			Disabled: append(cons.IncludeNetworks(), cons.ExcludeNetworks()...),
 		}
 	}
 	if service.IsPrincipal() {
@@ -472,11 +551,13 @@ func (context *statusContext) processUnit(unit *state.Unit, serviceCharm string)
 	if serviceCharm != "" && curl != nil && curl.String() != serviceCharm {
 		status.Charm = curl.String()
 	}
-	status.Life,
-		status.AgentVersion,
-		status.AgentState,
-		status.AgentStateInfo,
-		status.Err = processAgent(unit)
+	agentStatus := processAgent(unit)
+	status.Life = agentStatus.Life
+	status.AgentVersion = agentStatus.Version
+	status.AgentState = agentStatus.Status
+	status.AgentStateInfo = agentStatus.Info
+	status.AgentStateData = agentStatus.Data
+	status.Err = agentStatus.Err
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]api.UnitStatus)
 		for _, name := range subUnits {
@@ -495,7 +576,8 @@ func (context *statusContext) unitByName(name string) *state.Unit {
 	return context.units[serviceName][name]
 }
 
-func (context *statusContext) processRelations(service *state.Service) (related map[string][]string, subord []string, err error) {
+func (context *statusContext) processServiceRelations(service *state.Service) (
+	related map[string][]string, subord []string, err error) {
 	var subordSet set.Strings
 	related = make(map[string][]string)
 	relations := context.relations[service.Name()]
@@ -510,7 +592,7 @@ func (context *statusContext) processRelations(service *state.Service) (related 
 			return nil, nil, err
 		}
 		for _, ep := range eps {
-			if ep.Scope == charm.ScopeContainer && !service.IsPrincipal() {
+			if isSubordinate(&ep, service) {
 				subordSet.Add(ep.ServiceName)
 			}
 			related[relationName] = append(related[relationName], ep.ServiceName)
@@ -534,38 +616,65 @@ type stateAgent interface {
 	Status() (params.Status, string, params.StatusData, error)
 }
 
-// processAgent retrieves version and status information from the given entity
-// and sets the destination version, status and info values accordingly.
-func processAgent(entity stateAgent) (life string, version string, status params.Status, info string, err error) {
-	life = processLife(entity)
+type agentStatus struct {
+	Life    string
+	Version string
+	Status  params.Status
+	Info    string
+	Data    params.StatusData
+	Err     error
+}
+
+// processAgent retrieves version and status information from the given entity.
+func processAgent(entity stateAgent) (out agentStatus) {
+	out.Life = processLife(entity)
+
 	if t, err := entity.AgentTools(); err == nil {
-		version = t.Version.Number.String()
+		out.Version = t.Version.Number.String()
 	}
-	// TODO(mue) StatusData may be useful here too.
-	status, info, _, err = entity.Status()
-	if err != nil {
+
+	out.Status, out.Info, out.Data, out.Err = entity.Status()
+	out.Data = filterStatusData(out.Data)
+	if out.Err != nil {
 		return
 	}
-	if status == params.StatusPending {
+
+	if out.Status == params.StatusPending {
 		// The status is pending - there's no point
 		// in enquiring about the agent liveness.
 		return
 	}
+
 	agentAlive, err := entity.AgentAlive()
 	if err != nil {
 		return
 	}
+
 	if entity.Life() != state.Dead && !agentAlive {
 		// The agent *should* be alive but is not.
 		// Add the original status to the info, so it's not lost.
-		if info != "" {
-			info = fmt.Sprintf("(%s: %s)", status, info)
+		if out.Info != "" {
+			out.Info = fmt.Sprintf("(%s: %s)", out.Status, out.Info)
 		} else {
-			info = fmt.Sprintf("(%s)", status)
+			out.Info = fmt.Sprintf("(%s)", out.Status)
 		}
-		status = params.StatusDown
+		out.Status = params.StatusDown
 	}
+
 	return
+}
+
+// filterStatusData limits what agent StatusData data is passed over
+// the API. This prevents unintended leakage of internal-only data.
+func filterStatusData(status params.StatusData) params.StatusData {
+	out := make(params.StatusData)
+	for name, value := range status {
+		// use a set here if we end up with a larger whitelist
+		if name == "relation-id" {
+			out[name] = value
+		}
+	}
+	return out
 }
 
 func processLife(entity lifer) string {

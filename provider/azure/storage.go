@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/utils"
 )
 
 type azureStorage struct {

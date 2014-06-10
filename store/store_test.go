@@ -14,10 +14,12 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/store"
 	"github.com/juju/juju/testing"
 )
@@ -32,7 +34,7 @@ var _ = gc.Suite(&TrivialSuite{})
 type StoreSuite struct {
 	testing.MgoSuite
 	testing.HTTPSuite
-	testing.FakeHomeSuite
+	gitjujutesting.FakeHomeSuite
 	store *store.Store
 }
 
@@ -96,6 +98,10 @@ func (d *FakeCharmDir) Config() *charm.Config {
 	return &charm.Config{make(map[string]charm.Option)}
 }
 
+func (d *FakeCharmDir) Actions() *charm.Actions {
+	return &charm.Actions{make(map[string]charm.ActionSpec)}
+}
+
 func (d *FakeCharmDir) SetRevision(revision int) {
 	d.revision = revision
 }
@@ -127,7 +133,7 @@ func (s *StoreSuite) TestCharmPublisher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(pub.Revision(), gc.Equals, 0)
 
-	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
+	err = pub.Publish(charmtesting.Charms.ClonedDir(c.MkDir(), "dummy"))
 	c.Assert(err, gc.IsNil)
 
 	for _, url := range urls {
@@ -165,7 +171,7 @@ func (s *StoreSuite) TestDeleteCharm(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(pub.Revision(), gc.Equals, i)
 
-		err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
+		err = pub.Publish(charmtesting.Charms.ClonedDir(c.MkDir(), "dummy"))
 		c.Assert(err, gc.IsNil)
 	}
 

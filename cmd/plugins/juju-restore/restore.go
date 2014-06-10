@@ -16,6 +16,7 @@ import (
 	"text/template"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 
@@ -31,7 +32,6 @@ import (
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/utils/ssh"
 )
 

@@ -80,7 +80,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	checkCons := constraints.MustParse("mem=8G")
 
 	startInstance := func(
-		placement string, cons constraints.Value, _, _ []string, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
+		placement string, cons constraints.Value, _ []string, possibleTools tools.List, mcfg *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
@@ -109,7 +109,7 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	stor := &mockStorage{Storage: innerStorage}
 
 	startInstance := func(
-		_ string, _ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
+		_ string, _ constraints.Value, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
@@ -142,7 +142,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	stor := &mockStorage{Storage: innerStorage}
 
 	startInstance := func(
-		_ string, _ constraints.Value, _, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
+		_ string, _ constraints.Value, _ []string, _ tools.List, _ *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
@@ -183,7 +183,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	checkHardware := instance.MustParseHardware("mem=2T")
 
 	startInstance := func(
-		_ string, _ constraints.Value, _, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
+		_ string, _ constraints.Value, _ []string, _ tools.List, mcfg *cloudinit.MachineConfig,
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {

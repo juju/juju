@@ -16,9 +16,9 @@ import (
 	"sync"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/cmd"
-	"github.com/juju/juju/utils/exec"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")

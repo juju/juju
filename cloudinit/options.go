@@ -6,7 +6,8 @@ package cloudinit
 import (
 	"fmt"
 
-	"github.com/juju/juju/utils"
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/utils/ssh"
 )
 

@@ -9,13 +9,13 @@ import (
 	"os"
 
 	"github.com/juju/testing"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	jp "github.com/juju/juju/provider/joyent"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/utils/ssh"
 )
 

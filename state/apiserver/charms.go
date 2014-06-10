@@ -22,11 +22,11 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	ziputil "github.com/juju/utils/zip"
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/api/params"
-	ziputil "github.com/juju/juju/utils/zip"
 )
 
 // charmsHandler handles charm upload through HTTPS in the API server.
@@ -42,6 +42,10 @@ type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
 		h.authError(w, h)
+		return
+	}
+	if err := h.validateEnvironUUID(r); err != nil {
+		h.sendError(w, http.StatusNotFound, err.Error())
 		return
 	}
 

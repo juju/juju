@@ -14,12 +14,11 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
 
 type allInstancesFunc func() ([]instance.Instance, error)
-type startInstanceFunc func(string, constraints.Value, []string, []string, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error)
+type startInstanceFunc func(string, constraints.Value, []string, tools.List, *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error)
 type stopInstancesFunc func([]instance.Id) error
 type getToolsSourcesFunc func() ([]simplestreams.DataSource, error)
 type configFunc func() *config.Config
@@ -55,8 +54,7 @@ func (env *mockEnviron) StartInstance(args environs.StartInstanceParams) (instan
 	return env.startInstance(
 		args.Placement,
 		args.Constraints,
-		args.MachineConfig.IncludeNetworks,
-		args.MachineConfig.ExcludeNetworks,
+		args.MachineConfig.Networks,
 		args.Tools,
 		args.MachineConfig)
 }
@@ -104,14 +102,6 @@ func (inst *mockInstance) Id() instance.Id {
 
 func (inst *mockInstance) Addresses() ([]instance.Address, error) {
 	return inst.addresses, inst.addressesErr
-}
-
-func (inst *mockInstance) DNSName() (string, error) {
-	return inst.dnsName, inst.dnsNameErr
-}
-
-func (inst *mockInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
 }
 
 type mockStorage struct {

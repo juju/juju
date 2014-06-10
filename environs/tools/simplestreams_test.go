@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/juju/utils"
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
@@ -25,7 +26,6 @@ import (
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 

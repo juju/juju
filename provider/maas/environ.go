@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	"labix.org/v2/mgo/bson"
 	"launchpad.net/gomaasapi"
 
@@ -32,8 +34,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 )
 
 const (
@@ -357,8 +357,10 @@ func (environ *maasEnviron) ConstraintsValidator() (constraints.Validator, error
 	return validator, nil
 }
 
-// setupNetworks prepares a []network.Info for the given instance.
-func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]network.Info, error) {
+// setupNetworks prepares a []network.Info for the given instance, but
+// only interfaces on networks in networksToEnable will be configured
+// on the machine.
+func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToEnable set.Strings) ([]network.Info, error) {
 	// Get the instance network interfaces first.
 	interfaces, err := environ.getInstanceNetworkInterfaces(inst)
 	if err != nil {
@@ -372,6 +374,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]network.Inf
 	logger.Debugf("node %q has networks %v", inst.Id(), networks)
 	var tempNetworkInfo []network.Info
 	for _, netw := range networks {
+		disabled := !networksToEnable.Contains(netw.Name)
 		netCIDR := &net.IPNet{
 			IP:   net.ParseIP(netw.IP),
 			Mask: net.IPMask(net.ParseIP(netw.Mask)),
@@ -391,6 +394,7 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance) ([]network.Inf
 					ProviderId:    network.Id(netw.Name),
 					NetworkName:   netw.Name,
 					IsVirtual:     netw.VLANTag > 0,
+					Disabled:      disabled,
 				})
 			}
 		}
@@ -420,11 +424,14 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	var inst *maasInstance
 	var err error
 	nodeName := args.Placement
+	requestedNetworks := args.MachineConfig.Networks
+	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
+	excludeNetworks := args.Constraints.ExcludeNetworks()
 	node, tools, err := environ.acquireNode(
 		nodeName,
 		args.Constraints,
-		args.MachineConfig.IncludeNetworks,
-		args.MachineConfig.ExcludeNetworks,
+		includeNetworks,
+		excludeNetworks,
 		args.Tools)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
@@ -441,13 +448,13 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}()
 	var networkInfo []network.Info
 	if args.MachineConfig.HasNetworks() {
-		networkInfo, err = environ.setupNetworks(inst)
+		networkInfo, err = environ.setupNetworks(inst, set.NewStrings(requestedNetworks...))
 		if err != nil {
 			return nil, nil, nil, err
 		}
 	}
 
-	hostname, err := inst.DNSName()
+	hostname, err := inst.hostname()
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -501,8 +508,8 @@ func newCloudinitConfig(hostname string, networkInfo []network.Info) (*cloudinit
 	return cloudcfg, nil
 }
 
-// setupNetworksOnBoot prepares a script to enable and start all given
-// networks on boot.
+// setupNetworksOnBoot prepares a script to enable and start all
+// enabled network interfaces on boot.
 func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []network.Info) {
 	const ifaceConfig = `cat >> /etc/network/interfaces << EOF
 
@@ -529,6 +536,11 @@ EOF
 	// Now prepare each interface configuration
 	for _, info := range networkInfo {
 		if !configured.Contains(info.InterfaceName) {
+			// TODO(dimitern): We should respect user's choice
+			// and skip interfaces marked as Disabled, but we
+			// are postponing this until we have the networker
+			// in place.
+
 			// Register and bring up the physical interface.
 			script(ifaceConfig, info.InterfaceName, info.InterfaceName)
 			script("ifup %s", info.InterfaceName)

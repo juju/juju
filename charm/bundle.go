@@ -13,8 +13,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/juju/juju/utils/set"
-	ziputil "github.com/juju/juju/utils/zip"
+	"github.com/juju/utils/set"
+	ziputil "github.com/juju/utils/zip"
 )
 
 // The Bundle type encapsulates access to data and operations
@@ -23,6 +23,7 @@ type Bundle struct {
 	Path     string // May be empty if Bundle wasn't read from a file
 	meta     *Meta
 	config   *Config
+	actions  *Actions
 	revision int
 	r        io.ReaderAt
 	size     int64
@@ -85,6 +86,19 @@ func readBundle(r io.ReaderAt, size int64) (bundle *Bundle, err error) {
 		}
 	}
 
+	reader, err = zipOpen(zipr, "actions.yaml")
+	if _, ok := err.(*noBundleFile); ok {
+		b.actions = NewActions()
+	} else if err != nil {
+		return nil, err
+	} else {
+		b.actions, err = ReadActionsYaml(reader)
+		reader.Close()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	reader, err = zipOpen(zipr, "revision")
 	if err != nil {
 		if _, ok := err.(*noBundleFile); !ok {
@@ -140,6 +154,12 @@ func (b *Bundle) Meta() *Meta {
 // for the charm bundle.
 func (b *Bundle) Config() *Config {
 	return b.config
+}
+
+// Actions returns the Actions map for the actions.yaml file for the charm
+// bundle.
+func (b *Bundle) Actions() *Actions {
+	return b.actions
 }
 
 type zipReadCloser struct {

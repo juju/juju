@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/utils"
 	"github.com/juju/juju/version"
 )
 

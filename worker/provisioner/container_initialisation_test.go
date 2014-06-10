@@ -9,6 +9,8 @@ import (
 	"os/exec"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils/apt"
+	"github.com/juju/utils/fslock"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -18,8 +20,6 @@ import (
 	"github.com/juju/juju/state"
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/utils/apt"
-	"github.com/juju/juju/utils/fslock"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/provisioner"

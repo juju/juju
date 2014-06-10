@@ -20,11 +20,17 @@ import (
 	"github.com/juju/errors"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	ft "github.com/juju/testing/filetesting"
+	"github.com/juju/utils"
+	utilexec "github.com/juju/utils/exec"
+	"github.com/juju/utils/fslock"
+	"github.com/juju/utils/proxy"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent/tools"
 	corecharm "github.com/juju/juju/charm"
+	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -32,11 +38,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	apiuniter "github.com/juju/juju/state/api/uniter"
 	coretesting "github.com/juju/juju/testing"
-	ft "github.com/juju/juju/testing/filetesting"
-	"github.com/juju/juju/utils"
-	utilexec "github.com/juju/juju/utils/exec"
-	"github.com/juju/juju/utils/fslock"
-	"github.com/juju/juju/utils/proxy"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/charm"
@@ -1302,7 +1303,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 	testing.AddStateServerMachine(c, ctx.st)
 
 	// Create the subordinate service.
-	dir := coretesting.Charms.ClonedDir(c.MkDir(), "logging")
+	dir := charmtesting.Charms.ClonedDir(c.MkDir(), "logging")
 	curl, err := corecharm.ParseURL("cs:quantal/logging")
 	c.Assert(err, gc.IsNil)
 	curl = curl.WithRevision(dir.Revision())
@@ -1371,7 +1372,7 @@ var charmHooks = []string{
 }
 
 func (s createCharm) step(c *gc.C, ctx *context) {
-	base := coretesting.Charms.ClonedDirPath(c.MkDir(), "wordpress")
+	base := charmtesting.Charms.ClonedDirPath(c.MkDir(), "wordpress")
 	for _, name := range charmHooks {
 		path := filepath.Join(base, "hooks", name)
 		good := true

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
 )
 
 var logger = loggo.GetLogger("juju.provider.ec2")
@@ -167,23 +167,6 @@ func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 		}
 	}
 	return addresses, nil
-}
-
-func (inst *ec2Instance) DNSName() (string, error) {
-	addresses, err := inst.Addresses()
-	if err != nil {
-		return "", err
-	}
-	addr := instance.SelectPublicAddress(addresses)
-	if addr == "" {
-		return "", instance.ErrNoDNSName
-	}
-	return addr, nil
-
-}
-
-func (inst *ec2Instance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
 }
 
 func (p environProvider) BoilerplateConfig() string {

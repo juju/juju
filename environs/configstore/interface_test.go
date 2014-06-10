@@ -46,8 +46,9 @@ func (s *interfaceSuite) TestSetAPIEndpointAndCredentials(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	expectEndpoint := configstore.APIEndpoint{
-		Addresses: []string{"example.com"},
-		CACert:    "a cert",
+		Addresses:   []string{"example.com"},
+		CACert:      "a cert",
+		EnvironUUID: "dead-beef",
 	}
 	info.SetAPIEndpoint(expectEndpoint)
 	c.Assert(info.APIEndpoint(), gc.DeepEquals, expectEndpoint)
@@ -75,8 +76,9 @@ func (s *interfaceSuite) TestWrite(c *gc.C) {
 	info.SetAPICredentials(expectCreds)
 
 	expectEndpoint := configstore.APIEndpoint{
-		Addresses: []string{"example.com"},
-		CACert:    "a cert",
+		Addresses:   []string{"example.invalid"},
+		CACert:      "a cert",
+		EnvironUUID: "dead-beef",
 	}
 	info.SetAPIEndpoint(expectEndpoint)
 

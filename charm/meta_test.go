@@ -15,11 +15,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/charm"
-	"github.com/juju/juju/testing"
+	charmtesting "github.com/juju/juju/charm/testing"
 )
 
 func repoMeta(name string) io.Reader {
-	charmDir := testing.Charms.DirPath(name)
+	charmDir := charmtesting.Charms.DirPath(name)
 	file, err := os.Open(filepath.Join(charmDir, "metadata.yaml"))
 	if err != nil {
 		panic(err)
@@ -506,6 +506,10 @@ func (s *MetaSuite) TestImplementedBy(c *gc.C) {
 type dummyCharm struct{}
 
 func (c *dummyCharm) Config() *charm.Config {
+	panic("unused")
+}
+
+func (c *dummyCharm) Actions() *charm.Actions {
 	panic("unused")
 }
 

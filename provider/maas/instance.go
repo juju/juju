@@ -10,7 +10,6 @@ import (
 	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 )
 
 type maasInstance struct {
@@ -23,7 +22,7 @@ type maasInstance struct {
 var _ instance.Instance = (*maasInstance)(nil)
 
 func (mi *maasInstance) String() string {
-	hostname, err := mi.DNSName()
+	hostname, err := mi.hostname()
 	if err != nil {
 		// This is meant to be impossible, but be paranoid.
 		hostname = fmt.Sprintf("<DNSName failed: %q>", err)
@@ -69,7 +68,7 @@ func (mi *maasInstance) getMaasObject() *gomaasapi.MAASObject {
 }
 
 func (mi *maasInstance) Addresses() ([]instance.Address, error) {
-	name, err := mi.DNSName()
+	name, err := mi.hostname()
 	if err != nil {
 		return nil, err
 	}
@@ -111,13 +110,9 @@ func (mi *maasInstance) ipAddresses() ([]string, error) {
 	return ips, nil
 }
 
-func (mi *maasInstance) DNSName() (string, error) {
+func (mi *maasInstance) hostname() (string, error) {
 	// A MAAS instance has its DNS name immediately.
 	return mi.getMaasObject().GetField("hostname")
-}
-
-func (mi *maasInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(mi)
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

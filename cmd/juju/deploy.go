@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -88,16 +87,21 @@ Examples:
    juju deploy mysql --to 24/lxc/3 (deploy to lxc container 3 on host machine 24)
    juju deploy mysql --to lxc:25   (deploy to a new lxc container on host machine 25)
 
-   juju deploy mysql -n 5 --constraints mem=8G (deploy 5 instances of mysql with at least 8 GB of RAM each)
+   juju deploy mysql -n 5 --constraints mem=8G
+   (deploy 5 instances of mysql with at least 8 GB of RAM each)
 
-   juju deploy mysql --networks=storage,mynet
+   juju deploy mysql --networks=storage,mynet --constraints networks=^logging,db
+   (deploy mysql on machines with "storage", "mynet" and "db" networks,
+    but not on machines with "logging" network, also configure "storage" and
+    "mynet" networks)
 
 Like constraints, service-specific network requirements can be
 specified with the --networks argument, which takes a comma-delimited
-list of provider-specific network names/labels.
-These instruct juju to ensure to add all the networks specified with
---networks to all new machines deployed to host units of the service.
-Not supported on all providers.
+list of juju-specific network names. Networks can also be specified with
+constraints, but they only define what machine to pick, not what networks
+to configure on it. The --networks argument instructs juju to add all the
+networks specified with it to all new machines deployed to host units of
+the service. Not supported on all providers.
 
 See Also:
    juju help constraints
@@ -121,7 +125,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "set service constraints")
-	f.StringVar(&c.Networks, "networks", "", "enable networks for service")
+	f.StringVar(&c.Networks, "networks", "", "bind the service to specific networks")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepositoryEnvKey), "local charm repository")
 }
 
@@ -182,18 +186,21 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if c.BumpRevision {
 		ctx.Infof("--upgrade (or -u) is deprecated and ignored; charms are always deployed with a unique revision.")
 	}
-	var includeNetworks []string
-	if c.Networks != "" {
-		includeNetworks = parseNetworks(c.Networks)
 
-		env, err := environs.New(conf)
-		if err != nil {
-			return err
-		}
-		if !env.SupportNetworks() {
-			return errors.New("cannot use --networks: not supported by the environment")
-		}
+	requestedNetworks, err := networkNamesToTags(parseNetworks(c.Networks))
+	if err != nil {
+		return err
 	}
+	// We need to ensure network names are valid below, but we don't need them here.
+	_, err = networkNamesToTags(c.Constraints.IncludeNetworks())
+	if err != nil {
+		return err
+	}
+	_, err = networkNamesToTags(c.Constraints.ExcludeNetworks())
+	if err != nil {
+		return err
+	}
+	haveNetworks := len(requestedNetworks) > 0 || c.Constraints.HaveNetworks()
 
 	charmInfo, err := client.CharmInfo(curl.String())
 	if err != nil {
@@ -230,12 +237,11 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		string(configYAML),
 		c.Constraints,
 		c.ToMachineSpec,
-		includeNetworks,
-		nil,
+		requestedNetworks,
 	)
 	if params.IsCodeNotImplemented(err) {
-		if len(includeNetworks) > 0 {
-			return errors.New("cannot use --networks: not supported by the API server")
+		if haveNetworks {
+			return errors.New("cannot use --networks/--constraints networks=...: not supported by the API server")
 		}
 		err = client.ServiceDeploy(
 			curl.String(),
@@ -282,15 +288,29 @@ func addCharmViaAPI(client *api.Client, ctx *cmd.Context, curl *charm.URL, repo 
 	return curl, nil
 }
 
-// parseNetworks returns a list of network tags by parsing the
+// parseNetworks returns a list of network names by parsing the
 // comma-delimited string value of --networks argument.
-func parseNetworks(networksValue string) (networks []string) {
+func parseNetworks(networksValue string) []string {
 	parts := strings.Split(networksValue, ",")
+	var networks []string
 	for _, part := range parts {
 		network := strings.TrimSpace(part)
 		if network != "" {
-			networks = append(networks, names.NewNetworkTag(network).String())
+			networks = append(networks, network)
 		}
 	}
 	return networks
+}
+
+// networkNamesToTags returns the given network names converted to
+// tags, or an error.
+func networkNamesToTags(networks []string) ([]string, error) {
+	var tags []string
+	for _, network := range networks {
+		if !names.IsNetwork(network) {
+			return nil, fmt.Errorf("%q is not a valid network name", network)
+		}
+		tags = append(tags, names.NewNetworkTag(network).String())
+	}
+	return tags, nil
 }

@@ -43,6 +43,7 @@ func (st *State) Login(tag, password, nonce string) error {
 			return err
 		}
 		st.hostPorts = hostPorts
+		st.environTag = result.EnvironTag
 	}
 	return err
 }

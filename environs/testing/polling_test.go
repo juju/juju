@@ -7,10 +7,10 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/utils"
 )
 
 func TestPackage(t *stdtesting.T) {

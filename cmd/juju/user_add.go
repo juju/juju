@@ -9,13 +9,13 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/utils"
 )
 
 const userAddCommandDoc = `
@@ -37,7 +37,7 @@ type UserAddCommand struct {
 	User        string
 	DisplayName string
 	Password    string
-	outPath     string
+	OutPath     string
 }
 
 func (c *UserAddCommand) Info() *cmd.Info {
@@ -51,8 +51,8 @@ func (c *UserAddCommand) Info() *cmd.Info {
 
 func (c *UserAddCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Password, "password", "", "Password for new user")
-	f.StringVar(&c.outPath, "o", "", "Output an environment file for new user")
-	f.StringVar(&c.outPath, "output", "", "")
+	f.StringVar(&c.OutPath, "o", "", "Output an environment file for new user")
+	f.StringVar(&c.OutPath, "output", "", "")
 }
 
 func (c *UserAddCommand) Init(args []string) error {
@@ -99,8 +99,8 @@ func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 
 	fmt.Fprintf(ctx.Stdout, "user %q added with password %q\n", user, c.Password)
 
-	if c.outPath != "" {
-		outPath := NormaliseJenvPath(ctx, c.outPath)
+	if c.OutPath != "" {
+		outPath := NormaliseJenvPath(ctx, c.OutPath)
 		err = GenerateUserJenv(c.EnvName, c.User, c.Password, outPath)
 		if err == nil {
 			fmt.Fprintf(ctx.Stdout, "environment file written to %s\n", outPath)

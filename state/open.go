@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -19,10 +20,10 @@ import (
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
-	"github.com/juju/juju/utils"
 )
 
 // mongoSocketTimeout should be long enough that
@@ -92,6 +93,15 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 		return nil, err
 	}
 	logger.Debugf("connection established")
+
+	_, err = replicaset.CurrentConfig(session)
+	safe := &mgo.Safe{J: true}
+	if err == nil {
+		// set mongo to write-majority (writes only returned after replicated
+		// to a majority of replica-set members)
+		safe.WMode = "majority"
+	}
+	session.SetSafe(safe)
 
 	st, err := newState(session, info, policy)
 	if err != nil {
@@ -293,6 +303,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		constraints:       db.C("constraints"),
 		units:             db.C("units"),
 		actions:           db.C("actions"),
+		actionresults:     db.C("actionresults"),
 		users:             db.C("users"),
 		presence:          pdb.C("presence"),
 		cleanups:          db.C("cleanups"),
