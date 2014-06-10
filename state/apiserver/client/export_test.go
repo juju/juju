@@ -6,4 +6,4 @@ package client
 var ParseSettingsCompatible = parseSettingsCompatible
 var RemoteParamsForMachine = remoteParamsForMachine
 var GetAllUnitNames = getAllUnitNames
-var EnsureAvailabilityResultFromSSI = ensureAvailabilityResultFromSSI
+var StateServersChange = stateServersChange

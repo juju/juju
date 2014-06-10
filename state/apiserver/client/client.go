@@ -14,6 +14,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -27,8 +28,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/utils"
-	"github.com/juju/juju/utils/set"
 	"github.com/juju/juju/version"
 )
 
@@ -1068,10 +1067,10 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	return result, nil
 }
 
-// Generate an EnsureAvailabilityResult structure from before and after
+// Generate a StateServersChange structure from before and after
 // StateServerInfo.
-func ensureAvailabilityResultFromSSI(ssiBefore, ssiAfter *state.StateServerInfo) params.EnsureAvailabilityResult {
-	var result params.EnsureAvailabilityResult
+func stateServersChange(ssiBefore, ssiAfter *state.StateServerInfo) params.StateServersChange {
+	var result params.StateServersChange
 
 	before := set.NewStrings(ssiBefore.MachineIds...)
 	after := set.NewStrings(ssiAfter.MachineIds...)
@@ -1084,11 +1083,11 @@ func ensureAvailabilityResultFromSSI(ssiBefore, ssiAfter *state.StateServerInfo)
 }
 
 // EnsureAvailability ensures the availability of Juju state servers.
-func (c *Client) EnsureAvailability(args params.StateServersSpec) (params.EnsureAvailabilityResult, error) {
+func (c *Client) EnsureAvailability(args params.StateServersSpec) (params.StateServersChange, error) {
 	series := args.Series
 	ssiBefore, err := c.api.state.StateServerInfo()
 	if err != nil {
-		return params.EnsureAvailabilityResult{}, err
+		return params.StateServersChange{}, err
 	}
 
 	if series == "" {
@@ -1098,22 +1097,22 @@ func (c *Client) EnsureAvailability(args params.StateServersSpec) (params.Ensure
 		// the first one, then they'll stay in sync.
 		if len(ssiBefore.VotingMachineIds) == 0 {
 			// Better than a panic()?
-			return params.EnsureAvailabilityResult{}, fmt.Errorf("internal error, failed to find any voting machines")
+			return params.StateServersChange{}, fmt.Errorf("internal error, failed to find any voting machines")
 		}
 		templateMachine, err := c.api.state.Machine(ssiBefore.VotingMachineIds[0])
 		if err != nil {
-			return params.EnsureAvailabilityResult{}, err
+			return params.StateServersChange{}, err
 		}
 		series = templateMachine.Series()
 	}
 	err = c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
 	if err != nil {
-		return params.EnsureAvailabilityResult{}, err
+		return params.StateServersChange{}, err
 	}
 
 	ssiAfter, err := c.api.state.StateServerInfo()
 	if err != nil {
-		return params.EnsureAvailabilityResult{}, err
+		return params.StateServersChange{}, err
 	}
-	return ensureAvailabilityResultFromSSI(ssiBefore, ssiAfter), nil
+	return stateServersChange(ssiBefore, ssiAfter), nil
 }

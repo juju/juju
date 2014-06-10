@@ -744,10 +744,10 @@ type StateServersSpec struct {
 	Series string `json:series,omitempty`
 }
 
-// EnsureAvailabilityResult lists the servers
+// StateServersChange lists the servers
 // that have been added, removed or maintained in the
 // pool as a result of an ensure-availability operation.
-type EnsureAvailabilityResult struct {
+type StateServersChange struct {
 	Added      []string `json:added,omitempty`
 	Maintained []string `json:maintained,omitempty`
 	Removed    []string `json:removed,omitempty`

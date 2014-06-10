@@ -2406,8 +2406,8 @@ func (s *clientSuite) TestClientAgentVersion(c *gc.C) {
 	c.Assert(result, gc.Equals, current)
 }
 
-func (s *clientSuite) TestEnsureAvailabilityResultFromSSI(c *gc.C) {
-	type ensureAvailabilityResultTest struct {
+func (s *clientSuite) TestStateServersChange(c *gc.C) {
+	type stateServersChangeTest struct {
 		about      string
 		ssiBefore  []string
 		ssiAfter   []string
@@ -2416,8 +2416,8 @@ func (s *clientSuite) TestEnsureAvailabilityResultFromSSI(c *gc.C) {
 		maintained []string
 	}
 
-	var ensureAvailabilityResultTests = []ensureAvailabilityResultTest{
-		ensureAvailabilityResultTest{
+	var stateServersChangeTests = []stateServersChangeTest{
+		stateServersChangeTest{
 			about:      "no change",
 			ssiBefore:  []string{"0", "1", "2"},
 			ssiAfter:   []string{"0", "1", "2"},
@@ -2425,7 +2425,7 @@ func (s *clientSuite) TestEnsureAvailabilityResultFromSSI(c *gc.C) {
 			removed:    []string{},
 			maintained: []string{"0", "1", "2"},
 		},
-		ensureAvailabilityResultTest{
+		stateServersChangeTest{
 			about:      "added",
 			ssiBefore:  []string{"0"},
 			ssiAfter:   []string{"0", "1", "2"},
@@ -2433,7 +2433,7 @@ func (s *clientSuite) TestEnsureAvailabilityResultFromSSI(c *gc.C) {
 			removed:    []string{},
 			maintained: []string{"0"},
 		},
-		ensureAvailabilityResultTest{
+		stateServersChangeTest{
 			about:      "removed",
 			ssiBefore:  []string{"0", "1", "2"},
 			ssiAfter:   []string{"1"},
@@ -2441,7 +2441,7 @@ func (s *clientSuite) TestEnsureAvailabilityResultFromSSI(c *gc.C) {
 			removed:    []string{"0", "2"},
 			maintained: []string{"1"},
 		},
-		ensureAvailabilityResultTest{
+		stateServersChangeTest{
 			about:      "added and removed",
 			ssiBefore:  []string{"0", "1", "2"},
 			ssiAfter:   []string{"0", "2", "3", "4"},
@@ -2449,7 +2449,7 @@ func (s *clientSuite) TestEnsureAvailabilityResultFromSSI(c *gc.C) {
 			removed:    []string{"1"},
 			maintained: []string{"0", "2"},
 		},
-		ensureAvailabilityResultTest{
+		stateServersChangeTest{
 			about:      "added at end",
 			ssiBefore:  []string{"0", "1", "2"},
 			ssiAfter:   []string{"0", "1", "2", "3", "4"},
@@ -2457,7 +2457,7 @@ func (s *clientSuite) TestEnsureAvailabilityResultFromSSI(c *gc.C) {
 			removed:    []string{},
 			maintained: []string{"0", "1", "2"},
 		},
-		ensureAvailabilityResultTest{
+		stateServersChangeTest{
 			about:      "removed at end",
 			ssiBefore:  []string{"0", "1", "2", "3", "4"},
 			ssiAfter:   []string{"0", "1", "2"},
@@ -2467,7 +2467,7 @@ func (s *clientSuite) TestEnsureAvailabilityResultFromSSI(c *gc.C) {
 		},
 	}
 
-	for i, tst := range ensureAvailabilityResultTests {
+	for i, tst := range stateServersChangeTests {
 		c.Logf("test %d. %s", i, tst.about)
 
 		before := state.StateServerInfo{
@@ -2476,7 +2476,7 @@ func (s *clientSuite) TestEnsureAvailabilityResultFromSSI(c *gc.C) {
 		after := state.StateServerInfo{
 			MachineIds: tst.ssiAfter,
 		}
-		result := client.EnsureAvailabilityResultFromSSI(&before, &after)
+		result := client.StateServersChange(&before, &after)
 		c.Assert(result.Added, gc.DeepEquals, tst.added)
 		c.Assert(result.Removed, gc.DeepEquals, tst.removed)
 		c.Assert(result.Maintained, gc.DeepEquals, tst.maintained)
