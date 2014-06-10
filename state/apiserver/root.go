@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver/agent"
+	"github.com/juju/juju/state/apiserver/backup"
 	"github.com/juju/juju/state/apiserver/charmrevisionupdater"
 	"github.com/juju/juju/state/apiserver/client"
 	"github.com/juju/juju/state/apiserver/common"
@@ -134,6 +135,17 @@ func (r *srvRoot) Machiner(id string) (*machine.MachinerAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return machine.NewMachinerAPI(r.srv.state, r.resources, r)
+}
+
+// Backup returns an object that provides access to the Backup API
+// facade. The id argument is reserved for future use and currently
+// needs to be empty.
+func (r *srvRoot) Backup(id string) (*backup.BackupAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return backup.NewBackupAPI(r.srv.state, r.resources, r)
 }
 
 // Networker returns an object that provides access to the
