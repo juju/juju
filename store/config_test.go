@@ -8,14 +8,14 @@ import (
 	"os"
 	"path"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/store"
-	"github.com/juju/juju/testing"
 )
 
 type ConfigSuite struct {
-	testing.BaseSuite
+	testing.IsolationSuite
 }
 
 var _ = gc.Suite(&ConfigSuite{})
@@ -25,14 +25,6 @@ mongo-url: localhost:23456
 foo: 1
 bar: false
 `
-
-func (s *ConfigSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-}
-
-func (s *ConfigSuite) TearDownSuite(c *gc.C) {
-	s.BaseSuite.TearDownSuite(c)
-}
 
 func (s *ConfigSuite) TestReadConfig(c *gc.C) {
 	confDir := c.MkDir()
