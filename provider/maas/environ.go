@@ -647,6 +647,14 @@ func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Addres
 	return network.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
+// ListNetworks returns basic information about all networks known
+// by the provider for the environment. They may be unknown to juju
+// yet (i.e. when called initially or when a new network was created).
+// This is not implemented by the MAAS provider yet.
+func (*maasEnviron) ListNetworks() ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("ListNetworks")
+}
+
 // AllInstances returns all the instance.Instance in this provider.
 func (environ *maasEnviron) AllInstances() ([]instance.Instance, error) {
 	return environ.instances(nil)

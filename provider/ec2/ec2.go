@@ -749,6 +749,14 @@ func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, e
 	return network.Address{}, errors.NotImplementedf("AllocateAddress")
 }
 
+// ListNetworks returns basic information about all networks known
+// by the provider for the environment. They may be unknown to juju
+// yet (i.e. when called initially or when a new network was created).
+// This is not implemented by the EC2 provider yet.
+func (*environ) ListNetworks() ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("ListNetworks")
+}
+
 func (e *environ) AllInstances() ([]instance.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")

@@ -207,6 +207,14 @@ func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Addr
 	return network.Address{}, errors.NotSupportedf("AllocateAddress")
 }
 
+// ListNetworks returns basic information about all networks known
+// by the provider for the environment. They may be unknown to juju
+// yet (i.e. when called initially or when a new network was created).
+// This is not implemented by the manual provider yet.
+func (*manualEnviron) ListNetworks() ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("ListNetworks")
+}
+
 var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
 	logger.Debugf("using ssh storage at host %q dir %q", sshHost, storageDir)
 	return sshstorage.NewSSHStorage(sshstorage.NewSSHStorageParams{

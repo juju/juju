@@ -407,6 +407,14 @@ func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Addre
 	return network.Address{}, errors.NotSupportedf("AllocateAddress")
 }
 
+// ListNetworks returns basic information about all networks known
+// by the provider for the environment. They may be unknown to juju
+// yet (i.e. when called initially or when a new network was created).
+// This is not implemented by the local provider yet.
+func (*localEnviron) ListNetworks() ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("ListNetworks")
+}
+
 // AllInstances is specified in the InstanceBroker interface.
 func (env *localEnviron) AllInstances() (instances []instance.Instance, err error) {
 	instances = append(instances, &localInstance{bootstrapInstanceId, env})
