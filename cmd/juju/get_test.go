@@ -6,10 +6,10 @@ package main
 import (
 	"bytes"
 
+	"github.com/juju/charm"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/testing"

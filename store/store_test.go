@@ -14,12 +14,12 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/store"
 	"github.com/juju/juju/testing"
 )

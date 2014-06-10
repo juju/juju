@@ -10,10 +10,9 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/charm/hooks"
 	"github.com/juju/schema"
 	"launchpad.net/goyaml"
-
-	"github.com/juju/juju/charm/hooks"
 )
 
 // RelationScope describes the scope of a relation.

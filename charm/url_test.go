@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/charm"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
-
-	"github.com/juju/juju/charm"
 )
 
 type URLSuite struct{}

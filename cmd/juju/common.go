@@ -6,9 +6,9 @@ package main
 import (
 	"fmt"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"

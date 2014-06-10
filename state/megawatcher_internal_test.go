@@ -10,10 +10,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/charm"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"

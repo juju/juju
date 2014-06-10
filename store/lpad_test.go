@@ -6,10 +6,10 @@ package store_test
 import (
 	"fmt"
 
+	"github.com/juju/charm"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/lpad"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/store"
 	"github.com/juju/juju/testing"
 )

@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -22,7 +23,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/mongo"
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"

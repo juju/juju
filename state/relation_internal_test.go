@@ -4,9 +4,8 @@
 package state
 
 import (
+	"github.com/juju/charm"
 	gc "launchpad.net/gocheck"
-
-	"github.com/juju/juju/charm"
 )
 
 type RelationSuite struct{}

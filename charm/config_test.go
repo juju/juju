@@ -7,9 +7,8 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/juju/charm"
 	gc "launchpad.net/gocheck"
-
-	"github.com/juju/juju/charm"
 )
 
 type ConfigSuite struct {

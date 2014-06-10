@@ -4,9 +4,9 @@
 package state_test
 
 import (
+	"github.com/juju/charm"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state"
 )
 

@@ -15,12 +15,12 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
