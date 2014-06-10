@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
@@ -44,7 +45,7 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 
 	// Wrap the publisher so that we can call StartSync immediately
 	// after the publishAPIServers method is called.
-	publish := func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+	publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 		err := statePublish.publishAPIServers(apiServers, instanceIds)
 		s.State.StartSync()
 		return err
@@ -96,19 +97,19 @@ func initState(c *gc.C, st *fakeState, numMachines int) {
 
 // expectedAPIHostPorts returns the expected addresses
 // of the machines as created by initState.
-func expectedAPIHostPorts(n int) [][]instance.HostPort {
-	servers := make([][]instance.HostPort, n)
+func expectedAPIHostPorts(n int) [][]network.HostPort {
+	servers := make([][]network.HostPort, n)
 	for i := range servers {
-		servers[i] = []instance.HostPort{{
-			Address: instance.NewAddress(fmt.Sprintf("0.1.2.%d", i+10), instance.NetworkUnknown),
+		servers[i] = []network.HostPort{{
+			Address: network.NewAddress(fmt.Sprintf("0.1.2.%d", i+10), network.ScopeUnknown),
 			Port:    apiPort,
 		}}
 	}
 	return servers
 }
 
-func addressesWithPort(port int, addrs ...string) []instance.HostPort {
-	return instance.AddressesWithPort(instance.NewAddresses(addrs...), port)
+func addressesWithPort(port int, addrs ...string) []network.HostPort {
+	return network.AddressesWithPort(network.NewAddresses(addrs...), port)
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
@@ -388,15 +389,15 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 	c.Assert(n1-n0, jc.LessThan, 3)
 }
 
-type publisherFunc func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error
+type publisherFunc func(apiServers [][]network.HostPort, instanceIds []instance.Id) error
 
-func (f publisherFunc) publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+func (f publisherFunc) publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 	return f(apiServers, instanceIds)
 }
 
 func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
-	publishCh := make(chan [][]instance.HostPort)
-	publish := func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+	publishCh := make(chan [][]network.HostPort)
+	publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 		publishCh <- apiServers
 		return nil
 	}
@@ -433,10 +434,10 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 	s.PatchValue(&initialRetryInterval, 5*time.Millisecond)
 	s.PatchValue(&maxRetryInterval, initialRetryInterval)
 
-	publishCh := make(chan [][]instance.HostPort, 100)
+	publishCh := make(chan [][]network.HostPort, 100)
 
 	count := 0
-	publish := func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+	publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 		publishCh <- apiServers
 		count++
 		if count <= 3 {
@@ -474,7 +475,7 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 
 	publishCh := make(chan []instance.Id, 100)
 
-	publish := func(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+	publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 		publishCh <- instanceIds
 		return nil
 	}
@@ -516,6 +517,6 @@ func mustNext(c *gc.C, w *voyeur.Watcher) (val interface{}) {
 
 type noPublisher struct{}
 
-func (noPublisher) publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error {
+func (noPublisher) publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 	return nil
 }

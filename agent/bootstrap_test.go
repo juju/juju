@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -75,7 +76,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
-		Addresses:       instance.NewAddresses("0.1.2.3", "zeroonetwothree"),
+		Addresses:       network.NewAddresses("0.1.2.3", "zeroonetwothree"),
 		Constraints:     expectConstraints,
 		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
@@ -126,8 +127,8 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// Check that the API host ports are initialised correctly.
 	apiHostPorts, err := st.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiHostPorts, gc.DeepEquals, [][]instance.HostPort{
-		instance.AddressesWithPort(mcfg.Addresses, 1234),
+	c.Assert(apiHostPorts, gc.DeepEquals, [][]network.HostPort{
+		network.AddressesWithPort(mcfg.Addresses, 1234),
 	})
 
 	// Check that the state serving info is initialised correctly.

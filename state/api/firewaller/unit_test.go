@@ -7,7 +7,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/firewaller"
 	"github.com/juju/juju/state/api/params"
 	statetesting "github.com/juju/juju/state/testing"
@@ -99,7 +99,7 @@ func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 func (s *unitSuite) TestOpenedPorts(c *gc.C) {
 	ports, err := s.apiUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, jc.DeepEquals, []instance.Port{})
+	c.Assert(ports, jc.DeepEquals, []network.Port{})
 
 	// Open some ports and check again.
 	err = s.units[0].OpenPort("foo", 1234)
@@ -108,7 +108,7 @@ func (s *unitSuite) TestOpenedPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	ports, err = s.apiUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, jc.DeepEquals, []instance.Port{{"bar", 4321}, {"foo", 1234}})
+	c.Assert(ports, jc.DeepEquals, []network.Port{{"bar", 4321}, {"foo", 1234}})
 }
 
 func (s *unitSuite) TestService(c *gc.C) {

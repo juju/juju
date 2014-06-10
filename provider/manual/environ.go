@@ -22,13 +22,13 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/httpstorage"
 	"github.com/juju/juju/environs/manual"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/sshstorage"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -203,8 +203,8 @@ func (e *manualEnviron) Instances(ids []instance.Id) (instances []instance.Insta
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network. This is not supported on the
 // manual provider.
-func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
-	return instance.Address{}, errors.NotSupportedf("AllocateAddress")
+func (*manualEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
+	return network.Address{}, errors.NotSupportedf("AllocateAddress")
 }
 
 var newSSHStorage = func(sshHost, storageDir, storageTmpdir string) (storage.Storage, error) {
@@ -286,16 +286,16 @@ func (e *manualEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
-func (e *manualEnviron) OpenPorts(ports []instance.Port) error {
+func (e *manualEnviron) OpenPorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *manualEnviron) ClosePorts(ports []instance.Port) error {
+func (e *manualEnviron) ClosePorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *manualEnviron) Ports() ([]instance.Port, error) {
-	return []instance.Port{}, nil
+func (e *manualEnviron) Ports() ([]network.Port, error) {
+	return []network.Port{}, nil
 }
 
 func (*manualEnviron) Provider() environs.EnvironProvider {

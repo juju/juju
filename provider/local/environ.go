@@ -31,13 +31,13 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/httpstorage"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -403,8 +403,8 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network. This is not supported on the
 // local provider.
-func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
-	return instance.Address{}, errors.NotSupportedf("AllocateAddress")
+func (*localEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
+	return network.Address{}, errors.NotSupportedf("AllocateAddress")
 }
 
 // AllInstances is specified in the InstanceBroker interface.
@@ -504,17 +504,17 @@ func (env *localEnviron) Destroy() error {
 }
 
 // OpenPorts is specified in the Environ interface.
-func (env *localEnviron) OpenPorts(ports []instance.Port) error {
+func (env *localEnviron) OpenPorts(ports []network.Port) error {
 	return fmt.Errorf("open ports not implemented")
 }
 
 // ClosePorts is specified in the Environ interface.
-func (env *localEnviron) ClosePorts(ports []instance.Port) error {
+func (env *localEnviron) ClosePorts(ports []network.Port) error {
 	return fmt.Errorf("close ports not implemented")
 }
 
 // Ports is specified in the Environ interface.
-func (env *localEnviron) Ports() ([]instance.Port, error) {
+func (env *localEnviron) Ports() ([]network.Port, error) {
 	return nil, nil
 }
 

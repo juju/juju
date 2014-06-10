@@ -12,9 +12,9 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/testing"
@@ -45,7 +45,7 @@ func FakeAPIInfo(machineId string) *api.Info {
 }
 
 // WaitAddresses waits until the specified instance has addresses, and returns them.
-func WaitInstanceAddresses(env environs.Environ, instId instance.Id) ([]instance.Address, error) {
+func WaitInstanceAddresses(env environs.Environ, instId instance.Id) ([]network.Address, error) {
 	for a := testing.LongAttempt.Start(); a.Next(); {
 		insts, err := env.Instances([]instance.Id{instId})
 		if err != nil {

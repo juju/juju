@@ -11,7 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -546,19 +546,19 @@ func (*suite) TestSetAPIHostPorts(c *gc.C) {
 	//
 	// If a server has only machine-local addresses, or none
 	// at all, then it will be excluded.
-	server1 := instance.NewAddresses("0.1.2.3", "0.1.2.4", "zeroonetwothree")
-	server1[0].NetworkScope = instance.NetworkCloudLocal
-	server1[1].NetworkScope = instance.NetworkCloudLocal
-	server1[2].NetworkScope = instance.NetworkPublic
-	server2 := instance.NewAddresses("127.0.0.1")
-	server2[0].NetworkScope = instance.NetworkMachineLocal
-	server3 := instance.NewAddresses("0.1.2.5", "zeroonetwofive")
-	server3[0].NetworkScope = instance.NetworkUnknown
-	server3[1].NetworkScope = instance.NetworkUnknown
-	conf.SetAPIHostPorts([][]instance.HostPort{
-		instance.AddressesWithPort(server1, 123),
-		instance.AddressesWithPort(server2, 124),
-		instance.AddressesWithPort(server3, 125),
+	server1 := network.NewAddresses("0.1.2.3", "0.1.2.4", "zeroonetwothree")
+	server1[0].Scope = network.ScopeCloudLocal
+	server1[1].Scope = network.ScopeCloudLocal
+	server1[2].Scope = network.ScopePublic
+	server2 := network.NewAddresses("127.0.0.1")
+	server2[0].Scope = network.ScopeMachineLocal
+	server3 := network.NewAddresses("0.1.2.5", "zeroonetwofive")
+	server3[0].Scope = network.ScopeUnknown
+	server3[1].Scope = network.ScopeUnknown
+	conf.SetAPIHostPorts([][]network.HostPort{
+		network.AddressesWithPort(server1, 123),
+		network.AddressesWithPort(server2, 124),
+		network.AddressesWithPort(server3, 125),
 	})
 	addrs, err = conf.APIAddresses()
 	c.Assert(err, gc.IsNil)

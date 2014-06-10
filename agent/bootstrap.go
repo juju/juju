@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
@@ -38,7 +39,7 @@ type StateInitializer interface {
 // to attach to the bootstrap machine.
 type BootstrapMachineConfig struct {
 	// Addresses holds the bootstrap machine's addresses.
-	Addresses []instance.Address
+	Addresses []network.Address
 
 	// Constraints holds the bootstrap machine's constraints.
 	// This value is also used for the environment-level constraints.
@@ -194,7 +195,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []instance.Address, apiPort int) error {
-	hostPorts := instance.AddressesWithPort(addrs, apiPort)
-	return st.SetAPIHostPorts([][]instance.HostPort{hostPorts})
+func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []network.Address, apiPort int) error {
+	hostPorts := network.AddressesWithPort(addrs, apiPort)
+	return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
 }

@@ -12,8 +12,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
@@ -301,7 +301,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine0.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err := s.machine0.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
 	addresses, err := s.State.Addresses()
@@ -315,8 +315,8 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		Port:    1234,
 	}}}
 

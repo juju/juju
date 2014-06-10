@@ -1,15 +1,15 @@
 package juju_test
 
 import (
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api"
 )
 
 type mockAPIState struct {
 	close func(juju.APIState) error
 
-	apiHostPorts [][]instance.HostPort
+	apiHostPorts [][]network.HostPort
 	environTag   string
 }
 
@@ -20,7 +20,7 @@ func (s *mockAPIState) Close() error {
 	return nil
 }
 
-func (s *mockAPIState) APIHostPorts() [][]instance.HostPort {
+func (s *mockAPIState) APIHostPorts() [][]network.HostPort {
 	return s.apiHostPorts
 }
 

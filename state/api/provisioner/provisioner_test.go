@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -58,7 +59,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
-	err = s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
 	// Create the provisioner API facade.
@@ -522,7 +523,7 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
 	stateAddresses, err := s.State.Addresses()

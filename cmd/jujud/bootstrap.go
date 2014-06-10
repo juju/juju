@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/worker/peergrouper"
@@ -158,7 +159,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return m.SetHasVote(true)
 }
 
-func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agent.Config) error {
+func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
 	info, ok := agentConfig.StateInfo()

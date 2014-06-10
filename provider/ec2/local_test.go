@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
@@ -406,28 +407,28 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// Expected values use Address type but really contain a regexp for
 	// the value rather than a valid ip or hostname.
-	expected := []instance.Address{{
-		Value:        "*.testing.invalid",
-		Type:         instance.HostName,
-		NetworkScope: instance.NetworkPublic,
+	expected := []network.Address{{
+		Value: "*.testing.invalid",
+		Type:  network.HostName,
+		Scope: network.ScopePublic,
 	}, {
-		Value:        "*.internal.invalid",
-		Type:         instance.HostName,
-		NetworkScope: instance.NetworkCloudLocal,
+		Value: "*.internal.invalid",
+		Type:  network.HostName,
+		Scope: network.ScopeCloudLocal,
 	}, {
-		Value:        "8.0.0.*",
-		Type:         instance.Ipv4Address,
-		NetworkScope: instance.NetworkPublic,
+		Value: "8.0.0.*",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
 	}, {
-		Value:        "127.0.0.*",
-		Type:         instance.Ipv4Address,
-		NetworkScope: instance.NetworkCloudLocal,
+		Value: "127.0.0.*",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
 	}}
 	c.Assert(addrs, gc.HasLen, len(expected))
 	for i, addr := range addrs {
 		c.Check(addr.Value, gc.Matches, expected[i].Value)
 		c.Check(addr.Type, gc.Equals, expected[i].Type)
-		c.Check(addr.NetworkScope, gc.Equals, expected[i].NetworkScope)
+		c.Check(addr.Scope, gc.Equals, expected[i].Scope)
 	}
 }
 

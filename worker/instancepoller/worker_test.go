@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -30,8 +31,8 @@ func (*workerSuite) instId(i int) instance.Id {
 	return instance.Id(fmt.Sprint(i))
 }
 
-func (*workerSuite) addressesForIndex(i int) []instance.Address {
-	return instance.NewAddresses(fmt.Sprintf("127.0.0.%d", i))
+func (*workerSuite) addressesForIndex(i int) []network.Address {
+	return network.NewAddresses(fmt.Sprintf("127.0.0.%d", i))
 }
 
 func (s *workerSuite) TestWorker(c *gc.C) {

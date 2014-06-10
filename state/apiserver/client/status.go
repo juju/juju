@@ -14,8 +14,8 @@ import (
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -366,7 +366,7 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		if err != nil {
 			status.InstanceState = "error"
 		}
-		status.DNSName = instance.SelectPublicAddress(machine.Addresses())
+		status.DNSName = network.SelectPublicAddress(machine.Addresses())
 	} else {
 		if state.IsNotProvisionedError(err) {
 			status.InstanceId = "pending"

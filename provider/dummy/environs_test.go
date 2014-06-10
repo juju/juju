@@ -13,10 +13,10 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/jujutest"
-	"github.com/juju/juju/environs/network"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
 )
@@ -101,21 +101,21 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
 
-	expectAddress := instance.NewAddress("0.1.2.1", instance.NetworkCloudLocal)
+	expectAddress := network.NewAddress("0.1.2.1", network.ScopeCloudLocal)
 	address, err := e.AllocateAddress(inst.Id(), netId)
 	c.Assert(err, gc.IsNil)
 	c.Assert(address, gc.DeepEquals, expectAddress)
 
 	assertAllocateAddress(c, e, opc, inst.Id(), netId, expectAddress)
 
-	expectAddress = instance.NewAddress("0.1.2.2", instance.NetworkCloudLocal)
+	expectAddress = network.NewAddress("0.1.2.2", network.ScopeCloudLocal)
 	address, err = e.AllocateAddress(inst.Id(), netId)
 	c.Assert(err, gc.IsNil)
 	c.Assert(address, gc.DeepEquals, expectAddress)
 	assertAllocateAddress(c, e, opc, inst.Id(), netId, expectAddress)
 }
 
-func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectNetId network.Id, expectAddress instance.Address) {
+func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectNetId network.Id, expectAddress network.Address) {
 	select {
 	case op := <-opc:
 		addrOp, ok := op.(dummy.OpAllocateAddress)

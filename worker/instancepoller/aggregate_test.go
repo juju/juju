@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -26,14 +27,14 @@ var _ = gc.Suite(&aggregateSuite{})
 
 type testInstance struct {
 	instance.Instance
-	addresses []instance.Address
+	addresses []network.Address
 	status    string
 	err       error
 }
 
 var _ instance.Instance = (*testInstance)(nil)
 
-func (t *testInstance) Addresses() ([]instance.Address, error) {
+func (t *testInstance) Addresses() ([]network.Address, error) {
 	if t.err != nil {
 		return nil, t.err
 	}
@@ -60,7 +61,7 @@ func (i *testInstanceGetter) Instances(ids []instance.Id) (result []instance.Ins
 
 func newTestInstance(status string, addresses []string) *testInstance {
 	thisInstance := testInstance{status: status}
-	thisInstance.addresses = instance.NewAddresses(addresses...)
+	thisInstance.addresses = network.NewAddresses(addresses...)
 	return &thisInstance
 }
 
