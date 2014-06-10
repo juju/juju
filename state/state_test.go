@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
@@ -135,7 +136,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 
 func (s *StateSuite) TestPing(c *gc.C) {
 	c.Assert(s.State.Ping(), gc.IsNil)
-	testing.MgoServer.Restart()
+	gitjujutesting.MgoServer.Restart()
 	c.Assert(s.State.Ping(), gc.NotNil)
 }
 
@@ -2096,8 +2097,8 @@ func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
-	inst := testing.MgoInstance{Params: []string{"--replSet", "juju"}}
-	err := inst.Start(true)
+	inst := gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
+	err := inst.Start(testing.Certs)
 	c.Assert(err, gc.IsNil)
 	defer inst.Destroy()
 

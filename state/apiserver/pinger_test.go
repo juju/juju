@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
@@ -122,7 +123,7 @@ func (s *mongoPingerSuite) TestAgentConnectionsShutDownWhenStateDies(c *gc.C) {
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
 	c.Assert(err, gc.IsNil)
-	coretesting.MgoServer.Destroy()
+	gitjujutesting.MgoServer.Destroy()
 
 	attempt := utils.AttemptStrategy{
 		Total: coretesting.LongWait,

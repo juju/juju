@@ -38,7 +38,7 @@ import (
 
 type BootstrapSuite struct {
 	coretesting.FakeJujuHomeSuite
-	coretesting.MgoSuite
+	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
 }
 

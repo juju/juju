@@ -4,6 +4,7 @@
 package state
 
 import (
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
@@ -17,7 +18,7 @@ import (
 // schema changes.
 type compatSuite struct {
 	testing.BaseSuite
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	state *State
 	env   *Environment
 }
