@@ -115,6 +115,11 @@ type OpAllocateAddress struct {
 	Address    network.Address
 }
 
+type OpListNetworks struct {
+	Env  string
+	Info []network.BasicInfo
+}
+
 type OpStartInstance struct {
 	Env          string
 	MachineId    string
@@ -909,6 +914,30 @@ func (env *environ) AllocateAddress(instId instance.Id, netId network.Id) (netwo
 		Address:    newAddress,
 	}
 	return newAddress, nil
+}
+
+// ListNetworks implements environs.Environ.ListNetworks.
+func (env *environ) ListNetworks() ([]network.BasicInfo, error) {
+	if err := env.checkBroken("ListNetworks"); err != nil {
+		return nil, err
+	}
+
+	estate, err := env.state()
+	if err != nil {
+		return nil, err
+	}
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+
+	netInfo := []network.BasicInfo{
+		{CIDR: "0.10.0.0/8", ProviderId: "dummy-private"},
+		{CIDR: "0.20.0.0/24", ProviderId: "dummy-public"},
+	}
+	estate.ops <- OpListNetworks{
+		Env:  env.name,
+		Info: netInfo,
+	}
+	return netInfo, nil
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {

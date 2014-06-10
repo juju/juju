@@ -120,6 +120,11 @@ type Environ interface {
 	// given instance on the given network.
 	AllocateAddress(instId instance.Id, netId network.Id) (network.Address, error)
 
+	// ListNetworks returns basic information about all networks known
+	// by the provider for the environment. They may be unknown to juju
+	// yet (i.e. when called initially or when a new network was created).
+	ListNetworks() ([]network.BasicInfo, error)
+
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
 
