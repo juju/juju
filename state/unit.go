@@ -524,13 +524,13 @@ func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
 
 // DeployerTag returns the tag of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
-func (u *Unit) DeployerTag() (string, bool) {
+func (u *Unit) DeployerTag() (names.Tag, bool) {
 	if u.doc.Principal != "" {
-		return names.NewUnitTag(u.doc.Principal).String(), true
+		return names.NewUnitTag(u.doc.Principal), true
 	} else if u.doc.MachineId != "" {
-		return names.NewMachineTag(u.doc.MachineId).String(), true
+		return names.NewMachineTag(u.doc.MachineId), true
 	}
-	return "", false
+	return nil, false
 }
 
 // PrincipalName returns the name of the unit's principal.

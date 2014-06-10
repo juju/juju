@@ -277,7 +277,7 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
 		CACert:     endpoint.CACert,
-		Tag:      names.NewUserTag(info.APICredentials().User).String(),
+		Tag:        names.NewUserTag(info.APICredentials().User).String(),
 		Password:   info.APICredentials().Password,
 		EnvironTag: environTag,
 	}
