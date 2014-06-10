@@ -276,7 +276,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	// change list.
 	// TODO(thumper): update for API server later to get all machines in one go.
 	for _, id := range ids {
-		machineTag := names.MachineTag(id)
+		machineTag := names.NewMachineTag(id).String()
 		machine, err := task.machineGetter.Machine(machineTag)
 		switch {
 		case params.IsCodeNotFoundOrCodeUnauthorized(err):
@@ -434,7 +434,7 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 	}
 	visitedNetworks := set.NewStrings()
 	for _, info := range networkInfo {
-		networkTag := names.NetworkTag(info.NetworkName)
+		networkTag := names.NewNetworkTag(info.NetworkName).String()
 		if !visitedNetworks.Contains(networkTag) {
 			networks = append(networks, params.Network{
 				Tag:        networkTag,

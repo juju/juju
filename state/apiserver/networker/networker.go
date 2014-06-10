@@ -46,7 +46,7 @@ func NewNetworkerAPI(
 			}
 			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
 				// Until a top-level machine is reached.
-				if names.MachineTag(parentId) == authEntityTag {
+				if names.NewMachineTag(parentId).String() == authEntityTag {
 					// All containers with the authenticated machine as a
 					// parent are accessible by it.
 					return true

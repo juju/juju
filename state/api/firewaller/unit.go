@@ -67,10 +67,10 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
-	serviceTag := names.ServiceTag(names.UnitService(u.Name()))
+	serviceTag := names.NewServiceTag(names.UnitService(u.Name()))
 	service := &Service{
 		st:  u.st,
-		tag: serviceTag,
+		tag: serviceTag.String(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.

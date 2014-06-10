@@ -42,7 +42,7 @@ func NewMachineConfig(
 		LogDir:                  agent.DefaultLogDir,
 		Jobs:                    []params.MachineJob{params.JobHostUnits},
 		CloudInitOutputLog:      CloudInitOutputLog,
-		MachineAgentServiceName: "jujud-" + names.MachineTag(machineID),
+		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 
 		// Parameter entries.
 		MachineId:    machineID,

@@ -742,10 +742,10 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	if args.MachineConfig.StateInfo.Tag != names.MachineTag(machineId) {
+	if args.MachineConfig.StateInfo.Tag != names.NewMachineTag(machineId).String() {
 		return nil, nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
-	if args.MachineConfig.APIInfo.Tag != names.MachineTag(machineId) {
+	if args.MachineConfig.APIInfo.Tag != names.NewMachineTag(machineId).String() {
 		return nil, nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
 	logger.Infof("would pick tools from %s", args.Tools)

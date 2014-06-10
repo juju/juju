@@ -252,7 +252,7 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
-	parentMachineTag := names.MachineTag(s.parentMachineId)
+	parentMachineTag := names.NewMachineTag(s.parentMachineId).String()
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
 	tools, err := s.provisioner.Tools(agentConfig.Tag())
 	c.Assert(err, gc.IsNil)

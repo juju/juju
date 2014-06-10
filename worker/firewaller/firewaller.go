@@ -102,7 +102,7 @@ func (fw *Firewaller) loop() error {
 				return watcher.MustErr(fw.machinesWatcher)
 			}
 			for _, machineId := range change {
-				fw.machineLifeChanged(names.MachineTag(machineId))
+				fw.machineLifeChanged(names.NewMachineTag(machineId).String())
 			}
 			if !reconciled {
 				reconciled = true
@@ -345,7 +345,7 @@ func (fw *Firewaller) reconcileInstances() error {
 func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 	changed := []*unitData{}
 	for _, name := range change.units {
-		unit, err := fw.st.Unit(names.UnitTag(name))
+		unit, err := fw.st.Unit(names.NewUnitTag(name).String())
 		if err != nil && !params.IsCodeNotFound(err) {
 			return err
 		}

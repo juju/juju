@@ -100,7 +100,7 @@ func (u *User) DisplayName() string {
 // Tag returns the Tag for
 // the user ("user-$username")
 func (u *User) Tag() string {
-	return names.UserTag(u.doc.Name)
+	return names.NewUserTag(u.doc.Name).String()
 }
 
 // SetPassword sets the password associated with the user.
