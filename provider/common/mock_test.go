@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
 
@@ -103,14 +102,6 @@ func (inst *mockInstance) Id() instance.Id {
 
 func (inst *mockInstance) Addresses() ([]instance.Address, error) {
 	return inst.addresses, inst.addressesErr
-}
-
-func (inst *mockInstance) DNSName() (string, error) {
-	return inst.dnsName, inst.dnsNameErr
-}
-
-func (inst *mockInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
 }
 
 type mockStorage struct {

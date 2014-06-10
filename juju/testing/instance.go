@@ -44,6 +44,24 @@ func FakeAPIInfo(machineId string) *api.Info {
 	}
 }
 
+// WaitAddresses waits until the specified instance has addresses, and returns them.
+func WaitInstanceAddresses(env environs.Environ, instId instance.Id) ([]instance.Address, error) {
+	for a := testing.LongAttempt.Start(); a.Next(); {
+		insts, err := env.Instances([]instance.Id{instId})
+		if err != nil {
+			return nil, err
+		}
+		addresses, err := insts[0].Addresses()
+		if err != nil {
+			return nil, err
+		}
+		if len(addresses) > 0 {
+			return addresses, nil
+		}
+	}
+	return nil, fmt.Errorf("timed out trying to get addresses for %v", instId)
+}
+
 // AssertStartInstance is a test helper function that starts an instance with a
 // plausible but invalid configuration, and checks that it succeeds.
 func AssertStartInstance(

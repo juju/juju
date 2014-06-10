@@ -169,23 +169,6 @@ func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 	return addresses, nil
 }
 
-func (inst *ec2Instance) DNSName() (string, error) {
-	addresses, err := inst.Addresses()
-	if err != nil {
-		return "", err
-	}
-	addr := instance.SelectPublicAddress(addresses)
-	if addr == "" {
-		return "", instance.ErrNoDNSName
-	}
-	return addr, nil
-
-}
-
-func (inst *ec2Instance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
-}
-
 func (p environProvider) BoilerplateConfig() string {
 	return `
 # https://juju.ubuntu.com/docs/config-aws.html

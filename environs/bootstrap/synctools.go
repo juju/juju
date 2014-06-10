@@ -112,7 +112,7 @@ func SeriesToUpload(cfg *config.Config, series []string) []string {
 			unique.Add(series)
 		}
 	}
-	return unique.Values()
+	return unique.SortedValues()
 }
 
 // validateUploadAllowed returns an error if an attempt to upload tools should

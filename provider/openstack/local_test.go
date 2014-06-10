@@ -589,9 +589,9 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(insts, gc.HasLen, 1)
 	c.Check(insts[0].Id(), gc.Equals, stateData.StateInstances[0])
 
-	bootstrapDNS, err := insts[0].DNSName()
+	addresses, err := insts[0].Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(bootstrapDNS, gc.Not(gc.Equals), "")
+	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 
 	// TODO(wallyworld) - 2013-03-01 bug=1137005
 	// The nova test double needs to be updated to support retrieving instance userData.

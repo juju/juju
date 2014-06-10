@@ -539,7 +539,7 @@ func (s *environSuite) TestStateInfo(c *gc.C) {
 	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	config := env.Config()
-	dnsName := prefix + "myservice." + AZURE_DOMAIN_NAME
+	dnsName := prefix + "myservice." + AzureDomainName
 	c.Check(stateInfo.Addrs, jc.SameContents, []string{
 		fmt.Sprintf("1.2.3.4:%d", config.StatePort()),
 		fmt.Sprintf("%s:%d", dnsName, config.StatePort()),

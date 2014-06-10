@@ -631,7 +631,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
 
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
-		"uploading tools for series \\[precise .* raring\\]\n")
+		"uploading tools for series \\[precise raring .*\\]\n")
 	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: an error")
 }
 

@@ -68,24 +68,6 @@ func (*instanceSuite) TestStatus(c *gc.C) {
 	c.Check(inst.Status(), gc.Equals, "anyoldthing")
 }
 
-func (*instanceSuite) TestDNSName(c *gc.C) {
-	testService := makeHostedServiceDescriptor("cloud-service-name")
-	azInstance := azureInstance{hostedService: testService}
-	dnsName, err := azInstance.DNSName()
-	c.Assert(err, gc.IsNil)
-	c.Check(dnsName, gc.Equals, "cloud-service-name.cloudapp.net")
-}
-
-func (*instanceSuite) TestWaitDNSName(c *gc.C) {
-	// An Azure instance gets its DNS name immediately, so there's no
-	// waiting involved.
-	testService := makeHostedServiceDescriptor("cloud-service-name")
-	azInstance := azureInstance{hostedService: testService}
-	dnsName, err := azInstance.WaitDNSName()
-	c.Assert(err, gc.IsNil)
-	c.Check(dnsName, gc.Equals, "cloud-service-name.cloudapp.net")
-}
-
 func makeInputEndpoint(port int, protocol string) gwacl.InputEndpoint {
 	name := fmt.Sprintf("%s%d", protocol, port)
 	probe := &gwacl.LoadBalancerProbe{Port: port, Protocol: "TCP"}
@@ -170,7 +152,7 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 			instance.NetworkCloudLocal,
 		},
 		instance.Address{
-			s.service.ServiceName + "." + AZURE_DOMAIN_NAME,
+			s.service.ServiceName + "." + AzureDomainName,
 			instance.HostName,
 			"",
 			instance.NetworkPublic,

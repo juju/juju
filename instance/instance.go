@@ -4,7 +4,6 @@
 package instance
 
 import (
-	"errors"
 	"fmt"
 	"math"
 	"sort"
@@ -13,8 +12,6 @@ import (
 
 	"github.com/juju/juju/juju/arch"
 )
-
-var ErrNoDNSName = errors.New("DNS name not allocated")
 
 // An instance Id is a provider-specific identifier associated with an
 // instance (physical or virtual machine allocated in the provider).
@@ -42,20 +39,8 @@ type Instance interface {
 	Refresh() error
 
 	// Addresses returns a list of hostnames or ip addresses
-	// associated with the instance. This will supercede DNSName
-	// which can be implemented by selecting a preferred address.
+	// associated with the instance.
 	Addresses() ([]Address, error)
-
-	// DNSName returns the DNS name for the instance.
-	// If the name is not yet allocated, it will return
-	// an ErrNoDNSName error.
-	DNSName() (string, error)
-
-	// WaitDNSName returns the DNS name for the instance,
-	// waiting until it is allocated if necessary.
-	// TODO: We may not need this in the interface any more.  All
-	// implementations now delegate to environs.WaitDNSName.
-	WaitDNSName() (string, error)
 
 	// OpenPorts opens the given ports on the instance, which
 	// should have been started with the given machine id.

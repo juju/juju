@@ -454,7 +454,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		}
 	}
 
-	hostname, err := inst.DNSName()
+	hostname, err := inst.hostname()
 	if err != nil {
 		return nil, nil, nil, err
 	}
