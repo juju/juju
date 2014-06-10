@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
 
@@ -87,6 +88,23 @@ func (env *mockEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{datasource}, nil
 }
 
+type availabilityZonesFunc func() ([]common.AvailabilityZone, error)
+type instanceAvailabilityZonesFunc func([]instance.Id) ([]string, error)
+
+type mockZonedEnviron struct {
+	mockEnviron
+	availabilityZones         availabilityZonesFunc
+	instanceAvailabilityZones instanceAvailabilityZonesFunc
+}
+
+func (env *mockZonedEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
+	return env.availabilityZones()
+}
+
+func (env *mockZonedEnviron) InstanceAvailabilityZones(ids []instance.Id) ([]string, error) {
+	return env.instanceAvailabilityZones(ids)
+}
+
 type mockInstance struct {
 	id                string
 	addresses         []network.Address
@@ -122,4 +140,17 @@ func (stor *mockStorage) RemoveAll() error {
 		return stor.removeAllErr
 	}
 	return stor.Storage.RemoveAll()
+}
+
+type mockAvailabilityZone struct {
+	name      string
+	available bool
+}
+
+func (z *mockAvailabilityZone) Name() string {
+	return z.name
+}
+
+func (z *mockAvailabilityZone) Available() bool {
+	return z.available
 }
