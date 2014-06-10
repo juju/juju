@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
@@ -21,12 +22,12 @@ func TestPackage(t *testing.T) {
 
 type MongoSuite struct {
 	coretesting.BaseSuite
-	root *coretesting.MgoInstance
+	root *gitjujutesting.MgoInstance
 }
 
-func newServer(c *gc.C) *coretesting.MgoInstance {
-	inst := &coretesting.MgoInstance{Params: []string{"--replSet", rsName}}
-	err := inst.Start(true)
+func newServer(c *gc.C) *gitjujutesting.MgoInstance {
+	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", rsName}}
+	err := inst.Start(coretesting.Certs)
 	c.Assert(err, gc.IsNil)
 
 	session, err := inst.DialDirect()
@@ -132,7 +133,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	// two copies of root in the replica set
 	members = append(members, Member{Address: s.root.Addr(), Tags: initialTags})
 
-	instances := make([]*coretesting.MgoInstance, 5)
+	instances := make([]*gitjujutesting.MgoInstance, 5)
 	instances[0] = s.root
 	for i := 1; i < len(instances); i++ {
 		inst := newServer(c)
@@ -267,8 +268,8 @@ func (s *MongoSuite) TestMasterHostPort(c *gc.C) {
 }
 
 func (s *MongoSuite) TestMasterHostPortOnUnconfiguredReplicaSet(c *gc.C) {
-	inst := &coretesting.MgoInstance{}
-	err := inst.Start(true)
+	inst := &gitjujutesting.MgoInstance{}
+	err := inst.Start(coretesting.Certs)
 	c.Assert(err, gc.IsNil)
 	defer inst.Destroy()
 	session := inst.MustDial()

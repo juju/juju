@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
@@ -24,7 +25,7 @@ func TestPackage(t *stdtesting.T) {
 // ConnSuite provides the infrastructure for all other
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	testing.BaseSuite
 	annotations  *mgo.Collection
 	charms       *mgo.Collection

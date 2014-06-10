@@ -36,6 +36,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/schema"
+	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/constraints"
@@ -85,11 +86,11 @@ func SampleConfig() testing.Attrs {
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy state, if it exists.
 func stateInfo() *state.Info {
-	if testing.MgoServer.Addr() == "" {
+	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	return &state.Info{
-		Addrs:  []string{testing.MgoServer.Addr()},
+		Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 		CACert: testing.CACert,
 	}
 }
@@ -237,7 +238,7 @@ func Reset() {
 	}
 	providerInstance.state = make(map[int]*environState)
 	if mongoAlive() {
-		testing.MgoServer.Reset()
+		gitjujutesting.MgoServer.Reset()
 	}
 	providerInstance.statePolicy = environs.NewStatePolicy()
 }
@@ -258,7 +259,7 @@ func (state *environState) destroy() {
 		state.apiState = nil
 	}
 	if mongoAlive() {
-		testing.MgoServer.Reset()
+		gitjujutesting.MgoServer.Reset()
 	}
 	state.bootstrapped = false
 }
@@ -268,7 +269,7 @@ func (state *environState) destroy() {
 // If it has been deliberately destroyed, we will
 // expect some errors when closing things down.
 func mongoAlive() bool {
-	return testing.MgoServer.Addr() != ""
+	return gitjujutesting.MgoServer.Addr() != ""
 }
 
 // GetStateInAPIServer returns the state connection used by the API server

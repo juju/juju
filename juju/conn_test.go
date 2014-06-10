@@ -13,6 +13,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -253,7 +254,7 @@ func (*NewConnSuite) TestConnWithPassword(c *gc.C) {
 
 type ConnSuite struct {
 	coretesting.BaseSuite
-	coretesting.MgoSuite
+	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
 	conn *juju.Conn
 	repo *charm.LocalRepository

@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strconv"
 
-	jujutesting "github.com/juju/testing"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
@@ -45,15 +45,15 @@ func (s *EnsureAdminSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EnsureAdminSuite) TestEnsureAdminUser(c *gc.C) {
-	inst := &coretesting.MgoInstance{}
-	err := inst.Start(true)
+	inst := &gitjujutesting.MgoInstance{}
+	err := inst.Start(coretesting.Certs)
 	c.Assert(err, gc.IsNil)
 	defer inst.DestroyWithLog()
 	dialInfo := inst.DialInfo()
 
 	// Mock out mongod, so the --noauth execution doesn't
 	// do anything nasty. Also mock out the Signal method.
-	jujutesting.PatchExecutableAsEchoArgs(c, s, "mongod")
+	gitjujutesting.PatchExecutableAsEchoArgs(c, s, "mongod")
 	mongodDir := filepath.SplitList(os.Getenv("PATH"))[0]
 	s.PatchValue(&mongo.JujuMongodPath, filepath.Join(mongodDir, "mongod"))
 	s.PatchValue(mongo.ProcessSignal, func(*os.Process, os.Signal) error {
@@ -72,7 +72,7 @@ func (s *EnsureAdminSuite) TestEnsureAdminUser(c *gc.C) {
 	c.Assert(s.serviceStops, gc.Equals, 1)
 	_, portString, err := net.SplitHostPort(dialInfo.Addrs[0])
 	c.Assert(err, gc.IsNil)
-	jujutesting.AssertEchoArgs(c, "mongod",
+	gitjujutesting.AssertEchoArgs(c, "mongod",
 		"--noauth",
 		"--dbpath", "db",
 		"--sslOnNormalPorts",
@@ -97,8 +97,8 @@ func (s *EnsureAdminSuite) TestEnsureAdminUser(c *gc.C) {
 }
 
 func (s *EnsureAdminSuite) TestEnsureAdminUserError(c *gc.C) {
-	inst := &coretesting.MgoInstance{}
-	err := inst.Start(true)
+	inst := &gitjujutesting.MgoInstance{}
+	err := inst.Start(coretesting.Certs)
 	c.Assert(err, gc.IsNil)
 	defer inst.Destroy()
 	dialInfo := inst.DialInfo()

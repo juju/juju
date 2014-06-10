@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
@@ -30,7 +31,7 @@ options:
 
 type storeManagerStateSuite struct {
 	testing.BaseSuite
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	State *State
 }
 

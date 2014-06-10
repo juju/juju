@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
@@ -45,7 +46,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type watcherSuite struct {
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	testing.BaseSuite
 
 	log       *mgo.Collection

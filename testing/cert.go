@@ -10,6 +10,8 @@ import (
 	"fmt"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
+
 	"github.com/juju/juju/cert"
 )
 
@@ -22,12 +24,16 @@ func init() {
 // CACert and CAKey make up a CA key pair.
 // CACertX509 and CAKeyRSA hold their parsed equivalents.
 // ServerCert and ServerKey hold a CA-signed server cert/key.
+// Certs holds the certificates and keys required to make a secure
+// connection to a Mongo database.
 var (
 	CACert, CAKey = mustNewCA()
 
 	CACertX509, CAKeyRSA = mustParseCertAndKey(CACert, CAKey)
 
 	ServerCert, ServerKey = mustNewServer()
+
+	Certs = getCerts()
 )
 
 func verifyCertificates() error {
@@ -75,4 +81,13 @@ func mustParseCertAndKey(certPEM, keyPEM string) (*x509.Certificate, *rsa.Privat
 		panic(err)
 	}
 	return cert, key
+}
+
+func getCerts() *gitjujutesting.Certs {
+	serverCert, serverKey := mustParseCertAndKey(ServerCert, ServerKey)
+	return &gitjujutesting.Certs{
+		CACert:     CACertX509,
+		ServerCert: serverCert,
+		ServerKey:  serverKey,
+	}
 }
