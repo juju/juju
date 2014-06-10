@@ -41,7 +41,7 @@ if [ "$ENV" == "manual" ]; then
     ec2-terminate-job-instances
 else
     jenv=$JUJU_HOME/environments/$ENV.jenv
-    if [[ -e $jenv || $JOB_NAME == "test-release-azure3" ]]; then
+    if [[ -e $jenv ]]; then
         destroy-environment $ENV
         if [[ -e $jenv ]]; then
             rm $jenv
@@ -51,8 +51,17 @@ fi
 
 # Force teardown of generated env names.
 jenv=$JUJU_HOME/environments/$JOB_NAME.jenv
-if [[ -e $jenv || $JOB_NAME == "azure-upgrade-precise-amd64" ]]; then
+if [[ -e $jenv ]]; then
     destroy-environment $JOB_NAME
+    if [[ -e $jenv ]]; then
+        rm $jenv
+    fi
+fi
+
+# Force teardown of generated azure env names.
+jenv=$JUJU_HOME/environments/$BUILD_TAG.jenv
+if [[ -e $jenv ]]; then
+    destroy-environment $BUILD_TAG
     if [[ -e $jenv ]]; then
         rm $jenv
     fi
