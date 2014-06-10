@@ -15,7 +15,6 @@ import (
 )
 
 const (
-	// charm/json-schema-v4-draft.json
 	SCHEMA_VERSION = "file://json-schema-v4-draft.json"
 )
 
@@ -71,12 +70,6 @@ func ReadActionsYaml(r io.Reader) (*Actions, error) {
 			}
 			cleansedParams[paramName] = cleansedParam
 		}
-
-		// // Make sure the returned value coerces properly
-		// cleansedTypedParams, ok := cleansedParams.(map[string]interface{})
-		// if !ok {
-		// 	return nil, fmt.Errorf("cleansed map not a map[string]interface{}")
-		// }
 
 		// Now substitute the cleansed map into the original.
 		var swap = unmarshaledActions.ActionSpecs[name]
