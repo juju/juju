@@ -25,14 +25,14 @@ import (
 )
 
 func Test(t *stdtesting.T) {
-	testing.MgoTestPackageSsl(t, false)
+	gitjujutesting.MgoTestPackage(t, nil)
 }
 
 var _ = gc.Suite(&StoreSuite{})
 var _ = gc.Suite(&TrivialSuite{})
 
 type StoreSuite struct {
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	testing.HTTPSuite
 	gitjujutesting.FakeHomeSuite
 	store *store.Store
@@ -46,7 +46,7 @@ func (s *StoreSuite) SetUpSuite(c *gc.C) {
 	s.FakeHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
-	if os.Getenv("JUJU_NOTEST_MONGOJS") == "1" || testing.MgoServer.WithoutV8 {
+	if os.Getenv("JUJU_NOTEST_MONGOJS") == "1" || gitjujutesting.MgoServer.WithoutV8 {
 		c.Log("Tests requiring MongoDB Javascript will be skipped")
 		*noTestMongoJs = true
 	}
@@ -63,7 +63,7 @@ func (s *StoreSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
 	var err error
-	s.store, err = store.Open(testing.MgoServer.Addr())
+	s.store, err = store.Open(gitjujutesting.MgoServer.Addr())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -844,7 +844,7 @@ func (s *StoreSuite) TestListCounters(c *gc.C) {
 	}
 
 	// Use a different store to exercise cache filling.
-	st, err := store.Open(testing.MgoServer.Addr())
+	st, err := store.Open(gitjujutesting.MgoServer.Addr())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

@@ -10,12 +10,14 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/singular"
 )
@@ -99,7 +101,7 @@ func (*mongoSuite) TestMongoMastership(c *gc.C) {
 	assertAgentsQuit(c, globalState)
 }
 
-func startAgents(c *gc.C, notifyCh chan<- event, insts []*testing.MgoInstance) []*agent {
+func startAgents(c *gc.C, notifyCh chan<- event, insts []*gitjujutesting.MgoInstance) []*agent {
 	agents := make([]*agent, len(insts))
 	for i, inst := range insts {
 		a := &agent{
@@ -162,7 +164,7 @@ func (a *agent) run() error {
 }
 
 func (a *agent) mongoWorker() (worker.Worker, error) {
-	dialInfo := testing.MgoDialInfo(a.hostPort)
+	dialInfo := gitjujutesting.MgoDialInfo(coretesting.Certs, a.hostPort)
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		return nil, err
@@ -391,14 +393,14 @@ func expectNotification(c *gc.C, notifyCh <-chan event, possible []event) event 
 	panic("unreachable")
 }
 
-func changeVotes(c *gc.C, insts []*testing.MgoInstance, voteId int) {
+func changeVotes(c *gc.C, insts []*gitjujutesting.MgoInstance, voteId int) {
 	c.Logf("changing voting id to %v", voteId)
 
 	addrs := make([]string, len(insts))
 	for i, inst := range insts {
 		addrs[i] = inst.Addr()
 	}
-	dialInfo := testing.MgoDialInfo(addrs...)
+	dialInfo := gitjujutesting.MgoDialInfo(coretesting.Certs, addrs...)
 
 	session, err := mgo.DialWithInfo(dialInfo)
 	c.Assert(err, gc.IsNil)
@@ -478,8 +480,8 @@ func (c *mongoConn) IsMaster() (bool, error) {
 const replicaSetName = "juju"
 
 // startReplicaSet starts up a replica set with n mongo instances.
-func startReplicaSet(n int) (_ []*testing.MgoInstance, err error) {
-	insts := make([]*testing.MgoInstance, 0, n)
+func startReplicaSet(n int) (_ []*gitjujutesting.MgoInstance, err error) {
+	insts := make([]*gitjujutesting.MgoInstance, 0, n)
 	root, err := newMongoInstance()
 	if err != nil {
 		return nil, err
@@ -540,9 +542,9 @@ func startReplicaSet(n int) (_ []*testing.MgoInstance, err error) {
 	return insts, err
 }
 
-func newMongoInstance() (*testing.MgoInstance, error) {
-	inst := &testing.MgoInstance{Params: []string{"--replSet", replicaSetName}}
-	if err := inst.Start(true); err != nil {
+func newMongoInstance() (*gitjujutesting.MgoInstance, error) {
+	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", replicaSetName}}
+	if err := inst.Start(testing.Certs); err != nil {
 		return nil, fmt.Errorf("cannot start mongo server: %s", err.Error())
 	}
 	return inst, nil

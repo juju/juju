@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -14,7 +15,7 @@ import (
 )
 
 type InitializeSuite struct {
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	testing.BaseSuite
 	State *state.State
 }
