@@ -734,9 +734,9 @@ type LoginResult struct {
 	LastConnection *time.Time
 }
 
-// EnsureAvailability contains arguments for
+// StateServersSpec contains arguments for
 // the EnsureAvailability client API call.
-type EnsureAvailabilityParams struct {
+type StateServersSpec struct {
 	NumStateServers int               `json:num-state-servers`
 	Constraints     constraints.Value `json:constraints,omitempty`
 	// Series is the series to associate with new state server machines.

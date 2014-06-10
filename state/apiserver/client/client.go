@@ -1084,7 +1084,7 @@ func ensureAvailabilityResultFromSSI(ssiBefore, ssiAfter *state.StateServerInfo)
 }
 
 // EnsureAvailability ensures the availability of Juju state servers.
-func (c *Client) EnsureAvailability(args params.EnsureAvailabilityParams) (params.EnsureAvailabilityResult, error) {
+func (c *Client) EnsureAvailability(args params.StateServersSpec) (params.EnsureAvailabilityResult, error) {
 	series := args.Series
 	ssiBefore, err := c.api.state.StateServerInfo()
 	if err != nil {
