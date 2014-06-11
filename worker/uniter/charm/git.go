@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/juju/charm"
+	"github.com/juju/charm"
 )
 
 // GitDir exposes a specialized subset of git operations on a directory.

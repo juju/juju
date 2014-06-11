@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/store"
 )
 

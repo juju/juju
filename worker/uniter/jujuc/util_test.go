@@ -10,10 +10,10 @@ import (
 	"sort"
 	stdtesting "testing"
 
+	"github.com/juju/charm"
 	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"

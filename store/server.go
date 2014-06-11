@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/charm"
+	"github.com/juju/charm"
 )
 
 const DefaultSeries = "precise"

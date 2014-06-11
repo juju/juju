@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/juju/charm"
+	"github.com/juju/charm"
 )
 
 // PublishBazaarBranch checks out the Bazaar branch from burl and

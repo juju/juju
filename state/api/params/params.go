@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/charm"
 	"github.com/juju/utils/proxy"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"

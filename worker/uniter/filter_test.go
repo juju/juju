@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/charm"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/charm"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"

@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"

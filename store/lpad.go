@@ -8,9 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm"
 	"launchpad.net/lpad"
-
-	"github.com/juju/juju/charm"
 )
 
 type PublishBranchError struct {

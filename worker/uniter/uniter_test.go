@@ -17,6 +17,8 @@ import (
 	stdtesting "testing"
 	"time"
 
+	corecharm "github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	gt "github.com/juju/testing"
@@ -30,8 +32,6 @@ import (
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent/tools"
-	corecharm "github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"

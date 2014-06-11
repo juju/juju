@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -22,7 +23,6 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/mongo"
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/cmd"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"

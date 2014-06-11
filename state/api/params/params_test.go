@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/juju/charm"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
