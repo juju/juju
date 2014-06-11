@@ -420,13 +420,15 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	c.Assert(zones[1].Available(), jc.IsFalse)
 }
 
-type mockBestAvailabilityZoneAllocation struct {
+type mockBestAvailabilityZoneAllocations struct {
 	group  []instance.Id // input param
 	result map[string][]instance.Id
 	err    error
 }
 
-func (t *mockBestAvailabilityZoneAllocation) F(e common.ZonedEnviron, group []instance.Id) (map[string][]instance.Id, error) {
+func (t *mockBestAvailabilityZoneAllocations) BestAvailabilityZoneAllocations(
+	e common.ZonedEnviron, group []instance.Id,
+) (map[string][]instance.Id, error) {
 	t.group = group
 	return t.result, t.err
 }
@@ -437,8 +439,8 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	var mock mockBestAvailabilityZoneAllocation
-	t.PatchValue(ec2.BestAvailabilityZoneAllocations, mock.F)
+	var mock mockBestAvailabilityZoneAllocations
+	t.PatchValue(ec2.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
 
 	// no distribution group specified
 	testing.AssertStartInstance(c, env, "1")
@@ -462,10 +464,10 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	mock := mockBestAvailabilityZoneAllocation{
+	mock := mockBestAvailabilityZoneAllocations{
 		err: fmt.Errorf("BestAvailabilityZoneAllocations failed"),
 	}
-	t.PatchValue(ec2.BestAvailabilityZoneAllocations, mock.F)
+	t.PatchValue(ec2.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
 	_, _, _, err = testing.StartInstance(env, "1")
 	c.Assert(err, gc.Equals, mock.err)
 

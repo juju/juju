@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/openstack"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
@@ -1216,31 +1217,125 @@ func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (ins
 func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 	var resultZones []nova.AvailabilityZone
 	var resultErr error
-	t.PatchValue(openstack.NovaListAvailabilityZones, func(e *nova.Client) ([]nova.AvailabilityZone, error) {
+	t.PatchValue(openstack.NovaListAvailabilityZones, func(c *nova.Client) ([]nova.AvailabilityZone, error) {
 		return append([]nova.AvailabilityZone{}, resultZones...), resultErr
 	})
-	env := t.Prepare(c)
+	env := t.Prepare(c).(common.ZonedEnviron)
 
 	resultErr = fmt.Errorf("failed to get availability zones")
-	zones, err := openstack.GetAvailabilityZones(env)
+	zones, err := env.AvailabilityZones()
 	c.Assert(err, gc.Equals, resultErr)
 	c.Assert(zones, gc.IsNil)
 
 	resultErr = nil
 	resultZones = make([]nova.AvailabilityZone, 1)
 	resultZones[0].Name = "whatever"
-	zones, err = openstack.GetAvailabilityZones(env)
+	zones, err = env.AvailabilityZones()
 	c.Assert(err, gc.IsNil)
 	c.Assert(zones, gc.HasLen, 1)
-	c.Assert(zones[0].Name, gc.Equals, "whatever")
+	c.Assert(zones[0].Name(), gc.Equals, "whatever")
 
 	// A successful result is cached, currently for the lifetime
 	// of the Environ. This will change if/when we have long-lived
 	// Environs to cut down repeated IaaS requests.
 	resultErr = fmt.Errorf("failed to get availability zones")
 	resultZones[0].Name = "andever"
-	zones, err = openstack.GetAvailabilityZones(env)
+	zones, err = env.AvailabilityZones()
 	c.Assert(err, gc.IsNil)
 	c.Assert(zones, gc.HasLen, 1)
-	c.Assert(zones[0].Name, gc.Equals, "whatever")
+	c.Assert(zones[0].Name(), gc.Equals, "whatever")
+}
+
+func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
+	var resultZones []nova.AvailabilityZone
+	t.PatchValue(openstack.NovaListAvailabilityZones, func(c *nova.Client) ([]nova.AvailabilityZone, error) {
+		return append([]nova.AvailabilityZone{}, resultZones...), nil
+	})
+	env := t.Prepare(c).(common.ZonedEnviron)
+	resultZones = make([]nova.AvailabilityZone, 2)
+	resultZones[0].Name = "az1"
+	resultZones[1].Name = "az2"
+	resultZones[0].State.Available = true
+	resultZones[1].State.Available = false
+	zones, err := env.AvailabilityZones()
+	c.Assert(err, gc.IsNil)
+	c.Assert(zones, gc.HasLen, 2)
+	c.Assert(zones[0].Name(), gc.Equals, resultZones[0].Name)
+	c.Assert(zones[1].Name(), gc.Equals, resultZones[1].Name)
+	c.Assert(zones[0].Available(), jc.IsTrue)
+	c.Assert(zones[1].Available(), jc.IsFalse)
+}
+
+type mockBestAvailabilityZoneAllocations struct {
+	group  []instance.Id // input param
+	result map[string][]instance.Id
+	err    error
+}
+
+func (t *mockBestAvailabilityZoneAllocations) BestAvailabilityZoneAllocations(
+	e common.ZonedEnviron, group []instance.Id,
+) (map[string][]instance.Id, error) {
+	t.group = group
+	return t.result, t.err
+}
+
+func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	var mock mockBestAvailabilityZoneAllocations
+	t.PatchValue(openstack.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
+
+	// no distribution group specified
+	testing.AssertStartInstance(c, env, "1")
+	c.Assert(mock.group, gc.HasLen, 0)
+
+	// distribution group specified: ensure it's passed through to BestAvailabilityZone.
+	expectedInstances := []instance.Id{"i-0", "i-1"}
+	params := environs.StartInstanceParams{
+		DistributionGroup: func() ([]instance.Id, error) {
+			return expectedInstances, nil
+		},
+	}
+	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
+}
+
+func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	mock := mockBestAvailabilityZoneAllocations{
+		err: fmt.Errorf("BestAvailabilityZoneAllocations failed"),
+	}
+	t.PatchValue(openstack.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
+	_, _, _, err = testing.StartInstance(env, "1")
+	c.Assert(err, gc.Equals, mock.err)
+
+	mock.err = nil
+	dgErr := fmt.Errorf("DistributionGroup failed")
+	params := environs.StartInstanceParams{
+		DistributionGroup: func() ([]instance.Id, error) {
+			return nil, dgErr
+		},
+	}
+	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.Equals, dgErr)
+}
+
+func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	// test-available is the only available AZ, so BestAvailabilityZoneAllocations
+	// is guaranteed to return that.
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
 }
