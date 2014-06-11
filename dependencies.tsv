@@ -3,7 +3,6 @@ code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
 github.com/binary132/gojsonpointer	git	57ab5e9c764219a3e0c4d7759797fefdcab22e9c	
 github.com/binary132/gojsonreference	git	75785fb7b21f9bf2051dca600da83ff57bc6582a	
 github.com/binary132/gojsonschema	git	640782bf48d45ba2b22fd1e8a80842667c52af00	
-github.com/bmizerany/assert	git	e17e99893cb6509f428e1728281c2ad60a6b31e3	
 github.com/bmizerany/pat	git	48be7df2c27e1cec821a3284a683ce6ef90d9052	
 github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40	
 github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	
@@ -18,8 +17,6 @@ github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb
 github.com/juju/schema	git	1887e824896b58a0f376fb8517b5eebb825828b8	
 github.com/juju/testing	git	b0941ff1bf4d3db1ffbbe09f75fa8383eae5764c	
 github.com/juju/utils	git	71ae858adb3bf5cc619c3200dfbdf6762de1a94a	
-github.com/kr/pretty	git	bc9499caa0f45ee5edb2f0209fbd61fbf3d9018f	
-github.com/kr/text	git	6807e777504f54ad073ecef66747de158294b639	
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j	273
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
 launchpad.net/goamz	bzr	ian.booth@canonical.com-20140604055617-b7qt909ir9qf4959	47
