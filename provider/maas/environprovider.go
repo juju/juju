@@ -77,11 +77,6 @@ maas:
     # bootstrap-timeout time to wait contacting a state server, in seconds.
     bootstrap-timeout: 1800
 
-    # bootstrap-retry-delay time between attempts to connect to an address, in seconds.
-    # bootstrap-retry-delay: 5
-
-    # bootstrap-addresses-delay time between refreshing the addresses, in seconds.
-    # bootstrap-addresses-delay: 10
 
 `[1:]
 
