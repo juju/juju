@@ -15,6 +15,7 @@ import (
 	_ "github.com/juju/juju/state/apiserver/keyupdater"
 	_ "github.com/juju/juju/state/apiserver/logger"
 	_ "github.com/juju/juju/state/apiserver/machine"
+	_ "github.com/juju/juju/state/apiserver/networker"
 	_ "github.com/juju/juju/state/apiserver/provisioner"
 	_ "github.com/juju/juju/state/apiserver/rsyslog"
 	_ "github.com/juju/juju/state/apiserver/uniter"
