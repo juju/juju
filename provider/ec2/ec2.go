@@ -68,7 +68,7 @@ type environ struct {
 	storageUnlocked storage.Storage
 
 	availabilityZonesMutex sync.Mutex
-	availabilityZones      []ec2.AvailabilityZoneInfo
+	availabilityZones      []common.AvailabilityZone
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -76,6 +76,7 @@ var _ simplestreams.HasRegion = (*environ)(nil)
 var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
+var _ state.InstanceDistributor = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
@@ -384,9 +385,21 @@ func archMatches(arches []string, arch *string) bool {
 
 var ec2AvailabilityZones = (*ec2.EC2).AvailabilityZones
 
-// getAvailabilityZones returns a slice of availability zones
+type ec2AvailabilityZone struct {
+	ec2.AvailabilityZoneInfo
+}
+
+func (z *ec2AvailabilityZone) Name() string {
+	return z.AvailabilityZoneInfo.Name
+}
+
+func (z *ec2AvailabilityZone) Available() bool {
+	return z.AvailabilityZoneInfo.State == "available"
+}
+
+// AvailabilityZones returns a slice of availability zones
 // for the configured region.
-func (e *environ) getAvailabilityZones() ([]ec2.AvailabilityZoneInfo, error) {
+func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
@@ -396,9 +409,29 @@ func (e *environ) getAvailabilityZones() ([]ec2.AvailabilityZoneInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		e.availabilityZones = resp.Zones
+		e.availabilityZones = make([]common.AvailabilityZone, len(resp.Zones))
+		for i, z := range resp.Zones {
+			e.availabilityZones[i] = &ec2AvailabilityZone{z}
+		}
 	}
 	return e.availabilityZones, nil
+}
+
+// InstanceAvailabilityZoneNames returns the availability zone names for each
+// of the specified instances.
+func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	instances, err := e.Instances(ids)
+	if err != nil && err != environs.ErrPartialInstances {
+		return nil, err
+	}
+	zones := make([]string, len(instances))
+	for i, inst := range instances {
+		if inst == nil {
+			continue
+		}
+		zones[i] = inst.(*ec2Instance).AvailZone
+	}
+	return zones, err
 }
 
 type ec2Placement struct {
@@ -413,13 +446,15 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
 		availabilityZone := value
-		zones, err := e.getAvailabilityZones()
+		zones, err := e.AvailabilityZones()
 		if err != nil {
 			return nil, err
 		}
 		for _, z := range zones {
-			if z.Name == availabilityZone {
-				return &ec2Placement{availabilityZone: z}, nil
+			if z.Name() == availabilityZone {
+				return &ec2Placement{
+					z.(*ec2AvailabilityZone).AvailabilityZoneInfo,
+				}, nil
 			}
 		}
 		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
@@ -487,6 +522,13 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 
 const ebsStorage = "ebs"
 
+// DistributeInstances implements the state.InstanceDistributor policy.
+func (e *environ) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
+	return common.DistributeInstances(e, candidates, distributionGroup)
+}
+
+var bestAvailabilityZoneAllocations = common.BestAvailabilityZoneAllocations
+
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 	var availabilityZone string
@@ -499,6 +541,27 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			return nil, nil, nil, fmt.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
 		}
 		availabilityZone = placement.availabilityZone.Name
+	}
+
+	// If no availability zone is specified, then automatically spread across
+	// the known zones for optimal spread across the instance distribution
+	// group.
+	if availabilityZone == "" {
+		var group []instance.Id
+		var err error
+		if args.DistributionGroup != nil {
+			group, err = args.DistributionGroup()
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		}
+		bestAvailabilityZones, err := bestAvailabilityZoneAllocations(e, group)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		for availabilityZone = range bestAvailabilityZones {
+			break
+		}
 	}
 
 	if args.MachineConfig.HasNetworks() {
