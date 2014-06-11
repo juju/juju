@@ -118,17 +118,17 @@ func (*reflectSuite) TestFindMethod(c *gc.C) {
 	m, err := v.FindMethod("foo", 0, "bar")
 	c.Assert(err, gc.ErrorMatches, `unknown object type "foo"`)
 	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Assert(m, gc.DeepEquals, rpcreflect.MethodCaller{})
+	c.Assert(m, gc.IsNil)
 
 	m, err = v.FindMethod("SimpleMethods", 0, "bar")
 	c.Assert(err, gc.ErrorMatches, "no such request - method SimpleMethods.bar is not implemented")
 	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Assert(m, gc.DeepEquals, rpcreflect.MethodCaller{})
+	c.Assert(m, gc.IsNil)
 
 	m, err = v.FindMethod("SimpleMethods", 0, "Call1r1e")
 	c.Assert(err, gc.IsNil)
-	c.Assert(m.ParamsType, gc.Equals, reflect.TypeOf(stringVal{}))
-	c.Assert(m.ResultType, gc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ParamsType(), gc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ResultType(), gc.Equals, reflect.TypeOf(stringVal{}))
 
 	ret, err := m.Call("a99", reflect.ValueOf(stringVal{"foo"}))
 	c.Assert(err, gc.IsNil)
@@ -144,8 +144,8 @@ func (*reflectSuite) TestFindMethodRefusesVersionsNot0(c *gc.C) {
 
 	m, err := v.FindMethod("SimpleMethods", 0, "Call1r1e")
 	c.Assert(err, gc.IsNil)
-	c.Assert(m.ParamsType, gc.Equals, reflect.TypeOf(stringVal{}))
-	c.Assert(m.ResultType, gc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ParamsType(), gc.Equals, reflect.TypeOf(stringVal{}))
+	c.Assert(m.ResultType(), gc.Equals, reflect.TypeOf(stringVal{}))
 
 	m, err = v.FindMethod("SimpleMethods", 1, "Call1r1e")
 	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))

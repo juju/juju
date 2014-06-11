@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
+	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/testing"
 )
 
@@ -255,6 +256,113 @@ type newlyAvailableMethods struct{}
 
 func (newlyAvailableMethods) NewMethod() stringVal {
 	return stringVal{"new method result"}
+}
+
+type VariableMethods1 struct {
+	sm *SimpleMethods
+}
+
+func (vm *VariableMethods1) Call0r1() stringVal {
+	return vm.sm.Call0r1()
+}
+
+type VariableMethods2 struct {
+	sm *SimpleMethods
+}
+
+func (vm *VariableMethods2) Call1r1(s stringVal) stringVal {
+	return vm.sm.Call1r1(s)
+}
+
+type RestrictedMethods struct {
+	InterfaceMethods
+}
+
+type CustomMethodFinder struct {
+	root *Root
+}
+
+type wrapper func(*SimpleMethods) reflect.Value
+
+type customMethodCaller struct {
+	wrap      wrapper
+	root      *Root
+	objMethod rpcreflect.ObjMethod
+}
+
+func (c customMethodCaller) ParamsType() reflect.Type {
+	return c.objMethod.Params
+}
+
+func (c customMethodCaller) ResultType() reflect.Type {
+	return c.objMethod.Result
+}
+
+func (c customMethodCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
+	sm, err := c.root.SimpleMethods(objId)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	obj := c.wrap(sm)
+	return c.objMethod.Call(obj, arg)
+}
+
+func (cc *CustomMethodFinder) FindMethod(
+	rootMethodName string, version int, objMethodName string,
+) (
+	rpcreflect.MethodCaller, error,
+) {
+	logger.Infof("got to FindMethod: %q %d %q %q\n",
+		rootMethodName, version, objMethodName)
+	if rootMethodName != "MultiVersion" {
+		return nil, &rpcreflect.CallNotImplementedError{
+			RootMethod: rootMethodName,
+		}
+	}
+	var goType reflect.Type
+	var wrap wrapper
+	switch version {
+	case 0:
+		goType = reflect.TypeOf((*VariableMethods1)(nil)).Elem()
+		wrap = func(sm *SimpleMethods) reflect.Value {
+			return reflect.ValueOf(VariableMethods1{sm})
+		}
+	case 1:
+		goType = reflect.TypeOf((*VariableMethods2)(nil)).Elem()
+		wrap = func(sm *SimpleMethods) reflect.Value {
+			return reflect.ValueOf(VariableMethods2{sm})
+		}
+	case 2:
+		goType = reflect.TypeOf((InterfaceMethods)(nil))
+		wrap = func(sm *SimpleMethods) reflect.Value {
+			return reflect.ValueOf(InterfaceMethods(sm))
+		}
+	case 3:
+		goType = reflect.TypeOf((*RestrictedMethods)(nil)).Elem()
+		wrap = func(sm *SimpleMethods) reflect.Value {
+			methods := &RestrictedMethods{InterfaceMethods: sm}
+			return reflect.ValueOf(methods)
+		}
+	default:
+		return nil, &rpcreflect.CallNotImplementedError{
+			RootMethod: rootMethodName,
+			Version:    version,
+		}
+	}
+	objType := rpcreflect.ObjTypeOf(goType)
+	objMethod, err := objType.Method(objMethodName)
+	if err != nil {
+		return nil, &rpcreflect.CallNotImplementedError{
+			RootMethod: rootMethodName,
+			Version:    version,
+			Method:     objMethodName,
+		}
+	}
+	return customMethodCaller{
+		objMethod: objMethod,
+		root:      cc.root,
+		wrap:      wrap,
+	}, nil
 }
 
 func (*rpcSuite) TestRPC(c *gc.C) {

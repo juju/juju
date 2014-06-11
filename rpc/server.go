@@ -110,8 +110,13 @@ type Conn struct {
 	// mutex guards the following values.
 	mutex sync.Mutex
 
-	// rootValue holds the value to use to serve RPC requests, if any.
-	rootValue rpcreflect.Value
+	//methodFinder is used to lookup methods to serve RPC requests. May be
+	//nil if nothing is being served.
+	methodFinder MethodFinder
+
+	// root holds the original root object that we are serving requests on
+	// (if any).
+	root interface{}
 
 	// transformErrors is used to transform returned errors.
 	transformErrors func(error) error
@@ -243,13 +248,25 @@ func (conn *Conn) Start() {
 // If root is nil, the connection will serve no methods.
 func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
-	if rootValue.IsValid() && transformErrors == nil {
-		transformErrors = func(err error) error { return err }
+	rootObj := root
+	methodFinder := MethodFinder(rootValue)
+	if !rootValue.IsValid() {
+		rootObj = nil
+		methodFinder = nil
+	}
+	if transformErrors == nil {
+		transformErrors = noopTransform
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
-	conn.rootValue = rootValue
+	conn.methodFinder = methodFinder
+	conn.root = rootObj
 	conn.transformErrors = transformErrors
+}
+
+// noopTransform is used when transformErrors is not supplied to Serve
+func noopTransform(err error) error {
+	return err
 }
 
 // Dead returns a channel that is closed when the connection
@@ -282,8 +299,8 @@ func (conn *Conn) Close() error {
 	conn.closing = true
 	// Kill server requests if appropriate.  Client requests will be
 	// terminated when the input loop finishes.
-	if conn.rootValue.IsValid() {
-		if killer, ok := conn.rootValue.GoValue().Interface().(Killer); ok {
+	if conn.root != nil {
+		if killer, ok := conn.root.(Killer); ok {
 			killer.Kill()
 		}
 	}
@@ -388,8 +405,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	}
 	var argp interface{}
 	var arg reflect.Value
-	if req.ParamsType != nil {
-		v := reflect.New(req.ParamsType)
+	if req.ParamsType() != nil {
+		v := reflect.New(req.ParamsType())
 		arg = v.Elem()
 		argp = v.Interface()
 	}
@@ -413,7 +430,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		return conn.writeErrorResponse(hdr, req.transformErrors(err), startTime)
 	}
 	if conn.notifier != nil {
-		if req.ParamsType != nil {
+		if req.ParamsType() != nil {
 			conn.notifier.ServerRequest(hdr, arg.Interface())
 		} else {
 			conn.notifier.ServerRequest(hdr, struct{}{})
@@ -464,14 +481,14 @@ type boundRequest struct {
 // a boundRequest that can call those methods.
 func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	conn.mutex.Lock()
-	rootValue := conn.rootValue
+	methodFinder := conn.methodFinder
 	transformErrors := conn.transformErrors
 	conn.mutex.Unlock()
 
-	if !rootValue.IsValid() {
+	if methodFinder == nil {
 		return boundRequest{}, fmt.Errorf("no service")
 	}
-	caller, err := rootValue.FindMethod(hdr.Request.Type, 0, hdr.Request.Action)
+	caller, err := methodFinder.FindMethod(hdr.Request.Type, 0, hdr.Request.Action)
 	if err != nil {
 		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {
 			err = &serverError{

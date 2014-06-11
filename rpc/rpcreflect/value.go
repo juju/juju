@@ -30,19 +30,19 @@ func (e *CallNotImplementedError) Error() string {
 	return fmt.Sprintf("no such request - method %s.%s is not implemented", methodVersion, e.Method)
 }
 
-// MethodCaller knows how to call a particular RPC method.
-type MethodCaller struct {
-	// ParamsType holds the required type of the parameter to the object method.
-	ParamsType reflect.Type
-	// ResultType holds the result type of the result of caling the object method.
-	ResultType reflect.Type
+// methodCaller knows how to call a particular RPC method.
+type methodCaller struct {
+	// paramsType holds the required type of the parameter to the object method.
+	paramsType reflect.Type
+	// resultType holds the result type of the result of caling the object method.
+	resultType reflect.Type
 
 	rootValue  reflect.Value
 	rootMethod RootMethod
 	objMethod  ObjMethod
 }
 
-// MethodCaller holds the value of the root of an RPC server that
+// methodCaller holds the value of the root of an RPC server that
 // can call methods directly on a Go value.
 type Value struct {
 	rootValue reflect.Value
@@ -81,11 +81,11 @@ func (v Value) FindMethod(rootMethodName string, version int, objMethodName stri
 	if !v.IsValid() {
 		panic("FindMethod called on invalid Value")
 	}
-	caller := MethodCaller{
+	caller := methodCaller{
 		rootValue: v.rootValue,
 	}
 	if version != 0 {
-		return MethodCaller{}, &CallNotImplementedError{
+		return nil, &CallNotImplementedError{
 			RootMethod: rootMethodName,
 			Version:    version,
 		}
@@ -93,26 +93,42 @@ func (v Value) FindMethod(rootMethodName string, version int, objMethodName stri
 	var err error
 	caller.rootMethod, err = v.rootType.Method(rootMethodName)
 	if err != nil {
-		return MethodCaller{}, &CallNotImplementedError{
+		return nil, &CallNotImplementedError{
 			RootMethod: rootMethodName,
 		}
 	}
 	caller.objMethod, err = caller.rootMethod.ObjType.Method(objMethodName)
 	if err != nil {
-		return MethodCaller{}, &CallNotImplementedError{
+		return nil, &CallNotImplementedError{
 			RootMethod: rootMethodName,
 			Method:     objMethodName,
 		}
 	}
-	caller.ParamsType = caller.objMethod.Params
-	caller.ResultType = caller.objMethod.Result
 	return caller, nil
 }
 
-func (caller MethodCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
+func (caller methodCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
 	obj, err := caller.rootMethod.Call(caller.rootValue, objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
 	return caller.objMethod.Call(obj, arg)
+}
+
+func (caller methodCaller) ParamsType() reflect.Type {
+	return caller.objMethod.Params
+}
+
+func (caller methodCaller) ResultType() reflect.Type {
+	return caller.objMethod.Result
+}
+
+type MethodCaller interface {
+	// ParamsType holds the required type of the parameter to the object method.
+	ParamsType() reflect.Type
+	// ResultType holds the result type of the result of calling the object method.
+	ResultType() reflect.Type
+	// Call is actually placing a call to instantiate an given instance and
+	// call the method on that instance.
+	Call(objId string, arg reflect.Value) (reflect.Value, error)
 }
