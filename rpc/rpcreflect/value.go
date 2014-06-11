@@ -11,15 +11,23 @@ import (
 // CallNotImplementedError is an error, returned an attempt to call to
 // an unknown API method is made.
 type CallNotImplementedError struct {
-	Method     string
 	RootMethod string
+	Version    int
+	Method     string
 }
 
 func (e *CallNotImplementedError) Error() string {
 	if e.Method == "" {
+		if e.Version != 0 {
+			return fmt.Sprintf("unknown version (%d) of interface %q", e.Version, e.RootMethod)
+		}
 		return fmt.Sprintf("unknown object type %q", e.RootMethod)
 	}
-	return fmt.Sprintf("no such request - method %s.%s is not implemented", e.RootMethod, e.Method)
+	methodVersion := e.RootMethod
+	if e.Version != 0 {
+		methodVersion = fmt.Sprintf("%s(%d)", e.RootMethod, e.Version)
+	}
+	return fmt.Sprintf("no such request - method %s.%s is not implemented", methodVersion, e.Method)
 }
 
 // MethodCaller knows how to call a particular RPC method.
@@ -64,17 +72,23 @@ func (v Value) GoValue() reflect.Value {
 	return v.rootValue
 }
 
-// MethodCaller returns an object that can be used to make calls on
+// FindMethod returns an object that can be used to make calls on
 // the given root value to the given root method and object method.
 // It returns an error if either the root method or the object
 // method were not found.
 // It panics if called on the zero Value.
-func (v Value) MethodCaller(rootMethodName, objMethodName string) (MethodCaller, error) {
+func (v Value) FindMethod(rootMethodName string, version int, objMethodName string) (MethodCaller, error) {
 	if !v.IsValid() {
-		panic("MethodCaller called on invalid Value")
+		panic("FindMethod called on invalid Value")
 	}
 	caller := MethodCaller{
 		rootValue: v.rootValue,
+	}
+	if version != 0 {
+		return MethodCaller{}, &CallNotImplementedError{
+			RootMethod: rootMethodName,
+			Version:    version,
+		}
 	}
 	var err error
 	caller.rootMethod, err = v.rootType.Method(rootMethodName)

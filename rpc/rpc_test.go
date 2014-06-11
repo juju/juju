@@ -230,7 +230,7 @@ func (a *CallbackMethods) Factorial(x int64val) (int64val, error) {
 		return int64val{1}, nil
 	}
 	var r int64val
-	err := a.root.conn.Call(rpc.Request{"CallbackMethods", "", "Factorial"}, int64val{x.I - 1}, &r)
+	err := a.root.conn.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{x.I - 1}, &r)
 	if err != nil {
 		return int64val{}, err
 	}
@@ -329,9 +329,10 @@ type testCallParams struct {
 // request returns the RPC request for the test call.
 func (p testCallParams) request() rpc.Request {
 	return rpc.Request{
-		Type:   p.entry,
-		Id:     "a99",
-		Action: callName(p.narg, p.nret, p.retErr),
+		Type:    p.entry,
+		Version: 0,
+		Id:      "a99",
+		Action:  callName(p.narg, p.nret, p.retErr),
 	}
 }
 
@@ -505,7 +506,7 @@ func (*rpcSuite) TestConcurrentCalls(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 	call := func(id string, done chan<- struct{}) {
 		var r stringVal
-		err := client.Call(rpc.Request{"DelayedMethods", id, "Delay"}, nil, &r)
+		err := client.Call(rpc.Request{"DelayedMethods", 0, id, "Delay"}, nil, &r)
 		c.Check(err, gc.IsNil)
 		c.Check(r.Val, gc.Equals, "return "+id)
 		done <- struct{}{}
@@ -545,7 +546,7 @@ func (*rpcSuite) TestErrorCode(c *gc.C) {
 	}
 	client, srvDone, _, _ := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
-	err := client.Call(rpc.Request{"ErrorMethods", "", "Call"}, nil, nil)
+	err := client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `request error: message \(code\)`)
 	c.Assert(err.(rpc.ErrorCoder).ErrorCode(), gc.Equals, "code")
 }
@@ -566,18 +567,18 @@ func (*rpcSuite) TestTransformErrors(c *gc.C) {
 	}
 	client, srvDone, _, _ := newRPCClientServer(c, root, tfErr, false)
 	defer closeClient(c, client, srvDone)
-	err := client.Call(rpc.Request{"ErrorMethods", "", "Call"}, nil, nil)
+	err := client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
 	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
 		Message: "transformed: message",
 		Code:    "transformed: code",
 	})
 
 	root.errorInst.err = nil
-	err = client.Call(rpc.Request{"ErrorMethods", "", "Call"}, nil, nil)
+	err = client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	root.errorInst = nil
-	err = client.Call(rpc.Request{"ErrorMethods", "", "Call"}, nil, nil)
+	err = client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
 	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
 		Message: "transformed: no error methods",
 	})
@@ -600,7 +601,7 @@ func (*rpcSuite) TestServerWaitsForOutstandingCalls(c *gc.C) {
 	done := make(chan struct{})
 	go func() {
 		var r stringVal
-		err := client.Call(rpc.Request{"DelayedMethods", "1", "Delay"}, nil, &r)
+		err := client.Call(rpc.Request{"DelayedMethods", 0, "1", "Delay"}, nil, &r)
 		c.Check(err, gc.Equals, rpc.ErrShutdown)
 		done <- struct{}{}
 	}()
@@ -635,7 +636,7 @@ func (*rpcSuite) TestCompatibility(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 	call := func(method string, arg, ret interface{}) (passedArg interface{}) {
 		root.calls = nil
-		err := client.Call(rpc.Request{"SimpleMethods", "a0", method}, arg, ret)
+		err := client.Call(rpc.Request{"SimpleMethods", 0, "a0", method}, arg, ret)
 		c.Assert(err, gc.IsNil)
 		c.Assert(root.calls, gc.HasLen, 1)
 		info := root.calls[0]
@@ -678,19 +679,19 @@ func (*rpcSuite) TestBadCall(c *gc.C) {
 	defer closeClient(c, client, srvDone)
 
 	testBadCall(c, client, clientNotifier, serverNotifier,
-		rpc.Request{"BadSomething", "a0", "No"},
+		rpc.Request{"BadSomething", 0, "a0", "No"},
 		`unknown object type "BadSomething"`,
 		rpc.CodeNotImplemented,
 		false,
 	)
 	testBadCall(c, client, clientNotifier, serverNotifier,
-		rpc.Request{"SimpleMethods", "xx", "No"},
+		rpc.Request{"SimpleMethods", 0, "xx", "No"},
 		"no such request - method SimpleMethods.No is not implemented",
 		rpc.CodeNotImplemented,
 		false,
 	)
 	testBadCall(c, client, clientNotifier, serverNotifier,
-		rpc.Request{"SimpleMethods", "xx", "Call0r0"},
+		rpc.Request{"SimpleMethods", 0, "xx", "Call0r0"},
 		`unknown SimpleMethods id`,
 		"",
 		true,
@@ -786,10 +787,10 @@ func (*rpcSuite) TestContinueAfterReadBodyError(c *gc.C) {
 	}{
 		X: map[string]int{"hello": 65},
 	}
-	err := client.Call(rpc.Request{"SimpleMethods", "a0", "SliceArg"}, arg0, &ret)
+	err := client.Call(rpc.Request{"SimpleMethods", 0, "a0", "SliceArg"}, arg0, &ret)
 	c.Assert(err, gc.ErrorMatches, `request error: json: cannot unmarshal object into Go value of type \[\]string`)
 
-	err = client.Call(rpc.Request{"SimpleMethods", "a0", "SliceArg"}, arg0, &ret)
+	err = client.Call(rpc.Request{"SimpleMethods", 0, "a0", "SliceArg"}, arg0, &ret)
 	c.Assert(err, gc.ErrorMatches, `request error: json: cannot unmarshal object into Go value of type \[\]string`)
 
 	arg1 := struct {
@@ -797,7 +798,7 @@ func (*rpcSuite) TestContinueAfterReadBodyError(c *gc.C) {
 	}{
 		X: []string{"one"},
 	}
-	err = client.Call(rpc.Request{"SimpleMethods", "a0", "SliceArg"}, arg1, &ret)
+	err = client.Call(rpc.Request{"SimpleMethods", 0, "a0", "SliceArg"}, arg1, &ret)
 	c.Assert(err, gc.IsNil)
 	c.Assert(ret.Val, gc.Equals, "SliceArg ret")
 }
@@ -806,7 +807,7 @@ func (*rpcSuite) TestErrorAfterClientClose(c *gc.C) {
 	client, srvDone, _, _ := newRPCClientServer(c, &Root{}, nil, false)
 	err := client.Close()
 	c.Assert(err, gc.IsNil)
-	err = client.Call(rpc.Request{"Foo", "", "Bar"}, nil, nil)
+	err = client.Call(rpc.Request{"Foo", 0, "", "Bar"}, nil, nil)
 	c.Assert(err, gc.Equals, rpc.ErrShutdown)
 	err = chanReadError(c, srvDone, "server done")
 	c.Assert(err, gc.IsNil)
@@ -848,7 +849,7 @@ func (*rpcSuite) TestBidirectional(c *gc.C) {
 	clientRoot := &Root{conn: client}
 	client.Serve(clientRoot, nil)
 	var r int64val
-	err := client.Call(rpc.Request{"CallbackMethods", "", "Factorial"}, int64val{12}, &r)
+	err := client.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{12}, &r)
 	c.Assert(err, gc.IsNil)
 	c.Assert(r.I, gc.Equals, int64(479001600))
 }
@@ -858,7 +859,7 @@ func (*rpcSuite) TestServerRequestWhenNotServing(c *gc.C) {
 	client, srvDone, _, _ := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
 	var r int64val
-	err := client.Call(rpc.Request{"CallbackMethods", "", "Factorial"}, int64val{12}, &r)
+	err := client.Call(rpc.Request{"CallbackMethods", 0, "", "Factorial"}, int64val{12}, &r)
 	c.Assert(err, gc.ErrorMatches, "request error: request error: no service")
 }
 
@@ -867,13 +868,13 @@ func (*rpcSuite) TestChangeAPI(c *gc.C) {
 	client, srvDone, _, _ := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
 	var s stringVal
-	err := client.Call(rpc.Request{"NewlyAvailable", "", "NewMethod"}, nil, &s)
+	err := client.Call(rpc.Request{"NewlyAvailable", 0, "", "NewMethod"}, nil, &s)
 	c.Assert(err, gc.ErrorMatches, `request error: unknown object type "NewlyAvailable" \(not implemented\)`)
-	err = client.Call(rpc.Request{"ChangeAPIMethods", "", "ChangeAPI"}, nil, nil)
+	err = client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "ChangeAPI"}, nil, nil)
 	c.Assert(err, gc.IsNil)
-	err = client.Call(rpc.Request{"ChangeAPIMethods", "", "ChangeAPI"}, nil, nil)
+	err = client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "ChangeAPI"}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, `request error: unknown object type "ChangeAPIMethods" \(not implemented\)`)
-	err = client.Call(rpc.Request{"NewlyAvailable", "", "NewMethod"}, nil, &s)
+	err = client.Call(rpc.Request{"NewlyAvailable", 0, "", "NewMethod"}, nil, &s)
 	c.Assert(err, gc.IsNil)
 	c.Assert(s, gc.Equals, stringVal{"new method result"})
 }
@@ -883,10 +884,10 @@ func (*rpcSuite) TestChangeAPIToNil(c *gc.C) {
 	client, srvDone, _, _ := newRPCClientServer(c, srvRoot, nil, true)
 	defer closeClient(c, client, srvDone)
 
-	err := client.Call(rpc.Request{"ChangeAPIMethods", "", "RemoveAPI"}, nil, nil)
+	err := client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "RemoveAPI"}, nil, nil)
 	c.Assert(err, gc.IsNil)
 
-	err = client.Call(rpc.Request{"ChangeAPIMethods", "", "RemoveAPI"}, nil, nil)
+	err = client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "RemoveAPI"}, nil, nil)
 	c.Assert(err, gc.ErrorMatches, "request error: no service")
 }
 
@@ -906,11 +907,11 @@ func (*rpcSuite) TestChangeAPIWhileServingRequest(c *gc.C) {
 
 	result := make(chan error)
 	go func() {
-		result <- client.Call(rpc.Request{"DelayedMethods", "1", "Delay"}, nil, nil)
+		result <- client.Call(rpc.Request{"DelayedMethods", 0, "1", "Delay"}, nil, nil)
 	}()
 	chanRead(c, ready, "method ready")
 
-	err := client.Call(rpc.Request{"ChangeAPIMethods", "", "ChangeAPI"}, nil, nil)
+	err := client.Call(rpc.Request{"ChangeAPIMethods", 0, "", "ChangeAPI"}, nil, nil)
 	c.Assert(err, gc.IsNil)
 
 	// Ensure that not only does the request in progress complete,

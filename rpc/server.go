@@ -308,6 +308,12 @@ type ErrorCoder interface {
 	ErrorCode() string
 }
 
+// MethodFinder represents a type that can be used to lookup a Method and place
+// calls on that method.
+type MethodFinder interface {
+	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
+}
+
 // Killer represents a type that can be asked to abort any outstanding
 // requests.  The Kill method should return immediately.
 type Killer interface {
@@ -465,7 +471,7 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	if !rootValue.IsValid() {
 		return boundRequest{}, fmt.Errorf("no service")
 	}
-	caller, err := rootValue.MethodCaller(hdr.Request.Type, hdr.Request.Action)
+	caller, err := rootValue.FindMethod(hdr.Request.Type, 0, hdr.Request.Action)
 	if err != nil {
 		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {
 			err = &serverError{
