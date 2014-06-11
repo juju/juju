@@ -228,14 +228,14 @@ func (*facadeRegistrySuite) TestDescriptionFromVersions(c *gc.C) {
 	facades := common.Versions{0: common.NilFacadeRecord}
 	c.Check(common.DescriptionFromVersions("name", facades),
 		gc.DeepEquals,
-		common.Description{
+		common.FacadeDescription{
 			Name:     "name",
 			Versions: []int{0},
 		})
 	facades[2] = common.NilFacadeRecord
 	c.Check(common.DescriptionFromVersions("name", facades),
 		gc.DeepEquals,
-		common.Description{
+		common.FacadeDescription{
 			Name:     "name",
 			Versions: []int{0, 2},
 		})
@@ -252,7 +252,7 @@ func (*facadeRegistrySuite) TestDescriptionFromVersionsAreSorted(c *gc.C) {
 	}
 	c.Check(common.DescriptionFromVersions("name", facades),
 		gc.DeepEquals,
-		common.Description{
+		common.FacadeDescription{
 			Name:     "name",
 			Versions: []int{0, 4, 5, 6, 10, 18},
 		})
@@ -261,7 +261,7 @@ func (*facadeRegistrySuite) TestDescriptionFromVersionsAreSorted(c *gc.C) {
 func (*facadeRegistrySuite) TestRegisterAndList(c *gc.C) {
 	r := &common.FacadeRegistry{}
 	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
-	c.Check(r.List(), gc.DeepEquals, []common.Description{
+	c.Check(r.List(), gc.DeepEquals, []common.FacadeDescription{
 		{Name: "name", Versions: []int{0}},
 	})
 }
@@ -271,7 +271,7 @@ func (*facadeRegistrySuite) TestRegisterAndListMultiple(c *gc.C) {
 	c.Assert(r.Register("other", 0, validIdFactory, intPtrType), gc.IsNil)
 	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
 	c.Assert(r.Register("third", 2, validIdFactory, intPtrType), gc.IsNil)
-	c.Check(r.List(), gc.DeepEquals, []common.Description{
+	c.Check(r.List(), gc.DeepEquals, []common.FacadeDescription{
 		{Name: "name", Versions: []int{0}},
 		{Name: "other", Versions: []int{0}},
 		{Name: "third", Versions: []int{2}},
