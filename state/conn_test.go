@@ -11,9 +11,9 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/factory"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // TestPackage integrates the tests into gotest.

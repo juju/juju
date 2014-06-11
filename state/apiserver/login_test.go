@@ -20,8 +20,8 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
-	"github.com/juju/juju/state/factory"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type loginSuite struct {

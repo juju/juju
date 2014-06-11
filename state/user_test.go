@@ -12,7 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/factory"
+	"github.com/juju/juju/testing/factory"
 )
 
 type UserSuite struct {
