@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
@@ -28,7 +29,7 @@ import (
 )
 
 type BundlesDirSuite struct {
-	coretesting.HTTPSuite
+	gitjujutesting.HTTPSuite
 	testing.JujuConnSuite
 
 	st     *api.State
@@ -102,18 +103,18 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 	apiCharm, sch, bundata := s.AddCharm(c)
 
 	// Try to get the charm when the content doesn't match.
-	coretesting.Server.Response(200, nil, []byte("roflcopter"))
+	gitjujutesting.Server.Response(200, nil, []byte("roflcopter"))
 	_, err = d.Read(apiCharm, nil)
 	prefix := fmt.Sprintf(`failed to download charm "cs:quantal/dummy-1" from %q: `, sch.BundleURL())
 	c.Assert(err, gc.ErrorMatches, prefix+fmt.Sprintf(`expected sha256 %q, got ".*"`, sch.BundleSha256()))
 
 	// Try to get a charm whose bundle doesn't exist.
-	coretesting.Server.Response(404, nil, nil)
+	gitjujutesting.Server.Response(404, nil, nil)
 	_, err = d.Read(apiCharm, nil)
 	c.Assert(err, gc.ErrorMatches, prefix+`.* 404 Not Found`)
 
 	// Get a charm whose bundle exists and whose content matches.
-	coretesting.Server.Response(200, nil, bundata)
+	gitjujutesting.Server.Response(200, nil, bundata)
 	ch, err := d.Read(apiCharm, nil)
 	c.Assert(err, gc.IsNil)
 	assertCharm(c, ch, sch)
@@ -135,7 +136,7 @@ func (s *BundlesDirSuite) TestGet(c *gc.C) {
 		close(done)
 	}()
 	close(abort)
-	coretesting.Server.Response(500, nil, nil)
+	gitjujutesting.Server.Response(500, nil, nil)
 	select {
 	case <-done:
 	case <-time.After(coretesting.LongWait):
