@@ -19,6 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -31,11 +32,11 @@ var logger = loggo.GetLogger("juju.agent")
 
 // DefaultLogDir defines the default log directory for juju agents.
 // It's defined as a variable so it could be overridden in tests.
-var DefaultLogDir = "/var/log/juju"
+var DefaultLogDir = path.Join(osenv.Vars.Log, "juju")
 
 // DefaultDataDir defines the default data directory for juju agents.
 // It's defined as a variable so it could be overridden in tests.
-var DefaultDataDir = "/var/lib/juju"
+var DefaultDataDir = osenv.Vars.Data
 
 // SystemIdentity is the name of the file where the environment SSH key is kept.
 const SystemIdentity = "system-identity"

@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -51,7 +52,7 @@ func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
 	// We need to pass a config location here instead and
 	// use it to locate the conf and the infer the data-dir
 	// from there instead of passing it like that.
-	f.StringVar(&c.dataDir, "data-dir", "/var/lib/juju", "directory for juju data")
+	f.StringVar(&c.dataDir, "data-dir", osenv.Vars.Data, "directory for juju data")
 }
 
 func (c *AgentConf) CheckArgs(args []string) error {
