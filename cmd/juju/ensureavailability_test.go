@@ -64,7 +64,7 @@ func stdout(ctx *cmd.Context) string {
 func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(stdout(ctx), gc.Equals, "maintaining machines: \"0\"\n\n")
+	c.Assert(stdout(ctx), gc.Equals, "")
 
 	m, err := s.State.Machine("0")
 	c.Assert(err, gc.IsNil)
@@ -75,37 +75,34 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailability(c *gc.C) {
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 }
 
-func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormats(c *gc.C) {
-	type formatTest struct {
-		Name      string
-		Unmarshal func(in []byte, out interface{}) (err error)
-	}
-	formats := []formatTest{
-		formatTest{
-			Name:      "yaml",
-			Unmarshal: goyaml.Unmarshal,
-		},
-		formatTest{
-			Name:      "json",
-			Unmarshal: json.Unmarshal,
-		},
-	}
-
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormatYaml(c *gc.C) {
 	expected := map[string][]string{
 		"maintained": []string{"0"},
+		"added":      []string{"1", "2"},
 	}
 
-	for _, format := range formats {
-		c.Logf("testing format: %s", format.Name)
+	ctx, err := runEnsureAvailability(c, "-n", "3", "--format", "yaml")
+	c.Assert(err, gc.IsNil)
 
-		ctx, err := runEnsureAvailability(c, "-n", "1", "--format", format.Name)
-		c.Assert(err, gc.IsNil)
+	var result map[string][]string
+	err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &result)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, expected)
+}
 
-		var result map[string][]string
-		err = format.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &result)
-		c.Assert(err, gc.IsNil)
-		c.Assert(result, gc.DeepEquals, expected)
+func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityFormatJson(c *gc.C) {
+	expected := map[string][]string{
+		"maintained": []string{"0"},
+		"added":      []string{"1", "2"},
 	}
+
+	ctx, err := runEnsureAvailability(c, "-n", "3", "--format", "json")
+	c.Assert(err, gc.IsNil)
+
+	var result map[string][]string
+	err = json.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &result)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, expected)
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithSeries(c *gc.C) {
@@ -151,8 +148,7 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityIdempotent(c *gc.C) {
 	// will have no effect unless new machines are
 	// created.
 	ctx, err := runEnsureAvailability(c, "-n", "1", "--constraints", "mem=4G")
-	c.Assert(stdout(ctx), gc.Equals,
-		"maintaining machines: \"0\"\n\n")
+	c.Assert(stdout(ctx), gc.Equals, "")
 
 	c.Assert(err, gc.IsNil)
 	m, err = s.State.Machine("0")

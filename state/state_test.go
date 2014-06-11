@@ -88,8 +88,10 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	machines[1], err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
+
 	machines[2], err = s.State.Machine("2")
 	c.Assert(err, gc.IsNil)
 	machines[3], err = s.State.Machine("3")
@@ -1846,8 +1848,9 @@ func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
 		return true, nil
 	})
 
-	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
 
 	wc.AssertOneChange()
 
@@ -3039,10 +3042,11 @@ func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
 
 func (s *StateSuite) TestEnsureAvailabilityFailsWithBadCount(c *gc.C) {
 	for _, n := range []int{-1, 2, 6} {
-		err := s.State.EnsureAvailability(n, constraints.Value{}, "")
+		changes, err := s.State.EnsureAvailability(n, constraints.Value{}, "")
 		c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and non-negative")
+		c.Assert(changes.Added, gc.HasLen, 0)
 	}
-	err := s.State.EnsureAvailability(replicaset.MaxPeers+2, constraints.Value{}, "")
+	_, err := s.State.EnsureAvailability(replicaset.MaxPeers+2, constraints.Value{}, "")
 	c.Assert(err, gc.ErrorMatches, `state server count is too large \(allowed \d+\)`)
 }
 
@@ -3066,8 +3070,9 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 	cons := constraints.Value{
 		Mem: newUint64(100),
 	}
-	err = s.State.EnsureAvailability(3, cons, "quantal")
+	changes, err := s.State.EnsureAvailability(3, cons, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
 
 	for i := 1; i < 3; i++ {
 		m, err := s.State.Machine(fmt.Sprint(i + 1))
@@ -3097,14 +3102,17 @@ func (s *StateSuite) assertStateServerInfo(c *gc.C, machineIds []string, votingM
 }
 
 func (s *StateSuite) TestEnsureAvailabilityDemotesUnavailableMachines(c *gc.C) {
-	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertStateServerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"})
 	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
 		return m.Id() != "0", nil
 	})
-	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 1)
+	c.Assert(changes.Maintained, gc.HasLen, 2)
 
 	// New state server machine "3" is created; "0" still exists in MachineIds,
 	// but no longer in VotingMachineIds.
@@ -3120,14 +3128,18 @@ func (s *StateSuite) TestEnsureAvailabilityDemotesUnavailableMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestEnsureAvailabilityPromotesAvailableMachines(c *gc.C) {
-	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertStateServerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"})
 	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
 		return m.Id() != "0", nil
 	})
-	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 1)
+	c.Assert(changes.Demoted, gc.DeepEquals, []string{"0"})
+	c.Assert(changes.Maintained, gc.HasLen, 2)
 
 	// New state server machine "3" is created; "0" still exists in MachineIds,
 	// but no longer in VotingMachineIds.
@@ -3143,8 +3155,10 @@ func (s *StateSuite) TestEnsureAvailabilityPromotesAvailableMachines(c *gc.C) {
 	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
 		return true, nil
 	})
-	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 0)
+
 	// No change; we've got as many voting machines as we need.
 	s.assertStateServerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"})
 
@@ -3153,8 +3167,10 @@ func (s *StateSuite) TestEnsureAvailabilityPromotesAvailableMachines(c *gc.C) {
 	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
 		return m.Id() != "3", nil
 	})
-	err = s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
+	changes, err = s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
+	c.Assert(changes.Demoted, gc.DeepEquals, []string{"3"})
 	s.assertStateServerInfo(c, []string{"0", "1", "2", "3", "4", "5"}, []string{"0", "1", "2", "4", "5"})
 	err = m0.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -3162,18 +3178,23 @@ func (s *StateSuite) TestEnsureAvailabilityPromotesAvailableMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestEnsureAvailabilityRemovesUnavailableMachines(c *gc.C) {
-	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
+
 	s.assertStateServerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"})
 	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
 		return m.Id() != "0", nil
 	})
-	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 1)
 	s.assertStateServerInfo(c, []string{"0", "1", "2", "3"}, []string{"1", "2", "3"})
 	// machine 0 does not have a vote, so another call to EnsureAvailability
 	// will remove machine 0's JobEnvironManager job.
-	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	c.Assert(changes.Removed, gc.HasLen, 1)
+	c.Assert(changes.Maintained, gc.HasLen, 3)
 	c.Assert(err, gc.IsNil)
 	s.assertStateServerInfo(c, []string{"1", "2", "3"}, []string{"1", "2", "3"})
 	m0, err := s.State.Machine("0")
@@ -3182,8 +3203,10 @@ func (s *StateSuite) TestEnsureAvailabilityRemovesUnavailableMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestEnsureAvailabilityMaintainsVoteList(c *gc.C) {
-	err := s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 5)
+
 	s.assertStateServerInfo(c,
 		[]string{"0", "1", "2", "3", "4"},
 		[]string{"0", "1", "2", "3", "4"})
@@ -3191,8 +3214,9 @@ func (s *StateSuite) TestEnsureAvailabilityMaintainsVoteList(c *gc.C) {
 	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
 		return m.Id() != "0", nil
 	})
-	err = s.State.EnsureAvailability(0, constraints.Value{}, "quantal")
+	changes, err = s.State.EnsureAvailability(0, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 1)
 
 	// New state server machine "5" is created; "0" still exists in MachineIds,
 	// but no longer in VotingMachineIds.
@@ -3210,15 +3234,17 @@ func (s *StateSuite) TestEnsureAvailabilityMaintainsVoteList(c *gc.C) {
 }
 
 func (s *StateSuite) TestEnsureAvailabilityDefaultsTo3(c *gc.C) {
-	err := s.State.EnsureAvailability(0, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(0, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
 	s.assertStateServerInfo(c, []string{"0", "1", "2"}, []string{"0", "1", "2"})
 	// Mark machine-0 as dead, so we'll want to create it again
 	s.PatchValue(state.StateServerAvailable, func(m *state.Machine) (bool, error) {
 		return m.Id() != "0", nil
 	})
-	err = s.State.EnsureAvailability(0, constraints.Value{}, "quantal")
+	changes, err = s.State.EnsureAvailability(0, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 1)
 
 	// New state server machine "3" is created; "0" still exists in MachineIds,
 	// but no longer in VotingMachineIds.
@@ -3241,16 +3267,18 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentSame(c *gc.C) {
 	})
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+		changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 		c.Assert(err, gc.IsNil)
 		// The outer EnsureAvailability call will allocate IDs 0..2,
 		// and the inner one 3..5.
+		c.Assert(changes.Added, gc.HasLen, 3)
 		expected := []string{"3", "4", "5"}
 		s.assertStateServerInfo(c, expected, expected)
 	}).Check()
 
-	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.DeepEquals, []string{"0", "1", "2"})
 	s.assertStateServerInfo(c, []string{"3", "4", "5"}, []string{"3", "4", "5"})
 
 	// Machine 0 should never have been created.
@@ -3264,8 +3292,9 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentLess(c *gc.C) {
 	})
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+		changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 		c.Assert(err, gc.IsNil)
+		c.Assert(changes.Added, gc.HasLen, 3)
 		// The outer EnsureAvailability call will initially allocate IDs 0..4,
 		// and the inner one 5..7.
 		expected := []string{"5", "6", "7"}
@@ -3276,8 +3305,9 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentLess(c *gc.C) {
 	// machines 0..4, and fail due to the concurrent change. It will then
 	// allocate machines 8..9 to make up the difference from the concurrent
 	// EnsureAvailability call.
-	err := s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 2)
 	expected := []string{"5", "6", "7", "8", "9"}
 	s.assertStateServerInfo(c, expected, expected)
 
@@ -3292,8 +3322,9 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
 	})
 
 	defer state.SetBeforeHooks(c, s.State, func() {
-		err := s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
+		changes, err := s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
 		c.Assert(err, gc.IsNil)
+		c.Assert(changes.Added, gc.HasLen, 5)
 		// The outer EnsureAvailability call will allocate IDs 0..2,
 		// and the inner one 3..7.
 		expected := []string{"3", "4", "5", "6", "7"}
@@ -3304,8 +3335,9 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
 	// machines 0..2, and fail due to the concurrent change. It will then
 	// find that the number of voting machines in state is greater than
 	// what we're attempting to ensure, and fail.
-	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
+	c.Assert(changes.Added, gc.HasLen, 0)
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")

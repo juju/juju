@@ -6,4 +6,3 @@ package client
 var ParseSettingsCompatible = parseSettingsCompatible
 var RemoteParamsForMachine = remoteParamsForMachine
 var GetAllUnitNames = getAllUnitNames
-var StateServersChange = stateServersChange

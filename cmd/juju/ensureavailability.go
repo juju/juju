@@ -51,9 +51,9 @@ Examples:
      8GB RAM.
 `
 
-// FormatYaml marshals value to a yaml-formatted []byte, unless value is nil.
+// FormatSimple marshals value to a yaml-formatted []byte, unless value is nil.
 func formatSimple(value interface{}) ([]byte, error) {
-	ensureAvailabilityResult, ok := value.(formattedResult)
+	ensureAvailabilityResult, ok := value.(availabilityInfo)
 	if !ok {
 		return nil, fmt.Errorf("unexpected result type for ensure-availability call")
 	}
@@ -78,6 +78,19 @@ func formatSimple(value interface{}) ([]byte, error) {
 			return nil, err
 		}
 	}
+	if len(ensureAvailabilityResult.Promoted) > 0 {
+		_, err := fmt.Fprintf(buff, "promoting machines: %s\n", machineList(ensureAvailabilityResult.Promoted))
+		if err != nil {
+			return nil, err
+		}
+	}
+	if len(ensureAvailabilityResult.Demoted) > 0 {
+		_, err := fmt.Fprintf(buff, "demoting machines: %s\n", machineList(ensureAvailabilityResult.Demoted))
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	return buff.Bytes(), nil
 }
 
@@ -108,10 +121,12 @@ func (c *EnsureAvailabilityCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-type formattedResult struct {
+type availabilityInfo struct {
 	Maintained []string `json:"maintained,omitempty" yaml:"maintained,flow,omitempty"`
 	Removed    []string `json:"removed,omitempty" yaml:"removed,flow,omitempty"`
 	Added      []string `json:"added,omitempty" yaml:"added,flow,omitempty"`
+	Promoted   []string `json:"promoted,omitempty" yaml:"promoted,flow,omitempty"`
+	Demoted    []string `json:"demoted,omitempty" yaml:"demoted,flow,omitempty"`
 }
 
 // Run connects to the environment specified on the command line
@@ -127,10 +142,12 @@ func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	result := formattedResult{
+	result := availabilityInfo{
 		Added:      ensureAvailabilityResult.Added,
 		Removed:    ensureAvailabilityResult.Removed,
 		Maintained: ensureAvailabilityResult.Maintained,
+		Promoted:   ensureAvailabilityResult.Promoted,
+		Demoted:    ensureAvailabilityResult.Demoted,
 	}
 	return c.out.Write(ctx, result)
 }

@@ -751,6 +751,8 @@ type StateServersChange struct {
 	Added      []string `json:added,omitempty`
 	Maintained []string `json:maintained,omitempty`
 	Removed    []string `json:removed,omitempty`
+	Promoted   []string `json:promoted,omitempty`
+	Demoted    []string `json:demoted,omitempty`
 }
 
 type UserInfo struct {
