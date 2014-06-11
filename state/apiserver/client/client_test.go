@@ -2201,8 +2201,9 @@ func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.
-	pinger := s.setAgentPresence(c, "0")
-	defer pinger.Kill()
+	pingerA := s.setAgentPresence(c, "0")
+	defer pingerA.Kill()
+
 	machines, err := s.State.AllMachines()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machines, gc.HasLen, 1)
@@ -2215,8 +2216,13 @@ func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 	c.Assert(machines[0].Series(), gc.Equals, "quantal")
 	c.Assert(machines[1].Series(), gc.Equals, "quantal")
 	c.Assert(machines[2].Series(), gc.Equals, "quantal")
-	defer s.setAgentPresence(c, "1").Kill()
-	defer s.setAgentPresence(c, "2").Kill()
+
+	pingerB := s.setAgentPresence(c, "1")
+	defer pingerB.Kill()
+
+	pingerC := s.setAgentPresence(c, "2")
+	defer pingerC.Kill()
+
 	err = s.APIState.Client().EnsureAvailability(5, emptyCons, "non-default")
 	c.Assert(err, gc.IsNil)
 	machines, err = s.State.AllMachines()
@@ -2234,6 +2240,7 @@ func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	pinger := s.setAgentPresence(c, "0")
 	defer pinger.Kill()
+
 	err = s.APIState.Client().EnsureAvailability(
 		3, constraints.MustParse("mem=4G"), defaultSeries)
 	c.Assert(err, gc.IsNil)
@@ -2255,15 +2262,19 @@ func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
 func (s *clientSuite) TestClientEnsureAvailability0Preserves(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	pinger := s.setAgentPresence(c, "0")
-	defer pinger.Kill()
+	pingerA := s.setAgentPresence(c, "0")
+	defer pingerA.Kill()
+
 	// A value of 0 says either "if I'm not HA, make me HA" or "preserve my
 	// current HA settings".
 	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
 	machines, err := s.State.AllMachines()
 	c.Assert(machines, gc.HasLen, 3)
-	defer s.setAgentPresence(c, "1").Kill()
+
+	pingerB := s.setAgentPresence(c, "1")
+	defer pingerB.Kill()
+
 	// Now, we keep agent 1 alive, but not agent 2, calling
 	// EnsureAvailability(0) again will cause us to start another machine
 	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
@@ -2275,16 +2286,22 @@ func (s *clientSuite) TestClientEnsureAvailability0Preserves(c *gc.C) {
 func (s *clientSuite) TestClientEnsureAvailability0Preserves5(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	pinger := s.setAgentPresence(c, "0")
-	defer pinger.Kill()
+	pingerA := s.setAgentPresence(c, "0")
+	defer pingerA.Kill()
+
 	// Start off with 5 servers
 	err = s.APIState.Client().EnsureAvailability(5, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
 	machines, err := s.State.AllMachines()
 	c.Assert(machines, gc.HasLen, 5)
-	defer s.setAgentPresence(c, "1").Kill()
-	defer s.setAgentPresence(c, "2").Kill()
-	defer s.setAgentPresence(c, "3").Kill()
+	pingerB := s.setAgentPresence(c, "1")
+	defer pingerB.Kill()
+
+	pingerC := s.setAgentPresence(c, "2")
+	defer pingerC.Kill()
+
+	pingerD := s.setAgentPresence(c, "3")
+	defer pingerD.Kill()
 	// Keeping all alive but one, will bring up 1 more server to preserve 5
 	err = s.APIState.Client().EnsureAvailability(0, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
@@ -2296,7 +2313,8 @@ func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	pinger := s.setAgentPresence(c, "0")
-	defer pinger.Kill()
+	pinger.Kill()
+
 	err = s.APIState.Client().EnsureAvailability(-1, emptyCons, defaultSeries)
 	c.Assert(err, gc.ErrorMatches, "number of state servers must be odd and non-negative")
 	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
