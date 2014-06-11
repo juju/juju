@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 )
 
-// charmsHandler handles charm upload through HTTPS in the API server.
+// backupHandler handles backup requests
 type backupHandler struct {
 	httpHandler
 }
@@ -32,7 +32,7 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		file, err := os.Open(filename)
 		if err != nil {
-			h.sendError(w, http.StatusOK, fmt.Sprintf("backup failed"))
+			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed"))
 			return
 		}
 		io.Copy(w, file)
@@ -46,7 +46,7 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message string) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	body, err := json.Marshal(&params.CharmsResponse{Error: message})
+	body, err := json.Marshal(&params.BackupResponse{Error: message})
 	if err != nil {
 		return err
 	}
