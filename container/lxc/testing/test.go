@@ -16,11 +16,11 @@ import (
 // implementation.
 type TestSuite struct {
 	testing.FakeJujuHomeSuite
-	Factory      mock.ContainerFactory
-	ContainerDir string
-	RemovedDir   string
-	LxcDir       string
-	RestartDir   string
+	ContainerFactory mock.ContainerFactory
+	ContainerDir     string
+	RemovedDir       string
+	LxcDir           string
+	RestartDir       string
 }
 
 func (s *TestSuite) SetUpTest(c *gc.C) {
@@ -33,6 +33,6 @@ func (s *TestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&lxc.LxcContainerDir, s.LxcDir)
 	s.RestartDir = c.MkDir()
 	s.PatchValue(&lxc.LxcRestartDir, s.RestartDir)
-	s.Factory = mock.MockFactory(s.LxcDir)
-	s.PatchValue(&lxc.LxcObjectFactory, s.Factory)
+	s.ContainerFactory = mock.MockFactory(s.LxcDir)
+	s.PatchValue(&lxc.LxcObjectFactory, s.ContainerFactory)
 }

@@ -6,6 +6,7 @@ package apiserver
 import (
 	stderrors "errors"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -111,9 +112,11 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	}
 
 	a.root.rpcConn.Serve(newRoot, serverError)
+	lastConnection := getAndUpdateLastConnectionForEntity(entity)
 	return params.LoginResult{
-		Servers:    hostPorts,
-		EnvironTag: environ.Tag(),
+		Servers:        hostPorts,
+		EnvironTag:     environ.Tag(),
+		LastConnection: lastConnection,
 	}, nil
 }
 
@@ -140,6 +143,18 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 		return nil, err
 	}
 	return entity, nil
+}
+
+func getAndUpdateLastConnectionForEntity(entity taggedAuthenticator) *time.Time {
+	if user, ok := entity.(*state.User); ok {
+		result := user.LastConnection()
+		user.UpdateLastConnection()
+		if result.IsZero() {
+			return nil
+		}
+		return &result
+	}
+	return nil
 }
 
 func checkForValidMachineAgent(entity taggedAuthenticator, c params.Creds) error {

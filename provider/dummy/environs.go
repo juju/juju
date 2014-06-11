@@ -634,7 +634,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.SetAdminMongoPassword(utils.UserPasswordHash(password, utils.CompatSalt)); err != nil {
 			panic(err)
 		}
-		_, err = st.AddUser("admin", "", password)
+		_, err = st.AddAdminUser(password)
 		if err != nil {
 			panic(err)
 		}
