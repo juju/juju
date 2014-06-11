@@ -304,6 +304,7 @@ func (c customMethodCaller) Call(objId string, arg reflect.Value) (reflect.Value
 		return reflect.Value{}, err
 	}
 	obj := c.wrap(sm)
+	logger.Infof("calling: %T %v %#v", obj, obj, c.objMethod)
 	return c.objMethod.Call(obj, arg)
 }
 
@@ -312,7 +313,7 @@ func (cc *CustomMethodFinder) FindMethod(
 ) (
 	rpcreflect.MethodCaller, error,
 ) {
-	logger.Infof("got to FindMethod: %q %d %q\n", rootMethodName, version, objMethodName)
+	logger.Infof("got to FindMethod: %q %d %q", rootMethodName, version, objMethodName)
 	if rootMethodName != "MultiVersion" {
 		return nil, &rpcreflect.CallNotImplementedError{
 			RootMethod: rootMethodName,
@@ -322,22 +323,17 @@ func (cc *CustomMethodFinder) FindMethod(
 	var wrap wrapper
 	switch version {
 	case 0:
-		goType = reflect.TypeOf((*VariableMethods1)(nil)).Elem()
+		goType = reflect.TypeOf((*VariableMethods1)(nil))
 		wrap = func(sm *SimpleMethods) reflect.Value {
-			return reflect.ValueOf(VariableMethods1{sm})
+			return reflect.ValueOf(&VariableMethods1{sm})
 		}
 	case 1:
-		goType = reflect.TypeOf((*VariableMethods2)(nil)).Elem()
+		goType = reflect.TypeOf((*VariableMethods2)(nil))
 		wrap = func(sm *SimpleMethods) reflect.Value {
-			return reflect.ValueOf(VariableMethods2{sm})
+			return reflect.ValueOf(&VariableMethods2{sm})
 		}
 	case 2:
-		goType = reflect.TypeOf((InterfaceMethods)(nil))
-		wrap = func(sm *SimpleMethods) reflect.Value {
-			return reflect.ValueOf(InterfaceMethods(sm))
-		}
-	case 3:
-		goType = reflect.TypeOf((*RestrictedMethods)(nil)).Elem()
+		goType = reflect.TypeOf((*RestrictedMethods)(nil))
 		wrap = func(sm *SimpleMethods) reflect.Value {
 			methods := &RestrictedMethods{InterfaceMethods: sm}
 			return reflect.ValueOf(methods)
@@ -348,6 +344,7 @@ func (cc *CustomMethodFinder) FindMethod(
 			Version:    version,
 		}
 	}
+	logger.Infof("found type: %s", goType)
 	objType := rpcreflect.ObjTypeOf(goType)
 	objMethod, err := objType.Method(objMethodName)
 	if err != nil {
@@ -364,11 +361,16 @@ func (cc *CustomMethodFinder) FindMethod(
 	}, nil
 }
 
-func (*rpcSuite) TestRPC(c *gc.C) {
+func SimpleRoot() *Root {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
 	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
+	return root
+}
+
+func (*rpcSuite) TestRPC(c *gc.C) {
+	root := SimpleRoot()
 	client, srvDone, clientNotifier, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	for narg := 0; narg < 2; narg++ {
@@ -415,11 +417,11 @@ type testCallParams struct {
 	serverNotifier *notifier
 
 	// entry holds the top-level type that will be invoked
-	// (e.g. "SimpleMethods")
+	// (e.g. "SimpleMethods").
 	entry string
 
 	// narg holds the number of arguments accepted by the
-	// call (0 or 1)
+	// call (0 or 1).
 	narg int
 
 	// nret holds the number of values returned by the
@@ -431,13 +433,16 @@ type testCallParams struct {
 
 	// testErr specifies whether the call should be made to return an error.
 	testErr bool
+
+	// version specifies what version of the interface to call, defaults to 0.
+	version int
 }
 
 // request returns the RPC request for the test call.
 func (p testCallParams) request() rpc.Request {
 	return rpc.Request{
 		Type:    p.entry,
-		Version: 0,
+		Version: p.version,
 		Id:      "a99",
 		Action:  callName(p.narg, p.nret, p.retErr),
 	}
@@ -464,7 +469,10 @@ func (root *Root) testCall(c *gc.C, p testCallParams) {
 		})
 		c.Assert(r, gc.Equals, stringVal{})
 	case p.nret > 0:
-		c.Assert(r, gc.Equals, stringVal{p.request().Action + " ret"})
+		c.Check(r, gc.Equals, stringVal{p.request().Action + " ret"})
+	}
+	if !p.testErr {
+		c.Check(err, gc.IsNil)
 	}
 
 	// Check that the call was actually made, the right
@@ -574,10 +582,7 @@ func (root *Root) assertServerNotified(c *gc.C, p testCallParams, requestId uint
 }
 
 func (*rpcSuite) TestInterfaceMethods(c *gc.C) {
-	root := &Root{
-		simple: make(map[string]*SimpleMethods),
-	}
-	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
+	root := SimpleRoot()
 	client, srvDone, clientNotifier, serverNotifier := newRPCClientServer(c, root, nil, false)
 	defer closeClient(c, client, srvDone)
 	p := testCallParams{
@@ -594,6 +599,110 @@ func (*rpcSuite) TestInterfaceMethods(c *gc.C) {
 	root.testCall(c, p)
 	p.testErr = true
 	root.testCall(c, p)
+	// Call0r0 is defined on the underlying SimpleMethods, but is not
+	// exposed at the InterfaceMethods level, so this call should fail with
+	// CodeNotImplemented.
+	var r stringVal
+	err := client.Call(rpc.Request{"InterfaceMethods", 0, "a99", "Call0r0"}, stringVal{"arg"}, &r)
+	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+		Message: "no such request - method InterfaceMethods.Call0r0 is not implemented",
+		Code:    rpc.CodeNotImplemented,
+	})
+}
+
+func (*rpcSuite) TestCustomMethodFinderV0(c *gc.C) {
+	root := &CustomMethodFinder{SimpleRoot()}
+	client, srvDone, clientNotifier, serverNotifier := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+	// V0 of MultiVersion implements only VariableMethods1.Call0r1.
+	p := testCallParams{
+		client:         client,
+		clientNotifier: clientNotifier,
+		serverNotifier: serverNotifier,
+		entry:          "MultiVersion",
+		version:        0,
+		narg:           0,
+		nret:           1,
+		retErr:         false,
+		testErr:        false,
+	}
+
+	root.root.testCall(c, p)
+	// Call1r1 is exposed in version 1, but not in version 0.
+	var r stringVal
+	err := client.Call(rpc.Request{"MultiVersion", 0, "a99", "Call1r1"}, stringVal{"arg"}, &r)
+	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+		Message: "no such request - method MultiVersion.Call1r1 is not implemented",
+		Code:    rpc.CodeNotImplemented,
+	})
+}
+
+func (*rpcSuite) TestCustomMethodFinderV1(c *gc.C) {
+	root := &CustomMethodFinder{SimpleRoot()}
+	client, srvDone, clientNotifier, serverNotifier := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+	// V1 of MultiVersion implements only VariableMethods2.Call1r1.
+	p := testCallParams{
+		client:         client,
+		clientNotifier: clientNotifier,
+		serverNotifier: serverNotifier,
+		entry:          "MultiVersion",
+		version:        1,
+		narg:           1,
+		nret:           1,
+		retErr:         false,
+		testErr:        false,
+	}
+
+	root.root.testCall(c, p)
+	// Call0r1 is exposed in version 0, but not in version 1.
+	var r stringVal
+	err := client.Call(rpc.Request{"MultiVersion", 1, "a99", "Call0r1"}, nil, &r)
+	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+		Message: "no such request - method MultiVersion(1).Call0r1 is not implemented",
+		Code:    rpc.CodeNotImplemented,
+	})
+}
+
+func (*rpcSuite) TestCustomMethodFinderV2(c *gc.C) {
+	root := &CustomMethodFinder{SimpleRoot()}
+	client, srvDone, clientNotifier, serverNotifier := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+	p := testCallParams{
+		client:         client,
+		clientNotifier: clientNotifier,
+		serverNotifier: serverNotifier,
+		entry:          "MultiVersion",
+		version:        2,
+		narg:           1,
+		nret:           1,
+		retErr:         true,
+		testErr:        false,
+	}
+
+	root.root.testCall(c, p)
+	// By embedding the InterfaceMethods inside a concrete
+	// RestrictedMethods type, we actually only expose the methods defined
+	// in InterfaceMethods.
+	var r stringVal
+	err := client.Call(rpc.Request{"MultiVersion", 2, "a99", "Call0r1e"}, nil, &r)
+	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+		Message: `no such request - method MultiVersion(2).Call0r1e is not implemented`,
+		Code:    rpc.CodeNotImplemented,
+	})
+}
+
+func (*rpcSuite) TestCustomMethodFinderUnknownVersion(c *gc.C) {
+	root := &CustomMethodFinder{SimpleRoot()}
+	client, srvDone, _, _ := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
+	var r stringVal
+	// Unknown version 5
+	err := client.Call(rpc.Request{"MultiVersion", 5, "a99", "Call0r1"}, nil, &r)
+	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown version (5) of interface "MultiVersion"`,
+		Code:    rpc.CodeNotImplemented,
+	})
 }
 
 func (*rpcSuite) TestConcurrentCalls(c *gc.C) {
@@ -674,7 +783,22 @@ func (*rpcSuite) TestTransformErrors(c *gc.C) {
 	}
 	client, srvDone, _, _ := newRPCClientServer(c, root, tfErr, false)
 	defer closeClient(c, client, srvDone)
-	err := client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
+	// First, we don't transform methods we can't find.
+	err := client.Call(rpc.Request{"foo", 0, "", "bar"}, nil, nil)
+	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+		Message: `unknown object type "foo"`,
+		Code:    rpc.CodeNotImplemented,
+	})
+
+	err = client.Call(rpc.Request{"ErrorMethods", 0, "", "NoMethod"}, nil, nil)
+	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
+		Message: "no such request - method ErrorMethods.NoMethod is not implemented",
+		Code:    rpc.CodeNotImplemented,
+	})
+
+	// We do transform any errors that happen from calling the RootMethod
+	// and beyond.
+	err = client.Call(rpc.Request{"ErrorMethods", 0, "", "Call"}, nil, nil)
 	c.Assert(err, gc.DeepEquals, &rpc.RequestError{
 		Message: "transformed: message",
 		Code:    "transformed: code",
@@ -1065,7 +1189,12 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 			role = roleBoth
 		}
 		rpcConn := rpc.NewConn(NewJSONCodec(conn, role), serverNotifier)
-		rpcConn.Serve(root, tfErr)
+		if custroot, ok := root.(*CustomMethodFinder); ok {
+			rpcConn.ServeFinder(custroot, tfErr)
+			custroot.root.conn = rpcConn
+		} else {
+			rpcConn.Serve(root, tfErr)
+		}
 		if root, ok := root.(*Root); ok {
 			root.conn = rpcConn
 		}

@@ -114,9 +114,10 @@ type Conn struct {
 	//nil if nothing is being served.
 	methodFinder MethodFinder
 
-	// root holds the original root object that we are serving requests on
-	// (if any).
-	root interface{}
+	// killer is the current object that we are serving if it implements
+	// the Killer interface. If we are not serving an object, or if the
+	// interface isn't implemented, killer is nil
+	killer Killer
 
 	// transformErrors is used to transform returned errors.
 	transformErrors func(error) error
@@ -248,19 +249,39 @@ func (conn *Conn) Start() {
 // If root is nil, the connection will serve no methods.
 func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
-	rootObj := root
-	methodFinder := MethodFinder(rootValue)
-	if !rootValue.IsValid() {
-		rootObj = nil
-		methodFinder = nil
+	if rootValue.IsValid() {
+		conn.serve(rootValue, root, transformErrors)
+	} else {
+		conn.serve(nil, nil, transformErrors)
 	}
+}
+
+// ServeFinder serves RPC requests on the connection by invoking methods retrieved
+// from root. Note that it does not start the connection running, though
+// it may be called once the connection is already started.
+//
+// The server executes each client request by calling FindMethod to obtain a
+// method to invoke. It invokes that method with the request parameters,
+// possibly returning some result.
+//
+// root can optionally implement the Killer method. If implemented, when the
+// connection is closed, root.Kill() will be called.
+func (conn *Conn) ServeFinder(finder MethodFinder, transformErrors func(error) error) {
+	conn.serve(finder, finder, transformErrors)
+}
+
+func (conn *Conn) serve(methodFinder MethodFinder, maybeKiller interface{}, transformErrors func(error) error) {
 	if transformErrors == nil {
 		transformErrors = noopTransform
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 	conn.methodFinder = methodFinder
-	conn.root = rootObj
+	if killer, ok := maybeKiller.(Killer); ok {
+		conn.killer = killer
+	} else {
+		conn.killer = nil
+	}
 	conn.transformErrors = transformErrors
 }
 
@@ -299,10 +320,8 @@ func (conn *Conn) Close() error {
 	conn.closing = true
 	// Kill server requests if appropriate.  Client requests will be
 	// terminated when the input loop finishes.
-	if conn.root != nil {
-		if killer, ok := conn.root.(Killer); ok {
-			killer.Kill()
-		}
+	if conn.killer != nil {
+		conn.killer.Kill()
 	}
 	conn.mutex.Unlock()
 
@@ -488,7 +507,8 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	if methodFinder == nil {
 		return boundRequest{}, fmt.Errorf("no service")
 	}
-	caller, err := methodFinder.FindMethod(hdr.Request.Type, 0, hdr.Request.Action)
+	caller, err := methodFinder.FindMethod(
+		hdr.Request.Type, hdr.Request.Version, hdr.Request.Action)
 	if err != nil {
 		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {
 			err = &serverError{
