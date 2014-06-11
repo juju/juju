@@ -59,7 +59,7 @@ if [[ -e $jenv ]]; then
 fi
 
 # Force teardown of generated azure env names.
-azure_jenvs=$(find $JUJU_HOME/environments/$JOB_NAME*.jenv || "")
+azure_jenvs=$(find $JUJU_HOME/environments -name '$JOB_NAME*.jenv')
 for jenv in $azure_jenvs; do
     azure_env=$(basename $jenv .jenv)
     destroy-environment $azure_env
