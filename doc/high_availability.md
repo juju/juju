@@ -83,6 +83,10 @@ that if you've only got one state server, you can't switch to another one.
 
 ### The Singleton Workers
 
+**Note:** This section reflects the current behavior of these workers but 
+should by no means be taken as an example to follow since most (if not all)
+should run concurrently and are going to change in the near future.
+
 The following workers require only a single instance to be running
 at any one moment:
 
