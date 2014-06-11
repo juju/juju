@@ -45,6 +45,10 @@ type Storage interface {
 	// It return ErrAlreadyExists if the
 	// information has already been created.
 	CreateInfo(envName string) (EnvironInfo, error)
+
+	// List returns a slice of existing environment names that the Storage
+	// knows about.
+	List() ([]string, error)
 }
 
 // EnvironInfo holds information associated with an environment.

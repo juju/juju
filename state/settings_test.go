@@ -5,6 +5,7 @@ package state
 
 import (
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
@@ -14,7 +15,7 @@ import (
 
 type SettingsSuite struct {
 	testing.BaseSuite
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	state *State
 	key   string
 }
@@ -25,7 +26,7 @@ var _ = gc.Suite(&SettingsSuite{})
 // connecting to the testing state server.
 func TestingStateInfo() *Info {
 	return &Info{
-		Addrs:  []string{testing.MgoServer.Addr()},
+		Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 		CACert: testing.CACert,
 	}
 }

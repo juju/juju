@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/agent/mongo"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
@@ -33,8 +34,8 @@ type stateMachine interface {
 	WantsVote() bool
 	HasVote() bool
 	SetHasVote(hasVote bool) error
-	APIHostPorts() []instance.HostPort
-	MongoHostPorts() []instance.HostPort
+	APIHostPorts() []network.HostPort
+	MongoHostPorts() []network.HostPort
 }
 
 type mongoSession interface {
@@ -47,7 +48,7 @@ type publisherInterface interface {
 	// publish publishes information about the given state servers
 	// to whomsoever it may concern. When it is called there
 	// is no guarantee that any of the information has actually changed.
-	publishAPIServers(apiServers [][]instance.HostPort, instanceIds []instance.Id) error
+	publishAPIServers(apiServers [][]network.HostPort, instanceIds []instance.Id) error
 }
 
 // notifyFunc holds a function that is sent
@@ -211,8 +212,8 @@ func (w *pgWorker) loop() error {
 	}
 }
 
-func (w *pgWorker) apiPublishInfo() ([][]instance.HostPort, []instance.Id, error) {
-	servers := make([][]instance.HostPort, 0, len(w.machines))
+func (w *pgWorker) apiPublishInfo() ([][]network.HostPort, []instance.Id, error) {
+	servers := make([][]network.HostPort, 0, len(w.machines))
 	instanceIds := make([]instance.Id, 0, len(w.machines))
 	for _, m := range w.machines {
 		if len(m.apiHostPorts) == 0 {
@@ -441,8 +442,8 @@ func (infow *serverInfoWatcher) updateMachines() (bool, error) {
 type machine struct {
 	id             string
 	wantsVote      bool
-	apiHostPorts   []instance.HostPort
-	mongoHostPorts []instance.HostPort
+	apiHostPorts   []network.HostPort
+	mongoHostPorts []network.HostPort
 
 	worker         *pgWorker
 	stm            stateMachine
@@ -522,7 +523,7 @@ func (m *machine) refresh() (bool, error) {
 	return changed, nil
 }
 
-func hostPortsEqual(hps1, hps2 []instance.HostPort) bool {
+func hostPortsEqual(hps1, hps2 []network.HostPort) bool {
 	if len(hps1) != len(hps2) {
 		return false
 	}

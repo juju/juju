@@ -20,7 +20,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent/mongo"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upstart"
@@ -293,15 +293,15 @@ func (s *MongoSuite) TestServiceName(c *gc.C) {
 }
 
 func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
-	addresses := []instance.Address{{
-		Value:        "10.0.0.1",
-		Type:         instance.Ipv4Address,
-		NetworkName:  "cloud",
-		NetworkScope: instance.NetworkCloudLocal}, {
-		Value:        "8.8.8.8",
-		Type:         instance.Ipv4Address,
-		NetworkName:  "public",
-		NetworkScope: instance.NetworkPublic}}
+	addresses := []network.Address{{
+		Value:       "10.0.0.1",
+		Type:        network.IPv4Address,
+		NetworkName: "cloud",
+		Scope:       network.ScopeCloudLocal}, {
+		Value:       "8.8.8.8",
+		Type:        network.IPv4Address,
+		NetworkName: "public",
+		Scope:       network.ScopePublic}}
 
 	address := mongo.SelectPeerAddress(addresses)
 	c.Assert(address, gc.Equals, "10.0.0.1")
@@ -309,19 +309,19 @@ func (s *MongoSuite) TestSelectPeerAddress(c *gc.C) {
 
 func (s *MongoSuite) TestSelectPeerHostPort(c *gc.C) {
 
-	hostPorts := []instance.HostPort{{
-		Address: instance.Address{
-			Value:        "10.0.0.1",
-			Type:         instance.Ipv4Address,
-			NetworkName:  "cloud",
-			NetworkScope: instance.NetworkCloudLocal,
+	hostPorts := []network.HostPort{{
+		Address: network.Address{
+			Value:       "10.0.0.1",
+			Type:        network.IPv4Address,
+			NetworkName: "cloud",
+			Scope:       network.ScopeCloudLocal,
 		},
 		Port: 37017}, {
-		Address: instance.Address{
-			Value:        "8.8.8.8",
-			Type:         instance.Ipv4Address,
-			NetworkName:  "public",
-			NetworkScope: instance.NetworkPublic,
+		Address: network.Address{
+			Value:       "8.8.8.8",
+			Type:        network.IPv4Address,
+			NetworkName: "public",
+			Scope:       network.ScopePublic,
 		},
 		Port: 37017}}
 

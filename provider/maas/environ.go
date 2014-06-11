@@ -25,11 +25,11 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -640,11 +640,19 @@ func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, e
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network. This is not implemented on the
 // MAAS provider yet.
-func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+func (*maasEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
 	// TODO(dimitern) 2014-05-06 bug #1316627
 	// Once MAAS API allows allocating an address,
 	// implement this using the API.
-	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
+	return network.Address{}, errors.NotImplementedf("AllocateAddress")
+}
+
+// ListNetworks returns basic information about all networks known
+// by the provider for the environment. They may be unknown to juju
+// yet (i.e. when called initially or when a new network was created).
+// This is not implemented by the MAAS provider yet.
+func (*maasEnviron) ListNetworks() ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("ListNetworks")
 }
 
 // AllInstances returns all the instance.Instance in this provider.
@@ -664,19 +672,19 @@ func (environ *maasEnviron) Destroy() error {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (*maasEnviron) OpenPorts([]instance.Port) error {
+func (*maasEnviron) OpenPorts([]network.Port) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (*maasEnviron) ClosePorts([]instance.Port) error {
+func (*maasEnviron) ClosePorts([]network.Port) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (*maasEnviron) Ports() ([]instance.Port, error) {
+func (*maasEnviron) Ports() ([]network.Port, error) {
 	logger.Debugf("unimplemented Ports() called")
-	return []instance.Port{}, nil
+	return []network.Port{}, nil
 }
 
 func (*maasEnviron) Provider() environs.EnvironProvider {

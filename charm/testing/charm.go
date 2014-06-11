@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"go/build"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
+
+	"github.com/juju/utils/fs"
 
 	"github.com/juju/juju/charm"
 )
@@ -45,8 +46,9 @@ func (r *Repo) init() {
 var Charms = &Repo{}
 
 func clone(dst, src string) string {
-	check(exec.Command("/bin/cp", "-r", src, dst).Run())
-	return filepath.Join(dst, filepath.Base(src))
+	dst = filepath.Join(dst, filepath.Base(src))
+	check(fs.Copy(src, dst))
+	return dst
 }
 
 // DirPath returns the path to a charm directory with the given name in the
@@ -69,12 +71,12 @@ func (r *Repo) ClonedDirPath(dst, name string) string {
 }
 
 // RenamedClonedDirPath returns the path to a new copy of the default
-// charm directory named name, but renames it to newName.
+// charm directory named name, renamed to newName.
 func (r *Repo) RenamedClonedDirPath(dst, name, newName string) string {
-	newDst := clone(dst, r.DirPath(name))
-	renamedDst := filepath.Join(filepath.Dir(newDst), newName)
-	check(os.Rename(newDst, renamedDst))
-	return renamedDst
+	dstPath := filepath.Join(dst, newName)
+	err := fs.Copy(r.DirPath(name), dstPath)
+	check(err)
+	return dstPath
 }
 
 // ClonedDir returns an actual charm.Dir based on a new copy of the charm directory

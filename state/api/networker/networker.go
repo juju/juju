@@ -6,7 +6,7 @@ package networker
 import (
 	"fmt"
 
-	"github.com/juju/juju/environs/network"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 )

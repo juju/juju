@@ -27,6 +27,7 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -516,7 +517,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	// TODO(axw) remove this when we no longer need
 	// to upgrade from pre-HA-capable environments.
 	var shouldInitiateMongoServer bool
-	var addrs []instance.Address
+	var addrs []network.Address
 	if isPreHAVersion(agentConfig.UpgradedToVersion()) {
 		_, err := a.ensureMongoAdminUser(agentConfig)
 		if err != nil {

@@ -107,6 +107,15 @@ func (s *localServer) start(c *gc.C, cred *identity.Credentials) {
 	s.Service = openstackservice.New(cred, identity.AuthUserPass)
 	s.Service.SetupHTTP(s.Mux)
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
+	s.Service.Nova.SetAvailabilityZones(
+		nova.AvailabilityZone{Name: "test-unavailable"},
+		nova.AvailabilityZone{
+			Name: "test-available",
+			State: nova.AvailabilityZoneState{
+				Available: true,
+			},
+		},
+	)
 }
 
 func (s *localServer) stop() {
@@ -745,6 +754,27 @@ func (s *localServerSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid Openstack flavour "m1.large" specified`)
 }
 
+func (t *localServerSuite) TestPrecheckInstanceAvailZone(c *gc.C) {
+	env := t.Prepare(c)
+	placement := "zone=test-available"
+	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	c.Assert(err, gc.IsNil)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnavailable(c *gc.C) {
+	env := t.Prepare(c)
+	placement := "zone=test-unavailable"
+	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	c.Assert(err, gc.IsNil)
+}
+
+func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
+	env := t.Prepare(c)
+	placement := "zone=test-unknown"
+	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+}
+
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Open(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
@@ -1155,3 +1185,62 @@ func (s *localServerSuite) TestResolveNetworkNotPresent(c *gc.C) {
 }
 
 // TODO(gz): TestResolveNetworkMultipleMatching when can inject new networks
+
+func (t *localServerSuite) TestStartInstanceAvailZone(c *gc.C) {
+	inst, err := t.testStartInstanceAvailZone(c, "test-available")
+	c.Assert(err, gc.IsNil)
+	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneUnavailable(c *gc.C) {
+	_, err := t.testStartInstanceAvailZone(c, "test-unavailable")
+	c.Assert(err, gc.ErrorMatches, `availability zone "test-unavailable" is unavailable`)
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
+	_, err := t.testStartInstanceAvailZone(c, "test-unknown")
+	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
+}
+
+func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	params := environs.StartInstanceParams{Placement: "zone=" + zone}
+	inst, _, _, err := testing.StartInstanceWithParams(env, "1", params, nil)
+	return inst, err
+}
+
+func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
+	var resultZones []nova.AvailabilityZone
+	var resultErr error
+	t.PatchValue(openstack.NovaListAvailabilityZones, func(e *nova.Client) ([]nova.AvailabilityZone, error) {
+		return append([]nova.AvailabilityZone{}, resultZones...), resultErr
+	})
+	env := t.Prepare(c)
+
+	resultErr = fmt.Errorf("failed to get availability zones")
+	zones, err := openstack.GetAvailabilityZones(env)
+	c.Assert(err, gc.Equals, resultErr)
+	c.Assert(zones, gc.IsNil)
+
+	resultErr = nil
+	resultZones = make([]nova.AvailabilityZone, 1)
+	resultZones[0].Name = "whatever"
+	zones, err = openstack.GetAvailabilityZones(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(zones, gc.HasLen, 1)
+	c.Assert(zones[0].Name, gc.Equals, "whatever")
+
+	// A successful result is cached, currently for the lifetime
+	// of the Environ. This will change if/when we have long-lived
+	// Environs to cut down repeated IaaS requests.
+	resultErr = fmt.Errorf("failed to get availability zones")
+	resultZones[0].Name = "andever"
+	zones, err = openstack.GetAvailabilityZones(env)
+	c.Assert(err, gc.IsNil)
+	c.Assert(zones, gc.HasLen, 1)
+	c.Assert(zones[0].Name, gc.Equals, "whatever")
+}

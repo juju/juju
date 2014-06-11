@@ -6,7 +6,7 @@ package machiner
 import (
 	"fmt"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 )
@@ -54,7 +54,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 }
 
 // SetMachineAddresses sets the machine determined addresses of the machine.
-func (m *Machine) SetMachineAddresses(addresses []instance.Address) error {
+func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
 	var result params.ErrorResults
 	args := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{

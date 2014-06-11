@@ -4,7 +4,7 @@
 package common
 
 import (
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
@@ -51,7 +51,7 @@ func (a *APIAddresser) CACert() (string, error) {
 }
 
 // APIHostPorts returns the host/port addresses of the API servers.
-func (a *APIAddresser) APIHostPorts() ([][]instance.HostPort, error) {
+func (a *APIAddresser) APIHostPorts() ([][]network.HostPort, error) {
 	var result params.APIHostPortsResult
 	err := a.caller.Call(a.facadeName, "", "APIHostPorts", nil, &result)
 	if err != nil {

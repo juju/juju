@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/watcher"
@@ -34,8 +35,8 @@ var (
 type machine interface {
 	Id() string
 	InstanceId() (instance.Id, error)
-	Addresses() []instance.Address
-	SetAddresses(...instance.Address) error
+	Addresses() []network.Address
+	SetAddresses(...network.Address) error
 	InstanceStatus() (string, error)
 	SetInstanceStatus(status string) error
 	String() string
@@ -46,7 +47,7 @@ type machine interface {
 }
 
 type instanceInfo struct {
-	addresses []instance.Address
+	addresses []network.Address
 	status    string
 }
 
@@ -58,7 +59,7 @@ type machineContext interface {
 
 type machineAddress struct {
 	machine   machine
-	addresses []instance.Address
+	addresses []network.Address
 }
 
 var _ machine = (*state.Machine)(nil)
@@ -269,7 +270,7 @@ func pollInstanceInfo(context machineContext, m machine) (instInfo instanceInfo,
 	return instInfo, err
 }
 
-func addressesEqual(a0, a1 []instance.Address) bool {
+func addressesEqual(a0, a1 []network.Address) bool {
 	if len(a0) != len(a1) {
 		return false
 	}

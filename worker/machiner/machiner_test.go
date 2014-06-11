@@ -11,8 +11,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apimachiner "github.com/juju/juju/state/api/machiner"
@@ -153,10 +153,10 @@ func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 	s.State.StartSync()
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(s.machine.Refresh(), gc.IsNil)
-	c.Assert(s.machine.MachineAddresses(), gc.DeepEquals, []instance.Address{
-		instance.NewAddress("10.0.0.1", instance.NetworkCloudLocal),
-		instance.NewAddress("127.0.0.1", instance.NetworkMachineLocal),
-		instance.NewAddress("::1", instance.NetworkMachineLocal),
-		instance.NewAddress("2001:db8::1", instance.NetworkUnknown),
+	c.Assert(s.machine.MachineAddresses(), gc.DeepEquals, []network.Address{
+		network.NewAddress("10.0.0.1", network.ScopeCloudLocal),
+		network.NewAddress("127.0.0.1", network.ScopeMachineLocal),
+		network.NewAddress("::1", network.ScopeMachineLocal),
+		network.NewAddress("2001:db8::1", network.ScopeUnknown),
 	})
 }

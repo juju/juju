@@ -22,8 +22,8 @@ import (
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -45,24 +45,40 @@ func (c *Client) call(method string, params, result interface{}) error {
 	return c.st.Call("Client", "", method, params, result)
 }
 
+// AgentStatus holds status info about a machine or unit agent.
+type AgentStatus struct {
+	Status  params.Status
+	Info    string
+	Data    params.StatusData
+	Version string
+	Life    string
+	Err     error
+}
+
 // MachineStatus holds status info about a machine.
 type MachineStatus struct {
-	Err            error
+	Agent AgentStatus
+
+	// The following fields mirror fields in AgentStatus (introduced
+	// in 1.19.x). The old fields below are being kept for
+	// compatibility with old clients. They can be removed once API
+	// versioning lands or for 1.21, whichever comes first.
 	AgentState     params.Status
 	AgentStateInfo string
-	AgentStateData params.StatusData
 	AgentVersion   string
-	DNSName        string
-	InstanceId     instance.Id
-	InstanceState  string
 	Life           string
-	Series         string
-	Id             string
-	Containers     map[string]MachineStatus
-	Hardware       string
-	Jobs           []params.MachineJob
-	HasVote        bool
-	WantsVote      bool
+	Err            error
+
+	DNSName       string
+	InstanceId    instance.Id
+	InstanceState string
+	Series        string
+	Id            string
+	Containers    map[string]MachineStatus
+	Hardware      string
+	Jobs          []params.MachineJob
+	HasVote       bool
+	WantsVote     bool
 }
 
 // ServiceStatus holds status info about a service.
@@ -80,17 +96,20 @@ type ServiceStatus struct {
 
 // UnitStatus holds status info about a unit.
 type UnitStatus struct {
-	Err            error
+	Agent AgentStatus
+
+	// See the comment in MachineStatus regarding these fields.
 	AgentState     params.Status
 	AgentStateInfo string
-	AgentStateData params.StatusData
 	AgentVersion   string
 	Life           string
-	Machine        string
-	OpenedPorts    []string
-	PublicAddress  string
-	Charm          string
-	Subordinates   map[string]UnitStatus
+	Err            error
+
+	Machine       string
+	OpenedPorts   []string
+	PublicAddress string
+	Charm         string
+	Subordinates  map[string]UnitStatus
 }
 
 // RelationStatus holds status info about a relation.
@@ -742,8 +761,8 @@ func (c *Client) UploadTools(
 	return jsonResponse.Tools, nil
 }
 
-// APIHostPorts returns a slice of instance.HostPort for each API server.
-func (c *Client) APIHostPorts() ([][]instance.HostPort, error) {
+// APIHostPorts returns a slice of network.HostPort for each API server.
+func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 	var result params.APIHostPortsResult
 	if err := c.call("APIHostPorts", nil, &result); err != nil {
 		return nil, err

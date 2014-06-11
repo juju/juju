@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
@@ -889,8 +890,8 @@ func IsNotProvisionedError(err error) bool {
 	return ok
 }
 
-func mergedAddresses(machineAddresses, providerAddresses []address) []instance.Address {
-	merged := make([]instance.Address, len(providerAddresses), len(providerAddresses)+len(machineAddresses))
+func mergedAddresses(machineAddresses, providerAddresses []address) []network.Address {
+	merged := make([]network.Address, len(providerAddresses), len(providerAddresses)+len(machineAddresses))
 	var providerValues set.Strings
 	for i, address := range providerAddresses {
 		providerValues.Add(address.Value)
@@ -910,13 +911,13 @@ func mergedAddresses(machineAddresses, providerAddresses []address) []instance.A
 // The addresses returned by the provider shadow any of the addresses
 // that the machine reported with the same address value. Provider-reported
 // addresses always come before machine-reported addresses.
-func (m *Machine) Addresses() (addresses []instance.Address) {
+func (m *Machine) Addresses() (addresses []network.Address) {
 	return mergedAddresses(m.doc.MachineAddresses, m.doc.Addresses)
 }
 
 // SetAddresses records any addresses related to the machine, sourced
 // by asking the provider.
-func (m *Machine) SetAddresses(addresses ...instance.Address) (err error) {
+func (m *Machine) SetAddresses(addresses ...network.Address) (err error) {
 	stateAddresses := instanceAddressesToAddresses(addresses)
 	ops := []txn.Op{
 		{
@@ -936,7 +937,7 @@ func (m *Machine) SetAddresses(addresses ...instance.Address) (err error) {
 
 // MachineAddresses returns any hostnames and ips associated with a machine,
 // determined by asking the machine itself.
-func (m *Machine) MachineAddresses() (addresses []instance.Address) {
+func (m *Machine) MachineAddresses() (addresses []network.Address) {
 	for _, address := range m.doc.MachineAddresses {
 		addresses = append(addresses, address.InstanceAddress())
 	}
@@ -945,7 +946,7 @@ func (m *Machine) MachineAddresses() (addresses []instance.Address) {
 
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
-func (m *Machine) SetMachineAddresses(addresses ...instance.Address) (err error) {
+func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) {
 	stateAddresses := instanceAddressesToAddresses(addresses)
 	ops := []txn.Op{
 		{

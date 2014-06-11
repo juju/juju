@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
@@ -119,7 +120,7 @@ type AddMachineParams struct {
 	InstanceId              instance.Id
 	Nonce                   string
 	HardwareCharacteristics instance.HardwareCharacteristics
-	Addrs                   []instance.Address
+	Addrs                   []network.Address
 }
 
 // AddMachines holds the parameters for making the
@@ -526,7 +527,7 @@ type MachineInfo struct {
 	SupportedContainersKnown bool
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
 	Jobs                     []MachineJob
-	Addresses                []instance.Address
+	Addresses                []network.Address
 }
 
 func (i *MachineInfo) EntityId() EntityId {
@@ -562,7 +563,7 @@ type UnitInfo struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	Ports          []instance.Port
+	Ports          []network.Port
 	Status         Status
 	StatusInfo     string
 	StatusData     StatusData
@@ -697,7 +698,7 @@ type RsyslogConfigResult struct {
 	// Clients should use HostPorts for the rsyslog addresses to forward
 	// logs to.
 	Port      int
-	HostPorts []instance.HostPort
+	HostPorts []network.HostPort
 }
 
 // RsyslogConfigResults is the bulk form of RyslogConfigResult
@@ -722,12 +723,12 @@ type DistributionGroupResults struct {
 // call. Each element in the top level slice holds
 // the addresses for one API server.
 type APIHostPortsResult struct {
-	Servers [][]instance.HostPort
+	Servers [][]network.HostPort
 }
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
-	Servers    [][]instance.HostPort
+	Servers    [][]network.HostPort
 	EnvironTag string
 }
 

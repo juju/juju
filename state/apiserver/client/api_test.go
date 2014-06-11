@@ -149,11 +149,14 @@ var scenarioStatus = &api.Status{
 	EnvironmentName: "dummyenv",
 	Machines: map[string]api.MachineStatus{
 		"0": {
-			Id:             "0",
-			InstanceId:     instance.Id("i-machine-0"),
+			Id:         "0",
+			InstanceId: instance.Id("i-machine-0"),
+			Agent: api.AgentStatus{
+				Status: "started",
+				Data:   params.StatusData{},
+			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
-			AgentStateData: params.StatusData{},
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
 			Jobs:           []params.MachineJob{params.JobManageEnviron},
@@ -161,11 +164,14 @@ var scenarioStatus = &api.Status{
 			WantsVote:      true,
 		},
 		"1": {
-			Id:             "1",
-			InstanceId:     instance.Id("i-machine-1"),
+			Id:         "1",
+			InstanceId: instance.Id("i-machine-1"),
+			Agent: api.AgentStatus{
+				Status: "started",
+				Data:   params.StatusData{},
+			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
-			AgentStateData: params.StatusData{},
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
 			Jobs:           []params.MachineJob{params.JobHostUnits},
@@ -173,11 +179,14 @@ var scenarioStatus = &api.Status{
 			WantsVote:      false,
 		},
 		"2": {
-			Id:             "2",
-			InstanceId:     instance.Id("i-machine-2"),
+			Id:         "2",
+			InstanceId: instance.Id("i-machine-2"),
+			Agent: api.AgentStatus{
+				Status: "started",
+				Data:   params.StatusData{},
+			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
-			AgentStateData: params.StatusData{},
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
 			Jobs:           []params.MachineJob{params.JobHostUnits},
@@ -207,27 +216,38 @@ var scenarioStatus = &api.Status{
 			SubordinateTo: []string{},
 			Units: map[string]api.UnitStatus{
 				"wordpress/0": api.UnitStatus{
+					Agent: api.AgentStatus{
+						Status: "error",
+						Info:   "blam",
+						Data:   params.StatusData{"relation-id": "0"},
+					},
 					AgentState:     "down",
 					AgentStateInfo: "(error: blam)",
-					AgentStateData: params.StatusData{
-						"relation-id": "0",
-					},
-					Machine: "1",
+					Machine:        "1",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/0": api.UnitStatus{
-							AgentState:     "pending",
-							AgentStateData: params.StatusData{},
+							Agent: api.AgentStatus{
+								Status: "pending",
+								Data:   params.StatusData{},
+							},
+							AgentState: "pending",
 						},
 					},
 				},
 				"wordpress/1": api.UnitStatus{
-					AgentState:     "pending",
-					AgentStateData: params.StatusData{},
-					Machine:        "2",
+					Agent: api.AgentStatus{
+						Status: "pending",
+						Data:   params.StatusData{},
+					},
+					AgentState: "pending",
+					Machine:    "2",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/1": api.UnitStatus{
-							AgentState:     "pending",
-							AgentStateData: params.StatusData{},
+							Agent: api.AgentStatus{
+								Status: "pending",
+								Data:   params.StatusData{},
+							},
+							AgentState: "pending",
 						},
 					},
 				},

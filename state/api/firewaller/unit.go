@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 )
@@ -85,7 +85,7 @@ func (u *Unit) Service() (*Service, error) {
 //
 // NOTE: This differs from state.Unit.OpenedPorts() by returning
 // an error as well, because it needs to make an API call.
-func (u *Unit) OpenedPorts() ([]instance.Port, error) {
+func (u *Unit) OpenedPorts() ([]network.Port, error) {
 	var results params.PortsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},

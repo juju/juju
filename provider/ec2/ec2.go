@@ -21,12 +21,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -124,9 +124,9 @@ func (inst *ec2Instance) refresh() (*ec2.Instance, error) {
 	return inst.Instance, nil
 }
 
-// Addresses implements instance.Addresses() returning generic address
+// Addresses implements network.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
-func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
+func (inst *ec2Instance) Addresses() ([]network.Address, error) {
 	// TODO(gz): Stop relying on this requerying logic, maybe remove error
 	instInstance := inst.getInstance()
 	if instInstance.DNSName == "" {
@@ -138,27 +138,27 @@ func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 			return nil, err
 		}
 	}
-	var addresses []instance.Address
-	possibleAddresses := []instance.Address{
+	var addresses []network.Address
+	possibleAddresses := []network.Address{
 		{
-			Value:        instInstance.DNSName,
-			Type:         instance.HostName,
-			NetworkScope: instance.NetworkPublic,
+			Value: instInstance.DNSName,
+			Type:  network.HostName,
+			Scope: network.ScopePublic,
 		},
 		{
-			Value:        instInstance.PrivateDNSName,
-			Type:         instance.HostName,
-			NetworkScope: instance.NetworkCloudLocal,
+			Value: instInstance.PrivateDNSName,
+			Type:  network.HostName,
+			Scope: network.ScopeCloudLocal,
 		},
 		{
-			Value:        instInstance.IPAddress,
-			Type:         instance.Ipv4Address,
-			NetworkScope: instance.NetworkPublic,
+			Value: instInstance.IPAddress,
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		{
-			Value:        instInstance.PrivateIPAddress,
-			Type:         instance.Ipv4Address,
-			NetworkScope: instance.NetworkCloudLocal,
+			Value: instInstance.PrivateIPAddress,
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 	}
 	for _, address := range possibleAddresses {
@@ -744,9 +744,17 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network. This is not implemented by the
 // EC2 provider yet.
-func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
 	// TODO(dimitern) This will be implemented in a follow-up.
-	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
+	return network.Address{}, errors.NotImplementedf("AllocateAddress")
+}
+
+// ListNetworks returns basic information about all networks known
+// by the provider for the environment. They may be unknown to juju
+// yet (i.e. when called initially or when a new network was created).
+// This is not implemented by the EC2 provider yet.
+func (*environ) ListNetworks() ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("ListNetworks")
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {
@@ -778,7 +786,7 @@ func (e *environ) Destroy() error {
 	return common.Destroy(e)
 }
 
-func portsToIPPerms(ports []instance.Port) []ec2.IPPerm {
+func portsToIPPerms(ports []network.Port) []ec2.IPPerm {
 	ipPerms := make([]ec2.IPPerm, len(ports))
 	for i, p := range ports {
 		ipPerms[i] = ec2.IPPerm{
@@ -791,7 +799,7 @@ func portsToIPPerms(ports []instance.Port) []ec2.IPPerm {
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []network.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -824,7 +832,7 @@ func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -842,7 +850,7 @@ func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []network.Port, err error) {
 	group, err := e.groupInfoByName(name)
 	if err != nil {
 		return nil, err
@@ -853,17 +861,17 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 			continue
 		}
 		for i := p.FromPort; i <= p.ToPort; i++ {
-			ports = append(ports, instance.Port{
+			ports = append(ports, network.Port{
 				Protocol: p.Protocol,
 				Number:   i,
 			})
 		}
 	}
-	instance.SortPorts(ports)
+	network.SortPorts(ports)
 	return ports, nil
 }
 
-func (e *environ) OpenPorts(ports []instance.Port) error {
+func (e *environ) OpenPorts(ports []network.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
@@ -875,7 +883,7 @@ func (e *environ) OpenPorts(ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []instance.Port) error {
+func (e *environ) ClosePorts(ports []network.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
@@ -887,7 +895,7 @@ func (e *environ) ClosePorts(ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]instance.Port, error) {
+func (e *environ) Ports() ([]network.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
 			e.Config().FirewallMode())
@@ -946,7 +954,7 @@ func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
-func (inst *ec2Instance) OpenPorts(machineId string, ports []instance.Port) error {
+func (inst *ec2Instance) OpenPorts(machineId string, ports []network.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
@@ -959,7 +967,7 @@ func (inst *ec2Instance) OpenPorts(machineId string, ports []instance.Port) erro
 	return nil
 }
 
-func (inst *ec2Instance) ClosePorts(machineId string, ports []instance.Port) error {
+func (inst *ec2Instance) ClosePorts(machineId string, ports []network.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -972,7 +980,7 @@ func (inst *ec2Instance) ClosePorts(machineId string, ports []instance.Port) err
 	return nil
 }
 
-func (inst *ec2Instance) Ports(machineId string) ([]instance.Port, error) {
+func (inst *ec2Instance) Ports(machineId string) ([]network.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
 			inst.e.Config().FirewallMode())

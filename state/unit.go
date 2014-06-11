@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
@@ -72,7 +73,7 @@ type unitDoc struct {
 	MachineId    string
 	Resolved     ResolvedMode
 	Tools        *tools.Tools `bson:",omitempty"`
-	Ports        []instance.Port
+	Ports        []network.Port
 	Life         Life
 	TxnRevno     int64 `bson:"txn-revno"`
 	PasswordHash string
@@ -540,7 +541,7 @@ func (u *Unit) PrincipalName() (string, bool) {
 }
 
 // addressesOfMachine returns Addresses of the related machine if present.
-func (u *Unit) addressesOfMachine() []instance.Address {
+func (u *Unit) addressesOfMachine() []network.Address {
 	if id, err := u.AssignedMachineId(); err != nil {
 		unitLogger.Errorf("unit %v cannot get assigned machine: %v", u, err)
 		return nil
@@ -559,7 +560,7 @@ func (u *Unit) PublicAddress() (string, bool) {
 	var publicAddress string
 	addresses := u.addressesOfMachine()
 	if len(addresses) > 0 {
-		publicAddress = instance.SelectPublicAddress(addresses)
+		publicAddress = network.SelectPublicAddress(addresses)
 	}
 	return publicAddress, publicAddress != ""
 }
@@ -569,7 +570,7 @@ func (u *Unit) PrivateAddress() (string, bool) {
 	var privateAddress string
 	addresses := u.addressesOfMachine()
 	if len(addresses) > 0 {
-		privateAddress = instance.SelectInternalAddress(addresses, false)
+		privateAddress = network.SelectInternalAddress(addresses, false)
 	}
 	return privateAddress, privateAddress != ""
 }
@@ -627,7 +628,7 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	port := instance.Port{Protocol: protocol, Number: number}
+	port := network.Port{Protocol: protocol, Number: number}
 	defer errors.Maskf(&err, "cannot open port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -653,7 +654,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	port := instance.Port{Protocol: protocol, Number: number}
+	port := network.Port{Protocol: protocol, Number: number}
 	defer errors.Maskf(&err, "cannot close port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -665,7 +666,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	if err != nil {
 		return onAbort(err, errDead)
 	}
-	newPorts := make([]instance.Port, 0, len(u.doc.Ports))
+	newPorts := make([]network.Port, 0, len(u.doc.Ports))
 	for _, p := range u.doc.Ports {
 		if p != port {
 			newPorts = append(newPorts, p)
@@ -676,9 +677,9 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 }
 
 // OpenedPorts returns a slice containing the open ports of the unit.
-func (u *Unit) OpenedPorts() []instance.Port {
-	ports := append([]instance.Port{}, u.doc.Ports...)
-	instance.SortPorts(ports)
+func (u *Unit) OpenedPorts() []network.Port {
+	ports := append([]network.Port{}, u.doc.Ports...)
+	network.SortPorts(ports)
 	return ports
 }
 

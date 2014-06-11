@@ -4,6 +4,7 @@
 package agent_test
 
 import (
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -22,7 +24,7 @@ import (
 
 type bootstrapSuite struct {
 	testing.BaseSuite
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
@@ -55,7 +57,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		DataDir:           dataDir,
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
-		StateAddresses:    []string{testing.MgoServer.Addr()},
+		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
@@ -63,7 +65,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Cert:           testing.ServerCert,
 		PrivateKey:     testing.ServerKey,
 		APIPort:        1234,
-		StatePort:      testing.MgoServer.Port(),
+		StatePort:      gitjujutesting.MgoServer.Port(),
 		SystemIdentity: "def456",
 	}
 
@@ -75,7 +77,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
-		Addresses:       instance.NewAddresses("0.1.2.3", "zeroonetwothree"),
+		Addresses:       network.NewAddresses("0.1.2.3", "zeroonetwothree"),
 		Constraints:     expectConstraints,
 		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
@@ -126,8 +128,8 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// Check that the API host ports are initialised correctly.
 	apiHostPorts, err := st.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiHostPorts, gc.DeepEquals, [][]instance.HostPort{
-		instance.AddressesWithPort(mcfg.Addresses, 1234),
+	c.Assert(apiHostPorts, gc.DeepEquals, [][]network.HostPort{
+		network.AddressesWithPort(mcfg.Addresses, 1234),
 	})
 
 	// Check that the state serving info is initialised correctly.
@@ -135,7 +137,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateServingInfo, jc.DeepEquals, params.StateServingInfo{
 		APIPort:        1234,
-		StatePort:      testing.MgoServer.Port(),
+		StatePort:      gitjujutesting.MgoServer.Port(),
 		Cert:           testing.ServerCert,
 		PrivateKey:     testing.ServerKey,
 		SharedSecret:   "abc123",
@@ -161,7 +163,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		DataDir:           c.MkDir(),
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
-		StateAddresses:    []string{testing.MgoServer.Addr()},
+		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		CACert:            testing.CACert,
 		Password:          "fake",
 	}
@@ -184,7 +186,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		DataDir:           dataDir,
 		Tag:               "machine-0",
 		UpgradedToVersion: version.Current.Number,
-		StateAddresses:    []string{testing.MgoServer.Addr()},
+		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
@@ -192,7 +194,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	cfg.SetStateServingInfo(params.StateServingInfo{
 		APIPort:        5555,
-		StatePort:      testing.MgoServer.Port(),
+		StatePort:      gitjujutesting.MgoServer.Port(),
 		Cert:           "foo",
 		PrivateKey:     "bar",
 		SharedSecret:   "baz",
@@ -228,7 +230,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 	info := &state.Info{
-		Addrs:    []string{testing.MgoServer.Addr()},
+		Addrs:    []string{gitjujutesting.MgoServer.Addr()},
 		CACert:   testing.CACert,
 		Tag:      "",
 		Password: password,

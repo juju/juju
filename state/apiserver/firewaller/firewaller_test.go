@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
@@ -342,9 +343,9 @@ func (s *firewallerSuite) TestOpenedPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.PortsResults{
 		Results: []params.PortsResult{
-			{Ports: []instance.Port{{"bar", 4321}, {"foo", 1234}}},
-			{Ports: []instance.Port{}},
-			{Ports: []instance.Port{{"baz", 1111}}},
+			{Ports: []network.Port{{"bar", 4321}, {"foo", 1234}}},
+			{Ports: []network.Port{}},
+			{Ports: []network.Port{{"baz", 1111}}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -365,7 +366,7 @@ func (s *firewallerSuite) TestOpenedPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.PortsResults{
 		Results: []params.PortsResult{
-			{Ports: []instance.Port{}},
+			{Ports: []network.Port{}},
 		},
 	})
 }

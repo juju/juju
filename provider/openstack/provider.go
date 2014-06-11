@@ -29,12 +29,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -300,6 +300,9 @@ type environ struct {
 	// An ordered list of paths in which to find the simplestreams index files used to
 	// look up tools ids.
 	toolsSources []simplestreams.DataSource
+
+	availabilityZonesMutex sync.Mutex
+	availabilityZones      []nova.AvailabilityZone
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -383,9 +386,9 @@ func (inst *openstackInstance) getAddresses() (map[string][]nova.IPAddress, erro
 	return addrs, nil
 }
 
-// Addresses implements instance.Addresses() returning generic address
+// Addresses implements network.Addresses() returning generic address
 // details for the instances, and calling the openstack api if needed.
-func (inst *openstackInstance) Addresses() ([]instance.Address, error) {
+func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 	addresses, err := inst.getAddresses()
 	if err != nil {
 		return nil, err
@@ -394,27 +397,27 @@ func (inst *openstackInstance) Addresses() ([]instance.Address, error) {
 }
 
 // convertNovaAddresses returns nova addresses in generic format
-func convertNovaAddresses(addresses map[string][]nova.IPAddress) []instance.Address {
+func convertNovaAddresses(addresses map[string][]nova.IPAddress) []network.Address {
 	// TODO(gz) Network ordering may be significant but is not preserved by
 	// the map, see lp:1188126 for example. That could potentially be fixed
 	// in goose, or left to be derived by other means.
-	var machineAddresses []instance.Address
-	for network, ips := range addresses {
-		networkscope := instance.NetworkUnknown
+	var machineAddresses []network.Address
+	for netName, ips := range addresses {
+		networkScope := network.ScopeUnknown
 		// For canonistack and hpcloud, public floating addresses may
 		// be put in networks named something other than public. Rely
 		// on address sanity logic to catch and mark them corectly.
-		if network == "public" {
-			networkscope = instance.NetworkPublic
+		if netName == "public" {
+			networkScope = network.ScopePublic
 		}
 		for _, address := range ips {
-			// Assume ipv4 unless specified otherwise
-			addrtype := instance.Ipv4Address
+			// Assume IPv4 unless specified otherwise
+			addrtype := network.IPv4Address
 			if address.Version == 6 {
-				addrtype = instance.Ipv6Address
+				addrtype = network.IPv6Address
 			}
-			machineAddr := instance.NewAddress(address.Address, networkscope)
-			machineAddr.NetworkName = network
+			machineAddr := network.NewAddress(address.Address, networkScope)
+			machineAddr.NetworkName = netName
 			if machineAddr.Type != addrtype {
 				logger.Warningf("derived address type %v, nova reports %v", machineAddr.Type, addrtype)
 			}
@@ -426,7 +429,7 @@ func convertNovaAddresses(addresses map[string][]nova.IPAddress) []instance.Addr
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (inst *openstackInstance) OpenPorts(machineId string, ports []instance.Port) error {
+func (inst *openstackInstance) OpenPorts(machineId string, ports []network.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
@@ -439,7 +442,7 @@ func (inst *openstackInstance) OpenPorts(machineId string, ports []instance.Port
 	return nil
 }
 
-func (inst *openstackInstance) ClosePorts(machineId string, ports []instance.Port) error {
+func (inst *openstackInstance) ClosePorts(machineId string, ports []network.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -452,7 +455,7 @@ func (inst *openstackInstance) ClosePorts(machineId string, ports []instance.Por
 	return nil
 }
 
-func (inst *openstackInstance) Ports(machineId string) ([]instance.Port, error) {
+func (inst *openstackInstance) Ports(machineId string) ([]network.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
 			inst.e.Config().FirewallMode())
@@ -536,10 +539,54 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
+var novaListAvailabilityZones = (*nova.Client).ListAvailabilityZones
+
+// getAvailabilityZones returns a slice of availability zones.
+func (e *environ) getAvailabilityZones() ([]nova.AvailabilityZone, error) {
+	e.availabilityZonesMutex.Lock()
+	defer e.availabilityZonesMutex.Unlock()
+	if e.availabilityZones == nil {
+		zones, err := novaListAvailabilityZones(e.nova())
+		if err != nil {
+			return nil, err
+		}
+		e.availabilityZones = zones
+	}
+	return e.availabilityZones, nil
+}
+
+type openstackPlacement struct {
+	availabilityZone nova.AvailabilityZone
+}
+
+func (e *environ) parsePlacement(placement string) (*openstackPlacement, error) {
+	pos := strings.IndexRune(placement, '=')
+	if pos == -1 {
+		return nil, fmt.Errorf("unknown placement directive: %v", placement)
+	}
+	switch key, value := placement[:pos], placement[pos+1:]; key {
+	case "zone":
+		availabilityZone := value
+		zones, err := e.getAvailabilityZones()
+		if err != nil {
+			return nil, err
+		}
+		for _, z := range zones {
+			if z.Name == availabilityZone {
+				return &openstackPlacement{availabilityZone: z}, nil
+			}
+		}
+		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
+	}
+	return nil, fmt.Errorf("unknown placement directive: %v", placement)
+}
+
 // PrecheckInstance is defined on the state.Prechecker interface.
 func (e *environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" {
-		return fmt.Errorf("unknown placement directive: %s", placement)
+		if _, err := e.parsePlacement(placement); err != nil {
+			return err
+		}
 	}
 	if !cons.HasInstanceType() {
 		return nil
@@ -783,6 +830,17 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
+	var availabilityZone string
+	if args.Placement != "" {
+		placement, err := e.parsePlacement(args.Placement)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		if !placement.availabilityZone.State.Available {
+			return nil, nil, nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
+		}
+		availabilityZone = placement.availabilityZone.Name
+	}
 
 	if args.MachineConfig.HasNetworks() {
 		return nil, nil, nil, fmt.Errorf("starting instances with networks is not supported yet.")
@@ -850,6 +908,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		UserData:           userData,
 		SecurityGroupNames: groupNames,
 		Networks:           networks,
+		AvailabilityZone:   availabilityZone,
 	}
 	var server *nova.Entity
 	for a := shortAttempt.Start(); a.Next(); {
@@ -988,8 +1047,16 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network. This is not implemented on the
 // OpenStack provider yet.
-func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
-	return instance.Address{}, jujuerrors.NotImplementedf("AllocateAddress")
+func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
+	return network.Address{}, jujuerrors.NotImplementedf("AllocateAddress")
+}
+
+// ListNetworks returns basic information about all networks known
+// by the provider for the environment. They may be unknown to juju
+// yet (i.e. when called initially or when a new network was created).
+// This is not implemented by the OpenStack provider yet.
+func (*environ) ListNetworks() ([]network.BasicInfo, error) {
+	return nil, jujuerrors.NotImplementedf("ListNetworks")
 }
 
 func (e *environ) AllInstances() (insts []instance.Instance, err error) {
@@ -1059,7 +1126,7 @@ func (e *environ) machinesFilter() *nova.Filter {
 	return filter
 }
 
-func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []network.Port) error {
 	novaclient := e.nova()
 	group, err := novaclient.SecurityGroupByName(name)
 	if err != nil {
@@ -1081,7 +1148,7 @@ func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -1108,26 +1175,26 @@ func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []network.Port, err error) {
 	group, err := e.nova().SecurityGroupByName(name)
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range (*group).Rules {
 		for i := *p.FromPort; i <= *p.ToPort; i++ {
-			ports = append(ports, instance.Port{
+			ports = append(ports, network.Port{
 				Protocol: *p.IPProtocol,
 				Number:   i,
 			})
 		}
 	}
-	instance.SortPorts(ports)
+	network.SortPorts(ports)
 	return ports, nil
 }
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (e *environ) OpenPorts(ports []instance.Port) error {
+func (e *environ) OpenPorts(ports []network.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
@@ -1139,7 +1206,7 @@ func (e *environ) OpenPorts(ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []instance.Port) error {
+func (e *environ) ClosePorts(ports []network.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
@@ -1151,7 +1218,7 @@ func (e *environ) ClosePorts(ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]instance.Port, error) {
+func (e *environ) Ports() ([]network.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
 			e.Config().FirewallMode())

@@ -10,10 +10,10 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
 
@@ -89,7 +89,7 @@ func (env *mockEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 
 type mockInstance struct {
 	id                string
-	addresses         []instance.Address
+	addresses         []network.Address
 	addressesErr      error
 	dnsName           string
 	dnsNameErr        error
@@ -100,7 +100,7 @@ func (inst *mockInstance) Id() instance.Id {
 	return instance.Id(inst.id)
 }
 
-func (inst *mockInstance) Addresses() ([]instance.Address, error) {
+func (inst *mockInstance) Addresses() ([]network.Address, error) {
 	return inst.addresses, inst.addressesErr
 }
 

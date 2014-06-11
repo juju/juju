@@ -6,26 +6,16 @@ package instance
 import (
 	"fmt"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 )
 
 // An instance Id is a provider-specific identifier associated with an
 // instance (physical or virtual machine allocated in the provider).
 type Id string
-
-// Port identifies a network port number for a particular protocol.
-type Port struct {
-	Protocol string
-	Number   int
-}
-
-func (p Port) String() string {
-	return fmt.Sprintf("%d/%s", p.Number, p.Protocol)
-}
 
 // Instance represents the the realization of a machine in state.
 type Instance interface {
@@ -40,20 +30,20 @@ type Instance interface {
 
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance.
-	Addresses() ([]Address, error)
+	Addresses() ([]network.Address, error)
 
 	// OpenPorts opens the given ports on the instance, which
 	// should have been started with the given machine id.
-	OpenPorts(machineId string, ports []Port) error
+	OpenPorts(machineId string, ports []network.Port) error
 
 	// ClosePorts closes the given ports on the instance, which
 	// should have been started with the given machine id.
-	ClosePorts(machineId string, ports []Port) error
+	ClosePorts(machineId string, ports []network.Port) error
 
 	// Ports returns the set of ports open on the instance, which
 	// should have been started with the given machine id.
 	// The ports are returned as sorted by SortPorts.
-	Ports(machineId string) ([]Port, error)
+	Ports(machineId string) ([]network.Port, error)
 }
 
 // HardwareCharacteristics represents the characteristics of the instance (if known).
@@ -261,23 +251,4 @@ var mbSuffixes = map[string]float64{
 	"G": 1024,
 	"T": 1024 * 1024,
 	"P": 1024 * 1024 * 1024,
-}
-
-type portSlice []Port
-
-func (p portSlice) Len() int      { return len(p) }
-func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
-func (p portSlice) Less(i, j int) bool {
-	p1 := p[i]
-	p2 := p[j]
-	if p1.Protocol != p2.Protocol {
-		return p1.Protocol < p2.Protocol
-	}
-	return p1.Number < p2.Number
-}
-
-// SortPorts sorts the given ports, first by protocol,
-// then by number.
-func SortPorts(ports []Port) {
-	sort.Sort(portSlice(ports))
 }
