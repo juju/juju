@@ -248,14 +248,8 @@ func (env environ) prepareInstance(addr string, mcfg *cloudinit.MachineConfig) e
 		return fmt.Errorf("failed running prepare script: %v", err)
 	}
 
-<<<<<<< HEAD
-<<<<<<< HEAD
 	logger.Tracef("Bootstrap script done for machine '%s', '%s'", mcfg.MachineId, addr)
 
-=======
->>>>>>> 071fbea... merged implementation of CloudSigma provider from launchpad
-=======
->>>>>>> 071fbea... merged implementation of CloudSigma provider from launchpad
 	return nil
 }
 
@@ -298,8 +292,6 @@ func (env environ) prepareStorage(addr string, mcfg *cloudinit.MachineConfig) er
 func (env environ) AllocateAddress(instID instance.Id, netID network.Id) (network.Address, error) {
 	return network.Address{}, errors.NotSupportedf("AllocateAddress")
 }
-<<<<<<< HEAD
-<<<<<<< HEAD
 
 // ListNetworks returns basic information about all networks known
 // by the provider for the environment. They may be unknown to juju
@@ -307,7 +299,3 @@ func (env environ) AllocateAddress(instID instance.Id, netID network.Id) (networ
 func (env environ) ListNetworks() ([]network.BasicInfo, error) {
 	return nil, errors.NotImplementedf("ListNetworks")
 }
-=======
->>>>>>> 071fbea... merged implementation of CloudSigma provider from launchpad
-=======
->>>>>>> 071fbea... merged implementation of CloudSigma provider from launchpad
