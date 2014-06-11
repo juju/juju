@@ -129,7 +129,7 @@ get_series() {
     ubuntu_devel=$(grep DEVEL $SCRIPT_DIR/supported-releases.txt |
         cut -d ' ' -f 1)
     pkg_series=$(basename "$control_version" ~juju1 |
-        sed -r "s/(^[0-9]ubuntu[0-9])$/\1~$ubuntu_devel/;" |
+        sed -r "s/([0-9]ubuntu[0-9])$/\1~$ubuntu_devel/;" |
         sed -r "s/.*(ubuntu|~)([0-9][0-9]\.[0-9][0-9]).*/\2/")
     series=$(cat $SCRIPT_DIR/supported-releases.txt |
         grep $pkg_series | cut -d ' ' -f 2)
