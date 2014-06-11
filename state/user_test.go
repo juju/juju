@@ -68,7 +68,7 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 }
 
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {
-	user := s.factory.MakeUser(factory.AnyUser)
+	user := s.factory.MakeAnyUser()
 	exists, err := state.CheckUserExists(s.State, user.Name())
 	c.Assert(err, gc.IsNil)
 	c.Assert(exists, jc.IsTrue)
@@ -79,7 +79,7 @@ func (s *UserSuite) TestCheckUserExists(c *gc.C) {
 
 func (s *UserSuite) TestUpdateLastConnection(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
-	user := s.factory.MakeUser(factory.AnyUser)
+	user := s.factory.MakeAnyUser()
 	err := user.UpdateLastConnection()
 	c.Assert(err, gc.IsNil)
 	c.Assert(user.LastConnection().After(now) ||
@@ -87,7 +87,7 @@ func (s *UserSuite) TestUpdateLastConnection(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPassword(c *gc.C) {
-	user := s.factory.MakeUser(factory.AnyUser)
+	user := s.factory.MakeAnyUser()
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.User(user.Name())
 	})
@@ -103,7 +103,7 @@ func (s *UserSuite) TestAddUserSetsSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
-	user := s.factory.MakeUser(factory.AnyUser)
+	user := s.factory.MakeAnyUser()
 	origSalt, origHash := state.GetUserPasswordSaltAndHash(user)
 	c.Check(origSalt, gc.Not(gc.Equals), "")
 	// Even though the password is the same, we take this opportunity to
@@ -117,7 +117,7 @@ func (s *UserSuite) TestSetPasswordChangesSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
-	user := s.factory.MakeUser(factory.AnyUser)
+	user := s.factory.MakeAnyUser()
 
 	err := user.SetPasswordHash(utils.UserPasswordHash("foo", utils.CompatSalt), utils.CompatSalt)
 	c.Assert(err, gc.IsNil)
@@ -135,7 +135,7 @@ func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 }
 
 func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
-	user := s.factory.MakeUser(factory.AnyUser)
+	user := s.factory.MakeAnyUser()
 
 	err := user.SetPasswordHash(utils.UserPasswordHash("foo", "salted"), "salted")
 	c.Assert(err, gc.IsNil)
@@ -147,7 +147,7 @@ func (s *UserSuite) TestSetPasswordHashWithSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
-	user := s.factory.MakeUser(factory.AnyUser)
+	user := s.factory.MakeAnyUser()
 
 	compatHash := utils.UserPasswordHash("foo", utils.CompatSalt)
 	err := user.SetPasswordHash(compatHash, "")
@@ -174,7 +174,7 @@ func (s *UserSuite) TestPasswordValidUpdatesSalt(c *gc.C) {
 }
 
 func (s *UserSuite) TestDeactivate(c *gc.C) {
-	user := s.factory.MakeUser(factory.AnyUser)
+	user := s.factory.MakeAnyUser()
 	c.Assert(user.IsDeactivated(), gc.Equals, false)
 
 	err := user.Deactivate()

@@ -2511,7 +2511,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Parse a user entity name.
-	user := s.factory.MakeUser(factory.AnyUser)
+	user := s.factory.MakeAnyUser()
 	c.Assert(err, gc.IsNil)
 	coll, id, err = state.ParseTag(s.State, user.Tag())
 	c.Assert(coll, gc.Equals, "users")

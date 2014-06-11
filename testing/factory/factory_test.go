@@ -56,7 +56,7 @@ func (s *factorySuite) TearDownTest(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUserAny(c *gc.C) {
-	user := s.Factory.MakeUser(factory.AnyUser)
+	user := s.Factory.MakeAnyUser()
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 
 	saved, err := s.State.User(user.Name())

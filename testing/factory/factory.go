@@ -39,11 +39,14 @@ func (factory *Factory) UniqueString(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, factory.UniqueInteger())
 }
 
-// The AnyUser params is used to pass into the MakeUser function when the caller
-// really just needs any user, and doesn't care about username or password etc.
-var AnyUser UserParams
+// MakeAnyUser will create a user with no specified values.
+func (factory *Factory) MakeAnyUser() *state.User {
+	return factory.MakeUser(UserParams{})
+}
 
-// MakeUser will
+// MakeUser will create a user with values defined by the params.
+// For attributes of UserParams that are the default empty values,
+// some meaningful valid values are used instead.
 func (factory *Factory) MakeUser(params UserParams) *state.User {
 	if params.Username == "" {
 		params.Username = factory.UniqueString("username")
