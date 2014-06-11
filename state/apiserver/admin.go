@@ -111,7 +111,7 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		return params.LoginResult{}, err
 	}
 
-	a.root.rpcConn.Serve(newRoot, serverError)
+	a.root.rpcConn.ServeFinder(newRoot, serverError)
 	lastConnection := getAndUpdateLastConnectionForEntity(entity)
 	return params.LoginResult{
 		Servers:        hostPorts,

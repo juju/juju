@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -17,6 +18,34 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.state.apiserver.upgrader")
+
+func init() {
+	common.RegisterStandardFacade("Upgrader", 0, upgraderFacade)
+}
+
+// upgraderFacade is a bit unique vs the other API Facades, as it has two
+// implementations that actually expose the same API and which one gets
+// returned depends on who is calling.
+// Both of them conform to the exact Upgrader API, so the actual calls that are
+// available do not depend on who is currently connected.
+func upgraderFacade(st *state.State, resources *common.Resources, auth common.Authorizer) (Upgrader, error) {
+	// The type of upgrader we return depends on who is asking.
+	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
+	// This is tested in the state/api/upgrader package since there
+	// are currently no direct srvRoot tests.
+	tagKind, _, err := names.ParseTag(auth.GetAuthTag(), "")
+	if err != nil {
+		return nil, common.ErrPerm
+	}
+	switch tagKind {
+	case names.MachineTagKind:
+		return NewUpgraderAPI(st, resources, auth)
+	case names.UnitTagKind:
+		return NewUnitUpgraderAPI(st, resources, auth)
+	}
+	// Not a machine or unit.
+	return nil, common.ErrPerm
+}
 
 type Upgrader interface {
 	WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error)

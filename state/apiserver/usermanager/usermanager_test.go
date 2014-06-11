@@ -34,14 +34,14 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 		Client:   true,
 		Entity:   user,
 	}
-	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, s.authorizer)
+	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authorizer
 	anAuthoriser.Client = false
-	endPoint, err := usermanager.NewUserManagerAPI(s.State, anAuthoriser)
+	endPoint, err := usermanager.NewUserManagerAPI(s.State, nil, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

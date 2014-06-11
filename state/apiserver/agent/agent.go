@@ -12,6 +12,10 @@ import (
 	"github.com/juju/juju/state/apiserver/common"
 )
 
+func init() {
+	common.RegisterStandardFacade("Agent", 0, NewAPI)
+}
+
 // API implements the API provided to an agent.
 type API struct {
 	*common.PasswordChanger
@@ -22,7 +26,7 @@ type API struct {
 
 // NewAPI returns an object implementing an agent API
 // with the given authorizer representing the currently logged in client.
-func NewAPI(st *state.State, auth common.Authorizer) (*API, error) {
+func NewAPI(st *state.State, resources *common.Resources, auth common.Authorizer) (*API, error) {
 	// Agents are defined to be any user that's not a client user.
 	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, common.ErrPerm

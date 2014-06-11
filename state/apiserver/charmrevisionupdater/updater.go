@@ -15,6 +15,10 @@ import (
 
 var logger = loggo.GetLogger("juju.state.apiserver.charmrevisionupdater")
 
+func init() {
+	common.RegisterStandardFacade("CharmRevisionUpdater", 0, NewCharmRevisionUpdaterAPI)
+}
+
 // CharmRevisionUpdater defines the methods on the charmrevisionupdater API end point.
 type CharmRevisionUpdater interface {
 	UpdateLatestRevisions() (params.ErrorResult, error)

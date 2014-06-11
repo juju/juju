@@ -13,6 +13,10 @@ import (
 	"github.com/juju/juju/state/apiserver/common"
 )
 
+func init() {
+	common.RegisterStandardFacade("Deployer", 0, NewDeployerAPI)
+}
+
 // DeployerAPI provides access to the Deployer API facade.
 type DeployerAPI struct {
 	*common.Remover

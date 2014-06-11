@@ -18,6 +18,10 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+func init() {
+	common.RegisterStandardFacade("Provisioner", 0, NewProvisionerAPI)
+}
+
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.Remover
