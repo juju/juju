@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
@@ -142,7 +143,7 @@ func (*NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	info.Password = utils.UserPasswordHash("side-effect secret", utils.CompatSalt)
 	// Use a state without a nil policy, which will allow us to set an invalid config.
-	st, err := state.Open(info, state.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, st)
 
@@ -225,7 +226,7 @@ func (*NewConnSuite) TestConnWithPassword(c *gc.C) {
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Password = utils.UserPasswordHash("nutkin", utils.CompatSalt)
-	st, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	assertClose(c, st)
 
@@ -237,7 +238,7 @@ func (*NewConnSuite) TestConnWithPassword(c *gc.C) {
 	// Check that the password has now been changed to the original
 	// admin password.
 	info.Password = "nutkin"
-	st1, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
+	st1, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	assertClose(c, st1)
 
