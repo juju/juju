@@ -15,7 +15,7 @@ terms there is no difference with a regular setup.
 
 ### Voting
 
-A voting member of the replicaset is a one that has a say on which member is master.
+A voting member of the replicaset is a one that has a say in which member is master.
 
 A non-voting member is just a storage backup.
 
@@ -32,7 +32,7 @@ default to 3.
  
  The number cannot be larger than seven (making the current possibilities: 3, 
 5 and 7) due to limitations of mongodb, which cannot have more than 7
-replica set members.
+replica set voting members.
  
  Currently the number can be increased but not decreased (this is planned). 
 In the first case Juju will bring up as many machines as necessary to meet the 
@@ -46,9 +46,8 @@ remaining) running `ensure-availability` again will add more machines to
 replace the dead ones. If you kill more there is no way to recover as there 
 are not enough voting machines.
  
- The EnsureAvailability API call will report what is going to be done after 
-running it. 
-
+ The EnsureAvailability API call will report will report the changes that it 
+made to the model, which will shortly be reflected in reality
 ### The API 
 
  There is an API server running on all State Machines, these talk to all
