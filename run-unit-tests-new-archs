@@ -61,6 +61,10 @@ if [[ $is_ephemeral == "true" ]]; then
         sleep 10m
     done
 fi
+needs_ppa=\$(lsb_release -sc | sed -r 's,(saucy|precise),true,')
+if [[ \$needs_ppa == 'true' ]]; then
+    sudo apt-add-repository -y ppa:juju/experimental;
+fi
 sudo apt-get update
 if [[ $is_ephemeral == "true" ]]; then
     # sudo apt-get upgrade -y
