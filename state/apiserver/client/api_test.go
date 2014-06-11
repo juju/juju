@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -111,7 +112,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo := s.StateInfo(c)
 	stateInfo.Tag = e.Tag()
 	stateInfo.Password = password
-	st, err := state.Open(stateInfo, state.DialOpts{
+	st, err := state.Open(stateInfo, mongo.DialOpts{
 		Timeout: 25 * time.Millisecond,
 	}, environs.NewStatePolicy())
 	if err == nil {

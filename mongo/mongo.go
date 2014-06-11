@@ -42,7 +42,7 @@ const (
 )
 
 var (
-	logger          = loggo.GetLogger("juju.agent.mongo")
+	logger          = loggo.GetLogger("juju.mongo")
 	mongoConfigPath = "/etc/default/mongodb"
 
 	// JujuMongodPath holds the default path to the juju-specific mongod.

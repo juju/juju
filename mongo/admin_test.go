@@ -14,20 +14,20 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/agent/mongo"
+	"github.com/juju/juju/mongo"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upstart"
 )
 
-type EnsureAdminSuite struct {
+type adminSuite struct {
 	coretesting.BaseSuite
 	serviceStarts int
 	serviceStops  int
 }
 
-var _ = gc.Suite(&EnsureAdminSuite{})
+var _ = gc.Suite(&adminSuite{})
 
-func (s *EnsureAdminSuite) SetUpTest(c *gc.C) {
+func (s *adminSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.serviceStarts = 0
 	s.serviceStops = 0
@@ -44,7 +44,7 @@ func (s *EnsureAdminSuite) SetUpTest(c *gc.C) {
 	})
 }
 
-func (s *EnsureAdminSuite) TestEnsureAdminUser(c *gc.C) {
+func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{}
 	err := inst.Start(coretesting.Certs)
 	c.Assert(err, gc.IsNil)
@@ -96,7 +96,7 @@ func (s *EnsureAdminSuite) TestEnsureAdminUser(c *gc.C) {
 	c.Assert(s.serviceStops, gc.Equals, 1)
 }
 
-func (s *EnsureAdminSuite) TestEnsureAdminUserError(c *gc.C) {
+func (s *adminSuite) TestEnsureAdminUserError(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{}
 	err := inst.Start(coretesting.Certs)
 	c.Assert(err, gc.IsNil)
@@ -111,10 +111,10 @@ func (s *EnsureAdminSuite) TestEnsureAdminUserError(c *gc.C) {
 	// Second call fails, as there is another user and the database doesn't
 	// actually get reopened with --noauth in the test; mimics AddUser failure
 	_, err = s.ensureAdminUser(c, dialInfo, "whomeverelse", "whateverelse")
-	c.Assert(err, gc.ErrorMatches, `failed to add "whomeverelse" to admin database: not authorized for upsert on admin.system.users`)
+	c.Assert(err, gc.ErrorMatches, `failed to add "whomeverelse" to admin database: cannot set admin password: not authorized for upsert on admin.system.users`)
 }
 
-func (s *EnsureAdminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {
+func (s *adminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {
 	_, portString, err := net.SplitHostPort(dialInfo.Addrs[0])
 	c.Assert(err, gc.IsNil)
 	port, err := strconv.Atoi(portString)
@@ -125,4 +125,50 @@ func (s *EnsureAdminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user
 		User:     user,
 		Password: password,
 	})
+}
+
+func (s *adminSuite) setUpMongo(c *gc.C) *mgo.DialInfo {
+	inst := &gitjujutesting.MgoInstance{}
+	err := inst.Start(coretesting.Certs)
+	c.Assert(err, gc.IsNil)
+	s.AddCleanup(func(*gc.C) { inst.Destroy() })
+	dialInfo := inst.DialInfo()
+	dialInfo.Direct = true
+	return dialInfo
+}
+
+func (s *adminSuite) TestSetAdminMongoPassword(c *gc.C) {
+	dialInfo := s.setUpMongo(c)
+	session, err := mgo.DialWithInfo(dialInfo)
+	c.Assert(err, gc.IsNil)
+	defer session.Close()
+	admin := session.DB("admin")
+
+	// Check that we can SetAdminMongoPassword to nothing when there's
+	// no password currently set.
+	err = mongo.SetAdminMongoPassword(session, "admin", "")
+	c.Assert(err, gc.IsNil)
+
+	err = mongo.SetAdminMongoPassword(session, "admin", "foo")
+	c.Assert(err, gc.IsNil)
+	err = admin.Login("admin", "")
+	c.Assert(err, gc.ErrorMatches, "auth fails")
+	err = admin.Login("admin", "foo")
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *adminSuite) TestSetMongoPassword(c *gc.C) {
+	dialInfo := s.setUpMongo(c)
+	session, err := mgo.DialWithInfo(dialInfo)
+	c.Assert(err, gc.IsNil)
+	defer session.Close()
+	db := session.DB("juju")
+
+	err = db.Login("foo", "bar")
+	c.Assert(err, gc.ErrorMatches, "auth fails")
+
+	err = mongo.SetMongoPassword(session, "foo", "bar")
+	c.Assert(err, gc.IsNil)
+	err = db.Login("foo", "bar")
+	c.Assert(err, gc.IsNil)
 }
