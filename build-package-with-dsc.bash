@@ -68,7 +68,7 @@ EOT
         sudo sed s/ec2.archive.ubuntu.com/archive.ubuntu.com/ /etc/apt/sources.list -i
         needs_ppa=\$(lsb_release -sc | sed -r 's,(saucy|precise),true,')
         if [[ \$needs_ppa == 'true' ]]; then
-            sudo apt-add-repository -y ppa:juju/golang;
+            sudo apt-add-repository -y ppa:juju/experimental;
         fi
         sudo apt-get update;
         sudo apt-get install -y $DEPS;
