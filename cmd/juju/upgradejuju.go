@@ -79,7 +79,7 @@ func (c *UpgradeJujuCommand) Info() *cmd.Info {
 func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.vers, "version", "", "upgrade to specific version")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
-	f.BoolVar(&c.DryRun, "dry", false, "Don't change anything, just report what would change")
+	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would change")
 	f.Var(newSeriesValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list")
 }
 

@@ -417,7 +417,7 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 	tests := []DryRunTest{
 		DryRunTest{
 			about:          "dry run outputs and doesn't change anything when uploading tools",
-			cmdArgs:        []string{"--upload-tools", "--dry"},
+			cmdArgs:        []string{"--upload-tools", "--dry-run"},
 			tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
@@ -427,7 +427,7 @@ available tools: 2.2.0-quantal-amd64;2.2.2-quantal-i386;2.2.3-quantal-amd64
 		},
 		DryRunTest{
 			about:          "dry run outputs and doesn't change anything",
-			cmdArgs:        []string{"--dry"},
+			cmdArgs:        []string{"--dry-run"},
 			tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
