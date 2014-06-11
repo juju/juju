@@ -11,7 +11,7 @@ import (
 	"os"
 	"strconv"
 	"sync"
-	stdtesting "testing"
+	"testing"
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
@@ -21,10 +21,9 @@ import (
 	"github.com/juju/juju/charm"
 	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/store"
-	"github.com/juju/juju/testing"
 )
 
-func Test(t *stdtesting.T) {
+func Test(t *testing.T) {
 	gitjujutesting.MgoTestPackage(t, nil)
 }
 

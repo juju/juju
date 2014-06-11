@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/charm"
 	"github.com/juju/juju/store"
-	"github.com/juju/juju/testing"
 )
 
 var jsonType = map[string]string{
