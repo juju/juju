@@ -69,6 +69,9 @@ type Request struct {
 	// Type holds the type of object to act on.
 	Type string
 
+	// Version holds the version of Type we will be acting on
+	Version int
+
 	// Id holds the id of the object to act on.
 	Id string
 
