@@ -418,8 +418,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		if err := conn.readBody(nil, true); err != nil {
 			return err
 		}
-		// We don't transform the error because there
-		// may be no transformErrors function available.
+		// We don't transform the error here. bindRequest will have
+		// already transformed it and returned a zero req.
 		return conn.writeErrorResponse(hdr, err, startTime)
 	}
 	var argp interface{}
@@ -515,6 +515,8 @@ func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 				Message: err.Error(),
 				Code:    CodeNotImplemented,
 			}
+		} else {
+			err = transformErrors(err)
 		}
 		return boundRequest{}, err
 	}

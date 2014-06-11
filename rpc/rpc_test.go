@@ -285,9 +285,10 @@ type CustomMethodFinder struct {
 type wrapper func(*SimpleMethods) reflect.Value
 
 type customMethodCaller struct {
-	wrap      wrapper
-	root      *Root
-	objMethod rpcreflect.ObjMethod
+	wrap         wrapper
+	root         *Root
+	objMethod    rpcreflect.ObjMethod
+	expectedType reflect.Type
 }
 
 func (c customMethodCaller) ParamsType() reflect.Type {
@@ -304,6 +305,9 @@ func (c customMethodCaller) Call(objId string, arg reflect.Value) (reflect.Value
 		return reflect.Value{}, err
 	}
 	obj := c.wrap(sm)
+	if reflect.TypeOf(obj) != c.expectedType {
+		logger.Errorf("got the wrong type back, expected %s got %T", c.expectedType, obj)
+	}
 	logger.Infof("calling: %T %v %#v", obj, obj, c.objMethod)
 	return c.objMethod.Call(obj, arg)
 }
@@ -355,9 +359,10 @@ func (cc *CustomMethodFinder) FindMethod(
 		}
 	}
 	return customMethodCaller{
-		objMethod: objMethod,
-		root:      cc.root,
-		wrap:      wrap,
+		objMethod:    objMethod,
+		root:         cc.root,
+		wrap:         wrap,
+		expectedType: goType,
 	}, nil
 }
 
