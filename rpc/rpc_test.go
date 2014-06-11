@@ -312,8 +312,7 @@ func (cc *CustomMethodFinder) FindMethod(
 ) (
 	rpcreflect.MethodCaller, error,
 ) {
-	logger.Infof("got to FindMethod: %q %d %q %q\n",
-		rootMethodName, version, objMethodName)
+	logger.Infof("got to FindMethod: %q %d %q\n", rootMethodName, version, objMethodName)
 	if rootMethodName != "MultiVersion" {
 		return nil, &rpcreflect.CallNotImplementedError{
 			RootMethod: rootMethodName,
