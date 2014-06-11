@@ -8,9 +8,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/charmstore"
 	"launchpad.net/lpad"
-
-	"github.com/juju/juju/store"
 )
 
 func main() {
@@ -31,20 +30,20 @@ func load() error {
 	if confPath == "" {
 		return fmt.Errorf("usage: %s <config path>", filepath.Base(os.Args[0]))
 	}
-	conf, err := store.ReadConfig(confPath)
+	conf, err := charmstore.ReadConfig(confPath)
 	if err != nil {
 		return err
 	}
 	if conf.MongoURL == "" {
 		return fmt.Errorf("missing mongo-url in config file")
 	}
-	s, err := store.Open(conf.MongoURL)
+	s, err := charmstore.Open(conf.MongoURL)
 	if err != nil {
 		return err
 	}
 	defer s.Close()
-	err = store.PublishCharmsDistro(s, lpad.Production)
-	if _, ok := err.(store.PublishBranchErrors); ok {
+	err = charmstore.PublishCharmsDistro(s, lpad.Production)
+	if _, ok := err.(charmstore.PublishBranchErrors); ok {
 		// Ignore branch errors since they're commonplace here.
 		// They're logged, though.
 		return nil
