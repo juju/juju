@@ -248,7 +248,8 @@ def deploy_job():
                         ', '.join(sorted(missing)))
     base_env = os.environ['ENV']
     if 'azure' in base_env:
-        job_name = os.environ['BUILD_TAG']
+        num = int(os.environ['BUILD_NUMBER']) % 3
+        job_name = "{}-{}".format(os.environ['JOB_NAME'], num)
     else:
         job_name = os.environ['JOB_NAME']
     charm_prefix = os.environ['CHARM_PREFIX']
