@@ -1,5 +1,6 @@
 code.google.com/p/go.crypto	hg	6478cc9340cbbe6c04511280c5007722269108e9	184
 code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
+github.com/Altoros/gosigma	git	c56c52eb785e48ec0f7fcc0da385c85210c7ff3d	
 github.com/binary132/gojsonpointer	git	57ab5e9c764219a3e0c4d7759797fefdcab22e9c	
 github.com/binary132/gojsonreference	git	75785fb7b21f9bf2051dca600da83ff57bc6582a	
 github.com/binary132/gojsonschema	git	640782bf48d45ba2b22fd1e8a80842667c52af00	
