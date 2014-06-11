@@ -83,6 +83,11 @@ func (s *authHttpSuite) uploadRequest(c *gc.C, uri string, asZip bool, path stri
 	return s.authRequest(c, "POST", uri, contentType, file)
 }
 
+func (s *authHttpSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+	body := assertResponse(c, resp, expCode, "application/json")
+	c.Check(jsonResponse(c, body).Error, gc.Matches, expError)
+}
+
 type charmsSuite struct {
 	authHttpSuite
 }
@@ -526,11 +531,6 @@ func (s *charmsSuite) assertGetFileListResponse(c *gc.C, resp *http.Response, ex
 	charmResponse := jsonResponse(c, body)
 	c.Check(charmResponse.Error, gc.Equals, "")
 	c.Check(charmResponse.Files, gc.DeepEquals, expFiles)
-}
-
-func (s *charmsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
-	body := assertResponse(c, resp, expCode, "application/json")
-	c.Check(jsonResponse(c, body).Error, gc.Matches, expError)
 }
 
 func assertResponse(c *gc.C, resp *http.Response, expCode int, expContentType string) []byte {

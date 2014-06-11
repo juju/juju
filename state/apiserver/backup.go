@@ -24,10 +24,10 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//filename = doBackup()
-	filename := "example"
 	switch r.Method {
 	case "POST":
+		//filename = doBackup()
+		filename := "example"
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.WriteHeader(http.StatusOK)
 		file, err := os.Open(filename)
