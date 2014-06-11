@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/charm"
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
@@ -30,7 +31,7 @@ options:
 
 type storeManagerStateSuite struct {
 	testing.BaseSuite
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	State *State
 }
 
@@ -48,7 +49,7 @@ func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.State = TestingInitialize(c, nil, Policy(nil))
-	s.State.AddUser(AdminUser, "", "pass")
+	s.State.AddAdminUser("pass")
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {

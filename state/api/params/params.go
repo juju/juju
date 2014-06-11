@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	"github.com/juju/charm"
 	"github.com/juju/utils/proxy"
@@ -728,8 +729,9 @@ type APIHostPortsResult struct {
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
-	Servers    [][]network.HostPort
-	EnvironTag string
+	Servers        [][]network.HostPort
+	EnvironTag     string
+	LastConnection *time.Time
 }
 
 // EnsureAvailability contains arguments for

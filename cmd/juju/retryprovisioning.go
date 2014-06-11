@@ -37,7 +37,7 @@ func (c *RetryProvisioningCommand) Init(args []string) error {
 		if !names.IsMachine(arg) {
 			return fmt.Errorf("invalid machine %q", arg)
 		}
-		c.Machines[i] = names.MachineTag(arg)
+		c.Machines[i] = names.NewMachineTag(arg).String()
 	}
 	return nil
 }

@@ -2,6 +2,7 @@ package state
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -20,8 +21,12 @@ func (st *State) checkUserExists(name string) (bool, error) {
 	return count > 0, nil
 }
 
+func (st *State) AddAdminUser(password string) (*User, error) {
+	return st.AddUser("admin", "", password, "")
+}
+
 // AddUser adds a user to the state.
-func (st *State) AddUser(username, displayName, password string) (*User, error) {
+func (st *State) AddUser(username, displayName, password, creator string) (*User, error) {
 	if !names.IsUser(username) {
 		return nil, errors.Errorf("invalid user name %q", username)
 	}
@@ -29,6 +34,8 @@ func (st *State) AddUser(username, displayName, password string) (*User, error) 
 	if err != nil {
 		return nil, err
 	}
+	timestamp := time.Now().Round(time.Second).UTC()
+	logger.Debugf("date created: %s", timestamp)
 	u := &User{
 		st: st,
 		doc: userDoc{
@@ -36,6 +43,8 @@ func (st *State) AddUser(username, displayName, password string) (*User, error) 
 			DisplayName:  displayName,
 			PasswordHash: utils.UserPasswordHash(password, salt),
 			PasswordSalt: salt,
+			CreatedBy:    creator,
+			DateCreated:  timestamp,
 		},
 	}
 	ops := []txn.Op{{
@@ -80,11 +89,14 @@ type User struct {
 }
 
 type userDoc struct {
-	Name         string `bson:"_id_"`
-	DisplayName  string
-	Deactivated  bool // Removing users means they still exist, but are marked deactivated
-	PasswordHash string
-	PasswordSalt string
+	Name           string `bson:"_id_"`
+	DisplayName    string
+	Deactivated    bool // Removing users means they still exist, but are marked deactivated
+	PasswordHash   string
+	PasswordSalt   string
+	CreatedBy      string
+	DateCreated    time.Time
+	LastConnection time.Time
 }
 
 // Name returns the user name,
@@ -97,10 +109,41 @@ func (u *User) DisplayName() string {
 	return u.doc.DisplayName
 }
 
+// CreatedBy returns the name of the user that created this user.
+func (u *User) CreatedBy() string {
+	return u.doc.CreatedBy
+}
+
+// DateCreated returns when this user was created in UTC.
+func (u *User) DateCreated() time.Time {
+	return u.doc.DateCreated
+}
+
+// LastConnection returns when this user last connected through the API.
+func (u *User) LastConnection() time.Time {
+	return u.doc.LastConnection
+}
+
+func (u *User) UpdateLastConnection() error {
+	timestamp := time.Now().Round(time.Second).UTC()
+
+	ops := []txn.Op{{
+		C:      u.st.users.Name,
+		Id:     u.Name(),
+		Update: bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}},
+	}}
+	if err := u.st.runTransaction(ops); err != nil {
+		return errors.Annotatef(err, "cannot update last connection timestamp for user %q", u.Name())
+	}
+
+	u.doc.LastConnection = timestamp
+	return nil
+}
+
 // Tag returns the Tag for
 // the user ("user-$username")
 func (u *User) Tag() string {
-	return names.UserTag(u.doc.Name)
+	return names.NewUserTag(u.doc.Name).String()
 }
 
 // SetPassword sets the password associated with the user.

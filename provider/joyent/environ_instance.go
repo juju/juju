@@ -51,7 +51,7 @@ func newCompute(cfg *environConfig) (*joyentCompute, error) {
 }
 
 func (env *joyentEnviron) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", env.Name(), names.MachineTag(machineId))
+	return fmt.Sprintf("juju-%s-%s", env.Name(), names.NewMachineTag(machineId))
 }
 
 var unsupportedConstraints = []string{

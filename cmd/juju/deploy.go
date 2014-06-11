@@ -310,7 +310,7 @@ func networkNamesToTags(networks []string) ([]string, error) {
 		if !names.IsNetwork(network) {
 			return nil, fmt.Errorf("%q is not a valid network name", network)
 		}
-		tags = append(tags, names.NetworkTag(network))
+		tags = append(tags, names.NewNetworkTag(network).String())
 	}
 	return tags, nil
 }

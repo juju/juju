@@ -60,6 +60,17 @@ func (m *memStore) CreateInfo(envName string) (EnvironInfo, error) {
 	return info, nil
 }
 
+// List implements Storage.List
+func (m *memStore) List() ([]string, error) {
+	var envs []string
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for name, _ := range m.envs {
+		envs = append(envs, name)
+	}
+	return envs, nil
+}
+
 // ReadInfo implements Storage.ReadInfo.
 func (m *memStore) ReadInfo(envName string) (EnvironInfo, error) {
 	m.mu.Lock()

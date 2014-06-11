@@ -51,7 +51,7 @@ func (s *kvmSuite) SetUpTest(c *gc.C) {
 			c.Output(3, fmt.Sprintf("kvm event: <%s, %s>", event.Action, event.InstanceId))
 		}
 	}()
-	s.TestSuite.Factory.AddListener(s.events)
+	s.TestSuite.ContainerFactory.AddListener(s.events)
 }
 
 func (s *kvmSuite) TearDownTest(c *gc.C) {
@@ -182,7 +182,7 @@ func (s *kvmProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.events = make(chan mock.Event, 25)
-	s.Factory.AddListener(s.events)
+	s.ContainerFactory.AddListener(s.events)
 }
 
 func (s *kvmProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
@@ -218,7 +218,7 @@ func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner {
-	machineTag := names.MachineTag(s.machineId)
+	machineTag := names.NewMachineTag(s.machineId).String()
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	tools, err := s.provisioner.Tools(agentConfig.Tag())
 	c.Assert(err, gc.IsNil)

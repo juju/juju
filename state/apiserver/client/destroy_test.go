@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 )
 
@@ -37,19 +38,30 @@ func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
 }
 
 // setUpInstances adds machines to state backed by instances:
-// one manager machine, and one non-manager.
-func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1 *state.Machine) {
+// one manager machine, one non-manager, and a container in the
+// non-manager.
+func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Machine) {
 	m0, err := s.State.AddMachine("precise", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, s.APIConn.Environ, m0.Id())
 	err = m0.SetProvisioned(inst.Id(), "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
+
 	m1, err = s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	inst, _ = testing.AssertStartInstance(c, s.APIConn.Environ, m1.Id())
 	err = m1.SetProvisioned(inst.Id(), "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	return m0, m1
+
+	m2, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
+		Series: "precise",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}, m1.Id(), instance.LXC)
+	c.Assert(err, gc.IsNil)
+	err = m2.SetProvisioned("container0", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+
+	return m0, m1, m2
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
@@ -77,7 +89,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironmentManual(c *gc.C) {
 }
 
 func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
-	manager, nonManager := s.setUpInstances(c)
+	manager, nonManager, _ := s.setUpInstances(c)
 	managerId, _ := manager.InstanceId()
 	nonManagerId, _ := nonManager.InstanceId()
 
@@ -118,4 +130,21 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.Life(), gc.Equals, state.Dying)
+}
+
+func (s *destroyEnvironmentSuite) TestDestroyEnvironmentWithContainers(c *gc.C) {
+	ops := make(chan dummy.Operation, 500)
+	dummy.Listen(ops)
+
+	_, nonManager, _ := s.setUpInstances(c)
+	nonManagerId, _ := nonManager.InstanceId()
+
+	err := s.APIState.Client().DestroyEnvironment()
+	c.Assert(err, gc.IsNil)
+	for op := range ops {
+		if op, ok := op.(dummy.OpStopInstances); ok {
+			c.Assert(op.Ids, jc.SameContents, []instance.Id{nonManagerId})
+			break
+		}
+	}
 }

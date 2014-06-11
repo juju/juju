@@ -53,7 +53,7 @@ func (s *lxcSuite) SetUpTest(c *gc.C) {
 			c.Output(3, fmt.Sprintf("lxc event: <%s, %s>", event.Action, event.InstanceId))
 		}
 	}()
-	s.TestSuite.Factory.AddListener(s.events)
+	s.TestSuite.ContainerFactory.AddListener(s.events)
 }
 
 func (s *lxcSuite) TearDownTest(c *gc.C) {
@@ -212,7 +212,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.events = make(chan mock.Event, 25)
-	s.Factory.AddListener(s.events)
+	s.ContainerFactory.AddListener(s.events)
 }
 
 func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
@@ -252,7 +252,7 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
-	parentMachineTag := names.MachineTag(s.parentMachineId)
+	parentMachineTag := names.NewMachineTag(s.parentMachineId).String()
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
 	tools, err := s.provisioner.Tools(agentConfig.Tag())
 	c.Assert(err, gc.IsNil)

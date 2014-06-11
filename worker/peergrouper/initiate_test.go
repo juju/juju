@@ -4,6 +4,7 @@
 package peergrouper_test
 
 import (
+	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	coretesting "github.com/juju/juju/testing"
@@ -21,8 +22,8 @@ var _ = gc.Suite(&InitiateSuite{})
 
 func (s *InitiateSuite) TestInitiateReplicaSet(c *gc.C) {
 	var err error
-	inst := &coretesting.MgoInstance{Params: []string{"--replSet", "juju"}}
-	err = inst.Start(true)
+	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
+	err = inst.Start(coretesting.Certs)
 	c.Assert(err, gc.IsNil)
 	defer inst.Destroy()
 

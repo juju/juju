@@ -792,11 +792,10 @@ func upgradeTarget(job params.MachineJob) upgrades.Target {
 // have been started. This is provided for testing purposes.
 func (a *MachineAgent) WorkersStarted() <-chan struct{} {
 	return a.workersStarted
-
 }
 
 func (a *MachineAgent) Tag() string {
-	return names.MachineTag(a.MachineId)
+	return names.NewMachineTag(a.MachineId).String()
 }
 
 func (a *MachineAgent) createJujuRun(dataDir string) error {

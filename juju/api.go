@@ -272,12 +272,12 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 	if endpoint.EnvironUUID != "" {
 		// Note: we should be validating that EnvironUUID contains a
 		// valid UUID.
-		environTag = names.EnvironTag(endpoint.EnvironUUID)
+		environTag = names.NewEnvironTag(endpoint.EnvironUUID).String()
 	}
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
 		CACert:     endpoint.CACert,
-		Tag:        names.UserTag(info.APICredentials().User),
+		Tag:        names.NewUserTag(info.APICredentials().User).String(),
 		Password:   info.APICredentials().Password,
 		EnvironTag: environTag,
 	}

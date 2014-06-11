@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
 
@@ -50,8 +51,8 @@ type JujuConnSuite struct {
 	// /var/lib/juju: the use cases are completely non-overlapping, and any tests that
 	// really do need both to exist ought to be embedding distinct fixtures for the
 	// distinct environments.
-	gitjujutesting.FakeHomeSuite
-	testing.MgoSuite
+	testing.FakeJujuHomeSuite
+	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
 	Conn         *juju.Conn
 	State        *state.State
@@ -66,32 +67,34 @@ type JujuConnSuite struct {
 	oldJujuHome  string
 	environ      environs.Environ
 	DummyConfig  testing.Attrs
+	Factory      *factory.Factory
 }
 
 const AdminSecret = "dummy-secret"
 
 func (s *JujuConnSuite) SetUpSuite(c *gc.C) {
-	s.FakeHomeSuite.SetUpSuite(c)
+	s.FakeJujuHomeSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *JujuConnSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
-	s.FakeHomeSuite.TearDownSuite(c)
+	s.FakeJujuHomeSuite.TearDownSuite(c)
 }
 
 func (s *JujuConnSuite) SetUpTest(c *gc.C) {
-	s.FakeHomeSuite.SetUpTest(c)
+	s.FakeJujuHomeSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.setUpConn(c)
+	s.Factory = factory.NewFactory(s.State, c)
 }
 
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 	s.tearDownConn(c)
 	s.ToolsFixture.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
-	s.FakeHomeSuite.TearDownTest(c)
+	s.FakeJujuHomeSuite.TearDownTest(c)
 }
 
 // Reset returns environment state to that which existed at the start of
@@ -99,12 +102,6 @@ func (s *JujuConnSuite) TearDownTest(c *gc.C) {
 func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.tearDownConn(c)
 	s.setUpConn(c)
-}
-
-func (s *JujuConnSuite) AddUser(c *gc.C, username string) *state.User {
-	user, err := s.State.AddUser(username, "", "password")
-	c.Assert(err, gc.IsNil)
-	return user
 }
 
 func (s *JujuConnSuite) StateInfo(c *gc.C) *state.Info {
@@ -263,7 +260,7 @@ type GetStater interface {
 }
 
 func (s *JujuConnSuite) tearDownConn(c *gc.C) {
-	serverAlive := testing.MgoServer.Addr() != ""
+	serverAlive := gitjujutesting.MgoServer.Addr() != ""
 
 	// Bootstrap will set the admin password, and render non-authorized use
 	// impossible. s.State may still hold the right password, so try to reset

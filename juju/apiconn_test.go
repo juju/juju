@@ -679,6 +679,10 @@ func (*storageWithWriteNotify) CreateInfo(envName string) (configstore.EnvironIn
 	panic("CreateInfo not implemented")
 }
 
+func (*storageWithWriteNotify) List() ([]string, error) {
+	panic("List not implemented")
+}
+
 func (s *storageWithWriteNotify) ReadInfo(envName string) (configstore.EnvironInfo, error) {
 	info, err := s.store.ReadInfo(envName)
 	if err != nil {

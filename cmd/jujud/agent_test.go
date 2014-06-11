@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -307,7 +308,7 @@ func parseHostPort(s string) (network.HostPort, error) {
 
 // writeStateAgentConfig creates and writes a state agent config.
 func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
-	port := coretesting.FindTCPPort()
+	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
@@ -323,7 +324,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 		params.StateServingInfo{
 			Cert:       coretesting.ServerCert,
 			PrivateKey: coretesting.ServerKey,
-			StatePort:  coretesting.MgoServer.Port(),
+			StatePort:  gitjujutesting.MgoServer.Port(),
 			APIPort:    port,
 		})
 	c.Assert(err, gc.IsNil)

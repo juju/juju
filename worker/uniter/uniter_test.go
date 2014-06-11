@@ -20,6 +20,7 @@ import (
 	corecharm "github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	gt "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
@@ -56,7 +57,7 @@ func TestPackage(t *stdtesting.T) {
 type UniterSuite struct {
 	coretesting.GitSuite
 	testing.JujuConnSuite
-	coretesting.HTTPSuite
+	gitjujutesting.HTTPSuite
 	dataDir  string
 	oldLcAll string
 	unitDir  string
@@ -109,7 +110,7 @@ func (s *UniterSuite) Reset(c *gc.C) {
 }
 
 func (s *UniterSuite) ResetContext(c *gc.C) {
-	coretesting.Server.Flush()
+	gitjujutesting.Server.Flush()
 	err := os.RemoveAll(s.unitDir)
 	c.Assert(err, gc.IsNil)
 }
@@ -147,7 +148,7 @@ type context struct {
 	dataDir       string
 	s             *UniterSuite
 	st            *state.State
-	charms        coretesting.ResponseMap
+	charms        gitjujutesting.ResponseMap
 	hooks         []string
 	sch           *state.Charm
 	svc           *state.Service
@@ -256,7 +257,7 @@ var bootstrapTests = []uniterTest{
 		"charm cannot be downloaded",
 		createCharm{},
 		custom{func(c *gc.C, ctx *context) {
-			coretesting.Server.Response(404, nil, nil)
+			gitjujutesting.Server.Response(404, nil, nil)
 		}},
 		createUniter{},
 		waitUniterDead{`ModeInstalling cs:quantal/wordpress-0: failed to download charm .* 404 Not Found`},
@@ -1261,7 +1262,7 @@ func (s *UniterSuite) runUniterTests(c *gc.C, uniterTests []uniterTest) {
 				uuid:    env.UUID(),
 				path:    s.unitDir,
 				dataDir: s.dataDir,
-				charms:  coretesting.ResponseMap{},
+				charms:  gitjujutesting.ResponseMap{},
 			}
 			ctx.run(c, t.steps)
 		}()
@@ -1297,7 +1298,7 @@ func (s *UniterSuite) TestSubordinateDying(c *gc.C) {
 		st:      s.State,
 		path:    filepath.Join(s.dataDir, "agents", "unit-u-0"),
 		dataDir: s.dataDir,
-		charms:  coretesting.ResponseMap{},
+		charms:  gitjujutesting.ResponseMap{},
 	}
 
 	testing.AddStateServerMachine(c, ctx.st)
@@ -1406,9 +1407,9 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 	hash, _, err := utils.ReadSHA256(&buf)
 	c.Assert(err, gc.IsNil)
 	key := fmt.Sprintf("/charms/%s/%d", s.dir.Meta().Name, s.dir.Revision())
-	hurl, err := url.Parse(coretesting.Server.URL + key)
+	hurl, err := url.Parse(gitjujutesting.Server.URL + key)
 	c.Assert(err, gc.IsNil)
-	ctx.charms[key] = coretesting.Response{200, nil, body}
+	ctx.charms[key] = gitjujutesting.Response{200, nil, body}
 	ctx.sch, err = ctx.st.AddCharm(s.dir, s.curl, hurl, hash)
 	c.Assert(err, gc.IsNil)
 }
@@ -1416,7 +1417,7 @@ func (s addCharm) step(c *gc.C, ctx *context) {
 type serveCharm struct{}
 
 func (serveCharm) step(c *gc.C, ctx *context) {
-	coretesting.Server.ResponseMap(1, ctx.charms)
+	gitjujutesting.Server.ResponseMap(1, ctx.charms)
 }
 
 type createServiceAndUnit struct {

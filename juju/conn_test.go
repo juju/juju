@@ -15,6 +15,7 @@ import (
 	"github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -31,8 +32,8 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/usermanager"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func Test(t *stdtesting.T) {
@@ -253,7 +254,7 @@ func (*NewConnSuite) TestConnWithPassword(c *gc.C) {
 
 type ConnSuite struct {
 	coretesting.BaseSuite
-	coretesting.MgoSuite
+	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
 	conn *juju.Conn
 	repo *charm.LocalRepository
@@ -505,9 +506,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
-	usermanager := usermanager.NewClient(s.APIState)
-	err := usermanager.AddUser("foobar", "", "")
-	c.Assert(err, gc.IsNil)
+	s.Factory.MakeUser(factory.UserParams{Username: "foobar"})
 	service, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{
 			ServiceName:  "bobwithowner",
