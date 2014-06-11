@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -60,32 +61,35 @@ func formatSimple(value interface{}) ([]byte, error) {
 
 	buff := &bytes.Buffer{}
 
-	if len(ensureAvailabilityResult.Maintained) > 0 {
-		_, err := fmt.Fprintf(buff, "maintaining machines: %s\n", machineList(ensureAvailabilityResult.Maintained))
-		if err != nil {
-			return nil, err
+	for _, machineList := range []struct {
+		message string
+		list    []string
+	}{
+		{
+			"maintaining machines: %s\n",
+			ensureAvailabilityResult.Maintained,
+		},
+		{
+			"adding machines: %s\n",
+			ensureAvailabilityResult.Added,
+		},
+		{
+			"removing machines %s\n",
+			ensureAvailabilityResult.Removed,
+		},
+		{
+			"promoting machines %s\n",
+			ensureAvailabilityResult.Promoted,
+		},
+		{
+			"demoting machines %s\n",
+			ensureAvailabilityResult.Demoted,
+		},
+	} {
+		if len(machineList.list) == 0 {
+			continue
 		}
-	}
-	if len(ensureAvailabilityResult.Added) > 0 {
-		_, err := fmt.Fprintf(buff, "adding machines: %s\n", machineList(ensureAvailabilityResult.Added))
-		if err != nil {
-			return nil, err
-		}
-	}
-	if len(ensureAvailabilityResult.Removed) > 0 {
-		_, err := fmt.Fprintf(buff, "removing machines: %s\n", machineList(ensureAvailabilityResult.Removed))
-		if err != nil {
-			return nil, err
-		}
-	}
-	if len(ensureAvailabilityResult.Promoted) > 0 {
-		_, err := fmt.Fprintf(buff, "promoting machines: %s\n", machineList(ensureAvailabilityResult.Promoted))
-		if err != nil {
-			return nil, err
-		}
-	}
-	if len(ensureAvailabilityResult.Demoted) > 0 {
-		_, err := fmt.Fprintf(buff, "demoting machines: %s\n", machineList(ensureAvailabilityResult.Demoted))
+		_, err := fmt.Fprintf(buff, machineList.message, quotedMachineList(machineList.list))
 		if err != nil {
 			return nil, err
 		}
@@ -143,19 +147,34 @@ func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 	}
 
 	result := availabilityInfo{
-		Added:      ensureAvailabilityResult.Added,
-		Removed:    ensureAvailabilityResult.Removed,
-		Maintained: ensureAvailabilityResult.Maintained,
-		Promoted:   ensureAvailabilityResult.Promoted,
-		Demoted:    ensureAvailabilityResult.Demoted,
+		Added:      machineTagsToIds(ensureAvailabilityResult.Added...),
+		Removed:    machineTagsToIds(ensureAvailabilityResult.Removed...),
+		Maintained: machineTagsToIds(ensureAvailabilityResult.Maintained...),
+		Promoted:   machineTagsToIds(ensureAvailabilityResult.Promoted...),
+		Demoted:    machineTagsToIds(ensureAvailabilityResult.Demoted...),
 	}
 	return c.out.Write(ctx, result)
 }
 
+// Convert machine tags to ids, skipping any non-machine tags.
+func machineTagsToIds(tags ...string) []string {
+	var result []string
+
+	for _, tag := range tags {
+		_, id, err := names.ParseTag(tag, names.MachineTagKind)
+		if err != nil {
+			continue
+		}
+		result = append(result, id)
+	}
+	return result
+
+}
+
 // Format machine list for presentation.
-func machineList(machines []string) string {
+func quotedMachineList(machineIds []string) string {
 	quoted := []string{}
-	for _, machineId := range machines {
+	for _, machineId := range machineIds {
 		quoted = append(quoted, fmt.Sprintf("%q", machineId))
 	}
 	return strings.Join(quoted, ", ")

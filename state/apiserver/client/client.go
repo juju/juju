@@ -1066,14 +1066,23 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	return result, nil
 }
 
+// Convert machine ids to tags.
+func machineIdsToTags(ids ...string) []string {
+	var result []string
+	for _, id := range ids {
+		result = append(result, names.MachineTag(id))
+	}
+	return result
+}
+
 // Generate a StateServersChange structure.
 func stateServersChange(change state.StateServersChange) params.StateServersChange {
 	return params.StateServersChange{
-		Added:      change.Added,
-		Maintained: change.Maintained,
-		Removed:    change.Removed,
-		Promoted:   change.Promoted,
-		Demoted:    change.Demoted,
+		Added:      machineIdsToTags(change.Added...),
+		Maintained: machineIdsToTags(change.Maintained...),
+		Removed:    machineIdsToTags(change.Removed...),
+		Promoted:   machineIdsToTags(change.Promoted...),
+		Demoted:    machineIdsToTags(change.Demoted...),
 	}
 }
 
