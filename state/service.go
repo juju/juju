@@ -112,8 +112,8 @@ func (s *Service) Destroy() (err error) {
 		}
 	}()
 	svc := &Service{st: s.st, doc: s.doc}
-	txns := func(attempt int) (ops []txn.Op, err error) {
-		if attempt > 1 {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+		if attempt > 0 {
 			if err := svc.Refresh(); errors.IsNotFound(err) {
 				return []txn.Op{}, nil
 			} else if err != nil {
@@ -131,7 +131,7 @@ func (s *Service) Destroy() (err error) {
 		}
 		return nil, statetxn.ErrExcessiveContention
 	}
-	return s.st.Run(txns)
+	return s.st.run(builtTxn)
 }
 
 // destroyOps returns the operations required to destroy the service. If it
@@ -257,7 +257,7 @@ func (s *Service) setExposed(exposed bool) (err error) {
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"exposed", exposed}}}},
 	}}
-	if err := s.st.RunTransaction(ops); err != nil {
+	if err := s.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, onAbort(err, errNotAlive))
 	}
 	s.doc.Exposed = exposed
@@ -469,8 +469,8 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	if ch.URL().Series != s.doc.Series {
 		return fmt.Errorf("cannot change a service's series")
 	}
-	txns := func(attempt int) (ops []txn.Op, err error) {
-		if attempt > 1 {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+		if attempt > 0 {
 			// If the service is not alive, fail out immediately; otherwise,
 			// data changed underneath us, so retry.
 			if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
@@ -501,7 +501,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		}
 		return ops, nil
 	}
-	if err = s.st.Run(txns); err == nil {
+	if err = s.st.run(builtTxn); err == nil {
 		s.doc.CharmURL = ch.URL()
 		s.doc.ForceCharm = force
 		return nil
@@ -627,7 +627,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := s.st.RunTransaction(ops); err == txn.ErrAborted {
+	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
 		if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
 			return nil, err
 		} else if !alive {
@@ -828,7 +828,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 		},
 		setConstraintsOp(s.st, s.globalKey(), cons),
 	}
-	return onAbort(s.st.RunTransaction(ops), errNotAlive)
+	return onAbort(s.st.runTransaction(ops), errNotAlive)
 }
 
 // Networks returns the networks a service is associated with. Unlike

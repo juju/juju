@@ -105,7 +105,7 @@ func (e *Environment) Destroy() error {
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 		Assert: isEnvAliveDoc,
 	}, e.st.newCleanupOp(cleanupServicesForDyingEnvironment, "")}
-	err := e.st.RunTransaction(ops)
+	err := e.st.runTransaction(ops)
 	switch err {
 	case nil, txn.ErrAborted:
 		// If the transaction aborted, the environment is either

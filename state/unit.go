@@ -191,7 +191,7 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
 	}}
-	if err := u.st.RunTransaction(ops); err != nil {
+	if err := u.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
 	}
 	u.doc.Tools = tools
@@ -223,7 +223,7 @@ func (u *Unit) setPasswordHash(passwordHash string) error {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
 	}}
-	err := u.st.RunTransaction(ops)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errDead))
 	}
@@ -272,8 +272,8 @@ func (u *Unit) Destroy() (err error) {
 		}
 	}()
 	unit := &Unit{st: u.st, doc: u.doc}
-	txns := func(attempt int) (ops []txn.Op, err error) {
-		if attempt > 1 {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+		if attempt > 0 {
 			if err := unit.Refresh(); errors.IsNotFound(err) {
 				return []txn.Op{}, nil
 			} else if err != nil {
@@ -291,7 +291,7 @@ func (u *Unit) Destroy() (err error) {
 		}
 		return []txn.Op{}, nil
 	}
-	if err = unit.st.Run(txns); err == nil {
+	if err = unit.st.run(builtTxn); err == nil {
 		if err = unit.Refresh(); errors.IsNotFound(err) {
 			return nil
 		}
@@ -409,7 +409,7 @@ func (u *Unit) EnsureDead() (err error) {
 		Assert: append(notDeadDoc, unitHasNoSubordinates...),
 		Update: bson.D{{"$set", bson.D{{"life", Dead}}}},
 	}}
-	if err := u.st.RunTransaction(ops); err != txn.ErrAborted {
+	if err := u.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
@@ -451,8 +451,8 @@ func (u *Unit) Remove() (err error) {
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
 	unit := &Unit{st: u.st, doc: u.doc}
-	txns := func(attempt int) (ops []txn.Op, err error) {
-		if attempt > 1 {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+		if attempt > 0 {
 			if err := unit.Refresh(); errors.IsNotFound(err) {
 				return ops, nil
 			} else if err != nil {
@@ -470,7 +470,7 @@ func (u *Unit) Remove() (err error) {
 		}
 		return []txn.Op{}, nil
 	}
-	if err = unit.st.Run(txns); err == nil {
+	if err = unit.st.run(builtTxn); err == nil {
 		if err = unit.Refresh(); errors.IsNotFound(err) {
 			return nil
 		}
@@ -631,7 +631,7 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 	},
 		updateStatusOp(u.st, u.globalKey(), doc),
 	}
-	err := u.st.RunTransaction(ops)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errDead))
 	}
@@ -648,7 +648,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
 	}}
-	err = u.st.RunTransaction(ops)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return onAbort(err, errDead)
 	}
@@ -674,7 +674,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 		Assert: notDeadDoc,
 		Update: bson.D{{"$pull", bson.D{{"ports", port}}}},
 	}}
-	err = u.st.RunTransaction(ops)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return onAbort(err, errDead)
 	}
@@ -714,7 +714,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 	if curl == nil {
 		return fmt.Errorf("cannot set nil charm url")
 	}
-	txns := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
 		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
 			return nil, err
 		} else if !notDead {
@@ -759,7 +759,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 		}
 		return ops, nil
 	}
-	return u.st.Run(txns)
+	return u.st.run(builtTxn)
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
@@ -905,7 +905,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		Assert: massert,
 		Update: bson.D{{"$addToSet", bson.D{{"principals", u.doc.Name}}}, {"$set", bson.D{{"clean", false}}}},
 	}}
-	err = u.st.RunTransaction(ops)
+	err = u.st.runTransaction(ops)
 	if err == nil {
 		u.doc.MachineId = m.doc.Id
 		m.doc.Clean = false
@@ -996,7 +996,7 @@ func (u *Unit) assignToNewMachine(template MachineTemplate, parentId string, con
 		Update: bson.D{{"$set", bson.D{{"machineid", mdoc.Id}}}},
 	})
 
-	err = u.st.RunTransaction(ops)
+	err = u.st.runTransaction(ops)
 	if err == nil {
 		u.doc.MachineId = mdoc.Id
 		return nil
@@ -1374,7 +1374,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 			Update: bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}},
 		})
 	}
-	err = u.st.RunTransaction(ops)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, errors.NotFoundf("machine")))
 	}
@@ -1401,7 +1401,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 		Insert: doc,
 	}}
 
-	txns := func(attempt int) ([]txn.Op, error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
 			return nil, err
 		} else if !notDead {
@@ -1409,7 +1409,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 		}
 		return ops, nil
 	}
-	if err = u.st.Run(txns); err == nil {
+	if err = u.st.run(builtTxn); err == nil {
 		return actionId, nil
 	}
 	return "", err
@@ -1455,7 +1455,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 		Assert: append(notDeadDoc, resolvedNotSet...),
 		Update: bson.D{{"$set", bson.D{{"resolved", mode}}}},
 	}}
-	if err := u.st.RunTransaction(ops); err == nil {
+	if err := u.st.runTransaction(ops); err == nil {
 		u.doc.Resolved = mode
 		return nil
 	} else if err != txn.ErrAborted {
@@ -1478,7 +1478,7 @@ func (u *Unit) ClearResolved() error {
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"resolved", ResolvedNone}}}},
 	}}
-	err := u.st.RunTransaction(ops)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, errors.NotFoundf("unit"))
 	}

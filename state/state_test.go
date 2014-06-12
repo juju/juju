@@ -323,7 +323,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 		},
 	}
 	defer txntesting.SetTestHooks(
-		c, s.State.TransactionRunner, first, second, first,
+		c, state.TransactionRunner(s.State), first, second, first,
 	).Check()
 
 	_, err = s.State.PrepareStoreCharmUpload(curl)
@@ -596,7 +596,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// Check that machines cannot be added if the environment is initially
 	// Alive but set to Dying immediately before the transaction is run.
-	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, state.TransactionRunner(s.State), func() {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
@@ -1166,7 +1166,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// Check that services cannot be added if the environment is initially
 	// Alive but set to Dying immediately before the transaction is run.
-	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, state.TransactionRunner(s.State), func() {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
@@ -2860,7 +2860,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionRetriesOnConfigChange(c *gc.C) {
 	// Set up a transaction hook to change something
 	// other than the version, and make sure it retries
 	// and passes.
-	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, state.TransactionRunner(s.State), func() {
 		s.changeEnviron(c, envConfig, "default-series", "foo")
 	}).Check()
 
@@ -2876,7 +2876,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 	// Set up a transaction hook to change the version
 	// to the new one, and make sure it retries
 	// and passes.
-	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, state.TransactionRunner(s.State), func() {
 		s.changeEnviron(c, envConfig, "agent-version", "4.5.6")
 	}).Check()
 
@@ -2896,7 +2896,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 		func() { s.changeEnviron(c, envConfig, "default-series", "2") },
 		func() { s.changeEnviron(c, envConfig, "default-series", "3") },
 	}
-	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, changeFuncs...).Check()
+	defer txntesting.SetBeforeHooks(c, state.TransactionRunner(s.State), changeFuncs...).Check()
 	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
 	// Make sure the version remained the same.
@@ -3243,7 +3243,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentSame(c *gc.C) {
 		return true, nil
 	})
 
-	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 		c.Assert(err, gc.IsNil)
 		// The outer EnsureAvailability call will allocate IDs 0..2,
@@ -3266,7 +3266,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentLess(c *gc.C) {
 		return true, nil
 	})
 
-	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 		c.Assert(err, gc.IsNil)
 		// The outer EnsureAvailability call will initially allocate IDs 0..4,
@@ -3294,7 +3294,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
 		return true, nil
 	})
 
-	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
 		c.Assert(err, gc.IsNil)
 		// The outer EnsureAvailability call will allocate IDs 0..2,

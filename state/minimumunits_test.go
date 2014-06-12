@@ -110,7 +110,7 @@ func (s *MinUnitsSuite) TestInvalidMinUnits(c *gc.C) {
 }
 
 func (s *MinUnitsSuite) TestMinUnitsInsertRetry(c *gc.C) {
-	defer testing.SetRetryHooks(c, s.State.TransactionRunner, func() {
+	defer testing.SetRetryHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.service.SetMinUnits(41)
 		c.Assert(err, gc.IsNil)
 		s.assertRevno(c, 0, nil)
@@ -125,7 +125,7 @@ func (s *MinUnitsSuite) TestMinUnitsInsertRetry(c *gc.C) {
 func (s *MinUnitsSuite) TestMinUnitsUpdateRetry(c *gc.C) {
 	err := s.service.SetMinUnits(41)
 	c.Assert(err, gc.IsNil)
-	defer testing.SetRetryHooks(c, s.State.TransactionRunner, func() {
+	defer testing.SetRetryHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.service.SetMinUnits(0)
 		c.Assert(err, gc.IsNil)
 		s.assertRevno(c, 0, mgo.ErrNotFound)
@@ -140,7 +140,7 @@ func (s *MinUnitsSuite) TestMinUnitsUpdateRetry(c *gc.C) {
 func (s *MinUnitsSuite) TestMinUnitsRemoveBefore(c *gc.C) {
 	err := s.service.SetMinUnits(41)
 	c.Assert(err, gc.IsNil)
-	defer testing.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer testing.SetBeforeHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.service.SetMinUnits(0)
 		c.Assert(err, gc.IsNil)
 		s.assertRevno(c, 0, mgo.ErrNotFound)
@@ -158,7 +158,7 @@ func (s *MinUnitsSuite) testDestroyOrRemoveServiceBefore(c *gc.C, initial, input
 		expectedErr = `cannot set minimum units for service "dummy-service": service is no longer alive`
 		s.addUnits(c, 1)
 	}
-	defer testing.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer testing.SetBeforeHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.service.Destroy()
 		c.Assert(err, gc.IsNil)
 	}).Check()
@@ -339,7 +339,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsUpdateMinUnitsRetry(c *gc.C) {
 	s.addUnits(c, 1)
 	err := s.service.SetMinUnits(4)
 	c.Assert(err, gc.IsNil)
-	defer testing.SetRetryHooks(c, s.State.TransactionRunner, func() {
+	defer testing.SetRetryHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.service.SetMinUnits(2)
 		c.Assert(err, gc.IsNil)
 	}, func() {
@@ -353,7 +353,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsUpdateMinUnitsRetry(c *gc.C) {
 func (s *MinUnitsSuite) TestEnsureMinUnitsAddUnitsRetry(c *gc.C) {
 	err := s.service.SetMinUnits(3)
 	c.Assert(err, gc.IsNil)
-	defer testing.SetRetryHooks(c, s.State.TransactionRunner, func() {
+	defer testing.SetRetryHooks(c, state.TransactionRunner(s.State), func() {
 		s.addUnits(c, 2)
 	}, func() {
 		assertAllUnits(c, s.service, 3)
@@ -366,7 +366,7 @@ func (s *MinUnitsSuite) testEnsureMinUnitsBefore(c *gc.C, f func(), minUnits, ex
 	service := s.service
 	err := service.SetMinUnits(minUnits)
 	c.Assert(err, gc.IsNil)
-	defer testing.SetBeforeHooks(c, s.State.TransactionRunner, f).Check()
+	defer testing.SetBeforeHooks(c, state.TransactionRunner(s.State), f).Check()
 	err = service.EnsureMinUnits()
 	c.Assert(err, gc.IsNil)
 	assertAllUnits(c, service, expectedUnits)
@@ -399,7 +399,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsDestroyServiceBefore(c *gc.C) {
 	s.addUnits(c, 1)
 	err := s.service.SetMinUnits(42)
 	c.Assert(err, gc.IsNil)
-	defer testing.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer testing.SetBeforeHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.service.Destroy()
 		c.Assert(err, gc.IsNil)
 	}).Check()
@@ -412,7 +412,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsAfter(c *gc.C) {
 	service := s.service
 	err := service.SetMinUnits(5)
 	c.Assert(err, gc.IsNil)
-	defer testing.SetAfterHooks(c, s.State.TransactionRunner, func() {
+	defer testing.SetAfterHooks(c, state.TransactionRunner(s.State), func() {
 		err := service.SetMinUnits(3)
 		c.Assert(err, gc.IsNil)
 	}).Check()

@@ -1,10 +1,10 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// Package txn provides a TransactionRunner, which applies operations as part
+// Package txn provides a Runner, which applies operations as part
 // of a transaction onto any number of collections within a database.
 // The execution of the operations is delegated to a mgo/txn/Runner.
-// The purpose of the TransactionRunner is to execute the operations multiple
+// The purpose of the Runner is to execute the operations multiple
 // times in there is a TxnAborted error, in the expectation that subsequent
 // attempts will be successful.
 // Also included is a mechanism whereby tests can use SetTestHooks to induce
@@ -27,16 +27,17 @@ const (
 
 var ErrExcessiveContention = stderrors.New("state changing too quickly; try again soon")
 
-type tranactionSource func(attempt int) ([]txn.Op, error)
+// TransactionSource defines a function that can return transaction operations to run.
+type TransactionSource func(attempt int) ([]txn.Op, error)
 
-// TransactionRunner instances applies operations to collections in a database.
-type TransactionRunner interface {
+// Runner instances applies operations to collections in a database.
+type Runner interface {
 	// RunTransaction applies the specified transaction operations to a database.
 	RunTransaction(ops []txn.Op) error
 
 	// Run calls the nominated function to get the transaction operations to apply to a database.
 	// If there is a failure due to a txn.ErrAborted error, the attempt is retried up to nrRetries times.
-	Run(transactions tranactionSource) error
+	Run(transactions TransactionSource) error
 
 	// ResumeTransactions resumes all pending transactions.
 	ResumeTransactions() error
@@ -47,19 +48,19 @@ type transactionRunner struct {
 	testHooks chan ([]TestHook)
 }
 
-var _ TransactionRunner = (*transactionRunner)(nil)
+var _ Runner = (*transactionRunner)(nil)
 
-// NewRunner returns a TransactionRunner which delegates to the specified txn.Runner.
-func NewRunner(runner *txn.Runner) TransactionRunner {
+// NewRunner returns a Runner which delegates to the specified txn.Runner.
+func NewRunner(runner *txn.Runner) Runner {
 	txnRunner := &transactionRunner{runner: runner}
 	txnRunner.testHooks = make(chan ([]TestHook), 1)
 	txnRunner.testHooks <- nil
 	return txnRunner
 }
 
-// Run is defined on TransactionRunner.
-func (tr *transactionRunner) Run(transactions tranactionSource) error {
-	for i := 1; i <= nrRetries; i++ {
+// Run is defined on Runner.
+func (tr *transactionRunner) Run(transactions TransactionSource) error {
+	for i := 0; i < nrRetries; i++ {
 		ops, err := transactions(i)
 		if err == ErrExcessiveContention {
 			continue
@@ -79,7 +80,7 @@ func (tr *transactionRunner) Run(transactions tranactionSource) error {
 	return ErrExcessiveContention
 }
 
-// RunTransaction is defined on TransactionRunner.
+// RunTransaction is defined on Runner.
 func (tr *transactionRunner) RunTransaction(ops []txn.Op) error {
 	testHooks := <-tr.testHooks
 	tr.testHooks <- nil
@@ -107,7 +108,7 @@ func (tr *transactionRunner) RunTransaction(ops []txn.Op) error {
 	return tr.runner.Run(ops, "", nil)
 }
 
-// ResumeTransactions is defined on TransactionRunner.
+// ResumeTransactions is defined on Runner.
 func (tr *transactionRunner) ResumeTransactions() error {
 	return tr.runner.ResumeAll()
 }
@@ -122,6 +123,6 @@ type TestHook struct {
 
 // TestHooks returns the test hooks for a transaction runner.
 // Exported only for testing.
-func TestHooks(runner TransactionRunner) chan ([]TestHook) {
+func TestHooks(runner Runner) chan ([]TestHook) {
 	return runner.(*transactionRunner).testHooks
 }

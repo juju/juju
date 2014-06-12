@@ -133,7 +133,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	}
 
 	// Now run the complete transaction, or figure out why we can't.
-	if err := ru.st.RunTransaction(ops); err != txn.ErrAborted {
+	if err := ru.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if count, err := ru.st.relationScopes.FindId(ruKey).Count(); err != nil {
@@ -240,7 +240,7 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 		Id:     key,
 		Update: bson.D{{"$set", bson.D{{"departing", true}}}},
 	}}
-	return ru.st.RunTransaction(ops)
+	return ru.st.runTransaction(ops)
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -276,8 +276,8 @@ func (ru *RelationUnit) LeaveScope() error {
 	// Destroy changes the Life attribute in memory (units could join before
 	// the database is actually changed).
 	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
-	txns := func(attempt int) (ops []txn.Op, err error) {
-		if attempt > 1 {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+		if attempt > 0 {
 			if err := ru.relation.Refresh(); errors.IsNotFound(err) {
 				return ops, nil
 			} else if err != nil {
@@ -319,7 +319,7 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		return ops, nil
 	}
-	if err = ru.st.Run(txns); err == nil {
+	if err = ru.st.run(builtTxn); err == nil {
 		if err = ru.relation.Refresh(); err == nil || errors.IsNotFound(err) {
 			return nil
 		}

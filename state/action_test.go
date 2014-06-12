@@ -124,7 +124,7 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 			c.Assert(unit.EnsureDead(), gc.IsNil)
 		},
 	}
-	defer testing.SetTestHooks(c, s.State.TransactionRunner, killUnit).Check()
+	defer testing.SetTestHooks(c, state.TransactionRunner(s.State), killUnit).Check()
 
 	_, err = unit.AddAction("fakeaction", map[string]interface{}{})
 	c.Assert(err, gc.ErrorMatches, "unit .* is dead")

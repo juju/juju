@@ -53,7 +53,7 @@ func (st *State) AddUser(username, displayName, password, creator string) (*User
 		Assert: txn.DocMissing,
 		Insert: &u.doc,
 	}}
-	err = st.RunTransaction(ops)
+	err = st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = errors.New("user already exists")
 	}
@@ -132,7 +132,7 @@ func (u *User) UpdateLastConnection() error {
 		Id:     u.Name(),
 		Update: bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}},
 	}}
-	if err := u.st.RunTransaction(ops); err != nil {
+	if err := u.st.runTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot update last connection timestamp for user %q", u.Name())
 	}
 
@@ -165,7 +165,7 @@ func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 		Id:     u.Name(),
 		Update: bson.D{{"$set", bson.D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
 	}}
-	if err := u.st.RunTransaction(ops); err != nil {
+	if err := u.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of user %q: %v", u.Name(), err)
 	}
 	u.doc.PasswordHash = pwHash
@@ -225,7 +225,7 @@ func (u *User) Deactivate() error {
 		Update: bson.D{{"$set", bson.D{{"deactivated", true}}}},
 		Assert: txn.DocExists,
 	}}
-	if err := u.st.RunTransaction(ops); err != nil {
+	if err := u.st.runTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
 			err = fmt.Errorf("user no longer exists")
 		}

@@ -24,7 +24,7 @@ func (c TransactionChecker) Check() {
 // transaction and so on. Nil values are accepted, and useful, in that they can
 // be used to ensure that a transaction is run at the expected time, without
 // having to make any changes or assert any state.
-func SetBeforeHooks(c *gc.C, runner txn.TransactionRunner, fs ...func()) TransactionChecker {
+func SetBeforeHooks(c *gc.C, runner txn.Runner, fs ...func()) TransactionChecker {
 	transactionHooks := make([]txn.TestHook, len(fs))
 	for i, f := range fs {
 		transactionHooks[i] = txn.TestHook{Before: f}
@@ -36,7 +36,7 @@ func SetBeforeHooks(c *gc.C, runner txn.TransactionRunner, fs ...func()) Transac
 // immediately after the next N transactions. The first function is executed
 // after the first transaction, the second function after the second
 // transaction and so on.
-func SetAfterHooks(c *gc.C, runner txn.TransactionRunner, fs ...func()) TransactionChecker {
+func SetAfterHooks(c *gc.C, runner txn.Runner, fs ...func()) TransactionChecker {
 	transactionHooks := make([]txn.TestHook, len(fs))
 	for i, f := range fs {
 		transactionHooks[i] = txn.TestHook{After: f}
@@ -48,7 +48,7 @@ func SetAfterHooks(c *gc.C, runner txn.TransactionRunner, fs ...func()) Transact
 // to disrupt a transaction built against recent state, and a check function
 // designed to verify that the replacement transaction against the new state
 // has been applied as expected.
-func SetRetryHooks(c *gc.C, runner txn.TransactionRunner, block, check func()) TransactionChecker {
+func SetRetryHooks(c *gc.C, runner txn.Runner, block, check func()) TransactionChecker {
 	return SetTestHooks(c, runner, txn.TestHook{
 		Before: block,
 	}, txn.TestHook{
@@ -64,7 +64,7 @@ func SetRetryHooks(c *gc.C, runner txn.TransactionRunner, block, check func()) T
 // any that have not. It is an error to set transaction hooks when any are
 // already queued; and setting transaction hooks renders the *State goroutine-
 // unsafe.
-func SetTestHooks(c *gc.C, runner txn.TransactionRunner, hooks ...txn.TestHook) TransactionChecker {
+func SetTestHooks(c *gc.C, runner txn.Runner, hooks ...txn.TestHook) TransactionChecker {
 	transactionHooks := txn.TestHooks(runner)
 	original := <-transactionHooks
 	transactionHooks <- hooks

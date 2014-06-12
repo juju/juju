@@ -475,7 +475,7 @@ func (s *UnitSuite) TestUnitCharm(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
-	defer txntesting.SetRetryHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetRetryHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.unit.SetStatus(params.StatusStarted, "", nil)
 		c.Assert(err, gc.IsNil)
 	}, func() {
@@ -486,7 +486,7 @@ func (s *UnitSuite) TestDestroySetStatusRetry(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroySetCharmRetry(c *gc.C) {
-	defer txntesting.SetRetryHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetRetryHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.unit.SetCharmURL(s.charm.URL())
 		c.Assert(err, gc.IsNil)
 	}, func() {
@@ -503,7 +503,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 	err = s.service.SetCharm(newCharm, false)
 	c.Assert(err, gc.IsNil)
 
-	defer txntesting.SetRetryHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetRetryHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.unit.SetCharmURL(newCharm.URL())
 		c.Assert(err, gc.IsNil)
 	}, func() {
@@ -517,7 +517,7 @@ func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	defer txntesting.SetRetryHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetRetryHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.unit.AssignToMachine(machine)
 		c.Assert(err, gc.IsNil)
 	}, func() {
@@ -537,7 +537,7 @@ func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
 
-	defer txntesting.SetRetryHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetRetryHooks(c, state.TransactionRunner(s.State), func() {
 		err := s.unit.UnassignFromMachine()
 		c.Assert(err, gc.IsNil)
 	}, func() {

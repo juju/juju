@@ -44,8 +44,8 @@ func (s *Service) SetMinUnits(minUnits int) (err error) {
 	// it, the former should be able to re-create the document in the second
 	// attempt. If the referred-to service advanced its life cycle to a not
 	// alive state, an error is returned after the first failing attempt.
-	txns := func(attempt int) (ops []txn.Op, err error) {
-		if attempt > 1 {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+		if attempt > 0 {
 			if err := service.Refresh(); err != nil {
 				return nil, err
 			}
@@ -58,7 +58,7 @@ func (s *Service) SetMinUnits(minUnits int) (err error) {
 		}
 		return setMinUnitsOps(service, minUnits), nil
 	}
-	return s.st.Run(txns)
+	return s.st.run(builtTxn)
 }
 
 // setMinUnitsOps returns the operations required to set MinUnits on the
@@ -149,7 +149,7 @@ func (s *Service) EnsureMinUnits() (err error) {
 			return err
 		}
 		// Add missing unit.
-		switch err := s.st.RunTransaction(ops); err {
+		switch err := s.st.runTransaction(ops); err {
 		case nil:
 			// Assign the new unit.
 			unit, err := service.Unit(name)
