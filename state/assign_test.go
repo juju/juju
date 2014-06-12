@@ -514,7 +514,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 		Before: func() { c.Assert(unit.AssignToMachine(machine), gc.IsNil) },
 	}
 	defer testing.SetTestHooks(
-		c, s.State.TransactionRunner, makeDirty,
+		c, state.TransactionRunner(s.State), makeDirty,
 	).Check()
 
 	err = anotherUnit.AssignToNewMachineOrContainer()
@@ -554,7 +554,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 		},
 	}
 	defer testing.SetTestHooks(
-		c, s.State.TransactionRunner, addContainer,
+		c, state.TransactionRunner(s.State), addContainer,
 	).Check()
 
 	err = unit.AssignToNewMachineOrContainer()

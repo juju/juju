@@ -155,7 +155,7 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	}
 	ops = append(ops, ssOps...)
 	ops = append(ops, env.assertAliveOp())
-	if err := st.RunTransaction(ops); err != nil {
+	if err := st.runTransaction(ops); err != nil {
 		return nil, onAbort(err, fmt.Errorf("environment is no longer alive"))
 	}
 	return ms, nil
@@ -169,7 +169,7 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 		return nil, fmt.Errorf("environment is no longer alive")
 	}
 	ops = append([]txn.Op{env.assertAliveOp()}, ops...)
-	if err := st.RunTransaction(ops); err != nil {
+	if err := st.runTransaction(ops); err != nil {
 		enverr := env.Refresh()
 		if (enverr == nil && env.Life() != Alive) || errors.IsNotFound(enverr) {
 			return nil, fmt.Errorf("environment is no longer alive")
@@ -503,7 +503,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 	if numStateServers > replicaset.MaxPeers {
 		return fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
 	}
-	txns := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
 		currentInfo, err := st.StateServerInfo()
 		if err != nil {
 			return nil, err
@@ -541,7 +541,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
 		return st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
 	}
-	if err = st.Run(txns); err == statetxn.ErrExcessiveContention {
+	if err = st.run(builtTxn); err == statetxn.ErrExcessiveContention {
 		err = errors.Annotate(err, "failed to create new state server machines")
 	}
 	return err

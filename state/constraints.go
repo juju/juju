@@ -94,7 +94,7 @@ func readConstraints(st *State, id string) (constraints.Value, error) {
 
 func writeConstraints(st *State, id string, cons constraints.Value) error {
 	ops := []txn.Op{setConstraintsOp(st, id, cons)}
-	if err := st.RunTransaction(ops); err != nil {
+	if err := st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set constraints: %v", err)
 	}
 	return nil

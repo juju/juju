@@ -46,7 +46,7 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	statetxn.TransactionRunner
+	transactionRunner statetxn.Runner
 	info              *Info
 	policy            Policy
 	db                *mgo.Database
@@ -93,6 +93,16 @@ func (st *State) Ping() error {
 // otherwise be used.
 func (st *State) MongoSession() *mgo.Session {
 	return st.db.Session
+}
+
+// runTransaction is a convenience method delegating to transactionRunner.
+func (st *State) runTransaction(ops []txn.Op) error {
+	return st.transactionRunner.RunTransaction(ops)
+}
+
+// run is a convenience method delegating to transactionRunner.
+func (st *State) run(transactions statetxn.TransactionSource) error {
+	return st.transactionRunner.Run(transactions)
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
@@ -189,7 +199,7 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 // environment to the given version, only if the environment is in a
 // stable state (all agents are running the current version).
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
-	txns := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
 		settings, err := readSettings(st, environGlobalKey)
 		if err != nil {
 			return nil, err
@@ -224,7 +234,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 			err = errors.Annotate(err, "cannot set agent version")
 		}
 	}()
-	return st.Run(txns)
+	return st.run(builtTxn)
 }
 
 func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
@@ -566,7 +576,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
 
-	txns := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
 		// Find the highest revision of that charm in state.
 		var docs []charmDoc
 		err = st.charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}).Select(bson.D{{"_id", 1}}).All(&docs)
@@ -601,7 +611,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 		}}
 		return ops, nil
 	}
-	if err = st.Run(txns); err == nil {
+	if err = st.run(builtTxn); err == nil {
 		return chosenUrl, nil
 	}
 	return nil, err
@@ -629,7 +639,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		uploadedCharm charmDoc
 		err           error
 	)
-	txns := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
 		// Find an uploaded or pending charm with the given exact curl.
 		err = st.charms.FindId(curl).One(&uploadedCharm)
 		if err != nil && err != mgo.ErrNotFound {
@@ -679,7 +689,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		}
 		return ops, nil
 	}
-	if err = st.Run(txns); err == nil {
+	if err = st.run(builtTxn); err == nil {
 		return newCharm(st, &uploadedCharm)
 	}
 	return nil, err
@@ -702,7 +712,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		return fmt.Errorf("expected charm URL with revision, got %q", curl)
 	}
 
-	txns := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
 		// See if the charm already exists in state and exit early if that's the case.
 		var doc charmDoc
 		err = st.charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
@@ -731,7 +741,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		})
 		return ops, nil
 	}
-	return st.Run(txns)
+	return st.run(builtTxn)
 }
 
 // deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
@@ -827,7 +837,7 @@ func (st *State) updateCharmDoc(
 		Assert: preReq,
 		Update: updateFields,
 	}}
-	if err := st.RunTransaction(ops); err != nil {
+	if err := st.runTransaction(ops); err != nil {
 		return nil, onAbort(err, ErrCharmRevisionAlreadyModified)
 	}
 	return st.Charm(curl)
@@ -940,7 +950,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 	}
 	ops = append(ops, peerOps...)
 
-	if err := st.RunTransaction(ops); err == txn.ErrAborted {
+	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		err := env.Refresh()
 		if (err == nil && env.Life() != Alive) || errors.IsNotFound(err) {
 			return nil, fmt.Errorf("environment is no longer alive")
@@ -995,7 +1005,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
-	err = st.RunTransaction(ops)
+	err = st.runTransaction(ops)
 	switch err {
 	case txn.ErrAborted:
 		if _, err = st.Network(args.Name); err == nil {
@@ -1217,7 +1227,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	// we'll need to re-validate service sanity. This is probably relatively
 	// rare, so we only try 3 times.
 	var doc *relationDoc
-	txns := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) (ops []txn.Op, err error) {
 		// Perform initial relation sanity check.
 		if exists, err := isNotDead(st.relations, key); err != nil {
 			return nil, err
@@ -1275,7 +1285,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		})
 		return ops, nil
 	}
-	if err = st.Run(txns); err == nil {
+	if err = st.run(builtTxn); err == nil {
 		return &Relation{st, *doc}, nil
 	}
 	return nil, err
@@ -1563,7 +1573,7 @@ func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
 		Id:     stateServingInfoKey,
 		Update: bson.D{{"$set", info}},
 	}}
-	if err := st.RunTransaction(ops); err != nil {
+	if err := st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set state serving info: %v", err)
 	}
 	return nil

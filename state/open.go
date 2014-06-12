@@ -198,7 +198,7 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (r
 			Insert: &apiHostPortsDoc{},
 		},
 	}
-	if err := st.RunTransaction(ops); err == txn.ErrAborted {
+	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		// The config was created in the meantime.
 		return st, nil
 	} else if err != nil {
@@ -312,7 +312,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		statuses:          db.C("statuses"),
 		stateServers:      db.C("stateServers"),
 	}
-	log := db.C("txns.log")
+	log := db.C("builtTxn.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.klmongodb.org/browse/SERVER-6992
@@ -320,10 +320,10 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
-	mgoRunner := txn.NewRunner(db.C("txns"))
-	mgoRunner.ChangeLog(db.C("txns.log"))
-	st.TransactionRunner = statetxn.NewRunner(mgoRunner)
-	st.watcher = watcher.New(db.C("txns.log"))
+	mgoRunner := txn.NewRunner(db.C("builtTxn"))
+	mgoRunner.ChangeLog(db.C("builtTxn.log"))
+	st.transactionRunner = statetxn.NewRunner(mgoRunner)
+	st.watcher = watcher.New(db.C("builtTxn.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique}
@@ -395,7 +395,7 @@ func (st *State) createStateServersDoc() error {
 		Insert: &doc,
 	}}
 
-	return st.RunTransaction(ops)
+	return st.runTransaction(ops)
 }
 
 // createAPIAddressesDoc creates the API addresses document
@@ -410,7 +410,7 @@ func (st *State) createAPIAddressesDoc() error {
 		Assert: txn.DocMissing,
 		Insert: &doc,
 	}}
-	return onAbort(st.RunTransaction(ops), nil)
+	return onAbort(st.runTransaction(ops), nil)
 }
 
 // createStateServingInfoDoc creates the state serving info document
@@ -423,7 +423,7 @@ func (st *State) createStateServingInfoDoc() error {
 		Assert: txn.DocMissing,
 		Insert: &info,
 	}}
-	return onAbort(st.RunTransaction(ops), nil)
+	return onAbort(st.runTransaction(ops), nil)
 }
 
 // CACert returns the certificate used to validate the state connection.

@@ -18,8 +18,13 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/testing"
 )
+
+func TransactionRunner(st *State) statetxn.Runner {
+	return st.transactionRunner
+}
 
 // SetPolicy updates the State's policy field to the
 // given Policy, and returns the old value.
@@ -124,7 +129,7 @@ func ClearInstanceDocId(c *gc.C, m *Machine) {
 		},
 	}
 
-	err := m.st.RunTransaction(ops)
+	err := m.st.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
 }
 

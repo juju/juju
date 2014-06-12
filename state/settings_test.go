@@ -249,7 +249,7 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *gc.C) {
 	rop, settingsChanged, err := replaceSettingsOp(s.state, s.key, options)
 	c.Assert(err, gc.IsNil)
 	ops := []txn.Op{rop}
-	err = node.st.RunTransaction(ops)
+	err = node.st.runTransaction(ops)
 	c.Assert(err, gc.IsNil)
 
 	changed, err := settingsChanged()
