@@ -137,7 +137,7 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
 	err := runEnsureAvailability(c, "-n", "3")
 	c.Assert(err, gc.IsNil)
 	err = runEnsureAvailability(c, "-n", "1")
-	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityAllows0(c *gc.C) {
