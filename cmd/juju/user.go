@@ -32,5 +32,6 @@ func NewUserCommand() cmd.Command {
 	// Define each subcommand in a separate "user_FOO.go" source file
 	// (with tests in user_FOO_test.go) and wire in here.
 	usercmd.Register(envcmd.Wrap(&UserAddCommand{}))
+	usercmd.Register(envcmd.Wrap(&UserChangePasswordCommand{}))
 	return usercmd
 }

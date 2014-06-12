@@ -265,3 +265,41 @@ func (s *userManagerSuite) TestAgentUnauthorized(c *gc.C) {
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
+
+func (s *userManagerSuite) TestSetPassword(c *gc.C) {
+	args := params.ModifyUsers{
+		Changes: []params.ModifyUser{{
+			Username: "admin",
+			Password: "new-password",
+		}}}
+	results, err := s.usermanager.SetPassword(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
+
+	adminUser, err := s.State.User("admin")
+
+	c.Assert(adminUser.PasswordValid("new-password"), gc.Equals, true)
+}
+
+// Because at present all user are admins problems could be caused by allowing
+// users to change other users passwords. For the time being we only allow
+// the password of the current user to be changed
+func (s *userManagerSuite) TestSetPasswordOnDifferentUser(c *gc.C) {
+	args := params.ModifyUsers{
+		Changes: []params.ModifyUser{{
+			Username:    "foobar",
+			DisplayName: "Foo Bar",
+			Password:    "password",
+		}}}
+	results, err := s.usermanager.AddUser(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
+
+	results, err = s.usermanager.SetPassword(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	expectedError := apiservertesting.ServerError("Can only change the password of the current user (user-admin)")
+	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
+}
