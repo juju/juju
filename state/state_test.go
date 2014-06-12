@@ -1112,6 +1112,58 @@ func (s *StateSuite) TestAllNetworks(c *gc.C) {
 	}
 }
 
+func (s *StateSuite) TestPendingNetworks(c *gc.C) {
+	pendingInfo := []network.BasicInfo{
+		{ProviderId: "net1", CIDR: "", VLANTag: 69},
+		// Overwritting the same id is ok.
+		{ProviderId: "net1", CIDR: "0.1.2.3/4", VLANTag: 42},
+		{ProviderId: "net2", CIDR: "", VLANTag: 0},
+		// Empty id is not ok.
+		{ProviderId: "", CIDR: "", VLANTag: 0},
+		// Invalid VLAN tags are not ok.
+		{ProviderId: "net3", CIDR: "1.2.3.4/5", VLANTag: -42},
+		{ProviderId: "net3", CIDR: "1.2.3.4/5", VLANTag: 123},
+	}
+	assertNoPendingNetworks := func() {
+		nets, err := s.State.AllPendingNetworks()
+		c.Assert(err, gc.IsNil)
+		c.Assert(nets, gc.HasLen, 0)
+	}
+	// No pending networks yet.
+	assertNoPendingNetworks()
+
+	err := s.State.UpdatePendingNetworks(pendingInfo)
+	c.Assert(err, gc.ErrorMatches, "invalid pending network info: provider id is empty")
+	assertNoPendingNetworks()
+
+	// Drop the error case to try the next.
+	pendingInfo = append(pendingInfo[:3], pendingInfo[4:]...)
+	err = s.State.UpdatePendingNetworks(pendingInfo)
+	c.Assert(err, gc.ErrorMatches, "invalid VLAN tag -42: must be between 0 and 4094")
+	assertNoPendingNetworks()
+
+	// Drop the error case and retry - should be fine.
+	pendingInfo = append(pendingInfo[:3], pendingInfo[4:]...)
+	err = s.State.UpdatePendingNetworks(pendingInfo)
+	c.Assert(err, gc.IsNil)
+
+	// Now test retrieval.
+	nets, err := s.State.AllPendingNetworks()
+	c.Assert(err, gc.IsNil)
+	c.Assert(nets, gc.HasLen, 3)
+	c.Assert(nets[0], jc.DeepEquals, pendingInfo[1])
+	c.Assert(nets[1], jc.DeepEquals, pendingInfo[2])
+	c.Assert(nets[2], jc.DeepEquals, pendingInfo[3])
+	pending, err := s.State.PendingNetwork("net1")
+	c.Assert(err, gc.IsNil)
+	c.Assert(*pending, jc.DeepEquals, pendingInfo[1])
+
+	pending, err = s.State.PendingNetwork("missing")
+	c.Assert(err, gc.NotNil)
+	c.Assert(pending, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *StateSuite) TestAddService(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("haha/borken", "user-admin", charm, nil)
