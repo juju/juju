@@ -7,10 +7,10 @@ import (
 	stderrors "errors"
 	"fmt"
 
+	"github.com/juju/charm"
+	"github.com/juju/charm/hooks"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/charm"
-	"github.com/juju/juju/charm/hooks"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"

@@ -6,11 +6,11 @@ package main
 import (
 	"fmt"
 
+	"github.com/juju/charm"
+	"github.com/juju/charmstore"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/cmd"
-	"github.com/juju/juju/store"
 )
 
 type DeleteCharmCommand struct {
@@ -56,7 +56,7 @@ func (c *DeleteCharmCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Open the charm store storage
-	s, err := store.Open(c.Config.MongoURL)
+	s, err := charmstore.Open(c.Config.MongoURL)
 	if err != nil {
 		return err
 	}

@@ -7,7 +7,7 @@ package hook
 import (
 	"fmt"
 
-	"github.com/juju/juju/charm/hooks"
+	"github.com/juju/charm/hooks"
 )
 
 // Info holds details required to execute a hook. Not all fields are

@@ -10,11 +10,11 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/charm"
 	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -49,7 +49,7 @@ func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.State = TestingInitialize(c, nil, Policy(nil))
-	s.State.AddUser(AdminUser, "", "pass")
+	s.State.AddAdminUser("pass")
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {

@@ -6,11 +6,11 @@ package state_test
 import (
 	"fmt"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )

@@ -15,16 +15,17 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/environs"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/testing/factory"
 )
 
 type authHttpSuite struct {
@@ -36,9 +37,9 @@ type authHttpSuite struct {
 
 func (s *authHttpSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	user := s.AddUser(c, "joe")
-	s.userTag = user.Tag()
 	s.password = "password"
+	user := s.Factory.MakeUser(factory.UserParams{Password: s.password})
+	s.userTag = user.Tag()
 }
 
 func (s *authHttpSuite) sendRequest(c *gc.C, tag, password, method, uri, contentType string, body io.Reader) (*http.Response, error) {

@@ -56,7 +56,7 @@ func (s *KVMSuite) TestListInitiallyEmpty(c *gc.C) {
 }
 
 func (s *KVMSuite) createRunningContainer(c *gc.C, name string) kvm.Container {
-	kvmContainer := s.Factory.New(name)
+	kvmContainer := s.ContainerFactory.New(name)
 	network := container.BridgeNetworkConfig("testbr0")
 	c.Assert(kvmContainer.Start(kvm.StartParams{
 		Series:       "quantal",
@@ -81,7 +81,7 @@ func (s *KVMSuite) TestListMatchesManagerName(c *gc.C) {
 
 func (s *KVMSuite) TestListMatchesRunningContainers(c *gc.C) {
 	running := s.createRunningContainer(c, "test-running")
-	s.Factory.New("test-stopped")
+	s.ContainerFactory.New("test-stopped")
 	containers, err := s.manager.ListContainers()
 	c.Assert(err, gc.IsNil)
 	c.Assert(containers, gc.HasLen, 1)

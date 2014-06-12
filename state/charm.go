@@ -6,7 +6,7 @@ package state
 import (
 	"net/url"
 
-	"github.com/juju/juju/charm"
+	"github.com/juju/charm"
 )
 
 // charmDoc represents the internal state of a charm in MongoDB.
