@@ -21,7 +21,7 @@ import (
 // length of time. Since mongo servers ping themselves
 // every 10 seconds, we use a value of just over 2
 // ping periods to allow for delayed pings due to
-// issues such as CPU starvation etc..
+// issues such as CPU starvation etc.
 const SocketTimeout = 21 * time.Second
 
 // defaultDialTimeout should be representative of

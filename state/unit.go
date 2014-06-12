@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
@@ -203,7 +202,7 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
 func (u *Unit) SetMongoPassword(password string) error {
-	return mongo.SetMongoPassword(u.st.db.Session, u.Tag(), password)
+	return u.st.setMongoPassword(u.Tag(), password)
 }
 
 // SetPassword sets the password for the machine's agent.
