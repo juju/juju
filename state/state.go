@@ -1539,11 +1539,10 @@ func (st *State) SetAdminMongoPassword(password string) error {
 }
 
 func (st *State) setMongoPassword(name, password string) error {
-	return mongo.SetMongoPassword([]*mgo.Database{
+	return mongo.SetMongoPassword(name, password,
 		st.db,
 		st.db.Session.DB("presence"),
-		st.db.Session.DB("admin"),
-	}, name, password)
+		st.db.Session.DB("admin"))
 }
 
 type stateServersDoc struct {

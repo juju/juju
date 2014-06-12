@@ -131,7 +131,7 @@ func SetAdminMongoPassword(session *mgo.Session, user, password string) error {
 
 // SetMongoPassword sets the mongo password in the specified databases for the given user name.
 // Previous passwords are invalidated.
-func SetMongoPassword(dbs []*mgo.Database, name, password string) error {
+func SetMongoPassword(name, password string, dbs ...*mgo.Database) error {
 	user := &mgo.User{
 		Username: name,
 		Password: password,
