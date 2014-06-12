@@ -14,6 +14,8 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
+
+	statetxn "github.com/juju/juju/state/txn"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -276,10 +278,10 @@ func (ru *RelationUnit) LeaveScope() error {
 	// Destroy changes the Life attribute in memory (units could join before
 	// the database is actually changed).
 	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := ru.relation.Refresh(); errors.IsNotFound(err) {
-				return ops, nil
+				return nil, statetxn.ErrNoTransactions
 			} else if err != nil {
 				return nil, err
 			}
@@ -288,9 +290,9 @@ func (ru *RelationUnit) LeaveScope() error {
 		if err != nil {
 			return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 		} else if count == 0 {
-			return ops, nil
+			return nil, statetxn.ErrNoTransactions
 		}
-		ops = []txn.Op{{
+		ops := []txn.Op{{
 			C:      ru.st.relationScopes.Name,
 			Id:     key,
 			Assert: txn.DocExists,

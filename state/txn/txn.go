@@ -25,7 +25,19 @@ const (
 	nrRetries = 3
 )
 
-var ErrExcessiveContention = stderrors.New("state changing too quickly; try again soon")
+var (
+	// ErrExcessiveContention is used to signal that even after retrying, the transaction operations
+	// could not be successfully applied due to database contention.
+	ErrExcessiveContention = stderrors.New("state changing too quickly; try again soon")
+
+	// ErrNoTransactions is returned by TransactionSource implementations to signal that
+	// no transaction operations are available to run.
+	ErrNoTransactions = stderrors.New("no transaction operations are available")
+
+	// ErrNoTransactions is returned by TransactionSource implementations to signal that
+	// the transaction list could not be built but the caller should retry.
+	ErrTransientFailure = stderrors.New("transient failure")
+)
 
 // TransactionSource defines a function that can return transaction operations to run.
 type TransactionSource func(attempt int) ([]txn.Op, error)
@@ -62,14 +74,14 @@ func NewRunner(runner *txn.Runner) Runner {
 func (tr *transactionRunner) Run(transactions TransactionSource) error {
 	for i := 0; i < nrRetries; i++ {
 		ops, err := transactions(i)
-		if err == ErrExcessiveContention {
+		if err == ErrTransientFailure {
 			continue
+		}
+		if err == ErrNoTransactions {
+			return nil
 		}
 		if err != nil {
 			return err
-		}
-		if len(ops) == 0 {
-			return nil
 		}
 		if err := tr.RunTransaction(ops); err == nil {
 			return nil

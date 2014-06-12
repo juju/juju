@@ -511,7 +511,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	}
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		// If the transaction was aborted, grab a fresh copy of the machine data.
 		// We don't write to original, because the expectation is that state-
 		// changing methods only set the requested change on the receiver; a case
@@ -520,7 +520,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		// face of uncertainty.
 		if attempt != 0 {
 			if m, err = m.st.Machine(m.doc.Id); errors.IsNotFound(err) {
-				return ops, nil
+				return nil, statetxn.ErrNoTransactions
 			} else if err != nil {
 				return nil, err
 			}
@@ -530,12 +530,12 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		switch life {
 		case Dying:
 			if m.doc.Life != Alive {
-				return ops, nil
+				return nil, statetxn.ErrNoTransactions
 			}
 			op.Assert = append(advanceAsserts, isAliveDoc...)
 		case Dead:
 			if m.doc.Life == Dead {
-				return ops, nil
+				return nil, statetxn.ErrNoTransactions
 			}
 			op.Assert = append(advanceAsserts, notDeadDoc...)
 		default:
@@ -553,7 +553,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
 		}
 		if len(m.doc.Principals) != 0 {
-			return ops, &HasAssignedUnitsError{
+			return nil, &HasAssignedUnitsError{
 				MachineId: m.doc.Id,
 				UnitNames: m.doc.Principals,
 			}

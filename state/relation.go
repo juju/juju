@@ -16,6 +16,8 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
+
+	statetxn "github.com/juju/juju/state/txn"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -111,7 +113,7 @@ func (r *Relation) Destroy() (err error) {
 	// in scope have changed between 0 and not-0. The chances of 5 successive
 	// attempts each hitting this change -- which is itself an unlikely one --
 	// are considered to be extremely small.
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := rel.Refresh(); errors.IsNotFound(err) {
 				return []txn.Op{}, nil
@@ -119,9 +121,9 @@ func (r *Relation) Destroy() (err error) {
 				return nil, err
 			}
 		}
-		ops, _, err = rel.destroyOps("")
+		ops, _, err := rel.destroyOps("")
 		if err == errAlreadyDying {
-			return ops, nil
+			return nil, statetxn.ErrNoTransactions
 		} else if err != nil {
 			return nil, err
 		}
