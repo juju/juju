@@ -4,15 +4,29 @@
 package mongo
 
 var (
-	MakeJournalDirs             = makeJournalDirs
-	MongoConfigPath             = &mongoConfigPath
-	NoauthCommand               = noauthCommand
-	ProcessSignal               = &processSignal
-	SharedSecretPath            = sharedSecretPath
-	SSLKeyPath                  = sslKeyPath
+	MakeJournalDirs = makeJournalDirs
+	MongoConfigPath = &mongoConfigPath
+	NoauthCommand   = noauthCommand
+	ProcessSignal   = &processSignal
+
+	SharedSecretPath = sharedSecretPath
+	SSLKeyPath       = sslKeyPath
+
 	UpstartConfInstall          = &upstartConfInstall
 	UpstartService              = upstartService
 	UpstartServiceStopAndRemove = &upstartServiceStopAndRemove
 	UpstartServiceStop          = &upstartServiceStop
 	UpstartServiceStart         = &upstartServiceStart
+
+	HostWordSize   = &hostWordSize
+	RuntimeGOOS    = &runtimeGOOS
+	AvailSpace     = &availSpace
+	MinOplogSizeMB = &minOplogSizeMB
+	MaxOplogSizeMB = &maxOplogSizeMB
+	PreallocFile   = &preallocFile
+
+	OplogSize         = oplogSize
+	FsAvailSpace      = fsAvailSpace
+	PreallocFileSizes = preallocFileSizes
+	PreallocFiles     = preallocFiles
 )
