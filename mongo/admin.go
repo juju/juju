@@ -8,14 +8,11 @@ import (
 	"os"
 	"os/exec"
 	"syscall"
-	"time"
 
 	"labix.org/v2/mgo"
 
 	"github.com/juju/juju/upstart"
 )
-
-const mongoSocketTimeout = 10 * time.Second
 
 var (
 	processSignal = (*os.Process).Signal
@@ -54,7 +51,6 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 	if err != nil {
 		return false, fmt.Errorf("can't dial mongo to ensure admin user: %v", err)
 	}
-	session.SetSocketTimeout(mongoSocketTimeout)
 	err = session.DB("admin").Login(p.User, p.Password)
 	session.Close()
 	if err == nil {
@@ -86,7 +82,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 	if session, err = mgo.DialWithInfo(p.DialInfo); err != nil {
 		return false, fmt.Errorf("can't dial mongo to ensure admin user: %v", err)
 	}
-	err = session.DB("admin").AddUser(p.User, p.Password, false)
+	err = SetAdminMongoPassword(session, p.User, p.Password)
 	session.Close()
 	if err != nil {
 		return false, fmt.Errorf("failed to add %q to admin database: %v", p.User, err)
@@ -106,4 +102,45 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// SetAdminMongoPassword sets the administrative password
+// to access a mongo database. If the password is non-empty,
+// all subsequent attempts to access the database must
+// be authorized; otherwise no authorization is required.
+func SetAdminMongoPassword(session *mgo.Session, user, password string) error {
+	admin := session.DB("admin")
+	if password != "" {
+		if err := admin.UpsertUser(&mgo.User{
+			Username: user,
+			Password: password,
+			Roles:    []mgo.Role{mgo.RoleDBAdminAny, mgo.RoleUserAdminAny, mgo.RoleClusterAdmin, mgo.RoleReadWriteAny},
+		}); err != nil {
+			return fmt.Errorf("cannot set admin password: %v", err)
+		}
+		if err := admin.Login(user, password); err != nil {
+			return fmt.Errorf("cannot login after setting password: %v", err)
+		}
+	} else {
+		if err := admin.RemoveUser(user); err != nil && err != mgo.ErrNotFound {
+			return fmt.Errorf("cannot disable admin password: %v", err)
+		}
+	}
+	return nil
+}
+
+// SetMongoPassword sets the mongo password in the specified databases for the given user name.
+// Previous passwords are invalidated.
+func SetMongoPassword(name, password string, dbs ...*mgo.Database) error {
+	user := &mgo.User{
+		Username: name,
+		Password: password,
+		Roles:    []mgo.Role{mgo.RoleReadWriteAny, mgo.RoleUserAdmin},
+	}
+	for _, db := range dbs {
+		if err := db.UpsertUser(user); err != nil {
+			return fmt.Errorf("cannot set password in juju db %q for %q: %v", db.Name, name, err)
+		}
+	}
+	return nil
 }

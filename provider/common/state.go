@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 )
@@ -57,8 +58,10 @@ func getStateInfo(config *config.Config, hostnames []string) (*state.Info, *api.
 		panic(errors.New("getStateInfo: config has no CACert"))
 	}
 	return &state.Info{
-			Addrs:  composeAddresses(hostnames, config.StatePort()),
-			CACert: cert,
+			Info: mongo.Info{
+				Addrs:  composeAddresses(hostnames, config.StatePort()),
+				CACert: cert,
+			},
 		}, &api.Info{
 			Addrs:  composeAddresses(hostnames, config.APIPort()),
 			CACert: cert,

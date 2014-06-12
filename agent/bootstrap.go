@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -32,7 +33,7 @@ import (
 // InitializeState returns the newly initialized state and bootstrap
 // machine. If it fails, the state may well be irredeemably compromised.
 type StateInitializer interface {
-	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
+	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout mongo.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
 }
 
 // BootstrapMachineConfig holds configuration information
@@ -61,7 +62,7 @@ type BootstrapMachineConfig struct {
 
 const BootstrapMachineId = "0"
 
-func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.NewMachineTag(BootstrapMachineId).String() {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}

@@ -19,7 +19,7 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/agent/mongo"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"

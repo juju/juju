@@ -22,11 +22,11 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/mongo"
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
@@ -569,7 +569,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	if !ok {
 		return fmt.Errorf("state worker was started with no state serving info")
 	}
-	dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())
+	dialInfo, err := mongo.DialInfo(stateInfo.Info, mongo.DefaultDialOpts())
 	if err != nil {
 		return err
 	}
@@ -591,7 +591,7 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 	if !ok1 || !ok2 {
 		return false, fmt.Errorf("no state serving info configuration")
 	}
-	dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())
+	dialInfo, err := mongo.DialInfo(stateInfo.Info, mongo.DefaultDialOpts())
 	if err != nil {
 		return false, err
 	}
@@ -628,7 +628,7 @@ func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err 
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -726,7 +726,7 @@ func (a *MachineAgent) upgradeWorker(
 			if !ok {
 				return fmt.Errorf("no state info available")
 			}
-			st, err = state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
+			st, err = state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 			if err != nil {
 				return err
 			}
