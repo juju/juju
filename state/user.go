@@ -132,7 +132,7 @@ func (u *User) UpdateLastConnection() error {
 		Id:     u.Name(),
 		Update: bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}},
 	}}
-	if err := u.st.runTransaction(ops); err != nil {
+	if err := u.st.RunTransaction(ops); err != nil {
 		return errors.Annotatef(err, "cannot update last connection timestamp for user %q", u.Name())
 	}
 

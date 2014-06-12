@@ -4,20 +4,22 @@
 package txn_test
 
 import (
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
 	statetxn "github.com/juju/juju/state/txn"
+	txntesting "github.com/juju/juju/state/txn/testing"
 	"github.com/juju/juju/testing"
-	"labix.org/v2/mgo/bson"
 )
 
 var _ = gc.Suite(&txnSuite{})
 
 type txnSuite struct {
 	testing.BaseSuite
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	collection *mgo.Collection
 	txnRunner  statetxn.TransactionRunner
 }
@@ -117,7 +119,7 @@ func (s *txnSuite) TestBeforeHooks(c *gc.C) {
 		func() { s.setDocName(c, "1", "FooBar") },
 		func() { s.setDocName(c, "1", "Foo") },
 	}
-	defer statetxn.SetBeforeHooks(c, s.txnRunner, changeFuncs...).Check()
+	defer txntesting.SetBeforeHooks(c, s.txnRunner, changeFuncs...).Check()
 	maxAttempt := 0
 	txns := func(attempt int) (ops []txn.Op, err error) {
 		maxAttempt = attempt
@@ -143,7 +145,7 @@ func (s *txnSuite) TestAfterHooks(c *gc.C) {
 	changeFuncs := []func(){
 		func() { s.insertDoc(c, "1", "Foo") },
 	}
-	defer statetxn.SetAfterHooks(c, s.txnRunner, changeFuncs...).Check()
+	defer txntesting.SetAfterHooks(c, s.txnRunner, changeFuncs...).Check()
 	maxAttempt := 0
 	txns := func(attempt int) (ops []txn.Op, err error) {
 		maxAttempt = attempt
@@ -167,7 +169,7 @@ func (s *txnSuite) TestAfterHooks(c *gc.C) {
 
 func (s *txnSuite) TestRetryHooks(c *gc.C) {
 	s.insertDoc(c, "1", "Foo")
-	defer statetxn.SetRetryHooks(c, s.txnRunner, func() {
+	defer txntesting.SetRetryHooks(c, s.txnRunner, func() {
 		s.setDocName(c, "1", "Bar")
 	}, func() {
 		s.setDocName(c, "1", "Foo")

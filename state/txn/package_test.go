@@ -10,5 +10,5 @@ import (
 )
 
 func Test(t *stdtesting.T) {
-	testing.MgoTestPackageSsl(t, false)
+	testing.MgoTestPackage(t)
 }
