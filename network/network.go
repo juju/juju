@@ -70,3 +70,12 @@ func (i *Info) ActualInterfaceName() string {
 	}
 	return i.InterfaceName
 }
+
+// IsVLANTag returns nil if the given value is considered a valid VLAN
+// tag, as defined by IEEE 802.1Q standard, or an error otherwise.
+func IsVLANTag(value int) error {
+	if value < 0 || value > 4094 {
+		return fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", value)
+	}
+	return nil
+}

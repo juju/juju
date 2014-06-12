@@ -28,6 +28,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
@@ -1046,8 +1047,8 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	if args.ProviderId == "" {
 		return nil, fmt.Errorf("provider id must be not empty")
 	}
-	if args.VLANTag < 0 || args.VLANTag > 4094 {
-		return nil, fmt.Errorf("invalid VLAN tag %d: must be between 0 and 4094", args.VLANTag)
+	if err = network.IsVLANTag(args.VLANTag); err != nil {
+		return nil, err
 	}
 	doc := newNetworkDoc(args)
 	ops := []txn.Op{{
@@ -1103,6 +1104,59 @@ func (st *State) AllNetworks() (networks []*Network, err error) {
 		networks = append(networks, newNetwork(st, &doc))
 	}
 	return networks, nil
+}
+
+// UpdatePendingNetworks creates or updates pending networks with the
+// given info.
+func (st *State) UpdatePendingNetworks(networks []network.BasicInfo) (err error) {
+	ops := []txn.Op{}
+	for _, info := range networks {
+		if info.ProviderId == "" {
+			return fmt.Errorf("invalid pending network info: provider id is empty")
+		}
+		if err := network.IsVLANTag(info.VLANTag); err != nil {
+			return err
+		}
+		ops = append(ops, removePendingNetworkOp(st, info.ProviderId))
+		ops = append(ops, createPendingNetworkOp(st, info.ProviderId, info.CIDR, info.VLANTag))
+	}
+	return st.runTransaction(ops)
+}
+
+// PendingNetwork returns information about an existing pending
+// network with the givne provider id.
+func (st *State) PendingNetwork(providerId network.Id) (*network.BasicInfo, error) {
+	doc, err := getPendingNetwork(st, providerId)
+	switch err {
+	case mgo.ErrNotFound:
+		return nil, errors.NotFoundf("pending network %q", providerId)
+	case nil:
+		return &network.BasicInfo{
+			ProviderId: doc.ProviderId,
+			CIDR:       doc.CIDR,
+			VLANTag:    doc.VLANTag,
+		}, nil
+	}
+	return nil, err
+}
+
+// AllPendingNetworks returns information about all known pending networks.
+func (st *State) AllPendingNetworks() ([]network.BasicInfo, error) {
+	ndocs := []pendingNetworkDoc{}
+	err := st.pendingNetworks.Find(bson.D{}).All(&ndocs)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get all pending networks: %v", err)
+	}
+	var results []network.BasicInfo
+	for _, doc := range ndocs {
+		info := network.BasicInfo{
+			ProviderId: doc.ProviderId,
+			CIDR:       doc.CIDR,
+			VLANTag:    doc.VLANTag,
+		}
+		results = append(results, info)
+	}
+	return results, nil
 }
 
 // Service returns a service state by name.

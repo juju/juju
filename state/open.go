@@ -216,6 +216,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		services:          db.C("services"),
 		requestedNetworks: db.C("requestednetworks"),
 		networks:          db.C("networks"),
+		pendingNetworks:   db.C("pendingnetworks"),
 		networkInterfaces: db.C("networkinterfaces"),
 		minUnits:          db.C("minunits"),
 		settings:          db.C("settings"),
