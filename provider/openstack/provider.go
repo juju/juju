@@ -150,7 +150,7 @@ hpcloud:
     # installations assign public IP addresses by default without
     # requiring a floating IP address.
     #
-    # use-floating-ip: false
+    # use-floating-ip: true
 
     # use-default-secgroup specifies whether new machine instances
     # should have the "default" Openstack security group assigned.
@@ -174,7 +174,7 @@ hpcloud:
     #
     # auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/
 
-    # region holds the HP Cloud region (e.g. az-1.region-a.geo-1). It
+    # region holds the HP Cloud region (e.g. region-a.geo-1). It
     # defaults to the environment variable OS_REGION_NAME.
     #
     # region: <your region>
