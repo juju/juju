@@ -126,9 +126,6 @@ GOPATH=$WORK $GODEPS -u "$WORK/src/$PACKAGE/dependencies.tsv"
 # Remove godeps.
 rm -r $WORK/bin
 
-# Smoke test
-GOPATH=$WORK go build -v $PACKAGE/...
-
 # Change the generic release to the proper juju-core version.
 VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' \
     $WORK/src/$PACKAGE/version/version.go)
