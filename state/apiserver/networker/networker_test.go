@@ -138,7 +138,6 @@ func (s *networkerSuite) setUpContainers(c *gc.C) {
 		MACAddress:    "aa:bb:cc:dd:ee:d0",
 		InterfaceName: "eth0",
 		NetworkName:   "net1",
-		IsVirtual:     false,
 	}}
 	err = s.nestedContainer.SetInstanceInfo("i-too", "fake_nonce", &hwChars, s.networks[:1],
 		s.nestedContainerIfaces)
@@ -213,7 +212,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth0",
-		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		CIDR:          "0.1.2.0/24",
@@ -221,7 +219,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth1",
-		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		CIDR:          "0.2.2.0/24",
@@ -229,7 +226,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "vlan42",
 		VLANTag:       42,
 		InterfaceName: "eth1",
-		IsVirtual:     true,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		CIDR:          "0.3.2.0/24",
@@ -237,7 +233,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "vlan69",
 		VLANTag:       69,
 		InterfaceName: "eth0",
-		IsVirtual:     true,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f2",
 		CIDR:          "0.5.2.0/24",
@@ -245,7 +240,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net2",
 		VLANTag:       0,
 		InterfaceName: "eth2",
-		IsVirtual:     false,
 	}}
 	expectedContainerInfo := []network.Info{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",
@@ -254,7 +248,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth0",
-		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:e1",
 		CIDR:          "0.1.2.0/24",
@@ -262,7 +255,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth1",
-		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:e1",
 		CIDR:          "0.2.2.0/24",
@@ -270,7 +262,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "vlan42",
 		VLANTag:       42,
 		InterfaceName: "eth1",
-		IsVirtual:     true,
 	}}
 	expectedNestedContainerInfo := []network.Info{{
 		MACAddress:    "aa:bb:cc:dd:ee:d0",
@@ -279,7 +270,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth0",
-		IsVirtual:     false,
 	}}
 
 	args := params.Entities{Entities: []params.Entity{

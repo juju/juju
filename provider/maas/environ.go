@@ -393,7 +393,6 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToEnab
 					VLANTag:       netw.VLANTag,
 					ProviderId:    network.Id(netw.Name),
 					NetworkName:   netw.Name,
-					IsVirtual:     netw.VLANTag > 0,
 					Disabled:      disabled,
 				})
 			}
