@@ -355,23 +355,23 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	defer errors.Contextf(&err, "failed to cache API credentials")
 	environUUID := ""
 	if apiInfo.EnvironTag != "" {
-		var err error
-		_, environUUID, err = names.ParseTag(apiInfo.Tag, names.EnvironTagKind)
+		tag, err := names.ParseTag(apiInfo.Tag, names.EnvironTagKind)
 		if err != nil {
 			return err
 		}
+		environUUID = tag.Id()
 	}
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:   apiInfo.Addrs,
 		CACert:      string(apiInfo.CACert),
 		EnvironUUID: environUUID,
 	})
-	_, username, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
+	tag, err := names.ParseTag(apiInfo.Tag, names.UserTagKind)
 	if err != nil {
 		return err
 	}
 	info.SetAPICredentials(configstore.APICredentials{
-		User:     username,
+		User:     tag.Id(),
 		Password: apiInfo.Password,
 	})
 	return info.Write()
@@ -395,10 +395,12 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, st apiState) error {
 	newEnvironTag := st.EnvironTag()
 	changed := false
 	if newEnvironTag != "" {
-		_, environUUID, err := names.ParseTag(newEnvironTag, names.EnvironTagKind)
-		if err == nil && endpoint.EnvironUUID != environUUID {
-			changed = true
-			endpoint.EnvironUUID = environUUID
+		tag, err := names.ParseTag(newEnvironTag, names.EnvironTagKind)
+		if err == nil {
+			if environUUID := tag.Id(); endpoint.EnvironUUID != environUUID {
+				changed = true
+				endpoint.EnvironUUID = environUUID
+			}
 		}
 	}
 	if len(addrs) != 0 && addrsChanged(endpoint.Addresses, addrs) {

@@ -39,11 +39,12 @@ func NewNetworkerAPI(
 				// A machine agent can always access its own machine.
 				return true
 			}
-			_, id, err := names.ParseTag(tag, names.MachineTagKind)
+			t, err := names.ParseTag(tag, names.MachineTagKind)
 			if err != nil {
 				// Only machine tags are allowed.
 				return false
 			}
+			id := t.Id()
 			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
 				// Until a top-level machine is reached.
 				if names.NewMachineTag(parentId).String() == authEntityTag {
@@ -101,13 +102,14 @@ func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineN
 	if err != nil {
 		return result, err
 	}
-	id := ""
+	var tag names.Tag
 	for i, entity := range args.Entities {
 		if !canAccess(entity.Tag) {
 			err = common.ErrPerm
 		} else {
-			_, id, err = names.ParseTag(entity.Tag, names.MachineTagKind)
+			tag, err = names.ParseTag(entity.Tag, names.MachineTagKind)
 			if err == nil {
+				id := tag.Id()
 				result.Results[i].Info, err = n.oneMachineInfo(id)
 			}
 		}
