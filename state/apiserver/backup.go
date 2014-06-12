@@ -26,17 +26,28 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		//filename = doBackup()
+		//filename, sha, err = doBackup()
 		filename := "example"
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.WriteHeader(http.StatusOK)
-		file, err := os.Open(filename)
+		sha := "example"
+		var err error
+
 		if err != nil {
-			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed"))
+			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed: %v", err))
 			return
 		}
+
+		file, err := os.Open(filename)
+		if err != nil {
+			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed: missing backup file"))
+			return
+		}
+		//defer deleteBackupFileAndTempDirectory()
+
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("X-Content-SHA", sha)
+
+		w.WriteHeader(http.StatusOK)
 		io.Copy(w, file)
-		// deleteBackup(filename)
 	default:
 		h.sendError(w, http.StatusMethodNotAllowed, fmt.Sprintf("unsupported method: %q", r.Method))
 	}
