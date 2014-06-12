@@ -80,13 +80,13 @@ type goCryptoCommand struct {
 	stdin        io.Reader
 	stdout       io.Writer
 	stderr       io.Writer
-	conn         *ssh.ClientConn
+	client       *ssh.Client
 	sess         *ssh.Session
 }
 
 var sshDial = ssh.Dial
 
-var sshDialWithProxy = func(addr string, proxyCommand []string, config *ssh.ClientConfig) (*ssh.ClientConn, error) {
+var sshDialWithProxy = func(addr string, proxyCommand []string, config *ssh.ClientConfig) (*ssh.Client, error) {
 	if len(proxyCommand) == 0 {
 		return sshDial("tcp", addr, config)
 	}
@@ -113,7 +113,11 @@ var sshDialWithProxy = func(addr string, proxyCommand []string, config *ssh.Clie
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
-	return ssh.Client(client, config)
+	conn, chans, reqs, err := ssh.NewClientConn(client, addr, config)
+	if err != nil {
+		return nil, err
+	}
+	return ssh.NewClient(conn, chans, reqs), nil
 }
 
 func (c *goCryptoCommand) ensureSession() (*ssh.Session, error) {
@@ -132,20 +136,22 @@ func (c *goCryptoCommand) ensureSession() (*ssh.Session, error) {
 	}
 	config := &ssh.ClientConfig{
 		User: c.user,
-		Auth: []ssh.ClientAuth{
-			ssh.ClientAuthKeyring(keyring{c.signers}),
+		Auth: []ssh.AuthMethod{
+			ssh.PublicKeysCallback(func() ([]ssh.Signer, error) {
+				return c.signers, nil
+			}),
 		},
 	}
-	conn, err := sshDialWithProxy(c.addr, c.proxyCommand, config)
+	client, err := sshDialWithProxy(c.addr, c.proxyCommand, config)
 	if err != nil {
 		return nil, err
 	}
-	sess, err := conn.NewSession()
+	sess, err := client.NewSession()
 	if err != nil {
-		conn.Close()
+		client.Close()
 		return nil, err
 	}
-	c.conn = conn
+	c.client = client
 	c.sess = sess
 	c.sess.Stdin = c.stdin
 	c.sess.Stdout = c.stdout
@@ -169,12 +175,12 @@ func (c *goCryptoCommand) Close() error {
 		return nil
 	}
 	err0 := c.sess.Close()
-	err1 := c.conn.Close()
+	err1 := c.client.Close()
 	if err0 == nil {
 		err0 = err1
 	}
 	c.sess = nil
-	c.conn = nil
+	c.client = nil
 	return err0
 }
 
@@ -225,26 +231,6 @@ func (c *goCryptoCommand) StderrPipe() (io.ReadCloser, io.Writer, error) {
 	}
 	wc, err := sess.StderrPipe()
 	return ioutil.NopCloser(wc), sess.Stderr, err
-}
-
-// keyring implements ssh.ClientKeyring
-type keyring struct {
-	signers []ssh.Signer
-}
-
-func (k keyring) Key(i int) (ssh.PublicKey, error) {
-	if i < 0 || i >= len(k.signers) {
-		// nil key marks the end of the keyring; must not return an error.
-		return nil, nil
-	}
-	return k.signers[i].PublicKey(), nil
-}
-
-func (k keyring) Sign(i int, rand io.Reader, data []byte) ([]byte, error) {
-	if i < 0 || i >= len(k.signers) {
-		return nil, fmt.Errorf("no key at position %d", i)
-	}
-	return k.signers[i].Sign(rand, data)
 }
 
 func splitUserHost(s string) (user, host string) {

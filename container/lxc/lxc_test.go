@@ -47,13 +47,13 @@ func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	loggo.GetLogger("juju.container.lxc").SetLogLevel(loggo.TRACE)
 	s.events = make(chan mock.Event, 25)
-	s.TestSuite.Factory.AddListener(s.events)
+	s.TestSuite.ContainerFactory.AddListener(s.events)
 	s.PatchValue(&lxc.TemplateLockDir, c.MkDir())
 	s.PatchValue(&lxc.TemplateStopTimeout, 500*time.Millisecond)
 }
 
 func (s *LxcSuite) TearDownTest(c *gc.C) {
-	s.TestSuite.Factory.RemoveListener(s.events)
+	s.TestSuite.ContainerFactory.RemoveListener(s.events)
 	close(s.events)
 	s.TestSuite.TearDownTest(c)
 }
@@ -219,7 +219,7 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 func (s *LxcSuite) ensureTemplateStopped(name string) {
 	go func() {
 		for {
-			template := s.Factory.New(name)
+			template := s.ContainerFactory.New(name)
 			if template.IsRunning() {
 				template.Stop()
 			}

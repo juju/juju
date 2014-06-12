@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/state"
@@ -253,11 +254,13 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	progress("opening state")
 	st, err := state.Open(&state.Info{
-		Addrs:    []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
-		CACert:   caCert,
+		Info: mongo.Info{
+			Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
+			CACert: caCert,
+		},
 		Tag:      agentConf.Credentials.Tag,
 		Password: agentConf.Credentials.Password,
-	}, state.DefaultDialOpts(), environs.NewStatePolicy())
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return fmt.Errorf("cannot open state: %v", err)
 	}

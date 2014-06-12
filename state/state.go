@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -24,9 +25,9 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
@@ -1534,36 +1535,14 @@ func (st *State) StartSync() {
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
-	admin := st.db.Session.DB("admin")
-	if password != "" {
-		// On 2.2+, we get a "need to login" error without a code when
-		// adding the first user because we go from no-auth+no-login to
-		// auth+no-login. Not great. Hopefully being fixed in 2.4.
-		if err := admin.AddUser(AdminUser, password, false); err != nil && err.Error() != "need to login" {
-			return fmt.Errorf("cannot set admin password: %v", err)
-		}
-		if err := admin.Login(AdminUser, password); err != nil {
-			return fmt.Errorf("cannot login after setting password: %v", err)
-		}
-	} else {
-		if err := admin.RemoveUser(AdminUser); err != nil && err != mgo.ErrNotFound {
-			return fmt.Errorf("cannot disable admin password: %v", err)
-		}
-	}
-	return nil
+	return mongo.SetAdminMongoPassword(st.db.Session, AdminUser, password)
 }
 
 func (st *State) setMongoPassword(name, password string) error {
-	if err := st.db.AddUser(name, password, false); err != nil {
-		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
-	}
-	if err := st.db.Session.DB("presence").AddUser(name, password, false); err != nil {
-		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
-	}
-	if err := st.db.Session.DB("admin").AddUser(name, password, false); err != nil {
-		return fmt.Errorf("cannot set password in admin db for %q: %v", name, err)
-	}
-	return nil
+	return mongo.SetMongoPassword(name, password,
+		st.db,
+		st.db.Session.DB("presence"),
+		st.db.Session.DB("admin"))
 }
 
 type stateServersDoc struct {

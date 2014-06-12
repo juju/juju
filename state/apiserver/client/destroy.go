@@ -81,6 +81,9 @@ func destroyInstances(st *state.State, machines []*state.Machine) error {
 		if m.IsManager() {
 			continue
 		}
+		if _, isContainer := m.ParentId(); isContainer {
+			continue
+		}
 		manual, err := m.IsManual()
 		if manual {
 			continue

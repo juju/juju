@@ -45,7 +45,7 @@ func (p *mockInstanceDistributor) DistributeInstances(candidates, distributionGr
 func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.distributor = mockInstanceDistributor{}
-	s.policy.getInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
+	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
 		return &s.distributor, nil
 	}
 	s.wordpress = s.AddTestingServiceWithNetworks(
@@ -134,7 +134,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesErrors(c *gc.C) {
 	_, err = unit.AssignToCleanEmptyMachine()
 	c.Assert(err, gc.ErrorMatches, ".*no assignment for you")
 	// If the policy's InstanceDistributor method fails, that will be returned first.
-	s.policy.getInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
+	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
 		return nil, fmt.Errorf("incapable of InstanceDistributor")
 	}
 	_, err = unit.AssignToCleanMachine()
@@ -161,7 +161,7 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroup
 func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C) {
 	s.setupScenario(c)
 	var distributorErr error
-	s.policy.getInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
+	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
 		return nil, distributorErr
 	}
 	unit, err := s.wordpress.AddUnit()
@@ -174,7 +174,7 @@ func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C)
 }
 
 func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
-	s.policy.getInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
+	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}

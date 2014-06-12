@@ -61,6 +61,10 @@ func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResults
 		result.Results[0].Error = common.ServerError(err)
 		return result, err
 	}
+	user := api.getLoggedInUser()
+	if user == nil {
+		return result, fmt.Errorf("api connection is not through a user")
+	}
 	for i, arg := range args.Changes {
 		if !canWrite(arg.Tag) {
 			result.Results[0].Error = common.ServerError(common.ErrPerm)
@@ -70,7 +74,7 @@ func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResults
 		if username == "" {
 			username = arg.Tag
 		}
-		_, err := api.state.AddUser(username, arg.DisplayName, arg.Password)
+		_, err := api.state.AddUser(username, arg.DisplayName, arg.Password, user.Name())
 		if err != nil {
 			err = errors.Annotate(err, "failed to create user")
 			result.Results[i].Error = common.ServerError(err)
@@ -108,4 +112,12 @@ func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults
 		}
 	}
 	return result, nil
+}
+
+func (api *UserManagerAPI) getLoggedInUser() *state.User {
+	entity := api.authorizer.GetAuthEntity()
+	if user, ok := entity.(*state.User); ok {
+		return user
+	}
+	return nil
 }

@@ -11,8 +11,8 @@ import (
 	"github.com/juju/errors"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/agent/mongo"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"

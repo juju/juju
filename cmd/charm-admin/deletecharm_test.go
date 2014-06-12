@@ -8,12 +8,12 @@ import (
 	"os"
 	"path"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
+	"github.com/juju/charmstore"
 	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
-	"github.com/juju/juju/store"
 	"github.com/juju/juju/testing"
 )
 
@@ -61,7 +61,7 @@ func (s *DeleteCharmSuite) TestRun(c *gc.C) {
 	// Publish that charm now
 	url := charm.MustParseURL("cs:unreleased/foo")
 	{
-		s, err := store.Open(gitjujutesting.MgoServer.Addr())
+		s, err := charmstore.Open(gitjujutesting.MgoServer.Addr())
 		defer s.Close()
 		c.Assert(err, gc.IsNil)
 		pub, err := s.CharmPublisher([]*charm.URL{url}, "such-digest-much-unique")
@@ -75,7 +75,7 @@ func (s *DeleteCharmSuite) TestRun(c *gc.C) {
 	c.Assert(config.Config, gc.NotNil)
 	// Confirm that the charm is gone
 	{
-		s, err := store.Open(gitjujutesting.MgoServer.Addr())
+		s, err := charmstore.Open(gitjujutesting.MgoServer.Addr())
 		defer s.Close()
 		c.Assert(err, gc.IsNil)
 		_, err = s.CharmInfo(url)

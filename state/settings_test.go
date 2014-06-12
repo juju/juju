@@ -10,6 +10,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 )
 
@@ -26,15 +27,17 @@ var _ = gc.Suite(&SettingsSuite{})
 // connecting to the testing state server.
 func TestingStateInfo() *Info {
 	return &Info{
-		Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-		CACert: testing.CACert,
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
 	}
 }
 
 // TestingDialOpts returns configuration parameters for
 // connecting to the testing state server.
-func TestingDialOpts() DialOpts {
-	return DialOpts{
+func TestingDialOpts() mongo.DialOpts {
+	return mongo.DialOpts{
 		Timeout: testing.LongWait,
 	}
 }

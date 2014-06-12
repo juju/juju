@@ -6,11 +6,11 @@ package uniter_test
 import (
 	"path/filepath"
 
+	"github.com/juju/charm"
+	"github.com/juju/charm/hooks"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	"github.com/juju/juju/charm/hooks"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
 )
