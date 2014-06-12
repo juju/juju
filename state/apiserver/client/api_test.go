@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -377,7 +378,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 
 		deployer, ok := wu.DeployerTag()
 		c.Assert(ok, gc.Equals, true)
-		c.Assert(deployer, gc.Equals, fmt.Sprintf("machine-%d", i+1))
+		c.Assert(deployer, gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 
 		wru, err := rel.Unit(wu)
 		c.Assert(err, gc.IsNil)
@@ -404,7 +405,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 		c.Assert(lu.IsPrincipal(), gc.Equals, false)
 		deployer, ok = lu.DeployerTag()
 		c.Assert(ok, gc.Equals, true)
-		c.Assert(deployer, gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, lu)
 		add(lu)
 	}
