@@ -43,8 +43,10 @@ do
         $RELEASE_TOOLS/build-package-with-dsc.bash m1.medium ami-81dee0e8 $dsc
         if [[ -n ${ARM_SSH_OPTIONS:-} ]]; then
             echo "Building trusty arm64"
+            set +e
             $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@arm64vm \
                 "$ARM_SSH_OPTIONS" $dsc
+            set -e
         else
             echo "Skipping trusty arm64"
         fi
