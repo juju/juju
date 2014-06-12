@@ -4,25 +4,19 @@
 package network_test
 
 import (
-	"testing"
-
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environs/network"
+	"github.com/juju/juju/network"
 )
 
-func Test(t *testing.T) {
-	gc.TestingT(t)
-}
-
-type networkSuite struct {
+type InfoSuite struct {
 	info []network.Info
 }
 
-var _ = gc.Suite(&networkSuite{})
+var _ = gc.Suite(&InfoSuite{})
 
-func (n *networkSuite) SetUpTest(c *gc.C) {
+func (n *InfoSuite) SetUpTest(c *gc.C) {
 	n.info = []network.Info{
 		{VLANTag: 1, InterfaceName: "eth0"},
 		{VLANTag: 0, InterfaceName: "eth1"},
@@ -30,13 +24,13 @@ func (n *networkSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-func (n *networkSuite) TestActualInterfaceName(c *gc.C) {
+func (n *InfoSuite) TestActualInterfaceName(c *gc.C) {
 	c.Check(n.info[0].ActualInterfaceName(), gc.Equals, "eth0.1")
 	c.Check(n.info[1].ActualInterfaceName(), gc.Equals, "eth1")
 	c.Check(n.info[2].ActualInterfaceName(), gc.Equals, "br2.42")
 }
 
-func (n *networkSuite) TestIsVirtual(c *gc.C) {
+func (n *InfoSuite) TestIsVirtual(c *gc.C) {
 	c.Check(n.info[0].IsVirtual(), jc.IsTrue)
 	c.Check(n.info[1].IsVirtual(), jc.IsFalse)
 	c.Check(n.info[2].IsVirtual(), jc.IsTrue)
