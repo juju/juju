@@ -60,7 +60,7 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 	// attempt. If the referred-to entity has disappeared, and removed its
 	// annotations in the meantime, we consider that worthy of an error
 	// (will be fixed when new entities can never share names with old ones).
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if count, err := a.st.annotations.FindId(a.globalKey).Count(); err != nil {
 			return nil, err
 		} else if count == 0 {
@@ -72,7 +72,7 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 		}
 		return a.updateOps(toUpdate, toRemove), nil
 	}
-	return a.st.run(builtTxn)
+	return a.st.run(buildTxn)
 }
 
 // insertOps returns the operations required to insert annotations in MongoDB.

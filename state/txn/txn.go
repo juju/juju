@@ -30,11 +30,11 @@ var (
 	// could not be successfully applied due to database contention.
 	ErrExcessiveContention = stderrors.New("state changing too quickly; try again soon")
 
-	// ErrNoTransactions is returned by TransactionSource implementations to signal that
+	// ErrNoOperations is returned by TransactionSource implementations to signal that
 	// no transaction operations are available to run.
-	ErrNoTransactions = stderrors.New("no transaction operations are available")
+	ErrNoOperations = stderrors.New("no transaction operations are available")
 
-	// ErrNoTransactions is returned by TransactionSource implementations to signal that
+	// ErrNoOperations is returned by TransactionSource implementations to signal that
 	// the transaction list could not be built but the caller should retry.
 	ErrTransientFailure = stderrors.New("transient failure")
 )
@@ -77,7 +77,7 @@ func (tr *transactionRunner) Run(transactions TransactionSource) error {
 		if err == ErrTransientFailure {
 			continue
 		}
-		if err == ErrNoTransactions {
+		if err == ErrNoOperations {
 			return nil
 		}
 		if err != nil {

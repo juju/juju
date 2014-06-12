@@ -503,7 +503,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 	if numStateServers > replicaset.MaxPeers {
 		return fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
 	}
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		currentInfo, err := st.StateServerInfo()
 		if err != nil {
 			return nil, err
@@ -530,7 +530,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 			}
 		}
 		if voteCount == desiredStateServerCount && len(intent.remove) == 0 {
-			return nil, statetxn.ErrNoTransactions
+			return nil, statetxn.ErrNoOperations
 		}
 		// Promote as many machines as we can to fulfil the shortfall.
 		if n := desiredStateServerCount - voteCount; n < len(intent.promote) {
@@ -541,7 +541,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
 		return st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
 	}
-	if err = st.run(builtTxn); err == statetxn.ErrExcessiveContention {
+	if err = st.run(buildTxn); err != nil {
 		err = errors.Annotate(err, "failed to create new state server machines")
 	}
 	return err

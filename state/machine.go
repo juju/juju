@@ -511,7 +511,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	}
 	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If the transaction was aborted, grab a fresh copy of the machine data.
 		// We don't write to original, because the expectation is that state-
 		// changing methods only set the requested change on the receiver; a case
@@ -520,7 +520,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		// face of uncertainty.
 		if attempt != 0 {
 			if m, err = m.st.Machine(m.doc.Id); errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoTransactions
+				return nil, statetxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
@@ -530,12 +530,12 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		switch life {
 		case Dying:
 			if m.doc.Life != Alive {
-				return nil, statetxn.ErrNoTransactions
+				return nil, statetxn.ErrNoOperations
 			}
 			op.Assert = append(advanceAsserts, isAliveDoc...)
 		case Dead:
 			if m.doc.Life == Dead {
-				return nil, statetxn.ErrNoTransactions
+				return nil, statetxn.ErrNoOperations
 			}
 			op.Assert = append(advanceAsserts, notDeadDoc...)
 		default:
@@ -560,7 +560,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		return []txn.Op{op}, nil
 	}
-	if err = m.st.run(builtTxn); err == statetxn.ErrExcessiveContention {
+	if err = m.st.run(buildTxn); err == statetxn.ErrExcessiveContention {
 		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
 	}
 	return err
@@ -1129,7 +1129,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	// and remote state indicating provisioned (reasonable); but which changes
 	// back to unprovisioned and then to provisioned again with *very* specific
 	// timing in the course of this loop.
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if m, err = m.st.Machine(m.doc.Id); err != nil {
 				return nil, err
@@ -1145,7 +1145,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		}
 		return ops, nil
 	}
-	return m.st.run(builtTxn)
+	return m.st.run(buildTxn)
 }
 
 // Status returns the status of the machine.

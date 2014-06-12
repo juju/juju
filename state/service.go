@@ -112,10 +112,10 @@ func (s *Service) Destroy() (err error) {
 		}
 	}()
 	svc := &Service{st: s.st, doc: s.doc}
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := svc.Refresh(); errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoTransactions
+				return nil, statetxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
@@ -123,7 +123,7 @@ func (s *Service) Destroy() (err error) {
 		switch ops, err := svc.destroyOps(); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return nil, statetxn.ErrNoTransactions
+			return nil, statetxn.ErrNoOperations
 		case nil:
 			return ops, nil
 		default:
@@ -131,7 +131,7 @@ func (s *Service) Destroy() (err error) {
 		}
 		return nil, statetxn.ErrTransientFailure
 	}
-	return s.st.run(builtTxn)
+	return s.st.run(buildTxn)
 }
 
 // destroyOps returns the operations required to destroy the service. If it
@@ -469,7 +469,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	if ch.URL().Series != s.doc.Series {
 		return fmt.Errorf("cannot change a service's series")
 	}
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// If the service is not alive, fail out immediately; otherwise,
 			// data changed underneath us, so retry.
@@ -502,7 +502,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		}
 		return ops, nil
 	}
-	if err = s.st.run(builtTxn); err == nil {
+	if err = s.st.run(buildTxn); err == nil {
 		s.doc.CharmURL = ch.URL()
 		s.doc.ForceCharm = force
 		return nil
