@@ -129,22 +129,18 @@ func SetAdminMongoPassword(session *mgo.Session, user, password string) error {
 	return nil
 }
 
-// SetMongoPassword sets the mongo password for the given user name.
+// SetMongoPassword sets the mongo password in the specified databases for the given user name.
 // Previous passwords are invalidated.
-func SetMongoPassword(session *mgo.Session, name, password string) error {
+func SetMongoPassword(dbs []*mgo.Database, name, password string) error {
 	user := &mgo.User{
 		Username: name,
 		Password: password,
 		Roles:    []mgo.Role{mgo.RoleReadWriteAny, mgo.RoleUserAdmin},
 	}
-	if err := session.DB("juju").UpsertUser(user); err != nil {
-		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
-	}
-	if err := session.DB("presence").UpsertUser(user); err != nil {
-		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
-	}
-	if err := session.DB("admin").UpsertUser(user); err != nil {
-		return fmt.Errorf("cannot set password in admin db for %q: %v", name, err)
+	for _, db := range dbs {
+		if err := db.UpsertUser(user); err != nil {
+			return fmt.Errorf("cannot set password in juju db %q for %q: %v", db.Name, name, err)
+		}
 	}
 	return nil
 }
