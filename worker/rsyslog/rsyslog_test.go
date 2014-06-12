@@ -16,8 +16,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	coretesting "github.com/juju/juju/testing"
@@ -56,7 +56,7 @@ func (s *RsyslogSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(rsyslog.RsyslogConfDir, c.MkDir())
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -219,8 +219,8 @@ func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag, namespace, exp
 	defer worker.Kill()
 
 	// change the API HostPorts to trigger an rsyslog restart
-	newHostPorts := instance.AddressesWithPort(instance.NewAddresses("127.0.0.1"), 6541)
-	err = s.State.SetAPIHostPorts([][]instance.HostPort{newHostPorts})
+	newHostPorts := network.AddressesWithPort(network.NewAddresses("127.0.0.1"), 6541)
+	err = s.State.SetAPIHostPorts([][]network.HostPort{newHostPorts})
 	c.Assert(err, gc.IsNil)
 
 	// Wait for rsyslog to be restarted, so we can check to see

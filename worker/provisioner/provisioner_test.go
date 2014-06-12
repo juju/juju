@@ -18,11 +18,12 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -111,7 +112,7 @@ func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Id(), gc.Equals, "0")
-	err = machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err = machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 	s.APILogin(c, machine)
 }
@@ -120,7 +121,7 @@ func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
 // so the Settings returned from the watcher will not pass
 // validation.
 func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
-	st, err := state.Open(s.StateInfo(c), state.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.StateInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	attrs := map[string]interface{}{"type": "unknown"}
@@ -130,7 +131,7 @@ func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
 
 // fixEnvironment undoes the work of invalidateEnvironment.
 func (s *CommonProvisionerSuite) fixEnvironment(c *gc.C) error {
-	st, err := state.Open(s.StateInfo(c), state.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.StateInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	attrs := map[string]interface{}{"type": s.cfg.AllAttrs()["type"]}
@@ -182,7 +183,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 				c.Assert(o.MachineId, gc.Equals, m.Id())
 				nonceParts := strings.SplitN(o.MachineNonce, ":", 2)
 				c.Assert(nonceParts, gc.HasLen, 2)
-				c.Assert(nonceParts[0], gc.Equals, names.MachineTag("0"))
+				c.Assert(nonceParts[0], gc.Equals, names.NewMachineTag("0").String())
 				c.Assert(nonceParts[1], jc.Satisfies, utils.IsValidUUIDString)
 				c.Assert(o.Secret, gc.Equals, secret)
 				c.Assert(o.Networks, jc.DeepEquals, networks)

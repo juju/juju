@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/keymanager"
 	"github.com/juju/juju/state/api/usermanager"
@@ -31,7 +31,7 @@ var (
 // interface, defined here so it can be mocked.
 type apiState interface {
 	Close() error
-	APIHostPorts() [][]instance.HostPort
+	APIHostPorts() [][]network.HostPort
 	EnvironTag() string
 }
 
@@ -272,12 +272,12 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 	if endpoint.EnvironUUID != "" {
 		// Note: we should be validating that EnvironUUID contains a
 		// valid UUID.
-		environTag = names.EnvironTag(endpoint.EnvironUUID)
+		environTag = names.NewEnvironTag(endpoint.EnvironUUID).String()
 	}
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
 		CACert:     endpoint.CACert,
-		Tag:        names.UserTag(info.APICredentials().User),
+		Tag:        names.NewUserTag(info.APICredentials().User).String(),
 		Password:   info.APICredentials().Password,
 		EnvironTag: environTag,
 	}
@@ -386,7 +386,7 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, st apiState) error {
 		for _, hostPort := range serverHostPorts {
 			// Only cache addresses that are likely to be usable,
 			// exclude IPv6 for now and localhost style ones.
-			if hostPort.Type != instance.Ipv6Address && hostPort.NetworkScope != instance.NetworkMachineLocal {
+			if hostPort.Type != network.IPv6Address && hostPort.Scope != network.ScopeMachineLocal {
 				addrs = append(addrs, hostPort.NetAddr())
 			}
 		}

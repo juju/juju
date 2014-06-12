@@ -6,14 +6,14 @@ package state_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 // TestPackage integrates the tests into gotest.
@@ -24,7 +24,7 @@ func TestPackage(t *stdtesting.T) {
 // ConnSuite provides the infrastructure for all other
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	testing.BaseSuite
 	annotations  *mgo.Collection
 	charms       *mgo.Collection
@@ -34,7 +34,8 @@ type ConnSuite struct {
 	units        *mgo.Collection
 	stateServers *mgo.Collection
 	State        *state.State
-	policy       mockPolicy
+	policy       statetesting.MockPolicy
+	factory      *factory.Factory
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
@@ -50,7 +51,7 @@ func (cs *ConnSuite) TearDownSuite(c *gc.C) {
 func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.BaseSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
-	cs.policy = mockPolicy{}
+	cs.policy = statetesting.MockPolicy{}
 	cs.State = state.TestingInitialize(c, nil, &cs.policy)
 	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
@@ -59,7 +60,8 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
-	cs.State.AddUser(state.AdminUser, "", "pass")
+	cs.State.AddAdminUser("pass")
+	cs.factory = factory.NewFactory(cs.State, c)
 }
 
 func (cs *ConnSuite) TearDownTest(c *gc.C) {
@@ -104,47 +106,4 @@ func (s *ConnSuite) AddActionsCharm(c *gc.C, name, actionsYaml string, revision 
 // given YAML string and adds it to the state, using the given revision.
 func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "metadata.yaml", metaYaml, "quantal", revsion)
-}
-
-type mockPolicy struct {
-	getPrechecker           func(*config.Config) (state.Prechecker, error)
-	getConfigValidator      func(string) (state.ConfigValidator, error)
-	getEnvironCapability    func(*config.Config) (state.EnvironCapability, error)
-	getConstraintsValidator func(*config.Config) (constraints.Validator, error)
-	getInstanceDistributor  func(*config.Config) (state.InstanceDistributor, error)
-}
-
-func (p *mockPolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
-	if p.getPrechecker != nil {
-		return p.getPrechecker(cfg)
-	}
-	return nil, errors.NotImplementedf("Prechecker")
-}
-
-func (p *mockPolicy) ConfigValidator(providerType string) (state.ConfigValidator, error) {
-	if p.getConfigValidator != nil {
-		return p.getConfigValidator(providerType)
-	}
-	return nil, errors.NotImplementedf("ConfigValidator")
-}
-
-func (p *mockPolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapability, error) {
-	if p.getEnvironCapability != nil {
-		return p.getEnvironCapability(cfg)
-	}
-	return nil, errors.NotImplementedf("EnvironCapability")
-}
-
-func (p *mockPolicy) ConstraintsValidator(cfg *config.Config) (constraints.Validator, error) {
-	if p.getConstraintsValidator != nil {
-		return p.getConstraintsValidator(cfg)
-	}
-	return nil, errors.NewNotImplemented(nil, "ConstraintsValidator")
-}
-
-func (p *mockPolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDistributor, error) {
-	if p.getInstanceDistributor != nil {
-		return p.getInstanceDistributor(cfg)
-	}
-	return nil, errors.NewNotImplemented(nil, "InstanceDistributor")
 }

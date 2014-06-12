@@ -6,9 +6,9 @@ package uniter
 import (
 	"fmt"
 
+	"github.com/juju/charm"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/common"
 	"github.com/juju/juju/state/api/params"
@@ -152,7 +152,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	if err := result.Error; err != nil {
 		return nil, err
 	}
-	relationTag := names.RelationTag(result.Key)
+	relationTag := names.NewRelationTag(result.Key).String()
 	return &Relation{
 		id:   result.Id,
 		tag:  relationTag,

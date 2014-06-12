@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 type localInstance struct {
@@ -32,16 +33,16 @@ func (*localInstance) Refresh() error {
 	return nil
 }
 
-func (inst *localInstance) Addresses() ([]instance.Address, error) {
+func (inst *localInstance) Addresses() ([]network.Address, error) {
 	if inst.id == bootstrapInstanceId {
-		addrs := []instance.Address{{
-			NetworkScope: instance.NetworkPublic,
-			Type:         instance.HostName,
-			Value:        "localhost",
+		addrs := []network.Address{{
+			Scope: network.ScopePublic,
+			Type:  network.HostName,
+			Value: "localhost",
 		}, {
-			NetworkScope: instance.NetworkCloudLocal,
-			Type:         instance.Ipv4Address,
-			Value:        inst.env.bridgeAddress,
+			Scope: network.ScopeCloudLocal,
+			Type:  network.IPv4Address,
+			Value: inst.env.bridgeAddress,
 		}}
 		return addrs, nil
 	}
@@ -49,19 +50,19 @@ func (inst *localInstance) Addresses() ([]instance.Address, error) {
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.
-func (inst *localInstance) OpenPorts(machineId string, ports []instance.Port) error {
+func (inst *localInstance) OpenPorts(machineId string, ports []network.Port) error {
 	logger.Infof("OpenPorts called for %s:%v", machineId, ports)
 	return nil
 }
 
 // ClosePorts implements instance.Instance.ClosePorts.
-func (inst *localInstance) ClosePorts(machineId string, ports []instance.Port) error {
+func (inst *localInstance) ClosePorts(machineId string, ports []network.Port) error {
 	logger.Infof("ClosePorts called for %s:%v", machineId, ports)
 	return nil
 }
 
 // Ports implements instance.Instance.Ports.
-func (inst *localInstance) Ports(machineId string) ([]instance.Port, error) {
+func (inst *localInstance) Ports(machineId string) ([]network.Port, error) {
 	return nil, nil
 }
 

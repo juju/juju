@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -115,7 +116,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 		Password: password, CACert: testing.CACert,
 	})
 	c.Check(mcfg.StateInfo, gc.DeepEquals, &state.Info{
-		Password: password, CACert: testing.CACert,
+		Password: password, Info: mongo.Info{CACert: testing.CACert},
 	})
 	c.Check(mcfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
 	c.Check(mcfg.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
@@ -164,9 +165,11 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		MachineNonce: "5432",
 		Tools:        tools,
 		StateInfo: &state.Info{
-			Addrs:    []string{"127.0.0.1:1234"},
+			Info: mongo.Info{
+				Addrs:  []string{"127.0.0.1:1234"},
+				CACert: "CA CERT\n" + testing.CACert,
+			},
 			Password: "pw1",
-			CACert:   "CA CERT\n" + testing.CACert,
 			Tag:      "machine-10",
 		},
 		APIInfo: &api.Info{

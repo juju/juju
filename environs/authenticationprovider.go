@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
@@ -51,8 +52,10 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 		return nil, err
 	}
 	stateInfo := &state.Info{
-		Addrs:  stateAddresses,
-		CACert: caCert,
+		Info: mongo.Info{
+			Addrs:  stateAddresses,
+			CACert: caCert,
+		},
 	}
 	apiInfo := &api.Info{
 		Addrs:  apiAddresses,

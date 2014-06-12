@@ -10,13 +10,13 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state/api/params"
 )
@@ -68,7 +68,7 @@ func (s *Service) Name() string {
 // as a file name.  The returned name will be different from other
 // Tag values returned by any other entities from the same state.
 func (s *Service) Tag() string {
-	return names.ServiceTag(s.Name())
+	return names.NewServiceTag(s.Name()).String()
 }
 
 // serviceGlobalKey returns the global database key for the service

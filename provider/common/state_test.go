@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/testing"
 )
@@ -27,8 +28,8 @@ func (suite *StateSuite) TestGetAddressesAcceptsNil(c *gc.C) {
 
 func (suite *StateSuite) TestGetAddressesReturnsNames(c *gc.C) {
 	instances := []instance.Instance{
-		&mockInstance{addresses: instance.NewAddresses("foo")},
-		&mockInstance{addresses: instance.NewAddresses("bar")},
+		&mockInstance{addresses: network.NewAddresses("foo")},
+		&mockInstance{addresses: network.NewAddresses("bar")},
 	}
 	c.Check(common.GetAddresses(instances), gc.DeepEquals, []string{"foo", "bar"})
 }
@@ -36,9 +37,9 @@ func (suite *StateSuite) TestGetAddressesReturnsNames(c *gc.C) {
 func (suite *StateSuite) TestGetAddressesIgnoresNils(c *gc.C) {
 	instances := []instance.Instance{
 		nil,
-		&mockInstance{addresses: instance.NewAddresses("foo")},
+		&mockInstance{addresses: network.NewAddresses("foo")},
 		nil,
-		&mockInstance{addresses: instance.NewAddresses("bar")},
+		&mockInstance{addresses: network.NewAddresses("bar")},
 		nil,
 	}
 	c.Check(common.GetAddresses(instances), gc.DeepEquals, []string{"foo", "bar"})
@@ -53,10 +54,10 @@ func (suite *StateSuite) TestGetAddressesIgnoresInstancesWithoutAddrs(c *gc.C) {
 func (suite *StateSuite) TestGetAddressesIgnoresAddressesErrors(c *gc.C) {
 	instances := []instance.Instance{
 		&mockInstance{
-			addresses:    instance.NewAddresses("one"),
+			addresses:    network.NewAddresses("one"),
 			addressesErr: errors.New("ignored"),
 		},
-		&mockInstance{addresses: instance.NewAddresses("two", "three")},
+		&mockInstance{addresses: network.NewAddresses("two", "three")},
 	}
 	c.Check(common.GetAddresses(instances), gc.DeepEquals, []string{"two", "three"})
 }

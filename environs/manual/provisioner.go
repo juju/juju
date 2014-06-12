@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -170,7 +171,7 @@ func gatherMachineParams(hostname string) (*params.AddMachineParams, error) {
 		return nil, err
 	}
 
-	var addrs []instance.Address
+	var addrs []network.Address
 	if addr, err := HostAddress(hostname); err != nil {
 		logger.Warningf("failed to compute public address for %q: %v", hostname, err)
 	} else {

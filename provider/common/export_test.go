@@ -4,9 +4,10 @@
 package common
 
 var (
-	GetAddresses     = getAddresses
-	GetStateInfo     = getStateInfo
-	ComposeAddresses = composeAddresses
-	ConnectSSH       = &connectSSH
-	WaitSSH          = waitSSH
+	GetAddresses                            = getAddresses
+	GetStateInfo                            = getStateInfo
+	ComposeAddresses                        = composeAddresses
+	ConnectSSH                              = &connectSSH
+	WaitSSH                                 = waitSSH
+	InternalBestAvailabilityZoneAllocations = &internalBestAvailabilityZoneAllocations
 )

@@ -10,14 +10,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -194,8 +194,8 @@ func (s *SSHSuite) testSSHCommandHostAddressRetry(c *gc.C, proxy bool) {
 }
 
 func (s *SSHCommonSuite) setAddresses(m *state.Machine, c *gc.C) {
-	addrPub := instance.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()), instance.NetworkPublic)
-	addrPriv := instance.NewAddress(fmt.Sprintf("dummyenv-%s.internal", m.Id()), instance.NetworkCloudLocal)
+	addrPub := network.NewAddress(fmt.Sprintf("dummyenv-%s.dns", m.Id()), network.ScopePublic)
+	addrPriv := network.NewAddress(fmt.Sprintf("dummyenv-%s.internal", m.Id()), network.ScopeCloudLocal)
 	err := m.SetAddresses(addrPub, addrPriv)
 	c.Assert(err, gc.IsNil)
 }

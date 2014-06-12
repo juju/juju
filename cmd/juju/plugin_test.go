@@ -15,6 +15,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/testing"
 )
 
@@ -69,7 +70,8 @@ func (suite *PluginSuite) TestRunPluginWithFailing(c *gc.C) {
 	suite.makeFailingPlugin("foo", 2)
 	ctx := testing.Context(c)
 	err := RunPlugin(ctx, "foo", []string{"some params"})
-	c.Assert(err, gc.ErrorMatches, "exit status 2")
+	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 2")
+	c.Assert(err, jc.Satisfies, cmd.IsRcPassthroughError)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "failing\n")
 	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 }
@@ -98,7 +100,7 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *gc.C) {
 	case results = <-resultChan:
 		break
 	case <-time.After(waitTime):
-		c.Fatalf("Took too more than %fs to complete.", waitTime.Seconds())
+		c.Fatalf("took longer than %fs to complete.", waitTime.Seconds())
 	}
 
 	c.Assert(results, gc.HasLen, 4)

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/utils/proxy"
 
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/version"
 )

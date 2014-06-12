@@ -17,7 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cmd"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiagent "github.com/juju/juju/state/api/agent"
@@ -86,7 +86,7 @@ func (ch *AgentConf) CurrentConfig() agent.Config {
 }
 
 // SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
-func (a *AgentConf) SetAPIHostPorts(servers [][]instance.HostPort) error {
+func (a *AgentConf) SetAPIHostPorts(servers [][]network.HostPort) error {
 	return a.ChangeConfig(func(c agent.ConfigSetter) {
 		c.SetAPIHostPorts(servers)
 	})

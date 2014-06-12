@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/worker"
 )
@@ -24,14 +24,14 @@ type APIAddressUpdater struct {
 // APIAddresser is an interface that is provided to NewAPIAddressUpdater
 // which can be used to watch for API address changes.
 type APIAddresser interface {
-	APIHostPorts() ([][]instance.HostPort, error)
+	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() (watcher.NotifyWatcher, error)
 }
 
 // APIAddressSetter is an interface that is provided to NewAPIAddressUpdater
 // whose SetAPIHostPorts method will be invoked whenever address changes occur.
 type APIAddressSetter interface {
-	SetAPIHostPorts(servers [][]instance.HostPort) error
+	SetAPIHostPorts(servers [][]network.HostPort) error
 }
 
 // NewAPIAddressUpdater returns a worker.Worker that runs state.Cleanup()

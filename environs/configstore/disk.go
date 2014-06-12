@@ -96,6 +96,24 @@ func (d *diskStore) CreateInfo(envName string) (EnvironInfo, error) {
 	}, nil
 }
 
+const extName = ".jenv"
+
+// List implements Storage.List
+func (d *diskStore) List() ([]string, error) {
+	path := filepath.Join(d.dir, "environments")
+	var envs []string
+	files, err := filepath.Glob(path + "/*" + extName)
+	if err != nil {
+		return nil, err
+	}
+	for _, file := range files {
+		fName := filepath.Base(file)
+		name := fName[:len(fName)-len(extName)]
+		envs = append(envs, name)
+	}
+	return envs, nil
+}
+
 // ReadInfo implements Storage.ReadInfo.
 func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 	path := d.envPath(envName)

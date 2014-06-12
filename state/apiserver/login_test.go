@@ -14,13 +14,14 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 type loginSuite struct {
@@ -133,7 +134,8 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
-	u := s.AddUser(c, "inactive")
+	password := "password"
+	u := s.Factory.MakeUser(factory.UserParams{Password: password})
 	err = u.Deactivate()
 	c.Assert(err, gc.IsNil)
 
@@ -141,7 +143,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
 
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login("user-inactive", "password", "")
+	err = st.Login(u.Tag(), password, "")
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 
 	_, err = st.Client().Status([]string{})
@@ -178,8 +180,8 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	apiConn.Close()
 
 	c.Assert(tw.Log, jc.LogMatches, []string{
-		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login","Params":` +
-			`{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
+		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login",` +
+			`"Params":{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
 			`}`,
 		// Now that we are logged in, we see the entity's tag
 		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
@@ -201,9 +203,9 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	connectedAddrPort, err := strconv.Atoi(connectedAddrPortString)
 	c.Assert(err, gc.IsNil)
-	connectedAddrHostPorts := [][]instance.HostPort{
-		[]instance.HostPort{{
-			instance.NewAddress(connectedAddrHost, instance.NetworkUnknown),
+	connectedAddrHostPorts := [][]network.HostPort{
+		[]network.HostPort{{
+			network.NewAddress(connectedAddrHost, network.ScopeUnknown),
 			connectedAddrPort,
 		}},
 	}
@@ -211,25 +213,25 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 
 	// After storing APIHostPorts in state, Login should store
 	// all of them and the address we connected with.
-	server1Addresses := []instance.Address{{
-		Value:        "server-1",
-		Type:         instance.HostName,
-		NetworkScope: instance.NetworkPublic,
+	server1Addresses := []network.Address{{
+		Value: "server-1",
+		Type:  network.HostName,
+		Scope: network.ScopePublic,
 	}, {
-		Value:        "10.0.0.1",
-		Type:         instance.Ipv4Address,
-		NetworkName:  "internal",
-		NetworkScope: instance.NetworkCloudLocal,
+		Value:       "10.0.0.1",
+		Type:        network.IPv4Address,
+		NetworkName: "internal",
+		Scope:       network.ScopeCloudLocal,
 	}}
-	server2Addresses := []instance.Address{{
-		Value:        "::1",
-		Type:         instance.Ipv6Address,
-		NetworkName:  "loopback",
-		NetworkScope: instance.NetworkMachineLocal,
+	server2Addresses := []network.Address{{
+		Value:       "::1",
+		Type:        network.IPv6Address,
+		NetworkName: "loopback",
+		Scope:       network.ScopeMachineLocal,
 	}}
-	stateAPIHostPorts := [][]instance.HostPort{
-		instance.AddressesWithPort(server1Addresses, 123),
-		instance.AddressesWithPort(server2Addresses, 456),
+	stateAPIHostPorts := [][]network.HostPort{
+		network.AddressesWithPort(server1Addresses, 123),
+		network.AddressesWithPort(server2Addresses, 456),
 	}
 	err = s.State.SetAPIHostPorts(stateAPIHostPorts)
 	c.Assert(err, gc.IsNil)
@@ -240,7 +242,7 @@ func (s *loginSuite) TestLoginAddrs(c *gc.C) {
 	c.Assert(hostPorts, gc.DeepEquals, stateAPIHostPorts)
 }
 
-func (s *loginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr string, hostPorts [][]instance.HostPort) {
+func (s *loginSuite) loginHostPorts(c *gc.C, info *api.Info) (connectedAddr string, hostPorts [][]network.HostPort) {
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()

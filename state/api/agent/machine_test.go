@@ -12,9 +12,9 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/agent/mongo"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -139,7 +139,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 }
 
 func tryOpenState(info *state.Info) error {
-	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}

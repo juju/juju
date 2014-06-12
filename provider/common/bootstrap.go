@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
 )
@@ -211,11 +212,11 @@ type addresser interface {
 	// Addresses returns the addresses for the instance.
 	// To ensure that the results are up to date, call
 	// Refresh first.
-	Addresses() ([]instance.Address, error)
+	Addresses() ([]network.Address, error)
 }
 
 type hostChecker struct {
-	addr   instance.Address
+	addr   network.Address
 	client ssh.Client
 
 	// checkDelay is the amount of time to wait between retries.
@@ -274,7 +275,7 @@ type parallelHostChecker struct {
 	// being tested. The goroutine testing the address will continue
 	// to attempt connecting to the address until it succeeds, the Try
 	// is killed, or the corresponding channel in this map is closed.
-	active map[instance.Address]chan struct{}
+	active map[network.Address]chan struct{}
 
 	// checkDelay is how long each hostChecker waits between attempts.
 	checkDelay time.Duration
@@ -284,7 +285,7 @@ type parallelHostChecker struct {
 	checkHostScript string
 }
 
-func (p *parallelHostChecker) UpdateAddresses(addrs []instance.Address) {
+func (p *parallelHostChecker) UpdateAddresses(addrs []network.Address) {
 	for _, addr := range addrs {
 		if _, ok := p.active[addr]; ok {
 			continue
@@ -349,7 +350,7 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 		Try:             parallel.NewTry(0, nil),
 		client:          client,
 		stderr:          ctx.GetStderr(),
-		active:          make(map[instance.Address]chan struct{}),
+		active:          make(map[network.Address]chan struct{}),
 		checkDelay:      timeout.RetryDelay,
 		checkHostScript: checkHostScript,
 	}

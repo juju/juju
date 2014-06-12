@@ -243,14 +243,14 @@ func (r *srvRoot) Upgrader(id string) (upgrader.Upgrader, error) {
 	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
 	// This is tested in the state/api/upgrader package since there
 	// are currently no direct srvRoot tests.
-	tagKind, _, err := names.ParseTag(r.GetAuthTag(), "")
+	tag, _, err := names.ParseTag(r.GetAuthTag(), "")
 	if err != nil {
 		return nil, common.ErrPerm
 	}
-	switch tagKind {
-	case names.MachineTagKind:
+	switch tag.(type) {
+	case names.MachineTag:
 		return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
-	case names.UnitTagKind:
+	case names.UnitTag:
 		return upgrader.NewUnitUpgraderAPI(r.srv.state, r.resources, r)
 	}
 	// Not a machine or unit.

@@ -11,8 +11,8 @@ import (
 	"github.com/juju/utils/apt"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/agent/mongo"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 )
 

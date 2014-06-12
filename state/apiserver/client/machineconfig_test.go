@@ -12,6 +12,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/client"
 	coretools "github.com/juju/juju/tools"
@@ -24,7 +25,7 @@ type machineConfigSuite struct {
 var _ = gc.Suite(&machineConfigSuite{})
 
 func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4", instance.NetworkUnknown)}
+	addrs := []network.Address{network.NewAddress("1.2.3.4", network.ScopeUnknown)}
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
 		Jobs:       []params.MachineJob{params.JobHostUnits},
@@ -67,7 +68,7 @@ func (s *machineConfigSuite) TestMachineConfigNoArch(c *gc.C) {
 
 func (s *machineConfigSuite) TestMachineConfigNoTools(c *gc.C) {
 	s.PatchValue(&envtools.DefaultBaseURL, "")
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4", instance.NetworkUnknown)}
+	addrs := []network.Address{network.NewAddress("1.2.3.4", network.ScopeUnknown)}
 	hc := instance.MustParseHardware("mem=4G arch=amd64")
 	apiParams := params.AddMachineParams{
 		Series:     "quantal",

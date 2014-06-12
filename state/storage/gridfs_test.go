@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"strings"
 
+	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state/storage"
@@ -19,7 +20,7 @@ var _ = gc.Suite(&gridfsSuite{})
 
 type gridfsSuite struct {
 	testing.BaseSuite
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	stor storage.ResourceStorage
 }
 

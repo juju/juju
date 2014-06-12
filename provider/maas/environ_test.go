@@ -11,8 +11,8 @@ import (
 	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/network"
 	envtesting "github.com/juju/juju/environs/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/maas"
 	coretesting "github.com/juju/juju/testing"
 )

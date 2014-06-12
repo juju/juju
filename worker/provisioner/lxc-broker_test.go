@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/instance"
 	instancetest "github.com/juju/juju/instance/testing"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
@@ -52,7 +53,7 @@ func (s *lxcSuite) SetUpTest(c *gc.C) {
 			c.Output(3, fmt.Sprintf("lxc event: <%s, %s>", event.Action, event.InstanceId))
 		}
 	}()
-	s.TestSuite.Factory.AddListener(s.events)
+	s.TestSuite.ContainerFactory.AddListener(s.events)
 }
 
 func (s *lxcSuite) TearDownTest(c *gc.C) {
@@ -194,11 +195,11 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	// to be in state, in order to get the watcher.
 	m, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = m.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err = m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
-	hostPorts := [][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		Port:    1234,
 	}}}
 	err = s.State.SetAPIHostPorts(hostPorts)
@@ -211,7 +212,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.events = make(chan mock.Event, 25)
-	s.Factory.AddListener(s.events)
+	s.ContainerFactory.AddListener(s.events)
 }
 
 func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
@@ -251,7 +252,7 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
-	parentMachineTag := names.MachineTag(s.parentMachineId)
+	parentMachineTag := names.NewMachineTag(s.parentMachineId).String()
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
 	tools, err := s.provisioner.Tools(agentConfig.Tag())
 	c.Assert(err, gc.IsNil)

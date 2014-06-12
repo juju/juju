@@ -17,6 +17,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/worker"
@@ -241,8 +242,8 @@ type machineDoc struct {
 	wantsVote      bool
 	hasVote        bool
 	instanceId     instance.Id
-	mongoHostPorts []instance.HostPort
-	apiHostPorts   []instance.HostPort
+	mongoHostPorts []network.HostPort
+	apiHostPorts   []network.HostPort
 }
 
 func (m *fakeMachine) Refresh() error {
@@ -280,11 +281,11 @@ func (m *fakeMachine) HasVote() bool {
 	return m.doc.hasVote
 }
 
-func (m *fakeMachine) MongoHostPorts() []instance.HostPort {
+func (m *fakeMachine) MongoHostPorts() []network.HostPort {
 	return m.doc.mongoHostPorts
 }
 
-func (m *fakeMachine) APIHostPorts() []instance.HostPort {
+func (m *fakeMachine) APIHostPorts() []network.HostPort {
 	return m.doc.apiHostPorts
 }
 
@@ -301,7 +302,7 @@ func (m *fakeMachine) mutate(f func(*machineDoc)) {
 }
 
 func (m *fakeMachine) setStateHostPort(hostPort string) {
-	var mongoHostPorts []instance.HostPort
+	var mongoHostPorts []network.HostPort
 	if hostPort != "" {
 		host, portStr, err := net.SplitHostPort(hostPort)
 		if err != nil {
@@ -311,8 +312,8 @@ func (m *fakeMachine) setStateHostPort(hostPort string) {
 		if err != nil {
 			panic(err)
 		}
-		mongoHostPorts = instance.AddressesWithPort(instance.NewAddresses(host), port)
-		mongoHostPorts[0].NetworkScope = instance.NetworkCloudLocal
+		mongoHostPorts = network.AddressesWithPort(network.NewAddresses(host), port)
+		mongoHostPorts[0].Scope = network.ScopeCloudLocal
 	}
 
 	m.mutate(func(doc *machineDoc) {
@@ -320,13 +321,13 @@ func (m *fakeMachine) setStateHostPort(hostPort string) {
 	})
 }
 
-func (m *fakeMachine) setMongoHostPorts(hostPorts []instance.HostPort) {
+func (m *fakeMachine) setMongoHostPorts(hostPorts []network.HostPort) {
 	m.mutate(func(doc *machineDoc) {
 		doc.mongoHostPorts = hostPorts
 	})
 }
 
-func (m *fakeMachine) setAPIHostPorts(hostPorts []instance.HostPort) {
+func (m *fakeMachine) setAPIHostPorts(hostPorts []network.HostPort) {
 	m.mutate(func(doc *machineDoc) {
 		doc.apiHostPorts = hostPorts
 	})

@@ -6,9 +6,9 @@ package networker_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"

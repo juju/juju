@@ -6,11 +6,11 @@ package uniter
 import (
 	"sort"
 
+	"github.com/juju/charm"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/uniter"
 	apiwatcher "github.com/juju/juju/state/api/watcher"
@@ -344,7 +344,7 @@ func (f *filter) loop(unitTag string) (err error) {
 			}
 			var ids []int
 			for _, key := range keys {
-				relationTag := names.RelationTag(key)
+				relationTag := names.NewRelationTag(key).String()
 				rel, err := f.st.Relation(relationTag)
 				if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 					// If it's actually gone, this unit cannot have entered

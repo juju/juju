@@ -13,12 +13,13 @@ import (
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/mongo"
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/worker/peergrouper"
@@ -142,7 +143,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				Characteristics: c.Hardware,
 				SharedSecret:    sharedSecret,
 			},
-			state.DefaultDialOpts(),
+			mongo.DefaultDialOpts(),
 			environs.NewStatePolicy(),
 		)
 	})
@@ -158,7 +159,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return m.SetHasVote(true)
 }
 
-func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agent.Config) error {
+func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
 	info, ok := agentConfig.StateInfo()
@@ -168,8 +169,8 @@ func (c *BootstrapCommand) startMongo(addrs []instance.Address, agentConfig agen
 	// When bootstrapping, we need to allow enough time for mongo
 	// to start as there's no retry loop in place.
 	// 5 minutes should suffice.
-	bootstrapDialOpts := state.DialOpts{Timeout: 5 * time.Minute}
-	dialInfo, err := state.DialInfo(info, bootstrapDialOpts)
+	bootstrapDialOpts := mongo.DialOpts{Timeout: 5 * time.Minute}
+	dialInfo, err := mongo.DialInfo(info.Info, bootstrapDialOpts)
 	if err != nil {
 		return err
 	}

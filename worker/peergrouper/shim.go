@@ -6,7 +6,7 @@ package peergrouper
 import (
 	"labix.org/v2/mgo"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 )
@@ -37,12 +37,12 @@ func (s *stateShim) MongoSession() mongoSession {
 	return mongoSessionShim{s.State.MongoSession()}
 }
 
-func (m *machineShim) APIHostPorts() []instance.HostPort {
-	return instance.AddressesWithPort(m.Addresses(), m.apiPort)
+func (m *machineShim) APIHostPorts() []network.HostPort {
+	return network.AddressesWithPort(m.Addresses(), m.apiPort)
 }
 
-func (m *machineShim) MongoHostPorts() []instance.HostPort {
-	return instance.AddressesWithPort(m.Addresses(), m.mongoPort)
+func (m *machineShim) MongoHostPorts() []network.HostPort {
+	return network.AddressesWithPort(m.Addresses(), m.mongoPort)
 }
 
 type machineShim struct {

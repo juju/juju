@@ -10,13 +10,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	"github.com/juju/juju/charm"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -64,7 +63,7 @@ func (r *Relation) String() string {
 // Tag returns a name identifying the relation that is safe to use
 // as a file name.
 func (r *Relation) Tag() string {
-	return names.RelationTag(r.doc.Key)
+	return names.NewRelationTag(r.doc.Key).String()
 }
 
 // Refresh refreshes the contents of the relation from the underlying

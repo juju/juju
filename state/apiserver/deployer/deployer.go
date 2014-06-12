@@ -46,7 +46,7 @@ func NewDeployerAPI(
 		// Then we just check if the unit is already known.
 		return func(tag string) bool {
 			for _, unit := range units {
-				if names.UnitTag(unit) == tag {
+				if names.NewUnitTag(unit).String() == tag {
 					return true
 				}
 			}

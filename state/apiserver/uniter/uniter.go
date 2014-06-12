@@ -8,10 +8,10 @@ package uniter
 import (
 	"fmt"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
@@ -48,7 +48,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 			panic("authenticated entity is not a unit")
 		}
 		return func(tag string) bool {
-			return tag == names.ServiceTag(unit.ServiceName())
+			return tag == names.NewServiceTag(unit.ServiceName()).String()
 		}, nil
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
@@ -208,7 +208,7 @@ func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults
 			if err == nil {
 				principal, ok := unit.PrincipalName()
 				if principal != "" {
-					result.Results[i].Result = names.UnitTag(principal)
+					result.Results[i].Result = names.NewUnitTag(principal).String()
 				}
 				result.Results[i].Ok = ok
 			}
@@ -245,7 +245,7 @@ func (u *UniterAPI) Destroy(args params.Entities) (params.ErrorResults, error) {
 func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
 	subordinates := principal.SubordinateNames()
 	for _, subName := range subordinates {
-		unit, err := u.getUnit(names.UnitTag(subName))
+		unit, err := u.getUnit(names.NewUnitTag(subName).String())
 		if err != nil {
 			return err
 		}
