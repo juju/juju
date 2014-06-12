@@ -1,22 +1,22 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backup_test
+package backup
 
 import (
-	"bytes"
+	"archive/tar"
+	"bufio"
 	"compress/gzip"
 	"crypto/sha256"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
+	"strings"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/backup"
 	"github.com/juju/juju/testing"
 )
 
@@ -37,107 +37,139 @@ func (b *BackupSuite) SetUpTest(c *gc.C) {
 	b.BaseSuite.SetUpTest(c)
 }
 
-func (b *BackupSuite) TearDownTest(c *gc.C) {
-	b.BaseSuite.TearDownTest(c)
-}
-
-func (b *BackupSuite) TestWritesIntoBuff(c *gc.C) {
-	fileWithContentPath := path.Join(b.cwd, "TestWritesIntoBuff.txt")
-	fileWithContent, err := os.Create(fileWithContentPath)
-	c.Check(err, gc.IsNil)
-	testString := "A bogus content"
-	fileWithContent.Write([]byte(testString))
-	fileWithContent.Close()
-
-	var buf bytes.Buffer
-	err = backup.WriteInto(fileWithContentPath, &buf)
-
-	c.Check(err, gc.IsNil)
-	c.Assert(buf.String(), gc.DeepEquals, testString)
-}
-
 func (b *BackupSuite) createTestFiles(c *gc.C) {
-	tarDir1 := path.Join(b.cwd, "TarDirectory1")
-	err := os.Mkdir(tarDir1, os.FileMode(0755))
+	tarDirE := path.Join(b.cwd, "TarDirectoryEmpty")
+	err := os.Mkdir(tarDirE, os.FileMode(0755))
 	c.Check(err, gc.IsNil)
+
+	tarDirP := path.Join(b.cwd, "TarDirectoryPopulated")
+	err = os.Mkdir(tarDirP, os.FileMode(0755))
+	c.Check(err, gc.IsNil)
+
+	tarSubFile1 := path.Join(tarDirP, "TarSubFile1")
+	tarSubFile1Handle, err := os.Create(tarSubFile1)
+	c.Check(err, gc.IsNil)
+	tarSubFile1Handle.Close()
+
+	tarSubDir := path.Join(tarDirP, "TarDirectoryPopulatedSubDirectory")
+	err = os.Mkdir(tarSubDir, os.FileMode(0755))
+	c.Check(err, gc.IsNil)
+
 	tarFile1 := path.Join(b.cwd, "TarFile1")
 	tarFile1Handle, err := os.Create(tarFile1)
 	c.Check(err, gc.IsNil)
 	tarFile1Handle.Close()
+
 	tarFile2 := path.Join(b.cwd, "TarFile2")
 	tarFile2Handle, err := os.Create(tarFile2)
 	c.Check(err, gc.IsNil)
 	tarFile2Handle.Close()
-	b.testFiles = []string{tarDir1, tarFile1, tarFile2}
+	b.testFiles = []string{tarDirE, tarDirP, tarFile1, tarFile2}
 
+}
+
+func (b *BackupSuite) removeTestFiles(c *gc.C) {
+	for _, removable := range b.testFiles {
+		err := os.RemoveAll(removable)
+		c.Assert(err, gc.IsNil)
+	}
+}
+
+var testExpectedTarContents = []string{
+	"TarDirectoryEmpty",
+	"TarDirectoryPopulated",
+	"TarDirectoryPopulated/TarSubFile1",
+	"TarDirectoryPopulated/TarDirectoryPopulatedSubDirectory",
+	"TarFile1",
+	"TarFile2",
+}
+
+func (b *BackupSuite) checkContents(c *gc.C, expectedContents []string, tarFile, prefix string, compressed bool) {
+	f, err := os.Open(tarFile)
+	c.Assert(err, gc.IsNil)
+	var r io.Reader
+	r = bufio.NewReader(f)
+	if compressed {
+		r, err = gzip.NewReader(r)
+		c.Assert(err, gc.IsNil)
+	}
+
+	tr := tar.NewReader(r)
+
+	tarContents := make(map[string]string)
+	// Iterate through the files in the archive.
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			// end of tar archive
+			break
+		}
+		c.Assert(err, gc.IsNil)
+		tarContents[hdr.Name] = ""
+	}
+	for _, expectedContent := range expectedContents {
+		fullExpectedContent := path.Join(prefix, expectedContent)
+		fullExpectedContent = strings.TrimPrefix(fullExpectedContent, string(os.PathSeparator))
+		_, ok := tarContents[fullExpectedContent]
+		c.Log(tarContents)
+		c.Log(expectedContents)
+		c.Log(fmt.Sprintf("checking for presence of %q on tar file", fullExpectedContent))
+		c.Assert(ok, gc.Equals, true)
+	}
+
+}
+
+func shaSumFile(c *gc.C, fileToSum string) string {
+	f, err := os.Open(fileToSum)
+	c.Assert(err, gc.IsNil)
+	defer f.Close()
+	sha256hash := sha256.New()
+	_, err = io.Copy(sha256hash, f)
+	c.Assert(err, gc.IsNil)
+	return fmt.Sprintf("%x", sha256hash.Sum(nil))
 }
 
 func (b *BackupSuite) TestTarsFiles(c *gc.C) {
 	b.createTestFiles(c)
 	outputTar := path.Join(b.cwd, "output_tar_file.tar")
-	shaSum, err := backup.TarFiles(b.testFiles, outputTar)
+	shaSum, err := tarFiles(b.testFiles, outputTar, "", false)
 	c.Check(err, gc.IsNil)
-	c.Assert(shaSum, gc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
-
-}
-
-func shaSumGzipContents(c *gc.C, gzPath string) string {
-	f, err := os.Open(gzPath)
-	c.Check(err, gc.IsNil)
-	defer f.Close()
-	gz, err := gzip.NewReader(f)
-	c.Check(err, gc.IsNil)
-	defer gz.Close()
-
-	var buf []byte
-	_, err = gz.Read(buf)
-	c.Check(err, gc.IsNil)
-
-	sha256hash := sha256.New()
-
-	bufR := bytes.NewBuffer(buf)
-	_, err = io.Copy(sha256hash, bufR)
-	c.Check(err, gc.IsNil)
-
-	return fmt.Sprintf("%x", sha256hash.Sum(nil))
-
+	fileShaSum := shaSumFile(c, outputTar)
+	c.Assert(shaSum, gc.Equals, fileShaSum)
+	b.removeTestFiles(c)
+	b.checkContents(c, testExpectedTarContents, outputTar, b.cwd, false)
 }
 
 func (b *BackupSuite) TestTarGzsFiles(c *gc.C) {
 	b.createTestFiles(c)
 
 	outputTarGz := path.Join(b.cwd, "output_tar_file.tgz")
-	_, err := backup.TarFiles(b.testFiles, outputTarGz)
+	shaSum, err := tarFiles(b.testFiles, outputTarGz, "", true)
 	c.Check(err, gc.IsNil)
 
-	shaSum := shaSumGzipContents(c, outputTarGz)
-	c.Assert(shaSum, gc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+	fileShaSum := shaSumFile(c, outputTarGz)
+	c.Assert(shaSum, gc.Equals, fileShaSum)
+
+	b.checkContents(c, testExpectedTarContents, outputTarGz, b.cwd, true)
 }
 
 func (b *BackupSuite) TestBackUp(c *gc.C) {
 	b.createTestFiles(c)
 	ranCommand := false
-	backup.GetFilesToBackup = func() ([]string, error) { return b.testFiles, nil }
-	backup.RunCommand = func(command string) (string, error) {
+	getMongodumpPath = func() (string, error) { return "bogusmongodump", nil }
+	getFilesToBackup = func() ([]string, error) { return b.testFiles, nil }
+	runCommand = func(command string) (string, error) {
 		ranCommand = true
 		return "", nil
 	}
-	bkpFile, shaFile, err := backup.BackUp("boguspassword", b.cwd, 123456)
+	bkpFile, shaSum, err := Backup("boguspassword", b.cwd, 123456)
 	c.Check(err, gc.IsNil)
 	c.Assert(ranCommand, gc.Equals, true)
-
-	bkpSha, err := ioutil.ReadFile(path.Join(b.cwd, shaFile))
-	c.Check(err, gc.IsNil)
-	bkpFileR, err := os.Open(path.Join(b.cwd, bkpFile))
-	c.Check(err, gc.IsNil)
-	defer bkpFileR.Close()
-	sha256hash := sha256.New()
-	io.Copy(sha256hash, bkpFileR)
-	shaSum := fmt.Sprintf("%x", sha256hash.Sum(nil))
-
-	c.Assert(string(bkpSha), gc.Equals, shaSum)
-
-	tarShaSum := shaSumGzipContents(c, path.Join(b.cwd, bkpFile))
-	c.Assert(tarShaSum, gc.Equals, "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
-
+	fileShaSum := shaSumFile(c, path.Join(b.cwd, bkpFile))
+	c.Assert(shaSum, gc.Equals, fileShaSum)
+	expectedContents := []string{
+		"juju-backup",
+		"juju-backup/dump",
+		"juju-backup/root.tar"}
+	b.checkContents(c, expectedContents, path.Join(b.cwd, bkpFile), "", true)
 }
