@@ -644,22 +644,11 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
 func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
-	var ops []txn.Op
-	if s.doc.Subordinate {
-		ops = append(ops, txn.Op{
-			C:      s.st.units.Name,
-			Id:     u.doc.Principal,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
-		})
-	} else if u.doc.MachineId != "" {
-		ops = append(ops, txn.Op{
-			C:      s.st.machines.Name,
-			Id:     u.doc.MachineId,
-			Assert: txn.DocExists,
-			Update: bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}},
-		})
+	ops, err := u.destroyHostOps(s)
+	if err != nil {
+		return nil, err
 	}
+
 	observedFieldsMatch := bson.D{
 		{"charmurl", u.doc.CharmURL},
 		{"machineid", u.doc.MachineId},
@@ -704,7 +693,9 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 			}},
 		}
 	}
-	return append(ops, svcOp), nil
+	ops = append(ops, svcOp)
+
+	return ops, nil
 }
 
 // Unit returns the service's unit with name.
