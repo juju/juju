@@ -113,7 +113,7 @@ func (r *Relation) Destroy() (err error) {
 	// in scope have changed between 0 and not-0. The chances of 5 successive
 	// attempts each hitting this change -- which is itself an unlikely one --
 	// are considered to be extremely small.
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := rel.Refresh(); errors.IsNotFound(err) {
 				return []txn.Op{}, nil
@@ -123,13 +123,13 @@ func (r *Relation) Destroy() (err error) {
 		}
 		ops, _, err := rel.destroyOps("")
 		if err == errAlreadyDying {
-			return nil, statetxn.ErrNoTransactions
+			return nil, statetxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
 		}
 		return ops, nil
 	}
-	if err = rel.st.run(builtTxn); err == nil {
+	if err = rel.st.run(buildTxn); err == nil {
 		if err = rel.Refresh(); err == nil || errors.IsNotFound(err) {
 			return nil
 		}

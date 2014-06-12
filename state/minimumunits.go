@@ -46,7 +46,7 @@ func (s *Service) SetMinUnits(minUnits int) (err error) {
 	// it, the former should be able to re-create the document in the second
 	// attempt. If the referred-to service advanced its life cycle to a not
 	// alive state, an error is returned after the first failing attempt.
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := service.Refresh(); err != nil {
 				return nil, err
@@ -56,11 +56,11 @@ func (s *Service) SetMinUnits(minUnits int) (err error) {
 			return nil, errors.New("service is no longer alive")
 		}
 		if minUnits == service.doc.MinUnits {
-			return nil, statetxn.ErrNoTransactions
+			return nil, statetxn.ErrNoOperations
 		}
 		return setMinUnitsOps(service, minUnits), nil
 	}
-	return s.st.run(builtTxn)
+	return s.st.run(buildTxn)
 }
 
 // setMinUnitsOps returns the operations required to set MinUnits on the

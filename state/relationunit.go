@@ -278,10 +278,10 @@ func (ru *RelationUnit) LeaveScope() error {
 	// Destroy changes the Life attribute in memory (units could join before
 	// the database is actually changed).
 	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := ru.relation.Refresh(); errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoTransactions
+				return nil, statetxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
@@ -290,7 +290,7 @@ func (ru *RelationUnit) LeaveScope() error {
 		if err != nil {
 			return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 		} else if count == 0 {
-			return nil, statetxn.ErrNoTransactions
+			return nil, statetxn.ErrNoOperations
 		}
 		ops := []txn.Op{{
 			C:      ru.st.relationScopes.Name,
@@ -321,7 +321,7 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		return ops, nil
 	}
-	if err = ru.st.run(builtTxn); err == nil {
+	if err = ru.st.run(buildTxn); err == nil {
 		if err = ru.relation.Refresh(); err == nil || errors.IsNotFound(err) {
 			return nil
 		}

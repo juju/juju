@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/txn"
-	"github.com/juju/juju/state/txn/testing"
 )
 
 type AssignSuite struct {
@@ -513,9 +512,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 	makeDirty := txn.TestHook{
 		Before: func() { c.Assert(unit.AssignToMachine(machine), gc.IsNil) },
 	}
-	defer testing.SetTestHooks(
-		c, state.TransactionRunner(s.State), makeDirty,
-	).Check()
+	defer state.SetTestHooks(c, s.State, makeDirty).Check()
 
 	err = anotherUnit.AssignToNewMachineOrContainer()
 	c.Assert(err, gc.IsNil)
@@ -553,9 +550,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 	}
-	defer testing.SetTestHooks(
-		c, state.TransactionRunner(s.State), addContainer,
-	).Check()
+	defer state.SetTestHooks(c, s.State, addContainer).Check()
 
 	err = unit.AssignToNewMachineOrContainer()
 	c.Assert(err, gc.IsNil)

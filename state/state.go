@@ -204,7 +204,7 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 // environment to the given version, only if the environment is in a
 // stable state (all agents are running the current version).
 func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		settings, err := readSettings(st, environGlobalKey)
 		if err != nil {
 			return nil, err
@@ -219,7 +219,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		}
 		if newVersion.String() == currentVersion {
 			// Nothing to do.
-			return nil, statetxn.ErrNoTransactions
+			return nil, statetxn.ErrNoOperations
 		}
 
 		if err := st.checkCanUpgrade(currentVersion, newVersion.String()); err != nil {
@@ -234,12 +234,10 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		}}
 		return ops, nil
 	}
-	defer func() {
-		if err == statetxn.ErrExcessiveContention {
-			err = errors.Annotate(err, "cannot set agent version")
-		}
-	}()
-	return st.run(builtTxn)
+	if err = st.run(buildTxn); err == statetxn.ErrExcessiveContention {
+		err = errors.Annotate(err, "cannot set agent version")
+	}
+	return err
 }
 
 func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
@@ -581,7 +579,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
 
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find the highest revision of that charm in state.
 		var docs []charmDoc
 		err = st.charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}).Select(bson.D{{"_id", 1}}).All(&docs)
@@ -616,7 +614,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 		}}
 		return ops, nil
 	}
-	if err = st.run(builtTxn); err == nil {
+	if err = st.run(buildTxn); err == nil {
 		return chosenUrl, nil
 	}
 	return nil, err
@@ -644,7 +642,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		uploadedCharm charmDoc
 		err           error
 	)
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find an uploaded or pending charm with the given exact curl.
 		err := st.charms.FindId(curl).One(&uploadedCharm)
 		if err != nil && err != mgo.ErrNotFound {
@@ -653,7 +651,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			// The charm exists and it's either uploaded or still
 			// pending, but it's not a placeholder. In any case,
 			// there's nothing to do.
-			return nil, statetxn.ErrNoTransactions
+			return nil, statetxn.ErrNoOperations
 		} else if err == mgo.ErrNotFound {
 			// Prepare the pending charm document for insertion.
 			uploadedCharm = charmDoc{
@@ -695,7 +693,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		}
 		return ops, nil
 	}
-	if err = st.run(builtTxn); err == nil {
+	if err = st.run(buildTxn); err == nil {
 		return newCharm(st, &uploadedCharm)
 	}
 	return nil, err
@@ -718,7 +716,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		return fmt.Errorf("expected charm URL with revision, got %q", curl)
 	}
 
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// See if the charm already exists in state and exit early if that's the case.
 		var doc charmDoc
 		err := st.charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
@@ -726,7 +724,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 			return nil, err
 		}
 		if err == nil {
-			return nil, statetxn.ErrNoTransactions
+			return nil, statetxn.ErrNoOperations
 		}
 
 		// Delete all previous placeholders so we don't fill up the database with unused data.
@@ -747,7 +745,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		})
 		return ops, nil
 	}
-	return st.run(builtTxn)
+	return st.run(buildTxn)
 }
 
 // deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
@@ -1230,10 +1228,9 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	// still don't know whether it's sane to even attempt creation).
 	id := -1
 	// If a service's charm is upgraded while we're trying to add a relation,
-	// we'll need to re-validate service sanity. This is probably relatively
-	// rare, so we only try 3 times.
+	// we'll need to re-validate service sanity.
 	var doc *relationDoc
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Perform initial relation sanity check.
 		if exists, err := isNotDead(st.relations, key); err != nil {
 			return nil, err
@@ -1292,7 +1289,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		})
 		return ops, nil
 	}
-	if err = st.run(builtTxn); err == nil {
+	if err = st.run(buildTxn); err == nil {
 		return &Relation{st, *doc}, nil
 	}
 	return nil, err

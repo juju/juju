@@ -19,11 +19,24 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	statetxn "github.com/juju/juju/state/txn"
+	txntesting "github.com/juju/juju/state/txn/testing"
 	"github.com/juju/juju/testing"
 )
 
-func TransactionRunner(st *State) statetxn.Runner {
-	return st.transactionRunner
+func SetTestHooks(c *gc.C, st *State, hooks ...statetxn.TestHook) txntesting.TransactionChecker {
+	return txntesting.SetTestHooks(c, st.transactionRunner, hooks...)
+}
+
+func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
+	return txntesting.SetBeforeHooks(c, st.transactionRunner, fs...)
+}
+
+func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
+	return txntesting.SetAfterHooks(c, st.transactionRunner, fs...)
+}
+
+func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
+	return txntesting.SetRetryHooks(c, st.transactionRunner, block, check)
 }
 
 // SetPolicy updates the State's policy field to the

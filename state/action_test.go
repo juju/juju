@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/txn"
-	"github.com/juju/juju/state/txn/testing"
 )
 
 type ActionSuite struct {
@@ -124,7 +123,7 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 			c.Assert(unit.EnsureDead(), gc.IsNil)
 		},
 	}
-	defer testing.SetTestHooks(c, state.TransactionRunner(s.State), killUnit).Check()
+	defer state.SetTestHooks(c, s.State, killUnit).Check()
 
 	_, err = unit.AddAction("fakeaction", map[string]interface{}{})
 	c.Assert(err, gc.ErrorMatches, "unit .* is dead")

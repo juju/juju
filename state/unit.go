@@ -274,10 +274,10 @@ func (u *Unit) Destroy() (err error) {
 		}
 	}()
 	unit := &Unit{st: u.st, doc: u.doc}
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := unit.Refresh(); errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoTransactions
+				return nil, statetxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
@@ -285,15 +285,15 @@ func (u *Unit) Destroy() (err error) {
 		switch ops, err := unit.destroyOps(); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return nil, statetxn.ErrNoTransactions
+			return nil, statetxn.ErrNoOperations
 		case nil:
 			return ops, nil
 		default:
 			return nil, err
 		}
-		return nil, statetxn.ErrNoTransactions
+		return nil, statetxn.ErrNoOperations
 	}
-	if err = unit.st.run(builtTxn); err == nil {
+	if err = unit.st.run(buildTxn); err == nil {
 		if err = unit.Refresh(); errors.IsNotFound(err) {
 			return nil
 		}
@@ -453,10 +453,10 @@ func (u *Unit) Remove() (err error) {
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
 	unit := &Unit{st: u.st, doc: u.doc}
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := unit.Refresh(); errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoTransactions
+				return nil, statetxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
@@ -464,15 +464,15 @@ func (u *Unit) Remove() (err error) {
 		switch ops, err := unit.removeOps(isDeadDoc); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return nil, statetxn.ErrNoTransactions
+			return nil, statetxn.ErrNoOperations
 		case nil:
 			return ops, nil
 		default:
 			return nil, err
 		}
-		return nil, statetxn.ErrNoTransactions
+		return nil, statetxn.ErrNoOperations
 	}
-	if err = unit.st.run(builtTxn); err == nil {
+	if err = unit.st.run(buildTxn); err == nil {
 		if err = unit.Refresh(); errors.IsNotFound(err) {
 			return nil
 		}
@@ -716,7 +716,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 	if curl == nil {
 		return fmt.Errorf("cannot set nil charm url")
 	}
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
 			return nil, err
 		} else if !notDead {
@@ -727,7 +727,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			return nil, err
 		} else if count == 1 {
 			// Already set
-			return nil, statetxn.ErrNoTransactions
+			return nil, statetxn.ErrNoOperations
 		}
 		if count, err := u.st.charms.FindId(curl).Count(); err != nil {
 			return nil, err
@@ -761,7 +761,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 		}
 		return ops, nil
 	}
-	return u.st.run(builtTxn)
+	return u.st.run(buildTxn)
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
@@ -1403,7 +1403,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 		Insert: doc,
 	}}
 
-	builtTxn := func(attempt int) ([]txn.Op, error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
 			return nil, err
 		} else if !notDead {
@@ -1411,7 +1411,7 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 		}
 		return ops, nil
 	}
-	if err = u.st.run(builtTxn); err == nil {
+	if err = u.st.run(buildTxn); err == nil {
 		return actionId, nil
 	}
 	return "", err

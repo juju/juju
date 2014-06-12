@@ -312,7 +312,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		statuses:          db.C("statuses"),
 		stateServers:      db.C("stateServers"),
 	}
-	log := db.C("builtTxn.log")
+	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.klmongodb.org/browse/SERVER-6992
@@ -320,10 +320,10 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
-	mgoRunner := txn.NewRunner(db.C("builtTxn"))
-	mgoRunner.ChangeLog(db.C("builtTxn.log"))
+	mgoRunner := txn.NewRunner(db.C("txns"))
+	mgoRunner.ChangeLog(db.C("txns.log"))
 	st.transactionRunner = statetxn.NewRunner(mgoRunner)
-	st.watcher = watcher.New(db.C("builtTxn.log"))
+	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique}
