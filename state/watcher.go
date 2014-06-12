@@ -1452,3 +1452,95 @@ func (w *cleanupWatcher) loop() (err error) {
 		}
 	}
 }
+
+// networksWatcher notifies about network changes. The first event returned by the
+// watcher is the set of network names. Subsequent events are generated when
+// a network was created, changed or destroyed.
+type networksWatcher struct {
+	commonWatcher
+	known map[string]bool
+	out   chan []string
+}
+
+var _ Watcher = (*networksWatcher)(nil)
+
+func newNetworkWatcher(st *State) StringsWatcher {
+	w := &networksWatcher{
+		commonWatcher: commonWatcher{st: st},
+		known:         make(map[string]bool),
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+func (st *State) WatchNetworks() StringsWatcher {
+	return newNetworkWatcher(st)
+}
+
+func (w *networksWatcher) initial() (*set.Strings, error) {
+	networkNames := new(set.Strings)
+	doc := &networkDoc{}
+	iter := w.st.networks.Find(nil).Iter()
+	for iter.Next(doc) {
+		w.known[doc.Name] = true
+		networkNames.Add(doc.Name)
+	}
+	return networkNames, iter.Err()
+}
+
+func (w *networksWatcher) merge(networkNames *set.Strings, change watcher.Change) error {
+	networkName := change.Id.(string)
+	if change.Revno == -1 {
+		delete(w.known, networkName)
+		networkNames.Remove(networkName)
+		return nil
+	}
+	doc := networkDoc{}
+	if err := w.st.networks.FindId(networkName).One(&doc); err != nil {
+		return err
+	}
+	_, known := w.known[networkName]
+	w.known[networkName] = true
+	if !known {
+		networkNames.Add(networkName)
+	}
+	return nil
+}
+
+func (w *networksWatcher) loop() (err error) {
+	ch := make(chan watcher.Change)
+	w.st.watcher.WatchCollection(w.st.networks.Name, ch)
+	defer w.st.watcher.UnwatchCollection(w.st.networks.Name, ch)
+	networkNames, err := w.initial()
+	if err != nil {
+		return err
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case change := <-ch:
+			if err = w.merge(networkNames, change); err != nil {
+				return err
+			}
+			if !networkNames.IsEmpty() {
+				out = w.out
+			}
+		case out <- networkNames.Values():
+			out = nil
+			networkNames = new(set.Strings)
+		}
+	}
+}
+
+func (w *networksWatcher) Changes() <-chan []string {
+	return w.out
+}
