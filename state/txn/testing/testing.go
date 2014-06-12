@@ -1,10 +1,12 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package txn
+package testing
 
 import (
 	gc "launchpad.net/gocheck"
+
+	"github.com/juju/juju/state/txn"
 )
 
 // TransactionChecker values are returned from the various Set*Hooks calls,
@@ -16,45 +18,45 @@ func (c TransactionChecker) Check() {
 	c()
 }
 
-// SetBeforeHooks uses SetTransactionHooks to queue N functions to be run
+// SetBeforeHooks uses Settxn.TestHooks to queue N functions to be run
 // immediately before the next N transactions. The first function is executed
 // before the first transaction, the second function before the second
 // transaction and so on. Nil values are accepted, and useful, in that they can
 // be used to ensure that a transaction is run at the expected time, without
 // having to make any changes or assert any state.
-func SetBeforeHooks(c *gc.C, runner TransactionRunner, fs ...func()) TransactionChecker {
-	transactionHooks := make([]TransactionHook, len(fs))
+func SetBeforeHooks(c *gc.C, runner txn.TransactionRunner, fs ...func()) TransactionChecker {
+	transactionHooks := make([]txn.TestHook, len(fs))
 	for i, f := range fs {
-		transactionHooks[i] = TransactionHook{Before: f}
+		transactionHooks[i] = txn.TestHook{Before: f}
 	}
-	return SetTransactionHooks(c, runner, transactionHooks...)
+	return SetTestHooks(c, runner, transactionHooks...)
 }
 
-// SetAfterHooks uses SetTransactionHooks to queue N functions to be run
+// SetAfterHooks uses Settxn.TestHooks to queue N functions to be run
 // immediately after the next N transactions. The first function is executed
 // after the first transaction, the second function after the second
 // transaction and so on.
-func SetAfterHooks(c *gc.C, runner TransactionRunner, fs ...func()) TransactionChecker {
-	transactionHooks := make([]TransactionHook, len(fs))
+func SetAfterHooks(c *gc.C, runner txn.TransactionRunner, fs ...func()) TransactionChecker {
+	transactionHooks := make([]txn.TestHook, len(fs))
 	for i, f := range fs {
-		transactionHooks[i] = TransactionHook{After: f}
+		transactionHooks[i] = txn.TestHook{After: f}
 	}
-	return SetTransactionHooks(c, runner, transactionHooks...)
+	return SetTestHooks(c, runner, transactionHooks...)
 }
 
-// SetRetryHooks uses SetTransactionHooks to inject a block function designed
+// SetRetryHooks uses Settxn.TestHooks to inject a block function designed
 // to disrupt a transaction built against recent state, and a check function
 // designed to verify that the replacement transaction against the new state
 // has been applied as expected.
-func SetRetryHooks(c *gc.C, runner TransactionRunner, block, check func()) TransactionChecker {
-	return SetTransactionHooks(c, runner, TransactionHook{
+func SetRetryHooks(c *gc.C, runner txn.TransactionRunner, block, check func()) TransactionChecker {
+	return SetTestHooks(c, runner, txn.TestHook{
 		Before: block,
-	}, TransactionHook{
+	}, txn.TestHook{
 		After: check,
 	})
 }
 
-// SetTransactionHooks queues up hooks to be applied to the next transactions,
+// SetTestHooks queues up hooks to be applied to the next transactions,
 // and returns a function that asserts all hooks have been run (and removes any
 // that have not). Each hook function can freely execute its own transactions
 // without causing other hooks to be triggered.
@@ -62,14 +64,14 @@ func SetRetryHooks(c *gc.C, runner TransactionRunner, block, check func()) Trans
 // any that have not. It is an error to set transaction hooks when any are
 // already queued; and setting transaction hooks renders the *State goroutine-
 // unsafe.
-func SetTransactionHooks(c *gc.C, runner TransactionRunner, hooks ...TransactionHook) TransactionChecker {
-	tr := runner.(*transactionRunner)
-	original := <-tr.transactionHooks
-	tr.transactionHooks <- hooks
+func SetTestHooks(c *gc.C, runner txn.TransactionRunner, hooks ...txn.TestHook) TransactionChecker {
+	transactionHooks := txn.TestHooks(runner)
+	original := <-transactionHooks
+	transactionHooks <- hooks
 	c.Assert(original, gc.HasLen, 0)
 	return func() {
-		remaining := <-tr.transactionHooks
-		tr.transactionHooks <- nil
+		remaining := <-transactionHooks
+		transactionHooks <- nil
 		c.Assert(remaining, gc.HasLen, 0)
 	}
 }

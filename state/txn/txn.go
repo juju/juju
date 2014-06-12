@@ -7,7 +7,7 @@
 // The purpose of the TransactionRunner is to execute the operations multiple
 // times in there is a TxnAborted error, in the expectation that subsequent
 // attempts will be successful.
-// Also included is a mechanism whereby tests can use SetTransactionHooks to induce
+// Also included is a mechanism whereby tests can use SetTestHooks to induce
 // arbitrary state mutations before and after particular transactions.
 
 package txn
@@ -20,13 +20,6 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.state.txn")
-
-// TransactionHook holds a pair of functions to be called before and after a
-// mgo/txn transaction is run. It is only used in testing.
-type TransactionHook struct {
-	Before func()
-	After  func()
-}
 
 const (
 	nrRetries = 3
@@ -50,8 +43,8 @@ type TransactionRunner interface {
 }
 
 type transactionRunner struct {
-	runner           *txn.Runner
-	transactionHooks chan ([]TransactionHook)
+	runner    *txn.Runner
+	testHooks chan ([]TestHook)
 }
 
 var _ TransactionRunner = (*transactionRunner)(nil)
@@ -59,8 +52,8 @@ var _ TransactionRunner = (*transactionRunner)(nil)
 // NewRunner returns a TransactionRunner which delegates to the specified txn.Runner.
 func NewRunner(runner *txn.Runner) TransactionRunner {
 	txnRunner := &transactionRunner{runner: runner}
-	txnRunner.transactionHooks = make(chan ([]TransactionHook), 1)
-	txnRunner.transactionHooks <- nil
+	txnRunner.testHooks = make(chan ([]TestHook), 1)
+	txnRunner.testHooks <- nil
 	return txnRunner
 }
 
@@ -88,26 +81,26 @@ func (tr *transactionRunner) Run(transactions tranactionSource) error {
 
 // RunTransaction is defined on TransactionRunner.
 func (tr *transactionRunner) RunTransaction(ops []txn.Op) error {
-	transactionHooks := <-tr.transactionHooks
-	tr.transactionHooks <- nil
-	if len(transactionHooks) > 0 {
+	testHooks := <-tr.testHooks
+	tr.testHooks <- nil
+	if len(testHooks) > 0 {
 		// Note that this code should only ever be triggered
 		// during tests. If we see the log messages below
 		// in a production run, something is wrong.
 		defer func() {
-			if transactionHooks[0].After != nil {
+			if testHooks[0].After != nil {
 				logger.Infof("transaction 'after' hook start")
-				transactionHooks[0].After()
+				testHooks[0].After()
 				logger.Infof("transaction 'after' hook end")
 			}
-			if <-tr.transactionHooks != nil {
+			if <-tr.testHooks != nil {
 				panic("concurrent use of transaction hooks")
 			}
-			tr.transactionHooks <- transactionHooks[1:]
+			tr.testHooks <- testHooks[1:]
 		}()
-		if transactionHooks[0].Before != nil {
+		if testHooks[0].Before != nil {
 			logger.Infof("transaction 'before' hook start")
-			transactionHooks[0].Before()
+			testHooks[0].Before()
 			logger.Infof("transaction 'before' hook end")
 		}
 	}
@@ -117,4 +110,18 @@ func (tr *transactionRunner) RunTransaction(ops []txn.Op) error {
 // ResumeTransactions is defined on TransactionRunner.
 func (tr *transactionRunner) ResumeTransactions() error {
 	return tr.runner.ResumeAll()
+}
+
+// TestHook holds a pair of functions to be called before and after a
+// mgo/txn transaction is run.
+// Exported only for testing.
+type TestHook struct {
+	Before func()
+	After  func()
+}
+
+// TestHooks returns the test hooks for a transaction runner.
+// Exported only for testing.
+func TestHooks(runner TransactionRunner) chan ([]TestHook) {
+	return runner.(*transactionRunner).testHooks
 }

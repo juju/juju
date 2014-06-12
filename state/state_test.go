@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/state/txn"
+	txntesting "github.com/juju/juju/state/txn/testing"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -299,7 +300,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 	// Finally, try poking around the state with a placeholder and
 	// bundlesha256 to make sure we do the right thing.
 	curl = curl.WithRevision(999)
-	first := txn.TransactionHook{
+	first := txn.TestHook{
 		Before: func() {
 			err := s.State.AddStoreCharmPlaceholder(curl)
 			c.Assert(err, gc.IsNil)
@@ -309,7 +310,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 	}
-	second := txn.TransactionHook{
+	second := txn.TestHook{
 		Before: func() {
 			err := s.State.AddStoreCharmPlaceholder(curl)
 			c.Assert(err, gc.IsNil)
@@ -321,7 +322,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 	}
-	defer txn.SetTransactionHooks(
+	defer txntesting.SetTestHooks(
 		c, s.State.TransactionRunner, first, second, first,
 	).Check()
 
@@ -595,7 +596,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// Check that machines cannot be added if the environment is initially
 	// Alive but set to Dying immediately before the transaction is run.
-	defer txn.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
@@ -1165,7 +1166,7 @@ func (s *StateSuite) TestAddServiceEnvironmentDyingAfterInitial(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// Check that services cannot be added if the environment is initially
 	// Alive but set to Dying immediately before the transaction is run.
-	defer txn.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
@@ -2859,7 +2860,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionRetriesOnConfigChange(c *gc.C) {
 	// Set up a transaction hook to change something
 	// other than the version, and make sure it retries
 	// and passes.
-	defer txn.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
 		s.changeEnviron(c, envConfig, "default-series", "foo")
 	}).Check()
 
@@ -2875,7 +2876,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 	// Set up a transaction hook to change the version
 	// to the new one, and make sure it retries
 	// and passes.
-	defer txn.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
 		s.changeEnviron(c, envConfig, "agent-version", "4.5.6")
 	}).Check()
 
@@ -2895,7 +2896,7 @@ func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 		func() { s.changeEnviron(c, envConfig, "default-series", "2") },
 		func() { s.changeEnviron(c, envConfig, "default-series", "3") },
 	}
-	defer txn.SetBeforeHooks(c, s.State.TransactionRunner, changeFuncs...).Check()
+	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, changeFuncs...).Check()
 	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
 	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
 	// Make sure the version remained the same.
@@ -3242,7 +3243,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentSame(c *gc.C) {
 		return true, nil
 	})
 
-	defer txn.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
 		err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 		c.Assert(err, gc.IsNil)
 		// The outer EnsureAvailability call will allocate IDs 0..2,
@@ -3265,7 +3266,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentLess(c *gc.C) {
 		return true, nil
 	})
 
-	defer txn.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
 		err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 		c.Assert(err, gc.IsNil)
 		// The outer EnsureAvailability call will initially allocate IDs 0..4,
@@ -3293,7 +3294,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
 		return true, nil
 	})
 
-	defer txn.SetBeforeHooks(c, s.State.TransactionRunner, func() {
+	defer txntesting.SetBeforeHooks(c, s.State.TransactionRunner, func() {
 		err := s.State.EnsureAvailability(5, constraints.Value{}, "quantal")
 		c.Assert(err, gc.IsNil)
 		// The outer EnsureAvailability call will allocate IDs 0..2,

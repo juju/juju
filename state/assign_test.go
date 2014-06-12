@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/txn"
+	"github.com/juju/juju/state/txn/testing"
 )
 
 type AssignSuite struct {
@@ -509,10 +510,10 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	makeDirty := txn.TransactionHook{
+	makeDirty := txn.TestHook{
 		Before: func() { c.Assert(unit.AssignToMachine(machine), gc.IsNil) },
 	}
-	defer txn.SetTransactionHooks(
+	defer testing.SetTestHooks(
 		c, s.State.TransactionRunner, makeDirty,
 	).Check()
 
@@ -543,7 +544,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	addContainer := txn.TransactionHook{
+	addContainer := txn.TestHook{
 		Before: func() {
 			_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 				Series: "quantal",
@@ -552,7 +553,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 	}
-	defer txn.SetTransactionHooks(
+	defer testing.SetTestHooks(
 		c, s.State.TransactionRunner, addContainer,
 	).Check()
 
