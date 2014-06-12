@@ -60,7 +60,7 @@ func (s *txnSuite) TestRunTransaction(c *gc.C) {
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
-	err := s.txnRunner.runTransaction(ops)
+	err := s.txnRunner.RunTransaction(ops)
 	c.Assert(err, gc.IsNil)
 	var found simpleDoc
 	err = s.collection.FindId("1").One(&found)
@@ -71,9 +71,9 @@ func (s *txnSuite) TestRunTransaction(c *gc.C) {
 func (s *txnSuite) TestRun(c *gc.C) {
 	doc := simpleDoc{"1", "Foo"}
 	maxAttempt := 0
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		maxAttempt = attempt
-		ops = []txn.Op{{
+		ops := []txn.Op{{
 			C:      s.collection.Name,
 			Id:     doc.Id,
 			Assert: txn.DocMissing,
@@ -81,12 +81,12 @@ func (s *txnSuite) TestRun(c *gc.C) {
 		}}
 		return ops, nil
 	}
-	err := s.txnRunner.run(builtTxn)
+	err := s.txnRunner.Run(builtTxn)
 	c.Assert(err, gc.IsNil)
 	var found simpleDoc
 	err = s.collection.FindId("1").One(&found)
 	c.Assert(err, gc.IsNil)
-	c.Assert(maxAttempt, gc.Equals, 1)
+	c.Assert(maxAttempt, gc.Equals, 0)
 	c.Assert(found, gc.DeepEquals, doc)
 }
 
@@ -97,7 +97,7 @@ func (s *txnSuite) setDocName(c *gc.C, id, name string) {
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"name", name}}}},
 	}}
-	err := s.txnRunner.runTransaction(ops)
+	err := s.txnRunner.RunTransaction(ops)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -109,7 +109,7 @@ func (s *txnSuite) insertDoc(c *gc.C, id, name string) {
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}
-	err := s.txnRunner.runTransaction(ops)
+	err := s.txnRunner.RunTransaction(ops)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -121,9 +121,9 @@ func (s *txnSuite) TestBeforeHooks(c *gc.C) {
 	}
 	defer txntesting.SetBeforeHooks(c, s.txnRunner, changeFuncs...).Check()
 	maxAttempt := 0
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		maxAttempt = attempt
-		ops = []txn.Op{{
+		ops := []txn.Op{{
 			C:      s.collection.Name,
 			Id:     "1",
 			Assert: bson.D{{"name", "Foo"}},
@@ -131,12 +131,12 @@ func (s *txnSuite) TestBeforeHooks(c *gc.C) {
 		}}
 		return ops, nil
 	}
-	err := s.txnRunner.run(builtTxn)
+	err := s.txnRunner.Run(builtTxn)
 	c.Assert(err, gc.IsNil)
 	var found simpleDoc
 	err = s.collection.FindId("1").One(&found)
 	c.Assert(err, gc.IsNil)
-	c.Assert(maxAttempt, gc.Equals, 2)
+	c.Assert(maxAttempt, gc.Equals, 1)
 	doc := simpleDoc{"1", "Bar"}
 	c.Assert(found, gc.DeepEquals, doc)
 }
@@ -147,9 +147,9 @@ func (s *txnSuite) TestAfterHooks(c *gc.C) {
 	}
 	defer txntesting.SetAfterHooks(c, s.txnRunner, changeFuncs...).Check()
 	maxAttempt := 0
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		maxAttempt = attempt
-		ops = []txn.Op{{
+		ops := []txn.Op{{
 			C:      s.collection.Name,
 			Id:     "1",
 			Assert: bson.D{{"name", "Foo"}},
@@ -157,12 +157,12 @@ func (s *txnSuite) TestAfterHooks(c *gc.C) {
 		}}
 		return ops, nil
 	}
-	err := s.txnRunner.run(builtTxn)
+	err := s.txnRunner.Run(builtTxn)
 	c.Assert(err, gc.IsNil)
 	var found simpleDoc
 	err = s.collection.FindId("1").One(&found)
 	c.Assert(err, gc.IsNil)
-	c.Assert(maxAttempt, gc.Equals, 2)
+	c.Assert(maxAttempt, gc.Equals, 1)
 	doc := simpleDoc{"1", "Bar"}
 	c.Assert(found, gc.DeepEquals, doc)
 }
@@ -176,9 +176,9 @@ func (s *txnSuite) TestRetryHooks(c *gc.C) {
 	}).Check()
 
 	maxAttempt := 0
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		maxAttempt = attempt
-		ops = []txn.Op{{
+		ops := []txn.Op{{
 			C:      s.collection.Name,
 			Id:     "1",
 			Assert: bson.D{{"name", "Foo"}},
@@ -186,9 +186,9 @@ func (s *txnSuite) TestRetryHooks(c *gc.C) {
 		}}
 		return ops, nil
 	}
-	err := s.txnRunner.run(builtTxn)
+	err := s.txnRunner.Run(builtTxn)
 	c.Assert(err, gc.IsNil)
-	c.Assert(maxAttempt, gc.Equals, 3)
+	c.Assert(maxAttempt, gc.Equals, 2)
 	var found simpleDoc
 	err = s.collection.FindId("1").One(&found)
 	c.Assert(err, gc.IsNil)
@@ -198,9 +198,9 @@ func (s *txnSuite) TestRetryHooks(c *gc.C) {
 
 func (s *txnSuite) TestExcessiveContention(c *gc.C) {
 	maxAttempt := 0
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		maxAttempt = attempt
-		ops = []txn.Op{{
+		ops := []txn.Op{{
 			C:      s.collection.Name,
 			Id:     "1",
 			Assert: bson.D{{"name", "Foo"}},
@@ -208,7 +208,43 @@ func (s *txnSuite) TestExcessiveContention(c *gc.C) {
 		}}
 		return ops, nil
 	}
-	err := s.txnRunner.run(builtTxn)
+	err := s.txnRunner.Run(builtTxn)
 	c.Assert(err, gc.Equals, statetxn.ErrExcessiveContention)
-	c.Assert(maxAttempt, gc.Equals, 3)
+	c.Assert(maxAttempt, gc.Equals, 2)
+}
+
+func (s *txnSuite) TestNothingToDo(c *gc.C) {
+	maxAttempt := 0
+	builtTxn := func(attempt int) ([]txn.Op, error) {
+		maxAttempt = attempt
+		return nil, statetxn.ErrNoTransactions
+	}
+	err := s.txnRunner.Run(builtTxn)
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(maxAttempt, gc.Equals, 0)
+}
+
+func (s *txnSuite) TestTransientFailure(c *gc.C) {
+	s.insertDoc(c, "1", "Foo")
+	maxAttempt := 0
+	builtTxn := func(attempt int) ([]txn.Op, error) {
+		maxAttempt = attempt
+		if attempt == 0 {
+			return nil, statetxn.ErrTransientFailure
+		}
+		ops := []txn.Op{{
+			C:      s.collection.Name,
+			Id:     "1",
+			Assert: bson.D{{"name", "Foo"}},
+			Update: bson.D{{"$set", bson.D{{"name", "Bar"}}}},
+		}}
+		return ops, nil
+	}
+	err := s.txnRunner.Run(builtTxn)
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(maxAttempt, gc.Equals, 1)
+	doc := simpleDoc{"1", "Bar"}
+	var found simpleDoc
+	err = s.collection.FindId("1").One(&found)
+	c.Assert(found, gc.DeepEquals, doc)
 }

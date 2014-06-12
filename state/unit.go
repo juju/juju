@@ -24,6 +24,8 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+
+	statetxn "github.com/juju/juju/state/txn"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -272,24 +274,24 @@ func (u *Unit) Destroy() (err error) {
 		}
 	}()
 	unit := &Unit{st: u.st, doc: u.doc}
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := unit.Refresh(); errors.IsNotFound(err) {
-				return []txn.Op{}, nil
+				return nil, statetxn.ErrNoTransactions
 			} else if err != nil {
 				return nil, err
 			}
 		}
-		switch ops, err = unit.destroyOps(); err {
+		switch ops, err := unit.destroyOps(); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return []txn.Op{}, nil
+			return nil, statetxn.ErrNoTransactions
 		case nil:
 			return ops, nil
 		default:
 			return nil, err
 		}
-		return []txn.Op{}, nil
+		return nil, statetxn.ErrNoTransactions
 	}
 	if err = unit.st.run(builtTxn); err == nil {
 		if err = unit.Refresh(); errors.IsNotFound(err) {
@@ -451,24 +453,24 @@ func (u *Unit) Remove() (err error) {
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
 	unit := &Unit{st: u.st, doc: u.doc}
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := unit.Refresh(); errors.IsNotFound(err) {
-				return ops, nil
+				return nil, statetxn.ErrNoTransactions
 			} else if err != nil {
 				return nil, err
 			}
 		}
-		switch ops, err = unit.removeOps(isDeadDoc); err {
+		switch ops, err := unit.removeOps(isDeadDoc); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return []txn.Op{}, nil
+			return nil, statetxn.ErrNoTransactions
 		case nil:
 			return ops, nil
 		default:
 			return nil, err
 		}
-		return []txn.Op{}, nil
+		return nil, statetxn.ErrNoTransactions
 	}
 	if err = unit.st.run(builtTxn); err == nil {
 		if err = unit.Refresh(); errors.IsNotFound(err) {
@@ -714,7 +716,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 	if curl == nil {
 		return fmt.Errorf("cannot set nil charm url")
 	}
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
 			return nil, err
 		} else if !notDead {
@@ -725,7 +727,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			return nil, err
 		} else if count == 1 {
 			// Already set
-			return ops, nil
+			return nil, statetxn.ErrNoTransactions
 		}
 		if count, err := u.st.charms.FindId(curl).Count(); err != nil {
 			return nil, err
@@ -741,7 +743,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 
 		// Set the new charm URL.
 		differentCharm := bson.D{{"charmurl", bson.D{{"$ne", curl}}}}
-		ops = []txn.Op{
+		ops := []txn.Op{
 			incOp,
 			{
 				C:      u.st.units.Name,

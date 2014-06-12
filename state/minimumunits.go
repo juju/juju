@@ -7,6 +7,8 @@ import (
 	"github.com/juju/errors"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
+
+	statetxn "github.com/juju/juju/state/txn"
 )
 
 // minUnitsDoc keeps track of relevant changes on the service's MinUnits field
@@ -44,7 +46,7 @@ func (s *Service) SetMinUnits(minUnits int) (err error) {
 	// it, the former should be able to re-create the document in the second
 	// attempt. If the referred-to service advanced its life cycle to a not
 	// alive state, an error is returned after the first failing attempt.
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := service.Refresh(); err != nil {
 				return nil, err
@@ -54,7 +56,7 @@ func (s *Service) SetMinUnits(minUnits int) (err error) {
 			return nil, errors.New("service is no longer alive")
 		}
 		if minUnits == service.doc.MinUnits {
-			return []txn.Op{}, nil
+			return nil, statetxn.ErrNoTransactions
 		}
 		return setMinUnitsOps(service, minUnits), nil
 	}

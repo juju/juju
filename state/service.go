@@ -112,24 +112,24 @@ func (s *Service) Destroy() (err error) {
 		}
 	}()
 	svc := &Service{st: s.st, doc: s.doc}
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := svc.Refresh(); errors.IsNotFound(err) {
-				return []txn.Op{}, nil
+				return nil, statetxn.ErrNoTransactions
 			} else if err != nil {
 				return nil, err
 			}
 		}
-		switch ops, err = svc.destroyOps(); err {
+		switch ops, err := svc.destroyOps(); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return []txn.Op{}, nil
+			return nil, statetxn.ErrNoTransactions
 		case nil:
 			return ops, nil
 		default:
 			return nil, err
 		}
-		return nil, statetxn.ErrExcessiveContention
+		return nil, statetxn.ErrTransientFailure
 	}
 	return s.st.run(builtTxn)
 }
@@ -469,7 +469,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 	if ch.URL().Series != s.doc.Series {
 		return fmt.Errorf("cannot change a service's series")
 	}
-	builtTxn := func(attempt int) (ops []txn.Op, err error) {
+	builtTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			// If the service is not alive, fail out immediately; otherwise,
 			// data changed underneath us, so retry.
@@ -481,8 +481,9 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		}
 		// Make sure the service doesn't have this charm already.
 		sel := bson.D{{"_id", s.doc.Name}, {"charmurl", ch.URL()}}
+		var ops []txn.Op
 		if count, err := s.st.services.Find(sel).Count(); err != nil {
-			return ops, err
+			return nil, err
 		} else if count == 1 {
 			// Charm URL already set; just update the force flag.
 			sameCharm := bson.D{{"charmurl", ch.URL()}}
