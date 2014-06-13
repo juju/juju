@@ -89,8 +89,8 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 	c.Assert(os.IsNotExist(err), jc.IsTrue)
 
 	c.Assert(resp.StatusCode, gc.Equals, 200)
-	//	c.Assert(resp.Header["X-Content-SHA"], gc.Equals, "some-sha")
-	//c.Assert(resp.Header["Content-Type"], gc.Equals, "application/octet-stream")
+	c.Assert(resp.Header.Get("X-Content-SHA"), gc.Equals, "some-sha")
+	c.Assert(resp.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	c.Assert(body, jc.DeepEquals, []byte("foobarbam"))
