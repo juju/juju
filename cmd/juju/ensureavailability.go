@@ -52,7 +52,7 @@ Examples:
      8GB RAM.
 `
 
-// FormatSimple marshals value to a yaml-formatted []byte, unless value is nil.
+// formatSimple marshals value to a yaml-formatted []byte, unless value is nil.
 func formatSimple(value interface{}) ([]byte, error) {
 	ensureAvailabilityResult, ok := value.(availabilityInfo)
 	if !ok {

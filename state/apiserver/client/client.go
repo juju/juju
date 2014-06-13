@@ -1075,9 +1075,9 @@ func machineIdsToTags(ids ...string) []string {
 	return result
 }
 
-// Generate a StateServersChange structure.
-func stateServersChange(change state.StateServersChange) params.StateServersChange {
-	return params.StateServersChange{
+// Generate a StateServersChanges structure.
+func stateServersChanges(change state.StateServersChanges) params.StateServersChanges {
+	return params.StateServersChanges{
 		Added:      machineIdsToTags(change.Added...),
 		Maintained: machineIdsToTags(change.Maintained...),
 		Removed:    machineIdsToTags(change.Removed...),
@@ -1087,13 +1087,13 @@ func stateServersChange(change state.StateServersChange) params.StateServersChan
 }
 
 // EnsureAvailability ensures the availability of Juju state servers.
-func (c *Client) EnsureAvailability(args params.StateServersSpec) (params.StateServersChange, error) {
+func (c *Client) EnsureAvailability(args params.StateServersSpec) (params.StateServersChanges, error) {
 	series := args.Series
 
 	if series == "" {
 		ssi, err := c.api.state.StateServerInfo()
 		if err != nil {
-			return params.StateServersChange{}, err
+			return params.StateServersChanges{}, err
 		}
 
 		// We should always have at least one voting machine
@@ -1102,19 +1102,19 @@ func (c *Client) EnsureAvailability(args params.StateServersSpec) (params.StateS
 		// the first one, then they'll stay in sync.
 		if len(ssi.VotingMachineIds) == 0 {
 			// Better than a panic()?
-			return params.StateServersChange{}, fmt.Errorf("internal error, failed to find any voting machines")
+			return params.StateServersChanges{}, fmt.Errorf("internal error, failed to find any voting machines")
 		}
 		templateMachine, err := c.api.state.Machine(ssi.VotingMachineIds[0])
 		if err != nil {
-			return params.StateServersChange{}, err
+			return params.StateServersChanges{}, err
 		}
 		series = templateMachine.Series()
 	}
 	changes, err := c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
 	if err != nil {
-		return params.StateServersChange{}, err
+		return params.StateServersChanges{}, err
 	}
-	chg := stateServersChange(changes)
+	chg := stateServersChanges(changes)
 
 	return chg, nil
 }

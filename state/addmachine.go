@@ -497,14 +497,14 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 // EnsureAvailability adds state server machines as necessary to make
 // the number of live state servers equal to numStateServers. The given
 // constraints and series will be attached to any new machines.
-func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (StateServersChange, error) {
+func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (StateServersChanges, error) {
 	if numStateServers < 0 || (numStateServers != 0 && numStateServers%2 != 1) {
-		return StateServersChange{}, fmt.Errorf("number of state servers must be odd and non-negative")
+		return StateServersChanges{}, fmt.Errorf("number of state servers must be odd and non-negative")
 	}
 	if numStateServers > replicaset.MaxPeers {
-		return StateServersChange{}, fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
+		return StateServersChanges{}, fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
 	}
-	var change StateServersChange
+	var change StateServersChanges
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		currentInfo, err := st.StateServerInfo()
 		if err != nil {
@@ -541,19 +541,20 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 		voteCount += len(intent.promote)
 		intent.newCount = desiredStateServerCount - voteCount
 		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
+
 		var ops []txn.Op
 		ops, change, err = st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
 		return ops, err
 	}
 	if err := st.run(buildTxn); err != nil {
 		err = errors.Annotate(err, "failed to create new state server machines")
-		return StateServersChange{}, err
+		return StateServersChanges{}, err
 	}
 	return change, nil
 }
 
 // Change in state servers after the ensure availability txn has committed.
-type StateServersChange struct {
+type StateServersChanges struct {
 	Added      []string
 	Removed    []string
 	Maintained []string
@@ -567,9 +568,9 @@ func (st *State) ensureAvailabilityIntentionOps(
 	currentInfo *StateServerInfo,
 	cons constraints.Value,
 	series string,
-) ([]txn.Op, StateServersChange, error) {
+) ([]txn.Op, StateServersChanges, error) {
 	var ops []txn.Op
-	var change StateServersChange
+	var change StateServersChanges
 	for _, m := range intent.promote {
 		ops = append(ops, promoteStateServerOps(m)...)
 		change.Promoted = append(change.Promoted, m.doc.Id)
@@ -590,7 +591,7 @@ func (st *State) ensureAvailabilityIntentionOps(
 		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
-			return nil, StateServersChange{}, err
+			return nil, StateServersChanges{}, err
 		}
 		mdocs[i] = mdoc
 		ops = append(ops, addOps...)
@@ -606,16 +607,16 @@ func (st *State) ensureAvailabilityIntentionOps(
 	for _, m := range intent.maintain {
 		tag, err := names.ParseTag(m.Tag())
 		if err != nil {
-			return nil, StateServersChange{}, fmt.Errorf("could not parse machine tag: %v", err)
+			return nil, StateServersChanges{}, fmt.Errorf("could not parse machine tag: %v", err)
 		}
 		if tag.Kind() != names.MachineTagKind {
-			return nil, StateServersChange{}, fmt.Errorf("expected machine tag kind, got %s", tag.Kind())
+			return nil, StateServersChanges{}, fmt.Errorf("expected machine tag kind, got %s", tag.Kind())
 		}
 		change.Maintained = append(change.Maintained, tag.Id())
 	}
 	ssOps, err := st.maintainStateServersOps(mdocs, currentInfo)
 	if err != nil {
-		return nil, StateServersChange{}, fmt.Errorf("cannot prepare machine add operations: %v", err)
+		return nil, StateServersChanges{}, fmt.Errorf("cannot prepare machine add operations: %v", err)
 	}
 	ops = append(ops, ssOps...)
 	return ops, change, nil
