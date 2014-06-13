@@ -593,6 +593,13 @@ func (c *Client) DestroyEnvironment() error {
 	return c.call("DestroyEnvironment", nil, nil)
 }
 
+const BACKUP_FILENAME = "jujubackup-%d.tar.gz"
+
+func (c *Client) Backup(backupFilePath string) (string, error) {
+	/* XXX stub */
+	return backupFilePath, nil
+}
+
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
 // charm URL. If the API server does not support charm uploads, an
