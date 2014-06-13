@@ -31,7 +31,7 @@ func (m *Machine) Id() string {
 }
 
 func mustParseMachineTag(machineTag string) names.MachineTag {
-	tag, err := names.ParseMachineTag(tag)
+	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		panic(err)
 	}

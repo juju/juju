@@ -26,12 +26,12 @@ func (u *Unit) Name() string {
 	return mustParseUnitTag(u.tag).Id()
 }
 
-func mustParseUnitTag(tag string) names.UnitTag {
-	t, err := names.ParseUnitTag(tag)
+func mustParseUnitTag(unitTag string) names.UnitTag {
+	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
 		panic(err)
 	}
-	return t
+	return tag
 }
 
 // Life returns the unit's lifecycle value.

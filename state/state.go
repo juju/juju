@@ -441,7 +441,11 @@ func (st *State) Machine(id string) (*Machine, error) {
 // *User, *Service or *Environment, depending
 // on the tag.
 func (st *State) FindEntity(tag string) (Entity, error) {
-	t, id, err := names.ParseTag(tag, "")
+	t, err := names.ParseTag(tag, "")
+	if err != nil {
+		return nil, err
+	}
+	id := t.Id()
 	switch t.(type) {
 	case names.MachineTag:
 		return st.Machine(id)
@@ -486,7 +490,7 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 // parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
 func (st *State) parseTag(tag string) (coll string, id string, err error) {
-	t, id, err := names.ParseTag(tag, "")
+	t, err := names.ParseTag(tag, "")
 	if err != nil {
 		return "", "", err
 	}
@@ -508,7 +512,7 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
-	return coll, id, nil
+	return coll, t.Id(), nil
 }
 
 // AddCharm adds the ch charm with curl to the state. bundleURL must
@@ -929,7 +933,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // they will be created automatically.
 func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string) (service *Service, err error) {
 	defer errors.Maskf(&err, "cannot add service %q", name)
-	tag, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
+	tag, err := names.ParseTag(ownerTag, names.UserTagKind)
 	if err != nil || tag.Kind() != names.UserTagKind {
 		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
 	}
@@ -951,6 +955,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 	} else if env.Life() != Alive {
 		return nil, fmt.Errorf("environment is no longer alive")
 	}
+	ownerId := tag.Id()
 	if userExists, err := st.checkUserExists(ownerId); err != nil {
 		return nil, err
 	} else if !userExists {
