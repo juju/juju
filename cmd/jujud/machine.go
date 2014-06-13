@@ -474,8 +474,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				}
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
-				return apiserver.NewServer(
-					st, fmt.Sprintf(":%d", port), cert, key, dataDir, logDir)
+				return apiserver.NewServer(st, apiserver.ServerConfig{
+					Addr:    fmt.Sprintf(":%d", port),
+					Cert:    cert,
+					Key:     key,
+					DataDir: dataDir,
+					LogDir:  logDir,
+				})
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -655,27 +660,29 @@ func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string
 // upgradeWaiterWorker runs the specified worker after upgrades have completed.
 func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		// wait for the upgrade to complete (or for us to be stopped)
+		// Wait for the upgrade to complete (or for us to be stopped).
 		select {
 		case <-stop:
 			return nil
 		case <-a.upgradeComplete:
 		}
-		w, err := start()
+		// Upgrades are done, start the worker.
+		worker, err := start()
 		if err != nil {
 			return err
 		}
+		// Wait for worker to finish or for us to be stopped.
 		waitCh := make(chan error)
 		go func() {
-			waitCh <- w.Wait()
+			waitCh <- worker.Wait()
 		}()
 		select {
 		case err := <-waitCh:
 			return err
 		case <-stop:
-			w.Kill()
+			worker.Kill()
 		}
-		return <-waitCh
+		return <-waitCh // Ensure worker has stopped before returning.
 	})
 }
 

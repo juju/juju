@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/errors"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -52,12 +53,18 @@ var badLoginTests = []struct {
 }}
 
 func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
+	return s.setupServerWithValidator(c, nil)
+}
+
+func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
 	srv, err := apiserver.NewServer(
 		s.State,
-		"localhost:0",
-		[]byte(coretesting.ServerCert),
-		[]byte(coretesting.ServerKey),
-		"", "",
+		apiserver.ServerConfig{
+			Addr:      "localhost:0",
+			Cert:      []byte(coretesting.ServerCert),
+			Key:       []byte(coretesting.ServerKey),
+			Validator: validator,
+		},
 	)
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
@@ -486,4 +493,39 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.EnvironTag, gc.Equals, env.Tag())
+}
+
+func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
+	validator := func(_ params.Creds) error {
+		return nil
+	}
+	err := s.runLoginWithValidator(c, validator)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *loginSuite) TestLoginValidationFail(c *gc.C) {
+	validator := func(_ params.Creds) error {
+		return errors.New("Login not allowed")
+	}
+	err := s.runLoginWithValidator(c, validator)
+	c.Assert(err, gc.ErrorMatches, "Login not allowed")
+}
+
+func (s *loginSuite) runLoginWithValidator(c *gc.C, validator apiserver.LoginValidator) error {
+	info, cleanup := s.setupServerWithValidator(c, validator)
+	defer cleanup()
+
+	info.Tag = ""
+	info.Password = ""
+
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	// Ensure not already logged in.
+	_, err = st.Machiner().Machine("0")
+	c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
+
+	// Since these are user login tests, the nonce is empty.
+	return st.Login("user-admin", "dummy-secret", "")
 }
