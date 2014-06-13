@@ -54,10 +54,11 @@ var badLoginTests = []struct {
 func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 	srv, err := apiserver.NewServer(
 		s.State,
-		"localhost:0",
-		[]byte(coretesting.ServerCert),
-		[]byte(coretesting.ServerKey),
-		"", "",
+		apiserver.ServerConfig{
+			Addr: "localhost:0",
+			Cert: []byte(coretesting.ServerCert),
+			Key:  []byte(coretesting.ServerKey),
+		},
 	)
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()

@@ -42,24 +42,33 @@ type Server struct {
 	limiter     utils.Limiter
 }
 
+// ServerConfig holds parameters required to set up an API server.
+type ServerConfig struct {
+	Addr    string
+	Cert    []byte
+	Key     []byte
+	DataDir string
+	LogDir  string
+}
+
 // NewServer serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
-func NewServer(s *state.State, addr string, cert, key []byte, datadir, logDir string) (*Server, error) {
-	lis, err := net.Listen("tcp", addr)
+func NewServer(s *state.State, cfg ServerConfig) (*Server, error) {
+	lis, err := net.Listen("tcp", cfg.Addr)
 	if err != nil {
 		return nil, err
 	}
 	logger.Infof("listening on %q", lis.Addr())
-	tlsCert, err := tls.X509KeyPair(cert, key)
+	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
 	if err != nil {
 		return nil, err
 	}
 	srv := &Server{
 		state:   s,
 		addr:    lis.Addr(),
-		dataDir: datadir,
-		logDir:  logDir,
+		dataDir: cfg.DataDir,
+		logDir:  cfg.LogDir,
 		limiter: utils.NewLimiter(loginRateLimit),
 	}
 	// TODO(rog) check that *srvRoot is a valid type for using

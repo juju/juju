@@ -474,8 +474,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				}
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
-				return apiserver.NewServer(
-					st, fmt.Sprintf(":%d", port), cert, key, dataDir, logDir)
+				return apiserver.NewServer(st, apiserver.ServerConfig{
+					Addr:    fmt.Sprintf(":%d", port),
+					Cert:    cert,
+					Key:     key,
+					DataDir: dataDir,
+					LogDir:  logDir,
+				})
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
