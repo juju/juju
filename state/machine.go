@@ -32,6 +32,7 @@ type Machine struct {
 	st  *State
 	doc machineDoc
 	annotator
+	presence.Presencer
 }
 
 // MachineJob values define responsibilities that machines may be

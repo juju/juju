@@ -90,6 +90,7 @@ type Unit struct {
 	st  *State
 	doc unitDoc
 	annotator
+	presence.Presencer
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {

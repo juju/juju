@@ -194,16 +194,17 @@ func (p *machinePinger) Stop() error {
 }
 
 func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticator) error {
+	// A machine or unit agent has connected, so start a pinger to
+	// announce it's now alive, and set up the API pinger
+	// so that the connection will be terminated if a sufficient
+	// interval passes between pings.
 	agentPresencer, ok := entity.(interface {
 		SetAgentPresence() (*presence.Pinger, error)
 	})
 	if !ok {
 		return nil
 	}
-	// A machine or unit agent has connected, so start a pinger to
-	// announce it's now alive, and set up the API pinger
-	// so that the connection will be terminated if a sufficient
-	// interval passes between pings.
+
 	pinger, err := agentPresencer.SetAgentPresence()
 	if err != nil {
 		return err

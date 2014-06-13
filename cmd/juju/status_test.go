@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
@@ -98,21 +97,15 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 	}
 }
 
-type aliver interface {
-	AgentPresence() (bool, error)
-	SetAgentPresence() (*presence.Pinger, error)
-	WaitAgentPresence(time.Duration) error
-}
-
-func (ctx *context) setAgentPresence(c *gc.C, a aliver) *presence.Pinger {
-	pinger, err := a.SetAgentPresence()
+func (ctx *context) setAgentPresence(c *gc.C, p presence.Presencer) *presence.Pinger {
+	pinger, err := p.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 	ctx.st.StartSync()
-	err = a.WaitAgentPresence(coretesting.LongWait)
+	err = p.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
-	agentAlive, err := a.AgentPresence()
+	agentPresence, err := p.AgentPresence()
 	c.Assert(err, gc.IsNil)
-	c.Assert(agentAlive, gc.Equals, true)
+	c.Assert(agentPresence, gc.Equals, true)
 	return pinger
 }
 

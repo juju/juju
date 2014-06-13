@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
+	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -205,11 +206,7 @@ func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 	s.assertAlive(c, unit, false)
 }
 
-type agentAliver interface {
-	AgentPresence() (bool, error)
-}
-
-func (s *serverSuite) assertAlive(c *gc.C, entity agentAliver, isAlive bool) {
+func (s *serverSuite) assertAlive(c *gc.C, entity presence.Presencer, isAlive bool) {
 	s.State.StartSync()
 	alive, err := entity.AgentPresence()
 	c.Assert(err, gc.IsNil)
