@@ -138,7 +138,7 @@ func preallocFiles(prefix string, sizes ...int) error {
 		}
 	}
 	if err != nil {
-		logger.Debugf("failed to preallocate %q, cleaning up")
+		logger.Debugf("cleaning up after preallocation failure: %v", err)
 		for _, filename := range createdFiles {
 			if err := os.Remove(filename); err != nil {
 				logger.Errorf("failed to remove %q: %v", filename, err)
