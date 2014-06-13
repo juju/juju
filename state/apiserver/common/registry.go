@@ -120,24 +120,6 @@ func RegisterStandardFacade(name string, version int, newFunc interface{}) {
 	RegisterFacade(name, version, wrapped, facadeType)
 }
 
-// GetFacadeFactory returns the factory that can be used to create an instance
-// of the Facade.
-func GetFacadeFactory(name string, version int) (FacadeFactory, error) {
-	factory, err := Facades.GetFactory(name, version)
-	if err != nil {
-		return nil, err
-	}
-	return factory, nil
-}
-
-// GetFacadeType can return the concrete type that will be returned from the
-// FacadeFactory.
-func GetFacadeType(name string, version int) (reflect.Type, error) {
-	return Facades.GetType(name, version)
-}
-
-var facadeFactoryType = reflect.TypeOf((*facadeRecord)(nil)).Elem()
-
 var Facades = &FacadeRegistry{}
 
 type Versions map[int]facadeRecord

@@ -34,31 +34,28 @@ func (s *facadeRegistrySuite) TestRegister(c *gc.C) {
 	common.SanitizeFacades(s)
 	var v interface{}
 	common.RegisterFacade("myfacade", 0, testFacade, reflect.TypeOf(&v).Elem())
-	f, err := common.GetFacadeFactory("myfacade", 0)
+	f, err := common.Facades.GetFactory("myfacade", 0)
 	c.Assert(err, gc.IsNil)
 	val, err := f(nil, nil, nil, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(val, gc.Equals, "myobject")
 }
 
-func (s *facadeRegistrySuite) TestGetFacadeBadName(c *gc.C) {
-	common.SanitizeFacades(s)
-	var v interface{}
-	common.RegisterFacade("myfacade", 0, testFacade, reflect.TypeOf(&v).Elem())
-	_, err := common.GetFacadeFactory("notmyfacade", 0)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `notmyfacade\(0\) not found`)
+func (*facadeRegistrySuite) TestGetFactoryUnknown(c *gc.C) {
+	r := &common.FacadeRegistry{}
+	f, err := r.GetFactory("name", 0)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, gc.ErrorMatches, `name\(0\) not found`)
+	c.Check(f, gc.IsNil)
 }
 
-func (s *facadeRegistrySuite) TestGetFacadeBadVersion(c *gc.C) {
-	common.SanitizeFacades(s)
-	var v interface{}
-	common.RegisterFacade("myfacade", 0, testFacade, reflect.TypeOf(v))
-	_, err := common.GetFacadeFactory("myfacade", 1)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	c.Assert(err, gc.ErrorMatches, `myfacade\(1\) not found`)
+func (*facadeRegistrySuite) TestGetFactoryUnknownVersion(c *gc.C) {
+	r := &common.FacadeRegistry{}
+	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
+	f, err := r.GetFactory("name", 1)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, gc.ErrorMatches, `name\(1\) not found`)
+	c.Check(f, gc.IsNil)
 }
 
 // TODO: We need a test that calling API versions that aren't there return the
@@ -172,7 +169,7 @@ func (*facadeRegistrySuite) TestWrapNewFacadeCallsWithRightParams(c *gc.C) {
 func (s *facadeRegistrySuite) TestRegisterStandardFacade(c *gc.C) {
 	common.SanitizeFacades(s)
 	common.RegisterStandardFacade("testing", 0, validFactory)
-	wrapped, err := common.GetFacadeFactory("testing", 0)
+	wrapped, err := common.Facades.GetFactory("testing", 0)
 	c.Assert(err, gc.IsNil)
 	val, err := wrapped(nil, nil, nil, "")
 	c.Assert(err, gc.IsNil)
@@ -185,7 +182,7 @@ func (s *facadeRegistrySuite) TestRegisterStandardFacadePanic(c *gc.C) {
 		func() { common.RegisterStandardFacade("badtest", 0, noArgs) },
 		gc.PanicMatches,
 		`function ".*noArgs" does not take 3 parameters and return 2`)
-	_, err := common.GetFacadeFactory("badtest", 0)
+	_, err := common.Facades.GetFactory("badtest", 0)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(err, gc.ErrorMatches, `badtest\(0\) not found`)
 }
@@ -195,7 +192,7 @@ func (*facadeRegistrySuite) TestDiscardedAPIMethods(c *gc.C) {
 	c.Assert(allFacades, gc.Not(gc.HasLen), 0)
 	for _, description := range allFacades {
 		for _, version := range description.Versions {
-			facadeType, err := common.GetFacadeType(description.Name, version)
+			facadeType, err := common.Facades.GetType(description.Name, version)
 			c.Assert(err, gc.IsNil)
 			facadeObjType := rpcreflect.ObjTypeOf(facadeType)
 			// We must have some methods on every object returned
@@ -308,23 +305,6 @@ func (*facadeRegistrySuite) TestGetType(c *gc.C) {
 	typ, err := r.GetType("name", 0)
 	c.Assert(err, gc.IsNil)
 	c.Check(typ, gc.Equals, intPtrType)
-}
-
-func (*facadeRegistrySuite) TestGetFactoryUnknown(c *gc.C) {
-	r := &common.FacadeRegistry{}
-	f, err := r.GetFactory("name", 0)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-	c.Check(err, gc.ErrorMatches, `name\(0\) not found`)
-	c.Check(f, gc.IsNil)
-}
-
-func (*facadeRegistrySuite) TestGetFactoryUnknownVersion(c *gc.C) {
-	r := &common.FacadeRegistry{}
-	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
-	f, err := r.GetFactory("name", 1)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-	c.Check(err, gc.ErrorMatches, `name\(1\) not found`)
-	c.Check(f, gc.IsNil)
 }
 
 func (*facadeRegistrySuite) TestDiscardHandlesNotPresent(c *gc.C) {
