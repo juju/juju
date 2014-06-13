@@ -199,10 +199,8 @@ func getAuthFuncForTagKind(kind string) common.GetAuthFunc {
 				return kind == ""
 			}
 			// Allow only the given tag kind.
-			if _, err := names.ParseTag(tag, kind); err != nil {
-				return false
-			}
-			return true
+			_, err := names.ParseTag(tag, kind)
+			return err == nil
 		}, nil
 	}
 }
