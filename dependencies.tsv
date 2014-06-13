@@ -9,7 +9,7 @@ github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	
 github.com/juju/charm	git	1be916ca1fee152004f27cf83df96b130411ea9f	
-github.com/juju/cmd	git	a47e3cb766e6e9c5af8c3dc11a86d9709a2dc4ef	
+github.com/juju/cmd	git	e2d7df426d54b663f8616901b75d1ccfafcd9997	
 github.com/juju/errgo	git	26caa7d4884f6048c5687fa44c410e5d5d95e554	
 github.com/juju/errors	git	075df0417dbcc39d24ee18248d2f8d6e3eed598b	
 github.com/juju/loggo	git	7e8c70b24b80b95b2284f09306aac0bd93588db8	
