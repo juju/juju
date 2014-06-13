@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/charm"
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"

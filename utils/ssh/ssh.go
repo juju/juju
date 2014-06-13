@@ -14,7 +14,7 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/juju/juju/cmd"
+	"github.com/juju/cmd"
 )
 
 // Options is a client-implementation independent SSH options set.

@@ -8,9 +8,8 @@ import (
 
 	"github.com/juju/charm"
 	"github.com/juju/charmstore"
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/cmd"
 )
 
 type DeleteCharmCommand struct {

@@ -7,9 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/charmstore"
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/cmd"
 )
 
 // ConfigCommand defines a command which requires a YAML config file.

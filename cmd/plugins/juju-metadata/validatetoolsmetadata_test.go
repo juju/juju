@@ -7,10 +7,10 @@ import (
 	"bytes"
 	"strings"
 
+	"github.com/juju/cmd"
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/tools"

@@ -8,9 +8,9 @@ import (
 	"os"
 	"path"
 
+	"github.com/juju/cmd"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/testing"
 )
 

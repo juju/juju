@@ -7,9 +7,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/cmd"
 )
 
 // OwnerGetCommand implements the owner-get command.

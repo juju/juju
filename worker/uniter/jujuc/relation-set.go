@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/cmd"
 )
 
 // RelationSetCommand implements the relation-set command.

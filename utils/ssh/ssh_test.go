@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/utils/ssh"
 )
 

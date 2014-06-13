@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/juju/cmd"
+	"github.com/juju/cmd"
+
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 func main() {
@@ -17,9 +19,8 @@ func main() {
 		os.Exit(2)
 	}
 
-	admcmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
+	admcmd := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "charm-admin",
-		Log:  &cmd.Log{},
 	})
 
 	admcmd.Register(&DeleteCharmCommand{})
