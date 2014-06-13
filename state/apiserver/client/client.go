@@ -238,7 +238,7 @@ var CharmStore charm.Repository = charm.Store
 func networkTagsToNames(tags []string) ([]string, error) {
 	netNames := make([]string, len(tags))
 	for i, tag := range tags {
-		t, err := names.ParseTag(tag, names.NetworkTagKind)
+		t, err := names.ParseNetworkTag(tag)
 		if err != nil {
 			return nil, err
 		}
