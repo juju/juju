@@ -14,11 +14,11 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/osenv"
 	_ "github.com/juju/juju/provider/dummy"

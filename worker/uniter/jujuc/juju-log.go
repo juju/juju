@@ -8,10 +8,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/cmd"
 )
 
 // JujuLogCommand implements the juju-log command.

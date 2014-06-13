@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs/simplestreams"
 )
 

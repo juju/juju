@@ -8,11 +8,11 @@ import (
 	"os"
 
 	"github.com/juju/charm"
+	"github.com/juju/cmd"
 	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/bzr"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/testing"
 )

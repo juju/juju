@@ -7,10 +7,9 @@ import (
 	"bytes"
 	"io/ioutil"
 
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
-
-	"github.com/juju/juju/cmd"
 )
 
 // NewFlagSet creates a new flag set using the standard options, particularly
