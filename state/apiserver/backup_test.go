@@ -4,12 +4,15 @@
 package apiserver_test
 
 import (
+	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -66,7 +69,7 @@ func (s *backupSuite) TestAuthRequiresUser(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "GET"`)
 }
 
-func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
+func (s *backupSuite) TestDoBackupCalledAndFileServed(c *gc.C) {
 	testBackup := func(tempDir string) (string, string, error) {
 		s.tempDir = tempDir
 		backupFilePath := filepath.Join(tempDir, "testBackupFile")
@@ -94,4 +97,54 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 
 	body, _ := ioutil.ReadAll(resp.Body)
 	c.Assert(body, jc.DeepEquals, []byte("foobarbam"))
+}
+
+func (s *backupSuite) TestErrorWhenBackupFails(c *gc.C) {
+	testBackup := func(tempDir string) (string, string, error) {
+		s.tempDir = tempDir
+		return "", "", fmt.Errorf("something bad")
+	}
+	s.PatchValue(&apiserver.DoBackup, testBackup)
+
+	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
+	c.Assert(err, gc.IsNil)
+	defer resp.Body.Close()
+
+	c.Assert(s.tempDir, gc.NotNil)
+	_, err = os.Stat(s.tempDir)
+	c.Assert(os.IsNotExist(err), jc.IsTrue)
+
+	c.Assert(resp.StatusCode, gc.Equals, 500)
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	jsonResponse := params.BackupResponse{}
+	err = json.Unmarshal(body, &jsonResponse)
+	c.Assert(err, gc.IsNil)
+	c.Assert(jsonResponse.Error, gc.Equals, "backup failed: something bad")
+}
+
+func (s *backupSuite) TestErrorWhenBackupFileDoesNotExist(c *gc.C) {
+	testBackup := func(tempDir string) (string, string, error) {
+		s.tempDir = tempDir
+		backupFilePath := filepath.Join(tempDir, "testBackupFile")
+		return backupFilePath, "some-sha", nil
+	}
+	s.PatchValue(&apiserver.DoBackup, testBackup)
+
+	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
+	c.Assert(err, gc.IsNil)
+	defer resp.Body.Close()
+
+	c.Assert(s.tempDir, gc.NotNil)
+	_, err = os.Stat(s.tempDir)
+	c.Assert(os.IsNotExist(err), jc.IsTrue)
+
+	c.Assert(resp.StatusCode, gc.Equals, 500)
+	body, _ := ioutil.ReadAll(resp.Body)
+
+	jsonResponse := params.BackupResponse{}
+	err = json.Unmarshal(body, &jsonResponse)
+	c.Assert(err, gc.IsNil)
+	c.Assert(jsonResponse.Error, gc.Equals, "backup failed: missing backup file")
+	c.Assert(resp.StatusCode, gc.Equals, 200)
 }
