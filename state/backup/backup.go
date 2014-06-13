@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package backup
@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -66,7 +65,12 @@ func tarAndHashFiles(fileList []string, targetPath, strip string, compress bool,
 // writeContents creates an entry for the given file
 // or directory in the given tar archive.
 func writeContents(fileName, strip string, tarw *tar.Writer) error {
-	fInfo, err := os.Stat(fileName)
+	f, err := os.Open(fileName)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	fInfo, err := f.Stat()
 	if err != nil {
 		return err
 	}
@@ -74,8 +78,7 @@ func writeContents(fileName, strip string, tarw *tar.Writer) error {
 	if err != nil {
 		return fmt.Errorf("cannot create tar header for %q: %v", fileName, err)
 	}
-	h.Name = strings.TrimPrefix(fileName, strip)
-	h.Name = strings.TrimPrefix(h.Name, string(os.PathSeparator))
+	h.Name = filepath.ToSlash(strings.TrimPrefix(fileName, strip))
 	if err := tarw.WriteHeader(h); err != nil {
 		return fmt.Errorf("cannot write header for %q: %v", fileName, err)
 	}
@@ -83,37 +86,37 @@ func writeContents(fileName, strip string, tarw *tar.Writer) error {
 		if !strings.HasSuffix(fileName, string(os.PathSeparator)) {
 			fileName = fileName + string(os.PathSeparator)
 		}
-		directoryChildren, err := filepath.Glob(fileName + "*")
-		if err != nil {
-			fmt.Errorf("malformed directory listing expression: %q", fileName)
-		}
-		for _, directoryChild := range directoryChildren {
-			err = writeContents(directoryChild, strip, tarw)
+
+		for {
+			names, err := f.Readdirnames(100)
+			if len(names) == 0 && err == io.EOF {
+				return nil
+			}
 			if err != nil {
-				return err
+				return fmt.Errorf("error reading directory %q: %v", fileName, err)
+			}
+			for _, name := range names {
+				if err := writeContents(filepath.Join(fileName, name), strip, tarw); err != nil {
+					return err
+				}
 			}
 		}
-		return nil
 	}
-	f, err := os.Open(fileName)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
 	if _, err := io.Copy(tarw, f); err != nil {
 		return fmt.Errorf("failed to write %q: %v", fileName, err)
 	}
 	return nil
 }
 
-func _getFilesToBackup() ([]string, error) {
+var getFilesToBackup = _getFilesToBackup
 
-	LIBJUJU_PATH := "/var/lib/juju"
+func _getFilesToBackup() ([]string, error) {
+	const dataDir string = "/var/lib/juju"
 	initMachineConfs, err := filepath.Glob("/etc/init/jujud-machine-*.conf")
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch machine upstart files: %v", err)
 	}
-	agentConfs, err := filepath.Glob(path.Join(LIBJUJU_PATH, "agents", "machine-*"))
+	agentConfs, err := filepath.Glob(filepath.Join(dataDir, "agents", "machine-*"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch agent configuration files: %v", err)
 	}
@@ -124,12 +127,12 @@ func _getFilesToBackup() ([]string, error) {
 
 	backupFiles := []string{
 		"/etc/init/juju-db.conf",
-		path.Join(LIBJUJU_PATH, "tools"),
-		path.Join(LIBJUJU_PATH, "server.pem"),
-		path.Join(LIBJUJU_PATH, "system-identity"),
-		path.Join(LIBJUJU_PATH, "nonce.txt"),
-		path.Join(LIBJUJU_PATH, "shared-secret"),
-		"~/.ssh/authorized_keys",
+		filepath.Join(dataDir, "tools"),
+		filepath.Join(dataDir, "server.pem"),
+		filepath.Join(dataDir, "system-identity"),
+		filepath.Join(dataDir, "nonce.txt"),
+		filepath.Join(dataDir, "shared-secret"),
+		"/home/ubuntu/.ssh/authorized_keys",
 		"/var/log/juju/all-machines.log",
 		"/var/log/juju/machine-0.log",
 	}
@@ -139,21 +142,21 @@ func _getFilesToBackup() ([]string, error) {
 	return backupFiles, nil
 }
 
-var getFilesToBackup = _getFilesToBackup
-
-func _runCommand(command string) (string, error) {
-	dumpCommand := exec.Command(command)
-	output, err := dumpCommand.Output()
-	if err != nil {
-		return "", fmt.Errorf("external command failed: %v", err)
-	}
-	return string(output), nil
-}
-
 var runCommand = _runCommand
 
+func _runCommand(cmd string, args ...string) error {
+	command := exec.Command(cmd, args...)
+	_, err := command.Output()
+	if err != nil {
+		return fmt.Errorf("external command failed: %v", err)
+	}
+	return nil
+}
+
+var getMongodumpPath = _getMongodumpPath
+
 func _getMongodumpPath() (string, error) {
-	mongoDumpPath := "/usr/lib/juju/bin/mongodump"
+	const mongoDumpPath string = "/usr/lib/juju/bin/mongodump"
 
 	if _, err := os.Stat(mongoDumpPath); err == nil {
 		return mongoDumpPath, nil
@@ -165,10 +168,7 @@ func _getMongodumpPath() (string, error) {
 		return "", err
 	}
 	return path, nil
-
 }
-
-var getMongodumpPath = _getMongodumpPath
 
 // Backup creates a tar.gz file named juju-backup_<date YYYYMMDDHHMMSS>.tar.gz
 // in the specified outputFolder.
@@ -188,39 +188,41 @@ func Backup(adminPassword, outputFolder string, mongoPort int) (string, string, 
 
 	tempDir, err := ioutil.TempDir("", "jujuBackup")
 	defer os.RemoveAll(tempDir)
-	bkpDir := path.Join(tempDir, "juju-backup")
-	dumpDir := path.Join(bkpDir, "dump")
+	bkpDir := filepath.Join(tempDir, "juju-backup")
+	dumpDir := filepath.Join(bkpDir, "dump")
 	err = os.MkdirAll(dumpDir, os.FileMode(0755))
 	if err != nil {
-		return "", "", fmt.Errorf("unable to create backup temporary directory: %v", err)
+		return "", "", fmt.Errorf("cannot create backup temporary directory: %v", err)
 	}
 
-	cmd := fmt.Sprintf("%s --oplog --ssl "+
-		"--host localhost:%d "+
-		"--username admin "+
-		"--password '%s'"+
-		" --out %s", mongodumpPath, mongoPort, adminPassword, dumpDir)
-	_, err = runCommand(cmd)
+	err = runCommand(
+			mongodumpPath, 
+			"--oplog", 
+			"--ssl", 
+			"--host", fmt.Sprintf("localhost:%d", mongoPort),
+			"--username", "admin",
+			"--password", fmt.Sprintf("'%s'", adminPassword),
+			"--out", dumpDir)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to dump database: %v", err)
 	}
 
-	tarFile := path.Join(bkpDir, "root.tar")
+	tarFile := filepath.Join(bkpDir, "root.tar")
 	backupFiles, err := getFilesToBackup()
 	if err != nil {
-		return "", "", fmt.Errorf("unable to determine files to backup: %v")
+		return "", "", fmt.Errorf("cannot determine files to backup: %v")
 	}
-	_, err = tarFiles(backupFiles, tarFile, "", false)
+	_, err = tarFiles(backupFiles, tarFile, string(os.PathSeparator), false)
 	if err != nil {
-		return "", "", fmt.Errorf("unable to backup configuration files: %v", err)
+		return "", "", fmt.Errorf("cannot backup configuration files: %v", err)
 	}
 
 	shaSum, err := tarFiles([]string{bkpDir},
-		path.Join(outputFolder, bkpFile),
-		tempDir,
+		filepath.Join(outputFolder, bkpFile),
+		fmt.Sprintf("%s%s", tempDir, string(os.PathSeparator)),
 		true)
 	if err != nil {
-		return "", "", fmt.Errorf("unable to tar configuration files: %v", err)
+		return "", "", fmt.Errorf("cannot tar configuration files: %v", err)
 	}
 	return bkpFile, shaSum, nil
 }

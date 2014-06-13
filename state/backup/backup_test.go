@@ -5,7 +5,6 @@ package backup
 
 import (
 	"archive/tar"
-	"bufio"
 	"compress/gzip"
 	"crypto/sha256"
 	"fmt"
@@ -49,6 +48,7 @@ func (b *BackupSuite) createTestFiles(c *gc.C) {
 	tarSubFile1 := path.Join(tarDirP, "TarSubFile1")
 	tarSubFile1Handle, err := os.Create(tarSubFile1)
 	c.Check(err, gc.IsNil)
+	tarSubFile1Handle.WriteString("TarSubFile1")
 	tarSubFile1Handle.Close()
 
 	tarSubDir := path.Join(tarDirP, "TarDirectoryPopulatedSubDirectory")
@@ -58,11 +58,13 @@ func (b *BackupSuite) createTestFiles(c *gc.C) {
 	tarFile1 := path.Join(b.cwd, "TarFile1")
 	tarFile1Handle, err := os.Create(tarFile1)
 	c.Check(err, gc.IsNil)
+	tarFile1Handle.WriteString("TarFile1")
 	tarFile1Handle.Close()
 
 	tarFile2 := path.Join(b.cwd, "TarFile2")
 	tarFile2Handle, err := os.Create(tarFile2)
 	c.Check(err, gc.IsNil)
+	tarFile2Handle.WriteString("TarFile2")
 	tarFile2Handle.Close()
 	b.testFiles = []string{tarDirE, tarDirP, tarFile1, tarFile2}
 
@@ -75,20 +77,32 @@ func (b *BackupSuite) removeTestFiles(c *gc.C) {
 	}
 }
 
-var testExpectedTarContents = []string{
-	"TarDirectoryEmpty",
-	"TarDirectoryPopulated",
-	"TarDirectoryPopulated/TarSubFile1",
-	"TarDirectoryPopulated/TarDirectoryPopulatedSubDirectory",
-	"TarFile1",
-	"TarFile2",
+type expectedTarContents struct {
+	Name string
+	Body string
 }
 
-func (b *BackupSuite) checkContents(c *gc.C, expectedContents []string, tarFile, prefix string, compressed bool) {
+var testExpectedTarContents = []expectedTarContents{
+	{"TarDirectoryEmpty",""},
+	{"TarDirectoryPopulated", ""},
+	{"TarDirectoryPopulated/TarSubFile1","TarSubFile1"},
+	{"TarDirectoryPopulated/TarDirectoryPopulatedSubDirectory", ""},
+	{"TarFile1", "TarFile1"},
+	{"TarFile2", "TarFile2"},
+}
+
+// Assert thar contents checks that the tar[.gz] file provided contains the
+// Expected files
+// expectedContents: is a slice of the filenames with relative paths that are
+// expected to be on the tar file
+// tarFile: is the path of the file to be checked
+func (b *BackupSuite) assertTarContents(c *gc.C, expectedContents []expectedTarContents, 
+					tarFile string,
+					compressed bool) {
 	f, err := os.Open(tarFile)
 	c.Assert(err, gc.IsNil)
-	var r io.Reader
-	r = bufio.NewReader(f)
+	defer f.Close()
+	var r io.Reader = f
 	if compressed {
 		r, err = gzip.NewReader(r)
 		c.Assert(err, gc.IsNil)
@@ -105,16 +119,25 @@ func (b *BackupSuite) checkContents(c *gc.C, expectedContents []string, tarFile,
 			break
 		}
 		c.Assert(err, gc.IsNil)
-		tarContents[hdr.Name] = ""
+		buf := make([]byte, hdr.Size, hdr.Size) 
+		_, err = tr.Read(buf)
+		if err != io.EOF {
+			// Found something other than EOF
+			c.Assert(err, gc.IsNil)
+		}
+		tarContents[hdr.Name] = string(buf)
 	}
 	for _, expectedContent := range expectedContents {
-		fullExpectedContent := path.Join(prefix, expectedContent)
-		fullExpectedContent = strings.TrimPrefix(fullExpectedContent, string(os.PathSeparator))
-		_, ok := tarContents[fullExpectedContent]
+		fullExpectedContent := strings.TrimPrefix(expectedContent.Name, string(os.PathSeparator))
+		body, ok := tarContents[fullExpectedContent]
 		c.Log(tarContents)
 		c.Log(expectedContents)
 		c.Log(fmt.Sprintf("checking for presence of %q on tar file", fullExpectedContent))
 		c.Assert(ok, gc.Equals, true)
+		if expectedContent.Body != "" {
+			c.Log("Also checking the file contents")
+			c.Assert(body, gc.Equals, expectedContent.Body)
+		}
 	}
 
 }
@@ -132,25 +155,26 @@ func shaSumFile(c *gc.C, fileToSum string) string {
 func (b *BackupSuite) TestTarsFiles(c *gc.C) {
 	b.createTestFiles(c)
 	outputTar := path.Join(b.cwd, "output_tar_file.tar")
-	shaSum, err := tarFiles(b.testFiles, outputTar, "", false)
+	trimPath := fmt.Sprintf("%s/", b.cwd)
+	shaSum, err := tarFiles(b.testFiles, outputTar, trimPath, false)
 	c.Check(err, gc.IsNil)
 	fileShaSum := shaSumFile(c, outputTar)
 	c.Assert(shaSum, gc.Equals, fileShaSum)
 	b.removeTestFiles(c)
-	b.checkContents(c, testExpectedTarContents, outputTar, b.cwd, false)
+	b.assertTarContents(c, testExpectedTarContents, outputTar, false)
 }
 
 func (b *BackupSuite) TestTarGzsFiles(c *gc.C) {
 	b.createTestFiles(c)
-
 	outputTarGz := path.Join(b.cwd, "output_tar_file.tgz")
-	shaSum, err := tarFiles(b.testFiles, outputTarGz, "", true)
+	trimPath := fmt.Sprintf("%s/", b.cwd)
+	shaSum, err := tarFiles(b.testFiles, outputTarGz, trimPath, true)
 	c.Check(err, gc.IsNil)
 
 	fileShaSum := shaSumFile(c, outputTarGz)
 	c.Assert(shaSum, gc.Equals, fileShaSum)
 
-	b.checkContents(c, testExpectedTarContents, outputTarGz, b.cwd, true)
+	b.assertTarContents(c, testExpectedTarContents, outputTarGz, true)
 }
 
 func (b *BackupSuite) TestBackUp(c *gc.C) {
@@ -158,18 +182,19 @@ func (b *BackupSuite) TestBackUp(c *gc.C) {
 	ranCommand := false
 	getMongodumpPath = func() (string, error) { return "bogusmongodump", nil }
 	getFilesToBackup = func() ([]string, error) { return b.testFiles, nil }
-	runCommand = func(command string) (string, error) {
+	runCommand = func(command string, args ...string) error {
 		ranCommand = true
-		return "", nil
+		return nil
 	}
 	bkpFile, shaSum, err := Backup("boguspassword", b.cwd, 123456)
 	c.Check(err, gc.IsNil)
 	c.Assert(ranCommand, gc.Equals, true)
 	fileShaSum := shaSumFile(c, path.Join(b.cwd, bkpFile))
 	c.Assert(shaSum, gc.Equals, fileShaSum)
-	expectedContents := []string{
-		"juju-backup",
-		"juju-backup/dump",
-		"juju-backup/root.tar"}
-	b.checkContents(c, expectedContents, path.Join(b.cwd, bkpFile), "", true)
+	bkpExpectedContents := []expectedTarContents{
+		{"juju-backup", ""},
+		{"juju-backup/dump", ""},
+		{"juju-backup/root.tar", ""},
+	}
+	b.assertTarContents(c, bkpExpectedContents, path.Join(b.cwd, bkpFile), true)
 }
