@@ -152,6 +152,7 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	ctx.Infof("upgrade version chosen: %s", context.chosen)
 	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
 	ctx.Infof("available tools: %s", context.tools)
+	ctx.Infof("upgrade to this version by running\njuju upgrade-juju --version=\"%s\"\n", context.chosen)
 
 	if !c.DryRun {
 		if err := client.SetEnvironAgentVersion(context.chosen); err != nil {
