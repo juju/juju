@@ -421,10 +421,14 @@ func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
 			tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `upgrade version chosen: 2.2.3
-available tools: 2.2.0-quantal-amd64;2.2.2-quantal-i386;2.2.3-quantal-amd64
+			expectedCmdOutput: `available tools:
+    2.2.0-quantal-amd64
+    2.2.2-quantal-i386
+    2.2.3-quantal-amd64
+best version:
+    2.2.3
 upgrade to this version by running
-juju upgrade-juju --version="2.2.3"
+    juju upgrade-juju --version="2.2.3"
 `,
 		},
 		DryRunTest{
@@ -433,10 +437,14 @@ juju upgrade-juju --version="2.2.3"
 			tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
 			currentVersion: "2.0.0-quantal-amd64",
 			agentVersion:   "2.0.0",
-			expectedCmdOutput: `upgrade version chosen: 2.2.3
-available tools: 2.2.0-quantal-amd64;2.2.2-quantal-i386;2.2.3-quantal-amd64
+			expectedCmdOutput: `available tools:
+    2.2.0-quantal-amd64
+    2.2.2-quantal-i386
+    2.2.3-quantal-amd64
+best version:
+    2.2.3
 upgrade to this version by running
-juju upgrade-juju --version="2.2.3"
+    juju upgrade-juju --version="2.2.3"
 `,
 		},
 	}

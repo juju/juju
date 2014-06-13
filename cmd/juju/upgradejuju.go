@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"strings"
 
 	"launchpad.net/gnuflag"
 
@@ -79,7 +80,7 @@ func (c *UpgradeJujuCommand) Info() *cmd.Info {
 func (c *UpgradeJujuCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.vers, "version", "", "upgrade to specific version")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools")
-	f.BoolVar(&c.DryRun, "dry-run", false, "Don't change anything, just report what would change")
+	f.BoolVar(&c.DryRun, "dry-run", false, "don't change anything, just report what would change")
 	f.Var(newSeriesValue(nil, &c.Series), "series", "upload tools for supplied comma-separated series list")
 }
 
@@ -110,6 +111,14 @@ func (c *UpgradeJujuCommand) Init(args []string) error {
 }
 
 var errUpToDate = stderrors.New("no upgrades available")
+
+func formatTools(tools coretools.List) string {
+	formatted := make([]string, len(tools))
+	for i, tools := range tools {
+		formatted[i] = fmt.Sprintf("    %s", tools.Version.String())
+	}
+	return strings.Join(formatted, "\n")
+}
 
 // Run changes the version proposed for the juju envtools.
 func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
@@ -149,12 +158,12 @@ func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	if err := context.validate(); err != nil {
 		return err
 	}
-	ctx.Infof("upgrade version chosen: %s", context.chosen)
 	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
-	ctx.Infof("available tools: %s", context.tools)
-	ctx.Infof("upgrade to this version by running\njuju upgrade-juju --version=\"%s\"\n", context.chosen)
-
-	if !c.DryRun {
+	ctx.Infof("available tools:\n%s", formatTools(context.tools))
+	ctx.Infof("best version:\n    %s", context.chosen)
+	if c.DryRun {
+		ctx.Infof("upgrade to this version by running\n    juju upgrade-juju --version=\"%s\"\n", context.chosen)
+	} else {
 		if err := client.SetEnvironAgentVersion(context.chosen); err != nil {
 			return err
 		}
