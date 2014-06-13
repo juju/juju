@@ -4,7 +4,6 @@
 package apiserver_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -12,7 +11,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -114,13 +112,7 @@ func (s *backupSuite) TestErrorWhenBackupFails(c *gc.C) {
 	_, err = os.Stat(s.tempDir)
 	c.Assert(os.IsNotExist(err), jc.IsTrue)
 
-	c.Assert(resp.StatusCode, gc.Equals, 500)
-	body, _ := ioutil.ReadAll(resp.Body)
-
-	jsonResponse := params.BackupResponse{}
-	err = json.Unmarshal(body, &jsonResponse)
-	c.Assert(err, gc.IsNil)
-	c.Assert(jsonResponse.Error, gc.Equals, "backup failed: something bad")
+	s.assertErrorResponse(c, resp, 500, "backup failed: something bad")
 }
 
 func (s *backupSuite) TestErrorWhenBackupFileDoesNotExist(c *gc.C) {
@@ -139,12 +131,5 @@ func (s *backupSuite) TestErrorWhenBackupFileDoesNotExist(c *gc.C) {
 	_, err = os.Stat(s.tempDir)
 	c.Assert(os.IsNotExist(err), jc.IsTrue)
 
-	c.Assert(resp.StatusCode, gc.Equals, 500)
-	body, _ := ioutil.ReadAll(resp.Body)
-
-	jsonResponse := params.BackupResponse{}
-	err = json.Unmarshal(body, &jsonResponse)
-	c.Assert(err, gc.IsNil)
-	c.Assert(jsonResponse.Error, gc.Equals, "backup failed: missing backup file")
-	c.Assert(resp.StatusCode, gc.Equals, 200)
+	s.assertErrorResponse(c, resp, 500, "backup failed: missing backup file")
 }
