@@ -152,7 +152,7 @@ def restore_missing_state_server(env, backup_file):
 
 def wait_for_ha(env):
     desired_state = 'has-vote'
-    for remaining in until_timeout(600):
+    for remaining in until_timeout(900):
         status = env.get_status()
         states = {}
         for machine, info in status.iter_machines():
