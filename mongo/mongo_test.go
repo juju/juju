@@ -60,6 +60,10 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.PatchValue(&mongo.JujuMongodPath, s.mongodPath)
 
+	// Patch "df" such that it always reports there's 1MB free.
+	s.PatchValue(mongo.AvailSpace, func(dir string) (float64, error) { return 1, nil })
+	s.PatchValue(mongo.MinOplogSizeMB, 1)
+
 	testPath := c.MkDir()
 	s.mongodConfigPath = filepath.Join(testPath, "mongodConfig")
 	s.PatchValue(mongo.MongoConfigPath, s.mongodConfigPath)
