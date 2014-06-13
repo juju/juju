@@ -828,6 +828,7 @@ func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
 			newfip = nil
 			continue
 		} else {
+			logger.Debugf("found unassigned public ip: %v", newfip.IP)
 			// unassigned, we can use it
 			return newfip, nil
 		}
@@ -838,6 +839,7 @@ func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
 		if err != nil {
 			return nil, err
 		}
+		logger.Debugf("allocated new public ip: %v", newfip.IP)
 	}
 	return newfip, nil
 }
@@ -948,6 +950,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	withPublicIP := e.ecfg().useFloatingIP()
 	var publicIP *nova.FloatingIP
 	if withPublicIP {
+		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.allocatePublicIP(); err != nil {
 			return nil, nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
