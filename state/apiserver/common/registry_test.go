@@ -30,16 +30,8 @@ func testFacade(
 	return "myobject", nil
 }
 
-func (s *facadeRegistrySuite) sanitizeFacades() {
-	// reset common.Facades so that we don't mutate the officially
-	// registered Facades.
-
-	// a raw type isn't an expression, so we have to play tricks.
-	common.PatchFacades(s)
-}
-
 func (s *facadeRegistrySuite) TestRegister(c *gc.C) {
-	s.sanitizeFacades()
+	common.SanitizeFacades(s)
 	var v interface{}
 	common.RegisterFacade("myfacade", 0, testFacade, reflect.TypeOf(&v).Elem())
 	f, err := common.GetFacadeFactory("myfacade", 0)
@@ -50,23 +42,23 @@ func (s *facadeRegistrySuite) TestRegister(c *gc.C) {
 }
 
 func (s *facadeRegistrySuite) TestGetFacadeBadName(c *gc.C) {
-	s.sanitizeFacades()
+	common.SanitizeFacades(s)
 	var v interface{}
 	common.RegisterFacade("myfacade", 0, testFacade, reflect.TypeOf(&v).Elem())
 	_, err := common.GetFacadeFactory("notmyfacade", 0)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Assert(err, gc.ErrorMatches, `unknown object type "notmyfacade"`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `notmyfacade\(0\) not found`)
 }
 
 func (s *facadeRegistrySuite) TestGetFacadeBadVersion(c *gc.C) {
-	s.sanitizeFacades()
+	common.SanitizeFacades(s)
 	var v interface{}
 	common.RegisterFacade("myfacade", 0, testFacade, reflect.TypeOf(v))
 	_, err := common.GetFacadeFactory("myfacade", 1)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Assert(err, gc.ErrorMatches, `unknown version \(1\) of interface "myfacade"`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `myfacade\(1\) not found`)
 }
 
 // TODO: We need a test that calling API versions that aren't there return the
@@ -177,8 +169,8 @@ func (*facadeRegistrySuite) TestWrapNewFacadeCallsWithRightParams(c *gc.C) {
 	c.Check(asResult.auth, gc.Equals, authorizer)
 }
 
-func (r *facadeRegistrySuite) TestRegisterStandardFacade(c *gc.C) {
-	r.sanitizeFacades()
+func (s *facadeRegistrySuite) TestRegisterStandardFacade(c *gc.C) {
+	common.SanitizeFacades(s)
 	common.RegisterStandardFacade("testing", 0, validFactory)
 	wrapped, err := common.GetFacadeFactory("testing", 0)
 	c.Assert(err, gc.IsNil)
@@ -187,15 +179,15 @@ func (r *facadeRegistrySuite) TestRegisterStandardFacade(c *gc.C) {
 	c.Check(*(val.(*int)), gc.Equals, 100)
 }
 
-func (r *facadeRegistrySuite) TestRegisterStandardFacadePanic(c *gc.C) {
-	r.sanitizeFacades()
+func (s *facadeRegistrySuite) TestRegisterStandardFacadePanic(c *gc.C) {
+	common.SanitizeFacades(s)
 	c.Assert(
 		func() { common.RegisterStandardFacade("badtest", 0, noArgs) },
 		gc.PanicMatches,
 		`function ".*noArgs" does not take 3 parameters and return 2`)
 	_, err := common.GetFacadeFactory("badtest", 0)
-	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Assert(err, gc.ErrorMatches, `unknown object type "badtest"`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `badtest\(0\) not found`)
 }
 
 func (*facadeRegistrySuite) TestDiscardedAPIMethods(c *gc.C) {

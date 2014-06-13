@@ -4,13 +4,15 @@
 package apiserver
 
 import (
-	"errors"
+	"reflect"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver/agent"
 	"github.com/juju/juju/state/apiserver/charmrevisionupdater"
@@ -53,15 +55,21 @@ var (
 	mongoPingInterval = 10 * time.Second
 )
 
+type objectKey struct {
+	name    string
+	version int
+	objId   string
+}
+
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
 type srvRoot struct {
 	clientAPI
-	srv       *Server
-	rpcConn   *rpc.Conn
-	resources *common.Resources
-
-	entity taggedAuthenticator
+	state       *state.State
+	rpcConn     *rpc.Conn
+	resources   *common.Resources
+	entity      taggedAuthenticator
+	objectCache map[objectKey]interface{}
 }
 
 // newSrvRoot creates the client's connection representation
@@ -69,13 +77,14 @@ type srvRoot struct {
 // connection.
 func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 	r := &srvRoot{
-		srv:       root.srv,
-		rpcConn:   root.rpcConn,
-		resources: common.NewResources(),
-		entity:    entity,
+		state:       root.srv.state,
+		rpcConn:     root.rpcConn,
+		resources:   common.NewResources(),
+		entity:      entity,
+		objectCache: make(map[objectKey]interface{}),
 	}
-	r.resources.RegisterNamed("dataDir", common.StringResource(r.srv.dataDir))
-	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r)
+	r.clientAPI.API = client.NewAPI(r.state, r.resources, r)
+	r.resources.RegisterNamed("dataDir", common.StringResource(root.srv.dataDir))
 	return r
 }
 
@@ -83,6 +92,77 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 // cleaning up to ensure that all outstanding requests return.
 func (r *srvRoot) Kill() {
 	r.resources.StopAll()
+}
+
+type srvCaller struct {
+	objMethod rpcreflect.ObjMethod
+	creator   func(id string) (interface{}, error)
+}
+
+func (s *srvCaller) ParamsType() reflect.Type {
+	return s.objMethod.Params
+}
+
+func (s *srvCaller) ResultType() reflect.Type {
+	return s.objMethod.Result
+}
+
+func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
+	obj, err := s.creator(objId)
+	if err != nil {
+		return reflect.Value{}, err
+	}
+	return s.objMethod.Call(reflect.ValueOf(obj), arg)
+}
+
+func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+	goType, err := common.Facades.GetType(rootName, version)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			// TODO: translate this to CallNotImplementedError
+		}
+		return nil, err
+	}
+	rpcType := rpcreflect.ObjTypeOf(goType)
+	objMethod, err := rpcType.Method(methodName)
+	if err != nil {
+		return nil, &rpcreflect.CallNotImplementedError{
+			RootMethod: rootName,
+			Version:    version,
+			Method:     methodName,
+		}
+	}
+	creator := func(id string) (interface{}, error) {
+		objKey := objectKey{name: rootName, version: version, objId: id}
+		if obj, ok := r.objectCache[objKey]; ok {
+			return obj, nil
+		}
+		factory, err := common.Facades.GetFactory(rootName, version)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				// TODO: translate this to CallNotImplementedError
+				// It shouldn't actually be possible to reach
+				// this point, because GetType up above should
+				// have already handled IsNotFound
+			}
+			return nil, err
+		}
+		obj, err := factory(r.state, r.resources, r, id)
+		if err != nil {
+			return nil, err
+		}
+		if !reflect.TypeOf(obj).AssignableTo(goType) {
+			return nil, errors.Errorf(
+				"internal error, %s(%d) claimed to return %s but returned %T",
+				rootName, version, goType, obj)
+		}
+		r.objectCache[objKey] = obj
+		return obj, nil
+	}
+	return &srvCaller{
+		creator:   creator,
+		objMethod: objMethod,
+	}, nil
 }
 
 // requireAgent checks whether the current client is an agent and hence
@@ -112,7 +192,7 @@ func (r *srvRoot) KeyManager(id string) (*keymanager.KeyManagerAPI, error) {
 	if id != "" {
 		return nil, common.ErrBadId
 	}
-	return keymanager.NewKeyManagerAPI(r.srv.state, r.resources, r)
+	return keymanager.NewKeyManagerAPI(r.state, r.resources, r)
 }
 
 // UserManager returns an object that provides access to the UserManager API
@@ -122,7 +202,7 @@ func (r *srvRoot) UserManager(id string) (*usermanager.UserManagerAPI, error) {
 	if id != "" {
 		return nil, common.ErrBadId
 	}
-	return usermanager.NewUserManagerAPI(r.srv.state, r)
+	return usermanager.NewUserManagerAPI(r.state, r)
 }
 
 // Machiner returns an object that provides access to the Machiner API
@@ -133,7 +213,7 @@ func (r *srvRoot) Machiner(id string) (*machine.MachinerAPI, error) {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return machine.NewMachinerAPI(r.srv.state, r.resources, r)
+	return machine.NewMachinerAPI(r.state, r.resources, r)
 }
 
 // Networker returns an object that provides access to the
@@ -144,7 +224,7 @@ func (r *srvRoot) Networker(id string) (*networker.NetworkerAPI, error) {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return networker.NewNetworkerAPI(r.srv.state, r.resources, r)
+	return networker.NewNetworkerAPI(r.state, r.resources, r)
 }
 
 // Provisioner returns an object that provides access to the
@@ -155,7 +235,7 @@ func (r *srvRoot) Provisioner(id string) (*provisioner.ProvisionerAPI, error) {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return provisioner.NewProvisionerAPI(r.srv.state, r.resources, r)
+	return provisioner.NewProvisionerAPI(r.state, r.resources, r)
 }
 
 // Uniter returns an object that provides access to the Uniter API
@@ -166,7 +246,7 @@ func (r *srvRoot) Uniter(id string) (*uniter.UniterAPI, error) {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return uniter.NewUniterAPI(r.srv.state, r.resources, r)
+	return uniter.NewUniterAPI(r.state, r.resources, r)
 }
 
 // Firewaller returns an object that provides access to the Firewaller
@@ -177,7 +257,7 @@ func (r *srvRoot) Firewaller(id string) (*firewaller.FirewallerAPI, error) {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return firewaller.NewFirewallerAPI(r.srv.state, r.resources, r)
+	return firewaller.NewFirewallerAPI(r.state, r.resources, r)
 }
 
 // Agent returns an object that provides access to the
@@ -187,7 +267,7 @@ func (r *srvRoot) Agent(id string) (*agent.API, error) {
 	if id != "" {
 		return nil, common.ErrBadId
 	}
-	return agent.NewAPI(r.srv.state, r)
+	return agent.NewAPI(r.state, r)
 }
 
 // Deployer returns an object that provides access to the Deployer API facade.
@@ -197,7 +277,7 @@ func (r *srvRoot) Deployer(id string) (*deployer.DeployerAPI, error) {
 		// TODO(dimitern): There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return deployer.NewDeployerAPI(r.srv.state, r.resources, r)
+	return deployer.NewDeployerAPI(r.state, r.resources, r)
 }
 
 // Environment returns an object that provides access to the Environment API
@@ -208,7 +288,7 @@ func (r *srvRoot) Environment(id string) (*environment.EnvironmentAPI, error) {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return environment.NewEnvironmentAPI(r.srv.state, r.resources, r)
+	return environment.NewEnvironmentAPI(r.state, r.resources, r)
 }
 
 // Rsyslog returns an object that provides access to the Rsyslog API
@@ -219,7 +299,7 @@ func (r *srvRoot) Rsyslog(id string) (*rsyslog.RsyslogAPI, error) {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return rsyslog.NewRsyslogAPI(r.srv.state, r.resources, r)
+	return rsyslog.NewRsyslogAPI(r.state, r.resources, r)
 }
 
 // Logger returns an object that provides access to the Logger API facade.
@@ -229,7 +309,7 @@ func (r *srvRoot) Logger(id string) (*loggerapi.LoggerAPI, error) {
 		// TODO: There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return loggerapi.NewLoggerAPI(r.srv.state, r.resources, r)
+	return loggerapi.NewLoggerAPI(r.state, r.resources, r)
 }
 
 // Upgrader returns an object that provides access to the Upgrader API facade.
@@ -249,9 +329,9 @@ func (r *srvRoot) Upgrader(id string) (upgrader.Upgrader, error) {
 	}
 	switch tagKind {
 	case names.MachineTagKind:
-		return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
+		return upgrader.NewUpgraderAPI(r.state, r.resources, r)
 	case names.UnitTagKind:
-		return upgrader.NewUnitUpgraderAPI(r.srv.state, r.resources, r)
+		return upgrader.NewUnitUpgraderAPI(r.state, r.resources, r)
 	}
 	// Not a machine or unit.
 	return nil, common.ErrPerm
@@ -264,7 +344,7 @@ func (r *srvRoot) KeyUpdater(id string) (*keyupdater.KeyUpdaterAPI, error) {
 		// TODO: There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return keyupdater.NewKeyUpdaterAPI(r.srv.state, r.resources, r)
+	return keyupdater.NewKeyUpdaterAPI(r.state, r.resources, r)
 }
 
 // CharmRevisionUpdater returns an object that provides access to the CharmRevisionUpdater API facade.
@@ -274,7 +354,7 @@ func (r *srvRoot) CharmRevisionUpdater(id string) (*charmrevisionupdater.CharmRe
 		// TODO: There is no direct test for this
 		return nil, common.ErrBadId
 	}
-	return charmrevisionupdater.NewCharmRevisionUpdaterAPI(r.srv.state, r.resources, r)
+	return charmrevisionupdater.NewCharmRevisionUpdaterAPI(r.state, r.resources, r)
 }
 
 // NotifyWatcher returns an object that provides
@@ -394,7 +474,8 @@ func (r *srvRoot) AuthEnvironManager() bool {
 // AuthClient returns whether the authenticated entity is a client
 // user.
 func (r *srvRoot) AuthClient() bool {
-	return !isAgent(r.entity)
+	_, isUser := r.entity.(*state.User)
+	return isUser
 }
 
 // GetAuthTag returns the tag of the authenticated entity.

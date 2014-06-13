@@ -14,7 +14,10 @@ type Patcher interface {
 	PatchValue(dest, value interface{})
 }
 
-func PatchFacades(patcher Patcher) {
+// SanitizeFacades patches Facades so that for the lifetime of the test we get
+// a clean slate to work from, and will not accidentally overrite/mutate the
+// real facade registry.
+func SanitizeFacades(patcher Patcher) {
 	emptyFacades := &FacadeRegistry{}
 	patcher.PatchValue(&Facades, emptyFacades)
 }

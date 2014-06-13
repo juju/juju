@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 )
 
@@ -126,12 +125,6 @@ func RegisterStandardFacade(name string, version int, newFunc interface{}) {
 func GetFacadeFactory(name string, version int) (FacadeFactory, error) {
 	factory, err := Facades.GetFactory(name, version)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, &rpcreflect.CallNotImplementedError{
-				RootMethod: name,
-				Version:    version,
-			}
-		}
 		return nil, err
 	}
 	return factory, nil
