@@ -4,12 +4,14 @@
 package apiserver_test
 
 import (
+	"io/ioutil"
 	"net/http"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 )
@@ -78,6 +80,18 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 	}
 	s.PatchValue(&apiserver.DoBackup, testBackup)
 
-	_, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
+	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
+	defer resp.Body.Close()
+
+	c.Assert(s.tempDir, gc.NotNil)
+	_, err = os.Stat(s.tempDir)
+	c.Assert(os.IsNotExist(err), jc.IsTrue)
+
+	c.Assert(resp.StatusCode, gc.Equals, 200)
+	//	c.Assert(resp.Header["X-Content-SHA"], gc.Equals, "some-sha")
+	//c.Assert(resp.Header["Content-Type"], gc.Equals, "application/octet-stream")
+
+	body, _ := ioutil.ReadAll(resp.Body)
+	c.Assert(body, jc.DeepEquals, []byte("foobarbam"))
 }
