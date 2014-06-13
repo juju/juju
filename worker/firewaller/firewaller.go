@@ -308,10 +308,11 @@ func (fw *Firewaller) reconcileInstances() error {
 		} else if err != nil {
 			return err
 		}
-		_, machineId, err := names.ParseTag(machined.tag, names.MachineTagKind)
+		tag, err := names.ParseTag(machined.tag, names.MachineTagKind)
 		if err != nil {
 			return err
 		}
+		machineId := tag.Id()
 		initialPorts, err := instances[0].Ports(machineId)
 		if err != nil {
 			return err
@@ -473,10 +474,11 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	_, machineId, err := names.ParseTag(machined.tag, names.MachineTagKind)
+	tag, err := names.ParseTag(machined.tag, names.MachineTagKind)
 	if err != nil {
 		return err
 	}
+	machineId := tag.Id()
 	instanceId, err := m.InstanceId()
 	if err != nil {
 		return err

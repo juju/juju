@@ -134,13 +134,6 @@ func RemoveService(namespace string) error {
 	return upstartServiceStopAndRemove(svc)
 }
 
-const (
-	// WithHA is used when we want to start a mongo service with HA support.
-	WithHA = true
-	// WithoutHA is used when we want to start a mongo service without HA support.
-	WithoutHA = false
-)
-
 // EnsureMongoServer ensures that the correct mongo upstart script is installed
 // and running.
 //
@@ -150,7 +143,7 @@ const (
 // The namespace is a unique identifier to prevent multiple instances of mongo
 // on this machine from colliding. This should be empty unless using
 // the local provider.
-func EnsureServer(dataDir string, namespace string, info params.StateServingInfo, withHA bool) error {
+func EnsureServer(dataDir string, namespace string, info params.StateServingInfo) error {
 	logger.Infof("Ensuring mongo server is running; data directory %s; port %d", dataDir, info.StatePort)
 	dbDir := filepath.Join(dataDir, "db")
 
@@ -187,7 +180,7 @@ func EnsureServer(dataDir string, namespace string, info params.StateServingInfo
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 
-	upstartConf, mongoPath, err := upstartService(namespace, dataDir, dbDir, info.StatePort, withHA)
+	upstartConf, mongoPath, err := upstartService(namespace, dataDir, dbDir, info.StatePort)
 	if err != nil {
 		return err
 	}
@@ -198,6 +191,9 @@ func EnsureServer(dataDir string, namespace string, info params.StateServingInfo
 	}
 	if err := makeJournalDirs(dbDir); err != nil {
 		return fmt.Errorf("error creating journal directories: %v", err)
+	}
+	if err := preallocOplog(dbDir); err != nil {
+		return fmt.Errorf("error creating oplog files: %v", err)
 	}
 	return upstartConfInstall(upstartConf)
 }
@@ -213,38 +209,16 @@ func ServiceName(namespace string) string {
 
 func makeJournalDirs(dataDir string) error {
 	journalDir := path.Join(dataDir, "journal")
-
 	if err := os.MkdirAll(journalDir, 0700); err != nil {
 		logger.Errorf("failed to make mongo journal dir %s: %v", journalDir, err)
 		return err
 	}
 
-	// manually create the prealloc files, since otherwise they get created as 100M files.
-	zeroes := make([]byte, 64*1024) // should be enough for anyone
-	for x := 0; x < 3; x++ {
-		name := fmt.Sprintf("prealloc.%d", x)
-		filename := filepath.Join(journalDir, name)
-		f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0700)
-		// TODO(jam) 2014-04-12 https://launchpad.net/bugs/1306902
-		// When we support upgrading Mongo into Replica mode, we should
-		// start rewriting the upstart config
-		if os.IsExist(err) {
-			// already exists, don't overwrite
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("failed to open mongo prealloc file %q: %v", filename, err)
-		}
-		defer f.Close()
-		for total := 0; total < 1024*1024; {
-			n, err := f.Write(zeroes)
-			if err != nil {
-				return fmt.Errorf("failed to write to mongo prealloc file %q: %v", filename, err)
-			}
-			total += n
-		}
-	}
-	return nil
+	// Manually create the prealloc files, since otherwise they get
+	// created as 100M files. We create three files of 1MB each.
+	prefix := filepath.Join(journalDir, "prealloc.")
+	preallocSize := 1024 * 1024
+	return preallocFiles(prefix, preallocSize, preallocSize, preallocSize)
 }
 
 func logVersion(mongoPath string) {
@@ -268,7 +242,7 @@ func sharedSecretPath(dataDir string) string {
 // upstartService returns the upstart config for the mongo state service.
 // It also returns the path to the mongod executable that the upstart config
 // will be using.
-func upstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*upstart.Conf, string, error) {
+func upstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, string, error) {
 	svc := upstart.NewService(ServiceName(namespace))
 
 	mongoPath, err := Path()
@@ -287,10 +261,8 @@ func upstartService(namespace, dataDir, dbDir string, port int, withHA bool) (*u
 		" --syslog" +
 		" --smallfiles" +
 		" --journal" +
-		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir))
-	if withHA {
-		mongoCmd += " --replSet " + ReplicaSetName
-	}
+		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
+		" --replSet " + ReplicaSetName
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",

@@ -302,7 +302,7 @@ type environ struct {
 	toolsSources []simplestreams.DataSource
 
 	availabilityZonesMutex sync.Mutex
-	availabilityZones      []nova.AvailabilityZone
+	availabilityZones      []common.AvailabilityZone
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -310,6 +310,7 @@ var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
+var _ state.InstanceDistributor = (*environ)(nil)
 
 type openstackInstance struct {
 	e        *environ
@@ -541,8 +542,20 @@ func (e *environ) ConstraintsValidator() (constraints.Validator, error) {
 
 var novaListAvailabilityZones = (*nova.Client).ListAvailabilityZones
 
-// getAvailabilityZones returns a slice of availability zones.
-func (e *environ) getAvailabilityZones() ([]nova.AvailabilityZone, error) {
+type openstackAvailabilityZone struct {
+	nova.AvailabilityZone
+}
+
+func (z *openstackAvailabilityZone) Name() string {
+	return z.AvailabilityZone.Name
+}
+
+func (z *openstackAvailabilityZone) Available() bool {
+	return z.AvailabilityZone.State.Available
+}
+
+// AvailabilityZones returns a slice of availability zones.
+func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
@@ -550,9 +563,29 @@ func (e *environ) getAvailabilityZones() ([]nova.AvailabilityZone, error) {
 		if err != nil {
 			return nil, err
 		}
-		e.availabilityZones = zones
+		e.availabilityZones = make([]common.AvailabilityZone, len(zones))
+		for i, z := range zones {
+			e.availabilityZones[i] = &openstackAvailabilityZone{z}
+		}
 	}
 	return e.availabilityZones, nil
+}
+
+// InstanceAvailabilityZoneNames returns the availability zone names for each
+// of the specified instances.
+func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	instances, err := e.Instances(ids)
+	if err != nil && err != environs.ErrPartialInstances {
+		return nil, err
+	}
+	zones := make([]string, len(instances))
+	for i, inst := range instances {
+		if inst == nil {
+			continue
+		}
+		zones[i] = inst.(*openstackInstance).serverDetail.AvailabilityZone
+	}
+	return zones, err
 }
 
 type openstackPlacement struct {
@@ -567,13 +600,15 @@ func (e *environ) parsePlacement(placement string) (*openstackPlacement, error) 
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
 		availabilityZone := value
-		zones, err := e.getAvailabilityZones()
+		zones, err := e.AvailabilityZones()
 		if err != nil {
 			return nil, err
 		}
 		for _, z := range zones {
-			if z.Name == availabilityZone {
-				return &openstackPlacement{availabilityZone: z}, nil
+			if z.Name() == availabilityZone {
+				return &openstackPlacement{
+					z.(*openstackAvailabilityZone).AvailabilityZone,
+				}, nil
 			}
 		}
 		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
@@ -828,6 +863,13 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	return err
 }
 
+// DistributeInstances implements the state.InstanceDistributor policy.
+func (e *environ) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
+	return common.DistributeInstances(e, candidates, distributionGroup)
+}
+
+var bestAvailabilityZoneAllocations = common.BestAvailabilityZoneAllocations
+
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 	var availabilityZone string
@@ -840,6 +882,27 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			return nil, nil, nil, fmt.Errorf("availability zone %q is unavailable", placement.availabilityZone.Name)
 		}
 		availabilityZone = placement.availabilityZone.Name
+	}
+
+	// If no availability zone is specified, then automatically spread across
+	// the known zones for optimal spread across the instance distribution
+	// group.
+	if availabilityZone == "" {
+		var group []instance.Id
+		var err error
+		if args.DistributionGroup != nil {
+			group, err = args.DistributionGroup()
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		}
+		bestAvailabilityZones, err := bestAvailabilityZoneAllocations(e, group)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		for availabilityZone = range bestAvailabilityZones {
+			break
+		}
 	}
 
 	if args.MachineConfig.HasNetworks() {
