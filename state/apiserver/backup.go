@@ -7,11 +7,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"os"
 
 	"github.com/juju/juju/state/api/params"
 )
+
+func doBackup(tempDir string) (backupFile string, sha string, err error) {
+	// stub temporary implementation
+	return backupFile, sha, err
+}
+
+var DoBackup = doBackup
 
 // backupHandler handles backup requests
 type backupHandler struct {
@@ -26,11 +34,14 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch r.Method {
 	case "POST":
-		//filename, sha, err = doBackup()
-		filename := "example"
-		sha := "example"
-		var err error
+		tempDir, err := ioutil.TempDir("", "jujuBackup")
+		if err != nil {
+			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed: %v", err))
+			return
+		}
 
+		defer os.RemoveAll(tempDir)
+		filename, sha, err := doBackup(tempDir)
 		if err != nil {
 			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed: %v", err))
 			return
@@ -41,7 +52,6 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed: missing backup file"))
 			return
 		}
-		//defer deleteBackupFileAndTempDirectory()
 
 		w.Header().Set("Content-Type", "application/octet-stream")
 		w.Header().Set("X-Content-SHA", sha)
