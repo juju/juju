@@ -9,13 +9,13 @@ import (
 	"net/url"
 	"path/filepath"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"

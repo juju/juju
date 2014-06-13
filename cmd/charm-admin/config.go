@@ -6,17 +6,17 @@ package main
 import (
 	"fmt"
 
+	"github.com/juju/charmstore"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd"
-	"github.com/juju/juju/store"
 )
 
 // ConfigCommand defines a command which requires a YAML config file.
 type ConfigCommand struct {
 	cmd.CommandBase
 	ConfigPath string
-	Config     *store.Config
+	Config     *charmstore.Config
 }
 
 type CharmdConfig struct {
@@ -35,6 +35,6 @@ func (c *ConfigCommand) Init(args []string) error {
 }
 
 func (c *ConfigCommand) ReadConfig(ctx *cmd.Context) (err error) {
-	c.Config, err = store.ReadConfig(ctx.AbsPath(c.ConfigPath))
+	c.Config, err = charmstore.ReadConfig(ctx.AbsPath(c.ConfigPath))
 	return err
 }

@@ -49,6 +49,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/provider/common"
@@ -90,8 +91,10 @@ func stateInfo() *state.Info {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	return &state.Info{
-		Addrs:  []string{gitjujutesting.MgoServer.Addr()},
-		CACert: testing.CACert,
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
 	}
 }
 
@@ -624,7 +627,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// so that we can call it here.
 
 		info := stateInfo()
-		st, err := state.Initialize(info, cfg, state.DefaultDialOpts(), estate.statePolicy)
+		st, err := state.Initialize(info, cfg, mongo.DefaultDialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)
 		}
@@ -634,7 +637,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.SetAdminMongoPassword(utils.UserPasswordHash(password, utils.CompatSalt)); err != nil {
 			panic(err)
 		}
-		_, err = st.AddUser("admin", "", password)
+		_, err = st.AddAdminUser(password)
 		if err != nil {
 			panic(err)
 		}
@@ -813,7 +816,6 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 				InterfaceName: fmt.Sprintf("eth%d", i),
 				VLANTag:       i,
 				MACAddress:    fmt.Sprintf("aa:bb:cc:dd:ee:f%d", i),
-				IsVirtual:     i > 0,
 			}
 		}
 	}

@@ -4,12 +4,12 @@
 package state
 
 import (
+	charmtesting "github.com/juju/charm/testing"
 	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -70,7 +70,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 }
 
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
-	_, err := s.state.AddUser(AdminUser, "", "pass")
+	_, err := s.state.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
 	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
 	service, err := s.state.AddService("mysql", "user-admin", charm, nil)

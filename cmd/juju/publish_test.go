@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/juju/charm"
 	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/bzr"
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/testing"
@@ -21,7 +21,7 @@ import (
 
 type PublishSuite struct {
 	testing.FakeJujuHomeSuite
-	testing.HTTPSuite
+	gitjujutesting.HTTPSuite
 
 	dir        string
 	oldBaseURL string
@@ -172,13 +172,13 @@ func (s *PublishSuite) TestPreExistingPublished(c *gc.C) {
 	digest, err := s.branch.RevisionId()
 	c.Assert(err, gc.IsNil)
 	body := `{"cs:precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
-	testing.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
+	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
 	ctx, err := s.runPublish(c, "cs:precise/wordpress")
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "cs:precise/wordpress-42\n")
 
-	req := testing.Server.WaitRequest()
+	req := gitjujutesting.Server.WaitRequest()
 	c.Assert(req.URL.Path, gc.Equals, "/charm-event")
 	c.Assert(req.Form.Get("charms"), gc.Equals, "cs:precise/wordpress@"+digest)
 }
@@ -194,19 +194,19 @@ func (s *PublishSuite) TestPreExistingPublishedEdge(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	var body string
 	body = `{"cs:precise/wordpress": {"errors": ["entry not found"]}}`
-	testing.Server.Response(200, nil, []byte(body))
+	gitjujutesting.Server.Response(200, nil, []byte(body))
 	body = `{"cs:precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
-	testing.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
+	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
 	ctx, err := s.runPublish(c, "cs:precise/wordpress")
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "cs:precise/wordpress-42\n")
 
-	req := testing.Server.WaitRequest()
+	req := gitjujutesting.Server.WaitRequest()
 	c.Assert(req.URL.Path, gc.Equals, "/charm-event")
 	c.Assert(req.Form.Get("charms"), gc.Equals, "cs:precise/wordpress@"+digest)
 
-	req = testing.Server.WaitRequest()
+	req = gitjujutesting.Server.WaitRequest()
 	c.Assert(req.URL.Path, gc.Equals, "/charm-event")
 	c.Assert(req.Form.Get("charms"), gc.Equals, "cs:precise/wordpress")
 }
@@ -218,12 +218,12 @@ func (s *PublishSuite) TestPreExistingPublishError(c *gc.C) {
 	digest, err := s.branch.RevisionId()
 	c.Assert(err, gc.IsNil)
 	body := `{"cs:precise/wordpress": {"kind": "publish-error", "digest": %q, "errors": ["an error"]}}`
-	testing.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
+	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
 	_, err = s.runPublish(c, "cs:precise/wordpress")
 	c.Assert(err, gc.ErrorMatches, "charm could not be published: an error")
 
-	req := testing.Server.WaitRequest()
+	req := gitjujutesting.Server.WaitRequest()
 	c.Assert(req.URL.Path, gc.Equals, "/charm-event")
 	c.Assert(req.Form.Get("charms"), gc.Equals, "cs:precise/wordpress@"+digest)
 }
@@ -249,19 +249,19 @@ func (s *PublishSuite) TestFullPublish(c *gc.C) {
 
 	// The local digest isn't found.
 	body = `{"cs:~user/precise/wordpress": {"kind": "", "errors": ["entry not found"]}}`
-	testing.Server.Response(200, nil, []byte(body))
+	gitjujutesting.Server.Response(200, nil, []byte(body))
 
 	// But the charm exists with an arbitrary non-matching digest.
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": "other-digest"}}`
-	testing.Server.Response(200, nil, []byte(body))
+	gitjujutesting.Server.Response(200, nil, []byte(body))
 
 	// After the branch is pushed we fake the publishing delay.
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": "other-digest"}}`
-	testing.Server.Response(200, nil, []byte(body))
+	gitjujutesting.Server.Response(200, nil, []byte(body))
 
 	// And finally report success.
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
-	testing.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
+	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
 	ctx, err := testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, gc.IsNil)
@@ -273,14 +273,14 @@ func (s *PublishSuite) TestFullPublish(c *gc.C) {
 	c.Assert(pushDigest, gc.Equals, digest)
 
 	// And that all the requests were sent with the proper data.
-	req := testing.Server.WaitRequest()
+	req := gitjujutesting.Server.WaitRequest()
 	c.Assert(req.URL.Path, gc.Equals, "/charm-event")
 	c.Assert(req.Form.Get("charms"), gc.Equals, "cs:~user/precise/wordpress@"+digest)
 
 	for i := 0; i < 3; i++ {
 		// The second request grabs tip to see the current state, and the
 		// following requests are done after pushing to see when it changes.
-		req = testing.Server.WaitRequest()
+		req = gitjujutesting.Server.WaitRequest()
 		c.Assert(req.URL.Path, gc.Equals, "/charm-event")
 		c.Assert(req.Form.Get("charms"), gc.Equals, "cs:~user/precise/wordpress")
 	}
@@ -307,17 +307,17 @@ func (s *PublishSuite) TestFullPublishError(c *gc.C) {
 
 	// The local digest isn't found.
 	body = `{"cs:~user/precise/wordpress": {"kind": "", "errors": ["entry not found"]}}`
-	testing.Server.Response(200, nil, []byte(body))
+	gitjujutesting.Server.Response(200, nil, []byte(body))
 
 	// And tip isn't found either, meaning the charm was never published.
-	testing.Server.Response(200, nil, []byte(body))
+	gitjujutesting.Server.Response(200, nil, []byte(body))
 
 	// After the branch is pushed we fake the publishing delay.
-	testing.Server.Response(200, nil, []byte(body))
+	gitjujutesting.Server.Response(200, nil, []byte(body))
 
 	// And finally report success.
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": %q, "revision": 42}}`
-	testing.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
+	gitjujutesting.Server.Response(200, nil, []byte(fmt.Sprintf(body, digest)))
 
 	ctx, err := testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, gc.IsNil)
@@ -329,14 +329,14 @@ func (s *PublishSuite) TestFullPublishError(c *gc.C) {
 	c.Assert(pushDigest, gc.Equals, digest)
 
 	// And that all the requests were sent with the proper data.
-	req := testing.Server.WaitRequest()
+	req := gitjujutesting.Server.WaitRequest()
 	c.Assert(req.URL.Path, gc.Equals, "/charm-event")
 	c.Assert(req.Form.Get("charms"), gc.Equals, "cs:~user/precise/wordpress@"+digest)
 
 	for i := 0; i < 3; i++ {
 		// The second request grabs tip to see the current state, and the
 		// following requests are done after pushing to see when it changes.
-		req = testing.Server.WaitRequest()
+		req = gitjujutesting.Server.WaitRequest()
 		c.Assert(req.URL.Path, gc.Equals, "/charm-event")
 		c.Assert(req.Form.Get("charms"), gc.Equals, "cs:~user/precise/wordpress")
 	}
@@ -363,17 +363,17 @@ func (s *PublishSuite) TestFullPublishRace(c *gc.C) {
 
 	// The local digest isn't found.
 	body = `{"cs:~user/precise/wordpress": {"kind": "", "errors": ["entry not found"]}}`
-	testing.Server.Response(200, nil, []byte(body))
+	gitjujutesting.Server.Response(200, nil, []byte(body))
 
 	// And tip isn't found either, meaning the charm was never published.
-	testing.Server.Response(200, nil, []byte(body))
+	gitjujutesting.Server.Response(200, nil, []byte(body))
 
 	// After the branch is pushed we fake the publishing delay.
-	testing.Server.Response(200, nil, []byte(body))
+	gitjujutesting.Server.Response(200, nil, []byte(body))
 
 	// But, surprisingly, the digest changed to something else entirely.
 	body = `{"cs:~user/precise/wordpress": {"kind": "published", "digest": "surprising-digest", "revision": 42}}`
-	testing.Server.Response(200, nil, []byte(body))
+	gitjujutesting.Server.Response(200, nil, []byte(body))
 
 	_, err = testing.RunCommandInDir(c, envcmd.Wrap(cmd), []string{"cs:~user/precise/wordpress"}, s.dir)
 	c.Assert(err, gc.ErrorMatches, `charm changed but not to local charm digest; publishing race\?`)
@@ -384,14 +384,14 @@ func (s *PublishSuite) TestFullPublishRace(c *gc.C) {
 	c.Assert(pushDigest, gc.Equals, digest)
 
 	// And that all the requests were sent with the proper data.
-	req := testing.Server.WaitRequest()
+	req := gitjujutesting.Server.WaitRequest()
 	c.Assert(req.URL.Path, gc.Equals, "/charm-event")
 	c.Assert(req.Form.Get("charms"), gc.Equals, "cs:~user/precise/wordpress@"+digest)
 
 	for i := 0; i < 3; i++ {
 		// The second request grabs tip to see the current state, and the
 		// following requests are done after pushing to see when it changes.
-		req = testing.Server.WaitRequest()
+		req = gitjujutesting.Server.WaitRequest()
 		c.Assert(req.URL.Path, gc.Equals, "/charm-event")
 		c.Assert(req.Form.Get("charms"), gc.Equals, "cs:~user/precise/wordpress")
 	}

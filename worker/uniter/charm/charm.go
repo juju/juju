@@ -7,11 +7,10 @@ import (
 	"errors"
 	"net/url"
 
+	"github.com/juju/charm"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-
-	"github.com/juju/juju/charm"
 )
 
 var logger = loggo.GetLogger("juju.worker.uniter.charm")

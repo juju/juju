@@ -87,7 +87,6 @@ func (n *NetworkerAPI) oneMachineInfo(id string) ([]network.Info, error) {
 			ProviderId:    nw.ProviderId(),
 			VLANTag:       nw.VLANTag(),
 			InterfaceName: iface.RawInterfaceName(),
-			IsVirtual:     iface.IsVirtual(),
 		}
 	}
 	return info, nil
