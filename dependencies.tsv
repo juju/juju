@@ -9,7 +9,6 @@ github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	
 github.com/juju/charm	git	1be916ca1fee152004f27cf83df96b130411ea9f	
-github.com/juju/charmstore	git	596d29c1436b77635d80bac07e81bac946accd62	
 github.com/juju/cmd	git	a47e3cb766e6e9c5af8c3dc11a86d9709a2dc4ef	
 github.com/juju/errgo	git	26caa7d4884f6048c5687fa44c410e5d5d95e554	
 github.com/juju/errors	git	075df0417dbcc39d24ee18248d2f8d6e3eed598b	
@@ -25,8 +24,7 @@ launchpad.net/goamz	bzr	ian.booth@canonical.com-20140604055617-b7qt909ir9qf4959	
 launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20140225173054-xu9zlkf9kxhvow02	87
 launchpad.net/golxc	bzr	francesco.banconi@canonical.com-20140528132419-q1lubarf0uepk4a1	9
 launchpad.net/gomaasapi	bzr	andrew.wilkins@canonical.com-20140513111813-kstzbs2kx1ujl3m3	50
-launchpad.net/goose	bzr	tarmac-20140610122728-ontdj4574u0nfbq2	125
+launchpad.net/goose	bzr	tarmac-20140613065325-tlt6r3jg7saby4ub	126
 launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50
 launchpad.net/gwacl	bzr	tarmac-20140312041035-ac7gw7kcqjx7db63	234
-launchpad.net/lpad	bzr	gustavo@niemeyer.net-20120626194701-536yx0g9jdq2ik3h	64
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17
