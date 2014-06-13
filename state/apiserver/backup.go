@@ -41,7 +41,7 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		defer os.RemoveAll(tempDir)
-		filename, sha, err := doBackup(tempDir)
+		filename, sha, err := DoBackup(tempDir)
 		if err != nil {
 			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed: %v", err))
 			return

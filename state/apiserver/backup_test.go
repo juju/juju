@@ -5,14 +5,18 @@ package apiserver_test
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/apiserver"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 )
 
 type backupSuite struct {
 	authHttpSuite
+	tempDir string
 }
 
 var _ = gc.Suite(&backupSuite{})
@@ -58,4 +62,22 @@ func (s *backupSuite) TestAuthRequiresUser(c *gc.C) {
 	resp, err = s.authRequest(c, "GET", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "GET"`)
+}
+
+func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
+	testBackup := func(tempDir string) (string, string, error) {
+		s.tempDir = tempDir
+		backupFilePath := filepath.Join(tempDir, "testBackupFile")
+		file, err := os.Create(backupFilePath)
+		if err != nil {
+			return "", "", err
+		}
+		file.Write([]byte("foobarbam"))
+		file.Close()
+		return backupFilePath, "some-sha", nil
+	}
+	s.PatchValue(&apiserver.DoBackup, testBackup)
+
+	_, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
+	c.Assert(err, gc.IsNil)
 }
