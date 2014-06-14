@@ -30,6 +30,7 @@ var allowedDiscardedMethods = []string{
 	"AuthMachineAgent",
 	"AuthOwner",
 	"AuthUnitAgent",
+	"FindMethod",
 	"GetAuthEntity",
 	"GetAuthTag",
 }
@@ -132,7 +133,24 @@ func (r *rootSuite) TestFindMethodUnknownFacade(c *gc.C) {
 	caller, err := srvRoot.FindMethod("unknown-testing-facade", 0, "Method")
 	c.Check(caller, gc.IsNil)
 	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Check(err, gc.ErrorMatches, "fo")
+	c.Check(err, gc.ErrorMatches, `unknown object type "unknown-testing-facade"`)
+}
+
+func (r *rootSuite) TestFindMethodUnknownVersion(c *gc.C) {
+	srvRoot := apiserver.TestingSrvRoot(nil)
+	defer common.Facades.Discard("my-testing-facade", 0)
+	myGoodFacade := func(
+		*state.State, *common.Resources, common.Authorizer,
+	) (
+		*testingType, error,
+	) {
+		return &testingType{}, nil
+	}
+	common.RegisterStandardFacade("my-testing-facade", 0, myGoodFacade)
+	caller, err := srvRoot.FindMethod("my-testing-facade", 1, "Exposed")
+	c.Check(caller, gc.IsNil)
+	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
+	c.Check(err, gc.ErrorMatches, `unknown version \(1\) of interface "my-testing-facade"`)
 }
 
 func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {

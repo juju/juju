@@ -119,7 +119,10 @@ func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (r
 	goType, err := common.Facades.GetType(rootName, version)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// TODO: translate this to CallNotImplementedError
+			return nil, &rpcreflect.CallNotImplementedError{
+				RootMethod: rootName,
+				Version:    version,
+			}
 		}
 		return nil, err
 	}
@@ -139,12 +142,9 @@ func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (r
 		}
 		factory, err := common.Facades.GetFactory(rootName, version)
 		if err != nil {
-			if errors.IsNotFound(err) {
-				// TODO: translate this to CallNotImplementedError
-				// It shouldn't actually be possible to reach
-				// this point, because GetType up above should
-				// have already handled IsNotFound
-			}
+			// We don't check for IsNotFound here, because it
+			// should have already been handled in the GetType
+			// check.
 			return nil, err
 		}
 		obj, err := factory(r.state, r.resources, r, id)
