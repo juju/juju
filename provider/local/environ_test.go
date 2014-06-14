@@ -14,7 +14,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/agent/mongo"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
@@ -28,6 +27,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"

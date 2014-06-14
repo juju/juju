@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -25,10 +26,12 @@ import (
 // of the machine to be started.
 func FakeStateInfo(machineId string) *state.Info {
 	return &state.Info{
-		Addrs:    []string{"0.1.2.3:1234"},
+		Info: mongo.Info{
+			Addrs:  []string{"0.1.2.3:1234"},
+			CACert: testing.CACert,
+		},
 		Tag:      names.NewMachineTag(machineId).String(),
 		Password: "unimportant",
-		CACert:   testing.CACert,
 	}
 }
 

@@ -4,7 +4,8 @@
 package main
 
 import (
-	"github.com/juju/juju/cmd"
+	"github.com/juju/cmd"
+
 	"github.com/juju/juju/cmd/envcmd"
 )
 

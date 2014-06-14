@@ -5,6 +5,7 @@ package factory
 
 import (
 	"fmt"
+
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"

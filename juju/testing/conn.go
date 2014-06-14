@@ -9,14 +9,14 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"

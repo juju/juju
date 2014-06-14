@@ -9,10 +9,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"

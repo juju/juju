@@ -6,7 +6,8 @@ package main
 import (
 	"errors"
 
-	"github.com/juju/juju/cmd"
+	"github.com/juju/cmd"
+
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju"
 )

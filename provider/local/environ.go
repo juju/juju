@@ -19,7 +19,6 @@ import (
 	"github.com/juju/utils/shell"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/mongo"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/constraints"
@@ -37,6 +36,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"

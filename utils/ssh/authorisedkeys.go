@@ -34,6 +34,7 @@ const (
 )
 
 type AuthorisedKey struct {
+	Type    string
 	Key     []byte
 	Comment string
 }
@@ -42,13 +43,13 @@ type AuthorisedKey struct {
 // authorized_keys file and returns the constituent parts.
 // Based on description in "man sshd".
 func ParseAuthorisedKey(line string) (*AuthorisedKey, error) {
-	key, comment, _, _, ok := ssh.ParseAuthorizedKey([]byte(line))
-	if !ok {
+	key, comment, _, _, err := ssh.ParseAuthorizedKey([]byte(line))
+	if err != nil {
 		return nil, fmt.Errorf("invalid authorized_key %q", line)
 	}
-	keyBytes := ssh.MarshalPublicKey(key)
 	return &AuthorisedKey{
-		Key:     keyBytes,
+		Type:    key.Type(),
+		Key:     key.Marshal(),
 		Comment: comment,
 	}, nil
 }

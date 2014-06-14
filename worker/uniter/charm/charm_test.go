@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	stdtesting "testing"
 
+	corecharm "github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
-	corecharm "github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"
 )

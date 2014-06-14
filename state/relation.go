@@ -10,13 +10,12 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	"github.com/juju/juju/charm"
 )
 
 // relationKey returns a string describing the relation defined by

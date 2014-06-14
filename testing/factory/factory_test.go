@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -37,10 +38,12 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 	policy := statetesting.MockPolicy{}
 
 	info := &state.Info{
-		Addrs:  []string{jtesting.MgoServer.Addr()},
-		CACert: testing.CACert,
+		Info: mongo.Info{
+			Addrs:  []string{jtesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
 	}
-	opts := state.DialOpts{
+	opts := mongo.DialOpts{
 		Timeout: testing.LongWait,
 	}
 	cfg := testing.EnvironConfig(c)
