@@ -263,3 +263,17 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	assertCallResult(c, caller, "alt-id", "ALT-alt-id2")
 	assertCallResult(c, caller, "third-id", "ALT-third-id3")
 }
+
+func (r *rootSuite) TestDescribeFacades(c *gc.C) {
+	srvRoot := apiserver.TestingSrvRoot(nil)
+	facades := srvRoot.DescribeFacades()
+	c.Check(facades, gc.Not(gc.HasLen), 0)
+	// As a sanity check, we should see that we have a Client v0 available
+	asMap := make(map[string][]int, len(facades))
+	for _, facade := range facades {
+		asMap[facade.Name] = facade.Versions
+	}
+	clientVersions := asMap["Client"]
+	c.Assert(len(clientVersions), jc.GreaterThan, 0)
+	c.Check(clientVersions[0], gc.Equals, 0)
+}

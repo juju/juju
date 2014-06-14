@@ -727,11 +727,19 @@ type APIHostPortsResult struct {
 	Servers [][]network.HostPort
 }
 
+// FacadeVersions describes the available Facades and what versions of each one
+// are available
+type FacadeVersions struct {
+	Name     string
+	Versions []int
+}
+
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
 	Servers        [][]network.HostPort
 	EnvironTag     string
 	LastConnection *time.Time
+	Facades        []FacadeVersions
 }
 
 // EnsureAvailability contains arguments for

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 )
 
@@ -181,4 +182,15 @@ func (r *srvRoot) GetAuthTag() string {
 // GetAuthEntity returns the authenticated entity.
 func (r *srvRoot) GetAuthEntity() state.Entity {
 	return r.entity
+}
+
+// DescribeFacades returns the list of available Facades and their Versions
+func (r *srvRoot) DescribeFacades() []params.FacadeVersions {
+	facades := common.Facades.List()
+	result := make([]params.FacadeVersions, len(facades))
+	for i, facade := range facades {
+		result[i].Name = facade.Name
+		result[i].Versions = facade.Versions
+	}
+	return result
 }

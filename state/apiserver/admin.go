@@ -127,6 +127,7 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		Servers:        hostPorts,
 		EnvironTag:     environ.Tag(),
 		LastConnection: lastConnection,
+		Facades:        newRoot.DescribeFacades(),
 	}, nil
 }
 

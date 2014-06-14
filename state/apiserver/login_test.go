@@ -529,3 +529,26 @@ func (s *loginSuite) runLoginWithValidator(c *gc.C, validator apiserver.LoginVal
 	// Since these are user login tests, the nonce is empty.
 	return st.Login("user-admin", "dummy-secret", "")
 }
+
+func (s *loginSuite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
+	info, cleanup := s.setupServer(c)
+	defer cleanup()
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	var result params.LoginResult
+	creds := &params.Creds{
+		AuthTag:  "user-admin",
+		Password: "dummy-secret",
+	}
+	err = st.Call("Admin", "", "Login", creds, &result)
+	c.Assert(err, gc.IsNil)
+	c.Check(result.Facades, gc.Not(gc.HasLen), 0)
+	// as a sanity check, ensure that we have Client v0
+	asMap := make(map[string][]int, len(result.Facades))
+	for _, facade := range result.Facades {
+		asMap[facade.Name] = facade.Versions
+	}
+	clientVersions := asMap["Client"]
+	c.Assert(len(clientVersions), jc.GreaterThan, 0)
+	c.Check(clientVersions[0], gc.Equals, 0)
+}
