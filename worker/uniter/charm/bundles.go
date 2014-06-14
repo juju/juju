@@ -8,10 +8,10 @@ import (
 	"os"
 	"path"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/downloader"
 )
 

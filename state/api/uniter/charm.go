@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"net/url"
 
+	"github.com/juju/charm"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state/api/params"
 )
 

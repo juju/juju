@@ -11,7 +11,7 @@ import (
 	"labix.org/v2/mgo"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/mongo"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/replicaset"
 )
 

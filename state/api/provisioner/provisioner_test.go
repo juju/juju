@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -298,8 +299,9 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 			// Last one was ignored, so skip it.
 			break
 		}
-		_, networkName, err := names.ParseTag(networks[i].Tag, names.NetworkTagKind)
+		tag, err := names.ParseTag(networks[i].Tag, names.NetworkTagKind)
 		c.Assert(err, gc.IsNil)
+		networkName := tag.Id()
 		network, err := s.State.Network(networkName)
 		c.Assert(err, gc.IsNil)
 		c.Check(network.Name(), gc.Equals, networkName)
@@ -545,7 +547,7 @@ func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 
 func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	args := params.ContainerManagerConfigParams{Type: instance.LXC}
-	st, err := state.Open(s.StateInfo(c), state.DialOpts{}, state.Policy(nil))
+	st, err := state.Open(s.StateInfo(c), mongo.DialOpts{}, state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

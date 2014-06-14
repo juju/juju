@@ -7,9 +7,10 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/cmd"
+	jujucmd "github.com/juju/juju/cmd"
 )
 
 var logger = loggo.GetLogger("juju.plugins.local")
@@ -24,12 +25,11 @@ See Also:
 `
 
 func jujuLocalPlugin() cmd.Command {
-	plugin := cmd.NewSuperCommand(cmd.SuperCommandParams{
+	plugin := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:        "juju local",
 		UsagePrefix: "juju",
 		Doc:         localDoc,
 		Purpose:     "local provider specific commands",
-		Log:         &cmd.Log{},
 	})
 
 	return plugin

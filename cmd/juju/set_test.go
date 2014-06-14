@@ -7,10 +7,10 @@ import (
 	"bytes"
 	"io/ioutil"
 
+	"github.com/juju/charm"
+	"github.com/juju/cmd"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

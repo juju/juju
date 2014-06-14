@@ -6,10 +6,10 @@ package main
 import (
 	"fmt"
 
+	"github.com/juju/charm"
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/charm"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
 

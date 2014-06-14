@@ -8,7 +8,8 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/juju/charm"
+	"github.com/juju/charm"
+
 	"github.com/juju/juju/state/api/params"
 )
 

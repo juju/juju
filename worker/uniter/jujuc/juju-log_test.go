@@ -6,10 +6,10 @@ package jujuc_test
 import (
 	"fmt"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )

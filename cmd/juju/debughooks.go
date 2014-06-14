@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/charm/hooks"
+	"github.com/juju/cmd"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/charm/hooks"
-	"github.com/juju/juju/cmd"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 )
 

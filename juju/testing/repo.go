@@ -6,10 +6,10 @@ import (
 	"path/filepath"
 	"sort"
 
+	"github.com/juju/charm"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state"
 )
 

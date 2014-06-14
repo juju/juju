@@ -6,7 +6,8 @@ package uniter
 import (
 	"fmt"
 
-	"github.com/juju/juju/charm/hooks"
+	"github.com/juju/charm/hooks"
+
 	apiuniter "github.com/juju/juju/state/api/uniter"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
