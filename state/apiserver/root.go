@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/names"
 
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -62,7 +61,6 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 		entity:      entity,
 		objectCache: make(map[objectKey]interface{}),
 	}
-	r.clientAPI.API = client.NewAPI(r.state, r.resources, r)
 	r.resources.RegisterNamed("dataDir", common.StringResource(root.srv.dataDir))
 	return r
 }
