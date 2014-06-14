@@ -11,7 +11,6 @@ import (
 
 	"github.com/juju/errors"
 
-	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
 )
 
@@ -121,30 +120,6 @@ func RegisterStandardFacade(name string, version int, newFunc interface{}) {
 	RegisterFacade(name, version, wrapped, facadeType)
 }
 
-// GetFacadeFactory returns the factory that can be used to create an instance
-// of the Facade.
-func GetFacadeFactory(name string, version int) (FacadeFactory, error) {
-	factory, err := Facades.GetFactory(name, version)
-	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, &rpcreflect.CallNotImplementedError{
-				RootMethod: name,
-				Version:    version,
-			}
-		}
-		return nil, err
-	}
-	return factory, nil
-}
-
-// GetFacadeType can return the concrete type that will be returned from the
-// FacadeFactory.
-func GetFacadeType(name string, version int) (reflect.Type, error) {
-	return Facades.GetType(name, version)
-}
-
-var facadeFactoryType = reflect.TypeOf((*facadeRecord)(nil)).Elem()
-
 var Facades = &FacadeRegistry{}
 
 type Versions map[int]facadeRecord
@@ -218,6 +193,8 @@ func descriptionFromVersions(name string, vers Versions) FacadeDescription {
 		Versions: intVersions,
 	}
 }
+
+// List returns a slice describing each of the registered Facades.
 func (f *FacadeRegistry) List() []FacadeDescription {
 	names := make([]string, 0, len(f.facades))
 	for name := range f.facades {
@@ -231,4 +208,15 @@ func (f *FacadeRegistry) List() []FacadeDescription {
 	}
 	return descriptions
 	return nil
+}
+
+// Discard gets rid of a registration that has already been done. Calling
+// discard on an entry that is not present is not considered an error.
+func (f *FacadeRegistry) Discard(name string, version int) {
+	if versions, ok := f.facades[name]; ok {
+		delete(versions, version)
+		if len(versions) == 0 {
+			delete(f.facades, name)
+		}
+	}
 }

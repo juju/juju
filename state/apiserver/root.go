@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -34,13 +35,20 @@ var (
 	mongoPingInterval = 10 * time.Second
 )
 
+type objectKey struct {
+	name    string
+	version int
+	objId   string
+}
+
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
 type srvRoot struct {
-	srv       *Server
-	rpcConn   *rpc.Conn
-	resources *common.Resources
-	entity    taggedAuthenticator
+	state       *state.State
+	rpcConn     *rpc.Conn
+	resources   *common.Resources
+	entity      taggedAuthenticator
+	objectCache map[objectKey]interface{}
 }
 
 // newSrvRoot creates the client's connection representation
@@ -48,14 +56,14 @@ type srvRoot struct {
 // connection.
 func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 	r := &srvRoot{
-		srv:       root.srv,
-		rpcConn:   root.rpcConn,
-		resources: common.NewResources(),
-		entity:    entity,
+		state:       root.srv.state,
+		rpcConn:     root.rpcConn,
+		resources:   common.NewResources(),
+		entity:      entity,
+		objectCache: make(map[objectKey]interface{}),
 	}
-	// Note: Only the Client API is part of srvRoot rather than all
-	// the other ones being created on-demand. Why is that?
-	r.resources.RegisterNamed("dataDir", common.StringResource(r.srv.dataDir))
+	r.clientAPI.API = client.NewAPI(r.state, r.resources, r)
+	r.resources.RegisterNamed("dataDir", common.StringResource(root.srv.dataDir))
 	return r
 }
 
@@ -66,13 +74,8 @@ func (r *srvRoot) Kill() {
 }
 
 type srvCaller struct {
-	expectedType reflect.Type
-	rootName     string
-	version      int
-	objMethod    rpcreflect.ObjMethod
-	state        *state.State
-	resources    *common.Resources
-	authorizer   common.Authorizer
+	objMethod rpcreflect.ObjMethod
+	creator   func(id string) (interface{}, error)
 }
 
 func (s *srvCaller) ParamsType() reflect.Type {
@@ -84,29 +87,21 @@ func (s *srvCaller) ResultType() reflect.Type {
 }
 
 func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
-	factory, err := common.GetFacadeFactory(s.rootName, s.version)
+	obj, err := s.creator(objId)
 	if err != nil {
-		// Handle errors.IsNotFound again here?
 		return reflect.Value{}, err
 	}
-	obj, err := factory(s.state, s.resources, s.authorizer, objId)
-	if err != nil {
-		// Handle errors.IsNotFound again here?
-		return reflect.Value{}, err
-	}
-	// TODO: check that the type of obj is exactly what we expected,
-	// otherwise objMethod is likely to screw us over (wrong address, wrong
-	// offset, etc.)
-	logger.Tracef("calling: %T %v %#v", obj, obj, s.objMethod)
 	return s.objMethod.Call(reflect.ValueOf(obj), arg)
 }
 
 func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	// TODO: We should
 	goType, err := common.Facades.GetType(rootName, version)
 	if err != nil {
 		if errors.IsNotFound(err) {
-			// translate this to CallNotImplementedError
+			return nil, &rpcreflect.CallNotImplementedError{
+				RootMethod: rootName,
+				Version:    version,
+			}
 		}
 		return nil, err
 	}
@@ -119,14 +114,33 @@ func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (r
 			Method:     methodName,
 		}
 	}
+	creator := func(id string) (interface{}, error) {
+		objKey := objectKey{name: rootName, version: version, objId: id}
+		if obj, ok := r.objectCache[objKey]; ok {
+			return obj, nil
+		}
+		factory, err := common.Facades.GetFactory(rootName, version)
+		if err != nil {
+			// We don't check for IsNotFound here, because it
+			// should have already been handled in the GetType
+			// check.
+			return nil, err
+		}
+		obj, err := factory(r.state, r.resources, r, id)
+		if err != nil {
+			return nil, err
+		}
+		if !reflect.TypeOf(obj).AssignableTo(goType) {
+			return nil, errors.Errorf(
+				"internal error, %s(%d) claimed to return %s but returned %T",
+				rootName, version, goType, obj)
+		}
+		r.objectCache[objKey] = obj
+		return obj, nil
+	}
 	return &srvCaller{
-		expectedType: goType,
-		rootName:     rootName,
-		version:      version,
-		objMethod:    objMethod,
-		state:        r.srv.state,
-		resources:    r.resources,
-		authorizer:   r,
+		creator:   creator,
+		objMethod: objMethod,
 	}, nil
 }
 

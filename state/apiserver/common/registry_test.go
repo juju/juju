@@ -30,43 +30,32 @@ func testFacade(
 	return "myobject", nil
 }
 
-func (s *facadeRegistrySuite) sanitizeFacades() {
-	// reset common.Facades so that we don't mutate the officially
-	// registered Facades.
-
-	// a raw type isn't an expression, so we have to play tricks.
-	common.PatchFacades(s)
-}
-
 func (s *facadeRegistrySuite) TestRegister(c *gc.C) {
-	s.sanitizeFacades()
+	common.SanitizeFacades(s)
 	var v interface{}
 	common.RegisterFacade("myfacade", 0, testFacade, reflect.TypeOf(&v).Elem())
-	f, err := common.GetFacadeFactory("myfacade", 0)
+	f, err := common.Facades.GetFactory("myfacade", 0)
 	c.Assert(err, gc.IsNil)
 	val, err := f(nil, nil, nil, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(val, gc.Equals, "myobject")
 }
 
-func (s *facadeRegistrySuite) TestGetFacadeBadName(c *gc.C) {
-	s.sanitizeFacades()
-	var v interface{}
-	common.RegisterFacade("myfacade", 0, testFacade, reflect.TypeOf(&v).Elem())
-	_, err := common.GetFacadeFactory("notmyfacade", 0)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Assert(err, gc.ErrorMatches, `unknown object type "notmyfacade"`)
+func (*facadeRegistrySuite) TestGetFactoryUnknown(c *gc.C) {
+	r := &common.FacadeRegistry{}
+	f, err := r.GetFactory("name", 0)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, gc.ErrorMatches, `name\(0\) not found`)
+	c.Check(f, gc.IsNil)
 }
 
-func (s *facadeRegistrySuite) TestGetFacadeBadVersion(c *gc.C) {
-	s.sanitizeFacades()
-	var v interface{}
-	common.RegisterFacade("myfacade", 0, testFacade, reflect.TypeOf(v))
-	_, err := common.GetFacadeFactory("myfacade", 1)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Assert(err, gc.ErrorMatches, `unknown version \(1\) of interface "myfacade"`)
+func (*facadeRegistrySuite) TestGetFactoryUnknownVersion(c *gc.C) {
+	r := &common.FacadeRegistry{}
+	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
+	f, err := r.GetFactory("name", 1)
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
+	c.Check(err, gc.ErrorMatches, `name\(1\) not found`)
+	c.Check(f, gc.IsNil)
 }
 
 // TODO: We need a test that calling API versions that aren't there return the
@@ -177,25 +166,25 @@ func (*facadeRegistrySuite) TestWrapNewFacadeCallsWithRightParams(c *gc.C) {
 	c.Check(asResult.auth, gc.Equals, authorizer)
 }
 
-func (r *facadeRegistrySuite) TestRegisterStandardFacade(c *gc.C) {
-	r.sanitizeFacades()
+func (s *facadeRegistrySuite) TestRegisterStandardFacade(c *gc.C) {
+	common.SanitizeFacades(s)
 	common.RegisterStandardFacade("testing", 0, validFactory)
-	wrapped, err := common.GetFacadeFactory("testing", 0)
+	wrapped, err := common.Facades.GetFactory("testing", 0)
 	c.Assert(err, gc.IsNil)
 	val, err := wrapped(nil, nil, nil, "")
 	c.Assert(err, gc.IsNil)
 	c.Check(*(val.(*int)), gc.Equals, 100)
 }
 
-func (r *facadeRegistrySuite) TestRegisterStandardFacadePanic(c *gc.C) {
-	r.sanitizeFacades()
+func (s *facadeRegistrySuite) TestRegisterStandardFacadePanic(c *gc.C) {
+	common.SanitizeFacades(s)
 	c.Assert(
 		func() { common.RegisterStandardFacade("badtest", 0, noArgs) },
 		gc.PanicMatches,
 		`function ".*noArgs" does not take 3 parameters and return 2`)
-	_, err := common.GetFacadeFactory("badtest", 0)
-	c.Assert(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
-	c.Assert(err, gc.ErrorMatches, `unknown object type "badtest"`)
+	_, err := common.Facades.GetFactory("badtest", 0)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `badtest\(0\) not found`)
 }
 
 func (*facadeRegistrySuite) TestDiscardedAPIMethods(c *gc.C) {
@@ -203,7 +192,7 @@ func (*facadeRegistrySuite) TestDiscardedAPIMethods(c *gc.C) {
 	c.Assert(allFacades, gc.Not(gc.HasLen), 0)
 	for _, description := range allFacades {
 		for _, version := range description.Versions {
-			facadeType, err := common.GetFacadeType(description.Name, version)
+			facadeType, err := common.Facades.GetType(description.Name, version)
 			c.Assert(err, gc.IsNil)
 			facadeObjType := rpcreflect.ObjTypeOf(facadeType)
 			// We must have some methods on every object returned
@@ -318,19 +307,34 @@ func (*facadeRegistrySuite) TestGetType(c *gc.C) {
 	c.Check(typ, gc.Equals, intPtrType)
 }
 
-func (facadeRegistrySuite) TestGetFactoryUnknown(c *gc.C) {
+func (*facadeRegistrySuite) TestDiscardHandlesNotPresent(c *gc.C) {
 	r := &common.FacadeRegistry{}
+	r.Discard("name", 1)
+}
+
+func (*facadeRegistrySuite) TestDiscardRemovesEntry(c *gc.C) {
+	r := &common.FacadeRegistry{}
+	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
+	_, err := r.GetFactory("name", 0)
+	c.Assert(err, gc.IsNil)
+	r.Discard("name", 0)
 	f, err := r.GetFactory("name", 0)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 	c.Check(err, gc.ErrorMatches, `name\(0\) not found`)
 	c.Check(f, gc.IsNil)
+	c.Check(r.List(), gc.DeepEquals, []common.FacadeDescription{})
 }
 
-func (facadeRegistrySuite) TestGetFactoryUnknownVersion(c *gc.C) {
+func (*facadeRegistrySuite) TestDiscardLeavesOtherVersions(c *gc.C) {
 	r := &common.FacadeRegistry{}
 	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
-	f, err := r.GetFactory("name", 1)
+	c.Assert(r.Register("name", 1, validIdFactory, intPtrType), gc.IsNil)
+	r.Discard("name", 0)
+	_, err := r.GetFactory("name", 0)
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
-	c.Check(err, gc.ErrorMatches, `name\(1\) not found`)
-	c.Check(f, gc.IsNil)
+	_, err = r.GetFactory("name", 1)
+	c.Check(err, gc.IsNil)
+	c.Check(r.List(), gc.DeepEquals, []common.FacadeDescription{
+		{Name: "name", Versions: []int{1}},
+	})
 }
