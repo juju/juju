@@ -12,9 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/cmd"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/worker/uniter/jujuc"
 	"github.com/juju/utils/exec"
 
@@ -95,15 +96,14 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 // Main registers subcommands for the jujud executable, and hands over control
 // to the cmd package.
 func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
-	jujud := cmd.NewSuperCommand(cmd.SuperCommandParams{
+	jujud := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name: "jujud",
 		Doc:  jujudDoc,
-		Log:  &cmd.Log{Factory: &writerFactory{}},
 	})
+	jujud.Log.Factory = &writerFactory{}
 	jujud.Register(&BootstrapCommand{})
 	jujud.Register(&MachineAgent{})
 	jujud.Register(&UnitAgent{})
-	jujud.Register(&cmd.VersionCommand{})
 	code = cmd.Main(jujud, ctx, args[1:])
 	return code, nil
 }

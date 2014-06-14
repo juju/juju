@@ -10,6 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -20,11 +22,10 @@ import (
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
@@ -2112,8 +2113,8 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 	err = peergrouper.MaybeInitiateMongoServer(args)
 	c.Assert(err, gc.IsNil)
 
-	stateInfo := &state.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}
-	dialOpts := state.DialOpts{Timeout: time.Second * 30}
+	stateInfo := &state.Info{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
+	dialOpts := mongo.DialOpts{Timeout: time.Second * 30}
 	st, err := state.Open(stateInfo, dialOpts, state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
@@ -2127,7 +2128,7 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
-	st, err := state.Open(info, state.DialOpts{
+	st, err := state.Open(info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
 	}, state.Policy(nil))
 	if err == nil {
@@ -2143,7 +2144,7 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
-	st, err := state.Open(info, state.DialOpts{
+	st, err := state.Open(info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
 	}, state.Policy(nil))
 	if err == nil {

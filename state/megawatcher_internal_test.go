@@ -10,11 +10,12 @@ import (
 	"sort"
 	"time"
 
+	"github.com/juju/charm"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -186,7 +187,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 
 		deployer, ok := wu.DeployerTag()
 		c.Assert(ok, gc.Equals, true)
-		c.Assert(deployer, gc.Equals, fmt.Sprintf("machine-%d", i+1))
+		c.Assert(deployer, gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 
 		wru, err := rel.Unit(wu)
 		c.Assert(err, gc.IsNil)
@@ -201,7 +202,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		c.Assert(lu.IsPrincipal(), gc.Equals, false)
 		deployer, ok = lu.DeployerTag()
 		c.Assert(ok, gc.Equals, true)
-		c.Assert(deployer, gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		add(&params.UnitInfo{
 			Name:    fmt.Sprintf("logging/%d", i),
 			Service: "logging",

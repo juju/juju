@@ -53,10 +53,6 @@ type Info struct {
 	// "eth1", even for a VLAN eth1.42 virtual interface).
 	InterfaceName string
 
-	// IsVirtual is true when the interface is a virtual device, as
-	// opposed to a physical device (e.g. a VLAN or a network alias).
-	IsVirtual bool
-
 	// Disabled is true when the interface needs to be disabled on the
 	// machine, e.g. not to configure it.
 	Disabled bool
@@ -69,4 +65,10 @@ func (i *Info) ActualInterfaceName() string {
 		return fmt.Sprintf("%s.%d", i.InterfaceName, i.VLANTag)
 	}
 	return i.InterfaceName
+}
+
+// IsVirtual returns true when the interface is a virtual device, as
+// opposed to a physical device (e.g. a VLAN or a network alias)
+func (i *Info) IsVirtual() bool {
+	return i.VLANTag > 0
 }

@@ -62,11 +62,11 @@ func NewProvisionerAPI(
 				// A machine agent can always access its own machine.
 				return true
 			}
-			_, id, err := names.ParseTag(tag, names.MachineTagKind)
+			t, err := names.ParseTag(tag, names.MachineTagKind)
 			if err != nil {
 				return false
 			}
-			parentId := state.ParentId(id)
+			parentId := state.ParentId(t.Id())
 			if parentId == "" {
 				// All top-level machines are accessible by the
 				// environment manager.
@@ -123,11 +123,11 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 	if !canAccess(arg.MachineTag) {
 		return nothing, common.ErrPerm
 	}
-	_, id, err := names.ParseTag(arg.MachineTag, names.MachineTagKind)
+	tag, err := names.ParseTag(arg.MachineTag, names.MachineTagKind)
 	if err != nil {
 		return nothing, err
 	}
-	machine, err := p.st.Machine(id)
+	machine, err := p.st.Machine(tag.Id())
 	if err != nil {
 		return nothing, err
 	}
@@ -464,12 +464,12 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 ) {
 	stateNetworks := make([]state.NetworkInfo, len(networks))
 	for i, network := range networks {
-		_, networkName, err := names.ParseTag(network.Tag, names.NetworkTagKind)
+		tag, err := names.ParseTag(network.Tag, names.NetworkTagKind)
 		if err != nil {
 			return nil, nil, err
 		}
 		stateNetworks[i] = state.NetworkInfo{
-			Name:       networkName,
+			Name:       tag.Id(),
 			ProviderId: network.ProviderId,
 			CIDR:       network.CIDR,
 			VLANTag:    network.VLANTag,
@@ -477,13 +477,13 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 	}
 	stateInterfaces := make([]state.NetworkInterfaceInfo, len(ifaces))
 	for i, iface := range ifaces {
-		_, networkName, err := names.ParseTag(iface.NetworkTag, names.NetworkTagKind)
+		tag, err := names.ParseTag(iface.NetworkTag, names.NetworkTagKind)
 		if err != nil {
 			return nil, nil, err
 		}
 		stateInterfaces[i] = state.NetworkInterfaceInfo{
 			MACAddress:    iface.MACAddress,
-			NetworkName:   networkName,
+			NetworkName:   tag.Id(),
 			InterfaceName: iface.InterfaceName,
 			IsVirtual:     iface.IsVirtual,
 		}

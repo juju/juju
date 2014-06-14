@@ -7,9 +7,10 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/cmd"
+	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju"
@@ -50,31 +51,30 @@ func Main(args []string) {
 		os.Stdout.Write(x[2:])
 		os.Exit(0)
 	}
-	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
+	jcmd := jujucmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:            "juju",
 		Doc:             jujuDoc,
-		Log:             &cmd.Log{},
 		MissingCallback: RunPlugin,
 	})
-	jujucmd.AddHelpTopic("basics", "Basic commands", helpBasics)
-	jujucmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",
+	jcmd.AddHelpTopic("basics", "Basic commands", helpBasics)
+	jcmd.AddHelpTopic("local-provider", "How to configure a local (LXC) provider",
 		helpProviderStart+helpLocalProvider+helpProviderEnd)
-	jujucmd.AddHelpTopic("openstack-provider", "How to configure an OpenStack provider",
+	jcmd.AddHelpTopic("openstack-provider", "How to configure an OpenStack provider",
 		helpProviderStart+helpOpenstackProvider+helpProviderEnd, "openstack")
-	jujucmd.AddHelpTopic("ec2-provider", "How to configure an Amazon EC2 provider",
+	jcmd.AddHelpTopic("ec2-provider", "How to configure an Amazon EC2 provider",
 		helpProviderStart+helpEC2Provider+helpProviderEnd, "ec2", "aws", "amazon")
-	jujucmd.AddHelpTopic("hpcloud-provider", "How to configure an HP Cloud provider",
+	jcmd.AddHelpTopic("hpcloud-provider", "How to configure an HP Cloud provider",
 		helpProviderStart+helpHPCloud+helpProviderEnd, "hpcloud", "hp-cloud")
-	jujucmd.AddHelpTopic("azure-provider", "How to configure a Windows Azure provider",
+	jcmd.AddHelpTopic("azure-provider", "How to configure a Windows Azure provider",
 		helpProviderStart+helpAzureProvider+helpProviderEnd, "azure")
-	jujucmd.AddHelpTopic("constraints", "How to use commands with constraints", helpConstraints)
-	jujucmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
-	jujucmd.AddHelpTopic("logging", "How Juju handles logging", helpLogging)
+	jcmd.AddHelpTopic("constraints", "How to use commands with constraints", helpConstraints)
+	jcmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
+	jcmd.AddHelpTopic("logging", "How Juju handles logging", helpLogging)
 
-	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
+	jcmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
-	registerCommands(jujucmd, ctx)
-	os.Exit(cmd.Main(jujucmd, ctx, args[1:]))
+	registerCommands(jcmd, ctx)
+	os.Exit(cmd.Main(jcmd, ctx, args[1:]))
 }
 
 type commandRegistry interface {
@@ -146,9 +146,6 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
-
-	// Common commands.
-	r.Register(&cmd.VersionCommand{})
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle

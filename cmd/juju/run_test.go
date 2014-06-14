@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/exec"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"

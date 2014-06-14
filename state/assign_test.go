@@ -200,7 +200,7 @@ func (s *AssignSuite) TestDeployerTag(c *gc.C) {
 			c.Assert(ok, jc.IsFalse)
 		} else {
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(name, gc.Equals, d.Tag())
+			c.Assert(name.String(), gc.Equals, d.Tag())
 		}
 	}
 	assertDeployer(subordinate, principal)

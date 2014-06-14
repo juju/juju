@@ -10,10 +10,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"

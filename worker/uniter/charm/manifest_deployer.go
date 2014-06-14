@@ -8,10 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/charm"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-
-	"github.com/juju/juju/charm"
 )
 
 const (

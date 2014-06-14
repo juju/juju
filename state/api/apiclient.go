@@ -131,11 +131,11 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 
 	environUUID := ""
 	if info.EnvironTag != "" {
-		_, envUUID, err := names.ParseTag(info.EnvironTag, names.EnvironTagKind)
+		tag, err := names.ParseTag(info.EnvironTag, names.EnvironTagKind)
 		if err != nil {
 			return nil, err
 		}
-		environUUID = envUUID
+		environUUID = tag.Id()
 	}
 	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, nil)

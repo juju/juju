@@ -6,11 +6,11 @@ package uniter
 import (
 	"sort"
 
+	"github.com/juju/charm"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/uniter"
 	apiwatcher "github.com/juju/juju/state/api/watcher"

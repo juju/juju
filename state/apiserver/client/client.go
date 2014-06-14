@@ -9,12 +9,12 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -228,11 +228,11 @@ var CharmStore charm.Repository = charm.Store
 func networkTagsToNames(tags []string) ([]string, error) {
 	netNames := make([]string, len(tags))
 	for i, tag := range tags {
-		_, name, err := names.ParseTag(tag, names.NetworkTagKind)
+		t, err := names.ParseTag(tag, names.NetworkTagKind)
 		if err != nil {
 			return nil, err
 		}
-		netNames[i] = name
+		netNames[i] = t.Id()
 	}
 	return netNames, nil
 }
