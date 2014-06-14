@@ -6,9 +6,9 @@ package jujuc
 import (
 	"fmt"
 
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/state/api/params"
 )
 

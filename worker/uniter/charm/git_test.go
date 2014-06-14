@@ -9,10 +9,10 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	corecharm "github.com/juju/charm"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	corecharm "github.com/juju/juju/charm"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"
 )

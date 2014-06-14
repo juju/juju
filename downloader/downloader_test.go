@@ -10,6 +10,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
@@ -19,7 +20,7 @@ import (
 
 type suite struct {
 	testing.BaseSuite
-	testing.HTTPSuite
+	gitjujutesting.HTTPSuite
 }
 
 func (s *suite) SetUpSuite(c *gc.C) {
@@ -50,7 +51,7 @@ func Test(t *stdtesting.T) {
 
 func (s *suite) testDownload(c *gc.C, hostnameVerification utils.SSLHostnameVerification) {
 	tmp := c.MkDir()
-	testing.Server.Response(200, nil, []byte("archive"))
+	gitjujutesting.Server.Response(200, nil, []byte("archive"))
 	d := downloader.New(s.URL("/archive.tgz"), tmp, hostnameVerification)
 	status := <-d.Done()
 	c.Assert(status.Err, gc.IsNil)
@@ -72,7 +73,7 @@ func (s *suite) TestDownloadWithDisablingSSLHostnameVerification(c *gc.C) {
 }
 
 func (s *suite) TestDownloadError(c *gc.C) {
-	testing.Server.Response(404, nil, nil)
+	gitjujutesting.Server.Response(404, nil, nil)
 	d := downloader.New(s.URL("/archive.tgz"), c.MkDir(), utils.VerifySSLHostnames)
 	status := <-d.Done()
 	c.Assert(status.File, gc.IsNil)

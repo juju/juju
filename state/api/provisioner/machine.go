@@ -27,11 +27,11 @@ func (m *Machine) Tag() string {
 
 // Id returns the machine id.
 func (m *Machine) Id() string {
-	_, machineId, err := names.ParseTag(m.tag, names.MachineTagKind)
+	tag, err := names.ParseTag(m.tag, names.MachineTagKind)
 	if err != nil {
 		panic(fmt.Sprintf("%q is not a valid machine tag", m.tag))
 	}
-	return machineId
+	return tag.Id()
 }
 
 // String returns the machine as a string.

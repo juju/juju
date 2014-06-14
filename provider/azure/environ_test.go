@@ -32,6 +32,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiparams "github.com/juju/juju/state/api/params"
@@ -1448,8 +1449,10 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	s.setDummyStorage(c, s.env)
 	s.env.ecfg.attrs["force-image-name"] = "my-image"
 	stateInfo := &state.Info{
-		Addrs:    []string{"localhost:123"},
-		CACert:   coretesting.CACert,
+		Info: mongo.Info{
+			CACert: coretesting.CACert,
+			Addrs:  []string{"localhost:123"},
+		},
 		Password: "password",
 		Tag:      "machine-1",
 	}

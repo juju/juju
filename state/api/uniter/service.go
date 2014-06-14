@@ -6,9 +6,9 @@ package uniter
 import (
 	"fmt"
 
+	"github.com/juju/charm"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 )
@@ -25,11 +25,11 @@ type Service struct {
 
 // Name returns the service name.
 func (s *Service) Name() string {
-	_, serviceName, err := names.ParseTag(s.tag, names.ServiceTagKind)
+	tag, err := names.ParseTag(s.tag, names.ServiceTagKind)
 	if err != nil {
 		panic(fmt.Sprintf("%q is not a valid service tag", s.tag))
 	}
-	return serviceName
+	return tag.Id()
 }
 
 // String returns the service as a string.

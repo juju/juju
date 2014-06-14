@@ -11,14 +11,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/utils/ssh"
 )
@@ -55,7 +56,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	}
 
 	info.Password = password
-	opts := state.DefaultDialOpts()
+	opts := mongo.DefaultDialOpts()
 	st, err := state.Open(info, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorized(err) {
 		logger.Infof("authorization error while connecting to state server; retrying")

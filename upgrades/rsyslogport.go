@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 )
 
@@ -18,7 +19,7 @@ func updateRsyslogPort(context Context) error {
 	}
 	// we need to re-open state with a nil policay so we can bypass
 	// validation, as the syslog-port is normally immutable
-	st, err := state.Open(info, state.DefaultDialOpts(), nil)
+	st, err := state.Open(info, mongo.DefaultDialOpts(), nil)
 	if err != nil {
 		return err
 	}
