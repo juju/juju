@@ -472,12 +472,7 @@ func (u *Unit) Remove() (err error) {
 		}
 		return nil, statetxn.ErrNoOperations
 	}
-	if err = unit.st.run(buildTxn); err == nil {
-		if err = unit.Refresh(); errors.IsNotFound(err) {
-			return nil
-		}
-	}
-	return err
+	return unit.st.run(buildTxn)
 }
 
 // Resolved returns the resolved mode for the unit.

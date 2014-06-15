@@ -321,12 +321,10 @@ func (ru *RelationUnit) LeaveScope() error {
 		}
 		return ops, nil
 	}
-	if err = ru.st.run(buildTxn); err == nil {
-		if err = ru.relation.Refresh(); err == nil || errors.IsNotFound(err) {
-			return nil
-		}
+	if err = ru.st.run(buildTxn); err != nil {
+		return fmt.Errorf("cannot leave scope for %s: %v", desc, err)
 	}
-	return fmt.Errorf("cannot leave scope for %s: %v", desc, err)
+	return nil
 }
 
 // InScope returns whether the relation unit has entered scope and not left it.

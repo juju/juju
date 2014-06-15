@@ -129,12 +129,7 @@ func (r *Relation) Destroy() (err error) {
 		}
 		return ops, nil
 	}
-	if err = rel.st.run(buildTxn); err == nil {
-		if err = rel.Refresh(); err == nil || errors.IsNotFound(err) {
-			return nil
-		}
-	}
-	return err
+	return rel.st.run(buildTxn)
 }
 
 var errAlreadyDying = stderrors.New("entity is already dying and cannot be destroyed")
