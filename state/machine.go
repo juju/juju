@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
+	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -508,20 +509,20 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}},
 		{"hasvote", bson.D{{"$ne", true}}},
 	}
-	// 3 attempts: one with original data, one with refreshed data, and a final
+	// multiple attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
-	for i := 0; i < 3; i++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// If the transaction was aborted, grab a fresh copy of the machine data.
 		// We don't write to original, because the expectation is that state-
 		// changing methods only set the requested change on the receiver; a case
 		// could perhaps be made that this is not a helpful convention in the
 		// context of the new state API, but we maintain consistency in the
 		// face of uncertainty.
-		if i != 0 {
+		if attempt != 0 {
 			if m, err = m.st.Machine(m.doc.Id); errors.IsNotFound(err) {
-				return nil
+				return nil, statetxn.ErrNoOperations
 			} else if err != nil {
-				return err
+				return nil, err
 			}
 		}
 		// Check that the life change is sane, and collect the assertions
@@ -529,12 +530,12 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		switch life {
 		case Dying:
 			if m.doc.Life != Alive {
-				return nil
+				return nil, statetxn.ErrNoOperations
 			}
 			op.Assert = append(advanceAsserts, isAliveDoc...)
 		case Dead:
 			if m.doc.Life == Dead {
-				return nil
+				return nil, statetxn.ErrNoOperations
 			}
 			op.Assert = append(advanceAsserts, notDeadDoc...)
 		default:
@@ -546,28 +547,23 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			// (NOTE: When we enable multiple JobManageEnviron machines,
 			// this restriction will be lifted, but we will assert that the
 			// machine is not voting)
-			return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+			return nil, fmt.Errorf("machine %s is required by the environment", m.doc.Id)
 		}
 		if m.doc.HasVote {
-			return fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
+			return nil, fmt.Errorf("machine %s is a voting replica set member", m.doc.Id)
 		}
 		if len(m.doc.Principals) != 0 {
-			return &HasAssignedUnitsError{
+			return nil, &HasAssignedUnitsError{
 				MachineId: m.doc.Id,
 				UnitNames: m.doc.Principals,
 			}
 		}
-		// Run the transaction...
-		if err := m.st.runTransaction([]txn.Op{op}); err != txn.ErrAborted {
-			return err
-		}
-		// ...and retry on abort.
+		return []txn.Op{op}, nil
 	}
-	// In very rare circumstances, the final iteration above will have determined
-	// no cause of failure, and attempted a final transaction: if this also failed,
-	// we can be sure that the machine document is changing very fast, in a somewhat
-	// surprising fashion, and that it is sensible to back off for now.
-	return fmt.Errorf("machine %s cannot advance lifecycle: %v", m, ErrExcessiveContention)
+	if err = m.st.run(buildTxn); err == statetxn.ErrExcessiveContention {
+		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
+	}
+	return err
 }
 
 func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
@@ -1128,28 +1124,28 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		},
 		setConstraintsOp(m.st, m.globalKey(), cons),
 	}
-	// 3 attempts is enough to push the ErrExcessiveContention case out of the
+	// make multiple attempts to push the ErrExcessiveContention case out of the
 	// realm of plausibility: it implies local state indicating unprovisioned,
 	// and remote state indicating provisioned (reasonable); but which changes
 	// back to unprovisioned and then to provisioned again with *very* specific
 	// timing in the course of this loop.
-	for i := 0; i < 3; i++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if m, err = m.st.Machine(m.doc.Id); err != nil {
+				return nil, err
+			}
+		}
 		if m.doc.Life != Alive {
-			return errNotAlive
+			return nil, errNotAlive
 		}
 		if _, err := m.InstanceId(); err == nil {
-			return fmt.Errorf("machine is already provisioned")
+			return nil, fmt.Errorf("machine is already provisioned")
 		} else if !IsNotProvisionedError(err) {
-			return err
+			return nil, err
 		}
-		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
-			return err
-		}
-		if m, err = m.st.Machine(m.doc.Id); err != nil {
-			return err
-		}
+		return ops, nil
 	}
-	return ErrExcessiveContention
+	return m.st.run(buildTxn)
 }
 
 // Status returns the status of the machine.

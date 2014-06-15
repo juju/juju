@@ -8,6 +8,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/txn"
 )
 
 type ActionSuite struct {
@@ -116,13 +117,13 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit)
 
-	killUnit := state.TransactionHook{
+	killUnit := txn.TestHook{
 		Before: func() {
 			c.Assert(unit.Destroy(), gc.IsNil)
 			c.Assert(unit.EnsureDead(), gc.IsNil)
 		},
 	}
-	defer state.SetTransactionHooks(c, s.State, killUnit).Check()
+	defer state.SetTestHooks(c, s.State, killUnit).Check()
 
 	_, err = unit.AddAction("fakeaction", map[string]interface{}{})
 	c.Assert(err, gc.ErrorMatches, "unit .* is dead")

@@ -24,6 +24,8 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+
+	statetxn "github.com/juju/juju/state/txn"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -272,25 +274,31 @@ func (u *Unit) Destroy() (err error) {
 		}
 	}()
 	unit := &Unit{st: u.st, doc: u.doc}
-	for i := 0; i < 5; i++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := unit.Refresh(); errors.IsNotFound(err) {
+				return nil, statetxn.ErrNoOperations
+			} else if err != nil {
+				return nil, err
+			}
+		}
 		switch ops, err := unit.destroyOps(); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return nil
+			return nil, statetxn.ErrNoOperations
 		case nil:
-			if err := unit.st.runTransaction(ops); err != txn.ErrAborted {
-				return err
-			}
+			return ops, nil
 		default:
-			return err
+			return nil, err
 		}
-		if err := unit.Refresh(); errors.IsNotFound(err) {
+		return nil, statetxn.ErrNoOperations
+	}
+	if err = unit.st.run(buildTxn); err == nil {
+		if err = unit.Refresh(); errors.IsNotFound(err) {
 			return nil
-		} else if err != nil {
-			return err
 		}
 	}
-	return ErrExcessiveContention
+	return err
 }
 
 // destroyOps returns the operations required to destroy the unit. If it
@@ -445,25 +453,26 @@ func (u *Unit) Remove() (err error) {
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
 	unit := &Unit{st: u.st, doc: u.doc}
-	for i := 0; i < 5; i++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := unit.Refresh(); errors.IsNotFound(err) {
+				return nil, statetxn.ErrNoOperations
+			} else if err != nil {
+				return nil, err
+			}
+		}
 		switch ops, err := unit.removeOps(isDeadDoc); err {
 		case errRefresh:
-		case errAlreadyRemoved:
-			return nil
+		case errAlreadyDying:
+			return nil, statetxn.ErrNoOperations
 		case nil:
-			if err := u.st.runTransaction(ops); err != txn.ErrAborted {
-				return err
-			}
+			return ops, nil
 		default:
-			return err
+			return nil, err
 		}
-		if err := unit.Refresh(); errors.IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
+		return nil, statetxn.ErrNoOperations
 	}
-	return ErrExcessiveContention
+	return unit.st.run(buildTxn)
 }
 
 // Resolved returns the resolved mode for the unit.
@@ -702,29 +711,29 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 	if curl == nil {
 		return fmt.Errorf("cannot set nil charm url")
 	}
-	for i := 0; i < 5; i++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
-			return err
+			return nil, err
 		} else if !notDead {
-			return fmt.Errorf("unit %q is dead", u)
+			return nil, fmt.Errorf("unit %q is dead", u)
 		}
 		sel := bson.D{{"_id", u.doc.Name}, {"charmurl", curl}}
 		if count, err := u.st.units.Find(sel).Count(); err != nil {
-			return err
+			return nil, err
 		} else if count == 1 {
 			// Already set
-			return nil
+			return nil, statetxn.ErrNoOperations
 		}
 		if count, err := u.st.charms.FindId(curl).Count(); err != nil {
-			return err
+			return nil, err
 		} else if count < 1 {
-			return fmt.Errorf("unknown charm url %q", curl)
+			return nil, fmt.Errorf("unknown charm url %q", curl)
 		}
 
 		// Add a reference to the service settings for the new charm.
 		incOp, err := settingsIncRefOp(u.st, u.doc.Service, curl, false)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// Set the new charm URL.
@@ -741,15 +750,13 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			// Drop the reference to the old charm.
 			decOps, err := settingsDecRefOps(u.st, u.doc.Service, u.doc.CharmURL)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			ops = append(ops, decOps...)
 		}
-		if err := u.st.runTransaction(ops); err != txn.ErrAborted {
-			return err
-		}
+		return ops, nil
 	}
-	return ErrExcessiveContention
+	return u.st.run(buildTxn)
 }
 
 // AgentAlive returns whether the respective remote agent is alive.
@@ -1391,23 +1398,18 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 		Insert: doc,
 	}}
 
-	for i := 0; i < 3; i++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
-			return "", err
+			return nil, err
 		} else if !notDead {
-			return "", fmt.Errorf("unit %q is dead", u)
+			return nil, fmt.Errorf("unit %q is dead", u)
 		}
-
-		switch err := u.st.runTransaction(ops); err {
-		case txn.ErrAborted:
-			continue
-		case nil:
-			return actionId, nil
-		default:
-			return "", err
-		}
+		return ops, nil
 	}
-	return "", ErrExcessiveContention
+	if err = u.st.run(buildTxn); err == nil {
+		return actionId, nil
+	}
+	return "", err
 }
 
 // Resolve marks the unit as having had any previous state transition
