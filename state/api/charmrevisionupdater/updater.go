@@ -10,22 +10,19 @@ import (
 
 // State provides access to a worker's view of the state.
 type State struct {
-	caller base.Caller
+	base.FacadeCaller
 }
 
 // NewState returns a version of the state that provides functionality required by the worker.
 func NewState(caller base.Caller) *State {
-	return &State{caller}
+	return &State{base.GetFacadeCaller(caller, "CharmRevisionUpdater")}
 }
 
 // UpdateLatestRevisions retrieves charm revision info from a repository
 // and updates the revision info in state.
 func (st *State) UpdateLatestRevisions() error {
 	result := new(params.ErrorResult)
-	err := st.caller.Call(
-		"CharmRevisionUpdater",
-		st.caller.BestFacadeVersion("CharmRevisionUpdater"),
-		"", "UpdateLatestRevisions", nil, result)
+	err := st.APICall("UpdateLatestRevisions", nil, result)
 	if err != nil {
 		return err
 	}

@@ -13,29 +13,24 @@ const deployerFacade = "Deployer"
 
 // State provides access to the deployer worker's idea of the state.
 type State struct {
-	caller base.Caller
+	base.FacadeCaller
 	*common.APIAddresser
 }
 
 // NewState creates a new State instance that makes API calls
 // through the given caller.
 func NewState(caller base.Caller) *State {
+	facadeCaller := base.GetFacadeCaller(caller, deployerFacade)
 	return &State{
-		APIAddresser: common.NewAPIAddresser(deployerFacade, caller),
-		caller:       caller,
+		FacadeCaller: facadeCaller,
+		APIAddresser: common.NewAPIAddresser(facadeCaller),
 	}
 
 }
 
-func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call(
-		deployerFacade, st.caller.BestFacadeVersion(deployerFacade), "",
-		method, params, result)
-}
-
 // unitLife returns the lifecycle state of the given unit.
 func (st *State) unitLife(tag string) (params.Life, error) {
-	return common.Life(st.caller, deployerFacade, tag)
+	return common.Life(st.RawCaller(), deployerFacade, tag)
 }
 
 // Unit returns the unit with the given tag.
@@ -62,7 +57,7 @@ func (st *State) Machine(tag string) (*Machine, error) {
 // StateAddresses returns the list of addresses used to connect to the state.
 func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.call("StateAddresses", nil, &result)
+	err := st.APICall("StateAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +67,6 @@ func (st *State) StateAddresses() ([]string, error) {
 // ConnectionInfo returns all the address information that the deployer task
 // needs in one call.
 func (st *State) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	err = st.call("ConnectionInfo", nil, &result)
+	err = st.APICall("ConnectionInfo", nil, &result)
 	return result, err
 }

@@ -24,7 +24,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.call("WatchUnits", args, &results)
+	err := m.st.APICall("WatchUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +35,6 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(m.st.caller, result)
+	w := watcher.NewStringsWatcher(m.st.RawCaller(), result)
 	return w, nil
 }

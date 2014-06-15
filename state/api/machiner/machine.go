@@ -46,7 +46,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 			{Tag: m.tag, Status: status, Info: info, Data: data},
 		},
 	}
-	err := m.st.call("SetStatus", args, &result)
+	err := m.st.APICall("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
 			{Tag: m.Tag(), Addresses: addresses},
 		},
 	}
-	err := m.st.call("SetMachineAddresses", args, &result)
+	err := m.st.APICall("SetMachineAddresses", args, &result)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.call("EnsureDead", args, &result)
+	err := m.st.APICall("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.call("Watch", args, &results)
+	err := m.st.APICall("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -99,6 +99,6 @@ func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(m.st.caller, result)
+	w := watcher.NewNotifyWatcher(m.st.RawCaller(), result)
 	return w, nil
 }

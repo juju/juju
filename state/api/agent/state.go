@@ -13,17 +13,13 @@ import (
 
 // State provides access to an agent's view of the state.
 type State struct {
-	caller base.Caller
+	base.FacadeCaller
 }
 
 // NewState returns a version of the state that provides functionality
 // required by agent code.
 func NewState(caller base.Caller) *State {
-	return &State{caller}
-}
-
-func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call("Agent", st.caller.BestFacadeVersion("Agent"), "", method, params, result)
+	return &State{base.GetFacadeCaller(caller, "Agent")}
 }
 
 func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
@@ -31,7 +27,7 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.call("GetEntities", args, &results)
+	err := st.APICall("GetEntities", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +42,7 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 
 func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	var results params.StateServingInfo
-	err := st.call("StateServingInfo", nil, &results)
+	err := st.APICall("StateServingInfo", nil, &results)
 	return results, err
 }
 
@@ -58,7 +54,7 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 // privileges.
 func (st *State) IsMaster() (bool, error) {
 	var results params.IsMasterResult
-	err := st.call("IsMaster", nil, &results)
+	err := st.APICall("IsMaster", nil, &results)
 	return results.Master, err
 }
 
@@ -113,7 +109,7 @@ func (m *Entity) SetPassword(password string) error {
 			Password: password,
 		}},
 	}
-	err := m.st.call("SetPasswords", args, &results)
+	err := m.st.APICall("SetPasswords", args, &results)
 	if err != nil {
 		return err
 	}

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/agent"
+	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/charmrevisionupdater"
 	"github.com/juju/juju/state/api/deployer"
 	"github.com/juju/juju/state/api/environment"
@@ -105,7 +106,7 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 // Client returns an object that can be used
 // to access client-specific functionality.
 func (st *State) Client() *Client {
-	return &Client{st}
+	return &Client{FacadeCaller: base.GetFacadeCaller(st, "Client"), st: st}
 }
 
 // Machiner returns a version of the state that provides functionality

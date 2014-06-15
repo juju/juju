@@ -58,7 +58,7 @@ func (m *Machine) Refresh() error {
 func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	var results params.ProvisioningInfoResults
 	args := params.Entities{Entities: []params.Entity{{m.tag}}}
-	err := m.st.call("ProvisioningInfo", args, &results)
+	err := m.st.APICall("ProvisioningInfo", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 			{Tag: m.tag, Status: status, Info: info, Data: data},
 		},
 	}
-	err := m.st.call("SetStatus", args, &result)
+	err := m.st.APICall("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -93,7 +93,7 @@ func (m *Machine) Status() (params.Status, string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.call("Status", args, &results)
+	err := m.st.APICall("Status", args, &results)
 	if err != nil {
 		return "", "", err
 	}
@@ -114,7 +114,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.call("EnsureDead", args, &result)
+	err := m.st.APICall("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -128,7 +128,7 @@ func (m *Machine) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.call("Remove", args, &result)
+	err := m.st.APICall("Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -144,7 +144,7 @@ func (m *Machine) Series() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.call("Series", args, &results)
+	err := m.st.APICall("Series", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -167,7 +167,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", 0, "", "DistributionGroup", args, &results)
+	err := m.st.APICall("DistributionGroup", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -199,7 +199,7 @@ func (m *Machine) SetInstanceInfo(
 			Interfaces:      interfaces,
 		}},
 	}
-	err := m.st.call("SetInstanceInfo", args, &result)
+	err := m.st.APICall("SetInstanceInfo", args, &result)
 	if err != nil {
 		return err
 	}
@@ -213,7 +213,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.call("InstanceId", args, &results)
+	err := m.st.APICall("InstanceId", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -235,7 +235,7 @@ func (m *Machine) SetPassword(password string) error {
 			{Tag: m.tag, Password: password},
 		},
 	}
-	err := m.st.call("SetPasswords", args, &result)
+	err := m.st.APICall("SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}
@@ -264,7 +264,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 			{MachineTag: m.tag, ContainerType: string(ctype)},
 		},
 	}
-	err := m.st.call("WatchContainers", args, &results)
+	err := m.st.APICall("WatchContainers", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +275,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(m.st.caller, result)
+	w := watcher.NewStringsWatcher(m.st.RawCaller(), result)
 	return w, nil
 }
 
@@ -288,7 +288,7 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 			{MachineTag: m.tag},
 		},
 	}
-	err := m.st.call("WatchContainers", args, &results)
+	err := m.st.APICall("WatchContainers", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -299,7 +299,7 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(m.st.caller, result)
+	w := watcher.NewStringsWatcher(m.st.RawCaller(), result)
 	return w, nil
 }
 
@@ -311,7 +311,7 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 			{MachineTag: m.tag, ContainerTypes: containerTypes},
 		},
 	}
-	err := m.st.call("SetSupportedContainers", args, &results)
+	err := m.st.APICall("SetSupportedContainers", args, &results)
 	if err != nil {
 		return err
 	}

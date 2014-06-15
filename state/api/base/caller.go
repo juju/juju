@@ -14,3 +14,45 @@ type Caller interface {
 	// client can use with the current API server.
 	BestFacadeVersion(facade string) int
 }
+
+// FacadeCaller is a wrapper around the common paradigm that a given client
+// just wants to make calls on a facade using the best known version of the API.
+type FacadeCaller interface {
+	// APICall will place a request against the API using the requested
+	// Facade and the best version that the API server supports that is
+	// also known to the client.
+	APICall(request string, params, response interface{}) error
+
+	// BestAPIVersion returns the API version that we were able to
+	// determine is supported by both the client and the API Server
+	BestAPIVersion() int
+
+	// RawCaller returns the wrapped Caller. This can be used if you need
+	// to switch what Facade you are calling (such as Facades that return
+	// Watchers and then need to use the Watcher facade)
+	RawCaller() Caller
+}
+
+type facadeCaller struct {
+	facade string
+	caller Caller
+}
+
+func (fc facadeCaller) APICall(request string, params, response interface{}) error {
+	return fc.caller.Call(
+		fc.facade, fc.caller.BestFacadeVersion(fc.facade), "",
+		request, params, response)
+}
+
+func (fc facadeCaller) BestAPIVersion() int {
+	return fc.caller.BestFacadeVersion(fc.facade)
+}
+
+func (fc facadeCaller) RawCaller() Caller {
+	return fc.caller
+}
+
+// GetFacadeCaller wraps a Caller for a given Facade
+func GetFacadeCaller(caller Caller, facade string) FacadeCaller {
+	return facadeCaller{facade: facade, caller: caller}
+}
