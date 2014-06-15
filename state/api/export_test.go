@@ -13,7 +13,7 @@ var (
 	SetUpWebsocket      = setUpWebsocket
 	SlideAddressToFront = slideAddressToFront
 	BestVersion         = bestVersion
-	FacadeVersions = &facadeVersions
+	FacadeVersions      = &facadeVersions
 )
 
 // SetServerRoot allows changing the URL to the internal API server

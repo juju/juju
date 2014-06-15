@@ -22,7 +22,10 @@ func NewState(caller base.Caller) *State {
 // and updates the revision info in state.
 func (st *State) UpdateLatestRevisions() error {
 	result := new(params.ErrorResult)
-	err := st.caller.Call("CharmRevisionUpdater", 0, "", "UpdateLatestRevisions", nil, result)
+	err := st.caller.Call(
+		"CharmRevisionUpdater",
+		st.caller.BestFacadeVersion("CharmRevisionUpdater"),
+		"", "UpdateLatestRevisions", nil, result)
 	if err != nil {
 		return err
 	}

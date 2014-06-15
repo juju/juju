@@ -22,12 +22,16 @@ func NewState(caller base.Caller) *State {
 	return &State{caller}
 }
 
+func (st *State) call(method string, params, result interface{}) error {
+	return st.caller.Call("Agent", st.caller.BestFacadeVersion("Agent"), "", method, params, result)
+}
+
 func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 	var results params.AgentGetEntitiesResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.caller.Call("Agent", 0, "", "GetEntities", args, &results)
+	err := st.call("GetEntities", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -42,7 +46,7 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 
 func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	var results params.StateServingInfo
-	err := st.caller.Call("Agent", 0, "", "StateServingInfo", nil, &results)
+	err := st.call("StateServingInfo", nil, &results)
 	return results, err
 }
 
@@ -54,7 +58,7 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 // privileges.
 func (st *State) IsMaster() (bool, error) {
 	var results params.IsMasterResult
-	err := st.caller.Call("Agent", 0, "", "IsMaster", nil, &results)
+	err := st.call("IsMaster", nil, &results)
 	return results.Master, err
 }
 
@@ -109,7 +113,7 @@ func (m *Entity) SetPassword(password string) error {
 			Password: password,
 		}},
 	}
-	err := m.st.caller.Call("Agent", 0, "", "SetPasswords", args, &results)
+	err := m.st.call("SetPasswords", args, &results)
 	if err != nil {
 		return err
 	}

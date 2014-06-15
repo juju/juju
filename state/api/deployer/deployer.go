@@ -28,7 +28,9 @@ func NewState(caller base.Caller) *State {
 }
 
 func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call(deployerFacade, 0, "", method, params, result)
+	return st.caller.Call(
+		deployerFacade, st.caller.BestFacadeVersion(deployerFacade), "",
+		method, params, result)
 }
 
 // unitLife returns the lifecycle state of the given unit.

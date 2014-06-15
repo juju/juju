@@ -266,7 +266,7 @@ func (s *State) heartbeatMonitor(pingPeriod time.Duration) {
 }
 
 func (s *State) Ping() error {
-	return s.Call("Pinger", 0, "", "Ping", nil, nil)
+	return s.Call("Pinger", s.BestFacadeVersion("Pinger"), "", "Ping", nil, nil)
 }
 
 // Call invokes a low-level RPC method of the given objType, id, and

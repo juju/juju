@@ -26,10 +26,16 @@ func NewAPIAddresser(facadeName string, caller base.Caller) *APIAddresser {
 	}
 }
 
+func (a *APIAddresser) call(method string, params, result interface{}) error {
+	return a.caller.Call(
+		a.facadeName, a.caller.BestFacadeVersion(a.facadeName), "",
+		method, params, result)
+}
+
 // APIAddresses returns the list of addresses used to connect to the API.
 func (a *APIAddresser) APIAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := a.caller.Call(a.facadeName, 0, "", "APIAddresses", nil, &result)
+	err := a.call("APIAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +49,7 @@ func (a *APIAddresser) APIAddresses() ([]string, error) {
 // CACert returns the certificate used to validate the API and state connections.
 func (a *APIAddresser) CACert() (string, error) {
 	var result params.BytesResult
-	err := a.caller.Call(a.facadeName, 0, "", "CACert", nil, &result)
+	err := a.call("CACert", nil, &result)
 	if err != nil {
 		return "", err
 	}
@@ -53,7 +59,7 @@ func (a *APIAddresser) CACert() (string, error) {
 // APIHostPorts returns the host/port addresses of the API servers.
 func (a *APIAddresser) APIHostPorts() ([][]network.HostPort, error) {
 	var result params.APIHostPortsResult
-	err := a.caller.Call(a.facadeName, 0, "", "APIHostPorts", nil, &result)
+	err := a.call("APIHostPorts", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +69,7 @@ func (a *APIAddresser) APIHostPorts() ([][]network.HostPort, error) {
 // WatchAPIHostPorts watches the host/port addresses of the API servers.
 func (a *APIAddresser) WatchAPIHostPorts() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := a.caller.Call(a.facadeName, 0, "", "WatchAPIHostPorts", nil, &result)
+	err := a.call("WatchAPIHostPorts", nil, &result)
 	if err != nil {
 		return nil, err
 	}

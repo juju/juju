@@ -142,7 +142,9 @@ func (w *notifyWatcher) loop() error {
 	// No results for this watcher type.
 	w.newResult = func() interface{} { return nil }
 	w.call = func(request string, result interface{}) error {
-		return w.caller.Call("NotifyWatcher", 0, w.notifyWatcherId, request, nil, &result)
+		return w.caller.Call("NotifyWatcher",
+			w.caller.BestFacadeVersion("NotifyWatcher"),
+			w.notifyWatcherId, request, nil, &result)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -197,7 +199,10 @@ func (w *stringsWatcher) loop(initialChanges []string) error {
 	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.StringsWatchResult) }
 	w.call = func(request string, result interface{}) error {
-		return w.caller.Call("StringsWatcher", 0, w.stringsWatcherId, request, nil, &result)
+		return w.caller.Call(
+			"StringsWatcher",
+			w.caller.BestFacadeVersion("StringsWatcher"),
+			w.stringsWatcherId, request, nil, &result)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -255,7 +260,9 @@ func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) e
 	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.RelationUnitsWatchResult) }
 	w.call = func(request string, result interface{}) error {
-		return w.caller.Call("RelationUnitsWatcher", 0, w.relationUnitsWatcherId, request, nil, &result)
+		return w.caller.Call("RelationUnitsWatcher",
+			w.caller.BestFacadeVersion("RelationUnitsWatcher"),
+			w.relationUnitsWatcherId, request, nil, &result)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()

@@ -42,7 +42,10 @@ type NetworksSpecification struct {
 }
 
 func (c *Client) call(method string, params, result interface{}) error {
-	return c.st.Call("Client", 0, "", method, params, result)
+	return c.st.Call(
+		"Client",
+		c.st.BestFacadeVersion("Client"),
+		"", method, params, result)
 }
 
 // AgentStatus holds status info about a machine or unit agent.
