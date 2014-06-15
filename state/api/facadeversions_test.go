@@ -23,7 +23,7 @@ func (*facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	// code just to list out what versions are available. However, we do
 	// want to make sure that the two sides are kept in sync.
 	clientFacadeNames := set.NewStrings()
-	for name, _ := range api.FacadeVersions {
+	for name, _ := range *api.FacadeVersions {
 		clientFacadeNames.Add(name)
 	}
 	allServerFacades := common.Facades.List()
@@ -37,5 +37,68 @@ func (*facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 	c.Check(serverFacadeNames.Difference(clientFacadeNames).SortedValues(), gc.DeepEquals, []string{})
 	c.Check(clientFacadeNames.Difference(serverFacadeNames).SortedValues(), gc.DeepEquals, []string{})
 	// Next check that the best versions match
-	c.Check(api.FacadeVersions, gc.DeepEquals, serverFacadeBestVersions)
+	c.Check(*api.FacadeVersions, gc.DeepEquals, serverFacadeBestVersions)
+}
+
+func checkBestVersion(c *gc.C, desiredVersion int, versions []int, expectedVersion int) {
+	resultVersion := api.BestVersion(desiredVersion, versions)
+	c.Check(resultVersion, gc.Equals, expectedVersion)
+}
+
+func (*facadeVersionSuite) TestBestVersionDesiredAvailable(c *gc.C) {
+	checkBestVersion(c, 0, []int{0, 1, 2}, 0)
+	checkBestVersion(c, 1, []int{0, 1, 2}, 1)
+	checkBestVersion(c, 2, []int{0, 1, 2}, 2)
+}
+
+func (*facadeVersionSuite) TestBestVersionDesiredNewer(c *gc.C) {
+	checkBestVersion(c, 3, []int{0}, 0)
+	checkBestVersion(c, 3, []int{0, 1, 2}, 2)
+}
+
+func (*facadeVersionSuite) TestBestVersionDesiredGap(c *gc.C) {
+	checkBestVersion(c, 1, []int{0, 2}, 0)
+}
+
+func (*facadeVersionSuite) TestBestVersionNoVersions(c *gc.C) {
+	checkBestVersion(c, 0, []int{}, 0)
+	checkBestVersion(c, 1, []int{}, 0)
+	checkBestVersion(c, 0, []int(nil), 0)
+	checkBestVersion(c, 1, []int(nil), 0)
+}
+
+func (s *facadeVersionSuite) TestBestFacadeVersionExactMatch(c *gc.C) {
+	s.PatchValue(api.FacadeVersions, map[string]int {"Client": 1})
+	st := api.NewTestingState(api.TestingStateParams{
+		FacadeVersions: map[string][]int{
+			"Client": []int{0, 1},
+		}})
+	c.Check(st.BestFacadeVersion("Client"), gc.Equals, 1)
+}
+
+func (s *facadeVersionSuite) TestBestFacadeVersionNewerServer(c *gc.C) {
+	s.PatchValue(api.FacadeVersions, map[string]int {"Client": 1})
+	st := api.NewTestingState(api.TestingStateParams{
+		FacadeVersions: map[string][]int{
+			"Client": []int{0, 1, 2},
+		}})
+	c.Check(st.BestFacadeVersion("Client"), gc.Equals, 1)
+}
+
+func (s *facadeVersionSuite) TestBestFacadeVersionNewerClient(c *gc.C) {
+	s.PatchValue(api.FacadeVersions, map[string]int {"Client": 2})
+	st := api.NewTestingState(api.TestingStateParams{
+		FacadeVersions: map[string][]int{
+			"Client": []int{0, 1},
+		}})
+	c.Check(st.BestFacadeVersion("Client"), gc.Equals, 1)
+}
+
+func (s *facadeVersionSuite) TestBestFacadeVersionServerUnknown(c *gc.C) {
+	s.PatchValue(api.FacadeVersions, map[string]int {"TestingAPI": 2})
+	st := api.NewTestingState(api.TestingStateParams{
+		FacadeVersions: map[string][]int{
+			"Client": []int{0, 1},
+		}})
+	c.Check(st.BestFacadeVersion("TestingAPI"), gc.Equals, 0)
 }

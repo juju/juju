@@ -341,5 +341,5 @@ func (s *State) AllFacadeVersions() map[string][]int {
 // the versions available from the server, and reports back what version is the
 // 'best available' to use.
 func (s *State) BestFacadeVersion(facade string) int {
-	return 0
+	return bestVersion(facadeVersions[facade], s.facadeVersions[facade])
 }

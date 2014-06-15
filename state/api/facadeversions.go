@@ -3,10 +3,10 @@
 
 package api
 
-// FacadeVersions lists the best version of facades that we know about. This
+// facadeVersions lists the best version of facades that we know about. This
 // will be used to pick out a default version for communication, given the list
 // of known versions that the API server tells us it is capable of supporting.
-var FacadeVersions = map[string]int{
+var facadeVersions = map[string]int{
 	"Agent":                0,
 	"AllWatcher":           0,
 	"Deployer":             0,
@@ -28,4 +28,16 @@ var FacadeVersions = map[string]int{
 	"Firewaller":           0,
 	"Rsyslog":              0,
 	"Uniter":               0,
+}
+
+// bestVersion tries to find the newest version in the version list that we can
+// use.
+func bestVersion(desiredVersion int, versions []int) int {
+	best := 0
+	for _, version := range versions {
+		if version <= desiredVersion {
+			best = version
+		}
+	}
+	return best
 }
