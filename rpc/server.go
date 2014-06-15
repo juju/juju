@@ -110,8 +110,8 @@ type Conn struct {
 	// mutex guards the following values.
 	mutex sync.Mutex
 
-	//methodFinder is used to lookup methods to serve RPC requests. May be
-	//nil if nothing is being served.
+	// methodFinder is used to lookup methods to serve RPC requests. May be
+	// nil if nothing is being served.
 	methodFinder MethodFinder
 
 	// killer is the current object that we are serving if it implements
@@ -285,7 +285,7 @@ func (conn *Conn) serve(methodFinder MethodFinder, maybeKiller interface{}, tran
 	conn.transformErrors = transformErrors
 }
 
-// noopTransform is used when transformErrors is not supplied to Serve
+// noopTransform is used when transformErrors is not supplied to Serve.
 func noopTransform(err error) error {
 	return err
 }

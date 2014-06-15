@@ -308,7 +308,7 @@ func (c customMethodCaller) Call(objId string, arg reflect.Value) (reflect.Value
 	if reflect.TypeOf(obj) != c.expectedType {
 		logger.Errorf("got the wrong type back, expected %s got %T", c.expectedType, obj)
 	}
-	logger.Infof("calling: %T %v %#v", obj, obj, c.objMethod)
+	logger.Debugf("calling: %T %v %#v", obj, obj, c.objMethod)
 	return c.objMethod.Call(obj, arg)
 }
 
@@ -317,7 +317,7 @@ func (cc *CustomMethodFinder) FindMethod(
 ) (
 	rpcreflect.MethodCaller, error,
 ) {
-	logger.Infof("got to FindMethod: %q %d %q", rootMethodName, version, objMethodName)
+	logger.Debugf("got to FindMethod: %q %d %q", rootMethodName, version, objMethodName)
 	if rootMethodName != "MultiVersion" {
 		return nil, &rpcreflect.CallNotImplementedError{
 			RootMethod: rootMethodName,
@@ -348,7 +348,7 @@ func (cc *CustomMethodFinder) FindMethod(
 			Version:    version,
 		}
 	}
-	logger.Infof("found type: %s", goType)
+	logger.Debugf("found type: %s", goType)
 	objType := rpcreflect.ObjTypeOf(goType)
 	objMethod, err := objType.Method(objMethodName)
 	if err != nil {
