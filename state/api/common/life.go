@@ -17,7 +17,7 @@ func Life(caller base.Caller, facadeName, tag string) (params.Life, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := caller.Call(facadeName, "", "Life", args, &result)
+	err := caller.Call(facadeName, 0, "", "Life", args, &result)
 	if err != nil {
 		return "", err
 	}

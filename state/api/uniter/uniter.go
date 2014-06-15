@@ -37,7 +37,7 @@ func NewState(caller base.Caller, authTag string) *State {
 }
 
 func (st *State) call(method string, params, results interface{}) error {
-	return st.caller.Call(uniterFacade, "", method, params, results)
+	return st.caller.Call(uniterFacade, 0, "", method, params, results)
 }
 
 // life requests the lifecycle of the given entity from the server.

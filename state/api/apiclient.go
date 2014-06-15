@@ -266,7 +266,7 @@ func (s *State) heartbeatMonitor(pingPeriod time.Duration) {
 }
 
 func (s *State) Ping() error {
-	return s.Call("Pinger", "", "Ping", nil, nil)
+	return s.Call("Pinger", 0, "", "Ping", nil, nil)
 }
 
 // Call invokes a low-level RPC method of the given objType, id, and
@@ -275,11 +275,12 @@ func (s *State) Ping() error {
 // TODO (dimitern) Add tests for all client-facing objects to verify
 // we return the correct error when invoking Call("Object",
 // "non-empty-id",...)
-func (s *State) Call(objType, id, request string, args, response interface{}) error {
+func (s *State) Call(objType string, version int, id, request string, args, response interface{}) error {
 	err := s.client.Call(rpc.Request{
-		Type:   objType,
-		Id:     id,
-		Action: request,
+		Type:    objType,
+		Version: version,
+		Id:      id,
+		Action:  request,
 	}, args, response)
 	return params.ClientError(err)
 }

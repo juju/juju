@@ -19,7 +19,7 @@ type State struct {
 }
 
 func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call(networkerFacade, "", method, params, result)
+	return st.caller.Call(networkerFacade, 0, "", method, params, result)
 }
 
 // NewState creates a new client-side Machiner facade.

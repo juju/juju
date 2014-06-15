@@ -15,7 +15,7 @@ type Client struct {
 }
 
 func (c *Client) call(method string, params, result interface{}) error {
-	return c.st.Call("KeyManager", "", method, params, result)
+	return c.st.Call("KeyManager", 0, "", method, params, result)
 }
 
 // NewClient returns a new keymanager client.

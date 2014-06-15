@@ -167,7 +167,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.Call("Provisioner", "", "DistributionGroup", args, &results)
+	err := m.st.caller.Call("Provisioner", 0, "", "DistributionGroup", args, &results)
 	if err != nil {
 		return nil, err
 	}

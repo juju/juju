@@ -42,7 +42,7 @@ type NetworksSpecification struct {
 }
 
 func (c *Client) call(method string, params, result interface{}) error {
-	return c.st.Call("Client", "", method, params, result)
+	return c.st.Call("Client", 0, "", method, params, result)
 }
 
 // AgentStatus holds status info about a machine or unit agent.
@@ -218,7 +218,7 @@ func (c *Client) RetryProvisioning(machines ...string) ([]params.ErrorResult, er
 		p.Entities[i] = params.Entity{Tag: machine}
 	}
 	var results params.ErrorResults
-	err := c.st.Call("Client", "", "RetryProvisioning", p, &results)
+	err := c.call("RetryProvisioning", p, &results)
 	return results.Results, err
 }
 
@@ -353,7 +353,7 @@ func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, 
 		ToMachineSpec: toMachineSpec,
 		Networks:      networks,
 	}
-	return c.st.Call("Client", "", "ServiceDeployWithNetworks", params, nil)
+	return c.call("ServiceDeployWithNetworks", params, nil)
 }
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
@@ -689,7 +689,7 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 func (c *Client) ResolveCharm(ref charm.Reference) (*charm.URL, error) {
 	args := params.ResolveCharms{References: []charm.Reference{ref}}
 	result := new(params.ResolveCharmResults)
-	if err := c.st.Call("Client", "", "ResolveCharms", args, result); err != nil {
+	if err := c.call("ResolveCharms", args, result); err != nil {
 		return nil, err
 	}
 	if len(result.URLs) == 0 {

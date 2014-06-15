@@ -34,7 +34,7 @@ func NewState(caller base.Caller) *State {
 }
 
 func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call(provisionerFacade, "", method, params, result)
+	return st.caller.Call(provisionerFacade, 0, "", method, params, result)
 }
 
 // machineLife requests the lifecycle of the given machine from the server.

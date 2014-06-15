@@ -20,10 +20,10 @@ func newAllWatcher(client *Client, id *string) *AllWatcher {
 
 func (watcher *AllWatcher) Next() ([]params.Delta, error) {
 	info := new(params.AllWatcherNextResults)
-	err := watcher.client.st.Call("AllWatcher", *watcher.id, "Next", nil, info)
+	err := watcher.client.st.Call("AllWatcher", 0, *watcher.id, "Next", nil, info)
 	return info.Deltas, err
 }
 
 func (watcher *AllWatcher) Stop() error {
-	return watcher.client.st.Call("AllWatcher", *watcher.id, "Stop", nil, nil)
+	return watcher.client.st.Call("AllWatcher", 0, *watcher.id, "Stop", nil, nil)
 }

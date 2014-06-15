@@ -40,7 +40,7 @@ func (st *State) SetRsyslogCert(caCert string) error {
 	args := params.SetRsyslogCertParams{
 		CACert: []byte(caCert),
 	}
-	err := st.caller.Call(rsyslogAPI, "", "SetRsyslogCert", args, &result)
+	err := st.caller.Call(rsyslogAPI, 0, "", "SetRsyslogCert", args, &result)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (st *State) WatchForRsyslogChanges(agentTag string) (watcher.NotifyWatcher,
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
 
-	err := st.caller.Call(rsyslogAPI, "", "WatchForRsyslogChanges", args, &results)
+	err := st.caller.Call(rsyslogAPI, 0, "", "WatchForRsyslogChanges", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -81,7 +81,7 @@ func (st *State) GetRsyslogConfig(agentTag string) (*RsyslogConfig, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := st.caller.Call(rsyslogAPI, "", "GetRsyslogConfig", args, &results)
+	err := st.caller.Call(rsyslogAPI, 0, "", "GetRsyslogConfig", args, &results)
 	if err != nil {
 		return nil, err
 	}

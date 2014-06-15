@@ -17,7 +17,7 @@ type State struct {
 }
 
 func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call("Logger", "", method, params, result)
+	return st.caller.Call("Logger", 0, "", method, params, result)
 }
 
 // NewState returns a version of the state that provides functionality

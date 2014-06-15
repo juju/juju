@@ -31,7 +31,7 @@ import (
 // should be empty unless logging in as a machine agent.
 func (st *State) Login(tag, password, nonce string) error {
 	var result params.LoginResult
-	err := st.Call("Admin", "", "Login", &params.Creds{
+	err := st.Call("Admin", 0, "", "Login", &params.Creds{
 		AuthTag:  tag,
 		Password: password,
 		Nonce:    nonce,

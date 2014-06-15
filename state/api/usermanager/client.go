@@ -19,7 +19,7 @@ type Client struct {
 }
 
 func (c *Client) call(method string, params, result interface{}) error {
-	return c.st.Call("UserManager", "", method, params, result)
+	return c.st.Call("UserManager", 0, "", method, params, result)
 }
 
 func NewClient(st *api.State) *Client {

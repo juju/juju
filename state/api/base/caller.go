@@ -8,5 +8,5 @@ type Caller interface {
 	// Call makes a call to the API server with the given object type,
 	// id, request and parameters. The response is filled in with the
 	// call's result if the call is successful.
-	Call(objType, id, request string, params, response interface{}) error
+	Call(objType string, version int, id, request string, params, response interface{}) error
 }

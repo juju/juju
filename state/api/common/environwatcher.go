@@ -27,7 +27,7 @@ func NewEnvironWatcher(facadeName string, caller base.Caller) *EnvironWatcher {
 // environment configuration to change.
 func (e *EnvironWatcher) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := e.caller.Call(e.facadeName, "", "WatchForEnvironConfigChanges", nil, &result)
+	err := e.caller.Call(e.facadeName, 0, "", "WatchForEnvironConfigChanges", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func (e *EnvironWatcher) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, 
 // EnvironConfig returns the current environment configuration.
 func (e *EnvironWatcher) EnvironConfig() (*config.Config, error) {
 	var result params.EnvironConfigResult
-	err := e.caller.Call(e.facadeName, "", "EnvironConfig", nil, &result)
+	err := e.caller.Call(e.facadeName, 0, "", "EnvironConfig", nil, &result)
 	if err != nil {
 		return nil, err
 	}
