@@ -198,9 +198,7 @@ func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticat
 	// announce it's now alive, and set up the API pinger
 	// so that the connection will be terminated if a sufficient
 	// interval passes between pings.
-	agentPresencer, ok := entity.(interface {
-		SetAgentPresence() (*presence.Pinger, error)
-	})
+	agentPresencer, ok := entity.(presence.Presencer)
 	if !ok {
 		return nil
 	}

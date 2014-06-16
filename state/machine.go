@@ -688,6 +688,8 @@ func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	// starts. This ensures that commands run immediately after bootstrap
 	// like status or ensure-availability will have an accurate values
 	// for agent-state.
+	//
+	// TODO: Does not work for multiple state servers. Trigger a sync across all state servers.
 	if m.IsManager() {
 		m.st.pwatcher.Sync()
 	}
