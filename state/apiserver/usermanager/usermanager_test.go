@@ -252,7 +252,7 @@ func (s *userManagerSuite) TestUserInfoNotATagFails(c *gc.C) {
 			{
 				Result: nil,
 				Error: &params.Error{
-					Message: `"notatag" is not a valid user tag`,
+					Message: `"notatag" is not a valid tag`,
 					Code:    "",
 				},
 			},
