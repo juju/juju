@@ -389,7 +389,27 @@ var imageData = map[string]string{
 {
  "updated": "Wed, 01 May 2013 13:31:26 +0000",
  "content_id": "com.ubuntu.cloud:released:aws",
+ "region": "nz-east-1",
+ "endpoint": "https://anywhere",
  "products": {
+  "com.ubuntu.cloud:server:14.04:amd64": {
+   "release": "trusty",
+   "version": "14.04",
+   "arch": "amd64",
+   "versions": {
+    "20140118": {
+     "items": {
+      "nzww1pe": {
+       "root_store": "ebs",
+       "virt": "pv",
+       "id": "ami-36745463"
+      }
+     },
+     "pubname": "ubuntu-trusty-14.04-amd64-server-20140118",
+     "label": "release"
+    }
+   }
+  },
   "com.ubuntu.cloud:server:12.04:amd64": {
    "release": "precise",
    "version": "12.04",
