@@ -1275,15 +1275,15 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	c.Assert(zones[1].Available(), jc.IsFalse)
 }
 
-type mockBestAvailabilityZoneAllocations struct {
+type mockAvailabilityZoneAllocations struct {
 	group  []instance.Id // input param
-	result map[string][]instance.Id
+	result []common.AvailabilityZoneInstances
 	err    error
 }
 
-func (t *mockBestAvailabilityZoneAllocations) BestAvailabilityZoneAllocations(
+func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 	e common.ZonedEnviron, group []instance.Id,
-) (map[string][]instance.Id, error) {
+) ([]common.AvailabilityZoneInstances, error) {
 	t.group = group
 	return t.result, t.err
 }
@@ -1294,14 +1294,14 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	var mock mockBestAvailabilityZoneAllocations
-	t.PatchValue(openstack.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
+	var mock mockAvailabilityZoneAllocations
+	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// no distribution group specified
 	testing.AssertStartInstance(c, env, "1")
 	c.Assert(mock.group, gc.HasLen, 0)
 
-	// distribution group specified: ensure it's passed through to BestAvailabilityZone.
+	// distribution group specified: ensure it's passed through to AvailabilityZone.
 	expectedInstances := []instance.Id{"i-0", "i-1"}
 	params := environs.StartInstanceParams{
 		DistributionGroup: func() ([]instance.Id, error) {
@@ -1319,10 +1319,10 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	mock := mockBestAvailabilityZoneAllocations{
-		err: fmt.Errorf("BestAvailabilityZoneAllocations failed"),
+	mock := mockAvailabilityZoneAllocations{
+		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
 	}
-	t.PatchValue(openstack.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
+	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 	_, _, _, err = testing.StartInstance(env, "1")
 	c.Assert(err, gc.Equals, mock.err)
 
@@ -1343,7 +1343,7 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	// test-available is the only available AZ, so BestAvailabilityZoneAllocations
+	// test-available is the only available AZ, so AvailabilityZoneAllocations
 	// is guaranteed to return that.
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
@@ -1355,10 +1355,10 @@ func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	mock := mockBestAvailabilityZoneAllocations{
+	mock := mockAvailabilityZoneAllocations{
 		err: jujuerrors.NotImplementedf("availability zones"),
 	}
-	t.PatchValue(openstack.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
+	t.PatchValue(openstack.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// Instance will be created without an availability zone specified.
 	inst, _ := testing.AssertStartInstance(c, env, "1")

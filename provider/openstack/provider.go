@@ -873,7 +873,7 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 	return common.DistributeInstances(e, candidates, distributionGroup)
 }
 
-var bestAvailabilityZoneAllocations = common.BestAvailabilityZoneAllocations
+var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
@@ -901,16 +901,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 				return nil, nil, nil, err
 			}
 		}
-		bestAvailabilityZones, err := bestAvailabilityZoneAllocations(e, group)
+		zoneInstances, err := availabilityZoneAllocations(e, group)
 		if jujuerrors.IsNotImplemented(err) {
 			// Availability zones are an extension, so we may get a
 			// not implemented error; ignore these.
 		} else if err != nil {
 			return nil, nil, nil, err
-		} else {
-			for availabilityZone = range bestAvailabilityZones {
-				break
-			}
+		} else if len(zoneInstances) > 0 {
+			availabilityZone = zoneInstances[0].ZoneName
 		}
 	}
 
