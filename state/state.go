@@ -442,6 +442,9 @@ func (st *State) Machine(id string) (*Machine, error) {
 // on the tag.
 func (st *State) FindEntity(tag string) (Entity, error) {
 	t, err := names.ParseTag(tag)
+	if err != nil {
+		return nil, err
+	}
 	switch t.(type) {
 	case names.MachineTag:
 		id := t.Id()
@@ -486,8 +489,9 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 	case names.NetworkTag:
 		id := t.Id()
 		return st.Network(id)
+	default:
+		return nil, errors.Errorf("unsupported tag tpe %T", t)
 	}
-	return nil, err
 }
 
 // parseTag, given an entity tag, returns the collection name and id

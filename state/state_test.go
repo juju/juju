@@ -1181,13 +1181,13 @@ func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("wordpress", state.AdminUser, charm, nil)
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin")
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin: \"admin\" is not a valid tag")
 }
 
 func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("wordpress", "machine-3", charm, nil)
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag machine-3")
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag machine-3: \"machine-3\" is not a valid user tag")
 }
 
 func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
