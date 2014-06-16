@@ -144,6 +144,9 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	// Manage users and access
 	r.Register(NewUserCommand())
 
+	// Restore a backup.
+	r.Register(wrapEnvCommand(&RestoreCommand{}))
+
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
 }

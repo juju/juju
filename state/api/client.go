@@ -593,6 +593,12 @@ func (c *Client) DestroyEnvironment() error {
 	return c.call("DestroyEnvironment", nil, nil)
 }
 
+// XXX pass (io.Reader, size) instead of string?
+func (c *Client) Restore(backupFilePath string) error {
+	// XXX A stub.
+	return nil
+}
+
 // AddLocalCharm prepares the given charm with a local: schema in its
 // URL, and uploads it via the API server, returning the assigned
 // charm URL. If the API server does not support charm uploads, an
