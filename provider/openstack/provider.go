@@ -560,6 +560,9 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
 		zones, err := novaListAvailabilityZones(e.nova())
+		if gooseerrors.IsNotImplemented(err) {
+			return nil, jujuerrors.NotImplementedf("availability zones")
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -899,11 +902,15 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			}
 		}
 		bestAvailabilityZones, err := bestAvailabilityZoneAllocations(e, group)
-		if err != nil {
+		if jujuerrors.IsNotImplemented(err) {
+			// Availability zones are an extension, so we may get a
+			// not implemented error; ignore these.
+		} else if err != nil {
 			return nil, nil, nil, err
-		}
-		for availabilityZone = range bestAvailabilityZones {
-			break
+		} else {
+			for availabilityZone = range bestAvailabilityZones {
+				break
+			}
 		}
 	}
 

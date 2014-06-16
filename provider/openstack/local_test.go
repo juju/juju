@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 
+	jujuerrors "github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goose/client"
@@ -776,6 +777,14 @@ func (t *localServerSuite) TestPrecheckInstanceAvailZoneUnknown(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `invalid availability zone "test-unknown"`)
 }
 
+func (t *localServerSuite) TestPrecheckInstanceAvailZonesUnsupported(c *gc.C) {
+	t.srv.Service.Nova.SetAvailabilityZones() // no availability zone support
+	env := t.Prepare(c)
+	placement := "zone=test-unknown"
+	err := env.PrecheckInstance("precise", constraints.Value{}, placement)
+	c.Assert(err, jc.Satisfies, jujuerrors.IsNotImplemented)
+}
+
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	env := s.Open(c)
 	params, err := env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
@@ -1338,4 +1347,20 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	// is guaranteed to return that.
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "test-available")
+}
+
+func (t *localServerSuite) TestStartInstanceDistributionAZNotImplemented(c *gc.C) {
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	mock := mockBestAvailabilityZoneAllocations{
+		err: jujuerrors.NotImplementedf("availability zones"),
+	}
+	t.PatchValue(openstack.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
+
+	// Instance will be created without an availability zone specified.
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	c.Assert(openstack.InstanceServerDetail(inst).AvailabilityZone, gc.Equals, "")
 }
