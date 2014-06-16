@@ -99,11 +99,13 @@ type attributeValues map[string]string
 type aliasesByAttribute map[string]attributeValues
 
 type CloudMetadata struct {
-	Products  map[string]MetadataCatalog    `json:"products"`
-	Aliases   map[string]aliasesByAttribute `json:"_aliases,omitempty"`
-	Updated   string                        `json:"updated"`
-	Format    string                        `json:"format"`
-	ContentId string                        `json:"content_id"`
+	Products   map[string]MetadataCatalog    `json:"products"`
+	Aliases    map[string]aliasesByAttribute `json:"_aliases,omitempty"`
+	Updated    string                        `json:"updated"`
+	Format     string                        `json:"format"`
+	ContentId  string                        `json:"content_id"`
+	RegionName string                        `json:"region,omitempty"`
+	Endpoint   string                        `json:"endpoint,omitempty"`
 }
 
 type MetadataCatalog struct {
@@ -677,6 +679,7 @@ func (metadata *CloudMetadata) denormaliseMetadata() {
 		for _, ItemCollection := range metadataCatalog.Items {
 			for _, item := range ItemCollection.Items {
 				coll := *ItemCollection
+				inherit(&metadataCatalog, metadata)
 				inherit(&coll, metadataCatalog)
 				inherit(item, &coll)
 			}
@@ -751,7 +754,7 @@ func RegisterStructTags(vals ...interface{}) {
 }
 
 func init() {
-	RegisterStructTags(MetadataCatalog{}, ItemCollection{})
+	RegisterStructTags(CloudMetadata{}, MetadataCatalog{}, ItemCollection{})
 }
 
 func mkTags(vals ...interface{}) map[reflect.Type]map[string]int {
