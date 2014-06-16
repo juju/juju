@@ -445,18 +445,15 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 	if err != nil {
 		return nil, err
 	}
+	id := t.Id()
 	switch t.(type) {
 	case names.MachineTag:
-		id := t.Id()
 		return st.Machine(id)
 	case names.UnitTag:
-		id := t.Id()
 		return st.Unit(id)
 	case names.UserTag:
-		id := t.Id()
 		return st.User(id)
 	case names.ServiceTag:
-		id := t.Id()
 		return st.Service(id)
 	case names.EnvironTag:
 		env, err := st.Environment()
@@ -465,7 +462,6 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 		}
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
-		id := t.Id()
 		if id != env.UUID() {
 			if utils.IsValidUUIDString(id) {
 				return nil, errors.NotFoundf("environment %q", id)
@@ -484,10 +480,8 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 		}
 		return env, nil
 	case names.RelationTag:
-		id := t.Id()
 		return st.KeyRelation(id)
 	case names.NetworkTag:
-		id := t.Id()
 		return st.Network(id)
 	default:
 		return nil, errors.Errorf("unsupported tag tpe %T", t)
