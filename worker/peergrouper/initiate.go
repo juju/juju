@@ -35,9 +35,16 @@ type InitiateMongoParams struct {
 	Password string
 }
 
-// MaybeInitiateMongoServer checks for an existing mongo configuration.
-// If no existing configuration is found one is created using Initiate.
+// MaybeInitiateMongoServer is a convenience function initiate mongo
+// replicaset only if it is not already initiated.
 func MaybeInitiateMongoServer(p InitiateMongoParams) error {
+	return InitiateMongoServer(p, false)
+}
+
+// InitiateMongoServer checks for an existing mongo configuration.s
+// If no existing configuration is found one is created using Initiate.
+// If force flag is true, the configuration will be started anyway
+func InitiateMongoServer(p InitiateMongoParams, force bool) error {
 	logger.Debugf("Initiating mongo replicaset; dialInfo %#v; memberHostport %q; user %q; password %q", p.DialInfo, p.MemberHostPort, p.User, p.Password)
 	defer logger.Infof("finished MaybeInitiateMongoServer")
 
@@ -58,7 +65,7 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 	// we succssfully populate the replicaset config.
 	var err error
 	for attempt := initiateAttemptStrategy.Start(); attempt.Next(); {
-		err = attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort)
+		err = attemptInitiateMongoServer(p.DialInfo, p.MemberHostPort, force)
 		if err == nil {
 			logger.Infof("replica set initiated")
 			return nil
@@ -71,7 +78,7 @@ func MaybeInitiateMongoServer(p InitiateMongoParams) error {
 }
 
 // attemptInitiateMongoServer attempts to initiate the replica set.
-func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string) error {
+func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string, force bool) error {
 	session, err := mgo.DialWithInfo(dialInfo)
 	if err != nil {
 		return fmt.Errorf("can't dial mongo to initiate replicaset: %v", err)
@@ -81,7 +88,7 @@ func attemptInitiateMongoServer(dialInfo *mgo.DialInfo, memberHostPort string) e
 
 	var cfg *replicaset.Config
 	cfg, err = replicaset.CurrentConfig(session)
-	if err == nil && len(cfg.Members) > 0 {
+	if err == nil && len(cfg.Members) > 0 && !force {
 		logger.Infof("replica set configuration already found: %#v", cfg)
 		return nil
 	}
