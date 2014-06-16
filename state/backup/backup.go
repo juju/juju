@@ -154,7 +154,7 @@ func _runCommand(cmd string, args ...string) error {
 	if _, ok := err.(*exec.ExitError); ok && len(out) > 0 {
 		return fmt.Errorf("error executing %q: %s", cmd, strings.Replace(string(out), "\n", "; ", -1))
 	}
-	return fmt.Errorf("cannot execute %q: %v", err)
+	return fmt.Errorf("cannot execute %q: %v", cmd, err)
 }
 
 var getMongodumpPath = _getMongodumpPath
@@ -213,7 +213,7 @@ func Backup(adminPassword, outputFolder string, mongoPort int) (string, string, 
 	tarFile := filepath.Join(bkpDir, "root.tar")
 	backupFiles, err := getFilesToBackup()
 	if err != nil {
-		return "", "", fmt.Errorf("cannot determine files to backup: %v")
+		return "", "", fmt.Errorf("cannot determine files to backup: %v", err)
 	}
 	_, err = tarFiles(backupFiles, tarFile, string(os.PathSeparator), false)
 	if err != nil {
