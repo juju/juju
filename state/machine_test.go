@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/state/txn"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -209,13 +210,12 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	perturb := state.TransactionHook{
+	perturb := txn.TestHook{
 		Before: func() { c.Assert(unit.AssignToMachine(s.machine), gc.IsNil) },
 		After:  func() { c.Assert(unit.UnassignFromMachine(), gc.IsNil) },
 	}
-	defer state.SetTransactionHooks(
-		c, s.State, perturb, perturb, perturb,
-	).Check()
+	defer state.SetTestHooks(c, s.State, perturb, perturb, perturb).Check()
+
 	err = s.machine.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 1 cannot advance lifecycle: state changing too quickly; try again soon")
 }

@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/txn"
 )
 
 type notSupportedError struct {
@@ -76,8 +77,8 @@ var (
 var singletonErrorCodes = map[error]string{
 	state.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
 	state.ErrCannotEnterScope:    params.CodeCannotEnterScope,
-	state.ErrExcessiveContention: params.CodeExcessiveContention,
 	state.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
+	txn.ErrExcessiveContention:   params.CodeExcessiveContention,
 	ErrBadId:                     params.CodeNotFound,
 	ErrBadCreds:                  params.CodeUnauthorized,
 	ErrPerm:                      params.CodeUnauthorized,

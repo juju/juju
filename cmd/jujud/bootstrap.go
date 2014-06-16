@@ -9,11 +9,11 @@ import (
 	"net"
 	"time"
 
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -186,19 +186,13 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	}
 
 	logger.Debugf("calling ensureMongoServer")
-	withHA := shouldEnableHA(agentConfig)
 	err = ensureMongoServer(
 		agentConfig.DataDir(),
 		agentConfig.Value(agent.Namespace),
 		servingInfo,
-		withHA,
 	)
 	if err != nil {
 		return err
-	}
-	// If we are not doing HA, there is no need to set up replica set.
-	if !withHA {
-		return nil
 	}
 
 	peerAddr := mongo.SelectPeerAddress(addrs)

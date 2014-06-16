@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"

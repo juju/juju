@@ -8,10 +8,10 @@ import (
 	"os"
 
 	"github.com/juju/charm"
+	"github.com/juju/cmd"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju"

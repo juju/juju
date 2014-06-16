@@ -2302,7 +2302,7 @@ func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
 	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().EnsureAvailability(1, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
 }
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {

@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
+	statetxn "github.com/juju/juju/state/txn"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -495,17 +496,17 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 // EnsureAvailability adds state server machines as necessary to make
 // the number of live state servers equal to numStateServers. The given
 // constraints and series will be attached to any new machines.
-func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
+func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (err error) {
 	if numStateServers < 0 || (numStateServers != 0 && numStateServers%2 != 1) {
 		return fmt.Errorf("number of state servers must be odd and non-negative")
 	}
 	if numStateServers > replicaset.MaxPeers {
 		return fmt.Errorf("state server count is too large (allowed %d)", replicaset.MaxPeers)
 	}
-	for i := 0; i < 5; i++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		currentInfo, err := st.StateServerInfo()
 		if err != nil {
-			return err
+			return nil, err
 		}
 		desiredStateServerCount := numStateServers
 		if desiredStateServerCount == 0 {
@@ -515,12 +516,12 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 			}
 		}
 		if len(currentInfo.VotingMachineIds) > desiredStateServerCount {
-			return fmt.Errorf("cannot reduce state server count")
+			return nil, fmt.Errorf("cannot reduce state server count")
 		}
 
 		intent, err := st.ensureAvailabilityIntentions(currentInfo)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		voteCount := 0
 		for _, m := range intent.maintain {
@@ -529,7 +530,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 			}
 		}
 		if voteCount == desiredStateServerCount && len(intent.remove) == 0 {
-			return nil
+			return nil, statetxn.ErrNoOperations
 		}
 		// Promote as many machines as we can to fulfil the shortfall.
 		if n := desiredStateServerCount - voteCount; n < len(intent.promote) {
@@ -538,22 +539,12 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 		voteCount += len(intent.promote)
 		intent.newCount = desiredStateServerCount - voteCount
 		logger.Infof("%d new machines; promoting %v", intent.newCount, intent.promote)
-		ops, err := st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
-		if err != nil {
-			return err
-		}
-		err = st.runTransaction(ops)
-		if err == nil {
-			return nil
-		}
-		if err != txn.ErrAborted {
-			return fmt.Errorf("failed to create new state server machines: %v", err)
-		}
-		// The transaction will only be aborted if another call to
-		// EnsureAvailability completed. Loop back around and try again.
-		logger.Errorf("EnsureAvailability aborted transaction (probable contention)")
+		return st.ensureAvailabilityIntentionOps(intent, currentInfo, cons, series)
 	}
-	return ErrExcessiveContention
+	if err = st.run(buildTxn); err != nil {
+		err = errors.Annotate(err, "failed to create new state server machines")
+	}
+	return err
 }
 
 // ensureAvailabilityIntentionOps returns operations to fulfil the desired intent.

@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/state/txn"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
@@ -298,7 +299,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 	// Finally, try poking around the state with a placeholder and
 	// bundlesha256 to make sure we do the right thing.
 	curl = curl.WithRevision(999)
-	first := state.TransactionHook{
+	first := txn.TestHook{
 		Before: func() {
 			err := s.State.AddStoreCharmPlaceholder(curl)
 			c.Assert(err, gc.IsNil)
@@ -308,7 +309,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 	}
-	second := state.TransactionHook{
+	second := txn.TestHook{
 		Before: func() {
 			err := s.State.AddStoreCharmPlaceholder(curl)
 			c.Assert(err, gc.IsNil)
@@ -320,12 +321,10 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 	}
-	defer state.SetTransactionHooks(
-		c, s.State, first, second, first,
-	).Check()
+	defer state.SetTestHooks(c, s.State, first, second, first).Check()
 
 	_, err = s.State.PrepareStoreCharmUpload(curl)
-	c.Assert(err, gc.Equals, state.ErrExcessiveContention)
+	c.Assert(err, gc.Equals, txn.ErrExcessiveContention)
 }
 
 func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
@@ -2887,18 +2886,16 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 	envConfig, currentVersion := s.prepareAgentVersionTests(c)
 
-	// Set a hook to change the config 5 times
+	// Set a hook to change the config 3 times
 	// to test we return ErrExcessiveContention.
 	changeFuncs := []func(){
 		func() { s.changeEnviron(c, envConfig, "default-series", "1") },
 		func() { s.changeEnviron(c, envConfig, "default-series", "2") },
 		func() { s.changeEnviron(c, envConfig, "default-series", "3") },
-		func() { s.changeEnviron(c, envConfig, "default-series", "4") },
-		func() { s.changeEnviron(c, envConfig, "default-series", "5") },
 	}
 	defer state.SetBeforeHooks(c, s.State, changeFuncs...).Check()
 	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	c.Assert(err, gc.Equals, state.ErrExcessiveContention)
+	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
 	// Make sure the version remained the same.
 	s.assertAgentVersion(c, envConfig, currentVersion)
 }
@@ -3308,7 +3305,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
 	// find that the number of voting machines in state is greater than
 	// what we're attempting to ensure, and fail.
 	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
-	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")

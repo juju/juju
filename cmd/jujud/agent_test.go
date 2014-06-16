@@ -10,13 +10,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/cmd"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -241,7 +241,7 @@ func (s *agentSuite) SetUpSuite(c *gc.C) {
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
 	worker.RestartDelay = 250 * time.Millisecond
-	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo, bool) error {
+	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo) error {
 		return nil
 	})
 }

@@ -6,10 +6,10 @@ package main
 import (
 	"fmt"
 
+	"github.com/juju/cmd"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/manual"
