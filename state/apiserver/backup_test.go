@@ -19,7 +19,9 @@ import (
 
 type backupSuite struct {
 	authHttpSuite
-	tempDir string
+	tempDir       string
+	adminPassword string
+	mongoPort     int
 }
 
 var _ = gc.Suite(&backupSuite{})
@@ -67,9 +69,11 @@ func (s *backupSuite) TestAuthRequiresUser(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "GET"`)
 }
 
-func (s *backupSuite) TestDoBackupCalledAndFileServed(c *gc.C) {
-	testBackup := func(tempDir string) (string, string, error) {
+func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
+	testBackup := func(adminPassword string, tempDir string, mongoPort int) (string, string, error) {
 		s.tempDir = tempDir
+		s.adminPassword = adminPassword
+		s.mongoPort = mongoPort
 		backupFilePath := filepath.Join(tempDir, "testBackupFile")
 		file, err := os.Create(backupFilePath)
 		if err != nil {
@@ -79,7 +83,7 @@ func (s *backupSuite) TestDoBackupCalledAndFileServed(c *gc.C) {
 		file.Close()
 		return backupFilePath, "some-sha", nil
 	}
-	s.PatchValue(&apiserver.DoBackup, testBackup)
+	s.PatchValue(&apiserver.Backup, testBackup)
 
 	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
@@ -88,6 +92,8 @@ func (s *backupSuite) TestDoBackupCalledAndFileServed(c *gc.C) {
 	c.Assert(s.tempDir, gc.NotNil)
 	_, err = os.Stat(s.tempDir)
 	c.Assert(os.IsNotExist(err), jc.IsTrue)
+	c.Assert(s.mongoPort, gc.Equals, 5353)
+	c.Assert(s.adminPassword, gc.Equals, "admin password")
 
 	c.Assert(resp.StatusCode, gc.Equals, 200)
 	c.Assert(resp.Header.Get("X-Content-SHA"), gc.Equals, "some-sha")
@@ -98,11 +104,11 @@ func (s *backupSuite) TestDoBackupCalledAndFileServed(c *gc.C) {
 }
 
 func (s *backupSuite) TestErrorWhenBackupFails(c *gc.C) {
-	testBackup := func(tempDir string) (string, string, error) {
+	testBackup := func(adminPassword, tempDir string, mongoPort int) (string, string, error) {
 		s.tempDir = tempDir
 		return "", "", fmt.Errorf("something bad")
 	}
-	s.PatchValue(&apiserver.DoBackup, testBackup)
+	s.PatchValue(&apiserver.Backup, testBackup)
 
 	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
@@ -116,12 +122,12 @@ func (s *backupSuite) TestErrorWhenBackupFails(c *gc.C) {
 }
 
 func (s *backupSuite) TestErrorWhenBackupFileDoesNotExist(c *gc.C) {
-	testBackup := func(tempDir string) (string, string, error) {
+	testBackup := func(adminPassword string, tempDir string, mongoPort int) (string, string, error) {
 		s.tempDir = tempDir
 		backupFilePath := filepath.Join(tempDir, "testBackupFile")
 		return backupFilePath, "some-sha", nil
 	}
-	s.PatchValue(&apiserver.DoBackup, testBackup)
+	s.PatchValue(&apiserver.Backup, testBackup)
 
 	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)

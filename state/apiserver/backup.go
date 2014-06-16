@@ -12,14 +12,10 @@ import (
 	"os"
 
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/backup/backup"
 )
 
-func doBackup(tempDir string) (backupFile string, sha string, err error) {
-	// stub temporary implementation
-	return backupFile, sha, err
-}
-
-var DoBackup = doBackup
+var Backup = backup.Backup
 
 // backupHandler handles backup requests
 type backupHandler struct {
@@ -41,7 +37,7 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		defer os.RemoveAll(tempDir)
-		filename, sha, err := DoBackup(tempDir)
+		filename, sha, err := Backup(tempDir)
 		if err != nil {
 			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed: %v", err))
 			return
