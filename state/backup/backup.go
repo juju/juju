@@ -82,30 +82,31 @@ func writeContents(fileName, strip string, tarw *tar.Writer) error {
 	if err := tarw.WriteHeader(h); err != nil {
 		return fmt.Errorf("cannot write header for %q: %v", fileName, err)
 	}
-	if fInfo.IsDir() {
-		if !strings.HasSuffix(fileName, string(os.PathSeparator)) {
-			fileName = fileName + string(os.PathSeparator)
+	if !fInfo.IsDir() {
+		if _, err := io.Copy(tarw, f); err != nil {
+			return fmt.Errorf("failed to write %q: %v", fileName, err)
 		}
+		return nil
+	}
+	if !strings.HasSuffix(fileName, string(os.PathSeparator)) {
+		fileName = fileName + string(os.PathSeparator)
+	}
 
-		for {
-			names, err := f.Readdirnames(100)
-			if len(names) == 0 && err == io.EOF {
-				return nil
-			}
-			if err != nil {
-				return fmt.Errorf("error reading directory %q: %v", fileName, err)
-			}
-			for _, name := range names {
-				if err := writeContents(filepath.Join(fileName, name), strip, tarw); err != nil {
-					return err
-				}
+	for {
+		names, err := f.Readdirnames(100)
+		if len(names) == 0 && err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("error reading directory %q: %v", fileName, err)
+		}
+		for _, name := range names {
+			if err := writeContents(filepath.Join(fileName, name), strip, tarw); err != nil {
+				return err
 			}
 		}
 	}
-	if _, err := io.Copy(tarw, f); err != nil {
-		return fmt.Errorf("failed to write %q: %v", fileName, err)
-	}
-	return nil
+
 }
 
 var getFilesToBackup = _getFilesToBackup
@@ -146,11 +147,14 @@ var runCommand = _runCommand
 
 func _runCommand(cmd string, args ...string) error {
 	command := exec.Command(cmd, args...)
-	_, err := command.Output()
-	if err != nil {
-		return fmt.Errorf("external command failed: %v", err)
+	out, err := command.CombinedOutput()
+	if err == nil {
+		return nil
 	}
-	return nil
+	if _, ok := err.(*exec.ExitError); ok && len(out) > 0 {
+		return fmt.Errorf("error executing %q: %s", cmd, strings.Replace(string(out), "\n", "; ", -1))
+	}
+	return fmt.Errorf("cannot execute %q: %v", err)
 }
 
 var getMongodumpPath = _getMongodumpPath
@@ -164,7 +168,6 @@ func _getMongodumpPath() (string, error) {
 
 	path, err := exec.LookPath("mongodump")
 	if err != nil {
-		logger.Infof("could not find %v or mongodump in $PATH", mongoDumpPath)
 		return "", err
 	}
 	return path, nil
@@ -196,13 +199,13 @@ func Backup(adminPassword, outputFolder string, mongoPort int) (string, string, 
 	}
 
 	err = runCommand(
-			mongodumpPath, 
-			"--oplog", 
-			"--ssl", 
-			"--host", fmt.Sprintf("localhost:%d", mongoPort),
-			"--username", "admin",
-			"--password", fmt.Sprintf("'%s'", adminPassword),
-			"--out", dumpDir)
+		mongodumpPath,
+		"--oplog",
+		"--ssl",
+		"--host", fmt.Sprintf("localhost:%d", mongoPort),
+		"--username", "admin",
+		"--password", adminPassword,
+		"--out", dumpDir)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to dump database: %v", err)
 	}

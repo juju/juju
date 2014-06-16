@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"path"
 	"strings"
@@ -83,9 +84,9 @@ type expectedTarContents struct {
 }
 
 var testExpectedTarContents = []expectedTarContents{
-	{"TarDirectoryEmpty",""},
+	{"TarDirectoryEmpty", ""},
 	{"TarDirectoryPopulated", ""},
-	{"TarDirectoryPopulated/TarSubFile1","TarSubFile1"},
+	{"TarDirectoryPopulated/TarSubFile1", "TarSubFile1"},
 	{"TarDirectoryPopulated/TarDirectoryPopulatedSubDirectory", ""},
 	{"TarFile1", "TarFile1"},
 	{"TarFile2", "TarFile2"},
@@ -96,9 +97,9 @@ var testExpectedTarContents = []expectedTarContents{
 // expectedContents: is a slice of the filenames with relative paths that are
 // expected to be on the tar file
 // tarFile: is the path of the file to be checked
-func (b *BackupSuite) assertTarContents(c *gc.C, expectedContents []expectedTarContents, 
-					tarFile string,
-					compressed bool) {
+func (b *BackupSuite) assertTarContents(c *gc.C, expectedContents []expectedTarContents,
+	tarFile string,
+	compressed bool) {
 	f, err := os.Open(tarFile)
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
@@ -119,12 +120,8 @@ func (b *BackupSuite) assertTarContents(c *gc.C, expectedContents []expectedTarC
 			break
 		}
 		c.Assert(err, gc.IsNil)
-		buf := make([]byte, hdr.Size, hdr.Size) 
-		_, err = tr.Read(buf)
-		if err != io.EOF {
-			// Found something other than EOF
-			c.Assert(err, gc.IsNil)
-		}
+		buf, err := ioutil.ReadAll(tr)
+		c.Assert(err, gc.IsNil)
 		tarContents[hdr.Name] = string(buf)
 	}
 	for _, expectedContent := range expectedContents {
@@ -152,7 +149,7 @@ func shaSumFile(c *gc.C, fileToSum string) string {
 	return fmt.Sprintf("%x", sha256hash.Sum(nil))
 }
 
-func (b *BackupSuite) TestTarsFiles(c *gc.C) {
+func (b *BackupSuite) TestTarFilesUncompressed(c *gc.C) {
 	b.createTestFiles(c)
 	outputTar := path.Join(b.cwd, "output_tar_file.tar")
 	trimPath := fmt.Sprintf("%s/", b.cwd)
@@ -164,7 +161,7 @@ func (b *BackupSuite) TestTarsFiles(c *gc.C) {
 	b.assertTarContents(c, testExpectedTarContents, outputTar, false)
 }
 
-func (b *BackupSuite) TestTarGzsFiles(c *gc.C) {
+func (b *BackupSuite) TestTarFilesCompressed(c *gc.C) {
 	b.createTestFiles(c)
 	outputTarGz := path.Join(b.cwd, "output_tar_file.tgz")
 	trimPath := fmt.Sprintf("%s/", b.cwd)
