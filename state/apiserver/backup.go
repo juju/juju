@@ -12,7 +12,7 @@ import (
 	"os"
 
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/backup/backup"
+	"github.com/juju/juju/state/backup"
 )
 
 var Backup = backup.Backup
