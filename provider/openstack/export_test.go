@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 // This provides the content for code accessing test:///... URLs. This allows
@@ -56,8 +57,17 @@ func MetadataStorage(e environs.Environ) storage.Storage {
 }
 
 func InstanceAddress(addresses map[string][]nova.IPAddress) string {
-	return instance.SelectPublicAddress(convertNovaAddresses(addresses))
+	return network.SelectPublicAddress(convertNovaAddresses(addresses))
 }
+
+func InstanceServerDetail(inst instance.Instance) *nova.ServerDetail {
+	return inst.(*openstackInstance).serverDetail
+}
+
+var (
+	NovaListAvailabilityZones       = &novaListAvailabilityZones
+	BestAvailabilityZoneAllocations = &bestAvailabilityZoneAllocations
+)
 
 var indexData = `
 		{

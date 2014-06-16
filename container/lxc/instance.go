@@ -10,6 +10,7 @@ import (
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 type lxcInstance struct {
@@ -35,32 +36,22 @@ func (*lxcInstance) Refresh() error {
 	return nil
 }
 
-func (lxc *lxcInstance) Addresses() ([]instance.Address, error) {
+func (lxc *lxcInstance) Addresses() ([]network.Address, error) {
 	return nil, errors.NotImplementedf("lxcInstance.Addresses")
 }
 
-// DNSName implements instance.Instance.DNSName.
-func (lxc *lxcInstance) DNSName() (string, error) {
-	return "", instance.ErrNoDNSName
-}
-
-// WaitDNSName implements instance.Instance.WaitDNSName.
-func (lxc *lxcInstance) WaitDNSName() (string, error) {
-	return "", instance.ErrNoDNSName
-}
-
 // OpenPorts implements instance.Instance.OpenPorts.
-func (lxc *lxcInstance) OpenPorts(machineId string, ports []instance.Port) error {
+func (lxc *lxcInstance) OpenPorts(machineId string, ports []network.Port) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts implements instance.Instance.ClosePorts.
-func (lxc *lxcInstance) ClosePorts(machineId string, ports []instance.Port) error {
+func (lxc *lxcInstance) ClosePorts(machineId string, ports []network.Port) error {
 	return fmt.Errorf("not implemented")
 }
 
 // Ports implements instance.Instance.Ports.
-func (lxc *lxcInstance) Ports(machineId string) ([]instance.Port, error) {
+func (lxc *lxcInstance) Ports(machineId string) ([]network.Port, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

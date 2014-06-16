@@ -4,6 +4,7 @@
 package main
 
 import (
+	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -27,7 +28,7 @@ func runRemoveMachine(c *gc.C, args ...string) error {
 
 func (s *RemoveMachineSuite) TestRemoveMachineWithUnit(c *gc.C) {
 	// Create a machine running a unit.
-	testing.Charms.BundlePath(s.SeriesPath, "riak")
+	charmtesting.Charms.BundlePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
 
@@ -87,7 +88,7 @@ func (s *RemoveMachineSuite) TestForce(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create a machine running a unit.
-	testing.Charms.BundlePath(s.SeriesPath, "riak")
+	charmtesting.Charms.BundlePath(s.SeriesPath, "riak")
 	err = runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
 

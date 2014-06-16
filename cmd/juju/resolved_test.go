@@ -4,6 +4,7 @@
 package main
 
 import (
+	charmtesting "github.com/juju/charm/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -73,7 +74,7 @@ var resolvedTests = []struct {
 }
 
 func (s *ResolvedSuite) TestResolved(c *gc.C) {
-	testing.Charms.BundlePath(s.SeriesPath, "dummy")
+	charmtesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "-n", "5", "local:dummy", "dummy")
 	c.Assert(err, gc.IsNil)
 

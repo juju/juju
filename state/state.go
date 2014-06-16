@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -24,12 +25,13 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
+	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 )
@@ -45,6 +47,7 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
+	transactionRunner statetxn.Runner
 	info              *Info
 	policy            Policy
 	db                *mgo.Database
@@ -65,56 +68,18 @@ type State struct {
 	constraints       *mgo.Collection
 	units             *mgo.Collection
 	actions           *mgo.Collection
+	actionresults     *mgo.Collection
 	users             *mgo.Collection
 	presence          *mgo.Collection
 	cleanups          *mgo.Collection
 	annotations       *mgo.Collection
 	statuses          *mgo.Collection
 	stateServers      *mgo.Collection
-	runner            *txn.Runner
-	transactionHooks  chan ([]transactionHook)
 	watcher           *watcher.Watcher
 	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
-}
-
-// transactionHook holds a pair of functions to be called before and after a
-// mgo/txn transaction is run. It is only used in testing.
-type transactionHook struct {
-	Before func()
-	After  func()
-}
-
-// runTransaction runs the supplied operations as a single mgo/txn transaction,
-// and includes a mechanism whereby tests can use SetTransactionHooks to induce
-// arbitrary state mutations before and after particular transactions.
-func (st *State) runTransaction(ops []txn.Op) error {
-	transactionHooks := <-st.transactionHooks
-	st.transactionHooks <- nil
-	if len(transactionHooks) > 0 {
-		// Note that this code should only ever be triggered
-		// during tests. If we see the log messages below
-		// in a production run, something is wrong.
-		defer func() {
-			if transactionHooks[0].After != nil {
-				logger.Infof("transaction 'after' hook start")
-				transactionHooks[0].After()
-				logger.Infof("transaction 'after' hook end")
-			}
-			if <-st.transactionHooks != nil {
-				panic("concurrent use of transaction hooks")
-			}
-			st.transactionHooks <- transactionHooks[1:]
-		}()
-		if transactionHooks[0].Before != nil {
-			logger.Infof("transaction 'before' hook start")
-			transactionHooks[0].Before()
-			logger.Infof("transaction 'before' hook end")
-		}
-	}
-	return st.runner.Run(ops, "", nil)
 }
 
 // Ping probes the state's database connection to ensure
@@ -129,6 +94,21 @@ func (st *State) Ping() error {
 // otherwise be used.
 func (st *State) MongoSession() *mgo.Session {
 	return st.db.Session
+}
+
+// runTransaction is a convenience method delegating to transactionRunner.
+func (st *State) runTransaction(ops []txn.Op) error {
+	return st.transactionRunner.RunTransaction(ops)
+}
+
+// run is a convenience method delegating to transactionRunner.
+func (st *State) run(transactions statetxn.TransactionSource) error {
+	return st.transactionRunner.Run(transactions)
+}
+
+// ResumeTransactions resumes all pending transactions.
+func (st *State) ResumeTransactions() error {
+	return st.transactionRunner.ResumeTransactions()
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
@@ -206,9 +186,9 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 		for iter.Next(&doc) {
 			switch collection.Name {
 			case "machines":
-				agentTags = append(agentTags, names.MachineTag(doc.Id))
+				agentTags = append(agentTags, names.NewMachineTag(doc.Id).String())
 			case "units":
-				agentTags = append(agentTags, names.UnitTag(doc.Id))
+				agentTags = append(agentTags, names.NewUnitTag(doc.Id).String())
 			}
 		}
 		if err := iter.Err(); err != nil {
@@ -224,27 +204,27 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 // SetEnvironAgentVersion changes the agent version for the
 // environment to the given version, only if the environment is in a
 // stable state (all agents are running the current version).
-func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
-	for i := 0; i < 5; i++ {
+func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		settings, err := readSettings(st, environGlobalKey)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		agentVersion, ok := settings.Get("agent-version")
 		if !ok {
-			return fmt.Errorf("no agent version set in the environment")
+			return nil, fmt.Errorf("no agent version set in the environment")
 		}
 		currentVersion, ok := agentVersion.(string)
 		if !ok {
-			return fmt.Errorf("invalid agent version format: expected string, got %v", agentVersion)
+			return nil, fmt.Errorf("invalid agent version format: expected string, got %v", agentVersion)
 		}
 		if newVersion.String() == currentVersion {
 			// Nothing to do.
-			return nil
+			return nil, statetxn.ErrNoOperations
 		}
 
 		if err := st.checkCanUpgrade(currentVersion, newVersion.String()); err != nil {
-			return err
+			return nil, err
 		}
 
 		ops := []txn.Op{{
@@ -253,13 +233,12 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) error {
 			Assert: bson.D{{"txn-revno", settings.txnRevno}},
 			Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
 		}}
-		if err := st.runTransaction(ops); err == nil {
-			return nil
-		} else if err != txn.ErrAborted {
-			return fmt.Errorf("cannot set agent-version: %v", err)
-		}
+		return ops, nil
 	}
-	return ErrExcessiveContention
+	if err = st.run(buildTxn); err == statetxn.ErrExcessiveContention {
+		err = errors.Annotate(err, "cannot set agent version")
+	}
+	return err
 }
 
 func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) (validCfg *config.Config, err error) {
@@ -439,17 +418,21 @@ func (st *State) Machine(id string) (*Machine, error) {
 // *User, *Service or *Environment, depending
 // on the tag.
 func (st *State) FindEntity(tag string) (Entity, error) {
-	kind, id, err := names.ParseTag(tag, "")
-	switch kind {
-	case names.MachineTagKind:
+	t, err := names.ParseTag(tag, "")
+	if err != nil {
+		return nil, err
+	}
+	id := t.Id()
+	switch t.(type) {
+	case names.MachineTag:
 		return st.Machine(id)
-	case names.UnitTagKind:
+	case names.UnitTag:
 		return st.Unit(id)
-	case names.UserTagKind:
+	case names.UserTag:
 		return st.User(id)
-	case names.ServiceTagKind:
+	case names.ServiceTag:
 		return st.Service(id)
-	case names.EnvironTagKind:
+	case names.EnvironTag:
 		env, err := st.Environment()
 		if err != nil {
 			return nil, err
@@ -473,9 +456,9 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 			}
 		}
 		return env, nil
-	case names.RelationTagKind:
+	case names.RelationTag:
 		return st.KeyRelation(id)
-	case names.NetworkTagKind:
+	case names.NetworkTag:
 		return st.Network(id)
 	}
 	return nil, err
@@ -484,29 +467,29 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 // parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
 func (st *State) parseTag(tag string) (coll string, id string, err error) {
-	kind, id, err := names.ParseTag(tag, "")
+	t, err := names.ParseTag(tag, "")
 	if err != nil {
 		return "", "", err
 	}
-	switch kind {
-	case names.MachineTagKind:
+	switch t.(type) {
+	case names.MachineTag:
 		coll = st.machines.Name
-	case names.ServiceTagKind:
+	case names.ServiceTag:
 		coll = st.services.Name
-	case names.UnitTagKind:
+	case names.UnitTag:
 		coll = st.units.Name
-	case names.UserTagKind:
+	case names.UserTag:
 		coll = st.users.Name
-	case names.RelationTagKind:
+	case names.RelationTag:
 		coll = st.relations.Name
-	case names.EnvironTagKind:
+	case names.EnvironTag:
 		coll = st.environments.Name
-	case names.NetworkTagKind:
+	case names.NetworkTag:
 		coll = st.networks.Name
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
-	return coll, id, nil
+	return coll, t.Id(), nil
 }
 
 // AddCharm adds the ch charm with curl to the state. bundleURL must
@@ -601,7 +584,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
 
-	for attempt := 0; attempt < 3; attempt++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find the highest revision of that charm in state.
 		var docs []charmDoc
 		err = st.charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}).Select(bson.D{{"_id", 1}}).All(&docs)
@@ -634,18 +617,12 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 			Assert: txn.DocMissing,
 			Insert: uploadedCharm,
 		}}
-		// Run the transaction, and retry on abort.
-		if err = st.runTransaction(ops); err == txn.ErrAborted {
-			continue
-		} else if err != nil {
-			return nil, err
-		}
-		break
+		return ops, nil
 	}
-	if err != nil {
-		return nil, ErrExcessiveContention
+	if err = st.run(buildTxn); err == nil {
+		return chosenUrl, nil
 	}
-	return chosenUrl, nil
+	return nil, err
 }
 
 // PrepareStoreCharmUpload must be called before a charm store charm
@@ -670,16 +647,16 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		uploadedCharm charmDoc
 		err           error
 	)
-	for attempt := 0; attempt < 3; attempt++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find an uploaded or pending charm with the given exact curl.
-		err = st.charms.FindId(curl).One(&uploadedCharm)
+		err := st.charms.FindId(curl).One(&uploadedCharm)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, err
 		} else if err == nil && !uploadedCharm.Placeholder {
 			// The charm exists and it's either uploaded or still
-			// pending, but it's not a placeholder. In any case, we
-			// just return what we got.
-			return newCharm(st, &uploadedCharm)
+			// pending, but it's not a placeholder. In any case,
+			// there's nothing to do.
+			return nil, statetxn.ErrNoOperations
 		} else if err == mgo.ErrNotFound {
 			// Prepare the pending charm document for insertion.
 			uploadedCharm = charmDoc{
@@ -719,18 +696,12 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 				Insert: uploadedCharm,
 			}}
 		}
-
-		// Run the transaction, and retry on abort.
-		err = st.runTransaction(ops)
-		if err == txn.ErrAborted {
-			continue
-		} else if err != nil {
-			return nil, err
-		} else if err == nil {
-			return newCharm(st, &uploadedCharm)
-		}
+		return ops, nil
 	}
-	return nil, ErrExcessiveContention
+	if err = st.run(buildTxn); err == nil {
+		return newCharm(st, &uploadedCharm)
+	}
+	return nil, err
 }
 
 var (
@@ -750,22 +721,21 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 		return fmt.Errorf("expected charm URL with revision, got %q", curl)
 	}
 
-	for attempt := 0; attempt < 3; attempt++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// See if the charm already exists in state and exit early if that's the case.
 		var doc charmDoc
-		err = st.charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
+		err := st.charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
-			return err
+			return nil, err
 		}
 		if err == nil {
-			return nil
+			return nil, statetxn.ErrNoOperations
 		}
 
 		// Delete all previous placeholders so we don't fill up the database with unused data.
-		var ops []txn.Op
-		ops, err = st.deleteOldPlaceholderCharmsOps(curl)
+		ops, err := st.deleteOldPlaceholderCharmsOps(curl)
 		if err != nil {
-			return nil
+			return nil, err
 		}
 		// Add the new charm doc.
 		placeholderCharm := &charmDoc{
@@ -778,19 +748,9 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 			Assert: txn.DocMissing,
 			Insert: placeholderCharm,
 		})
-
-		// Run the transaction, and retry on abort.
-		if err = st.runTransaction(ops); err == txn.ErrAborted {
-			continue
-		} else if err != nil {
-			return err
-		}
-		break
+		return ops, nil
 	}
-	if err != nil {
-		return ErrExcessiveContention
-	}
-	return nil
+	return st.run(buildTxn)
 }
 
 // deleteOldPlaceholderCharmsOps returns the txn ops required to delete all placeholder charm
@@ -927,8 +887,8 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // they will be created automatically.
 func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string) (service *Service, err error) {
 	defer errors.Maskf(&err, "cannot add service %q", name)
-	kind, ownerId, err := names.ParseTag(ownerTag, names.UserTagKind)
-	if err != nil || kind != names.UserTagKind {
+	tag, err := names.ParseTag(ownerTag, names.UserTagKind)
+	if err != nil || tag.Kind() != names.UserTagKind {
 		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
 	}
 	// Sanity checks.
@@ -949,6 +909,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 	} else if env.Life() != Alive {
 		return nil, fmt.Errorf("environment is no longer alive")
 	}
+	ownerId := tag.Id()
 	if userExists, err := st.checkUserExists(ownerId); err != nil {
 		return nil, err
 	} else if !userExists {
@@ -1273,9 +1234,9 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	// still don't know whether it's sane to even attempt creation).
 	id := -1
 	// If a service's charm is upgraded while we're trying to add a relation,
-	// we'll need to re-validate service sanity. This is probably relatively
-	// rare, so we only try 3 times.
-	for attempt := 0; attempt < 3; attempt++ {
+	// we'll need to re-validate service sanity.
+	var doc *relationDoc
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Perform initial relation sanity check.
 		if exists, err := isNotDead(st.relations, key); err != nil {
 			return nil, err
@@ -1320,7 +1281,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, err
 			}
 		}
-		doc := &relationDoc{
+		doc = &relationDoc{
 			Key:       key,
 			Id:        id,
 			Endpoints: eps,
@@ -1332,15 +1293,12 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Assert: txn.DocMissing,
 			Insert: doc,
 		})
-		// Run the transaction, and retry on abort.
-		if err = st.runTransaction(ops); err == txn.ErrAborted {
-			continue
-		} else if err != nil {
-			return nil, err
-		}
+		return ops, nil
+	}
+	if err = st.run(buildTxn); err == nil {
 		return &Relation{st, *doc}, nil
 	}
-	return nil, ErrExcessiveContention
+	return nil, err
 }
 
 // EndpointsRelation returns the existing relation with the given endpoints.
@@ -1405,7 +1363,7 @@ func (st *State) Action(id string) (*Action, error) {
 		return nil, errors.NotFoundf("action %q", id)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot get action %q: %v", id, err)
+		return nil, errors.Errorf("cannot get action %q: %v", id, err)
 	}
 	return newAction(st, doc), nil
 }
@@ -1424,6 +1382,53 @@ func (st *State) UnitActions(name string) ([]*Action, error) {
 		return actions, err
 	}
 	return actions, nil
+}
+
+// ActionResult returns an ActionResult by Id.
+func (st *State) ActionResult(id string) (*ActionResult, error) {
+	doc := actionResultDoc{}
+	err := st.actionresults.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("action result %q", id)
+	}
+	if err != nil {
+		return nil, errors.Errorf("cannot get actionresult %q: %v", id, err)
+	}
+	return newActionResult(st, doc), nil
+}
+
+// ActionResultsForUnit returns actionresults that were generated from
+// actions queued to the unit with the given name.
+func (st *State) ActionResultsForUnit(name string) ([]*ActionResult, error) {
+	if !names.IsUnit(name) {
+		return nil, errors.Errorf("%q is not a valid unit name", name)
+	}
+	return st.actionResults(unitGlobalKey(name) + actionMarker)
+}
+
+// ActionResultsForAction returns actionresults that were generated from
+// action with given actionId
+func (st *State) ActionResultsForAction(actionId string) ([]*ActionResult, error) {
+	if !IsAction(actionId) {
+		return nil, errors.Errorf("%q is not a valid action id", actionId)
+	}
+	return st.actionResults(actionId + actionResultMarker)
+}
+
+// actionResults returns actionresults that match the given id prefix.
+// We assume the prefix has been scrubbed before calling this
+func (st *State) actionResults(prefix string) ([]*ActionResult, error) {
+	results := []*ActionResult{}
+	sel := bson.D{{"_id", bson.RegEx{Pattern: "^" + regexp.QuoteMeta(prefix)}}}
+	iter := st.actionresults.Find(sel).Iter()
+	doc := actionResultDoc{}
+	for iter.Next(&doc) {
+		results = append(results, newActionResult(st, doc))
+	}
+	if err := iter.Err(); err != nil {
+		return results, err
+	}
+	return results, nil
 }
 
 // Unit returns a unit by name.
@@ -1486,36 +1491,14 @@ func (st *State) StartSync() {
 // all subsequent attempts to access the state must
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
-	admin := st.db.Session.DB("admin")
-	if password != "" {
-		// On 2.2+, we get a "need to login" error without a code when
-		// adding the first user because we go from no-auth+no-login to
-		// auth+no-login. Not great. Hopefully being fixed in 2.4.
-		if err := admin.AddUser(AdminUser, password, false); err != nil && err.Error() != "need to login" {
-			return fmt.Errorf("cannot set admin password: %v", err)
-		}
-		if err := admin.Login(AdminUser, password); err != nil {
-			return fmt.Errorf("cannot login after setting password: %v", err)
-		}
-	} else {
-		if err := admin.RemoveUser(AdminUser); err != nil && err != mgo.ErrNotFound {
-			return fmt.Errorf("cannot disable admin password: %v", err)
-		}
-	}
-	return nil
+	return mongo.SetAdminMongoPassword(st.db.Session, AdminUser, password)
 }
 
 func (st *State) setMongoPassword(name, password string) error {
-	if err := st.db.AddUser(name, password, false); err != nil {
-		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
-	}
-	if err := st.db.Session.DB("presence").AddUser(name, password, false); err != nil {
-		return fmt.Errorf("cannot set password in presence db for %q: %v", name, err)
-	}
-	if err := st.db.Session.DB("admin").AddUser(name, password, false); err != nil {
-		return fmt.Errorf("cannot set password in admin db for %q: %v", name, err)
-	}
-	return nil
+	return mongo.SetMongoPassword(name, password,
+		st.db,
+		st.db.Session.DB("presence"),
+		st.db.Session.DB("admin"))
 }
 
 type stateServersDoc struct {
@@ -1582,11 +1565,6 @@ func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
 		return fmt.Errorf("cannot set state serving info: %v", err)
 	}
 	return nil
-}
-
-// ResumeTransactions resumes all pending transactions.
-func (st *State) ResumeTransactions() error {
-	return st.runner.ResumeAll()
 }
 
 var tagPrefix = map[byte]string{

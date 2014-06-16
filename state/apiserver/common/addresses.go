@@ -4,7 +4,7 @@
 package common
 
 import (
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/watcher"
@@ -16,7 +16,7 @@ type AddressAndCertGetter interface {
 	Addresses() ([]string, error)
 	APIAddressesFromMachines() ([]string, error)
 	CACert() string
-	APIHostPorts() ([][]instance.HostPort, error)
+	APIHostPorts() ([][]network.HostPort, error)
 	WatchAPIHostPorts() state.NotifyWatcher
 }
 
@@ -65,7 +65,7 @@ func (api *APIAddresser) APIAddresses() (params.StringsResult, error) {
 	}
 	var addrs = make([]string, 0, len(apiHostPorts))
 	for _, hostPorts := range apiHostPorts {
-		addr := instance.SelectInternalHostPort(hostPorts, false)
+		addr := network.SelectInternalHostPort(hostPorts, false)
 		if addr != "" {
 			addrs = append(addrs, addr)
 		}

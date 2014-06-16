@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 )
@@ -22,11 +22,11 @@ type Unit struct {
 
 // Name returns the name of the unit.
 func (u *Unit) Name() string {
-	_, unitName, err := names.ParseTag(u.tag, names.UnitTagKind)
+	tag, err := names.ParseTag(u.tag, names.UnitTagKind)
 	if err != nil {
 		panic(fmt.Sprintf("%q is not a valid unit tag", u.tag))
 	}
-	return unitName
+	return tag.Id()
 }
 
 // Life returns the unit's life cycle value.
@@ -67,10 +67,10 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
-	serviceTag := names.ServiceTag(names.UnitService(u.Name()))
+	serviceTag := names.NewServiceTag(names.UnitService(u.Name()))
 	service := &Service{
 		st:  u.st,
-		tag: serviceTag,
+		tag: serviceTag.String(),
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
@@ -85,7 +85,7 @@ func (u *Unit) Service() (*Service, error) {
 //
 // NOTE: This differs from state.Unit.OpenedPorts() by returning
 // an error as well, because it needs to make an API call.
-func (u *Unit) OpenedPorts() ([]instance.Port, error) {
+func (u *Unit) OpenedPorts() ([]network.Port, error) {
 	var results params.PortsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},

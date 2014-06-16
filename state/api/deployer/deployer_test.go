@@ -9,8 +9,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/deployer"
@@ -46,7 +46,7 @@ var _ = gc.Suite(&deployerSuite{})
 func (s *deployerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.stateAPI, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron, state.JobHostUnits)
-	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
 	// Create the needed services and relate them.
@@ -237,7 +237,7 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 }
 
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
-	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
 	stateAddresses, err := s.State.Addresses()

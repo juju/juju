@@ -5,16 +5,18 @@ package state
 
 import (
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 )
 
 type SettingsSuite struct {
 	testing.BaseSuite
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	state *State
 	key   string
 }
@@ -25,15 +27,17 @@ var _ = gc.Suite(&SettingsSuite{})
 // connecting to the testing state server.
 func TestingStateInfo() *Info {
 	return &Info{
-		Addrs:  []string{testing.MgoServer.Addr()},
-		CACert: testing.CACert,
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
 	}
 }
 
 // TestingDialOpts returns configuration parameters for
 // connecting to the testing state server.
-func TestingDialOpts() DialOpts {
-	return DialOpts{
+func TestingDialOpts() mongo.DialOpts {
+	return mongo.DialOpts{
 		Timeout: testing.LongWait,
 	}
 }

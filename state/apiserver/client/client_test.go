@@ -11,12 +11,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -24,6 +25,7 @@ import (
 	envstorage "github.com/juju/juju/environs/storage"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -31,6 +33,7 @@ import (
 	"github.com/juju/juju/state/apiserver/client"
 	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 )
 
@@ -835,8 +838,8 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 
-	s.AddUser(c, "foobar")
-	s.APIState = s.OpenAPIAs(c, "user-foobar", "password")
+	user := s.Factory.MakeUser(factory.UserParams{Password: "password"})
+	s.APIState = s.OpenAPIAs(c, user.Tag(), "password")
 
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
@@ -845,10 +848,10 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 
 	service, err := s.State.Service("service")
 	c.Assert(err, gc.IsNil)
-	c.Assert(service.GetOwnerTag(), gc.Equals, "user-foobar")
+	c.Assert(service.GetOwnerTag(), gc.Equals, user.Tag())
 }
 
-func (s *clientSuite) deployServiceForTests(c *gc.C, store *coretesting.MockCharmStore) {
+func (s *clientSuite) deployServiceForTests(c *gc.C, store *charmtesting.MockCharmStore) {
 	curl, _ := addCharm(c, store, "dummy")
 	err := s.APIState.Client().ServiceDeploy(curl.String(),
 		"service", 1, "", constraints.Value{}, "",
@@ -1140,19 +1143,19 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *gc.C) {
 	}
 }
 
-func makeMockCharmStore() (store *coretesting.MockCharmStore, restore func()) {
-	mockStore := coretesting.NewMockCharmStore()
+func makeMockCharmStore() (store *charmtesting.MockCharmStore, restore func()) {
+	mockStore := charmtesting.NewMockCharmStore()
 	origStore := client.CharmStore
 	client.CharmStore = mockStore
 	return mockStore, func() { client.CharmStore = origStore }
 }
 
-func addCharm(c *gc.C, store *coretesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
+func addCharm(c *gc.C, store *charmtesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
 	return addSeriesCharm(c, store, "precise", name)
 }
 
-func addSeriesCharm(c *gc.C, store *coretesting.MockCharmStore, series, name string) (*charm.URL, charm.Charm) {
-	bundle := coretesting.Charms.Bundle(c.MkDir(), name)
+func addSeriesCharm(c *gc.C, store *charmtesting.MockCharmStore, series, name string) (*charm.URL, charm.Charm) {
+	bundle := charmtesting.Charms.Bundle(c.MkDir(), name)
 	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
 	err := store.SetCharm(curl, bundle)
@@ -1337,7 +1340,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 			Life:                    params.Alive,
 			Series:                  "quantal",
 			Jobs:                    []params.MachineJob{state.JobManageEnviron.ToParams()},
-			Addresses:               []instance.Address{},
+			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
 	}}) {
@@ -1429,12 +1432,12 @@ func (s *clientSuite) TestClientPublicAddressErrors(c *gc.C) {
 func (s *clientSuite) TestClientPublicAddressMachine(c *gc.C) {
 	s.setUpScenario(c)
 
-	// Internally, instance.SelectPublicAddress is used; the "most public"
+	// Internally, network.SelectPublicAddress is used; the "most public"
 	// address is returned.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
-	cloudLocalAddress := instance.NewAddress("cloudlocal", instance.NetworkCloudLocal)
-	publicAddress := instance.NewAddress("public", instance.NetworkPublic)
+	cloudLocalAddress := network.NewAddress("cloudlocal", network.ScopeCloudLocal)
+	publicAddress := network.NewAddress("public", network.ScopePublic)
 	err = m1.SetAddresses(cloudLocalAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("1")
@@ -1450,7 +1453,7 @@ func (s *clientSuite) TestClientPublicAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
 	m1, err := s.State.Machine("1")
-	publicAddress := instance.NewAddress("public", instance.NetworkPublic)
+	publicAddress := network.NewAddress("public", network.ScopePublic)
 	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PublicAddress("wordpress/0")
@@ -1471,12 +1474,12 @@ func (s *clientSuite) TestClientPrivateAddressErrors(c *gc.C) {
 func (s *clientSuite) TestClientPrivateAddress(c *gc.C) {
 	s.setUpScenario(c)
 
-	// Internally, instance.SelectInternalAddress is used; the public
+	// Internally, network.SelectInternalAddress is used; the public
 	// address if no cloud-local one is available.
 	m1, err := s.State.Machine("1")
 	c.Assert(err, gc.IsNil)
-	cloudLocalAddress := instance.NewAddress("cloudlocal", instance.NetworkCloudLocal)
-	publicAddress := instance.NewAddress("public", instance.NetworkPublic)
+	cloudLocalAddress := network.NewAddress("cloudlocal", network.ScopeCloudLocal)
+	publicAddress := network.NewAddress("public", network.ScopePublic)
 	err = m1.SetAddresses(publicAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("1")
@@ -1492,7 +1495,7 @@ func (s *clientSuite) TestClientPrivateAddressUnit(c *gc.C) {
 	s.setUpScenario(c)
 
 	m1, err := s.State.Machine("1")
-	privateAddress := instance.NewAddress("private", instance.NetworkCloudLocal)
+	privateAddress := network.NewAddress("private", network.ScopeCloudLocal)
 	err = m1.SetAddresses(privateAddress)
 	c.Assert(err, gc.IsNil)
 	addr, err := s.APIState.Client().PrivateAddress("wordpress/0")
@@ -1782,7 +1785,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 
 func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 	apiParams := make([]params.AddMachineParams, 3)
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4", instance.NetworkUnknown)}
+	addrs := []network.Address{network.NewAddress("1.2.3.4", network.ScopeUnknown)}
 	hc := instance.MustParseHardware("mem=4G")
 	for i := 0; i < 3; i++ {
 		apiParams[i] = params.AddMachineParams{
@@ -1812,7 +1815,7 @@ func (s *clientSuite) TestClientAddMachinesWithInstanceIdSomeErrors(c *gc.C) {
 }
 
 func (s *clientSuite) checkInstance(c *gc.C, id, instanceId, nonce string,
-	hc instance.HardwareCharacteristics, addr []instance.Address) {
+	hc instance.HardwareCharacteristics, addr []network.Address) {
 
 	machine, err := s.BackingState.Machine(id)
 	c.Assert(err, gc.IsNil)
@@ -1962,7 +1965,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 
 	// Add a charm, without uploading it to storage, to
 	// check that AddCharm does not try to do it.
-	charmDir := coretesting.Charms.Dir("dummy")
+	charmDir := charmtesting.Charms.Dir("dummy")
 	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
 	curl := charm.MustParseURL("cs:quantal/" + ident)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
@@ -2299,7 +2302,7 @@ func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
 	err = s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().EnsureAvailability(1, emptyCons, defaultSeries)
-	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
 }
 
 func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
@@ -2307,25 +2310,25 @@ func (s *clientSuite) TestAPIHostPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiHostPorts, gc.HasLen, 0)
 
-	server1Addresses := []instance.Address{{
-		Value:        "server-1",
-		Type:         instance.HostName,
-		NetworkScope: instance.NetworkPublic,
+	server1Addresses := []network.Address{{
+		Value: "server-1",
+		Type:  network.HostName,
+		Scope: network.ScopePublic,
 	}, {
-		Value:        "10.0.0.1",
-		Type:         instance.Ipv4Address,
-		NetworkName:  "internal",
-		NetworkScope: instance.NetworkCloudLocal,
+		Value:       "10.0.0.1",
+		Type:        network.IPv4Address,
+		NetworkName: "internal",
+		Scope:       network.ScopeCloudLocal,
 	}}
-	server2Addresses := []instance.Address{{
-		Value:        "::1",
-		Type:         instance.Ipv6Address,
-		NetworkName:  "loopback",
-		NetworkScope: instance.NetworkMachineLocal,
+	server2Addresses := []network.Address{{
+		Value:       "::1",
+		Type:        network.IPv6Address,
+		NetworkName: "loopback",
+		Scope:       network.ScopeMachineLocal,
 	}}
-	stateAPIHostPorts := [][]instance.HostPort{
-		instance.AddressesWithPort(server1Addresses, 123),
-		instance.AddressesWithPort(server2Addresses, 456),
+	stateAPIHostPorts := [][]network.HostPort{
+		network.AddressesWithPort(server1Addresses, 123),
+		network.AddressesWithPort(server2Addresses, 456),
 	}
 
 	err = s.State.SetAPIHostPorts(stateAPIHostPorts)

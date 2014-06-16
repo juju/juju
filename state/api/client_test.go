@@ -16,15 +16,15 @@ import (
 	"strings"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/testing"
 )
 
 type clientSuite struct {
@@ -45,7 +45,7 @@ func (s *clientSuite) TestCloseMultipleOk(c *gc.C) {
 }
 
 func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
-	charmArchive := testing.Charms.Bundle(c.MkDir(), "dummy")
+	charmArchive := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", charmArchive.Meta().Name, charmArchive.Revision()),
 	)
@@ -61,7 +61,7 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(savedURL.String(), gc.Equals, curl.String())
 
 	// Upload a charm directory with changed revision.
-	charmDir := testing.Charms.ClonedDir(c.MkDir(), "dummy")
+	charmDir := charmtesting.Charms.ClonedDir(c.MkDir(), "dummy")
 	charmDir.SetDiskRevision(42)
 	savedURL, err = client.AddLocalCharm(curl, charmDir)
 	c.Assert(err, gc.IsNil)

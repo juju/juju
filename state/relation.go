@@ -10,13 +10,14 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"github.com/juju/juju/charm"
+	statetxn "github.com/juju/juju/state/txn"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -64,7 +65,7 @@ func (r *Relation) String() string {
 // Tag returns a name identifying the relation that is safe to use
 // as a file name.
 func (r *Relation) Tag() string {
-	return names.RelationTag(r.doc.Key)
+	return names.NewRelationTag(r.doc.Key).String()
 }
 
 // Refresh refreshes the contents of the relation from the underlying
@@ -112,23 +113,23 @@ func (r *Relation) Destroy() (err error) {
 	// in scope have changed between 0 and not-0. The chances of 5 successive
 	// attempts each hitting this change -- which is itself an unlikely one --
 	// are considered to be extremely small.
-	for attempt := 0; attempt < 5; attempt++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := rel.Refresh(); errors.IsNotFound(err) {
+				return []txn.Op{}, nil
+			} else if err != nil {
+				return nil, err
+			}
+		}
 		ops, _, err := rel.destroyOps("")
 		if err == errAlreadyDying {
-			return nil
+			return nil, statetxn.ErrNoOperations
 		} else if err != nil {
-			return err
+			return nil, err
 		}
-		if err := rel.st.runTransaction(ops); err != txn.ErrAborted {
-			return err
-		}
-		if err := rel.Refresh(); errors.IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
+		return ops, nil
 	}
-	return ErrExcessiveContention
+	return rel.st.run(buildTxn)
 }
 
 var errAlreadyDying = stderrors.New("entity is already dying and cannot be destroyed")

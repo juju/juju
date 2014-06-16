@@ -19,10 +19,10 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/tools"
 )
 
@@ -51,7 +51,7 @@ func newCompute(cfg *environConfig) (*joyentCompute, error) {
 }
 
 func (env *joyentEnviron) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", env.Name(), names.MachineTag(machineId))
+	return fmt.Sprintf("juju-%s-%s", env.Name(), names.NewMachineTag(machineId))
 }
 
 var unsupportedConstraints = []string{
@@ -228,8 +228,16 @@ func (env *joyentEnviron) Instances(ids []instance.Id) ([]instance.Instance, err
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network. This is not implemented on the
 // Joyent provider yet.
-func (*joyentEnviron) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
-	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
+func (*joyentEnviron) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
+	return network.Address{}, errors.NotImplementedf("AllocateAddress")
+}
+
+// ListNetworks returns basic information about all networks known by
+// the provider for the environment. They may be unknown to juju yet
+// (i.e. when called initially or when a new network was created).
+// This is not implemented on the Joyent provider yet.
+func (*joyentEnviron) ListNetworks() ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("ListNetworks")
 }
 
 func (env *joyentEnviron) StopInstances(ids ...instance.Id) error {

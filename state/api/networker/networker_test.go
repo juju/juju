@@ -5,16 +5,16 @@ package networker_test
 
 import (
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/networker"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/utils"
 )
 
 type networkerSuite struct {
@@ -182,7 +182,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth0",
-		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		CIDR:          "0.1.2.0/24",
@@ -190,7 +189,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth1",
-		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		CIDR:          "0.2.2.0/24",
@@ -198,7 +196,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "vlan42",
 		VLANTag:       42,
 		InterfaceName: "eth1",
-		IsVirtual:     true,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		CIDR:          "0.3.2.0/24",
@@ -206,7 +203,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "vlan69",
 		VLANTag:       69,
 		InterfaceName: "eth0",
-		IsVirtual:     true,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f2",
 		CIDR:          "0.5.2.0/24",
@@ -214,7 +210,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net2",
 		VLANTag:       0,
 		InterfaceName: "eth2",
-		IsVirtual:     false,
 	}}
 	expectedContainerInfo := []network.Info{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",
@@ -223,7 +218,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth0",
-		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:e1",
 		CIDR:          "0.1.2.0/24",
@@ -231,7 +225,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth1",
-		IsVirtual:     false,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:e1",
 		CIDR:          "0.2.2.0/24",
@@ -239,7 +232,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "vlan42",
 		VLANTag:       42,
 		InterfaceName: "eth1",
-		IsVirtual:     true,
 	}}
 	expectedNestedContainerInfo := []network.Info{{
 		MACAddress:    "aa:bb:cc:dd:ee:d0",
@@ -248,7 +240,6 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net1",
 		VLANTag:       0,
 		InterfaceName: "eth0",
-		IsVirtual:     false,
 	}}
 
 	results, err := s.networker.MachineNetworkInfo("machine-0")

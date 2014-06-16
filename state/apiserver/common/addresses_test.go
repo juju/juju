@@ -6,7 +6,7 @@ package common_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver/common"
 )
@@ -66,12 +66,12 @@ func (fakeAddresses) CACert() string {
 	return "a cert"
 }
 
-func (fakeAddresses) APIHostPorts() ([][]instance.HostPort, error) {
-	return [][]instance.HostPort{{{
-		Address: instance.NewAddress("apiaddresses", instance.NetworkUnknown),
+func (fakeAddresses) APIHostPorts() ([][]network.HostPort, error) {
+	return [][]network.HostPort{{{
+		Address: network.NewAddress("apiaddresses", network.ScopeUnknown),
 		Port:    1,
 	}}, {{
-		Address: instance.NewAddress("apiaddresses", instance.NetworkUnknown),
+		Address: network.NewAddress("apiaddresses", network.ScopeUnknown),
 		Port:    2,
 	}}}, nil
 }

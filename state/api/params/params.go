@@ -7,12 +7,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"time"
 
+	"github.com/juju/charm"
 	"github.com/juju/utils/proxy"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
 )
@@ -119,7 +121,7 @@ type AddMachineParams struct {
 	InstanceId              instance.Id
 	Nonce                   string
 	HardwareCharacteristics instance.HardwareCharacteristics
-	Addrs                   []instance.Address
+	Addrs                   []network.Address
 }
 
 // AddMachines holds the parameters for making the
@@ -385,7 +387,7 @@ type ModifyUsers struct {
 	Changes []ModifyUser
 }
 
-// ModifyUser stores the parameters used for a UserManager.Add|Remove call
+// ModifyUser stores the parameters used for a UserManager.Add|Remove call.
 type ModifyUser struct {
 	// Tag is here purely for backwards compatability. Older clients will
 	// attempt to use the EntityPassword structure, so we need a Tag here
@@ -526,7 +528,7 @@ type MachineInfo struct {
 	SupportedContainersKnown bool
 	HardwareCharacteristics  *instance.HardwareCharacteristics `json:",omitempty"`
 	Jobs                     []MachineJob
-	Addresses                []instance.Address
+	Addresses                []network.Address
 }
 
 func (i *MachineInfo) EntityId() EntityId {
@@ -562,7 +564,7 @@ type UnitInfo struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	Ports          []instance.Port
+	Ports          []network.Port
 	Status         Status
 	StatusInfo     string
 	StatusData     StatusData
@@ -697,7 +699,7 @@ type RsyslogConfigResult struct {
 	// Clients should use HostPorts for the rsyslog addresses to forward
 	// logs to.
 	Port      int
-	HostPorts []instance.HostPort
+	HostPorts []network.HostPort
 }
 
 // RsyslogConfigResults is the bulk form of RyslogConfigResult
@@ -722,13 +724,14 @@ type DistributionGroupResults struct {
 // call. Each element in the top level slice holds
 // the addresses for one API server.
 type APIHostPortsResult struct {
-	Servers [][]instance.HostPort
+	Servers [][]network.HostPort
 }
 
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
-	Servers    [][]instance.HostPort
-	EnvironTag string
+	Servers        [][]network.HostPort
+	EnvironTag     string
+	LastConnection *time.Time
 }
 
 // EnsureAvailability contains arguments for
@@ -739,4 +742,22 @@ type EnsureAvailability struct {
 	// Series is the series to associate with new state server machines.
 	// If this is empty, then the environment's default series is used.
 	Series string
+}
+
+type UserInfo struct {
+	Username       string    `json:username`
+	DisplayName    string    `json:display-name`
+	CreatedBy      string    `json:created-by`
+	DateCreated    time.Time `json:date-created`
+	LastConnection time.Time `json:last-connection`
+}
+
+// UserInfoResult holds the result of a UserInfo call.
+type UserInfoResult struct {
+	Result *UserInfo `json:result,omitempty`
+	Error  *Error    `json:error,omitempty`
+}
+
+type UserInfoResults struct {
+	Results []UserInfoResult
 }

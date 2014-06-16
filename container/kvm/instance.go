@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 type kvmInstance struct {
@@ -33,33 +34,23 @@ func (*kvmInstance) Refresh() error {
 	return nil
 }
 
-func (kvm *kvmInstance) Addresses() ([]instance.Address, error) {
+func (kvm *kvmInstance) Addresses() ([]network.Address, error) {
 	logger.Errorf("kvmInstance.Addresses not implemented")
 	return nil, nil
 }
 
-// DNSName implements instance.Instance.DNSName.
-func (kvm *kvmInstance) DNSName() (string, error) {
-	return "", instance.ErrNoDNSName
-}
-
-// WaitDNSName implements instance.Instance.WaitDNSName.
-func (kvm *kvmInstance) WaitDNSName() (string, error) {
-	return "", instance.ErrNoDNSName
-}
-
 // OpenPorts implements instance.Instance.OpenPorts.
-func (kvm *kvmInstance) OpenPorts(machineId string, ports []instance.Port) error {
+func (kvm *kvmInstance) OpenPorts(machineId string, ports []network.Port) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts implements instance.Instance.ClosePorts.
-func (kvm *kvmInstance) ClosePorts(machineId string, ports []instance.Port) error {
+func (kvm *kvmInstance) ClosePorts(machineId string, ports []network.Port) error {
 	return fmt.Errorf("not implemented")
 }
 
 // Ports implements instance.Instance.Ports.
-func (kvm *kvmInstance) Ports(machineId string) ([]instance.Port, error) {
+func (kvm *kvmInstance) Ports(machineId string) ([]network.Port, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

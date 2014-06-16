@@ -12,13 +12,15 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -28,10 +30,11 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api/usermanager"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func Test(t *stdtesting.T) {
@@ -140,7 +143,7 @@ func (*NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	info.Password = utils.UserPasswordHash("side-effect secret", utils.CompatSalt)
 	// Use a state without a nil policy, which will allow us to set an invalid config.
-	st, err := state.Open(info, state.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, st)
 
@@ -223,7 +226,7 @@ func (*NewConnSuite) TestConnWithPassword(c *gc.C) {
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Password = utils.UserPasswordHash("nutkin", utils.CompatSalt)
-	st, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	assertClose(c, st)
 
@@ -235,7 +238,7 @@ func (*NewConnSuite) TestConnWithPassword(c *gc.C) {
 	// Check that the password has now been changed to the original
 	// admin password.
 	info.Password = "nutkin"
-	st1, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
+	st1, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	assertClose(c, st1)
 
@@ -252,7 +255,7 @@ func (*NewConnSuite) TestConnWithPassword(c *gc.C) {
 
 type ConnSuite struct {
 	coretesting.BaseSuite
-	coretesting.MgoSuite
+	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
 	conn *juju.Conn
 	repo *charm.LocalRepository
@@ -310,7 +313,7 @@ func (s *ConnSuite) TestNewConnFromState(c *gc.C) {
 }
 
 func (s *ConnSuite) TestPutCharmBasic(c *gc.C) {
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
+	curl := charmtesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
 	curl.Revision = -1 // make sure we trigger the repo.Latest logic.
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
@@ -329,7 +332,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 	w, err := os.Create(filepath.Join(dir, "riak.charm"))
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, w)
-	charmDir := coretesting.Charms.Dir("riak")
+	charmDir := charmtesting.Charms.Dir("riak")
 	err = charmDir.BundleTo(w)
 	c.Assert(err, gc.IsNil)
 
@@ -358,7 +361,7 @@ func (s *ConnSuite) TestPutBundledCharm(c *gc.C) {
 
 func (s *ConnSuite) TestPutCharmUpload(c *gc.C) {
 	repo := &charm.LocalRepository{Path: c.MkDir()}
-	curl := coretesting.Charms.ClonedURL(repo.Path, "quantal", "riak")
+	curl := charmtesting.Charms.ClonedURL(repo.Path, "quantal", "riak")
 
 	// Put charm for the first time.
 	sch, err := s.conn.PutCharm(curl, repo, false)
@@ -413,7 +416,7 @@ func (s *ConnSuite) assertAssignedMachineRequestedNetworks(c *gc.C, unit *state.
 func (s *ConnSuite) TestAddUnits(c *gc.C) {
 	withNets := []string{"net1", "net2"}
 	withoutNets := []string{"net3", "net4"}
-	curl := coretesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
+	curl := charmtesting.Charms.ClonedURL(s.repo.Path, "quantal", "riak")
 	sch, err := s.conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, gc.IsNil)
 	svc, err := s.conn.State.AddService("testriak", "user-admin", sch, withNets)
@@ -472,7 +475,7 @@ var _ = gc.Suite(&DeployLocalSuite{})
 
 func (s *DeployLocalSuite) SetUpSuite(c *gc.C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.repo = &charm.LocalRepository{Path: coretesting.Charms.Path()}
+	s.repo = &charm.LocalRepository{Path: charmtesting.Charms.Path()}
 	s.oldCacheDir, charm.CacheDir = charm.CacheDir, c.MkDir()
 }
 
@@ -504,9 +507,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
-	usermanager := usermanager.NewClient(s.APIState)
-	err := usermanager.AddUser("foobar", "", "")
-	c.Assert(err, gc.IsNil)
+	s.Factory.MakeUser(factory.UserParams{Username: "foobar"})
 	service, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{
 			ServiceName:  "bobwithowner",

@@ -10,10 +10,10 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/juju/charm/hooks"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm/hooks"
 	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/relation"
 )

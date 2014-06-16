@@ -7,14 +7,14 @@ import (
 	"reflect"
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	apirsyslog "github.com/juju/juju/state/api/rsyslog"
@@ -206,7 +206,7 @@ type fakeUnitAgent struct {
 }
 
 func (f *fakeUnitAgent) Tag() string {
-	return names.UnitTag(f.unitName)
+	return names.NewUnitTag(f.unitName).String()
 }
 
 func (f *fakeUnitAgent) ChangeConfig(func(agent.ConfigSetter)) error {
@@ -260,8 +260,8 @@ func (s *UnitSuite) TestUnitAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
 	// Update the API addresses.
-	updatedServers := [][]instance.HostPort{instance.AddressesWithPort(
-		instance.NewAddresses("localhost"), 1234,
+	updatedServers := [][]network.HostPort{network.AddressesWithPort(
+		network.NewAddresses("localhost"), 1234,
 	)}
 	err := s.BackingState.SetAPIHostPorts(updatedServers)
 	c.Assert(err, gc.IsNil)

@@ -10,10 +10,10 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 )
@@ -88,9 +88,26 @@ func (env *mockEnviron) GetImageSources() ([]simplestreams.DataSource, error) {
 	return []simplestreams.DataSource{datasource}, nil
 }
 
+type availabilityZonesFunc func() ([]common.AvailabilityZone, error)
+type instanceAvailabilityZoneNamesFunc func([]instance.Id) ([]string, error)
+
+type mockZonedEnviron struct {
+	mockEnviron
+	availabilityZones             availabilityZonesFunc
+	instanceAvailabilityZoneNames instanceAvailabilityZoneNamesFunc
+}
+
+func (env *mockZonedEnviron) AvailabilityZones() ([]common.AvailabilityZone, error) {
+	return env.availabilityZones()
+}
+
+func (env *mockZonedEnviron) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	return env.instanceAvailabilityZoneNames(ids)
+}
+
 type mockInstance struct {
 	id                string
-	addresses         []instance.Address
+	addresses         []network.Address
 	addressesErr      error
 	dnsName           string
 	dnsNameErr        error
@@ -101,16 +118,8 @@ func (inst *mockInstance) Id() instance.Id {
 	return instance.Id(inst.id)
 }
 
-func (inst *mockInstance) Addresses() ([]instance.Address, error) {
+func (inst *mockInstance) Addresses() ([]network.Address, error) {
 	return inst.addresses, inst.addressesErr
-}
-
-func (inst *mockInstance) DNSName() (string, error) {
-	return inst.dnsName, inst.dnsNameErr
-}
-
-func (inst *mockInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
 }
 
 type mockStorage struct {
@@ -131,4 +140,17 @@ func (stor *mockStorage) RemoveAll() error {
 		return stor.removeAllErr
 	}
 	return stor.Storage.RemoveAll()
+}
+
+type mockAvailabilityZone struct {
+	name      string
+	available bool
+}
+
+func (z *mockAvailabilityZone) Name() string {
+	return z.name
+}
+
+func (z *mockAvailabilityZone) Available() bool {
+	return z.available
 }

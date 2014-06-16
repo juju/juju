@@ -15,12 +15,12 @@ import (
 	"strconv"
 	"text/template"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -29,6 +29,8 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -252,11 +254,13 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	}
 	progress("opening state")
 	st, err := state.Open(&state.Info{
-		Addrs:    []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
-		CACert:   caCert,
+		Info: mongo.Info{
+			Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
+			CACert: caCert,
+		},
 		Tag:      agentConf.Credentials.Tag,
 		Password: agentConf.Credentials.Password,
-	}, state.DefaultDialOpts(), environs.NewStatePolicy())
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if err != nil {
 		return fmt.Errorf("cannot open state: %v", err)
 	}
@@ -508,7 +512,7 @@ func updateAllMachines(st *state.State, stateAddr string) error {
 // runMachineUpdate connects via ssh to the machine and runs the update script
 func runMachineUpdate(m *state.Machine, sshArg string) error {
 	progress("updating machine: %v\n", m)
-	addr := instance.SelectPublicAddress(m.Addresses())
+	addr := network.SelectPublicAddress(m.Addresses())
 	if addr == "" {
 		return fmt.Errorf("no appropriate public address found")
 	}

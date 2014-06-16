@@ -32,6 +32,8 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/provider/ec2"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/utils/ssh"
@@ -248,9 +250,9 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// else happens after the machine is brought up.
 	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
 	c.Assert(inst, gc.NotNil)
-	bootstrapDNS, err := insts[0].DNSName()
+	addresses, err := insts[0].Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(bootstrapDNS, gc.Not(gc.Equals), "")
+	c.Assert(addresses, gc.Not(gc.HasLen), 0)
 	userData, err := utils.Gunzip(inst.UserData)
 	c.Assert(err, gc.IsNil)
 	c.Logf("first instance: UserData: %q", userData)
@@ -369,30 +371,127 @@ func (t *localServerSuite) TestGetAvailabilityZones(c *gc.C) {
 		}
 		return resp, resultErr
 	})
-	env := t.Prepare(c)
+	env := t.Prepare(c).(common.ZonedEnviron)
 
 	resultErr = fmt.Errorf("failed to get availability zones")
-	zones, err := ec2.GetAvailabilityZones(env)
+	zones, err := env.AvailabilityZones()
 	c.Assert(err, gc.Equals, resultErr)
 	c.Assert(zones, gc.IsNil)
 
 	resultErr = nil
 	resultZones = make([]amzec2.AvailabilityZoneInfo, 1)
 	resultZones[0].Name = "whatever"
-	zones, err = ec2.GetAvailabilityZones(env)
+	zones, err = env.AvailabilityZones()
 	c.Assert(err, gc.IsNil)
 	c.Assert(zones, gc.HasLen, 1)
-	c.Assert(zones[0].Name, gc.Equals, "whatever")
+	c.Assert(zones[0].Name(), gc.Equals, "whatever")
 
 	// A successful result is cached, currently for the lifetime
 	// of the Environ. This will change if/when we have long-lived
 	// Environs to cut down repeated IaaS requests.
 	resultErr = fmt.Errorf("failed to get availability zones")
 	resultZones[0].Name = "andever"
-	zones, err = ec2.GetAvailabilityZones(env)
+	zones, err = env.AvailabilityZones()
 	c.Assert(err, gc.IsNil)
 	c.Assert(zones, gc.HasLen, 1)
-	c.Assert(zones[0].Name, gc.Equals, "whatever")
+	c.Assert(zones[0].Name(), gc.Equals, "whatever")
+}
+
+func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
+	var resultZones []amzec2.AvailabilityZoneInfo
+	t.PatchValue(ec2.EC2AvailabilityZones, func(e *amzec2.EC2, f *amzec2.Filter) (*amzec2.AvailabilityZonesResp, error) {
+		resp := &amzec2.AvailabilityZonesResp{
+			Zones: append([]amzec2.AvailabilityZoneInfo{}, resultZones...),
+		}
+		return resp, nil
+	})
+	env := t.Prepare(c).(common.ZonedEnviron)
+	resultZones = make([]amzec2.AvailabilityZoneInfo, 2)
+	resultZones[0].Name = "az1"
+	resultZones[1].Name = "az2"
+	resultZones[0].State = "available"
+	resultZones[1].State = "impaired"
+	zones, err := env.AvailabilityZones()
+	c.Assert(err, gc.IsNil)
+	c.Assert(zones, gc.HasLen, 2)
+	c.Assert(zones[0].Name(), gc.Equals, resultZones[0].Name)
+	c.Assert(zones[1].Name(), gc.Equals, resultZones[1].Name)
+	c.Assert(zones[0].Available(), jc.IsTrue)
+	c.Assert(zones[1].Available(), jc.IsFalse)
+}
+
+type mockBestAvailabilityZoneAllocations struct {
+	group  []instance.Id // input param
+	result map[string][]instance.Id
+	err    error
+}
+
+func (t *mockBestAvailabilityZoneAllocations) BestAvailabilityZoneAllocations(
+	e common.ZonedEnviron, group []instance.Id,
+) (map[string][]instance.Id, error) {
+	t.group = group
+	return t.result, t.err
+}
+
+func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	var mock mockBestAvailabilityZoneAllocations
+	t.PatchValue(ec2.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
+
+	// no distribution group specified
+	testing.AssertStartInstance(c, env, "1")
+	c.Assert(mock.group, gc.HasLen, 0)
+
+	// distribution group specified: ensure it's passed through to BestAvailabilityZone.
+	expectedInstances := []instance.Id{"i-0", "i-1"}
+	params := environs.StartInstanceParams{
+		DistributionGroup: func() ([]instance.Id, error) {
+			return expectedInstances, nil
+		},
+	}
+	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mock.group, gc.DeepEquals, expectedInstances)
+}
+
+func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	mock := mockBestAvailabilityZoneAllocations{
+		err: fmt.Errorf("BestAvailabilityZoneAllocations failed"),
+	}
+	t.PatchValue(ec2.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
+	_, _, _, err = testing.StartInstance(env, "1")
+	c.Assert(err, gc.Equals, mock.err)
+
+	mock.err = nil
+	dgErr := fmt.Errorf("DistributionGroup failed")
+	params := environs.StartInstanceParams{
+		DistributionGroup: func() ([]instance.Id, error) {
+			return nil, dgErr
+		},
+	}
+	_, _, _, err = testing.StartInstanceWithParams(env, "1", params, nil)
+	c.Assert(err, gc.Equals, dgErr)
+}
+
+func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	// test-available is the only available AZ, so BestAvailabilityZoneAllocations
+	// is guaranteed to return that.
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "test-available")
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
@@ -406,28 +505,28 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// Expected values use Address type but really contain a regexp for
 	// the value rather than a valid ip or hostname.
-	expected := []instance.Address{{
-		Value:        "*.testing.invalid",
-		Type:         instance.HostName,
-		NetworkScope: instance.NetworkPublic,
+	expected := []network.Address{{
+		Value: "*.testing.invalid",
+		Type:  network.HostName,
+		Scope: network.ScopePublic,
 	}, {
-		Value:        "*.internal.invalid",
-		Type:         instance.HostName,
-		NetworkScope: instance.NetworkCloudLocal,
+		Value: "*.internal.invalid",
+		Type:  network.HostName,
+		Scope: network.ScopeCloudLocal,
 	}, {
-		Value:        "8.0.0.*",
-		Type:         instance.Ipv4Address,
-		NetworkScope: instance.NetworkPublic,
+		Value: "8.0.0.*",
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
 	}, {
-		Value:        "127.0.0.*",
-		Type:         instance.Ipv4Address,
-		NetworkScope: instance.NetworkCloudLocal,
+		Value: "127.0.0.*",
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
 	}}
 	c.Assert(addrs, gc.HasLen, len(expected))
 	for i, addr := range addrs {
 		c.Check(addr.Value, gc.Matches, expected[i].Value)
 		c.Check(addr.Type, gc.Equals, expected[i].Type)
-		c.Check(addr.NetworkScope, gc.Equals, expected[i].NetworkScope)
+		c.Check(addr.Scope, gc.Equals, expected[i].Scope)
 	}
 }
 

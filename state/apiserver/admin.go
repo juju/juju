@@ -6,6 +6,7 @@ package apiserver
 import (
 	stderrors "errors"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -26,6 +27,7 @@ func newStateServer(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier
 	r.admin = &srvAdmin{
 		root:        r,
 		limiter:     limiter,
+		validator:   srv.validator,
 		reqNotifier: reqNotifier,
 	}
 	return r
@@ -58,6 +60,7 @@ func (r *initialRoot) Admin(id string) (*srvAdmin, error) {
 type srvAdmin struct {
 	mu          sync.Mutex
 	limiter     utils.Limiter
+	validator   LoginValidator
 	root        *initialRoot
 	loggedIn    bool
 	reqNotifier *requestNotifier
@@ -75,6 +78,14 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		// This can only happen if Login is called concurrently.
 		return params.LoginResult{}, errAlreadyLoggedIn
 	}
+
+	// Use the login validation function, if one was specified.
+	if a.validator != nil {
+		if err := a.validator(c); err != nil {
+			return params.LoginResult{}, errors.Trace(err)
+		}
+	}
+
 	// Users are not rate limited, all other entities are
 	if kind, err := names.TagKind(c.AuthTag); err != nil || kind != names.UserTagKind {
 		if !a.limiter.Acquire() {
@@ -111,9 +122,11 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	}
 
 	a.root.rpcConn.Serve(newRoot, serverError)
+	lastConnection := getAndUpdateLastConnectionForEntity(entity)
 	return params.LoginResult{
-		Servers:    hostPorts,
-		EnvironTag: environ.Tag(),
+		Servers:        hostPorts,
+		EnvironTag:     environ.Tag(),
+		LastConnection: lastConnection,
 	}, nil
 }
 
@@ -140,6 +153,18 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 		return nil, err
 	}
 	return entity, nil
+}
+
+func getAndUpdateLastConnectionForEntity(entity taggedAuthenticator) *time.Time {
+	if user, ok := entity.(*state.User); ok {
+		result := user.LastConnection()
+		user.UpdateLastConnection()
+		if result.IsZero() {
+			return nil
+		}
+		return &result
+	}
+	return nil
 }
 
 func checkForValidMachineAgent(entity taggedAuthenticator, c params.Creds) error {

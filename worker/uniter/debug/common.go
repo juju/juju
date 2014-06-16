@@ -22,7 +22,7 @@ func NewHooksContext(unitName string) *HooksContext {
 }
 
 func (c *HooksContext) ClientFileLock() string {
-	basename := fmt.Sprintf("juju-%s-debug-hooks", names.UnitTag(c.Unit))
+	basename := fmt.Sprintf("juju-%s-debug-hooks", names.NewUnitTag(c.Unit))
 	return filepath.Join(c.FlockDir, basename)
 }
 

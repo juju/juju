@@ -6,7 +6,7 @@ package testing
 import (
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -20,11 +20,11 @@ import (
 func AddStateServerMachine(c *gc.C, st *state.State) *state.Machine {
 	machine, err := st.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err = machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
-	hostPorts := [][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		Port:    1234,
 	}}}
 	err = st.SetAPIHostPorts(hostPorts)

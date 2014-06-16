@@ -4,6 +4,8 @@
 package state
 
 import (
+	charmtesting "github.com/juju/charm/testing"
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
@@ -16,7 +18,7 @@ import (
 // schema changes.
 type compatSuite struct {
 	testing.BaseSuite
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	state *State
 	env   *Environment
 }
@@ -68,9 +70,9 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 }
 
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
-	_, err := s.state.AddUser(AdminUser, "", "pass")
+	_, err := s.state.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", testing.Charms.Dir("mysql"))
+	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
 	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all services have associated document in the

@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"runtime"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -111,5 +111,5 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 }
 
 func (a *UnitAgent) Tag() string {
-	return names.UnitTag(a.UnitName)
+	return names.NewUnitTag(a.UnitName).String()
 }

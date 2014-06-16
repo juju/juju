@@ -4,6 +4,7 @@
 package main
 
 import (
+	charmtesting "github.com/juju/charm/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -129,16 +130,16 @@ var addRelationTests = []struct {
 }
 
 func (s *AddRelationSuite) TestAddRelation(c *gc.C) {
-	testing.Charms.BundlePath(s.SeriesPath, "wordpress")
+	charmtesting.Charms.BundlePath(s.SeriesPath, "wordpress")
 	err := runDeploy(c, "local:wordpress", "wp")
 	c.Assert(err, gc.IsNil)
-	testing.Charms.BundlePath(s.SeriesPath, "mysql")
+	charmtesting.Charms.BundlePath(s.SeriesPath, "mysql")
 	err = runDeploy(c, "local:mysql", "ms")
 	c.Assert(err, gc.IsNil)
-	testing.Charms.BundlePath(s.SeriesPath, "riak")
+	charmtesting.Charms.BundlePath(s.SeriesPath, "riak")
 	err = runDeploy(c, "local:riak", "rk")
 	c.Assert(err, gc.IsNil)
-	testing.Charms.BundlePath(s.SeriesPath, "logging")
+	charmtesting.Charms.BundlePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "local:logging", "lg")
 	c.Assert(err, gc.IsNil)
 

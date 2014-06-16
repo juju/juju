@@ -32,6 +32,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiparams "github.com/juju/juju/state/api/params"
@@ -539,7 +540,7 @@ func (s *environSuite) TestStateInfo(c *gc.C) {
 	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	config := env.Config()
-	dnsName := prefix + "myservice." + AZURE_DOMAIN_NAME
+	dnsName := prefix + "myservice." + AzureDomainName
 	c.Check(stateInfo.Addrs, jc.SameContents, []string{
 		fmt.Sprintf("1.2.3.4:%d", config.StatePort()),
 		fmt.Sprintf("%s:%d", dnsName, config.StatePort()),
@@ -1448,8 +1449,10 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	s.setDummyStorage(c, s.env)
 	s.env.ecfg.attrs["force-image-name"] = "my-image"
 	stateInfo := &state.Info{
-		Addrs:    []string{"localhost:123"},
-		CACert:   coretesting.CACert,
+		Info: mongo.Info{
+			CACert: coretesting.CACert,
+			Addrs:  []string{"localhost:123"},
+		},
 		Password: "password",
 		Tag:      "machine-1",
 	}

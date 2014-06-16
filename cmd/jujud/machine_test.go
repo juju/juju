@@ -12,6 +12,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/charm"
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -21,15 +23,14 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/mongo"
-	"github.com/juju/juju/charm"
-	"github.com/juju/juju/cmd"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -133,7 +134,7 @@ func (s *commonMachineSuite) primeAgent(
 	c.Assert(err, gc.IsNil)
 	err = m.SetPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
-	tag := names.MachineTag(m.Id())
+	tag := names.NewMachineTag(m.Id()).String()
 	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, gc.IsNil)
@@ -333,8 +334,8 @@ func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
 }
 
 func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Machine) {
-	addrs := []instance.Address{
-		instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+	addrs := []network.Address{
+		network.NewAddress("0.1.2.3", network.ScopeUnknown),
 	}
 	err := machine.SetAddresses(addrs...)
 	c.Assert(err, gc.IsNil)
@@ -424,7 +425,7 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	m, instId := s.waitProvisioned(c, units[0])
 	insts, err := s.Conn.Environ.Instances([]instance.Id{instId})
 	c.Assert(err, gc.IsNil)
-	addrs := []instance.Address{instance.NewAddress("1.2.3.4", instance.NetworkUnknown)}
+	addrs := []network.Address{network.NewAddress("1.2.3.4", network.ScopeUnknown)}
 	dummy.SetInstanceAddresses(insts[0], addrs)
 	dummy.SetInstanceStatus(insts[0], "running")
 
@@ -928,8 +929,8 @@ func (s *MachineSuite) TestMachineAgentRunsAPIAddressUpdaterWorker(c *gc.C) {
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
 
 	// Update the API addresses.
-	updatedServers := [][]instance.HostPort{instance.AddressesWithPort(
-		instance.NewAddresses("localhost"), 1234,
+	updatedServers := [][]network.HostPort{network.AddressesWithPort(
+		network.NewAddresses("localhost"), 1234,
 	)}
 	err := s.BackingState.SetAPIHostPorts(updatedServers)
 	c.Assert(err, gc.IsNil)

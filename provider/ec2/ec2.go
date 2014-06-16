@@ -21,12 +21,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -68,7 +68,7 @@ type environ struct {
 	storageUnlocked storage.Storage
 
 	availabilityZonesMutex sync.Mutex
-	availabilityZones      []ec2.AvailabilityZoneInfo
+	availabilityZones      []common.AvailabilityZone
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -76,6 +76,7 @@ var _ simplestreams.HasRegion = (*environ)(nil)
 var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ state.Prechecker = (*environ)(nil)
+var _ state.InstanceDistributor = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
@@ -124,9 +125,9 @@ func (inst *ec2Instance) refresh() (*ec2.Instance, error) {
 	return inst.Instance, nil
 }
 
-// Addresses implements instance.Addresses() returning generic address
+// Addresses implements network.Addresses() returning generic address
 // details for the instance, and requerying the ec2 api if required.
-func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
+func (inst *ec2Instance) Addresses() ([]network.Address, error) {
 	// TODO(gz): Stop relying on this requerying logic, maybe remove error
 	instInstance := inst.getInstance()
 	if instInstance.DNSName == "" {
@@ -138,27 +139,27 @@ func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 			return nil, err
 		}
 	}
-	var addresses []instance.Address
-	possibleAddresses := []instance.Address{
+	var addresses []network.Address
+	possibleAddresses := []network.Address{
 		{
-			Value:        instInstance.DNSName,
-			Type:         instance.HostName,
-			NetworkScope: instance.NetworkPublic,
+			Value: instInstance.DNSName,
+			Type:  network.HostName,
+			Scope: network.ScopePublic,
 		},
 		{
-			Value:        instInstance.PrivateDNSName,
-			Type:         instance.HostName,
-			NetworkScope: instance.NetworkCloudLocal,
+			Value: instInstance.PrivateDNSName,
+			Type:  network.HostName,
+			Scope: network.ScopeCloudLocal,
 		},
 		{
-			Value:        instInstance.IPAddress,
-			Type:         instance.Ipv4Address,
-			NetworkScope: instance.NetworkPublic,
+			Value: instInstance.IPAddress,
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
 		},
 		{
-			Value:        instInstance.PrivateIPAddress,
-			Type:         instance.Ipv4Address,
-			NetworkScope: instance.NetworkCloudLocal,
+			Value: instInstance.PrivateIPAddress,
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
 		},
 	}
 	for _, address := range possibleAddresses {
@@ -167,23 +168,6 @@ func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 		}
 	}
 	return addresses, nil
-}
-
-func (inst *ec2Instance) DNSName() (string, error) {
-	addresses, err := inst.Addresses()
-	if err != nil {
-		return "", err
-	}
-	addr := instance.SelectPublicAddress(addresses)
-	if addr == "" {
-		return "", instance.ErrNoDNSName
-	}
-	return addr, nil
-
-}
-
-func (inst *ec2Instance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
 }
 
 func (p environProvider) BoilerplateConfig() string {
@@ -401,9 +385,21 @@ func archMatches(arches []string, arch *string) bool {
 
 var ec2AvailabilityZones = (*ec2.EC2).AvailabilityZones
 
-// getAvailabilityZones returns a slice of availability zones
+type ec2AvailabilityZone struct {
+	ec2.AvailabilityZoneInfo
+}
+
+func (z *ec2AvailabilityZone) Name() string {
+	return z.AvailabilityZoneInfo.Name
+}
+
+func (z *ec2AvailabilityZone) Available() bool {
+	return z.AvailabilityZoneInfo.State == "available"
+}
+
+// AvailabilityZones returns a slice of availability zones
 // for the configured region.
-func (e *environ) getAvailabilityZones() ([]ec2.AvailabilityZoneInfo, error) {
+func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	e.availabilityZonesMutex.Lock()
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
@@ -413,9 +409,29 @@ func (e *environ) getAvailabilityZones() ([]ec2.AvailabilityZoneInfo, error) {
 		if err != nil {
 			return nil, err
 		}
-		e.availabilityZones = resp.Zones
+		e.availabilityZones = make([]common.AvailabilityZone, len(resp.Zones))
+		for i, z := range resp.Zones {
+			e.availabilityZones[i] = &ec2AvailabilityZone{z}
+		}
 	}
 	return e.availabilityZones, nil
+}
+
+// InstanceAvailabilityZoneNames returns the availability zone names for each
+// of the specified instances.
+func (e *environ) InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error) {
+	instances, err := e.Instances(ids)
+	if err != nil && err != environs.ErrPartialInstances {
+		return nil, err
+	}
+	zones := make([]string, len(instances))
+	for i, inst := range instances {
+		if inst == nil {
+			continue
+		}
+		zones[i] = inst.(*ec2Instance).AvailZone
+	}
+	return zones, err
 }
 
 type ec2Placement struct {
@@ -430,13 +446,15 @@ func (e *environ) parsePlacement(placement string) (*ec2Placement, error) {
 	switch key, value := placement[:pos], placement[pos+1:]; key {
 	case "zone":
 		availabilityZone := value
-		zones, err := e.getAvailabilityZones()
+		zones, err := e.AvailabilityZones()
 		if err != nil {
 			return nil, err
 		}
 		for _, z := range zones {
-			if z.Name == availabilityZone {
-				return &ec2Placement{availabilityZone: z}, nil
+			if z.Name() == availabilityZone {
+				return &ec2Placement{
+					z.(*ec2AvailabilityZone).AvailabilityZoneInfo,
+				}, nil
 			}
 		}
 		return nil, fmt.Errorf("invalid availability zone %q", availabilityZone)
@@ -504,6 +522,13 @@ func (e *environ) cloudSpec(region string) (simplestreams.CloudSpec, error) {
 
 const ebsStorage = "ebs"
 
+// DistributeInstances implements the state.InstanceDistributor policy.
+func (e *environ) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
+	return common.DistributeInstances(e, candidates, distributionGroup)
+}
+
+var bestAvailabilityZoneAllocations = common.BestAvailabilityZoneAllocations
+
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
 	var availabilityZone string
@@ -516,6 +541,27 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			return nil, nil, nil, fmt.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
 		}
 		availabilityZone = placement.availabilityZone.Name
+	}
+
+	// If no availability zone is specified, then automatically spread across
+	// the known zones for optimal spread across the instance distribution
+	// group.
+	if availabilityZone == "" {
+		var group []instance.Id
+		var err error
+		if args.DistributionGroup != nil {
+			group, err = args.DistributionGroup()
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		}
+		bestAvailabilityZones, err := bestAvailabilityZoneAllocations(e, group)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		for availabilityZone = range bestAvailabilityZones {
+			break
+		}
 	}
 
 	if args.MachineConfig.HasNetworks() {
@@ -761,9 +807,17 @@ func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 // AllocateAddress requests a new address to be allocated for the
 // given instance on the given network. This is not implemented by the
 // EC2 provider yet.
-func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (instance.Address, error) {
+func (*environ) AllocateAddress(_ instance.Id, _ network.Id) (network.Address, error) {
 	// TODO(dimitern) This will be implemented in a follow-up.
-	return instance.Address{}, errors.NotImplementedf("AllocateAddress")
+	return network.Address{}, errors.NotImplementedf("AllocateAddress")
+}
+
+// ListNetworks returns basic information about all networks known
+// by the provider for the environment. They may be unknown to juju
+// yet (i.e. when called initially or when a new network was created).
+// This is not implemented by the EC2 provider yet.
+func (*environ) ListNetworks() ([]network.BasicInfo, error) {
+	return nil, errors.NotImplementedf("ListNetworks")
 }
 
 func (e *environ) AllInstances() ([]instance.Instance, error) {
@@ -795,7 +849,7 @@ func (e *environ) Destroy() error {
 	return common.Destroy(e)
 }
 
-func portsToIPPerms(ports []instance.Port) []ec2.IPPerm {
+func portsToIPPerms(ports []network.Port) []ec2.IPPerm {
 	ipPerms := make([]ec2.IPPerm, len(ports))
 	for i, p := range ports {
 		ipPerms[i] = ec2.IPPerm{
@@ -808,7 +862,7 @@ func portsToIPPerms(ports []instance.Port) []ec2.IPPerm {
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []network.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -841,7 +895,7 @@ func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -859,7 +913,7 @@ func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []network.Port, err error) {
 	group, err := e.groupInfoByName(name)
 	if err != nil {
 		return nil, err
@@ -870,17 +924,17 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 			continue
 		}
 		for i := p.FromPort; i <= p.ToPort; i++ {
-			ports = append(ports, instance.Port{
+			ports = append(ports, network.Port{
 				Protocol: p.Protocol,
 				Number:   i,
 			})
 		}
 	}
-	instance.SortPorts(ports)
+	network.SortPorts(ports)
 	return ports, nil
 }
 
-func (e *environ) OpenPorts(ports []instance.Port) error {
+func (e *environ) OpenPorts(ports []network.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
@@ -892,7 +946,7 @@ func (e *environ) OpenPorts(ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []instance.Port) error {
+func (e *environ) ClosePorts(ports []network.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
@@ -904,7 +958,7 @@ func (e *environ) ClosePorts(ports []instance.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]instance.Port, error) {
+func (e *environ) Ports() ([]network.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
 			e.Config().FirewallMode())
@@ -963,7 +1017,7 @@ func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
-func (inst *ec2Instance) OpenPorts(machineId string, ports []instance.Port) error {
+func (inst *ec2Instance) OpenPorts(machineId string, ports []network.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
@@ -976,7 +1030,7 @@ func (inst *ec2Instance) OpenPorts(machineId string, ports []instance.Port) erro
 	return nil
 }
 
-func (inst *ec2Instance) ClosePorts(machineId string, ports []instance.Port) error {
+func (inst *ec2Instance) ClosePorts(machineId string, ports []network.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -989,7 +1043,7 @@ func (inst *ec2Instance) ClosePorts(machineId string, ports []instance.Port) err
 	return nil
 }
 
-func (inst *ec2Instance) Ports(machineId string) ([]instance.Port, error) {
+func (inst *ec2Instance) Ports(machineId string) ([]network.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
 			inst.e.Config().FirewallMode())

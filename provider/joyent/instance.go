@@ -7,7 +7,7 @@ import (
 	"github.com/joyent/gosdc/cloudapi"
 
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/provider/common"
+	"github.com/juju/juju/network"
 )
 
 type joyentInstance struct {
@@ -29,33 +29,17 @@ func (inst *joyentInstance) Refresh() error {
 	return nil
 }
 
-func (inst *joyentInstance) Addresses() ([]instance.Address, error) {
-	addresses := make([]instance.Address, len(inst.machine.IPs))
+func (inst *joyentInstance) Addresses() ([]network.Address, error) {
+	addresses := make([]network.Address, len(inst.machine.IPs))
 	for _, ip := range inst.machine.IPs {
-		address := instance.NewAddress(ip, instance.NetworkUnknown)
+		address := network.NewAddress(ip, network.ScopeUnknown)
 		if ip == inst.machine.PrimaryIP {
-			address.NetworkScope = instance.NetworkPublic
+			address.Scope = network.ScopePublic
 		} else {
-			address.NetworkScope = instance.NetworkCloudLocal
+			address.Scope = network.ScopeCloudLocal
 		}
 		addresses = append(addresses, address)
 	}
 
 	return addresses, nil
-}
-
-func (inst *joyentInstance) DNSName() (string, error) {
-	addresses, err := inst.Addresses()
-	if err != nil {
-		return "", err
-	}
-	addr := instance.SelectPublicAddress(addresses)
-	if addr == "" {
-		return "", instance.ErrNoDNSName
-	}
-	return addr, nil
-}
-
-func (inst *joyentInstance) WaitDNSName() (string, error) {
-	return common.WaitDNSName(inst)
 }

@@ -9,11 +9,11 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"

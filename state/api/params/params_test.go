@@ -7,11 +7,12 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/juju/charm"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 )
@@ -43,7 +44,7 @@ var marshalTestCases = []struct {
 			Series:                  "trusty",
 			SupportedContainers:     []instance.ContainerType{instance.LXC},
 			Jobs:                    []params.MachineJob{state.JobManageEnviron.ToParams()},
-			Addresses:               []instance.Address{},
+			Addresses:               []network.Address{},
 			HardwareCharacteristics: &instance.HardwareCharacteristics{},
 		},
 	},
@@ -74,7 +75,7 @@ var marshalTestCases = []struct {
 			Service:  "Shazam",
 			Series:   "precise",
 			CharmURL: "cs:~user/precise/wordpress-42",
-			Ports: []instance.Port{
+			Ports: []network.Port{
 				{
 					Protocol: "http",
 					Number:   80},

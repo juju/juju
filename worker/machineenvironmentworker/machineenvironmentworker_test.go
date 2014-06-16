@@ -219,5 +219,5 @@ func (mock *mockConfig) Value(key string) string {
 }
 
 func agentConfig(machineId, provider string) *mockConfig {
-	return &mockConfig{tag: names.MachineTag(machineId), provider: provider}
+	return &mockConfig{tag: names.NewMachineTag(machineId).String(), provider: provider}
 }

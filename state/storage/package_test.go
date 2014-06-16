@@ -4,11 +4,11 @@
 package storage_test
 
 import (
-	stdtesting "testing"
+	"testing"
 
-	"github.com/juju/juju/testing"
+	gitjujutesting "github.com/juju/testing"
 )
 
-func Test(t *stdtesting.T) {
-	testing.MgoTestPackageSsl(t, false)
+func Test(t *testing.T) {
+	gitjujutesting.MgoTestPackage(t, nil)
 }

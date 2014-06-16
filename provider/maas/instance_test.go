@@ -8,7 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 type instanceTest struct {
@@ -30,7 +30,7 @@ func (s *instanceTest) TestString(c *gc.C) {
 	jsonValue := `{"hostname": "thethingintheplace", "system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	instance := &maasInstance{maasObject: &obj, environ: s.makeEnviron()}
-	hostname, err := instance.DNSName()
+	hostname, err := instance.hostname()
 	c.Assert(err, gc.IsNil)
 	expected := hostname + ":" + string(instance.Id())
 	c.Assert(fmt.Sprint(instance), gc.Equals, expected)
@@ -41,7 +41,7 @@ func (s *instanceTest) TestStringWithoutHostname(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	instance := &maasInstance{maasObject: &obj, environ: s.makeEnviron()}
-	_, err := instance.DNSName()
+	_, err := instance.hostname()
 	c.Assert(err, gc.NotNil)
 	expected := fmt.Sprintf("<DNSName failed: %q>", err) + ":" + string(instance.Id())
 	c.Assert(fmt.Sprint(instance), gc.Equals, expected)
@@ -61,23 +61,6 @@ func (s *instanceTest) TestRefreshInstance(c *gc.C) {
 	c.Check(testField, gc.Equals, "test2")
 }
 
-func (s *instanceTest) TestDNSName(c *gc.C) {
-	jsonValue := `{"hostname": "DNS name", "system_id": "system_id"}`
-	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
-	instance := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
-
-	dnsName, err := instance.DNSName()
-
-	c.Check(err, gc.IsNil)
-	c.Check(dnsName, gc.Equals, "DNS name")
-
-	// WaitDNSName() currently simply calls DNSName().
-	dnsName, err = instance.WaitDNSName()
-
-	c.Check(err, gc.IsNil)
-	c.Check(dnsName, gc.Equals, "DNS name")
-}
-
 func (s *instanceTest) TestAddresses(c *gc.C) {
 	jsonValue := `{
 			"hostname": "testing.invalid",
@@ -87,10 +70,10 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
 
-	expected := []instance.Address{
-		{Value: "testing.invalid", Type: instance.HostName, NetworkScope: instance.NetworkPublic},
-		instance.NewAddress("1.2.3.4", instance.NetworkUnknown),
-		instance.NewAddress("fe80::d806:dbff:fe23:1199", instance.NetworkUnknown),
+	expected := []network.Address{
+		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
+		network.NewAddress("1.2.3.4", network.ScopeUnknown),
+		network.NewAddress("fe80::d806:dbff:fe23:1199", network.ScopeUnknown),
 	}
 
 	addr, err := inst.Addresses()
@@ -111,8 +94,8 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 
 	addr, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Check(addr, gc.DeepEquals, []instance.Address{
-		{Value: "testing.invalid", Type: instance.HostName, NetworkScope: instance.NetworkPublic},
+	c.Check(addr, gc.DeepEquals, []network.Address{
+		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
 	})
 }
 

@@ -6,8 +6,8 @@ package rsyslog_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/rsyslog"
@@ -29,7 +29,7 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.st, s.machine = s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
-	err := s.machine.SetAddresses(instance.NewAddress("0.1.2.3", instance.NetworkUnknown))
+	err := s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
 
 	// Create the rsyslog API facade
@@ -64,8 +64,8 @@ func (s *rsyslogSuite) TestWatchForRsyslogChanges(c *gc.C) {
 	wc.AssertOneChange()
 
 	// change the API HostPorts
-	newHostPorts := instance.AddressesWithPort(instance.NewAddresses("127.0.0.1"), 6541)
-	err = s.State.SetAPIHostPorts([][]instance.HostPort{newHostPorts})
+	newHostPorts := network.AddressesWithPort(network.NewAddresses("127.0.0.1"), 6541)
+	err = s.State.SetAPIHostPorts([][]network.HostPort{newHostPorts})
 	c.Assert(err, gc.IsNil)
 
 	// assert we get notified

@@ -12,9 +12,10 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/testing"
@@ -25,10 +26,12 @@ import (
 // of the machine to be started.
 func FakeStateInfo(machineId string) *state.Info {
 	return &state.Info{
-		Addrs:    []string{"0.1.2.3:1234"},
-		Tag:      names.MachineTag(machineId),
+		Info: mongo.Info{
+			Addrs:  []string{"0.1.2.3:1234"},
+			CACert: testing.CACert,
+		},
+		Tag:      names.NewMachineTag(machineId).String(),
 		Password: "unimportant",
-		CACert:   testing.CACert,
 	}
 }
 
@@ -38,10 +41,28 @@ func FakeStateInfo(machineId string) *state.Info {
 func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
 		Addrs:    []string{"0.1.2.3:1234"},
-		Tag:      names.MachineTag(machineId),
+		Tag:      names.NewMachineTag(machineId).String(),
 		Password: "unimportant",
 		CACert:   testing.CACert,
 	}
+}
+
+// WaitAddresses waits until the specified instance has addresses, and returns them.
+func WaitInstanceAddresses(env environs.Environ, instId instance.Id) ([]network.Address, error) {
+	for a := testing.LongAttempt.Start(); a.Next(); {
+		insts, err := env.Instances([]instance.Id{instId})
+		if err != nil {
+			return nil, err
+		}
+		addresses, err := insts[0].Addresses()
+		if err != nil {
+			return nil, err
+		}
+		if len(addresses) > 0 {
+			return addresses, nil
+		}
+	}
+	return nil, fmt.Errorf("timed out trying to get addresses for %v", instId)
 }
 
 // AssertStartInstance is a test helper function that starts an instance with a

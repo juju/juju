@@ -4,10 +4,10 @@
 package charmrevisionupdater
 
 import (
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"

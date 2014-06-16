@@ -9,90 +9,34 @@ import (
 	"net/url"
 	"path/filepath"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	statetxn "github.com/juju/juju/state/txn"
+	txntesting "github.com/juju/juju/state/txn/testing"
 	"github.com/juju/juju/testing"
 )
 
-// transactionHook holds Before and After func()s that will be called
-// respectively before and after a particular state transaction is executed.
-type TransactionHook transactionHook
-
-// TransactionChecker values are returned from the various Set*Hooks calls,
-// and should be run after the code under test has been executed to check
-// that the expected number of transactions were run.
-type TransactionChecker func()
-
-func (c TransactionChecker) Check() {
-	c()
+func SetTestHooks(c *gc.C, st *State, hooks ...statetxn.TestHook) txntesting.TransactionChecker {
+	return txntesting.SetTestHooks(c, st.transactionRunner, hooks...)
 }
 
-// SetTransactionHooks queues up hooks to be applied to the next transactions,
-// and returns a function that asserts all hooks have been run (and removes any
-// that have not). Each hook function can freely execute its own transactions
-// without causing other hooks to be triggered.
-// It returns a function that asserts that all hooks have been run, and removes
-// any that have not. It is an error to set transaction hooks when any are
-// already queued; and setting transaction hooks renders the *State goroutine-
-// unsafe.
-func SetTransactionHooks(c *gc.C, st *State, transactionHooks ...TransactionHook) TransactionChecker {
-	converted := make([]transactionHook, len(transactionHooks))
-	for i, hook := range transactionHooks {
-		converted[i] = transactionHook(hook)
-		c.Logf("%d: %#v", i, converted[i])
-	}
-	original := <-st.transactionHooks
-	st.transactionHooks <- converted
-	c.Assert(original, gc.HasLen, 0)
-	return func() {
-		remaining := <-st.transactionHooks
-		st.transactionHooks <- nil
-		c.Assert(remaining, gc.HasLen, 0)
-	}
+func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
+	return txntesting.SetBeforeHooks(c, st.transactionRunner, fs...)
 }
 
-// SetBeforeHooks uses SetTransactionHooks to queue N functions to be run
-// immediately before the next N transactions. The first function is executed
-// before the first transaction, the second function before the second
-// transaction and so on. Nil values are accepted, and useful, in that they can
-// be used to ensure that a transaction is run at the expected time, without
-// having to make any changes or assert any state.
-func SetBeforeHooks(c *gc.C, st *State, fs ...func()) TransactionChecker {
-	transactionHooks := make([]TransactionHook, len(fs))
-	for i, f := range fs {
-		transactionHooks[i] = TransactionHook{Before: f}
-	}
-	return SetTransactionHooks(c, st, transactionHooks...)
+func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
+	return txntesting.SetAfterHooks(c, st.transactionRunner, fs...)
 }
 
-// SetAfterHooks uses SetTransactionHooks to queue N functions to be run
-// immediately after the next N transactions. The first function is executed
-// after the first transaction, the second function after the second
-// transaction and so on.
-func SetAfterHooks(c *gc.C, st *State, fs ...func()) TransactionChecker {
-	transactionHooks := make([]TransactionHook, len(fs))
-	for i, f := range fs {
-		transactionHooks[i] = TransactionHook{After: f}
-	}
-	return SetTransactionHooks(c, st, transactionHooks...)
-}
-
-// SetRetryHooks uses SetTransactionHooks to inject a block function designed
-// to disrupt a transaction built against recent state, and a check function
-// designed to verify that the replacement transaction against the new state
-// has been applied as expected.
-func SetRetryHooks(c *gc.C, st *State, block, check func()) TransactionChecker {
-	return SetTransactionHooks(c, st, TransactionHook{
-		Before: block,
-	}, TransactionHook{
-		After: check,
-	})
+func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
+	return txntesting.SetRetryHooks(c, st.transactionRunner, block, check)
 }
 
 // SetPolicy updates the State's policy field to the
@@ -138,7 +82,7 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
-	return addCharm(c, st, "quantal", testing.Charms.Dir(name))
+	return addCharm(c, st, "quantal", charmtesting.Charms.Dir(name))
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
@@ -152,7 +96,7 @@ func AddTestingServiceWithNetworks(c *gc.C, st *State, name string, ch *Charm, n
 }
 
 func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
-	path := testing.Charms.ClonedDirPath(c.MkDir(), name)
+	path := charmtesting.Charms.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		config := filepath.Join(path, filename)
 		err := ioutil.WriteFile(config, []byte(content), 0644)
@@ -261,3 +205,23 @@ func CheckUserExists(st *State, name string) (bool, error) {
 }
 
 var StateServerAvailable = &stateServerAvailable
+
+//
+// ActionResult private funcs
+//
+
+const ActionResultMarker string = actionResultMarker
+
+func GetActionResultIdPrefix(actionResultId string) string {
+	return getActionResultIdPrefix(actionResultId)
+}
+
+//
+// Action private funcs
+//
+
+const ActionMarker string = actionMarker
+
+func GetActionIdPrefix(actionId string) string {
+	return getActionIdPrefix(actionId)
+}

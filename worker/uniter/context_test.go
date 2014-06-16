@@ -11,14 +11,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -614,7 +614,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 
 	// Change remote state.
 	err := s.machine.SetAddresses(
-		instance.NewAddress("blah.testing.invalid", instance.NetworkPublic))
+		network.NewAddress("blah.testing.invalid", network.ScopePublic))
 	c.Assert(err, gc.IsNil)
 
 	// Local view is unchanged.
@@ -692,7 +692,7 @@ func (s *HookContextSuite) AddUnit(c *gc.C, svc *state.Service) *state.Unit {
 	err = unit.AssignToMachine(s.machine)
 	c.Assert(err, gc.IsNil)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
-	privateAddr := instance.NewAddress(name+".testing.invalid", instance.NetworkCloudLocal)
+	privateAddr := network.NewAddress(name+".testing.invalid", network.ScopeCloudLocal)
 	err = s.machine.SetAddresses(privateAddr)
 	c.Assert(err, gc.IsNil)
 	return unit

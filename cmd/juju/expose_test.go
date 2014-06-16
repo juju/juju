@@ -4,9 +4,10 @@
 package main
 
 import (
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/testing"
@@ -31,7 +32,7 @@ func (s *ExposeSuite) assertExposed(c *gc.C, service string) {
 }
 
 func (s *ExposeSuite) TestExpose(c *gc.C) {
-	testing.Charms.BundlePath(s.SeriesPath, "dummy")
+	charmtesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -17,10 +18,12 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -110,7 +113,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 	stateInfo := s.StateInfo(c)
 	stateInfo.Tag = e.Tag()
 	stateInfo.Password = password
-	st, err := state.Open(stateInfo, state.DialOpts{
+	st, err := state.Open(stateInfo, mongo.DialOpts{
 		Timeout: 25 * time.Millisecond,
 	}, environs.NewStatePolicy())
 	if err == nil {
@@ -148,11 +151,14 @@ var scenarioStatus = &api.Status{
 	EnvironmentName: "dummyenv",
 	Machines: map[string]api.MachineStatus{
 		"0": {
-			Id:             "0",
-			InstanceId:     instance.Id("i-machine-0"),
+			Id:         "0",
+			InstanceId: instance.Id("i-machine-0"),
+			Agent: api.AgentStatus{
+				Status: "started",
+				Data:   params.StatusData{},
+			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
-			AgentStateData: params.StatusData{},
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
 			Jobs:           []params.MachineJob{params.JobManageEnviron},
@@ -160,11 +166,14 @@ var scenarioStatus = &api.Status{
 			WantsVote:      true,
 		},
 		"1": {
-			Id:             "1",
-			InstanceId:     instance.Id("i-machine-1"),
+			Id:         "1",
+			InstanceId: instance.Id("i-machine-1"),
+			Agent: api.AgentStatus{
+				Status: "started",
+				Data:   params.StatusData{},
+			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
-			AgentStateData: params.StatusData{},
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
 			Jobs:           []params.MachineJob{params.JobHostUnits},
@@ -172,11 +181,14 @@ var scenarioStatus = &api.Status{
 			WantsVote:      false,
 		},
 		"2": {
-			Id:             "2",
-			InstanceId:     instance.Id("i-machine-2"),
+			Id:         "2",
+			InstanceId: instance.Id("i-machine-2"),
+			Agent: api.AgentStatus{
+				Status: "started",
+				Data:   params.StatusData{},
+			},
 			AgentState:     "down",
 			AgentStateInfo: "(started)",
-			AgentStateData: params.StatusData{},
 			Series:         "quantal",
 			Containers:     map[string]api.MachineStatus{},
 			Jobs:           []params.MachineJob{params.JobHostUnits},
@@ -206,27 +218,38 @@ var scenarioStatus = &api.Status{
 			SubordinateTo: []string{},
 			Units: map[string]api.UnitStatus{
 				"wordpress/0": api.UnitStatus{
+					Agent: api.AgentStatus{
+						Status: "error",
+						Info:   "blam",
+						Data:   params.StatusData{"relation-id": "0"},
+					},
 					AgentState:     "down",
 					AgentStateInfo: "(error: blam)",
-					AgentStateData: params.StatusData{
-						"relation-id": "0",
-					},
-					Machine: "1",
+					Machine:        "1",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/0": api.UnitStatus{
-							AgentState:     "pending",
-							AgentStateData: params.StatusData{},
+							Agent: api.AgentStatus{
+								Status: "pending",
+								Data:   params.StatusData{},
+							},
+							AgentState: "pending",
 						},
 					},
 				},
 				"wordpress/1": api.UnitStatus{
-					AgentState:     "pending",
-					AgentStateData: params.StatusData{},
-					Machine:        "2",
+					Agent: api.AgentStatus{
+						Status: "pending",
+						Data:   params.StatusData{},
+					},
+					AgentState: "pending",
+					Machine:    "2",
 					Subordinates: map[string]api.UnitStatus{
 						"logging/1": api.UnitStatus{
-							AgentState:     "pending",
-							AgentStateData: params.StatusData{},
+							Agent: api.AgentStatus{
+								Status: "pending",
+								Data:   params.StatusData{},
+							},
+							AgentState: "pending",
 						},
 					},
 				},
@@ -310,7 +333,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 	setDefaultPassword(c, u)
 	add(u)
 
-	u = s.AddUser(c, "other")
+	u = s.Factory.MakeUser(factory.UserParams{Username: "other"})
 	setDefaultPassword(c, u)
 	add(u)
 
@@ -355,7 +378,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 
 		deployer, ok := wu.DeployerTag()
 		c.Assert(ok, gc.Equals, true)
-		c.Assert(deployer, gc.Equals, fmt.Sprintf("machine-%d", i+1))
+		c.Assert(deployer, gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 
 		wru, err := rel.Unit(wu)
 		c.Assert(err, gc.IsNil)
@@ -382,7 +405,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 		c.Assert(lu.IsPrincipal(), gc.Equals, false)
 		deployer, ok = lu.DeployerTag()
 		c.Assert(ok, gc.Equals, true)
-		c.Assert(deployer, gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, lu)
 		add(lu)
 	}

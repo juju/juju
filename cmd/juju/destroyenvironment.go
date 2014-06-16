@@ -10,9 +10,9 @@ import (
 	"io"
 	"strings"
 
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju"

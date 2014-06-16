@@ -9,14 +9,15 @@ import (
 	"io"
 	"io/ioutil"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -24,6 +25,8 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -38,7 +41,7 @@ var _ = configstore.Default
 // an already-bootstrapped environment.
 type BootstrapSuite struct {
 	testing.BaseSuite
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	envcfg          string
 	instanceId      instance.Id
 	dataDir         string
@@ -54,15 +57,14 @@ type fakeEnsure struct {
 	initiateCount  int
 	dataDir        string
 	namespace      string
-	withHA         bool
 	info           params.StateServingInfo
 	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo, withHA bool) error {
+func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo) error {
 	f.ensureCount++
-	f.dataDir, f.namespace, f.info, f.withHA = dataDir, namespace, info, withHA
+	f.dataDir, f.namespace, f.info = dataDir, namespace, info
 	return f.err
 }
 
@@ -123,7 +125,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		UpgradedToVersion: version.Current.Number,
 		Password:          testPasswordHash(),
 		Nonce:             state.BootstrapNonce,
-		StateAddresses:    []string{testing.MgoServer.Addr()},
+		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		APIAddresses:      []string{"0.1.2.3:1234"},
 		CACert:            testing.CACert,
 		Values:            map[string]string{agent.Namespace: "foobar"},
@@ -132,7 +134,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		Cert:       "some cert",
 		PrivateKey: "some key",
 		APIPort:    3737,
-		StatePort:  testing.MgoServer.Port(),
+		StatePort:  gitjujutesting.MgoServer.Port(),
 	}
 
 	machineConf, err = agent.NewStateMachineConfig(agentParams, servingInfo)
@@ -157,7 +159,6 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
-	c.Assert(s.fakeEnsureMongo.withHA, jc.IsTrue)
 
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
@@ -177,10 +178,12 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateParams.Password, gc.Equals, "")
 
 	st, err := state.Open(&state.Info{
-		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   testing.CACert,
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
 		Password: testPasswordHash(),
-	}, state.DefaultDialOpts(), environs.NewStatePolicy())
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	machines, err := st.AllMachines()
@@ -213,10 +216,12 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	st, err := state.Open(&state.Info{
-		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   testing.CACert,
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
 		Password: testPasswordHash(),
-	}, state.DefaultDialOpts(), environs.NewStatePolicy())
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	cons, err := st.EnvironConstraints()
@@ -245,10 +250,12 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	st, err := state.Open(&state.Info{
-		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   testing.CACert,
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
 		Password: testPasswordHash(),
-	}, state.DefaultDialOpts(), environs.NewStatePolicy())
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -264,10 +271,12 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	st, err := state.Open(&state.Info{
-		Addrs:    []string{testing.MgoServer.Addr()},
-		CACert:   testing.CACert,
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
 		Password: testPasswordHash(),
-	}, state.DefaultDialOpts(), environs.NewStatePolicy())
+	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	m, err := st.Machine("0")
@@ -276,7 +285,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 }
 
 func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
-	st, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if st != nil {
 		st.Close()
 	}
@@ -297,14 +306,16 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// Check that we cannot now connect to the state without a
 	// password.
 	info := &state.Info{
-		Addrs:  []string{testing.MgoServer.Addr()},
-		CACert: testing.CACert,
+		Info: mongo.Info{
+			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
 	}
 	testOpenState(c, info, errors.Unauthorizedf(""))
 
 	// Check we can log in to mongo as admin.
 	info.Tag, info.Password = "", testPasswordHash()
-	st, err := state.Open(info, state.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	// Reset password so the tests can continue to use the same server.
 	defer st.Close()
@@ -324,7 +335,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	stateinfo, ok := machineConf1.StateInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err = state.Open(stateinfo, state.DialOpts{}, environs.NewStatePolicy())
+	st, err = state.Open(stateinfo, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -426,8 +437,10 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	inst, _, _, err := jujutesting.StartInstance(env, "0")
 	c.Assert(err, gc.IsNil)
 	s.instanceId = inst.Id()
-	s.bootstrapName, err = inst.DNSName()
+
+	addresses, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
+	s.bootstrapName = network.SelectPublicAddress(addresses)
 	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()
 }
 

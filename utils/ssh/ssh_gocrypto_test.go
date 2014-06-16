@@ -27,8 +27,9 @@ var (
 )
 
 type sshServer struct {
-	cfg *cryptossh.ServerConfig
-	*cryptossh.Listener
+	cfg      *cryptossh.ServerConfig
+	listener net.Listener
+	client   *cryptossh.Client
 }
 
 func newServer(c *gc.C) *sshServer {
@@ -40,40 +41,49 @@ func newServer(c *gc.C) *sshServer {
 		cfg: &cryptossh.ServerConfig{},
 	}
 	server.cfg.AddHostKey(key)
-	server.Listener, err = cryptossh.Listen("tcp", "127.0.0.1:0", server.cfg)
+	server.listener, err = net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, gc.IsNil)
 	return server
 }
 
 func (s *sshServer) run(c *gc.C) {
-	conn, err := s.Accept()
+	netconn, err := s.listener.Accept()
 	c.Assert(err, gc.IsNil)
 	defer func() {
-		err = conn.Close()
+		err = netconn.Close()
 		c.Assert(err, gc.IsNil)
 	}()
-	err = conn.Handshake()
+	conn, chans, reqs, err := cryptossh.NewServerConn(netconn, s.cfg)
 	c.Assert(err, gc.IsNil)
+	s.client = cryptossh.NewClient(conn, chans, reqs)
 	var wg sync.WaitGroup
 	defer wg.Wait()
-	for {
-		channel, err := conn.Accept()
+	sessionChannels := s.client.HandleChannelOpen("session")
+	c.Assert(sessionChannels, gc.NotNil)
+	for newChannel := range sessionChannels {
+		c.Assert(newChannel.ChannelType(), gc.Equals, "session")
+		channel, reqs, err := newChannel.Accept()
 		c.Assert(err, gc.IsNil)
-		c.Assert(channel.ChannelType(), gc.Equals, "session")
-		channel.Accept()
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
 			defer channel.Close()
-			_, err := channel.Read(nil)
-			c.Assert(err, gc.FitsTypeOf, cryptossh.ChannelRequest{})
-			req := err.(cryptossh.ChannelRequest)
-			c.Assert(req.Request, gc.Equals, "exec")
-			c.Assert(req.WantReply, jc.IsTrue)
-			n := binary.BigEndian.Uint32(req.Payload[:4])
-			command := string(req.Payload[4 : n+4])
-			c.Assert(command, gc.Equals, testCommandFlat)
-			// TODO(axw) when gosshnew is ready, send reply to client.
+			for req := range reqs {
+				switch req.Type {
+				case "exec":
+					c.Assert(req.WantReply, jc.IsTrue)
+					n := binary.BigEndian.Uint32(req.Payload[:4])
+					command := string(req.Payload[4 : n+4])
+					c.Assert(command, gc.Equals, testCommandFlat)
+					req.Reply(true, nil)
+					channel.Write([]byte("abc value\n"))
+					_, err := channel.SendRequest("exit-status", false, cryptossh.Marshal(&struct{ n uint32 }{0}))
+					c.Assert(err, gc.IsNil)
+					return
+				default:
+					c.Fatalf("Unexpected request type: %v", req.Type)
+				}
+			}
 		}()
 	}
 }
@@ -115,7 +125,7 @@ func (s *SSHGoCryptoCommandSuite) TestClientNoKeys(c *gc.C) {
 	err = ssh.LoadClientKeys(c.MkDir())
 	c.Assert(err, gc.IsNil)
 
-	s.PatchValue(ssh.SSHDial, func(network, address string, cfg *cryptossh.ClientConfig) (*cryptossh.ClientConn, error) {
+	s.PatchValue(ssh.SSHDial, func(network, address string, cfg *cryptossh.ClientConfig) (*cryptossh.Client, error) {
 		return nil, errors.New("ssh.Dial failed")
 	})
 	cmd = client.Command("0.1.2.3", []string{"echo", "123"}, nil)
@@ -132,19 +142,18 @@ func (s *SSHGoCryptoCommandSuite) TestCommand(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	server := newServer(c)
 	var opts ssh.Options
-	opts.SetPort(server.Addr().(*net.TCPAddr).Port)
+	opts.SetPort(server.listener.Addr().(*net.TCPAddr).Port)
 	cmd := client.Command("127.0.0.1", testCommand, &opts)
 	checkedKey := false
-	server.cfg.PublicKeyCallback = func(conn *cryptossh.ServerConn, user, algo string, pubkey []byte) bool {
-		c.Check(pubkey, gc.DeepEquals, cryptossh.MarshalPublicKey(key.PublicKey()))
+	server.cfg.PublicKeyCallback = func(conn cryptossh.ConnMetadata, pubkey cryptossh.PublicKey) (*cryptossh.Permissions, error) {
+		c.Check(pubkey, gc.DeepEquals, key.PublicKey())
 		checkedKey = true
-		return true
+		return nil, nil
 	}
 	go server.run(c)
 	out, err := cmd.Output()
-	c.Assert(err, gc.ErrorMatches, "ssh: could not execute command.*")
-	// TODO(axw) when gosshnew is ready, expect reply from server.
-	c.Assert(out, gc.IsNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(out), gc.Equals, "abc value\n")
 	c.Assert(checkedKey, jc.IsTrue)
 }
 
@@ -172,18 +181,17 @@ func (s *SSHGoCryptoCommandSuite) TestProxyCommand(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	server := newServer(c)
 	var opts ssh.Options
-	port := server.Addr().(*net.TCPAddr).Port
+	port := server.listener.Addr().(*net.TCPAddr).Port
 	opts.SetProxyCommand(netcat, "-q0", "%h", "%p")
 	opts.SetPort(port)
 	cmd := client.Command("127.0.0.1", testCommand, &opts)
-	server.cfg.PublicKeyCallback = func(conn *cryptossh.ServerConn, user, algo string, pubkey []byte) bool {
-		return true
+	server.cfg.PublicKeyCallback = func(_ cryptossh.ConnMetadata, pubkey cryptossh.PublicKey) (*cryptossh.Permissions, error) {
+		return nil, nil
 	}
 	go server.run(c)
 	out, err := cmd.Output()
-	c.Assert(err, gc.ErrorMatches, "ssh: could not execute command.*")
-	// TODO(axw) when gosshnew is ready, expect reply from server.
-	c.Assert(out, gc.IsNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(out), gc.Equals, "abc value\n")
 	// Ensure the proxy command was executed with the appropriate arguments.
 	data, err := ioutil.ReadFile(netcat + ".args")
 	c.Assert(err, gc.IsNil)

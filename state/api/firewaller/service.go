@@ -21,11 +21,11 @@ type Service struct {
 
 // Name returns the service name.
 func (s *Service) Name() string {
-	_, serviceName, err := names.ParseTag(s.tag, names.ServiceTagKind)
+	tag, err := names.ParseTag(s.tag, names.ServiceTagKind)
 	if err != nil {
 		panic(fmt.Sprintf("%q is not a valid service tag", s.tag))
 	}
-	return serviceName
+	return tag.Id()
 }
 
 // Watch returns a watcher for observing changes to a service.

@@ -8,13 +8,13 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -38,7 +38,7 @@ import (
 
 type BootstrapSuite struct {
 	coretesting.FakeJujuHomeSuite
-	coretesting.MgoSuite
+	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
 }
 
@@ -631,7 +631,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
 
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
-		"uploading tools for series \\[precise .* raring\\]\n")
+		"uploading tools for series \\[precise raring .*\\]\n")
 	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: an error")
 }
 

@@ -7,9 +7,9 @@ import (
 	"bytes"
 	"fmt"
 
+	"github.com/juju/cmd"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"

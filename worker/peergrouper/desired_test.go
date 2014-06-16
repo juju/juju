@@ -12,7 +12,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/testing"
 )
@@ -151,11 +151,11 @@ var desiredPeerGroupTests = []struct {
 	machines: append(mkMachines("11v 12v"), &machine{
 		id:        "13",
 		wantsVote: true,
-		mongoHostPorts: []instance.HostPort{{
-			Address: instance.Address{
-				Value:        "0.1.99.13",
-				Type:         instance.Ipv4Address,
-				NetworkScope: instance.NetworkCloudLocal,
+		mongoHostPorts: []network.HostPort{{
+			Address: network.Address{
+				Value: "0.1.99.13",
+				Type:  network.IPv4Address,
+				Scope: network.ScopeCloudLocal,
 			},
 			Port: 1234,
 		}},
@@ -260,11 +260,11 @@ func mkMachines(description string) []*machine {
 	for i, d := range descrs {
 		ms[i] = &machine{
 			id: fmt.Sprint(d.id),
-			mongoHostPorts: []instance.HostPort{{
-				Address: instance.Address{
-					Value:        fmt.Sprintf("0.1.2.%d", d.id),
-					Type:         instance.Ipv4Address,
-					NetworkScope: instance.NetworkCloudLocal,
+			mongoHostPorts: []network.HostPort{{
+				Address: network.Address{
+					Value: fmt.Sprintf("0.1.2.%d", d.id),
+					Type:  network.IPv4Address,
+					Scope: network.ScopeCloudLocal,
 				},
 				Port: mongoPort,
 			}},
@@ -417,15 +417,15 @@ func (l membersById) Len() int           { return len(l) }
 func (l membersById) Swap(i, j int)      { l[i], l[j] = l[j], l[i] }
 func (l membersById) Less(i, j int) bool { return l[i].Id < l[j].Id }
 
-// assertAPIHostPorts asserts of two sets of instance.HostPort slices are the same.
-func assertAPIHostPorts(c *gc.C, got, want [][]instance.HostPort) {
+// assertAPIHostPorts asserts of two sets of network.HostPort slices are the same.
+func assertAPIHostPorts(c *gc.C, got, want [][]network.HostPort) {
 	c.Assert(got, gc.HasLen, len(want))
 	sort.Sort(hostPortSliceByHostPort(got))
 	sort.Sort(hostPortSliceByHostPort(want))
 	c.Assert(got, gc.DeepEquals, want)
 }
 
-type hostPortSliceByHostPort [][]instance.HostPort
+type hostPortSliceByHostPort [][]network.HostPort
 
 func (h hostPortSliceByHostPort) Len() int      { return len(h) }
 func (h hostPortSliceByHostPort) Swap(i, j int) { h[i], h[j] = h[j], h[i] }

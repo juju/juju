@@ -25,13 +25,13 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -756,7 +756,6 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			ProviderId:    "WLAN",
 			VLANTag:       0,
 			InterfaceName: "wlan0",
-			IsVirtual:     false,
 			Disabled:      true,
 		},
 		network.Info{
@@ -766,7 +765,6 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			ProviderId:    "LAN",
 			VLANTag:       42,
 			InterfaceName: "eth0",
-			IsVirtual:     true,
 			Disabled:      false,
 		},
 		network.Info{
@@ -776,7 +774,6 @@ func (suite *environSuite) TestSetupNetworks(c *gc.C) {
 			ProviderId:    "Virt",
 			VLANTag:       0,
 			InterfaceName: "vnet1",
-			IsVirtual:     false,
 			Disabled:      false,
 		},
 	})
@@ -810,7 +807,6 @@ func (suite *environSuite) TestSetupNetworksPartialMatch(c *gc.C) {
 			ProviderId:    "LAN",
 			VLANTag:       42,
 			InterfaceName: "eth0",
-			IsVirtual:     true,
 			Disabled:      false,
 		},
 	})

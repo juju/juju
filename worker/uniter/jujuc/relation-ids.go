@@ -7,9 +7,8 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/cmd"
 )
 
 // RelationIdsCommand implements the relation-ids command.

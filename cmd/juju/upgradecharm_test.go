@@ -9,10 +9,10 @@ import (
 	"os"
 	"path"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -49,7 +49,7 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidArgs(c *gc.C) {
 }
 
 func (s *UpgradeCharmErrorsSuite) TestWithInvalidRepository(c *gc.C) {
-	testing.Charms.ClonedDirPath(s.SeriesPath, "riak")
+	charmtesting.Charms.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
 
@@ -68,7 +68,7 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidService(c *gc.C) {
 }
 
 func (s *UpgradeCharmErrorsSuite) deployService(c *gc.C) {
-	testing.Charms.ClonedDirPath(s.SeriesPath, "riak")
+	charmtesting.Charms.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
 }
@@ -104,7 +104,7 @@ var _ = gc.Suite(&UpgradeCharmSuccessSuite{})
 
 func (s *UpgradeCharmSuccessSuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
-	s.path = testing.Charms.ClonedDirPath(s.SeriesPath, "riak")
+	s.path = charmtesting.Charms.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
 	s.riak, err = s.State.Service("riak")
@@ -193,7 +193,7 @@ peers:
 `)
 
 func (s *UpgradeCharmSuccessSuite) TestSwitch(c *gc.C) {
-	myriakPath := testing.Charms.RenamedClonedDirPath(s.SeriesPath, "riak", "myriak")
+	myriakPath := charmtesting.Charms.RenamedClonedDirPath(s.SeriesPath, "riak", "myriak")
 	err := ioutil.WriteFile(path.Join(myriakPath, "metadata.yaml"), myriakMeta, 0644)
 	c.Assert(err, gc.IsNil)
 
