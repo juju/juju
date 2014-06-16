@@ -18,7 +18,7 @@ import (
 type dispatchSuite struct {
 	server     *httptest.Server
 	serverAddr string
-	ws         *websocket.Conn
+	ready      chan struct{}
 }
 
 var _ = gc.Suite(&dispatchSuite{})
@@ -31,22 +31,17 @@ func (s *dispatchSuite) SetUpSuite(c *gc.C) {
 		conn.Start()
 		conn.Serve(&DispatchRoot{}, nil)
 
+		s.ready <- struct{}{}
+
 		<-conn.Dead()
 	}
 	http.Handle("/jsoncodec", websocket.Handler(codecServer))
 	s.server = httptest.NewServer(nil)
 	s.serverAddr = s.server.Listener.Addr().String()
-
-	url := fmt.Sprintf("ws://%s/jsoncodec", s.serverAddr)
-	ws, err := websocket.Dial(url, "", "http://localhost")
-	c.Assert(err, gc.IsNil)
-	s.ws = ws
+	s.ready = make(chan struct{}, 1)
 }
 
 func (s *dispatchSuite) TearDownSuite(c *gc.C) {
-	err := s.ws.Close()
-	c.Assert(err, gc.IsNil)
-
 	s.server.Close()
 }
 
@@ -62,14 +57,24 @@ func (s *dispatchSuite) TestWSWithParams(c *gc.C) {
 
 // request performs one request to the test server via websockets.
 func (s *dispatchSuite) request(c *gc.C, req string) string {
+	url := fmt.Sprintf("ws://%s/jsoncodec", s.serverAddr)
+	ws, err := websocket.Dial(url, "", "http://localhost")
+	c.Assert(err, gc.IsNil)
+
+	// Have to wait until root is registered.
+	<-s.ready
+
 	reqdata := []byte(req)
-	_, err := s.ws.Write(reqdata)
+	_, err = ws.Write(reqdata)
 	c.Assert(err, gc.IsNil)
 
 	var resp = make([]byte, 512)
-	n, err := s.ws.Read(resp)
+	n, err := ws.Read(resp)
 	c.Assert(err, gc.IsNil)
 	resp = resp[0:n]
+
+	err = ws.Close()
+	c.Assert(err, gc.IsNil)
 
 	return string(resp)
 }
