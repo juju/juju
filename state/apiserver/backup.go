@@ -37,7 +37,15 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		defer os.RemoveAll(tempDir)
-		filename, sha, err := Backup(tempDir)
+
+		config, err := h.state.EnvironConfig()
+		if err != nil {
+			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed: %v", err))
+			return
+		}
+		adminPassword := config.AdminSecret()
+		mongoPort := config.StatePort()
+		filename, sha, err := Backup(adminPassword, tempDir, mongoPort)
 		if err != nil {
 			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed: %v", err))
 			return
