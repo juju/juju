@@ -25,11 +25,15 @@ type Relation struct {
 
 // String returns the relation as a string.
 func (r *Relation) String() string {
-	tag, err := names.ParseTag(r.tag, names.RelationTagKind)
+	return mustParseRelationTag(r.tag).Id()
+}
+
+func mustParseRelationTag(relationTag string) names.RelationTag {
+	tag, err := names.ParseRelationTag(relationTag)
 	if err != nil {
-		panic(fmt.Sprintf("%q is not a valid relation tag", r.tag))
+		panic(err)
 	}
-	return tag.Id()
+	return tag
 }
 
 // Id returns the integer internal relation key. This is exposed

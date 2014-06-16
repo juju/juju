@@ -1055,7 +1055,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 			// Last one was ignored, so don't check.
 			break
 		}
-		tag, err := names.ParseTag(networks[i].Tag, names.NetworkTagKind)
+		tag, err := names.ParseNetworkTag(networks[i].Tag)
 		c.Assert(err, gc.IsNil)
 		networkName := tag.Id()
 		network, err := s.State.Network(networkName)

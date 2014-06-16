@@ -85,7 +85,7 @@ func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, 
 // getAllUnits returns a list of all principal and subordinate units
 // assigned to the given machine.
 func getAllUnits(st *state.State, machineTag string) ([]string, error) {
-	tag, err := names.ParseTag(machineTag, names.MachineTagKind)
+	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return nil, err
 	}
