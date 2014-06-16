@@ -15,6 +15,7 @@ import (
 
 	corecharm "github.com/juju/charm"
 	"github.com/juju/charm/hooks"
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/uniter"

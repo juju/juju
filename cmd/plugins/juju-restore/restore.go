@@ -15,12 +15,12 @@ import (
 	"strconv"
 	"text/template"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
