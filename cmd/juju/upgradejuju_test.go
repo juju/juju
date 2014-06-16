@@ -451,7 +451,6 @@ upgrade to this version by running
 
 	for i, test := range tests {
 		c.Logf("\ntest %d: %s", i, test.about)
-		//version.Current = version.MustParseBinary(test.currentVersion)
 		s.PatchValue(&version.Current, version.MustParseBinary(test.currentVersion))
 		com := &UpgradeJujuCommand{}
 		err := coretesting.InitCommand(envcmd.Wrap(com), test.cmdArgs)
