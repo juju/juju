@@ -68,7 +68,7 @@ func (s *resourceCatalogSuite) assertGetPending(c *gc.C, id string, hash *storag
 	c.Assert(r, gc.IsNil)
 }
 
-func (s *resourceCatalogSuite) assertGet(c *gc.C, id string, hash *storage.ResourceHash) {
+func (s *resourceCatalogSuite) asserGetUploaded(c *gc.C, id string, hash *storage.ResourceHash) {
 	r, err := s.rCatalog.Get(id)
 	c.Assert(err, gc.IsNil)
 	c.Assert(r.ResourceHash, gc.DeepEquals, *hash)
@@ -125,11 +125,11 @@ func (s *resourceCatalogSuite) TestUploadComplete(c *gc.C) {
 	s.assertGetPending(c, id, rh)
 	s.rCatalog.UploadComplete(id)
 	c.Assert(err, gc.IsNil)
-	s.assertGet(c, id, rh)
+	s.asserGetUploaded(c, id, rh)
 	// A second call works just fine.
 	s.rCatalog.UploadComplete(id)
 	c.Assert(err, gc.IsNil)
-	s.assertGet(c, id, rh)
+	s.asserGetUploaded(c, id, rh)
 }
 
 func (s *resourceCatalogSuite) TestRemoveOnlyRecord(c *gc.C) {
@@ -189,6 +189,31 @@ func (s *resourceCatalogSuite) TestPutNewResourceRace(c *gc.C) {
 	r, err := s.rCatalog.Get(id)
 	c.Assert(err, gc.IsNil)
 	s.assertRefCount(c, id, 2)
+	c.Assert(r.MD5Hash, gc.Equals, "md5foo")
+	c.Assert(r.SHA256Hash, gc.Equals, "sha256foo")
+}
+
+func (s *resourceCatalogSuite) TestPutDeletedResourceRace(c *gc.C) {
+	firstId := s.assertPut(c, true, "md5foo", "sha256foo")
+	err := s.rCatalog.UploadComplete(firstId)
+	c.Assert(err, gc.IsNil)
+	beforeFuncs := []func(){
+		func() {
+			err := s.rCatalog.Remove(firstId)
+			c.Assert(err, gc.IsNil)
+		},
+	}
+	defer txntesting.SetBeforeHooks(c, s.txnRunner, beforeFuncs...).Check()
+	rh := &storage.ResourceHash{"md5foo", "sha256foo"}
+	id, _, isNew, err := s.rCatalog.Put(rh)
+	c.Assert(err, gc.IsNil)
+	c.Assert(isNew, jc.IsTrue)
+	c.Assert(firstId, gc.Equals, id)
+	err = s.rCatalog.UploadComplete(id)
+	c.Assert(err, gc.IsNil)
+	r, err := s.rCatalog.Get(id)
+	c.Assert(err, gc.IsNil)
+	s.assertRefCount(c, id, 1)
 	c.Assert(r.MD5Hash, gc.Equals, "md5foo")
 	c.Assert(r.SHA256Hash, gc.Equals, "sha256foo")
 }
