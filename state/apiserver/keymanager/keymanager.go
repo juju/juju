@@ -66,7 +66,7 @@ func NewKeyManagerAPI(
 		return func(tag string) bool {
 			// Are we a machine agent writing the Juju system key.
 			if tag == config.JujuSystemKey {
-				_, err := names.ParseTag(authorizer.GetAuthTag(), names.MachineTagKind)
+				_, err := names.ParseMachineTag(authorizer.GetAuthTag())
 				return err == nil
 			}
 			// Are we writing the auth key for a user.

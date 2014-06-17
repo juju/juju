@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -164,7 +165,7 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 	results.Results[0].Result.DateCreated = time.Time{}
 	results.Results[1].Result.DateCreated = time.Time{}
 
-	c.Assert(results, gc.DeepEquals, expected)
+	c.Assert(results, jc.DeepEquals, expected)
 }
 
 func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
@@ -252,7 +253,7 @@ func (s *userManagerSuite) TestUserInfoNotATagFails(c *gc.C) {
 			{
 				Result: nil,
 				Error: &params.Error{
-					Message: `"notatag" is not a valid user tag`,
+					Message: `"notatag" is not a valid tag`,
 					Code:    "",
 				},
 			},

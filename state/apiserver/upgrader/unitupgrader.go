@@ -115,7 +115,7 @@ func (u *UnitUpgraderAPI) Tools(args params.Entities) (params.ToolsResults, erro
 
 func (u *UnitUpgraderAPI) getAssignedMachine(tag string) (*state.Machine, error) {
 	// Check that we really have a unit tag.
-	t, err := names.ParseTag(tag, names.UnitTagKind)
+	t, err := names.ParseUnitTag(tag)
 	if err != nil {
 		return nil, common.ErrPerm
 	}

@@ -44,7 +44,7 @@ func SetAfterHooks(c *gc.C, runner txn.Runner, fs ...func()) TransactionChecker 
 	return SetTestHooks(c, runner, transactionHooks...)
 }
 
-// SetRetryHooks uses Settxn.TestHooks to inject a block function designed
+// SetRetryHooks uses txn.TestHooks to inject a block function designed
 // to disrupt a transaction built against recent state, and a check function
 // designed to verify that the replacement transaction against the new state
 // has been applied as expected.

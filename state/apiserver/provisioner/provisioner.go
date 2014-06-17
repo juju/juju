@@ -58,7 +58,7 @@ func NewProvisionerAPI(
 				// A machine agent can always access its own machine.
 				return true
 			}
-			t, err := names.ParseTag(tag, names.MachineTagKind)
+			t, err := names.ParseMachineTag(tag)
 			if err != nil {
 				return false
 			}
@@ -119,7 +119,7 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 	if !canAccess(arg.MachineTag) {
 		return nothing, common.ErrPerm
 	}
-	tag, err := names.ParseTag(arg.MachineTag, names.MachineTagKind)
+	tag, err := names.ParseMachineTag(arg.MachineTag)
 	if err != nil {
 		return nothing, err
 	}
@@ -460,7 +460,7 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 ) {
 	stateNetworks := make([]state.NetworkInfo, len(networks))
 	for i, network := range networks {
-		tag, err := names.ParseTag(network.Tag, names.NetworkTagKind)
+		tag, err := names.ParseNetworkTag(network.Tag)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -473,7 +473,7 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 	}
 	stateInterfaces := make([]state.NetworkInterfaceInfo, len(ifaces))
 	for i, iface := range ifaces {
-		tag, err := names.ParseTag(iface.NetworkTag, names.NetworkTagKind)
+		tag, err := names.ParseNetworkTag(iface.NetworkTag)
 		if err != nil {
 			return nil, nil, err
 		}

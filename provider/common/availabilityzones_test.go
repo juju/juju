@@ -45,48 +45,57 @@ func (s *AvailabilityZoneSuite) SetUpSuite(c *gc.C) {
 	}
 }
 
-func (s *AvailabilityZoneSuite) TestBestAvailabilityZoneAllocationsAllInstances(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllInstances(c *gc.C) {
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ids []instance.Id) ([]string, error) {
 		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
 		called++
 		return []string{"az0", "az1", "az2"}, nil
 	})
-	best, err := common.BestAvailabilityZoneAllocations(&s.env, nil)
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, nil)
 	c.Assert(called, gc.Equals, 1)
 	c.Assert(err, gc.IsNil)
-	// az0 is unavailable, so az1 and az2 come out as equal best.
-	c.Assert(best, gc.DeepEquals, map[string][]instance.Id{
-		"az1": []instance.Id{"inst1"},
-		"az2": []instance.Id{"inst2"},
-	})
+	// az0 is unavailable, so az1 and az2 come out as equal best;
+	// az1 comes first due to lexicographical ordering on the name.
+	c.Assert(zoneInstances, gc.DeepEquals, []common.AvailabilityZoneInstances{{
+		ZoneName:  "az1",
+		Instances: []instance.Id{"inst1"},
+	}, {
+		ZoneName:  "az2",
+		Instances: []instance.Id{"inst2"},
+	}})
 }
 
-func (s *AvailabilityZoneSuite) TestBestAvailabilityZoneAllocationsAllInstancesErrors(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsAllInstancesErrors(c *gc.C) {
 	resultErr := fmt.Errorf("oh noes")
 	s.PatchValue(&s.env.allInstances, func() ([]instance.Instance, error) {
 		return nil, resultErr
 	})
-	best, err := common.BestAvailabilityZoneAllocations(&s.env, nil)
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, nil)
 	c.Assert(err, gc.Equals, resultErr)
-	c.Assert(best, gc.HasLen, 0)
+	c.Assert(zoneInstances, gc.HasLen, 0)
 }
 
-func (s *AvailabilityZoneSuite) TestBestAvailabilityZoneAllocationsPartialInstances(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsPartialInstances(c *gc.C) {
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ids []instance.Id) ([]string, error) {
 		c.Assert(ids, gc.DeepEquals, []instance.Id{"nichts", "inst1", "null", "inst2"})
 		called++
 		return []string{"", "az1", "", "az1"}, environs.ErrPartialInstances
 	})
-	best, err := common.BestAvailabilityZoneAllocations(&s.env, []instance.Id{"nichts", "inst1", "null", "inst2"})
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, []instance.Id{"nichts", "inst1", "null", "inst2"})
 	c.Assert(called, gc.Equals, 1)
 	c.Assert(err, gc.IsNil)
-	// All known instances are in az1 and az0 is unavailable, so az2 is the best.
-	c.Assert(best, gc.DeepEquals, map[string][]instance.Id{"az2": nil})
+	// az2 has fewer instances, so comes first.
+	c.Assert(zoneInstances, gc.DeepEquals, []common.AvailabilityZoneInstances{{
+		ZoneName: "az2",
+	}, {
+		ZoneName:  "az1",
+		Instances: []instance.Id{"inst1", "inst2"},
+	}})
 }
 
-func (s *AvailabilityZoneSuite) TestBestAvailabilityZoneAllocationsInstanceAvailabilityZonesErrors(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsInstanceAvailabilityZonesErrors(c *gc.C) {
 	var returnErr error
 	var called int
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ids []instance.Id) ([]string, error) {
@@ -96,14 +105,14 @@ func (s *AvailabilityZoneSuite) TestBestAvailabilityZoneAllocationsInstanceAvail
 	errors := []error{environs.ErrNoInstances, fmt.Errorf("whatever")}
 	for i, err := range errors {
 		returnErr = err
-		best, err := common.BestAvailabilityZoneAllocations(&s.env, nil)
+		zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, nil)
 		c.Assert(called, gc.Equals, i+1)
 		c.Assert(err, gc.Equals, returnErr)
-		c.Assert(best, gc.HasLen, 0)
+		c.Assert(zoneInstances, gc.HasLen, 0)
 	}
 }
 
-func (s *AvailabilityZoneSuite) TestBestAvailabilityZoneAllocationsNoZones(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsNoZones(c *gc.C) {
 	var calls []string
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ids []instance.Id) ([]string, error) {
 		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
@@ -114,13 +123,13 @@ func (s *AvailabilityZoneSuite) TestBestAvailabilityZoneAllocationsNoZones(c *gc
 		calls = append(calls, "AvailabilityZones")
 		return []common.AvailabilityZone{}, nil
 	})
-	best, err := common.BestAvailabilityZoneAllocations(&s.env, nil)
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, nil)
 	c.Assert(calls, gc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
 	c.Assert(err, gc.IsNil)
-	c.Assert(best, gc.HasLen, 0)
+	c.Assert(zoneInstances, gc.HasLen, 0)
 }
 
-func (s *AvailabilityZoneSuite) TestBestAvailabilityZoneAllocationsErrors(c *gc.C) {
+func (s *AvailabilityZoneSuite) TestAvailabilityZoneAllocationsErrors(c *gc.C) {
 	var calls []string
 	s.PatchValue(&s.env.instanceAvailabilityZoneNames, func(ids []instance.Id) ([]string, error) {
 		c.Assert(ids, gc.DeepEquals, []instance.Id{"inst0", "inst1", "inst2"})
@@ -132,16 +141,16 @@ func (s *AvailabilityZoneSuite) TestBestAvailabilityZoneAllocationsErrors(c *gc.
 		calls = append(calls, "AvailabilityZones")
 		return nil, resultErr
 	})
-	best, err := common.BestAvailabilityZoneAllocations(&s.env, nil)
+	zoneInstances, err := common.AvailabilityZoneAllocations(&s.env, nil)
 	c.Assert(calls, gc.DeepEquals, []string{"InstanceAvailabilityZoneNames", "AvailabilityZones"})
 	c.Assert(err, gc.Equals, resultErr)
-	c.Assert(best, gc.HasLen, 0)
+	c.Assert(zoneInstances, gc.HasLen, 0)
 }
 
 func (s *AvailabilityZoneSuite) TestDistributeInstancesGroup(c *gc.C) {
 	expectedGroup := []instance.Id{"0", "1", "2"}
 	var called bool
-	s.PatchValue(common.InternalBestAvailabilityZoneAllocations, func(_ common.ZonedEnviron, group []instance.Id) (map[string][]instance.Id, error) {
+	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 		c.Assert(group, gc.DeepEquals, expectedGroup)
 		called = true
 		return nil, nil
@@ -152,7 +161,7 @@ func (s *AvailabilityZoneSuite) TestDistributeInstancesGroup(c *gc.C) {
 
 func (s *AvailabilityZoneSuite) TestDistributeInstancesGroupErrors(c *gc.C) {
 	resultErr := fmt.Errorf("whatever")
-	s.PatchValue(common.InternalBestAvailabilityZoneAllocations, func(_ common.ZonedEnviron, group []instance.Id) (map[string][]instance.Id, error) {
+	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
 		return nil, resultErr
 	})
 	_, err := common.DistributeInstances(&s.env, nil, nil)
@@ -160,58 +169,78 @@ func (s *AvailabilityZoneSuite) TestDistributeInstancesGroupErrors(c *gc.C) {
 }
 
 func (s *AvailabilityZoneSuite) TestDistributeInstances(c *gc.C) {
-	var bestAvailabilityZones map[string][]instance.Id
-	s.PatchValue(common.InternalBestAvailabilityZoneAllocations, func(_ common.ZonedEnviron, group []instance.Id) (map[string][]instance.Id, error) {
-		return bestAvailabilityZones, nil
+	var zoneInstances []common.AvailabilityZoneInstances
+	s.PatchValue(common.InternalAvailabilityZoneAllocations, func(_ common.ZonedEnviron, group []instance.Id) ([]common.AvailabilityZoneInstances, error) {
+		return zoneInstances, nil
 	})
 
 	type distributeInstancesTest struct {
-		bestAvailabilityZones map[string][]instance.Id
-		candidates            []instance.Id
-		eligible              []instance.Id
+		zoneInstances []common.AvailabilityZoneInstances
+		candidates    []instance.Id
+		eligible      []instance.Id
 	}
 
 	tests := []distributeInstancesTest{{
-		bestAvailabilityZones: map[string][]instance.Id{
-			"az0": []instance.Id{"i0"},
-			"az1": []instance.Id{"i1"},
-			"az2": []instance.Id{"i2"},
-		},
+		zoneInstances: []common.AvailabilityZoneInstances{{
+			ZoneName:  "az0",
+			Instances: []instance.Id{"i0"},
+		}, {
+			ZoneName:  "az1",
+			Instances: []instance.Id{"i1"},
+		}, {
+			ZoneName:  "az2",
+			Instances: []instance.Id{"i2"},
+		}},
 		candidates: []instance.Id{"i2", "i3", "i4"},
 		eligible:   []instance.Id{"i2"},
 	}, {
-		bestAvailabilityZones: map[string][]instance.Id{
-			"az0": []instance.Id{"i0"},
-			"az1": []instance.Id{"i1"},
-			"az2": []instance.Id{"i2"},
-		},
+		zoneInstances: []common.AvailabilityZoneInstances{{
+			ZoneName:  "az0",
+			Instances: []instance.Id{"i0"},
+		}, {
+			ZoneName:  "az1",
+			Instances: []instance.Id{"i1"},
+		}, {
+			ZoneName:  "az2",
+			Instances: []instance.Id{"i2"},
+		}},
 		candidates: []instance.Id{"i0", "i1", "i2"},
 		eligible:   []instance.Id{"i0", "i1", "i2"},
 	}, {
-		bestAvailabilityZones: map[string][]instance.Id{
-			"az0": []instance.Id{"i0"},
-			"az1": []instance.Id{"i1"},
-			"az2": []instance.Id{"i2"},
-		},
+		zoneInstances: []common.AvailabilityZoneInstances{{
+			ZoneName:  "az0",
+			Instances: []instance.Id{"i0"},
+		}, {
+			ZoneName:  "az1",
+			Instances: []instance.Id{"i1"},
+		}, {
+			ZoneName:  "az2",
+			Instances: []instance.Id{"i2"},
+		}},
 		candidates: []instance.Id{"i3", "i4", "i5"},
 		eligible:   []instance.Id{},
 	}, {
-		bestAvailabilityZones: map[string][]instance.Id{
-			"az0": []instance.Id{"i0"},
-			"az1": []instance.Id{"i1"},
-			"az2": []instance.Id{"i2"},
-		},
+		zoneInstances: []common.AvailabilityZoneInstances{{
+			ZoneName:  "az0",
+			Instances: []instance.Id{"i0"},
+		}, {
+			ZoneName:  "az1",
+			Instances: []instance.Id{"i1"},
+		}, {
+			ZoneName:  "az2",
+			Instances: []instance.Id{"i2"},
+		}},
 		candidates: []instance.Id{},
 		eligible:   []instance.Id{},
 	}, {
-		bestAvailabilityZones: map[string][]instance.Id{},
-		candidates:            []instance.Id{"i0"},
-		eligible:              []instance.Id{},
+		zoneInstances: []common.AvailabilityZoneInstances{},
+		candidates:    []instance.Id{"i0"},
+		eligible:      []instance.Id{},
 	}}
 
 	for i, test := range tests {
 		c.Logf("test %d", i)
-		bestAvailabilityZones = test.bestAvailabilityZones
+		zoneInstances = test.zoneInstances
 		eligible, err := common.DistributeInstances(&s.env, test.candidates, nil)
 		c.Assert(err, gc.IsNil)
 		c.Assert(eligible, jc.SameContents, test.eligible)

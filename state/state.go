@@ -418,7 +418,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 // *User, *Service or *Environment, depending
 // on the tag.
 func (st *State) FindEntity(tag string) (Entity, error) {
-	t, err := names.ParseTag(tag, "")
+	t, err := names.ParseTag(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -460,14 +460,15 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 		return st.KeyRelation(id)
 	case names.NetworkTag:
 		return st.Network(id)
+	default:
+		return nil, errors.Errorf("unsupported tag tpe %T", t)
 	}
-	return nil, err
 }
 
 // parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
 func (st *State) parseTag(tag string) (coll string, id string, err error) {
-	t, err := names.ParseTag(tag, "")
+	t, err := names.ParseTag(tag)
 	if err != nil {
 		return "", "", err
 	}
@@ -887,9 +888,9 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // they will be created automatically.
 func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string) (service *Service, err error) {
 	defer errors.Maskf(&err, "cannot add service %q", name)
-	tag, err := names.ParseTag(ownerTag, names.UserTagKind)
-	if err != nil || tag.Kind() != names.UserTagKind {
-		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
+	tag, err := names.ParseUserTag(ownerTag)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid ownertag %s: %v", ownerTag, err)
 	}
 	// Sanity checks.
 	if !names.IsService(name) {

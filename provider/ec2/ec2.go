@@ -409,6 +409,7 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 		if err != nil {
 			return nil, err
 		}
+		logger.Debugf("availability zones: %+v", resp)
 		e.availabilityZones = make([]common.AvailabilityZone, len(resp.Zones))
 		for i, z := range resp.Zones {
 			e.availabilityZones[i] = &ec2AvailabilityZone{z}
@@ -527,11 +528,11 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 	return common.DistributeInstances(e, candidates, distributionGroup)
 }
 
-var bestAvailabilityZoneAllocations = common.BestAvailabilityZoneAllocations
+var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
-	var availabilityZone string
+	var availabilityZones []string
 	if args.Placement != "" {
 		placement, err := e.parsePlacement(args.Placement)
 		if err != nil {
@@ -540,13 +541,13 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		if placement.availabilityZone.State != "available" {
 			return nil, nil, nil, fmt.Errorf("availability zone %q is %s", placement.availabilityZone.Name, placement.availabilityZone.State)
 		}
-		availabilityZone = placement.availabilityZone.Name
+		availabilityZones = append(availabilityZones, placement.availabilityZone.Name)
 	}
 
 	// If no availability zone is specified, then automatically spread across
 	// the known zones for optimal spread across the instance distribution
 	// group.
-	if availabilityZone == "" {
+	if len(availabilityZones) == 0 {
 		var group []instance.Id
 		var err error
 		if args.DistributionGroup != nil {
@@ -555,12 +556,15 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 				return nil, nil, nil, err
 			}
 		}
-		bestAvailabilityZones, err := bestAvailabilityZoneAllocations(e, group)
+		zoneInstances, err := availabilityZoneAllocations(e, group)
 		if err != nil {
 			return nil, nil, nil, err
 		}
-		for availabilityZone = range bestAvailabilityZones {
-			break
+		for _, z := range zoneInstances {
+			availabilityZones = append(availabilityZones, z.ZoneName)
+		}
+		if len(availabilityZones) == 0 {
+			return nil, nil, nil, fmt.Errorf("failed to determine availability zones")
 		}
 	}
 
@@ -608,9 +612,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	var instResp *ec2.RunInstancesResp
 
 	device, diskSize := getDiskSize(args.Constraints)
-	for a := shortAttempt.Start(); a.Next(); {
-		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
-			AvailZone:           availabilityZone,
+	for _, availZone := range availabilityZones {
+		instResp, err = runInstances(e.ec2(), &ec2.RunInstances{
+			AvailZone:           availZone,
 			ImageId:             spec.Image.Id,
 			MinCount:            1,
 			MaxCount:            1,
@@ -619,7 +623,9 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			SecurityGroups:      groups,
 			BlockDeviceMappings: []ec2.BlockDeviceMapping{device},
 		})
-		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
+		if isZoneConstrainedError(err) {
+			logger.Infof("%q is constrained, trying another availability zone", availZone)
+		} else {
 			break
 		}
 	}
@@ -634,7 +640,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		e:        e,
 		Instance: &instResp.Instances[0],
 	}
-	logger.Infof("started instance %q", inst.Id())
+	logger.Infof("started instance %q in %q", inst.Id(), inst.Instance.AvailZone)
 
 	hc := instance.HardwareCharacteristics{
 		Arch:     &spec.Image.Arch,
@@ -645,6 +651,21 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		// Tags currently not supported by EC2
 	}
 	return inst, &hc, nil, nil
+}
+
+var runInstances = _runInstances
+
+// runInstances calls ec2.RunInstances for a fixed number of attempts until
+// RunInstances returns an error code that does not indicate an error that
+// may be caused by eventual consistency.
+func _runInstances(e *ec2.EC2, ri *ec2.RunInstances) (resp *ec2.RunInstancesResp, err error) {
+	for a := shortAttempt.Start(); a.Next(); {
+		resp, err = e.RunInstances(ri)
+		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
+			break
+		}
+	}
+	return resp, err
 }
 
 func (e *environ) StopInstances(ids ...instance.Id) error {
@@ -1229,6 +1250,20 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 		ps = append(ps, ipp)
 	}
 	return
+}
+
+// isZoneConstrainedError reports whether or not the error indicates
+// RunInstances failed due to the specified availability zone being
+// constrained for the instance type being provisioned.
+func isZoneConstrainedError(err error) bool {
+	ec2err, ok := err.(*ec2.Error)
+	if ok && ec2err.Code == "Unsupported" {
+		return strings.HasPrefix(
+			ec2err.Message,
+			"The requested Availability Zone is currently constrained",
+		)
+	}
+	return false
 }
 
 // If the err is of type *ec2.Error, ec2ErrCode returns
