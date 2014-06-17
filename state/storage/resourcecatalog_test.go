@@ -58,17 +58,18 @@ func (s *resourceCatalogSuite) assertPut(c *gc.C, expectedNew bool, md5hash, sha
 	c.Assert(isNew, gc.Equals, expectedNew)
 	c.Assert(id, gc.Not(gc.Equals), "")
 	c.Assert(path, gc.Not(gc.Equals), "")
-	s.assertGet(c, id, rh, true)
+	s.assertGetPending(c, id, rh)
 	return id
 }
 
-func (s *resourceCatalogSuite) assertGet(c *gc.C, id string, hash *storage.ResourceHash, pending bool) {
+func (s *resourceCatalogSuite) assertGetPending(c *gc.C, id string, hash *storage.ResourceHash) {
 	r, err := s.rCatalog.Get(id)
-	if pending {
-		c.Assert(err, gc.Equals, storage.ErrUploadPending)
-		c.Assert(r, gc.IsNil)
-		return
-	}
+	c.Assert(err, gc.Equals, storage.ErrUploadPending)
+	c.Assert(r, gc.IsNil)
+}
+
+func (s *resourceCatalogSuite) assertGet(c *gc.C, id string, hash *storage.ResourceHash) {
+	r, err := s.rCatalog.Get(id)
 	c.Assert(err, gc.IsNil)
 	c.Assert(r.ResourceHash, gc.DeepEquals, *hash)
 	c.Assert(r.Path, gc.Not(gc.Equals), "")
@@ -111,7 +112,7 @@ func (s *resourceCatalogSuite) TestGet(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(isNew, jc.IsTrue)
 	c.Assert(path, gc.Not(gc.Equals), "")
-	s.assertGet(c, id, rh, true)
+	s.assertGetPending(c, id, rh)
 }
 
 func (s *resourceCatalogSuite) TestUploadComplete(c *gc.C) {
@@ -121,14 +122,14 @@ func (s *resourceCatalogSuite) TestUploadComplete(c *gc.C) {
 	}
 	id, _, _, err := s.rCatalog.Put(rh)
 	c.Assert(err, gc.IsNil)
-	s.assertGet(c, id, rh, true)
+	s.assertGetPending(c, id, rh)
 	s.rCatalog.UploadComplete(id)
 	c.Assert(err, gc.IsNil)
-	s.assertGet(c, id, rh, false)
+	s.assertGet(c, id, rh)
 	// A second call works just fine.
 	s.rCatalog.UploadComplete(id)
 	c.Assert(err, gc.IsNil)
-	s.assertGet(c, id, rh, false)
+	s.assertGet(c, id, rh)
 }
 
 func (s *resourceCatalogSuite) TestRemoveOnlyRecord(c *gc.C) {
@@ -151,7 +152,7 @@ func (s *resourceCatalogSuite) TestRemoveDecRefCount(c *gc.C) {
 		MD5Hash:    "md5foo",
 		SHA256Hash: "sha256foo",
 	}
-	s.assertGet(c, id, rh, true)
+	s.assertGetPending(c, id, rh)
 }
 
 func (s *resourceCatalogSuite) TestRemoveLastCopy(c *gc.C) {
