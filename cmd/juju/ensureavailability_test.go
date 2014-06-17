@@ -105,8 +105,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithSeries(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "--series", "series", "-n", "3")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: "0"
-adding machines: "1", "2"
+		`maintaining machines: 0
+adding machines: 1, 2
 
 `)
 
@@ -119,8 +119,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityWithConstraints(c *gc.C)
 	ctx, err := runEnsureAvailability(c, "--constraints", "mem=4G", "-n", "3")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: "0"
-adding machines: "1", "2"
+		`maintaining machines: 0
+adding machines: 1, 2
 
 `)
 
@@ -164,8 +164,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityMultiple(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "3", "--constraints", "mem=4G")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: "0"
-adding machines: "1", "2"
+		`maintaining machines: 0
+adding machines: 1, 2
 
 `)
 
@@ -191,8 +191,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "3")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: "0"
-adding machines: "1", "2"
+		`maintaining machines: 0
+adding machines: 1, 2
 
 `)
 
@@ -204,8 +204,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityAllows0(c *gc.C) {
 	ctx, err := runEnsureAvailability(c, "-n", "0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: "0"
-adding machines: "1", "2"
+		`maintaining machines: 0
+adding machines: 1, 2
 
 `)
 
@@ -218,8 +218,8 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityDefaultsTo3(c *gc.C) {
 	ctx, err := runEnsureAvailability(c)
 	c.Assert(err, gc.IsNil)
 	c.Assert(coretesting.Stdout(ctx), gc.Equals,
-		`maintaining machines: "0"
-adding machines: "1", "2"
+		`maintaining machines: 0
+adding machines: 1, 2
 
 `)
 

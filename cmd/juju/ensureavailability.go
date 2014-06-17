@@ -89,7 +89,7 @@ func formatSimple(value interface{}) ([]byte, error) {
 		if len(machineList.list) == 0 {
 			continue
 		}
-		_, err := fmt.Fprintf(buff, machineList.message, quotedMachineList(machineList.list))
+		_, err := fmt.Fprintf(buff, machineList.message, strings.Join(machineList.list, ", "))
 		if err != nil {
 			return nil, err
 		}
@@ -169,13 +169,4 @@ func machineTagsToIds(tags ...string) []string {
 	}
 	return result
 
-}
-
-// Format machine list for presentation.
-func quotedMachineList(machineIds []string) string {
-	quoted := []string{}
-	for _, machineId := range machineIds {
-		quoted = append(quoted, fmt.Sprintf("%q", machineId))
-	}
-	return strings.Join(quoted, ", ")
 }
