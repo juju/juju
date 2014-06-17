@@ -89,20 +89,18 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 
-	c.Assert(s.tempDir, gc.NotNil)
+	c.Check(s.tempDir, gc.NotNil)
 	_, err = os.Stat(s.tempDir)
-	c.Assert(os.IsNotExist(err), jc.IsTrue)
+	c.Check(err, jc.Satisfies, os.IsNotExist)
+	c.Check(s.mongoPort, gc.Equals, 1234)
+	c.Check(s.adminPassword, gc.Equals, "admin password")
 
-	// XXXX need some way of filling in expected values for these asserts
-	c.Assert(s.mongoPort, gc.Equals, 1234)
-	c.Assert(s.adminPassword, gc.Equals, "")
-
-	c.Assert(resp.StatusCode, gc.Equals, 200)
-	c.Assert(resp.Header.Get("X-Content-SHA"), gc.Equals, "some-sha")
-	c.Assert(resp.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
+	c.Check(resp.StatusCode, gc.Equals, 200)
+	c.Check(resp.Header.Get("X-Content-SHA"), gc.Equals, "some-sha")
+	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
 
 	body, _ := ioutil.ReadAll(resp.Body)
-	c.Assert(body, jc.DeepEquals, []byte("foobarbam"))
+	c.Check(body, jc.DeepEquals, []byte("foobarbam"))
 }
 
 func (s *backupSuite) TestErrorWhenBackupFails(c *gc.C) {
