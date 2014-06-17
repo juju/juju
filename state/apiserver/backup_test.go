@@ -72,11 +72,14 @@ func (s *backupSuite) TestAuthRequiresUser(c *gc.C) {
 }
 
 func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
-	info := s.BackingState.Info()
-	info.Addrs[0] = "localhost:80"
-	info.Password = "foobar"
-	info.Tag = "machine-0"
-
+	testGetStateInfo := func(thisState *state.State) *state.Info {
+		info := &state.Info{
+			Password: "foobar",
+			Tag:      "machine-0",
+		}
+		info.Addrs = append(info.Addrs, "localhost:80")
+		return info
+	}
 	testBackup := func(password string, username string, tempDir string, address string) (string, string, error) {
 		s.tempDir = tempDir
 		s.mongoPassword = password
@@ -92,6 +95,7 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 		return backupFilePath, "some-sha", nil
 	}
 	s.PatchValue(&apiserver.Backup, testBackup)
+	s.PatchValue(&apiserver.GetStateInfo, testGetStateInfo)
 
 	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
@@ -100,7 +104,7 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 	c.Check(s.tempDir, gc.NotNil)
 	_, err = os.Stat(s.tempDir)
 	c.Check(err, jc.Satisfies, os.IsNotExist)
-	c.Check(s.password, gc.Equals, "foobar")
+	c.Check(s.mongoPassword, gc.Equals, "foobar")
 	c.Check(s.username, gc.Equals, "machine-0")
 	c.Check(s.address, gc.Equals, "localhost:80")
 

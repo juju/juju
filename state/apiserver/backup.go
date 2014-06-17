@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/backup"
 )
@@ -21,6 +22,12 @@ var Backup = backup.Backup
 type backupHandler struct {
 	httpHandler
 }
+
+func getStateInfo(state *state.State) (info *state.Info) {
+	return state.Info()
+}
+
+var GetStateInfo = getStateInfo
 
 func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
@@ -38,7 +45,7 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 		defer os.RemoveAll(tempDir)
 
-		info := h.state.Info()
+		info := GetStateInfo(h.state)
 		filename, sha, err := Backup(info.Password, info.Tag, tempDir, info.Addrs[0])
 		if err != nil {
 			h.sendError(w, http.StatusInternalServerError, fmt.Sprintf("backup failed: %v", err))
