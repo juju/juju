@@ -178,7 +178,7 @@ func _getMongodumpPath() (string, error) {
 // The backup contains a dump folder with the output of mongodump command
 // and a root.tar file which contains all the system files obtained from
 // the output of getFilesToBackup
-func Backup(adminPassword, outputFolder string, mongoPort int) (string, string, error) {
+func Backup(password string, username string, outputFolder string, addr string) (string, string, error) {
 	// YYYYMMDDHHMMSS
 	formattedDate := time.Now().Format("20060102150405")
 
@@ -202,9 +202,9 @@ func Backup(adminPassword, outputFolder string, mongoPort int) (string, string, 
 		mongodumpPath,
 		"--oplog",
 		"--ssl",
-		"--host", fmt.Sprintf("localhost:%d", mongoPort),
-		"--username", "admin",
-		"--password", adminPassword,
+		"--host", addr,
+		"--username", username,
+		"--password", password,
 		"--out", dumpDir)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to dump database: %v", err)

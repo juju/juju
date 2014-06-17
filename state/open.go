@@ -318,6 +318,11 @@ func (st *State) createStateServersDoc() error {
 	return st.runTransaction(ops)
 }
 
+// Info returns information for connecting to mongo
+func (st *State) Info() *Info {
+	return st.info
+}
+
 // createAPIAddressesDoc creates the API addresses document
 // if it does not already exist. This is necessary to cope with
 // legacy environments that have not created the document

@@ -19,9 +19,11 @@ import (
 
 type backupSuite struct {
 	authHttpSuite
+
 	tempDir       string
-	adminPassword string
-	mongoPort     int
+	mongoPassword string
+	username      string
+	address       string
 }
 
 var _ = gc.Suite(&backupSuite{})
@@ -70,10 +72,16 @@ func (s *backupSuite) TestAuthRequiresUser(c *gc.C) {
 }
 
 func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
-	testBackup := func(adminPassword string, tempDir string, mongoPort int) (string, string, error) {
+	info := s.BackingState.Info()
+	info.Addrs[0] = "localhost:80"
+	info.Password = "foobar"
+	info.Tag = "machine-0"
+
+	testBackup := func(password string, username string, tempDir string, address string) (string, string, error) {
 		s.tempDir = tempDir
-		s.adminPassword = adminPassword
-		s.mongoPort = mongoPort
+		s.mongoPassword = password
+		s.username = username
+		s.address = address
 		backupFilePath := filepath.Join(tempDir, "testBackupFile")
 		file, err := os.Create(backupFilePath)
 		if err != nil {
@@ -92,8 +100,9 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 	c.Check(s.tempDir, gc.NotNil)
 	_, err = os.Stat(s.tempDir)
 	c.Check(err, jc.Satisfies, os.IsNotExist)
-	c.Check(s.mongoPort, gc.Equals, 1234)
-	c.Check(s.adminPassword, gc.Equals, "admin password")
+	c.Check(s.password, gc.Equals, "foobar")
+	c.Check(s.username, gc.Equals, "machine-0")
+	c.Check(s.address, gc.Equals, "localhost:80")
 
 	c.Check(resp.StatusCode, gc.Equals, 200)
 	c.Check(resp.Header.Get("X-Content-SHA"), gc.Equals, "some-sha")
@@ -104,7 +113,7 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 }
 
 func (s *backupSuite) TestErrorWhenBackupFails(c *gc.C) {
-	testBackup := func(adminPassword, tempDir string, mongoPort int) (string, string, error) {
+	testBackup := func(password string, username string, tempDir string, address string) (string, string, error) {
 		s.tempDir = tempDir
 		return "", "", fmt.Errorf("something bad")
 	}
@@ -122,7 +131,7 @@ func (s *backupSuite) TestErrorWhenBackupFails(c *gc.C) {
 }
 
 func (s *backupSuite) TestErrorWhenBackupFileDoesNotExist(c *gc.C) {
-	testBackup := func(adminPassword string, tempDir string, mongoPort int) (string, string, error) {
+	testBackup := func(password string, username string, tempDir string, address string) (string, string, error) {
 		s.tempDir = tempDir
 		backupFilePath := filepath.Join(tempDir, "testBackupFile")
 		return backupFilePath, "some-sha", nil
