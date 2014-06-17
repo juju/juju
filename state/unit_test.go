@@ -6,12 +6,12 @@ package state_test
 import (
 	"strconv"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
@@ -177,14 +177,14 @@ func (s *UnitSuite) setAssignedMachineAddresses(c *gc.C, u *state.Unit) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetAddresses(instance.Address{
-		Type:         instance.Ipv4Address,
-		NetworkScope: instance.NetworkCloudLocal,
-		Value:        "private.address.example.com",
-	}, instance.Address{
-		Type:         instance.Ipv4Address,
-		NetworkScope: instance.NetworkPublic,
-		Value:        "public.address.example.com",
+	err = machine.SetAddresses(network.Address{
+		Type:  network.IPv4Address,
+		Scope: network.ScopeCloudLocal,
+		Value: "private.address.example.com",
+	}, network.Address{
+		Type:  network.IPv4Address,
+		Scope: network.ScopePublic,
+		Value: "public.address.example.com",
 	})
 	c.Assert(err, gc.IsNil)
 }
@@ -210,8 +210,8 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 	c.Check(address, gc.Equals, "")
 	c.Assert(ok, gc.Equals, false)
 
-	public := instance.NewAddress("8.8.8.8", instance.NetworkPublic)
-	private := instance.NewAddress("127.0.0.1", instance.NetworkCloudLocal)
+	public := network.NewAddress("8.8.8.8", network.ScopePublic)
+	private := network.NewAddress("127.0.0.1", network.ScopeCloudLocal)
 
 	err = machine.SetAddresses(public, private)
 	c.Assert(err, gc.IsNil)
@@ -227,9 +227,9 @@ func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
 
-	publicProvider := instance.NewAddress("8.8.8.8", instance.NetworkPublic)
-	privateProvider := instance.NewAddress("127.0.0.1", instance.NetworkCloudLocal)
-	privateMachine := instance.NewAddress("127.0.0.2", instance.NetworkUnknown)
+	publicProvider := network.NewAddress("8.8.8.8", network.ScopePublic)
+	privateProvider := network.NewAddress("127.0.0.1", network.ScopeCloudLocal)
+	privateMachine := network.NewAddress("127.0.0.2", network.ScopeUnknown)
 
 	err = machine.SetAddresses(privateProvider)
 	c.Assert(err, gc.IsNil)
@@ -267,8 +267,8 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	c.Check(address, gc.Equals, "")
 	c.Assert(ok, gc.Equals, false)
 
-	public := instance.NewAddress("8.8.8.8", instance.NetworkPublic)
-	private := instance.NewAddress("127.0.0.1", instance.NetworkCloudLocal)
+	public := network.NewAddress("8.8.8.8", network.ScopePublic)
+	private := network.NewAddress("127.0.0.1", network.ScopeCloudLocal)
 
 	err = machine.SetAddresses(public, private)
 	c.Assert(err, gc.IsNil)
@@ -720,38 +720,38 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *UnitSuite) TestUnitSetAgentAlive(c *gc.C) {
-	alive, err := s.unit.AgentAlive()
+func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
+	alive, err := s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
-	pinger, err := s.unit.SetAgentAlive()
+	pinger, err := s.unit.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(pinger, gc.NotNil)
 	defer pinger.Stop()
 
 	s.State.StartSync()
-	alive, err = s.unit.AgentAlive()
+	alive, err = s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 }
 
-func (s *UnitSuite) TestUnitWaitAgentAlive(c *gc.C) {
-	alive, err := s.unit.AgentAlive()
+func (s *UnitSuite) TestUnitWaitAgentPresence(c *gc.C) {
+	alive, err := s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
-	err = s.unit.WaitAgentAlive(coretesting.ShortWait)
+	err = s.unit.WaitAgentPresence(coretesting.ShortWait)
 	c.Assert(err, gc.ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
 
-	pinger, err := s.unit.SetAgentAlive()
+	pinger, err := s.unit.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
-	err = s.unit.WaitAgentAlive(coretesting.LongWait)
+	err = s.unit.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
 
-	alive, err = s.unit.AgentAlive()
+	alive, err = s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 
@@ -760,7 +760,7 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *gc.C) {
 
 	s.State.StartSync()
 
-	alive, err = s.unit.AgentAlive()
+	alive, err = s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 }
@@ -829,14 +829,14 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 	err := s.unit.OpenPort("tcp", 80)
 	c.Assert(err, gc.IsNil)
 	open := s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []instance.Port{
+	c.Assert(open, gc.DeepEquals, []network.Port{
 		{"tcp", 80},
 	})
 
 	err = s.unit.OpenPort("udp", 53)
 	c.Assert(err, gc.IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []instance.Port{
+	c.Assert(open, gc.DeepEquals, []network.Port{
 		{"tcp", 80},
 		{"udp", 53},
 	})
@@ -844,7 +844,7 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 	err = s.unit.OpenPort("tcp", 53)
 	c.Assert(err, gc.IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []instance.Port{
+	c.Assert(open, gc.DeepEquals, []network.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"udp", 53},
@@ -853,7 +853,7 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 	err = s.unit.OpenPort("tcp", 443)
 	c.Assert(err, gc.IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []instance.Port{
+	c.Assert(open, gc.DeepEquals, []network.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"tcp", 443},
@@ -863,7 +863,7 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, gc.IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []instance.Port{
+	c.Assert(open, gc.DeepEquals, []network.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},
@@ -872,7 +872,7 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, gc.IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, gc.DeepEquals, []instance.Port{
+	c.Assert(open, gc.DeepEquals, []network.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},

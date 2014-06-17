@@ -6,7 +6,7 @@ package rsyslog
 import (
 	"fmt"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
@@ -19,7 +19,7 @@ type RsyslogConfig struct {
 	CACert string
 	// Port is only used by state servers as the port to listen on.
 	Port      int
-	HostPorts []instance.HostPort
+	HostPorts []network.HostPort
 }
 
 // State provides access to the Rsyslog API facade.

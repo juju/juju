@@ -6,9 +6,8 @@ package jujuc
 import (
 	"fmt"
 
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/cmd"
 )
 
 // ConfigGetCommand implements the config-get command.

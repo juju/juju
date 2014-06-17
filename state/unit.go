@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -16,13 +17,15 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+
+	statetxn "github.com/juju/juju/state/txn"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -72,7 +75,7 @@ type unitDoc struct {
 	MachineId    string
 	Resolved     ResolvedMode
 	Tools        *tools.Tools `bson:",omitempty"`
-	Ports        []instance.Port
+	Ports        []network.Port
 	Life         Life
 	TxnRevno     int64 `bson:"txn-revno"`
 	PasswordHash string
@@ -87,6 +90,7 @@ type Unit struct {
 	st  *State
 	doc unitDoc
 	annotator
+	presence.Presencer
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
@@ -271,25 +275,31 @@ func (u *Unit) Destroy() (err error) {
 		}
 	}()
 	unit := &Unit{st: u.st, doc: u.doc}
-	for i := 0; i < 5; i++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := unit.Refresh(); errors.IsNotFound(err) {
+				return nil, statetxn.ErrNoOperations
+			} else if err != nil {
+				return nil, err
+			}
+		}
 		switch ops, err := unit.destroyOps(); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return nil
+			return nil, statetxn.ErrNoOperations
 		case nil:
-			if err := unit.st.runTransaction(ops); err != txn.ErrAborted {
-				return err
-			}
+			return ops, nil
 		default:
-			return err
+			return nil, err
 		}
-		if err := unit.Refresh(); errors.IsNotFound(err) {
+		return nil, statetxn.ErrNoOperations
+	}
+	if err = unit.st.run(buildTxn); err == nil {
+		if err = unit.Refresh(); errors.IsNotFound(err) {
 			return nil
-		} else if err != nil {
-			return err
 		}
 	}
-	return ErrExcessiveContention
+	return err
 }
 
 // destroyOps returns the operations required to destroy the unit. If it
@@ -444,25 +454,26 @@ func (u *Unit) Remove() (err error) {
 	// Now we're sure we haven't left any scopes occupied by this unit, we
 	// can safely remove the document.
 	unit := &Unit{st: u.st, doc: u.doc}
-	for i := 0; i < 5; i++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := unit.Refresh(); errors.IsNotFound(err) {
+				return nil, statetxn.ErrNoOperations
+			} else if err != nil {
+				return nil, err
+			}
+		}
 		switch ops, err := unit.removeOps(isDeadDoc); err {
 		case errRefresh:
-		case errAlreadyRemoved:
-			return nil
+		case errAlreadyDying:
+			return nil, statetxn.ErrNoOperations
 		case nil:
-			if err := u.st.runTransaction(ops); err != txn.ErrAborted {
-				return err
-			}
+			return ops, nil
 		default:
-			return err
+			return nil, err
 		}
-		if err := unit.Refresh(); errors.IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
+		return nil, statetxn.ErrNoOperations
 	}
-	return ErrExcessiveContention
+	return unit.st.run(buildTxn)
 }
 
 // Resolved returns the resolved mode for the unit.
@@ -524,13 +535,13 @@ func (u *Unit) relations(predicate relationPredicate) ([]*Relation, error) {
 
 // DeployerTag returns the tag of the agent responsible for deploying
 // the unit. If no such entity can be determined, false is returned.
-func (u *Unit) DeployerTag() (string, bool) {
+func (u *Unit) DeployerTag() (names.Tag, bool) {
 	if u.doc.Principal != "" {
-		return names.UnitTag(u.doc.Principal), true
+		return names.NewUnitTag(u.doc.Principal), true
 	} else if u.doc.MachineId != "" {
-		return names.MachineTag(u.doc.MachineId), true
+		return names.NewMachineTag(u.doc.MachineId), true
 	}
-	return "", false
+	return nil, false
 }
 
 // PrincipalName returns the name of the unit's principal.
@@ -540,7 +551,7 @@ func (u *Unit) PrincipalName() (string, bool) {
 }
 
 // addressesOfMachine returns Addresses of the related machine if present.
-func (u *Unit) addressesOfMachine() []instance.Address {
+func (u *Unit) addressesOfMachine() []network.Address {
 	if id, err := u.AssignedMachineId(); err != nil {
 		unitLogger.Errorf("unit %v cannot get assigned machine: %v", u, err)
 		return nil
@@ -559,7 +570,7 @@ func (u *Unit) PublicAddress() (string, bool) {
 	var publicAddress string
 	addresses := u.addressesOfMachine()
 	if len(addresses) > 0 {
-		publicAddress = instance.SelectPublicAddress(addresses)
+		publicAddress = network.SelectPublicAddress(addresses)
 	}
 	return publicAddress, publicAddress != ""
 }
@@ -569,7 +580,7 @@ func (u *Unit) PrivateAddress() (string, bool) {
 	var privateAddress string
 	addresses := u.addressesOfMachine()
 	if len(addresses) > 0 {
-		privateAddress = instance.SelectInternalAddress(addresses, false)
+		privateAddress = network.SelectInternalAddress(addresses, false)
 	}
 	return privateAddress, privateAddress != ""
 }
@@ -627,7 +638,7 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	port := instance.Port{Protocol: protocol, Number: number}
+	port := network.Port{Protocol: protocol, Number: number}
 	defer errors.Maskf(&err, "cannot open port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -653,7 +664,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	port := instance.Port{Protocol: protocol, Number: number}
+	port := network.Port{Protocol: protocol, Number: number}
 	defer errors.Maskf(&err, "cannot close port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -665,7 +676,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	if err != nil {
 		return onAbort(err, errDead)
 	}
-	newPorts := make([]instance.Port, 0, len(u.doc.Ports))
+	newPorts := make([]network.Port, 0, len(u.doc.Ports))
 	for _, p := range u.doc.Ports {
 		if p != port {
 			newPorts = append(newPorts, p)
@@ -676,9 +687,9 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 }
 
 // OpenedPorts returns a slice containing the open ports of the unit.
-func (u *Unit) OpenedPorts() []instance.Port {
-	ports := append([]instance.Port{}, u.doc.Ports...)
-	instance.SortPorts(ports)
+func (u *Unit) OpenedPorts() []network.Port {
+	ports := append([]network.Port{}, u.doc.Ports...)
+	network.SortPorts(ports)
 	return ports
 }
 
@@ -701,29 +712,29 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 	if curl == nil {
 		return fmt.Errorf("cannot set nil charm url")
 	}
-	for i := 0; i < 5; i++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
-			return err
+			return nil, err
 		} else if !notDead {
-			return fmt.Errorf("unit %q is dead", u)
+			return nil, fmt.Errorf("unit %q is dead", u)
 		}
 		sel := bson.D{{"_id", u.doc.Name}, {"charmurl", curl}}
 		if count, err := u.st.units.Find(sel).Count(); err != nil {
-			return err
+			return nil, err
 		} else if count == 1 {
 			// Already set
-			return nil
+			return nil, statetxn.ErrNoOperations
 		}
 		if count, err := u.st.charms.FindId(curl).Count(); err != nil {
-			return err
+			return nil, err
 		} else if count < 1 {
-			return fmt.Errorf("unknown charm url %q", curl)
+			return nil, fmt.Errorf("unknown charm url %q", curl)
 		}
 
 		// Add a reference to the service settings for the new charm.
 		incOp, err := settingsIncRefOp(u.st, u.doc.Service, curl, false)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// Set the new charm URL.
@@ -740,19 +751,17 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			// Drop the reference to the old charm.
 			decOps, err := settingsDecRefOps(u.st, u.doc.Service, u.doc.CharmURL)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			ops = append(ops, decOps...)
 		}
-		if err := u.st.runTransaction(ops); err != txn.ErrAborted {
-			return err
-		}
+		return ops, nil
 	}
-	return ErrExcessiveContention
+	return u.st.run(buildTxn)
 }
 
-// AgentAlive returns whether the respective remote agent is alive.
-func (u *Unit) AgentAlive() (bool, error) {
+// AgentPresence returns whether the respective remote agent is alive.
+func (u *Unit) AgentPresence() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalKey())
 }
 
@@ -760,11 +769,11 @@ func (u *Unit) AgentAlive() (bool, error) {
 // as a file name.  The returned name will be different from other
 // Tag values returned by any other entities from the same state.
 func (u *Unit) Tag() string {
-	return names.UnitTag(u.Name())
+	return names.NewUnitTag(u.Name()).String()
 }
 
-// WaitAgentAlive blocks until the respective agent is alive.
-func (u *Unit) WaitAgentAlive(timeout time.Duration) (err error) {
+// WaitAgentPresence blocks until the respective agent is alive.
+func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.Maskf(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
 	u.st.pwatcher.Watch(u.globalKey(), ch)
@@ -784,9 +793,9 @@ func (u *Unit) WaitAgentAlive(timeout time.Duration) (err error) {
 	panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
 }
 
-// SetAgentAlive signals that the agent for unit u is alive.
+// SetAgentPresence signals that the agent for unit u is alive.
 // It returns the started pinger.
-func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
+func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	p := presence.NewPinger(u.st.presence, u.globalKey())
 	err := p.Start()
 	if err != nil {
@@ -1390,23 +1399,18 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 		Insert: doc,
 	}}
 
-	for i := 0; i < 3; i++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
-			return "", err
+			return nil, err
 		} else if !notDead {
-			return "", fmt.Errorf("unit %q is dead", u)
+			return nil, fmt.Errorf("unit %q is dead", u)
 		}
-
-		switch err := u.st.runTransaction(ops); err {
-		case txn.ErrAborted:
-			continue
-		case nil:
-			return actionId, nil
-		default:
-			return "", err
-		}
+		return ops, nil
 	}
-	return "", ErrExcessiveContention
+	if err = u.st.run(buildTxn); err == nil {
+		return actionId, nil
+	}
+	return "", err
 }
 
 // Resolve marks the unit as having had any previous state transition

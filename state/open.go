@@ -4,12 +4,7 @@
 package state
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	stderrors "errors"
 	"fmt"
-	"net"
-	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
@@ -17,59 +12,27 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"github.com/juju/juju/cert"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
+	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 )
-
-// mongoSocketTimeout should be long enough that
-// even a slow mongo server will respond in that
-// length of time. Since mongo servers ping themselves
-// every 10 seconds, that seems like a reasonable
-// default.
-const mongoSocketTimeout = 10 * time.Second
-
-// defaultDialTimeout should be representative of
-// the upper bound of time taken to dial a mongo
-// server from within the same cloud/private network.
-const defaultDialTimeout = 30 * time.Second
 
 // Info encapsulates information about cluster of
 // servers holding juju state and can be used to make a
 // connection to that cluster.
 type Info struct {
-	// Addrs gives the addresses of the MongoDB servers for the state.
-	// Each address should be in the form address:port.
-	Addrs []string
-
-	// CACert holds the CA certificate that will be used
-	// to validate the state server's certificate, in PEM format.
-	CACert string
-
+	mongo.Info
 	// Tag holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.
 	Tag string
 
 	// Password holds the password for the connecting entity.
 	Password string
-}
-
-// DialOpts holds configuration parameters that control the
-// Dialing behavior when connecting to a state server.
-type DialOpts struct {
-	// Timeout is the amount of time to wait contacting
-	// a state server.
-	Timeout time.Duration
-}
-
-// DefaultDialOpts returns a DialOpts representing the default
-// parameters for contacting a state server.
-func DefaultDialOpts() DialOpts {
-	return DialOpts{Timeout: defaultDialTimeout}
 }
 
 // Open connects to the server described by the given
@@ -81,9 +44,9 @@ func DefaultDialOpts() DialOpts {
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
+func Open(info *Info, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
-	di, err := DialInfo(info, opts)
+	di, err := mongo.DialInfo(info.Info, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -108,56 +71,14 @@ func Open(info *Info, opts DialOpts, policy Policy) (*State, error) {
 		session.Close()
 		return nil, err
 	}
-	session.SetSocketTimeout(mongoSocketTimeout)
+	session.SetSocketTimeout(mongo.SocketTimeout)
 	return st, nil
-}
-
-// DialInfo returns information on how to dial
-// the state's mongo server with the given info
-// and dial options.
-func DialInfo(info *Info, opts DialOpts) (*mgo.DialInfo, error) {
-	if len(info.Addrs) == 0 {
-		return nil, stderrors.New("no mongo addresses")
-	}
-	if len(info.CACert) == 0 {
-		return nil, stderrors.New("missing CA certificate")
-	}
-	xcert, err := cert.ParseCert(info.CACert)
-	if err != nil {
-		return nil, fmt.Errorf("cannot parse CA certificate: %v", err)
-	}
-	pool := x509.NewCertPool()
-	pool.AddCert(xcert)
-	tlsConfig := &tls.Config{
-		RootCAs:    pool,
-		ServerName: "anything",
-	}
-	dial := func(addr net.Addr) (net.Conn, error) {
-		c, err := net.Dial("tcp", addr.String())
-		if err != nil {
-			logger.Debugf("connection failed, will retry: %v", err)
-			return nil, err
-		}
-		cc := tls.Client(c, tlsConfig)
-		if err := cc.Handshake(); err != nil {
-			logger.Errorf("TLS handshake failed: %v", err)
-			return nil, err
-		}
-		logger.Infof("dialled mongo successfully")
-		return cc, nil
-	}
-
-	return &mgo.DialInfo{
-		Addrs:   info.Addrs,
-		Timeout: opts.Timeout,
-		Dial:    dial,
-	}, nil
 }
 
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config, opts DialOpts, policy Policy) (rst *State, err error) {
+func Initialize(info *Info, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
 	st, err := Open(info, opts, policy)
 	if err != nil {
 		return nil, err
@@ -319,8 +240,9 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
-	st.runner = txn.NewRunner(db.C("txns"))
-	st.runner.ChangeLog(db.C("txns.log"))
+	mgoRunner := txn.NewRunner(db.C("txns"))
+	mgoRunner.ChangeLog(db.C("txns.log"))
+	st.transactionRunner = statetxn.NewRunner(mgoRunner)
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, item := range indexes {
@@ -329,8 +251,6 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
-	st.transactionHooks = make(chan ([]transactionHook), 1)
-	st.transactionHooks <- nil
 
 	// TODO(rog) delete this when we can assume there are no
 	// pre-1.18 environments running.

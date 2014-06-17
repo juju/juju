@@ -17,10 +17,10 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -230,7 +230,7 @@ type neverAddresses struct {
 	neverRefreshes
 }
 
-func (neverAddresses) Addresses() ([]instance.Address, error) {
+func (neverAddresses) Addresses() ([]network.Address, error) {
 	return nil, nil
 }
 
@@ -260,7 +260,7 @@ type brokenAddresses struct {
 	neverRefreshes
 }
 
-func (brokenAddresses) Addresses() ([]instance.Address, error) {
+func (brokenAddresses) Addresses() ([]network.Address, error) {
 	return nil, fmt.Errorf("Addresses will never work")
 }
 
@@ -276,8 +276,8 @@ type neverOpensPort struct {
 	addr string
 }
 
-func (n *neverOpensPort) Addresses() ([]instance.Address, error) {
-	return instance.NewAddresses(n.addr), nil
+func (n *neverOpensPort) Addresses() ([]network.Address, error) {
+	return network.NewAddresses(n.addr), nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHTimesOutWaitingForDial(c *gc.C) {
@@ -298,14 +298,14 @@ type interruptOnDial struct {
 	returned    bool
 }
 
-func (i *interruptOnDial) Addresses() ([]instance.Address, error) {
+func (i *interruptOnDial) Addresses() ([]network.Address, error) {
 	// kill the tomb the second time Addresses is called
 	if !i.returned {
 		i.returned = true
 	} else {
 		i.interrupted <- os.Interrupt
 	}
-	return []instance.Address{instance.NewAddress(i.name, instance.NetworkUnknown)}, nil
+	return []network.Address{network.NewAddress(i.name, network.ScopeUnknown)}, nil
 }
 
 func (s *BootstrapSuite) TestWaitSSHKilledWaitingForDial(c *gc.C) {
@@ -332,10 +332,10 @@ func (ac *addressesChange) Refresh() error {
 	return nil
 }
 
-func (ac *addressesChange) Addresses() ([]instance.Address, error) {
-	var addrs []instance.Address
+func (ac *addressesChange) Addresses() ([]network.Address, error) {
+	var addrs []network.Address
 	for _, addr := range ac.addrs[0] {
-		addrs = append(addrs, instance.NewAddress(addr, instance.NetworkUnknown))
+		addrs = append(addrs, network.NewAddress(addr, network.ScopeUnknown))
 	}
 	return addrs, nil
 }

@@ -7,7 +7,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/environs/network"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
@@ -39,14 +39,15 @@ func NewNetworkerAPI(
 				// A machine agent can always access its own machine.
 				return true
 			}
-			_, id, err := names.ParseTag(tag, names.MachineTagKind)
+			t, err := names.ParseMachineTag(tag)
 			if err != nil {
 				// Only machine tags are allowed.
 				return false
 			}
+			id := t.Id()
 			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
 				// Until a top-level machine is reached.
-				if names.MachineTag(parentId) == authEntityTag {
+				if names.NewMachineTag(parentId).String() == authEntityTag {
 					// All containers with the authenticated machine as a
 					// parent are accessible by it.
 					return true
@@ -86,7 +87,6 @@ func (n *NetworkerAPI) oneMachineInfo(id string) ([]network.Info, error) {
 			ProviderId:    nw.ProviderId(),
 			VLANTag:       nw.VLANTag(),
 			InterfaceName: iface.RawInterfaceName(),
-			IsVirtual:     iface.IsVirtual(),
 		}
 	}
 	return info, nil
@@ -101,13 +101,14 @@ func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineN
 	if err != nil {
 		return result, err
 	}
-	id := ""
+	var tag names.Tag
 	for i, entity := range args.Entities {
 		if !canAccess(entity.Tag) {
 			err = common.ErrPerm
 		} else {
-			_, id, err = names.ParseTag(entity.Tag, names.MachineTagKind)
+			tag, err = names.ParseMachineTag(entity.Tag)
 			if err == nil {
+				id := tag.Id()
 				result.Results[i].Info, err = n.oneMachineInfo(id)
 			}
 		}

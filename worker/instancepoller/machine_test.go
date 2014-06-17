@@ -18,6 +18,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
@@ -29,7 +30,7 @@ type machineSuite struct {
 	coretesting.BaseSuite
 }
 
-var testAddrs = instance.NewAddresses("127.0.0.1")
+var testAddrs = network.NewAddresses("127.0.0.1")
 
 func (s *machineSuite) TestSetsInstanceInfoInitially(c *gc.C) {
 	context := &testMachineContext{
@@ -113,7 +114,7 @@ func (s *machineSuite) TestLongPollIntervalWhenHasAllInstanceInfo(c *gc.C) {
 // addresses and status to be returned from getInstanceInfo,
 // waits for coretesting.ShortWait, and returns the
 // number of times the instance is polled.
-func countPolls(c *gc.C, addrs []instance.Address, instId, instStatus string, machineStatus params.Status) int {
+func countPolls(c *gc.C, addrs []network.Address, instId, instStatus string, machineStatus params.Status) int {
 	count := int32(0)
 	getInstanceInfo := func(id instance.Id) (instanceInfo, error) {
 		c.Check(string(id), gc.Equals, instId)
@@ -290,7 +291,7 @@ func killMachineLoop(c *gc.C, m machine, dying chan struct{}, died <-chan machin
 }
 
 func instanceInfoGetter(
-	c *gc.C, expectId instance.Id, addrs []instance.Address,
+	c *gc.C, expectId instance.Id, addrs []network.Address,
 	status string, err error) func(id instance.Id) (instanceInfo, error) {
 
 	return func(id instance.Id) (instanceInfo, error) {
@@ -331,7 +332,7 @@ type testMachine struct {
 	// mu protects the following fields.
 	mu              sync.Mutex
 	life            state.Life
-	addresses       []instance.Address
+	addresses       []network.Address
 	setAddressCount int
 }
 
@@ -342,7 +343,7 @@ func (m *testMachine) Id() string {
 	return m.id
 }
 
-func (m *testMachine) Addresses() []instance.Address {
+func (m *testMachine) Addresses() []network.Address {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.addresses
@@ -381,7 +382,7 @@ func (m *testMachine) SetInstanceStatus(status string) error {
 	return nil
 }
 
-func (m *testMachine) SetAddresses(addrs ...instance.Address) error {
+func (m *testMachine) SetAddresses(addrs ...network.Address) error {
 	if m.setAddressesErr != nil {
 		return m.setAddressesErr
 	}

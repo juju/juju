@@ -58,11 +58,11 @@ func NewProvisionerAPI(
 				// A machine agent can always access its own machine.
 				return true
 			}
-			_, id, err := names.ParseTag(tag, names.MachineTagKind)
+			t, err := names.ParseMachineTag(tag)
 			if err != nil {
 				return false
 			}
-			parentId := state.ParentId(id)
+			parentId := state.ParentId(t.Id())
 			if parentId == "" {
 				// All top-level machines are accessible by the
 				// environment manager.
@@ -70,7 +70,7 @@ func NewProvisionerAPI(
 			}
 			// All containers with the authenticated machine as a
 			// parent are accessible by it.
-			return isMachineAgent && names.MachineTag(parentId) == authEntityTag
+			return isMachineAgent && names.NewMachineTag(parentId).String() == authEntityTag
 		}, nil
 	}
 	// Both provisioner types can watch the environment.
@@ -119,11 +119,11 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 	if !canAccess(arg.MachineTag) {
 		return nothing, common.ErrPerm
 	}
-	_, id, err := names.ParseTag(arg.MachineTag, names.MachineTagKind)
+	tag, err := names.ParseMachineTag(arg.MachineTag)
 	if err != nil {
 		return nothing, err
 	}
-	machine, err := p.st.Machine(id)
+	machine, err := p.st.Machine(tag.Id())
 	if err != nil {
 		return nothing, err
 	}
@@ -460,12 +460,12 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 ) {
 	stateNetworks := make([]state.NetworkInfo, len(networks))
 	for i, network := range networks {
-		_, networkName, err := names.ParseTag(network.Tag, names.NetworkTagKind)
+		tag, err := names.ParseNetworkTag(network.Tag)
 		if err != nil {
 			return nil, nil, err
 		}
 		stateNetworks[i] = state.NetworkInfo{
-			Name:       networkName,
+			Name:       tag.Id(),
 			ProviderId: network.ProviderId,
 			CIDR:       network.CIDR,
 			VLANTag:    network.VLANTag,
@@ -473,13 +473,13 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 	}
 	stateInterfaces := make([]state.NetworkInterfaceInfo, len(ifaces))
 	for i, iface := range ifaces {
-		_, networkName, err := names.ParseTag(iface.NetworkTag, names.NetworkTagKind)
+		tag, err := names.ParseNetworkTag(iface.NetworkTag)
 		if err != nil {
 			return nil, nil, err
 		}
 		stateInterfaces[i] = state.NetworkInterfaceInfo{
 			MACAddress:    iface.MACAddress,
-			NetworkName:   networkName,
+			NetworkName:   tag.Id(),
 			InterfaceName: iface.InterfaceName,
 			IsVirtual:     iface.IsVirtual,
 		}

@@ -10,25 +10,30 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
-	charmtesting "github.com/juju/juju/charm/testing"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/state/txn"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -54,7 +59,7 @@ var _ = gc.Suite(&StateSuite{})
 
 func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.getConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -91,22 +96,22 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	for i, m := range machines {
-		err := m.SetAddresses(instance.Address{
-			Type:         instance.Ipv4Address,
-			NetworkScope: instance.NetworkCloudLocal,
-			Value:        fmt.Sprintf("10.0.0.%d", i),
-		}, instance.Address{
-			Type:         instance.Ipv6Address,
-			NetworkScope: instance.NetworkCloudLocal,
-			Value:        "::1",
-		}, instance.Address{
-			Type:         instance.Ipv4Address,
-			NetworkScope: instance.NetworkMachineLocal,
-			Value:        "127.0.0.1",
-		}, instance.Address{
-			Type:         instance.Ipv4Address,
-			NetworkScope: instance.NetworkPublic,
-			Value:        "5.4.3.2",
+		err := m.SetAddresses(network.Address{
+			Type:  network.IPv4Address,
+			Scope: network.ScopeCloudLocal,
+			Value: fmt.Sprintf("10.0.0.%d", i),
+		}, network.Address{
+			Type:  network.IPv6Address,
+			Scope: network.ScopeCloudLocal,
+			Value: "::1",
+		}, network.Address{
+			Type:  network.IPv4Address,
+			Scope: network.ScopeMachineLocal,
+			Value: "127.0.0.1",
+		}, network.Address{
+			Type:  network.IPv4Address,
+			Scope: network.ScopePublic,
+			Value: "5.4.3.2",
 		})
 		c.Assert(err, gc.IsNil)
 	}
@@ -134,7 +139,7 @@ func (s *StateSuite) TestAddresses(c *gc.C) {
 
 func (s *StateSuite) TestPing(c *gc.C) {
 	c.Assert(s.State.Ping(), gc.IsNil)
-	testing.MgoServer.Restart()
+	gitjujutesting.MgoServer.Restart()
 	c.Assert(s.State.Ping(), gc.NotNil)
 }
 
@@ -294,7 +299,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 	// Finally, try poking around the state with a placeholder and
 	// bundlesha256 to make sure we do the right thing.
 	curl = curl.WithRevision(999)
-	first := state.TransactionHook{
+	first := txn.TestHook{
 		Before: func() {
 			err := s.State.AddStoreCharmPlaceholder(curl)
 			c.Assert(err, gc.IsNil)
@@ -304,7 +309,7 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 	}
-	second := state.TransactionHook{
+	second := txn.TestHook{
 		Before: func() {
 			err := s.State.AddStoreCharmPlaceholder(curl)
 			c.Assert(err, gc.IsNil)
@@ -316,12 +321,10 @@ func (s *StateSuite) TestPrepareStoreCharmUpload(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 	}
-	defer state.SetTransactionHooks(
-		c, s.State, first, second, first,
-	).Check()
+	defer state.SetTestHooks(c, s.State, first, second, first).Check()
 
 	_, err = s.State.PrepareStoreCharmUpload(curl)
-	c.Assert(err, gc.Equals, state.ErrExcessiveContention)
+	c.Assert(err, gc.Equals, txn.ErrExcessiveContention)
 }
 
 func (s *StateSuite) TestUpdateUploadedCharm(c *gc.C) {
@@ -1177,13 +1180,13 @@ func (s *StateSuite) TestServiceNotFound(c *gc.C) {
 func (s *StateSuite) TestAddServiceNoTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("wordpress", state.AdminUser, charm, nil)
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin")
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag admin: \"admin\" is not a valid tag")
 }
 
 func (s *StateSuite) TestAddServiceNotUserTag(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	_, err := s.State.AddService("wordpress", "machine-3", charm, nil)
-	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag machine-3")
+	c.Assert(err, gc.ErrorMatches, "cannot add service \"wordpress\": Invalid ownertag machine-3: \"machine-3\" is not a valid user tag")
 }
 
 func (s *StateSuite) TestAddServiceNonExistentUser(c *gc.C) {
@@ -2095,8 +2098,8 @@ func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
-	inst := testing.MgoInstance{Params: []string{"--replSet", "juju"}}
-	err := inst.Start(true)
+	inst := gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
+	err := inst.Start(testing.Certs)
 	c.Assert(err, gc.IsNil)
 	defer inst.Destroy()
 
@@ -2109,8 +2112,8 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 	err = peergrouper.MaybeInitiateMongoServer(args)
 	c.Assert(err, gc.IsNil)
 
-	stateInfo := &state.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}
-	dialOpts := state.DialOpts{Timeout: time.Second * 30}
+	stateInfo := &state.Info{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
+	dialOpts := mongo.DialOpts{Timeout: time.Second * 30}
 	st, err := state.Open(stateInfo, dialOpts, state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
@@ -2124,7 +2127,7 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
-	st, err := state.Open(info, state.DialOpts{
+	st, err := state.Open(info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
 	}, state.Policy(nil))
 	if err == nil {
@@ -2140,7 +2143,7 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
-	st, err := state.Open(info, state.DialOpts{
+	st, err := state.Open(info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
 	}, state.Policy(nil))
 	if err == nil {
@@ -2416,7 +2419,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
 	_, err = svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddUser("arble", "", "pass")
+	s.factory.MakeUser(factory.UserParams{Username: "arble"})
 	c.Assert(err, gc.IsNil)
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "ser-vice2"})
@@ -2508,7 +2511,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Parse a user entity name.
-	user, err := s.State.AddUser("arble", "", "pass")
+	user := s.factory.MakeAnyUser()
 	c.Assert(err, gc.IsNil)
 	coll, id, err = state.ParseTag(s.State, user.Tag())
 	c.Assert(coll, gc.Equals, "users")
@@ -2883,18 +2886,16 @@ func (s *StateSuite) TestSetEnvironAgentVersionSucceedsWithSameVersion(c *gc.C) 
 func (s *StateSuite) TestSetEnvironAgentVersionExcessiveContention(c *gc.C) {
 	envConfig, currentVersion := s.prepareAgentVersionTests(c)
 
-	// Set a hook to change the config 5 times
+	// Set a hook to change the config 3 times
 	// to test we return ErrExcessiveContention.
 	changeFuncs := []func(){
 		func() { s.changeEnviron(c, envConfig, "default-series", "1") },
 		func() { s.changeEnviron(c, envConfig, "default-series", "2") },
 		func() { s.changeEnviron(c, envConfig, "default-series", "3") },
-		func() { s.changeEnviron(c, envConfig, "default-series", "4") },
-		func() { s.changeEnviron(c, envConfig, "default-series", "5") },
 	}
 	defer state.SetBeforeHooks(c, s.State, changeFuncs...).Check()
 	err := s.State.SetEnvironAgentVersion(version.MustParse("4.5.6"))
-	c.Assert(err, gc.Equals, state.ErrExcessiveContention)
+	c.Assert(errors.Cause(err), gc.Equals, txn.ErrExcessiveContention)
 	// Make sure the version remained the same.
 	s.assertAgentVersion(c, envConfig, currentVersion)
 }
@@ -3304,7 +3305,7 @@ func (s *StateSuite) TestEnsureAvailabilityConcurrentMore(c *gc.C) {
 	// find that the number of voting machines in state is greater than
 	// what we're attempting to ensure, and fail.
 	err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
-	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
 
 	// Machine 0 should never have been created.
 	_, err = s.State.Machine("0")
@@ -3376,28 +3377,28 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(addrs, gc.HasLen, 0)
 
-	newHostPorts := [][]instance.HostPort{{{
-		Address: instance.Address{
-			Value:        "0.2.4.6",
-			Type:         instance.Ipv4Address,
-			NetworkName:  "net",
-			NetworkScope: instance.NetworkCloudLocal,
+	newHostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value:       "0.2.4.6",
+			Type:        network.IPv4Address,
+			NetworkName: "net",
+			Scope:       network.ScopeCloudLocal,
 		},
 		Port: 1,
 	}, {
-		Address: instance.Address{
-			Value:        "0.4.8.16",
-			Type:         instance.Ipv4Address,
-			NetworkName:  "foo",
-			NetworkScope: instance.NetworkPublic,
+		Address: network.Address{
+			Value:       "0.4.8.16",
+			Type:        network.IPv4Address,
+			NetworkName: "foo",
+			Scope:       network.ScopePublic,
 		},
 		Port: 2,
 	}}, {{
-		Address: instance.Address{
-			Value:        "0.6.1.2",
-			Type:         instance.Ipv4Address,
-			NetworkName:  "net",
-			NetworkScope: instance.NetworkCloudLocal,
+		Address: network.Address{
+			Value:       "0.6.1.2",
+			Type:        network.IPv4Address,
+			NetworkName: "net",
+			Scope:       network.ScopeCloudLocal,
 		},
 		Port: 5,
 	}}}
@@ -3408,12 +3409,12 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 
-	newHostPorts = [][]instance.HostPort{{{
-		Address: instance.Address{
-			Value:        "0.2.4.6",
-			Type:         instance.Ipv6Address,
-			NetworkName:  "net",
-			NetworkScope: instance.NetworkCloudLocal,
+	newHostPorts = [][]network.HostPort{{{
+		Address: network.Address{
+			Value:       "0.2.4.6",
+			Type:        network.IPv6Address,
+			NetworkName: "net",
+			Scope:       network.ScopeCloudLocal,
 		},
 		Port: 13,
 	}}}
@@ -3433,8 +3434,8 @@ func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	err := s.State.SetAPIHostPorts([][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+	err := s.State.SetAPIHostPorts([][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		Port:    99,
 	}}})
 	c.Assert(err, gc.IsNil)

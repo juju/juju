@@ -15,11 +15,12 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/state/txn"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -34,7 +35,7 @@ var _ = gc.Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.getConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -209,13 +210,12 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	perturb := state.TransactionHook{
+	perturb := txn.TestHook{
 		Before: func() { c.Assert(unit.AssignToMachine(s.machine), gc.IsNil) },
 		After:  func() { c.Assert(unit.UnassignFromMachine(), gc.IsNil) },
 	}
-	defer state.SetTransactionHooks(
-		c, s.State, perturb, perturb, perturb,
-	).Check()
+	defer state.SetTestHooks(c, s.State, perturb, perturb, perturb).Check()
+
 	err = s.machine.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 1 cannot advance lifecycle: state changing too quickly; try again soon")
 }
@@ -297,18 +297,18 @@ func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *MachineSuite) TestMachineSetAgentAlive(c *gc.C) {
-	alive, err := s.machine.AgentAlive()
+func (s *MachineSuite) TestMachineSetAgentPresence(c *gc.C) {
+	alive, err := s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
-	pinger, err := s.machine.SetAgentAlive()
+	pinger, err := s.machine.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(pinger, gc.NotNil)
 	defer pinger.Stop()
 
 	s.State.StartSync()
-	alive, err = s.machine.AgentAlive()
+	alive, err = s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 }
@@ -335,23 +335,23 @@ func (s *MachineSuite) TestSetAgentCompatPassword(c *gc.C) {
 	testSetAgentCompatPassword(c, e)
 }
 
-func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
-	alive, err := s.machine.AgentAlive()
+func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
+	alive, err := s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(coretesting.ShortWait)
+	err = s.machine.WaitAgentPresence(coretesting.ShortWait)
 	c.Assert(err, gc.ErrorMatches, `waiting for agent of machine 1: still not alive after timeout`)
 
-	pinger, err := s.machine.SetAgentAlive()
+	pinger, err := s.machine.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(coretesting.LongWait)
+	err = s.machine.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
 
-	alive, err = s.machine.AgentAlive()
+	alive, err = s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 
@@ -359,7 +359,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
-	alive, err = s.machine.AgentAlive()
+	alive, err = s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 }
@@ -1475,9 +1475,9 @@ func (s *MachineSuite) TestSetAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
-		instance.NewAddress("8.8.8.8", instance.NetworkUnknown),
+	addresses := []network.Address{
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+		network.NewAddress("8.8.8.8", network.ScopeUnknown),
 	}
 	err = machine.SetAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
@@ -1491,9 +1491,9 @@ func (s *MachineSuite) TestSetMachineAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
-		instance.NewAddress("8.8.8.8", instance.NetworkUnknown),
+	addresses := []network.Address{
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+		network.NewAddress("8.8.8.8", network.ScopeUnknown),
 	}
 	err = machine.SetMachineAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
@@ -1507,24 +1507,24 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := []instance.Address{
-		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
-		instance.NewAddress("8.8.8.8", instance.NetworkUnknown),
+	addresses := []network.Address{
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+		network.NewAddress("8.8.8.8", network.ScopeUnknown),
 	}
 	addresses[0].NetworkName = "loopback"
 	err = machine.SetAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
 
-	machineAddresses := []instance.Address{
-		instance.NewAddress("127.0.0.1", instance.NetworkUnknown),
-		instance.NewAddress("192.168.0.1", instance.NetworkUnknown),
+	machineAddresses := []network.Address{
+		network.NewAddress("127.0.0.1", network.ScopeUnknown),
+		network.NewAddress("192.168.0.1", network.ScopeUnknown),
 	}
 	err = machine.SetMachineAddresses(machineAddresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(machine.Addresses(), gc.DeepEquals, []instance.Address{
+	c.Assert(machine.Addresses(), gc.DeepEquals, []network.Address{
 		addresses[0],
 		addresses[1],
 		machineAddresses[1],

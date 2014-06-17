@@ -8,10 +8,10 @@ package uniter
 import (
 	"fmt"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
@@ -48,7 +48,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 			panic("authenticated entity is not a unit")
 		}
 		return func(tag string) bool {
-			return tag == names.ServiceTag(unit.ServiceName())
+			return tag == names.NewServiceTag(unit.ServiceName()).String()
 		}, nil
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
@@ -73,19 +73,19 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 }
 
 func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
-	_, name, err := names.ParseTag(tag, names.UnitTagKind)
+	t, err := names.ParseUnitTag(tag)
 	if err != nil {
 		return nil, err
 	}
-	return u.st.Unit(name)
+	return u.st.Unit(t.Id())
 }
 
 func (u *UniterAPI) getService(tag string) (*state.Service, error) {
-	_, name, err := names.ParseTag(tag, names.ServiceTagKind)
+	t, err := names.ParseServiceTag(tag)
 	if err != nil {
 		return nil, err
 	}
-	return u.st.Service(name)
+	return u.st.Service(t.Id())
 }
 
 // PublicAddress returns the public address for each given unit, if set.
@@ -208,7 +208,7 @@ func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults
 			if err == nil {
 				principal, ok := unit.PrincipalName()
 				if principal != "" {
-					result.Results[i].Result = names.UnitTag(principal)
+					result.Results[i].Result = names.NewUnitTag(principal).String()
 				}
 				result.Results[i].Ok = ok
 			}
@@ -245,7 +245,7 @@ func (u *UniterAPI) Destroy(args params.Entities) (params.ErrorResults, error) {
 func (u *UniterAPI) destroySubordinates(principal *state.Unit) error {
 	subordinates := principal.SubordinateNames()
 	for _, subName := range subordinates {
-		unit, err := u.getUnit(names.UnitTag(subName))
+		unit, err := u.getUnit(names.NewUnitTag(subName).String())
 		if err != nil {
 			return err
 		}
@@ -580,11 +580,11 @@ func (u *UniterAPI) CharmArchiveSha256(args params.CharmURLs) (params.StringResu
 }
 
 func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag, unitTag string) (*state.Relation, *state.Unit, error) {
-	_, key, err := names.ParseTag(relTag, names.RelationTagKind)
+	tag, err := names.ParseRelationTag(relTag)
 	if err != nil {
 		return nil, nil, common.ErrPerm
 	}
-	rel, err := u.st.KeyRelation(key)
+	rel, err := u.st.KeyRelation(tag.Id())
 	if errors.IsNotFound(err) {
 		return nil, nil, common.ErrPerm
 	} else if err != nil {
@@ -864,10 +864,11 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag s
 	// the *Unit, because it might have been removed; but its relation settings will
 	// persist until the relation itself has been removed (and must remain accessible
 	// because the local unit's view of reality may be time-shifted).
-	_, remoteUnitName, err := names.ParseTag(remoteUnitTag, names.UnitTagKind)
+	tag, err := names.ParseUnitTag(remoteUnitTag)
 	if err != nil {
 		return "", err
 	}
+	remoteUnitName := tag.Id()
 	remoteServiceName := names.UnitService(remoteUnitName)
 	rel := relUnit.Relation()
 	_, err = rel.RelatedEndpoints(remoteServiceName)

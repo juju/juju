@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
+	"github.com/juju/juju/state/presence"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -42,10 +43,11 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv, err := apiserver.NewServer(
-		s.State, "localhost:0",
-		[]byte(coretesting.ServerCert), []byte(coretesting.ServerKey),
-		"", "")
+	srv, err := apiserver.NewServer(s.State, apiserver.ServerConfig{
+		Addr: "localhost:0",
+		Cert: []byte(coretesting.ServerCert),
+		Key:  []byte(coretesting.ServerKey),
+	})
 	c.Assert(err, gc.IsNil)
 	defer srv.Stop()
 
@@ -204,13 +206,9 @@ func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 	s.assertAlive(c, unit, false)
 }
 
-type agentAliver interface {
-	AgentAlive() (bool, error)
-}
-
-func (s *serverSuite) assertAlive(c *gc.C, entity agentAliver, isAlive bool) {
+func (s *serverSuite) assertAlive(c *gc.C, entity presence.Presencer, isAlive bool) {
 	s.State.StartSync()
-	alive, err := entity.AgentAlive()
+	alive, err := entity.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, isAlive)
 }
@@ -231,10 +229,11 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
 	// for the correct location, but other Paths should fail.
-	srv, err := apiserver.NewServer(
-		s.State, "localhost:0",
-		[]byte(coretesting.ServerCert), []byte(coretesting.ServerKey),
-		"", "")
+	srv, err := apiserver.NewServer(s.State, apiserver.ServerConfig{
+		Addr: "localhost:0",
+		Cert: []byte(coretesting.ServerCert),
+		Key:  []byte(coretesting.ServerKey),
+	})
 	c.Assert(err, gc.IsNil)
 	defer srv.Stop()
 	// We have to use 'localhost' because that is what the TLS cert says.

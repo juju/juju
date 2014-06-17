@@ -9,18 +9,19 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -164,7 +165,7 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 		if err != nil {
 			return results, err
 		}
-		addr := instance.SelectPublicAddress(machine.Addresses())
+		addr := network.SelectPublicAddress(machine.Addresses())
 		if addr == "" {
 			return results, fmt.Errorf("machine %q has no public address", machine)
 		}
@@ -192,7 +193,7 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 		if err != nil {
 			return results, err
 		}
-		addr := instance.SelectInternalAddress(machine.Addresses(), false)
+		addr := network.SelectInternalAddress(machine.Addresses(), false)
 		if addr == "" {
 			return results, fmt.Errorf("machine %q has no internal address", machine)
 		}
@@ -237,11 +238,11 @@ var CharmStore charm.Repository = charm.Store
 func networkTagsToNames(tags []string) ([]string, error) {
 	netNames := make([]string, len(tags))
 	for i, tag := range tags {
-		_, name, err := names.ParseTag(tag, names.NetworkTagKind)
+		t, err := names.ParseNetworkTag(tag)
 		if err != nil {
 			return nil, err
 		}
-		netNames[i] = name
+		netNames[i] = t.Id()
 	}
 	return netNames, nil
 }

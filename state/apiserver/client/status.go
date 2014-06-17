@@ -9,13 +9,13 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -366,7 +366,7 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		if err != nil {
 			status.InstanceState = "error"
 		}
-		status.DNSName = instance.SelectPublicAddress(machine.Addresses())
+		status.DNSName = network.SelectPublicAddress(machine.Addresses())
 	} else {
 		if state.IsNotProvisionedError(err) {
 			status.InstanceId = "pending"
@@ -605,7 +605,7 @@ type lifer interface {
 
 type stateAgent interface {
 	lifer
-	AgentAlive() (bool, error)
+	AgentPresence() (bool, error)
 	AgentTools() (*tools.Tools, error)
 	Status() (params.Status, string, params.StatusData, error)
 }
@@ -633,8 +633,7 @@ func processAgent(entity stateAgent) (
 		// in enquiring about the agent liveness.
 		return
 	}
-
-	agentAlive, err := entity.AgentAlive()
+	agentAlive, err := entity.AgentPresence()
 	if err != nil {
 		return
 	}

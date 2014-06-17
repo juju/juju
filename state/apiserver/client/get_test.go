@@ -6,9 +6,9 @@ package client_test
 import (
 	"fmt"
 
+	"github.com/juju/charm"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state/api/params"
 )

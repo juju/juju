@@ -46,7 +46,7 @@ func NewDeployerAPI(
 		// Then we just check if the unit is already known.
 		return func(tag string) bool {
 			for _, unit := range units {
-				if names.UnitTag(unit) == tag {
+				if names.NewUnitTag(unit).String() == tag {
 					return true
 				}
 			}
@@ -85,11 +85,11 @@ func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, 
 // getAllUnits returns a list of all principal and subordinate units
 // assigned to the given machine.
 func getAllUnits(st *state.State, machineTag string) ([]string, error) {
-	_, id, err := names.ParseTag(machineTag, names.MachineTagKind)
+	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return nil, err
 	}
-	machine, err := st.Machine(id)
+	machine, err := st.Machine(tag.Id())
 	if err != nil {
 		return nil, err
 	}

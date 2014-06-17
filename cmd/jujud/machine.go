@@ -11,6 +11,8 @@ import (
 	"runtime"
 	"time"
 
+	"github.com/juju/charm"
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -21,12 +23,11 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/mongo"
-	"github.com/juju/juju/charm"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -454,11 +455,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			a.startWorkerAfterUpgrade(runner, "instancepoller", func() (worker.Worker, error) {
 				return instancepoller.NewWorker(st), nil
 			})
-			if shouldEnableHA(agentConfig) {
-				a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
-					return peergrouperNew(st)
-				})
-			}
+			a.startWorkerAfterUpgrade(runner, "peergrouper", func() (worker.Worker, error) {
+				return peergrouperNew(st)
+			})
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
@@ -479,8 +478,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				}
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
-				return apiserver.NewServer(
-					st, fmt.Sprintf(":%d", port), cert, key, dataDir, logDir)
+				return apiserver.NewServer(st, apiserver.ServerConfig{
+					Addr:    fmt.Sprintf(":%d", port),
+					Cert:    cert,
+					Key:     key,
+					DataDir: dataDir,
+					LogDir:  logDir,
+				})
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -511,7 +515,6 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 		return fmt.Errorf("state worker was started with no state serving info")
 	}
 	namespace := agentConfig.Value(agent.Namespace)
-	withHA := shouldEnableHA(agentConfig)
 
 	// When upgrading from a pre-HA-capable environment,
 	// we must add machine-0 to the admin database and
@@ -520,7 +523,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	// TODO(axw) remove this when we no longer need
 	// to upgrade from pre-HA-capable environments.
 	var shouldInitiateMongoServer bool
-	var addrs []instance.Address
+	var addrs []network.Address
 	if isPreHAVersion(agentConfig.UpgradedToVersion()) {
 		_, err := a.ensureMongoAdminUser(agentConfig)
 		if err != nil {
@@ -548,7 +551,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 		}
 		st.Close()
 		addrs = m.Addresses()
-		shouldInitiateMongoServer = withHA
+		shouldInitiateMongoServer = true
 	}
 
 	// ensureMongoServer installs/upgrades the upstart config as necessary.
@@ -556,7 +559,6 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 		agentConfig.DataDir(),
 		namespace,
 		servingInfo,
-		withHA,
 	); err != nil {
 		return err
 	}
@@ -572,7 +574,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	if !ok {
 		return fmt.Errorf("state worker was started with no state serving info")
 	}
-	dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())
+	dialInfo, err := mongo.DialInfo(stateInfo.Info, mongo.DefaultDialOpts())
 	if err != nil {
 		return err
 	}
@@ -594,7 +596,7 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 	if !ok1 || !ok2 {
 		return false, fmt.Errorf("no state serving info configuration")
 	}
-	dialInfo, err := state.DialInfo(stateInfo, state.DefaultDialOpts())
+	dialInfo, err := mongo.DialInfo(stateInfo.Info, mongo.DefaultDialOpts())
 	if err != nil {
 		return false, err
 	}
@@ -616,22 +618,12 @@ func isPreHAVersion(v version.Number) bool {
 	return v.Compare(version.MustParse("1.19.0")) < 0
 }
 
-// shouldEnableHA reports whether HA should be enabled.
-//
-// Eventually this should always be true, and ideally
-// it should be true before 1.20 is released or we'll
-// have more upgrade scenarios on our hands.
-func shouldEnableHA(agentConfig agent.Config) bool {
-	providerType := agentConfig.Value(agent.ProviderType)
-	return providerType != provider.Local
-}
-
 func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err error) {
 	info, ok := agentConfig.StateInfo()
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -672,27 +664,29 @@ func (a *MachineAgent) startWorkerAfterUpgrade(runner worker.Runner, name string
 // upgradeWaiterWorker runs the specified worker after upgrades have completed.
 func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) worker.Worker {
 	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		// wait for the upgrade to complete (or for us to be stopped)
+		// Wait for the upgrade to complete (or for us to be stopped).
 		select {
 		case <-stop:
 			return nil
 		case <-a.upgradeComplete:
 		}
-		w, err := start()
+		// Upgrades are done, start the worker.
+		worker, err := start()
 		if err != nil {
 			return err
 		}
+		// Wait for worker to finish or for us to be stopped.
 		waitCh := make(chan error)
 		go func() {
-			waitCh <- w.Wait()
+			waitCh <- worker.Wait()
 		}()
 		select {
 		case err := <-waitCh:
 			return err
 		case <-stop:
-			w.Kill()
+			worker.Kill()
 		}
-		return <-waitCh
+		return <-waitCh // Ensure worker has stopped before returning.
 	})
 }
 
@@ -729,7 +723,7 @@ func (a *MachineAgent) upgradeWorker(
 			if !ok {
 				return fmt.Errorf("no state info available")
 			}
-			st, err = state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
+			st, err = state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 			if err != nil {
 				return err
 			}
@@ -795,11 +789,10 @@ func upgradeTarget(job params.MachineJob) upgrades.Target {
 // have been started. This is provided for testing purposes.
 func (a *MachineAgent) WorkersStarted() <-chan struct{} {
 	return a.workersStarted
-
 }
 
 func (a *MachineAgent) Tag() string {
-	return names.MachineTag(a.MachineId)
+	return names.NewMachineTag(a.MachineId).String()
 }
 
 func (a *MachineAgent) createJujuRun(dataDir string) error {

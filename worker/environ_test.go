@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker"
@@ -55,7 +56,7 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 	// Create an invalid config by taking the current config and
 	// tweaking the provider type.
 	info := s.StateInfo(c)
-	opts := state.DefaultDialOpts()
+	opts := mongo.DefaultDialOpts()
 	st2, err := state.Open(info, opts, state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st2.Close()
@@ -85,7 +86,7 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 
 func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
 	// reopen the state so that we can wangle a dodgy environ config in there.
-	st, err := state.Open(s.StateInfo(c), state.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.StateInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	err = st.UpdateEnvironConfig(map[string]interface{}{"secret": 999}, nil, nil)
@@ -112,7 +113,7 @@ func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
 	oldType = env.Config().AllAttrs()["type"].(string)
 
 	info := s.StateInfo(c)
-	opts := state.DefaultDialOpts()
+	opts := mongo.DefaultDialOpts()
 	st2, err := state.Open(info, opts, state.Policy(nil))
 	defer st2.Close()
 

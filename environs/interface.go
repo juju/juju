@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 )
@@ -118,7 +118,12 @@ type Environ interface {
 
 	// AllocateAddress requests a new address to be allocated for the
 	// given instance on the given network.
-	AllocateAddress(instId instance.Id, netId network.Id) (instance.Address, error)
+	AllocateAddress(instId instance.Id, netId network.Id) (network.Address, error)
+
+	// ListNetworks returns basic information about all networks known
+	// by the provider for the environment. They may be unknown to juju
+	// yet (i.e. when called initially or when a new network was created).
+	ListNetworks() ([]network.BasicInfo, error)
 
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
@@ -158,17 +163,17 @@ type Environ interface {
 	// OpenPorts opens the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ports []instance.Port) error
+	OpenPorts(ports []network.Port) error
 
 	// ClosePorts closes the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ports []instance.Port) error
+	ClosePorts(ports []network.Port) error
 
 	// Ports returns the ports opened for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	Ports() ([]instance.Port, error)
+	Ports() ([]network.Port, error)
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider

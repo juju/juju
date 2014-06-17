@@ -151,7 +151,7 @@ func (f *FirewallerAPI) GetAssignedMachine(args params.Entities) (params.StringR
 			var machineId string
 			machineId, err = unit.AssignedMachineId()
 			if err == nil {
-				result.Results[i].Result = names.MachineTag(machineId)
+				result.Results[i].Result = names.NewMachineTag(machineId).String()
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -199,11 +199,8 @@ func getAuthFuncForTagKind(kind string) common.GetAuthFunc {
 				return kind == ""
 			}
 			// Allow only the given tag kind.
-			_, _, err := names.ParseTag(tag, kind)
-			if err != nil {
-				return false
-			}
-			return true
+			t, err := names.ParseTag(tag)
+			return err == nil && t.Kind() == kind
 		}, nil
 	}
 }

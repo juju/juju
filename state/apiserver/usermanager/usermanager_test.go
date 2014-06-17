@@ -4,12 +4,18 @@
 package usermanager_test
 
 import (
+	"time"
+
+	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	"github.com/juju/juju/state/apiserver/usermanager"
+	"github.com/juju/juju/testing/factory"
 )
 
 type userManagerSuite struct {
@@ -17,6 +23,7 @@ type userManagerSuite struct {
 
 	usermanager *usermanager.UserManagerAPI
 	authorizer  apiservertesting.FakeAuthorizer
+	user        *state.User
 }
 
 var _ = gc.Suite(&userManagerSuite{})
@@ -24,13 +31,14 @@ var _ = gc.Suite(&userManagerSuite{})
 func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
+	user, err := s.State.User("admin")
+	c.Assert(err, gc.IsNil)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      "user-admin",
 		LoggedIn: true,
 		Client:   true,
+		Entity:   user,
 	}
-
-	var err error
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, s.authorizer)
 	c.Assert(err, gc.IsNil)
 }
@@ -115,4 +123,158 @@ func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			params.ErrorResult{expectedError}}})
+}
+
+func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
+	foobar := "foobar"
+	barfoo := "barfoo"
+	fooTag := names.NewUserTag(foobar)
+	barTag := names.NewUserTag(barfoo)
+
+	userFactory := factory.NewFactory(s.State, c)
+	userFactory.MakeUser(factory.UserParams{Username: foobar, DisplayName: "Foo Bar"})
+	userFactory.MakeUser(factory.UserParams{Username: barfoo, DisplayName: "Bar Foo"})
+
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: fooTag.String()}, {Tag: barTag.String()}},
+	}
+	results, err := s.usermanager.UserInfo(args)
+	c.Assert(err, gc.IsNil)
+	expected := params.UserInfoResults{
+		Results: []params.UserInfoResult{
+			{
+				Result: &params.UserInfo{
+					Username:       "foobar",
+					DisplayName:    "Foo Bar",
+					CreatedBy:      "admin",
+					DateCreated:    time.Time{},
+					LastConnection: time.Time{},
+				},
+			}, {
+				Result: &params.UserInfo{
+					Username:       "barfoo",
+					DisplayName:    "Bar Foo",
+					CreatedBy:      "admin",
+					DateCreated:    time.Time{},
+					LastConnection: time.Time{},
+				},
+			}},
+	}
+
+	// set DateCreated to nil as we cannot know the exact time user was created
+	results.Results[0].Result.DateCreated = time.Time{}
+	results.Results[1].Result.DateCreated = time.Time{}
+
+	c.Assert(results, jc.DeepEquals, expected)
+}
+
+func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
+	foobar := "foobar"
+	fooTag := names.NewUserTag(foobar)
+
+	userFactory := factory.NewFactory(s.State, c)
+	userFactory.MakeUser(factory.UserParams{Username: foobar, DisplayName: "Foo Bar"})
+
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: fooTag.String()}},
+	}
+	results, err := s.usermanager.UserInfo(args)
+	c.Assert(err, gc.IsNil)
+	expected := params.UserInfoResults{
+		Results: []params.UserInfoResult{
+			{
+				Result: &params.UserInfo{
+					Username:       "foobar",
+					DisplayName:    "Foo Bar",
+					CreatedBy:      "admin",
+					DateCreated:    time.Time{},
+					LastConnection: time.Time{},
+				},
+			},
+		},
+	}
+
+	// set DateCreated to nil as we cannot know the exact time user was created
+	results.Results[0].Result.DateCreated = time.Time{}
+
+	c.Assert(results, gc.DeepEquals, expected)
+}
+
+func (s *userManagerSuite) TestUserInfoUserDoesNotExist(c *gc.C) {
+	userTag := names.NewUserTag("foobar")
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: userTag.String()}},
+	}
+	results, err := s.usermanager.UserInfo(args)
+	c.Assert(err, gc.IsNil)
+	expected := params.UserInfoResults{
+		Results: []params.UserInfoResult{
+			{
+				Result: nil,
+				Error: &params.Error{
+					Message: "permission denied",
+					Code:    params.CodeUnauthorized,
+				},
+			},
+		},
+	}
+	c.Assert(results, gc.DeepEquals, expected)
+}
+
+func (s *userManagerSuite) TestUserInfoMachineTagFails(c *gc.C) {
+	userTag := names.NewMachineTag("0")
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: userTag.String()}},
+	}
+	results, err := s.usermanager.UserInfo(args)
+	c.Assert(err, gc.IsNil)
+	expected := params.UserInfoResults{
+		Results: []params.UserInfoResult{
+			{
+				Result: nil,
+				Error: &params.Error{
+					Message: `"machine-0" is not a valid user tag`,
+					Code:    "",
+				},
+			},
+		},
+	}
+	c.Assert(results, gc.DeepEquals, expected)
+}
+
+func (s *userManagerSuite) TestUserInfoNotATagFails(c *gc.C) {
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: "notatag"}},
+	}
+	results, err := s.usermanager.UserInfo(args)
+	c.Assert(err, gc.IsNil)
+	expected := params.UserInfoResults{
+		Results: []params.UserInfoResult{
+			{
+				Result: nil,
+				Error: &params.Error{
+					Message: `"notatag" is not a valid tag`,
+					Code:    "",
+				},
+			},
+		},
+	}
+	c.Assert(results, gc.DeepEquals, expected)
+}
+
+func (s *userManagerSuite) TestAgentUnauthorized(c *gc.C) {
+
+	machine1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
+
+	// Create a FakeAuthorizer so we can check permissions,
+	// set up assuming machine 1 has logged in.
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag:          machine1.Tag(),
+		LoggedIn:     true,
+		MachineAgent: true,
+	}
+
+	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, s.authorizer)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

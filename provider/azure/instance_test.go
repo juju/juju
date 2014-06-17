@@ -13,6 +13,7 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -144,18 +145,18 @@ func (s *instanceSuite) TestAddresses(c *gc.C) {
 	})
 	gwacl.PatchManagementAPIResponses(responses)
 
-	expected := []instance.Address{
-		instance.Address{
+	expected := []network.Address{
+		network.Address{
 			"1.2.3.4",
-			instance.Ipv4Address,
+			network.IPv4Address,
 			vnn,
-			instance.NetworkCloudLocal,
+			network.ScopeCloudLocal,
 		},
-		instance.Address{
+		network.Address{
 			s.service.ServiceName + "." + AzureDomainName,
-			instance.HostName,
+			network.HostName,
 			"",
-			instance.NetworkPublic,
+			network.ScopePublic,
 		},
 	}
 
@@ -170,7 +171,7 @@ func (s *instanceSuite) TestOpenPorts(c *gc.C) {
 
 	responses := preparePortChangeConversation(c, s.role)
 	record := gwacl.PatchManagementAPIResponses(responses)
-	err := s.instance.OpenPorts("machine-id", []instance.Port{
+	err := s.instance.OpenPorts("machine-id", []network.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 	c.Assert(err, gc.IsNil)
@@ -200,7 +201,7 @@ func (s *instanceSuite) TestOpenPortsFailsWhenUnableToGetRole(c *gc.C) {
 	responses := preparePortChangeConversation(c, s.role)
 	failPortChangeConversationAt(1, responses) // 1st request, GetRole
 	record := gwacl.PatchManagementAPIResponses(responses)
-	err := s.instance.OpenPorts("machine-id", []instance.Port{
+	err := s.instance.OpenPorts("machine-id", []network.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 	c.Check(err, gc.ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
@@ -211,7 +212,7 @@ func (s *instanceSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *gc.C) {
 	responses := preparePortChangeConversation(c, s.role)
 	failPortChangeConversationAt(2, responses) // 2nd request, UpdateRole
 	record := gwacl.PatchManagementAPIResponses(responses)
-	err := s.instance.OpenPorts("machine-id", []instance.Port{
+	err := s.instance.OpenPorts("machine-id", []network.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 	c.Check(err, gc.ErrorMatches, "PUT request failed [(]500: Internal Server Error[)]")
@@ -220,27 +221,27 @@ func (s *instanceSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *gc.C) {
 
 func (s *instanceSuite) TestClosePorts(c *gc.C) {
 	type test struct {
-		inputPorts  []instance.Port
-		removePorts []instance.Port
-		outputPorts []instance.Port
+		inputPorts  []network.Port
+		removePorts []network.Port
+		outputPorts []network.Port
 	}
 
 	tests := []test{{
-		inputPorts:  []instance.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
+		inputPorts:  []network.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
 		removePorts: nil,
-		outputPorts: []instance.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
+		outputPorts: []network.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
 	}, {
-		inputPorts:  []instance.Port{{"tcp", 1}},
-		removePorts: []instance.Port{{"udp", 1}},
-		outputPorts: []instance.Port{{"tcp", 1}},
+		inputPorts:  []network.Port{{"tcp", 1}},
+		removePorts: []network.Port{{"udp", 1}},
+		outputPorts: []network.Port{{"tcp", 1}},
 	}, {
-		inputPorts:  []instance.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
-		removePorts: []instance.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
-		outputPorts: []instance.Port{},
+		inputPorts:  []network.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
+		removePorts: []network.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
+		outputPorts: []network.Port{},
 	}, {
-		inputPorts:  []instance.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
-		removePorts: []instance.Port{{"tcp", 99}},
-		outputPorts: []instance.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
+		inputPorts:  []network.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
+		removePorts: []network.Port{{"tcp", 99}},
+		outputPorts: []network.Port{{"tcp", 1}, {"tcp", 2}, {"udp", 3}},
 	}}
 
 	for i, test := range tests {
@@ -280,7 +281,7 @@ func (s *instanceSuite) TestClosePortsFailsWhenUnableToGetRole(c *gc.C) {
 	responses := preparePortChangeConversation(c, s.role)
 	failPortChangeConversationAt(1, responses) // 1st request, GetRole
 	record := gwacl.PatchManagementAPIResponses(responses)
-	err := s.instance.ClosePorts("machine-id", []instance.Port{
+	err := s.instance.ClosePorts("machine-id", []network.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 	c.Check(err, gc.ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
@@ -291,7 +292,7 @@ func (s *instanceSuite) TestClosePortsFailsWhenUnableToUpdateRole(c *gc.C) {
 	responses := preparePortChangeConversation(c, s.role)
 	failPortChangeConversationAt(2, responses) // 2nd request, UpdateRole
 	record := gwacl.PatchManagementAPIResponses(responses)
-	err := s.instance.ClosePorts("machine-id", []instance.Port{
+	err := s.instance.ClosePorts("machine-id", []network.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 	c.Check(err, gc.ErrorMatches, "PUT request failed [(]500: Internal Server Error[)]")
@@ -313,7 +314,7 @@ func (s *instanceSuite) TestConvertAndFilterEndpoints(c *gc.C) {
 			Port:      44,
 		}}
 	endpoints = append(endpoints, s.env.getInitialEndpoints(true)...)
-	expectedPorts := []instance.Port{
+	expectedPorts := []network.Port{
 		{
 			Number:   1123,
 			Protocol: "udp",
@@ -373,15 +374,15 @@ func (s *instanceSuite) testPorts(c *gc.C, maskStateServerPorts bool) {
 		{"GET", ".*/deployments/deployment-one/roles/role-one"}, // GetRole
 	})
 
-	expected := []instance.Port{
+	expected := []network.Port{
 		{Number: 4456, Protocol: "tcp"},
 		{Number: 1123, Protocol: "udp"},
 		{Number: 2123, Protocol: "udp"},
 	}
 	if !maskStateServerPorts {
-		expected = append(expected, instance.Port{Number: s.env.Config().StatePort(), Protocol: "tcp"})
-		expected = append(expected, instance.Port{Number: s.env.Config().APIPort(), Protocol: "tcp"})
-		instance.SortPorts(expected)
+		expected = append(expected, network.Port{Number: s.env.Config().StatePort(), Protocol: "tcp"})
+		expected = append(expected, network.Port{Number: s.env.Config().APIPort(), Protocol: "tcp"})
+		network.SortPorts(expected)
 	}
 	c.Check(ports, gc.DeepEquals, expected)
 }

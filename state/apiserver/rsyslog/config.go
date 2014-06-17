@@ -4,7 +4,7 @@ import (
 	"net"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	apirsyslog "github.com/juju/juju/state/api/rsyslog"
 )
 
@@ -24,11 +24,11 @@ func newRsyslogConfig(envCfg *config.Config, api *RsyslogAPI) (*apirsyslog.Rsysl
 		}
 		bareAddrs = append(bareAddrs, hostOnly)
 	}
-	apiAddresses := instance.NewAddresses(bareAddrs...)
+	apiAddresses := network.NewAddresses(bareAddrs...)
 
 	return &apirsyslog.RsyslogConfig{
 		CACert:    envCfg.RsyslogCACert(),
 		Port:      port,
-		HostPorts: instance.AddressesWithPort(apiAddresses, port),
+		HostPorts: network.AddressesWithPort(apiAddresses, port),
 	}, nil
 }

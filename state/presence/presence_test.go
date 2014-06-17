@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
@@ -21,7 +22,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type PresenceSuite struct {
-	testing.MgoSuite
+	gitjujutesting.MgoSuite
 	testing.BaseSuite
 	presence *mgo.Collection
 	pings    *mgo.Collection

@@ -6,14 +6,14 @@ package uniter_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
@@ -320,7 +320,7 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 	})
 
 	// Now set it an try again.
-	err = s.machine0.SetAddresses(instance.NewAddress("1.2.3.4", instance.NetworkPublic))
+	err = s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopePublic))
 	c.Assert(err, gc.IsNil)
 	address, ok := s.wordpressUnit.PublicAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
@@ -358,7 +358,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 	})
 
 	// Now set it and try again.
-	err = s.machine0.SetAddresses(instance.NewAddress("1.2.3.4", instance.NetworkCloudLocal))
+	err = s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
 	c.Assert(err, gc.IsNil)
 	address, ok := s.wordpressUnit.PrivateAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
@@ -664,7 +664,7 @@ func (s *uniterSuite) TestOpenPort(c *gc.C) {
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
 	openedPorts = s.wordpressUnit.OpenedPorts()
-	c.Assert(openedPorts, gc.DeepEquals, []instance.Port{
+	c.Assert(openedPorts, gc.DeepEquals, []network.Port{
 		{Protocol: "udp", Number: 4321},
 	})
 }
@@ -676,7 +676,7 @@ func (s *uniterSuite) TestClosePort(c *gc.C) {
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
 	openedPorts := s.wordpressUnit.OpenedPorts()
-	c.Assert(openedPorts, gc.DeepEquals, []instance.Port{
+	c.Assert(openedPorts, gc.DeepEquals, []network.Port{
 		{Protocol: "udp", Number: 4321},
 	})
 
@@ -951,7 +951,7 @@ func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScop
 
 func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	// Set wordpressUnit's private address first.
-	err := s.machine0.SetAddresses(instance.NewAddress("1.2.3.4", instance.NetworkCloudLocal))
+	err := s.machine0.SetAddresses(network.NewAddress("1.2.3.4", network.ScopeCloudLocal))
 	c.Assert(err, gc.IsNil)
 
 	rel := s.addRelation(c, "wordpress", "mysql")
@@ -1402,8 +1402,8 @@ func (s *uniterSuite) TestWatchRelationUnits(c *gc.C) {
 }
 
 func (s *uniterSuite) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		Port:    1234,
 	}}}
 

@@ -13,7 +13,7 @@ import (
 	"github.com/juju/utils/exec"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/client"
@@ -35,7 +35,7 @@ func (s *runSuite) addMachine(c *gc.C) *state.Machine {
 
 func (s *runSuite) addMachineWithAddress(c *gc.C, address string) *state.Machine {
 	machine := s.addMachine(c)
-	machine.SetAddresses(instance.NewAddress(address, instance.NetworkUnknown))
+	machine.SetAddresses(network.NewAddress(address, network.ScopeUnknown))
 	return machine
 }
 
@@ -70,7 +70,7 @@ func (s *runSuite) addUnit(c *gc.C, service *state.Service) *state.Unit {
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.Machine(mId)
 	c.Assert(err, gc.IsNil)
-	machine.SetAddresses(instance.NewAddress("10.3.2.1", instance.NetworkUnknown))
+	machine.SetAddresses(network.NewAddress("10.3.2.1", network.ScopeUnknown))
 	return unit
 }
 

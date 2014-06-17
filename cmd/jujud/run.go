@@ -9,12 +9,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/cmd"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/worker/uniter"
 )
 
@@ -75,7 +75,7 @@ func (c *RunCommand) Init(args []string) error {
 		// change it to the unit tag as that is the format of the agent directory
 		// on disk (unit-service-2).
 		if names.IsUnit(c.unit) {
-			c.unit = names.UnitTag(c.unit)
+			c.unit = names.NewUnitTag(c.unit).String()
 		}
 	}
 	if len(args) < 1 {

@@ -4,10 +4,10 @@
 package uniter_test
 
 import (
+	"github.com/juju/charm"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/uniter"
 )

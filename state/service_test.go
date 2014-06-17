@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/charm"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -30,7 +30,7 @@ var _ = gc.Suite(&ServiceSuite{})
 
 func (s *ServiceSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.getConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -1010,7 +1010,7 @@ func (s *ServiceSuite) TestDestroyWithReferencedRelation(c *gc.C) {
 	s.assertDestroyWithReferencedRelation(c, true)
 }
 
-func (s *ServiceSuite) TestDestroyWithreferencedRelationStaleCount(c *gc.C) {
+func (s *ServiceSuite) TestDestroyWithReferencedRelationStaleCount(c *gc.C) {
 	s.assertDestroyWithReferencedRelation(c, false)
 }
 

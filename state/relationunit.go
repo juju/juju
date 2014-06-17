@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"github.com/juju/juju/charm"
+	statetxn "github.com/juju/juju/state/txn"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -277,12 +278,19 @@ func (ru *RelationUnit) LeaveScope() error {
 	// Destroy changes the Life attribute in memory (units could join before
 	// the database is actually changed).
 	desc := fmt.Sprintf("unit %q in relation %q", ru.unit, ru.relation)
-	for attempt := 0; attempt < 3; attempt++ {
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		if attempt > 0 {
+			if err := ru.relation.Refresh(); errors.IsNotFound(err) {
+				return nil, statetxn.ErrNoOperations
+			} else if err != nil {
+				return nil, err
+			}
+		}
 		count, err := ru.st.relationScopes.FindId(key).Count()
 		if err != nil {
-			return fmt.Errorf("cannot examine scope for %s: %v", desc, err)
+			return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 		} else if count == 0 {
-			return nil
+			return nil, statetxn.ErrNoOperations
 		}
 		ops := []txn.Op{{
 			C:      ru.st.relationScopes.Name,
@@ -307,23 +315,16 @@ func (ru *RelationUnit) LeaveScope() error {
 		} else {
 			relOps, err := ru.relation.removeOps("", ru.unit)
 			if err != nil {
-				return err
+				return nil, err
 			}
 			ops = append(ops, relOps...)
 		}
-		if err = ru.st.runTransaction(ops); err != txn.ErrAborted {
-			if err != nil {
-				return fmt.Errorf("cannot leave scope for %s: %v", desc, err)
-			}
-			return err
-		}
-		if err := ru.relation.Refresh(); errors.IsNotFound(err) {
-			return nil
-		} else if err != nil {
-			return err
-		}
+		return ops, nil
 	}
-	return fmt.Errorf("cannot leave scope for %s: inconsistent state", desc)
+	if err = ru.st.run(buildTxn); err != nil {
+		return fmt.Errorf("cannot leave scope for %s: %v", desc, err)
+	}
+	return nil
 }
 
 // InScope returns whether the relation unit has entered scope and not left it.

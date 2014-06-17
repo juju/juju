@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
@@ -1054,8 +1055,9 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 			// Last one was ignored, so don't check.
 			break
 		}
-		_, networkName, err := names.ParseTag(networks[i].Tag, names.NetworkTagKind)
+		tag, err := names.ParseNetworkTag(networks[i].Tag)
 		c.Assert(err, gc.IsNil)
+		networkName := tag.Id()
 		network, err := s.State.Network(networkName)
 		c.Assert(err, gc.IsNil)
 		c.Check(network.Name(), gc.Equals, networkName)
@@ -1298,8 +1300,8 @@ func (s *withStateServerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *withStateServerSuite) TestAPIAddresses(c *gc.C) {
-	hostPorts := [][]instance.HostPort{{{
-		Address: instance.NewAddress("0.1.2.3", instance.NetworkUnknown),
+	hostPorts := [][]network.HostPort{{{
+		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		Port:    1234,
 	}}}
 

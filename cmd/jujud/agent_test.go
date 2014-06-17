@@ -10,17 +10,19 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/cmd"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -239,7 +241,7 @@ func (s *agentSuite) SetUpSuite(c *gc.C) {
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
 	worker.RestartDelay = 250 * time.Millisecond
-	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo, bool) error {
+	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo) error {
 		return nil
 	})
 }
@@ -287,27 +289,27 @@ func (s *agentSuite) primeAPIHostPorts(c *gc.C) {
 	hostPort, err := parseHostPort(apiInfo.Addrs[0])
 	c.Assert(err, gc.IsNil)
 
-	err = s.State.SetAPIHostPorts([][]instance.HostPort{{hostPort}})
+	err = s.State.SetAPIHostPorts([][]network.HostPort{{hostPort}})
 	c.Assert(err, gc.IsNil)
 }
 
-func parseHostPort(s string) (instance.HostPort, error) {
+func parseHostPort(s string) (network.HostPort, error) {
 	addr, port, err := net.SplitHostPort(s)
 	if err != nil {
-		return instance.HostPort{}, err
+		return network.HostPort{}, err
 	}
 	portNum, err := strconv.Atoi(port)
 	if err != nil {
-		return instance.HostPort{}, fmt.Errorf("bad port number %q", port)
+		return network.HostPort{}, fmt.Errorf("bad port number %q", port)
 	}
-	addrs := instance.NewAddresses(addr)
-	hostPorts := instance.AddressesWithPort(addrs, portNum)
+	addrs := network.NewAddresses(addr)
+	hostPorts := network.AddressesWithPort(addrs, portNum)
 	return hostPorts[0], nil
 }
 
 // writeStateAgentConfig creates and writes a state agent config.
 func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
-	port := coretesting.FindTCPPort()
+	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
 		agent.AgentConfigParams{
@@ -323,7 +325,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 		params.StateServingInfo{
 			Cert:       coretesting.ServerCert,
 			PrivateKey: coretesting.ServerKey,
-			StatePort:  coretesting.MgoServer.Port(),
+			StatePort:  gitjujutesting.MgoServer.Port(),
 			APIPort:    port,
 		})
 	c.Assert(err, gc.IsNil)
@@ -399,7 +401,7 @@ func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 	c.Assert(err, gc.IsNil)
 	info, ok := config.StateInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	st.Close()
 }

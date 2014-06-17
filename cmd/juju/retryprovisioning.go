@@ -6,9 +6,9 @@ package main
 import (
 	"fmt"
 
+	"github.com/juju/cmd"
 	"github.com/juju/names"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju"
 )
@@ -37,7 +37,7 @@ func (c *RetryProvisioningCommand) Init(args []string) error {
 		if !names.IsMachine(arg) {
 			return fmt.Errorf("invalid machine %q", arg)
 		}
-		c.Machines[i] = names.MachineTag(arg)
+		c.Machines[i] = names.NewMachineTag(arg).String()
 	}
 	return nil
 }

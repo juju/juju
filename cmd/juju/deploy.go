@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/charm"
+	"github.com/juju/cmd"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/charm"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -310,7 +310,7 @@ func networkNamesToTags(networks []string) ([]string, error) {
 		if !names.IsNetwork(network) {
 			return nil, fmt.Errorf("%q is not a valid network name", network)
 		}
-		tags = append(tags, names.NetworkTag(network))
+		tags = append(tags, names.NewNetworkTag(network).String())
 	}
 	return tags, nil
 }

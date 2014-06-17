@@ -10,6 +10,7 @@ import (
 	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 type maasInstance struct {
@@ -67,13 +68,13 @@ func (mi *maasInstance) getMaasObject() *gomaasapi.MAASObject {
 	return mi.maasObject
 }
 
-func (mi *maasInstance) Addresses() ([]instance.Address, error) {
+func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	name, err := mi.hostname()
 	if err != nil {
 		return nil, err
 	}
-	host := instance.Address{name, instance.HostName, "", instance.NetworkPublic}
-	addrs := []instance.Address{host}
+	host := network.Address{name, network.HostName, "", network.ScopePublic}
+	addrs := []network.Address{host}
 
 	ips, err := mi.ipAddresses()
 	if err != nil {
@@ -81,7 +82,7 @@ func (mi *maasInstance) Addresses() ([]instance.Address, error) {
 	}
 
 	for _, ip := range ips {
-		a := instance.NewAddress(ip, instance.NetworkUnknown)
+		a := network.NewAddress(ip, network.ScopeUnknown)
 		addrs = append(addrs, a)
 	}
 
@@ -116,17 +117,17 @@ func (mi *maasInstance) hostname() (string, error) {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (mi *maasInstance) OpenPorts(machineId string, ports []instance.Port) error {
+func (mi *maasInstance) OpenPorts(machineId string, ports []network.Port) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (mi *maasInstance) ClosePorts(machineId string, ports []instance.Port) error {
+func (mi *maasInstance) ClosePorts(machineId string, ports []network.Port) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (mi *maasInstance) Ports(machineId string) ([]instance.Port, error) {
+func (mi *maasInstance) Ports(machineId string) ([]network.Port, error) {
 	logger.Debugf("unimplemented Ports() called")
-	return []instance.Port{}, nil
+	return []network.Port{}, nil
 }

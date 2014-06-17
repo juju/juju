@@ -9,8 +9,8 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -27,11 +27,11 @@ type APIAddressUpdaterSuite struct {
 var _ = gc.Suite(&APIAddressUpdaterSuite{})
 
 type apiAddressSetter struct {
-	servers chan [][]instance.HostPort
+	servers chan [][]network.HostPort
 	err     error
 }
 
-func (s *apiAddressSetter) SetAPIHostPorts(servers [][]instance.HostPort) error {
+func (s *apiAddressSetter) SetAPIHostPorts(servers [][]network.HostPort) error {
 	s.servers <- servers
 	return s.err
 }
@@ -44,14 +44,14 @@ func (s *APIAddressUpdaterSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
-	updatedServers := [][]instance.HostPort{instance.AddressesWithPort(
-		instance.NewAddresses("localhost", "127.0.0.1"),
+	updatedServers := [][]network.HostPort{network.AddressesWithPort(
+		network.NewAddresses("localhost", "127.0.0.1"),
 		1234,
 	)}
 	err := s.State.SetAPIHostPorts(updatedServers)
 	c.Assert(err, gc.IsNil)
 
-	setter := &apiAddressSetter{servers: make(chan [][]instance.HostPort, 1)}
+	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
@@ -67,14 +67,14 @@ func (s *APIAddressUpdaterSuite) TestAddressInitialUpdate(c *gc.C) {
 }
 
 func (s *APIAddressUpdaterSuite) TestAddressChange(c *gc.C) {
-	setter := &apiAddressSetter{servers: make(chan [][]instance.HostPort, 1)}
+	setter := &apiAddressSetter{servers: make(chan [][]network.HostPort, 1)}
 	st, _ := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker := apiaddressupdater.NewAPIAddressUpdater(st.Machiner(), setter)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
 	s.BackingState.StartSync()
-	updatedServers := [][]instance.HostPort{instance.AddressesWithPort(
-		instance.NewAddresses("localhost", "127.0.0.1"),
+	updatedServers := [][]network.HostPort{network.AddressesWithPort(
+		network.NewAddresses("localhost", "127.0.0.1"),
 		1234,
 	)}
 	// SetAPIHostPorts should be called with the initial value (empty),

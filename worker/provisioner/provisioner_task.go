@@ -15,9 +15,9 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
-	"github.com/juju/juju/environs/network"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 	apiwatcher "github.com/juju/juju/state/api/watcher"
@@ -276,7 +276,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	// change list.
 	// TODO(thumper): update for API server later to get all machines in one go.
 	for _, id := range ids {
-		machineTag := names.MachineTag(id)
+		machineTag := names.NewMachineTag(id).String()
 		machine, err := task.machineGetter.Machine(machineTag)
 		switch {
 		case params.IsCodeNotFoundOrCodeUnauthorized(err):
@@ -434,7 +434,7 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 	}
 	visitedNetworks := set.NewStrings()
 	for _, info := range networkInfo {
-		networkTag := names.NetworkTag(info.NetworkName)
+		networkTag := names.NewNetworkTag(info.NetworkName).String()
 		if !visitedNetworks.Contains(networkTag) {
 			networks = append(networks, params.Network{
 				Tag:        networkTag,
@@ -448,7 +448,7 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 			InterfaceName: info.InterfaceName,
 			MACAddress:    info.MACAddress,
 			NetworkTag:    networkTag,
-			IsVirtual:     info.IsVirtual,
+			IsVirtual:     info.IsVirtual(),
 		})
 	}
 	return networks, ifaces

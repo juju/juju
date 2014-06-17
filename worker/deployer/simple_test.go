@@ -206,7 +206,7 @@ func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir s
 }
 
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string) {
-	tag := names.UnitTag(name)
+	tag := names.NewUnitTag(name).String()
 	uconfPath, _, toolsDir := fix.paths(tag)
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, gc.IsNil)
@@ -246,7 +246,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
-	tag := names.UnitTag(name)
+	tag := names.NewUnitTag(name).String()
 	confPath, agentDir, toolsDir := fix.paths(tag)
 	for _, path := range []string{confPath, agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)

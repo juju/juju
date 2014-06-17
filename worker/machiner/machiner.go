@@ -9,7 +9,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/machiner"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
@@ -66,7 +66,7 @@ func setMachineAddresses(m *machiner.Machine) error {
 	if err != nil {
 		return err
 	}
-	var hostAddresses []instance.Address
+	var hostAddresses []network.Address
 	for _, addr := range addrs {
 		var ip net.IP
 		switch addr := addr.(type) {
@@ -77,7 +77,7 @@ func setMachineAddresses(m *machiner.Machine) error {
 		default:
 			continue
 		}
-		address := instance.NewAddress(ip.String(), instance.NetworkUnknown)
+		address := network.NewAddress(ip.String(), network.ScopeUnknown)
 		hostAddresses = append(hostAddresses, address)
 	}
 	if len(hostAddresses) == 0 {

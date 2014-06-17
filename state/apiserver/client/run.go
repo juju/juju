@@ -14,7 +14,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
@@ -27,7 +27,7 @@ import (
 // by the function that actually tries to execute the command.
 func remoteParamsForMachine(machine *state.Machine, command string, timeout time.Duration) *RemoteExec {
 	// magic boolean parameters are bad :-(
-	address := instance.SelectInternalAddress(machine.Addresses(), false)
+	address := network.SelectInternalAddress(machine.Addresses(), false)
 	execParams := &RemoteExec{
 		ExecParams: ssh.ExecParams{
 			Command: command,

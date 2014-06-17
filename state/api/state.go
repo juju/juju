@@ -7,7 +7,7 @@ import (
 	"net"
 	"strconv"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/agent"
 	"github.com/juju/juju/state/api/charmrevisionupdater"
 	"github.com/juju/juju/state/api/deployer"
@@ -50,7 +50,7 @@ func (st *State) Login(tag, password, nonce string) error {
 
 // slideAddressToFront moves the address at the location (serverIndex, addrIndex) to be
 // the first address of the first server.
-func slideAddressToFront(servers [][]instance.HostPort, serverIndex, addrIndex int) {
+func slideAddressToFront(servers [][]network.HostPort, serverIndex, addrIndex int) {
 	server := servers[serverIndex]
 	hostPort := server[addrIndex]
 	// Move the matching address to be the first in this server
@@ -67,7 +67,7 @@ func slideAddressToFront(servers [][]instance.HostPort, serverIndex, addrIndex i
 // addAddress appends a new server derived from the given
 // address to servers if the address is not already found
 // there.
-func addAddress(servers [][]instance.HostPort, addr string) ([][]instance.HostPort, error) {
+func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort, error) {
 	for i, server := range servers {
 		for j, hostPort := range server {
 			if hostPort.NetAddr() == addr {
@@ -84,12 +84,12 @@ func addAddress(servers [][]instance.HostPort, addr string) ([][]instance.HostPo
 	if err != nil {
 		return nil, err
 	}
-	hostPort := instance.HostPort{
-		Address: instance.NewAddress(host, instance.NetworkUnknown),
+	hostPort := network.HostPort{
+		Address: network.NewAddress(host, network.ScopeUnknown),
 		Port:    port,
 	}
-	result := make([][]instance.HostPort, 0, len(servers)+1)
-	result = append(result, []instance.HostPort{hostPort})
+	result := make([][]network.HostPort, 0, len(servers)+1)
+	result = append(result, []network.HostPort{hostPort})
 	result = append(result, servers...)
 	return result, nil
 }

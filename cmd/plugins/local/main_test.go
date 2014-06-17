@@ -8,11 +8,11 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/plugins/local"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -26,6 +26,7 @@ var _ = gc.Suite(&mainSuite{})
 func (*mainSuite) TestRegisteredCommands(c *gc.C) {
 	expectedSubcommands := []string{
 		"help",
+		"version",
 		// TODO: add some as they get registered
 	}
 	plugin := local.JujuLocalPlugin()

@@ -32,10 +32,10 @@ func (s *EnsureAvailabilitySuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	m, err := s.BackingState.Machine("0")
 	c.Assert(err, gc.IsNil)
-	s.machine0Pinger, err = m.SetAgentAlive()
+	s.machine0Pinger, err = m.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 	s.BackingState.StartSync()
-	err = m.WaitAgentAlive(coretesting.LongWait)
+	err = m.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -137,7 +137,7 @@ func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityErrors(c *gc.C) {
 	err := runEnsureAvailability(c, "-n", "3")
 	c.Assert(err, gc.IsNil)
 	err = runEnsureAvailability(c, "-n", "1")
-	c.Assert(err, gc.ErrorMatches, "cannot reduce state server count")
+	c.Assert(err, gc.ErrorMatches, "failed to create new state server machines: cannot reduce state server count")
 }
 
 func (s *EnsureAvailabilitySuite) TestEnsureAvailabilityAllows0(c *gc.C) {

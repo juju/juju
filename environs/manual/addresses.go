@@ -6,31 +6,31 @@ package manual
 import (
 	"net"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 var netLookupHost = net.LookupHost
 
-// HostAddress returns an instance.Address for the specified
+// HostAddress returns an network.Address for the specified
 // hostname, depending on whether it is an IP or a resolvable
 // hostname. The address is given public scope.
-func HostAddress(hostname string) (instance.Address, error) {
+func HostAddress(hostname string) (network.Address, error) {
 	if ip := net.ParseIP(hostname); ip != nil {
-		addr := instance.Address{
-			Value:        ip.String(),
-			Type:         instance.DeriveAddressType(ip.String()),
-			NetworkScope: instance.NetworkPublic,
+		addr := network.Address{
+			Value: ip.String(),
+			Type:  network.DeriveAddressType(ip.String()),
+			Scope: network.ScopePublic,
 		}
 		return addr, nil
 	}
 	// Only a resolvable hostname may be used as a public address.
 	if _, err := netLookupHost(hostname); err != nil {
-		return instance.Address{}, err
+		return network.Address{}, err
 	}
-	addr := instance.Address{
-		Value:        hostname,
-		Type:         instance.HostName,
-		NetworkScope: instance.NetworkPublic,
+	addr := network.Address{
+		Value: hostname,
+		Type:  network.HostName,
+		Scope: network.ScopePublic,
 	}
 	return addr, nil
 }

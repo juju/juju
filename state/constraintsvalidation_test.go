@@ -20,7 +20,7 @@ var _ = gc.Suite(&constraintsValidationSuite{})
 
 func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.getConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem, constraints.Arch})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})

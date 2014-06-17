@@ -18,7 +18,7 @@ import (
 	"github.com/juju/utils/parallel"
 
 	"github.com/juju/juju/cert"
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/jsoncodec"
 	"github.com/juju/juju/state/api/params"
@@ -42,7 +42,7 @@ type State struct {
 
 	// hostPorts is the API server addresses returned from Login,
 	// which the client may cache and use for failover.
-	hostPorts [][]instance.HostPort
+	hostPorts [][]network.HostPort
 
 	// authTag holds the authenticated entity's tag after login.
 	authTag string
@@ -129,13 +129,13 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	pool.AddCert(xcert)
 
-	environUUID := ""
+	var environUUID string
 	if info.EnvironTag != "" {
-		_, envUUID, err := names.ParseTag(info.EnvironTag, names.EnvironTagKind)
+		tag, err := names.ParseEnvironTag(info.EnvironTag)
 		if err != nil {
 			return nil, err
 		}
-		environUUID = envUUID
+		environUUID = tag.Id()
 	}
 	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, nil)
@@ -315,10 +315,10 @@ func (s *State) EnvironTag() string {
 // Juju CLI, all addresses must be attempted, as the CLI may
 // be invoked both within and outside the environment (think
 // private clouds).
-func (s *State) APIHostPorts() [][]instance.HostPort {
-	hostPorts := make([][]instance.HostPort, len(s.hostPorts))
+func (s *State) APIHostPorts() [][]network.HostPort {
+	hostPorts := make([][]network.HostPort, len(s.hostPorts))
 	for i, server := range s.hostPorts {
-		hostPorts[i] = append([]instance.HostPort{}, server...)
+		hostPorts[i] = append([]network.HostPort{}, server...)
 	}
 	return hostPorts
 }

@@ -9,7 +9,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 )
 
 // stateServerAddresses returns the list of internal addresses of the state
@@ -30,7 +30,7 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	apiAddrs := make([]string, 0, len(allAddresses))
 	for _, addrs := range allAddresses {
 		instAddrs := addressesToInstanceAddresses(addrs.Addresses)
-		addr := instance.SelectInternalAddress(instAddrs, false)
+		addr := network.SelectInternalAddress(instAddrs, false)
 		if addr != "" {
 			apiAddrs = append(apiAddrs, addr)
 		}
@@ -88,7 +88,7 @@ type apiHostPortsDoc struct {
 // SetAPIHostPorts sets the addresses of the API server
 // instances. Each server is represented by one element
 // in the top level slice.
-func (st *State) SetAPIHostPorts(hps [][]instance.HostPort) error {
+func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
 	doc := apiHostPortsDoc{
 		APIHostPorts: instanceHostPortsToHostPorts(hps),
 	}
@@ -109,7 +109,7 @@ func (st *State) SetAPIHostPorts(hps [][]instance.HostPort) error {
 }
 
 // APIHostPorts returns the API addresses as set by SetAPIHostPorts.
-func (st *State) APIHostPorts() ([][]instance.HostPort, error) {
+func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 	var doc apiHostPortsDoc
 	err := st.stateServers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
 	if err != nil {
@@ -147,72 +147,72 @@ func (st *State) DeployerConnectionInfo() (*DeployerConnectionValues, error) {
 // stuff at some point. We want to use juju-specific network names
 // that point to existing documents in the networks collection.
 type address struct {
-	Value        string
-	AddressType  instance.AddressType
-	NetworkName  string                `bson:",omitempty"`
-	NetworkScope instance.NetworkScope `bson:",omitempty"`
+	Value       string
+	AddressType network.AddressType
+	NetworkName string        `bson:",omitempty"`
+	Scope       network.Scope `bson:",omitempty"`
 }
 
 // TODO(dimitern) Make sure we integrate this with other networking
 // stuff at some point. We want to use juju-specific network names
 // that point to existing documents in the networks collection.
 type hostPort struct {
-	Value        string
-	AddressType  instance.AddressType
-	NetworkName  string                `bson:",omitempty"`
-	NetworkScope instance.NetworkScope `bson:",omitempty"`
-	Port         int
+	Value       string
+	AddressType network.AddressType
+	NetworkName string        `bson:",omitempty"`
+	Scope       network.Scope `bson:",omitempty"`
+	Port        int
 }
 
-func newAddress(addr instance.Address) address {
+func newAddress(addr network.Address) address {
 	return address{
-		Value:        addr.Value,
-		AddressType:  addr.Type,
-		NetworkName:  addr.NetworkName,
-		NetworkScope: addr.NetworkScope,
+		Value:       addr.Value,
+		AddressType: addr.Type,
+		NetworkName: addr.NetworkName,
+		Scope:       addr.Scope,
 	}
 }
 
-func (addr *address) InstanceAddress() instance.Address {
-	return instance.Address{
-		Value:        addr.Value,
-		Type:         addr.AddressType,
-		NetworkName:  addr.NetworkName,
-		NetworkScope: addr.NetworkScope,
+func (addr *address) InstanceAddress() network.Address {
+	return network.Address{
+		Value:       addr.Value,
+		Type:        addr.AddressType,
+		NetworkName: addr.NetworkName,
+		Scope:       addr.Scope,
 	}
 }
 
-func newHostPort(hp instance.HostPort) hostPort {
+func newHostPort(hp network.HostPort) hostPort {
 	return hostPort{
-		Value:        hp.Value,
-		AddressType:  hp.Type,
-		NetworkName:  hp.NetworkName,
-		NetworkScope: hp.NetworkScope,
-		Port:         hp.Port,
+		Value:       hp.Value,
+		AddressType: hp.Type,
+		NetworkName: hp.NetworkName,
+		Scope:       hp.Scope,
+		Port:        hp.Port,
 	}
 }
 
-func (hp *hostPort) InstanceHostPort() instance.HostPort {
-	return instance.HostPort{
-		Address: instance.Address{
-			Value:        hp.Value,
-			Type:         hp.AddressType,
-			NetworkName:  hp.NetworkName,
-			NetworkScope: hp.NetworkScope,
+func (hp *hostPort) InstanceHostPort() network.HostPort {
+	return network.HostPort{
+		Address: network.Address{
+			Value:       hp.Value,
+			Type:        hp.AddressType,
+			NetworkName: hp.NetworkName,
+			Scope:       hp.Scope,
 		},
 		Port: hp.Port,
 	}
 }
 
-func addressesToInstanceAddresses(addrs []address) []instance.Address {
-	instanceAddrs := make([]instance.Address, len(addrs))
+func addressesToInstanceAddresses(addrs []address) []network.Address {
+	instanceAddrs := make([]network.Address, len(addrs))
 	for i, addr := range addrs {
 		instanceAddrs[i] = addr.InstanceAddress()
 	}
 	return instanceAddrs
 }
 
-func instanceAddressesToAddresses(instanceAddrs []instance.Address) []address {
+func instanceAddressesToAddresses(instanceAddrs []network.Address) []address {
 	addrs := make([]address, len(instanceAddrs))
 	for i, addr := range instanceAddrs {
 		addrs[i] = newAddress(addr)
@@ -220,10 +220,10 @@ func instanceAddressesToAddresses(instanceAddrs []instance.Address) []address {
 	return addrs
 }
 
-func hostPortsToInstanceHostPorts(insts [][]hostPort) [][]instance.HostPort {
-	instanceHostPorts := make([][]instance.HostPort, len(insts))
+func hostPortsToInstanceHostPorts(insts [][]hostPort) [][]network.HostPort {
+	instanceHostPorts := make([][]network.HostPort, len(insts))
 	for i, hps := range insts {
-		instanceHostPorts[i] = make([]instance.HostPort, len(hps))
+		instanceHostPorts[i] = make([]network.HostPort, len(hps))
 		for j, hp := range hps {
 			instanceHostPorts[i][j] = hp.InstanceHostPort()
 		}
@@ -231,7 +231,7 @@ func hostPortsToInstanceHostPorts(insts [][]hostPort) [][]instance.HostPort {
 	return instanceHostPorts
 }
 
-func instanceHostPortsToHostPorts(instanceHostPorts [][]instance.HostPort) [][]hostPort {
+func instanceHostPortsToHostPorts(instanceHostPorts [][]network.HostPort) [][]hostPort {
 	hps := make([][]hostPort, len(instanceHostPorts))
 	for i, instanceHps := range instanceHostPorts {
 		hps[i] = make([]hostPort, len(instanceHps))

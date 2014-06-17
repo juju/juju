@@ -12,10 +12,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/osenv"
 )
@@ -100,7 +101,15 @@ func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command.Stdout = ctx.Stdout
 	command.Stderr = ctx.Stderr
 	// And run it!
-	return command.Run()
+	err := command.Run()
+
+	if exitError, ok := err.(*exec.ExitError); ok && exitError != nil {
+		status := exitError.ProcessState.Sys().(syscall.WaitStatus)
+		if status.Exited() {
+			return cmd.NewRcPassthroughError(status.ExitStatus())
+		}
+	}
+	return err
 }
 
 type PluginDescription struct {

@@ -12,6 +12,8 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
@@ -31,14 +33,14 @@ import (
 // InitializeState returns the newly initialized state and bootstrap
 // machine. If it fails, the state may well be irredeemably compromised.
 type StateInitializer interface {
-	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
+	InitializeState(envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout mongo.DialOpts, policy state.Policy) (*state.State, *state.Machine, error)
 }
 
 // BootstrapMachineConfig holds configuration information
 // to attach to the bootstrap machine.
 type BootstrapMachineConfig struct {
 	// Addresses holds the bootstrap machine's addresses.
-	Addresses []instance.Address
+	Addresses []network.Address
 
 	// Constraints holds the bootstrap machine's constraints.
 	// This value is also used for the environment-level constraints.
@@ -60,8 +62,8 @@ type BootstrapMachineConfig struct {
 
 const BootstrapMachineId = "0"
 
-func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout state.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
-	if c.Tag() != names.MachineTag(BootstrapMachineId) {
+func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	if c.Tag() != names.NewMachineTag(BootstrapMachineId).String() {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
 	servingInfo, ok := c.StateServingInfo()
@@ -122,7 +124,7 @@ func initUsersAndBootstrapMachine(c ConfigSetter, st *state.State, cfg Bootstrap
 func initBootstrapUser(st *state.State, passwordHash string) error {
 	logger.Debugf("adding admin user")
 	// Set up initial authentication.
-	u, err := st.AddUser("admin", "", "")
+	u, err := st.AddAdminUser("") // empty initial passowrd
 	if err != nil {
 		return err
 	}
@@ -194,7 +196,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 }
 
 // initAPIHostPorts sets the initial API host/port addresses in state.
-func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []instance.Address, apiPort int) error {
-	hostPorts := instance.AddressesWithPort(addrs, apiPort)
-	return st.SetAPIHostPorts([][]instance.HostPort{hostPorts})
+func initAPIHostPorts(c ConfigSetter, st *state.State, addrs []network.Address, apiPort int) error {
+	hostPorts := network.AddressesWithPort(addrs, apiPort)
+	return st.SetAPIHostPorts([][]network.HostPort{hostPorts})
 }
