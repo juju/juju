@@ -116,12 +116,12 @@ func (u *User) CreatedBy() string {
 
 // DateCreated returns when this user was created in UTC.
 func (u *User) DateCreated() time.Time {
-	return u.doc.DateCreated
+	return u.doc.DateCreated.UTC()
 }
 
-// LastConnection returns when this user last connected through the API.
+// LastConnection returns when this user last connected through the API in UTC.
 func (u *User) LastConnection() time.Time {
-	return u.doc.LastConnection
+	return u.doc.LastConnection.UTC()
 }
 
 func (u *User) UpdateLastConnection() error {
