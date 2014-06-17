@@ -104,7 +104,7 @@ END
 
 cat > $JUJU_DEBUG/init.sh <<END
 #!/bin/bash
-cat $JUJU_DEBUG/welcome.msgn
+cat $JUJU_DEBUG/welcome.msg
 END
 chmod +x $JUJU_DEBUG/init.sh
 
