@@ -278,8 +278,31 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
 
 	adminUser, err := s.State.User("admin")
+	c.Assert(err, gc.IsNil)
 
 	c.Assert(adminUser.PasswordValid("new-password"), gc.Equals, true)
+}
+
+func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
+	args := params.ModifyUsers{
+		Changes: []params.ModifyUser{{
+			Username: "admin",
+			Password: "new-password1",
+		},
+			{
+				Username: "admin",
+				Password: "new-password2",
+			}}}
+	results, err := s.usermanager.SetPassword(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: nil})
+	c.Assert(results.Results[1], gc.DeepEquals, params.ErrorResult{Error: nil})
+
+	adminUser, err := s.State.User("admin")
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(adminUser.PasswordValid("new-password2"), gc.Equals, true)
 }
 
 // Because at present all user are admins problems could be caused by allowing
@@ -300,6 +323,6 @@ func (s *userManagerSuite) TestSetPasswordOnDifferentUser(c *gc.C) {
 	results, err = s.usermanager.SetPassword(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
-	expectedError := apiservertesting.ServerError("Can only change the password of the current user (user-admin)")
+	expectedError := apiservertesting.ServerError("Can only change the password of the current user (admin)")
 	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
 }

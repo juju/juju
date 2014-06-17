@@ -197,7 +197,7 @@ func (api *UserManagerAPI) SetPassword(args params.ModifyUsers) (params.ErrorRes
 
 		loggedInUser := api.getLoggedInUser()
 		if loggedInUser.Tag() != argUser.Tag() {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Can only change the password of the current user (%s)", loggedInUser.Tag()))
+			result.Results[i].Error = common.ServerError(fmt.Errorf("Can only change the password of the current user (%s)", loggedInUser.Name()))
 			continue
 		}
 

@@ -20,6 +20,7 @@ Change the password for the user you are currently logged in as.
 
 Examples:
 juju change-password foobar     (Change password to foobar)
+juju change-password            (If no password is specified one is generated)
 `
 
 type UserChangePasswordCommand struct {
@@ -53,12 +54,16 @@ var getChangePasswordAPI = func(c *UserChangePasswordCommand) (ChangePasswordAPI
 	return juju.NewUserManagerClient(c.EnvName)
 }
 
-func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
+var getEnvironInfo = func(c *UserChangePasswordCommand) (configstore.EnvironInfo, error) {
 	store, err := configstore.Default()
 	if err != nil {
-		return errors.Trace(err)
+		return nil, err
 	}
-	info, err := store.ReadInfo(c.EnvName)
+	return store.ReadInfo(c.EnvName)
+}
+
+func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
+	info, err := getEnvironInfo(c)
 	if err != nil {
 		return errors.Trace(err)
 	}
@@ -88,8 +93,8 @@ func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
 
 	err = info.Write()
 	if err != nil {
-		return errors.Trace(fmt.Errorf("Failed to write the password back to the .jenv file %v", err))
 		fmt.Fprintf(ctx.Stderr, "Updating the jenv file failed, you will need to edit this file by hand with the new password\n")
+		return errors.Trace(fmt.Errorf("Failed to write the password back to the .jenv file: %v", err))
 	}
 
 	fmt.Fprintf(ctx.Stdout, "your password has been updated\n")
