@@ -2,7 +2,7 @@
 set -eux
 
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
-BUILD_PACKAGES=${BUILD_PACAKAGES:-true}
+BUILD_PACKAGES=${BUILD_PACKAGES:-true}
 TARFILE=$($SCRIPTS/get-tarfile-name)
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
