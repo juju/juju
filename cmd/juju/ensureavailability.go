@@ -160,12 +160,12 @@ func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 func machineTagsToIds(tags ...string) []string {
 	var result []string
 
-	for _, tag := range tags {
-		_, id, err := names.ParseTag(tag, names.MachineTagKind)
+	for _, rawTag := range tags {
+		tag, err := names.ParseTag(rawTag)
 		if err != nil {
 			continue
 		}
-		result = append(result, id)
+		result = append(result, tag.Id())
 	}
 	return result
 

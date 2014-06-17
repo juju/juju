@@ -1070,7 +1070,7 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 func machineIdsToTags(ids ...string) []string {
 	var result []string
 	for _, id := range ids {
-		result = append(result, names.MachineTag(id))
+		result = append(result, names.NewMachineTag(id).String())
 	}
 	return result
 }

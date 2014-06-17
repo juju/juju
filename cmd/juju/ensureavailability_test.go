@@ -8,11 +8,11 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
