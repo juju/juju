@@ -35,7 +35,6 @@ func (st *State) AddUser(username, displayName, password, creator string) (*User
 		return nil, err
 	}
 	timestamp := time.Now().Round(time.Second).UTC()
-	logger.Debugf("date created: %s", timestamp)
 	u := &User{
 		st: st,
 		doc: userDoc{
@@ -121,7 +120,11 @@ func (u *User) DateCreated() time.Time {
 
 // LastConnection returns when this user last connected through the API in UTC.
 func (u *User) LastConnection() time.Time {
-	return u.doc.LastConnection.UTC()
+	result := u.doc.LastConnection
+	if !result.IsZero() {
+		result = result.UTC()
+	}
+	return result
 }
 
 func (u *User) UpdateLastConnection() error {
