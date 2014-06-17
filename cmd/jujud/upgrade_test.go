@@ -24,6 +24,7 @@ type UpgradeSuite struct {
 
 	aptCmds          []*exec.Cmd
 	machine          *state.Machine
+	oldConfig        agent.Config
 	upgradeToVersion version.Binary
 }
 
@@ -65,32 +66,9 @@ func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 }
 
 func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
-	s.agentSuite.PatchValue(&version.Current, s.upgradeToVersion)
-	err := s.State.SetEnvironAgentVersion(s.upgradeToVersion.Number)
-	c.Assert(err, gc.IsNil)
-
-	oldVersion := s.upgradeToVersion
-	oldVersion.Major = 1
-	oldVersion.Minor = 16
-	var oldConfig agent.Config
-	s.machine, oldConfig, _ = s.primeAgent(c, oldVersion, job)
-
-	a := s.newAgent(c, s.machine)
-	go func() { c.Check(a.Run(nil), gc.IsNil) }()
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-
-	// Wait for upgrade steps to run.
-	success := false
-	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		conf, err := agent.ReadConfig(agent.ConfigPath(oldConfig.DataDir(), s.machine.Tag().String()))
-		c.Assert(err, gc.IsNil)
-		success = conf.UpgradedToVersion() == s.upgradeToVersion.Number
-		if success {
-			break
-		}
-	}
-	// Upgrade worker has completed ok.
-	c.Assert(success, jc.IsTrue)
+	stopFunc := s.createAgentAndStartUpgrade(c, job)
+	defer stopFunc()
+	s.waitForUpgradeToFinish(c)
 }
 
 func (s *UpgradeSuite) keyFile() string {
@@ -135,4 +113,33 @@ func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.SyslogPort(), gc.Not(gc.Equals), config.DefaultSyslogPort)
 	// Add other checks as needed...
+}
+
+func (s *UpgradeSuite) createAgentAndStartUpgrade(c *gc.C, job state.MachineJob) func() {
+	s.agentSuite.PatchValue(&version.Current, s.upgradeToVersion)
+	err := s.State.SetEnvironAgentVersion(s.upgradeToVersion.Number)
+	c.Assert(err, gc.IsNil)
+
+	oldVersion := s.upgradeToVersion
+	oldVersion.Major = 1
+	oldVersion.Minor = 16
+	s.machine, s.oldConfig, _ = s.primeAgent(c, oldVersion, job)
+
+	a := s.newAgent(c, s.machine)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	return func() { c.Check(a.Stop(), gc.IsNil) }
+}
+
+func (s *UpgradeSuite) waitForUpgradeToFinish(c *gc.C) {
+	success := false
+	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
+		conf, err := agent.ReadConfig(agent.ConfigPath(s.oldConfig.DataDir(), s.machine.Tag()))
+		c.Assert(err, gc.IsNil)
+		success = conf.UpgradedToVersion() == s.upgradeToVersion.Number
+		if success {
+			break
+		}
+	}
+	// Upgrade worker has completed ok.
+	c.Assert(success, jc.IsTrue)
 }
