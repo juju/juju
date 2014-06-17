@@ -103,7 +103,7 @@ class JujuClientDevel:
     def bootstrap(self, environment):
         """Bootstrap, using sudo if necessary."""
         if environment.hpcloud:
-            constraints = 'mem=4G'
+            constraints = 'mem=2G'
         else:
             constraints = 'mem=2G'
         self.juju(environment, 'bootstrap', ('--constraints', constraints),
