@@ -57,7 +57,7 @@ publish_to_aws() {
 
 publish_to_canonistack() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
-    [[ "${IGNORE_CANONISTACK-}" == 'true' ]] || return 0
+    [[ "${IGNORE_CANONISTACK-}" == 'true' ]] && return 0
     if [[ $PURPOSE == "release" ]]; then
         local destination="tools"
     else
