@@ -2188,9 +2188,9 @@ func (a *fakeApiClient) Close() error {
 	return nil
 }
 
-// Check that the client works with an older server which doesn't the
-// top level Relations field nor the unit and machine level Agent
-// field (they were introduced at the same time).
+// Check that the client works with an older server which doesn't
+// return the top level Relations field nor the unit and machine level
+// Agent field (they were introduced at the same time).
 func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 	// Construct an older style status response
 	client := newFakeApiClient(&api.Status{
