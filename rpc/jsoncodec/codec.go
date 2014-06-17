@@ -64,6 +64,7 @@ func (c *Codec) isLogging() bool {
 type inMsg struct {
 	RequestId uint64
 	Type      string
+	Version   int
 	Id        string
 	Request   string
 	Params    json.RawMessage
@@ -76,6 +77,7 @@ type inMsg struct {
 type outMsg struct {
 	RequestId uint64
 	Type      string      `json:",omitempty"`
+	Version   int         `json:",omitempty"`
 	Id        string      `json:",omitempty"`
 	Request   string      `json:",omitempty"`
 	Params    interface{} `json:",omitempty"`
@@ -122,9 +124,10 @@ func (c *Codec) ReadHeader(hdr *rpc.Header) error {
 	}
 	hdr.RequestId = c.msg.RequestId
 	hdr.Request = rpc.Request{
-		Type:   c.msg.Type,
-		Id:     c.msg.Id,
-		Action: c.msg.Request,
+		Type:    c.msg.Type,
+		Version: c.msg.Version,
+		Id:      c.msg.Id,
+		Action:  c.msg.Request,
 	}
 	hdr.Error = c.msg.Error
 	hdr.ErrorCode = c.msg.ErrorCode
@@ -183,6 +186,7 @@ func (c *Codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 func (m *outMsg) init(hdr *rpc.Header, body interface{}) {
 	m.RequestId = hdr.RequestId
 	m.Type = hdr.Request.Type
+	m.Version = hdr.Request.Version
 	m.Id = hdr.Request.Id
 	m.Request = hdr.Request.Action
 	m.Error = hdr.Error
