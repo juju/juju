@@ -2,8 +2,11 @@
 set -eux
 
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
+BUILD_PACAKAGES=${BUILD_PACAKAGES:-true}
 TARFILE=$($SCRIPTS/get-tarfile-name)
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
+
+if [[ $BUILD_PACAKAGES == 'true' ]]; then
 wget -q $LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact/$TARFILE
 
 # Make source packages for all supported series.
@@ -59,6 +62,7 @@ do
                 "$UTOPIC_SSH_OPTIONS" $dsc
     fi
 done
+fi
 
 mkdir -p new-tools
 if [[ -n ${LOCAL_TOOLS_CACHE:-} ]]; then
