@@ -295,8 +295,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	a.startWorkerAfterUpgrade(singularRunner, "networkerworker", func() (worker.Worker, error) {
-		return networker.NewNetworkerWorker(st.Networker(), agentConfig), nil
+	a.startWorkerAfterUpgrade(singularRunner, "networker", func() (worker.Worker, error) {
+		return networker.NewNetworker(st.Networker(), agentConfig), nil
 	})
 
 	// If not a local provider bootstrap machine, start the worker to

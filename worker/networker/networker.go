@@ -9,7 +9,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/environs/network"
+	"github.com/juju/juju/network"
 	apinetworker "github.com/juju/juju/state/api/networker"
 	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/worker"
@@ -17,22 +17,22 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.networker")
 
-// NetworkerWorker ensures the minimum number of units for services is respected.
-type NetworkerWorker struct {
+// Networker ensures the minimum number of units for services is respected.
+type Networker struct {
 	st *apinetworker.State
 	tag string
 }
 
-// NewNetworkerWorker returns a Worker that brings up and down networks.
-func NewNetworkerWorker(st *apinetworker.State, agentConfig agent.Config) worker.Worker {
-	nw := &NetworkerWorker{
+// NewNetworker returns a Worker that handles machine networking configuration.
+func NewNetworker(st *apinetworker.State, agentConfig agent.Config) worker.Worker {
+	nw := &Networker{
 		st:  st,
 		tag: agentConfig.Tag(),
 	}
 	return worker.NewStringsWorker(nw)
 }
 
-func (nw *NetworkerWorker) SetUp() (watcher.StringsWatcher, error) {
+func (nw *Networker) SetUp() (watcher.StringsWatcher, error) {
 	networks, err := nw.st.MachineNetworkInfo(nw.tag)
 	if err != nil {
 		logger.Errorf("failed to process network info: %v", err)
@@ -40,51 +40,62 @@ func (nw *NetworkerWorker) SetUp() (watcher.StringsWatcher, error) {
 	}
 	for _, network := range networks {
 		name := network.NetworkName
-		logger.Infof("processing network %q", name)
+		logger.Debugf("processing network %q", name)
 		if err := nw.handleOneNetwork(name, networks); err != nil {
 			logger.Errorf("failed to process network %q: %v", name, err)
 			return nil, err
 		}
 	}
 
-	//return nw.st.WatchNetworks(), nil
 	return nil, nil
 }
 
-func (nw *NetworkerWorker) handleOneNetwork(networkName string, networks []network.Info) error {
+func (nw *Networker) handleOneNetwork(networkName string, networks []network.Info) error {
 	found := false
 	var network network.Info
 	for _, network = range networks {
 		if network.NetworkName == networkName {
 			found = true
-			logger.Infof("setting network %#v", network)
+			logger.Debugf("setting network %#v", network)
 		}
 	}
 	if !found {
 		logger.Errorf("failed to find network %q", networkName)
 		return fmt.Errorf("failed to find network %q", networkName)
 	}
-	logger.Infof("network=%#v", network)
+	logger.Debugf("network=%#v", network)
 	return nil // service.EnsureMinUnits()
 }
 
-func (nw *NetworkerWorker) Handle(networkNames []string) error {
-	networks, err := nw.st.MachineNetworkInfo(nw.tag)
-	if err != nil {
-		logger.Errorf("failed to process network info: %v", err)
-		return err
+// The options specified are to prevent any kind of prompting.
+//  * --assume-yes answers yes to any yes/no question in apt-get;
+//  * the --force-confold option is passed to dpkg, and tells dpkg
+//    to always keep old configuration files in the face of change.
+const aptget = "apt-get --option Dpkg::Options::=--force-confold --assume-yes "
+
+func installNetworkPackages(commands *[]string) error {
+	newCommands := []string {
+		`dpkg-query -s bridge-utils || "+aptget+"install bridge-utils`,
+		`dpkg-query -s vlan || "+aptget+"install vlan`,
+		`lsmod | grep -q 8021q || modprobe 8021q`,
+		`grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'`,
+		`vconfig set_name_type DEV_PLUS_VID_NO_PAD`,
 	}
-	for _, name := range networkNames {
-		logger.Infof("processing network %q", name, networks)
-		if err := nw.handleOneNetwork(name, networks); err != nil {
-			logger.Errorf("failed to process network %q: %v", name, err)
-			return err
-		}
-	}
+	commands = append(commands, newCommands...)
 	return nil
 }
 
-func (nw *NetworkerWorker) TearDown() error {
+func verifyInterfaceConfigFile(commands *[]string) error {
+	
+}
+
+
+func (nw *Networker) Handle(networkNames []string) error {
+	// Nothing to do here.
+	return nil
+}
+
+func (nw *Networker) TearDown() error {
 	// Nothing to do here.
 	return nil
 }
