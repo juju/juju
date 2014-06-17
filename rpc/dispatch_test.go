@@ -24,18 +24,16 @@ type dispatchSuite struct {
 var _ = gc.Suite(&dispatchSuite{})
 
 func (s *dispatchSuite) SetUpSuite(c *gc.C) {
-	codecServer := func(ws *websocket.Conn) {
+	rpcServer := func(ws *websocket.Conn) {
 		codec := jsoncodec.NewWebsocket(ws)
 		conn := rpc.NewConn(codec, nil)
 
-		conn.Start()
 		conn.Serve(&DispatchRoot{}, nil)
-
-		s.ready <- struct{}{}
+		conn.Start()
 
 		<-conn.Dead()
 	}
-	http.Handle("/jsoncodec", websocket.Handler(codecServer))
+	http.Handle("/rpc", websocket.Handler(rpcServer))
 	s.server = httptest.NewServer(nil)
 	s.serverAddr = s.server.Listener.Addr().String()
 	s.ready = make(chan struct{}, 1)
@@ -57,12 +55,9 @@ func (s *dispatchSuite) TestWSWithParams(c *gc.C) {
 
 // request performs one request to the test server via websockets.
 func (s *dispatchSuite) request(c *gc.C, req string) string {
-	url := fmt.Sprintf("ws://%s/jsoncodec", s.serverAddr)
+	url := fmt.Sprintf("ws://%s/rpc", s.serverAddr)
 	ws, err := websocket.Dial(url, "", "http://localhost")
 	c.Assert(err, gc.IsNil)
-
-	// Have to wait until root is registered.
-	<-s.ready
 
 	reqdata := []byte(req)
 	_, err = ws.Write(reqdata)
