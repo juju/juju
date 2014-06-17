@@ -99,7 +99,7 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 	}
 	unit.annotator = annotator{
 		globalKey: unit.globalKey(),
-		tag:       unit.Tag(),
+		tag:       unit.Tag().String(),
 		st:        st,
 	}
 	return unit
@@ -204,7 +204,7 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
 func (u *Unit) SetMongoPassword(password string) error {
-	return u.st.setMongoPassword(u.Tag(), password)
+	return u.st.setMongoPassword(u.Tag().String(), password)
 }
 
 // SetPassword sets the password for the machine's agent.
@@ -764,11 +764,11 @@ func (u *Unit) AgentAlive() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalKey())
 }
 
-// Tag returns a name identifying the unit that is safe to use
-// as a file name.  The returned name will be different from other
-// Tag values returned by any other entities from the same state.
-func (u *Unit) Tag() string {
-	return names.NewUnitTag(u.Name()).String()
+// Tag returns a name identifying the unit.
+// The returned name will be different from other Tag values returned by any
+// other entities from the same state.
+func (u *Unit) Tag() names.Tag {
+	return names.NewUnitTag(u.Name())
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.

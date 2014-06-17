@@ -53,7 +53,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as the unit agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:       s.rawUnit.Tag(),
+		Tag:       s.rawUnit.Tag().String(),
 		LoggedIn:  true,
 		UnitAgent: true,
 	}
@@ -77,7 +77,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionNothing(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawUnit.Tag()}},
+		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
 	results, err := s.upgrader.WatchAPIVersion(args)
 	c.Assert(err, gc.IsNil)

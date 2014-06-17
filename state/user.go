@@ -140,10 +140,9 @@ func (u *User) UpdateLastConnection() error {
 	return nil
 }
 
-// Tag returns the Tag for
-// the user ("user-$username")
-func (u *User) Tag() string {
-	return names.NewUserTag(u.doc.Name).String()
+// Tag returns the Tag for the User.
+func (u *User) Tag() names.Tag {
+	return names.NewUserTag(u.doc.Name)
 }
 
 // SetPassword sets the password associated with the user.

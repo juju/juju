@@ -155,7 +155,7 @@ func (s *commonMachineSuite) primeAgent(
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	a := &MachineAgent{}
 	s.initAgent(c, a, "--machine-id", m.Id())
-	err := a.ReadConfig(m.Tag())
+	err := a.ReadConfig(m.Tag().String())
 	c.Assert(err, gc.IsNil)
 	return a
 }
@@ -580,7 +580,7 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, version.Current, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	s.testUpgradeRequest(c, a, m.Tag(), currentTools)
+	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools)
 }
 
 var fastDialOpts = api.DialOpts{
@@ -682,7 +682,7 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 		st, err := api.Open(conf.APIInfo(), fastDialOpts)
 		c.Assert(err, gc.IsNil)
 		defer st.Close()
-		m, err := st.Machiner().Machine(conf.Tag())
+		m, err := st.Machiner().Machine(conf.Tag().String())
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})
@@ -812,13 +812,13 @@ func (s *MachineSuite) TestOpenStateFailsForJobHostUnitsButOpenAPIWorks(c *gc.C)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobHostUnits)
 	s.testOpenAPIState(c, m, s.newAgent(c, m), initialMachinePassword)
 	s.assertJobWithAPI(c, state.JobHostUnits, func(conf agent.Config, st *api.State) {
-		s.assertCannotOpenState(c, conf.Tag(), conf.DataDir())
+		s.assertCannotOpenState(c, conf.Tag().String(), conf.DataDir())
 	})
 }
 
 func (s *MachineSuite) TestOpenStateWorksForJobManageEnviron(c *gc.C) {
 	s.assertJobWithAPI(c, state.JobManageEnviron, func(conf agent.Config, st *api.State) {
-		s.assertCanOpenState(c, conf.Tag(), conf.DataDir())
+		s.assertCanOpenState(c, conf.Tag().String(), conf.DataDir())
 	})
 }
 
@@ -952,7 +952,7 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	agentConfig.SetUpgradedToVersion(version.MustParse("1.18.0"))
 	err := agentConfig.Write()
 	c.Assert(err, gc.IsNil)
-	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag())
+	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag().String())
 	c.Assert(err, gc.IsNil)
 
 	s.agentSuite.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {

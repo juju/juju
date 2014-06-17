@@ -99,7 +99,7 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		return params.LoginResult{}, err
 	}
 	if a.reqNotifier != nil {
-		a.reqNotifier.login(entity.Tag())
+		a.reqNotifier.login(entity.Tag().String())
 	}
 	// We have authenticated the user; now choose an appropriate API
 	// to serve to them.
@@ -125,7 +125,7 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	lastConnection := getAndUpdateLastConnectionForEntity(entity)
 	return params.LoginResult{
 		Servers:        hostPorts,
-		EnvironTag:     environ.Tag(),
+		EnvironTag:     environ.Tag().String(),
 		LastConnection: lastConnection,
 	}, nil
 }

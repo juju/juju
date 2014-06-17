@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -265,10 +266,12 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Bina
 
 	stateInfo := s.StateInfo(c)
 	apiInfo := s.APIInfo(c)
+	t, err := names.ParseTag(tag)
+	c.Assert(err, gc.IsNil)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           s.DataDir(),
-			Tag:               tag,
+			Tag:               t,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
 			Nonce:             state.BootstrapNonce,

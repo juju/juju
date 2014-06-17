@@ -37,7 +37,7 @@ func (st *State) Environment() (*Environment, error) {
 	}
 	env.annotator = annotator{
 		globalKey: env.globalKey(),
-		tag:       env.Tag(),
+		tag:       env.Tag().String(),
 		st:        st,
 	}
 	return env, nil
@@ -46,8 +46,8 @@ func (st *State) Environment() (*Environment, error) {
 // Tag returns a name identifying the environment.
 // The returned name will be different from other Tag values returned
 // by any other entities from the same state.
-func (e *Environment) Tag() string {
-	return names.NewEnvironTag(e.doc.UUID).String()
+func (e *Environment) Tag() names.Tag {
+	return names.NewEnvironTag(e.doc.UUID)
 }
 
 // UUID returns the universally unique identifier of the environment.

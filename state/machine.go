@@ -133,7 +133,7 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 	}
 	machine.annotator = annotator{
 		globalKey: machine.globalKey(),
-		tag:       machine.Tag(),
+		tag:       machine.Tag().String(),
 		st:        st,
 	}
 	return machine
@@ -209,11 +209,12 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 	return instData, nil
 }
 
-// Tag returns a name identifying the machine that is safe to use
-// as a file name.  The returned name will be different from other
-// Tag values returned by any other entities from the same state.
-func (m *Machine) Tag() string {
-	return names.NewMachineTag(m.Id()).String()
+// Tag returns a tag identifying the machine. The String method provides a
+// string representation that is safe to use as a file name. The returned name
+// will be different from other Tag values returned by any other entities
+// from the same state.
+func (m *Machine) Tag() names.Tag {
+	return names.NewMachineTag(m.Id())
 }
 
 // Life returns whether the machine is Alive, Dying or Dead.
@@ -327,7 +328,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
 func (m *Machine) SetMongoPassword(password string) error {
-	return m.st.setMongoPassword(m.Tag(), password)
+	return m.st.setMongoPassword(m.Tag().String(), password)
 }
 
 // SetPassword sets the password for the machine's agent.
