@@ -2397,6 +2397,11 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: "network-net1",
 }, {
+	tag: "action-",
+	err: `"action-" is not a valid action tag`,
+}, {
+	tag: "action-ser-vice2/0" + names.ActionMarker + "0",
+}, {
 	// TODO(axw) 2013-12-04 #1257587
 	// remove backwards compatibility for environment-tag; see state.go
 	tag: "environment-notauuid",
@@ -2414,13 +2419,16 @@ var entityTypes = map[string]interface{}{
 	names.MachineTagKind:  (*state.Machine)(nil),
 	names.RelationTagKind: (*state.Relation)(nil),
 	names.NetworkTagKind:  (*state.Network)(nil),
+	names.ActionTagKind:   (*state.Action)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
 	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
-	_, err = svc.AddUnit()
+	unit, err := svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+	_, err = unit.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 	s.factory.MakeUser(factory.UserParams{Username: "arble"})
 	c.Assert(err, gc.IsNil)
@@ -2481,6 +2489,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 		"unit-foo",
 		"network",
 		"network-",
+		"action-wordpress",
 	}
 	for _, name := range bad {
 		c.Logf(name)
@@ -2511,6 +2520,16 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	coll, id, err = state.ParseTag(s.State, u.Tag())
 	c.Assert(coll, gc.Equals, "units")
 	c.Assert(id, gc.Equals, u.Name())
+	c.Assert(err, gc.IsNil)
+
+	// Parse an action entity name.
+	actionId, err := u.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+	action, err := s.State.Action(actionId)
+	c.Assert(action.Tag(), gc.Equals, "action-ser-vice2/0"+names.ActionMarker+"0")
+	coll, id, err = state.ParseTag(s.State, action.Tag())
+	c.Assert(coll, gc.Equals, "actions")
+	c.Assert(id, gc.Equals, action.Id())
 	c.Assert(err, gc.IsNil)
 
 	// Parse a user entity name.

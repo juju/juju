@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -222,7 +223,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 }
 
 func (s *ActionSuite) TestGetActionIdPrefix(c *gc.C) {
-	getPrefixTest(c, state.GetActionIdPrefix, state.ActionMarker)
+	getPrefixTest(c, state.GetActionIdPrefix, names.ActionMarker)
 }
 
 func (s *ActionSuite) TestGetActionResultIdPrefix(c *gc.C) {
@@ -255,5 +256,5 @@ func getPrefixTest(c *gc.C, fn getPrefixFn, marker string) {
 // This is a temporary assertion, we shouldn't be leaking the actual
 // mongo _id
 func assertSaneActionId(c *gc.C, id, unitName string) {
-	c.Assert(id, gc.Matches, "^u#"+unitName+"#a#\\d+")
+	c.Assert(names.IsAction(id), gc.Equals, true)
 }

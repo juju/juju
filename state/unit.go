@@ -1383,7 +1383,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, error) {
-	actionId, err := newActionId(u.st, u.globalKey())
+	actionId, err := newActionId(u.st, names.NewUnitTag(u.Name()).Id())
 	if err != nil {
 		return "", fmt.Errorf("cannot add action; error generating key: %v", err)
 	}

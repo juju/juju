@@ -415,7 +415,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 // FindEntity returns the entity with the given tag.
 //
 // The returned value can be of type *Machine, *Unit,
-// *User, *Service or *Environment, depending
+// *User, *Service, *Environment, or *Action, depending
 // on the tag.
 func (st *State) FindEntity(tag string) (Entity, error) {
 	t, err := names.ParseTag(tag)
@@ -460,6 +460,8 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 		return st.KeyRelation(id)
 	case names.NetworkTag:
 		return st.Network(id)
+	case names.ActionTag:
+		return st.Action(id)
 	default:
 		return nil, errors.Errorf("unsupported tag tpe %T", t)
 	}
@@ -487,6 +489,8 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.environments.Name
 	case names.NetworkTag:
 		coll = st.networks.Name
+	case names.ActionTag:
+		coll = st.actions.Name
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
@@ -1369,10 +1373,15 @@ func (st *State) Action(id string) (*Action, error) {
 	return newAction(st, doc), nil
 }
 
-// UnitActions returns a list of pending actions for a unit named name
+// UnitActions returns a list of pending actions for a given Unit
 func (st *State) UnitActions(name string) ([]*Action, error) {
+	return st.Actions(names.NewUnitTag(name).Id())
+}
+
+// Actions returns a list of pending actions for an Entity given its Tag()
+func (st *State) Actions(tag string) ([]*Action, error) {
 	actions := []*Action{}
-	prefix := actionPrefix(unitGlobalKey(name))
+	prefix := actionPrefix(tag)
 	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
 	iter := st.actions.Find(sel).Iter()
 	doc := actionDoc{}
@@ -1404,13 +1413,13 @@ func (st *State) ActionResultsForUnit(name string) ([]*ActionResult, error) {
 	if !names.IsUnit(name) {
 		return nil, errors.Errorf("%q is not a valid unit name", name)
 	}
-	return st.actionResults(unitGlobalKey(name) + actionMarker)
+	return st.actionResults(name + names.ActionMarker)
 }
 
 // ActionResultsForAction returns actionresults that were generated from
 // action with given actionId
 func (st *State) ActionResultsForAction(actionId string) ([]*ActionResult, error) {
-	if !IsAction(actionId) {
+	if !names.IsAction(actionId) {
 		return nil, errors.Errorf("%q is not a valid action id", actionId)
 	}
 	return st.actionResults(actionId + actionResultMarker)

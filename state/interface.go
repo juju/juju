@@ -31,6 +31,7 @@ var (
 	_ Entity = (*Service)(nil)
 	_ Entity = (*Environment)(nil)
 	_ Entity = (*User)(nil)
+	_ Entity = (*Action)(nil)
 )
 
 type StatusSetter interface {
