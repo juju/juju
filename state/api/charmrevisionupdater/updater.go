@@ -10,7 +10,7 @@ import (
 
 // State provides access to a worker's view of the state.
 type State struct {
-	base.FacadeCaller
+	caller base.FacadeCaller
 }
 
 // NewState returns a version of the state that provides functionality required by the worker.
@@ -22,7 +22,7 @@ func NewState(caller base.Caller) *State {
 // and updates the revision info in state.
 func (st *State) UpdateLatestRevisions() error {
 	result := new(params.ErrorResult)
-	err := st.APICall("UpdateLatestRevisions", nil, result)
+	err := st.caller.APICall("UpdateLatestRevisions", nil, result)
 	if err != nil {
 		return err
 	}

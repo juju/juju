@@ -33,6 +33,13 @@ type FacadeCaller interface {
 	RawCaller() Caller
 }
 
+// BestAPIVersioner is a type that exports a BestAPIVersion() function.
+// The client side of Facades should export BestAPIVersion so that code using
+// them is able to determine if they need to use a compatibility code path.
+type BestAPIVersioner interface {
+	BestAPIVersion() int
+}
+
 type facadeCaller struct {
 	facade string
 	caller Caller
