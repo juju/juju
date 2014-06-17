@@ -2,11 +2,11 @@
 set -eux
 
 : ${LOCAL_JENKINS_URL=$JENKINS_URL}
-BUILD_PACAKAGES=${BUILD_PACAKAGES:-true}
+BUILD_PACKAGES=${BUILD_PACAKAGES:-true}
 TARFILE=$($SCRIPTS/get-tarfile-name)
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
-if [[ $BUILD_PACAKAGES == 'true' ]]; then
+if [[ $BUILD_PACKAGES == 'true' ]]; then
 wget -q $LOCAL_JENKINS_URL/job/build-revision/lastSuccessfulBuild/artifact/$TARFILE
 
 # Make source packages for all supported series.
