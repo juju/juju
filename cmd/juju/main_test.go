@@ -193,6 +193,7 @@ var commandNames = []string{
 	"api-endpoints",
 	"authorised-keys", // alias for authorized-keys
 	"authorized-keys",
+	"backup",
 	"bootstrap",
 	"debug-hooks",
 	"debug-log",
