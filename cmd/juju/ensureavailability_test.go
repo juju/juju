@@ -32,10 +32,10 @@ func (s *EnsureAvailabilitySuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	m, err := s.BackingState.Machine("0")
 	c.Assert(err, gc.IsNil)
-	s.machine0Pinger, err = m.SetAgentAlive()
+	s.machine0Pinger, err = m.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 	s.BackingState.StartSync()
-	err = m.WaitAgentAlive(coretesting.LongWait)
+	err = m.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
 }
 

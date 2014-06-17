@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
@@ -98,21 +97,15 @@ func (ctx *context) run(c *gc.C, steps []stepper) {
 	}
 }
 
-type aliver interface {
-	AgentAlive() (bool, error)
-	SetAgentAlive() (*presence.Pinger, error)
-	WaitAgentAlive(time.Duration) error
-}
-
-func (ctx *context) setAgentAlive(c *gc.C, a aliver) *presence.Pinger {
-	pinger, err := a.SetAgentAlive()
+func (ctx *context) setAgentPresence(c *gc.C, p presence.Presencer) *presence.Pinger {
+	pinger, err := p.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 	ctx.st.StartSync()
-	err = a.WaitAgentAlive(coretesting.LongWait)
+	err = p.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
-	agentAlive, err := a.AgentAlive()
+	agentPresence, err := p.AgentPresence()
 	c.Assert(err, gc.IsNil)
-	c.Assert(agentAlive, gc.Equals, true)
+	c.Assert(agentPresence, gc.Equals, true)
 	return pinger
 }
 
@@ -1661,7 +1654,7 @@ type startAliveMachine struct {
 func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sam.machineId)
 	c.Assert(err, gc.IsNil)
-	pinger := ctx.setAgentAlive(c, m)
+	pinger := ctx.setAgentPresence(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
@@ -1809,7 +1802,7 @@ func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	c.Assert(err, gc.IsNil)
 	u, err := s.AddUnit()
 	c.Assert(err, gc.IsNil)
-	pinger := ctx.setAgentAlive(c, u)
+	pinger := ctx.setAgentPresence(c, u)
 	m, err := ctx.st.Machine(aau.machineId)
 	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
@@ -1827,7 +1820,7 @@ func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
 	us, err := s.AllUnits()
 	c.Assert(err, gc.IsNil)
 	for _, u := range us {
-		ctx.pingers[u.Name()] = ctx.setAgentAlive(c, u)
+		ctx.pingers[u.Name()] = ctx.setAgentPresence(c, u)
 	}
 }
 

@@ -720,38 +720,38 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *UnitSuite) TestUnitSetAgentAlive(c *gc.C) {
-	alive, err := s.unit.AgentAlive()
+func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
+	alive, err := s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
-	pinger, err := s.unit.SetAgentAlive()
+	pinger, err := s.unit.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(pinger, gc.NotNil)
 	defer pinger.Stop()
 
 	s.State.StartSync()
-	alive, err = s.unit.AgentAlive()
+	alive, err = s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 }
 
-func (s *UnitSuite) TestUnitWaitAgentAlive(c *gc.C) {
-	alive, err := s.unit.AgentAlive()
+func (s *UnitSuite) TestUnitWaitAgentPresence(c *gc.C) {
+	alive, err := s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
-	err = s.unit.WaitAgentAlive(coretesting.ShortWait)
+	err = s.unit.WaitAgentPresence(coretesting.ShortWait)
 	c.Assert(err, gc.ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
 
-	pinger, err := s.unit.SetAgentAlive()
+	pinger, err := s.unit.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
-	err = s.unit.WaitAgentAlive(coretesting.LongWait)
+	err = s.unit.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
 
-	alive, err = s.unit.AgentAlive()
+	alive, err = s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 
@@ -760,7 +760,7 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *gc.C) {
 
 	s.State.StartSync()
 
-	alive, err = s.unit.AgentAlive()
+	alive, err = s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 }
