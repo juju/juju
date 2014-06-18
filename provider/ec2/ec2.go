@@ -1258,10 +1258,11 @@ func (m permSet) ipPerms() (ps []ec2.IPPerm) {
 func isZoneConstrainedError(err error) bool {
 	ec2err, ok := err.(*ec2.Error)
 	if ok && ec2err.Code == "Unsupported" {
-		return strings.HasPrefix(
-			ec2err.Message,
-			"The requested Availability Zone is currently constrained",
-		)
+		// A big hammer, but we've now seen two different error messages
+		// for constrained zones, and who knows how many more there might
+		// be. If the message contains "Availability Zone", it's a fair
+		// bet that it's constrained or otherwise unusable.
+		return strings.Contains(ec2err.Message, "Availability Zone")
 	}
 	return false
 }
