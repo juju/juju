@@ -179,7 +179,7 @@ def test_upgrade(old_env):
     env = Environment.from_config(old_env.environment)
     env.client.debug = old_env.client.debug
     upgrade_juju(env)
-    env.wait_for_version(env.get_matching_agent_version(), 900)
+    env.wait_for_version(env.get_matching_agent_version(), 600)
 
 
 def upgrade_juju(environment):
