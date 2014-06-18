@@ -320,7 +320,7 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 	entities := []taggedAnnotator{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
 		for _, entity := range entities {
-			id := entity.Tag()
+			id := entity.Tag().String() // this is WRONG, it should be Tag().Id() but the code is wrong.
 			c.Logf("test %d. %s. entity %s", i, t.about, id)
 			// Set initial entity annotations.
 			err := entity.SetAnnotations(t.initial)
@@ -847,7 +847,7 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	curl, _ := addCharm(c, store, "dummy")
 
 	user := s.Factory.MakeUser(factory.UserParams{Password: "password"})
-	s.APIState = s.OpenAPIAs(c, user.Tag(), "password")
+	s.APIState = s.OpenAPIAs(c, user.Tag().String(), "password")
 
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
@@ -856,7 +856,7 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 
 	service, err := s.State.Service("service")
 	c.Assert(err, gc.IsNil)
-	c.Assert(service.GetOwnerTag(), gc.Equals, user.Tag())
+	c.Assert(service.GetOwnerTag(), gc.Equals, user.Tag().String())
 }
 
 func (s *clientSuite) deployServiceForTests(c *gc.C, store *charmtesting.MockCharmStore) {
@@ -2178,7 +2178,7 @@ func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetStatus(params.StatusError, "error", nil)
 	c.Assert(err, gc.IsNil)
-	_, err = s.APIState.Client().RetryProvisioning(machine.Tag())
+	_, err = s.APIState.Client().RetryProvisioning(machine.Tag().String())
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err := machine.Status()

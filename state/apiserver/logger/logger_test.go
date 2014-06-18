@@ -40,7 +40,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          s.rawMachine.Tag(),
+		Tag:          s.rawMachine.Tag().String(),
 		LoggedIn:     true,
 		MachineAgent: true,
 	}
@@ -83,7 +83,7 @@ func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
 
 func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
 	results := s.logger.WatchLoggingConfig(args)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -137,7 +137,7 @@ func (s *loggerSuite) TestLoggingConfigForAgent(c *gc.C) {
 	s.setLoggingConfig(c, newLoggingConfig)
 
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
 	results := s.logger.LoggingConfig(args)
 	c.Assert(results.Results, gc.HasLen, 1)

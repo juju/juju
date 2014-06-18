@@ -77,10 +77,9 @@ func (a *Action) Name() string {
 	return a.doc.Name
 }
 
-// Tag implements the Entity interface and returns the string representation
-// of the ActionTag
-func (a *Action) Tag() string {
-	return names.NewActionTag(a.Id()).String()
+// Tag implements the Entity interface and returns an ActionTag representation.
+func (a *Action) Tag() names.Tag {
+	return names.NewActionTag(a.Id())
 }
 
 // Payload will contain a structure representing arguments or parameters to

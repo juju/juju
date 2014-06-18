@@ -605,7 +605,7 @@ func (st *State) ensureAvailabilityIntentionOps(
 	}
 
 	for _, m := range intent.maintain {
-		tag, err := names.ParseTag(m.Tag())
+		tag, err := names.ParseTag(m.Tag().String())
 		if err != nil {
 			return nil, StateServersChanges{}, fmt.Errorf("could not parse machine tag: %v", err)
 		}

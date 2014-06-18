@@ -21,8 +21,8 @@ type Machine struct {
 }
 
 // Tag returns the machine's tag.
-func (m *Machine) Tag() string {
-	return m.tag
+func (m *Machine) Tag() names.Tag {
+	return mustParseMachineTag(m.tag)
 }
 
 // Id returns the machine id.

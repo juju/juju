@@ -265,7 +265,7 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		return results, err
 	}
 	for _, machine := range machines {
-		if !canAccessFunc(machine.Tag()) {
+		if !canAccessFunc(machine.Tag().String()) {
 			continue
 		}
 		if _, provisionedErr := machine.InstanceId(); provisionedErr == nil {

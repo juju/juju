@@ -701,7 +701,7 @@ func relationsInScopeTags(unit *state.Unit) ([]string, error) {
 	}
 	tags := make([]string, len(relations))
 	for i, relation := range relations {
-		tags[i] = relation.Tag()
+		tags[i] = relation.Tag().String()
 	}
 	return tags, nil
 }

@@ -73,7 +73,7 @@ func (s *machineUpgraderSuite) TestSetVersion(c *gc.C) {
 	agentTools, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
-	err = s.st.SetVersion(s.rawMachine.Tag(), cur)
+	err = s.st.SetVersion(s.rawMachine.Tag().String(), cur)
 	c.Assert(err, gc.IsNil)
 	s.rawMachine.Refresh()
 	agentTools, err = s.rawMachine.AgentTools()
@@ -102,7 +102,7 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 	s.rawMachine.SetAgentVersion(cur)
 	// Upgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
-	stateTools, hostnameVerification, err := s.st.Tools(s.rawMachine.Tag())
+	stateTools, hostnameVerification, err := s.st.Tools(s.rawMachine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateTools.Version, gc.Equals, cur)
 	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
@@ -110,7 +110,7 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 
 	envtesting.SetSSLHostnameVerification(c, s.State, false)
 
-	stateTools, hostnameVerification, err = s.st.Tools(s.rawMachine.Tag())
+	stateTools, hostnameVerification, err = s.st.Tools(s.rawMachine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateTools.Version, gc.Equals, cur)
 	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
@@ -118,7 +118,7 @@ func (s *machineUpgraderSuite) TestTools(c *gc.C) {
 }
 
 func (s *machineUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
-	w, err := s.st.WatchAPIVersion(s.rawMachine.Tag())
+	w, err := s.st.WatchAPIVersion(s.rawMachine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
@@ -148,7 +148,7 @@ func (s *machineUpgraderSuite) TestDesiredVersion(c *gc.C) {
 	s.rawMachine.SetAgentVersion(cur)
 	// Upgrader.DesiredVersion returns the *desired* set of tools, not the
 	// currently running set. We want to be upgraded to cur.Version
-	stateVersion, err := s.st.DesiredVersion(s.rawMachine.Tag())
+	stateVersion, err := s.st.DesiredVersion(s.rawMachine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateVersion, gc.Equals, cur.Number)
 }
