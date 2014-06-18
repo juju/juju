@@ -99,7 +99,7 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		return params.LoginResult{}, err
 	}
 	if a.reqNotifier != nil {
-		a.reqNotifier.login(entity.Tag())
+		a.reqNotifier.login(entity.Tag().String())
 	}
 	// We have authenticated the user; now choose an appropriate API
 	// to serve to them.
@@ -125,7 +125,7 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	lastConnection := getAndUpdateLastConnectionForEntity(entity)
 	return params.LoginResult{
 		Servers:        hostPorts,
-		EnvironTag:     environ.Tag(),
+		EnvironTag:     environ.Tag().String(),
 		LastConnection: lastConnection,
 		Facades:        newRoot.DescribeFacades(),
 	}, nil
@@ -195,20 +195,20 @@ func (p *machinePinger) Stop() error {
 }
 
 func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticator) error {
-	setAgentAliver, ok := entity.(interface {
-		SetAgentAlive() (*presence.Pinger, error)
-	})
-	if !ok {
-		return nil
-	}
 	// A machine or unit agent has connected, so start a pinger to
 	// announce it's now alive, and set up the API pinger
 	// so that the connection will be terminated if a sufficient
 	// interval passes between pings.
-	pinger, err := setAgentAliver.SetAgentAlive()
+	agentPresencer, ok := entity.(presence.Presencer)
+	if !ok {
+		return nil
+	}
+
+	pinger, err := agentPresencer.SetAgentPresence()
 	if err != nil {
 		return err
 	}
+
 	newRoot.resources.Register(&machinePinger{pinger})
 	action := func() {
 		if err := newRoot.rpcConn.Close(); err != nil {
@@ -217,6 +217,7 @@ func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticat
 	}
 	pingTimeout := newPingTimeout(action, maxClientPingInterval)
 	newRoot.resources.RegisterNamed("pingTimeout", pingTimeout)
+
 	return nil
 }
 

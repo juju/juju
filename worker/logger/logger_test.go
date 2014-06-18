@@ -74,7 +74,7 @@ func agentConfig(c *gc.C, tag string) *mockConfig {
 }
 
 func (s *LoggerSuite) makeLogger(c *gc.C) (worker.Worker, *mockConfig) {
-	config := agentConfig(c, s.machine.Tag())
+	config := agentConfig(c, s.machine.Tag().String())
 	return logger.NewLogger(s.loggerApi, config), config
 }
 

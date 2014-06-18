@@ -39,7 +39,7 @@ func (s *authHttpSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.password = "password"
 	user := s.Factory.MakeUser(factory.UserParams{Password: s.password})
-	s.userTag = user.Tag()
+	s.userTag = user.Tag().String()
 }
 
 func (s *authHttpSuite) sendRequest(c *gc.C, tag, password, method, uri, contentType string, body io.Reader) (*http.Response, error) {
@@ -126,7 +126,7 @@ func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
-	resp, err := s.sendRequest(c, machine.Tag(), password, "GET", s.charmsURI(c, ""), "", nil)
+	resp, err := s.sendRequest(c, machine.Tag().String(), password, "GET", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 

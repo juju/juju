@@ -177,7 +177,7 @@ func (r *srvRoot) AuthUnitAgent() bool {
 // AuthOwner returns whether the authenticated user's tag matches the
 // given entity tag.
 func (r *srvRoot) AuthOwner(tag string) bool {
-	return r.entity.Tag() == tag
+	return r.entity.Tag().String() == tag
 }
 
 // AuthEnvironManager returns whether the authenticated user is a
@@ -195,7 +195,7 @@ func (r *srvRoot) AuthClient() bool {
 
 // GetAuthTag returns the tag of the authenticated entity.
 func (r *srvRoot) GetAuthTag() string {
-	return r.entity.Tag()
+	return r.entity.Tag().String()
 }
 
 // GetAuthEntity returns the authenticated entity.

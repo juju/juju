@@ -83,14 +83,14 @@ func (s *stateSuite) TestLoginSetsEnvironTag(c *gc.C) {
 	err = apistate.Login(tag, password, "")
 	c.Assert(err, gc.IsNil)
 	// Now that we've logged in, EnvironTag should be updated correctly.
-	c.Check(apistate.EnvironTag(), gc.Equals, env.Tag())
+	c.Check(apistate.EnvironTag(), gc.Equals, env.Tag().String())
 }
 
 func (s *stateSuite) TestLoginTracksFacadeVersions(c *gc.C) {
 	apistate, tag, password := s.OpenAPIWithoutLogin(c)
 	defer apistate.Close()
 	// We haven't called Login yet, so the Facade Versions should be empty
-	c.Check(apistate.AllFacadeVersions(), gc.IsNil)
+	c.Check(apistate.AllFacadeVersions(), gc.HasLen, 0)
 	err := apistate.Login(tag, password, "")
 	c.Assert(err, gc.IsNil)
 	// Now that we've logged in, AllFacadeVersions should be updated.

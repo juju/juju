@@ -97,9 +97,10 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
-	m, err = s.st.Agent().Entity(s.machine.Tag())
+	// TODO(dfc) why does Entity take a string, not a tag ?
+	m, err = s.st.Agent().Entity(s.machine.Tag().String())
 	c.Assert(err, gc.IsNil)
-	c.Assert(m.Tag(), gc.Equals, s.machine.Tag())
+	c.Assert(m.Tag(), gc.Equals, s.machine.Tag().String())
 	c.Assert(m.Life(), gc.Equals, params.Alive)
 	c.Assert(m.Jobs(), gc.DeepEquals, []params.MachineJob{params.JobHostUnits})
 
@@ -108,14 +109,14 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 
-	m, err = s.st.Agent().Entity(s.machine.Tag())
+	m, err = s.st.Agent().Entity(s.machine.Tag().String())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)
 }
 
 func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
-	entity, err := s.st.Agent().Entity(s.machine.Tag())
+	entity, err := s.st.Agent().Entity(s.machine.Tag().String())
 	c.Assert(err, gc.IsNil)
 
 	err = entity.SetPassword("foo")

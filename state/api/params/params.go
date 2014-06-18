@@ -742,14 +742,25 @@ type LoginResult struct {
 	Facades        []FacadeVersions
 }
 
-// EnsureAvailability contains arguments for
+// StateServersSpec contains arguments for
 // the EnsureAvailability client API call.
-type EnsureAvailability struct {
-	NumStateServers int
-	Constraints     constraints.Value
+type StateServersSpec struct {
+	NumStateServers int               `json:num-state-servers`
+	Constraints     constraints.Value `json:constraints,omitempty`
 	// Series is the series to associate with new state server machines.
 	// If this is empty, then the environment's default series is used.
-	Series string
+	Series string `json:series,omitempty`
+}
+
+// StateServersChanges lists the servers
+// that have been added, removed or maintained in the
+// pool as a result of an ensure-availability operation.
+type StateServersChanges struct {
+	Added      []string `json:added,omitempty`
+	Maintained []string `json:maintained,omitempty`
+	Removed    []string `json:removed,omitempty`
+	Promoted   []string `json:promoted,omitempty`
+	Demoted    []string `json:demoted,omitempty`
 }
 
 type UserInfo struct {

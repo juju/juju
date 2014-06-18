@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -73,8 +74,8 @@ type fakeUnitAuthenticator struct {
 	mongoPass string
 }
 
-func (a *fakeUnitAuthenticator) Tag() string {
-	return "fake"
+func (a *fakeUnitAuthenticator) Tag() names.Tag {
+	return names.NewUnitTag("fake/0")
 }
 
 func (a *fakeUnitAuthenticator) SetMongoPassword(pass string) error {
@@ -93,6 +94,10 @@ type fakeMachineAuthenticator struct {
 
 func (a *fakeMachineAuthenticator) Jobs() []state.MachineJob {
 	return a.jobs
+}
+
+func (a *fakeMachineAuthenticator) Tag() names.Tag {
+	return names.NewMachineTag("0")
 }
 
 func (*passwordSuite) TestSetPasswords(c *gc.C) {

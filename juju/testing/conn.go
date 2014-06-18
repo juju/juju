@@ -164,7 +164,7 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce"), machine
+	return s.openAPIAs(c, machine.Tag().String(), password, "fake_nonce"), machine
 }
 
 func PreferredDefaultVersions(conf *config.Config, template version.Binary) []version.Binary {

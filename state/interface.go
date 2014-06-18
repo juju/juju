@@ -4,6 +4,8 @@
 package state
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/api/params"
@@ -22,7 +24,7 @@ var _ EntityFinder = (*State)(nil)
 // Entity represents any entity that can be returned
 // by State.FindEntity. All entities have a tag.
 type Entity interface {
-	Tag() string
+	Tag() names.Tag
 }
 
 var (
@@ -31,6 +33,7 @@ var (
 	_ Entity = (*Service)(nil)
 	_ Entity = (*Environment)(nil)
 	_ Entity = (*User)(nil)
+	_ Entity = (*Action)(nil)
 )
 
 type StatusSetter interface {

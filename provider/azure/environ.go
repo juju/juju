@@ -260,11 +260,27 @@ func (env *azureEnviron) getContainerName() string {
 	return env.getEnvPrefix() + "private"
 }
 
+func isHTTPConflict(err error) bool {
+	if err, ok := err.(gwacl.HTTPError); ok {
+		return err.StatusCode() == http.StatusConflict
+	}
+	return false
+}
+
+func isVirtualNetworkExist(err error) bool {
+	// TODO(axw) 2014-06-16 #1330473
+	// Add an error type to gwacl for this.
+	s := err.Error()
+	const prefix = "could not add virtual network"
+	const suffix = "already exists"
+	return strings.HasPrefix(s, prefix) && strings.HasSuffix(s, suffix)
+}
+
 // Bootstrap is specified in the Environ interface.
 func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (err error) {
 	// The creation of the affinity group and the virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
-	if err != nil {
+	if err != nil && !isHTTPConflict(err) {
 		return err
 	}
 	// If we fail after this point, clean up the affinity group.
@@ -273,8 +289,9 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 			env.deleteAffinityGroup()
 		}
 	}()
+
 	err = env.createVirtualNetwork()
-	if err != nil {
+	if err != nil && !isVirtualNetworkExist(err) {
 		return err
 	}
 	// If we fail after this point, clean up the virtual network.
@@ -283,8 +300,7 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 			env.deleteVirtualNetwork()
 		}
 	}()
-	err = common.Bootstrap(ctx, env, args)
-	return err
+	return common.Bootstrap(ctx, env, args)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -1012,12 +1028,17 @@ func (env *azureEnviron) Destroy() error {
 		return fmt.Errorf("cannot destroy instances: %v", err)
 	}
 
-	// Delete vnet and affinity group.
+	// Delete vnet and affinity group. Deleting the virtual network
+	// may fail for inexplicable reasons (cannot delete in the Azure
+	// console either for some amount of time after deleting dependent
+	// VMs), so we only treat this as a warning. There is no cost
+	// associated with a vnet or affinity group.
 	if err := env.deleteVirtualNetwork(); err != nil {
-		return fmt.Errorf("cannot delete the environment's virtual network: %v", err)
-	}
-	if err := env.deleteAffinityGroup(); err != nil {
-		return fmt.Errorf("cannot delete the environment's affinity group: %v", err)
+		logger.Warningf("cannot delete the environment's virtual network: %v", err)
+	} else {
+		if err := env.deleteAffinityGroup(); err != nil {
+			logger.Warningf("cannot delete the environment's affinity group: %v", err)
+		}
 	}
 
 	// Delete storage.

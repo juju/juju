@@ -537,7 +537,7 @@ func jujuInfoEp(serviceName string) state.Endpoint {
 }
 
 func (s *ServiceSuite) TestTag(c *gc.C) {
-	c.Assert(s.mysql.Tag(), gc.Equals, "service-mysql")
+	c.Assert(s.mysql.Tag().String(), gc.Equals, "service-mysql")
 }
 
 func (s *ServiceSuite) TestMysqlEndpoints(c *gc.C) {
@@ -1010,7 +1010,7 @@ func (s *ServiceSuite) TestDestroyWithReferencedRelation(c *gc.C) {
 	s.assertDestroyWithReferencedRelation(c, true)
 }
 
-func (s *ServiceSuite) TestDestroyWithreferencedRelationStaleCount(c *gc.C) {
+func (s *ServiceSuite) TestDestroyWithReferencedRelationStaleCount(c *gc.C) {
 	s.assertDestroyWithReferencedRelation(c, false)
 }
 

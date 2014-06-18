@@ -79,7 +79,7 @@ func agentConfig(tag, datadir string) agent.Config {
 }
 
 func (s *UpgraderSuite) makeUpgrader() *upgrader.Upgrader {
-	config := agentConfig(s.machine.Tag(), s.DataDir())
+	config := agentConfig(s.machine.Tag().String(), s.DataDir())
 	return upgrader.NewUpgrader(s.state.Upgrader(), config)
 }
 
@@ -139,7 +139,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	u := s.makeUpgrader()
 	err = u.Stop()
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
-		AgentName: s.machine.Tag(),
+		AgentName: s.machine.Tag().String(),
 		OldTools:  oldTools.Version,
 		NewTools:  newTools.Version,
 		DataDir:   s.DataDir(),
@@ -192,7 +192,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	select {
 	case err := <-done:
 		envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
-			AgentName: s.machine.Tag(),
+			AgentName: s.machine.Tag().String(),
 			OldTools:  oldTools.Version,
 			NewTools:  newerTools.Version,
 			DataDir:   s.DataDir(),
@@ -272,7 +272,7 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	u := s.makeUpgrader()
 	err = u.Stop()
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
-		AgentName: s.machine.Tag(),
+		AgentName: s.machine.Tag().String(),
 		OldTools:  origTools.Version,
 		NewTools:  downgradeTools.Version,
 		DataDir:   s.DataDir(),
