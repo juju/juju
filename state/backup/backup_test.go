@@ -183,7 +183,7 @@ func (b *BackupSuite) TestBackUp(c *gc.C) {
 		ranCommand = true
 		return nil
 	}
-	bkpFile, shaSum, err := Backup("boguspassword", b.cwd, 123456)
+	bkpFile, shaSum, err := Backup("boguspassword", "bogus-user", b.cwd, "localhost:8080")
 	c.Check(err, gc.IsNil)
 	c.Assert(ranCommand, gc.Equals, true)
 	fileShaSum := shaSumFile(c, path.Join(b.cwd, bkpFile))
