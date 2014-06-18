@@ -144,7 +144,7 @@ func (s *baseSuite) openAs(c *gc.C, tag string) *api.State {
 // of the juju environment set up by setUpScenario.
 //
 // NOTE: AgentState: "down", AgentStateInfo: "(started)" here is due
-// to the scenario not calling SetAgentAlive on the respective entities,
+// to the scenario not calling SetAgentPresence on the respective entities,
 // but this behavior is already tested in cmd/juju/status_test.go and
 // also tested live and it works.
 var scenarioStatus = &api.Status{

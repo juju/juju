@@ -32,6 +32,7 @@ type Machine struct {
 	st  *State
 	doc machineDoc
 	annotator
+	presence.Presencer
 }
 
 // MachineJob values define responsibilities that machines may be
@@ -648,13 +649,14 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// AgentAlive returns whether the respective remote agent is alive.
-func (m *Machine) AgentAlive() (bool, error) {
-	return m.st.pwatcher.Alive(m.globalKey())
+// AgentPresence returns whether the respective remote agent is alive.
+func (m *Machine) AgentPresence() (bool, error) {
+	b, err := m.st.pwatcher.Alive(m.globalKey())
+	return b, err
 }
 
-// WaitAgentAlive blocks until the respective agent is alive.
-func (m *Machine) WaitAgentAlive(timeout time.Duration) (err error) {
+// WaitAgentPresence blocks until the respective agent is alive.
+func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.Maskf(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
 	m.st.pwatcher.Watch(m.globalKey(), ch)
@@ -674,13 +676,23 @@ func (m *Machine) WaitAgentAlive(timeout time.Duration) (err error) {
 	panic(fmt.Sprintf("presence reported dead status twice in a row for machine %v", m))
 }
 
-// SetAgentAlive signals that the agent for machine m is alive.
+// SetAgentPresence signals that the agent for machine m is alive.
 // It returns the started pinger.
-func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
+func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	p := presence.NewPinger(m.st.presence, m.globalKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
+	}
+	// We preform a manual sync here so that the
+	// presence pinger has the most up-to-date information when it
+	// starts. This ensures that commands run immediately after bootstrap
+	// like status or ensure-availability will have an accurate values
+	// for agent-state.
+	//
+	// TODO: Does not work for multiple state servers. Trigger a sync across all state servers.
+	if m.IsManager() {
+		m.st.pwatcher.Sync()
 	}
 	return p, nil
 }
