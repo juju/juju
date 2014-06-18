@@ -41,7 +41,7 @@ func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
 	err := s.APIState.Client().EnvironmentSet(map[string]interface{}{"rsyslog-ca-cert": coretesting.CACert})
 	c.Assert(err, gc.IsNil)
 
-	cfg, err := s.rsyslog.GetRsyslogConfig(s.machine.Tag())
+	cfg, err := s.rsyslog.GetRsyslogConfig(s.machine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg, gc.NotNil)
 
@@ -55,7 +55,7 @@ func (s *rsyslogSuite) TestGetRsyslogConfig(c *gc.C) {
 }
 
 func (s *rsyslogSuite) TestWatchForRsyslogChanges(c *gc.C) {
-	w, err := s.rsyslog.WatchForRsyslogChanges(s.machine.Tag())
+	w, err := s.rsyslog.WatchForRsyslogChanges(s.machine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, w)
 

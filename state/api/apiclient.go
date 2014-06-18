@@ -129,9 +129,9 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	pool.AddCert(xcert)
 
-	environUUID := ""
+	var environUUID string
 	if info.EnvironTag != "" {
-		tag, err := names.ParseTag(info.EnvironTag, names.EnvironTagKind)
+		tag, err := names.ParseEnvironTag(info.EnvironTag)
 		if err != nil {
 			return nil, err
 		}

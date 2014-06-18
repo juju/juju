@@ -420,15 +420,15 @@ func (t *localServerSuite) TestGetAvailabilityZonesCommon(c *gc.C) {
 	c.Assert(zones[1].Available(), jc.IsFalse)
 }
 
-type mockBestAvailabilityZoneAllocations struct {
+type mockAvailabilityZoneAllocations struct {
 	group  []instance.Id // input param
-	result map[string][]instance.Id
+	result []common.AvailabilityZoneInstances
 	err    error
 }
 
-func (t *mockBestAvailabilityZoneAllocations) BestAvailabilityZoneAllocations(
+func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 	e common.ZonedEnviron, group []instance.Id,
-) (map[string][]instance.Id, error) {
+) ([]common.AvailabilityZoneInstances, error) {
 	t.group = group
 	return t.result, t.err
 }
@@ -439,14 +439,16 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	var mock mockBestAvailabilityZoneAllocations
-	t.PatchValue(ec2.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{{ZoneName: "az1"}},
+	}
+	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 
 	// no distribution group specified
 	testing.AssertStartInstance(c, env, "1")
 	c.Assert(mock.group, gc.HasLen, 0)
 
-	// distribution group specified: ensure it's passed through to BestAvailabilityZone.
+	// distribution group specified: ensure it's passed through to AvailabilityZone.
 	expectedInstances := []instance.Id{"i-0", "i-1"}
 	params := environs.StartInstanceParams{
 		DistributionGroup: func() ([]instance.Id, error) {
@@ -464,10 +466,10 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	mock := mockBestAvailabilityZoneAllocations{
-		err: fmt.Errorf("BestAvailabilityZoneAllocations failed"),
+	mock := mockAvailabilityZoneAllocations{
+		err: fmt.Errorf("AvailabilityZoneAllocations failed"),
 	}
-	t.PatchValue(ec2.BestAvailabilityZoneAllocations, mock.BestAvailabilityZoneAllocations)
+	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
 	_, _, _, err = testing.StartInstance(env, "1")
 	c.Assert(err, gc.Equals, mock.err)
 
@@ -488,10 +490,67 @@ func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	// test-available is the only available AZ, so BestAvailabilityZoneAllocations
+	// test-available is the only available AZ, so AvailabilityZoneAllocations
 	// is guaranteed to return that.
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "test-available")
+}
+
+var azConstrainedErr = &amzec2.Error{
+	Code:    "Unsupported",
+	Message: "The requested Availability Zone is currently constrained etc.",
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{
+			{ZoneName: "az1"}, {ZoneName: "az2"},
+		},
+	}
+	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+
+	var azArgs []string
+	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
+		azArgs = append(azArgs, ri.AvailZone)
+		return nil, azConstrainedErr
+	})
+	_, _, _, err = testing.StartInstance(env, "1")
+	c.Assert(err, gc.ErrorMatches, `cannot run instances: The requested Availability Zone is currently constrained etc\. \(Unsupported\)`)
+	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
+}
+
+func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
+	env := t.Prepare(c)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	mock := mockAvailabilityZoneAllocations{
+		result: []common.AvailabilityZoneInstances{
+			{ZoneName: "az1"}, {ZoneName: "az2"},
+		},
+	}
+	t.PatchValue(ec2.AvailabilityZoneAllocations, mock.AvailabilityZoneAllocations)
+
+	// The first call to RunInstances fails with an error indicating the AZ
+	// is constrained. The second attempt succeeds, and so allocates to az2.
+	var azArgs []string
+	realRunInstances := *ec2.RunInstances
+	t.PatchValue(ec2.RunInstances, func(e *amzec2.EC2, ri *amzec2.RunInstances) (*amzec2.RunInstancesResp, error) {
+		azArgs = append(azArgs, ri.AvailZone)
+		if len(azArgs) == 1 {
+			return nil, azConstrainedErr
+		}
+		return realRunInstances(e, ri)
+	})
+	inst, _ := testing.AssertStartInstance(c, env, "1")
+	c.Assert(azArgs, gc.DeepEquals, []string{"az1", "az2"})
+	c.Assert(ec2.InstanceEC2(inst).AvailZone, gc.Equals, "az2")
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {

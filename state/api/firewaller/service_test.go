@@ -24,7 +24,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
 
 	var err error
-	apiUnit, err := s.firewaller.Unit(s.units[0].Tag())
+	apiUnit, err := s.firewaller.Unit(s.units[0].Tag().String())
 	s.apiService, err = apiUnit.Service()
 	c.Assert(err, gc.IsNil)
 }

@@ -201,7 +201,7 @@ func (s *AssignSuite) TestDeployerTag(c *gc.C) {
 			c.Assert(ok, jc.IsFalse)
 		} else {
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(name.String(), gc.Equals, d.Tag())
+			c.Assert(name, gc.Equals, d.Tag())
 		}
 	}
 	assertDeployer(subordinate, principal)
@@ -811,8 +811,9 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
 	// Add two environ manager machines and check they are not chosen.
-	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
 
 	m, err = s.assignUnit(unit)
 	c.Assert(m, gc.IsNil)

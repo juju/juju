@@ -90,6 +90,7 @@ type Unit struct {
 	st  *State
 	doc unitDoc
 	annotator
+	presence.Presencer
 }
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
@@ -99,7 +100,7 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 	}
 	unit.annotator = annotator{
 		globalKey: unit.globalKey(),
-		tag:       unit.Tag(),
+		tag:       unit.Tag().String(),
 		st:        st,
 	}
 	return unit
@@ -204,7 +205,7 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
 func (u *Unit) SetMongoPassword(password string) error {
-	return u.st.setMongoPassword(u.Tag(), password)
+	return u.st.setMongoPassword(u.Tag().String(), password)
 }
 
 // SetPassword sets the password for the machine's agent.
@@ -759,20 +760,20 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 	return u.st.run(buildTxn)
 }
 
-// AgentAlive returns whether the respective remote agent is alive.
-func (u *Unit) AgentAlive() (bool, error) {
+// AgentPresence returns whether the respective remote agent is alive.
+func (u *Unit) AgentPresence() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalKey())
 }
 
-// Tag returns a name identifying the unit that is safe to use
-// as a file name.  The returned name will be different from other
-// Tag values returned by any other entities from the same state.
-func (u *Unit) Tag() string {
-	return names.NewUnitTag(u.Name()).String()
+// Tag returns a name identifying the unit.
+// The returned name will be different from other Tag values returned by any
+// other entities from the same state.
+func (u *Unit) Tag() names.Tag {
+	return names.NewUnitTag(u.Name())
 }
 
-// WaitAgentAlive blocks until the respective agent is alive.
-func (u *Unit) WaitAgentAlive(timeout time.Duration) (err error) {
+// WaitAgentPresence blocks until the respective agent is alive.
+func (u *Unit) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.Maskf(&err, "waiting for agent of unit %q", u)
 	ch := make(chan presence.Change)
 	u.st.pwatcher.Watch(u.globalKey(), ch)
@@ -792,9 +793,9 @@ func (u *Unit) WaitAgentAlive(timeout time.Duration) (err error) {
 	panic(fmt.Sprintf("presence reported dead status twice in a row for unit %q", u))
 }
 
-// SetAgentAlive signals that the agent for unit u is alive.
+// SetAgentPresence signals that the agent for unit u is alive.
 // It returns the started pinger.
-func (u *Unit) SetAgentAlive() (*presence.Pinger, error) {
+func (u *Unit) SetAgentPresence() (*presence.Pinger, error) {
 	p := presence.NewPinger(u.st.presence, u.globalKey())
 	err := p.Start()
 	if err != nil {
@@ -1382,7 +1383,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, error) {
-	actionId, err := newActionId(u.st, u.globalKey())
+	actionId, err := newActionId(u.st, names.NewUnitTag(u.Name()).Id())
 	if err != nil {
 		return "", fmt.Errorf("cannot add action; error generating key: %v", err)
 	}

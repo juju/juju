@@ -297,24 +297,24 @@ func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *MachineSuite) TestMachineSetAgentAlive(c *gc.C) {
-	alive, err := s.machine.AgentAlive()
+func (s *MachineSuite) TestMachineSetAgentPresence(c *gc.C) {
+	alive, err := s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
-	pinger, err := s.machine.SetAgentAlive()
+	pinger, err := s.machine.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(pinger, gc.NotNil)
 	defer pinger.Stop()
 
 	s.State.StartSync()
-	alive, err = s.machine.AgentAlive()
+	alive, err = s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 }
 
 func (s *MachineSuite) TestTag(c *gc.C) {
-	c.Assert(s.machine.Tag(), gc.Equals, "machine-1")
+	c.Assert(s.machine.Tag().String(), gc.Equals, "machine-1")
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
@@ -335,23 +335,23 @@ func (s *MachineSuite) TestSetAgentCompatPassword(c *gc.C) {
 	testSetAgentCompatPassword(c, e)
 }
 
-func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
-	alive, err := s.machine.AgentAlive()
+func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
+	alive, err := s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(coretesting.ShortWait)
+	err = s.machine.WaitAgentPresence(coretesting.ShortWait)
 	c.Assert(err, gc.ErrorMatches, `waiting for agent of machine 1: still not alive after timeout`)
 
-	pinger, err := s.machine.SetAgentAlive()
+	pinger, err := s.machine.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(coretesting.LongWait)
+	err = s.machine.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
 
-	alive, err = s.machine.AgentAlive()
+	alive, err = s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 
@@ -359,7 +359,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
-	alive, err = s.machine.AgentAlive()
+	alive, err = s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 }
@@ -724,7 +724,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Check(ifaces[0].InterfaceName(), gc.Equals, interfaces[0].InterfaceName)
 	c.Check(ifaces[0].NetworkName(), gc.Equals, interfaces[0].NetworkName)
 	c.Check(ifaces[0].MACAddress(), gc.Equals, interfaces[0].MACAddress)
-	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag())
+	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag().String())
 	c.Check(ifaces[0].IsVirtual(), gc.Equals, interfaces[0].IsVirtual)
 }
 

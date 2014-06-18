@@ -13,7 +13,7 @@ github.com/juju/cmd	git	e2d7df426d54b663f8616901b75d1ccfafcd9997
 github.com/juju/errgo	git	26caa7d4884f6048c5687fa44c410e5d5d95e554	
 github.com/juju/errors	git	075df0417dbcc39d24ee18248d2f8d6e3eed598b	
 github.com/juju/loggo	git	7e8c70b24b80b95b2284f09306aac0bd93588db8	
-github.com/juju/names	git	973fc2b9bc21d975e5c7ccdc273d1169ba55c53d	
+github.com/juju/names	git	d6e9f06b936da18e4feeef3e788bf0dde0cc2d99	
 github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb	
 github.com/juju/schema	git	1887e824896b58a0f376fb8517b5eebb825828b8	
 github.com/juju/testing	git	b0941ff1bf4d3db1ffbbe09f75fa8383eae5764c	

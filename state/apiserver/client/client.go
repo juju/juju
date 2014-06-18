@@ -238,7 +238,7 @@ var CharmStore charm.Repository = charm.Store
 func networkTagsToNames(tags []string) ([]string, error) {
 	netNames := make([]string, len(tags))
 	for i, tag := range tags {
-		t, err := names.ParseTag(tag, names.NetworkTagKind)
+		t, err := names.ParseNetworkTag(tag)
 		if err != nil {
 			return nil, err
 		}
@@ -1066,27 +1066,55 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	return result, nil
 }
 
+// Convert machine ids to tags.
+func machineIdsToTags(ids ...string) []string {
+	var result []string
+	for _, id := range ids {
+		result = append(result, names.NewMachineTag(id).String())
+	}
+	return result
+}
+
+// Generate a StateServersChanges structure.
+func stateServersChanges(change state.StateServersChanges) params.StateServersChanges {
+	return params.StateServersChanges{
+		Added:      machineIdsToTags(change.Added...),
+		Maintained: machineIdsToTags(change.Maintained...),
+		Removed:    machineIdsToTags(change.Removed...),
+		Promoted:   machineIdsToTags(change.Promoted...),
+		Demoted:    machineIdsToTags(change.Demoted...),
+	}
+}
+
 // EnsureAvailability ensures the availability of Juju state servers.
-func (c *Client) EnsureAvailability(args params.EnsureAvailability) error {
+func (c *Client) EnsureAvailability(args params.StateServersSpec) (params.StateServersChanges, error) {
 	series := args.Series
+
 	if series == "" {
 		ssi, err := c.api.state.StateServerInfo()
 		if err != nil {
-			return err
+			return params.StateServersChanges{}, err
 		}
+
 		// We should always have at least one voting machine
 		// If we *really* wanted we could just pick whatever series is
 		// in the majority, but really, if we always copy the value of
 		// the first one, then they'll stay in sync.
 		if len(ssi.VotingMachineIds) == 0 {
 			// Better than a panic()?
-			return fmt.Errorf("internal error, failed to find any voting machines")
+			return params.StateServersChanges{}, fmt.Errorf("internal error, failed to find any voting machines")
 		}
 		templateMachine, err := c.api.state.Machine(ssi.VotingMachineIds[0])
 		if err != nil {
-			return err
+			return params.StateServersChanges{}, err
 		}
 		series = templateMachine.Series()
 	}
-	return c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
+	changes, err := c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
+	if err != nil {
+		return params.StateServersChanges{}, err
+	}
+	chg := stateServersChanges(changes)
+
+	return chg, nil
 }

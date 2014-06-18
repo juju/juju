@@ -243,7 +243,7 @@ func (r *srvRoot) Upgrader(id string) (upgrader.Upgrader, error) {
 	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
 	// This is tested in the state/api/upgrader package since there
 	// are currently no direct srvRoot tests.
-	tag, err := names.ParseTag(r.GetAuthTag(), "")
+	tag, err := names.ParseTag(r.GetAuthTag())
 	if err != nil {
 		return nil, common.ErrPerm
 	}
@@ -382,7 +382,7 @@ func (r *srvRoot) AuthUnitAgent() bool {
 // AuthOwner returns whether the authenticated user's tag matches the
 // given entity tag.
 func (r *srvRoot) AuthOwner(tag string) bool {
-	return r.entity.Tag() == tag
+	return r.entity.Tag().String() == tag
 }
 
 // AuthEnvironManager returns whether the authenticated user is a
@@ -399,7 +399,7 @@ func (r *srvRoot) AuthClient() bool {
 
 // GetAuthTag returns the tag of the authenticated entity.
 func (r *srvRoot) GetAuthTag() string {
-	return r.entity.Tag()
+	return r.entity.Tag().String()
 }
 
 // GetAuthEntity returns the authenticated entity.

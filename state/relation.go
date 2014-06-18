@@ -62,10 +62,9 @@ func (r *Relation) String() string {
 	return r.doc.Key
 }
 
-// Tag returns a name identifying the relation that is safe to use
-// as a file name.
-func (r *Relation) Tag() string {
-	return names.NewRelationTag(r.doc.Key).String()
+// Tag returns a name identifying the relation.
+func (r *Relation) Tag() names.Tag {
+	return names.NewRelationTag(r.doc.Key)
 }
 
 // Refresh refreshes the contents of the relation from the underlying

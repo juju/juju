@@ -32,6 +32,7 @@ type Machine struct {
 	st  *State
 	doc machineDoc
 	annotator
+	presence.Presencer
 }
 
 // MachineJob values define responsibilities that machines may be
@@ -133,7 +134,7 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 	}
 	machine.annotator = annotator{
 		globalKey: machine.globalKey(),
-		tag:       machine.Tag(),
+		tag:       machine.Tag().String(),
 		st:        st,
 	}
 	return machine
@@ -209,11 +210,12 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 	return instData, nil
 }
 
-// Tag returns a name identifying the machine that is safe to use
-// as a file name.  The returned name will be different from other
-// Tag values returned by any other entities from the same state.
-func (m *Machine) Tag() string {
-	return names.NewMachineTag(m.Id()).String()
+// Tag returns a tag identifying the machine. The String method provides a
+// string representation that is safe to use as a file name. The returned name
+// will be different from other Tag values returned by any other entities
+// from the same state.
+func (m *Machine) Tag() names.Tag {
+	return names.NewMachineTag(m.Id())
 }
 
 // Life returns whether the machine is Alive, Dying or Dead.
@@ -327,7 +329,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 // should use to communicate with the state servers.  Previous passwords
 // are invalidated.
 func (m *Machine) SetMongoPassword(password string) error {
-	return m.st.setMongoPassword(m.Tag(), password)
+	return m.st.setMongoPassword(m.Tag().String(), password)
 }
 
 // SetPassword sets the password for the machine's agent.
@@ -647,13 +649,14 @@ func (m *Machine) Refresh() error {
 	return nil
 }
 
-// AgentAlive returns whether the respective remote agent is alive.
-func (m *Machine) AgentAlive() (bool, error) {
-	return m.st.pwatcher.Alive(m.globalKey())
+// AgentPresence returns whether the respective remote agent is alive.
+func (m *Machine) AgentPresence() (bool, error) {
+	b, err := m.st.pwatcher.Alive(m.globalKey())
+	return b, err
 }
 
-// WaitAgentAlive blocks until the respective agent is alive.
-func (m *Machine) WaitAgentAlive(timeout time.Duration) (err error) {
+// WaitAgentPresence blocks until the respective agent is alive.
+func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 	defer errors.Maskf(&err, "waiting for agent of machine %v", m)
 	ch := make(chan presence.Change)
 	m.st.pwatcher.Watch(m.globalKey(), ch)
@@ -673,13 +676,23 @@ func (m *Machine) WaitAgentAlive(timeout time.Duration) (err error) {
 	panic(fmt.Sprintf("presence reported dead status twice in a row for machine %v", m))
 }
 
-// SetAgentAlive signals that the agent for machine m is alive.
+// SetAgentPresence signals that the agent for machine m is alive.
 // It returns the started pinger.
-func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
+func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
 	p := presence.NewPinger(m.st.presence, m.globalKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
+	}
+	// We preform a manual sync here so that the
+	// presence pinger has the most up-to-date information when it
+	// starts. This ensures that commands run immediately after bootstrap
+	// like status or ensure-availability will have an accurate values
+	// for agent-state.
+	//
+	// TODO: Does not work for multiple state servers. Trigger a sync across all state servers.
+	if m.IsManager() {
+		m.st.pwatcher.Sync()
 	}
 	return p, nil
 }

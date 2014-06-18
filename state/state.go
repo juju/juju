@@ -415,10 +415,10 @@ func (st *State) Machine(id string) (*Machine, error) {
 // FindEntity returns the entity with the given tag.
 //
 // The returned value can be of type *Machine, *Unit,
-// *User, *Service or *Environment, depending
+// *User, *Service, *Environment, or *Action, depending
 // on the tag.
 func (st *State) FindEntity(tag string) (Entity, error) {
-	t, err := names.ParseTag(tag, "")
+	t, err := names.ParseTag(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -460,14 +460,17 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 		return st.KeyRelation(id)
 	case names.NetworkTag:
 		return st.Network(id)
+	case names.ActionTag:
+		return st.Action(id)
+	default:
+		return nil, errors.Errorf("unsupported tag tpe %T", t)
 	}
-	return nil, err
 }
 
 // parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
 func (st *State) parseTag(tag string) (coll string, id string, err error) {
-	t, err := names.ParseTag(tag, "")
+	t, err := names.ParseTag(tag)
 	if err != nil {
 		return "", "", err
 	}
@@ -486,6 +489,8 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.environments.Name
 	case names.NetworkTag:
 		coll = st.networks.Name
+	case names.ActionTag:
+		coll = st.actions.Name
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
@@ -887,9 +892,9 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // they will be created automatically.
 func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string) (service *Service, err error) {
 	defer errors.Maskf(&err, "cannot add service %q", name)
-	tag, err := names.ParseTag(ownerTag, names.UserTagKind)
-	if err != nil || tag.Kind() != names.UserTagKind {
-		return nil, fmt.Errorf("Invalid ownertag %s", ownerTag)
+	tag, err := names.ParseUserTag(ownerTag)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid ownertag %s: %v", ownerTag, err)
 	}
 	// Sanity checks.
 	if !names.IsService(name) {
@@ -1368,10 +1373,15 @@ func (st *State) Action(id string) (*Action, error) {
 	return newAction(st, doc), nil
 }
 
-// UnitActions returns a list of pending actions for a unit named name
+// UnitActions returns a list of pending actions for a given Unit
 func (st *State) UnitActions(name string) ([]*Action, error) {
+	return st.Actions(names.NewUnitTag(name).Id())
+}
+
+// Actions returns a list of pending actions for an Entity given its Tag()
+func (st *State) Actions(tag string) ([]*Action, error) {
 	actions := []*Action{}
-	prefix := actionPrefix(unitGlobalKey(name))
+	prefix := actionPrefix(tag)
 	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
 	iter := st.actions.Find(sel).Iter()
 	doc := actionDoc{}
@@ -1403,13 +1413,13 @@ func (st *State) ActionResultsForUnit(name string) ([]*ActionResult, error) {
 	if !names.IsUnit(name) {
 		return nil, errors.Errorf("%q is not a valid unit name", name)
 	}
-	return st.actionResults(unitGlobalKey(name) + actionMarker)
+	return st.actionResults(name + names.ActionMarker)
 }
 
 // ActionResultsForAction returns actionresults that were generated from
 // action with given actionId
 func (st *State) ActionResultsForAction(actionId string) ([]*ActionResult, error) {
-	if !IsAction(actionId) {
+	if !names.IsAction(actionId) {
 		return nil, errors.Errorf("%q is not a valid action id", actionId)
 	}
 	return st.actionResults(actionId + actionResultMarker)

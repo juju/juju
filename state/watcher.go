@@ -829,10 +829,10 @@ func (m *Machine) WatchPrincipalUnits() StringsWatcher {
 	return newUnitsWatcher(m.st, m.Tag(), getUnits, coll, m.doc.Id)
 }
 
-func newUnitsWatcher(st *State, tag string, getUnits func() ([]string, error), coll, id string) StringsWatcher {
+func newUnitsWatcher(st *State, tag names.Tag, getUnits func() ([]string, error), coll, id string) StringsWatcher {
 	w := &unitsWatcher{
 		commonWatcher: commonWatcher{st: st},
-		tag:           tag,
+		tag:           tag.String(),
 		getUnits:      getUnits,
 		life:          map[string]Life{},
 		in:            make(chan watcher.Change),

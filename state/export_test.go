@@ -220,8 +220,6 @@ func GetActionResultIdPrefix(actionResultId string) string {
 // Action private funcs
 //
 
-const ActionMarker string = actionMarker
-
 func GetActionIdPrefix(actionId string) string {
 	return getActionIdPrefix(actionId)
 }

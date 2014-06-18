@@ -30,7 +30,7 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 
 	var err error
-	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag())
+	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag().String())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -366,11 +366,11 @@ func (s *unitSuite) TestJoinedRelations(c *gc.C) {
 	rel1, _, _ := s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
 	joinedRelations, err = s.apiUnit.JoinedRelations()
 	c.Assert(err, gc.IsNil)
-	c.Assert(joinedRelations, gc.DeepEquals, []string{rel1.Tag()})
+	c.Assert(joinedRelations, gc.DeepEquals, []string{rel1.Tag().String()})
 
 	rel2, _, _ := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
 	joinedRelations, err = s.apiUnit.JoinedRelations()
 	c.Assert(err, gc.IsNil)
 	sort.Strings(joinedRelations)
-	c.Assert(joinedRelations, gc.DeepEquals, []string{rel2.Tag(), rel1.Tag()})
+	c.Assert(joinedRelations, gc.DeepEquals, []string{rel2.Tag().String(), rel1.Tag().String()})
 }

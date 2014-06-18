@@ -5,10 +5,10 @@ package state
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"labix.org/v2/mgo/txn"
 )
 
@@ -44,21 +44,16 @@ func newAction(st *State, adoc actionDoc) *Action {
 	}
 }
 
-// actionMarker is the token used to delimit the prefix from
-// the unique suffix of an Action Id.  Useful for filtering
-// on a given prefix.
-const actionMarker string = "#a#"
-
 // actionPrefix returns a suitable prefix for an action given the
-// globalKey of a containing item
-func actionPrefix(globalKey string) string {
-	return globalKey + actionMarker
+// prefix of the Name() of a containing item
+func actionPrefix(prefix string) string {
+	return prefix + names.ActionMarker
 }
 
-// newActionId generates a new unique key from another globalKey as
+// newActionId generates a new unique key from another entity name as
 // a prefix, and a generated unique number
-func newActionId(st *State, globalKey string) (string, error) {
-	prefix := actionPrefix(globalKey)
+func newActionId(st *State, name string) (string, error) {
+	prefix := actionPrefix(name)
 	suffix, err := st.sequence(prefix)
 	if err != nil {
 		return "", errors.Errorf("cannot assign new sequence for prefix '%s': %v", prefix, err)
@@ -69,7 +64,7 @@ func newActionId(st *State, globalKey string) (string, error) {
 // getActionIdPrefix returns the prefix for the given action id.
 // Useful when finding a prefix to filter on.
 func getActionIdPrefix(actionId string) string {
-	return strings.Split(actionId, actionMarker)[0]
+	return strings.Split(actionId, names.ActionMarker)[0]
 }
 
 // Id returns the id of the Action
@@ -80,6 +75,11 @@ func (a *Action) Id() string {
 // Name returns the name of the Action
 func (a *Action) Name() string {
 	return a.doc.Name
+}
+
+// Tag implements the Entity interface and returns an ActionTag representation.
+func (a *Action) Tag() names.Tag {
+	return names.NewActionTag(a.Id())
 }
 
 // Payload will contain a structure representing arguments or parameters to
@@ -116,11 +116,4 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, output string) error {
 			Remove: true,
 		},
 	})
-}
-
-var validAction = regexp.MustCompile("^.+" + regexp.QuoteMeta(actionMarker) + "\\d+$")
-
-// IsAction returns whether actionId is a valid action Id.
-func IsAction(actionId string) bool {
-	return validAction.MatchString(actionId)
 }

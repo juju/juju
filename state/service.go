@@ -54,7 +54,7 @@ func newService(st *State, doc *serviceDoc) *Service {
 	}
 	svc.annotator = annotator{
 		globalKey: svc.globalKey(),
-		tag:       svc.Tag(),
+		tag:       svc.Tag().String(),
 		st:        st,
 	}
 	return svc
@@ -65,11 +65,11 @@ func (s *Service) Name() string {
 	return s.doc.Name
 }
 
-// Tag returns a name identifying the service that is safe to use
-// as a file name.  The returned name will be different from other
-// Tag values returned by any other entities from the same state.
-func (s *Service) Tag() string {
-	return names.NewServiceTag(s.Name()).String()
+// Tag returns a name identifying the service.
+// The returned name will be different from other Tag values returned by any
+// other entities from the same state.
+func (s *Service) Tag() names.Tag {
+	return names.NewServiceTag(s.Name())
 }
 
 // serviceGlobalKey returns the global database key for the service
