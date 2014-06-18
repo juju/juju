@@ -61,11 +61,12 @@ func (s *backupSuite) TestAuthRequiresUser(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
-	resp, err := s.sendRequest(c, machine.Tag(), password, "GET", s.backupURL(c), "", nil)
+	resp, err := s.sendRequest(c, machine.Tag().String(), password, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 
 	// Now try a user login.
+	// (Still with an invalid method so we don't actually attempt backup.)
 	resp, err = s.authRequest(c, "GET", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "GET"`)
