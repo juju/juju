@@ -120,17 +120,33 @@ func RegisterStandardFacade(name string, version int, newFunc interface{}) {
 	RegisterFacade(name, version, wrapped, facadeType)
 }
 
+// Facades is the registry that tracks all of the Facades that will be exposed in the API.
+// It can be used to List/Get/Register facades.
+// Most implementers of a facade will probably want to use
+// RegisterStandardFacade rather than Facades.Register, as it provides much
+// cleaner syntax and semantics for calling during init().
 var Facades = &FacadeRegistry{}
 
-type Versions map[int]facadeRecord
+// versions is our internal structure for tracking specific versions of a
+// single facade. We use a map to be able to quickly lookup a version.
+type versions map[int]facadeRecord
 
+// FacadeRegistry is responsible for tracking what Facades are going to be exported in the API.
+// See the variable "Facades" for the singleton that tracks them.
+// It would be possible to have multiple registries if we decide to change how
+// the API exposes methods based on Login information.
 type FacadeRegistry struct {
-	facades map[string]Versions
+	facades map[string]versions
 }
 
+// Register adds a single named facade at a given version to the registry.
+// FacadeFactory will be called when someone wants to instantiate an object of
+// this facade, and facadeType defines the concrete type that the returned object will be.
+// The Type information is used to define what methods will be exported in the
+// API, and it must exactly match the actual object returned by the factory.
 func (f *FacadeRegistry) Register(name string, version int, factory FacadeFactory, facadeType reflect.Type) error {
 	if f.facades == nil {
-		f.facades = make(map[string]Versions, 1)
+		f.facades = make(map[string]versions, 1)
 	}
 	record := facadeRecord{
 		factory:    factory,
@@ -143,11 +159,12 @@ func (f *FacadeRegistry) Register(name string, version int, factory FacadeFactor
 		}
 		vers[version] = record
 	} else {
-		f.facades[name] = Versions{version: record}
+		f.facades[name] = versions{version: record}
 	}
 	return nil
 }
 
+// lookup translates a facade name and version into a facadeRecord.
 func (f *FacadeRegistry) lookup(name string, version int) (facadeRecord, error) {
 	if versions, ok := f.facades[name]; ok {
 		if record, ok := versions[version]; ok {
@@ -157,6 +174,8 @@ func (f *FacadeRegistry) lookup(name string, version int) (facadeRecord, error) 
 	return facadeRecord{}, errors.NotFoundf("%s(%d)", name, version)
 }
 
+// GetFactory returns just the FacadeFactory for a given Facade name and version.
+// See also GetType for getting the type information instead of the creation factory.
 func (f *FacadeRegistry) GetFactory(name string, version int) (FacadeFactory, error) {
 	record, err := f.lookup(name, version)
 	if err != nil {
@@ -165,6 +184,9 @@ func (f *FacadeRegistry) GetFactory(name string, version int) (FacadeFactory, er
 	return record.factory, nil
 }
 
+// GetType returns the type information for a given Facade name and version.
+// This can be used for introspection purposes (to determine what methods are
+// available, etc).
 func (f *FacadeRegistry) GetType(name string, version int) (reflect.Type, error) {
 	record, err := f.lookup(name, version)
 	if err != nil {
@@ -180,9 +202,9 @@ type FacadeDescription struct {
 	Versions []int
 }
 
-// descriptionFromVersions aggregates the information in a Versions map into a
+// descriptionFromVersions aggregates the information in a versions map into a
 // more friendly form for List().
-func descriptionFromVersions(name string, vers Versions) FacadeDescription {
+func descriptionFromVersions(name string, vers versions) FacadeDescription {
 	intVersions := make([]int, 0, len(vers))
 	for version := range vers {
 		intVersions = append(intVersions, version)
