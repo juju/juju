@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/agent"
+	"github.com/juju/juju/state/apiserver/common"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -21,6 +22,7 @@ func TestPackage(t *stdtesting.T) {
 type agentSuite struct {
 	jujutesting.JujuConnSuite
 
+	resources  *common.Resources
 	authorizer apiservertesting.FakeAuthorizer
 
 	machine0  *state.Machine
@@ -48,6 +50,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.container, err = s.State.AddMachineInsideMachine(template, s.machine1.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
+	s.resources = common.NewResources()
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -57,15 +60,19 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	}
 
 	// Create a machiner API for machine 1.
-	s.agent, err = agent.NewAPI(s.State, s.authorizer)
+	s.agent, err = agent.NewAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
+}
+func (s *agentSuite) TearDownTest(c *gc.C) {
+	s.resources.StopAll()
+	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.MachineAgent = false
 	auth.UnitAgent = false
-	api, err := agent.NewAPI(s.State, auth)
+	api, err := agent.NewAPI(s.State, s.resources, auth)
 	c.Assert(err, gc.NotNil)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -75,7 +82,7 @@ func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.MachineAgent = false
 	auth.UnitAgent = true
-	_, err := agent.NewAPI(s.State, auth)
+	_, err := agent.NewAPI(s.State, s.resources, auth)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -108,7 +115,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 	auth.MachineAgent = true
 	auth.UnitAgent = false
 	auth.Tag = s.container.Tag().String()
-	containerAgent, err := agent.NewAPI(s.State, auth)
+	containerAgent, err := agent.NewAPI(s.State, s.resources, auth)
 	c.Assert(err, gc.IsNil)
 
 	results = containerAgent.GetEntities(args)

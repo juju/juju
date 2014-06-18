@@ -22,6 +22,10 @@ import (
 
 var logger = loggo.GetLogger("juju.state.apiserver.keymanager")
 
+func init() {
+	common.RegisterStandardFacade("KeyManager", 0, NewKeyManagerAPI)
+}
+
 // KeyManager defines the methods on the keymanager API end point.
 type KeyManager interface {
 	ListKeys(arg params.ListSSHKeys) (params.StringsResults, error)

@@ -59,6 +59,18 @@ var readTests = []struct {
 		RequestId: 3,
 	},
 	expectBody: &value{X: "result"},
+}, {
+	msg: `{"RequestId": 4, "Type": "foo", "Version": 2, "Id": "id", "Request": "frob", "Params": {"X": "param"}}`,
+	expectHdr: rpc.Header{
+		RequestId: 4,
+		Request: rpc.Request{
+			Type:    "foo",
+			Version: 2,
+			Id:      "id",
+			Action:  "frob",
+		},
+	},
+	expectBody: &value{X: "param"},
 }}
 
 func (*suite) TestRead(c *gc.C) {
@@ -230,6 +242,18 @@ var writeTests = []struct {
 	},
 	body:   &value{X: "result"},
 	expect: `{"RequestId": 3, "Response": {"X": "result"}}`,
+}, {
+	hdr: &rpc.Header{
+		RequestId: 4,
+		Request: rpc.Request{
+			Type:    "foo",
+			Version: 2,
+			Id:      "",
+			Action:  "frob",
+		},
+	},
+	body:   &value{X: "param"},
+	expect: `{"RequestId": 4, "Type": "foo", "Version": 2, "Request": "frob", "Params": {"X": "param"}}`,
 }}
 
 func (*suite) TestWrite(c *gc.C) {
@@ -284,6 +308,18 @@ var dumpRequestTests = []struct {
 	},
 	body:   make(chan int),
 	expect: `"marshal error: json: unsupported type: chan int"`,
+}, {
+	hdr: rpc.Header{
+		RequestId: 1,
+		Request: rpc.Request{
+			Type:    "Foo",
+			Version: 2,
+			Id:      "id",
+			Action:  "Something",
+		},
+	},
+	body:   struct{ Arg string }{Arg: "an arg"},
+	expect: `{"RequestId":1,"Type":"Foo","Version":2,"Id":"id","Request":"Something","Params":{"Arg":"an arg"}}`,
 }}
 
 func (*suite) TestDumpRequest(c *gc.C) {

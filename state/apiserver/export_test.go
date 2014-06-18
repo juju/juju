@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/common"
 )
 
 var (
@@ -39,4 +40,17 @@ func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 
 func NewErrRoot(err error) *errRoot {
 	return &errRoot{err}
+}
+
+// TestingSrvRoot gives you an srvRoot that is *barely* connected to anything.
+// Just enough to let you probe some of the interfaces of srvRoot, but not
+// enough to actually do any RPC calls
+func TestingSrvRoot(st *state.State) *srvRoot {
+	return &srvRoot{
+		state:       st,
+		rpcConn:     nil,
+		resources:   common.NewResources(),
+		entity:      nil,
+		objectCache: make(map[objectKey]interface{}),
+	}
 }

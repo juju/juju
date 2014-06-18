@@ -30,6 +30,10 @@ import (
 	"github.com/juju/juju/version"
 )
 
+func init() {
+	common.RegisterStandardFacade("Client", 0, NewClient)
+}
+
 var logger = loggo.GetLogger("juju.state.apiserver.client")
 
 type API struct {
@@ -46,31 +50,17 @@ type Client struct {
 	api *API
 }
 
-// NewAPI creates a new instance of the Client API.
-func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) *API {
-	r := &API{
+// NewClient creates a new instance of the Client Facade.
+func NewClient(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*Client, error) {
+	if !authorizer.AuthClient() {
+		return nil, common.ErrPerm
+	}
+	return &Client{api: &API{
 		state:        st,
 		auth:         authorizer,
 		resources:    resources,
 		statusSetter: common.NewStatusSetter(st, common.AuthAlways(true)),
-	}
-	r.client = &Client{
-		api: r,
-	}
-	return r
-}
-
-// Client returns an object that provides access
-// to methods accessible to non-agent clients.
-func (r *API) Client(id string) (*Client, error) {
-	if !r.auth.AuthClient() {
-		return nil, common.ErrPerm
-	}
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return r.client, nil
+	}}, nil
 }
 
 func (c *Client) WatchAll() (params.AllWatcherId, error) {

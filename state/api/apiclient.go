@@ -44,6 +44,10 @@ type State struct {
 	// which the client may cache and use for failover.
 	hostPorts [][]network.HostPort
 
+	// facadeVersions holds the versions of all facades as reported by
+	// Login
+	facadeVersions map[string][]int
+
 	// authTag holds the authenticated entity's tag after login.
 	authTag string
 
@@ -321,4 +325,23 @@ func (s *State) APIHostPorts() [][]network.HostPort {
 		hostPorts[i] = append([]network.HostPort{}, server...)
 	}
 	return hostPorts
+}
+
+// AllFacadeVersions returns what versions we know about for all facades
+func (s *State) AllFacadeVersions() map[string][]int {
+	facades := make(map[string][]int, len(s.facadeVersions))
+	for name, versions := range s.facadeVersions {
+		facades[name] = append([]int{}, versions...)
+	}
+	return facades
+}
+
+// BestFacadeVersion compares the versions of facades that we know about, and
+// the versions available from the server, and reports back what version is the
+// 'best available' to use.
+// TODO(jam) this is the eventual implementation of what version of a given
+// Facade we will want to use. It needs to line up the versions that the server
+// reports to us, with the versions that our client knows how to use.
+func (s *State) BestFacadeVersion(facade string) int {
+	return 0
 }

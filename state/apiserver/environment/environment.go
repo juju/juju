@@ -8,6 +8,10 @@ import (
 	"github.com/juju/juju/state/apiserver/common"
 )
 
+func init() {
+	common.RegisterStandardFacade("Environment", 0, NewEnvironmentAPI)
+}
+
 // EnvironmentAPI implements the API used by the machine environment worker.
 type EnvironmentAPI struct {
 	*common.EnvironWatcher
