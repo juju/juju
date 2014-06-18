@@ -30,7 +30,7 @@ func (s *backupSuite) backupURL(c *gc.C) string {
 }
 
 func (s *backupSuite) TestRequiresAuth(c *gc.C) {
-	resp, err := s.sendRequest(c, "", "", "GET", s.backupURL(c), "", nil)
+	resp, err := s.sendRequest(c, "", "", "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 }
