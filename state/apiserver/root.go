@@ -145,11 +145,14 @@ func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (r
 	rpcType := rpcreflect.ObjTypeOf(goType)
 	objMethod, err := rpcType.Method(methodName)
 	if err != nil {
-		return nil, &rpcreflect.CallNotImplementedError{
-			RootMethod: rootName,
-			Version:    version,
-			Method:     methodName,
+		if err == rpcreflect.ErrMethodNotFound {
+			return nil, &rpcreflect.CallNotImplementedError{
+				RootMethod: rootName,
+				Version:    version,
+				Method:     methodName,
+			}
 		}
+		return nil, err
 	}
 	creator := func(id string) (interface{}, error) {
 		objKey := objectKey{name: rootName, version: version, objId: id}

@@ -157,6 +157,7 @@ func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
 	srvRoot := apiserver.TestingSrvRoot(nil)
 	defer common.Facades.Discard("my-testing-facade", 0)
 	defer common.Facades.Discard("my-testing-facade", 1)
+	defer common.Facades.Discard("my-testing-facade", 2)
 	myBadFacade := func(
 		*state.State, *common.Resources, common.Authorizer, string,
 	) (
@@ -171,9 +172,17 @@ func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
 	) {
 		return &testingType{}, nil
 	}
+	myErrFacade := func(
+		*state.State, *common.Resources, common.Authorizer, string,
+	) (
+		interface{}, error,
+	) {
+		return nil, fmt.Errorf("you shall not pass")
+	}
 	expectedType := reflect.TypeOf((*testingType)(nil))
 	common.RegisterFacade("my-testing-facade", 0, myBadFacade, expectedType)
 	common.RegisterFacade("my-testing-facade", 1, myGoodFacade, expectedType)
+	common.RegisterFacade("my-testing-facade", 2, myErrFacade, expectedType)
 	// Now, myGoodFacade returns the right type, so calling it should work
 	// fine
 	caller, err := srvRoot.FindMethod("my-testing-facade", 1, "Exposed")
@@ -187,6 +196,13 @@ func (r *rootSuite) TestFindMethodEnsuresTypeMatch(c *gc.C) {
 	_, err = caller.Call("", reflect.Value{})
 	c.Check(err, gc.ErrorMatches,
 		`internal error, my-testing-facade\(0\) claimed to return \*apiserver_test.testingType but returned \*apiserver_test.badType`)
+	// myErrFacade had the permissions change, so calling it returns an
+	// error, but that shouldn't trigger the type checking code.
+	caller, err = srvRoot.FindMethod("my-testing-facade", 2, "Exposed")
+	c.Assert(err, gc.IsNil)
+	res, err := caller.Call("", reflect.Value{})
+	c.Check(err, gc.ErrorMatches, `you shall not pass`)
+	c.Check(res.IsValid(), jc.IsFalse)
 }
 
 type stringVar struct {

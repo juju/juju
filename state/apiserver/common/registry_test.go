@@ -58,9 +58,6 @@ func (*facadeRegistrySuite) TestGetFactoryUnknownVersion(c *gc.C) {
 	c.Check(f, gc.IsNil)
 }
 
-// TODO: We need a test that calling API versions that aren't there return the
-// proper CodeNotImplemented.
-
 func (s *facadeRegistrySuite) TestRegisterFacadePanicsOnDoubleRegistry(c *gc.C) {
 	var v interface{}
 	doRegister := func() {
