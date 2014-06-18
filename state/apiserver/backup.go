@@ -71,7 +71,7 @@ func (h *backupHandler) doBackup() (*os.File, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("backup failed: missing backup file")
 	}
-	return file, sha, nil
+	return file, sha, ""
 }
 
 // sendError sends a JSON-encoded error response.
