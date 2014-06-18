@@ -199,7 +199,7 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	info := s.APIInfo(c)
-	info.EnvironTag = environ.Tag()
+	info.EnvironTag = environ.Tag().String()
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer apistate.Close()
@@ -221,7 +221,7 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	// Passing in the correct environment UUID should also work
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	info.EnvironTag = environ.Tag()
+	info.EnvironTag = environ.Tag().String()
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	apistate.Close()

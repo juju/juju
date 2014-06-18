@@ -269,7 +269,7 @@ func (s *userManagerSuite) TestAgentUnauthorized(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          machine1.Tag(),
+		Tag:          machine1.Tag().String(),
 		LoggedIn:     true,
 		MachineAgent: true,
 	}

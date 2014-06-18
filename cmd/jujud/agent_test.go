@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -266,12 +265,10 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Bina
 
 	stateInfo := s.StateInfo(c)
 	apiInfo := s.APIInfo(c)
-	t, err := names.ParseTag(tag)
-	c.Assert(err, gc.IsNil)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           s.DataDir(),
-			Tag:               t,
+			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
 			Nonce:             state.BootstrapNonce,
@@ -363,7 +360,7 @@ func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
 }
 
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
-	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
+	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag().String()))
 	c.Assert(err, gc.IsNil)
 
 	conf.SetPassword("")
@@ -376,7 +373,7 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 		c.Assert(err, gc.IsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
-		c.Assert(gotEnt.Tag(), gc.Equals, ent.Tag())
+		c.Assert(gotEnt.Tag(), gc.Equals, ent.Tag().String())
 	}
 	assertOpen(conf)
 

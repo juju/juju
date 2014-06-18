@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
@@ -24,7 +25,7 @@ func (s *EnvironSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestTag(c *gc.C) {
-	expected := "environment-" + s.env.UUID()
+	expected := names.NewEnvironTag(s.env.UUID())
 	c.Assert(s.env.Tag(), gc.Equals, expected)
 }
 

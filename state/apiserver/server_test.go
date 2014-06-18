@@ -62,7 +62,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	// Note we can't use openAs because we're not connecting to
 	// s.APIConn.
 	apiInfo := &api.Info{
-		Tag:      stm.Tag(),
+		Tag:      stm.Tag().String(),
 		Password: password,
 		Nonce:    "fake_nonce",
 		Addrs:    []string{srv.Addr()},
@@ -72,13 +72,13 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
-	_, err = st.Machiner().Machine(stm.Tag())
+	_, err = st.Machiner().Machine(stm.Tag().String())
 	c.Assert(err, gc.IsNil)
 
 	err = srv.Stop()
 	c.Assert(err, gc.IsNil)
 
-	_, err = st.Machiner().Machine(stm.Tag())
+	_, err = st.Machiner().Machine(stm.Tag().String())
 	// The client has not necessarily seen the server shutdown yet,
 	// so there are two possible errors.
 	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
@@ -108,7 +108,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	// This does almost exactly the same as OpenAPIAsMachine but checks
 	// for failures instead.
 	_, info, err := s.APIConn.Environ.StateInfo()
-	info.Tag = stm.Tag()
+	info.Tag = stm.Tag().String()
 	info.Password = password
 	info.Nonce = "invalid-nonce"
 	st, err := api.Open(info, fastDialOpts)
@@ -135,7 +135,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Try connecting, it will fail.
-	info.Tag = stm1.Tag()
+	info.Tag = stm1.Tag().String()
 	info.Nonce = ""
 	st, err = api.Open(info, fastDialOpts)
 	assertNotProvisioned(err)
@@ -159,7 +159,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	s.assertAlive(c, machine, false)
 
 	// Login as the machine agent of the created machine.
-	st := s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
+	st := s.OpenAPIAsMachine(c, machine.Tag().String(), password, "fake_nonce")
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, machine, true)
@@ -189,7 +189,7 @@ func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 	s.assertAlive(c, unit, false)
 
 	// Login as the unit agent of the created unit.
-	st := s.OpenAPIAs(c, unit.Tag(), password)
+	st := s.OpenAPIAs(c, unit.Tag().String(), password)
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, unit, true)

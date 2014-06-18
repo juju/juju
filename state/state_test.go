@@ -2255,7 +2255,7 @@ func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, erro
 	c.Assert(err, gc.IsNil)
 
 	// Check that we cannot log in with the wrong password.
-	info.Tag = ent.Tag()
+	info.Tag = ent.Tag().String()
 	info.Password = "bar"
 	err = tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
@@ -2434,7 +2434,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 		VLANTag:    0,
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(net1.Tag(), gc.Equals, "network-net1")
+	c.Assert(net1.Tag().String(), gc.Equals, "network-net1")
 	c.Assert(string(net1.ProviderId()), gc.Equals, "provider-id")
 
 	// environment tag is dynamically generated
@@ -2461,7 +2461,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 				// for backwards-compatibility we accept any non-UUID tag.
 				c.Assert(e.Tag(), gc.Equals, env.Tag())
 			} else {
-				c.Assert(e.Tag(), gc.Equals, test.tag)
+				c.Assert(e.Tag().String(), gc.Equals, test.tag)
 			}
 		}
 	}
@@ -2490,14 +2490,14 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse a machine entity name.
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, m.Tag())
+	coll, id, err := state.ParseTag(s.State, m.Tag().String())
 	c.Assert(coll, gc.Equals, "machines")
 	c.Assert(id, gc.Equals, m.Id())
 	c.Assert(err, gc.IsNil)
 
 	// Parse a service entity name.
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "dummy"))
-	coll, id, err = state.ParseTag(s.State, svc.Tag())
+	coll, id, err = state.ParseTag(s.State, svc.Tag().String())
 	c.Assert(coll, gc.Equals, "services")
 	c.Assert(id, gc.Equals, svc.Name())
 	c.Assert(err, gc.IsNil)
@@ -2505,7 +2505,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse a unit entity name.
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	coll, id, err = state.ParseTag(s.State, u.Tag())
+	coll, id, err = state.ParseTag(s.State, u.Tag().String())
 	c.Assert(coll, gc.Equals, "units")
 	c.Assert(id, gc.Equals, u.Name())
 	c.Assert(err, gc.IsNil)
@@ -2513,7 +2513,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse a user entity name.
 	user := s.factory.MakeAnyUser()
 	c.Assert(err, gc.IsNil)
-	coll, id, err = state.ParseTag(s.State, user.Tag())
+	coll, id, err = state.ParseTag(s.State, user.Tag().String())
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
 	c.Assert(err, gc.IsNil)
@@ -2521,7 +2521,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse an environment entity name.
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	coll, id, err = state.ParseTag(s.State, env.Tag())
+	coll, id, err = state.ParseTag(s.State, env.Tag().String())
 	c.Assert(coll, gc.Equals, "environments")
 	c.Assert(id, gc.Equals, env.UUID())
 	c.Assert(err, gc.IsNil)
@@ -2534,7 +2534,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 		VLANTag:    0,
 	})
 	c.Assert(err, gc.IsNil)
-	coll, id, err = state.ParseTag(s.State, net1.Tag())
+	coll, id, err = state.ParseTag(s.State, net1.Tag().String())
 	c.Assert(coll, gc.Equals, "networks")
 	c.Assert(id, gc.Equals, net1.Name())
 	c.Assert(err, gc.IsNil)

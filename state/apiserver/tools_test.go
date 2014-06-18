@@ -64,7 +64,7 @@ func (s *toolsSuite) TestAuthRequiresUser(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
-	resp, err := s.sendRequest(c, machine.Tag(), password, "POST", s.toolsURI(c, ""), "", nil)
+	resp, err := s.sendRequest(c, machine.Tag().String(), password, "POST", s.toolsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 

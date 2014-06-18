@@ -61,14 +61,14 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.Machine(id)
 	c.Assert(err, gc.IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
+	conf, tools := s.agentSuite.primeAgent(c, unit.Tag().String(), initialUnitPassword, version.Current)
 	return machine, unit, conf, tools
 }
 
 func (s *UnitSuite) newAgent(c *gc.C, unit *state.Unit) *UnitAgent {
 	a := &UnitAgent{}
 	s.initAgent(c, a, "--unit-name", unit.Name())
-	err := a.ReadConfig(unit.Tag())
+	err := a.ReadConfig(unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	return a
 }
@@ -156,7 +156,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = runWithTimeout(agent)
 	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
-		AgentName: unit.Tag(),
+		AgentName: unit.Tag().String(),
 		OldTools:  currentTools.Version,
 		NewTools:  newVers,
 		DataDir:   s.DataDir(),
