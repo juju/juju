@@ -339,6 +339,9 @@ func (s *State) AllFacadeVersions() map[string][]int {
 // BestFacadeVersion compares the versions of facades that we know about, and
 // the versions available from the server, and reports back what version is the
 // 'best available' to use.
+// TODO(jam) this is the eventual implementation of what version of a given
+// Facade we will want to use. It needs to line up the versions that the server
+// reports to us, with the versions that our client knows how to use.
 func (s *State) BestFacadeVersion(facade string) int {
 	return 0
 }
