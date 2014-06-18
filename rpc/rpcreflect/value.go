@@ -126,8 +126,10 @@ func (caller methodCaller) ResultType() reflect.Type {
 type MethodCaller interface {
 	// ParamsType holds the required type of the parameter to the object method.
 	ParamsType() reflect.Type
+
 	// ResultType holds the result type of the result of calling the object method.
 	ResultType() reflect.Type
+
 	// Call is actually placing a call to instantiate an given instance and
 	// call the method on that instance.
 	Call(objId string, arg reflect.Value) (reflect.Value, error)
