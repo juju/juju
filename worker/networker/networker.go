@@ -5,9 +5,9 @@ package networker
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"strings"
-	"io/ioutil"
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
@@ -23,7 +23,7 @@ var logger = loggo.GetLogger("juju.worker.networker")
 
 // Networker ensures the minimum number of units for services is respected.
 type Networker struct {
-	st *apinetworker.State
+	st  *apinetworker.State
 	tag string
 }
 
@@ -64,14 +64,17 @@ func (nw *Networker) SetUp() (watcher.StringsWatcher, error) {
 		logger.Errorf("failed to read /etc/network/interfaces: %v", err)
 		return nil, err
 	}
+	logger.Infof("nw.tag=%v", nw.tag)
 	s.networks, err = nw.st.MachineNetworkInfo(nw.tag)
+	logger.Infof("s.networks=%#v", s.networks)
+	logger.Infof("err=%#v", err)
 	if err != nil {
 		logger.Errorf("failed to process network info: %v", err)
 		return nil, err
 	}
 
 	// Verify that eth0 interfaces is properly configured and brought up in cloud-init.
-	if (!s.interfaceIsConfigured("eth0") || !s.interfaceHasAddress("eth0")) {
+	if !s.interfaceIsConfigured("eth0") || !s.interfaceHasAddress("eth0") {
 		return nil, fmt.Errorf("interface eth0 has to be configured and bring up in cloud-init")
 	}
 
@@ -85,8 +88,8 @@ func (nw *Networker) SetUp() (watcher.StringsWatcher, error) {
 	// Execute all commands one by one.
 	for _, command := range s.commands {
 		result, err := exec.RunCommands(exec.RunParams{
-			Commands: command,
-			WorkingDir: "/",
+			Commands:    command,
+			WorkingDir:  "/",
 			Environment: nil,
 		})
 		if err != nil {
@@ -102,7 +105,7 @@ func (nw *Networker) SetUp() (watcher.StringsWatcher, error) {
 			return nil, err
 		}
 	}
-	return nil, nil
+	return watcher.WatchNetworks(), nil
 }
 
 // The options specified are to prevent any kind of prompting.
@@ -111,8 +114,8 @@ func (nw *Networker) SetUp() (watcher.StringsWatcher, error) {
 //    to always keep old configuration files in the face of change.
 const aptget = "apt-get --option Dpkg::Options::=--force-confold --assume-yes "
 
-func (s *SetupInfo)ensureVLANModule() {
-	commands := []string {
+func (s *SetupInfo) ensureVLANModule() {
+	commands := []string{
 		`dpkg-query -s vlan || "+aptget+"install vlan`,
 		`lsmod | grep -q 8021q || modprobe 8021q`,
 		`grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'`,

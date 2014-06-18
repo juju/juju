@@ -295,7 +295,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	a.startWorkerAfterUpgrade(singularRunner, "networker", func() (worker.Worker, error) {
+	a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
 		return networker.NewNetworker(st.Networker(), agentConfig), nil
 	})
 
