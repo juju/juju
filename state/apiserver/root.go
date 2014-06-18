@@ -94,19 +94,29 @@ func (r *srvRoot) Kill() {
 	r.resources.StopAll()
 }
 
+// srvCaller is our implementation of the rpcreflect.MethodCaller interface.
+// It lives just long enough to encapsulate the methods that should be
+// available for an RPC call and allow the RPC code to instantiate an object
+// and place a call on its method.
 type srvCaller struct {
 	objMethod rpcreflect.ObjMethod
 	creator   func(id string) (interface{}, error)
 }
 
+// ParamsType defines the parameters that should be supplied to this function.
+// See rpcreflect.MethodCaller for more detail.
 func (s *srvCaller) ParamsType() reflect.Type {
 	return s.objMethod.Params
 }
 
+// ReturnType defines the object that is returned from the function.`
+// See rpcreflect.MethodCaller for more detail.
 func (s *srvCaller) ResultType() reflect.Type {
 	return s.objMethod.Result
 }
 
+// Call takes the object Id and an instance of ParamsType to create an object and place
+// a call on its method. It then returns an instance of ResultType.
 func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
 	obj, err := s.creator(objId)
 	if err != nil {
@@ -115,6 +125,12 @@ func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error)
 	return s.objMethod.Call(reflect.ValueOf(obj), arg)
 }
 
+// FindMethod looks up the given rootName and version in our facade registry
+// and returns a MethodCaller that will be used by the RPC code to place calls on
+// that facade.
+// FindMethod uses the global registry state/apiserver/common.Facades.
+// For more information about how FindMethod should work, see rpc/server.go and
+// rpc/rpcreflect/value.go
 func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	goType, err := common.Facades.GetType(rootName, version)
 	if err != nil {

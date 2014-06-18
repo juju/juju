@@ -260,10 +260,11 @@ func (*facadeRegistrySuite) TestRegisterAndListMultiple(c *gc.C) {
 	c.Assert(r.Register("other", 0, validIdFactory, intPtrType), gc.IsNil)
 	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
 	c.Assert(r.Register("third", 2, validIdFactory, intPtrType), gc.IsNil)
+	c.Assert(r.Register("third", 3, validIdFactory, intPtrType), gc.IsNil)
 	c.Check(r.List(), gc.DeepEquals, []common.FacadeDescription{
 		{Name: "name", Versions: []int{0}},
 		{Name: "other", Versions: []int{0}},
-		{Name: "third", Versions: []int{2}},
+		{Name: "third", Versions: []int{2, 3}},
 	})
 }
 

@@ -42,11 +42,6 @@ func NewErrRoot(err error) *errRoot {
 	return &errRoot{err}
 }
 
-type bogusTaggedAuthenticator struct {
-	state.Entity
-	state.Authenticator
-}
-
 // TestingSrvRoot gives you an srvRoot that is *barely* connected to anything.
 // Just enough to let you probe some of the interfaces of srvRoot, but not
 // enough to actually do any RPC calls
