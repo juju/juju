@@ -68,7 +68,7 @@ func (s *backupSuite) TestAuthRequiresUser(c *gc.C) {
 }
 
 func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
-	testGetStateInfo := func(thisState *state.State) *state.Info {
+	testGetMongoConnectionInfo := func(thisState *state.State) *state.Info {
 		info := &state.Info{
 			Password: "foobar",
 			Tag:      "machine-0",
@@ -92,7 +92,7 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 		return backupFilePath, "some-sha", nil
 	}
 	s.PatchValue(&apiserver.Backup, testBackup)
-	s.PatchValue(&apiserver.GetStateInfo, testGetStateInfo)
+	s.PatchValue(&apiserver.GetMongoConnectionInfo, testGetMongoConnectionInfo)
 
 	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)

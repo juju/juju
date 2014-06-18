@@ -23,11 +23,11 @@ type backupHandler struct {
 	httpHandler
 }
 
-func getStateInfo(state *state.State) (info *state.Info) {
-	return state.Info()
+func getMongoConnectionInfo(state *state.State) (info *state.Info) {
+	return state.MongoConnectionInfo()
 }
 
-var GetStateInfo = getStateInfo
+var GetMongoConnectionInfo = getMongoConnectionInfo
 
 func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
@@ -61,7 +61,7 @@ func (h *backupHandler) doBackup() (*os.File, string, error) {
 
 	defer os.RemoveAll(tempDir)
 
-	info := GetStateInfo(h.state)
+	info := GetMongoConnectionInfo(h.state)
 	filename, sha, err := Backup(info.Password, info.Tag, tempDir, info.Addrs[0])
 	if err != nil {
 		return nil, "", fmt.Errorf("backup failed: %v", err)

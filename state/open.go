@@ -318,8 +318,8 @@ func (st *State) createStateServersDoc() error {
 	return st.runTransaction(ops)
 }
 
-// Info returns information for connecting to mongo
-func (st *State) Info() *Info {
+// MongoConnectionInfo returns information for connecting to mongo
+func (st *State) MongoConnectionInfo() *Info {
 	return st.info
 }
 
