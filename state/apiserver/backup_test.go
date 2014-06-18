@@ -19,11 +19,6 @@ import (
 
 type backupSuite struct {
 	authHttpSuite
-
-	tempDir       string
-	mongoPassword string
-	username      string
-	address       string
 }
 
 var _ = gc.Suite(&backupSuite{})
@@ -81,11 +76,12 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 		info.Addrs = append(info.Addrs, "localhost:80")
 		return info
 	}
+	var data struct{ tempDir, mongoPassword, username, address string }
 	testBackup := func(password string, username string, tempDir string, address string) (string, string, error) {
-		s.tempDir = tempDir
-		s.mongoPassword = password
-		s.username = username
-		s.address = address
+		data.tempDir = tempDir
+		data.mongoPassword = password
+		data.username = username
+		data.address = address
 		backupFilePath := filepath.Join(tempDir, "testBackupFile")
 		file, err := os.Create(backupFilePath)
 		if err != nil {
@@ -102,12 +98,12 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 
-	c.Check(s.tempDir, gc.NotNil)
-	_, err = os.Stat(s.tempDir)
+	c.Check(data.tempDir, gc.NotNil)
+	_, err = os.Stat(data.tempDir)
 	c.Check(err, jc.Satisfies, os.IsNotExist)
-	c.Check(s.mongoPassword, gc.Equals, "foobar")
-	c.Check(s.username, gc.Equals, "machine-0")
-	c.Check(s.address, gc.Equals, "localhost:80")
+	c.Check(data.mongoPassword, gc.Equals, "foobar")
+	c.Check(data.username, gc.Equals, "machine-0")
+	c.Check(data.address, gc.Equals, "localhost:80")
 
 	c.Check(resp.StatusCode, gc.Equals, 200)
 	c.Check(resp.Header.Get("X-Content-SHA"), gc.Equals, "some-sha")
@@ -118,8 +114,9 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 }
 
 func (s *backupSuite) TestErrorWhenBackupFails(c *gc.C) {
+	var data struct{ tempDir string }
 	testBackup := func(password string, username string, tempDir string, address string) (string, string, error) {
-		s.tempDir = tempDir
+		data.tempDir = tempDir
 		return "", "", fmt.Errorf("something bad")
 	}
 	s.PatchValue(&apiserver.Backup, testBackup)
@@ -128,16 +125,17 @@ func (s *backupSuite) TestErrorWhenBackupFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 
-	c.Assert(s.tempDir, gc.NotNil)
-	_, err = os.Stat(s.tempDir)
-	c.Assert(os.IsNotExist(err), jc.IsTrue)
+	c.Assert(data.tempDir, gc.NotNil)
+	_, err = os.Stat(data.tempDir)
+	c.Check(err, jc.Satisfies, os.IsNotExist)
 
 	s.assertErrorResponse(c, resp, 500, "backup failed: something bad")
 }
 
 func (s *backupSuite) TestErrorWhenBackupFileDoesNotExist(c *gc.C) {
+	var data struct{ tempDir string }
 	testBackup := func(password string, username string, tempDir string, address string) (string, string, error) {
-		s.tempDir = tempDir
+		data.tempDir = tempDir
 		backupFilePath := filepath.Join(tempDir, "testBackupFile")
 		return backupFilePath, "some-sha", nil
 	}
@@ -147,9 +145,9 @@ func (s *backupSuite) TestErrorWhenBackupFileDoesNotExist(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 
-	c.Assert(s.tempDir, gc.NotNil)
-	_, err = os.Stat(s.tempDir)
-	c.Assert(os.IsNotExist(err), jc.IsTrue)
+	c.Assert(data.tempDir, gc.NotNil)
+	_, err = os.Stat(data.tempDir)
+	c.Check(err, jc.Satisfies, os.IsNotExist)
 
 	s.assertErrorResponse(c, resp, 500, "backup failed: missing backup file")
 }
