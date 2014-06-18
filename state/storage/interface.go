@@ -37,6 +37,23 @@ type ResourceCatalog interface {
 	UploadComplete(id string) error
 
 	// Remove decrements the reference count for a Resource with the given id, deleting it
-	// if the reference count reaches zero.
-	Remove(id string) error
+	// if the reference count reaches zero. The path of the Resource is returned.
+	// If the Resource is deleted, wasDeleted is returned as true.
+	Remove(id string) (wasDeleted bool, path string, err error)
+}
+
+// ManagedStorage instances persist data for an environment, for a user, or globally.
+// (Only environment storage is currently implemented).
+type ManagedStorage interface {
+	// EnvironmentGet returns a reader for data at path, namespaced to the environment.
+	// If the data is still being uploaded and is not fully written yet,
+	// an ErrUploadPending error is returned. This means the path is valid but the caller
+	// should try again to retrieve the data.
+	EnvironmentGet(env_uuid, path string) (io.ReadCloser, error)
+
+	// EnvironmentPut stores data from reader at path, namespaced to the environment.
+	EnvironmentPut(env_uuid, path string, r io.Reader, length int64) error
+
+	// EnvironmentRemove deletes data at path, namespaced to the environment.
+	EnvironmentRemove(env_uuid, path string) error
 }
