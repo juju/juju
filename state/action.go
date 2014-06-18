@@ -77,6 +77,8 @@ func (a *Action) Name() string {
 	return a.doc.Name
 }
 
+// Tag implements the Entity interface and returns the string representation
+// of the ActionTag
 func (a *Action) Tag() string {
 	return names.NewActionTag(a.Id()).String()
 }
