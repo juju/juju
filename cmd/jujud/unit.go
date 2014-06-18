@@ -70,10 +70,10 @@ func (a *UnitAgent) Stop() error {
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	defer a.tomb.Done()
-	if err := a.ReadConfig(a.Tag()); err != nil {
+	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
-	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
+	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)
@@ -110,6 +110,6 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	return newCloseWorker(runner, st), nil
 }
 
-func (a *UnitAgent) Tag() string {
-	return names.NewUnitTag(a.UnitName).String()
+func (a *UnitAgent) Tag() names.Tag {
+	return names.NewUnitTag(a.UnitName)
 }

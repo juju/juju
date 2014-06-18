@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
@@ -92,13 +93,13 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *machineSuite) TestMachineEntity(c *gc.C) {
-	m, err := s.st.Agent().Entity("42")
+	tag := names.NewMachineTag("42")
+	m, err := s.st.Agent().Entity(tag)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
-	// TODO(dfc) why does Entity take a string, not a tag ?
-	m, err = s.st.Agent().Entity(s.machine.Tag().String())
+	m, err = s.st.Agent().Entity(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Tag(), gc.Equals, s.machine.Tag().String())
 	c.Assert(m.Life(), gc.Equals, params.Alive)
@@ -109,14 +110,14 @@ func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 
-	m, err = s.st.Agent().Entity(s.machine.Tag().String())
+	m, err = s.st.Agent().Entity(s.machine.Tag())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)
 }
 
 func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
-	entity, err := s.st.Agent().Entity(s.machine.Tag().String())
+	entity, err := s.st.Agent().Entity(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
 
 	err = entity.SetPassword("foo")

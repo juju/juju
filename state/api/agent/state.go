@@ -6,6 +6,8 @@ package agent
 import (
 	"fmt"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
@@ -22,10 +24,10 @@ func NewState(caller base.Caller) *State {
 	return &State{caller}
 }
 
-func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
+func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error) {
 	var results params.AgentGetEntitiesResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	err := st.caller.Call("Agent", "", "GetEntities", args, &results)
 	if err != nil {
@@ -64,14 +66,14 @@ type Entity struct {
 	doc params.AgentGetEntitiesResult
 }
 
-func (st *State) Entity(tag string) (*Entity, error) {
+func (st *State) Entity(tag names.Tag) (*Entity, error) {
 	doc, err := st.getEntity(tag)
 	if err != nil {
 		return nil, err
 	}
 	return &Entity{
 		st:  st,
-		tag: tag,
+		tag: tag.String(),
 		doc: *doc,
 	}, nil
 }
