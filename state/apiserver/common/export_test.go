@@ -4,10 +4,9 @@
 package common
 
 var (
-	ValidateNewFacade       = validateNewFacade
-	WrapNewFacade           = wrapNewFacade
-	DescriptionFromVersions = descriptionFromVersions
-	NilFacadeRecord         = facadeRecord{}
+	ValidateNewFacade = validateNewFacade
+	WrapNewFacade     = wrapNewFacade
+	NilFacadeRecord   = facadeRecord{}
 )
 
 type Patcher interface {
@@ -20,4 +19,10 @@ type Patcher interface {
 func SanitizeFacades(patcher Patcher) {
 	emptyFacades := &FacadeRegistry{}
 	patcher.PatchValue(&Facades, emptyFacades)
+}
+
+type Versions versions
+
+func DescriptionFromVersions(name string, vers Versions) FacadeDescription {
+	return descriptionFromVersions(name, versions(vers))
 }

@@ -58,9 +58,6 @@ func (*facadeRegistrySuite) TestGetFactoryUnknownVersion(c *gc.C) {
 	c.Check(f, gc.IsNil)
 }
 
-// TODO: We need a test that calling API versions that aren't there return the
-// proper CodeNotImplemented.
-
 func (s *facadeRegistrySuite) TestRegisterFacadePanicsOnDoubleRegistry(c *gc.C) {
 	var v interface{}
 	doRegister := func() {
@@ -260,10 +257,11 @@ func (*facadeRegistrySuite) TestRegisterAndListMultiple(c *gc.C) {
 	c.Assert(r.Register("other", 0, validIdFactory, intPtrType), gc.IsNil)
 	c.Assert(r.Register("name", 0, validIdFactory, intPtrType), gc.IsNil)
 	c.Assert(r.Register("third", 2, validIdFactory, intPtrType), gc.IsNil)
+	c.Assert(r.Register("third", 3, validIdFactory, intPtrType), gc.IsNil)
 	c.Check(r.List(), gc.DeepEquals, []common.FacadeDescription{
 		{Name: "name", Versions: []int{0}},
 		{Name: "other", Versions: []int{0}},
-		{Name: "third", Versions: []int{2}},
+		{Name: "third", Versions: []int{2, 3}},
 	})
 }
 
