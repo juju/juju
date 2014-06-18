@@ -22,11 +22,15 @@ type Unit struct {
 
 // Name returns the name of the unit.
 func (u *Unit) Name() string {
-	tag, err := names.ParseTag(u.tag, names.UnitTagKind)
+	return mustParseUnitTag(u.tag).Id()
+}
+
+func mustParseUnitTag(unitTag string) names.UnitTag {
+	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
-		panic(fmt.Sprintf("%q is not a valid unit tag", u.tag))
+		panic(err)
 	}
-	return tag.Id()
+	return tag
 }
 
 // Life returns the unit's life cycle value.

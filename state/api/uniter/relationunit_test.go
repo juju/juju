@@ -55,9 +55,9 @@ func (s *relationUnitSuite) TearDownTest(c *gc.C) {
 func (s *relationUnitSuite) getRelationUnits(c *gc.C) (*state.RelationUnit, *uniter.RelationUnit) {
 	wpRelUnit, err := s.stateRelation.Unit(s.wordpressUnit)
 	c.Assert(err, gc.IsNil)
-	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag())
+	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag().String())
 	c.Assert(err, gc.IsNil)
-	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag())
+	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRelation.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -160,9 +160,9 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScopeYet(c *gc.C) {
 	err = loggingSub.Destroy()
 	c.Assert(err, gc.IsNil)
 
-	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag())
+	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().String())
 	c.Assert(err, gc.IsNil)
-	apiRel, err := s.uniter.Relation(subRel.Tag())
+	apiRel, err := s.uniter.Relation(subRel.Tag().String())
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -245,7 +245,7 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertInScope(c, myRelUnit, true)
 
-	apiRel, err := s.uniter.Relation(s.stateRelation.Tag())
+	apiRel, err := s.uniter.Relation(s.stateRelation.Tag().String())
 	c.Assert(err, gc.IsNil)
 	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
 	c.Assert(err, gc.IsNil)

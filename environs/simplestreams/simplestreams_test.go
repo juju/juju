@@ -352,7 +352,7 @@ func (s *simplestreamsSuite) TestGetMetadataNoMatching(c *gc.C) {
 
 func (s *simplestreamsSuite) TestMetadataCatalog(c *gc.C) {
 	metadata := s.AssertGetMetadata(c)
-	c.Check(len(metadata.Products), gc.Equals, 2)
+	c.Check(len(metadata.Products), gc.Equals, 3)
 	c.Check(len(metadata.Aliases), gc.Equals, 1)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	c.Check(len(metadataCatalog.Items), gc.Equals, 2)
@@ -390,6 +390,15 @@ func (s *simplestreamsSuite) TestDenormalisationFromCatalog(c *gc.C) {
 	ti := ic.Items["usww3pe"].(*sstesting.TestItem)
 	c.Check(ti.RegionName, gc.Equals, metadataCatalog.RegionName)
 	c.Check(ti.Endpoint, gc.Equals, metadataCatalog.Endpoint)
+}
+
+func (s *simplestreamsSuite) TestDenormalisationFromTopLevel(c *gc.C) {
+	metadata := s.AssertGetMetadata(c)
+	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:14.04:amd64"]
+	ic := metadataCatalog.Items["20140118"]
+	ti := ic.Items["nzww1pe"].(*sstesting.TestItem)
+	c.Check(ti.RegionName, gc.Equals, metadata.RegionName)
+	c.Check(ti.Endpoint, gc.Equals, metadata.Endpoint)
 }
 
 func (s *simplestreamsSuite) TestDealiasing(c *gc.C) {

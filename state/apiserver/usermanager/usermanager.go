@@ -140,7 +140,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (params.UserInfoResult
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		tag, err := names.ParseTag(userArg.Tag, names.UserTagKind)
+		tag, err := names.ParseUserTag(userArg.Tag)
 		if err != nil {
 			results.Results[0].Error = common.ServerError(err)
 			continue

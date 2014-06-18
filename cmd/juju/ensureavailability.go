@@ -4,9 +4,12 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -16,6 +19,8 @@ import (
 
 type EnsureAvailabilityCommand struct {
 	envcmd.EnvCommandBase
+	out cmd.Output
+
 	NumStateServers int
 	// If specified, use this series for newly created machines,
 	// else use the environment's default-series
@@ -47,6 +52,52 @@ Examples:
      8GB RAM.
 `
 
+// formatSimple marshals value to a yaml-formatted []byte, unless value is nil.
+func formatSimple(value interface{}) ([]byte, error) {
+	ensureAvailabilityResult, ok := value.(availabilityInfo)
+	if !ok {
+		return nil, fmt.Errorf("unexpected result type for ensure-availability call")
+	}
+
+	buff := &bytes.Buffer{}
+
+	for _, machineList := range []struct {
+		message string
+		list    []string
+	}{
+		{
+			"maintaining machines: %s\n",
+			ensureAvailabilityResult.Maintained,
+		},
+		{
+			"adding machines: %s\n",
+			ensureAvailabilityResult.Added,
+		},
+		{
+			"removing machines %s\n",
+			ensureAvailabilityResult.Removed,
+		},
+		{
+			"promoting machines %s\n",
+			ensureAvailabilityResult.Promoted,
+		},
+		{
+			"demoting machines %s\n",
+			ensureAvailabilityResult.Demoted,
+		},
+	} {
+		if len(machineList.list) == 0 {
+			continue
+		}
+		_, err := fmt.Fprintf(buff, machineList.message, strings.Join(machineList.list, ", "))
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return buff.Bytes(), nil
+}
+
 func (c *EnsureAvailabilityCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "ensure-availability",
@@ -59,6 +110,12 @@ func (c *EnsureAvailabilityCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumStateServers, "n", 0, "number of state servers to make available")
 	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "additional machine constraints")
+	c.out.AddFlags(f, "simple", map[string]cmd.Formatter{
+		"yaml":   cmd.FormatYaml,
+		"json":   cmd.FormatJson,
+		"simple": formatSimple,
+	})
+
 }
 
 func (c *EnsureAvailabilityCommand) Init(args []string) error {
@@ -68,13 +125,48 @@ func (c *EnsureAvailabilityCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
+type availabilityInfo struct {
+	Maintained []string `json:"maintained,omitempty" yaml:"maintained,flow,omitempty"`
+	Removed    []string `json:"removed,omitempty" yaml:"removed,flow,omitempty"`
+	Added      []string `json:"added,omitempty" yaml:"added,flow,omitempty"`
+	Promoted   []string `json:"promoted,omitempty" yaml:"promoted,flow,omitempty"`
+	Demoted    []string `json:"demoted,omitempty" yaml:"demoted,flow,omitempty"`
+}
+
 // Run connects to the environment specified on the command line
 // and calls EnsureAvailability.
-func (c *EnsureAvailabilityCommand) Run(_ *cmd.Context) error {
+func (c *EnsureAvailabilityCommand) Run(ctx *cmd.Context) error {
 	client, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	return client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series)
+	ensureAvailabilityResult, err := client.EnsureAvailability(c.NumStateServers, c.Constraints, c.Series)
+	if err != nil {
+		return err
+	}
+
+	result := availabilityInfo{
+		Added:      machineTagsToIds(ensureAvailabilityResult.Added...),
+		Removed:    machineTagsToIds(ensureAvailabilityResult.Removed...),
+		Maintained: machineTagsToIds(ensureAvailabilityResult.Maintained...),
+		Promoted:   machineTagsToIds(ensureAvailabilityResult.Promoted...),
+		Demoted:    machineTagsToIds(ensureAvailabilityResult.Demoted...),
+	}
+	return c.out.Write(ctx, result)
+}
+
+// Convert machine tags to ids, skipping any non-machine tags.
+func machineTagsToIds(tags ...string) []string {
+	var result []string
+
+	for _, rawTag := range tags {
+		tag, err := names.ParseTag(rawTag)
+		if err != nil {
+			continue
+		}
+		result = append(result, tag.Id())
+	}
+	return result
+
 }

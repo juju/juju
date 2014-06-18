@@ -42,8 +42,9 @@ func InstanceEC2(inst instance.Instance) *ec2.Instance {
 }
 
 var (
-	EC2AvailabilityZones            = &ec2AvailabilityZones
-	BestAvailabilityZoneAllocations = &bestAvailabilityZoneAllocations
+	EC2AvailabilityZones        = &ec2AvailabilityZones
+	AvailabilityZoneAllocations = &availabilityZoneAllocations
+	RunInstances                = &runInstances
 )
 
 // BucketStorage returns a storage instance addressing

@@ -403,3 +403,88 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(tools), gc.Equals, 1)
 }
+
+type DryRunTest struct {
+	about             string
+	cmdArgs           []string
+	tools             []string
+	currentVersion    string
+	agentVersion      string
+	expectedCmdOutput string
+}
+
+func (s *UpgradeJujuSuite) TestUpgradeDryRun(c *gc.C) {
+	tests := []DryRunTest{
+		DryRunTest{
+			about:          "dry run outputs and doesn't change anything when uploading tools",
+			cmdArgs:        []string{"--upload-tools", "--dry-run"},
+			tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
+			currentVersion: "2.0.0-quantal-amd64",
+			agentVersion:   "2.0.0",
+			expectedCmdOutput: `available tools:
+    2.2.0-quantal-amd64
+    2.2.2-quantal-i386
+    2.2.3-quantal-amd64
+best version:
+    2.2.3
+upgrade to this version by running
+    juju upgrade-juju --version="2.2.3"
+`,
+		},
+		DryRunTest{
+			about:          "dry run outputs and doesn't change anything",
+			cmdArgs:        []string{"--dry-run"},
+			tools:          []string{"2.2.0-quantal-amd64", "2.2.2-quantal-i386", "2.2.3-quantal-amd64"},
+			currentVersion: "2.0.0-quantal-amd64",
+			agentVersion:   "2.0.0",
+			expectedCmdOutput: `available tools:
+    2.2.0-quantal-amd64
+    2.2.2-quantal-i386
+    2.2.3-quantal-amd64
+best version:
+    2.2.3
+upgrade to this version by running
+    juju upgrade-juju --version="2.2.3"
+`,
+		},
+	}
+
+	for i, test := range tests {
+		c.Logf("\ntest %d: %s", i, test.about)
+		s.PatchValue(&version.Current, version.MustParseBinary(test.currentVersion))
+		com := &UpgradeJujuCommand{}
+		err := coretesting.InitCommand(envcmd.Wrap(com), test.cmdArgs)
+		c.Assert(err, gc.IsNil)
+		toolsDir := c.MkDir()
+		updateAttrs := map[string]interface{}{
+			"agent-version":      test.agentVersion,
+			"tools-metadata-url": "file://" + toolsDir,
+		}
+
+		err = s.State.UpdateEnvironConfig(updateAttrs, nil, nil)
+		c.Assert(err, gc.IsNil)
+		versions := make([]version.Binary, len(test.tools))
+		for i, v := range test.tools {
+			versions[i] = version.MustParseBinary(v)
+		}
+		if len(versions) > 0 {
+			envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
+			stor, err := filestorage.NewFileStorageWriter(toolsDir)
+			c.Assert(err, gc.IsNil)
+			envtesting.MustUploadFakeToolsVersions(stor, versions...)
+		}
+
+		ctx := coretesting.Context(c)
+		err = com.Run(ctx)
+		c.Assert(err, gc.IsNil)
+
+		// Check agent version doesn't change
+		cfg, err := s.State.EnvironConfig()
+		c.Assert(err, gc.IsNil)
+		agentVer, ok := cfg.AgentVersion()
+		c.Assert(ok, gc.Equals, true)
+		c.Assert(agentVer, gc.Equals, version.MustParse(test.agentVersion))
+		output := coretesting.Stderr(ctx)
+		c.Assert(output, gc.Equals, test.expectedCmdOutput)
+	}
+}

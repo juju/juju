@@ -46,7 +46,7 @@ func NewNetworkerAPI(
 				// A machine agent can always access its own machine.
 				return true
 			}
-			t, err := names.ParseTag(tag, names.MachineTagKind)
+			t, err := names.ParseMachineTag(tag)
 			if err != nil {
 				// Only machine tags are allowed.
 				return false
@@ -113,7 +113,7 @@ func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineN
 		if !canAccess(entity.Tag) {
 			err = common.ErrPerm
 		} else {
-			tag, err = names.ParseTag(entity.Tag, names.MachineTagKind)
+			tag, err = names.ParseMachineTag(entity.Tag)
 			if err == nil {
 				id := tag.Id()
 				result.Results[i].Info, err = n.oneMachineInfo(id)

@@ -193,7 +193,7 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 			logger.Errorf("cannot reset status of machine %q: %v", status.Id, err)
 			continue
 		}
-		task.machines[machine.Tag()] = machine
+		task.machines[machine.Tag().String()] = machine
 		pending = append(pending, machine)
 	}
 	return task.startMachines(pending)

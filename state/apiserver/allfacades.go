@@ -3,7 +3,9 @@
 
 package apiserver
 
-// This file just imports all of the facades so they get registered at runtime
+// This file imports all of the facades so they get registered at runtime.
+// When adding a new facade implementation, import it here so that its init()
+// function will get called to register it.
 import (
 	_ "github.com/juju/juju/state/apiserver/agent"
 	_ "github.com/juju/juju/state/apiserver/charmrevisionupdater"

@@ -77,7 +77,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 }
 
 func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
-	t, err := names.ParseTag(tag, names.UnitTagKind)
+	t, err := names.ParseUnitTag(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +85,7 @@ func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
 }
 
 func (u *UniterAPI) getService(tag string) (*state.Service, error) {
-	t, err := names.ParseTag(tag, names.ServiceTagKind)
+	t, err := names.ParseServiceTag(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -584,7 +584,7 @@ func (u *UniterAPI) CharmArchiveSha256(args params.CharmURLs) (params.StringResu
 }
 
 func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag, unitTag string) (*state.Relation, *state.Unit, error) {
-	tag, err := names.ParseTag(relTag, names.RelationTagKind)
+	tag, err := names.ParseRelationTag(relTag)
 	if err != nil {
 		return nil, nil, common.ErrPerm
 	}
@@ -705,7 +705,7 @@ func relationsInScopeTags(unit *state.Unit) ([]string, error) {
 	}
 	tags := make([]string, len(relations))
 	for i, relation := range relations {
-		tags[i] = relation.Tag()
+		tags[i] = relation.Tag().String()
 	}
 	return tags, nil
 }
@@ -868,7 +868,7 @@ func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag s
 	// the *Unit, because it might have been removed; but its relation settings will
 	// persist until the relation itself has been removed (and must remain accessible
 	// because the local unit's view of reality may be time-shifted).
-	tag, err := names.ParseTag(remoteUnitTag, names.UnitTagKind)
+	tag, err := names.ParseUnitTag(remoteUnitTag)
 	if err != nil {
 		return "", err
 	}

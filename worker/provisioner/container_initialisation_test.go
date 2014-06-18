@@ -94,7 +94,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) worker.S
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 	inst := s.checkStartInstance(c, host)
-	s.setupContainerWorker(c, host.Tag())
+	s.setupContainerWorker(c, host.Tag().String())
 
 	// make a container on the host machine
 	template := state.MachineTemplate{
@@ -123,7 +123,7 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
 		c.Assert(containerType, gc.Equals, ctype)
-		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
+		c.Assert(cfg.Tag(), gc.Equals, host.Tag().String())
 		provisionerStarted = true
 		return nil
 	}
@@ -221,7 +221,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 
 	err = os.RemoveAll(s.initLockDir)
 	c.Assert(err, gc.IsNil)
-	handler := s.setupContainerWorker(c, m.Tag())
+	handler := s.setupContainerWorker(c, m.Tag().String())
 	_, err = handler.SetUp()
 	c.Assert(err, gc.IsNil)
 	err = handler.Handle([]string{"0/lxc/0"})

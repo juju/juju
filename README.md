@@ -23,18 +23,6 @@ stable PPA, `https://launchpad.net/~juju/+archive/stable`, and can be installed 
     sudo apt-get update
     sudo apt-get install juju
 
-
-Installing prerequisites
-------------------------
-
-You can use `make install-dependencies` or, if you prefer to install
-them manually, check the Makefile target.
-
-This will add some PPAs to ensure that you can install the required
-golang and mongodb-server versions for precise onwards, in addition to the
-other dependencies.
-
-
 Setting GOPATH
 --------------
 
@@ -69,7 +57,7 @@ Getting juju
 
 The easiest way to get the source for `juju` is to use the `go get` command.
 
-    go get -v github.com/juju/juju/...
+    go get -d -v github.com/juju/juju/...
 
 This command will checkout the source of `juju` and inspect it for any unmet
 Go package dependencies, downloading those as well. `go get` will also build and
@@ -84,7 +72,18 @@ also be available inside `$GOPATH`. You can use `git pull --rebase`, or the
 less convenient `go get -u github.com/juju/juju/...` to update the source
 from time to time.
 If you want to know more about contributing to `juju`, please read the
-`CONTRIBUTING` companion to this file.
+[CONTRIBUTING](CONTRIBUTING.md) companion to this file.
+
+Installing prerequisites
+------------------------
+
+You can use `make install-dependencies` or, if you prefer to install
+them manually, check the Makefile target.
+
+This will add some PPAs to ensure that you can install the required
+golang and mongodb-server versions for precise onwards, in addition to the
+other dependencies.
+
 
 Building juju
 =============
@@ -94,6 +93,12 @@ Building juju
 Will build juju and install the binary commands into `$GOPATH/bin`. It is likely
 if you have just completed the previous step to get the `juju` source, the
 install process will produce no output, as the final executables are up-to-date.
+
+If you do see any errors, there is a good chance they are due to changes in
+juju's dependencies.  See the
+[Dependency management](CONTRIBUTING.md#dependency-management) section of
+`CONTRIBUTING` for more information on getting the dependencies right.
+
 
 Using juju
 ==========
@@ -113,7 +118,6 @@ provider because it uses LXC, which requires root privileges)
     juju switch local
     sudo juju bootstrap
 
-
 --upload-tools
 --------------
 
@@ -127,6 +131,7 @@ a set of tools from source and upload them to the environment as part of the
 bootstrap process.
 
     juju bootstrap -e your-environment --upload-tools {--debug}
+
 
 Installing bash completion for juju
 ===================================

@@ -308,7 +308,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		} else if err != nil {
 			return err
 		}
-		tag, err := names.ParseTag(machined.tag, names.MachineTagKind)
+		tag, err := names.ParseMachineTag(machined.tag)
 		if err != nil {
 			return err
 		}
@@ -474,7 +474,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	tag, err := names.ParseTag(machined.tag, names.MachineTagKind)
+	tag, err := names.ParseMachineTag(machined.tag)
 	if err != nil {
 		return err
 	}

@@ -133,9 +133,9 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	pool.AddCert(xcert)
 
-	environUUID := ""
+	var environUUID string
 	if info.EnvironTag != "" {
-		tag, err := names.ParseTag(info.EnvironTag, names.EnvironTagKind)
+		tag, err := names.ParseEnvironTag(info.EnvironTag)
 		if err != nil {
 			return nil, err
 		}
@@ -340,6 +340,9 @@ func (s *State) AllFacadeVersions() map[string][]int {
 // BestFacadeVersion compares the versions of facades that we know about, and
 // the versions available from the server, and reports back what version is the
 // 'best available' to use.
+// TODO(jam) this is the eventual implementation of what version of a given
+// Facade we will want to use. It needs to line up the versions that the server
+// reports to us, with the versions that our client knows how to use.
 func (s *State) BestFacadeVersion(facade string) int {
 	return bestVersion(facadeVersions[facade], s.facadeVersions[facade])
 }

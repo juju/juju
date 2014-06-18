@@ -769,13 +769,15 @@ func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 }
 
 // EnsureAvailability ensures the availability of Juju state servers.
-func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) error {
-	args := params.EnsureAvailability{
+func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value, series string) (params.StateServersChanges, error) {
+	var result params.StateServersChanges
+	args := params.StateServersSpec{
 		NumStateServers: numStateServers,
 		Constraints:     cons,
 		Series:          series,
 	}
-	return c.APICall("EnsureAvailability", args, nil)
+	err := c.APICall("EnsureAvailability", args, &result)
+	return result, err
 }
 
 // AgentVersion reports the version number of the api server.

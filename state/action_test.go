@@ -4,10 +4,12 @@
 package state_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/txn"
 )
 
 type ActionSuite struct {
@@ -116,13 +118,13 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit)
 
-	killUnit := state.TransactionHook{
+	killUnit := txn.TestHook{
 		Before: func() {
 			c.Assert(unit.Destroy(), gc.IsNil)
 			c.Assert(unit.EnsureDead(), gc.IsNil)
 		},
 	}
-	defer state.SetTransactionHooks(c, s.State, killUnit).Check()
+	defer state.SetTestHooks(c, s.State, killUnit).Check()
 
 	_, err = unit.AddAction("fakeaction", map[string]interface{}{})
 	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
@@ -221,7 +223,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 }
 
 func (s *ActionSuite) TestGetActionIdPrefix(c *gc.C) {
-	getPrefixTest(c, state.GetActionIdPrefix, state.ActionMarker)
+	getPrefixTest(c, state.GetActionIdPrefix, names.ActionMarker)
 }
 
 func (s *ActionSuite) TestGetActionResultIdPrefix(c *gc.C) {
@@ -254,5 +256,5 @@ func getPrefixTest(c *gc.C, fn getPrefixFn, marker string) {
 // This is a temporary assertion, we shouldn't be leaking the actual
 // mongo _id
 func assertSaneActionId(c *gc.C, id, unitName string) {
-	c.Assert(id, gc.Matches, "^u#"+unitName+"#a#\\d+")
+	c.Assert(names.IsAction(id), gc.Equals, true)
 }

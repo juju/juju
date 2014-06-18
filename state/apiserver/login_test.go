@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
@@ -72,7 +73,7 @@ func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.Login
 	info := &api.Info{
 		Tag:        "",
 		Password:   "",
-		EnvironTag: env.Tag(),
+		EnvironTag: env.Tag().String(),
 		Addrs:      []string{srv.Addr()},
 		CACert:     coretesting.CACert,
 	}
@@ -92,7 +93,7 @@ func (s *loginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	info, cleanup := s.setupServer(c)
-	info.Tag = machine.Tag()
+	info.Tag = machine.Tag().String()
 	info.Password = password
 	info.Nonce = "fake_nonce"
 	return info, cleanup
@@ -150,7 +151,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Client"`)
 
 	// Since these are user login tests, the nonce is empty.
-	err = st.Login(u.Tag(), password, "")
+	err = st.Login(u.Tag().String(), password, "")
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 
 	_, err = st.Client().Status([]string{})
@@ -169,21 +170,21 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machineInState.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	c.Assert(machineInState.Tag(), gc.Equals, "machine-0")
+	c.Assert(machineInState.Tag(), gc.Equals, names.NewMachineTag("0"))
 
 	tw := &loggo.TestWriter{}
 	c.Assert(loggo.RegisterWriter("login-tester", tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("login-tester")
 
-	info.Tag = machineInState.Tag()
+	info.Tag = machineInState.Tag().String()
 	info.Password = password
 	info.Nonce = "fake_nonce"
 
 	apiConn, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
-	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag())
+	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().String())
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag())
+	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag().String())
 	apiConn.Close()
 
 	c.Assert(tw.Log, jc.LogMatches, []string{
@@ -492,7 +493,7 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.EnvironTag, gc.Equals, env.Tag())
+	c.Assert(result.EnvironTag, gc.Equals, env.Tag().String())
 }
 
 func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {

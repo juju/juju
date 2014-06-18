@@ -44,7 +44,7 @@ func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {
 	// call (for NotifyWatchers there is no state to be transmitted). So a
 	// call to Next() should not have anything to return.
 	var results params.NotifyWatchResults
-	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err := s.stateAPI.Call("Machiner", s.stateAPI.BestFacadeVersion("Machiner"), "", "Watch", args, &results)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -67,7 +67,7 @@ func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {
 
 func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 	var results params.NotifyWatchResults
-	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err := s.stateAPI.Call("Machiner", s.stateAPI.BestFacadeVersion("Machiner"), "", "Watch", args, &results)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -84,7 +84,7 @@ func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 
 func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 	var results params.NotifyWatchResults
-	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err := s.stateAPI.Call("Machiner", s.stateAPI.BestFacadeVersion("Machiner"), "", "Watch", args, &results)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -122,7 +122,7 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 
 	// Call the Deployer facade's WatchUnits for machine-0.
 	var results params.StringsWatchResults
-	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err = s.stateAPI.Call("Deployer", s.stateAPI.BestFacadeVersion("Deployer"), "", "WatchUnits", args, &results)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)
@@ -160,7 +160,7 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	// Call the Deployer facade's WatchUnits for machine-0.
 	var results params.StringsWatchResults
-	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	err := s.stateAPI.Call("Deployer", s.stateAPI.BestFacadeVersion("Deployer"), "", "WatchUnits", args, &results)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Results, gc.HasLen, 1)

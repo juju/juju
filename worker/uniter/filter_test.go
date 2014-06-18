@@ -58,13 +58,13 @@ func (s *FilterSuite) APILogin(c *gc.C, unit *state.Unit) {
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag(), password)
+	s.st = s.OpenAPIAs(c, unit.Tag().String(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 }
 
 func (s *FilterSuite) TestUnitDeath(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag())
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
 	asserter := coretesting.NotifyAsserterC{
@@ -98,7 +98,7 @@ func (s *FilterSuite) TestUnitDeath(c *gc.C) {
 }
 
 func (s *FilterSuite) TestUnitRemoval(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag())
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
 
@@ -124,7 +124,7 @@ func (s *FilterSuite) assertAgentTerminates(c *gc.C, f *filter) {
 }
 
 func (s *FilterSuite) TestServiceDeath(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag())
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 	dyingAsserter := coretesting.NotifyAsserterC{
@@ -159,7 +159,7 @@ loop:
 }
 
 func (s *FilterSuite) TestResolvedEvents(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag())
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -219,7 +219,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 
 	s.APILogin(c, unit)
 
-	f, err := newFilter(s.uniter, unit.Tag())
+	f, err := newFilter(s.uniter, unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -285,7 +285,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) TestConfigEvents(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag())
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -340,7 +340,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 
 	// Check that a filter's initial event works with DiscardConfigEvent
 	// as expected.
-	f, err = newFilter(s.uniter, s.unit.Tag())
+	f, err = newFilter(s.uniter, s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 	s.BackingState.StartSync()
@@ -354,7 +354,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag())
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
 
@@ -374,7 +374,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 	s.assertFilterDies(c, f)
 
 	// Filter died after the error, so restart it.
-	f, err = newFilter(s.uniter, s.unit.Tag())
+	f, err = newFilter(s.uniter, s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop() // no AssertStop, we test for an error below
 
@@ -386,7 +386,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 }
 
 func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
-	f, err := newFilter(s.uniter, s.unit.Tag())
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
@@ -436,7 +436,7 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Start a new filter, check initial event.
-	f, err = newFilter(s.uniter, s.unit.Tag())
+	f, err = newFilter(s.uniter, s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 	assertChange([]int{0, 2})

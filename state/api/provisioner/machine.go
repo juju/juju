@@ -21,17 +21,21 @@ type Machine struct {
 }
 
 // Tag returns the machine's tag.
-func (m *Machine) Tag() string {
-	return m.tag
+func (m *Machine) Tag() names.Tag {
+	return mustParseMachineTag(m.tag)
 }
 
 // Id returns the machine id.
 func (m *Machine) Id() string {
-	tag, err := names.ParseTag(m.tag, names.MachineTagKind)
+	return mustParseMachineTag(m.tag).Id()
+}
+
+func mustParseMachineTag(machineTag string) names.MachineTag {
+	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
-		panic(fmt.Sprintf("%q is not a valid machine tag", m.tag))
+		panic(err)
 	}
-	return tag.Id()
+	return tag
 }
 
 // String returns the machine as a string.

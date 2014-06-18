@@ -120,7 +120,7 @@ func (s *UniterSuite) APILogin(c *gc.C, unit *state.Unit) {
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag(), password)
+	s.st = s.OpenAPIAs(c, unit.Tag().String(), password)
 	c.Assert(s.st, gc.NotNil)
 	c.Logf("API: login as %q successful", unit.Tag())
 	s.uniter = s.st.Uniter()
