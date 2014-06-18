@@ -19,6 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -637,9 +638,11 @@ func (c *configInternal) StateInfo() (info *state.Info, ok bool) {
 	}
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
 	return &state.Info{
-		Addrs:    []string{addr},
+		Info: mongo.Info{
+			Addrs:  []string{addr},
+			CACert: c.caCert,
+		},
 		Password: c.stateDetails.password,
-		CACert:   c.caCert,
 		Tag:      c.tag,
 	}, true
 }

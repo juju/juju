@@ -387,7 +387,7 @@ type ModifyUsers struct {
 	Changes []ModifyUser
 }
 
-// ModifyUser stores the parameters used for a UserManager.Add|Remove call
+// ModifyUser stores the parameters used for a UserManager.Add|Remove call.
 type ModifyUser struct {
 	// Tag is here purely for backwards compatability. Older clients will
 	// attempt to use the EntityPassword structure, so we need a Tag here
@@ -734,12 +734,41 @@ type LoginResult struct {
 	LastConnection *time.Time
 }
 
-// EnsureAvailability contains arguments for
+// StateServersSpec contains arguments for
 // the EnsureAvailability client API call.
-type EnsureAvailability struct {
-	NumStateServers int
-	Constraints     constraints.Value
+type StateServersSpec struct {
+	NumStateServers int               `json:num-state-servers`
+	Constraints     constraints.Value `json:constraints,omitempty`
 	// Series is the series to associate with new state server machines.
 	// If this is empty, then the environment's default series is used.
-	Series string
+	Series string `json:series,omitempty`
+}
+
+// StateServersChanges lists the servers
+// that have been added, removed or maintained in the
+// pool as a result of an ensure-availability operation.
+type StateServersChanges struct {
+	Added      []string `json:added,omitempty`
+	Maintained []string `json:maintained,omitempty`
+	Removed    []string `json:removed,omitempty`
+	Promoted   []string `json:promoted,omitempty`
+	Demoted    []string `json:demoted,omitempty`
+}
+
+type UserInfo struct {
+	Username       string    `json:username`
+	DisplayName    string    `json:display-name`
+	CreatedBy      string    `json:created-by`
+	DateCreated    time.Time `json:date-created`
+	LastConnection time.Time `json:last-connection`
+}
+
+// UserInfoResult holds the result of a UserInfo call.
+type UserInfoResult struct {
+	Result *UserInfo `json:result,omitempty`
+	Error  *Error    `json:error,omitempty`
+}
+
+type UserInfoResults struct {
+	Results []UserInfoResult
 }

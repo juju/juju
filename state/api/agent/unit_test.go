@@ -34,7 +34,7 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.unit.SetPassword(password)
 
-	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
+	s.st = s.OpenAPIAs(c, s.unit.Tag().String(), password)
 }
 
 func (s *unitSuite) TestUnitEntity(c *gc.C) {
@@ -43,9 +43,9 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
-	m, err = s.st.Agent().Entity(s.unit.Tag())
+	m, err = s.st.Agent().Entity(s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)
-	c.Assert(m.Tag(), gc.Equals, s.unit.Tag())
+	c.Assert(m.Tag(), gc.Equals, s.unit.Tag().String())
 	c.Assert(m.Life(), gc.Equals, params.Alive)
 	c.Assert(m.Jobs(), gc.HasLen, 0)
 
@@ -54,7 +54,7 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	err = s.unit.Remove()
 	c.Assert(err, gc.IsNil)
 
-	m, err = s.st.Agent().Entity(s.unit.Tag())
+	m, err = s.st.Agent().Entity(s.unit.Tag().String())
 	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("unit %q not found", s.unit.Name()))
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(m, gc.IsNil)

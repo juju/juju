@@ -10,17 +10,18 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/cmd"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -240,7 +241,7 @@ func (s *agentSuite) SetUpSuite(c *gc.C) {
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
 	worker.RestartDelay = 250 * time.Millisecond
-	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo, bool) error {
+	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo) error {
 		return nil
 	})
 }
@@ -359,7 +360,7 @@ func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
 }
 
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
-	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
+	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag().String()))
 	c.Assert(err, gc.IsNil)
 
 	conf.SetPassword("")
@@ -372,7 +373,7 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 		c.Assert(err, gc.IsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
-		c.Assert(gotEnt.Tag(), gc.Equals, ent.Tag())
+		c.Assert(gotEnt.Tag(), gc.Equals, ent.Tag().String())
 	}
 	assertOpen(conf)
 
@@ -400,7 +401,7 @@ func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 	c.Assert(err, gc.IsNil)
 	info, ok := config.StateInfo()
 	c.Assert(ok, jc.IsTrue)
-	st, err := state.Open(info, state.DialOpts{}, environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	st.Close()
 }

@@ -193,7 +193,7 @@ func (task *provisionerTask) processMachinesWithTransientErrors() error {
 			logger.Errorf("cannot reset status of machine %q: %v", status.Id, err)
 			continue
 		}
-		task.machines[machine.Tag()] = machine
+		task.machines[machine.Tag().String()] = machine
 		pending = append(pending, machine)
 	}
 	return task.startMachines(pending)
@@ -448,7 +448,7 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 			InterfaceName: info.InterfaceName,
 			MACAddress:    info.MACAddress,
 			NetworkTag:    networkTag,
-			IsVirtual:     info.IsVirtual,
+			IsVirtual:     info.IsVirtual(),
 		})
 	}
 	return networks, ifaces

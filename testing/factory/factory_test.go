@@ -8,6 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -20,6 +21,8 @@ type factorySuite struct {
 	State   *state.State
 	Factory *factory.Factory
 }
+
+var _ = gc.Suite(&factorySuite{})
 
 func (s *factorySuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
@@ -37,10 +40,12 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 	policy := statetesting.MockPolicy{}
 
 	info := &state.Info{
-		Addrs:  []string{jtesting.MgoServer.Addr()},
-		CACert: testing.CACert,
+		Info: mongo.Info{
+			Addrs:  []string{jtesting.MgoServer.Addr()},
+			CACert: testing.CACert,
+		},
 	}
-	opts := state.DialOpts{
+	opts := mongo.DialOpts{
 		Timeout: testing.LongWait,
 	}
 	cfg := testing.EnvironConfig(c)
@@ -51,6 +56,9 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *factorySuite) TearDownTest(c *gc.C) {
+	if s.State != nil {
+		s.State.Close()
+	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }

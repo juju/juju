@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/charm"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
@@ -74,8 +75,9 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	}
 	m, err := s.State.AddMachine("quantal", JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	c.Assert(m.Tag(), gc.Equals, "machine-0")
-	err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
+	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
+	// TODO(dfc) instance.Id should take a TAG!
+	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 	hc, err := m.HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
@@ -142,11 +144,11 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	for i := 0; i < 2; i++ {
 		wu, err := wordpress.AddUnit()
 		c.Assert(err, gc.IsNil)
-		c.Assert(wu.Tag(), gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		c.Assert(wu.Tag().String(), gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
 
 		m, err := s.State.AddMachine("quantal", JobHostUnits)
 		c.Assert(err, gc.IsNil)
-		c.Assert(m.Tag(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
+		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
 		add(&params.UnitInfo{
 			Name:      fmt.Sprintf("wordpress/%d", i),
@@ -164,17 +166,17 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			Annotations: pairs,
 		})
 
-		err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
+		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 		c.Assert(err, gc.IsNil)
-		err = m.SetStatus(params.StatusError, m.Tag(), nil)
+		err = m.SetStatus(params.StatusError, m.Tag().String(), nil)
 		c.Assert(err, gc.IsNil)
 		hc, err := m.HardwareCharacteristics()
 		c.Assert(err, gc.IsNil)
 		add(&params.MachineInfo{
 			Id:                      fmt.Sprint(i + 1),
-			InstanceId:              "i-" + m.Tag(),
+			InstanceId:              "i-" + m.Tag().String(),
 			Status:                  params.StatusError,
-			StatusInfo:              m.Tag(),
+			StatusInfo:              m.Tag().String(),
 			Life:                    params.Alive,
 			Series:                  "quantal",
 			Jobs:                    []params.MachineJob{JobHostUnits.ToParams()},
@@ -186,7 +188,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 
 		deployer, ok := wu.DeployerTag()
 		c.Assert(ok, gc.Equals, true)
-		c.Assert(deployer, gc.Equals, fmt.Sprintf("machine-%d", i+1))
+		c.Assert(deployer, gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 
 		wru, err := rel.Unit(wu)
 		c.Assert(err, gc.IsNil)
@@ -201,7 +203,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		c.Assert(lu.IsPrincipal(), gc.Equals, false)
 		deployer, ok = lu.DeployerTag()
 		c.Assert(ok, gc.Equals, true)
-		c.Assert(deployer, gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		add(&params.UnitInfo{
 			Name:    fmt.Sprintf("logging/%d", i),
 			Service: "logging",

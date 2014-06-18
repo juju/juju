@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -95,7 +97,7 @@ func setDefaultPassword(c *gc.C, e apiAuthenticator) {
 }
 
 func defaultPassword(e apiAuthenticator) string {
-	return e.Tag() + " password-1234567890"
+	return e.Tag().String() + " password-1234567890"
 }
 
 type setStatuser interface {
@@ -109,9 +111,9 @@ func setDefaultStatus(c *gc.C, entity setStatuser) {
 
 func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) error {
 	stateInfo := s.StateInfo(c)
-	stateInfo.Tag = e.Tag()
+	stateInfo.Tag = e.Tag().String()
 	stateInfo.Password = password
-	st, err := state.Open(stateInfo, state.DialOpts{
+	st, err := state.Open(stateInfo, mongo.DialOpts{
 		Timeout: 25 * time.Millisecond,
 	}, environs.NewStatePolicy())
 	if err == nil {
@@ -142,7 +144,7 @@ func (s *baseSuite) openAs(c *gc.C, tag string) *api.State {
 // of the juju environment set up by setUpScenario.
 //
 // NOTE: AgentState: "down", AgentStateInfo: "(started)" here is due
-// to the scenario not calling SetAgentAlive on the respective entities,
+// to the scenario not calling SetAgentPresence on the respective entities,
 // but this behavior is already tested in cmd/juju/status_test.go and
 // also tested live and it works.
 var scenarioStatus = &api.Status{
@@ -324,7 +326,7 @@ var scenarioStatus = &api.Status{
 // hopefully easier to remember as such.
 func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 	add := func(e state.Entity) {
-		entities = append(entities, e.Tag())
+		entities = append(entities, e.Tag().String())
 	}
 	u, err := s.State.User(state.AdminUser)
 	c.Assert(err, gc.IsNil)
@@ -337,8 +339,8 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	c.Assert(m.Tag(), gc.Equals, "machine-0")
-	err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
+	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
+	err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 	setDefaultPassword(c, m)
 	setDefaultStatus(c, m)
@@ -354,18 +356,18 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 	for i := 0; i < 2; i++ {
 		wu, err := wordpress.AddUnit()
 		c.Assert(err, gc.IsNil)
-		c.Assert(wu.Tag(), gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		c.Assert(wu.Tag(), gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, wu)
 		add(wu)
 
 		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
-		c.Assert(m.Tag(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
+		c.Assert(m.Tag(), gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 		if i == 1 {
 			err = m.SetConstraints(constraints.MustParse("mem=1G"))
 			c.Assert(err, gc.IsNil)
 		}
-		err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
+		err = m.SetProvisioned(instance.Id("i-"+m.Tag().String()), "fake_nonce", nil)
 		c.Assert(err, gc.IsNil)
 		setDefaultPassword(c, m)
 		setDefaultStatus(c, m)
@@ -376,7 +378,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 
 		deployer, ok := wu.DeployerTag()
 		c.Assert(ok, gc.Equals, true)
-		c.Assert(deployer, gc.Equals, fmt.Sprintf("machine-%d", i+1))
+		c.Assert(deployer, gc.Equals, names.NewMachineTag(fmt.Sprintf("%d", i+1)))
 
 		wru, err := rel.Unit(wu)
 		c.Assert(err, gc.IsNil)
@@ -403,7 +405,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
 		c.Assert(lu.IsPrincipal(), gc.Equals, false)
 		deployer, ok = lu.DeployerTag()
 		c.Assert(ok, gc.Equals, true)
-		c.Assert(deployer, gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
+		c.Assert(deployer, gc.Equals, names.NewUnitTag(fmt.Sprintf("wordpress/%d", i)))
 		setDefaultPassword(c, lu)
 		add(lu)
 	}

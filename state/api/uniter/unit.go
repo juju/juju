@@ -28,11 +28,15 @@ func (u *Unit) Tag() string {
 
 // Name returns the name of the unit.
 func (u *Unit) Name() string {
-	_, unitName, err := names.ParseTag(u.tag, names.UnitTagKind)
+	return mustParseUnitTag(u.tag).Id()
+}
+
+func mustParseUnitTag(unitTag string) names.UnitTag {
+	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
-		panic(fmt.Sprintf("%q is not a valid unit tag", u.tag))
+		panic(err)
 	}
-	return unitName
+	return tag
 }
 
 // String returns the unit as a string.

@@ -129,13 +129,13 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	}
 	pool.AddCert(xcert)
 
-	environUUID := ""
+	var environUUID string
 	if info.EnvironTag != "" {
-		_, envUUID, err := names.ParseTag(info.EnvironTag, names.EnvironTagKind)
+		tag, err := names.ParseEnvironTag(info.EnvironTag)
 		if err != nil {
 			return nil, err
 		}
-		environUUID = envUUID
+		environUUID = tag.Id()
 	}
 	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, nil)

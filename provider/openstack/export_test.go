@@ -64,11 +64,10 @@ func InstanceServerDetail(inst instance.Instance) *nova.ServerDetail {
 	return inst.(*openstackInstance).serverDetail
 }
 
-func GetAvailabilityZones(e environs.Environ) ([]nova.AvailabilityZone, error) {
-	return e.(*environ).getAvailabilityZones()
-}
-
-var NovaListAvailabilityZones = &novaListAvailabilityZones
+var (
+	NovaListAvailabilityZones   = &novaListAvailabilityZones
+	AvailabilityZoneAllocations = &availabilityZoneAllocations
+)
 
 var indexData = `
 		{

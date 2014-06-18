@@ -6,8 +6,10 @@ package environs
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
@@ -17,7 +19,7 @@ import (
 // Tag() and SetPassword() methods.
 type TaggedPasswordChanger interface {
 	SetPassword(string) error
-	Tag() string
+	Tag() names.Tag
 }
 
 // AuthenticationProvider defines the single method that the provisioner
@@ -51,8 +53,10 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 		return nil, err
 	}
 	stateInfo := &state.Info{
-		Addrs:  stateAddresses,
-		CACert: caCert,
+		Info: mongo.Info{
+			Addrs:  stateAddresses,
+			CACert: caCert,
+		},
 	}
 	apiInfo := &api.Info{
 		Addrs:  apiAddresses,
@@ -75,10 +79,10 @@ func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*sta
 		return nil, nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
 	}
 	stateInfo := *auth.stateInfo
-	stateInfo.Tag = machine.Tag()
+	stateInfo.Tag = machine.Tag().String()
 	stateInfo.Password = password
 	apiInfo := *auth.apiInfo
-	apiInfo.Tag = machine.Tag()
+	apiInfo.Tag = machine.Tag().String()
 	apiInfo.Password = password
 	return &stateInfo, &apiInfo, nil
 }

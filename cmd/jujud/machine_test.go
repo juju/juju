@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/charm"
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -22,14 +23,13 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/agent/mongo"
-	"github.com/juju/juju/cmd"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -155,7 +155,7 @@ func (s *commonMachineSuite) primeAgent(
 func (s *commonMachineSuite) newAgent(c *gc.C, m *state.Machine) *MachineAgent {
 	a := &MachineAgent{}
 	s.initAgent(c, a, "--machine-id", m.Id())
-	err := a.ReadConfig(m.Tag())
+	err := a.ReadConfig(m.Tag().String())
 	c.Assert(err, gc.IsNil)
 	return a
 }
@@ -580,7 +580,7 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
 	m, _, currentTools := s.primeAgent(c, version.Current, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	s.testUpgradeRequest(c, a, m.Tag(), currentTools)
+	s.testUpgradeRequest(c, a, m.Tag().String(), currentTools)
 }
 
 var fastDialOpts = api.DialOpts{
@@ -952,7 +952,7 @@ func (s *MachineSuite) TestMachineAgentUpgradeMongo(c *gc.C) {
 	agentConfig.SetUpgradedToVersion(version.MustParse("1.18.0"))
 	err := agentConfig.Write()
 	c.Assert(err, gc.IsNil)
-	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag())
+	err = s.State.MongoSession().DB("admin").RemoveUser(m.Tag().String())
 	c.Assert(err, gc.IsNil)
 
 	s.agentSuite.PatchValue(&ensureMongoAdminUser, func(p mongo.EnsureAdminUserParams) (bool, error) {

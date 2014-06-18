@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju"
 	_ "github.com/juju/juju/provider/all"

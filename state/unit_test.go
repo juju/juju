@@ -632,7 +632,7 @@ func assertRemoved(c *gc.C, entity state.Living) {
 }
 
 func (s *UnitSuite) TestTag(c *gc.C) {
-	c.Assert(s.unit.Tag(), gc.Equals, "unit-wordpress-0")
+	c.Assert(s.unit.Tag().String(), gc.Equals, "unit-wordpress-0")
 }
 
 func (s *UnitSuite) TestSetMongoPassword(c *gc.C) {
@@ -682,13 +682,13 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Sanity check that we cannot connect with the wrong
 	// password
-	info.Tag = m.Tag()
+	info.Tag = m.Tag().String()
 	info.Password = "foo1"
 	err = tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	// Connect as the machine entity.
-	info.Tag = m.Tag()
+	info.Tag = m.Tag().String()
 	info.Password = "foo"
 	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
@@ -703,7 +703,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Now connect as the unit entity and, as that
 	// that entity, change the password for a new unit.
-	info.Tag = unit.Tag()
+	info.Tag = unit.Tag().String()
 	info.Password = "bar"
 	st2, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
@@ -720,38 +720,38 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *UnitSuite) TestUnitSetAgentAlive(c *gc.C) {
-	alive, err := s.unit.AgentAlive()
+func (s *UnitSuite) TestUnitSetAgentPresence(c *gc.C) {
+	alive, err := s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
-	pinger, err := s.unit.SetAgentAlive()
+	pinger, err := s.unit.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(pinger, gc.NotNil)
 	defer pinger.Stop()
 
 	s.State.StartSync()
-	alive, err = s.unit.AgentAlive()
+	alive, err = s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 }
 
-func (s *UnitSuite) TestUnitWaitAgentAlive(c *gc.C) {
-	alive, err := s.unit.AgentAlive()
+func (s *UnitSuite) TestUnitWaitAgentPresence(c *gc.C) {
+	alive, err := s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
-	err = s.unit.WaitAgentAlive(coretesting.ShortWait)
+	err = s.unit.WaitAgentPresence(coretesting.ShortWait)
 	c.Assert(err, gc.ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
 
-	pinger, err := s.unit.SetAgentAlive()
+	pinger, err := s.unit.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
-	err = s.unit.WaitAgentAlive(coretesting.LongWait)
+	err = s.unit.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
 
-	alive, err = s.unit.AgentAlive()
+	alive, err = s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 
@@ -760,7 +760,7 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *gc.C) {
 
 	s.State.StartSync()
 
-	alive, err = s.unit.AgentAlive()
+	alive, err = s.unit.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 }

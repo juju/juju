@@ -21,6 +21,12 @@ import (
 
 var logger = loggo.GetLogger("juju.state.presence")
 
+type Presencer interface {
+	AgentPresence() (bool, error)
+	SetAgentPresence() (*Pinger, error)
+	WaitAgentPresence(time.Duration) error
+}
+
 // The implementation works by assigning a unique sequence number to each
 // pinger that is alive, and the pinger is then responsible for
 // periodically updating the current time slot document with its

@@ -32,10 +32,12 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiparams "github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 type baseEnvironSuite struct {
@@ -867,24 +869,17 @@ func (s *environSuite) TestStopInstancesWithZeroInstance(c *gc.C) {
 	c.Check(err, gc.IsNil)
 }
 
-// getVnetAndAffinityGroupCleanupResponses returns the responses
-// (gwacl.DispatcherResponse) that a fake http server should return
-// when gwacl's RemoveVirtualNetworkSite() and DeleteAffinityGroup()
-// are called.
-func getVnetAndAffinityGroupCleanupResponses(c *gc.C) []gwacl.DispatcherResponse {
+// getVnetCleanupResponse returns the response
+// that a fake http server should return when gwacl's
+// RemoveVirtualNetworkSite() is called.
+func getVnetCleanupResponse(c *gc.C) gwacl.DispatcherResponse {
 	existingConfig := &gwacl.NetworkConfiguration{
 		XMLNS:               gwacl.XMLNS_NC,
 		VirtualNetworkSites: nil,
 	}
 	body, err := existingConfig.Serialize()
 	c.Assert(err, gc.IsNil)
-	cleanupResponses := []gwacl.DispatcherResponse{
-		// Return empty net configuration.
-		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
-		// Accept deletion of affinity group.
-		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
-	}
-	return cleanupResponses
+	return gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil)
 }
 
 func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
@@ -917,8 +912,8 @@ func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	responses := getAzureServiceListResponse(c)
-	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
-	responses = append(responses, cleanupResponses...)
+	responses = append(responses, getVnetCleanupResponse(c))
+	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteAffinityGroup
 	gwacl.PatchManagementAPIResponses(responses)
 
 	err = env.Destroy()
@@ -969,7 +964,62 @@ func (s *environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C)
 	agRequest := (*requests)[3]
 	c.Check(strings.Contains(agRequest.URL, env.getAffinityGroupName()), jc.IsTrue)
 	c.Check(agRequest.Method, gc.Equals, "DELETE")
+}
 
+func (s *environSuite) TestDestroyDoesNotFailIfVirtualNetworkDeletionFails(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+	responses := getAzureServiceListResponse(c)
+	cleanupResponses := []gwacl.DispatcherResponse{
+		// Fail to delete vnet
+		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
+	}
+	responses = append(responses, cleanupResponses...)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+
+	err := env.Destroy()
+	c.Check(err, gc.IsNil)
+	c.Assert(*requests, gc.HasLen, 2)
+
+	getRequest := (*requests)[1]
+	c.Check(getRequest.Method, gc.Equals, "GET")
+	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), gc.Equals, true)
+}
+
+func (s *environSuite) TestDestroyDoesNotFailIfAffinityGroupDeletionFails(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+	responses := getAzureServiceListResponse(c)
+	// Prepare a configuration with a single virtual network.
+	existingConfig := &gwacl.NetworkConfiguration{
+		XMLNS: gwacl.XMLNS_NC,
+		VirtualNetworkSites: &[]gwacl.VirtualNetworkSite{
+			{Name: env.getVirtualNetworkName()},
+		},
+	}
+	body, err := existingConfig.Serialize()
+	c.Assert(err, gc.IsNil)
+	cleanupResponses := []gwacl.DispatcherResponse{
+		// Return existing configuration.
+		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
+		// Accept upload of new configuration.
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+		// Fail to delete affinity group
+		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
+	}
+	responses = append(responses, cleanupResponses...)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+
+	err = env.Destroy()
+	c.Check(err, gc.IsNil)
+	c.Assert(*requests, gc.HasLen, 4)
+
+	getRequest := (*requests)[1]
+	c.Check(getRequest.Method, gc.Equals, "GET")
+	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), gc.Equals, true)
+	putRequest := (*requests)[2]
+	c.Check(putRequest.Method, gc.Equals, "PUT")
+	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), gc.Equals, true)
 }
 
 var emptyListResponse = `
@@ -1005,7 +1055,8 @@ func (s *environSuite) TestDestroyStopsAllInstances(c *gc.C) {
 	// The call to AllInstances() will return only one service (service1).
 	responses := getAzureServiceListResponse(c, service1.HostedServiceDescriptor, service2.HostedServiceDescriptor)
 	responses = append(responses, buildStatusOKResponses(c, 2)...) // DeleteHostedService
-	responses = append(responses, getVnetAndAffinityGroupCleanupResponses(c)...)
+	responses = append(responses, getVnetCleanupResponse(c))
+	responses = append(responses, buildStatusOKResponses(c, 1)...) // DeleteAffinityGroup
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	err := env.Destroy()
@@ -1448,8 +1499,10 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	s.setDummyStorage(c, s.env)
 	s.env.ecfg.attrs["force-image-name"] = "my-image"
 	stateInfo := &state.Info{
-		Addrs:    []string{"localhost:123"},
-		CACert:   coretesting.CACert,
+		Info: mongo.Info{
+			CACert: coretesting.CACert,
+			Addrs:  []string{"localhost:123"},
+		},
 		Password: "password",
 		Tag:      "machine-1",
 	}
@@ -1557,4 +1610,35 @@ func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+}
+
+func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	var responses []gwacl.DispatcherResponse
+
+	// Fail to create affinity group because it already exists.
+	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil))
+
+	// Fail to create vnet because it already exists.
+	sites := []gwacl.VirtualNetworkSite{{Name: env.getVirtualNetworkName()}}
+	existingConfig := &gwacl.NetworkConfiguration{
+		XMLNS:               gwacl.XMLNS_NC,
+		VirtualNetworkSites: &sites,
+	}
+	body, err := existingConfig.Serialize()
+	c.Assert(err, gc.IsNil)
+	responses = append(responses, gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil)) // GET network
+	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil))    // conflict creating AG
+	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusOK, nil))          // DELETE AG
+	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusOK, nil))          // GET network (delete)
+	responses = append(responses, gwacl.NewDispatcherResponse(nil, http.StatusOK, nil))          // PUT network (delete)
+	gwacl.PatchManagementAPIResponses(responses)
+
+	s.PatchValue(&createInstance, func(*azureEnviron, *gwacl.ManagementAPI, *gwacl.Role, string, bool) (instance.Instance, error) {
+		return nil, fmt.Errorf("no instance for you")
+	})
+	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
+	envtesting.AssertUploadFakeToolsVersions(c, env.storage, envtesting.V120p...)
+	err = env.Bootstrap(coretesting.Context(c), environs.BootstrapParams{})
+	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: no instance for you")
 }

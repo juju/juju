@@ -26,7 +26,7 @@ func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
 
 	var err error
-	s.apiMachine, err = s.firewaller.Machine(s.machines[0].Tag())
+	s.apiMachine, err = s.firewaller.Machine(s.machines[0].Tag().String())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -40,7 +40,7 @@ func (s *machineSuite) TestMachine(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(apiMachine42, gc.IsNil)
 
-	apiMachine0, err := s.firewaller.Machine(s.machines[0].Tag())
+	apiMachine0, err := s.firewaller.Machine(s.machines[0].Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiMachine0, gc.NotNil)
 }
@@ -50,7 +50,7 @@ func (s *machineSuite) TestInstanceId(c *gc.C) {
 	// CodeNotProvisioned.
 	newMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	apiNewMachine, err := s.firewaller.Machine(newMachine.Tag())
+	apiNewMachine, err := s.firewaller.Machine(newMachine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	_, err = apiNewMachine.InstanceId()
 	c.Assert(err, gc.ErrorMatches, "machine 3 is not provisioned")

@@ -25,11 +25,15 @@ type Service struct {
 
 // Name returns the service name.
 func (s *Service) Name() string {
-	_, serviceName, err := names.ParseTag(s.tag, names.ServiceTagKind)
+	return mustParseServiceTag(s.tag).Id()
+}
+
+func mustParseServiceTag(serviceTag string) names.ServiceTag {
+	tag, err := names.ParseServiceTag(serviceTag)
 	if err != nil {
-		panic(fmt.Sprintf("%q is not a valid service tag", s.tag))
+		panic(err)
 	}
-	return serviceName
+	return tag
 }
 
 // String returns the service as a string.

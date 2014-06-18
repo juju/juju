@@ -9,9 +9,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/cmd"
 )
 
 const portFormat = "<port>[/<protocol>]"

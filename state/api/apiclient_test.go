@@ -141,7 +141,7 @@ func (s *apiclientSuite) TestOpenPassesEnvironTag(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `unknown environment: "bad-tag"`)
 	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
 	// Now set it to the right tag, and we should succeed.
-	info.EnvironTag = env.Tag()
+	info.EnvironTag = env.Tag().String()
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	st.Close()

@@ -42,13 +42,13 @@ func (s *keyupdaterSuite) TestAuthorisedKeysNoSuchMachine(c *gc.C) {
 func (s *keyupdaterSuite) TestAuthorisedKeysForbiddenMachine(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	_, err = s.keyupdater.AuthorisedKeys(m.Tag())
+	_, err = s.keyupdater.AuthorisedKeys(m.Tag().String())
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *keyupdaterSuite) TestAuthorisedKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, "key1\nkey2")
-	keys, err := s.keyupdater.AuthorisedKeys(s.rawMachine.Tag())
+	keys, err := s.keyupdater.AuthorisedKeys(s.rawMachine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(keys, gc.DeepEquals, []string{"key1", "key2"})
 }
@@ -59,7 +59,7 @@ func (s *keyupdaterSuite) setAuthorisedKeys(c *gc.C, keys string) {
 }
 
 func (s *keyupdaterSuite) TestWatchAuthorisedKeys(c *gc.C) {
-	watcher, err := s.keyupdater.WatchAuthorisedKeys(s.rawMachine.Tag())
+	watcher, err := s.keyupdater.WatchAuthorisedKeys(s.rawMachine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer testing.AssertStop(c, watcher)
 	wc := testing.NewNotifyWatcherC(c, s.BackingState, watcher)
