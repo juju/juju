@@ -26,6 +26,12 @@ type Info struct {
 	// ChangeVersion identifies the most recent unit settings change
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.
 	ChangeVersion int64 `yaml:"change-version,omitempty"`
+
+	// ActionParams is the map of params sent with an Action Hook.
+	ActionParams map[string]interface{} `yaml:"action-params,omitempty"`
+
+	// ActionName is the name of an Action Hook.
+	ActionName string `yaml:"action-name,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
@@ -36,7 +42,7 @@ func (hi Info) Validate() error {
 			return fmt.Errorf("%q hook requires a remote unit", hi.Kind)
 		}
 		fallthrough
-	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken:
+	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.ActionRequested, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken:
 		return nil
 	}
 	return fmt.Errorf("unknown hook kind %q", hi.Kind)
