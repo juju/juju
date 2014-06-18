@@ -116,7 +116,7 @@ def deploy_dummy_stack(env, charm_prefix):
     # Wait up to 30 seconds for token to be created.
     logging.info('Retrieving token.')
     if env.kvm:
-        timeout = 300
+        timeout = 600
     else:
         timeout = 30
     get_token="""
@@ -344,8 +344,13 @@ def _deploy_job(job_name, base_env, upgrade, charm_prefix, new_path,
 
 
 def get_machine_dns_name(env, machine):
-    for remaining in until_timeout(500):
-        bootstrap = env.get_status(timeout=300).status['machines'][str(machine)]
+    if env.kvm:
+        timeout = 1200
+    else:
+        timeout = 600
+    for remaining in until_timeout(timeout):
+        bootstrap = env.get_status(
+            timeout=timeout).status['machines'][str(machine)]
         host = bootstrap.get('dns-name')
         if host is not None and not host.startswith('172.'):
             return host
