@@ -136,7 +136,8 @@ cleanup() {
     if [[ $IS_EPHEMERAL == "true" ]]; then
         $SCRIPTS/ec2-terminate-job-instances
     else
-        ssh "$@" $REMOTE_USER@$INSTANCE_NAME  "rm -r $THERE/juju-build"
+        ssh "$@" $REMOTE_USER@$INSTANCE_NAME \
+            "test -d $THERE/juju-build && rm -r $THERE/juju-build"
     fi
 }
 
