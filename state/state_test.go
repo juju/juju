@@ -3549,3 +3549,20 @@ func (s *StateSuite) TestUnitActionsFindsRightActions(c *gc.C) {
 		c.Assert(action.Name(), gc.Matches, "^action2\\..")
 	}
 }
+
+func (s *StateSuite) TestWatchActions(c *gc.C) {
+	svc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	u, err := svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	w := s.State.WatchActions()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	_, err = u.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(u.Tag().Id() + names.ActionMarker + "0")
+	wc.AssertNoChange()
+}
