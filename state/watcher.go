@@ -1518,11 +1518,14 @@ func (w *actionWatcher) loop() error {
 
 func (w *actionWatcher) merge(changes *set.Strings, updates map[interface{}]bool) error {
 	for id, exists := range updates {
-		id := id.(string)
-		if exists {
-			changes.Add(id)
+		if id, ok := id.(string); ok {
+			if exists {
+				changes.Add(id)
+			} else {
+				changes.Remove(id)
+			}
 		} else {
-			changes.Remove(id)
+			return fmt.Errorf("id is not of type string")
 		}
 	}
 	return nil
