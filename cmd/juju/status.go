@@ -92,6 +92,11 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	status, err := apiclient.Status(c.patterns)
 	// Display any error, but continue to print status if some was returned
 	if err != nil {
+		fmt.Fprintf(ctx.Stderr, "%v\n", err)
+	}
+	if status == nil {
+		// this causes the error to be printed twice, but
+		// what else can we do?
 		return err
 	}
 	result := newStatusFormatter(status).format()
