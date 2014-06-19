@@ -4,9 +4,8 @@
 package machiner
 
 import (
-	"fmt"
-
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/api/common"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 )
@@ -84,21 +83,5 @@ func (m *Machine) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the machine.
 func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
-	}
-	err := m.st.call("Watch", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := watcher.NewNotifyWatcher(m.st.caller, result)
-	return w, nil
+	return common.Watch(m.st.caller, machinerFacade, m.tag)
 }
