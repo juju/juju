@@ -30,6 +30,8 @@ func tarFiles(fileList []string, targetPath, strip string, compress bool) (shaSu
 	if err := tarAndHashFiles(fileList, targetPath, strip, compress, shahash); err != nil {
 		return "", err
 	}
+	// we use a base64 encoded sha1 hash, because this is the hash
+	// used by RFC 3230 Digest headers in http responses
 	encodedHash := base64.StdEncoding.EncodeToString(shahash.Sum(nil))
 	return encodedHash, nil
 }
