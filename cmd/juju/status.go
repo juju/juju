@@ -90,14 +90,13 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	defer apiclient.Close()
 
 	status, err := apiclient.Status(c.patterns)
-	// Display any error, but continue to print status if some was returned
 	if err != nil {
+		if status == nil {
+			// Status call completely failed, there is nothing to report
+			return err
+		}
+		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
-	}
-	if status == nil {
-		// this causes the error to be printed twice, but
-		// what else can we do?
-		return err
 	}
 	result := newStatusFormatter(status).format()
 	return c.out.Write(ctx, result)
