@@ -44,7 +44,7 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("X-Content-SHA", sha)
+		w.Header().Set("Digest", fmt.Sprintf("SHA=%s", sha))
 
 		w.WriteHeader(http.StatusOK)
 		io.Copy(w, file)

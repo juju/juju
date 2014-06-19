@@ -106,7 +106,7 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 	c.Check(data.address, gc.Equals, "localhost:80")
 
 	c.Check(resp.StatusCode, gc.Equals, 200)
-	c.Check(resp.Header.Get("X-Content-SHA"), gc.Equals, "some-sha")
+	c.Check(resp.Header.Get("Digest"), gc.Equals, "SHA=some-sha")
 	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
 
 	body, _ := ioutil.ReadAll(resp.Body)
