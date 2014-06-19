@@ -34,7 +34,7 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	user, err := s.State.User("admin")
 	c.Assert(err, gc.IsNil)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:      "user-admin",
+		Tag:      names.NewUserTag("admin"),
 		LoggedIn: true,
 		Client:   true,
 		Entity:   user,
@@ -270,7 +270,7 @@ func (s *userManagerSuite) TestAgentUnauthorized(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          machine1.Tag().String(),
+		Tag:          machine1.Tag(),
 		LoggedIn:     true,
 		MachineAgent: true,
 	}

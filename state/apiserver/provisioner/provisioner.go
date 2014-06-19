@@ -40,19 +40,16 @@ type ProvisionerAPI struct {
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(
-	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
-) (*ProvisionerAPI, error) {
+func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ProvisionerAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
 		isEnvironManager := authorizer.AuthEnvironManager()
 		isMachineAgent := authorizer.AuthMachineAgent()
-		authEntityTag := authorizer.GetAuthTag()
+		authEntityTag := authorizer.GetAuthTag().String()
 
+		// TODO(dfc) this func should take a Tag
 		return func(tag string) bool {
 			if isMachineAgent && tag == authEntityTag {
 				// A machine agent can always access its own machine.

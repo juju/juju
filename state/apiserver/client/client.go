@@ -297,8 +297,9 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 
 	_, err = juju.DeployService(c.api.state,
 		juju.DeployServiceParams{
-			ServiceName:    args.ServiceName,
-			ServiceOwner:   c.api.auth.GetAuthTag(),
+			ServiceName: args.ServiceName,
+			// TODO(dfc) ServiceOwner should be a tag
+			ServiceOwner:   c.api.auth.GetAuthTag().String(),
 			Charm:          ch,
 			NumUnits:       args.NumUnits,
 			ConfigSettings: settings,

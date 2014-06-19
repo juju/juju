@@ -51,7 +51,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          s.machine1.Tag().String(),
+		Tag:          s.machine1.Tag(),
 		LoggedIn:     true,
 		MachineAgent: true,
 	}
@@ -107,7 +107,7 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 	auth := s.authorizer
 	auth.MachineAgent = true
 	auth.UnitAgent = false
-	auth.Tag = s.container.Tag().String()
+	auth.Tag = s.container.Tag()
 	containerAgent, err := agent.NewAPI(s.State, auth)
 	c.Assert(err, gc.IsNil)
 

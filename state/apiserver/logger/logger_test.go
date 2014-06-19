@@ -40,7 +40,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          s.rawMachine.Tag().String(),
+		Tag:          s.rawMachine.Tag(),
 		LoggedIn:     true,
 		MachineAgent: true,
 	}

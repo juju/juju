@@ -38,7 +38,7 @@ func NewDeployerAPI(
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
 		// Get all units of the machine and cache them.
-		thisMachineTag := authorizer.GetAuthTag()
+		thisMachineTag := authorizer.GetAuthTag().String()
 		units, err := getAllUnits(st, thisMachineTag)
 		if err != nil {
 			return nil, err

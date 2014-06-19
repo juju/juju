@@ -243,18 +243,16 @@ func (r *srvRoot) Upgrader(id string) (upgrader.Upgrader, error) {
 	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
 	// This is tested in the state/api/upgrader package since there
 	// are currently no direct srvRoot tests.
-	tag, err := names.ParseTag(r.GetAuthTag())
-	if err != nil {
-		return nil, common.ErrPerm
-	}
+	tag := r.GetAuthTag()
 	switch tag.(type) {
 	case names.MachineTag:
 		return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
 	case names.UnitTag:
 		return upgrader.NewUnitUpgraderAPI(r.srv.state, r.resources, r)
+	default:
+		// Not a machine or unit.
+		return nil, common.ErrPerm
 	}
-	// Not a machine or unit.
-	return nil, common.ErrPerm
 }
 
 // KeyUpdater returns an object that provides access to the KeyUpdater API facade.
@@ -398,8 +396,8 @@ func (r *srvRoot) AuthClient() bool {
 }
 
 // GetAuthTag returns the tag of the authenticated entity.
-func (r *srvRoot) GetAuthTag() string {
-	return r.entity.Tag().String()
+func (r *srvRoot) GetAuthTag() names.Tag {
+	return r.entity.Tag()
 }
 
 // GetAuthEntity returns the authenticated entity.
