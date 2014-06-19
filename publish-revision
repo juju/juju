@@ -72,4 +72,5 @@ if [[ -n ${LOCAL_TOOLS_CACHE:-} ]]; then
     cp $LOCAL_TOOLS_CACHE/*.tgz new-tools/tools/releases
 fi
 $RELEASE_TOOLS/assemble-public-tools.bash -t $WORKSPACE/ $VERSION new-tools
-$RELEASE_TOOLS/publish-public-tools.bash testing new-tools/juju-dist-testing cpc
+$RELEASE_TOOLS/publish-public-tools.bash testing new-tools/juju-dist-testing cpc || \
+    $RELEASE_TOOLS/publish-public-tools.bash testing new-tools/juju-dist-testing cpc
