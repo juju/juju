@@ -1452,3 +1452,81 @@ func (w *cleanupWatcher) loop() (err error) {
 		}
 	}
 }
+
+// actionWatcher notifies of changes in the actions collection.
+type actionWatcher struct {
+	commonWatcher
+	out chan []string
+}
+
+var _ Watcher = (*actionWatcher)(nil)
+
+// WatchActions starts and returns an ActionWatcher
+func (st *State) WatchActions() StringsWatcher {
+	return newActionWatcher(st)
+}
+
+func newActionWatcher(st *State) StringsWatcher {
+	w := &actionWatcher{
+		commonWatcher: commonWatcher{st: st},
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w
+func (w *actionWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *actionWatcher) loop() error {
+	in := make(chan watcher.Change)
+	changes := &set.Strings{}
+
+	w.st.watcher.WatchCollection(w.st.actions.Name, in)
+	defer w.st.watcher.UnwatchCollection(w.st.actions.Name, in)
+
+	out := w.out
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case ch := <-in:
+			updates, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if err := w.merge(changes, updates); err != nil {
+				return err
+			}
+			if !changes.IsEmpty() {
+				out = w.out
+			}
+		case out <- changes.Values():
+			changes = &set.Strings{}
+			out = nil
+		}
+	}
+}
+
+func (w *actionWatcher) merge(changes *set.Strings, updates map[interface{}]bool) error {
+	for id, exists := range updates {
+		if id, ok := id.(string); ok {
+			if exists {
+				changes.Add(id)
+			} else {
+				changes.Remove(id)
+			}
+		} else {
+			return fmt.Errorf("id is not of type string")
+		}
+	}
+	return nil
+}
