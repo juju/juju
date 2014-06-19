@@ -27,7 +27,10 @@ type SetCommand struct {
 const setDoc = `
 Set one or more configuration options for the specified service. See also the
 unset command which sets one or more configuration options for a specified
-service to their default value. 
+service to their default value.
+
+In case a value starts with an at sign (@) the rest of the value is interpreted
+as a filename. The value itself is then read out of the named file.
 `
 
 func (c *SetCommand) Info() *cmd.Info {
