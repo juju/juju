@@ -80,7 +80,7 @@ func (c *Client) SetPassword(username, password string) error {
 		Changes: []params.ModifyUser{{Username: username, Password: password}},
 	}
 	results := new(params.ErrorResults)
-	err := c.call("SetPassword", userArgs, results)
+	err := call(c.st, "SetPassword", userArgs, results)
 	if err != nil {
 		return err
 	}
