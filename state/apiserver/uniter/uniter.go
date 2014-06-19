@@ -432,6 +432,20 @@ func (u *UniterAPI) watchOneUnitConfigSettings(tag string) (string, error) {
 	}
 	return "", watcher.MustErr(watch)
 }
+func (u *UniterAPI) watchOneUnitActions(tag string) (string, error) {
+	unit, err := u.getUnit(tag)
+	if err != nil {
+		return "", err
+	}
+	watch := unit.WatchActions()
+
+	// Consume the initial event. API calls to Watch 'transmit'
+	// the initial event in the Watch response.
+	if _, ok := <-watch.Changes(); ok {
+		return u.resources.Register(watch), nil
+	}
+	return "", watcher.MustErr(watch)
+}
 
 // WatchConfigSettings returns a NotifyWatcher for observing changes
 // to each unit's service configuration settings. See also
@@ -451,6 +465,29 @@ func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatc
 			watcherId, err = u.watchOneUnitConfigSettings(entity.Tag)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// WatchActions returns an ActionWatcher for observing incoming action calls
+// to a unit.  See also state/watcher.go Unit.WatchActions().  This method
+// is called from state/api/uniter/uniter.go WatchActions().
+func (u *UniterAPI) WatchActions(args params.Entities) (params.StringsWatchResults, error) {
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.StringsWatchResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		watcherId := ""
+		if canAccess(entity.Tag) {
+			watcherId, err = u.watchOneUnitActions(entity.Tag)
+		}
+		result.Results[i].StringsWatcherId = watcherId
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

@@ -354,6 +354,27 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertClosed()
 }
 
+func (s *unitSuite) TestWatchActions(c *gc.C) {
+	w, err := s.apiUnit.WatchActions()
+	c.Assert(err, gc.IsNil)
+
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+
+	// Initial event.
+	wc.AssertChange()
+
+	// Update config a couple of times, check a single event.
+	actionId, err := s.wordpressUnit.AddAction("snapshot", map[string]interface{}{
+		"outfile": "foo.txt",
+	})
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(actionId)
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
 func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {
 	c.Assert(s.apiUnit.ServiceName(), gc.Equals, "wordpress")
 	c.Assert(s.apiUnit.ServiceTag(), gc.Equals, "service-wordpress")
