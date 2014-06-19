@@ -6,6 +6,7 @@ package main
 import (
 	"bytes"
 	"io/ioutil"
+	"os"
 
 	"github.com/juju/charm"
 	"github.com/juju/cmd"
@@ -32,6 +33,7 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 	s.svc = svc
 	s.dir = c.MkDir()
 	setupValueFile(c, s.dir)
+	setupBigFile(c, s.dir)
 	setupConfigFile(c, s.dir)
 }
 
@@ -63,6 +65,9 @@ func (s *SetSuite) TestSetOptionFail(c *gc.C) {
 	assertSetFail(c, s.dir, []string{
 		"username=@missing.txt",
 	}, "error: cannot read option from file \"missing.txt\": .* no such file or directory\n")
+	assertSetFail(c, s.dir, []string{
+		"username=@big.txt",
+	}, "error: size of option file is larger than 5M\n")
 }
 
 func (s *SetSuite) TestSetConfig(c *gc.C) {
@@ -106,6 +111,25 @@ func setupValueFile(c *gc.C, dir string) string {
 	content := []byte("a value with spaces\nand newline")
 	err := ioutil.WriteFile(path, content, 0666)
 	c.Assert(err, gc.IsNil)
+	return path
+}
+
+// setupBigFile creates a too big file for testing
+// set with name=@filename.
+func setupBigFile(c *gc.C, dir string) string {
+	ctx := coretesting.ContextForDir(c, dir)
+	path := ctx.AbsPath("big.txt")
+	file, err := os.Create(path)
+	c.Assert(err, gc.IsNil)
+	defer file.Close()
+	chunk := make([]byte, 1024)
+	for i := 0; i < cap(chunk); i++ {
+		chunk[i] = byte(i % 256)
+	}
+	for i := 0; i < 6000; i++ {
+		_, err = file.Write(chunk)
+		c.Assert(err, gc.IsNil)
+	}
 	return path
 }
 

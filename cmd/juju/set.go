@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -30,8 +31,11 @@ unset command which sets one or more configuration options for a specified
 service to their default value.
 
 In case a value starts with an at sign (@) the rest of the value is interpreted
-as a filename. The value itself is then read out of the named file.
+as a filename. The value itself is then read out of the named file. The maximum
+size of this value is 5M.
 `
+
+const maxValueSize = 5242880
 
 func (c *SetCommand) Info() *cmd.Info {
 	return &cmd.Info{
@@ -110,8 +114,17 @@ func parse(options []string) (map[string]string, error) {
 }
 
 // readValue reads the value of an option out of the named file.
-// An empty content is valid, like in parsing the options.
+// An empty content is valid, like in parsing the options. The upper
+// size is 5M.
 func readValue(ctx *cmd.Context, filename string) (string, error) {
+	absFilename := ctx.AbsPath(filename)
+	fi, err := os.Stat(absFilename)
+	if err != nil {
+		return "", fmt.Errorf("cannot read option from file %q: %v", filename, err)
+	}
+	if fi.Size() > maxValueSize {
+		return "", fmt.Errorf("size of option file is larger than 5M")
+	}
 	content, err := ioutil.ReadFile(ctx.AbsPath(filename))
 	if err != nil {
 		return "", fmt.Errorf("cannot read option from file %q: %v", filename, err)
