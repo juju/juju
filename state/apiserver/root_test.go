@@ -280,6 +280,69 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	assertCallResult(c, caller, "third-id", "ALT-third-id3")
 }
 
+type smallInterface interface {
+	OneMethod() stringVar
+}
+
+type firstImpl struct {
+}
+
+func (*firstImpl) OneMethod() stringVar {
+	return stringVar{"first"}
+}
+
+type secondImpl struct {
+}
+
+func (*secondImpl) AMethod() stringVar {
+	return stringVar{"A"}
+}
+
+func (*secondImpl) ZMethod() stringVar {
+	return stringVar{"Z"}
+}
+
+func (*secondImpl) OneMethod() stringVar {
+	return stringVar{"second"}
+}
+
+func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
+	srvRoot := apiserver.TestingSrvRoot(nil)
+	defer common.Facades.Discard("my-interface-facade", 0)
+	defer common.Facades.Discard("my-interface-facade", 1)
+	common.RegisterStandardFacade("my-interface-facade", 0, func(
+		*state.State, *common.Resources, common.Authorizer,
+	) (
+		smallInterface, error,
+	) {
+		return &firstImpl{}, nil
+	})
+	common.RegisterStandardFacade("my-interface-facade", 1, func(
+		*state.State, *common.Resources, common.Authorizer,
+	) (
+		smallInterface, error,
+	) {
+		return &secondImpl{}, nil
+	})
+	caller, err := srvRoot.FindMethod("my-interface-facade", 0, "OneMethod")
+	c.Assert(err, gc.IsNil)
+	assertCallResult(c, caller, "", "first")
+	caller2, err := srvRoot.FindMethod("my-interface-facade", 1, "OneMethod")
+	c.Assert(err, gc.IsNil)
+	assertCallResult(c, caller2, "", "second")
+	// We should *not* be able to see AMethod or ZMethod
+	caller, err = srvRoot.FindMethod("my-interface-facade", 1, "AMethod")
+	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
+	c.Check(err, gc.ErrorMatches,
+		`no such request - method my-interface-facade\(1\)\.AMethod is not implemented`)
+	c.Check(caller, gc.IsNil)
+	caller, err = srvRoot.FindMethod("my-interface-facade", 1, "ZMethod")
+	c.Check(err, gc.FitsTypeOf, (*rpcreflect.CallNotImplementedError)(nil))
+	c.Check(err, gc.ErrorMatches,
+		`no such request - method my-interface-facade\(1\)\.ZMethod is not implemented`)
+	c.Check(caller, gc.IsNil)
+}
+
 func (r *rootSuite) TestDescribeFacades(c *gc.C) {
 	srvRoot := apiserver.TestingSrvRoot(nil)
 	facades := srvRoot.DescribeFacades()

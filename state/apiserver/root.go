@@ -48,7 +48,7 @@ type srvRoot struct {
 	rpcConn     *rpc.Conn
 	resources   *common.Resources
 	entity      taggedAuthenticator
-	objectCache map[objectKey]interface{}
+	objectCache map[objectKey]reflect.Value
 }
 
 // newSrvRoot creates the client's connection representation
@@ -60,7 +60,7 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 		rpcConn:     root.rpcConn,
 		resources:   common.NewResources(),
 		entity:      entity,
-		objectCache: make(map[objectKey]interface{}),
+		objectCache: make(map[objectKey]reflect.Value),
 	}
 	r.resources.RegisterNamed("dataDir", common.StringResource(root.srv.dataDir))
 	return r
@@ -78,7 +78,8 @@ func (r *srvRoot) Kill() {
 // and place a call on its method.
 type srvCaller struct {
 	objMethod rpcreflect.ObjMethod
-	creator   func(id string) (interface{}, error)
+	goType    reflect.Type
+	creator   func(id string) (reflect.Value, error)
 }
 
 // ParamsType defines the parameters that should be supplied to this function.
@@ -96,11 +97,11 @@ func (s *srvCaller) ResultType() reflect.Type {
 // Call takes the object Id and an instance of ParamsType to create an object and place
 // a call on its method. It then returns an instance of ResultType.
 func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
-	obj, err := s.creator(objId)
+	objVal, err := s.creator(objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	return s.objMethod.Call(reflect.ValueOf(obj), arg)
+	return s.objMethod.Call(objVal, arg)
 }
 
 // FindMethod looks up the given rootName and version in our facade registry
@@ -132,7 +133,7 @@ func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (r
 		}
 		return nil, err
 	}
-	creator := func(id string) (interface{}, error) {
+	creator := func(id string) (reflect.Value, error) {
 		objKey := objectKey{name: rootName, version: version, objId: id}
 		if obj, ok := r.objectCache[objKey]; ok {
 			return obj, nil
@@ -142,19 +143,30 @@ func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (r
 			// We don't check for IsNotFound here, because it
 			// should have already been handled in the GetType
 			// check.
-			return nil, err
+			return reflect.Value{}, err
 		}
 		obj, err := factory(r.state, r.resources, r, id)
 		if err != nil {
-			return nil, err
+			return reflect.Value{}, err
 		}
-		if !reflect.TypeOf(obj).AssignableTo(goType) {
-			return nil, errors.Errorf(
+		objValue := reflect.ValueOf(obj)
+		if !objValue.Type().AssignableTo(goType) {
+			return reflect.Value{}, errors.Errorf(
 				"internal error, %s(%d) claimed to return %s but returned %T",
 				rootName, version, goType, obj)
 		}
-		r.objectCache[objKey] = obj
-		return obj, nil
+		if goType.Kind() == reflect.Interface {
+			// If the original function wanted to return an
+			// interface type, the indirection in the factory via
+			// an interface{} strips the original interface
+			// information off. So here we have to create the
+			// interface again, and assign it.
+			asInterface := reflect.New(goType).Elem()
+			asInterface.Set(objValue)
+			objValue = asInterface
+		}
+		r.objectCache[objKey] = objValue
+		return objValue, nil
 	}
 	return &srvCaller{
 		creator:   creator,

@@ -51,6 +51,6 @@ func TestingSrvRoot(st *state.State) *srvRoot {
 		rpcConn:     nil,
 		resources:   common.NewResources(),
 		entity:      nil,
-		objectCache: make(map[objectKey]interface{}),
+		objectCache: make(map[objectKey]reflect.Value),
 	}
 }
