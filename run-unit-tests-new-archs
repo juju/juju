@@ -114,6 +114,7 @@ EXIT_STATUS=$?
 
 ssh "$@" $remote_user@$instance_name <<EOT
 echo "Cleaning up /tmp"
+sudo killall -SIGABRT /usr/bin/mongod
 rm -r /tmp/adduser-* || true
 rm -r /tmp/go-* || true
 rm -r /tmp/gocheck-* || true
