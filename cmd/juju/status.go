@@ -92,7 +92,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	status, err := apiclient.Status(c.patterns)
 	// Display any error, but continue to print status if some was returned
 	if err != nil {
-		fmt.Fprintf(ctx.Stderr, "%v\n", err)
+		return err
 	}
 	result := newStatusFormatter(status).format()
 	return c.out.Write(ctx, result)
