@@ -97,11 +97,6 @@ func (s *srvCaller) ResultType() reflect.Type {
 // Call takes the object Id and an instance of ParamsType to create an object and place
 // a call on its method. It then returns an instance of ResultType.
 func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
-	defer func() {
-		if err := recover(); err != nil {
-			panic(err)
-		}
-	}()
 	objVal, err := s.creator(objId)
 	if err != nil {
 		return reflect.Value{}, err
