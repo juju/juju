@@ -1453,7 +1453,8 @@ func (w *cleanupWatcher) loop() (err error) {
 // actionWatcher notifies of changes in the actions collection.
 type actionWatcher struct {
 	commonWatcher
-	out chan []string
+	out    chan []string
+	filter []names.Tag
 }
 
 var _ Watcher = (*actionWatcher)(nil)
@@ -1463,10 +1464,11 @@ func (st *State) WatchActions() StringsWatcher {
 	return newActionWatcher(st)
 }
 
-func newActionWatcher(st *State) StringsWatcher {
+func newActionWatcher(st *State, filterBy ...names.Tag) StringsWatcher {
 	w := &actionWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan []string),
+		filter:        filterBy,
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -1485,7 +1487,21 @@ func (w *actionWatcher) loop() error {
 	in := make(chan watcher.Change)
 	changes := &set.Strings{}
 
-	w.st.watcher.WatchCollection(w.st.actions.Name, in)
+	if len(w.filter) > 0 {
+		filterFn := func(key interface{}) bool {
+			if k, ok := key.(string); ok {
+				for _, tag := range w.filter {
+					if strings.HasPrefix(k, tag.Id()) {
+						return true
+					}
+				}
+			}
+			return false
+		}
+		w.st.watcher.WatchCollectionWithFilter(w.st.actions.Name, in, filterFn)
+	} else {
+		w.st.watcher.WatchCollection(w.st.actions.Name, in)
+	}
 	defer w.st.watcher.UnwatchCollection(w.st.actions.Name, in)
 
 	out := w.out
