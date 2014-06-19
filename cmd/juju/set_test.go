@@ -31,6 +31,7 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 	svc := s.AddTestingService(c, "dummy-service", ch)
 	s.svc = svc
 	s.dir = c.MkDir()
+	setupValueFile(c, s.dir)
 	setupConfigFile(c, s.dir)
 }
 
@@ -48,12 +49,20 @@ func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
 		"username": "hello=foo",
 		"outlook":  "hello@world.tld",
 	})
-
+	assertSetSuccess(c, s.dir, s.svc, []string{
+		"username=@value.txt",
+	}, charm.Settings{
+		"username": "a value with spaces\nand newline",
+		"outlook":  "hello@world.tld",
+	})
 }
 
 func (s *SetSuite) TestSetOptionFail(c *gc.C) {
 	assertSetFail(c, s.dir, []string{"foo", "bar"}, "error: invalid option: \"foo\"\n")
 	assertSetFail(c, s.dir, []string{"=bar"}, "error: invalid option: \"=bar\"\n")
+	assertSetFail(c, s.dir, []string{
+		"username=@missing.txt",
+	}, "error: cannot read option from file \"missing.txt\": .* no such file or directory\n")
 }
 
 func (s *SetSuite) TestSetConfig(c *gc.C) {
@@ -87,6 +96,17 @@ func assertSetFail(c *gc.C, dir string, args []string, err string) {
 	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, args...))
 	c.Check(code, gc.Not(gc.Equals), 0)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, err)
+}
+
+// setupValueFile creates a file containing one value for testing
+// set with name=@filename.
+func setupValueFile(c *gc.C, dir string) string {
+	ctx := coretesting.ContextForDir(c, dir)
+	path := ctx.AbsPath("value.txt")
+	content := []byte("a value with spaces\nand newline")
+	err := ioutil.WriteFile(path, content, 0666)
+	c.Assert(err, gc.IsNil)
+	return path
 }
 
 // setupConfigFile creates a configuration file for testing set

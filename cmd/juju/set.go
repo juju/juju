@@ -6,6 +6,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -75,7 +76,19 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	} else if len(c.SettingsStrings) == 0 {
 		return nil
 	}
-	return api.ServiceSet(c.ServiceName, c.SettingsStrings)
+	settings := map[string]string{}
+	for k, v := range c.SettingsStrings {
+		if v[0] != '@' {
+			settings[k] = v
+			continue
+		}
+		nv, err := readValue(ctx, v[1:])
+		if err != nil {
+			return err
+		}
+		settings[k] = nv
+	}
+	return api.ServiceSet(c.ServiceName, settings)
 }
 
 // parse parses the option k=v strings into a map of options to be
@@ -91,4 +104,14 @@ func parse(options []string) (map[string]string, error) {
 		kv[s[0]] = s[1]
 	}
 	return kv, nil
+}
+
+// readValue reads the value of an option out of the named file.
+// An empty content is valid, like in parsing the options.
+func readValue(ctx *cmd.Context, filename string) (string, error) {
+	content, err := ioutil.ReadFile(ctx.AbsPath(filename))
+	if err != nil {
+		return "", fmt.Errorf("cannot read option from file %q: %v", filename, err)
+	}
+	return string(content), nil
 }
