@@ -6,7 +6,8 @@ package backup
 import (
 	"archive/tar"
 	"compress/gzip"
-	"crypto/sha256"
+	"crypto/sha1"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -143,10 +144,10 @@ func shaSumFile(c *gc.C, fileToSum string) string {
 	f, err := os.Open(fileToSum)
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
-	sha256hash := sha256.New()
-	_, err = io.Copy(sha256hash, f)
+	shahash := sha1.New()
+	_, err = io.Copy(shahash, f)
 	c.Assert(err, gc.IsNil)
-	return fmt.Sprintf("%x", sha256hash.Sum(nil))
+	return base64.StdEncoding.EncodeToString(shahash.Sum(nil))
 }
 
 func (b *BackupSuite) TestTarFilesUncompressed(c *gc.C) {
