@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/state/txn"
 )
 
@@ -17,6 +18,7 @@ type ActionSuite struct {
 	charm   *state.Charm
 	service *state.Service
 	unit    *state.Unit
+	unit2   *state.Unit
 }
 
 var _ = gc.Suite(&ActionSuite{})
@@ -30,6 +32,9 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
+	s.unit2, err = s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.unit2.Series(), gc.Equals, "quantal")
 }
 
 func (s *ActionSuite) TestAddAction(c *gc.C) {
@@ -220,6 +225,39 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	actions, err := s.State.UnitActions(unit.Name())
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 0)
+}
+
+func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
+	// get units
+	unit1, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit1)
+
+	unit2, err := s.State.Unit(s.unit2.Name())
+	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit2)
+
+	// set up watcher on first unit
+	w := unit1.WatchActions()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// add action on unit2 and makes sure unit1 watcher doesn't trigger
+	_, err = unit2.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// add a couple actions on unit1 and make sure watcher sees events
+	_, err = unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+
+	expect := expectActionIds(unit1, "0", "1")
+	wc.AssertChange(expect...)
+	wc.AssertNoChange()
 }
 
 func (s *ActionSuite) TestGetActionIdPrefix(c *gc.C) {
