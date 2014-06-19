@@ -103,6 +103,7 @@ publish_to_azure() {
 
 publish_to_joyent() {
     [[ $DESTINATIONS == 'cpc' ]] || return 0
+    [[ "${IGNORE_JOYENT-}" == 'true' ]] && return 0
     if [[ $PURPOSE == "release" ]]; then
         local destination="tools"
     else
