@@ -62,18 +62,11 @@ func newActionResult(st *State, adoc actionResultDoc) *ActionResult {
 
 // actionResultMarker is the token used to separate the action id prefix
 // from the unique actionResult suffix
-const actionResultMarker = "#ar#"
+const actionResultMarker = "_ar_"
 
-// generateActionResultIdPrefix returns a suitable prefix for an action given the
-// globalKey of a containing item.
-func generateActionResultIdPrefix(globalKey string) string {
-	return globalKey + actionResultMarker
-}
-
-// newActionResultId generates a new unique key from another globalKey as
-// a prefix, and a generated unique number.
-func newActionResultId(st *State, globalKey string) (string, error) {
-	prefix := generateActionResultIdPrefix(globalKey)
+// newActionResultId generates a new unique key from an action id
+func newActionResultId(st *State, actionId string) (string, error) {
+	prefix := actionId + actionResultMarker
 	suffix, err := st.sequence(prefix)
 	if err != nil {
 		return "", errors.Errorf("cannot assign new sequence for prefix '%s': %v", prefix, err)

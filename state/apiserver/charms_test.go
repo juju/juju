@@ -39,7 +39,7 @@ func (s *authHttpSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.password = "password"
 	user := s.Factory.MakeUser(factory.UserParams{Password: s.password})
-	s.userTag = user.Tag()
+	s.userTag = user.Tag().String()
 }
 
 func (s *authHttpSuite) sendRequest(c *gc.C, tag, password, method, uri, contentType string, body io.Reader) (*http.Response, error) {
@@ -84,6 +84,11 @@ func (s *authHttpSuite) uploadRequest(c *gc.C, uri string, asZip bool, path stri
 	return s.authRequest(c, "POST", uri, contentType, file)
 }
 
+func (s *authHttpSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
+	body := assertResponse(c, resp, expCode, "application/json")
+	c.Check(jsonResponse(c, body).Error, gc.Matches, expError)
+}
+
 type charmsSuite struct {
 	authHttpSuite
 }
@@ -126,7 +131,7 @@ func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
-	resp, err := s.sendRequest(c, machine.Tag(), password, "GET", s.charmsURI(c, ""), "", nil)
+	resp, err := s.sendRequest(c, machine.Tag().String(), password, "GET", s.charmsURI(c, ""), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 
@@ -527,11 +532,6 @@ func (s *charmsSuite) assertGetFileListResponse(c *gc.C, resp *http.Response, ex
 	charmResponse := jsonResponse(c, body)
 	c.Check(charmResponse.Error, gc.Equals, "")
 	c.Check(charmResponse.Files, gc.DeepEquals, expFiles)
-}
-
-func (s *charmsSuite) assertErrorResponse(c *gc.C, resp *http.Response, expCode int, expError string) {
-	body := assertResponse(c, resp, expCode, "application/json")
-	c.Check(jsonResponse(c, body).Error, gc.Matches, expError)
 }
 
 func assertResponse(c *gc.C, resp *http.Response, expCode int, expContentType string) []byte {

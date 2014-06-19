@@ -24,12 +24,6 @@ func isMachineWithJob(e state.Authenticator, j state.MachineJob) bool {
 	return false
 }
 
-// isAgent returns whether the given entity is an agent.
-func isAgent(e state.Authenticator) bool {
-	_, isUser := e.(*state.User)
-	return !isUser
-}
-
 func setPassword(e state.Authenticator, password string) error {
 	// Catch expected common case of misspelled
 	// or missing Password parameter.

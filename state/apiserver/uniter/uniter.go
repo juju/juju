@@ -18,6 +18,10 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+func init() {
+	common.RegisterStandardFacade("Uniter", 0, NewUniterAPI)
+}
+
 // UniterAPI implements the API used by the uniter worker.
 type UniterAPI struct {
 	*common.LifeGetter
@@ -701,7 +705,7 @@ func relationsInScopeTags(unit *state.Unit) ([]string, error) {
 	}
 	tags := make([]string, len(relations))
 	for i, relation := range relations {
-		tags[i] = relation.Tag()
+		tags[i] = relation.Tag().String()
 	}
 	return tags, nil
 }

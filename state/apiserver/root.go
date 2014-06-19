@@ -4,35 +4,17 @@
 package apiserver
 
 import (
-	"errors"
+	"reflect"
 	"time"
 
-	"github.com/juju/names"
-	"launchpad.net/tomb"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/rpc"
+	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/apiserver/agent"
-	"github.com/juju/juju/state/apiserver/charmrevisionupdater"
-	"github.com/juju/juju/state/apiserver/client"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
-	"github.com/juju/juju/state/apiserver/deployer"
-	"github.com/juju/juju/state/apiserver/environment"
-	"github.com/juju/juju/state/apiserver/firewaller"
-	"github.com/juju/juju/state/apiserver/keymanager"
-	"github.com/juju/juju/state/apiserver/keyupdater"
-	loggerapi "github.com/juju/juju/state/apiserver/logger"
-	"github.com/juju/juju/state/apiserver/machine"
-	"github.com/juju/juju/state/apiserver/networker"
-	"github.com/juju/juju/state/apiserver/provisioner"
-	"github.com/juju/juju/state/apiserver/rsyslog"
-	"github.com/juju/juju/state/apiserver/uniter"
-	"github.com/juju/juju/state/apiserver/upgrader"
-	"github.com/juju/juju/state/apiserver/usermanager"
-	"github.com/juju/juju/state/multiwatcher"
 )
-
-type clientAPI struct{ *client.API }
 
 type taggedAuthenticator interface {
 	state.Entity
@@ -53,15 +35,20 @@ var (
 	mongoPingInterval = 10 * time.Second
 )
 
+type objectKey struct {
+	name    string
+	version int
+	objId   string
+}
+
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
 type srvRoot struct {
-	clientAPI
-	srv       *Server
-	rpcConn   *rpc.Conn
-	resources *common.Resources
-
-	entity taggedAuthenticator
+	state       *state.State
+	rpcConn     *rpc.Conn
+	resources   *common.Resources
+	entity      taggedAuthenticator
+	objectCache map[objectKey]reflect.Value
 }
 
 // newSrvRoot creates the client's connection representation
@@ -69,13 +56,13 @@ type srvRoot struct {
 // connection.
 func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 	r := &srvRoot{
-		srv:       root.srv,
-		rpcConn:   root.rpcConn,
-		resources: common.NewResources(),
-		entity:    entity,
+		state:       root.srv.state,
+		rpcConn:     root.rpcConn,
+		resources:   common.NewResources(),
+		entity:      entity,
+		objectCache: make(map[objectKey]reflect.Value),
 	}
-	r.resources.RegisterNamed("dataDir", common.StringResource(r.srv.dataDir))
-	r.clientAPI.API = client.NewAPI(r.srv.state, r.resources, r)
+	r.resources.RegisterNamed("dataDir", common.StringResource(root.srv.dataDir))
 	return r
 }
 
@@ -85,287 +72,107 @@ func (r *srvRoot) Kill() {
 	r.resources.StopAll()
 }
 
-// requireAgent checks whether the current client is an agent and hence
-// may access the agent APIs.  We filter out non-agents when calling one
-// of the accessor functions (Machine, Unit, etc) which avoids us making
-// the check in every single request method.
-func (r *srvRoot) requireAgent() error {
-	if !isAgent(r.entity) {
-		return common.ErrPerm
-	}
-	return nil
+// srvCaller is our implementation of the rpcreflect.MethodCaller interface.
+// It lives just long enough to encapsulate the methods that should be
+// available for an RPC call and allow the RPC code to instantiate an object
+// and place a call on its method.
+type srvCaller struct {
+	objMethod rpcreflect.ObjMethod
+	goType    reflect.Type
+	creator   func(id string) (reflect.Value, error)
 }
 
-// requireClient returns an error unless the current
-// client is a juju client user.
-func (r *srvRoot) requireClient() error {
-	if isAgent(r.entity) {
-		return common.ErrPerm
-	}
-	return nil
+// ParamsType defines the parameters that should be supplied to this function.
+// See rpcreflect.MethodCaller for more detail.
+func (s *srvCaller) ParamsType() reflect.Type {
+	return s.objMethod.Params
 }
 
-// KeyManager returns an object that provides access to the KeyManager API
-// facade. The id argument is reserved for future use and currently
-// needs to be empty.
-func (r *srvRoot) KeyManager(id string) (*keymanager.KeyManagerAPI, error) {
-	if id != "" {
-		return nil, common.ErrBadId
-	}
-	return keymanager.NewKeyManagerAPI(r.srv.state, r.resources, r)
+// ReturnType defines the object that is returned from the function.`
+// See rpcreflect.MethodCaller for more detail.
+func (s *srvCaller) ResultType() reflect.Type {
+	return s.objMethod.Result
 }
 
-// UserManager returns an object that provides access to the UserManager API
-// facade. The id argument is reserved for future use and currently
-// needs to be empty
-func (r *srvRoot) UserManager(id string) (*usermanager.UserManagerAPI, error) {
-	if id != "" {
-		return nil, common.ErrBadId
-	}
-	return usermanager.NewUserManagerAPI(r.srv.state, r)
-}
-
-// Machiner returns an object that provides access to the Machiner API
-// facade. The id argument is reserved for future use and currently
-// needs to be empty.
-func (r *srvRoot) Machiner(id string) (*machine.MachinerAPI, error) {
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return machine.NewMachinerAPI(r.srv.state, r.resources, r)
-}
-
-// Networker returns an object that provides access to the
-// Networker API facade. The id argument is reserved for future use
-// and currently needs to be empty.
-func (r *srvRoot) Networker(id string) (*networker.NetworkerAPI, error) {
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return networker.NewNetworkerAPI(r.srv.state, r.resources, r)
-}
-
-// Provisioner returns an object that provides access to the
-// Provisioner API facade. The id argument is reserved for future use
-// and currently needs to be empty.
-func (r *srvRoot) Provisioner(id string) (*provisioner.ProvisionerAPI, error) {
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return provisioner.NewProvisionerAPI(r.srv.state, r.resources, r)
-}
-
-// Uniter returns an object that provides access to the Uniter API
-// facade. The id argument is reserved for future use and currently
-// needs to be empty.
-func (r *srvRoot) Uniter(id string) (*uniter.UniterAPI, error) {
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return uniter.NewUniterAPI(r.srv.state, r.resources, r)
-}
-
-// Firewaller returns an object that provides access to the Firewaller
-// API facade. The id argument is reserved for future use and
-// currently needs to be empty.
-func (r *srvRoot) Firewaller(id string) (*firewaller.FirewallerAPI, error) {
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return firewaller.NewFirewallerAPI(r.srv.state, r.resources, r)
-}
-
-// Agent returns an object that provides access to the
-// agent API.  The id argument is reserved for future use and must currently
-// be empty.
-func (r *srvRoot) Agent(id string) (*agent.API, error) {
-	if id != "" {
-		return nil, common.ErrBadId
-	}
-	return agent.NewAPI(r.srv.state, r)
-}
-
-// Deployer returns an object that provides access to the Deployer API facade.
-// The id argument is reserved for future use and must be empty.
-func (r *srvRoot) Deployer(id string) (*deployer.DeployerAPI, error) {
-	if id != "" {
-		// TODO(dimitern): There is no direct test for this
-		return nil, common.ErrBadId
-	}
-	return deployer.NewDeployerAPI(r.srv.state, r.resources, r)
-}
-
-// Environment returns an object that provides access to the Environment API
-// facade. The id argument is reserved for future use and currently needs to
-// be empty.
-func (r *srvRoot) Environment(id string) (*environment.EnvironmentAPI, error) {
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return environment.NewEnvironmentAPI(r.srv.state, r.resources, r)
-}
-
-// Rsyslog returns an object that provides access to the Rsyslog API
-// facade. The id argument is reserved for future use and currently needs to
-// be empty.
-func (r *srvRoot) Rsyslog(id string) (*rsyslog.RsyslogAPI, error) {
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return rsyslog.NewRsyslogAPI(r.srv.state, r.resources, r)
-}
-
-// Logger returns an object that provides access to the Logger API facade.
-// The id argument is reserved for future use and must be empty.
-func (r *srvRoot) Logger(id string) (*loggerapi.LoggerAPI, error) {
-	if id != "" {
-		// TODO: There is no direct test for this
-		return nil, common.ErrBadId
-	}
-	return loggerapi.NewLoggerAPI(r.srv.state, r.resources, r)
-}
-
-// Upgrader returns an object that provides access to the Upgrader API facade.
-// The id argument is reserved for future use and must be empty.
-func (r *srvRoot) Upgrader(id string) (upgrader.Upgrader, error) {
-	if id != "" {
-		// TODO: There is no direct test for this
-		return nil, common.ErrBadId
-	}
-	// The type of upgrader we return depends on who is asking.
-	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
-	// This is tested in the state/api/upgrader package since there
-	// are currently no direct srvRoot tests.
-	tag, err := names.ParseTag(r.GetAuthTag())
+// Call takes the object Id and an instance of ParamsType to create an object and place
+// a call on its method. It then returns an instance of ResultType.
+func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
+	objVal, err := s.creator(objId)
 	if err != nil {
-		return nil, common.ErrPerm
+		return reflect.Value{}, err
 	}
-	switch tag.(type) {
-	case names.MachineTag:
-		return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
-	case names.UnitTag:
-		return upgrader.NewUnitUpgraderAPI(r.srv.state, r.resources, r)
-	}
-	// Not a machine or unit.
-	return nil, common.ErrPerm
+	return s.objMethod.Call(objVal, arg)
 }
 
-// KeyUpdater returns an object that provides access to the KeyUpdater API facade.
-// The id argument is reserved for future use and must be empty.
-func (r *srvRoot) KeyUpdater(id string) (*keyupdater.KeyUpdaterAPI, error) {
-	if id != "" {
-		// TODO: There is no direct test for this
-		return nil, common.ErrBadId
-	}
-	return keyupdater.NewKeyUpdaterAPI(r.srv.state, r.resources, r)
-}
-
-// CharmRevisionUpdater returns an object that provides access to the CharmRevisionUpdater API facade.
-// The id argument is reserved for future use and must be empty.
-func (r *srvRoot) CharmRevisionUpdater(id string) (*charmrevisionupdater.CharmRevisionUpdaterAPI, error) {
-	if id != "" {
-		// TODO: There is no direct test for this
-		return nil, common.ErrBadId
-	}
-	return charmrevisionupdater.NewCharmRevisionUpdaterAPI(r.srv.state, r.resources, r)
-}
-
-// NotifyWatcher returns an object that provides
-// API access to methods on a state.NotifyWatcher.
-// Each client has its own current set of watchers, stored
-// in r.resources.
-func (r *srvRoot) NotifyWatcher(id string) (*srvNotifyWatcher, error) {
-	if err := r.requireAgent(); err != nil {
+// FindMethod looks up the given rootName and version in our facade registry
+// and returns a MethodCaller that will be used by the RPC code to place calls on
+// that facade.
+// FindMethod uses the global registry state/apiserver/common.Facades.
+// For more information about how FindMethod should work, see rpc/server.go and
+// rpc/rpcreflect/value.go
+func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+	goType, err := common.Facades.GetType(rootName, version)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, &rpcreflect.CallNotImplementedError{
+				RootMethod: rootName,
+				Version:    version,
+			}
+		}
 		return nil, err
 	}
-	watcher, ok := r.resources.Get(id).(state.NotifyWatcher)
-	if !ok {
-		return nil, common.ErrUnknownWatcher
-	}
-	return &srvNotifyWatcher{
-		watcher:   watcher,
-		id:        id,
-		resources: r.resources,
-	}, nil
-}
-
-// StringsWatcher returns an object that provides API access to
-// methods on a state.StringsWatcher.  Each client has its own
-// current set of watchers, stored in r.resources.
-func (r *srvRoot) StringsWatcher(id string) (*srvStringsWatcher, error) {
-	if err := r.requireAgent(); err != nil {
+	rpcType := rpcreflect.ObjTypeOf(goType)
+	objMethod, err := rpcType.Method(methodName)
+	if err != nil {
+		if err == rpcreflect.ErrMethodNotFound {
+			return nil, &rpcreflect.CallNotImplementedError{
+				RootMethod: rootName,
+				Version:    version,
+				Method:     methodName,
+			}
+		}
 		return nil, err
 	}
-	watcher, ok := r.resources.Get(id).(state.StringsWatcher)
-	if !ok {
-		return nil, common.ErrUnknownWatcher
+	creator := func(id string) (reflect.Value, error) {
+		objKey := objectKey{name: rootName, version: version, objId: id}
+		if obj, ok := r.objectCache[objKey]; ok {
+			return obj, nil
+		}
+		factory, err := common.Facades.GetFactory(rootName, version)
+		if err != nil {
+			// We don't check for IsNotFound here, because it
+			// should have already been handled in the GetType
+			// check.
+			return reflect.Value{}, err
+		}
+		obj, err := factory(r.state, r.resources, r, id)
+		if err != nil {
+			return reflect.Value{}, err
+		}
+		objValue := reflect.ValueOf(obj)
+		if !objValue.Type().AssignableTo(goType) {
+			return reflect.Value{}, errors.Errorf(
+				"internal error, %s(%d) claimed to return %s but returned %T",
+				rootName, version, goType, obj)
+		}
+		if goType.Kind() == reflect.Interface {
+			// If the original function wanted to return an
+			// interface type, the indirection in the factory via
+			// an interface{} strips the original interface
+			// information off. So here we have to create the
+			// interface again, and assign it.
+			asInterface := reflect.New(goType).Elem()
+			asInterface.Set(objValue)
+			objValue = asInterface
+		}
+		r.objectCache[objKey] = objValue
+		return objValue, nil
 	}
-	return &srvStringsWatcher{
-		watcher:   watcher,
-		id:        id,
-		resources: r.resources,
+	return &srvCaller{
+		creator:   creator,
+		objMethod: objMethod,
 	}, nil
 }
-
-// RelationUnitsWatcher returns an object that provides API access to
-// methods on a state.RelationUnitsWatcher. Each client has its own
-// current set of watchers, stored in r.resources.
-func (r *srvRoot) RelationUnitsWatcher(id string) (*srvRelationUnitsWatcher, error) {
-	if err := r.requireAgent(); err != nil {
-		return nil, err
-	}
-	watcher, ok := r.resources.Get(id).(state.RelationUnitsWatcher)
-	if !ok {
-		return nil, common.ErrUnknownWatcher
-	}
-	return &srvRelationUnitsWatcher{
-		watcher:   watcher,
-		id:        id,
-		resources: r.resources,
-	}, nil
-}
-
-// AllWatcher returns an object that provides API access to methods on
-// a state/multiwatcher.Watcher, which watches any changes to the
-// state. Each client has its own current set of watchers, stored in
-// r.resources.
-func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
-	if err := r.requireClient(); err != nil {
-		return nil, err
-	}
-	watcher, ok := r.resources.Get(id).(*multiwatcher.Watcher)
-	if !ok {
-		return nil, common.ErrUnknownWatcher
-	}
-	return &srvClientAllWatcher{
-		watcher:   watcher,
-		id:        id,
-		resources: r.resources,
-	}, nil
-}
-
-// Pinger returns an object that can be pinged
-// by calling its Ping method. If this method
-// is not called frequently enough, the connection
-// will be dropped.
-func (r *srvRoot) Pinger(id string) (pinger, error) {
-	pingTimeout, ok := r.resources.Get("pingTimeout").(pinger)
-	if !ok {
-		return nullPinger{}, nil
-	}
-	return pingTimeout, nil
-}
-
-type nullPinger struct{}
-
-func (nullPinger) Ping() {}
 
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {
@@ -382,7 +189,7 @@ func (r *srvRoot) AuthUnitAgent() bool {
 // AuthOwner returns whether the authenticated user's tag matches the
 // given entity tag.
 func (r *srvRoot) AuthOwner(tag string) bool {
-	return r.entity.Tag() == tag
+	return r.entity.Tag().String() == tag
 }
 
 // AuthEnvironManager returns whether the authenticated user is a
@@ -394,12 +201,13 @@ func (r *srvRoot) AuthEnvironManager() bool {
 // AuthClient returns whether the authenticated entity is a client
 // user.
 func (r *srvRoot) AuthClient() bool {
-	return !isAgent(r.entity)
+	_, isUser := r.entity.(*state.User)
+	return isUser
 }
 
 // GetAuthTag returns the tag of the authenticated entity.
 func (r *srvRoot) GetAuthTag() string {
-	return r.entity.Tag()
+	return r.entity.Tag().String()
 }
 
 // GetAuthEntity returns the authenticated entity.
@@ -407,67 +215,13 @@ func (r *srvRoot) GetAuthEntity() state.Entity {
 	return r.entity
 }
 
-// pinger describes a type that can be pinged.
-type pinger interface {
-	Ping()
-}
-
-// pingTimeout listens for pings and will call the
-// passed action in case of a timeout. This way broken
-// or inactive connections can be closed.
-type pingTimeout struct {
-	tomb    tomb.Tomb
-	action  func()
-	timeout time.Duration
-	reset   chan struct{}
-}
-
-// newPingTimeout returns a new pingTimeout instance
-// that invokes the given action asynchronously if there
-// is more than the given timeout interval between calls
-// to its Ping method.
-func newPingTimeout(action func(), timeout time.Duration) *pingTimeout {
-	pt := &pingTimeout{
-		action:  action,
-		timeout: timeout,
-		reset:   make(chan struct{}),
+// DescribeFacades returns the list of available Facades and their Versions
+func (r *srvRoot) DescribeFacades() []params.FacadeVersions {
+	facades := common.Facades.List()
+	result := make([]params.FacadeVersions, len(facades))
+	for i, facade := range facades {
+		result[i].Name = facade.Name
+		result[i].Versions = facade.Versions
 	}
-	go func() {
-		defer pt.tomb.Done()
-		pt.tomb.Kill(pt.loop())
-	}()
-	return pt
-}
-
-// Ping is used by the client heartbeat monitor and resets
-// the killer.
-func (pt *pingTimeout) Ping() {
-	select {
-	case <-pt.tomb.Dying():
-	case pt.reset <- struct{}{}:
-	}
-}
-
-// Stop terminates the ping timeout.
-func (pt *pingTimeout) Stop() error {
-	pt.tomb.Kill(nil)
-	return pt.tomb.Wait()
-}
-
-// loop waits for a reset signal, otherwise it performs
-// the initially passed action.
-func (pt *pingTimeout) loop() error {
-	timer := time.NewTimer(pt.timeout)
-	defer timer.Stop()
-	for {
-		select {
-		case <-pt.tomb.Dying():
-			return nil
-		case <-timer.C:
-			go pt.action()
-			return errors.New("ping timeout")
-		case <-pt.reset:
-			timer.Reset(pt.timeout)
-		}
-	}
+	return result
 }

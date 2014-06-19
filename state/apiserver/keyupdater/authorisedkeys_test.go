@@ -43,7 +43,7 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as a state server
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag:          s.rawMachine.Tag(),
+		Tag:          s.rawMachine.Tag().String(),
 		LoggedIn:     true,
 		MachineAgent: true,
 	}
@@ -83,8 +83,8 @@ func (s *authorisedKeysSuite) setAuthorizedKeys(c *gc.C, keys string) {
 func (s *authorisedKeysSuite) TestWatchAuthorisedKeys(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{
-			{Tag: s.rawMachine.Tag()},
-			{Tag: s.unrelatedMachine.Tag()},
+			{Tag: s.rawMachine.Tag().String()},
+			{Tag: s.unrelatedMachine.Tag().String()},
 			{Tag: "machine-42"},
 		},
 	}
@@ -125,8 +125,8 @@ func (s *authorisedKeysSuite) TestAuthorisedKeys(c *gc.C) {
 
 	args := params.Entities{
 		Entities: []params.Entity{
-			{Tag: s.rawMachine.Tag()},
-			{Tag: s.unrelatedMachine.Tag()},
+			{Tag: s.rawMachine.Tag().String()},
+			{Tag: s.unrelatedMachine.Tag().String()},
 			{Tag: "machine-42"},
 		},
 	}

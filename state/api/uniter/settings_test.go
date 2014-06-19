@@ -104,9 +104,9 @@ func (s *settingsSuite) TestWrite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertInScope(c, wpRelUnit, true)
 
-	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag())
+	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().String())
 	c.Assert(err, gc.IsNil)
-	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag())
+	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag().String())
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRelation.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)

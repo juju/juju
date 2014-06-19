@@ -151,7 +151,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	loggo.RemoveWriter("logfile")
 	defer a.tomb.Done()
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
-	if err := a.ReadConfig(a.Tag()); err != nil {
+	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
 	a.configChangedVal.Set(struct{}{})
@@ -791,8 +791,8 @@ func (a *MachineAgent) WorkersStarted() <-chan struct{} {
 	return a.workersStarted
 }
 
-func (a *MachineAgent) Tag() string {
-	return names.NewMachineTag(a.MachineId).String()
+func (a *MachineAgent) Tag() names.Tag {
+	return names.NewMachineTag(a.MachineId)
 }
 
 func (a *MachineAgent) createJujuRun(dataDir string) error {
@@ -801,7 +801,7 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	jujud := filepath.Join(dataDir, "tools", a.Tag(), "jujud")
+	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), "jujud")
 	return os.Symlink(jujud, jujuRun)
 }
 

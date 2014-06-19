@@ -65,8 +65,8 @@ func InstanceServerDetail(inst instance.Instance) *nova.ServerDetail {
 }
 
 var (
-	NovaListAvailabilityZones       = &novaListAvailabilityZones
-	BestAvailabilityZoneAllocations = &bestAvailabilityZoneAllocations
+	NovaListAvailabilityZones   = &novaListAvailabilityZones
+	AvailabilityZoneAllocations = &availabilityZoneAllocations
 )
 
 var indexData = `

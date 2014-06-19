@@ -18,6 +18,10 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+func init() {
+	common.RegisterStandardFacade("Provisioner", 0, NewProvisionerAPI)
+}
+
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.Remover
@@ -265,7 +269,7 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		return results, err
 	}
 	for _, machine := range machines {
-		if !canAccessFunc(machine.Tag()) {
+		if !canAccessFunc(machine.Tag().String()) {
 			continue
 		}
 		if _, provisionedErr := machine.InstanceId(); provisionedErr == nil {

@@ -53,7 +53,7 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.CreatedBy(), gc.Equals, creator)
 	c.Assert(user.DateCreated().After(now) ||
 		user.DateCreated().Equal(now), jc.IsTrue)
-	c.Assert(user.LastConnection().IsZero(), jc.IsTrue)
+	c.Assert(user.LastConnection(), gc.IsNil)
 
 	user, err = s.State.User(name)
 	c.Assert(err, gc.IsNil)
@@ -64,7 +64,7 @@ func (s *UserSuite) TestAddUser(c *gc.C) {
 	c.Assert(user.CreatedBy(), gc.Equals, creator)
 	c.Assert(user.DateCreated().After(now) ||
 		user.DateCreated().Equal(now), jc.IsTrue)
-	c.Assert(user.LastConnection().IsZero(), jc.IsTrue)
+	c.Assert(user.LastConnection(), gc.IsNil)
 }
 
 func (s *UserSuite) TestCheckUserExists(c *gc.C) {

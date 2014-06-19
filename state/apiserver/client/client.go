@@ -30,6 +30,10 @@ import (
 	"github.com/juju/juju/version"
 )
 
+func init() {
+	common.RegisterStandardFacade("Client", 0, NewClient)
+}
+
 var logger = loggo.GetLogger("juju.state.apiserver.client")
 
 type API struct {
@@ -46,31 +50,17 @@ type Client struct {
 	api *API
 }
 
-// NewAPI creates a new instance of the Client API.
-func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) *API {
-	r := &API{
+// NewClient creates a new instance of the Client Facade.
+func NewClient(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*Client, error) {
+	if !authorizer.AuthClient() {
+		return nil, common.ErrPerm
+	}
+	return &Client{api: &API{
 		state:        st,
 		auth:         authorizer,
 		resources:    resources,
 		statusSetter: common.NewStatusSetter(st, common.AuthAlways(true)),
-	}
-	r.client = &Client{
-		api: r,
-	}
-	return r
-}
-
-// Client returns an object that provides access
-// to methods accessible to non-agent clients.
-func (r *API) Client(id string) (*Client, error) {
-	if !r.auth.AuthClient() {
-		return nil, common.ErrPerm
-	}
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return r.client, nil
+	}}, nil
 }
 
 func (c *Client) WatchAll() (params.AllWatcherId, error) {
@@ -1066,27 +1056,73 @@ func (c *Client) APIHostPorts() (result params.APIHostPortsResult, err error) {
 	return result, nil
 }
 
+// Convert machine ids to tags.
+func machineIdsToTags(ids ...string) []string {
+	var result []string
+	for _, id := range ids {
+		result = append(result, names.NewMachineTag(id).String())
+	}
+	return result
+}
+
+// Generate a StateServersChanges structure.
+func stateServersChanges(change state.StateServersChanges) params.StateServersChanges {
+	return params.StateServersChanges{
+		Added:      machineIdsToTags(change.Added...),
+		Maintained: machineIdsToTags(change.Maintained...),
+		Removed:    machineIdsToTags(change.Removed...),
+		Promoted:   machineIdsToTags(change.Promoted...),
+		Demoted:    machineIdsToTags(change.Demoted...),
+	}
+}
+
 // EnsureAvailability ensures the availability of Juju state servers.
-func (c *Client) EnsureAvailability(args params.EnsureAvailability) error {
-	series := args.Series
+func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.StateServersChangeResults, error) {
+	results := params.StateServersChangeResults{Results: make([]params.StateServersChangeResult, len(args.Specs))}
+	for i, stateServersSpec := range args.Specs {
+		result, err := c.ensureAvailabilitySingle(stateServersSpec)
+		results.Results[i].Result = result
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
+// ensureAvailabilitySingle applies a single StateServersSpec specification to the current environment.
+func (c *Client) ensureAvailabilitySingle(spec params.StateServersSpec) (params.StateServersChanges, error) {
+	// Validate the environment tag if present.
+	if spec.EnvironTag != "" {
+		if _, err := names.ParseEnvironTag(spec.EnvironTag); err != nil {
+			return params.StateServersChanges{}, fmt.Errorf("invalid environment tag: %v", err)
+		}
+		if _, err := c.api.state.FindEntity(spec.EnvironTag); err != nil {
+			return params.StateServersChanges{}, err
+		}
+	}
+
+	series := spec.Series
 	if series == "" {
 		ssi, err := c.api.state.StateServerInfo()
 		if err != nil {
-			return err
+			return params.StateServersChanges{}, err
 		}
+
 		// We should always have at least one voting machine
 		// If we *really* wanted we could just pick whatever series is
 		// in the majority, but really, if we always copy the value of
 		// the first one, then they'll stay in sync.
 		if len(ssi.VotingMachineIds) == 0 {
 			// Better than a panic()?
-			return fmt.Errorf("internal error, failed to find any voting machines")
+			return params.StateServersChanges{}, fmt.Errorf("internal error, failed to find any voting machines")
 		}
 		templateMachine, err := c.api.state.Machine(ssi.VotingMachineIds[0])
 		if err != nil {
-			return err
+			return params.StateServersChanges{}, err
 		}
 		series = templateMachine.Series()
 	}
-	return c.api.state.EnsureAvailability(args.NumStateServers, args.Constraints, series)
+	changes, err := c.api.state.EnsureAvailability(spec.NumStateServers, spec.Constraints, series)
+	if err != nil {
+		return params.StateServersChanges{}, err
+	}
+	return stateServersChanges(changes), nil
 }

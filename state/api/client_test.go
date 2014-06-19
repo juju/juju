@@ -22,6 +22,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/constraints"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -199,7 +200,7 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	info := s.APIInfo(c)
-	info.EnvironTag = environ.Tag()
+	info.EnvironTag = environ.Tag().String()
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer apistate.Close()
@@ -221,7 +222,7 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	// Passing in the correct environment UUID should also work
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	info.EnvironTag = environ.Tag()
+	info.EnvironTag = environ.Tag().String()
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	apistate.Close()
@@ -232,6 +233,15 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef-123456"`)
 	c.Check(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(apistate, gc.IsNil)
+}
+
+func (s *clientSuite) TestClientEnsureAvailabilityFailsBadEnvTag(c *gc.C) {
+	defer api.PatchEnvironTag(s.APIState, "bad-env-uuid")()
+	emptyCons := constraints.Value{}
+	defaultSeries := ""
+	_, err := s.APIState.Client().EnsureAvailability(3, emptyCons, defaultSeries)
+	c.Assert(err, gc.ErrorMatches,
+		`invalid environment tag: "bad-env-uuid" is not a valid tag`)
 }
 
 // badReader raises err when Read is called.

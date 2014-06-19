@@ -119,12 +119,14 @@ func (u *User) DateCreated() time.Time {
 }
 
 // LastConnection returns when this user last connected through the API in UTC.
-func (u *User) LastConnection() time.Time {
+func (u *User) LastConnection() *time.Time {
 	result := u.doc.LastConnection
-	if !result.IsZero() {
-		result = result.UTC()
+	if result.IsZero() {
+		return nil
 	}
-	return result
+
+	result = result.UTC()
+	return &result
 }
 
 func (u *User) UpdateLastConnection() error {
@@ -143,10 +145,9 @@ func (u *User) UpdateLastConnection() error {
 	return nil
 }
 
-// Tag returns the Tag for
-// the user ("user-$username")
-func (u *User) Tag() string {
-	return names.NewUserTag(u.doc.Name).String()
+// Tag returns the Tag for the User.
+func (u *User) Tag() names.Tag {
+	return names.NewUserTag(u.doc.Name)
 }
 
 // SetPassword sets the password associated with the user.

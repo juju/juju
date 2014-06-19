@@ -26,7 +26,7 @@ func (s *relationSuite) SetUpTest(c *gc.C) {
 	s.commonRelationSuiteMixin.SetUpTest(c, s.uniterSuite)
 
 	var err error
-	s.apiRelation, err = s.uniter.Relation(s.stateRelation.Tag())
+	s.apiRelation, err = s.uniter.Relation(s.stateRelation.Tag().String())
 	c.Assert(err, gc.IsNil)
 }
 

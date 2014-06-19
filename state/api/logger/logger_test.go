@@ -44,7 +44,7 @@ func (s *loggerSuite) TestLoggingConfigWrongMachine(c *gc.C) {
 }
 
 func (s *loggerSuite) TestLoggingConfig(c *gc.C) {
-	config, err := s.logger.LoggingConfig(s.rawMachine.Tag())
+	config, err := s.logger.LoggingConfig(s.rawMachine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(config, gc.Not(gc.Equals), "")
 }
@@ -55,7 +55,7 @@ func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
 }
 
 func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
-	watcher, err := s.logger.WatchLoggingConfig(s.rawMachine.Tag())
+	watcher, err := s.logger.WatchLoggingConfig(s.rawMachine.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer testing.AssertStop(c, watcher)
 	wc := testing.NewNotifyWatcherC(c, s.BackingState, watcher)

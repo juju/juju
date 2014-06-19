@@ -11,6 +11,10 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+func init() {
+	common.RegisterStandardFacade("Rsyslog", 0, NewRsyslogAPI)
+}
+
 // RsyslogAPI implements the API used by the rsyslog worker.
 type RsyslogAPI struct {
 	*common.EnvironWatcher

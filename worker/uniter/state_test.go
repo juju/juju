@@ -97,6 +97,26 @@ var stateTests = []struct {
 			OpStep: uniter.Pending,
 			Hook:   relhook,
 		},
+	}, {
+		st: uniter.State{
+			Op:     uniter.RunHook,
+			OpStep: uniter.Pending,
+			Hook: &hook.Info{
+				Kind:         hooks.ActionRequested,
+				ActionName:   "snapshot",
+				ActionParams: map[string]interface{}{"outfile": "foo.txt"},
+			},
+		},
+	}, {
+		st: uniter.State{
+			Op:     uniter.RunHook,
+			OpStep: uniter.Pending,
+			Hook: &hook.Info{
+				Kind:         hooks.ActionRequested,
+				ActionParams: map[string]interface{}{"outfile": "foo.txt"},
+			},
+		},
+		err: `missing action name`,
 	},
 	// Upgrade operation.
 	{
