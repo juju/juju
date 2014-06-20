@@ -568,6 +568,21 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	return err
 }
 
+func (m *Machine) removePortsOps() ([]txn.Op, error) {
+	if m.doc.Life != Dead {
+		return nil, errors.Errorf("machine is not dead")
+	}
+	ports, err := m.OpenedPorts(m.st)
+	if err != nil {
+		return nil, err
+	}
+	var ops []txn.Op
+	for _, p := range ports {
+		ops = append(ops, p.removeOps()...)
+	}
+	return ops, nil
+}
+
 func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
 	if m.doc.Life != Dead {
 		return nil, errors.Errorf("machine is not dead")
@@ -623,7 +638,12 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	portsOps, err := m.removePortsOps()
+	if err != nil {
+		return err
+	}
 	ops = append(ops, ifacesOps...)
+	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.

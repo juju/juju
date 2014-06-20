@@ -74,6 +74,7 @@ type State struct {
 	annotations       *mgo.Collection
 	statuses          *mgo.Collection
 	stateServers      *mgo.Collection
+	openedPorts       *mgo.Collection
 	watcher           *watcher.Watcher
 	pwatcher          *presence.Watcher
 	// mu guards allManager.

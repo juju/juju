@@ -186,6 +186,31 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	c.Assert(m.Life(), gc.Equals, state.Dead)
 }
 
+func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, gc.IsNil)
+	err = unit.OpenPort("tcp", 8080)
+	c.Assert(err, gc.IsNil)
+	ports, err := state.GetPorts(s.State, s.machine.Id())
+	c.Assert(ports, gc.NotNil)
+	c.Assert(err, gc.IsNil)
+	err = unit.UnassignFromMachine()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.Destroy()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.Remove()
+	c.Assert(err, gc.IsNil)
+	// once the machine is destroyed, there should be no ports documents present for it
+	ports, err = state.GetPorts(s.State, s.machine.Id())
+	c.Assert(ports, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+}
+
 func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.machine.Destroy(), gc.IsNil)
