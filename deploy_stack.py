@@ -130,7 +130,7 @@ def deploy_dummy_stack(env, charm_prefix):
         done
         cat /var/run/dummy-sink/token
     """.format(timeout)
-    if 'manual-deploy-trusty-ppc64' in env.name:
+    if 'manual-deploy-trusty-ppc64' in env.environment:
         result = subprocess.check_output(
             ['ssh', 'ubuntu@10.245.67.137',
              '-o', 'UserKnownHostsFile /dev/null',
