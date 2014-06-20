@@ -45,6 +45,7 @@ const tagOffset = len("juju-") + 1
 const stateServerRsyslogTemplate = `
 $ModLoad imuxsock
 $ModLoad imfile
+$ModLoad omruleset
 
 # Messages received from remote rsyslog machines have messages prefixed with a space,
 # so add one in for local messages too if needed.
@@ -52,7 +53,7 @@ $template JujuLogFormat{{namespace}},"%syslogtag:{{tagStart}}:$%%msg:::sp-if-no-
 
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
-$RuleSet local
+$RuleSet juju
 {{range $i, $stateServerIP := stateServerHosts}}
 # start: Forwarding rule for {{$stateServerIP}}
 $ActionQueueType LinkedList
@@ -82,7 +83,6 @@ $InputFileName {{logfilePath}}
 $InputFileTag juju{{namespace}}-{{logfileName}}:
 $InputFileStateFile {{logfileName}}{{namespace}}
 $InputRunFileMonitor
-$DefaultRuleset local
 
 $ModLoad imtcp
 $DefaultNetstreamDriver gtls
@@ -94,6 +94,12 @@ $InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
 
 $InputTCPServerBindRuleset remote
 $InputTCPServerRun {{portNumber}}
+
+$ActionOmrulesetRulesetName juju
+:syslogtag, startswith, "juju{{namespace}}-" :omruleset:
+
+# switch back to default ruleset for further rules
+$RuleSet RSYSLOG_DefaultRuleset
 `
 
 // The rsyslog conf for non-state server nodes.
