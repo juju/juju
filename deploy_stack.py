@@ -130,7 +130,14 @@ def deploy_dummy_stack(env, charm_prefix):
         done
         cat /var/run/dummy-sink/token
     """.format(timeout)
-    result = env.client.get_juju_output(env, 'ssh', 'dummy-sink/0', get_token)
+    if 'manual-deploy-trusty-ppc64' in env.name:
+        result = subprocess.check_output(
+            ['ssh', 'ubuntu@10.245.67.137',
+             '-o', 'UserKnownHostsFile /dev/null',
+             '-o', 'StrictHostKeyChecking no',
+             'cat /var/run/dummy-sink/token'])
+    else:
+        result = env.client.get_juju_output(env, 'ssh', 'dummy-sink/0', get_token)
     result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
     if result != token:
         raise ValueError('Token is %r' % result)
