@@ -1453,8 +1453,9 @@ func (w *cleanupWatcher) loop() (err error) {
 // actionWatcher notifies of changes in the actions collection.
 type actionWatcher struct {
 	commonWatcher
-	out    chan []string
-	filter []names.Tag
+	out      chan []string
+	filter   bool
+	filterFn func(interface{}) bool
 }
 
 var _ Watcher = (*actionWatcher)(nil)
@@ -1468,7 +1469,8 @@ func newActionWatcher(st *State, filterBy ...names.Tag) StringsWatcher {
 	w := &actionWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan []string),
-		filter:        filterBy,
+		filter:        len(filterBy) > 0,
+		filterFn:      makeActionWatcherFilter(filterBy...),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -1476,6 +1478,21 @@ func newActionWatcher(st *State, filterBy ...names.Tag) StringsWatcher {
 		w.tomb.Kill(w.loop())
 	}()
 	return w
+}
+
+// makeActionWatcherFilter constructs a predicate to filter keys
+// that have the prefix of one of the passed in tags
+func makeActionWatcherFilter(tags ...names.Tag) func(interface{}) bool {
+	return func(key interface{}) bool {
+		if k, ok := key.(string); ok {
+			for _, tag := range tags {
+				if strings.HasPrefix(k, tag.Id()) {
+					return true
+				}
+			}
+		}
+		return false
+	}
 }
 
 // Changes returns the event channel for w
@@ -1487,18 +1504,8 @@ func (w *actionWatcher) loop() error {
 	in := make(chan watcher.Change)
 	changes := &set.Strings{}
 
-	if len(w.filter) > 0 {
-		filterFn := func(key interface{}) bool {
-			if k, ok := key.(string); ok {
-				for _, tag := range w.filter {
-					if strings.HasPrefix(k, tag.Id()) {
-						return true
-					}
-				}
-			}
-			return false
-		}
-		w.st.watcher.WatchCollectionWithFilter(w.st.actions.Name, in, filterFn)
+	if w.filter {
+		w.st.watcher.WatchCollectionWithFilter(w.st.actions.Name, in, w.filterFn)
 	} else {
 		w.st.watcher.WatchCollection(w.st.actions.Name, in)
 	}
