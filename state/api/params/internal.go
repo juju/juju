@@ -247,6 +247,17 @@ type RelationResults struct {
 	Results []RelationResult
 }
 
+type ActionQuery struct {
+	Id string
+}
+
+// Action holds the name and parameters of an Action call.
+type Action struct {
+	Error  *Error
+	Name   string
+	Params map[string]interface{}
+}
+
 // EntityPort holds an entity's tag, a protocol and a port.
 type EntityPort struct {
 	Tag      string

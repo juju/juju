@@ -681,6 +681,21 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 	return result, nil
 }
 
+func (u *UniterAPI) Action(args params.ActionQuery) (params.Action, error) {
+	result := params.Action{}
+	resultAction, err := u.st.Action(args.Id)
+	if err == nil {
+		result.Name = resultAction.Name()
+		result.Params = make(map[string]interface{})
+		for key, payloadItem := range resultAction.Payload() {
+			result.Params[key] = payloadItem
+		}
+	}
+	result.Error = common.ServerError(err)
+
+	return result, nil
+}
+
 // RelationById returns information about all given relations,
 // specified by their ids, including their key and the local
 // endpoint.

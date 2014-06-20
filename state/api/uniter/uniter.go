@@ -67,6 +67,24 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 	return result.Results[0], nil
 }
 
+// action requests action information from the server.
+func (st *State) action(id string) (params.Action, error) {
+	nothing := params.Action{}
+	var result params.Action
+	args := params.ActionQuery{
+		Id: id,
+	}
+	err := st.call("Action", args, &result)
+	if err != nil {
+		return nothing, err
+	}
+	// handle server errors
+	if err := result.Error; err != nil {
+		return nothing, err
+	}
+	return result, nil
+}
+
 // Unit provides access to methods of a state.Unit through the facade.
 func (st *State) Unit(unitTag string) (*Unit, error) {
 	tag, err := names.ParseUnitTag(unitTag)
@@ -144,6 +162,18 @@ func (st *State) Relation(relationTag string) (*Relation, error) {
 		tag:  tag,
 		life: result.Life,
 		st:   st,
+	}, nil
+}
+
+// Action returns the Action with the given tag.
+func (st *State) Action(id string) (*Action, error) {
+	result, err := st.action(id)
+	if err != nil {
+		return nil, err
+	}
+	return &Action{
+		name:   result.Name,
+		params: result.Params,
 	}, nil
 }
 

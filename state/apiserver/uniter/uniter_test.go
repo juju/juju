@@ -865,6 +865,57 @@ func (s *uniterSuite) TestCurrentEnvironment(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, expected)
 }
 
+func (s *uniterSuite) TestAction(c *gc.C) {
+	var actionTests = []struct {
+		description string
+		action      params.Action
+		expectedErr error
+	}{{
+		description: "A simple action.",
+		action: params.Action{
+			Name:  "snapshot",
+			Error: nil,
+			Params: map[string]interface{}{
+				"outfile": "foo.txt",
+			},
+		},
+	}, {
+		description: "An action with nested parameters.",
+		action: params.Action{
+			Name:  "backup",
+			Error: nil,
+			Params: map[string]interface{}{
+				"outfile": "foo.bz2",
+				"compression": map[string]interface{}{
+					"kind":    "bzip",
+					"quality": 5,
+				},
+			},
+		},
+	}}
+
+	for i, actionTest := range actionTests {
+		c.Logf("test %d: %s", i, actionTest.description)
+
+		actionId, err := s.wordpressUnit.AddAction(
+			actionTest.action.Name,
+			actionTest.action.Params)
+		c.Assert(err, gc.IsNil)
+
+		args := params.ActionQuery{Id: actionId}
+		result, err := s.uniter.Action(args)
+		c.Assert(err, gc.IsNil)
+		c.Assert(result, gc.DeepEquals, actionTest.action)
+	}
+}
+
+func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
+	args := params.ActionQuery{Id: "foo"}
+	result, err := s.uniter.Action(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Error.Message, gc.Equals, "action \"foo\" not found")
+}
+
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
 	eps, err := s.State.InferEndpoints([]string{first, second})
 	c.Assert(err, gc.IsNil)
