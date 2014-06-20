@@ -115,12 +115,8 @@ def deploy_dummy_stack(env, charm_prefix):
     env.wait_for_started()
     # Wait up to 30 seconds for token to be created.
     logging.info('Retrieving token.')
-    if env.kvm:
-        timeout = 600
-    else:
-        timeout = 30
     get_token="""
-        for x in $(seq {}); do
+        for x in $(seq 30); do
           if [ -f /var/run/dummy-sink/token ]; then
             if [ "$(cat /var/run/dummy-sink/token)" != "" ]; then
               break
@@ -129,15 +125,21 @@ def deploy_dummy_stack(env, charm_prefix):
           sleep 1
         done
         cat /var/run/dummy-sink/token
-    """.format(timeout)
-    if 'manual-deploy-trusty-ppc64' in env.environment:
+    """
+    try:
+        result = env.client.get_juju_output(
+            env, 'ssh', 'dummy-sink/0', get_token)
+    except subprocess.CalledProcessError as err:
+        print("WARNING: juju ssh failed: {}".format(str(err)))
+        print("Falling back to ssh.")
+        dummy_sink = env.get_status().status['services']['dummy-sink']
+        dummy_sink_ip = dummy_sink['units']['dummy-sink/0']['public-address']
+        user_at_host = 'ubuntu@{}'.format(dummy_sink_ip)
         result = subprocess.check_output(
-            ['ssh', 'ubuntu@10.245.67.137',
+            ['ssh', user_at_host,
              '-o', 'UserKnownHostsFile /dev/null',
              '-o', 'StrictHostKeyChecking no',
              'cat /var/run/dummy-sink/token'])
-    else:
-        result = env.client.get_juju_output(env, 'ssh', 'dummy-sink/0', get_token)
     result = re.match(r'([^\n\r]*)\r?\n?', result).group(1)
     if result != token:
         raise ValueError('Token is %r' % result)
