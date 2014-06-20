@@ -8,8 +8,7 @@ set -e
 HERE=$(pwd)
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 
-PACKAGING_DEFAULT_JUJUDB="lp:~juju-qa/juju-core/packaging-default-juju-mongodb"
-PACKAGING_DEFAULT_MONGODB="lp:~juju-qa/juju-core/packaging-default-mongodb-server"
+PACKAGING_DEFAULT="lp:~juju-qa/juju-release-tools/packaging-juju-core-default"
 PACKAGING_1_18_JUJUDB="lp:~juju-qa/juju-core/packaging-1-18-juju-mongodb"
 PACKAGING_1_18_DEFAULT_MONGODB="lp:~juju-qa/juju-core/packaging-1-18-mongodb-server"
 
@@ -48,11 +47,7 @@ make_source_package_branch() {
         fi
     else
         # Packaging binaries in github.com/juju/juju.
-        if [[ $SERIES == "saucy" || $SERIES == "precise" ]]; then
-            PACKAGING_BRANCH=$PACKAGING_DEFAULT_MONGODB
-        else
-            PACKAGING_BRANCH=$PACKAGING_DEFAULT_JUJUDB
-        fi
+        PACKAGING_BRANCH=$PACKAGING_DEFAULT
     fi
     echo "Using $PACKAGING_BRANCH"
     bzr branch $PACKAGING_BRANCH $PACKAGING_DIR
