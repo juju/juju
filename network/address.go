@@ -261,10 +261,6 @@ func bestAddressIndex(numAddr int, getAddr func(i int) Address, match func(addr 
 	fallbackAddressIndex := -1
 	for i := 0; i < numAddr; i++ {
 		addr := getAddr(i)
-		// Older versions of Juju may have stored an empty address so ignore it here.
-		if addr.Value == "" {
-			continue
-		}
 		if addr.Type != IPv6Address {
 			switch match(addr) {
 			case exactScope:

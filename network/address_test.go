@@ -113,13 +113,6 @@ var selectPublicTests = []selectTest{{
 	},
 	0,
 }, {
-	"empty addresses are ignored",
-	[]network.Address{
-		{"", network.IPv4Address, "public", network.ScopeUnknown},
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
-	},
-	1,
-}, {
 	"a machine local address is not selected",
 	[]network.Address{
 		{"127.0.0.1", network.IPv4Address, "machine", network.ScopeMachineLocal},
@@ -159,13 +152,6 @@ var selectInternalTests = []selectTest{{
 	"no addresses gives empty string result",
 	[]network.Address{},
 	-1,
-}, {
-	"empty addresses are ignored",
-	[]network.Address{
-		{"", network.IPv4Address, "public", network.ScopeUnknown},
-		{"8.8.8.8", network.IPv4Address, "public", network.ScopePublic},
-	},
-	1,
 }, {
 	"a public address is selected",
 	[]network.Address{
