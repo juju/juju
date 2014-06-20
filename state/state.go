@@ -191,7 +191,7 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 				agentTags = append(agentTags, names.NewUnitTag(doc.Id).String())
 			}
 		}
-		if err := iter.Err(); err != nil {
+		if err := iter.Close(); err != nil {
 			return err
 		}
 	}
@@ -1380,18 +1380,15 @@ func (st *State) UnitActions(name string) ([]*Action, error) {
 
 // Actions returns a list of pending actions for an Entity given its Tag()
 func (st *State) Actions(tag string) ([]*Action, error) {
-	actions := []*Action{}
+	var actions []*Action
 	prefix := actionPrefix(tag)
 	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
 	iter := st.actions.Find(sel).Iter()
-	doc := actionDoc{}
+	var doc actionDoc
 	for iter.Next(&doc) {
 		actions = append(actions, newAction(st, doc))
 	}
-	if err := iter.Err(); err != nil {
-		return actions, err
-	}
-	return actions, nil
+	return actions, iter.Close()
 }
 
 // ActionResult returns an ActionResult by Id.
@@ -1428,17 +1425,14 @@ func (st *State) ActionResultsForAction(actionId string) ([]*ActionResult, error
 // actionResults returns actionresults that match the given id prefix.
 // We assume the prefix has been scrubbed before calling this
 func (st *State) actionResults(prefix string) ([]*ActionResult, error) {
-	results := []*ActionResult{}
+	var results []*ActionResult
 	sel := bson.D{{"_id", bson.RegEx{Pattern: "^" + regexp.QuoteMeta(prefix)}}}
 	iter := st.actionresults.Find(sel).Iter()
-	doc := actionResultDoc{}
+	var doc actionResultDoc
 	for iter.Next(&doc) {
 		results = append(results, newActionResult(st, doc))
 	}
-	if err := iter.Err(); err != nil {
-		return results, err
-	}
-	return results, nil
+	return results, iter.Close()
 }
 
 // Unit returns a unit by name.

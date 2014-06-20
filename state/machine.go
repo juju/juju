@@ -570,9 +570,8 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 
 func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
 	if m.doc.Life != Dead {
-		return nil, fmt.Errorf("machine is not dead")
+		return nil, errors.Errorf("machine is not dead")
 	}
-	var doc networkInterfaceDoc
 	ops := []txn.Op{{
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
@@ -580,6 +579,7 @@ func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
 	}}
 	sel := bson.D{{"machineid", m.doc.Id}}
 	iter := m.st.networkInterfaces.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
+	var doc networkInterfaceDoc
 	for iter.Next(&doc) {
 		ops = append(ops, txn.Op{
 			C:      m.st.networkInterfaces.Name,
@@ -587,10 +587,7 @@ func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
 			Remove: true,
 		})
 	}
-	if err := iter.Err(); err != nil {
-		return nil, err
-	}
-	return ops, nil
+	return ops, iter.Close()
 }
 
 // Remove removes the machine from state. It will fail if the machine

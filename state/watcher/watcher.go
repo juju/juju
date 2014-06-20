@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -416,8 +417,8 @@ func (w *Watcher) sync() error {
 			}
 		}
 	}
-	if iter.Err() != nil {
-		return fmt.Errorf("watcher iteration error: %v", iter.Err())
+	if err := iter.Close(); err != nil {
+		return errors.Errorf("watcher iteration error: %v", err)
 	}
 	return nil
 }
