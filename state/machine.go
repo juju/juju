@@ -897,11 +897,15 @@ func IsNotProvisionedError(err error) bool {
 }
 
 func mergedAddresses(machineAddresses, providerAddresses []address) []network.Address {
-	merged := make([]network.Address, len(providerAddresses), len(providerAddresses)+len(machineAddresses))
+	merged := make([]network.Address, 0, len(providerAddresses)+len(machineAddresses))
 	var providerValues set.Strings
-	for i, address := range providerAddresses {
+	for _, address := range providerAddresses {
+		// Older versions of Juju may have stored an empty address so ignore it here.
+		if address.Value == "" {
+			continue
+		}
 		providerValues.Add(address.Value)
-		merged[i] = address.InstanceAddress()
+		merged = append(merged, address.InstanceAddress())
 	}
 	for _, address := range machineAddresses {
 		if !providerValues.Contains(address.Value) {

@@ -319,7 +319,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 
 	addresses, err := insts[0].Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.Not(gc.HasLen), 0)
+	c.Assert(addresses, gc.HasLen, 2)
 }
 
 func (s *localServerSuite) TestGetImageMetadataSources(c *gc.C) {
