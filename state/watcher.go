@@ -1454,7 +1454,6 @@ func (w *cleanupWatcher) loop() (err error) {
 type actionWatcher struct {
 	commonWatcher
 	out      chan []string
-	filter   bool
 	filterFn func(interface{}) bool
 }
 
@@ -1469,7 +1468,6 @@ func newActionWatcher(st *State, filterBy ...names.Tag) StringsWatcher {
 	w := &actionWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan []string),
-		filter:        len(filterBy) > 0,
 		filterFn:      makeActionWatcherFilter(filterBy...),
 	}
 	go func() {
@@ -1481,8 +1479,12 @@ func newActionWatcher(st *State, filterBy ...names.Tag) StringsWatcher {
 }
 
 // makeActionWatcherFilter constructs a predicate to filter keys
-// that have the prefix of one of the passed in tags
+// that have the prefix of one of the passed in tags, or returns
+// nil if tags is empty
 func makeActionWatcherFilter(tags ...names.Tag) func(interface{}) bool {
+	if len(tags) == 0 {
+		return nil
+	}
 	return func(key interface{}) bool {
 		if k, ok := key.(string); ok {
 			for _, tag := range tags {
@@ -1504,7 +1506,7 @@ func (w *actionWatcher) loop() error {
 	in := make(chan watcher.Change)
 	changes := &set.Strings{}
 
-	if w.filter {
+	if w.filterFn != nil {
 		w.st.watcher.WatchCollectionWithFilter(w.st.actions.Name, in, w.filterFn)
 	} else {
 		w.st.watcher.WatchCollection(w.st.actions.Name, in)
