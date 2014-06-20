@@ -127,7 +127,7 @@ GOPATH=$WORK $GODEPS -u "$WORK/src/$PACKAGE/dependencies.tsv"
 rm -r $WORK/bin
 
 if [[ -d $WORK/pkg ]]; then
-    rm r $WORK/pkg
+    rm -r $WORK/pkg
 fi
 
 # Change the generic release to the proper juju-core version.
