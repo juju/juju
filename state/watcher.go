@@ -244,8 +244,8 @@ func (w *lifecycleWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *lifecycleWatcher) initial() (ids *set.Strings, err error) {
-	ids = &set.Strings{}
+func (w *lifecycleWatcher) initial() (*set.Strings, error) {
+	var ids set.Strings
 	var doc lifeDoc
 	iter := w.coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
@@ -254,10 +254,7 @@ func (w *lifecycleWatcher) initial() (ids *set.Strings, err error) {
 			w.life[doc.Id] = doc.Life
 		}
 	}
-	if err := iter.Err(); err != nil {
-		return nil, err
-	}
-	return ids, nil
+	return &ids, iter.Close()
 }
 
 func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[interface{}]bool) error {
@@ -282,7 +279,7 @@ func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[interface{}]bool)
 	for iter.Next(&doc) {
 		latest[doc.Id] = doc.Life
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return err
 	}
 
@@ -386,14 +383,14 @@ func (st *State) WatchMinUnits() StringsWatcher {
 }
 
 func (w *minUnitsWatcher) initial() (*set.Strings, error) {
-	serviceNames := new(set.Strings)
-	doc := &minUnitsDoc{}
+	var serviceNames set.Strings
+	var doc minUnitsDoc
 	iter := w.st.minUnits.Find(nil).Iter()
-	for iter.Next(doc) {
+	for iter.Next(&doc) {
 		w.known[doc.ServiceName] = doc.Revno
 		serviceNames.Add(doc.ServiceName)
 	}
-	return serviceNames, iter.Err()
+	return &serviceNames, iter.Close()
 }
 
 func (w *minUnitsWatcher) merge(serviceNames *set.Strings, change watcher.Change) error {

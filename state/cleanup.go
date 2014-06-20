@@ -59,7 +59,7 @@ func (st *State) NeedsCleanup() (bool, error) {
 // any such exist. It should be called periodically by at least one element
 // of the system.
 func (st *State) Cleanup() error {
-	doc := cleanupDoc{}
+	var doc cleanupDoc
 	iter := st.cleanups.Find(nil).Iter()
 	for iter.Next(&doc) {
 		var err error
@@ -93,8 +93,8 @@ func (st *State) Cleanup() error {
 			logger.Warningf("cannot remove empty cleanup document: %v", err)
 		}
 	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("cannot read cleanup document: %v", err)
+	if err := iter.Close(); err != nil {
+		return errors.Errorf("cannot read cleanup document: %v", err)
 	}
 	return nil
 }
@@ -121,7 +121,7 @@ func (st *State) cleanupServicesForDyingEnvironment() error {
 	// This won't miss services, because a Dying environment cannot have
 	// services added to it. But we do have to remove the services themselves
 	// via individual transactions, because they could be in any state at all.
-	service := &Service{st: st}
+	service := Service{st: st}
 	sel := bson.D{{"life", Alive}}
 	iter := st.services.Find(sel).Iter()
 	for iter.Next(&service.doc) {
@@ -129,8 +129,8 @@ func (st *State) cleanupServicesForDyingEnvironment() error {
 			return err
 		}
 	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("cannot read service document: %v", err)
+	if err := iter.Close(); err != nil {
+		return errors.Errorf("cannot read service document: %v", err)
 	}
 	return nil
 }
@@ -142,7 +142,7 @@ func (st *State) cleanupUnitsForDyingService(prefix string) error {
 	// This won't miss units, because a Dying service cannot have units added
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
-	unit := &Unit{st: st}
+	unit := Unit{st: st}
 	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}, {"life", Alive}}
 	iter := st.units.Find(sel).Iter()
 	for iter.Next(&unit.doc) {
@@ -150,8 +150,8 @@ func (st *State) cleanupUnitsForDyingService(prefix string) error {
 			return err
 		}
 	}
-	if err := iter.Err(); err != nil {
-		return fmt.Errorf("cannot read unit document: %v", err)
+	if err := iter.Close(); err != nil {
+		return errors.Errorf("cannot read unit document: %v", err)
 	}
 	return nil
 }
