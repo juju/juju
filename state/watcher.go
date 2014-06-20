@@ -1395,6 +1395,74 @@ func (w *machineUnitsWatcher) loop() error {
 	}
 }
 
+// machineAddressesWatcher notifies about changes to a machine's addresses.
+//
+// The first event emitted contains the addresses currently assigned to the
+// machine. From then on, a new event is emitted whenever the machine's
+// addresses change.
+type machineAddressesWatcher struct {
+	commonWatcher
+	machine *Machine
+	out     chan struct{}
+}
+
+var _ Watcher = (*machineAddressesWatcher)(nil)
+
+// WatchUnits returns a new NotifyWatcher watching m's addresses.
+func (m *Machine) WatchAddresses() NotifyWatcher {
+	return newMachineAddressesWatcher(m)
+}
+
+func newMachineAddressesWatcher(m *Machine) NotifyWatcher {
+	w := &machineAddressesWatcher{
+		commonWatcher: commonWatcher{st: m.st},
+		out:           make(chan struct{}),
+		machine:       &Machine{st: m.st, doc: m.doc}, // Copy so it may be freely refreshed
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *machineAddressesWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *machineAddressesWatcher) loop() error {
+	revno, err := getTxnRevno(w.st.machines, w.machine.doc.Id)
+	if err != nil {
+		return err
+	}
+	machineCh := make(chan watcher.Change)
+	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, revno, machineCh)
+	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, machineCh)
+	addresses := w.machine.Addresses()
+	out := w.out
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-machineCh:
+			if err := w.machine.Refresh(); err != nil {
+				return err
+			}
+			newAddresses := w.machine.Addresses()
+			if !addressesEqual(newAddresses, addresses) {
+				addresses = newAddresses
+				out = w.out
+			}
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
+}
+
 // cleanupWatcher notifies of changes in the cleanups collection.
 type cleanupWatcher struct {
 	commonWatcher
