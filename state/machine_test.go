@@ -1510,6 +1510,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	addresses := []network.Address{
 		network.NewAddress("127.0.0.1", network.ScopeUnknown),
 		network.NewAddress("8.8.8.8", network.ScopeUnknown),
+		network.NewAddress("", network.ScopeUnknown),
 	}
 	addresses[0].NetworkName = "loopback"
 	err = machine.SetAddresses(addresses...)
