@@ -1486,5 +1486,5 @@ func (u *Unit) ClearResolved() error {
 
 // WatchActions starts and returns an ActionWatcher
 func (u *Unit) WatchActions() StringsWatcher {
-	return newActionWatcher(u.st, u.Tag())
+	return newActionWatcher(u.st, u.Tag().Id())
 }

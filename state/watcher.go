@@ -1464,34 +1464,39 @@ func (st *State) WatchActions() StringsWatcher {
 	return newActionWatcher(st)
 }
 
-func newActionWatcher(st *State, filterBy ...names.Tag) StringsWatcher {
+func newActionWatcher(st *State, prefixIds ...string) StringsWatcher {
 	w := &actionWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan []string),
-		filterFn:      makeActionWatcherFilter(filterBy...),
 	}
+	w.filterFn = w.makeFilter(prefixIds...)
+
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
 		w.tomb.Kill(w.loop())
 	}()
+
 	return w
 }
 
 // makeActionWatcherFilter constructs a predicate to filter keys
 // that have the prefix of one of the passed in tags, or returns
 // nil if tags is empty
-func makeActionWatcherFilter(tags ...names.Tag) func(interface{}) bool {
-	if len(tags) == 0 {
+func (w *actionWatcher) makeFilter(ids ...string) func(interface{}) bool {
+	if len(ids) == 0 {
 		return nil
 	}
 	return func(key interface{}) bool {
 		if k, ok := key.(string); ok {
-			for _, tag := range tags {
-				if strings.HasPrefix(k, tag.Id()) {
+			for _, id := range ids {
+				if strings.HasPrefix(k, id) {
 					return true
 				}
 			}
+		} else {
+			// TODO(jcw4,fwereade) error out and w.tomb.Kill here? doesn't seem right.
+			logger.Warningf("actionWatcher got unexpected changes key.  expected string key got %+v", key)
 		}
 		return false
 	}
