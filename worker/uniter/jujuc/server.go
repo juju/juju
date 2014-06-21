@@ -15,10 +15,10 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/osenv"
 )
 

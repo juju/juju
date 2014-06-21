@@ -4,9 +4,8 @@
 package usermanager_test
 
 import (
-	"time"
-
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -33,19 +32,19 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	user, err := s.State.User("admin")
 	c.Assert(err, gc.IsNil)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:      "user-admin",
+		Tag:      names.NewUserTag("admin"),
 		LoggedIn: true,
 		Client:   true,
 		Entity:   user,
 	}
-	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, s.authorizer)
+	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authorizer
 	anAuthoriser.Client = false
-	endPoint, err := usermanager.NewUserManagerAPI(s.State, anAuthoriser)
+	endPoint, err := usermanager.NewUserManagerAPI(s.State, nil, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
@@ -129,10 +128,8 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 	barfoo := "barfoo"
 	fooTag := names.NewUserTag(foobar)
 	barTag := names.NewUserTag(barfoo)
-
-	userFactory := factory.NewFactory(s.State, c)
-	userFactory.MakeUser(factory.UserParams{Username: foobar, DisplayName: "Foo Bar"})
-	userFactory.MakeUser(factory.UserParams{Username: barfoo, DisplayName: "Bar Foo"})
+	userFoo := s.Factory.MakeUser(factory.UserParams{Username: foobar, DisplayName: "Foo Bar"})
+	userBar := s.Factory.MakeUser(factory.UserParams{Username: barfoo, DisplayName: "Bar Foo"})
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: fooTag.String()}, {Tag: barTag.String()}},
@@ -146,33 +143,27 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 					Username:       "foobar",
 					DisplayName:    "Foo Bar",
 					CreatedBy:      "admin",
-					DateCreated:    time.Time{},
-					LastConnection: time.Time{},
+					DateCreated:    userFoo.DateCreated(),
+					LastConnection: userFoo.LastConnection(),
 				},
 			}, {
 				Result: &params.UserInfo{
 					Username:       "barfoo",
 					DisplayName:    "Bar Foo",
 					CreatedBy:      "admin",
-					DateCreated:    time.Time{},
-					LastConnection: time.Time{},
+					DateCreated:    userBar.DateCreated(),
+					LastConnection: userBar.LastConnection(),
 				},
 			}},
 	}
 
-	// set DateCreated to nil as we cannot know the exact time user was created
-	results.Results[0].Result.DateCreated = time.Time{}
-	results.Results[1].Result.DateCreated = time.Time{}
-
-	c.Assert(results, gc.DeepEquals, expected)
+	c.Assert(results, jc.DeepEquals, expected)
 }
 
 func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
 	foobar := "foobar"
 	fooTag := names.NewUserTag(foobar)
-
-	userFactory := factory.NewFactory(s.State, c)
-	userFactory.MakeUser(factory.UserParams{Username: foobar, DisplayName: "Foo Bar"})
+	user := s.Factory.MakeUser(factory.UserParams{Username: foobar, DisplayName: "Foo Bar"})
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: fooTag.String()}},
@@ -186,15 +177,12 @@ func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
 					Username:       "foobar",
 					DisplayName:    "Foo Bar",
 					CreatedBy:      "admin",
-					DateCreated:    time.Time{},
-					LastConnection: time.Time{},
+					DateCreated:    user.DateCreated(),
+					LastConnection: user.LastConnection(),
 				},
 			},
 		},
 	}
-
-	// set DateCreated to nil as we cannot know the exact time user was created
-	results.Results[0].Result.DateCreated = time.Time{}
 
 	c.Assert(results, gc.DeepEquals, expected)
 }
@@ -252,7 +240,7 @@ func (s *userManagerSuite) TestUserInfoNotATagFails(c *gc.C) {
 			{
 				Result: nil,
 				Error: &params.Error{
-					Message: `"notatag" is not a valid user tag`,
+					Message: `"notatag" is not a valid tag`,
 					Code:    "",
 				},
 			},
@@ -274,6 +262,6 @@ func (s *userManagerSuite) TestAgentUnauthorized(c *gc.C) {
 		MachineAgent: true,
 	}
 
-	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, s.authorizer)
+	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 }

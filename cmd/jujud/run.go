@@ -9,12 +9,12 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/cmd"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/worker/uniter"
 )

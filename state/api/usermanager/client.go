@@ -6,6 +6,7 @@ package usermanager
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/state/api"
@@ -18,8 +19,8 @@ type Client struct {
 	st *api.State
 }
 
-func (c *Client) call(method string, params, result interface{}) error {
-	return c.st.Call("UserManager", "", method, params, result)
+var call = func(st *api.State, method string, params, result interface{}) error {
+	return st.Call("UserManager", "", method, params, result)
 }
 
 func NewClient(st *api.State) *Client {
@@ -38,9 +39,9 @@ func (c *Client) AddUser(username, displayName, password string) error {
 		Changes: []params.ModifyUser{{Username: username, DisplayName: displayName, Password: password}},
 	}
 	results := new(params.ErrorResults)
-	err := c.call("AddUser", userArgs, results)
+	err := call(c.st, "AddUser", userArgs, results)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return results.OneError()
 }
@@ -49,9 +50,27 @@ func (c *Client) RemoveUser(tag string) error {
 	u := params.Entity{Tag: tag}
 	p := params.Entities{Entities: []params.Entity{u}}
 	results := new(params.ErrorResults)
-	err := c.call("RemoveUser", p, results)
+	err := call(c.st, "RemoveUser", p, results)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return results.OneError()
+}
+
+func (c *Client) UserInfo(username string) (params.UserInfoResult, error) {
+	u := params.Entity{Tag: username}
+	p := params.Entities{Entities: []params.Entity{u}}
+	results := new(params.UserInfoResults)
+	err := call(c.st, "UserInfo", p, results)
+	if err != nil {
+		return params.UserInfoResult{}, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return params.UserInfoResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return params.UserInfoResult{}, errors.Trace(err)
+	}
+	return result, nil
 }

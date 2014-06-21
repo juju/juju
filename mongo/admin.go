@@ -135,7 +135,7 @@ func SetMongoPassword(name, password string, dbs ...*mgo.Database) error {
 	user := &mgo.User{
 		Username: name,
 		Password: password,
-		Roles:    []mgo.Role{mgo.RoleReadWriteAny, mgo.RoleUserAdmin},
+		Roles:    []mgo.Role{mgo.RoleReadWriteAny, mgo.RoleUserAdmin, mgo.RoleClusterAdmin},
 	}
 	for _, db := range dbs {
 		if err := db.UpsertUser(user); err != nil {

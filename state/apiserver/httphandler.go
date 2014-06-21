@@ -45,7 +45,7 @@ func (h *httpHandler) authenticate(r *http.Request) error {
 		return fmt.Errorf("invalid request format")
 	}
 	// Only allow users, not agents.
-	if _, err := names.ParseTag(tagPass[0], names.UserTagKind); err != nil {
+	if _, err := names.ParseUserTag(tagPass[0]); err != nil {
 		return common.ErrBadCreds
 	}
 	// Ensure the credentials are correct.

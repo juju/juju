@@ -4,6 +4,8 @@
 package common
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/state"
 )
 
@@ -28,6 +30,7 @@ type Authorizer interface {
 
 	// AuthOwner returns whether the authenticated entity is the same
 	// as the given entity.
+	// TODO(dfc) this should take a tag not a string
 	AuthOwner(tag string) bool
 
 	// AuthEnvironManager returns whether the authenticated entity is
@@ -39,7 +42,7 @@ type Authorizer interface {
 	AuthClient() bool
 
 	// GetAuthTag returns the tag of the authenticated entity.
-	GetAuthTag() string
+	GetAuthTag() names.Tag
 
 	// GetAuthEntity returns the authenticated entity.
 	GetAuthEntity() state.Entity

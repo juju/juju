@@ -560,6 +560,9 @@ func (e *environ) AvailabilityZones() ([]common.AvailabilityZone, error) {
 	defer e.availabilityZonesMutex.Unlock()
 	if e.availabilityZones == nil {
 		zones, err := novaListAvailabilityZones(e.nova())
+		if gooseerrors.IsNotImplemented(err) {
+			return nil, jujuerrors.NotImplementedf("availability zones")
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -828,6 +831,7 @@ func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
 			newfip = nil
 			continue
 		} else {
+			logger.Debugf("found unassigned public ip: %v", newfip.IP)
 			// unassigned, we can use it
 			return newfip, nil
 		}
@@ -838,6 +842,7 @@ func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
 		if err != nil {
 			return nil, err
 		}
+		logger.Debugf("allocated new public ip: %v", newfip.IP)
 	}
 	return newfip, nil
 }
@@ -868,7 +873,7 @@ func (e *environ) DistributeInstances(candidates, distributionGroup []instance.I
 	return common.DistributeInstances(e, candidates, distributionGroup)
 }
 
-var bestAvailabilityZoneAllocations = common.BestAvailabilityZoneAllocations
+var availabilityZoneAllocations = common.AvailabilityZoneAllocations
 
 // StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
@@ -896,12 +901,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 				return nil, nil, nil, err
 			}
 		}
-		bestAvailabilityZones, err := bestAvailabilityZoneAllocations(e, group)
-		if err != nil {
+		zoneInstances, err := availabilityZoneAllocations(e, group)
+		if jujuerrors.IsNotImplemented(err) {
+			// Availability zones are an extension, so we may get a
+			// not implemented error; ignore these.
+		} else if err != nil {
 			return nil, nil, nil, err
-		}
-		for availabilityZone = range bestAvailabilityZones {
-			break
+		} else if len(zoneInstances) > 0 {
+			availabilityZone = zoneInstances[0].ZoneName
 		}
 	}
 
@@ -948,6 +955,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	withPublicIP := e.ecfg().useFloatingIP()
 	var publicIP *nova.FloatingIP
 	if withPublicIP {
+		logger.Debugf("allocating public IP address for openstack node")
 		if fip, err := e.allocatePublicIP(); err != nil {
 			return nil, nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {

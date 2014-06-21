@@ -10,6 +10,10 @@ import (
 	"github.com/juju/juju/state/apiserver/common"
 )
 
+func init() {
+	common.RegisterStandardFacade("Firewaller", 0, NewFirewallerAPI)
+}
+
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
 	*common.LifeGetter
@@ -199,8 +203,8 @@ func getAuthFuncForTagKind(kind string) common.GetAuthFunc {
 				return kind == ""
 			}
 			// Allow only the given tag kind.
-			_, err := names.ParseTag(tag, kind)
-			return err == nil
+			t, err := names.ParseTag(tag)
+			return err == nil && t.Kind() == kind
 		}, nil
 	}
 }

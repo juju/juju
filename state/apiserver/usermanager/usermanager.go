@@ -17,6 +17,10 @@ import (
 
 var logger = loggo.GetLogger("juju.state.apiserver.usermanager")
 
+func init() {
+	common.RegisterStandardFacade("UserManager", 0, NewUserManagerAPI)
+}
+
 // UserManager defines the methods on the usermanager API end point.
 type UserManager interface {
 	AddUser(arg params.ModifyUsers) (params.ErrorResults, error)
@@ -36,6 +40,7 @@ var _ UserManager = (*UserManagerAPI)(nil)
 
 func NewUserManagerAPI(
 	st *state.State,
+	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*UserManagerAPI, error) {
 	if !authorizer.AuthClient() {
@@ -135,7 +140,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (params.UserInfoResult
 			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		tag, err := names.ParseTag(userArg.Tag, names.UserTagKind)
+		tag, err := names.ParseUserTag(userArg.Tag)
 		if err != nil {
 			results.Results[0].Error = common.ServerError(err)
 			continue

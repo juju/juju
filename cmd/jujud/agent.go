@@ -10,13 +10,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/fslock"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -119,7 +120,7 @@ func isUpgraded(err error) bool {
 }
 
 type Agent interface {
-	Tag() string
+	Tag() names.Tag
 	ChangeConfig(func(agent.ConfigSetter)) error
 }
 
@@ -196,10 +197,7 @@ type configChanger func(c *agent.Config)
 // returns the opened state and the api entity with
 // the given tag. The given changeConfig function is
 // called if the password changes to set the password.
-func openAPIState(
-	agentConfig agent.Config,
-	a Agent,
-) (_ *api.State, _ *apiagent.Entity, err error) {
+func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Entity, error) {
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,

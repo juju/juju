@@ -9,12 +9,12 @@ import (
 	"io/ioutil"
 	"strings"
 
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/testing"

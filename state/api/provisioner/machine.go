@@ -15,23 +15,19 @@ import (
 
 // Machine represents a juju machine as seen by the provisioner worker.
 type Machine struct {
-	tag  string
+	tag  names.Tag
 	life params.Life
 	st   *State
 }
 
 // Tag returns the machine's tag.
-func (m *Machine) Tag() string {
+func (m *Machine) Tag() names.Tag {
 	return m.tag
 }
 
 // Id returns the machine id.
 func (m *Machine) Id() string {
-	tag, err := names.ParseTag(m.tag, names.MachineTagKind)
-	if err != nil {
-		panic(fmt.Sprintf("%q is not a valid machine tag", m.tag))
-	}
-	return tag.Id()
+	return m.tag.Id()
 }
 
 // String returns the machine as a string.
@@ -46,7 +42,7 @@ func (m *Machine) Life() params.Life {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	life, err := m.st.machineLife(m.tag)
+	life, err := m.st.machineLife(m.tag.String())
 	if err != nil {
 		return err
 	}
@@ -57,7 +53,7 @@ func (m *Machine) Refresh() error {
 // ProvisioningInfo returns the information required to provisiong a machine.
 func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	var results params.ProvisioningInfoResults
-	args := params.Entities{Entities: []params.Entity{{m.tag}}}
+	args := params.Entities{Entities: []params.Entity{{m.tag.String()}}}
 	err := m.st.call("ProvisioningInfo", args, &results)
 	if err != nil {
 		return nil, err
@@ -77,7 +73,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{Tag: m.tag, Status: status, Info: info, Data: data},
+			{Tag: m.tag.String(), Status: status, Info: info, Data: data},
 		},
 	}
 	err := m.st.call("SetStatus", args, &result)
@@ -91,7 +87,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 func (m *Machine) Status() (params.Status, string, error) {
 	var results params.StatusResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.call("Status", args, &results)
 	if err != nil {
@@ -112,7 +108,7 @@ func (m *Machine) Status() (params.Status, string, error) {
 func (m *Machine) EnsureDead() error {
 	var result params.ErrorResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.call("EnsureDead", args, &result)
 	if err != nil {
@@ -126,7 +122,7 @@ func (m *Machine) EnsureDead() error {
 func (m *Machine) Remove() error {
 	var result params.ErrorResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.call("Remove", args, &result)
 	if err != nil {
@@ -142,7 +138,7 @@ func (m *Machine) Remove() error {
 func (m *Machine) Series() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.call("Series", args, &results)
 	if err != nil {
@@ -165,7 +161,7 @@ func (m *Machine) Series() (string, error) {
 func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	var results params.DistributionGroupResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.caller.Call("Provisioner", "", "DistributionGroup", args, &results)
 	if err != nil {
@@ -191,7 +187,7 @@ func (m *Machine) SetInstanceInfo(
 	var result params.ErrorResults
 	args := params.InstancesInfo{
 		Machines: []params.InstanceInfo{{
-			Tag:             m.tag,
+			Tag:             m.tag.String(),
 			InstanceId:      id,
 			Nonce:           nonce,
 			Characteristics: characteristics,
@@ -211,7 +207,7 @@ func (m *Machine) SetInstanceInfo(
 func (m *Machine) InstanceId() (instance.Id, error) {
 	var results params.StringResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.call("InstanceId", args, &results)
 	if err != nil {
@@ -232,7 +228,7 @@ func (m *Machine) SetPassword(password string) error {
 	var result params.ErrorResults
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{
-			{Tag: m.tag, Password: password},
+			{Tag: m.tag.String(), Password: password},
 		},
 	}
 	err := m.st.call("SetPasswords", args, &result)
@@ -261,7 +257,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 	var results params.StringsWatchResults
 	args := params.WatchContainers{
 		Params: []params.WatchContainer{
-			{MachineTag: m.tag, ContainerType: string(ctype)},
+			{MachineTag: m.tag.String(), ContainerType: string(ctype)},
 		},
 	}
 	err := m.st.call("WatchContainers", args, &results)
@@ -285,7 +281,7 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.WatchContainers{
 		Params: []params.WatchContainer{
-			{MachineTag: m.tag},
+			{MachineTag: m.tag.String()},
 		},
 	}
 	err := m.st.call("WatchContainers", args, &results)
@@ -308,7 +304,7 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 	var results params.ErrorResults
 	args := params.MachineContainersParams{
 		Params: []params.MachineContainers{
-			{MachineTag: m.tag, ContainerTypes: containerTypes},
+			{MachineTag: m.tag.String(), ContainerTypes: containerTypes},
 		},
 	}
 	err := m.st.call("SetSupportedContainers", args, &results)

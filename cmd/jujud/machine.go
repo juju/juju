@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/charm"
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
@@ -22,7 +23,6 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
@@ -151,7 +151,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	loggo.RemoveWriter("logfile")
 	defer a.tomb.Done()
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
-	if err := a.ReadConfig(a.Tag()); err != nil {
+	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
 	a.configChangedVal.Set(struct{}{})
@@ -476,11 +476,12 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
 				return apiserver.NewServer(st, apiserver.ServerConfig{
-					Addr:    fmt.Sprintf(":%d", port),
-					Cert:    cert,
-					Key:     key,
-					DataDir: dataDir,
-					LogDir:  logDir,
+					Addr:      fmt.Sprintf(":%d", port),
+					Cert:      cert,
+					Key:       key,
+					DataDir:   dataDir,
+					LogDir:    logDir,
+					Validator: a.limitLoginsDuringUpgrade,
 				})
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
@@ -502,6 +503,30 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		}
 	}
 	return newCloseWorker(runner, st), nil
+}
+
+// limitLoginsDuringUpgrade is called by the API server for each login
+// attempt. It returns an error if upgrades are in progress unless the
+// login is for a user (i.e. a client) or the local machine.
+func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
+	select {
+	case <-a.upgradeComplete:
+		return nil // upgrade done so allow all logins
+	default:
+		authTag, err := names.ParseTag(creds.AuthTag)
+		if err != nil {
+			return errors.Annotate(err, "could not parse auth tag")
+		}
+		switch authTag := authTag.(type) {
+		case names.UserTag:
+			return nil // user logins always allowed
+		case names.MachineTag:
+			if authTag == a.Tag() {
+				return nil // allow logins from the local machine
+			}
+		}
+		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
+	}
 }
 
 // ensureMongoServer ensures that mongo is installed and running,
@@ -737,6 +762,8 @@ func (a *MachineAgent) upgradeWorker(
 	})
 }
 
+var upgradesPerformUpgrade = upgrades.PerformUpgrade // Allow patching for tests
+
 // runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
 func (a *MachineAgent) runUpgrades(
 	st *state.State,
@@ -759,7 +786,7 @@ func (a *MachineAgent) runUpgrades(
 				continue
 			}
 			logger.Infof("starting upgrade from %v to %v for %v %q", from, version.Current, target, a.Tag())
-			if err = upgrades.PerformUpgrade(from.Number, target, context); err != nil {
+			if err = upgradesPerformUpgrade(from.Number, target, context); err != nil {
 				err = fmt.Errorf("cannot perform upgrade from %v to %v for %v %q: %v", from, version.Current, target, a.Tag(), err)
 				return
 			}
@@ -788,8 +815,8 @@ func (a *MachineAgent) WorkersStarted() <-chan struct{} {
 	return a.workersStarted
 }
 
-func (a *MachineAgent) Tag() string {
-	return names.NewMachineTag(a.MachineId).String()
+func (a *MachineAgent) Tag() names.Tag {
+	return names.NewMachineTag(a.MachineId)
 }
 
 func (a *MachineAgent) createJujuRun(dataDir string) error {
@@ -798,7 +825,7 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	jujud := filepath.Join(dataDir, "tools", a.Tag(), "jujud")
+	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), "jujud")
 	return os.Symlink(jujud, jujuRun)
 }
 

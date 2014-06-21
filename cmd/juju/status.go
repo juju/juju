@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
@@ -68,13 +68,22 @@ Error details:
 %v
 `
 
+type statusAPI interface {
+	Status(patterns []string) (*api.Status, error)
+	Close() error
+}
+
+var newApiClientForStatus = func(envName string) (statusAPI, error) {
+	return juju.NewAPIClientFromName(envName)
+}
+
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	// Just verify the pattern validity client side, do not use the matcher
 	_, err := client.NewUnitMatcher(c.patterns)
 	if err != nil {
 		return err
 	}
-	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
+	apiclient, err := newApiClientForStatus(c.EnvName)
 	if err != nil {
 		return fmt.Errorf(connectionError, c.EnvName, err)
 	}
@@ -85,7 +94,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	}
-	result := formatStatus(status)
+	result := newStatusFormatter(status).format()
 	return c.out.Write(ctx, result)
 }
 
@@ -223,47 +232,87 @@ func (n networkStatus) GetYAML() (tag string, value interface{}) {
 	return "", nNoMethods(n)
 }
 
-func formatStatus(status *api.Status) formattedStatus {
-	if status == nil {
+type statusFormatter struct {
+	status    *api.Status
+	relations map[int]api.RelationStatus
+}
+
+func newStatusFormatter(status *api.Status) *statusFormatter {
+	sf := statusFormatter{
+		status:    status,
+		relations: make(map[int]api.RelationStatus),
+	}
+	for _, relation := range status.Relations {
+		sf.relations[relation.Id] = relation
+	}
+	return &sf
+}
+
+func (sf *statusFormatter) format() formattedStatus {
+	if sf.status == nil {
 		return formattedStatus{}
 	}
 	out := formattedStatus{
-		Environment: status.EnvironmentName,
+		Environment: sf.status.EnvironmentName,
 		Machines:    make(map[string]machineStatus),
 		Services:    make(map[string]serviceStatus),
 	}
-	for k, m := range status.Machines {
-		out.Machines[k] = formatMachine(m)
+	for k, m := range sf.status.Machines {
+		out.Machines[k] = sf.formatMachine(m)
 	}
-	for k, s := range status.Services {
-		out.Services[k] = formatService(s)
+	for sn, s := range sf.status.Services {
+		out.Services[sn] = sf.formatService(sn, s)
 	}
-	for k, n := range status.Networks {
+	for k, n := range sf.status.Networks {
 		if out.Networks == nil {
 			out.Networks = make(map[string]networkStatus)
 		}
-		out.Networks[k] = formatNetwork(n)
+		out.Networks[k] = sf.formatNetwork(n)
 	}
 	return out
 }
 
-func formatMachine(machine api.MachineStatus) machineStatus {
-	out := machineStatus{
-		Err:            machine.Err,
-		AgentState:     machine.AgentState,
-		AgentStateInfo: machine.AgentStateInfo,
-		AgentVersion:   machine.AgentVersion,
-		DNSName:        machine.DNSName,
-		InstanceId:     machine.InstanceId,
-		InstanceState:  machine.InstanceState,
-		Life:           machine.Life,
-		Series:         machine.Series,
-		Id:             machine.Id,
-		Containers:     make(map[string]machineStatus),
-		Hardware:       machine.Hardware,
+func (sf *statusFormatter) formatMachine(machine api.MachineStatus) machineStatus {
+	var out machineStatus
+
+	if machine.Agent.Status == "" {
+		// Older server
+		// TODO: this will go away at some point (v1.21?).
+		out = machineStatus{
+			AgentState:     machine.AgentState,
+			AgentStateInfo: machine.AgentStateInfo,
+			AgentVersion:   machine.AgentVersion,
+			Life:           machine.Life,
+			Err:            machine.Err,
+			DNSName:        machine.DNSName,
+			InstanceId:     machine.InstanceId,
+			InstanceState:  machine.InstanceState,
+			Series:         machine.Series,
+			Id:             machine.Id,
+			Containers:     make(map[string]machineStatus),
+			Hardware:       machine.Hardware,
+		}
+	} else {
+		// New server
+		agent := machine.Agent
+		out = machineStatus{
+			AgentState:     machine.AgentState,
+			AgentStateInfo: adjustInfoIfAgentDown(machine.AgentState, agent.Status, agent.Info),
+			AgentVersion:   agent.Version,
+			Life:           agent.Life,
+			Err:            agent.Err,
+			DNSName:        machine.DNSName,
+			InstanceId:     machine.InstanceId,
+			InstanceState:  machine.InstanceState,
+			Series:         machine.Series,
+			Id:             machine.Id,
+			Containers:     make(map[string]machineStatus),
+			Hardware:       machine.Hardware,
+		}
 	}
+
 	for k, m := range machine.Containers {
-		out.Containers[k] = formatMachine(m)
+		out.Containers[k] = sf.formatMachine(m)
 	}
 
 	for _, job := range machine.Jobs {
@@ -275,22 +324,7 @@ func formatMachine(machine api.MachineStatus) machineStatus {
 	return out
 }
 
-func makeHAStatus(hasVote, wantsVote bool) string {
-	var s string
-	switch {
-	case hasVote && wantsVote:
-		s = "has-vote"
-	case hasVote && !wantsVote:
-		s = "removing-vote"
-	case !hasVote && wantsVote:
-		s = "adding-vote"
-	case !hasVote && !wantsVote:
-		s = "no-vote"
-	}
-	return s
-}
-
-func formatService(service api.ServiceStatus) serviceStatus {
+func (sf *statusFormatter) formatService(name string, service api.ServiceStatus) serviceStatus {
 	out := serviceStatus{
 		Err:           service.Err,
 		Charm:         service.Charm,
@@ -309,16 +343,16 @@ func formatService(service api.ServiceStatus) serviceStatus {
 		out.Networks["disabled"] = service.Networks.Disabled
 	}
 	for k, m := range service.Units {
-		out.Units[k] = formatUnit(m)
+		out.Units[k] = sf.formatUnit(m, name)
 	}
 	return out
 }
 
-func formatUnit(unit api.UnitStatus) unitStatus {
+func (sf *statusFormatter) formatUnit(unit api.UnitStatus, serviceName string) unitStatus {
 	out := unitStatus{
 		Err:            unit.Err,
 		AgentState:     unit.AgentState,
-		AgentStateInfo: unit.AgentStateInfo,
+		AgentStateInfo: sf.getUnitStatusInfo(unit, serviceName),
 		AgentVersion:   unit.AgentVersion,
 		Life:           unit.Life,
 		Machine:        unit.Machine,
@@ -328,16 +362,86 @@ func formatUnit(unit api.UnitStatus) unitStatus {
 		Subordinates:   make(map[string]unitStatus),
 	}
 	for k, m := range unit.Subordinates {
-		out.Subordinates[k] = formatUnit(m)
+		out.Subordinates[k] = sf.formatUnit(m, serviceName)
 	}
 	return out
 }
 
-func formatNetwork(network api.NetworkStatus) networkStatus {
+func (sf *statusFormatter) getUnitStatusInfo(unit api.UnitStatus, serviceName string) string {
+	if unit.Agent.Status == "" {
+		// Old server that doesn't support this field and others.
+		// Just return the info string as-is.
+		return unit.AgentStateInfo
+	}
+	statusInfo := unit.Agent.Info
+	if unit.Agent.Status == params.StatusError {
+		if relation, ok := sf.relations[getRelationIdFromData(unit)]; ok {
+			// Append the details of the other endpoint on to the status info string.
+			if ep, ok := findOtherEndpoint(relation.Endpoints, serviceName); ok {
+				statusInfo = statusInfo + " for " + ep.String()
+			}
+		}
+	}
+	return adjustInfoIfAgentDown(unit.AgentState, unit.Agent.Status, statusInfo)
+}
+
+func (sf *statusFormatter) formatNetwork(network api.NetworkStatus) networkStatus {
 	return networkStatus{
 		Err:        network.Err,
 		ProviderId: network.ProviderId,
 		CIDR:       network.CIDR,
 		VLANTag:    network.VLANTag,
 	}
+}
+
+func makeHAStatus(hasVote, wantsVote bool) string {
+	var s string
+	switch {
+	case hasVote && wantsVote:
+		s = "has-vote"
+	case hasVote && !wantsVote:
+		s = "removing-vote"
+	case !hasVote && wantsVote:
+		s = "adding-vote"
+	case !hasVote && !wantsVote:
+		s = "no-vote"
+	}
+	return s
+}
+
+func getRelationIdFromData(unit api.UnitStatus) int {
+	if relationId_, ok := unit.Agent.Data["relation-id"]; ok {
+		if relationId, ok := relationId_.(float64); ok {
+			return int(relationId)
+		} else {
+			logger.Infof("relation-id found status data but was unexpected "+
+				"type: %q. Status output may be lacking some detail.", relationId_)
+		}
+	}
+	return -1
+}
+
+// findOtherEndpoint searches the provided endpoints for an endpoint
+// that *doesn't* match serviceName. The returned bool indicates if
+// such an endpoint was found.
+func findOtherEndpoint(endpoints []api.EndpointStatus, serviceName string) (api.EndpointStatus, bool) {
+	for _, endpoint := range endpoints {
+		if endpoint.ServiceName != serviceName {
+			return endpoint, true
+		}
+	}
+	return api.EndpointStatus{}, false
+}
+
+// adjustInfoIfAgentDown modifies the agent status info string if the
+// agent is down. The original status and info is included in
+// parentheses.
+func adjustInfoIfAgentDown(status, origStatus params.Status, info string) string {
+	if status == params.StatusDown {
+		if info == "" {
+			return fmt.Sprintf("(%s)", origStatus)
+		}
+		return fmt.Sprintf("(%s: %s)", origStatus, info)
+	}
+	return info
 }

@@ -18,6 +18,10 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+func init() {
+	common.RegisterStandardFacade("Provisioner", 0, NewProvisionerAPI)
+}
+
 // ProvisionerAPI provides access to the Provisioner API facade.
 type ProvisionerAPI struct {
 	*common.Remover
@@ -40,11 +44,7 @@ type ProvisionerAPI struct {
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(
-	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
-) (*ProvisionerAPI, error) {
+func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ProvisionerAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
@@ -53,12 +53,13 @@ func NewProvisionerAPI(
 		isMachineAgent := authorizer.AuthMachineAgent()
 		authEntityTag := authorizer.GetAuthTag()
 
+		// TODO(dfc) this func should take a Tag
 		return func(tag string) bool {
-			if isMachineAgent && tag == authEntityTag {
+			if isMachineAgent && tag == authEntityTag.String() {
 				// A machine agent can always access its own machine.
 				return true
 			}
-			t, err := names.ParseTag(tag, names.MachineTagKind)
+			t, err := names.ParseMachineTag(tag)
 			if err != nil {
 				return false
 			}
@@ -70,7 +71,10 @@ func NewProvisionerAPI(
 			}
 			// All containers with the authenticated machine as a
 			// parent are accessible by it.
-			return isMachineAgent && names.NewMachineTag(parentId).String() == authEntityTag
+			// TODO(dfc) sometimes authEntity tag is nil, which is fine because nil is
+			// only equal to nil, but it suggests someone is passing an authorizer
+			// with a nil tag.
+			return isMachineAgent && names.NewMachineTag(parentId) == authEntityTag
 		}, nil
 	}
 	// Both provisioner types can watch the environment.
@@ -119,7 +123,7 @@ func (p *ProvisionerAPI) watchOneMachineContainers(arg params.WatchContainer) (p
 	if !canAccess(arg.MachineTag) {
 		return nothing, common.ErrPerm
 	}
-	tag, err := names.ParseTag(arg.MachineTag, names.MachineTagKind)
+	tag, err := names.ParseMachineTag(arg.MachineTag)
 	if err != nil {
 		return nothing, err
 	}
@@ -265,7 +269,7 @@ func (p *ProvisionerAPI) MachinesWithTransientErrors() (params.StatusResults, er
 		return results, err
 	}
 	for _, machine := range machines {
-		if !canAccessFunc(machine.Tag()) {
+		if !canAccessFunc(machine.Tag().String()) {
 			continue
 		}
 		if _, provisionedErr := machine.InstanceId(); provisionedErr == nil {
@@ -460,7 +464,7 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 ) {
 	stateNetworks := make([]state.NetworkInfo, len(networks))
 	for i, network := range networks {
-		tag, err := names.ParseTag(network.Tag, names.NetworkTagKind)
+		tag, err := names.ParseNetworkTag(network.Tag)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -473,7 +477,7 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 	}
 	stateInterfaces := make([]state.NetworkInterfaceInfo, len(ifaces))
 	for i, iface := range ifaces {
-		tag, err := names.ParseTag(iface.NetworkTag, names.NetworkTagKind)
+		tag, err := names.ParseNetworkTag(iface.NetworkTag)
 		if err != nil {
 			return nil, nil, err
 		}

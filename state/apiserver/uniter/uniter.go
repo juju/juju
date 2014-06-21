@@ -18,6 +18,10 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+func init() {
+	common.RegisterStandardFacade("Uniter", 0, NewUniterAPI)
+}
+
 // UniterAPI implements the API used by the uniter worker.
 type UniterAPI struct {
 	*common.LifeGetter
@@ -73,7 +77,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 }
 
 func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
-	t, err := names.ParseTag(tag, names.UnitTagKind)
+	t, err := names.ParseUnitTag(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +85,7 @@ func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
 }
 
 func (u *UniterAPI) getService(tag string) (*state.Service, error) {
-	t, err := names.ParseTag(tag, names.ServiceTagKind)
+	t, err := names.ParseServiceTag(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -580,7 +584,7 @@ func (u *UniterAPI) CharmArchiveSha256(args params.CharmURLs) (params.StringResu
 }
 
 func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag, unitTag string) (*state.Relation, *state.Unit, error) {
-	tag, err := names.ParseTag(relTag, names.RelationTagKind)
+	tag, err := names.ParseRelationTag(relTag)
 	if err != nil {
 		return nil, nil, common.ErrPerm
 	}
@@ -701,7 +705,7 @@ func relationsInScopeTags(unit *state.Unit) ([]string, error) {
 	}
 	tags := make([]string, len(relations))
 	for i, relation := range relations {
-		tags[i] = relation.Tag()
+		tags[i] = relation.Tag().String()
 	}
 	return tags, nil
 }
@@ -857,14 +861,14 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.RelationSett
 
 func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag string) (string, error) {
 	// Make sure the unit is indeed remote.
-	if remoteUnitTag == u.auth.GetAuthTag() {
+	if remoteUnitTag == u.auth.GetAuthTag().String() {
 		return "", common.ErrPerm
 	}
 	// Check remoteUnit is indeed related. Note that we don't want to actually get
 	// the *Unit, because it might have been removed; but its relation settings will
 	// persist until the relation itself has been removed (and must remain accessible
 	// because the local unit's view of reality may be time-shifted).
-	tag, err := names.ParseTag(remoteUnitTag, names.UnitTagKind)
+	tag, err := names.ParseUnitTag(remoteUnitTag)
 	if err != nil {
 		return "", err
 	}
@@ -891,6 +895,7 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Re
 	for i, arg := range args.RelationUnitPairs {
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.LocalUnit)
 		if err == nil {
+			// TODO(dfc) rework this logic
 			remoteUnit := ""
 			remoteUnit, err = u.checkRemoteUnit(relUnit, arg.RemoteUnit)
 			if err == nil {

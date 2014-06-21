@@ -4,10 +4,13 @@
 package state_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
+	statetesting "github.com/juju/juju/state/testing"
+	"github.com/juju/juju/state/txn"
 )
 
 type ActionSuite struct {
@@ -15,6 +18,7 @@ type ActionSuite struct {
 	charm   *state.Charm
 	service *state.Service
 	unit    *state.Unit
+	unit2   *state.Unit
 }
 
 var _ = gc.Suite(&ActionSuite{})
@@ -28,6 +32,9 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.unit.Series(), gc.Equals, "quantal")
+	s.unit2, err = s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.unit2.Series(), gc.Equals, "quantal")
 }
 
 func (s *ActionSuite) TestAddAction(c *gc.C) {
@@ -116,13 +123,13 @@ func (s *ActionSuite) TestAddActionFailsOnDeadUnitInTransaction(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit)
 
-	killUnit := state.TransactionHook{
+	killUnit := txn.TestHook{
 		Before: func() {
 			c.Assert(unit.Destroy(), gc.IsNil)
 			c.Assert(unit.EnsureDead(), gc.IsNil)
 		},
 	}
-	defer state.SetTransactionHooks(c, s.State, killUnit).Check()
+	defer state.SetTestHooks(c, s.State, killUnit).Check()
 
 	_, err = unit.AddAction("fakeaction", map[string]interface{}{})
 	c.Assert(err, gc.ErrorMatches, "unit .* is dead")
@@ -220,8 +227,41 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 0)
 }
 
+func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
+	// get units
+	unit1, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit1)
+
+	unit2, err := s.State.Unit(s.unit2.Name())
+	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit2)
+
+	// set up watcher on first unit
+	w := unit1.WatchActions()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// add action on unit2 and makes sure unit1 watcher doesn't trigger
+	_, err = unit2.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// add a couple actions on unit1 and make sure watcher sees events
+	_, err = unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+
+	expect := expectActionIds(unit1, "0", "1")
+	wc.AssertChange(expect...)
+	wc.AssertNoChange()
+}
+
 func (s *ActionSuite) TestGetActionIdPrefix(c *gc.C) {
-	getPrefixTest(c, state.GetActionIdPrefix, state.ActionMarker)
+	getPrefixTest(c, state.GetActionIdPrefix, names.ActionMarker)
 }
 
 func (s *ActionSuite) TestGetActionResultIdPrefix(c *gc.C) {
@@ -254,5 +294,5 @@ func getPrefixTest(c *gc.C, fn getPrefixFn, marker string) {
 // This is a temporary assertion, we shouldn't be leaking the actual
 // mongo _id
 func assertSaneActionId(c *gc.C, id, unitName string) {
-	c.Assert(id, gc.Matches, "^u#"+unitName+"#a#\\d+")
+	c.Assert(names.IsAction(id), gc.Equals, true)
 }

@@ -12,6 +12,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/mongo"
@@ -137,6 +138,16 @@ func (s *adminSuite) setUpMongo(c *gc.C) *mgo.DialInfo {
 	return dialInfo
 }
 
+func checkRoles(c *gc.C, db *mgo.Database, user string, expected []interface{}) {
+	// Check the assigned roles.
+	var info map[string]interface{}
+	err := db.C("system.users").Find(bson.D{{"user", user}}).One(&info)
+	c.Assert(err, gc.IsNil)
+
+	roles := info["roles"]
+	c.Assert(roles, jc.SameContents, expected)
+}
+
 func (s *adminSuite) TestSetAdminMongoPassword(c *gc.C) {
 	dialInfo := s.setUpMongo(c)
 	session, err := mgo.DialWithInfo(dialInfo)
@@ -155,6 +166,12 @@ func (s *adminSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "auth fails")
 	err = admin.Login("admin", "foo")
 	c.Assert(err, gc.IsNil)
+	checkRoles(c, admin, "admin",
+		[]interface{}{
+			string(mgo.RoleReadWriteAny),
+			string(mgo.RoleDBAdminAny),
+			string(mgo.RoleUserAdminAny),
+			string(mgo.RoleClusterAdmin)})
 }
 
 func (s *adminSuite) TestSetMongoPassword(c *gc.C) {
@@ -171,4 +188,6 @@ func (s *adminSuite) TestSetMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = db.Login("foo", "bar")
 	c.Assert(err, gc.IsNil)
+	checkRoles(c, db, "foo",
+		[]interface{}{string(mgo.RoleReadWriteAny), string(mgo.RoleUserAdmin), string(mgo.RoleClusterAdmin)})
 }

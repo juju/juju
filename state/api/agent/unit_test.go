@@ -6,6 +6,7 @@ package agent_test
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
@@ -34,18 +35,19 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.unit.SetPassword(password)
 
-	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
+	s.st = s.OpenAPIAs(c, s.unit.Tag().String(), password)
 }
 
 func (s *unitSuite) TestUnitEntity(c *gc.C) {
-	m, err := s.st.Agent().Entity("wordpress/1")
+	tag := names.NewUnitTag("wordpress/1")
+	m, err := s.st.Agent().Entity(tag)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(m, gc.IsNil)
 
 	m, err = s.st.Agent().Entity(s.unit.Tag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(m.Tag(), gc.Equals, s.unit.Tag())
+	c.Assert(m.Tag(), gc.Equals, s.unit.Tag().String())
 	c.Assert(m.Life(), gc.Equals, params.Alive)
 	c.Assert(m.Jobs(), gc.HasLen, 0)
 

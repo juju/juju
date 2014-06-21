@@ -5,6 +5,7 @@ package upgrader_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -77,7 +78,7 @@ func (s *unitUpgraderSuite) TestWatchAPIVersionNothing(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawUnit.Tag()}},
+		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
 	results, err := s.upgrader.WatchAPIVersion(args)
 	c.Assert(err, gc.IsNil)
@@ -111,11 +112,11 @@ func (s *unitUpgraderSuite) TestUpgraderAPIRefusesNonUnitAgent(c *gc.C) {
 func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a unit agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "unit-wordpress-12354"
+	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawUnit.Tag()}},
+		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
 	results, err := anUpgrader.WatchAPIVersion(args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -134,11 +135,11 @@ func (s *unitUpgraderSuite) TestToolsNothing(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "unit-wordpress-12354"
+	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawUnit.Tag()}},
+		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
 	results, err := anUpgrader.Tools(args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -149,7 +150,7 @@ func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 }
 
 func (s *unitUpgraderSuite) TestToolsForAgent(c *gc.C) {
-	agent := params.Entity{Tag: s.rawUnit.Tag()}
+	agent := params.Entity{Tag: s.rawUnit.Tag().String()}
 
 	// The machine must have its existing tools set before we query for the
 	// next tools. This is so that we can grab Arch and Series without
@@ -179,12 +180,12 @@ func (s *unitUpgraderSuite) TestSetToolsNothing(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "unit-wordpress-12354"
+	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
-			Tag: s.rawUnit.Tag(),
+			Tag: s.rawUnit.Tag().String(),
 			Tools: &params.Version{
 				Version: version.Current,
 			},
@@ -202,7 +203,7 @@ func (s *unitUpgraderSuite) TestSetTools(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
-			Tag: s.rawUnit.Tag(),
+			Tag: s.rawUnit.Tag().String(),
 			Tools: &params.Version{
 				Version: cur,
 			}},
@@ -236,11 +237,11 @@ func (s *unitUpgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "unit-wordpress-12354"
+	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawUnit.Tag()}},
+		Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}},
 	}
 	results, err := anUpgrader.DesiredVersion(args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -254,7 +255,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 	err := s.rawMachine.SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.rawUnit.Tag()},
+		{Tag: s.rawUnit.Tag().String()},
 		{Tag: "unit-wordpress-12345"},
 	}}
 	results, err := s.upgrader.DesiredVersion(args)
@@ -273,7 +274,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 func (s *unitUpgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 	err := s.rawMachine.SetAgentVersion(version.Current)
 	c.Assert(err, gc.IsNil)
-	args := params.Entities{Entities: []params.Entity{{Tag: s.rawUnit.Tag()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawUnit.Tag().String()}}}
 	results, err := s.upgrader.DesiredVersion(args)
 	c.Assert(err, gc.IsNil)
 	c.Check(results.Results, gc.HasLen, 1)

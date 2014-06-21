@@ -69,6 +69,9 @@ type Request struct {
 	// Type holds the type of object to act on.
 	Type string
 
+	// Version holds the version of Type we will be acting on
+	Version int
+
 	// Id holds the id of the object to act on.
 	Id string
 
@@ -107,8 +110,14 @@ type Conn struct {
 	// mutex guards the following values.
 	mutex sync.Mutex
 
-	// rootValue holds the value to use to serve RPC requests, if any.
-	rootValue rpcreflect.Value
+	// methodFinder is used to lookup methods to serve RPC requests. May be
+	// nil if nothing is being served.
+	methodFinder MethodFinder
+
+	// killer is the current object that we are serving if it implements
+	// the Killer interface. If we are not serving an object, or if the
+	// interface isn't implemented, killer is nil
+	killer Killer
 
 	// transformErrors is used to transform returned errors.
 	transformErrors func(error) error
@@ -240,13 +249,45 @@ func (conn *Conn) Start() {
 // If root is nil, the connection will serve no methods.
 func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) {
 	rootValue := rpcreflect.ValueOf(reflect.ValueOf(root))
-	if rootValue.IsValid() && transformErrors == nil {
-		transformErrors = func(err error) error { return err }
+	if rootValue.IsValid() {
+		conn.serve(rootValue, root, transformErrors)
+	} else {
+		conn.serve(nil, nil, transformErrors)
+	}
+}
+
+// ServeFinder serves RPC requests on the connection by invoking methods retrieved
+// from root. Note that it does not start the connection running, though
+// it may be called once the connection is already started.
+//
+// The server executes each client request by calling FindMethod to obtain a
+// method to invoke. It invokes that method with the request parameters,
+// possibly returning some result.
+//
+// root can optionally implement the Killer method. If implemented, when the
+// connection is closed, root.Kill() will be called.
+func (conn *Conn) ServeFinder(finder MethodFinder, transformErrors func(error) error) {
+	conn.serve(finder, finder, transformErrors)
+}
+
+func (conn *Conn) serve(methodFinder MethodFinder, maybeKiller interface{}, transformErrors func(error) error) {
+	if transformErrors == nil {
+		transformErrors = noopTransform
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
-	conn.rootValue = rootValue
+	conn.methodFinder = methodFinder
+	if killer, ok := maybeKiller.(Killer); ok {
+		conn.killer = killer
+	} else {
+		conn.killer = nil
+	}
 	conn.transformErrors = transformErrors
+}
+
+// noopTransform is used when transformErrors is not supplied to Serve.
+func noopTransform(err error) error {
+	return err
 }
 
 // Dead returns a channel that is closed when the connection
@@ -279,10 +320,8 @@ func (conn *Conn) Close() error {
 	conn.closing = true
 	// Kill server requests if appropriate.  Client requests will be
 	// terminated when the input loop finishes.
-	if conn.rootValue.IsValid() {
-		if killer, ok := conn.rootValue.GoValue().Interface().(Killer); ok {
-			killer.Kill()
-		}
+	if conn.killer != nil {
+		conn.killer.Kill()
 	}
 	conn.mutex.Unlock()
 
@@ -303,6 +342,12 @@ func (conn *Conn) Close() error {
 // kind of an error.
 type ErrorCoder interface {
 	ErrorCode() string
+}
+
+// MethodFinder represents a type that can be used to lookup a Method and place
+// calls on that method.
+type MethodFinder interface {
+	FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error)
 }
 
 // Killer represents a type that can be asked to abort any outstanding
@@ -373,14 +418,14 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		if err := conn.readBody(nil, true); err != nil {
 			return err
 		}
-		// We don't transform the error because there
-		// may be no transformErrors function available.
+		// We don't transform the error here. bindRequest will have
+		// already transformed it and returned a zero req.
 		return conn.writeErrorResponse(hdr, err, startTime)
 	}
 	var argp interface{}
 	var arg reflect.Value
-	if req.ParamsType != nil {
-		v := reflect.New(req.ParamsType)
+	if req.ParamsType() != nil {
+		v := reflect.New(req.ParamsType())
 		arg = v.Elem()
 		argp = v.Interface()
 	}
@@ -404,7 +449,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		return conn.writeErrorResponse(hdr, req.transformErrors(err), startTime)
 	}
 	if conn.notifier != nil {
-		if req.ParamsType != nil {
+		if req.ParamsType() != nil {
 			conn.notifier.ServerRequest(hdr, arg.Interface())
 		} else {
 			conn.notifier.ServerRequest(hdr, struct{}{})
@@ -455,20 +500,23 @@ type boundRequest struct {
 // a boundRequest that can call those methods.
 func (conn *Conn) bindRequest(hdr *Header) (boundRequest, error) {
 	conn.mutex.Lock()
-	rootValue := conn.rootValue
+	methodFinder := conn.methodFinder
 	transformErrors := conn.transformErrors
 	conn.mutex.Unlock()
 
-	if !rootValue.IsValid() {
+	if methodFinder == nil {
 		return boundRequest{}, fmt.Errorf("no service")
 	}
-	caller, err := rootValue.MethodCaller(hdr.Request.Type, hdr.Request.Action)
+	caller, err := methodFinder.FindMethod(
+		hdr.Request.Type, hdr.Request.Version, hdr.Request.Action)
 	if err != nil {
 		if _, ok := err.(*rpcreflect.CallNotImplementedError); ok {
 			err = &serverError{
 				Message: err.Error(),
 				Code:    CodeNotImplemented,
 			}
+		} else {
+			err = transformErrors(err)
 		}
 		return boundRequest{}, err
 	}

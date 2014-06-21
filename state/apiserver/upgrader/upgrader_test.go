@@ -5,6 +5,7 @@ package upgrader_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -73,7 +74,7 @@ func (s *upgraderSuite) TestWatchAPIVersionNothing(c *gc.C) {
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
 	results, err := s.upgrader.WatchAPIVersion(args)
 	c.Assert(err, gc.IsNil)
@@ -107,11 +108,11 @@ func (s *upgraderSuite) TestUpgraderAPIRefusesNonMachineAgent(c *gc.C) {
 func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a machine agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "machine-12354"
+	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
 	results, err := anUpgrader.WatchAPIVersion(args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -130,11 +131,11 @@ func (s *upgraderSuite) TestToolsNothing(c *gc.C) {
 
 func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "machine-12354"
+	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
 	results, err := anUpgrader.Tools(args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -146,7 +147,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 
 func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	cur := version.Current
-	agent := params.Entity{Tag: s.rawMachine.Tag()}
+	agent := params.Entity{Tag: s.rawMachine.Tag().String()}
 
 	// The machine must have its existing tools set before we query for the
 	// next tools. This is so that we can grab Arch and Series without
@@ -184,12 +185,12 @@ func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {
 
 func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "machine-12354"
+	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
-			Tag: s.rawMachine.Tag(),
+			Tag: s.rawMachine.Tag().String(),
 			Tools: &params.Version{
 				Version: version.Current,
 			},
@@ -207,7 +208,7 @@ func (s *upgraderSuite) TestSetTools(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	args := params.EntitiesVersion{
 		AgentTools: []params.EntityVersion{{
-			Tag: s.rawMachine.Tag(),
+			Tag: s.rawMachine.Tag().String(),
 			Tools: &params.Version{
 				Version: cur,
 			}},
@@ -241,11 +242,11 @@ func (s *upgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 
 func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "machine-12354"
+	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}},
 	}
 	results, err := anUpgrader.DesiredVersion(args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -257,7 +258,7 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 
 func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{
-		{Tag: s.rawMachine.Tag()},
+		{Tag: s.rawMachine.Tag().String()},
 		{Tag: "machine-12345"},
 	}}
 	results, err := s.upgrader.DesiredVersion(args)
@@ -274,7 +275,7 @@ func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
 }
 
 func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	results, err := s.upgrader.DesiredVersion(args)
 	c.Assert(err, gc.IsNil)
 	c.Check(results.Results, gc.HasLen, 1)
@@ -311,7 +312,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	}
 	upgraderAPI, err := upgrader.NewUpgraderAPI(s.State, s.resources, authorizer)
 	c.Assert(err, gc.IsNil)
-	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.apiMachine.Tag().String()}}}
 	results, err := upgraderAPI.DesiredVersion(args)
 	c.Assert(err, gc.IsNil)
 	c.Check(results.Results, gc.HasLen, 1)
@@ -324,7 +325,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 func (s *upgraderSuite) TestDesiredVersionRestrictedForNonAPIAgents(c *gc.C) {
 	newVersion := s.bumpDesiredAgentVersion(c)
 	c.Assert(newVersion, gc.Not(gc.Equals), version.Current.Number)
-	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag().String()}}}
 	results, err := s.upgrader.DesiredVersion(args)
 	c.Assert(err, gc.IsNil)
 	c.Check(results.Results, gc.HasLen, 1)

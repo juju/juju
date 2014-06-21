@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/txn"
 )
 
 type AssignSuite struct {
@@ -200,7 +201,7 @@ func (s *AssignSuite) TestDeployerTag(c *gc.C) {
 			c.Assert(ok, jc.IsFalse)
 		} else {
 			c.Assert(ok, jc.IsTrue)
-			c.Assert(name.String(), gc.Equals, d.Tag())
+			c.Assert(name, gc.Equals, d.Tag())
 		}
 	}
 	assertDeployer(subordinate, principal)
@@ -508,12 +509,10 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	makeDirty := state.TransactionHook{
+	makeDirty := txn.TestHook{
 		Before: func() { c.Assert(unit.AssignToMachine(machine), gc.IsNil) },
 	}
-	defer state.SetTransactionHooks(
-		c, s.State, makeDirty,
-	).Check()
+	defer state.SetTestHooks(c, s.State, makeDirty).Check()
 
 	err = anotherUnit.AssignToNewMachineOrContainer()
 	c.Assert(err, gc.IsNil)
@@ -542,7 +541,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
-	addContainer := state.TransactionHook{
+	addContainer := txn.TestHook{
 		Before: func() {
 			_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 				Series: "quantal",
@@ -551,9 +550,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		},
 	}
-	defer state.SetTransactionHooks(
-		c, s.State, addContainer,
-	).Check()
+	defer state.SetTestHooks(c, s.State, addContainer).Check()
 
 	err = unit.AssignToNewMachineOrContainer()
 	c.Assert(err, gc.IsNil)
@@ -814,8 +811,9 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
 	// Add two environ manager machines and check they are not chosen.
-	err = s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
+	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
+	c.Assert(changes.Added, gc.HasLen, 3)
 
 	m, err = s.assignUnit(unit)
 	c.Assert(m, gc.IsNil)

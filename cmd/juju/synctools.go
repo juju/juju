@@ -4,10 +4,10 @@
 package main
 
 import (
+	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/sync"

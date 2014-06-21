@@ -22,6 +22,8 @@ type factorySuite struct {
 	Factory *factory.Factory
 }
 
+var _ = gc.Suite(&factorySuite{})
+
 func (s *factorySuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
@@ -54,6 +56,9 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *factorySuite) TearDownTest(c *gc.C) {
+	if s.State != nil {
+		s.State.Close()
+	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }

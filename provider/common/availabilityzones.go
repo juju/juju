@@ -33,13 +33,44 @@ type ZonedEnviron interface {
 	InstanceAvailabilityZoneNames(ids []instance.Id) ([]string, error)
 }
 
-// BestAvailabilityZoneAllocations returns the availability zones with the
-// fewest instances from the specified group, along with the instances from
-// the group currently allocated to those zones.
+// AvailabilityZoneInstances describes an availability zone and
+// a set of instances in that zone.
+type AvailabilityZoneInstances struct {
+	// ZoneName is the name of the availability zone.
+	ZoneName string
+
+	// Instances is a set of instances within the availability zone.
+	Instances []instance.Id
+}
+
+type byPopulationThenName []AvailabilityZoneInstances
+
+func (b byPopulationThenName) Len() int {
+	return len(b)
+}
+
+func (b byPopulationThenName) Less(i, j int) bool {
+	switch {
+	case len(b[i].Instances) < len(b[j].Instances):
+		return true
+	case len(b[i].Instances) == len(b[j].Instances):
+		return b[i].ZoneName < b[j].ZoneName
+	}
+	return false
+}
+
+func (b byPopulationThenName) Swap(i, j int) {
+	b[i], b[j] = b[j], b[i]
+}
+
+// AvailabilityZoneAllocations returns the availability zones and their
+// instance allocations from the specified group, in ascending order of
+// population. Availability zones with the same population size are
+// ordered by name.
 //
 // If the specified group is empty, then it will behave as if the result of
 // AllInstances were provided.
-func BestAvailabilityZoneAllocations(env ZonedEnviron, group []instance.Id) (map[string][]instance.Id, error) {
+func AvailabilityZoneAllocations(env ZonedEnviron, group []instance.Id) ([]AvailabilityZoneInstances, error) {
 	if len(group) == 0 {
 		instances, err := env.AllInstances()
 		if err != nil {
@@ -61,68 +92,61 @@ func BestAvailabilityZoneAllocations(env ZonedEnviron, group []instance.Id) (map
 	if err != nil {
 		return nil, err
 	}
-	if len(zones) == 0 {
-		return nil, nil
-	}
-	zoneTally := make(map[string]int, len(zones))
+	instancesByZoneName := make(map[string][]instance.Id)
 	for _, zone := range zones {
 		if !zone.Available() {
 			continue
 		}
-		zoneTally[zone.Name()] = 0
+		name := zone.Name()
+		instancesByZoneName[name] = nil
+	}
+	if len(instancesByZoneName) == 0 {
+		return nil, nil
 	}
 
-	// Tally the zones with provisioned instances and return
-	// the zones with equal fewest instances from the group.
-	zoneInstances := make(map[string][]instance.Id)
-	for zone := range zoneTally {
-		// Initialise each zone's instance slice to nil,
-		// in case there are zones without instances.
-		zoneInstances[zone] = nil
-	}
 	for i, id := range group {
 		zone := instanceZones[i]
 		if zone == "" {
 			continue
 		}
-		if _, ok := zoneTally[zone]; !ok {
+		if _, ok := instancesByZoneName[zone]; !ok {
 			// zone is not available
 			continue
 		}
-		zoneTally[zone] += 1
-		zoneInstances[zone] = append(zoneInstances[zone], id)
+		instancesByZoneName[zone] = append(instancesByZoneName[zone], id)
 	}
-	minZoneTally := -1
-	for _, tally := range zoneTally {
-		if minZoneTally == -1 || tally < minZoneTally {
-			minZoneTally = tally
-		}
+
+	zoneInstances := make([]AvailabilityZoneInstances, 0, len(instancesByZoneName))
+	for zoneName, instances := range instancesByZoneName {
+		zoneInstances = append(zoneInstances, AvailabilityZoneInstances{
+			ZoneName:  zoneName,
+			Instances: instances,
+		})
 	}
-	for zone, tally := range zoneTally {
-		if tally > minZoneTally {
-			delete(zoneInstances, zone)
-		}
-	}
+	sort.Sort(byPopulationThenName(zoneInstances))
 	return zoneInstances, nil
 }
 
-var internalBestAvailabilityZoneAllocations = BestAvailabilityZoneAllocations
+var internalAvailabilityZoneAllocations = AvailabilityZoneAllocations
 
 // DistributeInstances is a common function for implement the
 // state.InstanceDistributor policy based on availability zone
 // spread.
 func DistributeInstances(env ZonedEnviron, candidates, group []instance.Id) ([]instance.Id, error) {
 	// Determine the best availability zones for the group.
-	bestAvailabilityZones, err := internalBestAvailabilityZoneAllocations(env, group)
-	if err != nil {
+	zoneInstances, err := internalAvailabilityZoneAllocations(env, group)
+	if err != nil || len(zoneInstances) == 0 {
 		return nil, err
 	}
 
 	// Determine which of the candidates are eligible based on whether
 	// they are allocated in one of the best availability zones.
 	var allEligible []string
-	for _, ids := range bestAvailabilityZones {
-		for _, id := range ids {
+	for i := range zoneInstances {
+		if i > 0 && len(zoneInstances[i].Instances) > len(zoneInstances[i-1].Instances) {
+			break
+		}
+		for _, id := range zoneInstances[i].Instances {
 			allEligible = append(allEligible, string(id))
 		}
 	}

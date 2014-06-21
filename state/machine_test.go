@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/state/txn"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -209,13 +210,12 @@ func (s *MachineSuite) TestDestroyContention(c *gc.C) {
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	perturb := state.TransactionHook{
+	perturb := txn.TestHook{
 		Before: func() { c.Assert(unit.AssignToMachine(s.machine), gc.IsNil) },
 		After:  func() { c.Assert(unit.UnassignFromMachine(), gc.IsNil) },
 	}
-	defer state.SetTransactionHooks(
-		c, s.State, perturb, perturb, perturb,
-	).Check()
+	defer state.SetTestHooks(c, s.State, perturb, perturb, perturb).Check()
+
 	err = s.machine.Destroy()
 	c.Assert(err, gc.ErrorMatches, "machine 1 cannot advance lifecycle: state changing too quickly; try again soon")
 }
@@ -297,24 +297,24 @@ func (s *MachineSuite) TestRemoveAbort(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *MachineSuite) TestMachineSetAgentAlive(c *gc.C) {
-	alive, err := s.machine.AgentAlive()
+func (s *MachineSuite) TestMachineSetAgentPresence(c *gc.C) {
+	alive, err := s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
-	pinger, err := s.machine.SetAgentAlive()
+	pinger, err := s.machine.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(pinger, gc.NotNil)
 	defer pinger.Stop()
 
 	s.State.StartSync()
-	alive, err = s.machine.AgentAlive()
+	alive, err = s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 }
 
 func (s *MachineSuite) TestTag(c *gc.C) {
-	c.Assert(s.machine.Tag(), gc.Equals, "machine-1")
+	c.Assert(s.machine.Tag().String(), gc.Equals, "machine-1")
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
@@ -335,23 +335,23 @@ func (s *MachineSuite) TestSetAgentCompatPassword(c *gc.C) {
 	testSetAgentCompatPassword(c, e)
 }
 
-func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
-	alive, err := s.machine.AgentAlive()
+func (s *MachineSuite) TestMachineWaitAgentPresence(c *gc.C) {
+	alive, err := s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(coretesting.ShortWait)
+	err = s.machine.WaitAgentPresence(coretesting.ShortWait)
 	c.Assert(err, gc.ErrorMatches, `waiting for agent of machine 1: still not alive after timeout`)
 
-	pinger, err := s.machine.SetAgentAlive()
+	pinger, err := s.machine.SetAgentPresence()
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(coretesting.LongWait)
+	err = s.machine.WaitAgentPresence(coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
 
-	alive, err = s.machine.AgentAlive()
+	alive, err = s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
 
@@ -359,7 +359,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
-	alive, err = s.machine.AgentAlive()
+	alive, err = s.machine.AgentPresence()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
 }
@@ -724,7 +724,7 @@ func (s *MachineSuite) TestMachineSetInstanceInfoSuccess(c *gc.C) {
 	c.Check(ifaces[0].InterfaceName(), gc.Equals, interfaces[0].InterfaceName)
 	c.Check(ifaces[0].NetworkName(), gc.Equals, interfaces[0].NetworkName)
 	c.Check(ifaces[0].MACAddress(), gc.Equals, interfaces[0].MACAddress)
-	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag())
+	c.Check(ifaces[0].MachineTag(), gc.Equals, s.machine.Tag().String())
 	c.Check(ifaces[0].IsVirtual(), gc.Equals, interfaces[0].IsVirtual)
 }
 
@@ -1510,6 +1510,7 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	addresses := []network.Address{
 		network.NewAddress("127.0.0.1", network.ScopeUnknown),
 		network.NewAddress("8.8.8.8", network.ScopeUnknown),
+		network.NewAddress("", network.ScopeUnknown),
 	}
 	addresses[0].NetworkName = "loopback"
 	err = machine.SetAddresses(addresses...)
@@ -1529,6 +1530,57 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 		addresses[1],
 		machineAddresses[1],
 	})
+}
+
+func (s *MachineSuite) TestSetAddressesConcurrentChangeDifferent(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+
+	addr0 := network.NewAddress("127.0.0.1", network.ScopeUnknown)
+	addr1 := network.NewAddress("8.8.8.8", network.ScopeUnknown)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		machine, err := s.State.Machine(machine.Id())
+		c.Assert(err, gc.IsNil)
+		err = machine.SetAddresses(addr1, addr0)
+		c.Assert(err, gc.IsNil)
+	}).Check()
+
+	err = machine.SetAddresses(addr0, addr1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0, addr1})
+}
+
+func (s *MachineSuite) TestSetAddressesConcurrentChangeEqual(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), gc.HasLen, 0)
+	revno0, err := state.TxnRevno(s.State, "machines", machine.Id())
+	c.Assert(err, gc.IsNil)
+
+	addr0 := network.NewAddress("127.0.0.1", network.ScopeUnknown)
+	addr1 := network.NewAddress("8.8.8.8", network.ScopeUnknown)
+
+	var revno1 int64
+	defer state.SetBeforeHooks(c, s.State, func() {
+		machine, err := s.State.Machine(machine.Id())
+		c.Assert(err, gc.IsNil)
+		err = machine.SetAddresses(addr0, addr1)
+		c.Assert(err, gc.IsNil)
+		revno1, err = state.TxnRevno(s.State, "machines", machine.Id())
+		c.Assert(err, gc.IsNil)
+		c.Assert(revno1, gc.Equals, revno0+1)
+	}).Check()
+
+	err = machine.SetAddresses(addr0, addr1)
+	c.Assert(err, gc.IsNil)
+
+	// Doc should not have been updated, but Machine object's view should be.
+	revno2, err := state.TxnRevno(s.State, "machines", machine.Id())
+	c.Assert(err, gc.IsNil)
+	c.Assert(revno2, gc.Equals, revno1)
+	c.Assert(machine.Addresses(), jc.SameContents, []network.Address{addr0, addr1})
 }
 
 func (s *MachineSuite) addMachineWithSupportedContainer(c *gc.C, container instance.ContainerType) *state.Machine {

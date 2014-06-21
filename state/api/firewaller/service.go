@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/names"
 
+	"github.com/juju/juju/state/api/common"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 )
@@ -15,38 +16,18 @@ import (
 // Service represents the state of a service.
 type Service struct {
 	st   *State
-	tag  string
+	tag  names.Tag
 	life params.Life
 }
 
 // Name returns the service name.
 func (s *Service) Name() string {
-	tag, err := names.ParseTag(s.tag, names.ServiceTagKind)
-	if err != nil {
-		panic(fmt.Sprintf("%q is not a valid service tag", s.tag))
-	}
-	return tag.Id()
+	return s.tag.Id()
 }
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Service) Watch() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag}},
-	}
-	err := s.st.call("Watch", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := watcher.NewNotifyWatcher(s.st.caller, result)
-	return w, nil
+	return common.Watch(s.st.caller, firewallerFacade, s.tag.String())
 }
 
 // Life returns the service's current life state.
@@ -57,7 +38,7 @@ func (s *Service) Life() params.Life {
 // Refresh refreshes the contents of the Service from the underlying
 // state.
 func (s *Service) Refresh() error {
-	life, err := s.st.life(s.tag)
+	life, err := s.st.life(s.tag.String())
 	if err != nil {
 		return err
 	}
@@ -74,7 +55,7 @@ func (s *Service) Refresh() error {
 func (s *Service) IsExposed() (bool, error) {
 	var results params.BoolResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag}},
+		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
 	err := s.st.call("GetExposed", args, &results)
 	if err != nil {

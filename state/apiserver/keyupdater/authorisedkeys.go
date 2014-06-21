@@ -13,6 +13,10 @@ import (
 	"github.com/juju/juju/utils/ssh"
 )
 
+func init() {
+	common.RegisterStandardFacade("KeyUpdater", 0, NewKeyUpdaterAPI)
+}
+
 // KeyUpdater defines the methods on the keyupdater API end point.
 type KeyUpdater interface {
 	AuthorisedKeys(args params.Entities) (params.StringsResults, error)

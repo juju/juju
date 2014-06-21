@@ -22,6 +22,10 @@ import (
 
 var logger = loggo.GetLogger("juju.state.apiserver.keymanager")
 
+func init() {
+	common.RegisterStandardFacade("KeyManager", 0, NewKeyManagerAPI)
+}
+
 // KeyManager defines the methods on the keymanager API end point.
 type KeyManager interface {
 	ListKeys(arg params.ListSSHKeys) (params.StringsResults, error)
@@ -42,6 +46,8 @@ type KeyManagerAPI struct {
 
 var _ KeyManager = (*KeyManagerAPI)(nil)
 
+var adminUser = names.NewUserTag("admin")
+
 // NewKeyManagerAPI creates a new server-side keyupdater API end point.
 func NewKeyManagerAPI(
 	st *state.State,
@@ -55,8 +61,8 @@ func NewKeyManagerAPI(
 	// TODO(wallyworld) - replace stub with real canRead function
 	// For now, only admins can read authorised ssh keys.
 	getCanRead := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return authorizer.GetAuthTag() == "user-admin"
+		return func(_ string) bool {
+			return authorizer.GetAuthTag() == adminUser
 		}, nil
 	}
 	// TODO(wallyworld) - replace stub with real canWrite function
@@ -66,14 +72,15 @@ func NewKeyManagerAPI(
 		return func(tag string) bool {
 			// Are we a machine agent writing the Juju system key.
 			if tag == config.JujuSystemKey {
-				_, err := names.ParseTag(authorizer.GetAuthTag(), names.MachineTagKind)
+				// TODO(dfc) this can never be false
+				_, err := names.ParseMachineTag(authorizer.GetAuthTag().String())
 				return err == nil
 			}
 			// Are we writing the auth key for a user.
 			if _, err := st.User(tag); err != nil {
 				return false
 			}
-			return authorizer.GetAuthTag() == "user-admin"
+			return authorizer.GetAuthTag() == adminUser
 		}, nil
 	}
 	return &KeyManagerAPI{

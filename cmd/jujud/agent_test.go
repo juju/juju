@@ -10,13 +10,13 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/juju/cmd"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
-	"github.com/juju/juju/cmd"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -360,7 +360,7 @@ func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
 }
 
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
-	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
+	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag().String()))
 	c.Assert(err, gc.IsNil)
 
 	conf.SetPassword("")
@@ -373,7 +373,7 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 		c.Assert(err, gc.IsNil)
 		c.Assert(st, gc.NotNil)
 		st.Close()
-		c.Assert(gotEnt.Tag(), gc.Equals, ent.Tag())
+		c.Assert(gotEnt.Tag(), gc.Equals, ent.Tag().String())
 	}
 	assertOpen(conf)
 

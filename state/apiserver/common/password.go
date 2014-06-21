@@ -67,7 +67,8 @@ func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string
 		logger.Infof("setting mongo password for %q", entity.Tag())
 		return nil
 	}
-	return NotSupportedError(entity.Tag(), "mongo access")
+	// TODO(dfc) fix
+	return NotSupportedError(entity.Tag().String(), "mongo access")
 }
 
 func (pc *PasswordChanger) setPassword(tag, password string) error {

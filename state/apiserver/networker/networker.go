@@ -13,6 +13,13 @@ import (
 	"github.com/juju/juju/state/apiserver/common"
 )
 
+func init() {
+	// TODO: When the client can handle new versions, this should really be
+	// registered as version 1, since it was not present in the API in Juju
+	// 1.18
+	common.RegisterStandardFacade("Networker", 0, NewNetworkerAPI)
+}
+
 var logger = loggo.GetLogger("juju.state.apiserver.networker")
 
 // NetworkerAPI provides access to the Networker API facade.
@@ -32,14 +39,14 @@ func NewNetworkerAPI(
 		return nil, common.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
-		authEntityTag := authorizer.GetAuthTag()
+		authEntityTag := authorizer.GetAuthTag().String()
 
 		return func(tag string) bool {
 			if tag == authEntityTag {
 				// A machine agent can always access its own machine.
 				return true
 			}
-			t, err := names.ParseTag(tag, names.MachineTagKind)
+			t, err := names.ParseMachineTag(tag)
 			if err != nil {
 				// Only machine tags are allowed.
 				return false
@@ -47,6 +54,9 @@ func NewNetworkerAPI(
 			id := t.Id()
 			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
 				// Until a top-level machine is reached.
+				// TODO(dfc) comparing the two interfaces caused a compiler crash with
+				// gcc version 4.9.0 (Ubuntu 4.9.0-7ubuntu1). Work around the issue
+				// by comparing by string value.
 				if names.NewMachineTag(parentId).String() == authEntityTag {
 					// All containers with the authenticated machine as a
 					// parent are accessible by it.
@@ -106,7 +116,7 @@ func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineN
 		if !canAccess(entity.Tag) {
 			err = common.ErrPerm
 		} else {
-			tag, err = names.ParseTag(entity.Tag, names.MachineTagKind)
+			tag, err = names.ParseMachineTag(entity.Tag)
 			if err == nil {
 				id := tag.Id()
 				result.Results[i].Info, err = n.oneMachineInfo(id)

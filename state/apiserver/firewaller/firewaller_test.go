@@ -113,9 +113,9 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 	s.assertLife(c, 2, state.Alive)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag()},
-		{Tag: s.machines[1].Tag()},
-		{Tag: s.machines[2].Tag()},
+		{Tag: s.machines[0].Tag().String()},
+		{Tag: s.machines[1].Tag().String()},
+		{Tag: s.machines[2].Tag().String()},
 	}})
 	result, err := s.firewaller.Life(args)
 	c.Assert(err, gc.IsNil)
@@ -141,7 +141,7 @@ func (s *firewallerSuite) TestLife(c *gc.C) {
 
 	args = params.Entities{
 		Entities: []params.Entity{
-			{Tag: s.machines[1].Tag()},
+			{Tag: s.machines[1].Tag().String()},
 		},
 	}
 	result, err = s.firewaller.Life(args)
@@ -162,11 +162,11 @@ func (s *firewallerSuite) TestInstanceId(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag()},
-		{Tag: s.machines[1].Tag()},
-		{Tag: s.machines[2].Tag()},
-		{Tag: s.service.Tag()},
-		{Tag: s.units[2].Tag()},
+		{Tag: s.machines[0].Tag().String()},
+		{Tag: s.machines[1].Tag().String()},
+		{Tag: s.machines[2].Tag().String()},
+		{Tag: s.service.Tag().String()},
+		{Tag: s.units[2].Tag().String()},
 	}})
 	result, err := s.firewaller.InstanceId(args)
 	c.Assert(err, gc.IsNil)
@@ -214,9 +214,9 @@ func (s *firewallerSuite) TestWatch(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag()},
-		{Tag: s.service.Tag()},
-		{Tag: s.units[0].Tag()},
+		{Tag: s.machines[0].Tag().String()},
+		{Tag: s.service.Tag().String()},
+		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := s.firewaller.Watch(args)
 	c.Assert(err, gc.IsNil)
@@ -255,9 +255,9 @@ func (s *firewallerSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.machines[0].Tag()},
-		{Tag: s.service.Tag()},
-		{Tag: s.units[0].Tag()},
+		{Tag: s.machines[0].Tag().String()},
+		{Tag: s.service.Tag().String()},
+		{Tag: s.units[0].Tag().String()},
 	}})
 	result, err := s.firewaller.WatchUnits(args)
 	c.Assert(err, gc.IsNil)
@@ -293,7 +293,7 @@ func (s *firewallerSuite) TestGetExposed(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.service.Tag()},
+		{Tag: s.service.Tag().String()},
 	}})
 	result, err := s.firewaller.GetExposed(args)
 	c.Assert(err, gc.IsNil)
@@ -314,7 +314,7 @@ func (s *firewallerSuite) TestGetExposed(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args = params.Entities{Entities: []params.Entity{
-		{Tag: s.service.Tag()},
+		{Tag: s.service.Tag().String()},
 	}}
 	result, err = s.firewaller.GetExposed(args)
 	c.Assert(err, gc.IsNil)
@@ -335,9 +335,9 @@ func (s *firewallerSuite) TestOpenedPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.units[0].Tag()},
-		{Tag: s.units[1].Tag()},
-		{Tag: s.units[2].Tag()},
+		{Tag: s.units[0].Tag().String()},
+		{Tag: s.units[1].Tag().String()},
+		{Tag: s.units[2].Tag().String()},
 	}})
 	result, err := s.firewaller.OpenedPorts(args)
 	c.Assert(err, gc.IsNil)
@@ -360,7 +360,7 @@ func (s *firewallerSuite) TestOpenedPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args = params.Entities{Entities: []params.Entity{
-		{Tag: s.units[2].Tag()},
+		{Tag: s.units[2].Tag().String()},
 	}}
 	result, err = s.firewaller.OpenedPorts(args)
 	c.Assert(err, gc.IsNil)
@@ -377,16 +377,16 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
-		{Tag: s.units[0].Tag()},
-		{Tag: s.units[1].Tag()},
-		{Tag: s.units[2].Tag()},
+		{Tag: s.units[0].Tag().String()},
+		{Tag: s.units[1].Tag().String()},
+		{Tag: s.units[2].Tag().String()},
 	}})
 	result, err := s.firewaller.GetAssignedMachine(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
-			{Result: s.machines[0].Tag()},
-			{Result: s.machines[1].Tag()},
+			{Result: s.machines[0].Tag().String()},
+			{Result: s.machines[1].Tag().String()},
 			{Error: apiservertesting.NotAssignedError("wordpress/2")},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
@@ -402,13 +402,13 @@ func (s *firewallerSuite) TestGetAssignedMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	args = params.Entities{Entities: []params.Entity{
-		{Tag: s.units[2].Tag()},
+		{Tag: s.units[2].Tag().String()},
 	}}
 	result, err = s.firewaller.GetAssignedMachine(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.StringResults{
 		Results: []params.StringResult{
-			{Result: s.machines[0].Tag()},
+			{Result: s.machines[0].Tag().String()},
 		},
 	})
 }

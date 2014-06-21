@@ -42,7 +42,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.rawUnit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.stateAPI = s.OpenAPIAs(c, s.rawUnit.Tag(), password)
+	s.stateAPI = s.OpenAPIAs(c, s.rawUnit.Tag().String(), password)
 
 	// Create the upgrader facade.
 	s.st = s.stateAPI.Upgrader()
@@ -78,7 +78,7 @@ func (s *unitUpgraderSuite) TestSetVersion(c *gc.C) {
 	agentTools, err := s.rawUnit.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	c.Assert(agentTools, gc.IsNil)
-	err = s.st.SetVersion(s.rawUnit.Tag(), cur)
+	err = s.st.SetVersion(s.rawUnit.Tag().String(), cur)
 	c.Assert(err, gc.IsNil)
 	s.rawUnit.Refresh()
 	agentTools, err = s.rawUnit.AgentTools()
@@ -107,14 +107,14 @@ func (s *unitUpgraderSuite) TestTools(c *gc.C) {
 	s.rawMachine.SetAgentVersion(cur)
 	// UnitUpgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
-	stateTools, _, err := s.st.Tools(s.rawUnit.Tag())
+	stateTools, _, err := s.st.Tools(s.rawUnit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Check(stateTools.Version.Number, gc.DeepEquals, version.Current.Number)
 	c.Assert(stateTools.URL, gc.NotNil)
 }
 
 func (s *unitUpgraderSuite) TestWatchAPIVersion(c *gc.C) {
-	w, err := s.st.WatchAPIVersion(s.rawUnit.Tag())
+	w, err := s.st.WatchAPIVersion(s.rawUnit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
@@ -152,7 +152,7 @@ func (s *unitUpgraderSuite) TestDesiredVersion(c *gc.C) {
 	s.rawMachine.SetAgentVersion(cur)
 	// UnitUpgrader.DesiredVersion returns the *desired* set of tools, not the
 	// currently running set. We want to be upgraded to cur.Version
-	stateVersion, err := s.st.DesiredVersion(s.rawUnit.Tag())
+	stateVersion, err := s.st.DesiredVersion(s.rawUnit.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateVersion, gc.Equals, cur.Number)
 }
