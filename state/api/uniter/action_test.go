@@ -15,14 +15,6 @@ type actionSuite struct {
 
 var _ = gc.Suite(&actionSuite{})
 
-func (s *actionSuite) SetUpTest(c *gc.C) {
-	s.uniterSuite.SetUpTest(c)
-}
-
-func (s *actionSuite) TearDownTest(c *gc.C) {
-	s.uniterSuite.TearDownTest(c)
-}
-
 func (s *actionSuite) TestAction(c *gc.C) {
 
 	var actionTests = []struct {
@@ -45,7 +37,7 @@ func (s *actionSuite) TestAction(c *gc.C) {
 				"compression": map[string]interface{}{
 					"kind": "bzip",
 					// BUG(?): this fails with int quality
-					"quality": 5.0,
+					"quality": float64(5.0),
 				},
 			},
 		},

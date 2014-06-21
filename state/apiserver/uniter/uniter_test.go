@@ -869,7 +869,6 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 	var actionTests = []struct {
 		description string
 		action      params.Action
-		expectedErr error
 	}{{
 		description: "A simple action.",
 		action: params.Action{
