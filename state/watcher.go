@@ -244,8 +244,8 @@ func (w *lifecycleWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *lifecycleWatcher) initial() (ids *set.Strings, err error) {
-	ids = &set.Strings{}
+func (w *lifecycleWatcher) initial() (*set.Strings, error) {
+	var ids set.Strings
 	var doc lifeDoc
 	iter := w.coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
@@ -254,10 +254,7 @@ func (w *lifecycleWatcher) initial() (ids *set.Strings, err error) {
 			w.life[doc.Id] = doc.Life
 		}
 	}
-	if err := iter.Err(); err != nil {
-		return nil, err
-	}
-	return ids, nil
+	return &ids, iter.Close()
 }
 
 func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[interface{}]bool) error {
@@ -282,7 +279,7 @@ func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[interface{}]bool)
 	for iter.Next(&doc) {
 		latest[doc.Id] = doc.Life
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return err
 	}
 
@@ -386,14 +383,14 @@ func (st *State) WatchMinUnits() StringsWatcher {
 }
 
 func (w *minUnitsWatcher) initial() (*set.Strings, error) {
-	serviceNames := new(set.Strings)
-	doc := &minUnitsDoc{}
+	var serviceNames set.Strings
+	var doc minUnitsDoc
 	iter := w.st.minUnits.Find(nil).Iter()
-	for iter.Next(doc) {
+	for iter.Next(&doc) {
 		w.known[doc.ServiceName] = doc.Revno
 		serviceNames.Add(doc.ServiceName)
 	}
-	return serviceNames, iter.Err()
+	return &serviceNames, iter.Close()
 }
 
 func (w *minUnitsWatcher) merge(serviceNames *set.Strings, change watcher.Change) error {
@@ -1456,7 +1453,8 @@ func (w *cleanupWatcher) loop() (err error) {
 // actionWatcher notifies of changes in the actions collection.
 type actionWatcher struct {
 	commonWatcher
-	out chan []string
+	out      chan []string
+	filterFn func(interface{}) bool
 }
 
 var _ Watcher = (*actionWatcher)(nil)
@@ -1466,17 +1464,42 @@ func (st *State) WatchActions() StringsWatcher {
 	return newActionWatcher(st)
 }
 
-func newActionWatcher(st *State) StringsWatcher {
+func newActionWatcher(st *State, prefixIds ...string) StringsWatcher {
 	w := &actionWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan []string),
 	}
+	w.filterFn = w.makeFilter(prefixIds...)
+
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
 		w.tomb.Kill(w.loop())
 	}()
+
 	return w
+}
+
+// makeActionWatcherFilter constructs a predicate to filter keys
+// that have the prefix of one of the passed in tags, or returns
+// nil if tags is empty
+func (w *actionWatcher) makeFilter(ids ...string) func(interface{}) bool {
+	if len(ids) == 0 {
+		return nil
+	}
+	return func(key interface{}) bool {
+		if k, ok := key.(string); ok {
+			for _, id := range ids {
+				if strings.HasPrefix(k, id) {
+					return true
+				}
+			}
+		} else {
+			// TODO(jcw4,fwereade) error out and w.tomb.Kill here? doesn't seem right.
+			logger.Warningf("actionWatcher got unexpected changes key.  expected string key got %+v", key)
+		}
+		return false
+	}
 }
 
 // Changes returns the event channel for w
@@ -1488,7 +1511,11 @@ func (w *actionWatcher) loop() error {
 	in := make(chan watcher.Change)
 	changes := &set.Strings{}
 
-	w.st.watcher.WatchCollection(w.st.actions.Name, in)
+	if w.filterFn != nil {
+		w.st.watcher.WatchCollectionWithFilter(w.st.actions.Name, in, w.filterFn)
+	} else {
+		w.st.watcher.WatchCollection(w.st.actions.Name, in)
+	}
 	defer w.st.watcher.UnwatchCollection(w.st.actions.Name, in)
 
 	out := w.out

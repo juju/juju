@@ -20,7 +20,6 @@ $template JujuLogFormat{{.Namespace}},"%syslogtag:{{.Offset}}:$%%msg:::sp-if-no-
 
 $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %syslogtag%%msg:::sp-if-no-1st-sp%%msg%"
 
-$RuleSet local
 
 # start: Forwarding rule for foo
 $ActionQueueType LinkedList
@@ -35,13 +34,14 @@ $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 :syslogtag, startswith, "juju{{.Namespace}}-" @@foo:{{.Port}};LongTagForwardFormat
 # end: Forwarding rule for foo
 
-& ~
+:syslogtag, startswith, "juju{{.Namespace}}-" ~
+
 $FileCreateMode 0640
 
 $RuleSet remote
 $FileCreateMode 0644
 :syslogtag, startswith, "juju{{.Namespace}}-" /var/log/juju{{.Namespace}}/all-machines.log;JujuLogFormat{{.Namespace}}
-& ~
+:syslogtag, startswith, "juju{{.Namespace}}-" ~
 $FileCreateMode 0640
 
 $InputFilePersistStateInterval 50
@@ -50,7 +50,6 @@ $InputFileName /var/log/juju{{.Namespace}}/{{.MachineTag}}.log
 $InputFileTag juju{{.Namespace}}-{{.MachineTag}}:
 $InputFileStateFile {{.MachineTag}}{{.Namespace}}
 $InputRunFileMonitor
-$DefaultRuleset local
 
 $ModLoad imtcp
 $DefaultNetstreamDriver gtls
@@ -62,6 +61,9 @@ $InputTCPServerStreamDriverMode 1 # run driver in TLS-only mode
 
 $InputTCPServerBindRuleset remote
 $InputTCPServerRun {{.Port}}
+
+# switch back to default ruleset for further rules
+$RuleSet RSYSLOG_DefaultRuleset
 `
 
 type templateArgs struct {

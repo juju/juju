@@ -1483,3 +1483,8 @@ func (u *Unit) ClearResolved() error {
 	u.doc.Resolved = ResolvedNone
 	return nil
 }
+
+// WatchActions starts and returns an ActionWatcher
+func (u *Unit) WatchActions() StringsWatcher {
+	return newActionWatcher(u.st, u.Tag().Id())
+}
