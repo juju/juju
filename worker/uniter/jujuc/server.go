@@ -19,7 +19,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 
-	"github.com/juju/juju/juju/osenv"
+	// "github.com/juju/juju/juju/osenv"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")
@@ -128,7 +128,7 @@ func NewServer(getCmd CmdGetter, socketPath string) (*Server, error) {
 	if err := server.Register(&Jujuc{getCmd: getCmd}); err != nil {
 		return nil, err
 	}
-	listener, err := net.Listen(osenv.Vars.SocketType, socketPath)
+	listener, err := net.Listen("unix", socketPath)
 	if err != nil {
 		return nil, err
 	}

@@ -20,8 +20,8 @@ const (
 )
 
 // get variables speciffic for this running system
-var osystem = OsVersion()
-var Vars = NewOsVars(osystem)
+var osystem = OSVersion()
+var Vars = NewOSVars(osystem)
 
 type OSVars struct {
 	// TempDir is the path to the systems temporary folder
@@ -68,8 +68,8 @@ func OSVersion() string {
 	return "ubuntu"
 }
 
-func NewOsVars(osystem string) OsVars {
-	imap := map[string]func OSVars{
+func NewOSVars(osystem string) OSVars {
+	imap := map[string]func() OSVars{
 		"ubuntu":  UbuntuEnv,
 		"windows": WinEnv,
 	}

@@ -30,7 +30,7 @@ import (
 var DataDir = agent.DefaultDataDir
 
 // CloudInitOutputLog is the default cloud-init-output.log file path.
-var CloudInitOutputLog = path.Join(osenv.Vars.Log, "cloud-init-output.log")
+var CloudInitOutputLog = path.Join(osenv.Vars.LogDir, "cloud-init-output.log")
 
 // NewMachineConfig sets up a basic machine configuration, for a non-bootstrap
 // node.  You'll still need to supply more information, but this takes care of
