@@ -4,11 +4,14 @@
 package version
 
 import (
+	"fmt"
 	"io/ioutil"
+	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/utils/exec"
 )
 
 var logger = loggo.GetLogger("juju.version")
@@ -74,6 +77,27 @@ var macOSXSeries = map[int]string{
 func macOSXSeriesFromMajorVersion(majorVersion int) string {
 	if series, ok := macOSXSeries[majorVersion]; ok {
 		return series
+	}
+	return "unknown"
+}
+
+func getWinVersion() string {
+	var com exec.RunParams
+	com.Commands = `(gwmi Win32_OperatingSystem).Name.Split('|')[0]`
+	out, _ := exec.RunCommands(com)
+	if out.Code != 0 {
+		return "unknown"
+	}
+	serie := strings.TrimSpace(string(out.Stdout))
+	if val, ok := WindowsVersions[serie]; ok {
+		return val
+	}
+	for key, value := range WindowsVersions {
+		reg := regexp.MustCompile(fmt.Sprintf("^%s", key))
+		match := reg.MatchString(serie)
+		if match {
+			return value
+		}
 	}
 	return "unknown"
 }

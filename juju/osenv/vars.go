@@ -4,7 +4,9 @@
 package osenv
 
 import (
-	"runtime"
+	"fmt"
+
+	"github.com/juju/juju/version"
 )
 
 const (
@@ -19,59 +21,65 @@ const (
 	JujuContainerTypeEnvKey = "JUJU_CONTAINER_TYPE"
 )
 
-// get variables speciffic for this running system
-var osystem = OSVersion()
-var Vars = NewOSVars(osystem)
-
-type OSVars struct {
-	// TempDir is the path to the systems temporary folder
-	TempDir string
-	// LogDir is the location on disk where juju may create
-	// a folder containing its logs
-	LogDir string
-	// DataDir is the location on disk where Juju will store its
-	// tools and agent data
-	DataDir string
-	// JujuRun is the full path to the juju-run binary on disk
-	JujuRun string
+var linuxVals = map[string]string{
+	"TmpDir":  "/tmp",
+	"LogDir":  "/var/log",
+	"DataDir": "/var/lib/juju",
+	"Jujurun": "/usr/local/bin/juju-run",
 }
 
-// WinEnv returns a OSVars instance with apropriate information
-// for a Windows juju agent
-func WinEnv() OSVars {
-	return OSVars{
-		TempDir: "C:/Juju/tmp",
-		LogDir:  "C:/Juju/log",
-		DataDir: "C:/Juju/lib/juju",
-		JujuRun: "C:/Juju/bin/juju-run",
-	}
+var winVals = map[string]string{
+	"TmpDir":  "C:/Juju/tmp",
+	"LogDir":  "C:/Juju/log",
+	"DataDir": "C:/Juju/lib/juju",
+	"JujuRun": "C:/Juju/bin/juju-run",
 }
 
-// UbuntuEnv returns a OSVars instance with apropriate information
-// for a Ubuntu juju agent
-func UbuntuEnv() OSVars {
-	return OSVars{
-		TempDir: "/tmp",
-		LogDir:  "/var/log",
-		DataDir: "/var/lib/juju",
-		JujuRun: "/usr/local/bin/juju-run",
+// osVal will lookup the value of the key valname
+// in the apropriate map, based on the series. This will
+// help reduce boilerplate code
+func osVal(series, valname string) (string, error) {
+	os, err := version.GetOSFromSeries(series)
+	if err != nil {
+		return "", err
 	}
+	switch os {
+	case "windows":
+		return winVals[valname], nil
+	case "ubuntu":
+		return linuxVals[valname], nil
+	}
+	return "", fmt.Errorf("Unknown OS: %q", os)
 }
 
-// OSVersion is a temporary function to return correct
-// variables. This will need to become an actual function
-// suitable for returning the system we are running on
-func OSVersion() string {
-	if runtime.GOOS == "windows" {
-		return "windows"
-	}
-	return "ubuntu"
+// TempDir returns the path on disk to the corect tmp directory
+// for the series. This value will be the same on virtually
+// all linux systems, but will differ on windows
+func TempDir(series string) (string, error) {
+	return osVal(series, "TmpDir")
 }
 
-func NewOSVars(osystem string) OSVars {
-	imap := map[string]func() OSVars{
-		"ubuntu":  UbuntuEnv,
-		"windows": WinEnv,
+// LogDir returns filesystem path the directory where juju may
+// save log files.
+func LogDir(series string) (string, error) {
+	return osVal(series, "LogDir")
+}
+
+// DataDir returns a filesystem path to the folder used by juju to
+// store tools, charms, locks, etc
+func DataDir(series string) (string, error) {
+	return osVal(series, "DataDir")
+}
+
+// JujuRun returns the absolute path to the juju-run binary for
+// a particula series
+func JujuRun(series string) (string, error) {
+	return osVal(series, "JujuRun")
+}
+
+func MustSucceed(s string, e error) string {
+	if e != nil {
+		panic(e)
 	}
-	return imap[osystem]()
+	return s
 }

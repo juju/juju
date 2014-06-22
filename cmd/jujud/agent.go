@@ -34,6 +34,7 @@ import (
 )
 
 var apiOpen = api.Open
+var dataDir = osenv.MustSucceed(osenv.DataDir(version.Current.Series))
 
 // requiredError is useful when complaining about missing command-line options.
 func requiredError(name string) error {
@@ -53,7 +54,7 @@ func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
 	// We need to pass a config location here instead and
 	// use it to locate the conf and the infer the data-dir
 	// from there instead of passing it like that.
-	f.StringVar(&c.dataDir, "data-dir", osenv.Vars.Data, "directory for juju data")
+	f.StringVar(&c.dataDir, "data-dir", dataDir, "directory for juju data")
 }
 
 func (c *AgentConf) CheckArgs(args []string) error {

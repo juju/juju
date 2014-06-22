@@ -71,7 +71,7 @@ type eitherState interface{}
 
 var (
 	retryDelay      = 3 * time.Second
-	jujuRun         = osenv.Vars.JujuRun
+	jujuRun         = osenv.MustSucceed(osenv.JujuRun(version.Current.Series))
 	useMultipleCPUs = utils.UseMultipleCPUs
 
 	// The following are defined as variables to

@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package ubuntu
+package version
 
 import (
 	"bufio"
@@ -10,11 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
-
-	"github.com/juju/loggo"
 )
-
-var logger = loggo.GetLogger("juju.ubuntu")
 
 // seriesVersions provides a mapping between Ubuntu series names and version numbers.
 // The values here are current as of the time of writing. On Ubuntu systems, we update
@@ -28,6 +24,49 @@ var seriesVersions = map[string]string{
 	"saucy":   "13.10",
 	"trusty":  "14.04",
 	"utopic":  "14.10",
+}
+
+var ubuntuSeries = []string{
+	"precise",
+	"quantal",
+	"raring",
+	"saucy",
+	"trusty",
+	"utopic",
+}
+
+// WindowsVersions is a mapping consisting of the output from
+// the following WMI query: (gwmi Win32_OperatingSystem).Name
+// Windows versions come in various flavors:
+// Standard, Datacenter, etc. We use regex to match them to one
+// of the following. Specify the longest name in a particular serie first
+// For example, if we have "Win 2012" and "Win 2012 R2". we specify "Win 2012 R2" first
+// TODO: Replace this with actuall full names once we compile a complete
+// list with al flavors
+var WindowsVersions = map[string]string{
+	"Microsoft Hyper-V Server 2012 R2": "win2012hvr2",
+	"Microsoft Hyper-V Server 2012":    "win2012hv",
+	"Microsoft Windows Server 2012 R2": "win2012r2",
+	"Microsoft Windows Server 2012":    "win2012",
+	"Windows Storage Server 2012 R2":   "win2012r2",
+	"Windows Storage Server 2012":      "win2012",
+}
+
+// GetOSFromSeries will return the operating system based
+// on the serie that is passed to it
+func GetOSFromSeries(series string) (string, error) {
+	for val := range ubuntuSeries {
+		if ubuntuSeries[val] == series {
+			return "ubuntu", nil
+		}
+	}
+	for _, val := range WindowsVersions {
+		if val == series {
+			return "windows", nil
+		}
+	}
+
+	return "", fmt.Errorf("invalid series %q", series)
 }
 
 var (

@@ -15,13 +15,12 @@ import (
 	"github.com/juju/utils/fslock"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/worker/uniter"
 )
 
 var (
-	AgentDir = filepath.Join(osenv.Vars.Data, "agents")
-	LockDir  = filepath.Join(osenv.Vars.Data, "locks")
+	AgentDir = filepath.Join(dataDir, "agents")
+	LockDir  = filepath.Join(dataDir, "locks")
 )
 
 type RunCommand struct {
@@ -120,7 +119,7 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 
 	socketPath := filepath.Join(unitDir, uniter.RunListenerFile)
 	// make sure the socket exists
-	client, err := rpc.Dial(osenv.Vars.SocketType, socketPath)
+	client, err := rpc.Dial("unix", socketPath)
 	if err != nil {
 		return nil, err
 	}

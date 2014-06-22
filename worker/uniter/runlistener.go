@@ -12,7 +12,6 @@ import (
 	"os"
 	"sync"
 
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/utils/exec"
 )
 
@@ -64,7 +63,7 @@ func NewRunListener(runner CommandRunner, socketPath string) (*RunListener, erro
 	if err := os.Remove(socketPath); err != nil {
 		logger.Tracef("ignoring error on removing %q: %v", socketPath, err)
 	}
-	listener, err := net.Listen(osenv.Vars.SocketType, socketPath)
+	listener, err := net.Listen("unix", socketPath)
 	if err != nil {
 		logger.Errorf("failed to listen on unix:%s: %v", socketPath, err)
 		return nil, err

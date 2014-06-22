@@ -16,7 +16,6 @@ import (
 	"github.com/juju/loggo"
 
 	jujucmd "github.com/juju/juju/cmd"
-	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/worker/uniter/jujuc"
 	"github.com/juju/utils/exec"
 
@@ -79,7 +78,7 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 	if err != nil {
 		return
 	}
-	client, err := rpc.Dial(osenv.Vars.SocketType, socketPath)
+	client, err := rpc.Dial("unix", socketPath)
 	if err != nil {
 		return
 	}
