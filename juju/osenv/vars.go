@@ -23,46 +23,45 @@ const (
 var osystem = OsVersion()
 var Vars = NewOsVars(osystem)
 
-type OsVars struct {
-	Temp       string
-	Lib        string
-	Log        string
-	Data       string
-	JujuRun    string
-	SocketType string
-	MustReboot string
+type OSVars struct {
+	// TempDir is the path to the systems temporary folder
+	TempDir string
+	// LogDir is the location on disk where juju may create
+	// a folder containing its logs
+	LogDir string
+	// DataDir is the location on disk where Juju will store its
+	// tools and agent data
+	DataDir string
+	// JujuRun is the full path to the juju-run binary on disk
+	JujuRun string
 }
 
-// Paths speciffic to Windows
-func WinEnv() OsVars {
-	return OsVars{
-		Temp:       "C:/Juju/tmp",
-		Lib:        "C:/Juju/lib",
-		Log:        "C:/Juju/log",
-		Data:       "C:/Juju/lib/juju",
-		JujuRun:    "C:/Juju/bin/juju-run",
-		SocketType: "tcp",
-		MustReboot: "1001",
+// WinEnv returns a OSVars instance with apropriate information
+// for a Windows juju agent
+func WinEnv() OSVars {
+	return OSVars{
+		TempDir: "C:/Juju/tmp",
+		LogDir:  "C:/Juju/log",
+		DataDir: "C:/Juju/lib/juju",
+		JujuRun: "C:/Juju/bin/juju-run",
 	}
 }
 
-// Paths speciffic to Ubuntu
-func UbuntuEnv() OsVars {
-	return OsVars{
-		Temp:       "/tmp",
-		Lib:        "/var/lib",
-		Log:        "/var/log",
-		Data:       "/var/lib/juju",
-		JujuRun:    "/usr/local/bin/juju-run",
-		SocketType: "unix",
-		MustReboot: "101",
+// UbuntuEnv returns a OSVars instance with apropriate information
+// for a Ubuntu juju agent
+func UbuntuEnv() OSVars {
+	return OSVars{
+		TempDir: "/tmp",
+		LogDir:  "/var/log",
+		DataDir: "/var/lib/juju",
+		JujuRun: "/usr/local/bin/juju-run",
 	}
 }
 
-// gsamfira: Temporary function to return correct
+// OSVersion is a temporary function to return correct
 // variables. This will need to become an actual function
 // suitable for returning the system we are running on
-func OsVersion() string {
+func OSVersion() string {
 	if runtime.GOOS == "windows" {
 		return "windows"
 	}
@@ -70,9 +69,9 @@ func OsVersion() string {
 }
 
 func NewOsVars(osystem string) OsVars {
-	imap := map[string]interface{}{
+	imap := map[string]func OSVars{
 		"ubuntu":  UbuntuEnv,
 		"windows": WinEnv,
 	}
-	return imap[osystem].(func() OsVars)()
+	return imap[osystem]()
 }
