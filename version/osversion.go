@@ -89,10 +89,10 @@ func getWinVersion() string {
 		return "unknown"
 	}
 	serie := strings.TrimSpace(string(out.Stdout))
-	if val, ok := WindowsVersions[serie]; ok {
+	if val, ok := windowsVersions[serie]; ok {
 		return val
 	}
-	for key, value := range WindowsVersions {
+	for key, value := range windowsVersions {
 		reg := regexp.MustCompile(fmt.Sprintf("^%s", key))
 		match := reg.MatchString(serie)
 		if match {
