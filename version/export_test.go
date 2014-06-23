@@ -3,6 +3,14 @@
 
 package version
 
+var (
+	ReadSeries                    = readSeries
+	KernelToMajor                 = kernelToMajor
+	MacOSXSeriesFromKernelVersion = macOSXSeriesFromKernelVersion
+	MacOSXSeriesFromMajorVersion  = macOSXSeriesFromMajorVersion
+	LSBReleaseFileVar             = &lsbReleaseFile
+)
+
 func SetSeriesVersions(value map[string]string) func() {
 	origVersions := seriesVersions
 	origUpdated := updatedseriesVersions
