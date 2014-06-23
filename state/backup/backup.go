@@ -20,50 +20,57 @@ import (
 	"github.com/juju/loggo"
 )
 
+// YYYYMMDD-HHMMSS
+const TimestampFormat = "20141231-235959"
+const FilenameTemplate = "jujubackup-%s.tar.gz"
+
 var logger = loggo.GetLogger("juju.backup")
 
-// tarFiles creates a tar archive at targetPath holding the files listed
-// in fileList. If compress is true, the archive will also be gzip
-// compressed.
-func tarFiles(fileList []string, targetPath, strip string, compress bool) (shaSum string, err error) {
+func GetHash(archive io.Reader) (string, error) {
 	shahash := sha1.New()
-	if err := tarAndHashFiles(fileList, targetPath, strip, compress, shahash); err != nil {
-		return "", err
+	_, err := io.Copy(shahash, archive)
+	if err != nil {
+		return "", fmt.Errorf("unable to extract hash: %v", err)
 	}
-	// we use a base64 encoded sha1 hash, because this is the hash
-	// used by RFC 3230 Digest headers in http responses
-	encodedHash := base64.StdEncoding.EncodeToString(shahash.Sum(nil))
-	return encodedHash, nil
+
+	return base64.StdEncoding.EncodeToString(shahash.Sum(nil)), nil
 }
 
-func tarAndHashFiles(fileList []string, targetPath, strip string, compress bool, hashw io.Writer) (err error) {
+// tarFiles returns a sha1 hash of targetPath after writing out the archive.
+// This archive holds the files listed in fileList. If compress is true,
+// the archive will also be gzip compressed.
+func tarFiles(fileList []string, targetPath, strip string, compress bool) (shaSum string, err error) {
 	checkClose := func(w io.Closer) {
 		if closeErr := w.Close(); closeErr != nil && err == nil {
 			err = fmt.Errorf("error closing backup file: %v", closeErr)
 		}
 	}
-	f, err := os.Create(targetPath)
+	tarball, err := os.Create(targetPath)
 	if err != nil {
-		return fmt.Errorf("cannot create backup file %q", targetPath)
+		return "", fmt.Errorf("cannot create backup file %q", targetPath)
 	}
-	defer checkClose(f)
+	defer checkClose(tarball)
 
-	w := io.MultiWriter(f, hashw)
-
+	var outfile io.Writer
 	if compress {
-		gzw := gzip.NewWriter(w)
+		gzw := gzip.NewWriter(tarball)
 		defer checkClose(gzw)
-		w = gzw
+		outfile = gzw
+	} else {
+		outfile = tarball
 	}
 
-	tarw := tar.NewWriter(w)
+	tarw := tar.NewWriter(outfile)
 	defer checkClose(tarw)
 	for _, ent := range fileList {
 		if err := writeContents(ent, strip, tarw); err != nil {
-			return fmt.Errorf("backup failed: %v", err)
+			return "", fmt.Errorf("backup failed: %v", err)
 		}
 	}
-	return nil
+
+	// Return the hash.
+	tarball.Seek(0, os.SEEK_SET)
+	return GetHash(tarball)
 }
 
 // writeContents creates an entry for the given file
@@ -183,10 +190,8 @@ func _getMongodumpPath() (string, error) {
 // and a root.tar file which contains all the system files obtained from
 // the output of getFilesToBackup
 func Backup(password string, username string, outputFolder string, addr string) (string, string, error) {
-	// YYYYMMDDHHMMSS
-	formattedDate := time.Now().Format("20060102150405")
-
-	bkpFile := fmt.Sprintf("juju-backup_%s.tar.gz", formattedDate)
+	formattedDate := time.Now().Format(TimestampFormat)
+	bkpFile := fmt.Sprintf(FilenameTemplate, formattedDate)
 
 	mongodumpPath, err := getMongodumpPath()
 	if err != nil {
