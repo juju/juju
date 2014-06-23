@@ -95,51 +95,6 @@ func (s *srvCaller) ResultType() reflect.Type {
 	return s.objMethod.Result
 }
 
-/*
-// Rsyslog returns an object that provides access to the Rsyslog API
-// facade. The id argument is reserved for future use and currently needs to
-// be empty.
-func (r *srvRoot) Rsyslog(id string) (*rsyslog.RsyslogAPI, error) {
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return rsyslog.NewRsyslogAPI(r.srv.state, r.resources, r)
-}
-
-// Logger returns an object that provides access to the Logger API facade.
-// The id argument is reserved for future use and must be empty.
-func (r *srvRoot) Logger(id string) (*loggerapi.LoggerAPI, error) {
-	if id != "" {
-		// TODO: There is no direct test for this
-		return nil, common.ErrBadId
-	}
-	return loggerapi.NewLoggerAPI(r.srv.state, r.resources, r)
-}
-
-// Upgrader returns an object that provides access to the Upgrader API facade.
-// The id argument is reserved for future use and must be empty.
-func (r *srvRoot) Upgrader(id string) (upgrader.Upgrader, error) {
-	if id != "" {
-		// TODO: There is no direct test for this
-		return nil, common.ErrBadId
-	}
-	// The type of upgrader we return depends on who is asking.
-	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
-	// This is tested in the state/api/upgrader package since there
-	// are currently no direct srvRoot tests.
-	tag := r.GetAuthTag()
-	switch tag.(type) {
-	case names.MachineTag:
-		return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
-	case names.UnitTag:
-		return upgrader.NewUnitUpgraderAPI(r.srv.state, r.resources, r)
-	default:
-		// Not a machine or unit.
-		return nil, common.ErrPerm
-	}
-}
-*/
 // Call takes the object Id and an instance of ParamsType to create an object and place
 // a call on its method. It then returns an instance of ResultType.
 func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error) {
