@@ -364,9 +364,19 @@ func (s *unitSuite) TestWatchActions(c *gc.C) {
 	// Initial event.
 	wc.AssertChange()
 
-	// Update config a couple of times, check a single event.
+	// Add a couple of actions and make sure the changes are detected.
 	actionId, err := s.wordpressUnit.AddAction("snapshot", map[string]interface{}{
 		"outfile": "foo.txt",
+	})
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(actionId)
+
+	actionId, err = s.wordpressUnit.AddAction("backup", map[string]interface{}{
+		"outfile": "foo.bz2",
+		"compression": map[string]interface{}{
+			"kind":    "bzip",
+			"quality": float64(5.0),
+		},
 	})
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange(actionId)

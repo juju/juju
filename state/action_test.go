@@ -222,7 +222,6 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 
 	// set up watcher on first unit
 	w := unit1.WatchActions()
-
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	// make sure the previously pending actions are sent on the watcher
