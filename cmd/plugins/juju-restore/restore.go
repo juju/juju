@@ -131,15 +131,10 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		mongo --ssl -u admin -p {{.AgentConfig.Credentials.OldPassword | shquote}} localhost:{{.AgentConfig.StatePort}}/admin --eval "$1"
 	}
 
-
-	mongoEval() {
-		mongo --ssl -u {{.AgentConfig.Credentials.Tag}} -p {{.AgentConfig.Credentials.Password | shquote}} localhost:{{.AgentConfig.StatePort}}/juju --eval "$1"
-	}
-
 	# wait for mongo to come up after starting the juju-db upstart service.
 	for i in $(seq 1 100)
 	do
-		mongoEval ' ' && break
+		mongoAdminEval ' ' && break
 		sleep 5
 	done
 
@@ -148,11 +143,12 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		conf = { "_id" : "juju", "version" : 1, "members" : [ { "_id" : 1, "host" : "{{ .PrivateAddress | printf "%s:"}}{{.AgentConfig.StatePort}}" , "tags" : { "juju-machine-id" : "0" } }]}
 		rs.initiate(conf)
 	'
-
+	# This looks arbitrary but there is no clear way to determine when replicaset is initiated
+	# and rs.initiate message is "this will take about a minute" so we honour that estimation
 	sleep 60
 
 	# Remove all state machines but 0, to restore HA
-	mongoEval '
+	mongoAdminEval '
 		db = db.getSiblingDB("juju")
 		db.machines.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
 		db.instanceData.update({_id: "0"}, {$set: {instanceid: {{.NewInstanceId | printf "%q" }} } })
@@ -160,13 +156,11 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		db.stateServers.update({"_id":"e"}, {$set:{"machineids" : [0]}})
 		db.stateServers.update({"_id":"e"}, {$set:{"votingmachineids" : [0]}})
 	'
-	
-
 
 	# Give time to replset to initiate
 	for i in $(seq 1 20)
 	do
-		mongoEval ' ' && break
+		mongoAdminEval ' ' && break
 		sleep 5
 	done
 
