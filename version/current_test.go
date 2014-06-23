@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"runtime"
 
-    "github.com/juju/juju/version"
+	"github.com/juju/juju/version"
 	gc "launchpad.net/gocheck"
 )
 
