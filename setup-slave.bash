@@ -42,8 +42,8 @@ bzr branch lp:juju-release-tools juju-release-tools
 bzr branch lp:juju-ci-tools juju-ci-tools
 bzr branch lp:juju-ci-tools/repository repository
 chmod 600 cloud-city/$KEY*
-ln -s $HOME/cloud-city/$KEY .ssh/id_rsa
-ln -s $HOME/cloud-city/$KEY.pub .ssh/id_rsa.pub
+ln -s /var/lib/jenkins/cloud-city/$KEY .ssh/id_rsa
+ln -s /var/lib/jenkins/cloud-city/$KEY.pub .ssh/id_rsa.pub
 EOT
 
 # Install stable juju.
