@@ -154,9 +154,6 @@ func (p *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.St
 		Results: make([]params.StringsWatchResult, len(args.Params)),
 	}
 	for i, arg := range args.Params {
-		if p == nil {
-			panic("p is nil")
-		}
 		watcherResult, err := p.watchOneMachineContainers(arg)
 		result.Results[i] = watcherResult
 		result.Results[i].Error = common.ServerError(err)
