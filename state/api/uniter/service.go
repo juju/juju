@@ -20,21 +20,13 @@ import (
 // Service represents the state of a service.
 type Service struct {
 	st   *State
-	tag  string
+	tag  names.Tag
 	life params.Life
 }
 
 // Name returns the service name.
 func (s *Service) Name() string {
-	return mustParseServiceTag(s.tag).Id()
-}
-
-func mustParseServiceTag(serviceTag string) names.ServiceTag {
-	tag, err := names.ParseServiceTag(serviceTag)
-	if err != nil {
-		panic(err)
-	}
-	return tag
+	return s.tag.Id()
 }
 
 // String returns the service as a string.
@@ -44,7 +36,7 @@ func (s *Service) String() string {
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Service) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.st.caller, uniterFacade, s.tag)
+	return common.Watch(s.st.caller, uniterFacade, s.tag.String())
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to
@@ -52,7 +44,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag}},
+		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
 	err := s.st.call("WatchServiceRelations", args, &results)
 	if err != nil {
@@ -77,7 +69,7 @@ func (s *Service) Life() params.Life {
 // Refresh refreshes the contents of the Service from the underlying
 // state.
 func (s *Service) Refresh() error {
-	life, err := s.st.life(s.tag)
+	life, err := s.st.life(s.tag.String())
 	if err != nil {
 		return err
 	}
@@ -94,7 +86,7 @@ func (s *Service) Refresh() error {
 func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	var results params.StringBoolResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag}},
+		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
 	err := s.st.call("CharmURL", args, &results)
 	if err != nil {
@@ -122,7 +114,7 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 func (s *Service) GetOwnerTag() (string, error) {
 	var result params.StringResult
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag}},
+		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
 	err := s.st.call("GetOwnerTag", args, &result)
 	if err != nil {
