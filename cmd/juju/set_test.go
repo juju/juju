@@ -37,6 +37,8 @@ func (s *SetSuite) SetUpTest(c *gc.C) {
 	setupConfigFile(c, s.dir)
 }
 
+var setTestValue = "a value with spaces\nand newline\nand UTF-8 characters: äöüéàô 😄👍"
+
 func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
 	assertSetSuccess(c, s.dir, s.svc, []string{
 		"username=hello",
@@ -54,7 +56,7 @@ func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
 	assertSetSuccess(c, s.dir, s.svc, []string{
 		"username=@value.txt",
 	}, charm.Settings{
-		"username": "a value with spaces\nand newline",
+		"username": setTestValue,
 		"outlook":  "hello@world.tld",
 	})
 }
@@ -108,7 +110,7 @@ func assertSetFail(c *gc.C, dir string, args []string, err string) {
 func setupValueFile(c *gc.C, dir string) string {
 	ctx := coretesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("value.txt")
-	content := []byte("a value with spaces\nand newline")
+	content := []byte(setTestValue)
 	err := ioutil.WriteFile(path, content, 0666)
 	c.Assert(err, gc.IsNil)
 	return path

@@ -83,19 +83,21 @@ func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
+var setTestValue = "a value with spaces\nand newline\nand UTF-8 characters: äöüéàô 😄👍"
+
 func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	err := s.APIState.Client().ServiceSet("dummy", map[string]string{
 		"title":    "foobar",
-		"username": "user name",
+		"username": setTestValue,
 	})
 	c.Assert(err, gc.IsNil)
 	settings, err := dummy.ConfigSettings()
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "foobar",
-		"username": "user name",
+		"username": setTestValue,
 	})
 
 	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
