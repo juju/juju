@@ -13,33 +13,43 @@ import (
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/network"
 	apinetworker "github.com/juju/juju/state/api/networker"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.networker")
 
-// Networker ensures the minimum number of units for services is respected.
+// Networker configures network interfaces on the machine, as needed.
 type Networker struct {
 	st  *apinetworker.State
 	tag string
 }
 
-// Ifternal struct to store information required to setup networks.
-type SetupInfo struct {
+// Internal struct to store information required to setup networks.
+type setupInfo struct {
 	// The current contents of '/etc/network/interfaces' file.
 	ifxData []byte
 
 	// The result of net.Interfaces() call.
-	ifxs []net.Interface
+	ifaces []net.Interface
 
 	// The result of MachineNetworkInfo API call.
 	networks []network.Info
 
 	// Generated list of commands to execute.
 	commands []string
+}
+
+// nopCaller implements base.Caller and never calls the API.
+// Once we can watch networks, drop this.
+type nopCaller struct{}
+
+func (c *nopCaller) Call(_, _, _ string, _, _ interface{}) error {
+	return nil
 }
 
 // NewNetworker returns a Worker that handles machine networking configuration.
@@ -52,9 +62,9 @@ func NewNetworker(st *apinetworker.State, agentConfig agent.Config) worker.Worke
 }
 
 func (nw *Networker) SetUp() (watcher.StringsWatcher, error) {
-	s := &SetupInfo{}
+	s := &setupInfo{}
 	var err error
-	s.ifxs, err = net.Interfaces()
+	s.ifaces, err = net.Interfaces()
 	if err != nil {
 		logger.Errorf("failed to get OS interfaces: %v", err)
 		return nil, err
@@ -73,9 +83,9 @@ func (nw *Networker) SetUp() (watcher.StringsWatcher, error) {
 		return nil, err
 	}
 
-	// Verify that eth0 interfaces is properly configured and brought up in cloud-init.
+	// Verify that eth0 interfaces is properly configured and brought up.
 	if !s.interfaceIsConfigured("eth0") || !s.interfaceHasAddress("eth0") {
-		return nil, fmt.Errorf("interface eth0 has to be configured and bring up in cloud-init")
+		return nil, fmt.Errorf("interface eth0 has to be configured and bring up")
 	}
 
 	// Generate a list of commands to configure networks.
@@ -90,33 +100,25 @@ func (nw *Networker) SetUp() (watcher.StringsWatcher, error) {
 		result, err := exec.RunCommands(exec.RunParams{
 			Commands:    command,
 			WorkingDir:  "/",
-			Environment: nil,
 		})
 		if err != nil {
 			err := fmt.Errorf("failed to execute %q: %v", command, err)
-			logger.Errorf("%v", err)
+			logger.Errorf("%s", err.Error())
 			return nil, err
 		}
 		if result.Code != 0 {
-			err := fmt.Errorf("command %q failed with the status %d", command, result.Code)
-			logger.Errorf("%v", err)
-			logger.Errorf("stdout: %v", result.Stdout)
-			logger.Errorf("stderr: %v", result.Stderr)
+			err := fmt.Errorf("command %q failed (code: %d, stdout: %v, stderr: %v)",
+				command, result.Code, result.Stdout, result.Stderr)
+			logger.Errorf("%s", err.Error())
 			return nil, err
 		}
 	}
-	return watcher.WatchNetworks(), nil
+	return watcher.NewStringsWatcher(&nopCaller{}, params.StringsWatchResult{}), nil
 }
 
-// The options specified are to prevent any kind of prompting.
-//  * --assume-yes answers yes to any yes/no question in apt-get;
-//  * the --force-confold option is passed to dpkg, and tells dpkg
-//    to always keep old configuration files in the face of change.
-const aptget = "apt-get --option Dpkg::Options::=--force-confold --assume-yes "
-
-func (s *SetupInfo) ensureVLANModule() {
+func (s *setupInfo) ensureVLANModule() {
 	commands := []string{
-		`dpkg-query -s vlan || "+aptget+"install vlan`,
+		`dpkg-query -s vlan || `+sshinit.Aptget+` install vlan`,
 		`lsmod | grep -q 8021q || modprobe 8021q`,
 		`grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'`,
 		`vconfig set_name_type DEV_PLUS_VID_NO_PAD`,
@@ -124,7 +126,7 @@ func (s *SetupInfo) ensureVLANModule() {
 	s.commands = append(s.commands, commands...)
 }
 
-func (s *SetupInfo) configureInterfaces() {
+func (s *setupInfo) configureInterfaces() {
 	for _, network := range s.networks {
 		name := network.ActualInterfaceName()
 		if name != "eth0" && !s.interfaceIsConfigured(name) {
@@ -134,7 +136,7 @@ func (s *SetupInfo) configureInterfaces() {
 	}
 }
 
-func (s *SetupInfo) bringUpInterfaces() {
+func (s *setupInfo) bringUpInterfaces() {
 	for _, network := range s.networks {
 		name := network.ActualInterfaceName()
 		if name != "eth0" && !s.interfaceIsUp(name) {
@@ -144,7 +146,7 @@ func (s *SetupInfo) bringUpInterfaces() {
 	}
 }
 
-func (s *SetupInfo) interfaceIsConfigured(name string) bool {
+func (s *setupInfo) interfaceIsConfigured(name string) bool {
 	var substr string
 	if name == "eth0" {
 		substr = fmt.Sprintf("\nauto %s\nsource /etc/network/%s.config\n", name, name)
@@ -154,19 +156,19 @@ func (s *SetupInfo) interfaceIsConfigured(name string) bool {
 	return strings.Contains(string(s.ifxData), substr)
 }
 
-func (s *SetupInfo) interfaceIsUp(name string) bool {
-	for _, ifx := range s.ifxs {
-		if ifx.Name == name {
-			return (ifx.Flags & net.FlagUp) != 0
+func (s *setupInfo) interfaceIsUp(name string) bool {
+	for _, iface := range s.ifaces {
+		if iface.Name == name {
+			return (iface.Flags & net.FlagUp) != 0
 		}
 	}
 	return false
 }
 
-func (s *SetupInfo) interfaceHasAddress(name string) bool {
-	for _, ifx := range s.ifxs {
-		if ifx.Name == name {
-			addrs, err := ifx.Addrs()
+func (s *setupInfo) interfaceHasAddress(name string) bool {
+	for _, iface := range s.ifaces {
+		if iface.Name == name {
+			addrs, err := iface.Addrs()
 			if err != nil {
 				return false
 			}
