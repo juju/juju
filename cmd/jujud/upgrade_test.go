@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/apt"
@@ -15,7 +16,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 )
 
@@ -23,8 +26,8 @@ type UpgradeSuite struct {
 	commonMachineSuite
 
 	aptCmds          []*exec.Cmd
-	machine          *state.Machine
-	oldConfig        agent.Config
+	machine0         *state.Machine
+	machine0Config   agent.Config
 	upgradeToVersion version.Binary
 }
 
@@ -63,6 +66,61 @@ func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 	// Now run the test.
 	s.assertUpgradeSteps(c, state.JobHostUnits)
 	s.assertHostUpgrades(c)
+}
+
+func (s *UpgradeSuite) TestClientLoginsOnlyDuringUpgrade(c *gc.C) {
+	// Override the main upgrade entry point so that the test can
+	// control when upgrades start and finish.
+	upgradeCh := make(chan bool)
+	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
+		upgradeCh <- true // signal that upgrade has started
+		<-upgradeCh       // wait for signal that upgrades should finish
+		return nil
+	}
+	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+
+	stopFunc := s.createAgentAndStartUpgrade(c, state.JobManageEnviron)
+	defer func() {
+		// stopFunc won't complete unless the upgrade is done
+		select {
+		case <-upgradeCh:
+			break
+		default:
+			close(upgradeCh)
+		}
+		stopFunc()
+	}()
+
+	// Set up a second machine to log in as.
+	// API logins are tested manually so there's no need to actually
+	// start this machine.
+	var machine1Config agent.Config
+	_, machine1Config, _ = s.primeAgent(c, version.Current, state.JobHostUnits)
+
+	c.Assert(waitForUpgradeToStart(upgradeCh), gc.Equals, true)
+
+	// Only user and local logins are allowed during upgrade
+	c.Assert(s.canLoginToAPIAsUser(c), gc.Equals, true)
+	c.Assert(s.canLoginToAPIAsMachine(c, s.machine0Config), gc.Equals, true)
+	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, false)
+
+	close(upgradeCh) // Allow upgrade to complete
+
+	s.waitForUpgradeToFinish(c)
+
+	// All user and machine logins are allowed after upgrade
+	c.Assert(s.canLoginToAPIAsUser(c), gc.Equals, true)
+	c.Assert(s.canLoginToAPIAsMachine(c, s.machine0Config), gc.Equals, true)
+	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, true)
+}
+
+func waitForUpgradeToStart(upgradeCh chan bool) bool {
+	select {
+	case <-upgradeCh:
+		return true
+	case <-time.After(30 * time.Second):
+		return false
+	}
 }
 
 func (s *UpgradeSuite) assertUpgradeSteps(c *gc.C, job state.MachineJob) {
@@ -123,9 +181,9 @@ func (s *UpgradeSuite) createAgentAndStartUpgrade(c *gc.C, job state.MachineJob)
 	oldVersion := s.upgradeToVersion
 	oldVersion.Major = 1
 	oldVersion.Minor = 16
-	s.machine, s.oldConfig, _ = s.primeAgent(c, oldVersion, job)
+	s.machine0, s.machine0Config, _ = s.primeAgent(c, oldVersion, job)
 
-	a := s.newAgent(c, s.machine)
+	a := s.newAgent(c, s.machine0)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	return func() { c.Check(a.Stop(), gc.IsNil) }
 }
@@ -133,13 +191,42 @@ func (s *UpgradeSuite) createAgentAndStartUpgrade(c *gc.C, job state.MachineJob)
 func (s *UpgradeSuite) waitForUpgradeToFinish(c *gc.C) {
 	success := false
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		conf, err := agent.ReadConfig(agent.ConfigPath(s.oldConfig.DataDir(), s.machine.Tag()))
+		conf, err := agent.ReadConfig(agent.ConfigPath(
+			s.machine0Config.DataDir(),
+			s.machine0.Tag().String(),
+		))
 		c.Assert(err, gc.IsNil)
 		success = conf.UpgradedToVersion() == s.upgradeToVersion.Number
 		if success {
 			break
 		}
 	}
-	// Upgrade worker has completed ok.
 	c.Assert(success, jc.IsTrue)
+}
+
+func (s *UpgradeSuite) canLoginToAPIAsUser(c *gc.C) bool {
+	info := s.machine0Config.APIInfo()
+	defaultInfo := s.APIInfo(c)
+	info.Tag = defaultInfo.Tag
+	info.Password = defaultInfo.Password
+	info.Nonce = ""
+	return s.canLoginToAPI(info)
+}
+
+func (s *UpgradeSuite) canLoginToAPIAsMachine(c *gc.C, config agent.Config) bool {
+	// Ensure logins are always to the API server (machine-0)
+	info := config.APIInfo()
+	info.Addrs = s.machine0Config.APIInfo().Addrs
+	return s.canLoginToAPI(info)
+}
+
+var upgradeTestDialOpts = api.DialOpts{
+	DialAddressInterval: 50 * time.Millisecond,
+	Timeout:             1 * time.Minute,
+	RetryDelay:          250 * time.Millisecond,
+}
+
+func (s *UpgradeSuite) canLoginToAPI(info *api.Info) (out bool) {
+	apiState, err := api.Open(info, upgradeTestDialOpts)
+	return apiState != nil && err == nil
 }
