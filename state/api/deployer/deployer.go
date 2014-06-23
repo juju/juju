@@ -4,6 +4,8 @@
 package deployer
 
 import (
+	"github.com/juju/names"	
+
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/common"
 	"github.com/juju/juju/state/api/params"
@@ -50,7 +52,11 @@ func (st *State) Unit(tag string) (*Unit, error) {
 }
 
 // Machine returns the machine with the given tag.
-func (st *State) Machine(tag string) (*Machine, error) {
+func (st *State) Machine(machineTag string) (*Machine, error) {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return nil, err
+	}
 	return &Machine{
 		tag: tag,
 		st:  st,
