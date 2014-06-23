@@ -219,6 +219,7 @@ var commandNames = []string{
 	"remove-service",  // alias for destroy-service
 	"remove-unit",     // alias for destroy-unit
 	"resolved",
+	"restore",
 	"retry-provisioning",
 	"run",
 	"scp",
