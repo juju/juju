@@ -21,21 +21,23 @@ const (
 	JujuContainerTypeEnvKey = "JUJU_CONTAINER_TYPE"
 )
 
+type osVarType int
+
 const (
-	tmpDir  = "TmpDir"
-	logDir  = "LogDir"
-	dataDir = "DataDir"
-	jujuRun = "JujuRun"
+	tmpDir osVarType = iota
+	logDir
+	dataDir
+	jujuRun
 )
 
-var linuxVals = map[string]string{
+var linuxVals = map[osVarType]string{
 	tmpDir:  "/tmp",
 	logDir:  "/var/log",
 	dataDir: "/var/lib/juju",
 	jujuRun: "/usr/local/bin/juju-run",
 }
 
-var winVals = map[string]string{
+var winVals = map[osVarType]string{
 	tmpDir:  "C:/Juju/tmp",
 	logDir:  "C:/Juju/log",
 	dataDir: "C:/Juju/lib/juju",
@@ -45,7 +47,7 @@ var winVals = map[string]string{
 // osVal will lookup the value of the key valname
 // in the apropriate map, based on the series. This will
 // help reduce boilerplate code
-func osVal(series, valname string) (string, error) {
+func osVal(series string, valname osVarType) (string, error) {
 	os, err := version.GetOSFromSeries(series)
 	if err != nil {
 		return "", err
