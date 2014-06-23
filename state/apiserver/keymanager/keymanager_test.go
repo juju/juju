@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -36,7 +37,7 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag:      "user-admin",
+		Tag:      names.NewUserTag("admin"),
 		LoggedIn: true,
 		Client:   true,
 	}
@@ -140,7 +141,7 @@ func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Client = false
 	anAuthoriser.EnvironManager = true
-	anAuthoriser.Tag = "machine-0"
+	anAuthoriser.Tag = names.NewMachineTag("0")
 	var err error
 	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(err, gc.IsNil)
@@ -168,7 +169,7 @@ func (s *keyManagerSuite) TestAddJujuSystemKeyNotMachine(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Client = false
 	anAuthoriser.EnvironManager = true
-	anAuthoriser.Tag = "unit-wordpress-0"
+	anAuthoriser.Tag = names.NewUnitTag("wordpress/0")
 	var err error
 	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(err, gc.IsNil)

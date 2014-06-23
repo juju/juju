@@ -181,7 +181,7 @@ func (s *withoutStateServerSuite) TestLifeAsMachineAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
 	anAuthorizer.EnvironManager = false
-	anAuthorizer.Tag = s.machines[0].Tag().String()
+	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -385,7 +385,7 @@ func (s *withoutStateServerSuite) TestMachinesWithTransientErrorsPermission(c *g
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
 	anAuthorizer.EnvironManager = false
-	anAuthorizer.Tag = "machine-1"
+	anAuthorizer.Tag = names.NewMachineTag("1")
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
 	err = s.machines[0].SetStatus(params.StatusStarted, "blah", nil)
@@ -699,7 +699,7 @@ func (s *withoutStateServerSuite) TestDistributionGroupEnvironManagerAuth(c *gc.
 
 func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "machine-1"
+	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.EnvironManager = false
 	anAuthorizer.MachineAgent = true
 	provisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
@@ -773,7 +773,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
 	anAuthorizer.EnvironManager = false
-	anAuthorizer.Tag = s.machines[0].Tag().String()
+	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)
 	c.Assert(aProvisioner, gc.NotNil)
@@ -1169,7 +1169,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 
 func (s *withoutStateServerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "machine-12354"
+	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anAuthorizer.EnvironManager = false
 	anAuthorizer.MachineAgent = true
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
@@ -1241,7 +1241,7 @@ func (s *withoutStateServerSuite) TestSetSupportedContainersPermissions(c *gc.C)
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = true
 	anAuthorizer.EnvironManager = false
-	anAuthorizer.Tag = s.machines[0].Tag().String()
+	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)
 	c.Assert(aProvisioner, gc.NotNil)

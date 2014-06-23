@@ -5,6 +5,7 @@ package upgrader_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -53,7 +54,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as the unit agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:       s.rawUnit.Tag().String(),
+		Tag:       s.rawUnit.Tag(),
 		LoggedIn:  true,
 		UnitAgent: true,
 	}
@@ -111,7 +112,7 @@ func (s *unitUpgraderSuite) TestUpgraderAPIRefusesNonUnitAgent(c *gc.C) {
 func (s *unitUpgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a unit agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "unit-wordpress-12354"
+	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
@@ -134,7 +135,7 @@ func (s *unitUpgraderSuite) TestToolsNothing(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "unit-wordpress-12354"
+	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
@@ -179,7 +180,7 @@ func (s *unitUpgraderSuite) TestSetToolsNothing(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "unit-wordpress-12354"
+	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.EntitiesVersion{
@@ -236,7 +237,7 @@ func (s *unitUpgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 
 func (s *unitUpgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "unit-wordpress-12354"
+	anAuthorizer.Tag = names.NewUnitTag("wordpress/12354")
 	anUpgrader, err := upgrader.NewUnitUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{

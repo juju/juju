@@ -42,7 +42,7 @@ func NewNetworkerAPI(
 		authEntityTag := authorizer.GetAuthTag()
 
 		return func(tag string) bool {
-			if tag == authEntityTag {
+			if tag == authEntityTag.String() {
 				// A machine agent can always access its own machine.
 				return true
 			}
@@ -54,7 +54,7 @@ func NewNetworkerAPI(
 			id := t.Id()
 			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
 				// Until a top-level machine is reached.
-				if names.NewMachineTag(parentId).String() == authEntityTag {
+				if names.NewMachineTag(parentId) == authEntityTag {
 					// All containers with the authenticated machine as a
 					// parent are accessible by it.
 					return true

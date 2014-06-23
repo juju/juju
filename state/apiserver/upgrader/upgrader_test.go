@@ -5,6 +5,7 @@ package upgrader_test
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -49,7 +50,7 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          s.rawMachine.Tag().String(),
+		Tag:          s.rawMachine.Tag(),
 		LoggedIn:     true,
 		MachineAgent: true,
 	}
@@ -107,7 +108,7 @@ func (s *upgraderSuite) TestUpgraderAPIRefusesNonMachineAgent(c *gc.C) {
 func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a machine agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "machine-12354"
+	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
@@ -130,7 +131,7 @@ func (s *upgraderSuite) TestToolsNothing(c *gc.C) {
 
 func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "machine-12354"
+	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
@@ -184,7 +185,7 @@ func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {
 
 func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "machine-12354"
+	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.EntitiesVersion{
@@ -241,7 +242,7 @@ func (s *upgraderSuite) TestDesiredVersionNothing(c *gc.C) {
 
 func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.Tag = "machine-12354"
+	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
@@ -305,7 +306,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	newVersion := s.bumpDesiredAgentVersion(c)
 	// Grab a different Upgrader for the apiMachine
 	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:          s.apiMachine.Tag().String(),
+		Tag:          s.apiMachine.Tag(),
 		LoggedIn:     true,
 		MachineAgent: true,
 	}
