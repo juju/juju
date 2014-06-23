@@ -4,6 +4,8 @@
 package machiner
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/common"
 	"github.com/juju/juju/state/api/params"
@@ -12,14 +14,14 @@ import (
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	tag  string
+	tag  names.Tag
 	life params.Life
 	st   *State
 }
 
 // Tag returns the machine's tag.
 func (m *Machine) Tag() string {
-	return m.tag
+	return m.tag.String()
 }
 
 // Life returns the machine's lifecycle value.
@@ -29,7 +31,8 @@ func (m *Machine) Life() params.Life {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	life, err := m.st.machineLife(m.tag)
+	// TODO(dfc) machineLife should take a tag.
+	life, err := m.st.machineLife(m.tag.String())
 	if err != nil {
 		return err
 	}
@@ -42,7 +45,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{Tag: m.tag, Status: status, Info: info, Data: data},
+			{Tag: m.tag.String(), Status: status, Info: info, Data: data},
 		},
 	}
 	err := m.st.call("SetStatus", args, &result)
@@ -72,7 +75,7 @@ func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
 func (m *Machine) EnsureDead() error {
 	var result params.ErrorResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.call("EnsureDead", args, &result)
 	if err != nil {
@@ -83,5 +86,5 @@ func (m *Machine) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the machine.
 func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(m.st.caller, machinerFacade, m.tag)
+	return common.Watch(m.st.caller, machinerFacade, m.tag.String())
 }
