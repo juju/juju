@@ -4,7 +4,7 @@
 package deployer
 
 import (
-	"github.com/juju/names"	
+	"github.com/juju/names"
 
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/common"
@@ -39,8 +39,12 @@ func (st *State) unitLife(tag string) (params.Life, error) {
 }
 
 // Unit returns the unit with the given tag.
-func (st *State) Unit(tag string) (*Unit, error) {
-	life, err := st.unitLife(tag)
+func (st *State) Unit(unitTag string) (*Unit, error) {
+	life, err := st.unitLife(unitTag)
+	if err != nil {
+		return nil, err
+	}
+	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
 		return nil, err
 	}
