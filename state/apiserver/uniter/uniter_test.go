@@ -172,6 +172,9 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 		{Tag: "service-mysql"},
 		{Tag: "service-wordpress"},
 		{Tag: "service-foo"},
+		// TODO(dfc) these aren't valid tags any more
+		// but I hope to restore this test when params.Entity takes
+		// tags, not strings, which is coming soon.
 		// {Tag: "just-foo"},
 		{Tag: rel.Tag().String()},
 		{Tag: "relation-svc1.rel1#svc2.rel2"},
@@ -187,6 +190,7 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Life: "dying"},
 			{Error: apiservertesting.ErrUnauthorized},
+			// TODO(dfc) see above
 			// {Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -267,6 +271,9 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 		{Tag: "service-mysql"},
 		{Tag: "service-wordpress"},
 		{Tag: "service-foo"},
+		// TODO(dfc) these aren't valid tags any more
+		// but I hope to restore this test when params.Entity takes
+		// tags, not strings, which is coming soon.
 		// {Tag: "just-foo"},
 	}}
 	result, err := s.uniter.Watch(args)
@@ -279,6 +286,7 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{NotifyWatcherId: "2"},
 			{Error: apiservertesting.ErrUnauthorized},
+			// see above
 			// {Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -595,6 +603,9 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 		{Tag: "service-mysql"},
 		{Tag: "service-wordpress"},
 		{Tag: "service-foo"},
+		// TODO(dfc) these aren't valid tags any more
+		// but I hope to restore this test when params.Entity takes
+		// tags, not strings, which is coming soon.
 		// {Tag: "just-foo"},
 	}}
 	result, err := s.uniter.CharmURL(args)
@@ -607,6 +618,7 @@ func (s *uniterSuite) TestCharmURL(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: s.wpCharm.String(), Ok: force},
 			{Error: apiservertesting.ErrUnauthorized},
+			// see above
 			// {Error: apiservertesting.ErrUnauthorized},
 		},
 	})

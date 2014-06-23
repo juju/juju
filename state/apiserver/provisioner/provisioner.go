@@ -71,7 +71,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 			}
 			// All containers with the authenticated machine as a
 			// parent are accessible by it.
-			// TODO(dfc) sometimes authEntity tag is nil, which is fine because nil is 
+			// TODO(dfc) sometimes authEntity tag is nil, which is fine because nil is
 			// only equal to nil, but it suggests someone is passing an authorizer
 			// with a nil tag.
 			return isMachineAgent && names.NewMachineTag(parentId) == authEntityTag
