@@ -872,8 +872,7 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 	}{{
 		description: "A simple action.",
 		action: params.Action{
-			Name:  "snapshot",
-			Error: nil,
+			Name: "snapshot",
 			Params: map[string]interface{}{
 				"outfile": "foo.txt",
 			},
@@ -881,8 +880,7 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 	}, {
 		description: "An action with nested parameters.",
 		action: params.Action{
-			Name:  "backup",
-			Error: nil,
+			Name: "backup",
 			Params: map[string]interface{}{
 				"outfile": "foo.bz2",
 				"compression": map[string]interface{}{
@@ -901,18 +899,53 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 			actionTest.action.Params)
 		c.Assert(err, gc.IsNil)
 
-		args := params.ActionQuery{Id: actionId}
-		result, err := s.uniter.Action(args)
+		args := params.ActionsQuery{
+			ActionQueries: []params.ActionQuery{{
+				Id:     actionId,
+				UnitId: s.wordpressUnit.Tag().String(),
+			}},
+		}
+		results, err := s.uniter.Actions(args)
 		c.Assert(err, gc.IsNil)
-		c.Assert(result, gc.DeepEquals, actionTest.action)
+		c.Assert(len(results.ActionsQueryResults), gc.Equals, 1)
+
+		actionsQueryResult := results.ActionsQueryResults[0]
+
+		c.Assert(actionsQueryResult.Error, gc.IsNil)
+		c.Assert(actionsQueryResult.Action, gc.DeepEquals, &actionTest.action)
 	}
 }
 
 func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
-	args := params.ActionQuery{Id: "foo"}
-	result, err := s.uniter.Action(args)
+	args := params.ActionsQuery{
+		ActionQueries: []params.ActionQuery{{
+			Id:     "foo",
+			UnitId: s.wordpressUnit.Tag().String(),
+		}},
+	}
+	results, err := s.uniter.Actions(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result.Error.Message, gc.Equals, "action \"foo\" not found")
+
+	c.Assert(len(results.ActionsQueryResults), gc.Equals, 1)
+	actionsQueryResult := results.ActionsQueryResults[0]
+	c.Assert(actionsQueryResult.Error, gc.NotNil)
+	c.Assert(actionsQueryResult.Error.Message, gc.Equals, "action \"foo\" not found")
+}
+
+func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
+	args := params.ActionsQuery{
+		ActionQueries: []params.ActionQuery{{
+			Id:     "foo",
+			UnitId: s.mysqlUnit.Tag().String(),
+		}},
+	}
+	results, err := s.uniter.Actions(args)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(len(results.ActionsQueryResults), gc.Equals, 1)
+	actionsQueryResult := results.ActionsQueryResults[0]
+	c.Assert(actionsQueryResult.Error, gc.NotNil)
+	c.Assert(actionsQueryResult.Error.Message, gc.Equals, "permission denied")
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {

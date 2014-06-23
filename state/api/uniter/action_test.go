@@ -35,8 +35,7 @@ func (s *actionSuite) TestAction(c *gc.C) {
 			Params: map[string]interface{}{
 				"outfile": "foo.bz2",
 				"compression": map[string]interface{}{
-					"kind": "bzip",
-					// BUG(?): this fails with int quality
+					"kind":    "bzip",
 					"quality": float64(5.0),
 				},
 			},

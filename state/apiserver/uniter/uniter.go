@@ -681,19 +681,47 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 	return result, nil
 }
 
-func (u *UniterAPI) Action(args params.ActionQuery) (params.Action, error) {
-	result := params.Action{}
-	resultAction, err := u.st.Action(args.Id)
-	if err == nil {
-		result.Name = resultAction.Name()
-		result.Params = make(map[string]interface{})
-		for key, payloadItem := range resultAction.Payload() {
-			result.Params[key] = payloadItem
-		}
+// getOneAction retrieves a single Action by id.
+func (u *UniterAPI) getOneAction(canAccess common.AuthFunc, actionId string, unitTag string) (params.ActionsQueryResult, error) {
+	nothing := params.ActionsQueryResult{}
+
+	action, err := u.st.Action(actionId)
+	if !canAccess(unitTag) {
+		return nothing, common.ErrPerm
+	} else if err != nil {
+		return nothing, err
 	}
-	result.Error = common.ServerError(err)
+
+	result := params.ActionsQueryResult{
+		Error: nil,
+		Action: &params.Action{
+			Name:   action.Name(),
+			Params: action.Payload(),
+		},
+	}
 
 	return result, nil
+}
+
+func (u *UniterAPI) Actions(args params.ActionsQuery) (params.ActionsQueryResults, error) {
+	results := params.ActionsQueryResults{
+		ActionsQueryResults: make([]params.ActionsQueryResult, len(args.ActionQueries)),
+	}
+
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ActionsQueryResults{}, err
+	}
+
+	for i, actionQuery := range args.ActionQueries {
+		actionQueryResult, err := u.getOneAction(canAccess, actionQuery.Id, actionQuery.UnitId)
+		if err == nil {
+			results.ActionsQueryResults[i] = actionQueryResult
+		}
+		results.ActionsQueryResults[i].Error = common.ServerError(err)
+	}
+
+	return results, nil
 }
 
 // RelationById returns information about all given relations,

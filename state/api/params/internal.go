@@ -247,15 +247,31 @@ type RelationResults struct {
 	Results []RelationResult
 }
 
-type ActionQuery struct {
-	Id string
+// ActionsQuery holds the necessary info to query the API for multiple Actions.
+type ActionsQuery struct {
+	ActionQueries []ActionQuery `json:"actionqueries"`
 }
 
-// Action holds the name and parameters of an Action call.
+type ActionQuery struct {
+	Id     string `json:"actionquery-id"`
+	UnitId string `json:"actionquery-unitid"`
+}
+
+// ActionResults holds a slice of responses from the Actions query.
+type ActionsQueryResults struct {
+	ActionsQueryResults []ActionsQueryResult `json:"actionresults,omitempty"`
+}
+
+// Action holds the name and parameters of an Actions query.
+type ActionsQueryResult struct {
+	Error  *Error  `json:"actionresult-error,omitempty"`
+	Action *Action `json:"actionresult-result,omitempty"`
+}
+
+// Action holds the actual name and parameters of an Action.
 type Action struct {
-	Error  *Error
-	Name   string
-	Params map[string]interface{}
+	Name   string                 `json:"action-name,omitempty"`
+	Params map[string]interface{} `json:"action-params,omitempty"`
 }
 
 // EntityPort holds an entity's tag, a protocol and a port.

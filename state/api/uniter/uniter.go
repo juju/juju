@@ -67,21 +67,30 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 	return result.Results[0], nil
 }
 
-// action requests action information from the server.
-func (st *State) action(id string) (params.Action, error) {
-	nothing := params.Action{}
-	var result params.Action
-	args := params.ActionQuery{
-		Id: id,
+// getOneAction retrieves a single Action from the state server.
+func (st *State) getOneAction(id string, unitId string) (params.ActionsQueryResult, error) {
+	nothing := params.ActionsQueryResult{}
+	var results params.ActionsQueryResults
+	args := params.ActionsQuery{
+		ActionQueries: []params.ActionQuery{
+			{Id: id, UnitId: unitId},
+		},
 	}
-	err := st.call("Action", args, &result)
+	err := st.call("Actions", args, &results)
 	if err != nil {
 		return nothing, err
 	}
+
+	if len(results.ActionsQueryResults) > 1 {
+		return nothing, fmt.Errorf("expected only 1 action query result, got %d", len(results.ActionsQueryResults))
+	}
+
 	// handle server errors
+	result := results.ActionsQueryResults[0]
 	if err := result.Error; err != nil {
 		return nothing, err
 	}
+
 	return result, nil
 }
 
@@ -167,13 +176,13 @@ func (st *State) Relation(relationTag string) (*Relation, error) {
 
 // Action returns the Action with the given tag.
 func (st *State) Action(id string) (*Action, error) {
-	result, err := st.action(id)
+	result, err := st.getOneAction(id, st.unitTag)
 	if err != nil {
 		return nil, err
 	}
 	return &Action{
-		name:   result.Name,
-		params: result.Params,
+		name:   result.Action.Name,
+		params: result.Action.Params,
 	}, nil
 }
 
