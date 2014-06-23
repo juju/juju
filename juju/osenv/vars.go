@@ -21,18 +21,25 @@ const (
 	JujuContainerTypeEnvKey = "JUJU_CONTAINER_TYPE"
 )
 
+const (
+	tmpDir  = "TmpDir"
+	logDir  = "LogDir"
+	dataDir = "DataDir"
+	jujuRun = "JujuRun"
+)
+
 var linuxVals = map[string]string{
-	"TmpDir":  "/tmp",
-	"LogDir":  "/var/log",
-	"DataDir": "/var/lib/juju",
-	"Jujurun": "/usr/local/bin/juju-run",
+	tmpDir:  "/tmp",
+	logDir:  "/var/log",
+	dataDir: "/var/lib/juju",
+	jujuRun: "/usr/local/bin/juju-run",
 }
 
 var winVals = map[string]string{
-	"TmpDir":  "C:/Juju/tmp",
-	"LogDir":  "C:/Juju/log",
-	"DataDir": "C:/Juju/lib/juju",
-	"JujuRun": "C:/Juju/bin/juju-run",
+	tmpDir:  "C:/Juju/tmp",
+	logDir:  "C:/Juju/log",
+	dataDir: "C:/Juju/lib/juju",
+	jujuRun: "C:/Juju/bin/juju-run",
 }
 
 // osVal will lookup the value of the key valname
@@ -56,25 +63,25 @@ func osVal(series, valname string) (string, error) {
 // for the series. This value will be the same on virtually
 // all linux systems, but will differ on windows
 func TempDir(series string) (string, error) {
-	return osVal(series, "TmpDir")
+	return osVal(series, tmpDir)
 }
 
 // LogDir returns filesystem path the directory where juju may
 // save log files.
 func LogDir(series string) (string, error) {
-	return osVal(series, "LogDir")
+	return osVal(series, logDir)
 }
 
 // DataDir returns a filesystem path to the folder used by juju to
 // store tools, charms, locks, etc
 func DataDir(series string) (string, error) {
-	return osVal(series, "DataDir")
+	return osVal(series, dataDir)
 }
 
 // JujuRun returns the absolute path to the juju-run binary for
 // a particula series
 func JujuRun(series string) (string, error) {
-	return osVal(series, "JujuRun")
+	return osVal(series, jujuRun)
 }
 
 func MustSucceed(s string, e error) string {
