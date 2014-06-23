@@ -737,7 +737,7 @@ func (s *localServerSuite) TestFindImageInvalidInstanceConstraint(c *gc.C) {
 
 	env := s.Open(c)
 	_, err := openstack.FindInstanceSpec(env, "precise", "amd64", "instance-type=m1.large")
-	c.Assert(err, gc.ErrorMatches, `invalid instance type "m1.large"`)
+	c.Assert(err, gc.ErrorMatches, `no instance types in some-region matching constraints "instance-type=m1.large"`)
 }
 
 func (s *localServerSuite) TestPrecheckInstanceValidInstanceType(c *gc.C) {
