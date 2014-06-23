@@ -51,9 +51,9 @@ func osVal(series, valname string) (string, error) {
 		return "", err
 	}
 	switch os {
-	case "windows":
+	case version.Windows:
 		return winVals[valname], nil
-	case "ubuntu":
+	case version.Ubuntu:
 		return linuxVals[valname], nil
 	}
 	return "", fmt.Errorf("Unknown OS: %q", os)

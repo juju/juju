@@ -12,6 +12,14 @@ import (
 	"sync"
 )
 
+type OSType int
+
+const (
+	Unknown OSType = iota
+	Ubuntu
+	Windows
+)
+
 // seriesVersions provides a mapping between Ubuntu series names and version numbers.
 // The values here are current as of the time of writing. On Ubuntu systems, we update
 // these values from /usr/share/distro-info/ubuntu.csv to ensure we have the latest values.
@@ -54,19 +62,19 @@ var windowsVersions = map[string]string{
 
 // GetOSFromSeries will return the operating system based
 // on the series that is passed to it
-func GetOSFromSeries(series string) (string, error) {
+func GetOSFromSeries(series string) (OSType, error) {
 	for _, val := range ubuntuSeries {
 		if val == series {
-			return "ubuntu", nil
+			return Ubuntu, nil
 		}
 	}
 	for _, val := range windowsVersions {
 		if val == series {
-			return "windows", nil
+			return Windows, nil
 		}
 	}
 
-	return "", fmt.Errorf("invalid series %q", series)
+	return Unknown, fmt.Errorf("invalid series %q", series)
 }
 
 var (
