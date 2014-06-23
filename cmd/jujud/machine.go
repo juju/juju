@@ -26,7 +26,7 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -71,7 +71,7 @@ type eitherState interface{}
 
 var (
 	retryDelay      = 3 * time.Second
-	jujuRun         = osenv.MustSucceed(osenv.JujuRun(version.Current.Series))
+	jujuRun         = paths.MustSucceed(paths.JujuRun(version.Current.Series))
 	useMultipleCPUs = utils.UseMultipleCPUs
 
 	// The following are defined as variables to

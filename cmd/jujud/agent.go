@@ -18,7 +18,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -34,7 +34,7 @@ import (
 )
 
 var apiOpen = api.Open
-var dataDir = osenv.MustSucceed(osenv.DataDir(version.Current.Series))
+var dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
 
 // requiredError is useful when complaining about missing command-line options.
 func requiredError(name string) error {

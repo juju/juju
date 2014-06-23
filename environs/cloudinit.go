@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -32,7 +32,7 @@ var DataDir = agent.DefaultDataDir
 
 // logDir returns a filesystem path to the location where applications
 // may create a folder containing logs
-var logDir = osenv.MustSucceed(osenv.LogDir(version.Current.Series))
+var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
 
 // CloudInitOutputLog is the default cloud-init-output.log file path.
 var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
