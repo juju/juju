@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -49,6 +50,7 @@ type srvRoot struct {
 	rpcConn     *rpc.Conn
 	resources   *common.Resources
 	entity      taggedAuthenticator
+	objectMutex sync.RWMutex
 	objectCache map[objectKey]reflect.Value
 }
 
@@ -136,9 +138,19 @@ func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (r
 	}
 	creator := func(id string) (reflect.Value, error) {
 		objKey := objectKey{name: rootName, version: version, objId: id}
-		if obj, ok := r.objectCache[objKey]; ok {
-			return obj, nil
+		r.objectMutex.RLock()
+		objValue, ok := r.objectCache[objKey]
+		r.objectMutex.RUnlock()
+		if ok {
+			return objValue, nil
 		}
+		r.objectMutex.Lock()
+		defer r.objectMutex.Unlock()
+		if objValue, ok := r.objectCache[objKey]; ok {
+			return objValue, nil
+		}
+		// Now that we have the write lock, check one more time in case
+		// someone got the write lock before us.
 		factory, err := common.Facades.GetFactory(rootName, version)
 		if err != nil {
 			// We don't check for IsNotFound here, because it
@@ -150,7 +162,7 @@ func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (r
 		if err != nil {
 			return reflect.Value{}, err
 		}
-		objValue := reflect.ValueOf(obj)
+		objValue = reflect.ValueOf(obj)
 		if !objValue.Type().AssignableTo(goType) {
 			return reflect.Value{}, errors.Errorf(
 				"internal error, %s(%d) claimed to return %s but returned %T",
