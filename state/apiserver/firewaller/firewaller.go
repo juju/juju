@@ -10,6 +10,10 @@ import (
 	"github.com/juju/juju/state/apiserver/common"
 )
 
+func init() {
+	common.RegisterStandardFacade("Firewaller", 0, NewFirewallerAPI)
+}
+
 // FirewallerAPI provides access to the Firewaller API facade.
 type FirewallerAPI struct {
 	*common.LifeGetter

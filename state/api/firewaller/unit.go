@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/api/common"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 )
@@ -50,23 +51,7 @@ func (u *Unit) Refresh() error {
 
 // Watch returns a watcher for observing changes to the unit.
 func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag}},
-	}
-	err := u.st.call("Watch", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := watcher.NewNotifyWatcher(u.st.caller, result)
-	return w, nil
+	return common.Watch(u.st.caller, firewallerFacade, u.tag)
 }
 
 // Service returns the service.

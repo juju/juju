@@ -205,8 +205,8 @@ type fakeUnitAgent struct {
 	unitName string
 }
 
-func (f *fakeUnitAgent) Tag() string {
-	return names.NewUnitTag(f.unitName).String()
+func (f *fakeUnitAgent) Tag() names.Tag {
+	return names.NewUnitTag(f.unitName)
 }
 
 func (f *fakeUnitAgent) ChangeConfig(func(agent.ConfigSetter)) error {

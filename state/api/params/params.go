@@ -727,16 +727,25 @@ type APIHostPortsResult struct {
 	Servers [][]network.HostPort
 }
 
+// FacadeVersions describes the available Facades and what versions of each one
+// are available
+type FacadeVersions struct {
+	Name     string
+	Versions []int
+}
+
 // LoginResult holds the result of a Login call.
 type LoginResult struct {
 	Servers        [][]network.HostPort
 	EnvironTag     string
 	LastConnection *time.Time
+	Facades        []FacadeVersions
 }
 
 // StateServersSpec contains arguments for
 // the EnsureAvailability client API call.
 type StateServersSpec struct {
+	EnvironTag      string
 	NumStateServers int               `json:num-state-servers`
 	Constraints     constraints.Value `json:constraints,omitempty`
 	// Series is the series to associate with new state server machines.
@@ -744,7 +753,27 @@ type StateServersSpec struct {
 	Series string `json:series,omitempty`
 }
 
-// StateServersChanges lists the servers
+// StateServersSpecs contains all the arguments
+// for the EnsureAvailability API call.
+type StateServersSpecs struct {
+	Specs []StateServersSpec
+}
+
+// StateServersChangeResult contains the results
+// of a single EnsureAvailability API call or
+// an error.
+type StateServersChangeResult struct {
+	Result StateServersChanges
+	Error  *Error
+}
+
+// StateServersChangeResults contains the results
+// of the EnsureAvailability API call.
+type StateServersChangeResults struct {
+	Results []StateServersChangeResult
+}
+
+// StateServersChange lists the servers
 // that have been added, removed or maintained in the
 // pool as a result of an ensure-availability operation.
 type StateServersChanges struct {
@@ -756,11 +785,11 @@ type StateServersChanges struct {
 }
 
 type UserInfo struct {
-	Username       string    `json:username`
-	DisplayName    string    `json:display-name`
-	CreatedBy      string    `json:created-by`
-	DateCreated    time.Time `json:date-created`
-	LastConnection time.Time `json:last-connection`
+	Username       string     `json:username`
+	DisplayName    string     `json:display-name`
+	CreatedBy      string     `json:created-by`
+	DateCreated    time.Time  `json:date-created`
+	LastConnection *time.Time `json:last-connection`
 }
 
 // UserInfoResult holds the result of a UserInfo call.

@@ -40,6 +40,7 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.Install}, ""},
 	{hook.Info{Kind: hooks.Start}, ""},
 	{hook.Info{Kind: hooks.ConfigChanged}, ""},
+	{hook.Info{Kind: hooks.ActionRequested}, ""},
 	{hook.Info{Kind: hooks.UpgradeCharm}, ""},
 	{hook.Info{Kind: hooks.Stop}, ""},
 	{hook.Info{Kind: hooks.RelationJoined, RemoteUnit: "x"}, ""},

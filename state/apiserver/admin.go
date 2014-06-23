@@ -121,12 +121,13 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 		return params.LoginResult{}, err
 	}
 
-	a.root.rpcConn.Serve(newRoot, serverError)
+	a.root.rpcConn.ServeFinder(newRoot, serverError)
 	lastConnection := getAndUpdateLastConnectionForEntity(entity)
 	return params.LoginResult{
 		Servers:        hostPorts,
 		EnvironTag:     environ.Tag().String(),
 		LastConnection: lastConnection,
+		Facades:        newRoot.DescribeFacades(),
 	}, nil
 }
 
@@ -159,10 +160,7 @@ func getAndUpdateLastConnectionForEntity(entity taggedAuthenticator) *time.Time 
 	if user, ok := entity.(*state.User); ok {
 		result := user.LastConnection()
 		user.UpdateLastConnection()
-		if result.IsZero() {
-			return nil
-		}
-		return &result
+		return result
 	}
 	return nil
 }

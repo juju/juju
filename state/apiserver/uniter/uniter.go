@@ -18,6 +18,10 @@ import (
 	"github.com/juju/juju/state/watcher"
 )
 
+func init() {
+	common.RegisterStandardFacade("Uniter", 0, NewUniterAPI)
+}
+
 // UniterAPI implements the API used by the uniter worker.
 type UniterAPI struct {
 	*common.LifeGetter

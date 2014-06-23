@@ -3549,3 +3549,43 @@ func (s *StateSuite) TestUnitActionsFindsRightActions(c *gc.C) {
 		c.Assert(action.Name(), gc.Matches, "^action2\\..")
 	}
 }
+
+func (s *StateSuite) TestWatchActions(c *gc.C) {
+	svc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	u, err := svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	w := s.State.WatchActions()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// add 3 actions
+	_, err = u.AddAction("fakeaction1", nil)
+	c.Assert(err, gc.IsNil)
+	action2, err := u.AddAction("fakeaction2", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = u.AddAction("fakeaction3", nil)
+	c.Assert(err, gc.IsNil)
+
+	// fail the middle one
+	action, err := s.State.Action(action2)
+	c.Assert(err, gc.IsNil)
+	err = action.Fail("die scum")
+	c.Assert(err, gc.IsNil)
+
+	// expect the first and last one in the watcher
+	expect := expectActionIds(u, "0", "2")
+	wc.AssertChange(expect...)
+	wc.AssertNoChange()
+}
+
+func expectActionIds(u *state.Unit, suffixes ...string) []string {
+	ids := make([]string, len(suffixes))
+	prefix := state.ActionPrefix(u.Tag())
+	for i, suffix := range suffixes {
+		ids[i] = prefix + suffix
+	}
+	return ids
+}
