@@ -524,7 +524,7 @@ func (s *loginSuite) runLoginWithValidator(c *gc.C, validator apiserver.LoginVal
 	defer st.Close()
 
 	// Ensure not already logged in.
-	_, err = st.Machiner().Machine("0")
+	_, err = st.Machiner().Machine("machine-0")
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 	// Since these are user login tests, the nonce is empty.
