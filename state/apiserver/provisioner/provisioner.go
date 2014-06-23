@@ -47,11 +47,11 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 	getAuthFunc := func() (common.AuthFunc, error) {
 		isEnvironManager := authorizer.AuthEnvironManager()
 		isMachineAgent := authorizer.AuthMachineAgent()
-		authEntityTag := authorizer.GetAuthTag().String()
+		authEntityTag := authorizer.GetAuthTag()
 
 		// TODO(dfc) this func should take a Tag
 		return func(tag string) bool {
-			if isMachineAgent && tag == authEntityTag {
+			if isMachineAgent && tag == authEntityTag.String() {
 				// A machine agent can always access its own machine.
 				return true
 			}
@@ -67,7 +67,10 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 			}
 			// All containers with the authenticated machine as a
 			// parent are accessible by it.
-			return isMachineAgent && names.NewMachineTag(parentId).String() == authEntityTag
+			// TODO(dfc) _sometimes authEntity tag is nil, which is fine because nil is 
+			// only equal to nil, but it suggests someone is passing an authorizer
+			// with a nil tag.
+			return isMachineAgent && names.NewMachineTag(parentId) == authEntityTag
 		}, nil
 	}
 	// Both provisioner types can watch the environment.
@@ -147,6 +150,9 @@ func (p *ProvisionerAPI) WatchContainers(args params.WatchContainers) (params.St
 		Results: make([]params.StringsWatchResult, len(args.Params)),
 	}
 	for i, arg := range args.Params {
+		if p == nil {
+			panic("p is nil")
+		}
 		watcherResult, err := p.watchOneMachineContainers(arg)
 		result.Results[i] = watcherResult
 		result.Results[i].Error = common.ServerError(err)
