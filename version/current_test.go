@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"runtime"
 
+    "github.com/juju/juju/version"
 	gc "launchpad.net/gocheck"
 )
 
@@ -15,7 +16,7 @@ type CurrentSuite struct{}
 var _ = gc.Suite(&CurrentSuite{})
 
 func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
-	s := Current.Series
+	s := version.Current.Series
 	if s == "unknown" {
 		s = "n/a"
 	}
