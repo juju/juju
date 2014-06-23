@@ -55,8 +55,8 @@ var windowsVersions = map[string]string{
 // GetOSFromSeries will return the operating system based
 // on the series that is passed to it
 func GetOSFromSeries(series string) (string, error) {
-	for val := range ubuntuSeries {
-		if ubuntuSeries[val] == series {
+	for _, val := range ubuntuSeries {
+		if val == series {
 			return "ubuntu", nil
 		}
 	}
