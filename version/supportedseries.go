@@ -35,7 +35,7 @@ var ubuntuSeries = []string{
 	"utopic",
 }
 
-// WindowsVersions is a mapping consisting of the output from
+// windowsVersions is a mapping consisting of the output from
 // the following WMI query: (gwmi Win32_OperatingSystem).Name
 // Windows versions come in various flavors:
 // Standard, Datacenter, etc. We use regex to match them to one
@@ -43,7 +43,7 @@ var ubuntuSeries = []string{
 // For example, if we have "Win 2012" and "Win 2012 R2". we specify "Win 2012 R2" first
 // TODO: Replace this with actuall full names once we compile a complete
 // list with al flavors
-var WindowsVersions = map[string]string{
+var windowsVersions = map[string]string{
 	"Microsoft Hyper-V Server 2012 R2": "win2012hvr2",
 	"Microsoft Hyper-V Server 2012":    "win2012hv",
 	"Microsoft Windows Server 2012 R2": "win2012r2",
@@ -53,14 +53,14 @@ var WindowsVersions = map[string]string{
 }
 
 // GetOSFromSeries will return the operating system based
-// on the serie that is passed to it
+// on the series that is passed to it
 func GetOSFromSeries(series string) (string, error) {
 	for val := range ubuntuSeries {
 		if ubuntuSeries[val] == series {
 			return "ubuntu", nil
 		}
 	}
-	for _, val := range WindowsVersions {
+	for _, val := range windowsVersions {
 		if val == series {
 			return "windows", nil
 		}
