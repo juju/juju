@@ -14,17 +14,17 @@ import (
 // to call into apiserver.common.EnvironWatcher.
 type EnvironWatcher struct {
 	facadeName string
-	caller     base.Caller
+	caller     base.APICaller
 }
 
 // NewEnvironWatcher creates a EnvironWatcher on the specified facade,
 // and uses this name when calling through the caller.
-func NewEnvironWatcher(facadeName string, caller base.Caller) *EnvironWatcher {
+func NewEnvironWatcher(facadeName string, caller base.APICaller) *EnvironWatcher {
 	return &EnvironWatcher{facadeName, caller}
 }
 
 func (e *EnvironWatcher) call(method string, params, result interface{}) error {
-	return e.caller.Call(
+	return e.caller.APICall(
 		e.facadeName, e.caller.BestFacadeVersion(e.facadeName), "",
 		method, params, result)
 }

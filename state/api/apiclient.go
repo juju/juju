@@ -276,6 +276,11 @@ func (s *State) Ping() error {
 // we return the correct error when invoking Call("Object",
 // "non-empty-id",...)
 func (s *State) Call(objType string, version int, id, request string, args, response interface{}) error {
+	return s.APICall(objType, version, id, request, args, response)
+}
+
+// APICall places a call to the remote machine.
+func (s *State) APICall(objType string, version int, id, request string, args, response interface{}) error {
 	err := s.client.Call(rpc.Request{
 		Type:    objType,
 		Version: version,

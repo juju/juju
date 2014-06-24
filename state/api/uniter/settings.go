@@ -88,7 +88,7 @@ func (s *Settings) Write() error {
 			Settings: settingsCopy,
 		}},
 	}
-	err := s.st.APICall("UpdateSettings", args, &result)
+	err := s.st.CallFacade("UpdateSettings", args, &result)
 	if err != nil {
 		return err
 	}

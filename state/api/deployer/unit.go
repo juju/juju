@@ -56,7 +56,7 @@ func (u *Unit) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.APICall("Remove", args, &result)
+	err := u.st.CallFacade("Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func (u *Unit) SetPassword(password string) error {
 			{Tag: u.tag, Password: password},
 		},
 	}
-	err := u.st.APICall("SetPasswords", args, &result)
+	err := u.st.CallFacade("SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}

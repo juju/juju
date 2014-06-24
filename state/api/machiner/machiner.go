@@ -18,10 +18,10 @@ type State struct {
 }
 
 // NewState creates a new client-side Machiner facade.
-func NewState(caller base.Caller) *State {
+func NewState(caller base.APICaller) *State {
 	facadeCaller := base.GetFacadeCaller(caller, machinerFacade)
 	return &State{
-		FacadeCaller:       facadeCaller,
+		FacadeCaller: facadeCaller,
 		APIAddresser: common.NewAPIAddresser(facadeCaller),
 	}
 
@@ -29,7 +29,7 @@ func NewState(caller base.Caller) *State {
 
 // machineLife requests the lifecycle of the given machine from the server.
 func (st *State) machineLife(tag string) (params.Life, error) {
-	return common.Life(st.RawCaller(), machinerFacade, tag)
+	return common.Life(st.RawAPICaller(), machinerFacade, tag)
 }
 
 // Machine provides access to methods of a state.Machine through the facade.

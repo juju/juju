@@ -24,11 +24,11 @@ type RsyslogConfig struct {
 
 // State provides access to the Rsyslog API facade.
 type State struct {
-	caller base.Caller
+	caller base.APICaller
 }
 
 // NewState creates a new client-side Rsyslog facade.
-func NewState(caller base.Caller) *State {
+func NewState(caller base.APICaller) *State {
 	return &State{caller: caller}
 }
 
@@ -40,7 +40,7 @@ func (st *State) SetRsyslogCert(caCert string) error {
 	args := params.SetRsyslogCertParams{
 		CACert: []byte(caCert),
 	}
-	err := st.caller.Call(rsyslogAPI, 0, "", "SetRsyslogCert", args, &result)
+	err := st.caller.APICall(rsyslogAPI, 0, "", "SetRsyslogCert", args, &result)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (st *State) WatchForRsyslogChanges(agentTag string) (watcher.NotifyWatcher,
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
 
-	err := st.caller.Call(rsyslogAPI, 0, "", "WatchForRsyslogChanges", args, &results)
+	err := st.caller.APICall(rsyslogAPI, 0, "", "WatchForRsyslogChanges", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -81,7 +81,7 @@ func (st *State) GetRsyslogConfig(agentTag string) (*RsyslogConfig, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := st.caller.Call(rsyslogAPI, 0, "", "GetRsyslogConfig", args, &results)
+	err := st.caller.APICall(rsyslogAPI, 0, "", "GetRsyslogConfig", args, &results)
 	if err != nil {
 		return nil, err
 	}

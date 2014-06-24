@@ -152,7 +152,7 @@ type Status struct {
 func (c *Client) Status(patterns []string) (*Status, error) {
 	var result Status
 	p := params.StatusParams{Patterns: patterns}
-	if err := c.APICall("FullStatus", p, &result); err != nil {
+	if err := c.CallFacade("FullStatus", p, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -172,7 +172,7 @@ type LegacyStatus struct {
 // removed along with structs when api versioning makes it safe to do so.
 func (c *Client) LegacyStatus() (*LegacyStatus, error) {
 	var result LegacyStatus
-	if err := c.APICall("Status", nil, &result); err != nil {
+	if err := c.CallFacade("Status", nil, &result); err != nil {
 		return nil, err
 	}
 	return &result, nil
@@ -186,7 +186,7 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 	}
 	// TODO(Nate): Put this back to ServiceSet when the GUI stops expecting
 	// ServiceSet to unset values set to an empty string.
-	return c.APICall("NewServiceSetForClientAPI", p, nil)
+	return c.CallFacade("NewServiceSetForClientAPI", p, nil)
 }
 
 // ServiceUnset resets configuration options on a service.
@@ -195,7 +195,7 @@ func (c *Client) ServiceUnset(service string, options []string) error {
 		ServiceName: service,
 		Options:     options,
 	}
-	return c.APICall("ServiceUnset", p, nil)
+	return c.CallFacade("ServiceUnset", p, nil)
 }
 
 // Resolved clears errors on a unit.
@@ -204,7 +204,7 @@ func (c *Client) Resolved(unit string, retry bool) error {
 		UnitName: unit,
 		Retry:    retry,
 	}
-	return c.APICall("Resolved", p, nil)
+	return c.CallFacade("Resolved", p, nil)
 }
 
 // RetryProvisioning updates the provisioning status of a machine allowing the
@@ -216,7 +216,7 @@ func (c *Client) RetryProvisioning(machines ...string) ([]params.ErrorResult, er
 		p.Entities[i] = params.Entity{Tag: machine}
 	}
 	var results params.ErrorResults
-	err := c.APICall("RetryProvisioning", p, &results)
+	err := c.CallFacade("RetryProvisioning", p, &results)
 	return results.Results, err
 }
 
@@ -225,7 +225,7 @@ func (c *Client) RetryProvisioning(machines ...string) ([]params.ErrorResult, er
 func (c *Client) PublicAddress(target string) (string, error) {
 	var results params.PublicAddressResults
 	p := params.PublicAddress{Target: target}
-	err := c.APICall("PublicAddress", p, &results)
+	err := c.CallFacade("PublicAddress", p, &results)
 	return results.PublicAddress, err
 }
 
@@ -234,7 +234,7 @@ func (c *Client) PublicAddress(target string) (string, error) {
 func (c *Client) PrivateAddress(target string) (string, error) {
 	var results params.PrivateAddressResults
 	p := params.PrivateAddress{Target: target}
-	err := c.APICall("PrivateAddress", p, &results)
+	err := c.CallFacade("PrivateAddress", p, &results)
 	return results.PrivateAddress, err
 }
 
@@ -245,14 +245,14 @@ func (c *Client) ServiceSetYAML(service string, yaml string) error {
 		ServiceName: service,
 		Config:      yaml,
 	}
-	return c.APICall("ServiceSetYAML", p, nil)
+	return c.CallFacade("ServiceSetYAML", p, nil)
 }
 
 // ServiceGet returns the configuration for the named service.
 func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	var results params.ServiceGetResults
 	params := params.ServiceGet{ServiceName: service}
-	err := c.APICall("ServiceGet", params, &results)
+	err := c.CallFacade("ServiceGet", params, &results)
 	return &results, err
 }
 
@@ -260,21 +260,21 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
 	var addRelRes params.AddRelationResults
 	params := params.AddRelation{Endpoints: endpoints}
-	err := c.APICall("AddRelation", params, &addRelRes)
+	err := c.CallFacade("AddRelation", params, &addRelRes)
 	return &addRelRes, err
 }
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(endpoints ...string) error {
 	params := params.DestroyRelation{Endpoints: endpoints}
-	return c.APICall("DestroyRelation", params, nil)
+	return c.CallFacade("DestroyRelation", params, nil)
 }
 
 // ServiceCharmRelations returns the service's charms relation names.
 func (c *Client) ServiceCharmRelations(service string) ([]string, error) {
 	var results params.ServiceCharmRelationsResults
 	params := params.ServiceCharmRelations{ServiceName: service}
-	err := c.APICall("ServiceCharmRelations", params, &results)
+	err := c.CallFacade("ServiceCharmRelations", params, &results)
 	return results.CharmRelations, err
 }
 
@@ -287,7 +287,7 @@ func (c *Client) AddMachines1dot18(machineParams []params.AddMachineParams) ([]p
 		MachineParams: machineParams,
 	}
 	results := new(params.AddMachinesResults)
-	err := c.APICall("AddMachines", args, results)
+	err := c.CallFacade("AddMachines", args, results)
 	return results.Machines, err
 }
 
@@ -297,7 +297,7 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 		MachineParams: machineParams,
 	}
 	results := new(params.AddMachinesResults)
-	err := c.APICall("AddMachinesV2", args, results)
+	err := c.CallFacade("AddMachinesV2", args, results)
 	return results.Machines, err
 }
 
@@ -305,7 +305,7 @@ func (c *Client) AddMachines(machineParams []params.AddMachineParams) ([]params.
 // provisions a machine agent on the machine executing the script.
 func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (script string, err error) {
 	var result params.ProvisioningScriptResult
-	if err = c.APICall("ProvisioningScript", args, &result); err != nil {
+	if err = c.CallFacade("ProvisioningScript", args, &result); err != nil {
 		return "", err
 	}
 	return result.Script, nil
@@ -314,27 +314,27 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (scrip
 // DestroyMachines removes a given set of machines.
 func (c *Client) DestroyMachines(machines ...string) error {
 	params := params.DestroyMachines{MachineNames: machines}
-	return c.APICall("DestroyMachines", params, nil)
+	return c.CallFacade("DestroyMachines", params, nil)
 }
 
 // ForceDestroyMachines removes a given set of machines and all associated units.
 func (c *Client) ForceDestroyMachines(machines ...string) error {
 	params := params.DestroyMachines{Force: true, MachineNames: machines}
-	return c.APICall("DestroyMachines", params, nil)
+	return c.CallFacade("DestroyMachines", params, nil)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {
 	params := params.ServiceExpose{ServiceName: service}
-	return c.APICall("ServiceExpose", params, nil)
+	return c.CallFacade("ServiceExpose", params, nil)
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceUnexpose(service string) error {
 	params := params.ServiceUnexpose{ServiceName: service}
-	return c.APICall("ServiceUnexpose", params, nil)
+	return c.CallFacade("ServiceUnexpose", params, nil)
 }
 
 // ServiceDeployWithNetworks works exactly like ServiceDeploy, but
@@ -351,7 +351,7 @@ func (c *Client) ServiceDeployWithNetworks(charmURL string, serviceName string, 
 		ToMachineSpec: toMachineSpec,
 		Networks:      networks,
 	}
-	return c.APICall("ServiceDeployWithNetworks", params, nil)
+	return c.CallFacade("ServiceDeployWithNetworks", params, nil)
 }
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
@@ -365,14 +365,14 @@ func (c *Client) ServiceDeploy(charmURL string, serviceName string, numUnits int
 		Constraints:   cons,
 		ToMachineSpec: toMachineSpec,
 	}
-	return c.APICall("ServiceDeploy", params, nil)
+	return c.CallFacade("ServiceDeploy", params, nil)
 }
 
 // ServiceUpdate updates the service attributes, including charm URL,
 // minimum number of units, settings and constraints.
 // TODO(frankban) deprecate redundant API calls that this supercedes.
 func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
-	return c.APICall("ServiceUpdate", args, nil)
+	return c.CallFacade("ServiceUpdate", args, nil)
 }
 
 // ServiceSetCharm sets the charm for a given service.
@@ -382,7 +382,7 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool
 		CharmUrl:    charmUrl,
 		Force:       force,
 	}
-	return c.APICall("ServiceSetCharm", args, nil)
+	return c.CallFacade("ServiceSetCharm", args, nil)
 }
 
 // ServiceGetCharmURL returns the charm URL the given service is
@@ -390,7 +390,7 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool
 func (c *Client) ServiceGetCharmURL(serviceName string) (*charm.URL, error) {
 	result := new(params.StringResult)
 	args := params.ServiceGet{ServiceName: serviceName}
-	err := c.APICall("ServiceGetCharmURL", args, &result)
+	err := c.CallFacade("ServiceGetCharmURL", args, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -405,14 +405,14 @@ func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec strin
 		ToMachineSpec: machineSpec,
 	}
 	results := new(params.AddServiceUnitsResults)
-	err := c.APICall("AddServiceUnits", args, results)
+	err := c.CallFacade("AddServiceUnits", args, results)
 	return results.Units, err
 }
 
 // DestroyServiceUnits decreases the number of units dedicated to a service.
 func (c *Client) DestroyServiceUnits(unitNames ...string) error {
 	params := params.DestroyServiceUnits{unitNames}
-	return c.APICall("DestroyServiceUnits", params, nil)
+	return c.CallFacade("DestroyServiceUnits", params, nil)
 }
 
 // ServiceDestroy destroys a given service.
@@ -420,20 +420,20 @@ func (c *Client) ServiceDestroy(service string) error {
 	params := params.ServiceDestroy{
 		ServiceName: service,
 	}
-	return c.APICall("ServiceDestroy", params, nil)
+	return c.CallFacade("ServiceDestroy", params, nil)
 }
 
 // GetServiceConstraints returns the constraints for the given service.
 func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
 	results := new(params.GetConstraintsResults)
-	err := c.APICall("GetServiceConstraints", params.GetServiceConstraints{service}, results)
+	err := c.CallFacade("GetServiceConstraints", params.GetServiceConstraints{service}, results)
 	return results.Constraints, err
 }
 
 // GetEnvironmentConstraints returns the constraints for the environment.
 func (c *Client) GetEnvironmentConstraints() (constraints.Value, error) {
 	results := new(params.GetConstraintsResults)
-	err := c.APICall("GetEnvironmentConstraints", nil, results)
+	err := c.CallFacade("GetEnvironmentConstraints", nil, results)
 	return results.Constraints, err
 }
 
@@ -443,7 +443,7 @@ func (c *Client) SetServiceConstraints(service string, constraints constraints.V
 		ServiceName: service,
 		Constraints: constraints,
 	}
-	return c.APICall("SetServiceConstraints", params, nil)
+	return c.CallFacade("SetServiceConstraints", params, nil)
 }
 
 // SetEnvironmentConstraints specifies the constraints for the environment.
@@ -451,7 +451,7 @@ func (c *Client) SetEnvironmentConstraints(constraints constraints.Value) error 
 	params := params.SetConstraints{
 		Constraints: constraints,
 	}
-	return c.APICall("SetEnvironmentConstraints", params, nil)
+	return c.CallFacade("SetEnvironmentConstraints", params, nil)
 }
 
 // CharmInfo holds information about a charm.
@@ -466,7 +466,7 @@ type CharmInfo struct {
 func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	args := params.CharmInfo{CharmURL: charmURL}
 	info := new(CharmInfo)
-	if err := c.APICall("CharmInfo", args, info); err != nil {
+	if err := c.CallFacade("CharmInfo", args, info); err != nil {
 		return nil, err
 	}
 	return info, nil
@@ -483,7 +483,7 @@ type EnvironmentInfo struct {
 // EnvironmentInfo returns details about the Juju environment.
 func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	info := new(EnvironmentInfo)
-	err := c.APICall("EnvironmentInfo", nil, info)
+	err := c.CallFacade("EnvironmentInfo", nil, info)
 	return info, err
 }
 
@@ -496,7 +496,7 @@ type WatchAll struct {
 // collection of Deltas.
 func (c *Client) WatchAll() (*AllWatcher, error) {
 	info := new(WatchAll)
-	if err := c.APICall("WatchAll", nil, info); err != nil {
+	if err := c.CallFacade("WatchAll", nil, info); err != nil {
 		return nil, err
 	}
 	return newAllWatcher(c, &info.AllWatcherId), nil
@@ -506,7 +506,7 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 	args := params.GetAnnotations{tag}
 	ann := new(params.GetAnnotationsResults)
-	err := c.APICall("GetAnnotations", args, ann)
+	err := c.CallFacade("GetAnnotations", args, ann)
 	return ann.Annotations, err
 }
 
@@ -515,7 +515,7 @@ func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 // units and the environment itself.
 func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 	args := params.SetAnnotations{tag, pairs}
-	return c.APICall("SetAnnotations", args, nil)
+	return c.CallFacade("SetAnnotations", args, nil)
 }
 
 // Close closes the Client's underlying State connection
@@ -529,27 +529,27 @@ func (c *Client) Close() error {
 // EnvironmentGet returns all environment settings.
 func (c *Client) EnvironmentGet() (map[string]interface{}, error) {
 	result := params.EnvironmentGetResults{}
-	err := c.APICall("EnvironmentGet", nil, &result)
+	err := c.CallFacade("EnvironmentGet", nil, &result)
 	return result.Config, err
 }
 
 // EnvironmentSet sets the given key-value pairs in the environment.
 func (c *Client) EnvironmentSet(config map[string]interface{}) error {
 	args := params.EnvironmentSet{Config: config}
-	return c.APICall("EnvironmentSet", args, nil)
+	return c.CallFacade("EnvironmentSet", args, nil)
 }
 
 // EnvironmentUnset sets the given key-value pairs in the environment.
 func (c *Client) EnvironmentUnset(keys ...string) error {
 	args := params.EnvironmentUnset{Keys: keys}
-	return c.APICall("EnvironmentUnset", args, nil)
+	return c.CallFacade("EnvironmentUnset", args, nil)
 }
 
 // SetEnvironAgentVersion sets the environment agent-version setting
 // to the given value.
 func (c *Client) SetEnvironAgentVersion(version version.Number) error {
 	args := params.SetEnvironAgentVersion{Version: version}
-	return c.APICall("SetEnvironAgentVersion", args, nil)
+	return c.CallFacade("SetEnvironAgentVersion", args, nil)
 }
 
 // FindTools returns a List containing all tools matching the specified parameters.
@@ -562,7 +562,7 @@ func (c *Client) FindTools(majorVersion, minorVersion int,
 		Arch:         arch,
 		Series:       series,
 	}
-	err = c.APICall("FindTools", args, &result)
+	err = c.CallFacade("FindTools", args, &result)
 	return result, err
 }
 
@@ -571,7 +571,7 @@ func (c *Client) FindTools(majorVersion, minorVersion int,
 func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {
 	var results params.RunResults
 	args := params.RunParams{Commands: commands, Timeout: timeout}
-	err := c.APICall("RunOnAllMachines", args, &results)
+	err := c.CallFacade("RunOnAllMachines", args, &results)
 	return results.Results, err
 }
 
@@ -579,7 +579,7 @@ func (c *Client) RunOnAllMachines(commands string, timeout time.Duration) ([]par
 // provided in the machines, services and units slices.
 func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
 	var results params.RunResults
-	err := c.APICall("Run", run, &results)
+	err := c.CallFacade("Run", run, &results)
 	return results.Results, err
 }
 
@@ -588,7 +588,7 @@ func (c *Client) Run(run params.RunParams) ([]params.RunResult, error) {
 // will fail if there are any manually-provisioned non-manager machines
 // in state.
 func (c *Client) DestroyEnvironment() error {
-	return c.APICall("DestroyEnvironment", nil, nil)
+	return c.CallFacade("DestroyEnvironment", nil, nil)
 }
 
 // AddLocalCharm prepares the given charm with a local: schema in its
@@ -679,7 +679,7 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 // client-side API.
 func (c *Client) AddCharm(curl *charm.URL) error {
 	args := params.CharmURL{URL: curl.String()}
-	return c.APICall("AddCharm", args, nil)
+	return c.CallFacade("AddCharm", args, nil)
 }
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
@@ -687,7 +687,7 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 func (c *Client) ResolveCharm(ref charm.Reference) (*charm.URL, error) {
 	args := params.ResolveCharms{References: []charm.Reference{ref}}
 	result := new(params.ResolveCharmResults)
-	if err := c.APICall("ResolveCharms", args, result); err != nil {
+	if err := c.CallFacade("ResolveCharms", args, result); err != nil {
 		return nil, err
 	}
 	if len(result.URLs) == 0 {
@@ -762,7 +762,7 @@ func (c *Client) UploadTools(
 // APIHostPorts returns a slice of network.HostPort for each API server.
 func (c *Client) APIHostPorts() ([][]network.HostPort, error) {
 	var result params.APIHostPortsResult
-	if err := c.APICall("APIHostPorts", nil, &result); err != nil {
+	if err := c.CallFacade("APIHostPorts", nil, &result); err != nil {
 		return nil, err
 	}
 	return result.Servers, nil
@@ -776,14 +776,14 @@ func (c *Client) EnsureAvailability(numStateServers int, cons constraints.Value,
 		Constraints:     cons,
 		Series:          series,
 	}
-	err := c.APICall("EnsureAvailability", args, &result)
+	err := c.CallFacade("EnsureAvailability", args, &result)
 	return result, err
 }
 
 // AgentVersion reports the version number of the api server.
 func (c *Client) AgentVersion() (version.Number, error) {
 	var result params.AgentVersionResult
-	if err := c.APICall("AgentVersion", nil, &result); err != nil {
+	if err := c.CallFacade("AgentVersion", nil, &result); err != nil {
 		return version.Number{}, err
 	}
 	return result.Version, nil

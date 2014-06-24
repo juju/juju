@@ -14,18 +14,18 @@ const firewallerFacade = "Firewaller"
 
 // State provides access to the Firewaller API facade.
 type State struct {
-	caller base.Caller
+	caller base.APICaller
 	*common.EnvironWatcher
 }
 
 func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call(
+	return st.caller.APICall(
 		firewallerFacade, st.caller.BestFacadeVersion(firewallerFacade), "",
 		method, params, result)
 }
 
 // NewState creates a new client-side Firewaller facade.
-func NewState(caller base.Caller) *State {
+func NewState(caller base.APICaller) *State {
 	return &State{
 		caller:         caller,
 		EnvironWatcher: common.NewEnvironWatcher(firewallerFacade, caller),

@@ -37,7 +37,7 @@ func (c *Charm) getArchiveInfo(apiCall string) (string, error) {
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{{URL: c.url}},
 	}
-	err := c.st.APICall(apiCall, args, &results)
+	err := c.st.CallFacade(apiCall, args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -66,7 +66,7 @@ func (c *Charm) ArchiveURL() (*url.URL, utils.SSLHostnameVerification, error) {
 	args := params.CharmURLs{
 		URLs: []params.CharmURL{{URL: c.url}},
 	}
-	err := c.st.APICall("CharmArchiveURL", args, &results)
+	err := c.st.CallFacade("CharmArchiveURL", args, &results)
 	if err != nil {
 		return nil, false, err
 	}

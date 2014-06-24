@@ -15,17 +15,17 @@ const networkerFacade = "Networker"
 
 // State provides access to an networker worker's view of the state.
 type State struct {
-	caller base.Caller
+	caller base.APICaller
 }
 
 func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call(
+	return st.caller.APICall(
 		networkerFacade, st.caller.BestFacadeVersion(networkerFacade), "",
 		method, params, result)
 }
 
 // NewState creates a new client-side Machiner facade.
-func NewState(caller base.Caller) *State {
+func NewState(caller base.APICaller) *State {
 	return &State{caller}
 }
 

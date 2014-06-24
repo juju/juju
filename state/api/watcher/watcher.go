@@ -116,14 +116,14 @@ func (w *commonWatcher) Err() error {
 // It does not send content for those changes.
 type notifyWatcher struct {
 	commonWatcher
-	caller          base.Caller
+	caller          base.APICaller
 	notifyWatcherId string
 	out             chan struct{}
 }
 
 // If an API call returns a NotifyWatchResult, you can use this to turn it into
 // a local Watcher.
-func NewNotifyWatcher(caller base.Caller, result params.NotifyWatchResult) NotifyWatcher {
+func NewNotifyWatcher(caller base.APICaller, result params.NotifyWatchResult) NotifyWatcher {
 	w := &notifyWatcher{
 		caller:          caller,
 		notifyWatcherId: result.NotifyWatcherId,
@@ -142,7 +142,7 @@ func (w *notifyWatcher) loop() error {
 	// No results for this watcher type.
 	w.newResult = func() interface{} { return nil }
 	w.call = func(request string, result interface{}) error {
-		return w.caller.Call("NotifyWatcher",
+		return w.caller.APICall("NotifyWatcher",
 			w.caller.BestFacadeVersion("NotifyWatcher"),
 			w.notifyWatcherId, request, nil, &result)
 	}
@@ -176,12 +176,12 @@ func (w *notifyWatcher) Changes() <-chan struct{} {
 // The content of the changes is a list of strings.
 type stringsWatcher struct {
 	commonWatcher
-	caller           base.Caller
+	caller           base.APICaller
 	stringsWatcherId string
 	out              chan []string
 }
 
-func NewStringsWatcher(caller base.Caller, result params.StringsWatchResult) StringsWatcher {
+func NewStringsWatcher(caller base.APICaller, result params.StringsWatchResult) StringsWatcher {
 	w := &stringsWatcher{
 		caller:           caller,
 		stringsWatcherId: result.StringsWatcherId,
@@ -199,7 +199,7 @@ func (w *stringsWatcher) loop(initialChanges []string) error {
 	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.StringsWatchResult) }
 	w.call = func(request string, result interface{}) error {
-		return w.caller.Call(
+		return w.caller.APICall(
 			"StringsWatcher",
 			w.caller.BestFacadeVersion("StringsWatcher"),
 			w.stringsWatcherId, request, nil, &result)
@@ -237,12 +237,12 @@ func (w *stringsWatcher) Changes() <-chan []string {
 // those units known to have entered.
 type relationUnitsWatcher struct {
 	commonWatcher
-	caller                 base.Caller
+	caller                 base.APICaller
 	relationUnitsWatcherId string
 	out                    chan params.RelationUnitsChange
 }
 
-func NewRelationUnitsWatcher(caller base.Caller, result params.RelationUnitsWatchResult) RelationUnitsWatcher {
+func NewRelationUnitsWatcher(caller base.APICaller, result params.RelationUnitsWatchResult) RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
 		caller:                 caller,
 		relationUnitsWatcherId: result.RelationUnitsWatcherId,
@@ -260,7 +260,7 @@ func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) e
 	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.RelationUnitsWatchResult) }
 	w.call = func(request string, result interface{}) error {
-		return w.caller.Call("RelationUnitsWatcher",
+		return w.caller.APICall("RelationUnitsWatcher",
 			w.caller.BestFacadeVersion("RelationUnitsWatcher"),
 			w.relationUnitsWatcherId, request, nil, &result)
 	}
