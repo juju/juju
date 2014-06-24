@@ -4,7 +4,6 @@
 package keymanager
 
 import (
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/utils/ssh"
@@ -12,19 +11,14 @@ import (
 
 // Client provides access to the keymanager, used to add/delete/list authorised ssh keys.
 type Client struct {
-	// TODO: we only need the raw api.State object to implement Close()...
-	st     *api.State
+	base.ClientFacade
 	facade base.FacadeCaller
 }
 
 // NewClient returns a new keymanager client.
-func NewClient(st *api.State) *Client {
-	return &Client{st, base.NewFacadeCaller(st, "KeyManager")}
-}
-
-// Close closes the underlying State connection.
-func (c *Client) Close() error {
-	return c.st.Close()
+func NewClient(st base.APICallCloser) *Client {
+	frontend, backend := base.NewClientFacade(st, "KeyManager")
+	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 // ListKeys returns the authorised ssh keys for the specified users.

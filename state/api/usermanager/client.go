@@ -8,7 +8,6 @@ import (
 
 	"github.com/juju/names"
 
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 )
@@ -16,17 +15,13 @@ import (
 // TODO(mattyw) 2014-03-07 bug #1288750
 // Need a SetPassword method.
 type Client struct {
-	// TODO: we only need the raw api.State object to implement Close()...
-	st     *api.State
+	base.ClientFacade
 	facade base.FacadeCaller
 }
 
-func NewClient(st *api.State) *Client {
-	return &Client{st, base.NewFacadeCaller(st, "UserManager")}
-}
-
-func (c *Client) Close() error {
-	return c.st.Close()
+func NewClient(st base.APICallCloser) *Client {
+	frontend, backend := base.NewClientFacade(st, "UserManager")
+	return &Client{ClientFacade: frontend, facade: backend}
 }
 
 func (c *Client) AddUser(username, displayName, password string) error {

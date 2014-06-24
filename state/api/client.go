@@ -32,6 +32,7 @@ import (
 
 // Client represents the client-accessible part of the state.
 type Client struct {
+	base.ClientFacade
 	facade base.FacadeCaller
 	st     *State
 }
