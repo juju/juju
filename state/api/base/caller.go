@@ -35,7 +35,7 @@ type FacadeCaller interface {
 }
 
 type facadeCaller struct {
-	facade      string
+	facadeName  string
 	bestVersion int
 	caller      APICaller
 }
@@ -45,7 +45,7 @@ type facadeCaller struct {
 // also known to the client. (id is always passed as the empty string.)
 func (fc facadeCaller) FacadeCall(request string, params, response interface{}) error {
 	return fc.caller.APICall(
-		fc.facade, fc.bestVersion, "",
+		fc.facadeName, fc.bestVersion, "",
 		request, params, response)
 }
 
@@ -65,10 +65,10 @@ func (fc facadeCaller) RawAPICaller() APICaller {
 }
 
 // NewFacadeCaller wraps an APICaller for a given Facade
-func NewFacadeCaller(caller APICaller, facade string) FacadeCaller {
+func NewFacadeCaller(caller APICaller, facadeName string) FacadeCaller {
 	return facadeCaller{
-		facade:      facade,
-		bestVersion: caller.BestFacadeVersion(facade),
+		facadeName:  facadeName,
+		bestVersion: caller.BestFacadeVersion(facadeName),
 		caller:      caller,
 	}
 }

@@ -13,7 +13,7 @@ const deployerFacade = "Deployer"
 
 // State provides access to the deployer worker's idea of the state.
 type State struct {
-	caller base.FacadeCaller
+	facade base.FacadeCaller
 	*common.APIAddresser
 }
 
@@ -22,7 +22,7 @@ type State struct {
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, deployerFacade)
 	return &State{
-		caller:       facadeCaller,
+		facade:       facadeCaller,
 		APIAddresser: common.NewAPIAddresser(facadeCaller),
 	}
 
@@ -30,7 +30,7 @@ func NewState(caller base.APICaller) *State {
 
 // Unit returns the unit with the given tag.
 func (st *State) Unit(tag string) (*Unit, error) {
-	life, err := common.Life(st.caller, tag)
+	life, err := common.Life(st.facade, tag)
 	if err != nil {
 		return nil, err
 	}
@@ -52,7 +52,7 @@ func (st *State) Machine(tag string) (*Machine, error) {
 // StateAddresses returns the list of addresses used to connect to the state.
 func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.caller.FacadeCall("StateAddresses", nil, &result)
+	err := st.facade.FacadeCall("StateAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -62,6 +62,6 @@ func (st *State) StateAddresses() ([]string, error) {
 // ConnectionInfo returns all the address information that the deployer task
 // needs in one call.
 func (st *State) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	err = st.caller.FacadeCall("ConnectionInfo", nil, &result)
+	err = st.facade.FacadeCall("ConnectionInfo", nil, &result)
 	return result, err
 }

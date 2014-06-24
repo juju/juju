@@ -31,7 +31,7 @@ func (m *Machine) Life() params.Life {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	life, err := common.Life(m.st.caller, m.tag)
+	life, err := common.Life(m.st.facade, m.tag)
 	if err != nil {
 		return err
 	}
@@ -47,7 +47,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 			{Tag: m.tag, Status: status, Info: info, Data: data},
 		},
 	}
-	err := m.st.caller.FacadeCall("SetStatus", args, &result)
+	err := m.st.facade.FacadeCall("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
 			{Tag: m.Tag(), Addresses: addresses},
 		},
 	}
-	err := m.st.caller.FacadeCall("SetMachineAddresses", args, &result)
+	err := m.st.facade.FacadeCall("SetMachineAddresses", args, &result)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.FacadeCall("EnsureDead", args, &result)
+	err := m.st.facade.FacadeCall("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -89,7 +89,7 @@ func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.caller.FacadeCall("Watch", args, &results)
+	err := m.st.facade.FacadeCall("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +100,6 @@ func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(m.st.caller.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(m.st.facade.RawAPICaller(), result)
 	return w, nil
 }

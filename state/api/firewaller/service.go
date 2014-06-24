@@ -39,7 +39,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.FacadeCall("Watch", args, &results)
+	err := s.st.facade.FacadeCall("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(s.st.caller.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(s.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -62,7 +62,7 @@ func (s *Service) Life() params.Life {
 // Refresh refreshes the contents of the Service from the underlying
 // state.
 func (s *Service) Refresh() error {
-	life, err := common.Life(s.st.caller, s.tag)
+	life, err := common.Life(s.st.facade, s.tag)
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (s *Service) IsExposed() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.FacadeCall("GetExposed", args, &results)
+	err := s.st.facade.FacadeCall("GetExposed", args, &results)
 	if err != nil {
 		return false, err
 	}

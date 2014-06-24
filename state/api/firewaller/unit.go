@@ -41,7 +41,7 @@ func (u *Unit) Life() params.Life {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := common.Life(u.st.caller, u.tag)
+	life, err := common.Life(u.st.facade, u.tag)
 	if err != nil {
 		return err
 	}
@@ -55,7 +55,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.FacadeCall("Watch", args, &results)
+	err := u.st.facade.FacadeCall("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +66,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(u.st.caller.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -95,7 +95,7 @@ func (u *Unit) OpenedPorts() ([]network.Port, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.FacadeCall("OpenedPorts", args, &results)
+	err := u.st.facade.FacadeCall("OpenedPorts", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func (u *Unit) AssignedMachine() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.caller.FacadeCall("GetAssignedMachine", args, &results)
+	err := u.st.facade.FacadeCall("GetAssignedMachine", args, &results)
 	if err != nil {
 		return "", err
 	}

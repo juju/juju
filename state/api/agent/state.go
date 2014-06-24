@@ -13,7 +13,7 @@ import (
 
 // State provides access to an agent's view of the state.
 type State struct {
-	caller base.FacadeCaller
+	facade base.FacadeCaller
 }
 
 // NewState returns a version of the state that provides functionality
@@ -28,7 +28,7 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.caller.FacadeCall("GetEntities", args, &results)
+	err := st.facade.FacadeCall("GetEntities", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 
 func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	var results params.StateServingInfo
-	err := st.caller.FacadeCall("StateServingInfo", nil, &results)
+	err := st.facade.FacadeCall("StateServingInfo", nil, &results)
 	return results, err
 }
 
@@ -55,7 +55,7 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 // privileges.
 func (st *State) IsMaster() (bool, error) {
 	var results params.IsMasterResult
-	err := st.caller.FacadeCall("IsMaster", nil, &results)
+	err := st.facade.FacadeCall("IsMaster", nil, &results)
 	return results.Master, err
 }
 
@@ -110,7 +110,7 @@ func (m *Entity) SetPassword(password string) error {
 			Password: password,
 		}},
 	}
-	err := m.st.caller.FacadeCall("SetPasswords", args, &results)
+	err := m.st.facade.FacadeCall("SetPasswords", args, &results)
 	if err != nil {
 		return err
 	}

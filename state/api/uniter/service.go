@@ -47,7 +47,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.FacadeCall("Watch", args, &results)
+	err := s.st.facade.FacadeCall("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +58,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(s.st.caller.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(s.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -69,7 +69,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.FacadeCall("WatchServiceRelations", args, &results)
+	err := s.st.facade.FacadeCall("WatchServiceRelations", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -80,7 +80,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(s.st.caller.RawAPICaller(), result)
+	w := watcher.NewStringsWatcher(s.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -111,7 +111,7 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.FacadeCall("CharmURL", args, &results)
+	err := s.st.facade.FacadeCall("CharmURL", args, &results)
 	if err != nil {
 		return nil, false, err
 	}
@@ -139,7 +139,7 @@ func (s *Service) GetOwnerTag() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.caller.FacadeCall("GetOwnerTag", args, &result)
+	err := s.st.facade.FacadeCall("GetOwnerTag", args, &result)
 	if err != nil {
 		return "", err
 	}
