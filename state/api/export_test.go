@@ -22,6 +22,16 @@ func SetServerRoot(c *Client, root string) {
 	c.st.serverRoot = root
 }
 
+// SetEnvironTag patches the value of the environment tag.
+// It returns a function that reverts the change.
+func PatchEnvironTag(st *State, envTag string) func() {
+	originalTag := st.environTag
+	st.environTag = envTag
+	return func() {
+		st.environTag = originalTag
+	}
+}
+
 // TestingStateParams is the parameters for NewTestingState, so that you can
 // only set the bits that you acutally want to test.
 type TestingStateParams struct {

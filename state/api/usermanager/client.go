@@ -6,6 +6,7 @@ package usermanager
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/state/api/base"
@@ -34,7 +35,7 @@ func (c *Client) AddUser(username, displayName, password string) error {
 	results := new(params.ErrorResults)
 	err := c.facade.FacadeCall("AddUser", userArgs, results)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return results.OneError()
 }
@@ -45,7 +46,25 @@ func (c *Client) RemoveUser(tag string) error {
 	results := new(params.ErrorResults)
 	err := c.facade.FacadeCall("RemoveUser", p, results)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	return results.OneError()
+}
+
+func (c *Client) UserInfo(username string) (params.UserInfoResult, error) {
+	u := params.Entity{Tag: username}
+	p := params.Entities{Entities: []params.Entity{u}}
+	results := new(params.UserInfoResults)
+	err := c.facade.FacadeCall("UserInfo", p, results)
+	if err != nil {
+		return params.UserInfoResult{}, errors.Trace(err)
+	}
+	if len(results.Results) != 1 {
+		return params.UserInfoResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return params.UserInfoResult{}, errors.Trace(err)
+	}
+	return result, nil
 }

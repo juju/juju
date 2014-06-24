@@ -65,8 +65,12 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 }
 
 // Unit provides access to methods of a state.Unit through the facade.
-func (st *State) Unit(tag string) (*Unit, error) {
-	life, err := st.life(tag)
+func (st *State) Unit(unitTag string) (*Unit, error) {
+	life, err := st.life(unitTag)
+	if err != nil {
+		return nil, err
+	}
+	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
 		return nil, err
 	}
@@ -78,8 +82,12 @@ func (st *State) Unit(tag string) (*Unit, error) {
 }
 
 // Service returns a service state by tag.
-func (st *State) Service(tag string) (*Service, error) {
-	life, err := st.life(tag)
+func (st *State) Service(serviceTag string) (*Service, error) {
+	life, err := st.life(serviceTag)
+	if err != nil {
+		return nil, err
+	}
+	tag, err := names.ParseServiceTag(serviceTag)
 	if err != nil {
 		return nil, err
 	}
@@ -119,8 +127,12 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 }
 
 // Relation returns the existing relation with the given tag.
-func (st *State) Relation(tag string) (*Relation, error) {
-	result, err := st.relation(tag, st.unitTag)
+func (st *State) Relation(relationTag string) (*Relation, error) {
+	result, err := st.relation(relationTag, st.unitTag)
+	if err != nil {
+		return nil, err
+	}
+	tag, err := names.ParseRelationTag(relationTag)
 	if err != nil {
 		return nil, err
 	}
@@ -149,7 +161,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	if err := result.Error; err != nil {
 		return nil, err
 	}
-	relationTag := names.NewRelationTag(result.Key).String()
+	relationTag := names.NewRelationTag(result.Key)
 	return &Relation{
 		id:   result.Id,
 		tag:  relationTag,

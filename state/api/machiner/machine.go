@@ -4,7 +4,7 @@
 package machiner
 
 import (
-	"fmt"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/common"
@@ -14,14 +14,14 @@ import (
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	tag  string
+	tag  names.Tag
 	life params.Life
 	st   *State
 }
 
 // Tag returns the machine's tag.
 func (m *Machine) Tag() string {
-	return m.tag
+	return m.tag.String()
 }
 
 // Life returns the machine's lifecycle value.
@@ -31,7 +31,7 @@ func (m *Machine) Life() params.Life {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	life, err := common.Life(m.st.facade, m.tag)
+	life, err := common.Life(m.st.facade, m.tag.String())
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 	var result params.ErrorResults
 	args := params.SetStatus{
 		Entities: []params.EntityStatus{
-			{Tag: m.tag, Status: status, Info: info, Data: data},
+			{Tag: m.tag.String(), Status: status, Info: info, Data: data},
 		},
 	}
 	err := m.st.facade.FacadeCall("SetStatus", args, &result)
@@ -74,7 +74,7 @@ func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
 func (m *Machine) EnsureDead() error {
 	var result params.ErrorResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.facade.FacadeCall("EnsureDead", args, &result)
 	if err != nil {
@@ -85,21 +85,5 @@ func (m *Machine) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the machine.
 func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
-	}
-	err := m.st.facade.FacadeCall("Watch", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := watcher.NewNotifyWatcher(m.st.facade.RawAPICaller(), result)
-	return w, nil
+	return common.Watch(m.st.facade, m.tag.String())
 }

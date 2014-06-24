@@ -16,42 +16,18 @@ import (
 // Service represents the state of a service.
 type Service struct {
 	st   *State
-	tag  string
+	tag  names.Tag
 	life params.Life
 }
 
 // Name returns the service name.
 func (s *Service) Name() string {
-	return mustParseServiceTag(s.tag).Id()
-}
-
-func mustParseServiceTag(serviceTag string) names.ServiceTag {
-	tag, err := names.ParseServiceTag(serviceTag)
-	if err != nil {
-		panic(err)
-	}
-	return tag
+	return s.tag.Id()
 }
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Service) Watch() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag}},
-	}
-	err := s.st.facade.FacadeCall("Watch", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := watcher.NewNotifyWatcher(s.st.facade.RawAPICaller(), result)
-	return w, nil
+	return common.Watch(s.st.facade, s.tag.String())
 }
 
 // Life returns the service's current life state.
@@ -62,7 +38,7 @@ func (s *Service) Life() params.Life {
 // Refresh refreshes the contents of the Service from the underlying
 // state.
 func (s *Service) Refresh() error {
-	life, err := common.Life(s.st.facade, s.tag)
+	life, err := common.Life(s.st.facade, s.tag.String())
 	if err != nil {
 		return err
 	}
@@ -79,7 +55,7 @@ func (s *Service) Refresh() error {
 func (s *Service) IsExposed() (bool, error) {
 	var results params.BoolResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag}},
+		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
 	err := s.st.facade.FacadeCall("GetExposed", args, &results)
 	if err != nil {

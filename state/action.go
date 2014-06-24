@@ -17,7 +17,7 @@ type actionDoc struct {
 	// to facilitate filtering the actions collection for a given unit,
 	// or in the future a given service.
 	// The format of the Action.Id() will be:
-	//   <unit globalKey> + actionMarker + <generated state sequence>
+	//   <unit tag id> + names.ActionMarker + <generated state sequence>
 	Id string `bson:"_id"`
 
 	// Name identifies the action; it should match an action defined by
@@ -42,6 +42,12 @@ func newAction(st *State, adoc actionDoc) *Action {
 		st:  st,
 		doc: adoc,
 	}
+}
+
+// ActionPrefix returns a well formed Action Id prefix for a given
+// entity Tag
+func ActionPrefix(tag names.Tag) string {
+	return actionPrefix(tag.Id())
 }
 
 // actionPrefix returns a suitable prefix for an action given the

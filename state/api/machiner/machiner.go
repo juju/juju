@@ -4,6 +4,8 @@
 package machiner
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/common"
 )
@@ -27,8 +29,12 @@ func NewState(caller base.APICaller) *State {
 }
 
 // Machine provides access to methods of a state.Machine through the facade.
-func (st *State) Machine(tag string) (*Machine, error) {
-	life, err := common.Life(st.facade, tag)
+func (st *State) Machine(machineTag string) (*Machine, error) {
+	life, err := common.Life(st.facade, machineTag)
+	if err != nil {
+		return nil, err
+	}
+	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return nil, err
 	}

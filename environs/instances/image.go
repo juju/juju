@@ -60,23 +60,9 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 			ic.Series, ic.Region, ic.Arches)
 	}
 
-	var matchingTypes []InstanceType
-	if ic.Constraints.HasInstanceType() {
-		for _, itype := range allInstanceTypes {
-			if itype.Name == *ic.Constraints.InstanceType {
-				matchingTypes = append(matchingTypes, itype)
-				break
-			}
-		}
-		if len(matchingTypes) == 0 {
-			return nil, fmt.Errorf("invalid instance type %q", *ic.Constraints.InstanceType)
-		}
-	} else {
-		var err error
-		matchingTypes, err = getMatchingInstanceTypes(ic, allInstanceTypes)
-		if err != nil {
-			return nil, err
-		}
+	matchingTypes, err := MatchingInstanceTypes(allInstanceTypes, ic.Region, ic.Constraints)
+	if err != nil {
+		return nil, err
 	}
 	if len(matchingTypes) == 0 {
 		return nil, fmt.Errorf("no instance types found matching constraint: %s", ic)

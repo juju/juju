@@ -5,6 +5,8 @@ package firewaller
 import (
 	"fmt"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
@@ -13,7 +15,7 @@ import (
 // Machine represents a juju machine as seen by the firewaller worker.
 type Machine struct {
 	st   *State
-	tag  string
+	tag  names.Tag
 	life params.Life
 }
 
@@ -22,7 +24,7 @@ type Machine struct {
 func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.facade.FacadeCall("WatchUnits", args, &results)
 	if err != nil {
@@ -44,7 +46,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 func (m *Machine) InstanceId() (instance.Id, error) {
 	var results params.StringResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.facade.FacadeCall("InstanceId", args, &results)
 	if err != nil {

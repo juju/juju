@@ -3549,3 +3549,107 @@ func (s *StateSuite) TestUnitActionsFindsRightActions(c *gc.C) {
 		c.Assert(action.Name(), gc.Matches, "^action2\\..")
 	}
 }
+
+func (s *StateSuite) TestWatchActions(c *gc.C) {
+	svc := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	u, err := svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	w := s.State.WatchActions()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange()
+	wc.AssertNoChange()
+
+	// add 3 actions
+	_, err = u.AddAction("fakeaction1", nil)
+	c.Assert(err, gc.IsNil)
+	action2, err := u.AddAction("fakeaction2", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = u.AddAction("fakeaction3", nil)
+	c.Assert(err, gc.IsNil)
+
+	// fail the middle one
+	action, err := s.State.Action(action2)
+	c.Assert(err, gc.IsNil)
+	err = action.Fail("die scum")
+	c.Assert(err, gc.IsNil)
+
+	// expect the first and last one in the watcher
+	expect := expectActionIds(u, "0", "2")
+	wc.AssertChange(expect...)
+	wc.AssertNoChange()
+}
+
+func expectActionIds(u *state.Unit, suffixes ...string) []string {
+	ids := make([]string, len(suffixes))
+	prefix := state.ActionPrefix(u.Tag())
+	for i, suffix := range suffixes {
+		ids[i] = prefix + suffix
+	}
+	return ids
+}
+
+func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
+	// Add a machine: reported.
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+
+	w := machine.WatchAddresses()
+	defer w.Stop()
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	// Change the machine: not reported.
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Set machine addresses: reported.
+	err = machine.SetMachineAddresses(network.NewAddress("abc", network.ScopeUnknown))
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Set provider addresses eclipsing machine addresses: reported.
+	err = machine.SetAddresses(network.NewAddress("abc", network.ScopePublic))
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Set same machine eclipsed by provider addresses: not reported.
+	err = machine.SetMachineAddresses(network.NewAddress("abc", network.ScopeCloudLocal))
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Set different machine addresses: reported.
+	err = machine.SetMachineAddresses(network.NewAddress("def", network.ScopeUnknown))
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Set different provider addresses: reported.
+	err = machine.SetMachineAddresses(network.NewAddress("def", network.ScopePublic))
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Make it Dying: not reported.
+	err = machine.Destroy()
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Make it Dead: not reported.
+	err = machine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Remove it: watcher eventually closed and Err
+	// returns an IsNotFound error.
+	err = machine.Remove()
+	c.Assert(err, gc.IsNil)
+	s.State.StartSync()
+	select {
+	case _, ok := <-w.Changes():
+		c.Assert(ok, jc.IsFalse)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher not closed")
+	}
+	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+}

@@ -12,6 +12,7 @@ import (
 
 // Life requests the life cycle of the given entity from the given
 // server-side API facade via the given caller.
+// TODO(dfc) common.Life should take a names.Tag vs a string
 func Life(caller base.FacadeCaller, tag string) (params.Life, error) {
 	var result params.LifeResults
 	args := params.Entities{

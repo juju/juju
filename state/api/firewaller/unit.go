@@ -17,21 +17,13 @@ import (
 // Unit represents a juju unit as seen by a firewaller worker.
 type Unit struct {
 	st   *State
-	tag  string
+	tag  names.Tag
 	life params.Life
 }
 
 // Name returns the name of the unit.
 func (u *Unit) Name() string {
-	return mustParseUnitTag(u.tag).Id()
-}
-
-func mustParseUnitTag(unitTag string) names.UnitTag {
-	tag, err := names.ParseUnitTag(unitTag)
-	if err != nil {
-		panic(err)
-	}
-	return tag
+	return u.tag.Id()
 }
 
 // Life returns the unit's life cycle value.
@@ -41,7 +33,7 @@ func (u *Unit) Life() params.Life {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := common.Life(u.st.facade, u.tag)
+	life, err := common.Life(u.st.facade, u.tag.String())
 	if err != nil {
 		return err
 	}
@@ -51,23 +43,7 @@ func (u *Unit) Refresh() error {
 
 // Watch returns a watcher for observing changes to the unit.
 func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	var results params.NotifyWatchResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag}},
-	}
-	err := u.st.facade.FacadeCall("Watch", args, &results)
-	if err != nil {
-		return nil, err
-	}
-	if len(results.Results) != 1 {
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Error != nil {
-		return nil, result.Error
-	}
-	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
-	return w, nil
+	return common.Watch(u.st.facade, u.tag.String())
 }
 
 // Service returns the service.
@@ -75,7 +51,7 @@ func (u *Unit) Service() (*Service, error) {
 	serviceTag := names.NewServiceTag(names.UnitService(u.Name()))
 	service := &Service{
 		st:  u.st,
-		tag: serviceTag.String(),
+		tag: serviceTag,
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
@@ -93,7 +69,7 @@ func (u *Unit) Service() (*Service, error) {
 func (u *Unit) OpenedPorts() ([]network.Port, error) {
 	var results params.PortsResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag}},
+		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.facade.FacadeCall("OpenedPorts", args, &results)
 	if err != nil {
@@ -114,7 +90,7 @@ func (u *Unit) OpenedPorts() ([]network.Port, error) {
 func (u *Unit) AssignedMachine() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag}},
+		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.facade.FacadeCall("GetAssignedMachine", args, &results)
 	if err != nil {

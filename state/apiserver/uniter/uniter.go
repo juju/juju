@@ -861,7 +861,7 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.RelationSett
 
 func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag string) (string, error) {
 	// Make sure the unit is indeed remote.
-	if remoteUnitTag == u.auth.GetAuthTag() {
+	if remoteUnitTag == u.auth.GetAuthTag().String() {
 		return "", common.ErrPerm
 	}
 	// Check remoteUnit is indeed related. Note that we don't want to actually get
@@ -895,6 +895,7 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Re
 	for i, arg := range args.RelationUnitPairs {
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.LocalUnit)
 		if err == nil {
+			// TODO(dfc) rework this logic
 			remoteUnit := ""
 			remoteUnit, err = u.checkRemoteUnit(relUnit, arg.RemoteUnit)
 			if err == nil {

@@ -6,7 +6,8 @@ package backup
 import (
 	"archive/tar"
 	"compress/gzip"
-	"crypto/sha256"
+	"crypto/sha1"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -25,11 +26,14 @@ var logger = loggo.GetLogger("juju.backup")
 // in fileList. If compress is true, the archive will also be gzip
 // compressed.
 func tarFiles(fileList []string, targetPath, strip string, compress bool) (shaSum string, err error) {
-	sha256hash := sha256.New()
-	if err := tarAndHashFiles(fileList, targetPath, strip, compress, sha256hash); err != nil {
+	shahash := sha1.New()
+	if err := tarAndHashFiles(fileList, targetPath, strip, compress, shahash); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("%x", sha256hash.Sum(nil)), nil
+	// we use a base64 encoded sha1 hash, because this is the hash
+	// used by RFC 3230 Digest headers in http responses
+	encodedHash := base64.StdEncoding.EncodeToString(shahash.Sum(nil))
+	return encodedHash, nil
 }
 
 func tarAndHashFiles(fileList []string, targetPath, strip string, compress bool, hashw io.Writer) (err error) {
@@ -178,7 +182,7 @@ func _getMongodumpPath() (string, error) {
 // The backup contains a dump folder with the output of mongodump command
 // and a root.tar file which contains all the system files obtained from
 // the output of getFilesToBackup
-func Backup(adminPassword, outputFolder string, mongoPort int) (string, string, error) {
+func Backup(password string, username string, outputFolder string, addr string) (string, string, error) {
 	// YYYYMMDDHHMMSS
 	formattedDate := time.Now().Format("20060102150405")
 
@@ -202,9 +206,9 @@ func Backup(adminPassword, outputFolder string, mongoPort int) (string, string, 
 		mongodumpPath,
 		"--oplog",
 		"--ssl",
-		"--host", fmt.Sprintf("localhost:%d", mongoPort),
-		"--username", "admin",
-		"--password", adminPassword,
+		"--host", addr,
+		"--username", username,
+		"--password", password,
 		"--out", dumpDir)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to dump database: %v", err)

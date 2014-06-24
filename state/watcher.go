@@ -244,8 +244,8 @@ func (w *lifecycleWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *lifecycleWatcher) initial() (ids *set.Strings, err error) {
-	ids = &set.Strings{}
+func (w *lifecycleWatcher) initial() (*set.Strings, error) {
+	var ids set.Strings
 	var doc lifeDoc
 	iter := w.coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
@@ -254,10 +254,7 @@ func (w *lifecycleWatcher) initial() (ids *set.Strings, err error) {
 			w.life[doc.Id] = doc.Life
 		}
 	}
-	if err := iter.Err(); err != nil {
-		return nil, err
-	}
-	return ids, nil
+	return &ids, iter.Close()
 }
 
 func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[interface{}]bool) error {
@@ -282,7 +279,7 @@ func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[interface{}]bool)
 	for iter.Next(&doc) {
 		latest[doc.Id] = doc.Life
 	}
-	if err := iter.Err(); err != nil {
+	if err := iter.Close(); err != nil {
 		return err
 	}
 
@@ -386,14 +383,14 @@ func (st *State) WatchMinUnits() StringsWatcher {
 }
 
 func (w *minUnitsWatcher) initial() (*set.Strings, error) {
-	serviceNames := new(set.Strings)
-	doc := &minUnitsDoc{}
+	var serviceNames set.Strings
+	var doc minUnitsDoc
 	iter := w.st.minUnits.Find(nil).Iter()
-	for iter.Next(doc) {
+	for iter.Next(&doc) {
 		w.known[doc.ServiceName] = doc.Revno
 		serviceNames.Add(doc.ServiceName)
 	}
-	return serviceNames, iter.Err()
+	return &serviceNames, iter.Close()
 }
 
 func (w *minUnitsWatcher) merge(serviceNames *set.Strings, change watcher.Change) error {
@@ -1398,6 +1395,74 @@ func (w *machineUnitsWatcher) loop() error {
 	}
 }
 
+// machineAddressesWatcher notifies about changes to a machine's addresses.
+//
+// The first event emitted contains the addresses currently assigned to the
+// machine. From then on, a new event is emitted whenever the machine's
+// addresses change.
+type machineAddressesWatcher struct {
+	commonWatcher
+	machine *Machine
+	out     chan struct{}
+}
+
+var _ Watcher = (*machineAddressesWatcher)(nil)
+
+// WatchUnits returns a new NotifyWatcher watching m's addresses.
+func (m *Machine) WatchAddresses() NotifyWatcher {
+	return newMachineAddressesWatcher(m)
+}
+
+func newMachineAddressesWatcher(m *Machine) NotifyWatcher {
+	w := &machineAddressesWatcher{
+		commonWatcher: commonWatcher{st: m.st},
+		out:           make(chan struct{}),
+		machine:       &Machine{st: m.st, doc: m.doc}, // Copy so it may be freely refreshed
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *machineAddressesWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *machineAddressesWatcher) loop() error {
+	revno, err := getTxnRevno(w.st.machines, w.machine.doc.Id)
+	if err != nil {
+		return err
+	}
+	machineCh := make(chan watcher.Change)
+	w.st.watcher.Watch(w.st.machines.Name, w.machine.doc.Id, revno, machineCh)
+	defer w.st.watcher.Unwatch(w.st.machines.Name, w.machine.doc.Id, machineCh)
+	addresses := w.machine.Addresses()
+	out := w.out
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-machineCh:
+			if err := w.machine.Refresh(); err != nil {
+				return err
+			}
+			newAddresses := w.machine.Addresses()
+			if !addressesEqual(newAddresses, addresses) {
+				addresses = newAddresses
+				out = w.out
+			}
+		case out <- struct{}{}:
+			out = nil
+		}
+	}
+}
+
 // cleanupWatcher notifies of changes in the cleanups collection.
 type cleanupWatcher struct {
 	commonWatcher
@@ -1451,4 +1516,112 @@ func (w *cleanupWatcher) loop() (err error) {
 			out = nil
 		}
 	}
+}
+
+// actionWatcher notifies of changes in the actions collection.
+type actionWatcher struct {
+	commonWatcher
+	out      chan []string
+	filterFn func(interface{}) bool
+}
+
+var _ Watcher = (*actionWatcher)(nil)
+
+// WatchActions starts and returns an ActionWatcher
+func (st *State) WatchActions() StringsWatcher {
+	return newActionWatcher(st)
+}
+
+func newActionWatcher(st *State, prefixIds ...string) StringsWatcher {
+	w := &actionWatcher{
+		commonWatcher: commonWatcher{st: st},
+		out:           make(chan []string),
+	}
+	w.filterFn = w.makeFilter(prefixIds...)
+
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+
+	return w
+}
+
+// makeActionWatcherFilter constructs a predicate to filter keys
+// that have the prefix of one of the passed in tags, or returns
+// nil if tags is empty
+func (w *actionWatcher) makeFilter(ids ...string) func(interface{}) bool {
+	if len(ids) == 0 {
+		return nil
+	}
+	return func(key interface{}) bool {
+		if k, ok := key.(string); ok {
+			for _, id := range ids {
+				if strings.HasPrefix(k, id) {
+					return true
+				}
+			}
+		} else {
+			// TODO(jcw4,fwereade) error out and w.tomb.Kill here? doesn't seem right.
+			logger.Warningf("actionWatcher got unexpected changes key.  expected string key got %+v", key)
+		}
+		return false
+	}
+}
+
+// Changes returns the event channel for w
+func (w *actionWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *actionWatcher) loop() error {
+	in := make(chan watcher.Change)
+	changes := &set.Strings{}
+
+	if w.filterFn != nil {
+		w.st.watcher.WatchCollectionWithFilter(w.st.actions.Name, in, w.filterFn)
+	} else {
+		w.st.watcher.WatchCollection(w.st.actions.Name, in)
+	}
+	defer w.st.watcher.UnwatchCollection(w.st.actions.Name, in)
+
+	out := w.out
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case ch := <-in:
+			updates, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if err := w.merge(changes, updates); err != nil {
+				return err
+			}
+			if !changes.IsEmpty() {
+				out = w.out
+			}
+		case out <- changes.Values():
+			changes = &set.Strings{}
+			out = nil
+		}
+	}
+}
+
+func (w *actionWatcher) merge(changes *set.Strings, updates map[interface{}]bool) error {
+	for id, exists := range updates {
+		if id, ok := id.(string); ok {
+			if exists {
+				changes.Add(id)
+			} else {
+				changes.Remove(id)
+			}
+		} else {
+			return fmt.Errorf("id is not of type string")
+		}
+	}
+	return nil
 }

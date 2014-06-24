@@ -6,6 +6,8 @@ package agent
 import (
 	"fmt"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
@@ -23,10 +25,10 @@ func NewState(caller base.APICaller) *State {
 	return &State{facadeCaller}
 }
 
-func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
+func (st *State) getEntity(tag names.Tag) (*params.AgentGetEntitiesResult, error) {
 	var results params.AgentGetEntitiesResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	err := st.facade.FacadeCall("GetEntities", args, &results)
 	if err != nil {
@@ -61,11 +63,11 @@ func (st *State) IsMaster() (bool, error) {
 
 type Entity struct {
 	st  *State
-	tag string
+	tag names.Tag
 	doc params.AgentGetEntitiesResult
 }
 
-func (st *State) Entity(tag string) (*Entity, error) {
+func (st *State) Entity(tag names.Tag) (*Entity, error) {
 	doc, err := st.getEntity(tag)
 	if err != nil {
 		return nil, err
@@ -79,7 +81,7 @@ func (st *State) Entity(tag string) (*Entity, error) {
 
 // Tag returns the entity's tag.
 func (m *Entity) Tag() string {
-	return m.tag
+	return m.tag.String()
 }
 
 // Life returns the current life cycle state of the entity.
@@ -106,7 +108,7 @@ func (m *Entity) SetPassword(password string) error {
 	var results params.ErrorResults
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
-			Tag:      m.tag,
+			Tag:      m.tag.String(),
 			Password: password,
 		}},
 	}
