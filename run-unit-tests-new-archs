@@ -104,6 +104,7 @@ else
     cd \$GOPATH/src/github.com/juju/juju
 fi
 bzr whoami 'J. Random Hacker <jrandom@example.org>'
+go version || gccgo -v
 make build
 # Hack match for i386.
 sed -i 's/x86/86/' Makefile
