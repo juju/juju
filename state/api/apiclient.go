@@ -280,12 +280,16 @@ func (s *State) Call(objType string, version int, id, request string, args, resp
 }
 
 // APICall places a call to the remote machine.
-func (s *State) APICall(objType string, version int, id, request string, args, response interface{}) error {
+//
+// This fills out the rpc.Request on the given facade, version for a given
+// object id, and the specific RPC method. It marshalls the Arguments, and will
+// unmarshall the result into the response object that is supplied.
+func (s *State) APICall(facade string, version int, id, method string, args, response interface{}) error {
 	err := s.client.Call(rpc.Request{
-		Type:    objType,
+		Type:    facade,
 		Version: version,
 		Id:      id,
-		Action:  request,
+		Action:  method,
 	}, args, response)
 	return params.ClientError(err)
 }

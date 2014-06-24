@@ -47,7 +47,7 @@ func (s *Service) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.CallFacade("Watch", args, &results)
+	err := s.st.FacadeCall("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +69,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.CallFacade("WatchServiceRelations", args, &results)
+	err := s.st.FacadeCall("WatchServiceRelations", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -111,7 +111,7 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.CallFacade("CharmURL", args, &results)
+	err := s.st.FacadeCall("CharmURL", args, &results)
 	if err != nil {
 		return nil, false, err
 	}
@@ -139,7 +139,7 @@ func (s *Service) GetOwnerTag() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag}},
 	}
-	err := s.st.CallFacade("GetOwnerTag", args, &result)
+	err := s.st.FacadeCall("GetOwnerTag", args, &result)
 	if err != nil {
 		return "", err
 	}

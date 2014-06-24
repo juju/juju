@@ -24,7 +24,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.CallFacade("WatchUnits", args, &results)
+	err := m.st.FacadeCall("WatchUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}

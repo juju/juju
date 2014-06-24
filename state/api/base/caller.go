@@ -15,13 +15,14 @@ type APICaller interface {
 	BestFacadeVersion(facade string) int
 }
 
-// FacadeCaller is a wrapper around the common paradigm that a given client
-// just wants to make calls on a facade using the best known version of the API.
+// FacadeCaller is a wrapper for the common paradigm that a given client just
+// wants to make calls on a facade using the best known version of the API. And
+// without dealing with an id parameter.
 type FacadeCaller interface {
-	// CallFacade will place a request against the API using the requested
+	// FacadeCall will place a request against the API using the requested
 	// Facade and the best version that the API server supports that is
 	// also known to the client.
-	CallFacade(request string, params, response interface{}) error
+	FacadeCall(request string, params, response interface{}) error
 
 	// BestAPIVersion returns the API version that we were able to
 	// determine is supported by both the client and the API Server
@@ -34,28 +35,40 @@ type FacadeCaller interface {
 }
 
 type facadeCaller struct {
-	facade string
-	caller APICaller
+	facade      string
+	bestVersion int
+	caller      APICaller
 }
 
-func (fc facadeCaller) CallFacade(request string, params, response interface{}) error {
+// FacadeCall will place a request against the API using the requested
+// Facade and the best version that the API server supports that is
+// also known to the client. (id is always passed as the empty string.)
+func (fc facadeCaller) FacadeCall(request string, params, response interface{}) error {
 	return fc.caller.APICall(
-		fc.facade, fc.caller.BestFacadeVersion(fc.facade), "",
+		fc.facade, fc.bestVersion, "",
 		request, params, response)
 }
 
+// BestAPIVersion returns the version of the Facade that is going to be used
+// for calls. It is determined using the algorithm defined in state/api
+// BestFacadeVersion. Callers can use this to determine what methods must be
+// used for compatibility.
 func (fc facadeCaller) BestAPIVersion() int {
-	// Note: If we decide we want to cache the best version rather than
-	// computing it from a list each time, this is a clear location to do
-	// that caching.
-	return fc.caller.BestFacadeVersion(fc.facade)
+	return fc.bestVersion
 }
 
+// RawAPICaller returns the wrapped APICaller. This can be used if you need to
+// switch what Facade you are calling (such as Facades that return Watchers and
+// then need to use the Watcher facade)
 func (fc facadeCaller) RawAPICaller() APICaller {
 	return fc.caller
 }
 
-// GetFacadeCaller wraps a APICaller for a given Facade
-func GetFacadeCaller(caller APICaller, facade string) FacadeCaller {
-	return facadeCaller{facade: facade, caller: caller}
+// NewFacadeCaller wraps an APICaller for a given Facade
+func NewFacadeCaller(caller APICaller, facade string) FacadeCaller {
+	return facadeCaller{
+		facade:      facade,
+		bestVersion: caller.BestFacadeVersion(facade),
+		caller:      caller,
+	}
 }

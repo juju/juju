@@ -76,7 +76,7 @@ func (ru *RelationUnit) EnterScope() error {
 			Unit:     ru.unit.tag,
 		}},
 	}
-	err := ru.st.CallFacade("EnterScope", args, &result)
+	err := ru.st.FacadeCall("EnterScope", args, &result)
 	if err != nil {
 		return err
 	}
@@ -96,7 +96,7 @@ func (ru *RelationUnit) LeaveScope() error {
 			Unit:     ru.unit.tag,
 		}},
 	}
-	err := ru.st.CallFacade("LeaveScope", args, &result)
+	err := ru.st.FacadeCall("LeaveScope", args, &result)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 			Unit:     ru.unit.tag,
 		}},
 	}
-	err := ru.st.CallFacade("ReadSettings", args, &results)
+	err := ru.st.FacadeCall("ReadSettings", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +144,7 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.RelationSettings, err
 			RemoteUnit: tag.String(),
 		}},
 	}
-	err := ru.st.CallFacade("ReadRemoteSettings", args, &results)
+	err := ru.st.FacadeCall("ReadRemoteSettings", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -168,7 +168,7 @@ func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
 			Unit:     ru.unit.tag,
 		}},
 	}
-	err := ru.st.CallFacade("WatchRelationUnits", args, &results)
+	err := ru.st.FacadeCall("WatchRelationUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}

@@ -19,7 +19,7 @@ type State struct {
 // NewState returns a version of the state that provides functionality
 // required by agent code.
 func NewState(caller base.APICaller) *State {
-	facadeCaller := base.GetFacadeCaller(caller, "Agent")
+	facadeCaller := base.NewFacadeCaller(caller, "Agent")
 	return &State{facadeCaller}
 }
 
@@ -28,7 +28,7 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.caller.CallFacade("GetEntities", args, &results)
+	err := st.caller.FacadeCall("GetEntities", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -43,7 +43,7 @@ func (st *State) getEntity(tag string) (*params.AgentGetEntitiesResult, error) {
 
 func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 	var results params.StateServingInfo
-	err := st.caller.CallFacade("StateServingInfo", nil, &results)
+	err := st.caller.FacadeCall("StateServingInfo", nil, &results)
 	return results, err
 }
 
@@ -55,7 +55,7 @@ func (st *State) StateServingInfo() (params.StateServingInfo, error) {
 // privileges.
 func (st *State) IsMaster() (bool, error) {
 	var results params.IsMasterResult
-	err := st.caller.CallFacade("IsMaster", nil, &results)
+	err := st.caller.FacadeCall("IsMaster", nil, &results)
 	return results.Master, err
 }
 
@@ -110,7 +110,7 @@ func (m *Entity) SetPassword(password string) error {
 			Password: password,
 		}},
 	}
-	err := m.st.caller.CallFacade("SetPasswords", args, &results)
+	err := m.st.caller.FacadeCall("SetPasswords", args, &results)
 	if err != nil {
 		return err
 	}

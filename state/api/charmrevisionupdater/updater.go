@@ -15,14 +15,14 @@ type State struct {
 
 // NewState returns a version of the state that provides functionality required by the worker.
 func NewState(caller base.APICaller) *State {
-	return &State{base.GetFacadeCaller(caller, "CharmRevisionUpdater")}
+	return &State{base.NewFacadeCaller(caller, "CharmRevisionUpdater")}
 }
 
 // UpdateLatestRevisions retrieves charm revision info from a repository
 // and updates the revision info in state.
 func (st *State) UpdateLatestRevisions() error {
 	result := new(params.ErrorResult)
-	err := st.caller.CallFacade("UpdateLatestRevisions", nil, result)
+	err := st.caller.FacadeCall("UpdateLatestRevisions", nil, result)
 	if err != nil {
 		return err
 	}

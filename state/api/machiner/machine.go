@@ -46,7 +46,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 			{Tag: m.tag, Status: status, Info: info, Data: data},
 		},
 	}
-	err := m.st.CallFacade("SetStatus", args, &result)
+	err := m.st.FacadeCall("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -61,7 +61,7 @@ func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
 			{Tag: m.Tag(), Addresses: addresses},
 		},
 	}
-	err := m.st.CallFacade("SetMachineAddresses", args, &result)
+	err := m.st.FacadeCall("SetMachineAddresses", args, &result)
 	if err != nil {
 		return err
 	}
@@ -75,7 +75,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.CallFacade("EnsureDead", args, &result)
+	err := m.st.FacadeCall("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -88,7 +88,7 @@ func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.CallFacade("Watch", args, &results)
+	err := m.st.FacadeCall("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}

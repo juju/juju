@@ -28,7 +28,7 @@ type State struct {
 
 // NewState creates a new client-side Uniter facade.
 func NewState(caller base.APICaller, authTag string) *State {
-	facadeCaller := base.GetFacadeCaller(caller, uniterFacade)
+	facadeCaller := base.NewFacadeCaller(caller, uniterFacade)
 	return &State{
 		EnvironWatcher: common.NewEnvironWatcher(uniterFacade, caller),
 		APIAddresser:   common.NewAPIAddresser(facadeCaller),
@@ -51,7 +51,7 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 			{Relation: relationTag, Unit: unitTag},
 		},
 	}
-	err := st.CallFacade("Relation", args, &result)
+	err := st.FacadeCall("Relation", args, &result)
 	if err != nil {
 		return nothing, err
 	}
@@ -97,7 +97,7 @@ func (st *State) Service(tag string) (*Service, error) {
 // addresses implemented fully. See also LP bug 1221798.
 func (st *State) ProviderType() (string, error) {
 	var result params.StringResult
-	err := st.CallFacade("ProviderType", nil, &result)
+	err := st.FacadeCall("ProviderType", nil, &result)
 	if err != nil {
 		return "", err
 	}
@@ -138,7 +138,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	args := params.RelationIds{
 		RelationIds: []int{id},
 	}
-	err := st.CallFacade("RelationById", args, &results)
+	err := st.FacadeCall("RelationById", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -161,7 +161,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
 	var result params.EnvironmentResult
-	err := st.CallFacade("CurrentEnvironment", nil, &result)
+	err := st.FacadeCall("CurrentEnvironment", nil, &result)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the 1.16 API.
 		return st.environment1dot16()
@@ -182,7 +182,7 @@ func (st *State) Environment() (*Environment, error) {
 // using an older API server that does not support CurrentEnvironment API call.
 func (st *State) environment1dot16() (*Environment, error) {
 	var result params.StringResult
-	err := st.CallFacade("CurrentEnvironUUID", nil, &result)
+	err := st.FacadeCall("CurrentEnvironUUID", nil, &result)
 	if err != nil {
 		return nil, err
 	}

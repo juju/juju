@@ -20,7 +20,7 @@ type State struct {
 // NewState creates a new State instance that makes API calls
 // through the given caller.
 func NewState(caller base.APICaller) *State {
-	facadeCaller := base.GetFacadeCaller(caller, deployerFacade)
+	facadeCaller := base.NewFacadeCaller(caller, deployerFacade)
 	return &State{
 		FacadeCaller: facadeCaller,
 		APIAddresser: common.NewAPIAddresser(facadeCaller),
@@ -57,7 +57,7 @@ func (st *State) Machine(tag string) (*Machine, error) {
 // StateAddresses returns the list of addresses used to connect to the state.
 func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.CallFacade("StateAddresses", nil, &result)
+	err := st.FacadeCall("StateAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -67,6 +67,6 @@ func (st *State) StateAddresses() ([]string, error) {
 // ConnectionInfo returns all the address information that the deployer task
 // needs in one call.
 func (st *State) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	err = st.CallFacade("ConnectionInfo", nil, &result)
+	err = st.FacadeCall("ConnectionInfo", nil, &result)
 	return result, err
 }

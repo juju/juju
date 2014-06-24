@@ -19,7 +19,7 @@ type State struct {
 
 // NewState creates a new client-side Machiner facade.
 func NewState(caller base.APICaller) *State {
-	facadeCaller := base.GetFacadeCaller(caller, machinerFacade)
+	facadeCaller := base.NewFacadeCaller(caller, machinerFacade)
 	return &State{
 		FacadeCaller: facadeCaller,
 		APIAddresser: common.NewAPIAddresser(facadeCaller),
