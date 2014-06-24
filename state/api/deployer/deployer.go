@@ -39,11 +39,7 @@ func (st *State) unitLife(tag names.Tag) (params.Life, error) {
 }
 
 // Unit returns the unit with the given tag.
-func (st *State) Unit(unitTag string) (*Unit, error) {
-	tag, err := names.ParseUnitTag(unitTag)
-	if err != nil {
-		return nil, err
-	}
+func (st *State) Unit(tag names.Tag) (*Unit, error) {
 	life, err := st.unitLife(tag)
 	if err != nil {
 		return nil, err

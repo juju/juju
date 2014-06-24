@@ -6,6 +6,7 @@ package deployer_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -131,7 +132,7 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 
 func (s *deployerSuite) TestUnit(c *gc.C) {
 	// Try getting a missing unit and an invalid tag.
-	unit, err := s.st.Unit("unit-foo-42")
+	unit, err := s.st.Unit(names.NewUnitTag("foo/42"))
 	s.assertUnauthorized(c, err)
 	c.Assert(unit, gc.IsNil)
 
@@ -143,21 +144,21 @@ func (s *deployerSuite) TestUnit(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = principal1.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
-	unit, err = s.st.Unit(principal1.Tag().String())
+	unit, err = s.st.Unit(principal1.Tag())
 	s.assertUnauthorized(c, err)
 	c.Assert(unit, gc.IsNil)
 
 	// Get the principal and subordinate we're responsible for.
-	unit, err = s.st.Unit(s.principal.Tag().String())
+	unit, err = s.st.Unit(s.principal.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
-	unit, err = s.st.Unit(s.subordinate.Tag().String())
+	unit, err = s.st.Unit(s.subordinate.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.Name(), gc.Equals, "logging/0")
 }
 
 func (s *deployerSuite) TestUnitLifeRefresh(c *gc.C) {
-	unit, err := s.st.Unit(s.subordinate.Tag().String())
+	unit, err := s.st.Unit(s.subordinate.Tag())
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(unit.Life(), gc.Equals, params.Alive)
@@ -175,7 +176,7 @@ func (s *deployerSuite) TestUnitLifeRefresh(c *gc.C) {
 }
 
 func (s *deployerSuite) TestUnitRemove(c *gc.C) {
-	unit, err := s.st.Unit(s.principal.Tag().String())
+	unit, err := s.st.Unit(s.principal.Tag())
 	c.Assert(err, gc.IsNil)
 
 	// It fails because the entity is still alive.
@@ -185,7 +186,7 @@ func (s *deployerSuite) TestUnitRemove(c *gc.C) {
 	c.Assert(params.ErrCode(err), gc.Equals, "")
 
 	// With the subordinate it also fails due to it being alive.
-	unit, err = s.st.Unit(s.subordinate.Tag().String())
+	unit, err = s.st.Unit(s.subordinate.Tag())
 	c.Assert(err, gc.IsNil)
 	err = unit.Remove()
 	c.Assert(err, gc.ErrorMatches, `cannot remove entity "unit-logging-0": still alive`)
@@ -200,13 +201,13 @@ func (s *deployerSuite) TestUnitRemove(c *gc.C) {
 	// Verify it's gone.
 	err = unit.Refresh()
 	s.assertUnauthorized(c, err)
-	unit, err = s.st.Unit(s.subordinate.Tag().String())
+	unit, err = s.st.Unit(s.subordinate.Tag())
 	s.assertUnauthorized(c, err)
 	c.Assert(unit, gc.IsNil)
 }
 
 func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
-	unit, err := s.st.Unit(s.principal.Tag().String())
+	unit, err := s.st.Unit(s.principal.Tag())
 	c.Assert(err, gc.IsNil)
 
 	// Change the principal's password and verify.
@@ -217,7 +218,7 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 	c.Assert(s.principal.PasswordValid("foobar-12345678901234567890"), gc.Equals, true)
 
 	// Then the subordinate.
-	unit, err = s.st.Unit(s.subordinate.Tag().String())
+	unit, err = s.st.Unit(s.subordinate.Tag())
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword("phony-12345678901234567890")
 	c.Assert(err, gc.IsNil)
