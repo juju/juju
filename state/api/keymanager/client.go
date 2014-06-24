@@ -5,24 +5,21 @@ package keymanager
 
 import (
 	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/utils/ssh"
 )
 
 // Client provides access to the keymanager, used to add/delete/list authorised ssh keys.
 type Client struct {
-	st *api.State
-}
-
-func (c *Client) call(method string, params, result interface{}) error {
-	return c.st.Call(
-		"KeyManager", c.st.BestFacadeVersion("KeyManager"), "",
-		method, params, result)
+	// TODO: we only need the raw api.State object to implement Close()...
+	st     *api.State
+	facade base.FacadeCaller
 }
 
 // NewClient returns a new keymanager client.
 func NewClient(st *api.State) *Client {
-	return &Client{st}
+	return &Client{st, base.NewFacadeCaller(st, "KeyManager")}
 }
 
 // Close closes the underlying State connection.
@@ -38,7 +35,7 @@ func (c *Client) ListKeys(mode ssh.ListMode, users ...string) ([]params.StringsR
 		p.Entities.Entities[i] = params.Entity{Tag: userName}
 	}
 	results := new(params.StringsResults)
-	err := c.call("ListKeys", p, results)
+	err := c.facade.FacadeCall("ListKeys", p, results)
 	return results.Results, err
 }
 
@@ -46,7 +43,7 @@ func (c *Client) ListKeys(mode ssh.ListMode, users ...string) ([]params.StringsR
 func (c *Client) AddKeys(user string, keys ...string) ([]params.ErrorResult, error) {
 	p := params.ModifyUserSSHKeys{User: user, Keys: keys}
 	results := new(params.ErrorResults)
-	err := c.call("AddKeys", p, results)
+	err := c.facade.FacadeCall("AddKeys", p, results)
 	return results.Results, err
 }
 
@@ -54,7 +51,7 @@ func (c *Client) AddKeys(user string, keys ...string) ([]params.ErrorResult, err
 func (c *Client) DeleteKeys(user string, keys ...string) ([]params.ErrorResult, error) {
 	p := params.ModifyUserSSHKeys{User: user, Keys: keys}
 	results := new(params.ErrorResults)
-	err := c.call("DeleteKeys", p, results)
+	err := c.facade.FacadeCall("DeleteKeys", p, results)
 	return results.Results, err
 }
 
@@ -62,6 +59,6 @@ func (c *Client) DeleteKeys(user string, keys ...string) ([]params.ErrorResult, 
 func (c *Client) ImportKeys(user string, keyIds ...string) ([]params.ErrorResult, error) {
 	p := params.ModifyUserSSHKeys{User: user, Keys: keyIds}
 	results := new(params.ErrorResults)
-	err := c.call("ImportKeys", p, results)
+	err := c.facade.FacadeCall("ImportKeys", p, results)
 	return results.Results, err
 }

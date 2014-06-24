@@ -9,21 +9,20 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 )
 
 // TODO(mattyw) 2014-03-07 bug #1288750
 // Need a SetPassword method.
 type Client struct {
-	st *api.State
-}
-
-func (c *Client) call(method string, params, result interface{}) error {
-	return c.st.Call("UserManager", 0, "", method, params, result)
+	// TODO: we only need the raw api.State object to implement Close()...
+	st     *api.State
+	facade base.FacadeCaller
 }
 
 func NewClient(st *api.State) *Client {
-	return &Client{st}
+	return &Client{st, base.NewFacadeCaller(st, "UserManager")}
 }
 
 func (c *Client) Close() error {
@@ -38,7 +37,7 @@ func (c *Client) AddUser(username, displayName, password string) error {
 		Changes: []params.ModifyUser{{Username: username, DisplayName: displayName, Password: password}},
 	}
 	results := new(params.ErrorResults)
-	err := c.call("AddUser", userArgs, results)
+	err := c.facade.FacadeCall("AddUser", userArgs, results)
 	if err != nil {
 		return err
 	}
@@ -49,7 +48,7 @@ func (c *Client) RemoveUser(tag string) error {
 	u := params.Entity{Tag: tag}
 	p := params.Entities{Entities: []params.Entity{u}}
 	results := new(params.ErrorResults)
-	err := c.call("RemoveUser", p, results)
+	err := c.facade.FacadeCall("RemoveUser", p, results)
 	if err != nil {
 		return err
 	}

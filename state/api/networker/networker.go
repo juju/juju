@@ -15,18 +15,12 @@ const networkerFacade = "Networker"
 
 // State provides access to an networker worker's view of the state.
 type State struct {
-	caller base.APICaller
-}
-
-func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.APICall(
-		networkerFacade, st.caller.BestFacadeVersion(networkerFacade), "",
-		method, params, result)
+	facade base.FacadeCaller
 }
 
 // NewState creates a new client-side Machiner facade.
 func NewState(caller base.APICaller) *State {
-	return &State{caller}
+	return &State{base.NewFacadeCaller(caller, networkerFacade)}
 }
 
 // MachineNetworkInfo returns information about networks to setup only for a single machine.
@@ -35,7 +29,7 @@ func (st *State) MachineNetworkInfo(machineTag string) ([]network.Info, error) {
 		Entities: []params.Entity{{Tag: machineTag}},
 	}
 	var results params.MachineNetworkInfoResults
-	err := st.call("MachineNetworkInfo", args, &results)
+	err := st.facade.FacadeCall("MachineNetworkInfo", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err

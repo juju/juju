@@ -13,19 +13,13 @@ import (
 
 // State provides access to an logger worker's view of the state.
 type State struct {
-	caller base.APICaller
-}
-
-func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.APICall(
-		"Logger", st.caller.BestFacadeVersion("Logger"), "",
-		method, params, result)
+	facade base.FacadeCaller
 }
 
 // NewState returns a version of the state that provides functionality
 // required by the logger worker.
 func NewState(caller base.APICaller) *State {
-	return &State{caller}
+	return &State{base.NewFacadeCaller(caller, "Logger")}
 }
 
 // LoggingConfig returns the loggo configuration string for the agent
@@ -35,7 +29,7 @@ func (st *State) LoggingConfig(agentTag string) (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := st.call("LoggingConfig", args, &results)
+	err := st.facade.FacadeCall("LoggingConfig", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return "", err
@@ -58,7 +52,7 @@ func (st *State) WatchLoggingConfig(agentTag string) (watcher.NotifyWatcher, err
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := st.call("WatchLoggingConfig", args, &results)
+	err := st.facade.FacadeCall("WatchLoggingConfig", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -72,6 +66,6 @@ func (st *State) WatchLoggingConfig(agentTag string) (watcher.NotifyWatcher, err
 		//  TODO: Not directly tested
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.caller, result)
+	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }

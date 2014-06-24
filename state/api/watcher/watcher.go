@@ -32,7 +32,22 @@ type commonWatcher struct {
 
 	// call should invoke the given API method, placing the call's
 	// returned value in result (if any).
-	call func(method string, result interface{}) error
+	call watcherAPICall
+}
+
+// watcherAPICall wraps up the information about what facade and what watcher
+// Id we are calling, and just gives us a simple way to call a common method
+// with a given return value.
+type watcherAPICall func(method string, result interface{}) error
+
+// makeWatcherAPICaller creates a watcherAPICall function for a given facade name
+// and watcherId.
+func makeWatcherAPICaller(caller base.APICaller, facadeName, watcherId string) watcherAPICall {
+	bestVersion := caller.BestFacadeVersion(facadeName)
+	return func(request string, result interface{}) error {
+		return caller.APICall(facadeName, bestVersion,
+			watcherId, request, nil, &result)
+	}
 }
 
 // init must be called to initialize an embedded commonWatcher's
@@ -141,11 +156,7 @@ func NewNotifyWatcher(caller base.APICaller, result params.NotifyWatchResult) No
 func (w *notifyWatcher) loop() error {
 	// No results for this watcher type.
 	w.newResult = func() interface{} { return nil }
-	w.call = func(request string, result interface{}) error {
-		return w.caller.APICall("NotifyWatcher",
-			w.caller.BestFacadeVersion("NotifyWatcher"),
-			w.notifyWatcherId, request, nil, &result)
-	}
+	w.call = makeWatcherAPICaller(w.caller, "NotifyWatcher", w.notifyWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
 
@@ -198,12 +209,7 @@ func NewStringsWatcher(caller base.APICaller, result params.StringsWatchResult) 
 func (w *stringsWatcher) loop(initialChanges []string) error {
 	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.StringsWatchResult) }
-	w.call = func(request string, result interface{}) error {
-		return w.caller.APICall(
-			"StringsWatcher",
-			w.caller.BestFacadeVersion("StringsWatcher"),
-			w.stringsWatcherId, request, nil, &result)
-	}
+	w.call = makeWatcherAPICaller(w.caller, "StringsWatcher", w.stringsWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
 
@@ -259,11 +265,7 @@ func NewRelationUnitsWatcher(caller base.APICaller, result params.RelationUnitsW
 func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) error {
 	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.RelationUnitsWatchResult) }
-	w.call = func(request string, result interface{}) error {
-		return w.caller.APICall("RelationUnitsWatcher",
-			w.caller.BestFacadeVersion("RelationUnitsWatcher"),
-			w.relationUnitsWatcherId, request, nil, &result)
-	}
+	w.call = makeWatcherAPICaller(w.caller, "RelationUnitsWatcher", w.relationUnitsWatcherId)
 	w.commonWatcher.init()
 	go w.commonLoop()
 
