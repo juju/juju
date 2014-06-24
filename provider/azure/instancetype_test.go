@@ -4,6 +4,8 @@
 package azure
 
 import (
+	"strings"
+
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
@@ -34,138 +36,6 @@ func (s *instanceTypeSuite) setDummyStorage(c *gc.C, env *azureEnviron) {
 	closer, storage, _ := testing.CreateLocalTestStorage(c)
 	env.storage = storage
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
-}
-
-func (*instanceTypeSuite) TestNewPreferredTypesAcceptsNil(c *gc.C) {
-	types := newPreferredTypes(nil)
-
-	c.Check(types, gc.HasLen, 0)
-	c.Check(types.Len(), gc.Equals, 0)
-}
-
-func (*instanceTypeSuite) TestNewPreferredTypesRepresentsInput(c *gc.C) {
-	availableTypes := []gwacl.RoleSize{{Name: "Humongous", Cost: 123}}
-
-	types := newPreferredTypes(availableTypes)
-
-	c.Assert(types, gc.HasLen, len(availableTypes))
-	c.Check(types[0], gc.Equals, &availableTypes[0])
-	c.Check(types.Len(), gc.Equals, len(availableTypes))
-}
-
-func (*instanceTypeSuite) TestNewPreferredTypesSortsByCost(c *gc.C) {
-	availableTypes := []gwacl.RoleSize{
-		{Name: "Excessive", Cost: 12},
-		{Name: "Ridiculous", Cost: 99},
-		{Name: "Modest", Cost: 3},
-	}
-
-	types := newPreferredTypes(availableTypes)
-
-	c.Assert(types, gc.HasLen, len(availableTypes))
-	// We end up with machine types sorted by ascending cost.
-	c.Check(types[0].Name, gc.Equals, "Modest")
-	c.Check(types[1].Name, gc.Equals, "Excessive")
-	c.Check(types[2].Name, gc.Equals, "Ridiculous")
-}
-
-func (*instanceTypeSuite) TestLessComparesCost(c *gc.C) {
-	types := preferredTypes{
-		{Name: "Cheap", Cost: 1},
-		{Name: "Posh", Cost: 200},
-	}
-
-	c.Check(types.Less(0, 1), gc.Equals, true)
-	c.Check(types.Less(1, 0), gc.Equals, false)
-}
-
-func (*instanceTypeSuite) TestSwapSwitchesEntries(c *gc.C) {
-	types := preferredTypes{
-		{Name: "First"},
-		{Name: "Last"},
-	}
-
-	types.Swap(0, 1)
-
-	c.Check(types[0].Name, gc.Equals, "Last")
-	c.Check(types[1].Name, gc.Equals, "First")
-}
-
-func (*instanceTypeSuite) TestSwapIsCommutative(c *gc.C) {
-	types := preferredTypes{
-		{Name: "First"},
-		{Name: "Last"},
-	}
-
-	types.Swap(1, 0)
-
-	c.Check(types[0].Name, gc.Equals, "Last")
-	c.Check(types[1].Name, gc.Equals, "First")
-}
-
-func (*instanceTypeSuite) TestSwapLeavesOtherEntriesIntact(c *gc.C) {
-	types := preferredTypes{
-		{Name: "A"},
-		{Name: "B"},
-		{Name: "C"},
-		{Name: "D"},
-	}
-
-	types.Swap(1, 2)
-
-	c.Check(types[0].Name, gc.Equals, "A")
-	c.Check(types[1].Name, gc.Equals, "C")
-	c.Check(types[2].Name, gc.Equals, "B")
-	c.Check(types[3].Name, gc.Equals, "D")
-}
-
-func (*instanceTypeSuite) TestSufficesAcceptsNilRequirement(c *gc.C) {
-	types := preferredTypes{}
-	c.Check(types.suffices(0, nil), gc.Equals, true)
-}
-
-func (*instanceTypeSuite) TestSufficesAcceptsMetRequirement(c *gc.C) {
-	types := preferredTypes{}
-	var expectation uint64 = 100
-	c.Check(types.suffices(expectation+1, &expectation), gc.Equals, true)
-}
-
-func (*instanceTypeSuite) TestSufficesAcceptsExactRequirement(c *gc.C) {
-	types := preferredTypes{}
-	var expectation uint64 = 100
-	c.Check(types.suffices(expectation+1, &expectation), gc.Equals, true)
-}
-
-func (*instanceTypeSuite) TestSufficesRejectsUnmetRequirement(c *gc.C) {
-	types := preferredTypes{}
-	var expectation uint64 = 100
-	c.Check(types.suffices(expectation-1, &expectation), gc.Equals, false)
-}
-
-func (*instanceTypeSuite) TestSatisfiesComparesCPUCores(c *gc.C) {
-	types := preferredTypes{}
-	var desiredCores uint64 = 5
-	constraint := constraints.Value{CpuCores: &desiredCores}
-
-	// A machine with fewer cores than required does not satisfy...
-	machine := gwacl.RoleSize{CpuCores: desiredCores - 1}
-	c.Check(types.satisfies(&machine, constraint), gc.Equals, false)
-	// ...Even if it would, given more cores.
-	machine.CpuCores = desiredCores
-	c.Check(types.satisfies(&machine, constraint), gc.Equals, true)
-}
-
-func (*instanceTypeSuite) TestSatisfiesComparesMem(c *gc.C) {
-	types := preferredTypes{}
-	var desiredMem uint64 = 37
-	constraint := constraints.Value{Mem: &desiredMem}
-
-	// A machine with less memory than required does not satisfy...
-	machine := gwacl.RoleSize{Mem: desiredMem - 1}
-	c.Check(types.satisfies(&machine, constraint), gc.Equals, false)
-	// ...Even if it would, given more memory.
-	machine.Mem = desiredMem
-	c.Check(types.satisfies(&machine, constraint), gc.Equals, true)
 }
 
 func (*instanceTypeSuite) TestDefaultToBaselineSpecSetsMimimumMem(c *gc.C) {
@@ -201,27 +71,39 @@ func (*instanceTypeSuite) TestDefaultToBaselineSpecLeavesHigherMemIntact(c *gc.C
 	c.Check(value, gc.Equals, uint64(high))
 }
 
-func (*instanceTypeSuite) TestSelectMachineTypeReturnsErrorIfNoMatch(c *gc.C) {
+func (s *instanceTypeSuite) TestSelectMachineTypeReturnsErrorIfNoMatch(c *gc.C) {
 	var lots uint64 = 1000000000000
-	_, err := selectMachineType(nil, constraints.Value{Mem: &lots})
+	env := s.setupEnvWithDummyMetadata(c)
+	_, err := selectMachineType(env, constraints.Value{Mem: &lots})
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "no machine type matches constraints mem=100000*[MGT]")
+	c.Check(err, gc.ErrorMatches, `no instance types in West US matching constraints "mem=1000000000000M"`)
 }
 
-func (*instanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
+func (s *instanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
 	var desiredCores uint64 = 50
-	availableTypes := []gwacl.RoleSize{
-		// Cheap, but not up to our requirements.
-		{Name: "Panda", CpuCores: desiredCores / 2, Cost: 10},
-		// Exactly what we need, but not the cheapest match.
-		{Name: "LFA", CpuCores: desiredCores, Cost: 200},
-		// Much more power than we need, but actually cheaper.
-		{Name: "Lambo", CpuCores: 2 * desiredCores, Cost: 100},
-		// Way out of our league.
-		{Name: "Veyron", CpuCores: 10 * desiredCores, Cost: 500},
-	}
 
-	choice, err := selectMachineType(availableTypes, constraints.Value{CpuCores: &desiredCores})
+	costs := map[string]uint64{
+		"Panda":  10,
+		"LFA":    200,
+		"Lambo":  100,
+		"Veyron": 500,
+	}
+	s.PatchValue(&roleSizeCost, func(region, roleSize string) (uint64, error) {
+		return costs[roleSize], nil
+	})
+	s.PatchValue(&gwacl.RoleSizes, []gwacl.RoleSize{
+		// Cheap, but not up to our requirements.
+		{Name: "Panda", CpuCores: desiredCores / 2},
+		// Exactly what we need, but not the cheapest match.
+		{Name: "LFA", CpuCores: desiredCores},
+		// Much more power than we need, but actually cheaper.
+		{Name: "Lambo", CpuCores: 2 * desiredCores},
+		// Way out of our league.
+		{Name: "Veyron", CpuCores: 10 * desiredCores},
+	})
+
+	env := s.setupEnvWithDummyMetadata(c)
+	choice, err := selectMachineType(env, constraints.Value{CpuCores: &desiredCores})
 	c.Assert(err, gc.IsNil)
 
 	// Out of these options, selectMachineType picks not the first; not
@@ -286,54 +168,49 @@ func (s *instanceTypeSuite) TestFindMatchingImagesReturnsDailyImages(c *gc.C) {
 	c.Assert(images[0].Id, gc.Equals, "image-id")
 }
 
-func (*instanceTypeSuite) TestNewInstanceTypeConvertsRoleSize(c *gc.C) {
+func (s *instanceTypeSuite) TestNewInstanceTypeConvertsRoleSize(c *gc.C) {
+	const expectedRegion = "expected"
+	s.PatchValue(&roleSizeCost, func(region, roleSize string) (uint64, error) {
+		c.Assert(region, gc.Equals, expectedRegion)
+		return 999999500, nil
+	})
 	roleSize := gwacl.RoleSize{
-		Name:             "Outrageous",
-		CpuCores:         128,
-		Mem:              4 * gwacl.TB,
-		OSDiskSpaceCloud: 48 * gwacl.TB,
-		OSDiskSpaceVirt:  50 * gwacl.TB,
-		MaxDataDisks:     20,
-		Cost:             999999500,
+		Name:          "Outrageous",
+		CpuCores:      128,
+		Mem:           4 * gwacl.TB,
+		OSDiskSpace:   48 * gwacl.TB,
+		TempDiskSpace: 50 * gwacl.TB,
+		MaxDataDisks:  20,
 	}
 	vtype := "Hyper-V"
-	var cpupower uint64 = 100
 	expectation := instances.InstanceType{
 		Id:       roleSize.Name,
 		Name:     roleSize.Name,
 		CpuCores: roleSize.CpuCores,
 		Mem:      roleSize.Mem,
-		RootDisk: roleSize.OSDiskSpaceVirt,
-		Cost:     roleSize.Cost,
+		RootDisk: roleSize.OSDiskSpace,
+		Cost:     999999500,
 		VirtType: &vtype,
-		CpuPower: &cpupower,
 	}
-	c.Assert(newInstanceType(roleSize), gc.DeepEquals, expectation)
-}
-
-func (s *instanceTypeSuite) TestListInstanceTypesAcceptsNil(c *gc.C) {
-	env := s.setupEnvWithDummyMetadata(c)
-	types, err := listInstanceTypes(env, nil)
+	instType, err := newInstanceType(roleSize, expectedRegion)
 	c.Assert(err, gc.IsNil)
-	c.Check(types, gc.HasLen, 0)
+	c.Assert(instType, gc.DeepEquals, expectation)
 }
 
 func (s *instanceTypeSuite) TestListInstanceTypesMaintainsOrder(c *gc.C) {
-	roleSizes := []gwacl.RoleSize{
-		{Name: "Biggish"},
-		{Name: "Tiny"},
-		{Name: "Huge"},
-		{Name: "Miniscule"},
-	}
-
-	expectation := make([]instances.InstanceType, len(roleSizes))
-	for index, roleSize := range roleSizes {
-		expectation[index] = newInstanceType(roleSize)
-		expectation[index].Arches = []string{"amd64"}
+	expectation := make([]instances.InstanceType, 0, len(gwacl.RoleSizes))
+	for _, roleSize := range gwacl.RoleSizes {
+		if strings.HasPrefix(roleSize.Name, "Basic_") {
+			continue
+		}
+		instanceType, err := newInstanceType(roleSize, "West US")
+		c.Assert(err, gc.IsNil)
+		instanceType.Arches = []string{"amd64"}
+		expectation = append(expectation, instanceType)
 	}
 
 	env := s.setupEnvWithDummyMetadata(c)
-	types, err := listInstanceTypes(env, roleSizes)
+	types, err := listInstanceTypes(env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(types, gc.DeepEquals, expectation)
 }
@@ -407,7 +284,7 @@ func (s *instanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
 
 	// We'll tailor our constraints to describe one particular Azure
 	// instance type:
-	aim := gwacl.RoleNameMap["Large"]
+	aim := roleSizeByName("Large")
 	constraints := &instances.InstanceConstraint{
 		Region: "West US",
 		Series: "precise",
@@ -459,5 +336,5 @@ func (s *instanceTypeSuite) TestPrecheckInstanceInvalidInstanceType(c *gc.C) {
 	cons := constraints.MustParse("instance-type=Super")
 	placement := ""
 	err := env.PrecheckInstance("precise", cons, placement)
-	c.Assert(err, gc.ErrorMatches, `invalid Azure instance "Super" specified`)
+	c.Assert(err, gc.ErrorMatches, `invalid instance type "Super"`)
 }
