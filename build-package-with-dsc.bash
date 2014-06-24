@@ -117,6 +117,7 @@ build_binary_packages() {
     ssh "$@" $REMOTE_USER@$INSTANCE_NAME <<EOT
         set -eux
         cd $THERE/juju-build/
+        go version || gccgo -v
         dpkg-source -x $juju_version.dsc
         cd juju-core-$version
         dpkg-buildpackage -us -uc
