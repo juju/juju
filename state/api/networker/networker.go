@@ -43,5 +43,9 @@ func (st *State) MachineNetworkInfo(machineTag string) ([]network.Info, error) {
 		err = fmt.Errorf("expected one result, got %d", len(results.Results))
 		return nil, err
 	}
-	return results.Results[0].Info, results.Results[0].Error
+	apiError := results.Results[0].Error
+	if (apiError != nil) {
+		return nil, apiError
+	}
+	return results.Results[0].Info, nil
 }
