@@ -119,7 +119,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 			defer st.Close()
 
-			_, err = st.Machiner().Machine("0")
+			_, err = st.Machiner().Machine("machine-0")
 			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 			// Since these are user login tests, the nonce is empty.
@@ -127,7 +127,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
-			_, err = st.Machiner().Machine("0")
+			_, err = st.Machiner().Machine("machine-0")
 			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 		}()
 	}
