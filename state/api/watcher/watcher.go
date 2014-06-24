@@ -20,7 +20,6 @@ var logger = loggo.GetLogger("juju.state.api.watcher")
 // it's intended for embedding.
 type commonWatcher struct {
 	tomb tomb.Tomb
-	wg   sync.WaitGroup
 	in   chan interface{}
 
 	// These fields must be set by the embedding watcher, before
@@ -51,12 +50,10 @@ func (w *commonWatcher) init() {
 // watchers. It should be started in a separate goroutine by any
 // watcher that embeds commonWatcher. It kills the commonWatcher's
 // tomb when an error occurs.
-// Callers of commonLoop must call w.wg.Add(1) before spawning this in a
-// goroutine, so that we ensure this goroutine is actually accessed and the new
-// helper goroutines are spawned before we stop in the outer loop.
 func (w *commonWatcher) commonLoop() {
 	defer close(w.in)
-	w.wg.Add(1)
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		// When the watcher has been stopped, we send a Stop request
 		// to the server, which will remove the watcher and return a
@@ -65,18 +62,18 @@ func (w *commonWatcher) commonLoop() {
 		// been stopped, we'll get a CodeNotFound error; Either way
 		// we'll return, wait for the stop request to complete, and
 		// the watcher will die with all resources cleaned up.
-		defer w.wg.Done()
+		defer wg.Done()
 		<-w.tomb.Dying()
 		if err := w.call("Stop", nil); err != nil {
 			logger.Errorf("error trying to stop watcher: %v", err)
 		}
 	}()
-	w.wg.Add(1)
+	wg.Add(1)
 	go func() {
 		// Because Next blocks until there are changes, we need to
 		// call it in a separate goroutine, so the watcher can be
 		// stopped normally.
-		defer w.wg.Done()
+		defer wg.Done()
 		for {
 			result := w.newResult()
 			err := w.call("Next", &result)
@@ -103,10 +100,7 @@ func (w *commonWatcher) commonLoop() {
 			}
 		}
 	}()
-	// We have started the commonLoop, so we have finished 1 of the waits
-	// that we started waiting for.
-	w.wg.Done()
-	w.wg.Wait()
+	wg.Wait()
 }
 
 func (w *commonWatcher) Stop() error {
@@ -138,7 +132,6 @@ func NewNotifyWatcher(caller base.Caller, result params.NotifyWatchResult) Notif
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
-		defer w.wg.Wait() // Wait for watcher to be stopped.
 		w.tomb.Kill(w.loop())
 	}()
 	return w
@@ -151,9 +144,6 @@ func (w *notifyWatcher) loop() error {
 		return w.caller.Call("NotifyWatcher", w.notifyWatcherId, request, nil, &result)
 	}
 	w.commonWatcher.init()
-	// We have to add a wait group here, otherwise we aren't guaranteed to
-	// ever call the commonLoop goroutines.
-	w.wg.Add(1)
 	go w.commonLoop()
 
 	for {
@@ -209,9 +199,6 @@ func (w *stringsWatcher) loop(initialChanges []string) error {
 		return w.caller.Call("StringsWatcher", w.stringsWatcherId, request, nil, &result)
 	}
 	w.commonWatcher.init()
-	// We have to add a wait group here, otherwise we aren't guaranteed to
-	// ever call the commonLoop goroutines.
-	w.wg.Add(1)
 	go w.commonLoop()
 
 	for {
@@ -270,9 +257,6 @@ func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) e
 		return w.caller.Call("RelationUnitsWatcher", w.relationUnitsWatcherId, request, nil, &result)
 	}
 	w.commonWatcher.init()
-	// We have to add a wait group here, otherwise we aren't guaranteed to
-	// ever call the commonLoop goroutines.
-	w.wg.Add(1)
 	go w.commonLoop()
 
 	for {
