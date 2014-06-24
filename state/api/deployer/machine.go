@@ -6,13 +6,15 @@ package deployer
 import (
 	"fmt"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 )
 
 // Machine represents a juju machine as seen by the deployer worker.
 type Machine struct {
-	tag string
+	tag names.Tag
 	st  *State
 }
 
@@ -22,7 +24,7 @@ type Machine struct {
 func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: m.tag}},
+		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
 	err := m.st.call("WatchUnits", args, &results)
 	if err != nil {
