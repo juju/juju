@@ -779,6 +779,12 @@ func (s *uniterSuite) TestWatchActions(c *gc.C) {
 	// the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
+
+	actionId, err := s.wordpressUnit.AddAction("snapshot", map[string]interface{}{
+		"outfile": "foo.txt"})
+
+	wc.AssertChange(actionId)
+	wc.AssertNoChange()
 }
 
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
