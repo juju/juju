@@ -17,7 +17,8 @@ type Facade struct {
 
 // NewFacade returns a new api client facade instance.
 func NewFacade(caller base.APICaller) *Facade {
+	facadeCaller := base.NewFacadeCaller(caller, apiName)
 	return &Facade{
-		EnvironWatcher: common.NewEnvironWatcher(apiName, caller),
+		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
 	}
 }

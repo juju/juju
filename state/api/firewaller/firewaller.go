@@ -23,7 +23,7 @@ func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, firewallerFacade)
 	return &State{
 		facade:         facadeCaller,
-		EnvironWatcher: common.NewEnvironWatcher(firewallerFacade, caller),
+		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
 	}
 }
 

@@ -13,37 +13,30 @@ import (
 // EnvironWatcher provides common client-side API functions
 // to call into apiserver.common.EnvironWatcher.
 type EnvironWatcher struct {
-	facadeName string
-	caller     base.APICaller
+	facade base.FacadeCaller
 }
 
 // NewEnvironWatcher creates a EnvironWatcher on the specified facade,
 // and uses this name when calling through the caller.
-func NewEnvironWatcher(facadeName string, caller base.APICaller) *EnvironWatcher {
-	return &EnvironWatcher{facadeName, caller}
-}
-
-func (e *EnvironWatcher) call(method string, params, result interface{}) error {
-	return e.caller.APICall(
-		e.facadeName, e.caller.BestFacadeVersion(e.facadeName), "",
-		method, params, result)
+func NewEnvironWatcher(facade base.FacadeCaller) *EnvironWatcher {
+	return &EnvironWatcher{facade}
 }
 
 // WatchForEnvironConfigChanges return a NotifyWatcher waiting for the
 // environment configuration to change.
 func (e *EnvironWatcher) WatchForEnvironConfigChanges() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := e.call("WatchForEnvironConfigChanges", nil, &result)
+	err := e.facade.FacadeCall("WatchForEnvironConfigChanges", nil, &result)
 	if err != nil {
 		return nil, err
 	}
-	return watcher.NewNotifyWatcher(e.caller, result), nil
+	return watcher.NewNotifyWatcher(e.facade.RawAPICaller(), result), nil
 }
 
 // EnvironConfig returns the current environment configuration.
 func (e *EnvironWatcher) EnvironConfig() (*config.Config, error) {
 	var result params.EnvironConfigResult
-	err := e.call("EnvironConfig", nil, &result)
+	err := e.facade.FacadeCall("EnvironConfig", nil, &result)
 	if err != nil {
 		return nil, err
 	}

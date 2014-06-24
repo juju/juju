@@ -30,7 +30,7 @@ type State struct {
 func NewState(caller base.APICaller, authTag string) *State {
 	facadeCaller := base.NewFacadeCaller(caller, uniterFacade)
 	return &State{
-		EnvironWatcher: common.NewEnvironWatcher(uniterFacade, caller),
+		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
 		APIAddresser:   common.NewAPIAddresser(facadeCaller),
 		facade:         facadeCaller,
 		unitTag:        authTag,

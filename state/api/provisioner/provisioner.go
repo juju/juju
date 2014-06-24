@@ -29,7 +29,7 @@ const provisionerFacade = "Provisioner"
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade)
 	return &State{
-		EnvironWatcher: common.NewEnvironWatcher(provisionerFacade, caller),
+		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
 		APIAddresser:   common.NewAPIAddresser(facadeCaller),
 		facade:         facadeCaller}
 }
