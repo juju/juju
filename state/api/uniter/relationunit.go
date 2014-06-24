@@ -72,8 +72,8 @@ func (ru *RelationUnit) EnterScope() error {
 	var result params.ErrorResults
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
-			Relation: ru.relation.tag,
-			Unit:     ru.unit.tag,
+			Relation: ru.relation.tag.String(),
+			Unit:     ru.unit.tag.String(),
 		}},
 	}
 	err := ru.st.call("EnterScope", args, &result)
@@ -92,8 +92,8 @@ func (ru *RelationUnit) LeaveScope() error {
 	var result params.ErrorResults
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
-			Relation: ru.relation.tag,
-			Unit:     ru.unit.tag,
+			Relation: ru.relation.tag.String(),
+			Unit:     ru.unit.tag.String(),
 		}},
 	}
 	err := ru.st.call("LeaveScope", args, &result)
@@ -109,8 +109,8 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	var results params.RelationSettingsResults
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
-			Relation: ru.relation.tag,
-			Unit:     ru.unit.tag,
+			Relation: ru.relation.tag.String(),
+			Unit:     ru.unit.tag.String(),
 		}},
 	}
 	err := ru.st.call("ReadSettings", args, &results)
@@ -124,7 +124,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	return newSettings(ru.st, ru.relation.tag, ru.unit.tag, result.Settings), nil
+	return newSettings(ru.st, ru.relation.tag.String(), ru.unit.tag.String(), result.Settings), nil
 }
 
 // ReadSettings returns a map holding the settings of the unit with the
@@ -139,8 +139,8 @@ func (ru *RelationUnit) ReadSettings(uname string) (params.RelationSettings, err
 	var results params.RelationSettingsResults
 	args := params.RelationUnitPairs{
 		RelationUnitPairs: []params.RelationUnitPair{{
-			Relation:   ru.relation.tag,
-			LocalUnit:  ru.unit.tag,
+			Relation:   ru.relation.tag.String(),
+			LocalUnit:  ru.unit.tag.String(),
 			RemoteUnit: tag.String(),
 		}},
 	}
@@ -164,8 +164,8 @@ func (ru *RelationUnit) Watch() (watcher.RelationUnitsWatcher, error) {
 	var results params.RelationUnitsWatchResults
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{{
-			Relation: ru.relation.tag,
-			Unit:     ru.unit.tag,
+			Relation: ru.relation.tag.String(),
+			Unit:     ru.unit.tag.String(),
 		}},
 	}
 	err := ru.st.call("WatchRelationUnits", args, &results)

@@ -323,7 +323,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		instanceTypes: []InstanceType{
 			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VirtType: &hvm, Mem: 512, CpuCores: 2},
 		},
-		err: `invalid instance type "it-10"`,
+		err: `no instance types in test matching constraints "instance-type=it-10"`,
 	},
 	{
 		desc:   "no image exists in metadata",

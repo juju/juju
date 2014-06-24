@@ -179,6 +179,19 @@ func init() {
 	logSize = logSizeTests
 }
 
+// TxnRevno returns the txn-revno field of the document
+// associated with the given Id in the given collection.
+func TxnRevno(st *State, coll string, id interface{}) (int64, error) {
+	var doc struct {
+		TxnRevno int64 `bson:"txn-revno"`
+	}
+	err := st.db.C(coll).FindId(id).One(&doc)
+	if err != nil {
+		return 0, err
+	}
+	return doc.TxnRevno, nil
+}
+
 // MinUnitsRevno returns the Revno of the minUnits document
 // associated with the given service name.
 func MinUnitsRevno(st *State, serviceName string) (int, error) {

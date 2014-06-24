@@ -88,11 +88,7 @@ func (d *DeployerAPI) ConnectionInfo() (result params.DeployerConnectionValues, 
 
 // getAllUnits returns a list of all principal and subordinate units
 // assigned to the given machine.
-func getAllUnits(st *state.State, machineTag string) ([]string, error) {
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return nil, err
-	}
+func getAllUnits(st *state.State, tag names.Tag) ([]string, error) {
 	machine, err := st.Machine(tag.Id())
 	if err != nil {
 		return nil, err
@@ -103,5 +99,5 @@ func getAllUnits(st *state.State, machineTag string) ([]string, error) {
 	if units, ok := <-watch.Changes(); ok {
 		return units, nil
 	}
-	return nil, fmt.Errorf("cannot obtain units of machine %q: %v", machineTag, watch.Err())
+	return nil, fmt.Errorf("cannot obtain units of machine %q: %v", tag, watch.Err())
 }

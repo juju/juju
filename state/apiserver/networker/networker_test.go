@@ -156,7 +156,7 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		LoggedIn:     true,
 		MachineAgent: true,
-		Tag:          s.machine.Tag().String(),
+		Tag:          s.machine.Tag(),
 	}
 
 	// Create a networker API for the machine.

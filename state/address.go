@@ -241,3 +241,15 @@ func instanceHostPortsToHostPorts(instanceHostPorts [][]network.HostPort) [][]ho
 	}
 	return hps
 }
+
+func addressesEqual(a, b []network.Address) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, addrA := range a {
+		if addrA != b[i] {
+			return false
+		}
+	}
+	return true
+}

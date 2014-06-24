@@ -928,20 +928,9 @@ func (m *Machine) Addresses() (addresses []network.Address) {
 // SetAddresses records any addresses related to the machine, sourced
 // by asking the provider.
 func (m *Machine) SetAddresses(addresses ...network.Address) (err error) {
-	stateAddresses := instanceAddressesToAddresses(addresses)
-	ops := []txn.Op{
-		{
-			C:      m.st.machines.Name,
-			Id:     m.doc.Id,
-			Assert: notDeadDoc,
-			Update: bson.D{{"$set", bson.D{{"addresses", stateAddresses}}}},
-		},
+	if err = m.setAddresses(addresses, &m.doc.Addresses, "addresses"); err != nil {
+		return fmt.Errorf("cannot set addresses of machine %v: %v", m, err)
 	}
-
-	if err = m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set addresses of machine %v: %v", m, onAbort(err, errDead))
-	}
-	m.doc.Addresses = stateAddresses
 	return nil
 }
 
@@ -957,20 +946,49 @@ func (m *Machine) MachineAddresses() (addresses []network.Address) {
 // SetMachineAddresses records any addresses related to the machine, sourced
 // by asking the machine.
 func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) {
+	if err = m.setAddresses(addresses, &m.doc.MachineAddresses, "machineaddresses"); err != nil {
+		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, err)
+	}
+	return nil
+}
+
+// setAddresses updates the machine's addresses (either Addresses or
+// MachineAddresses, depending on the field argument).
+func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
+	var changed bool
 	stateAddresses := instanceAddressesToAddresses(addresses)
-	ops := []txn.Op{
-		{
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		changed = false
+		if attempt > 0 {
+			if err := m.Refresh(); err != nil {
+				return nil, err
+			}
+		}
+		if m.doc.Life == Dead {
+			return nil, errDead
+		}
+		op := txn.Op{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
-			Assert: notDeadDoc,
-			Update: bson.D{{"$set", bson.D{{"machineaddresses", stateAddresses}}}},
-		},
+			Assert: append(bson.D{{fieldName, *field}}, notDeadDoc...),
+		}
+		if !addressesEqual(addresses, addressesToInstanceAddresses(*field)) {
+			op.Update = bson.D{{"$set", bson.D{{fieldName, stateAddresses}}}}
+			changed = true
+		}
+		return []txn.Op{op}, nil
 	}
-
-	if err = m.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set machine addresses of machine %v: %v", m, onAbort(err, errDead))
+	switch err := m.st.run(buildTxn); err {
+	case nil:
+	case statetxn.ErrExcessiveContention:
+		return errors.Annotatef(err, "cannot set %s for machine %s", fieldName, m)
+	default:
+		return err
 	}
-	m.doc.MachineAddresses = stateAddresses
+	if !changed {
+		return nil
+	}
+	*field = stateAddresses
 	return nil
 }
 
