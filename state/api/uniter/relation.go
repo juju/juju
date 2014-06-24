@@ -18,22 +18,14 @@ import (
 // endpoints.
 type Relation struct {
 	st   *State
-	tag  string
+	tag  names.Tag
 	id   int
 	life params.Life
 }
 
 // String returns the relation as a string.
 func (r *Relation) String() string {
-	return mustParseRelationTag(r.tag).Id()
-}
-
-func mustParseRelationTag(relationTag string) names.RelationTag {
-	tag, err := names.ParseRelationTag(relationTag)
-	if err != nil {
-		panic(err)
-	}
-	return tag
+	return r.tag.Id()
 }
 
 // Id returns the integer internal relation key. This is exposed
@@ -53,7 +45,7 @@ func (r *Relation) Life() params.Life {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // relation has been removed.
 func (r *Relation) Refresh() error {
-	result, err := r.st.relation(r.tag, r.st.unitTag)
+	result, err := r.st.relation(r.tag.String(), r.st.unitTag)
 	if err != nil {
 		return err
 	}
@@ -71,7 +63,7 @@ func (r *Relation) Endpoint() (*Endpoint, error) {
 	// NOTE: This differs from state.Relation.Endpoint(), because when
 	// talking to the API, there's already an authenticated entity - the
 	// unit, and we can find out its service name.
-	result, err := r.st.relation(r.tag, r.st.unitTag)
+	result, err := r.st.relation(r.tag.String(), r.st.unitTag)
 	if err != nil {
 		return nil, err
 	}
@@ -83,7 +75,7 @@ func (r *Relation) Unit(u *Unit) (*RelationUnit, error) {
 	if u == nil {
 		return nil, fmt.Errorf("unit is nil")
 	}
-	result, err := r.st.relation(r.tag, u.tag)
+	result, err := r.st.relation(r.tag.String(), u.tag.String())
 	if err != nil {
 		return nil, err
 	}
