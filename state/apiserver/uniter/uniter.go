@@ -684,11 +684,12 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 // getOneAction retrieves a single Action by id.
 func (u *UniterAPI) getOneAction(canAccess common.AuthFunc, actionId string, unitTag string) (params.ActionsQueryResult, error) {
 	nothing := params.ActionsQueryResult{}
-
-	action, err := u.st.Action(actionId)
 	if !canAccess(unitTag) {
 		return nothing, common.ErrPerm
-	} else if err != nil {
+	}
+
+	action, err := u.st.Action(actionId)
+	if err != nil {
 		return nothing, err
 	}
 
