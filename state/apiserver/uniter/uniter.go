@@ -705,17 +705,23 @@ func (u *UniterAPI) getOneAction(canAccess common.AuthFunc, actionId string, uni
 }
 
 func (u *UniterAPI) Actions(args params.ActionsQuery) (params.ActionsQueryResults, error) {
+	nothing := params.ActionsQueryResults{}
 	results := params.ActionsQueryResults{
 		ActionsQueryResults: make([]params.ActionsQueryResult, len(args.ActionQueries)),
 	}
 
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.ActionsQueryResults{}, err
+		return nothing, err
 	}
 
 	for i, actionQuery := range args.ActionQueries {
-		actionQueryResult, err := u.getOneAction(canAccess, actionQuery.Id, actionQuery.UnitTag)
+		actionTag, err := names.ParseActionTag(actionQuery.Tag)
+		if err != nil {
+			return nothing, err
+		}
+		actionId := actionTag.Id()
+		actionQueryResult, err := u.getOneAction(canAccess, actionId, actionQuery.UnitTag)
 		if err == nil {
 			results.ActionsQueryResults[i] = actionQueryResult
 		}

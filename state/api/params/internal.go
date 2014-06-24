@@ -253,7 +253,7 @@ type ActionsQuery struct {
 }
 
 type ActionQuery struct {
-	Id      string `json:"actionquery-id"`
+	Tag     string `json:"actionquery-tag"`
 	UnitTag string `json:"actionquery-unittag"`
 }
 

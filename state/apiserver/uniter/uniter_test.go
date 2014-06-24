@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -901,7 +902,7 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 
 		args := params.ActionsQuery{
 			ActionQueries: []params.ActionQuery{{
-				Id:      actionId,
+				Tag:     names.NewActionTag(actionId).String(),
 				UnitTag: s.wordpressUnit.Tag().String(),
 			}},
 		}
@@ -919,7 +920,7 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	args := params.ActionsQuery{
 		ActionQueries: []params.ActionQuery{{
-			Id:      "foo",
+			Tag:     names.NewActionTag("action-foo" + names.ActionMarker + "0").String(),
 			UnitTag: s.wordpressUnit.Tag().String(),
 		}},
 	}
@@ -929,13 +930,13 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	c.Assert(len(results.ActionsQueryResults), gc.Equals, 1)
 	actionsQueryResult := results.ActionsQueryResults[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
-	c.Assert(actionsQueryResult.Error.Message, gc.Equals, "action \"foo\" not found")
+	c.Assert(actionsQueryResult.Error.Message, gc.Equals, "action \"action-foo_a_0\" not found")
 }
 
 func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 	args := params.ActionsQuery{
 		ActionQueries: []params.ActionQuery{{
-			Id:      "foo",
+			Tag:     names.NewActionTag("action-foo" + names.ActionMarker + "0").String(),
 			UnitTag: s.mysqlUnit.Tag().String(),
 		}},
 	}
