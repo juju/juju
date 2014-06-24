@@ -62,6 +62,14 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 	assertAPIHostPorts(c, hps, expectedAPIHostPorts(3))
 }
 
+func (s *workerJujuConnSuite) TestPublisherRejectsNoServers(c *gc.C) {
+	st := newFakeState()
+	initState(c, st, 3)
+	statePublish := newPublisher(s.State)
+	err := statePublish.publishAPIServers(nil, nil)
+	c.Assert(err, gc.ErrorMatches, "no api servers specified")
+}
+
 type workerSuite struct {
 	coretesting.BaseSuite
 }
