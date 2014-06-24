@@ -4,11 +4,13 @@
 package uniter_test
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -383,6 +385,62 @@ func (s *unitSuite) TestWatchActions(c *gc.C) {
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *unitSuite) TestWatchActionsError(c *gc.C) {
+	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, params, results interface{}) error {
+		return fmt.Errorf("Test error")
+	})
+
+	_, err := s.apiUnit.WatchActions()
+	c.Assert(err.Error(), gc.Equals, "Test error")
+
+	restore()
+}
+
+func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
+	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, args, results interface{}) error {
+		if results, ok := results.(*params.StringsWatchResults); ok {
+			results.Results = make([]params.StringsWatchResult, 1)
+			results.Results[0] = params.StringsWatchResult{
+				Error: &params.Error{
+					Message: "An error in the watch result.",
+					Code:    params.CodeNotAssigned,
+				},
+			}
+		}
+		return nil
+	})
+
+	_, err := s.apiUnit.WatchActions()
+	c.Assert(err.Error(), gc.Equals, "An error in the watch result.")
+
+	restore()
+}
+
+func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
+	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, params, results interface{}) error {
+		return nil
+	})
+
+	_, err := s.apiUnit.WatchActions()
+	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 0")
+
+	restore()
+}
+
+func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
+	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, args, results interface{}) error {
+		if results, ok := results.(*params.StringsWatchResults); ok {
+			results.Results = make([]params.StringsWatchResult, 2)
+		}
+		return nil
+	})
+
+	_, err := s.apiUnit.WatchActions()
+	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
+
+	restore()
 }
 
 func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {
