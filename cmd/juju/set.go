@@ -34,7 +34,8 @@ In case a value starts with an at sign (@) the rest of the value is interpreted
 as a filename. The value itself is then read out of the named file. The maximum
 size of this value is 5M.
 
-Valid option values on command line or inside files are UTF-8 encoded strings.
+Option values may be any UTF-8 encoded string. UTF-8 is accepted on the command 
+line and in configuration files.
 `
 
 const maxValueSize = 5242880

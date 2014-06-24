@@ -83,21 +83,24 @@ func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
-var setTestValue = "a value with spaces\nand newline\nand UTF-8 characters: äöüéàô 😄👍"
+var (
+	validSetTestValue   = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
+	invalidSetTestValue = "a value with an invalid UTF-8 sequence: " + string([]byte{0x10, 0xFF, 0xFF})
+)
 
 func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	err := s.APIState.Client().ServiceSet("dummy", map[string]string{
 		"title":    "foobar",
-		"username": setTestValue,
+		"username": validSetTestValue,
 	})
 	c.Assert(err, gc.IsNil)
 	settings, err := dummy.ConfigSettings()
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "foobar",
-		"username": setTestValue,
+		"username": validSetTestValue,
 	})
 
 	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
@@ -110,6 +113,24 @@ func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "barfoo",
 		"username": "",
+	})
+}
+
+// TestClientServiceSetFail demonstrates, how values not encoded in
+// valid UTF-8 will fail.
+func (s *clientSuite) TestClientServiceSetFail(c *gc.C) {
+	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
+
+	err := s.APIState.Client().ServiceSet("dummy", map[string]string{
+		"title":    "foobar",
+		"username": invalidSetTestValue,
+	})
+	c.Assert(err, gc.IsNil)
+	settings, err := dummy.ConfigSettings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.Not(gc.DeepEquals), charm.Settings{
+		"title":    "foobar",
+		"username": invalidSetTestValue,
 	})
 }
 
