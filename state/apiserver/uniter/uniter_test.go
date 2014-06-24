@@ -765,7 +765,7 @@ func (s *uniterSuite) TestWatchActions(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{StringsWatcherId: "1"},
+			{StringsWatcherId: "1", Changes: []string{}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})

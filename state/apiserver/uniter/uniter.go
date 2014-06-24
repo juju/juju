@@ -432,19 +432,21 @@ func (u *UniterAPI) watchOneUnitConfigSettings(tag string) (string, error) {
 	}
 	return "", watcher.MustErr(watch)
 }
-func (u *UniterAPI) watchOneUnitActions(tag string) (string, error) {
+func (u *UniterAPI) watchOneUnitActions(tag string) (params.StringsWatchResult, error) {
+	nothing := params.StringsWatchResult{}
 	unit, err := u.getUnit(tag)
 	if err != nil {
-		return "", err
+		return nothing, err
 	}
 	watch := unit.WatchActions()
 
-	// Consume the initial event. API calls to Watch 'transmit'
-	// the initial event in the Watch response.
-	if _, ok := <-watch.Changes(); ok {
-		return u.resources.Register(watch), nil
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: u.resources.Register(watch),
+			Changes:          changes,
+		}, nil
 	}
-	return "", watcher.MustErr(watch)
+	return nothing, watcher.MustErr(watch)
 }
 
 // WatchConfigSettings returns a NotifyWatcher for observing changes
@@ -483,11 +485,9 @@ func (u *UniterAPI) WatchActions(args params.Entities) (params.StringsWatchResul
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		watcherId := ""
 		if canAccess(entity.Tag) {
-			watcherId, err = u.watchOneUnitActions(entity.Tag)
+			result.Results[i], err = u.watchOneUnitActions(entity.Tag)
 		}
-		result.Results[i].StringsWatcherId = watcherId
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

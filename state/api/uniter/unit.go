@@ -440,7 +440,7 @@ func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 func (u *Unit) WatchActions() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag}},
+		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.call("WatchActions", args, &results)
 	if err != nil {
