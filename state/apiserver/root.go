@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/rpc/rpcreflect"
@@ -206,8 +207,8 @@ func (r *srvRoot) AuthClient() bool {
 }
 
 // GetAuthTag returns the tag of the authenticated entity.
-func (r *srvRoot) GetAuthTag() string {
-	return r.entity.Tag().String()
+func (r *srvRoot) GetAuthTag() names.Tag {
+	return r.entity.Tag()
 }
 
 // GetAuthEntity returns the authenticated entity.

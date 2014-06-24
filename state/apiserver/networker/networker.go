@@ -39,7 +39,7 @@ func NewNetworkerAPI(
 		return nil, common.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
-		authEntityTag := authorizer.GetAuthTag()
+		authEntityTag := authorizer.GetAuthTag().String()
 
 		return func(tag string) bool {
 			if tag == authEntityTag {
@@ -54,6 +54,9 @@ func NewNetworkerAPI(
 			id := t.Id()
 			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
 				// Until a top-level machine is reached.
+				// TODO(dfc) comparing the two interfaces caused a compiler crash with
+				// gcc version 4.9.0 (Ubuntu 4.9.0-7ubuntu1). Work around the issue
+				// by comparing by string value.
 				if names.NewMachineTag(parentId).String() == authEntityTag {
 					// All containers with the authenticated machine as a
 					// parent are accessible by it.

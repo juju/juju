@@ -33,7 +33,8 @@ func upgraderFacade(st *state.State, resources *common.Resources, auth common.Au
 	// Machines get an UpgraderAPI, units get a UnitUpgraderAPI.
 	// This is tested in the state/api/upgrader package since there
 	// are currently no direct srvRoot tests.
-	tag, err := names.ParseTag(auth.GetAuthTag())
+	// TODO(dfc) this is redundant
+	tag, err := names.ParseTag(auth.GetAuthTag().String())
 	if err != nil {
 		return nil, common.ErrPerm
 	}

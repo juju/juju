@@ -44,11 +44,7 @@ type ProvisionerAPI struct {
 }
 
 // NewProvisionerAPI creates a new server-side ProvisionerAPI facade.
-func NewProvisionerAPI(
-	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
-) (*ProvisionerAPI, error) {
+func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*ProvisionerAPI, error) {
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
 	}
@@ -57,8 +53,9 @@ func NewProvisionerAPI(
 		isMachineAgent := authorizer.AuthMachineAgent()
 		authEntityTag := authorizer.GetAuthTag()
 
+		// TODO(dfc) this func should take a Tag
 		return func(tag string) bool {
-			if isMachineAgent && tag == authEntityTag {
+			if isMachineAgent && tag == authEntityTag.String() {
 				// A machine agent can always access its own machine.
 				return true
 			}
@@ -74,7 +71,10 @@ func NewProvisionerAPI(
 			}
 			// All containers with the authenticated machine as a
 			// parent are accessible by it.
-			return isMachineAgent && names.NewMachineTag(parentId).String() == authEntityTag
+			// TODO(dfc) sometimes authEntity tag is nil, which is fine because nil is
+			// only equal to nil, but it suggests someone is passing an authorizer
+			// with a nil tag.
+			return isMachineAgent && names.NewMachineTag(parentId) == authEntityTag
 		}, nil
 	}
 	// Both provisioner types can watch the environment.
