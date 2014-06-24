@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
@@ -24,8 +23,6 @@ import (
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/networker"
 )
-
-var logger = loggo.GetLogger("juju.worker.networker_test")
 
 type networkerSuite struct {
 	testing.JujuConnSuite
@@ -265,7 +262,7 @@ func (s *networkerSuite) TestExecuteCommands(c *gc.C) {
 		"exit 111",
 	}
 	err := networker.ExecuteCommands(commands)
-	expected := "command \"sh -c 'echo STDOUT; echo STDERR >&2; exit 123'\" failed "+
+	expected := "command \"sh -c 'echo STDOUT; echo STDERR >&2; exit 123'\" failed " +
 		"(code: 123, stdout: STDOUT\n, stderr: STDERR\n)"
 	c.Assert(err, gc.NotNil)
 	c.Assert(err.Error(), gc.Equals, expected)

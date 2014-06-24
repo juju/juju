@@ -44,7 +44,7 @@ func (st *State) MachineNetworkInfo(machineTag string) ([]network.Info, error) {
 		return nil, err
 	}
 	apiError := results.Results[0].Error
-	if (apiError != nil) {
+	if apiError != nil {
 		return nil, apiError
 	}
 	return results.Results[0].Info, nil
