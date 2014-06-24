@@ -169,6 +169,17 @@ var getInstanceTypesTest = []struct {
 		expectedItypes: []string{"it-3"},
 	},
 	{
+		about: "instance-type specified and match found",
+		cons:  "instance-type=it-3",
+		itypesToUse: []InstanceType{
+			{Id: "4", Name: "it-4", Arches: []string{"amd64"}, Mem: 8096},
+			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 4096},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 2048},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
+		},
+		expectedItypes: []string{"it-3"},
+	},
+	{
 		about: "largest mem available matching other constraints if mem not specified",
 		cons:  "cpu-cores=4",
 		itypesToUse: []InstanceType{
@@ -191,13 +202,6 @@ var getInstanceTypesTest = []struct {
 	},
 }
 
-func constraint(region, cons string) *InstanceConstraint {
-	return &InstanceConstraint{
-		Region:      region,
-		Constraints: constraints.MustParse(cons),
-	}
-}
-
 func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *gc.C) {
 	for i, t := range getInstanceTypesTest {
 		c.Logf("test %d: %s", i, t.about)
@@ -205,7 +209,7 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *gc.C) {
 		if itypesToUse == nil {
 			itypesToUse = instanceTypes
 		}
-		itypes, err := getMatchingInstanceTypes(constraint("test", t.cons), itypesToUse)
+		itypes, err := MatchingInstanceTypes(itypesToUse, "test", constraints.MustParse(t.cons))
 		c.Assert(err, gc.IsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
@@ -221,16 +225,16 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *gc.C) {
 }
 
 func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *gc.C) {
-	_, err := getMatchingInstanceTypes(constraint("test", "cpu-power=9001"), nil)
+	_, err := MatchingInstanceTypes(nil, "test", constraints.MustParse("cpu-power=9001"))
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "cpu-power=9001"`)
 
-	_, err = getMatchingInstanceTypes(constraint("test", "arch=i386 mem=8G"), instanceTypes)
+	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("arch=i386 mem=8G"))
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "arch=i386 mem=8192M"`)
 
-	_, err = getMatchingInstanceTypes(constraint("test", "cpu-cores=9000"), instanceTypes)
+	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("cpu-cores=9000"))
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "cpu-cores=9000"`)
 
-	_, err = getMatchingInstanceTypes(constraint("test", "mem=90000M"), instanceTypes)
+	_, err = MatchingInstanceTypes(instanceTypes, "test", constraints.MustParse("mem=90000M"))
 	c.Check(err, gc.ErrorMatches, `no instance types in test matching constraints "mem=90000M"`)
 }
 
