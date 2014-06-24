@@ -9,6 +9,7 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state/api/common"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 )
@@ -40,7 +41,7 @@ func (u *Unit) Life() params.Life {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := u.st.life(u.tag)
+	life, err := common.Life(u.st.caller, u.tag)
 	if err != nil {
 		return err
 	}
@@ -54,7 +55,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.call("Watch", args, &results)
+	err := u.st.caller.FacadeCall("Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +66,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(u.st.caller, result)
+	w := watcher.NewNotifyWatcher(u.st.caller.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -94,7 +95,7 @@ func (u *Unit) OpenedPorts() ([]network.Port, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.call("OpenedPorts", args, &results)
+	err := u.st.caller.FacadeCall("OpenedPorts", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +116,7 @@ func (u *Unit) AssignedMachine() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.st.call("GetAssignedMachine", args, &results)
+	err := u.st.caller.FacadeCall("GetAssignedMachine", args, &results)
 	if err != nil {
 		return "", err
 	}

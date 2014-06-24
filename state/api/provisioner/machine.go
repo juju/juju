@@ -62,7 +62,7 @@ func (m *Machine) Refresh() error {
 func (m *Machine) ProvisioningInfo() (*params.ProvisioningInfo, error) {
 	var results params.ProvisioningInfoResults
 	args := params.Entities{Entities: []params.Entity{{m.tag}}}
-	err := m.st.FacadeCall("ProvisioningInfo", args, &results)
+	err := m.st.caller.FacadeCall("ProvisioningInfo", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 			{Tag: m.tag, Status: status, Info: info, Data: data},
 		},
 	}
-	err := m.st.FacadeCall("SetStatus", args, &result)
+	err := m.st.caller.FacadeCall("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (m *Machine) Status() (params.Status, string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.FacadeCall("Status", args, &results)
+	err := m.st.caller.FacadeCall("Status", args, &results)
 	if err != nil {
 		return "", "", err
 	}
@@ -118,7 +118,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.FacadeCall("EnsureDead", args, &result)
+	err := m.st.caller.FacadeCall("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (m *Machine) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.FacadeCall("Remove", args, &result)
+	err := m.st.caller.FacadeCall("Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -148,7 +148,7 @@ func (m *Machine) Series() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.FacadeCall("Series", args, &results)
+	err := m.st.caller.FacadeCall("Series", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -171,7 +171,7 @@ func (m *Machine) DistributionGroup() ([]instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.FacadeCall("DistributionGroup", args, &results)
+	err := m.st.caller.FacadeCall("DistributionGroup", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -203,7 +203,7 @@ func (m *Machine) SetInstanceInfo(
 			Interfaces:      interfaces,
 		}},
 	}
-	err := m.st.FacadeCall("SetInstanceInfo", args, &result)
+	err := m.st.caller.FacadeCall("SetInstanceInfo", args, &result)
 	if err != nil {
 		return err
 	}
@@ -217,7 +217,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.FacadeCall("InstanceId", args, &results)
+	err := m.st.caller.FacadeCall("InstanceId", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -239,7 +239,7 @@ func (m *Machine) SetPassword(password string) error {
 			{Tag: m.tag, Password: password},
 		},
 	}
-	err := m.st.FacadeCall("SetPasswords", args, &result)
+	err := m.st.caller.FacadeCall("SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}
@@ -268,7 +268,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 			{MachineTag: m.tag, ContainerType: string(ctype)},
 		},
 	}
-	err := m.st.FacadeCall("WatchContainers", args, &results)
+	err := m.st.caller.FacadeCall("WatchContainers", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -279,7 +279,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) (watcher.Strings
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(m.st.RawAPICaller(), result)
+	w := watcher.NewStringsWatcher(m.st.caller.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -292,7 +292,7 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 			{MachineTag: m.tag},
 		},
 	}
-	err := m.st.FacadeCall("WatchContainers", args, &results)
+	err := m.st.caller.FacadeCall("WatchContainers", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +303,7 @@ func (m *Machine) WatchAllContainers() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(m.st.RawAPICaller(), result)
+	w := watcher.NewStringsWatcher(m.st.caller.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -315,7 +315,7 @@ func (m *Machine) SetSupportedContainers(containerTypes ...instance.ContainerTyp
 			{MachineTag: m.tag, ContainerTypes: containerTypes},
 		},
 	}
-	err := m.st.FacadeCall("SetSupportedContainers", args, &results)
+	err := m.st.caller.FacadeCall("SetSupportedContainers", args, &results)
 	if err != nil {
 		return err
 	}

@@ -88,7 +88,7 @@ func (s *Settings) Write() error {
 			Settings: settingsCopy,
 		}},
 	}
-	err := s.st.FacadeCall("UpdateSettings", args, &result)
+	err := s.st.caller.FacadeCall("UpdateSettings", args, &result)
 	if err != nil {
 		return err
 	}

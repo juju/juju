@@ -12,12 +12,12 @@ import (
 
 // Life requests the life cycle of the given entity from the given
 // server-side API facade via the given caller.
-func Life(caller base.APICaller, facadeName, tag string) (params.Life, error) {
+func Life(caller base.FacadeCaller, tag string) (params.Life, error) {
 	var result params.LifeResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := caller.APICall(facadeName, caller.BestFacadeVersion(facadeName), "", "Life", args, &result)
+	err := caller.FacadeCall("Life", args, &result)
 	if err != nil {
 		return "", err
 	}

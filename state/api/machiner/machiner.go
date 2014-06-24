@@ -6,14 +6,13 @@ package machiner
 import (
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/common"
-	"github.com/juju/juju/state/api/params"
 )
 
 const machinerFacade = "Machiner"
 
 // State provides access to the Machiner API facade.
 type State struct {
-	base.FacadeCaller
+	caller base.FacadeCaller
 	*common.APIAddresser
 }
 
@@ -21,20 +20,15 @@ type State struct {
 func NewState(caller base.APICaller) *State {
 	facadeCaller := base.NewFacadeCaller(caller, machinerFacade)
 	return &State{
-		FacadeCaller: facadeCaller,
+		caller:       facadeCaller,
 		APIAddresser: common.NewAPIAddresser(facadeCaller),
 	}
 
 }
 
-// machineLife requests the lifecycle of the given machine from the server.
-func (st *State) machineLife(tag string) (params.Life, error) {
-	return common.Life(st.RawAPICaller(), machinerFacade, tag)
-}
-
 // Machine provides access to methods of a state.Machine through the facade.
 func (st *State) Machine(tag string) (*Machine, error) {
-	life, err := st.machineLife(tag)
+	life, err := common.Life(st.caller, tag)
 	if err != nil {
 		return nil, err
 	}

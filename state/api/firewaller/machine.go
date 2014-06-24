@@ -24,7 +24,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.call("WatchUnits", args, &results)
+	err := m.st.caller.FacadeCall("WatchUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -35,7 +35,7 @@ func (m *Machine) WatchUnits() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(m.st.caller, result)
+	w := watcher.NewStringsWatcher(m.st.caller.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -46,7 +46,7 @@ func (m *Machine) InstanceId() (instance.Id, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.st.call("InstanceId", args, &results)
+	err := m.st.caller.FacadeCall("InstanceId", args, &results)
 	if err != nil {
 		return "", err
 	}

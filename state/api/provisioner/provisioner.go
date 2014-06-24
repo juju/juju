@@ -20,7 +20,7 @@ type State struct {
 	*common.EnvironWatcher
 	*common.APIAddresser
 
-	base.FacadeCaller
+	caller base.FacadeCaller
 }
 
 const provisionerFacade = "Provisioner"
@@ -31,12 +31,12 @@ func NewState(caller base.APICaller) *State {
 	return &State{
 		EnvironWatcher: common.NewEnvironWatcher(provisionerFacade, caller),
 		APIAddresser:   common.NewAPIAddresser(facadeCaller),
-		FacadeCaller:   facadeCaller}
+		caller:         facadeCaller}
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
 func (st *State) machineLife(tag string) (params.Life, error) {
-	return common.Life(st.RawAPICaller(), provisionerFacade, tag)
+	return common.Life(st.caller, tag)
 }
 
 // Machine provides access to methods of a state.Machine through the facade.
@@ -57,34 +57,34 @@ func (st *State) Machine(tag string) (*Machine, error) {
 // the current environment.
 func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := st.FacadeCall("WatchEnvironMachines", nil, &result)
+	err := st.caller.FacadeCall("WatchEnvironMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(st.RawAPICaller(), result)
+	w := watcher.NewStringsWatcher(st.caller.RawAPICaller(), result)
 	return w, nil
 }
 
 func (st *State) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := st.FacadeCall("WatchMachineErrorRetry", nil, &result)
+	err := st.caller.FacadeCall("WatchMachineErrorRetry", nil, &result)
 	if err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(st.caller.RawAPICaller(), result)
 	return w, nil
 }
 
 // StateAddresses returns the list of addresses used to connect to the state.
 func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.FacadeCall("StateAddresses", nil, &result)
+	err := st.caller.FacadeCall("StateAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.FacadeCall("Tools", args, &results)
+	err := st.caller.FacadeCall("Tools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -116,14 +116,14 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 // ContainerManagerConfig returns information from the environment config that is
 // needed for configuring the container manager.
 func (st *State) ContainerManagerConfig(args params.ContainerManagerConfigParams) (result params.ContainerManagerConfig, err error) {
-	err = st.FacadeCall("ContainerManagerConfig", args, &result)
+	err = st.caller.FacadeCall("ContainerManagerConfig", args, &result)
 	return result, err
 }
 
 // ContainerConfig returns information from the environment config that is
 // needed for container cloud-init.
 func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
-	err = st.FacadeCall("ContainerConfig", nil, &result)
+	err = st.caller.FacadeCall("ContainerConfig", nil, &result)
 	return result, err
 }
 
@@ -131,7 +131,7 @@ func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
 // for those machines which have transient provisioning errors.
 func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResult, error) {
 	var results params.StatusResults
-	err := st.FacadeCall("MachinesWithTransientErrors", nil, &results)
+	err := st.caller.FacadeCall("MachinesWithTransientErrors", nil, &results)
 	if err != nil {
 		return nil, nil, err
 	}
