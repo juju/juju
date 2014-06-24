@@ -253,8 +253,8 @@ type ActionsQuery struct {
 }
 
 type ActionQuery struct {
-	Id     string `json:"actionquery-id"`
-	UnitId string `json:"actionquery-unitid"`
+	Id      string `json:"actionquery-id"`
+	UnitTag string `json:"actionquery-unittag"`
 }
 
 // ActionResults holds a slice of responses from the Actions query.

@@ -715,7 +715,7 @@ func (u *UniterAPI) Actions(args params.ActionsQuery) (params.ActionsQueryResult
 	}
 
 	for i, actionQuery := range args.ActionQueries {
-		actionQueryResult, err := u.getOneAction(canAccess, actionQuery.Id, actionQuery.UnitId)
+		actionQueryResult, err := u.getOneAction(canAccess, actionQuery.Id, actionQuery.UnitTag)
 		if err == nil {
 			results.ActionsQueryResults[i] = actionQueryResult
 		}

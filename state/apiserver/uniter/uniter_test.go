@@ -901,8 +901,8 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 
 		args := params.ActionsQuery{
 			ActionQueries: []params.ActionQuery{{
-				Id:     actionId,
-				UnitId: s.wordpressUnit.Tag().String(),
+				Id:      actionId,
+				UnitTag: s.wordpressUnit.Tag().String(),
 			}},
 		}
 		results, err := s.uniter.Actions(args)
@@ -919,8 +919,8 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	args := params.ActionsQuery{
 		ActionQueries: []params.ActionQuery{{
-			Id:     "foo",
-			UnitId: s.wordpressUnit.Tag().String(),
+			Id:      "foo",
+			UnitTag: s.wordpressUnit.Tag().String(),
 		}},
 	}
 	results, err := s.uniter.Actions(args)
@@ -935,8 +935,8 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 	args := params.ActionsQuery{
 		ActionQueries: []params.ActionQuery{{
-			Id:     "foo",
-			UnitId: s.mysqlUnit.Tag().String(),
+			Id:      "foo",
+			UnitTag: s.mysqlUnit.Tag().String(),
 		}},
 	}
 	results, err := s.uniter.Actions(args)

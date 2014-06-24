@@ -9,11 +9,7 @@ type Action struct {
 }
 
 func NewAction(name string, params map[string]interface{}) (*Action, error) {
-	newParams := make(map[string]interface{})
-	for key, param := range params {
-		newParams[key] = param
-	}
-	return &Action{name: name, params: newParams}, nil
+	return &Action{name: name, params: params}, nil
 }
 
 func (a *Action) Name() string {

@@ -14,6 +14,7 @@ type actionSuite struct {
 }
 
 var _ = gc.Suite(&actionSuite{})
+var basicParams = map[string]interface{}{"outfile": "foo.txt"}
 
 func (s *actionSuite) TestAction(c *gc.C) {
 
@@ -23,10 +24,8 @@ func (s *actionSuite) TestAction(c *gc.C) {
 	}{{
 		description: "A simple Action.",
 		action: params.Action{
-			Name: "snapshot",
-			Params: map[string]interface{}{
-				"outfile": "foo.txt",
-			},
+			Name:   "snapshot",
+			Params: basicParams,
 		},
 	}, {
 		description: "An Action with nested parameters.",
@@ -64,12 +63,10 @@ func (s *actionSuite) TestActionNotFound(c *gc.C) {
 }
 
 func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {
-	testAction, err := uniter.NewAction("snapshot", map[string]interface{}{
-		"outfile": "foo.txt"})
+	testAction, err := uniter.NewAction("snapshot", basicParams)
 	c.Assert(err, gc.IsNil)
 	testName := testAction.Name()
 	testParams := testAction.Params()
 	c.Assert(testName, gc.Equals, "snapshot")
-	c.Assert(testParams, gc.DeepEquals, map[string]interface{}{
-		"outfile": "foo.txt"})
+	c.Assert(testParams, gc.DeepEquals, basicParams)
 }
