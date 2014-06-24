@@ -468,6 +468,55 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 	}
 }
 
+func (s *FilterSuite) TestActionEvents(c *gc.C) {
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, f)
+
+	// Test no changes before the charm URL is set.
+	assertNoChange := func() {
+		s.BackingState.StartSync()
+		select {
+		case <-f.ActionEvents():
+			c.Fatalf("unexpected action event")
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+	assertNoChange()
+
+	assertChange := func(ids []string) {
+		s.BackingState.StartSync()
+		for _, id := range ids {
+			select {
+			case event, ok := <-f.ActionEvents():
+				c.Assert(ok, gc.Equals, true)
+				c.Assert(id, gc.Equals, event.ActionId)
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out")
+			}
+		}
+		assertNoChange()
+	}
+
+	// Add a new action; event occurs
+	addAction := func(name string) string {
+		newAction, err := s.unit.AddAction(name, nil)
+		c.Assert(err, gc.IsNil)
+		newId := newAction.Id()
+		return newId
+	}
+	testId := addAction("snapshot")
+	assertChange([]string{testId})
+
+	// Make sure bundled events arrive properly.
+	testIds := make([]string, 5)
+	for i := 0; i < 5; i++ {
+		testIds[i] = addAction("name" + string(i))
+	}
+
+	assertChange(testIds)
+}
+
 func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
 	f, err := newFilter(s.uniter, s.unit.Tag().String())
 	c.Assert(err, gc.IsNil)

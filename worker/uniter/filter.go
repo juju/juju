@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/juju/charm"
+	"github.com/juju/charm/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"launchpad.net/tomb"
@@ -16,6 +17,7 @@ import (
 	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/uniter/hook"
 )
 
 var filterLogger = loggo.GetLogger("juju.worker.uniter.filter")
@@ -36,6 +38,8 @@ type filter struct {
 	// to the client.
 	outConfig      chan struct{}
 	outConfigOn    chan struct{}
+	outAction      chan *hook.Info
+	outActionOn    chan *hook.Info
 	outUpgrade     chan *charm.URL
 	outUpgradeOn   chan *charm.URL
 	outResolved    chan params.ResolvedMode
@@ -86,6 +90,8 @@ type filter struct {
 	upgradeAvailable serviceCharm
 	upgrade          *charm.URL
 	relations        []int
+	actionsPending   [](*hook.Info)
+	nextAction       *hook.Info
 }
 
 // newFilter returns a filter that handles state changes pertaining to the
@@ -96,6 +102,8 @@ func newFilter(st *uniter.State, unitTag string) (*filter, error) {
 		outUnitDying:      make(chan struct{}),
 		outConfig:         make(chan struct{}),
 		outConfigOn:       make(chan struct{}),
+		outAction:         make(chan *hook.Info),
+		outActionOn:       make(chan *hook.Info),
 		outUpgrade:        make(chan *charm.URL),
 		outUpgradeOn:      make(chan *charm.URL),
 		outResolved:       make(chan params.ResolvedMode),
@@ -156,6 +164,12 @@ func (f *filter) ResolvedEvents() <-chan params.ResolvedMode {
 // configuration changes, or when an event is explicitly requested.
 func (f *filter) ConfigEvents() <-chan struct{} {
 	return f.outConfigOn
+}
+
+// ActionEvents returns a channel that will receive a signal whenever the unit
+// receives new Actions.
+func (f *filter) ActionEvents() <-chan *hook.Info {
+	return f.outActionOn
 }
 
 // RelationsEvents returns a channel that will receive the ids of all the service's
@@ -297,6 +311,15 @@ func (f *filter) loop(unitTag string) (err error) {
 			watcher.Stop(configw, &f.tomb)
 		}
 	}()
+	actionsw, err := f.unit.WatchActions()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if actionsw != nil {
+			watcher.Stop(actionsw, &f.tomb)
+		}
+	}()
 	relationsw, err := f.service.WatchRelations()
 	if err != nil {
 		return err
@@ -365,6 +388,26 @@ func (f *filter) loop(unitTag string) (err error) {
 			// address change causes config-changed event
 			filterLogger.Debugf("preparing new config event")
 			f.outConfig = f.outConfigOn
+		case keys, ok := <-actionsw.Changes():
+			filterLogger.Debugf("got %d actions", len(keys))
+			if !ok {
+				return watcher.MustErr(actionsw)
+			}
+			infos := make([](*hook.Info), len(keys))
+			filterLogger.Debugf("preparing new action infos")
+			for i, key := range keys {
+				newHookInfo := &hook.Info{
+					Kind:     hooks.ActionRequested,
+					ActionId: key,
+				}
+				infos[i] = newHookInfo
+			}
+			// The initial event is probably just the addition
+			// of the watcher, so it's fine if there was nothing
+			// in the event.
+			if len(infos) > 0 {
+				f.actionsChanged(infos)
+			}
 		case keys, ok := <-relationsw.Changes():
 			filterLogger.Debugf("got relations change")
 			if !ok {
@@ -395,6 +438,20 @@ func (f *filter) loop(unitTag string) (err error) {
 		case f.outConfig <- nothing:
 			filterLogger.Debugf("sent config event")
 			f.outConfig = nil
+		case f.outAction <- f.nextAction:
+			filterLogger.Debugf("sent action event")
+			switch howManyMore := len(f.actionsPending); {
+			case howManyMore > 1:
+				f.nextAction = f.actionsPending[0]
+				f.actionsPending = f.actionsPending[1:]
+			case howManyMore == 1:
+				f.nextAction = f.actionsPending[0]
+				f.actionsPending = [](*hook.Info){}
+			default:
+				// no more actions for now
+				f.nextAction = nil
+				f.outAction = nil
+			}
 		case f.outRelations <- f.relations:
 			filterLogger.Debugf("sent relations event")
 			f.outRelations = nil
@@ -566,6 +623,29 @@ outer:
 		sort.Ints(f.relations)
 		f.outRelations = f.outRelationsOn
 	}
+}
+
+func (f *filter) actionsChanged(infos [](*hook.Info)) {
+outer:
+	for _, info := range infos {
+		for _, existing := range f.actionsPending {
+			if info.ActionId == existing.ActionId {
+				continue outer
+			}
+		}
+		f.actionsPending = append(f.actionsPending, info)
+	}
+	if f.nextAction == nil {
+		f.nextAction = f.actionsPending[0]
+
+		if len(f.actionsPending) > 1 {
+			f.actionsPending = f.actionsPending[1:]
+		} else {
+			f.actionsPending = [](*hook.Info){}
+		}
+	}
+
+	f.outAction = f.outActionOn
 }
 
 // serviceCharm holds information about a charm.
