@@ -147,7 +147,12 @@ func stop(what string, stopper watcher.Stopper) {
 
 // startMachine creates a new data value for tracking details of the
 // machine and starts watching the machine for units added or removed.
-func (fw *Firewaller) startMachine(tag string) error {
+// TODO(dfc) should take a names.Tag
+func (fw *Firewaller) startMachine(machineTag string) error {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return err
+	}
 	machined := &machineData{
 		fw:     fw,
 		tag:    tag,
@@ -173,11 +178,11 @@ func (fw *Firewaller) startMachine(tag string) error {
 			stop("units watcher", unitw)
 			return watcher.MustErr(unitw)
 		}
-		fw.machineds[tag] = machined
+		fw.machineds[machineTag] = machined
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
 			stop("units watcher", unitw)
-			delete(fw.machineds, tag)
+			delete(fw.machineds, machineTag)
 			return errors.Annotatef(err, "cannot respond to units changes for %q", tag)
 		}
 	}
@@ -308,11 +313,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		} else if err != nil {
 			return err
 		}
-		tag, err := names.ParseMachineTag(machined.tag)
-		if err != nil {
-			return err
-		}
-		machineId := tag.Id()
+		machineId := machined.tag.Id()
 		initialPorts, err := instances[0].Ports(machineId)
 		if err != nil {
 			return err
@@ -346,11 +347,11 @@ func (fw *Firewaller) reconcileInstances() error {
 func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 	changed := []*unitData{}
 	for _, name := range change.units {
-		unit, err := fw.st.Unit(names.NewUnitTag(name).String())
+		unit, err := fw.st.Unit(names.NewUnitTag(name))
 		if err != nil && !params.IsCodeNotFound(err) {
 			return err
 		}
-		var machineTag string
+		var machineTag names.Tag
 		if unit != nil {
 			machineTag, err = unit.AssignedMachine()
 			if params.IsCodeNotFound(err) {
@@ -366,8 +367,9 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 				changed = append(changed, unitd)
 				logger.Debugf("stopped watching unit %s", name)
 			}
-		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag] != nil {
-			err = fw.startUnit(unit, machineTag)
+			// TODO(dfc) fw.machineds should be map[names.Tag]
+		} else if unit != nil && unit.Life() != params.Dead && fw.machineds[machineTag.String()] != nil {
+			err = fw.startUnit(unit, machineTag.String())
 			if err != nil {
 				return err
 			}
@@ -385,7 +387,7 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 	machineds := map[string]*machineData{}
 	for _, unitd := range unitds {
-		machineds[unitd.machined.tag] = unitd.machined
+		machineds[unitd.machined.tag.String()] = unitd.machined
 	}
 	for _, machined := range machineds {
 		if err := fw.flushMachine(machined); err != nil {
@@ -474,11 +476,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	tag, err := names.ParseMachineTag(machined.tag)
-	if err != nil {
-		return err
-	}
-	machineId := tag.Id()
+	machineId := machined.tag.Id()
 	instanceId, err := m.InstanceId()
 	if err != nil {
 		return err
@@ -510,19 +508,23 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 // machineLifeChanged starts watching new machines when the firewaller
 // is starting, or when new machines come to life, and stops watching
 // machines that are dying.
-func (fw *Firewaller) machineLifeChanged(tag string) error {
+func (fw *Firewaller) machineLifeChanged(machineTag string) error {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return err
+	}
 	m, err := fw.st.Machine(tag)
 	found := !params.IsCodeNotFound(err)
 	if found && err != nil {
 		return err
 	}
 	dead := !found || m.Life() == params.Dead
-	machined, known := fw.machineds[tag]
+	machined, known := fw.machineds[machineTag]
 	if known && dead {
 		return fw.forgetMachine(machined)
 	}
 	if !known && !dead {
-		err = fw.startMachine(tag)
+		err = fw.startMachine(machineTag)
 		if err != nil {
 			return err
 		}
@@ -539,7 +541,7 @@ func (fw *Firewaller) forgetMachine(machined *machineData) error {
 	if err := fw.flushMachine(machined); err != nil {
 		return err
 	}
-	delete(fw.machineds, machined.tag)
+	delete(fw.machineds, machined.tag.String())
 	if err := machined.Stop(); err != nil {
 		return err
 	}
@@ -615,7 +617,7 @@ type unitsChange struct {
 type machineData struct {
 	tomb   tomb.Tomb
 	fw     *Firewaller
-	tag    string
+	tag    names.Tag
 	unitds map[string]*unitData
 	ports  []network.Port
 }
