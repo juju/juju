@@ -52,11 +52,9 @@ func (st *State) Unit(tag names.Tag) (*Unit, error) {
 }
 
 // Machine returns the machine with the given tag.
-func (st *State) Machine(machineTag string) (*Machine, error) {
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return nil, err
-	}
+// TODO(dfc) this should require a names.MachineTag
+func (st *State) Machine(tag names.Tag) (*Machine, error) {
+	// TODO(dfc) this cannot return an error any more
 	return &Machine{
 		tag: tag,
 		st:  st,

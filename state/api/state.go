@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/agent"
 	"github.com/juju/juju/state/api/charmrevisionupdater"
@@ -37,7 +39,11 @@ func (st *State) Login(tag, password, nonce string) error {
 		Nonce:    nonce,
 	}, &result)
 	if err == nil {
-		st.authTag = tag
+		authtag, err := names.ParseTag(tag)
+		if err != nil {
+			return err
+		}
+		st.authTag = authtag
 		hostPorts, err := addAddress(result.Servers, st.addr)
 		if err != nil {
 			st.Close()

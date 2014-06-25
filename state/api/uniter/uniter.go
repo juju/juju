@@ -23,11 +23,11 @@ type State struct {
 
 	caller base.Caller
 	// unitTag contains the authenticated unit's tag.
-	unitTag string
+	unitTag names.Tag
 }
 
 // NewState creates a new client-side Uniter facade.
-func NewState(caller base.Caller, authTag string) *State {
+func NewState(caller base.Caller, authTag names.Tag) *State {
 	return &State{
 		EnvironWatcher: common.NewEnvironWatcher(uniterFacade, caller),
 		APIAddresser:   common.NewAPIAddresser(uniterFacade, caller),
@@ -46,12 +46,12 @@ func (st *State) life(tag names.Tag) (params.Life, error) {
 }
 
 // relation requests relation information from the server.
-func (st *State) relation(relationTag, unitTag string) (params.RelationResult, error) {
+func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
 	var result params.RelationResults
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{
-			{Relation: relationTag, Unit: unitTag},
+			{Relation: relationTag.String(), Unit: unitTag.String()},
 		},
 	}
 	err := st.call("Relation", args, &result)
@@ -123,17 +123,17 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 
 // Relation returns the existing relation with the given tag.
 func (st *State) Relation(relationTag string) (*Relation, error) {
-	result, err := st.relation(relationTag, st.unitTag)
+	rtag, err := names.ParseRelationTag(relationTag)
 	if err != nil {
 		return nil, err
 	}
-	tag, err := names.ParseRelationTag(relationTag)
+	result, err := st.relation(rtag, st.unitTag)
 	if err != nil {
 		return nil, err
 	}
 	return &Relation{
 		id:   result.Id,
-		tag:  tag,
+		tag:  rtag,
 		life: result.Life,
 		st:   st,
 	}, nil

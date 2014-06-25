@@ -91,7 +91,7 @@ func (s *deployerSuite) assertUnauthorized(c *gc.C, err error) {
 
 func (s *deployerSuite) TestWatchUnitsWrongMachine(c *gc.C) {
 	// Try with a non-existent machine tag.
-	machine, err := s.st.Machine("machine-42")
+	machine, err := s.st.Machine(names.NewMachineTag("42"))
 	c.Assert(err, gc.IsNil)
 	w, err := machine.WatchUnits()
 	s.assertUnauthorized(c, err)
@@ -99,7 +99,7 @@ func (s *deployerSuite) TestWatchUnitsWrongMachine(c *gc.C) {
 }
 
 func (s *deployerSuite) TestWatchUnits(c *gc.C) {
-	machine, err := s.st.Machine(s.machine.Tag().String())
+	machine, err := s.st.Machine(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
 	w, err := machine.WatchUnits()
 	c.Assert(err, gc.IsNil)

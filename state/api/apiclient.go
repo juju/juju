@@ -49,7 +49,7 @@ type State struct {
 	facadeVersions map[string][]int
 
 	// authTag holds the authenticated entity's tag after login.
-	authTag string
+	authTag names.Tag
 
 	// broken is a channel that gets closed when the connection is
 	// broken.
