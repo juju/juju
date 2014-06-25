@@ -106,30 +106,6 @@ func (s *UnitSuite) TestWatchConfigSettingsNeedsCharmURL(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "unit charm not set")
 }
 
-func (s *UnitSuite) TestWatchActions(c *gc.C) {
-	w := s.unit.WatchActions()
-
-	defer testing.AssertStop(c, w)
-
-	// Initial event
-	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange()
-
-	// Send a couple of actions, check for a single event each.
-	_, err := s.unit.AddAction("snapshot", map[string]interface{}{
-		"outfile": "foo.txt"})
-	c.Assert(err, gc.IsNil)
-	wc.AssertChange("wordpress/0_a_0")
-
-	_, err = s.unit.AddAction("backup", map[string]interface{}{
-		"outfile": "foo.bz2",
-		"compression": map[string]interface{}{
-			"kind":    "bzip",
-			"quality": float64(5.0)}})
-	c.Assert(err, gc.IsNil)
-	wc.AssertChange("wordpress/0_a_1")
-}
-
 func (s *UnitSuite) TestWatchConfigSettings(c *gc.C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, gc.IsNil)
