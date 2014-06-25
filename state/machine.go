@@ -1052,18 +1052,18 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	if args.InterfaceName == "" {
 		return nil, fmt.Errorf("interface name must be not empty")
 	}
-	aliveAndNotProvisioned := append(isAliveDoc, bson.D{{"nonce", ""}}...)
+	//	aliveAndNotProvisioned := append(isAliveDoc, bson.D{{"nonce", ""}}...)
 	doc := newNetworkInterfaceDoc(args)
 	doc.MachineId = m.doc.Id
-	doc.Id = bson.NewObjectId()
+	doc.Id = bson.NewObjectId().Hex()
 	ops := []txn.Op{{
 		C:      m.st.networks.Name,
 		Id:     args.NetworkName,
 		Assert: txn.DocExists,
-	}, {
-		C:      m.st.machines.Name,
-		Id:     m.doc.Id,
-		Assert: aliveAndNotProvisioned,
+		//	}, {
+		//		C:      m.st.machines.Name,
+		//		Id:     m.doc.Id,
+		//		Assert: aliveAndNotProvisioned,
 	}, {
 		C:      m.st.networkInterfaces.Name,
 		Id:     doc.Id,

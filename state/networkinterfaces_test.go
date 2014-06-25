@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -45,4 +46,28 @@ func (s *NetworkInterfaceSuite) TestGetterMethods(c *gc.C) {
 	c.Assert(s.iface.MachineTag(), gc.Equals, s.machine.Tag().String())
 	c.Assert(s.iface.IsVirtual(), jc.IsTrue)
 	c.Assert(s.iface.IsPhysical(), jc.IsFalse)
+	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
+}
+
+func (s *NetworkInterfaceSuite) TestMethods(c *gc.C) {
+	// Test Disable and Refresh methods.
+	err := s.iface.Disable()
+	c.Assert(err, gc.IsNil)
+	err = s.iface.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.iface.IsDisabled(), jc.IsTrue)
+
+	// Test Enable method.
+	err = s.iface.Enable()
+	c.Assert(err, gc.IsNil)
+	err = s.iface.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
+
+	// Test Remove method.
+	err = s.iface.Remove()
+	c.Assert(err, gc.IsNil)
+	err = s.iface.Refresh()
+	c.Assert(err, gc.ErrorMatches, `network interface .* not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

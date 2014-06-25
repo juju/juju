@@ -43,6 +43,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 }
@@ -1750,4 +1751,111 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 		containerType := state.ContainerTypeFromId(container.Id())
 		c.Assert(data, gc.DeepEquals, params.StatusData{"type": string(containerType)})
 	}
+}
+
+func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
+	// Provision the machinee.
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, false)
+	networks := []state.NetworkInfo{{
+		Name:       "net1",
+		ProviderId: "net1",
+		CIDR:       "0.1.2.0/24",
+		VLANTag:    0,
+	}, {
+		Name:       "vlan42",
+		ProviderId: "vlan42",
+		CIDR:       "0.2.2.0/24",
+		VLANTag:    42,
+	}}
+	interfaces := []state.NetworkInterfaceInfo{{
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		InterfaceName: "eth0",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		InterfaceName: "eth1",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		InterfaceName: "eth1.42",
+		NetworkName:   "vlan42",
+		IsVirtual:     true,
+	}}
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), gc.Equals, true)
+
+	// Read dynamically generated document Ids.
+	ifaces, err := s.machine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 3)
+	ifaceIds := make([]string, len(ifaces))
+	for i, _ := range ifaces {
+		ifaceIds[i] = ifaces[i].Id()
+	}
+
+	// Start network interface watcher.
+	w := s.machine.WatchInterfaces()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange(ifaceIds...)
+	wc.AssertNoChange()
+
+	// Disable the first interface.
+	ifaces[0].Disable()
+	wc.AssertChange(ifaceIds[0])
+	wc.AssertNoChange()
+
+	// Disable the first interface again, should not report.
+	err = ifaces[0].Disable()
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Disable two interfaces at once, check that both are reported.
+	err = ifaces[1].Disable()
+	c.Assert(err, gc.IsNil)
+	err = ifaces[2].Disable()
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(ifaceIds[1], ifaceIds[2])
+	wc.AssertNoChange()
+
+	// Enable the first interface.
+	err = ifaces[0].Enable()
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(ifaceIds[0])
+	wc.AssertNoChange()
+
+	// Enable the first interface again, should not report.
+	err = ifaces[0].Enable()
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Remove the network interface.
+	err = ifaces[0].Remove()
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(ifaceIds[0])
+	wc.AssertNoChange()
+
+	// Add the new interface.
+	_, _ = addNetworkAndInterface(
+		c, s.State, s.machine,
+		"net2", "net2", "0.5.2.0/24", 0, false,
+		"aa:bb:cc:dd:ee:f2", "eth2")
+	wc.AssertNoChange()
+
+	// Stop watcher; check Changes chan closed.
+	testing.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *MachineSuite) TestWatchInterfacesDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		m, err := st.Machine(s.machine.Id())
+		c.Assert(err, gc.IsNil)
+		w := m.WatchInterfaces()
+		<-w.Changes()
+		return w
+	})
 }
