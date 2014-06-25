@@ -7,6 +7,7 @@ package uniter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/charm"
 	"github.com/juju/errors"
@@ -681,16 +682,11 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 	return result, nil
 }
 
-// getOneAction retrieves a single Action by id.
-func (u *UniterAPI) getOneAction(canAccess common.AuthFunc, actionId string, unitTag string) (params.ActionsQueryResult, error) {
-	nothing := params.ActionsQueryResult{}
-	if !canAccess(unitTag) {
-		return nothing, common.ErrPerm
-	}
-
+// getOneActionById retrieves a single Action by id.
+func (u *UniterAPI) getOneActionById(actionId string) (params.ActionsQueryResult, error) {
 	action, err := u.st.Action(actionId)
 	if err != nil {
-		return nothing, err
+		return params.ActionsQueryResult{}, err
 	}
 
 	result := params.ActionsQueryResult{
@@ -720,8 +716,27 @@ func (u *UniterAPI) Actions(args params.ActionsQuery) (params.ActionsQueryResult
 		if err != nil {
 			return nothing, err
 		}
+		// Action prefix must match unit.  Extract the Unit tag.
+		markerInd := strings.Index(actionQuery.Tag, names.ActionMarker)
+		actionInd := strings.Index(actionQuery.Tag, names.ActionTagKind)
+		actionInd = actionInd + len(names.ActionTagKind) + 1
+		unitTag, err := names.ParseUnitTag("unit-" + actionQuery.Tag[actionInd:markerInd])
+		if err != nil {
+			return nothing, err
+		}
+
+		// The Unit is querying for another Unit's Action.
+		if unitTag.String() != actionQuery.UnitTag {
+			return nothing, common.ErrPerm
+		}
+
+		// The Unit does not have access.
+		if !canAccess(unitTag.String()) {
+			return nothing, common.ErrPerm
+		}
+
 		actionId := actionTag.Id()
-		actionQueryResult, err := u.getOneAction(canAccess, actionId, actionQuery.UnitTag)
+		actionQueryResult, err := u.getOneActionById(actionId)
 		if err == nil {
 			results.ActionsQueryResults[i] = actionQueryResult
 		}

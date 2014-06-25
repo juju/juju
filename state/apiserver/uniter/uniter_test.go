@@ -920,7 +920,7 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	args := params.ActionsQuery{
 		ActionQueries: []params.ActionQuery{{
-			Tag:     names.NewActionTag("action-foo" + names.ActionMarker + "0").String(),
+			Tag:     names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
 			UnitTag: s.wordpressUnit.Tag().String(),
 		}},
 	}
@@ -930,23 +930,33 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	c.Assert(len(results.ActionsQueryResults), gc.Equals, 1)
 	actionsQueryResult := results.ActionsQueryResults[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
-	c.Assert(actionsQueryResult.Error.Message, gc.Equals, "action \"action-foo_a_0\" not found")
+	c.Assert(actionsQueryResult.Error.Message, gc.Equals, "action \"wordpress/0_a_0\" not found")
 }
 
-func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
+func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
+	// Action doesn't match unit.
 	args := params.ActionsQuery{
 		ActionQueries: []params.ActionQuery{{
-			Tag:     names.NewActionTag("action-foo" + names.ActionMarker + "0").String(),
+			Tag:     names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
 			UnitTag: s.mysqlUnit.Tag().String(),
 		}},
 	}
-	results, err := s.uniter.Actions(args)
-	c.Assert(err, gc.IsNil)
+	_, err := s.uniter.Actions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "permission denied")
+}
 
-	c.Assert(len(results.ActionsQueryResults), gc.Equals, 1)
-	actionsQueryResult := results.ActionsQueryResults[0]
-	c.Assert(actionsQueryResult.Error, gc.NotNil)
-	c.Assert(actionsQueryResult.Error.Message, gc.Equals, "permission denied")
+func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
+	// Same unit, but not one that has access.
+	args := params.ActionsQuery{
+		ActionQueries: []params.ActionQuery{{
+			Tag:     names.NewActionTag("mysql/0" + names.ActionMarker + "0").String(),
+			UnitTag: s.mysqlUnit.Tag().String(),
+		}},
+	}
+	_, err := s.uniter.Actions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "permission denied")
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
