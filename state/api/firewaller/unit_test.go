@@ -85,10 +85,9 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 }
 
 func (s *unitSuite) TestAssignedMachine(c *gc.C) {
-	// TODO(dfc) this should return a tag, not a string
 	machineTag, err := s.apiUnit.AssignedMachine()
 	c.Assert(err, gc.IsNil)
-	c.Assert(machineTag, gc.Equals, s.machines[0].Tag().String())
+	c.Assert(machineTag, gc.Equals, s.machines[0].Tag())
 
 	// Unassign now and check CodeNotAssigned is reported.
 	err = s.units[0].UnassignFromMachine()

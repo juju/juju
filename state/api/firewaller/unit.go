@@ -6,6 +6,7 @@ package firewaller
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/network"
@@ -87,21 +88,21 @@ func (u *Unit) OpenedPorts() ([]network.Port, error) {
 
 // AssignedMachine returns the tag of this unit's assigned machine (if
 // any), or a CodeNotAssigned error.
-func (u *Unit) AssignedMachine() (string, error) {
+func (u *Unit) AssignedMachine() (names.Tag, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.call("GetAssignedMachine", args, &results)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return "", result.Error
+		return nil, result.Error
 	}
-	return result.Result, nil
+	return names.ParseMachineTag(result.Result)
 }
