@@ -780,9 +780,48 @@ func (s *uniterSuite) TestWatchActions(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
-	actionId, err := s.wordpressUnit.AddAction("snapshot", map[string]interface{}{
-		"outfile": "foo.txt"})
+	actionId, err := s.wordpressUnit.AddAction("snapshot", nil)
 
+	wc.AssertChange(actionId)
+	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
+	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	firstActionId, err := s.wordpressUnit.AddAction("backup", nil)
+	c.Assert(err, gc.IsNil)
+	secondActionId, err := s.wordpressUnit.AddAction("snapshot", nil)
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-wordpress-0"},
+	}}
+
+	result, err := s.uniter.WatchActions(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: "1", Changes: []string{}},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertChange(firstActionId, secondActionId)
+	wc.AssertNoChange()
+
+	actionId, err := s.wordpressUnit.AddAction("backup", nil)
+	c.Assert(err, gc.IsNil)
 	wc.AssertChange(actionId)
 	wc.AssertNoChange()
 }
