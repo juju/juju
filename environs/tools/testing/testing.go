@@ -29,7 +29,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/version/ubuntu"
 )
 
 func GetMockBundleTools(c *gc.C) tools.BundleToolsFunc {
@@ -166,7 +165,7 @@ func ParseMetadataFromStorage(c *gc.C, stor storage.StorageReader, expectMirrors
 				toolsMetadata := item.(*tools.ToolsMetadata)
 				toolsMetadataMap[key] = toolsMetadata
 				toolsVersions.Add(key)
-				seriesVersion, err := ubuntu.SeriesVersion(toolsMetadata.Release)
+				seriesVersion, err := version.SeriesVersion(toolsMetadata.Release)
 				c.Assert(err, gc.IsNil)
 				productId := fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, toolsMetadata.Arch)
 				expectedProductIds.Add(productId)
