@@ -700,10 +700,10 @@ func (u *UniterAPI) getOneActionById(actionId string) (params.ActionsQueryResult
 	return result, nil
 }
 
-func (u *UniterAPI) Actions(args params.ActionsQuery) (params.ActionsQueryResults, error) {
+func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, error) {
 	nothing := params.ActionsQueryResults{}
 	results := params.ActionsQueryResults{
-		ActionsQueryResults: make([]params.ActionsQueryResult, len(args.ActionQueries)),
+		ActionsQueryResults: make([]params.ActionsQueryResult, len(args.Entities)),
 	}
 
 	canAccess, err := u.accessUnit()
@@ -711,22 +711,30 @@ func (u *UniterAPI) Actions(args params.ActionsQuery) (params.ActionsQueryResult
 		return nothing, err
 	}
 
-	for i, actionQuery := range args.ActionQueries {
+	for i, actionQuery := range args.Entities {
+		// Use the currently authenticated unit to get the endpoint.
+		whichUnit, ok := u.auth.GetAuthEntity().(*state.Unit)
+		if !ok {
+			return nothing, fmt.Errorf("entity is not a unit")
+		}
+
+		// this Unit must match the Action's prefix.
 		actionTag, err := names.ParseActionTag(actionQuery.Tag)
 		if err != nil {
 			return nothing, err
 		}
+
 		// Action prefix must match unit.  Extract the Unit tag.
-		markerInd := strings.Index(actionQuery.Tag, names.ActionMarker)
-		actionInd := strings.Index(actionQuery.Tag, names.ActionTagKind)
+		markerInd := strings.Index(actionTag.String(), names.ActionMarker)
+		actionInd := strings.Index(actionTag.String(), names.ActionTagKind)
 		actionInd = actionInd + len(names.ActionTagKind) + 1
-		unitTag, err := names.ParseUnitTag("unit-" + actionQuery.Tag[actionInd:markerInd])
+		unitTag, err := names.ParseUnitTag("unit-" + actionTag.String()[actionInd:markerInd])
 		if err != nil {
 			return nothing, err
 		}
 
 		// The Unit is querying for another Unit's Action.
-		if unitTag.String() != actionQuery.UnitTag {
+		if unitTag.String() != whichUnit.Tag().String() {
 			return nothing, common.ErrPerm
 		}
 

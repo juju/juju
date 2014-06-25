@@ -247,16 +247,6 @@ type RelationResults struct {
 	Results []RelationResult
 }
 
-// ActionsQuery holds the necessary info to query the API for multiple Actions.
-type ActionsQuery struct {
-	ActionQueries []ActionQuery `json:"actionqueries"`
-}
-
-type ActionQuery struct {
-	Tag     string `json:"actionquery-tag"`
-	UnitTag string `json:"actionquery-unittag"`
-}
-
 // ActionResults holds a slice of responses from the Actions query.
 type ActionsQueryResults struct {
 	ActionsQueryResults []ActionsQueryResult `json:"actionresults,omitempty"`

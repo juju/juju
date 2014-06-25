@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/state/apiserver/uniter"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	patchtesting "github.com/juju/testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -900,10 +901,9 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 			actionTest.action.Params)
 		c.Assert(err, gc.IsNil)
 
-		args := params.ActionsQuery{
-			ActionQueries: []params.ActionQuery{{
-				Tag:     names.NewActionTag(actionId).String(),
-				UnitTag: s.wordpressUnit.Tag().String(),
+		args := params.Entities{
+			Entities: []params.Entity{{
+				Tag: names.NewActionTag(actionId).String(),
 			}},
 		}
 		results, err := s.uniter.Actions(args)
@@ -918,10 +918,9 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 }
 
 func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
-	args := params.ActionsQuery{
-		ActionQueries: []params.ActionQuery{{
-			Tag:     names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
-			UnitTag: s.wordpressUnit.Tag().String(),
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
 		}},
 	}
 	results, err := s.uniter.Actions(args)
@@ -935,28 +934,43 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 
 func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 	// Action doesn't match unit.
-	args := params.ActionsQuery{
-		ActionQueries: []params.ActionQuery{{
-			Tag:     names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
-			UnitTag: s.mysqlUnit.Tag().String(),
+	fakeBadAuth := apiservertesting.FakeAuthorizer{
+		Tag:       s.mysqlUnit.Tag(),
+		LoggedIn:  true,
+		UnitAgent: true,
+		Entity:    s.wordpressUnit,
+	}
+	fakeBadAPI, err := uniter.NewUniterAPI(
+		s.State,
+		s.resources,
+		fakeBadAuth,
+	)
+	c.Assert(err, gc.IsNil)
+
+	restore := patchtesting.PatchValue(&s.uniter, fakeBadAPI)
+	defer restore()
+
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
 		}},
 	}
-	_, err := s.uniter.Actions(args)
+	// exercises line 738 of state/apiserver/uniter/uniter.go
+	_, err = s.uniter.Actions(args)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "permission denied")
+	c.Assert(err.Error(), gc.Equals, common.ErrPerm)
 }
 
 func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 	// Same unit, but not one that has access.
-	args := params.ActionsQuery{
-		ActionQueries: []params.ActionQuery{{
-			Tag:     names.NewActionTag("mysql/0" + names.ActionMarker + "0").String(),
-			UnitTag: s.mysqlUnit.Tag().String(),
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewActionTag("mysql/0" + names.ActionMarker + "0").String(),
 		}},
 	}
 	_, err := s.uniter.Actions(args)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "permission denied")
+	c.Assert(err.Error(), gc.Equals, common.ErrPerm)
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {

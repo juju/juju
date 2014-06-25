@@ -6,6 +6,7 @@ package uniter_test
 import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/uniter"
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 )
 
@@ -56,10 +57,18 @@ func (s *actionSuite) TestAction(c *gc.C) {
 	}
 }
 
-func (s *actionSuite) TestActionNotFound(c *gc.C) {
+func (s *actionSuite) TestActionInvalid(c *gc.C) {
 	actionId := "foo"
 	_, err := s.uniter.Action(actionId)
 	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "\"action-foo\" is not a valid action tag")
+}
+
+func (s *actionSuite) TestActionNotFound(c *gc.C) {
+	actionId := "wordpress/0" + names.ActionMarker + "0"
+	_, err := s.uniter.Action(actionId)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "action \"wordpress/0_a_0\" not found")
 }
 
 func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {
