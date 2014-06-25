@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	jc "github.com/juju/testing/checkers"
@@ -278,6 +279,33 @@ func (r *rootSuite) TestFindMethodCachesFacadesWithId(c *gc.C) {
 	assertCallResult(c, caller, "orig-id", "ALT-orig-id1")
 	assertCallResult(c, caller, "alt-id", "ALT-alt-id2")
 	assertCallResult(c, caller, "third-id", "ALT-third-id3")
+}
+
+func (r *rootSuite) TestFindMethodCacheRaceSafe(c *gc.C) {
+	srvRoot := apiserver.TestingSrvRoot(nil)
+	defer common.Facades.Discard("my-counting-facade", 0)
+	var count int64
+	newIdCounter := func(
+		_ *state.State, _ *common.Resources, _ common.Authorizer, id string,
+	) (interface{}, error) {
+		count += 1
+		return &countingType{count: count, id: id}, nil
+	}
+	reflectType := reflect.TypeOf((*countingType)(nil))
+	common.RegisterFacade("my-counting-facade", 0, newIdCounter, reflectType)
+	caller, err := srvRoot.FindMethod("my-counting-facade", 0, "Count")
+	c.Assert(err, gc.IsNil)
+	// This is designed to trigger the race detector
+	var wg sync.WaitGroup
+	wg.Add(4)
+	go func() { caller.Call("first", reflect.Value{}); wg.Done() }()
+	go func() { caller.Call("second", reflect.Value{}); wg.Done() }()
+	go func() { caller.Call("first", reflect.Value{}); wg.Done() }()
+	go func() { caller.Call("second", reflect.Value{}); wg.Done() }()
+	wg.Wait()
+	// Once we're done, we should have only instantiated 2 different
+	// objects. If we pass a different Id, we should be at 3 total count.
+	assertCallResult(c, caller, "third", "third3")
 }
 
 type smallInterface interface {
