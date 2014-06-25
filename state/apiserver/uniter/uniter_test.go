@@ -787,6 +787,46 @@ func (s *uniterSuite) TestWatchActions(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *uniterSuite) TestWatchActionsMalformedTag(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "ewenit-mysql-0"},
+	}}
+	_, err := s.uniter.WatchActions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "\"ewenit-mysql-0\" is not a valid tag")
+}
+
+func (s *uniterSuite) TestWatchActionsMalformedUnitName(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-01"},
+	}}
+	_, err := s.uniter.WatchActions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "\"unit-mysql-01\" is not a valid unit tag")
+}
+
+func (s *uniterSuite) TestWatchActionsNotUnit(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "action-mysql/0_a_0"},
+	}}
+	_, err := s.uniter.WatchActions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, "tag \"action-mysql/0_a_0\" wasn't a Unit")
+}
+
+func (s *uniterSuite) TestWatchActionsPermissionDenied(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-nonexistentgarbage-0"},
+	}}
+	results, err := s.uniter.WatchActions(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, "permission denied")
+}
+
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, gc.IsNil)

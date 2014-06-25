@@ -392,10 +392,10 @@ func (s *unitSuite) TestWatchActionsError(c *gc.C) {
 		return fmt.Errorf("Test error")
 	})
 
+	defer restore()
+
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "Test error")
-
-	restore()
 }
 
 func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
@@ -412,10 +412,10 @@ func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
 		return nil
 	})
 
+	defer restore()
+
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "An error in the watch result.")
-
-	restore()
 }
 
 func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
@@ -423,10 +423,10 @@ func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
 		return nil
 	})
 
+	defer restore()
+
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 0")
-
-	restore()
 }
 
 func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
@@ -437,10 +437,10 @@ func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
 		return nil
 	})
 
+	defer restore()
+
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
-
-	restore()
 }
 
 func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {

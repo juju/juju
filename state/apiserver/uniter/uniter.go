@@ -476,15 +476,26 @@ func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatc
 // to a unit.  See also state/watcher.go Unit.WatchActions().  This method
 // is called from state/api/uniter/uniter.go WatchActions().
 func (u *UniterAPI) WatchActions(args params.Entities) (params.StringsWatchResults, error) {
+	nothing := params.StringsWatchResults{}
+
 	result := params.StringsWatchResults{
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.StringsWatchResults{}, err
+		return nothing, err
 	}
 	for i, entity := range args.Entities {
-		err := common.ErrPerm
+		someTag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			return nothing, err
+		}
+
+		if _, ok := someTag.(names.UnitTag); !ok {
+			return nothing, fmt.Errorf("tag %q wasn't a Unit", someTag.String())
+		}
+
+		err = common.ErrPerm
 		if canAccess(entity.Tag) {
 			result.Results[i], err = u.watchOneUnitActions(entity.Tag)
 		}
