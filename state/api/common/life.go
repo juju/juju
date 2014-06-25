@@ -4,8 +4,7 @@
 package common
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/names"
+	"fmt"
 
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
@@ -13,16 +12,17 @@ import (
 
 // Life requests the life cycle of the given entity from the given
 // server-side API facade via the given caller.
-func Life(caller base.Caller, facadeName string, tag names.Tag) (params.Life, error) {
+func Life(caller base.Caller, facadeName, tag string) (params.Life, error) {
 	var result params.LifeResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag.String()}},
+		Entities: []params.Entity{{Tag: tag}},
 	}
-	if err := caller.Call(facadeName, "", "Life", args, &result); err != nil {
+	err := caller.Call(facadeName, "", "Life", args, &result)
+	if err != nil {
 		return "", err
 	}
 	if len(result.Results) != 1 {
-		return "", errors.Errorf("expected 1 result, got %d", len(result.Results))
+		return "", fmt.Errorf("expected 1 result, got %d", len(result.Results))
 	}
 	if err := result.Results[0].Error; err != nil {
 		return "", err

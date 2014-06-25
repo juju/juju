@@ -134,6 +134,9 @@ func (s *deployerSuite) TestUnit(c *gc.C) {
 	unit, err := s.st.Unit("unit-foo-42")
 	s.assertUnauthorized(c, err)
 	c.Assert(unit, gc.IsNil)
+	unit, err = s.st.Unit("42")
+	s.assertUnauthorized(c, err)
+	c.Assert(unit, gc.IsNil)
 
 	// Try getting a unit we're not responsible for.
 	// First create a new machine and deploy another unit there.
