@@ -40,7 +40,7 @@ type ProvisionerTask interface {
 }
 
 type MachineGetter interface {
-	Machine(names.Tag) (*apiprovisioner.Machine, error)
+	Machine(names.MachineTag) (*apiprovisioner.Machine, error)
 	MachinesWithTransientErrors() ([]*apiprovisioner.Machine, []params.StatusResult, error)
 }
 

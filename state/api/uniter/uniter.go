@@ -23,11 +23,11 @@ type State struct {
 
 	caller base.Caller
 	// unitTag contains the authenticated unit's tag.
-	unitTag names.Tag
+	unitTag names.UnitTag
 }
 
 // NewState creates a new client-side Uniter facade.
-func NewState(caller base.Caller, authTag names.Tag) *State {
+func NewState(caller base.Caller, authTag names.UnitTag) *State {
 	return &State{
 		EnvironWatcher: common.NewEnvironWatcher(uniterFacade, caller),
 		APIAddresser:   common.NewAPIAddresser(uniterFacade, caller),
@@ -68,7 +68,7 @@ func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult
 }
 
 // Unit provides access to methods of a state.Unit through the facade.
-func (st *State) Unit(tag names.Tag) (*Unit, error) {
+func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
@@ -81,7 +81,7 @@ func (st *State) Unit(tag names.Tag) (*Unit, error) {
 }
 
 // Service returns a service state by tag.
-func (st *State) Service(tag names.Tag) (*Service, error) {
+func (st *State) Service(tag names.ServiceTag) (*Service, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err

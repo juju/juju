@@ -38,7 +38,7 @@ func (st *State) life(tag names.Tag) (params.Life, error) {
 }
 
 // Unit provides access to methods of a state.Unit through the facade.
-func (st *State) Unit(tag names.Tag) (*Unit, error) {
+func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
@@ -52,7 +52,7 @@ func (st *State) Unit(tag names.Tag) (*Unit, error) {
 
 // Machine provides access to methods of a state.Machine through the
 // facade.
-func (st *State) Machine(tag names.Tag) (*Machine, error) {
+func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err

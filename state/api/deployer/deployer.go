@@ -34,12 +34,12 @@ func (st *State) call(method string, params, result interface{}) error {
 }
 
 // unitLife returns the lifecycle state of the given unit.
-func (st *State) unitLife(tag names.Tag) (params.Life, error) {
+func (st *State) unitLife(tag names.UnitTag) (params.Life, error) {
 	return common.Life(st.caller, deployerFacade, tag)
 }
 
 // Unit returns the unit with the given tag.
-func (st *State) Unit(tag names.Tag) (*Unit, error) {
+func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
 	life, err := st.unitLife(tag)
 	if err != nil {
 		return nil, err
@@ -53,7 +53,7 @@ func (st *State) Unit(tag names.Tag) (*Unit, error) {
 
 // Machine returns the machine with the given tag.
 // TODO(dfc) this should require a names.MachineTag
-func (st *State) Machine(tag names.Tag) (*Machine, error) {
+func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	// TODO(dfc) this cannot return an error any more
 	return &Machine{
 		tag: tag,

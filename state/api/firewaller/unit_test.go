@@ -26,7 +26,7 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
 
 	var err error
-	s.apiUnit, err = s.firewaller.Unit(s.units[0].Tag())
+	s.apiUnit, err = s.firewaller.Unit(s.units[0].Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -40,7 +40,7 @@ func (s *unitSuite) TestUnit(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(apiUnitFoo, gc.IsNil)
 
-	apiUnit0, err := s.firewaller.Unit(s.units[0].Tag())
+	apiUnit0, err := s.firewaller.Unit(s.units[0].Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiUnit0, gc.NotNil)
 	c.Assert(apiUnit0.Name(), gc.Equals, s.units[0].Name())

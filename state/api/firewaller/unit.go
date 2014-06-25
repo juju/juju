@@ -18,7 +18,7 @@ import (
 // Unit represents a juju unit as seen by a firewaller worker.
 type Unit struct {
 	st   *State
-	tag  names.Tag
+	tag  names.UnitTag
 	life params.Life
 }
 
@@ -49,6 +49,7 @@ func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
+	// TODO(dfc) seriously ?!?
 	serviceTag := names.NewServiceTag(names.UnitService(u.Name()))
 	service := &Service{
 		st:  u.st,

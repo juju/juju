@@ -18,7 +18,7 @@ import (
 // endpoints.
 type Relation struct {
 	st   *State
-	tag  names.Tag
+	tag  names.RelationTag
 	id   int
 	life params.Life
 }

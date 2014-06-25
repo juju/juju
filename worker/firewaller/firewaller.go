@@ -617,7 +617,7 @@ type unitsChange struct {
 type machineData struct {
 	tomb   tomb.Tomb
 	fw     *Firewaller
-	tag    names.Tag
+	tag    names.MachineTag
 	unitds map[string]*unitData
 	ports  []network.Port
 }

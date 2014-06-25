@@ -31,7 +31,7 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 
 	var err error
-	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag())
+	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 }
 

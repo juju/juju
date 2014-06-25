@@ -183,7 +183,8 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 
 	apiConn, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
-	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag())
+	// TODO(dfc) why does this return a string
+	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag().String())
 	apiConn.Close()

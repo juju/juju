@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -24,7 +25,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 
 	var err error
-	s.apiService, err = s.uniter.Service(s.wordpressService.Tag())
+	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().(names.ServiceTag))
 	c.Assert(err, gc.IsNil)
 }
 

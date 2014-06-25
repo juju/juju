@@ -136,7 +136,8 @@ func (st *State) Provisioner() *provisioner.State {
 // Uniter returns a version of the state that provides functionality
 // required by the uniter worker.
 func (st *State) Uniter() *uniter.State {
-	return uniter.NewState(st, st.authTag)
+	// TODO(dfc) yes, this can panic, we never checked before
+	return uniter.NewState(st, st.authTag.(names.UnitTag))
 }
 
 // Firewaller returns a version of the state that provides functionality
