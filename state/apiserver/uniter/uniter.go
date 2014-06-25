@@ -1052,3 +1052,49 @@ func (u *UniterAPI) GetOwnerTag(args params.Entities) (params.StringResult, erro
 		Result: service.GetOwnerTag(),
 	}, nil
 }
+
+func (u *UniterAPI) watchOneUnitAddresses(tag string) (string, error) {
+	unit, err := u.getUnit(tag)
+	if err != nil {
+		return "", err
+	}
+	machineId, err := unit.AssignedMachineId()
+	if err != nil {
+		return "", err
+	}
+	machine, err := u.st.Machine(machineId)
+	if err != nil {
+		return "", err
+	}
+	watch := machine.WatchAddresses()
+	// Consume the initial event. Technically, API
+	// calls to Watch 'transmit' the initial event
+	// in the Watch response. But NotifyWatchers
+	// have no state to transmit.
+	if _, ok := <-watch.Changes(); ok {
+		return u.resources.Register(watch), nil
+	}
+	return "", watcher.MustErr(watch)
+}
+
+// WatchAddresses returns a NotifyWatcher for observing changes
+// to each unit's addresses.
+func (u *UniterAPI) WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		watcherId := ""
+		if canAccess(entity.Tag) {
+			watcherId, err = u.watchOneUnitAddresses(entity.Tag)
+		}
+		result.Results[i].NotifyWatcherId = watcherId
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
