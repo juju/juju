@@ -5,14 +5,12 @@ package main
 
 import (
 	"fmt"
-	"os"
-
-	"code.google.com/p/go.crypto/ssh/terminal"
 
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/readpass"
 
 	"github.com/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
@@ -58,11 +56,18 @@ type ChangePasswordAPI interface {
 	Close() error
 }
 
+type EnvironInfoCredsWriter interface {
+	Write() error
+	SetAPICredentials(creds configstore.APICredentials)
+	APICredentials() configstore.APICredentials
+	Location() string
+}
+
 var getChangePasswordAPI = func(c *UserChangePasswordCommand) (ChangePasswordAPI, error) {
 	return juju.NewUserManagerClient(c.EnvName)
 }
 
-var getEnvironInfo = func(c *UserChangePasswordCommand) (configstore.EnvironInfo, error) {
+var getEnvironInfo = func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
 	store, err := configstore.Default()
 	if err != nil {
 		return nil, err
@@ -85,19 +90,19 @@ func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
 
 	if c.Password == "" {
 		fmt.Println("password:")
-		newPass1, err := terminal.ReadPassword(int(os.Stdin.Fd()))
+		newPass1, err := readpass.ReadPassword()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		fmt.Println("re type:")
-		newPass2, err := terminal.ReadPassword(int((os.Stdin.Fd())))
+		fmt.Println("type password again:")
+		newPass2, err := readpass.ReadPassword()
 		if err != nil {
 			return errors.Trace(err)
 		}
-		if string(newPass1) != string(newPass2) {
+		if newPass1 != newPass2 {
 			return fmt.Errorf("Passwords do not match")
 		}
-		c.Password = string(newPass1)
+		c.Password = newPass1
 	}
 
 	info, err := getEnvironInfo(c)
@@ -124,12 +129,16 @@ func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
 		Password: c.Password,
 	})
 
+	// TODO (matty) This recovery is not good, will fix in a follow up branch
 	err = info.Write()
 	if err != nil {
 		fmt.Fprintf(ctx.Stderr, "Updating the jenv file failed, reverting to original password\n")
 		err = client.SetPassword(user, oldPassword)
 		if err != nil {
 			fmt.Fprintf(ctx.Stderr, "Updating the jenv file failed, reverting failed, you will need to edit your environments file by hand (%s)\n", info.Location())
+			if c.Generate {
+				fmt.Fprintf(ctx.Stderr, "Your generated password: %s\n", c.Password)
+			}
 			return errors.Trace(err)
 		}
 		fmt.Fprintf(ctx.Stderr, "your password has not changed\n")

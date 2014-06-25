@@ -29,7 +29,7 @@ func (s *UserChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&getChangePasswordAPI, func(c *UserChangePasswordCommand) (ChangePasswordAPI, error) {
 		return s.mockAPI, nil
 	})
-	s.PatchValue(&getEnvironInfo, func(c *UserChangePasswordCommand) (configstore.EnvironInfo, error) {
+	s.PatchValue(&getEnvironInfo, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
 		return s.mockEnvironInfo, nil
 	})
 }
@@ -49,7 +49,7 @@ func (s *UserChangePasswordCommandSuite) TestGenerateAndPassword(c *gc.C) {
 }
 
 func (s *UserChangePasswordCommandSuite) TestFailedToReadInfo(c *gc.C) {
-	s.PatchValue(&getEnvironInfo, func(c *UserChangePasswordCommand) (configstore.EnvironInfo, error) {
+	s.PatchValue(&getEnvironInfo, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
 		return s.mockEnvironInfo, errors.New("something failed")
 	})
 	_, err := testing.RunCommand(c, newUserChangePassword(), "--password", "new-password")
@@ -85,7 +85,7 @@ func (s *UserChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
 
 // The first write fails, so we try to revert the password which succeeds
 func (s *UserChangePasswordCommandSuite) TestRevertPasswordAfterFailedWrite(c *gc.C) {
-	s.PatchValue(&getEnvironInfo, func(c *UserChangePasswordCommand) (configstore.EnvironInfo, error) {
+	s.PatchValue(&getEnvironInfo, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
 		return s.mockEnvironInfo, nil
 	})
 	// Set the password to something known
@@ -109,7 +109,7 @@ func (s *UserChangePasswordCommandSuite) TestChangePasswordRevertApiFails(c *gc.
 	s.mockAPI.failOps = []bool{false, true}
 	context, err := testing.RunCommand(c, newUserChangePassword(), "--password", "new-password")
 	c.Assert(testing.Stderr(context), gc.Equals, `Updating the jenv file failed, reverting to original password
-Updating the jenv file failed, reverting failed, you will need to edit your environments file by hand ()
+Updating the jenv file failed, reverting failed, you will need to edit your environments file by hand (location)
 `)
 	c.Assert(err, gc.ErrorMatches, "failed to do something")
 }
@@ -134,28 +134,8 @@ func (m *mockEnvironInfo) APICredentials() configstore.APICredentials {
 	return m.creds
 }
 
-func (m *mockEnvironInfo) Initialized() bool {
-	return true
-}
-
-func (m *mockEnvironInfo) BootstrapConfig() map[string]interface{} {
-	return nil
-}
-
-func (m *mockEnvironInfo) APIEndpoint() configstore.APIEndpoint {
-	return configstore.APIEndpoint{}
-}
-
-func (m *mockEnvironInfo) SetBootstrapConfig(map[string]interface{}) {}
-
-func (m *mockEnvironInfo) SetAPIEndpoint(configstore.APIEndpoint) {}
-
 func (m *mockEnvironInfo) Location() string {
-	return ""
-}
-
-func (m *mockEnvironInfo) Destroy() error {
-	return nil
+	return "location"
 }
 
 type mockChangePasswordAPI struct {
