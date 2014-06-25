@@ -52,7 +52,6 @@ func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
 }
 
 // Machine returns the machine with the given tag.
-// TODO(dfc) this should require a names.MachineTag
 func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	// TODO(dfc) this cannot return an error any more
 	return &Machine{
