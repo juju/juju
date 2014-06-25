@@ -653,6 +653,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	found := false
 	for _, p := range u.doc.Ports {
 		if p == port {
+			found = true
 			break
 		}
 	}
