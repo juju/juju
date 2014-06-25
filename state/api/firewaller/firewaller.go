@@ -38,11 +38,7 @@ func (st *State) life(tag names.Tag) (params.Life, error) {
 }
 
 // Unit provides access to methods of a state.Unit through the facade.
-func (st *State) Unit(unitTag string) (*Unit, error) {
-	tag, err := names.ParseUnitTag(unitTag)
-	if err != nil {
-		return nil, err
-	}
+func (st *State) Unit(tag names.Tag) (*Unit, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
