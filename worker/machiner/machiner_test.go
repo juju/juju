@@ -92,7 +92,7 @@ func agentConfig(tag string) agent.Config {
 }
 
 func (s *MachinerSuite) TestNotFoundOrUnauthorized(c *gc.C) {
-	mr := machiner.NewMachiner(s.machinerState, agentConfig("machine-99"))
+	mr := machiner.NewMachiner(s.machinerState, agentConfig("eleventy-one"))
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
 

@@ -33,17 +33,17 @@ func NewState(caller base.Caller) *State {
 }
 
 // life requests the life cycle of the given entity from the server.
-func (st *State) life(tag names.Tag) (params.Life, error) {
+func (st *State) life(tag string) (params.Life, error) {
 	return common.Life(st.caller, firewallerFacade, tag)
 }
 
 // Unit provides access to methods of a state.Unit through the facade.
 func (st *State) Unit(unitTag string) (*Unit, error) {
-	tag, err := names.ParseUnitTag(unitTag)
+	life, err := st.life(unitTag)
 	if err != nil {
 		return nil, err
 	}
-	life, err := st.life(tag)
+	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
 		return nil, err
 	}
@@ -57,11 +57,11 @@ func (st *State) Unit(unitTag string) (*Unit, error) {
 // Machine provides access to methods of a state.Machine through the
 // facade.
 func (st *State) Machine(machineTag string) (*Machine, error) {
-	tag, err := names.ParseMachineTag(machineTag)
+	life, err := st.life(machineTag)
 	if err != nil {
 		return nil, err
 	}
-	life, err := st.life(tag)
+	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return nil, err
 	}

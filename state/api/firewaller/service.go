@@ -38,7 +38,7 @@ func (s *Service) Life() params.Life {
 // Refresh refreshes the contents of the Service from the underlying
 // state.
 func (s *Service) Refresh() error {
-	life, err := s.st.life(s.tag)
+	life, err := s.st.life(s.tag.String())
 	if err != nil {
 		return err
 	}
