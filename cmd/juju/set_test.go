@@ -28,8 +28,9 @@ type SetSuite struct {
 var _ = gc.Suite(&SetSuite{})
 
 var (
-	validSetTestValue   = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
-	invalidSetTestValue = "a value with an invalid UTF-8 sequence: " + string([]byte{0x10, 0xFF, 0xFF})
+	validSetTestValue     = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
+	invalidSetTestValue   = "a value with an invalid UTF-8 sequence: " + string([]byte{0xFF, 0xFF})
+	correctedSetTestValue = "a value with an invalid UTF-8 sequence: \ufffd\ufffd"
 )
 
 func (s *SetSuite) SetUpTest(c *gc.C) {
@@ -66,6 +67,16 @@ func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
 		"username": validSetTestValue,
 		"outlook":  "hello@world.tld",
 	})
+	// Test doesn't fail because Go JSON marshalling converts invalid
+	// UTF-8 sequences transparently to U+FFFD. The test demonstrates
+	// this behavior. It's a currently accepted behavior as it never has
+	// been a real-life issue.
+	assertSetSuccess(c, s.dir, s.svc, []string{
+		"username=@invalid.txt",
+	}, charm.Settings{
+		"username": correctedSetTestValue,
+		"outlook":  "hello@world.tld",
+	})
 }
 
 func (s *SetSuite) TestSetOptionFail(c *gc.C) {
@@ -77,12 +88,6 @@ func (s *SetSuite) TestSetOptionFail(c *gc.C) {
 	assertSetFail(c, s.dir, []string{
 		"username=@big.txt",
 	}, "error: size of option file is larger than 5M\n")
-	assertSetDiffer(c, s.dir, s.svc, []string{
-		"username=@invalid.txt",
-	}, charm.Settings{
-		"username": invalidSetTestValue,
-		"outlook":  "hello@world.tld",
-	})
 }
 
 func (s *SetSuite) TestSetConfig(c *gc.C) {
@@ -108,17 +113,6 @@ func assertSetSuccess(c *gc.C, dir string, svc *state.Service, args []string, ex
 	settings, err := svc.ConfigSettings()
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings, gc.DeepEquals, expect)
-}
-
-// assertSetDiffer sets configuration options and checks that the configuration
-// settings differ. This is the case if the encoding is iinvalid UTF-8.
-func assertSetDiffer(c *gc.C, dir string, svc *state.Service, args []string, expect charm.Settings) {
-	ctx := coretesting.ContextForDir(c, dir)
-	code := cmd.Main(envcmd.Wrap(&SetCommand{}), ctx, append([]string{"dummy-service"}, args...))
-	c.Check(code, gc.Equals, 0)
-	settings, err := svc.ConfigSettings()
-	c.Assert(err, gc.IsNil)
-	c.Assert(settings, gc.Not(gc.DeepEquals), expect)
 }
 
 // assertSetFail sets configuration options and checks the expected error.
