@@ -41,7 +41,7 @@ func (st *State) call(method string, params, results interface{}) error {
 }
 
 // life requests the lifecycle of the given entity from the server.
-func (st *State) life(tag string) (params.Life, error) {
+func (st *State) life(tag names.Tag) (params.Life, error) {
 	return common.Life(st.caller, uniterFacade, tag)
 }
 
@@ -69,11 +69,11 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 
 // Unit provides access to methods of a state.Unit through the facade.
 func (st *State) Unit(unitTag string) (*Unit, error) {
-	life, err := st.life(unitTag)
+	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
 		return nil, err
 	}
-	tag, err := names.ParseUnitTag(unitTag)
+	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -86,11 +86,11 @@ func (st *State) Unit(unitTag string) (*Unit, error) {
 
 // Service returns a service state by tag.
 func (st *State) Service(serviceTag string) (*Service, error) {
-	life, err := st.life(serviceTag)
+	tag, err := names.ParseServiceTag(serviceTag)
 	if err != nil {
 		return nil, err
 	}
-	tag, err := names.ParseServiceTag(serviceTag)
+	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
 	}
