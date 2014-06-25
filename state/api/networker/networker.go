@@ -43,5 +43,32 @@ func (st *State) MachineNetworkInfo(machineTag string) ([]network.Info, error) {
 		err = fmt.Errorf("expected one result, got %d", len(results.Results))
 		return nil, err
 	}
-	return results.Results[0].Info, results.Results[0].Error
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	return results.Results[0].Info, nil
+}
+
+// WatchNetworkInterfaces returns a StringsWatcher that notifies of changes of network
+// interfaces on the machine.
+func (st *State) WatchNetworkInterfaces(machineTag string) (watcher.StringsWatcher, error) {
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: machineTag}},
+	}
+	var results params.StringsWatchResults
+	err := m.st.call("WatchNetworkInterfaces", args, &results)
+	if err != nil {
+		// TODO: Not directly tested
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		// TODO: Not directly tested
+		err = fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, err
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
 }
