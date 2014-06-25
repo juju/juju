@@ -33,7 +33,7 @@ func (u *Unit) Life() params.Life {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := u.st.unitLife(u.tag.String())
+	life, err := u.st.unitLife(u.tag)
 	if err != nil {
 		return err
 	}

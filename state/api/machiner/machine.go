@@ -31,8 +31,7 @@ func (m *Machine) Life() params.Life {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	// TODO(dfc) machineLife should take a tag.
-	life, err := m.st.machineLife(m.tag.String())
+	life, err := m.st.machineLife(m.tag)
 	if err != nil {
 		return err
 	}
