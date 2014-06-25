@@ -68,11 +68,7 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 }
 
 // Unit provides access to methods of a state.Unit through the facade.
-func (st *State) Unit(unitTag string) (*Unit, error) {
-	tag, err := names.ParseUnitTag(unitTag)
-	if err != nil {
-		return nil, err
-	}
+func (st *State) Unit(tag names.Tag) (*Unit, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
@@ -85,11 +81,7 @@ func (st *State) Unit(unitTag string) (*Unit, error) {
 }
 
 // Service returns a service state by tag.
-func (st *State) Service(serviceTag string) (*Service, error) {
-	tag, err := names.ParseServiceTag(serviceTag)
-	if err != nil {
-		return nil, err
-	}
+func (st *State) Service(tag names.Tag) (*Service, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err

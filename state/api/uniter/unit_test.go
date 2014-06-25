@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -30,7 +31,7 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 
 	var err error
-	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag().String())
+	s.apiUnit, err = s.uniter.Unit(s.wordpressUnit.Tag())
 	c.Assert(err, gc.IsNil)
 }
 
@@ -39,7 +40,7 @@ func (s *unitSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *unitSuite) TestUnitAndUnitTag(c *gc.C) {
-	apiUnitFoo, err := s.uniter.Unit("unit-foo-42")
+	apiUnitFoo, err := s.uniter.Unit(names.NewUnitTag("foo/42"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(apiUnitFoo, gc.IsNil)

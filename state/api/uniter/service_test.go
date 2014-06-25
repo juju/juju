@@ -24,7 +24,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.uniterSuite.SetUpTest(c)
 
 	var err error
-	s.apiService, err = s.uniter.Service(s.wordpressService.Tag().String())
+	s.apiService, err = s.uniter.Service(s.wordpressService.Tag())
 	c.Assert(err, gc.IsNil)
 }
 
