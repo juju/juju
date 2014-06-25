@@ -10,7 +10,6 @@ import (
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/usermanager"
 	"github.com/juju/juju/testing/factory"
@@ -96,21 +95,28 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestUserInfoNoResults(c *gc.C) {
-	s.PatchValue(usermanager.Call, func(st *api.State, method string, args, result interface{}) error {
-		return nil
-	})
+	cleanup := usermanager.PatchResponses(s.usermanager,
+		func(interface{}) error {
+			// do nothing, we get an empty result with no error
+			return nil
+		},
+	)
+	defer cleanup()
 	tag := names.NewUserTag("foobar")
 	_, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
 func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
-	s.PatchValue(usermanager.Call, func(st *api.State, method string, args, result interface{}) error {
-		if result, ok := result.(*params.UserInfoResults); ok {
-			result.Results = make([]params.UserInfoResult, 2)
-		}
-		return nil
-	})
+	cleanup := usermanager.PatchResponses(s.usermanager,
+		func(result interface{}) error {
+			if result, ok := result.(*params.UserInfoResults); ok {
+				result.Results = make([]params.UserInfoResult, 2)
+			}
+			return nil
+		},
+	)
+	defer cleanup()
 	tag := names.NewUserTag("foobar")
 	_, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
