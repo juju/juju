@@ -391,7 +391,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 
 	apiRel, err := s.uniter.Relation(s.rel.Tag().String())
 	c.Assert(err, gc.IsNil)
-	apiUnit, err := s.uniter.Unit(unit.Tag().String())
+	apiUnit, err := s.uniter.Unit(unit.Tag())
 	c.Assert(err, gc.IsNil)
 	s.apiRelUnit, err = apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -709,7 +709,7 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.relunits[rel.Id()] = ru
 	err = ru.EnterScope(map[string]interface{}{"relation-name": name})
 	c.Assert(err, gc.IsNil)
-	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().String())
+	s.apiUnit, err = s.uniter.Unit(s.unit.Tag())
 	c.Assert(err, gc.IsNil)
 	apiRel, err := s.uniter.Relation(rel.Tag().String())
 	c.Assert(err, gc.IsNil)

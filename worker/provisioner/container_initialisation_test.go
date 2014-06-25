@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/fslock"
@@ -75,14 +76,14 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) worker.StringsWatchHandler {
+func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.Tag) worker.StringsWatchHandler {
 	runner := worker.NewRunner(allFatal, noImportance)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetSupportedContainers(instance.ContainerTypes...)
 	c.Assert(err, gc.IsNil)
-	cfg := s.AgentConfigForTag(c, tag)
+	cfg := s.AgentConfigForTag(c, tag.String())
 
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
 	handler := provisioner.NewContainerSetupHandler(runner, watcherName, instance.ContainerTypes, machine, pr, cfg, s.initLock)
@@ -94,7 +95,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) worker.S
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 	inst := s.checkStartInstance(c, host)
-	s.setupContainerWorker(c, host.Tag().String())
+	s.setupContainerWorker(c, host.Tag())
 
 	// make a container on the host machine
 	template := state.MachineTemplate{
@@ -221,7 +222,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 
 	err = os.RemoveAll(s.initLockDir)
 	c.Assert(err, gc.IsNil)
-	handler := s.setupContainerWorker(c, m.Tag().String())
+	handler := s.setupContainerWorker(c, m.Tag())
 	_, err = handler.SetUp()
 	c.Assert(err, gc.IsNil)
 	err = handler.Handle([]string{"0/lxc/0"})

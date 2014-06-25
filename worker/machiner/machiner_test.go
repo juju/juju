@@ -53,7 +53,8 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 
 	// Get the machine through the facade.
 	var err error
-	s.apiMachine, err = s.machinerState.Machine(s.machine.Tag().String())
+	// TODO(dfc) this should return a names.Tag
+	s.apiMachine, err = s.machinerState.Machine(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.apiMachine.Tag(), gc.Equals, s.machine.Tag().String())
 }
