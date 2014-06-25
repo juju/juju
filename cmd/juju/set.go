@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
@@ -89,12 +90,18 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	settings := map[string]string{}
 	for k, v := range c.SettingsStrings {
 		if v[0] != '@' {
+			if !utf8.ValidString(v) {
+				return fmt.Errorf("value for option %q contains non-UTF-8 sequences", k)
+			}
 			settings[k] = v
 			continue
 		}
 		nv, err := readValue(ctx, v[1:])
 		if err != nil {
 			return err
+		}
+		if !utf8.ValidString(nv) {
+			return fmt.Errorf("value for option %q contains non-UTF-8 sequences", k)
 		}
 		settings[k] = nv
 	}
