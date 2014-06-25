@@ -52,11 +52,7 @@ func (st *State) Unit(tag names.Tag) (*Unit, error) {
 
 // Machine provides access to methods of a state.Machine through the
 // facade.
-func (st *State) Machine(machineTag string) (*Machine, error) {
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return nil, err
-	}
+func (st *State) Machine(tag names.Tag) (*Machine, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
