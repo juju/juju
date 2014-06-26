@@ -1795,14 +1795,12 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 	// Start network interface watcher.
 	w := s.machine.WatchInterfaces()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange(ifaces[0].Id(), ifaces[1].Id(), ifaces[2].Id())
-	wc.AssertNoChange()
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
 
 	// Disable the first interface.
 	ifaces[0].Disable()
-	wc.AssertChange(ifaces[0].Id())
-	wc.AssertNoChange()
+	wc.AssertOneChange()
 
 	// Disable the first interface again, should not report.
 	err = ifaces[0].Disable()
@@ -1814,14 +1812,12 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = ifaces[2].Disable()
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(ifaces[1].Id(), ifaces[2].Id())
-	wc.AssertNoChange()
+	wc.AssertOneChange()
 
 	// Enable the first interface.
 	err = ifaces[0].Enable()
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(ifaces[0].Id())
-	wc.AssertNoChange()
+	wc.AssertOneChange()
 
 	// Enable the first interface again, should not report.
 	err = ifaces[0].Enable()
@@ -1831,16 +1827,14 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 	// Remove the network interface.
 	err = ifaces[0].Remove()
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(ifaces[0].Id())
-	wc.AssertNoChange()
+	wc.AssertOneChange()
 
 	// Add the new interface.
-	_, newIface := addNetworkAndInterface(
+	_, _ = addNetworkAndInterface(
 		c, s.State, s.machine,
 		"net2", "net2", "0.5.2.0/24", 0, false,
 		"aa:bb:cc:dd:ee:f2", "eth2")
-	wc.AssertChange(newIface.Id())
-	wc.AssertNoChange()
+	wc.AssertOneChange()
 
 	// Stop watcher; check Changes chan closed.
 	testing.AssertStop(c, w)

@@ -1637,7 +1637,7 @@ func (w *actionWatcher) merge(changes *set.Strings, updates map[interface{}]bool
 type machineInterfacesWatcher struct {
 	commonWatcher
 	machineId string
-	out       chan []string
+	out       chan struct{}
 	in        chan watcher.Change
 	known     map[string]bool
 }
@@ -1645,15 +1645,15 @@ type machineInterfacesWatcher struct {
 var _ Watcher = (*machineInterfacesWatcher)(nil)
 
 // WatchInterfaces returns a new StringsWatcher watching m's network interfaces.
-func (m *Machine) WatchInterfaces() StringsWatcher {
+func (m *Machine) WatchInterfaces() NotifyWatcher {
 	return newMachineInterfacesWatcher(m)
 }
 
-func newMachineInterfacesWatcher(m *Machine) StringsWatcher {
+func newMachineInterfacesWatcher(m *Machine) NotifyWatcher {
 	w := &machineInterfacesWatcher{
 		commonWatcher: commonWatcher{st: m.st},
 		machineId:     m.doc.Id,
-		out:           make(chan []string),
+		out:           make(chan struct{}),
 		known:         make(map[string]bool),
 	}
 	go func() {
@@ -1665,51 +1665,53 @@ func newMachineInterfacesWatcher(m *Machine) StringsWatcher {
 }
 
 // Changes returns the event channel for w.
-func (w *machineInterfacesWatcher) Changes() <-chan []string {
+func (w *machineInterfacesWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *machineInterfacesWatcher) initial() (*set.Strings, error) {
-	ifaceNames := &set.Strings{}
+func (w *machineInterfacesWatcher) initial() error {
 	var doc networkInterfaceDoc
 	query := bson.D{{"machineid", w.machineId}}
 	iter := w.st.networkInterfaces.Find(query).Iter()
 	for iter.Next(&doc) {
 		w.known[doc.Id] = doc.IsDisabled
-		ifaceNames.Add(doc.Id)
 	}
-	return ifaceNames, iter.Close()
+	return iter.Close()
 }
 
-func (w *machineInterfacesWatcher) merge(changes *set.Strings, ifaceId string) error {
+func (w *machineInterfacesWatcher) merge(notify bool, ifaceId string) (bool, error) {
 	doc := networkInterfaceDoc{}
 	err := w.st.networkInterfaces.FindId(ifaceId).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
-		return err
+		return notify, err
 	}
 	isDisabled, known := w.known[ifaceId]
 	if err == mgo.ErrNotFound && known {
 		// Network interface was removed from machine.
 		delete(w.known, ifaceId)
-		changes.Add(ifaceId)
+		notify = true
 	} else if doc.MachineId == w.machineId {
 		if !known || isDisabled != doc.IsDisabled {
 			w.known[ifaceId] = doc.IsDisabled
-			changes.Add(ifaceId)
+			notify = true
 		}
 	}
-	return nil
+	return notify, nil
 }
 
 func (w *machineInterfacesWatcher) loop() error {
 	in := make(chan watcher.Change)
+
 	w.st.watcher.WatchCollection(w.st.networkInterfaces.Name, in)
 	defer w.st.watcher.UnwatchCollection(w.st.networkInterfaces.Name, in)
-	ifaceNames, err := w.initial()
+
+	err := w.initial()
 	if err != nil {
 		return err
 	}
+
 	out := w.out
+	notify := false
 	for {
 		select {
 		case <-w.st.watcher.Dead():
@@ -1717,15 +1719,16 @@ func (w *machineInterfacesWatcher) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-in:
-			if err := w.merge(ifaceNames, c.Id.(string)); err != nil {
+			notify, err := w.merge(notify, c.Id.(string));
+			if err != nil {
 				return err
 			}
-			if !ifaceNames.IsEmpty() {
+			if notify {
 				out = w.out
 			}
-		case out <- ifaceNames.Values():
+		case out <- struct{}{}:
 			out = nil
-			ifaceNames = &set.Strings{}
+			notify = false
 		}
 	}
 }
