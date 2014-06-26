@@ -68,14 +68,16 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 }
 
 // getOneAction retrieves a single Action from the state server.
-func (st *State) getOneAction(tag string) (params.ActionsQueryResult, error) {
+func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, error) {
 	nothing := params.ActionsQueryResult{}
-	var results params.ActionsQueryResults
+
 	args := params.Entities{
 		Entities: []params.Entity{
-			{Tag: tag},
+			{Tag: tag.String()},
 		},
 	}
+
+	var results params.ActionsQueryResults
 	err := st.call("Actions", args, &results)
 	if err != nil {
 		return nothing, err
@@ -182,7 +184,7 @@ func (st *State) Action(id string) (*Action, error) {
 		return nil, err
 	}
 
-	result, err := st.getOneAction(tag.String())
+	result, err := st.getOneAction(&tag)
 	if err != nil {
 		return nil, err
 	}

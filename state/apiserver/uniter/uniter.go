@@ -684,31 +684,29 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 
 // getOneActionById retrieves a single Action by id.
 func (u *UniterAPI) getOneActionById(actionId string) (params.ActionsQueryResult, error) {
+	result := params.ActionsQueryResult{}
 	action, err := u.st.Action(actionId)
 	if err != nil {
-		return params.ActionsQueryResult{}, err
+		return result, err
 	}
 
-	result := params.ActionsQueryResult{
-		Error: nil,
-		Action: &params.Action{
-			Name:   action.Name(),
-			Params: action.Payload(),
-		},
+	result.Action = &params.Action{
+		Name:   action.Name(),
+		Params: action.Payload(),
 	}
-
 	return result, nil
 }
 
 func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, error) {
 	nothing := params.ActionsQueryResults{}
-	results := params.ActionsQueryResults{
-		ActionsQueryResults: make([]params.ActionsQueryResult, len(args.Entities)),
-	}
 
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		return nothing, err
+	}
+
+	results := params.ActionsQueryResults{
+		ActionsQueryResults: make([]params.ActionsQueryResult, len(args.Entities)),
 	}
 
 	for i, actionQuery := range args.Entities {

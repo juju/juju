@@ -908,12 +908,12 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 		}
 		results, err := s.uniter.Actions(args)
 		c.Assert(err, gc.IsNil)
-		c.Assert(len(results.ActionsQueryResults), gc.Equals, 1)
+		c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
 
 		actionsQueryResult := results.ActionsQueryResults[0]
 
 		c.Assert(actionsQueryResult.Error, gc.IsNil)
-		c.Assert(actionsQueryResult.Action, gc.DeepEquals, &actionTest.action)
+		c.Assert(actionsQueryResult.Action, jc.DeepEquals, &actionTest.action)
 	}
 }
 
@@ -926,10 +926,10 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	results, err := s.uniter.Actions(args)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(len(results.ActionsQueryResults), gc.Equals, 1)
+	c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
 	actionsQueryResult := results.ActionsQueryResults[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
-	c.Assert(actionsQueryResult.Error.Message, gc.Equals, "action \"wordpress/0_a_0\" not found")
+	c.Assert(actionsQueryResult.Error.Message, gc.Equals, `action "wordpress/0_a_0" not found`)
 }
 
 func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
@@ -958,7 +958,7 @@ func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 	// exercises line 738 of state/apiserver/uniter/uniter.go
 	_, err = s.uniter.Actions(args)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, common.ErrPerm)
+	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
 }
 
 func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
@@ -970,7 +970,7 @@ func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 	}
 	_, err := s.uniter.Actions(args)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, common.ErrPerm)
+	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
