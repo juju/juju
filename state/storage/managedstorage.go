@@ -202,7 +202,7 @@ func (ms *managedStorage) PutForEnvironment(envUUID, path string, r io.Reader, l
 
 	logger.Debugf("resource catalog entry created with id %q", resourceId)
 	// If there's an error saving the resource data, ensure the resource catalog is cleaned up.
-	defer cleanupResourceCatalog(ms.resourceCatalog, resourceId, &err)
+	defer cleanupResourceCatalog(ms.resourceCatalog, resourceId, &putError)
 
 	managedPath, err := ms.resourceStoragePath(envUUID, "", path)
 	if err != nil {
@@ -215,7 +215,7 @@ func (ms *managedStorage) PutForEnvironment(envUUID, path string, r io.Reader, l
 			return errors.Annotatef(err, "cannot add resource %q to store at storage path %q", managedPath, resourcePath)
 		}
 		// If there's an error from here on, we need to ensure the saved resource data is cleaned up.
-		defer cleanupResource(ms.resourceStore, resourcePath, &err)
+		defer cleanupResource(ms.resourceStore, resourcePath, &putError)
 		if err := ms.resourceCatalog.UploadComplete(resourceId); err != nil {
 			return errors.Annotatef(err, "cannot mark resource %q as upload complete", managedPath)
 		}
