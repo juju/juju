@@ -17,6 +17,6 @@ func PutManagedResource(ms ManagedStorage, managedResource ManagedResource, id s
 	return ms.(*managedStorage).putManagedResource(managedResource, id)
 }
 
-func ResourceStoragePath(ms ManagedStorage, env_uuid, user, resourcePath string) string {
-	return ms.(*managedStorage).resourceStoragePath(env_uuid, user, resourcePath)
+func ResourceStoragePath(ms ManagedStorage, envUUID, user, resourcePath string) (string, error) {
+	return ms.(*managedStorage).resourceStoragePath(envUUID, user, resourcePath)
 }

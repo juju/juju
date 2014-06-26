@@ -62,8 +62,8 @@ func newManagedResourceDoc(r ManagedResource, resourceId string) managedResource
 }
 
 const (
-	resourceCatalogCollection = "resourceCatalog"
-	managedResourceCollection = "managedResourceCatalog"
+	resourceCatalogCollection = "storedResources"
+	managedResourceCollection = "managedStoredResources"
 )
 
 // NewManagedStorage creates a new ManagedStorage using the transaction runner,
@@ -81,26 +81,30 @@ func NewManagedStorage(db *mgo.Database, txnRunner statetxn.Runner, rs ResourceS
 
 // resourceStoragePath returns the full path used to store a resource with resourcePath
 // in the specified environment for the specified user.
-func (ms *managedStorage) resourceStoragePath(env_uuid, user, resourcePath string) string {
-	var envPart, userPart string
-	if env_uuid != "" {
-		envPart = path.Join("environs", env_uuid)
+func (ms *managedStorage) resourceStoragePath(envUUID, user, resourcePath string) (string, error) {
+	// No envUUID or user should contain "/" but we perform a sanity check just in case.
+	if strings.Index(envUUID, "/") >= 0 {
+		return "", errors.Errorf("environment UUID %q cannot contain %q", envUUID, "/")
 	}
-	if user != "" {
-		userPart = path.Join("users", user)
+	if strings.Index(user, "/") >= 0 {
+		return "", errors.Errorf("user %q cannot contain %q", user, "/")
 	}
 	storagePath := resourcePath
-	if userPart != "" {
-		storagePath = path.Join(userPart, storagePath)
+	if user != "" {
+		storagePath = path.Join("users", user, storagePath)
 	}
-	if envPart != "" {
-		storagePath = path.Join(envPart, storagePath)
+	if envUUID != "" {
+		storagePath = path.Join("environs", envUUID, storagePath)
 	}
-	return storagePath
+	if user == "" && envUUID == "" {
+		storagePath = path.Join("global", storagePath)
+	}
+	return storagePath, nil
 }
 
 // preprocessUpload pulls in all the data from the reader, storing it in a temp file and
 // calculating the md5 and sha256 checksums.
+// The caller is expected to remove the temporary file if and only if we return a nil error.
 func (ms *managedStorage) preprocessUpload(r io.Reader, length int64) (
 	f *os.File, md5hashHex, sha256hashHex string, err error,
 ) {
@@ -133,9 +137,12 @@ func (ms *managedStorage) preprocessUpload(r io.Reader, length int64) (
 	return f, md5hashHex, sha256hashHex, nil
 }
 
-// EnvironmentGet is defined on the ManagedStorage interface.
-func (ms *managedStorage) EnvironmentGet(env_uuid, path string) (io.ReadCloser, error) {
-	managedPath := ms.resourceStoragePath(env_uuid, "", path)
+// GetForEnvironment is defined on the ManagedStorage interface.
+func (ms *managedStorage) GetForEnvironment(envUUID, path string) (io.ReadCloser, error) {
+	managedPath, err := ms.resourceStoragePath(envUUID, "", path)
+	if err != nil {
+		return nil, err
+	}
 	var doc managedResourceDoc
 	if err := ms.managedResourceCollection.Find(bson.D{{"path", managedPath}}).One(&doc); err != nil {
 		if err == mgo.ErrNotFound {
@@ -160,7 +167,7 @@ func cleanupResourceCatalog(rc ResourceCatalog, id string, err *error) {
 	_, _, removeErr := rc.Remove(id)
 	if removeErr != nil {
 		finalErr := errors.Annotatef(*err, "cannot clean up after failed storage operation because: %v", removeErr)
-		err = &finalErr
+		*err = finalErr
 	}
 }
 
@@ -172,12 +179,12 @@ func cleanupResource(rs ResourceStorage, resourcePath string, err *error) {
 	removeErr := rs.Remove(resourcePath)
 	if removeErr != nil {
 		finalErr := errors.Annotatef(*err, "cannot clean up after failed storage operation because: %v", removeErr)
-		err = &finalErr
+		*err = finalErr
 	}
 }
 
-// EnvironmentPut is defined on the ManagedStorage interface.
-func (ms *managedStorage) EnvironmentPut(env_uuid, path string, r io.Reader, length int64) (err error) {
+// PutForEnvironment is defined on the ManagedStorage interface.
+func (ms *managedStorage) PutForEnvironment(envUUID, path string, r io.Reader, length int64) (putError error) {
 	dataFile, md5hash, sha256hash, err := ms.preprocessUpload(r, length)
 	if err != nil {
 		return errors.Annotate(err, "cannot calculate data checksums")
@@ -193,11 +200,15 @@ func (ms *managedStorage) EnvironmentPut(env_uuid, path string, r io.Reader, len
 		return errors.Annotate(err, "cannot update resource catalog")
 	}
 
-	logger.Debugf("resosurce catalog entry created with id %q", resourceId)
+	logger.Debugf("resource catalog entry created with id %q", resourceId)
 	// If there's an error saving the resource data, ensure the resource catalog is cleaned up.
 	defer cleanupResourceCatalog(ms.resourceCatalog, resourceId, &err)
 
-	managedPath := ms.resourceStoragePath(env_uuid, "", path)
+	managedPath, err := ms.resourceStoragePath(envUUID, "", path)
+	if err != nil {
+		return err
+	}
+
 	// Newly added resource data needs to be saved to the storage.
 	if isNew {
 		if _, err := ms.resourceStore.Put(resourcePath, dataFile, length); err != nil {
@@ -213,7 +224,7 @@ func (ms *managedStorage) EnvironmentPut(env_uuid, path string, r io.Reader, len
 	// Resource data is saved, resource catalog entry is created/updated, now write the
 	// managed storage entry.
 	managedResource := ManagedResource{
-		EnvUUID: env_uuid,
+		EnvUUID: envUUID,
 		Path:    managedPath,
 	}
 	existingResourceId, err := ms.putManagedResource(managedResource, resourceId)
@@ -222,7 +233,7 @@ func (ms *managedStorage) EnvironmentPut(env_uuid, path string, r io.Reader, len
 	}
 	logger.Debugf("managed resource entry created with path %q", managedPath)
 	// If we are overwriting an existing resource with the same path, the managed resource
-	//entry will no longer reference the same resource catalog entry, so we need to remove
+	// entry will no longer reference the same resource catalog entry, so we need to remove
 	// the reference.
 	if existingResourceId != "" {
 		if _, _, err = ms.resourceCatalog.Remove(existingResourceId); err != nil {
@@ -237,8 +248,8 @@ func (ms *managedStorage) EnvironmentPut(env_uuid, path string, r io.Reader, len
 func (ms *managedStorage) putManagedResource(managedResource ManagedResource, resourceId string) (
 	existingResourceId string, err error,
 ) {
-	var addManagedResourceOps []txn.Op
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var addManagedResourceOps []txn.Op
 		existingResourceId, addManagedResourceOps, err = ms.putResourceTxn(managedResource, resourceId)
 		return addManagedResourceOps, err
 	}
@@ -249,20 +260,23 @@ func (ms *managedStorage) putManagedResource(managedResource ManagedResource, re
 	return existingResourceId, nil
 }
 
-// EnvironmentRemove is defined on the ManagedStorage interface.
-func (ms *managedStorage) EnvironmentRemove(env_uuid, path string) (err error) {
+// RemoveForEnvironment is defined on the ManagedStorage interface.
+func (ms *managedStorage) RemoveForEnvironment(envUUID, path string) (err error) {
 	// This operation may leave the db in an inconsistent state if any of the
 	// latter steps fail, but not in a way that will impact external users.
 	// eg if the managed resource record is removed, but the subsequent call to
 	// remove the resource catalog entry fails, the resource at the path will
 	// not be visible anymore, but the data will still be stored.
 
-	managedPath := ms.resourceStoragePath(env_uuid, "", path)
+	managedPath, err := ms.resourceStoragePath(envUUID, "", path)
+	if err != nil {
+		return err
+	}
 
 	// First remove the managed resource catalog entry.
 	var resourceId string
-	var removeManagedResourceOps []txn.Op
 	buildTxn := func(attempt int) ([]txn.Op, error) {
+		var removeManagedResourceOps []txn.Op
 		resourceId, removeManagedResourceOps, err = ms.removeResourceTxn(managedPath)
 		return removeManagedResourceOps, err
 	}

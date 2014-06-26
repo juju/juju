@@ -59,35 +59,51 @@ func (s *managedStorageSuite) TearDownTest(c *gc.C) {
 
 func (s *managedStorageSuite) TestResourceStoragePath(c *gc.C) {
 	for _, test := range []struct {
-		env_uuid    string
+		envUUID     string
 		user        string
 		path        string
 		storagePath string
+		error       string
 	}{
 		{
-			env_uuid:    "",
+			envUUID:     "",
 			user:        "",
 			path:        "/path/to/blob",
-			storagePath: "/path/to/blob",
+			storagePath: "global/path/to/blob",
 		}, {
-			env_uuid:    "env",
+			envUUID:     "env",
 			user:        "",
 			path:        "/path/to/blob",
 			storagePath: "environs/env/path/to/blob",
 		}, {
-			env_uuid:    "",
+			envUUID:     "",
 			user:        "user",
 			path:        "/path/to/blob",
 			storagePath: "users/user/path/to/blob",
 		}, {
-			env_uuid:    "env",
+			envUUID:     "env",
 			user:        "user",
 			path:        "/path/to/blob",
 			storagePath: "environs/env/users/user/path/to/blob",
+		}, {
+			envUUID: "env/123",
+			user:    "user",
+			path:    "/path/to/blob",
+			error:   `.* cannot contain "/"`,
+		}, {
+			envUUID: "env",
+			user:    "user/123",
+			path:    "/path/to/blob",
+			error:   `.* cannot contain "/"`,
 		},
 	} {
-		result := storage.ResourceStoragePath(s.managedStorage, test.env_uuid, test.user, test.path)
-		c.Check(result, gc.Equals, test.storagePath)
+		result, err := storage.ResourceStoragePath(s.managedStorage, test.envUUID, test.user, test.path)
+		if test.error == "" {
+			c.Check(err, gc.IsNil)
+			c.Check(result, gc.Equals, test.storagePath)
+		} else {
+			c.Check(err, gc.ErrorMatches, test.error)
+		}
 	}
 }
 
@@ -114,24 +130,24 @@ func (s *managedStorageSuite) TestPendingUpload(c *gc.C) {
 	}
 	_, err = storage.PutManagedResource(s.managedStorage, managedResource, id)
 	c.Assert(err, gc.IsNil)
-	_, err = s.managedStorage.EnvironmentGet("env", "/path/to/blob")
+	_, err = s.managedStorage.GetForEnvironment("env", "/path/to/blob")
 	c.Assert(err, gc.Equals, storage.ErrUploadPending)
 }
 
 func (s *managedStorageSuite) assertPut(c *gc.C, path string, blob []byte) string {
 	// Put the data.
 	rdr := bytes.NewReader(blob)
-	err := s.managedStorage.EnvironmentPut("env", path, rdr, int64(len(blob)))
+	err := s.managedStorage.PutForEnvironment("env", path, rdr, int64(len(blob)))
 	c.Assert(err, gc.IsNil)
 
 	// Load the managed resource record.
 	var mrDoc managedResourceDocStub
-	err = s.db.C("managedResourceCatalog").Find(bson.D{{"path", "environs/env" + path}}).One(&mrDoc)
+	err = s.db.C("managedStoredResources").Find(bson.D{{"path", "environs/env" + path}}).One(&mrDoc)
 	c.Assert(err, gc.IsNil)
 
 	// Load the corresponding resource catalog record.
 	var rd resourceDocStub
-	err = s.db.C("resourceCatalog").FindId(mrDoc.ResourceId).One(&rd)
+	err = s.db.C("storedResources").FindId(mrDoc.ResourceId).One(&rd)
 	c.Assert(err, gc.IsNil)
 
 	// Use the resource catalog record to load the underlying data from storage.
@@ -144,7 +160,7 @@ func (s *managedStorageSuite) assertPut(c *gc.C, path string, blob []byte) strin
 }
 
 func (s *managedStorageSuite) assertResourceCatalogCount(c *gc.C, expected int) {
-	num, err := s.db.C("resourceCatalog").Count()
+	num, err := s.db.C("storedResources").Count()
 	c.Assert(err, gc.IsNil)
 	c.Assert(num, gc.Equals, expected)
 }
@@ -193,8 +209,8 @@ func (s *managedStorageSuite) TestPutManagedResourceFail(c *gc.C) {
 	// Attempt to put the data.
 	blob := []byte("data")
 	rdr := bytes.NewReader(blob)
-	err := s.managedStorage.EnvironmentPut("env", "/some/path", rdr, int64(len(blob)))
-	c.Assert(err, gc.ErrorMatches, ".*some error")
+	err := s.managedStorage.PutForEnvironment("env", "/some/path", rdr, int64(len(blob)))
+	c.Assert(err, gc.ErrorMatches, "cannot update managed resource catalog: some error")
 
 	// Now ensure there's no blob data left behind in storage, nor a resource catalog record.
 	s.assertResourceCatalogCount(c, 0)
@@ -203,8 +219,9 @@ func (s *managedStorageSuite) TestPutManagedResourceFail(c *gc.C) {
 }
 
 func (s *managedStorageSuite) assertGet(c *gc.C, path string, blob []byte) {
-	r, err := s.managedStorage.EnvironmentGet("env", path)
+	r, err := s.managedStorage.GetForEnvironment("env", path)
 	c.Assert(err, gc.IsNil)
+	defer r.Close()
 	data, err := ioutil.ReadAll(r)
 	c.Assert(err, gc.IsNil)
 	c.Assert(data, gc.DeepEquals, blob)
@@ -217,18 +234,18 @@ func (s *managedStorageSuite) TestGet(c *gc.C) {
 }
 
 func (s *managedStorageSuite) TestGetNonExistent(c *gc.C) {
-	_, err := s.managedStorage.EnvironmentGet("env", "/path/to/nowhere")
+	_, err := s.managedStorage.GetForEnvironment("env", "/path/to/nowhere")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *managedStorageSuite) TestRemove(c *gc.C) {
 	blob := []byte("some resource")
 	resPath := s.assertPut(c, "/path/to/blob", blob)
-	err := s.managedStorage.EnvironmentRemove("env", "/path/to/blob")
+	err := s.managedStorage.RemoveForEnvironment("env", "/path/to/blob")
 	c.Assert(err, gc.IsNil)
 
 	// Check the data and catalog entry really are removed.
-	_, err = s.managedStorage.EnvironmentGet("env", "path/to/blob")
+	_, err = s.managedStorage.GetForEnvironment("env", "path/to/blob")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 	_, err = s.resourceStorage.Get(resPath)
 	c.Assert(err, gc.NotNil)
@@ -237,7 +254,7 @@ func (s *managedStorageSuite) TestRemove(c *gc.C) {
 }
 
 func (s *managedStorageSuite) TestRemoveNonExistent(c *gc.C) {
-	err := s.managedStorage.EnvironmentRemove("env", "/path/to/nowhere")
+	err := s.managedStorage.RemoveForEnvironment("env", "/path/to/nowhere")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -246,7 +263,7 @@ func (s *managedStorageSuite) TestRemoveDifferentPathKeepsData(c *gc.C) {
 	s.assertPut(c, "/path/to/blob", blob)
 	s.assertPut(c, "/anotherpath/to/blob", blob)
 	s.assertResourceCatalogCount(c, 1)
-	err := s.managedStorage.EnvironmentRemove("env", "/path/to/blob")
+	err := s.managedStorage.RemoveForEnvironment("env", "/path/to/blob")
 	c.Assert(err, gc.IsNil)
 	s.assertGet(c, "/anotherpath/to/blob", blob)
 	s.assertResourceCatalogCount(c, 1)
@@ -254,10 +271,10 @@ func (s *managedStorageSuite) TestRemoveDifferentPathKeepsData(c *gc.C) {
 
 func (s *managedStorageSuite) TestPutRace(c *gc.C) {
 	blob := []byte("some resource")
-	beforeFuncs := []func(){
-		func() { s.assertPut(c, "/path/to/blob", blob) },
+	beforeFunc := func() {
+		s.assertPut(c, "/path/to/blob", blob)
 	}
-	defer txntesting.SetBeforeHooks(c, s.txnRunner, beforeFuncs...).Check()
+	defer txntesting.SetBeforeHooks(c, s.txnRunner, beforeFunc).Check()
 	anotherblob := []byte("another resource")
 	s.assertPut(c, "/path/to/blob", anotherblob)
 	s.assertResourceCatalogCount(c, 1)
@@ -266,13 +283,11 @@ func (s *managedStorageSuite) TestPutRace(c *gc.C) {
 func (s *managedStorageSuite) TestPutDeleteRace(c *gc.C) {
 	blob := []byte("some resource")
 	s.assertPut(c, "/path/to/blob", blob)
-	beforeFuncs := []func(){
-		func() {
-			err := s.managedStorage.EnvironmentRemove("env", "/path/to/blob")
-			c.Assert(err, gc.IsNil)
-		},
+	beforeFunc := func() {
+		err := s.managedStorage.RemoveForEnvironment("env", "/path/to/blob")
+		c.Assert(err, gc.IsNil)
 	}
-	defer txntesting.SetBeforeHooks(c, s.txnRunner, beforeFuncs...).Check()
+	defer txntesting.SetBeforeHooks(c, s.txnRunner, beforeFunc).Check()
 	anotherblob := []byte("another resource")
 	s.assertPut(c, "/path/to/blob", anotherblob)
 	s.assertResourceCatalogCount(c, 1)
@@ -281,15 +296,13 @@ func (s *managedStorageSuite) TestPutDeleteRace(c *gc.C) {
 func (s *managedStorageSuite) TestRemoveRace(c *gc.C) {
 	blob := []byte("some resource")
 	s.assertPut(c, "/path/to/blob", blob)
-	beforeFuncs := []func(){
-		func() {
-			err := s.managedStorage.EnvironmentRemove("env", "/path/to/blob")
-			c.Assert(err, gc.IsNil)
-		},
+	beforeFunc := func() {
+		err := s.managedStorage.RemoveForEnvironment("env", "/path/to/blob")
+		c.Assert(err, gc.IsNil)
 	}
-	defer txntesting.SetBeforeHooks(c, s.txnRunner, beforeFuncs...).Check()
-	err := s.managedStorage.EnvironmentRemove("env", "/path/to/blob")
+	defer txntesting.SetBeforeHooks(c, s.txnRunner, beforeFunc).Check()
+	err := s.managedStorage.RemoveForEnvironment("env", "/path/to/blob")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
-	_, err = s.managedStorage.EnvironmentGet("env", "/path/to/blob")
+	_, err = s.managedStorage.GetForEnvironment("env", "/path/to/blob")
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
