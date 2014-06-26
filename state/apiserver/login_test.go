@@ -182,10 +182,10 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 
 	apiConn, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
+	defer apiConn.Close()
 	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag().String())
-	apiConn.Close()
 
 	c.Assert(tw.Log, jc.LogMatches, []string{
 		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login",` +
@@ -484,6 +484,7 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 	// response.
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
+	defer st.Close()
 	var result params.LoginResult
 	creds := &params.Creds{
 		AuthTag:  "user-admin",
@@ -536,6 +537,7 @@ func (s *loginSuite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 	defer cleanup()
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
+	defer st.Close()
 	var result params.LoginResult
 	creds := &params.Creds{
 		AuthTag:  "user-admin",

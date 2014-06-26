@@ -74,6 +74,7 @@ func (s *stateSuite) TestClientNoNeedToPing(c *gc.C) {
 	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(0))
 	st, err := api.Open(s.APIInfo(c), api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
+	defer st.Close()
 	time.Sleep(coretesting.ShortWait)
 	err = st.Ping()
 	c.Assert(err, gc.IsNil)
