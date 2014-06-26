@@ -1654,7 +1654,6 @@ func newMachineInterfacesWatcher(m *Machine) StringsWatcher {
 		commonWatcher: commonWatcher{st: m.st},
 		machineId:     m.doc.Id,
 		out:           make(chan []string),
-		in:            make(chan watcher.Change),
 		known:         make(map[string]bool),
 	}
 	go func() {
@@ -1678,7 +1677,6 @@ func (w *machineInterfacesWatcher) initial() (*set.Strings, error) {
 	for iter.Next(&doc) {
 		w.known[doc.Id] = doc.IsDisabled
 		ifaceNames.Add(doc.Id)
-		w.st.watcher.Watch(w.st.networkInterfaces.Name, doc.Id, doc.TxnRevno, w.in)
 	}
 	return ifaceNames, iter.Close()
 }
@@ -1690,31 +1688,23 @@ func (w *machineInterfacesWatcher) merge(changes *set.Strings, ifaceId string) e
 		return err
 	}
 	isDisabled, known := w.known[ifaceId]
-	if err == mgo.ErrNotFound || doc.MachineId != w.machineId {
+	if err == mgo.ErrNotFound && known {
 		// Network interface was removed from machine.
-		if known {
-			delete(w.known, ifaceId)
-			w.st.watcher.Unwatch(w.st.networkInterfaces.Name, ifaceId, w.in)
+		delete(w.known, ifaceId)
+		changes.Add(ifaceId)
+	} else if doc.MachineId == w.machineId {
+		if !known || isDisabled != doc.IsDisabled {
+			w.known[ifaceId] = doc.IsDisabled
 			changes.Add(ifaceId)
 		}
-		return nil
 	}
-	if !known {
-		w.st.watcher.Watch(w.st.networkInterfaces.Name, ifaceId, doc.TxnRevno, w.in)
-		changes.Add(ifaceId)
-	} else if isDisabled != doc.IsDisabled {
-		changes.Add(ifaceId)
-	}
-	w.known[ifaceId] = doc.IsDisabled
 	return nil
 }
 
 func (w *machineInterfacesWatcher) loop() error {
-	defer func() {
-		for ifaceId, _ := range w.known {
-			w.st.watcher.Unwatch(w.st.networkInterfaces.Name, ifaceId, w.in)
-		}
-	}()
+	in := make(chan watcher.Change)
+	w.st.watcher.WatchCollection(w.st.networkInterfaces.Name, in)
+	defer w.st.watcher.UnwatchCollection(w.st.networkInterfaces.Name, in)
 	ifaceNames, err := w.initial()
 	if err != nil {
 		return err
@@ -1726,7 +1716,7 @@ func (w *machineInterfacesWatcher) loop() error {
 			return stateWatcherDeadError(w.st.watcher.Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case c := <-w.in:
+		case c := <-in:
 			if err := w.merge(ifaceNames, c.Id.(string)); err != nil {
 				return err
 			}
