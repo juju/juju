@@ -7,6 +7,7 @@ package uniter
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/charm"
 	"github.com/juju/errors"
@@ -679,6 +680,76 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// getOneActionById retrieves a single Action by id.
+func (u *UniterAPI) getOneActionById(actionId string) (params.ActionsQueryResult, error) {
+	result := params.ActionsQueryResult{}
+	action, err := u.st.Action(actionId)
+	if err != nil {
+		return result, err
+	}
+
+	result.Action = &params.Action{
+		Name:   action.Name(),
+		Params: action.Payload(),
+	}
+	return result, nil
+}
+
+func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, error) {
+	nothing := params.ActionsQueryResults{}
+
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return nothing, err
+	}
+
+	results := params.ActionsQueryResults{
+		ActionsQueryResults: make([]params.ActionsQueryResult, len(args.Entities)),
+	}
+
+	for i, actionQuery := range args.Entities {
+		// Use the currently authenticated unit to get the endpoint.
+		whichUnit, ok := u.auth.GetAuthEntity().(*state.Unit)
+		if !ok {
+			return nothing, fmt.Errorf("entity is not a unit")
+		}
+
+		// this Unit must match the Action's prefix.
+		actionTag, err := names.ParseActionTag(actionQuery.Tag)
+		if err != nil {
+			return nothing, err
+		}
+
+		// Action prefix must match unit.  Extract the Unit tag.
+		markerInd := strings.Index(actionTag.String(), names.ActionMarker)
+		actionInd := strings.Index(actionTag.String(), names.ActionTagKind)
+		actionInd = actionInd + len(names.ActionTagKind) + 1
+		unitTag, err := names.ParseUnitTag("unit-" + actionTag.String()[actionInd:markerInd])
+		if err != nil {
+			return nothing, err
+		}
+
+		// The Unit is querying for another Unit's Action.
+		if unitTag.String() != whichUnit.Tag().String() {
+			return nothing, common.ErrPerm
+		}
+
+		// The Unit does not have access.
+		if !canAccess(unitTag.String()) {
+			return nothing, common.ErrPerm
+		}
+
+		actionId := actionTag.Id()
+		actionQueryResult, err := u.getOneActionById(actionId)
+		if err == nil {
+			results.ActionsQueryResults[i] = actionQueryResult
+		}
+		results.ActionsQueryResults[i].Error = common.ServerError(err)
+	}
+
+	return results, nil
 }
 
 // RelationById returns information about all given relations,
