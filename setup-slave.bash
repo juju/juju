@@ -13,6 +13,7 @@ SLAVE_ADDRESS=$(juju status $SLAVE |
 
 # Copy the authorized_keys so that we can ssh as jenkins.
 ssh -i $LOCAL_CLOUD_CITY/$KEY ubuntu@$SLAVE_ADDRESS <<EOT
+sudo sed -i -r "s,(127.0.0.1.*localhost),\1 $SLAVE," /etc/hosts
 echo 'jenkins ALL=(ALL) NOPASSWD:ALL' | sudo tee -a /etc/sudoers.d/91-jenkins
 test -d /var/lib/jenkins/.ssh/ || sudo mkdir -p /var/lib/jenkins/.ssh/
 cat ./.ssh/authorized_keys | sudo tee -a /var/lib/jenkins/.ssh/authorized_keys
