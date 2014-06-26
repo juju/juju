@@ -44,7 +44,7 @@ type NetworkInterfaceInfo struct {
 // networkInterfaceDoc represents a network interface for a machine on
 // a given network.
 type networkInterfaceDoc struct {
-	Id            string `bson:"_id"`
+	Id            bson.ObjectId `bson:"_id"`
 	MACAddress    string
 	InterfaceName string
 	NetworkName   string
@@ -76,7 +76,7 @@ func (ni *NetworkInterface) GoString() string {
 
 // Id returns the internal juju-specific id of the interface.
 func (ni *NetworkInterface) Id() string {
-	return ni.doc.Id
+	return ni.doc.Id.String()
 }
 
 // MACAddress returns the MAC address of the interface.

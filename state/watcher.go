@@ -1639,7 +1639,7 @@ type machineInterfacesWatcher struct {
 	machineId string
 	out       chan struct{}
 	in        chan watcher.Change
-	known     map[string]bool
+	known     map[bson.ObjectId]bool
 }
 
 var _ Watcher = (*machineInterfacesWatcher)(nil)
@@ -1654,7 +1654,7 @@ func newMachineInterfacesWatcher(m *Machine) NotifyWatcher {
 		commonWatcher: commonWatcher{st: m.st},
 		machineId:     m.doc.Id,
 		out:           make(chan struct{}),
-		known:         make(map[string]bool),
+		known:         make(map[bson.ObjectId]bool),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -1679,7 +1679,7 @@ func (w *machineInterfacesWatcher) initial() error {
 	return iter.Close()
 }
 
-func (w *machineInterfacesWatcher) merge(notify bool, ifaceId string) (bool, error) {
+func (w *machineInterfacesWatcher) merge(notify bool, ifaceId bson.ObjectId) (bool, error) {
 	doc := networkInterfaceDoc{}
 	err := w.st.networkInterfaces.FindId(ifaceId).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
@@ -1719,7 +1719,7 @@ func (w *machineInterfacesWatcher) loop() error {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-in:
-			notify, err := w.merge(notify, c.Id.(string));
+			notify, err := w.merge(notify, c.Id.(bson.ObjectId))
 			if err != nil {
 				return err
 			}

@@ -1054,7 +1054,7 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	}
 	doc := newNetworkInterfaceDoc(args)
 	doc.MachineId = m.doc.Id
-	doc.Id = bson.NewObjectId().Hex()
+	doc.Id = bson.NewObjectId()
 	ops := []txn.Op{{
 		C:      m.st.networks.Name,
 		Id:     args.NetworkName,
