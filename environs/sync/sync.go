@@ -20,7 +20,6 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/version/ubuntu"
 )
 
 var logger = loggo.GetLogger("juju.environs.sync")
@@ -230,7 +229,7 @@ func cloneToolsForSeries(toolsInfo *BuiltTools, series ...string) error {
 	}
 	logger.Debugf("generating tarballs for %v", series)
 	for _, series := range series {
-		_, err := ubuntu.SeriesVersion(series)
+		_, err := version.SeriesVersion(series)
 		if err != nil {
 			return err
 		}

@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/juju/arch"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/version/ubuntu"
 )
 
 var logger = loggo.GetLogger("juju.environs.tools")
@@ -55,7 +54,7 @@ func makeToolsConstraint(cloudSpec simplestreams.CloudSpec, majorVersion, minorV
 		seriesToSearch = []string{filter.Series}
 	} else {
 		logger.Debugf("no series specified when finding tools, looking for any")
-		seriesToSearch = ubuntu.SupportedSeries()
+		seriesToSearch = version.SupportedSeries()
 	}
 	toolsConstraint.Series = seriesToSearch
 	return toolsConstraint, nil

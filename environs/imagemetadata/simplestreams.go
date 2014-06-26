@@ -12,7 +12,7 @@ import (
 
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/juju/arch"
-	"github.com/juju/juju/version/ubuntu"
+	"github.com/juju/juju/version"
 )
 
 func init() {
@@ -100,7 +100,7 @@ type ImageConstraint struct {
 
 func NewImageConstraint(params simplestreams.LookupParams) *ImageConstraint {
 	if len(params.Series) == 0 {
-		params.Series = ubuntu.SupportedSeries()
+		params.Series = version.SupportedSeries()
 	}
 	if len(params.Arches) == 0 {
 		params.Arches = arch.AllSupportedArches
@@ -131,7 +131,7 @@ func (ic *ImageConstraint) Ids() ([]string, error) {
 	ids := make([]string, nrArches*nrSeries)
 	for i, arch := range ic.Arches {
 		for j, series := range ic.Series {
-			version, err := ubuntu.SeriesVersion(series)
+			version, err := version.SeriesVersion(series)
 			if err != nil {
 				return nil, err
 			}

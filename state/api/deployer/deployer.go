@@ -34,17 +34,17 @@ func (st *State) call(method string, params, result interface{}) error {
 }
 
 // unitLife returns the lifecycle state of the given unit.
-func (st *State) unitLife(tag string) (params.Life, error) {
+func (st *State) unitLife(tag names.Tag) (params.Life, error) {
 	return common.Life(st.caller, deployerFacade, tag)
 }
 
 // Unit returns the unit with the given tag.
 func (st *State) Unit(unitTag string) (*Unit, error) {
-	life, err := st.unitLife(unitTag)
+	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
 		return nil, err
 	}
-	tag, err := names.ParseUnitTag(unitTag)
+	life, err := st.unitLife(tag)
 	if err != nil {
 		return nil, err
 	}

@@ -20,7 +20,6 @@ var logger = loggo.GetLogger("juju.state.api.watcher")
 // it's intended for embedding.
 type commonWatcher struct {
 	tomb tomb.Tomb
-	wg   sync.WaitGroup
 	in   chan interface{}
 
 	// These fields must be set by the embedding watcher, before
@@ -53,7 +52,8 @@ func (w *commonWatcher) init() {
 // tomb when an error occurs.
 func (w *commonWatcher) commonLoop() {
 	defer close(w.in)
-	w.wg.Add(1)
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
 		// When the watcher has been stopped, we send a Stop request
 		// to the server, which will remove the watcher and return a
@@ -62,18 +62,18 @@ func (w *commonWatcher) commonLoop() {
 		// been stopped, we'll get a CodeNotFound error; Either way
 		// we'll return, wait for the stop request to complete, and
 		// the watcher will die with all resources cleaned up.
-		defer w.wg.Done()
+		defer wg.Done()
 		<-w.tomb.Dying()
 		if err := w.call("Stop", nil); err != nil {
 			logger.Errorf("error trying to stop watcher: %v", err)
 		}
 	}()
-	w.wg.Add(1)
+	wg.Add(1)
 	go func() {
 		// Because Next blocks until there are changes, we need to
 		// call it in a separate goroutine, so the watcher can be
 		// stopped normally.
-		defer w.wg.Done()
+		defer wg.Done()
 		for {
 			result := w.newResult()
 			err := w.call("Next", &result)
@@ -100,7 +100,7 @@ func (w *commonWatcher) commonLoop() {
 			}
 		}
 	}()
-	w.wg.Wait()
+	wg.Wait()
 }
 
 func (w *commonWatcher) Stop() error {
@@ -132,7 +132,6 @@ func NewNotifyWatcher(caller base.Caller, result params.NotifyWatchResult) Notif
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
-		defer w.wg.Wait() // Wait for watcher to be stopped.
 		w.tomb.Kill(w.loop())
 	}()
 	return w

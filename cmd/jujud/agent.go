@@ -18,6 +18,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -33,6 +34,7 @@ import (
 )
 
 var apiOpen = api.Open
+var dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
 
 // requiredError is useful when complaining about missing command-line options.
 func requiredError(name string) error {
@@ -52,7 +54,7 @@ func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
 	// We need to pass a config location here instead and
 	// use it to locate the conf and the infer the data-dir
 	// from there instead of passing it like that.
-	f.StringVar(&c.dataDir, "data-dir", "/var/lib/juju", "directory for juju data")
+	f.StringVar(&c.dataDir, "data-dir", dataDir, "directory for juju data")
 }
 
 func (c *AgentConf) CheckArgs(args []string) error {
