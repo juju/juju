@@ -51,7 +51,6 @@ type networkInterfaceDoc struct {
 	MachineId     string
 	IsVirtual     bool
 	IsDisabled    bool
-	TxnRevno      int64 `bson:"txn-revno"`
 }
 
 func newNetworkInterface(st *State, doc *networkInterfaceDoc) *NetworkInterface {
