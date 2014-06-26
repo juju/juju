@@ -1060,6 +1060,10 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 		Id:     args.NetworkName,
 		Assert: txn.DocExists,
 	}, {
+		C:      m.st.machines.Name,
+		Id:     m.doc.Id,
+		Assert: isAliveDoc,
+	}, {
 		C:      m.st.networkInterfaces.Name,
 		Id:     doc.Id,
 		Assert: txn.DocMissing,
@@ -1076,9 +1080,6 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 			return nil, err
 		} else if m.doc.Life != Alive {
 			return nil, fmt.Errorf("machine is not alive")
-		} else if m.doc.Nonce != "" {
-			msg := "machine already provisioned: dynamic network interfaces not currently supported"
-			return nil, fmt.Errorf(msg)
 		}
 		// Should never happen.
 		logger.Errorf("unhandled assert while adding network interface doc %#v", doc)

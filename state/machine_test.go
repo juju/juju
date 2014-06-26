@@ -525,12 +525,6 @@ var addNetworkInterfaceErrorsTests = []struct {
 }, {
 	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false},
 	func(c *gc.C, m *state.Machine) {
-		c.Check(m.SetProvisioned("i-am", "fake_nonce", nil), gc.IsNil)
-	},
-	`cannot add network interface "eth1" to machine "2": machine already provisioned: dynamic network interfaces not currently supported`,
-}, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false},
-	func(c *gc.C, m *state.Machine) {
 		c.Check(m.EnsureDead(), gc.IsNil)
 	},
 	`cannot add network interface "eth1" to machine "2": machine is not alive`,
