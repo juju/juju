@@ -26,7 +26,7 @@ type actionResultDoc struct {
 	// Id is the key for this document.  The format of the id encodes
 	// the id of the Action that was used to produce this ActionResult.
 	// The format is: <action id> + actionResultMarker + <generated sequence>
-	Id string `bson:"_id"`
+	Name string `bson:"_id"`
 
 	// ActionName identifies the action that was run.
 	ActionName string
@@ -81,8 +81,8 @@ func newActionResultDoc(action *Action, status ActionStatus, output string) (*ac
 		return nil, err
 	}
 	return &actionResultDoc{
-		Id:         id,
-		ActionName: action.Name(),
+		Name:       id,
+		ActionName: action.ActionName(),
 		Payload:    action.Payload(),
 		Status:     status,
 		Output:     output,
@@ -93,7 +93,7 @@ func newActionResultDoc(action *Action, status ActionStatus, output string) (*ac
 func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 	return txn.Op{
 		C:      st.actionresults.Name,
-		Id:     doc.Id,
+		Id:     doc.Name,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
@@ -107,7 +107,7 @@ func getActionResultIdPrefix(actionResultId string) string {
 
 // Id returns the id of the ActionResult.
 func (a *ActionResult) Id() string {
-	return a.doc.Id
+	return a.doc.Name
 }
 
 // ActionName returns the name of the Action.

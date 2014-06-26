@@ -1378,7 +1378,7 @@ func (st *State) UnitActions(name string) ([]*Action, error) {
 	return st.Actions(names.NewUnitTag(name).Id())
 }
 
-// Actions returns a list of pending actions for an Entity given its Tag()
+// Actions returns a list of pending actions for an Entity given its tag
 func (st *State) Actions(tag string) ([]*Action, error) {
 	var actions []*Action
 	prefix := actionPrefix(tag)

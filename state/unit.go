@@ -1383,18 +1383,18 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, error) {
-	actionId, err := newActionId(u.st, names.NewUnitTag(u.Name()).Id())
+	actionId, err := newActionId(u.st, u.doc.Name)
 	if err != nil {
 		return "", fmt.Errorf("cannot add action; error generating key: %v", err)
 	}
-	doc := actionDoc{Id: actionId, Name: name, Payload: payload}
+	doc := actionDoc{Name: actionId, UnitName: u.doc.Name, ActionName: name, Payload: payload}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: notDeadDoc,
 	}, {
 		C:      u.st.actions.Name,
-		Id:     doc.Id,
+		Id:     doc.Name,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}}

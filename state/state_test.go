@@ -2534,7 +2534,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	actionId, err := u.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 	action, err := s.State.Action(actionId)
-	c.Assert(action.Tag(), gc.Equals, names.NewActionTag("service2/0"+names.ActionMarker+"0"))
+	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(u.Tag().(names.UnitTag), 0))
 	coll, id, err := state.ParseTag(s.State, action.Tag().String())
 	c.Assert(coll, gc.Equals, "actions")
 	c.Assert(id, gc.Equals, action.Id())
@@ -3537,7 +3537,7 @@ func (s *StateSuite) TestUnitActionsFindsRightActions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions1), gc.Equals, 3)
 	for _, action := range actions1 {
-		c.Assert(action.Name(), gc.Matches, "^action1\\..")
+		c.Assert(action.ActionName(), gc.Matches, "^action1\\..")
 	}
 
 	// Verify that calling UnitActions with unit2.Name() returns only
@@ -3546,7 +3546,7 @@ func (s *StateSuite) TestUnitActionsFindsRightActions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions2), gc.Equals, 2)
 	for _, action := range actions2 {
-		c.Assert(action.Name(), gc.Matches, "^action2\\..")
+		c.Assert(action.ActionName(), gc.Matches, "^action2\\..")
 	}
 }
 

@@ -53,7 +53,7 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	c.Assert(action.Id(), gc.Equals, id)
 
 	// verify we get out what we put in
-	c.Assert(action.Name(), gc.Equals, name)
+	c.Assert(action.ActionName(), gc.Equals, name)
 	c.Assert(action.Payload(), jc.DeepEquals, params)
 }
 
@@ -162,7 +162,7 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 
-	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].ActionName(), gc.Equals, action.ActionName())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
 	c.Assert(results[0].Output(), gc.Equals, reason)
 
@@ -171,7 +171,7 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 
-	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].ActionName(), gc.Equals, action.ActionName())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
 	c.Assert(results[0].Output(), gc.Equals, reason)
 
@@ -208,7 +208,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 
-	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].ActionName(), gc.Equals, action.ActionName())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
 	c.Assert(results[0].Output(), gc.Equals, output)
 
@@ -217,7 +217,7 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 
-	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
+	c.Assert(results[0].ActionName(), gc.Equals, action.ActionName())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
 	c.Assert(results[0].Output(), gc.Equals, output)
 
