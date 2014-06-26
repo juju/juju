@@ -11,27 +11,19 @@ import (
 
 // Unit represents a juju unit as seen by the deployer worker.
 type Unit struct {
-	tag  string
+	tag  names.Tag
 	life params.Life
 	st   *State
 }
 
 // Tag returns the unit's tag.
 func (u *Unit) Tag() string {
-	return u.tag
+	return u.tag.String()
 }
 
 // Name returns the unit's name.
 func (u *Unit) Name() string {
-	return mustParseUnitTag(u.tag).Id()
-}
-
-func mustParseUnitTag(unitTag string) names.UnitTag {
-	tag, err := names.ParseUnitTag(unitTag)
-	if err != nil {
-		panic(err)
-	}
-	return tag
+	return u.tag.Id()
 }
 
 // Life returns the unit's lifecycle value.
@@ -54,7 +46,7 @@ func (u *Unit) Refresh() error {
 func (u *Unit) Remove() error {
 	var result params.ErrorResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag}},
+		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.call("Remove", args, &result)
 	if err != nil {
@@ -68,7 +60,7 @@ func (u *Unit) SetPassword(password string) error {
 	var result params.ErrorResults
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{
-			{Tag: u.tag, Password: password},
+			{Tag: u.tag.String(), Password: password},
 		},
 	}
 	err := u.st.call("SetPasswords", args, &result)

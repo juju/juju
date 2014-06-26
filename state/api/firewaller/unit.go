@@ -17,21 +17,13 @@ import (
 // Unit represents a juju unit as seen by a firewaller worker.
 type Unit struct {
 	st   *State
-	tag  string
+	tag  names.Tag
 	life params.Life
 }
 
 // Name returns the name of the unit.
 func (u *Unit) Name() string {
-	return mustParseUnitTag(u.tag).Id()
-}
-
-func mustParseUnitTag(unitTag string) names.UnitTag {
-	tag, err := names.ParseUnitTag(unitTag)
-	if err != nil {
-		panic(err)
-	}
-	return tag
+	return u.tag.Id()
 }
 
 // Life returns the unit's life cycle value.
@@ -51,7 +43,7 @@ func (u *Unit) Refresh() error {
 
 // Watch returns a watcher for observing changes to the unit.
 func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(u.st.caller, firewallerFacade, u.tag)
+	return common.Watch(u.st.caller, firewallerFacade, u.tag.String())
 }
 
 // Service returns the service.
@@ -59,7 +51,7 @@ func (u *Unit) Service() (*Service, error) {
 	serviceTag := names.NewServiceTag(names.UnitService(u.Name()))
 	service := &Service{
 		st:  u.st,
-		tag: serviceTag.String(),
+		tag: serviceTag,
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
@@ -77,7 +69,7 @@ func (u *Unit) Service() (*Service, error) {
 func (u *Unit) OpenedPorts() ([]network.Port, error) {
 	var results params.PortsResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag}},
+		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.call("OpenedPorts", args, &results)
 	if err != nil {
@@ -98,7 +90,7 @@ func (u *Unit) OpenedPorts() ([]network.Port, error) {
 func (u *Unit) AssignedMachine() (string, error) {
 	var results params.StringResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag}},
+		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.call("GetAssignedMachine", args, &results)
 	if err != nil {

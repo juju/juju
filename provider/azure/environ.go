@@ -201,16 +201,20 @@ func (env *azureEnviron) getVirtualNetworkName() string {
 }
 
 func (env *azureEnviron) createVirtualNetwork() error {
+	// Note: we use the location rather than affinity group
+	// when creating the virtual network, as that is what
+	// the Azure documentation recommends to do
+	// "whenever possible".
 	vnetName := env.getVirtualNetworkName()
-	affinityGroupName := env.getAffinityGroupName()
+	location := env.getSnapshot().ecfg.location()
 	azure, err := env.getManagementAPI()
 	if err != nil {
 		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	virtualNetwork := gwacl.VirtualNetworkSite{
-		Name:          vnetName,
-		AffinityGroup: affinityGroupName,
+		Name:     vnetName,
+		Location: location,
 		AddressSpacePrefixes: []string{
 			networkDefinition,
 		},
@@ -409,9 +413,9 @@ func (env *azureEnviron) SupportNetworks() bool {
 	return false
 }
 
-// selectInstanceTypeAndImage returns the appropriate instance-type name and
+// selectInstanceTypeAndImage returns the appropriate instances.InstanceType and
 // the OS image name for launching a virtual machine with the given parameters.
-func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.InstanceConstraint) (string, string, error) {
+func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.InstanceConstraint) (*instances.InstanceType, string, error) {
 	ecfg := env.getSnapshot().ecfg
 	sourceImageName := ecfg.forceImageName()
 	if sourceImageName != "" {
@@ -423,19 +427,19 @@ func (env *azureEnviron) selectInstanceTypeAndImage(constraint *instances.Instan
 		// instance type either.
 		//
 		// Select the instance type using simple, Azure-specific code.
-		machineType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(constraint.Constraints))
+		instanceType, err := selectMachineType(env, defaultToBaselineSpec(constraint.Constraints))
 		if err != nil {
-			return "", "", err
+			return nil, "", err
 		}
-		return machineType.Name, sourceImageName, nil
+		return instanceType, sourceImageName, nil
 	}
 
 	// Choose the most suitable instance type and OS image, based on simplestreams information.
 	spec, err := findInstanceSpec(env, constraint)
 	if err != nil {
-		return "", "", err
+		return nil, "", err
 	}
-	return spec.InstanceType.Id, spec.Image.Id, nil
+	return &spec.InstanceType, spec.Image.Id, nil
 }
 
 var unsupportedConstraints = []string{
@@ -452,11 +456,20 @@ func (env *azureEnviron) ConstraintsValidator() (constraints.Validator, error) {
 		return nil, err
 	}
 	validator.RegisterVocabulary(constraints.Arch, supportedArches)
-	instTypeNames := make([]string, len(gwacl.RoleSizes))
-	for i, role := range gwacl.RoleSizes {
-		instTypeNames[i] = role.Name
+
+	instanceTypes, err := listInstanceTypes(env)
+	if err != nil {
+		return nil, err
+	}
+	instTypeNames := make([]string, len(instanceTypes))
+	for i, instanceType := range instanceTypes {
+		instTypeNames[i] = instanceType.Name
 	}
 	validator.RegisterVocabulary(constraints.InstanceType, instTypeNames)
+	validator.RegisterConflicts(
+		[]string{constraints.InstanceType},
+		[]string{constraints.Mem, constraints.CpuCores, constraints.Arch, constraints.RootDisk})
+
 	return validator, nil
 }
 
@@ -469,7 +482,7 @@ func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value,
 		return nil
 	}
 	// Constraint has an instance-type constraint so let's see if it is valid.
-	instanceTypes, err := listInstanceTypes(env, gwacl.RoleSizes)
+	instanceTypes, err := listInstanceTypes(env)
 	if err != nil {
 		return err
 	}
@@ -478,7 +491,7 @@ func (env *azureEnviron) PrecheckInstance(series string, cons constraints.Value,
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid Azure instance %q specified", *cons.InstanceType)
+	return fmt.Errorf("invalid instance type %q", *cons.InstanceType)
 }
 
 // createInstance creates all of the Azure entities necessary for a
@@ -634,13 +647,20 @@ func (env *azureEnviron) StartInstance(args environs.StartInstanceParams) (_ ins
 			break
 		}
 	}
-	role := env.newRole(instanceType, vhd, userData, stateServer)
+	role := env.newRole(instanceType.Id, vhd, userData, stateServer)
 	inst, err := createInstance(env, azure.ManagementAPI, role, cloudServiceName, stateServer)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	// TODO(bug 1193998) - return instance hardware characteristics as well
-	return inst, &instance.HardwareCharacteristics{}, nil, nil
+	hc := &instance.HardwareCharacteristics{
+		Mem:      &instanceType.Mem,
+		RootDisk: &instanceType.RootDisk,
+		CpuCores: &instanceType.CpuCores,
+	}
+	if len(instanceType.Arches) == 1 {
+		hc.Arch = &instanceType.Arches[0]
+	}
+	return inst, hc, nil, nil
 }
 
 // getInstance returns an up-to-date version of the instance with the given
@@ -1035,10 +1055,9 @@ func (env *azureEnviron) Destroy() error {
 	// associated with a vnet or affinity group.
 	if err := env.deleteVirtualNetwork(); err != nil {
 		logger.Warningf("cannot delete the environment's virtual network: %v", err)
-	} else {
-		if err := env.deleteAffinityGroup(); err != nil {
-			logger.Warningf("cannot delete the environment's affinity group: %v", err)
-		}
+	}
+	if err := env.deleteAffinityGroup(); err != nil {
+		logger.Warningf("cannot delete the environment's affinity group: %v", err)
 	}
 
 	// Delete storage.

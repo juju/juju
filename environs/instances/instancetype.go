@@ -37,6 +37,9 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 	if cons.Arch != nil {
 		itype.Arches = filterArches(itype.Arches, []string{*cons.Arch})
 	}
+	if cons.HasInstanceType() && itype.Name != *cons.InstanceType {
+		return nothing, false
+	}
 	if len(itype.Arches) == 0 {
 		return nothing, false
 	}
@@ -87,19 +90,19 @@ func matchingTypesForConstraint(allTypes []InstanceType, cons constraints.Value)
 	return matchingTypes
 }
 
-// getMatchingInstanceTypes returns all instance types matching ic.Constraints and available
-// in ic.Region, sorted by increasing region-specific cost (if known).
-func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []InstanceType) ([]InstanceType, error) {
-	region := ic.Region
+// MatchingInstanceTypes returns all instance types matching constraints and available
+// in region, sorted by increasing region-specific cost (if known).
+func MatchingInstanceTypes(allInstanceTypes []InstanceType, region string, cons constraints.Value) ([]InstanceType, error) {
 	var itypes []InstanceType
 
 	// Rules used to select instance types:
 	// - non memory constraints like cpu-cores etc are always honoured
-	// - if no mem constraint specified, try opinionated default with enough mem to run a server.
-	// - if no matches and no mem constraint specified, try again and return any matching instance
-	//   with the largest memory
-	cons := ic.Constraints
-	if ic.Constraints.Mem == nil {
+	// - if no mem constraint specified and instance-type not specified,
+	//   try opinionated default with enough mem to run a server.
+	// - if no matches and no mem constraint specified, try again and
+	//   return any matching instance with the largest memory
+	origCons := cons
+	if !cons.HasInstanceType() && cons.Mem == nil {
 		minMem := uint64(minMemoryHeuristic)
 		cons.Mem = &minMem
 	}
@@ -107,8 +110,8 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []Instanc
 
 	// No matches using opinionated default, so if no mem constraint specified,
 	// look for matching instance with largest memory.
-	if len(itypes) == 0 && ic.Constraints.Mem == nil {
-		itypes = matchingTypesForConstraint(allInstanceTypes, ic.Constraints)
+	if len(itypes) == 0 && cons.Mem != origCons.Mem {
+		itypes = matchingTypesForConstraint(allInstanceTypes, origCons)
 		if len(itypes) > 0 {
 			sort.Sort(byMemory(itypes))
 			itypes = []InstanceType{itypes[len(itypes)-1]}
@@ -121,7 +124,7 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []Instanc
 	}
 
 	// No luck, so report the error.
-	return nil, fmt.Errorf("no instance types in %s matching constraints %q", region, ic.Constraints)
+	return nil, fmt.Errorf("no instance types in %s matching constraints %q", region, origCons)
 }
 
 // tagsMatch returns if the tags in wanted all exist in have.

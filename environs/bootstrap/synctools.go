@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/juju/arch"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/version/ubuntu"
 )
 
 const noToolsMessage = `Juju cannot bootstrap because no tools are available for your environment.
@@ -35,7 +34,7 @@ func UploadTools(ctx environs.BootstrapContext, env environs.Environ, toolsArch 
 	logger.Infof("checking that upload is possible")
 	// Check the series are valid.
 	for _, series := range bootstrapSeries {
-		if _, err := ubuntu.SeriesVersion(series); err != nil {
+		if _, err := version.SeriesVersion(series); err != nil {
 			return err
 		}
 	}

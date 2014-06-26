@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
@@ -33,6 +34,9 @@ service to their default value.
 In case a value starts with an at sign (@) the rest of the value is interpreted
 as a filename. The value itself is then read out of the named file. The maximum
 size of this value is 5M.
+
+Option values may be any UTF-8 encoded string. UTF-8 is accepted on the command 
+line and in configuration files.
 `
 
 const maxValueSize = 5242880
@@ -86,12 +90,18 @@ func (c *SetCommand) Run(ctx *cmd.Context) error {
 	settings := map[string]string{}
 	for k, v := range c.SettingsStrings {
 		if v[0] != '@' {
+			if !utf8.ValidString(v) {
+				return fmt.Errorf("value for option %q contains non-UTF-8 sequences", k)
+			}
 			settings[k] = v
 			continue
 		}
 		nv, err := readValue(ctx, v[1:])
 		if err != nil {
 			return err
+		}
+		if !utf8.ValidString(nv) {
+			return fmt.Errorf("value for option %q contains non-UTF-8 sequences", k)
 		}
 		settings[k] = nv
 	}

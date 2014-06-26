@@ -41,7 +41,7 @@ func (st *State) call(method string, params, results interface{}) error {
 }
 
 // life requests the lifecycle of the given entity from the server.
-func (st *State) life(tag string) (params.Life, error) {
+func (st *State) life(tag names.Tag) (params.Life, error) {
 	return common.Life(st.caller, uniterFacade, tag)
 }
 
@@ -67,8 +67,41 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 	return result.Results[0], nil
 }
 
+// getOneAction retrieves a single Action from the state server.
+func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, error) {
+	nothing := params.ActionsQueryResult{}
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	}
+
+	var results params.ActionsQueryResults
+	err := st.call("Actions", args, &results)
+	if err != nil {
+		return nothing, err
+	}
+
+	if len(results.ActionsQueryResults) > 1 {
+		return nothing, fmt.Errorf("expected only 1 action query result, got %d", len(results.ActionsQueryResults))
+	}
+
+	// handle server errors
+	result := results.ActionsQueryResults[0]
+	if err := result.Error; err != nil {
+		return nothing, err
+	}
+
+	return result, nil
+}
+
 // Unit provides access to methods of a state.Unit through the facade.
-func (st *State) Unit(tag string) (*Unit, error) {
+func (st *State) Unit(unitTag string) (*Unit, error) {
+	tag, err := names.ParseUnitTag(unitTag)
+	if err != nil {
+		return nil, err
+	}
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
@@ -81,7 +114,11 @@ func (st *State) Unit(tag string) (*Unit, error) {
 }
 
 // Service returns a service state by tag.
-func (st *State) Service(tag string) (*Service, error) {
+func (st *State) Service(serviceTag string) (*Service, error) {
+	tag, err := names.ParseServiceTag(serviceTag)
+	if err != nil {
+		return nil, err
+	}
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
@@ -122,8 +159,12 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 }
 
 // Relation returns the existing relation with the given tag.
-func (st *State) Relation(tag string) (*Relation, error) {
-	result, err := st.relation(tag, st.unitTag)
+func (st *State) Relation(relationTag string) (*Relation, error) {
+	result, err := st.relation(relationTag, st.unitTag)
+	if err != nil {
+		return nil, err
+	}
+	tag, err := names.ParseRelationTag(relationTag)
 	if err != nil {
 		return nil, err
 	}
@@ -132,6 +173,24 @@ func (st *State) Relation(tag string) (*Relation, error) {
 		tag:  tag,
 		life: result.Life,
 		st:   st,
+	}, nil
+}
+
+// Action returns the Action with the given tag.
+func (st *State) Action(id string) (*Action, error) {
+	tag := names.NewActionTag(id)
+	_, err := names.ParseTag(tag.String())
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := st.getOneAction(&tag)
+	if err != nil {
+		return nil, err
+	}
+	return &Action{
+		name:   result.Action.Name,
+		params: result.Action.Params,
 	}, nil
 }
 
@@ -152,7 +211,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	if err := result.Error; err != nil {
 		return nil, err
 	}
-	relationTag := names.NewRelationTag(result.Key).String()
+	relationTag := names.NewRelationTag(result.Key)
 	return &Relation{
 		id:   result.Id,
 		tag:  relationTag,

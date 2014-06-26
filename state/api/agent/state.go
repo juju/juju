@@ -62,7 +62,7 @@ func (st *State) IsMaster() (bool, error) {
 
 type Entity struct {
 	st  *State
-	tag string
+	tag names.Tag
 	doc params.AgentGetEntitiesResult
 }
 
@@ -73,14 +73,14 @@ func (st *State) Entity(tag names.Tag) (*Entity, error) {
 	}
 	return &Entity{
 		st:  st,
-		tag: tag.String(),
+		tag: tag,
 		doc: *doc,
 	}, nil
 }
 
 // Tag returns the entity's tag.
 func (m *Entity) Tag() string {
-	return m.tag
+	return m.tag.String()
 }
 
 // Life returns the current life cycle state of the entity.
@@ -107,7 +107,7 @@ func (m *Entity) SetPassword(password string) error {
 	var results params.ErrorResults
 	args := params.EntityPasswords{
 		Changes: []params.EntityPassword{{
-			Tag:      m.tag,
+			Tag:      m.tag.String(),
 			Password: password,
 		}},
 	}
