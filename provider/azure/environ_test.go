@@ -51,6 +51,15 @@ type environSuite struct {
 var _ = gc.Suite(&environSuite{})
 var _ = gc.Suite(&startInstanceSuite{})
 
+func roleSizeByName(name string) gwacl.RoleSize {
+	for _, roleSize := range gwacl.RoleSizes {
+		if roleSize.Name == name {
+			return roleSize
+		}
+	}
+	panic(fmt.Errorf("role size %s not found", name))
+}
+
 // makeEnviron creates a fake azureEnviron with arbitrary configuration.
 func makeEnviron(c *gc.C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
@@ -971,7 +980,9 @@ func (s *environSuite) TestDestroyDoesNotFailIfVirtualNetworkDeletionFails(c *gc
 	s.setDummyStorage(c, env)
 	responses := getAzureServiceListResponse(c)
 	cleanupResponses := []gwacl.DispatcherResponse{
-		// Fail to delete vnet
+		// Fail to get vnet for deletion
+		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
+		// Fail to delete affinity group
 		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
 	}
 	responses = append(responses, cleanupResponses...)
@@ -979,11 +990,15 @@ func (s *environSuite) TestDestroyDoesNotFailIfVirtualNetworkDeletionFails(c *gc
 
 	err := env.Destroy()
 	c.Check(err, gc.IsNil)
-	c.Assert(*requests, gc.HasLen, 2)
+	c.Assert(*requests, gc.HasLen, 3)
 
 	getRequest := (*requests)[1]
 	c.Check(getRequest.Method, gc.Equals, "GET")
 	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), gc.Equals, true)
+
+	deleteRequest := (*requests)[2]
+	c.Check(deleteRequest.Method, gc.Equals, "DELETE")
+	c.Check(strings.Contains(deleteRequest.URL, env.getAffinityGroupName()), jc.IsTrue)
 }
 
 func (s *environSuite) TestDestroyDoesNotFailIfAffinityGroupDeletionFails(c *gc.C) {
@@ -1245,7 +1260,8 @@ func (*environSuite) TestCreateVirtualNetwork(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	networkConf := (*body.VirtualNetworkSites)[0]
 	c.Check(networkConf.Name, gc.Equals, env.getVirtualNetworkName())
-	c.Check(networkConf.AffinityGroup, gc.Equals, env.getAffinityGroupName())
+	c.Check(networkConf.AffinityGroup, gc.Equals, "")
+	c.Check(networkConf.Location, gc.Equals, env.getSnapshot().ecfg.location())
 }
 
 func (*environSuite) TestDestroyVirtualNetwork(c *gc.C) {
@@ -1345,12 +1361,12 @@ func (*environSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *gc.C) 
 	c.Check(env.getImageMetadataSigningRequired(), gc.Equals, true)
 }
 
-func (*environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
-	env := makeEnviron(c)
+func (s *environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
 	forcedImage := "my-image"
 	env.ecfg.attrs["force-image-name"] = forcedImage
 
-	aim := gwacl.RoleNameMap["ExtraLarge"]
+	aim := roleSizeByName("ExtraLarge")
 	cons := constraints.Value{
 		CpuCores: &aim.CpuCores,
 		Mem:      &aim.Mem,
@@ -1363,11 +1379,11 @@ func (*environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 
-	c.Check(instanceType, gc.Equals, aim.Name)
+	c.Check(instanceType.Name, gc.Equals, aim.Name)
 	c.Check(image, gc.Equals, forcedImage)
 }
 
-func (s *environSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
+func (s *baseEnvironSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 	envAttrs := makeAzureConfigMap(c)
 	envAttrs["location"] = "North Europe"
 	env := makeEnvironWithConfig(c, envAttrs)
@@ -1390,7 +1406,7 @@ func (s *environSuite) setupEnvWithDummyMetadata(c *gc.C) *azureEnviron {
 func (s *environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	// We'll tailor our constraints so as to get a specific instance type.
-	aim := gwacl.RoleNameMap["ExtraSmall"]
+	aim := roleSizeByName("ExtraSmall")
 	cons := constraints.Value{
 		CpuCores: &aim.CpuCores,
 		Mem:      &aim.Mem,
@@ -1401,7 +1417,7 @@ func (s *environSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(
 		Constraints: cons,
 	})
 	c.Assert(err, gc.IsNil)
-	c.Assert(instanceType, gc.Equals, aim.Name)
+	c.Assert(instanceType.Name, gc.Equals, aim.Name)
 	c.Assert(image, gc.Equals, "image-id")
 }
 
@@ -1495,8 +1511,7 @@ type startInstanceSuite struct {
 
 func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	s.baseEnvironSuite.SetUpTest(c)
-	s.env = makeEnviron(c)
-	s.setDummyStorage(c, s.env)
+	s.env = s.setupEnvWithDummyMetadata(c)
 	s.env.ecfg.attrs["force-image-name"] = "my-image"
 	stateInfo := &state.Info{
 		Info: mongo.Info{
@@ -1524,16 +1539,31 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 
 func (s *startInstanceSuite) startInstance(c *gc.C) (serviceName string, stateServer bool) {
 	var called bool
+	var roleSize gwacl.RoleSize
 	restore := testing.PatchValue(&createInstance, func(env *azureEnviron, azure *gwacl.ManagementAPI, role *gwacl.Role, serviceNameArg string, stateServerArg bool) (instance.Instance, error) {
 		serviceName = serviceNameArg
 		stateServer = stateServerArg
+		for _, r := range gwacl.RoleSizes {
+			if r.Name == role.RoleSize {
+				roleSize = r
+				break
+			}
+		}
 		called = true
 		return nil, nil
 	})
 	defer restore()
-	_, _, _, err := s.env.StartInstance(s.params)
+	_, hardware, _, err := s.env.StartInstance(s.params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(called, jc.IsTrue)
+	c.Assert(hardware, gc.NotNil)
+	arch := "amd64"
+	c.Assert(hardware, gc.DeepEquals, &instance.HardwareCharacteristics{
+		Arch:     &arch,
+		Mem:      &roleSize.Mem,
+		RootDisk: &roleSize.OSDiskSpace,
+		CpuCores: &roleSize.CpuCores,
+	})
 	return serviceName, stateServer
 }
 
@@ -1610,6 +1640,17 @@ func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")
+}
+
+func (s *environSuite) TestConstraintsMerge(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	validator, err := env.ConstraintsValidator()
+	c.Assert(err, gc.IsNil)
+	consA := constraints.MustParse("arch=amd64 mem=1G root-disk=10G")
+	consB := constraints.MustParse("instance-type=ExtraSmall")
+	cons, err := validator.Merge(consA, consB)
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("instance-type=ExtraSmall"))
 }
 
 func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {

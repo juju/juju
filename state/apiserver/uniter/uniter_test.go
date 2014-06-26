@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/state/apiserver/uniter"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	patchtesting "github.com/juju/testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -863,6 +865,112 @@ func (s *uniterSuite) TestCurrentEnvironment(c *gc.C) {
 		UUID: env.UUID(),
 	}
 	c.Assert(result, gc.DeepEquals, expected)
+}
+
+func (s *uniterSuite) TestAction(c *gc.C) {
+	var actionTests = []struct {
+		description string
+		action      params.Action
+	}{{
+		description: "A simple action.",
+		action: params.Action{
+			Name: "snapshot",
+			Params: map[string]interface{}{
+				"outfile": "foo.txt",
+			},
+		},
+	}, {
+		description: "An action with nested parameters.",
+		action: params.Action{
+			Name: "backup",
+			Params: map[string]interface{}{
+				"outfile": "foo.bz2",
+				"compression": map[string]interface{}{
+					"kind":    "bzip",
+					"quality": 5,
+				},
+			},
+		},
+	}}
+
+	for i, actionTest := range actionTests {
+		c.Logf("test %d: %s", i, actionTest.description)
+
+		actionId, err := s.wordpressUnit.AddAction(
+			actionTest.action.Name,
+			actionTest.action.Params)
+		c.Assert(err, gc.IsNil)
+
+		args := params.Entities{
+			Entities: []params.Entity{{
+				Tag: names.NewActionTag(actionId).String(),
+			}},
+		}
+		results, err := s.uniter.Actions(args)
+		c.Assert(err, gc.IsNil)
+		c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
+
+		actionsQueryResult := results.ActionsQueryResults[0]
+
+		c.Assert(actionsQueryResult.Error, gc.IsNil)
+		c.Assert(actionsQueryResult.Action, jc.DeepEquals, &actionTest.action)
+	}
+}
+
+func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
+		}},
+	}
+	results, err := s.uniter.Actions(args)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
+	actionsQueryResult := results.ActionsQueryResults[0]
+	c.Assert(actionsQueryResult.Error, gc.NotNil)
+	c.Assert(actionsQueryResult.Error.Message, gc.Equals, `action "wordpress/0_a_0" not found`)
+}
+
+func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
+	// Action doesn't match unit.
+	fakeBadAuth := apiservertesting.FakeAuthorizer{
+		Tag:       s.mysqlUnit.Tag(),
+		LoggedIn:  true,
+		UnitAgent: true,
+		Entity:    s.wordpressUnit,
+	}
+	fakeBadAPI, err := uniter.NewUniterAPI(
+		s.State,
+		s.resources,
+		fakeBadAuth,
+	)
+	c.Assert(err, gc.IsNil)
+
+	restore := patchtesting.PatchValue(&s.uniter, fakeBadAPI)
+	defer restore()
+
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
+		}},
+	}
+	// exercises line 738 of state/apiserver/uniter/uniter.go
+	_, err = s.uniter.Actions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
+}
+
+func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
+	// Same unit, but not one that has access.
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewActionTag("mysql/0" + names.ActionMarker + "0").String(),
+		}},
+	}
+	_, err := s.uniter.Actions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
 }
 
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {

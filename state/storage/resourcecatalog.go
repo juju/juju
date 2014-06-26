@@ -129,14 +129,14 @@ func (rc *resourceCatalog) UploadComplete(id string) error {
 }
 
 // Remove is defined on the ResourceCatalog interface.
-func (rc *resourceCatalog) Remove(id string) error {
+func (rc *resourceCatalog) Remove(id string) (wasDeleted bool, path string, err error) {
 	buildTxn := func(attempt int) (ops []txn.Op, err error) {
-		if ops, err = rc.resourceDecRefOps(id); err == mgo.ErrNotFound {
+		if wasDeleted, path, ops, err = rc.resourceDecRefOps(id); err == mgo.ErrNotFound {
 			return nil, errors.NotFoundf("resource with id %q", id)
 		}
 		return ops, err
 	}
-	return rc.txnRunner.Run(buildTxn)
+	return wasDeleted, path, rc.txnRunner.Run(buildTxn)
 }
 
 func checksumMatch(rh *ResourceHash) bson.D {
@@ -186,20 +186,20 @@ func (rc *resourceCatalog) uploadCompleteOps(id string) ([]txn.Op, error) {
 	}}, nil
 }
 
-func (rc *resourceCatalog) resourceDecRefOps(id string) ([]txn.Op, error) {
+func (rc *resourceCatalog) resourceDecRefOps(id string) (wasDeleted bool, path string, ops []txn.Op, err error) {
 	var doc resourceDoc
-	if err := rc.collection.FindId(id).One(&doc); err != nil {
-		return nil, err
+	if err = rc.collection.FindId(id).One(&doc); err != nil {
+		return false, "", nil, err
 	}
 	if doc.RefCount == 1 {
-		return []txn.Op{{
+		return true, doc.Path, []txn.Op{{
 			C:      rc.collection.Name,
 			Id:     doc.Id,
 			Assert: bson.D{{"refcount", 1}},
 			Remove: true,
 		}}, nil
 	}
-	return []txn.Op{{
+	return false, doc.Path, []txn.Op{{
 		C:      rc.collection.Name,
 		Id:     doc.Id,
 		Assert: bson.D{{"refcount", bson.D{{"$gt", 1}}}},

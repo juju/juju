@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"io/ioutil"
 	"os"
+	"unicode/utf8"
 
 	"github.com/juju/charm"
 	"github.com/juju/cmd"
@@ -26,13 +27,21 @@ type SetSuite struct {
 
 var _ = gc.Suite(&SetSuite{})
 
+var (
+	validSetTestValue   = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
+	invalidSetTestValue = "a value with an invalid UTF-8 sequence: " + string([]byte{0xFF, 0xFF})
+)
+
 func (s *SetSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	ch := s.AddTestingCharm(c, "dummy")
 	svc := s.AddTestingService(c, "dummy-service", ch)
 	s.svc = svc
 	s.dir = c.MkDir()
-	setupValueFile(c, s.dir)
+	c.Assert(utf8.ValidString(validSetTestValue), gc.Equals, true)
+	c.Assert(utf8.ValidString(invalidSetTestValue), gc.Equals, false)
+	setupValueFile(c, s.dir, "valid.txt", validSetTestValue)
+	setupValueFile(c, s.dir, "invalid.txt", invalidSetTestValue)
 	setupBigFile(c, s.dir)
 	setupConfigFile(c, s.dir)
 }
@@ -52,9 +61,9 @@ func (s *SetSuite) TestSetOptionSuccess(c *gc.C) {
 		"outlook":  "hello@world.tld",
 	})
 	assertSetSuccess(c, s.dir, s.svc, []string{
-		"username=@value.txt",
+		"username=@valid.txt",
 	}, charm.Settings{
-		"username": "a value with spaces\nand newline",
+		"username": validSetTestValue,
 		"outlook":  "hello@world.tld",
 	})
 }
@@ -68,6 +77,9 @@ func (s *SetSuite) TestSetOptionFail(c *gc.C) {
 	assertSetFail(c, s.dir, []string{
 		"username=@big.txt",
 	}, "error: size of option file is larger than 5M\n")
+	assertSetFail(c, s.dir, []string{
+		"username=@invalid.txt",
+	}, "error: value for option \"username\" contains non-UTF-8 sequences\n")
 }
 
 func (s *SetSuite) TestSetConfig(c *gc.C) {
@@ -105,10 +117,10 @@ func assertSetFail(c *gc.C, dir string, args []string, err string) {
 
 // setupValueFile creates a file containing one value for testing
 // set with name=@filename.
-func setupValueFile(c *gc.C, dir string) string {
+func setupValueFile(c *gc.C, dir, filename, value string) string {
 	ctx := coretesting.ContextForDir(c, dir)
-	path := ctx.AbsPath("value.txt")
-	content := []byte("a value with spaces\nand newline")
+	path := ctx.AbsPath(filename)
+	content := []byte(value)
 	err := ioutil.WriteFile(path, content, 0666)
 	c.Assert(err, gc.IsNil)
 	return path
