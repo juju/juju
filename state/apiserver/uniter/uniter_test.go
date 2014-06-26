@@ -900,10 +900,12 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 			actionTest.action.Name,
 			actionTest.action.Params)
 		c.Assert(err, gc.IsNil)
+		actionTag := names.NewActionTag(s.wordpressUnit.UnitTag(), i)
+		c.Assert(actionTag.Id(), gc.Equals, actionId)
 
 		args := params.Entities{
 			Entities: []params.Entity{{
-				Tag: names.NewActionTag(actionId).String(),
+				Tag: actionTag.String(),
 			}},
 		}
 		results, err := s.uniter.Actions(args)
@@ -920,7 +922,7 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
+			Tag: names.NewActionTag(names.NewUnitTag("wordpress/0"), 0).String(),
 		}},
 	}
 	results, err := s.uniter.Actions(args)
@@ -952,7 +954,7 @@ func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
+			Tag: names.NewActionTag(names.NewUnitTag("wordpress/0"), 0).String(),
 		}},
 	}
 	// exercises line 738 of state/apiserver/uniter/uniter.go
@@ -965,7 +967,7 @@ func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 	// Same unit, but not one that has access.
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.NewActionTag("mysql/0" + names.ActionMarker + "0").String(),
+			Tag: names.NewActionTag(names.NewUnitTag("mysql/0"), 0).String(),
 		}},
 	}
 	_, err := s.uniter.Actions(args)

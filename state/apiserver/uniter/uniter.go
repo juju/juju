@@ -691,7 +691,7 @@ func (u *UniterAPI) getOneActionById(actionId string) (params.ActionsQueryResult
 	}
 
 	result.Action = &params.Action{
-		Name:   action.Name(),
+		Name:   action.ActionName(),
 		Params: action.Payload(),
 	}
 	return result, nil

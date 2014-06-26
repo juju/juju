@@ -770,6 +770,10 @@ func (u *Unit) AgentPresence() (bool, error) {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (u *Unit) Tag() names.Tag {
+	return u.UnitTag()
+}
+
+func (u *Unit) UnitTag() names.UnitTag {
 	return names.NewUnitTag(u.Name())
 }
 

@@ -177,13 +177,7 @@ func (st *State) Relation(relationTag string) (*Relation, error) {
 }
 
 // Action returns the Action with the given tag.
-func (st *State) Action(id string) (*Action, error) {
-	tag := names.NewActionTag(id)
-	_, err := names.ParseTag(tag.String())
-	if err != nil {
-		return nil, err
-	}
-
+func (st *State) Action(tag names.ActionTag) (*Action, error) {
 	result, err := st.getOneAction(&tag)
 	if err != nil {
 		return nil, err
