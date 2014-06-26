@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !darwin,!linux
+// +build !darwin,!linux,!windows
 
 package version
 
