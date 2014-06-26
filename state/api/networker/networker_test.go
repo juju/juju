@@ -259,22 +259,22 @@ func (s *networkerSuite) TestWatchNetworkInterfaces(c *gc.C) {
 	w, err := s.networker.WatchNetworkInterfaces("machine-0")
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 
 	// Initial event.
-	wc.AssertChange("eth0")
+	wc.AssertOneChange()
 
-	// Add another 2 machines make sure they are detected.
+	// Add another 2 network interfaces, make sure they are detected.
 	s.State.AddNetworkInterface()
 	c.Assert(err, gc.IsNil)
 	s.State.AddNetworkInterface()
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange("1", "2")
+	wc.AssertOneChange()
 
 	// Remove one of interfaces
 	s.State.RemoveNetworkInterface()
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange("1", "2")
+	wc.AssertOneChange()
 
         //wc.AssertNoChange()
 
