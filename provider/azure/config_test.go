@@ -4,7 +4,9 @@
 package azure
 
 import (
+	"fmt"
 	"io/ioutil"
+	"regexp"
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
@@ -107,7 +109,7 @@ func (*configSuite) TestValidateChecksConfigChanges(c *gc.C) {
 func (*configSuite) TestValidateParsesAzureConfig(c *gc.C) {
 	location := "location"
 	managementSubscriptionId := "subscription-id"
-	certificate := "certificate content"
+	certificate := testCert
 	storageAccountName := "account-name"
 	forceImageName := "force-image-name"
 	unknownFutureSetting := "preserved"
@@ -134,9 +136,30 @@ func (*configSuite) TestValidateParsesAzureConfig(c *gc.C) {
 	c.Check(azConfig.UnknownAttrs()["unknown-future-setting"], gc.Equals, unknownFutureSetting)
 }
 
+func (*configSuite) TestValidateVerifiesCertFileContents(c *gc.C) {
+	certFile := createTempFile(c, []byte("definitely not PEM"))
+	attrs := makeAzureConfigMap(c)
+	delete(attrs, "management-certificate")
+	attrs["management-certificate-path"] = certFile
+	provider := azureEnvironProvider{}
+	newConfig, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	_, err = provider.newConfig(newConfig)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("invalid management-certificate-path: %q is not a PEM encoded certificate file", regexp.QuoteMeta(certFile)))
+}
+
+func (*configSuite) TestValidateVerifiesCertContents(c *gc.C) {
+	attrs := makeAzureConfigMap(c)
+	attrs["management-certificate"] = "definitely not PEM"
+	provider := azureEnvironProvider{}
+	newConfig, err := config.New(config.NoDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+	_, err = provider.newConfig(newConfig)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("invalid management-certificate: not a PEM encoded certificate"))
+}
+
 func (*configSuite) TestValidateReadsCertFile(c *gc.C) {
-	certificate := "test certificate"
-	certFile := createTempFile(c, []byte(certificate))
+	certFile := createTempFile(c, []byte(testCert))
 	attrs := makeAzureConfigMap(c)
 	delete(attrs, "management-certificate")
 	attrs["management-certificate-path"] = certFile
@@ -145,7 +168,7 @@ func (*configSuite) TestValidateReadsCertFile(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	azConfig, err := provider.newConfig(newConfig)
 	c.Assert(err, gc.IsNil)
-	c.Check(azConfig.managementCertificate(), gc.Equals, certificate)
+	c.Check(azConfig.managementCertificate(), gc.Equals, testCert)
 }
 
 func (*configSuite) TestChecksExistingCertFile(c *gc.C) {
@@ -178,8 +201,7 @@ func (*configSuite) TestBoilerplateConfigReturnsAzureConfig(c *gc.C) {
 
 func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
-	certificate := "certificate"
-	attrs["management-certificate"] = certificate
+	attrs["management-certificate"] = testCert
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
@@ -188,7 +210,7 @@ func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	expectedAttrs := map[string]string{
-		"management-certificate": certificate,
+		"management-certificate": testCert,
 	}
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
 }

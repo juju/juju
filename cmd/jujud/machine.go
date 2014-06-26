@@ -26,6 +26,7 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -70,7 +71,7 @@ type eitherState interface{}
 
 var (
 	retryDelay      = 3 * time.Second
-	jujuRun         = "/usr/local/bin/juju-run"
+	jujuRun         = paths.MustSucceed(paths.JujuRun(version.Current.Series))
 	useMultipleCPUs = utils.UseMultipleCPUs
 
 	// The following are defined as variables to
@@ -475,11 +476,12 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
 				return apiserver.NewServer(st, apiserver.ServerConfig{
-					Addr:    fmt.Sprintf(":%d", port),
-					Cert:    cert,
-					Key:     key,
-					DataDir: dataDir,
-					LogDir:  logDir,
+					Addr:      fmt.Sprintf(":%d", port),
+					Cert:      cert,
+					Key:       key,
+					DataDir:   dataDir,
+					LogDir:    logDir,
+					Validator: a.limitLoginsDuringUpgrade,
 				})
 			})
 			a.startWorkerAfterUpgrade(singularRunner, "cleaner", func() (worker.Worker, error) {
@@ -501,6 +503,30 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		}
 	}
 	return newCloseWorker(runner, st), nil
+}
+
+// limitLoginsDuringUpgrade is called by the API server for each login
+// attempt. It returns an error if upgrades are in progress unless the
+// login is for a user (i.e. a client) or the local machine.
+func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
+	select {
+	case <-a.upgradeComplete:
+		return nil // upgrade done so allow all logins
+	default:
+		authTag, err := names.ParseTag(creds.AuthTag)
+		if err != nil {
+			return errors.Annotate(err, "could not parse auth tag")
+		}
+		switch authTag := authTag.(type) {
+		case names.UserTag:
+			return nil // user logins always allowed
+		case names.MachineTag:
+			if authTag == a.Tag() {
+				return nil // allow logins from the local machine
+			}
+		}
+		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
+	}
 }
 
 // ensureMongoServer ensures that mongo is installed and running,
@@ -736,6 +762,8 @@ func (a *MachineAgent) upgradeWorker(
 	})
 }
 
+var upgradesPerformUpgrade = upgrades.PerformUpgrade // Allow patching for tests
+
 // runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
 func (a *MachineAgent) runUpgrades(
 	st *state.State,
@@ -758,7 +786,7 @@ func (a *MachineAgent) runUpgrades(
 				continue
 			}
 			logger.Infof("starting upgrade from %v to %v for %v %q", from, version.Current, target, a.Tag())
-			if err = upgrades.PerformUpgrade(from.Number, target, context); err != nil {
+			if err = upgradesPerformUpgrade(from.Number, target, context); err != nil {
 				err = fmt.Errorf("cannot perform upgrade from %v to %v for %v %q: %v", from, version.Current, target, a.Tag(), err)
 				return
 			}

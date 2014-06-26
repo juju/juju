@@ -95,13 +95,6 @@ func (s *deployerSuite) TestWatchUnitsWrongMachine(c *gc.C) {
 	w, err := machine.WatchUnits()
 	s.assertUnauthorized(c, err)
 	c.Assert(w, gc.IsNil)
-
-	// Try it with an invalid tag format.
-	machine, err = s.st.Machine("foo")
-	c.Assert(err, gc.IsNil)
-	w, err = machine.WatchUnits()
-	s.assertUnauthorized(c, err)
-	c.Assert(w, gc.IsNil)
 }
 
 func (s *deployerSuite) TestWatchUnits(c *gc.C) {
@@ -139,9 +132,6 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 func (s *deployerSuite) TestUnit(c *gc.C) {
 	// Try getting a missing unit and an invalid tag.
 	unit, err := s.st.Unit("unit-foo-42")
-	s.assertUnauthorized(c, err)
-	c.Assert(unit, gc.IsNil)
-	unit, err = s.st.Unit("42")
 	s.assertUnauthorized(c, err)
 	c.Assert(unit, gc.IsNil)
 

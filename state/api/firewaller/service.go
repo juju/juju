@@ -16,26 +16,18 @@ import (
 // Service represents the state of a service.
 type Service struct {
 	st   *State
-	tag  string
+	tag  names.Tag
 	life params.Life
 }
 
 // Name returns the service name.
 func (s *Service) Name() string {
-	return mustParseServiceTag(s.tag).Id()
-}
-
-func mustParseServiceTag(serviceTag string) names.ServiceTag {
-	tag, err := names.ParseServiceTag(serviceTag)
-	if err != nil {
-		panic(err)
-	}
-	return tag
+	return s.tag.Id()
 }
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Service) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.st.caller, firewallerFacade, s.tag)
+	return common.Watch(s.st.caller, firewallerFacade, s.tag.String())
 }
 
 // Life returns the service's current life state.
@@ -63,7 +55,7 @@ func (s *Service) Refresh() error {
 func (s *Service) IsExposed() (bool, error) {
 	var results params.BoolResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: s.tag}},
+		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
 	err := s.st.call("GetExposed", args, &results)
 	if err != nil {

@@ -43,7 +43,7 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as a state server
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag:          s.rawMachine.Tag().String(),
+		Tag:          s.rawMachine.Tag(),
 		LoggedIn:     true,
 		MachineAgent: true,
 	}

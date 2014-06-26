@@ -4,12 +4,14 @@
 package testing
 
 import (
+	"github.com/juju/names"
+
 	"github.com/juju/juju/state"
 )
 
 // FakeAuthorizer implements the common.Authorizer interface.
 type FakeAuthorizer struct {
-	Tag            string
+	Tag            names.Tag
 	LoggedIn       bool
 	EnvironManager bool
 	MachineAgent   bool
@@ -19,7 +21,16 @@ type FakeAuthorizer struct {
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag string) bool {
-	return fa.Tag == tag
+	return fa.Tag == mustParseTag(tag)
+}
+
+// temporary method until common/Authorizer.AuthOwner takes a names.Tag not a string.
+func mustParseTag(tag string) names.Tag {
+	t, err := names.ParseTag(tag)
+	if err != nil {
+		panic(err)
+	}
+	return t
 }
 
 func (fa FakeAuthorizer) AuthEnvironManager() bool {
@@ -38,7 +49,7 @@ func (fa FakeAuthorizer) AuthClient() bool {
 	return fa.Client
 }
 
-func (fa FakeAuthorizer) GetAuthTag() string {
+func (fa FakeAuthorizer) GetAuthTag() names.Tag {
 	return fa.Tag
 }
 

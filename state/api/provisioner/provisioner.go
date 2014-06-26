@@ -38,12 +38,16 @@ func (st *State) call(method string, params, result interface{}) error {
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
-func (st *State) machineLife(tag string) (params.Life, error) {
+func (st *State) machineLife(tag names.Tag) (params.Life, error) {
 	return common.Life(st.caller, provisionerFacade, tag)
 }
 
 // Machine provides access to methods of a state.Machine through the facade.
-func (st *State) Machine(tag string) (*Machine, error) {
+func (st *State) Machine(machineTag string) (*Machine, error) {
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return nil, err
+	}
 	life, err := st.machineLife(tag)
 	if err != nil {
 		return nil, err
@@ -144,7 +148,7 @@ func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResul
 			continue
 		}
 		machines[i] = &Machine{
-			tag:  names.NewMachineTag(status.Id).String(),
+			tag:  names.NewMachineTag(status.Id),
 			life: status.Life,
 			st:   st,
 		}

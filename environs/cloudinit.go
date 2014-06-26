@@ -5,6 +5,7 @@ package environs
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -16,10 +17,12 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/version"
 )
 
 // DataDir is the default data directory.
@@ -27,8 +30,12 @@ import (
 // system state.
 var DataDir = agent.DefaultDataDir
 
+// logDir returns a filesystem path to the location where applications
+// may create a folder containing logs
+var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
+
 // CloudInitOutputLog is the default cloud-init-output.log file path.
-const CloudInitOutputLog = "/var/log/cloud-init-output.log"
+var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 // NewMachineConfig sets up a basic machine configuration, for a non-bootstrap
 // node.  You'll still need to supply more information, but this takes care of
