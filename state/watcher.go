@@ -1625,3 +1625,105 @@ func (w *actionWatcher) merge(changes *set.Strings, updates map[interface{}]bool
 	}
 	return nil
 }
+
+// machineInterfacesWatcher notifies about changes to all network interfaces
+// of a machine. Changes include adding, removing enabling or disabling interfaces.
+type machineInterfacesWatcher struct {
+	commonWatcher
+	machineId string
+	out       chan struct{}
+	in        chan watcher.Change
+	known     map[bson.ObjectId]bool
+}
+
+var _ NotifyWatcher = (*machineInterfacesWatcher)(nil)
+
+// WatchInterfaces returns a new StringsWatcher watching m's network interfaces.
+func (m *Machine) WatchInterfaces() NotifyWatcher {
+	return newMachineInterfacesWatcher(m)
+}
+
+func newMachineInterfacesWatcher(m *Machine) NotifyWatcher {
+	w := &machineInterfacesWatcher{
+		commonWatcher: commonWatcher{st: m.st},
+		machineId:     m.doc.Id,
+		out:           make(chan struct{}),
+		known:         make(map[bson.ObjectId]bool),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *machineInterfacesWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *machineInterfacesWatcher) initial() error {
+	var doc networkInterfaceDoc
+	query := bson.D{{"machineid", w.machineId}}
+	fields := bson.D{{"_id", 1}, {"isdisabled", 1}}
+	iter := w.st.networkInterfaces.Find(query).Select(fields).Iter()
+	for iter.Next(&doc) {
+		w.known[doc.Id] = doc.IsDisabled
+	}
+	return iter.Close()
+}
+
+func (w *machineInterfacesWatcher) merge(notify bool, ifaceId bson.ObjectId) (bool, error) {
+	doc := networkInterfaceDoc{}
+	err := w.st.networkInterfaces.FindId(ifaceId).One(&doc)
+	if err != nil && err != mgo.ErrNotFound {
+		return notify, err
+	}
+	isDisabled, known := w.known[ifaceId]
+	if err == mgo.ErrNotFound && known {
+		// Network interface was removed from machine.
+		delete(w.known, ifaceId)
+		notify = true
+	} else if doc.MachineId == w.machineId {
+		if !known || isDisabled != doc.IsDisabled {
+			w.known[ifaceId] = doc.IsDisabled
+			notify = true
+		}
+	}
+	return notify, nil
+}
+
+func (w *machineInterfacesWatcher) loop() error {
+	in := make(chan watcher.Change)
+
+	w.st.watcher.WatchCollection(w.st.networkInterfaces.Name, in)
+	defer w.st.watcher.UnwatchCollection(w.st.networkInterfaces.Name, in)
+
+	err := w.initial()
+	if err != nil {
+		return err
+	}
+
+	out := w.out
+	notify := false
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case c := <-in:
+			notify, err := w.merge(notify, c.Id.(bson.ObjectId))
+			if err != nil {
+				return err
+			}
+			if notify {
+				out = w.out
+			}
+		case out <- struct{}{}:
+			out = nil
+			notify = false
+		}
+	}
+}
