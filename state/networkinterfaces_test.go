@@ -49,23 +49,31 @@ func (s *NetworkInterfaceSuite) TestGetterMethods(c *gc.C) {
 	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
 }
 
-func (s *NetworkInterfaceSuite) TestMethods(c *gc.C) {
-	// Test Disable and Refresh methods.
-	err := s.iface.Disable()
+func (s *NetworkInterfaceSuite) TestSetAndIsDisabled(c *gc.C) {
+	err := s.iface.SetDisabled(true)
 	c.Assert(err, gc.IsNil)
 	err = s.iface.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.iface.IsDisabled(), jc.IsTrue)
 
-	// Test Enable method.
-	err = s.iface.Enable()
+	err = s.iface.SetDisabled(false)
 	c.Assert(err, gc.IsNil)
 	err = s.iface.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
+}
 
-	// Test Remove method.
-	err = s.iface.Remove()
+func (s *NetworkInterfaceSuite) TestRefresh(c *gc.C) {
+	err := s.iface.SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
+	err = s.iface.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.iface.IsDisabled(), jc.IsTrue)
+}
+
+func (s *NetworkInterfaceSuite) TestRemove(c *gc.C) {
+	err := s.iface.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.iface.Refresh()
 	c.Assert(err, gc.ErrorMatches, `network interface .* not found`)

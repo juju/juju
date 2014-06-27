@@ -1626,14 +1626,8 @@ func (w *actionWatcher) merge(changes *set.Strings, updates map[interface{}]bool
 	return nil
 }
 
-// machineInterfacesWatcher notifies about appearance and disabled property changes
-// for all network interfaces of a machine.
-//
-// The first event emitted contains the network interface ids of all
-// network interfaces currently added to the machine, irrespective of their
-// disabled property. From then on, a new event is emitted whenever a
-// a network interface is added to or removed from the machine, or the disabled
-// property of a network interface that is currently added to the machine changes.
+// machineInterfacesWatcher notifies about changes to all network interfaces
+// of a machine. Changes include adding, removing enabling or disabling interfaces.
 type machineInterfacesWatcher struct {
 	commonWatcher
 	machineId string
@@ -1642,7 +1636,7 @@ type machineInterfacesWatcher struct {
 	known     map[bson.ObjectId]bool
 }
 
-var _ Watcher = (*machineInterfacesWatcher)(nil)
+var _ NotifyWatcher = (*machineInterfacesWatcher)(nil)
 
 // WatchInterfaces returns a new StringsWatcher watching m's network interfaces.
 func (m *Machine) WatchInterfaces() NotifyWatcher {
@@ -1672,7 +1666,8 @@ func (w *machineInterfacesWatcher) Changes() <-chan struct{} {
 func (w *machineInterfacesWatcher) initial() error {
 	var doc networkInterfaceDoc
 	query := bson.D{{"machineid", w.machineId}}
-	iter := w.st.networkInterfaces.Find(query).Iter()
+	fields := bson.D{{"_id", 1}, {"isdisabled", 1}}
+	iter := w.st.networkInterfaces.Find(query).Select(fields).Iter()
 	for iter.Next(&doc) {
 		w.known[doc.Id] = doc.IsDisabled
 	}

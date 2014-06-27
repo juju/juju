@@ -142,7 +142,6 @@ func (ni *NetworkInterface) Remove() (err error) {
 	ops := []txn.Op{{
 		C:      ni.st.networkInterfaces.Name,
 		Id:     ni.doc.Id,
-		Assert: txn.DocExists,
 		Remove: true,
 	}}
 	// The only abort conditions in play indicate that the network interface
@@ -150,10 +149,8 @@ func (ni *NetworkInterface) Remove() (err error) {
 	return onAbort(ni.st.runTransaction(ops), nil)
 }
 
-// disable changes disabled property of the network interface.
-func (ni *NetworkInterface) disable(isDisabled bool) (err error) {
-	defer errors.Maskf(&err, "cannot change disabled property of the interface %q", ni)
-
+// SetDisabled changes disabled state of the network interface.
+func (ni *NetworkInterface) SetDisabled(isDisabled bool) (err error) {
 	ops := []txn.Op{{
 		C:      ni.st.networkInterfaces.Name,
 		Id:     ni.doc.Id,
@@ -162,20 +159,10 @@ func (ni *NetworkInterface) disable(isDisabled bool) (err error) {
 	}}
 	err = ni.st.runTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot change disabled property on network interface: %v",
+		return fmt.Errorf("cannot change disabled state on network interface: %v",
 			onAbort(err, errors.NotFoundf("network interface")))
 	}
 	return nil
-}
-
-// Disable sets disabled property of the network interface.
-func (ni *NetworkInterface) Disable() (err error) {
-	return ni.disable(true)
-}
-
-// Enable resets disabled property of the network interface.
-func (ni *NetworkInterface) Enable() (err error) {
-	return ni.disable(false)
 }
 
 // Refresh refreshes the contents of the network interface from the underlying
@@ -188,7 +175,8 @@ func (ni *NetworkInterface) Refresh() error {
 		return errors.NotFoundf("network interface %v", ni)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot refresh network interface %v: %v", ni, err)
+		return fmt.Errorf("cannot refresh network interface %q on machine %q: %v",
+			ni.InterfaceName(), ni.MachineId(), err)
 	}
 	ni.doc = doc
 	return nil
