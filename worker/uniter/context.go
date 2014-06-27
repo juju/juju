@@ -57,6 +57,9 @@ type HookContext struct {
 	// id identifies the context.
 	id string
 
+	// actionParams holds the set of arguments passed with the action.
+	actionParams map[string]interface{}
+
 	// uuid is the universally unique identifier of the environment.
 	uuid string
 
@@ -89,7 +92,8 @@ type HookContext struct {
 
 func NewHookContext(unit *uniter.Unit, id, uuid, envName string,
 	relationId int, remoteUnitName string, relations map[int]*ContextRelation,
-	apiAddrs []string, serviceOwner string, proxySettings proxy.Settings) (*HookContext, error) {
+	apiAddrs []string, serviceOwner string, proxySettings proxy.Settings,
+	actionParams map[string]interface{}) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
@@ -101,6 +105,7 @@ func NewHookContext(unit *uniter.Unit, id, uuid, envName string,
 		apiAddrs:       apiAddrs,
 		serviceOwner:   serviceOwner,
 		proxySettings:  proxySettings,
+		actionParams:   actionParams,
 	}
 	// Get and cache the addresses.
 	var err error
@@ -152,6 +157,13 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 		result[name] = value
 	}
 	return result, nil
+}
+
+func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
+	if ctx.actionParams == nil {
+		//TODO: Fill me in!
+	}
+	return ctx.actionParams, nil
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
@@ -237,9 +249,19 @@ func (ctx *HookContext) GetLogger(hookName string) loggo.Logger {
 	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", ctx.UnitName(), hookName))
 }
 
-// RunHook executes a hook in an environment which allows it to to call back
-// into the hook context to execute jujuc tools.
+// RunAction executes a hook from the charm's actions in an environment which
+// allows it to to call back into the hook context to execute jujuc tools.
+func (ctx *HookContext) RunAction(hookName, charmDir, toolsDir, socketPath string) error {
+	return ctx.runCharmHookWithLocation(hookName, charmDir, toolsDir, socketPath, "actions")
+}
+
+// RunHook executes a built-in hook in an environment which allows it to to
+// call back into the hook context to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
+	return ctx.runCharmHookWithLocation(hookName, charmDir, toolsDir, socketPath, "hooks")
+}
+
+func (ctx *HookContext) runCharmHookWithLocation(hookName, charmDir, toolsDir, socketPath string, charmLocation string) error {
 	var err error
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
 	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())
@@ -247,13 +269,13 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, charmDir, env)
 	} else {
-		err = ctx.runCharmHook(hookName, charmDir, env)
+		err = ctx.runCharmHook(hookName, charmDir, env, charmLocation)
 	}
 	return ctx.finalizeContext(hookName, err)
 }
 
-func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string) error {
-	hook, err := exec.LookPath(filepath.Join(charmDir, "hooks", hookName))
+func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string, charmLocation string) error {
+	hook, err := exec.LookPath(filepath.Join(charmDir, charmLocation, hookName))
 	if err != nil {
 		if ee, ok := err.(*exec.Error); ok && os.IsNotExist(ee.Err) {
 			// Missing hook is perfectly valid, but worth mentioning.

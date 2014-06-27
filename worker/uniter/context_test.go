@@ -728,7 +728,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	}
 	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
 		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
-		proxies)
+		proxies, map[string]interface{}(nil))
 	c.Assert(err, gc.IsNil)
 	return context
 }
