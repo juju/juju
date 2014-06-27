@@ -150,7 +150,7 @@ type address struct {
 	Value       string
 	AddressType network.AddressType
 	NetworkName string        `bson:",omitempty"`
-	Scope       network.Scope `bson:",omitempty"`
+	Scope       network.Scope `bson:"networkscope,omitempty"`
 }
 
 // TODO(dimitern) Make sure we integrate this with other networking
@@ -160,7 +160,7 @@ type hostPort struct {
 	Value       string
 	AddressType network.AddressType
 	NetworkName string        `bson:",omitempty"`
-	Scope       network.Scope `bson:",omitempty"`
+	Scope       network.Scope `bson:"networkscope,omitempty"`
 	Port        int
 }
 
