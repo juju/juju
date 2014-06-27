@@ -43,6 +43,7 @@ func (s *MachineSuite) SetUpTest(c *gc.C) {
 	}
 	var err error
 	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	c.Assert(err, gc.IsNil)
 	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 }
@@ -521,12 +522,6 @@ var addNetworkInterfaceErrorsTests = []struct {
 	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth1", "missing", false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": network "missing" not found`,
-}, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false},
-	func(c *gc.C, m *state.Machine) {
-		c.Check(m.SetProvisioned("i-am", "fake_nonce", nil), gc.IsNil)
-	},
-	`cannot add network interface "eth1" to machine "2": machine already provisioned: dynamic network interfaces not currently supported`,
 }, {
 	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false},
 	func(c *gc.C, m *state.Machine) {
@@ -1750,4 +1745,140 @@ func (s *MachineSuite) TestSupportsNoContainersSetsAllToError(c *gc.C) {
 		containerType := state.ContainerTypeFromId(container.Id())
 		c.Assert(data, gc.DeepEquals, params.StatusData{"type": string(containerType)})
 	}
+}
+
+func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
+	// Provision the machine.
+	networks := []state.NetworkInfo{{
+		Name:       "net1",
+		ProviderId: "net1",
+		CIDR:       "0.1.2.0/24",
+		VLANTag:    0,
+	}, {
+		Name:       "vlan42",
+		ProviderId: "vlan42",
+		CIDR:       "0.2.2.0/24",
+		VLANTag:    42,
+	}}
+	interfaces := []state.NetworkInterfaceInfo{{
+		MACAddress:    "aa:bb:cc:dd:ee:f0",
+		InterfaceName: "eth0",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		InterfaceName: "eth1",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:f1",
+		InterfaceName: "eth1.42",
+		NetworkName:   "vlan42",
+		IsVirtual:     true,
+	}}
+	err := s.machine.SetInstanceInfo("umbrella/0", "fake_nonce", nil, networks, interfaces)
+	c.Assert(err, gc.IsNil)
+
+	// Read dynamically generated document Ids.
+	ifaces, err := s.machine.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 3)
+
+	// Start network interface watcher.
+	w := s.machine.WatchInterfaces()
+	defer testing.AssertStop(c, w)
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
+
+	// Disable the first interface.
+	err = ifaces[0].SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Disable the first interface again, should not report.
+	err = ifaces[0].SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Disable two interfaces at once, check that both are reported.
+	err = ifaces[1].SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	err = ifaces[2].SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Enable the first interface.
+	err = ifaces[0].SetDisabled(false)
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Enable the first interface again, should not report.
+	err = ifaces[0].SetDisabled(false)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Remove the network interface.
+	err = ifaces[0].Remove()
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Add the new interface.
+	_, _ = addNetworkAndInterface(
+		c, s.State, s.machine,
+		"net2", "net2", "0.5.2.0/24", 0, false,
+		"aa:bb:cc:dd:ee:f2", "eth2")
+	wc.AssertOneChange()
+
+	// Provision another machine, should not report
+	machine2, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	interfaces2 := []state.NetworkInterfaceInfo{{
+		MACAddress:    "aa:bb:cc:dd:ee:e0",
+		InterfaceName: "eth0",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:e1",
+		InterfaceName: "eth1",
+		NetworkName:   "net1",
+		IsVirtual:     false,
+	}, {
+		MACAddress:    "aa:bb:cc:dd:ee:e1",
+		InterfaceName: "eth1.42",
+		NetworkName:   "vlan42",
+		IsVirtual:     true,
+	}}
+	err = machine2.SetInstanceInfo("m-too", "fake_nonce", nil, networks, interfaces2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 3)
+	wc.AssertNoChange()
+
+	// Read dynamically generated document Ids.
+	ifaces2, err := machine2.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces2, gc.HasLen, 3)
+
+	// Disable the first interface on the second machine, should not report.
+	err = ifaces2[0].SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Remove the network interface on the second machine, should not report.
+	err = ifaces2[0].Remove()
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Stop watcher; check Changes chan closed.
+	testing.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *MachineSuite) TestWatchInterfacesDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		m, err := st.Machine(s.machine.Id())
+		c.Assert(err, gc.IsNil)
+		w := m.WatchInterfaces()
+		<-w.Changes()
+		return w
+	})
 }

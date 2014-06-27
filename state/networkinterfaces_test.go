@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -45,4 +46,36 @@ func (s *NetworkInterfaceSuite) TestGetterMethods(c *gc.C) {
 	c.Assert(s.iface.MachineTag(), gc.Equals, s.machine.Tag().String())
 	c.Assert(s.iface.IsVirtual(), jc.IsTrue)
 	c.Assert(s.iface.IsPhysical(), jc.IsFalse)
+	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
+}
+
+func (s *NetworkInterfaceSuite) TestSetAndIsDisabled(c *gc.C) {
+	err := s.iface.SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	err = s.iface.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.iface.IsDisabled(), jc.IsTrue)
+
+	err = s.iface.SetDisabled(false)
+	c.Assert(err, gc.IsNil)
+	err = s.iface.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
+}
+
+func (s *NetworkInterfaceSuite) TestRefresh(c *gc.C) {
+	err := s.iface.SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
+	err = s.iface.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.iface.IsDisabled(), jc.IsTrue)
+}
+
+func (s *NetworkInterfaceSuite) TestRemove(c *gc.C) {
+	err := s.iface.Remove()
+	c.Assert(err, gc.IsNil)
+	err = s.iface.Refresh()
+	c.Assert(err, gc.ErrorMatches, `network interface .* not found`)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
