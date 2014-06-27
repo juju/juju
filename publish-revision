@@ -6,7 +6,7 @@ BUILD_PACKAGES=${BUILD_PACKAGES:-true}
 TARFILE=$($SCRIPTS/get-tarfile-name)
 VERSION=$(basename $TARFILE .tar.gz | cut -d '_' -f2)
 
-if [[ -f " $LOCAL_TOOLS_CACHE/juju-$VERSION-trusty-amd64.tgz" ]]; then
+if [[ -f "$LOCAL_TOOLS_CACHE/juju-$VERSION-trusty-amd64.tgz" ]]; then
     echo "$VERSION was published. This version is invalid to test."
     echo "Maybe juju's version needs updating?"
     exit 1
