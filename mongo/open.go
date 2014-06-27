@@ -35,6 +35,11 @@ type DialOpts struct {
 	// Timeout is the amount of time to wait contacting
 	// a state server.
 	Timeout time.Duration
+
+	// Direct informs whether to establish connections only with the
+	// specified seed servers, or to obtain information for the whole
+	// cluster and establish connections with further servers too.
+	Direct bool
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -95,5 +100,6 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		Addrs:   info.Addrs,
 		Timeout: opts.Timeout,
 		Dial:    dial,
+		Direct:  opts.Direct,
 	}, nil
 }
