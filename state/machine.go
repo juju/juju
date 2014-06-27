@@ -1052,7 +1052,6 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	if args.InterfaceName == "" {
 		return nil, fmt.Errorf("interface name must be not empty")
 	}
-	aliveAndNotProvisioned := append(isAliveDoc, bson.D{{"nonce", ""}}...)
 	doc := newNetworkInterfaceDoc(args)
 	doc.MachineId = m.doc.Id
 	doc.Id = bson.NewObjectId()
@@ -1063,7 +1062,7 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	}, {
 		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
-		Assert: aliveAndNotProvisioned,
+		Assert: isAliveDoc,
 	}, {
 		C:      m.st.networkInterfaces.Name,
 		Id:     doc.Id,
@@ -1081,9 +1080,6 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 			return nil, err
 		} else if m.doc.Life != Alive {
 			return nil, fmt.Errorf("machine is not alive")
-		} else if m.doc.Nonce != "" {
-			msg := "machine already provisioned: dynamic network interfaces not currently supported"
-			return nil, fmt.Errorf(msg)
 		}
 		// Should never happen.
 		logger.Errorf("unhandled assert while adding network interface doc %#v", doc)
