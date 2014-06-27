@@ -1115,6 +1115,23 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 	c.Assert(dirty, gc.Equals, false)
 }
 
+func (s *ServiceSuite) TestRemoveServiceMachine(c *gc.C) {
+	unit, err := s.mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
+
+	c.Assert(s.mysql.Destroy(), gc.IsNil)
+	assertLife(c, s.mysql, state.Dying)
+
+	// Service.Destroy adds units to cleanup, make it happen now.
+	c.Assert(s.State.Cleanup(), gc.IsNil)
+
+	c.Assert(unit.Refresh(), jc.Satisfies, errors.IsNotFound)
+	assertLife(c, machine, state.Dying)
+}
+
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *gc.C) {
 	// Check that reading a unit after removing the service
 	// fails nicely.

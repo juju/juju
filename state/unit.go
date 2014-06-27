@@ -370,6 +370,98 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	return append(ops, removeOps...), nil
 }
 
+// destroyHostOps returns all necessary operations to destroy the service unit's host machine,
+// or ensure that the conditions preventing its destruction remain stable through the transaction.
+func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
+	if s.doc.Subordinate {
+		return []txn.Op{{
+			C:      s.st.units.Name,
+			Id:     u.doc.Principal,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
+		}}, nil
+	} else if u.doc.MachineId == "" {
+		unitLogger.Errorf("unit %v unassigned", u)
+		return nil, nil
+	}
+
+	machineUpdate := bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}}
+
+	m, err := u.st.Machine(u.doc.MachineId)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		} else {
+			return nil, err
+		}
+	}
+
+	containerCheck := true // whether container conditions allow destroying the host machine
+	containers, err := m.Containers()
+	if err != nil {
+		return nil, err
+	}
+	if len(containers) > 0 {
+		ops = append(ops, txn.Op{
+			C:      u.st.containerRefs.Name,
+			Id:     m.doc.Id,
+			Assert: bson.D{{"children.0", bson.D{{"$exists", 1}}}},
+		})
+		containerCheck = false
+	} else {
+		ops = append(ops, txn.Op{
+			C:  u.st.containerRefs.Name,
+			Id: m.doc.Id,
+			Assert: bson.D{{"$or", []bson.D{
+				{{"children", bson.D{{"$size", 0}}}},
+				{{"children", bson.D{{"$exists", false}}}},
+			}}},
+		})
+	}
+
+	machineCheck := true // whether host machine conditions allow destroy
+	if len(m.doc.Principals) != 1 || m.doc.Principals[0] != u.doc.Name {
+		machineCheck = false
+	} else if hasJob(m.doc.Jobs, JobManageEnviron) {
+		// Check that the machine does not have any responsibilities that
+		// prevent a lifecycle change.
+		machineCheck = false
+	} else if m.doc.HasVote {
+		machineCheck = false
+	}
+
+	// assert that the machine conditions pertaining to host removal conditions
+	// remain the same throughout the transaction.
+	var machineAssert bson.D
+	if machineCheck {
+		machineAssert = bson.D{{"$and", []bson.D{
+			bson.D{{"principals", []string{u.doc.Name}}},
+			bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+			bson.D{{"hasvote", bson.D{{"$ne", true}}}},
+		}}}
+	} else {
+		machineAssert = bson.D{{"$or", []bson.D{
+			bson.D{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
+			bson.D{{"jobs", bson.D{{"$in", []MachineJob{JobManageEnviron}}}}},
+			bson.D{{"hasvote", true}},
+		}}}
+	}
+
+	// If removal conditions satisfied by machine & container docs, we can
+	// destroy it, in addition to removing the unit principal.
+	if machineCheck && containerCheck {
+		machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
+	}
+
+	ops = append(ops, txn.Op{
+		C:      s.st.machines.Name,
+		Id:     u.doc.MachineId,
+		Assert: machineAssert,
+		Update: machineUpdate,
+	})
+	return ops, nil
+}
+
 var errAlreadyRemoved = stderrors.New("entity has already been removed")
 
 // removeOps returns the operations necessary to remove the unit, assuming

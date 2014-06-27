@@ -11,10 +11,12 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/state/txn"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -276,6 +278,228 @@ func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
 	address, ok = s.unit.PrivateAddress()
 	c.Check(address, gc.Equals, "127.0.0.1")
 	c.Assert(ok, gc.Equals, true)
+}
+
+type destroyMachineTestCase struct {
+	target    *state.Unit
+	host      *state.Machine
+	desc      string
+	flipHook  []txn.TestHook
+	destroyed bool
+}
+
+func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
+	var result []destroyMachineTestCase
+	var err error
+
+	{
+		tc := destroyMachineTestCase{desc: "standalone principal", destroyed: true}
+		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, gc.IsNil)
+		tc.target, err = s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
+		result = append(result, tc)
+	}
+	{
+		tc := destroyMachineTestCase{desc: "co-located principals", destroyed: false}
+		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, gc.IsNil)
+		tc.target, err = s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
+		colocated, err := s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(colocated.AssignToMachine(tc.host), gc.IsNil)
+
+		result = append(result, tc)
+	}
+	{
+		tc := destroyMachineTestCase{desc: "host has container", destroyed: false}
+		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, gc.IsNil)
+		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+			Series: "quantal",
+			Jobs:   []state.MachineJob{state.JobHostUnits},
+		}, tc.host.Id(), instance.LXC)
+		c.Assert(err, gc.IsNil)
+		tc.target, err = s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
+
+		result = append(result, tc)
+	}
+	{
+		tc := destroyMachineTestCase{desc: "host has vote", destroyed: false}
+		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.host.SetHasVote(true), gc.IsNil)
+		tc.target, err = s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
+
+		result = append(result, tc)
+	}
+	{
+		tc := destroyMachineTestCase{desc: "unassigned unit", destroyed: true}
+		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		c.Assert(err, gc.IsNil)
+		tc.target, err = s.service.AddUnit()
+		c.Assert(err, gc.IsNil)
+		c.Assert(tc.target.AssignToMachine(tc.host), gc.IsNil)
+		result = append(result, tc)
+	}
+
+	return result
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineFastForwardDestroy(c *gc.C) {
+	for _, tc := range s.destroyMachineTestCases(c) {
+		c.Log(tc.desc)
+		c.Assert(tc.target.Destroy(), gc.IsNil)
+		if tc.destroyed {
+			assertLife(c, tc.host, state.Dying)
+			c.Assert(tc.host.EnsureDead(), gc.IsNil)
+		} else {
+			assertLife(c, tc.host, state.Alive)
+			c.Assert(tc.host.Destroy(), gc.NotNil)
+		}
+	}
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineNoFastForwardDestroy(c *gc.C) {
+	for _, tc := range s.destroyMachineTestCases(c) {
+		c.Log(tc.desc)
+		preventUnitDestroyRemove(c, tc.target)
+		c.Assert(tc.target.Destroy(), gc.IsNil)
+		c.Assert(tc.target.EnsureDead(), gc.IsNil)
+		assertLife(c, tc.host, state.Alive)
+		c.Assert(tc.target.Remove(), gc.IsNil)
+		if tc.destroyed {
+			assertLife(c, tc.host, state.Dying)
+		} else {
+			assertLife(c, tc.host, state.Alive)
+			c.Assert(tc.host.Destroy(), gc.NotNil)
+		}
+	}
+}
+
+func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
+	m, err := s.State.Machine(id)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.SetHasVote(hasVote), gc.IsNil)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	target, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+	flip := txn.TestHook{
+		Before: func() {
+			s.setMachineVote(c, host.Id(), true)
+		},
+	}
+	flop := txn.TestHook{
+		Before: func() {
+			s.setMachineVote(c, host.Id(), false)
+		},
+	}
+	// You'll need to adjust the flip-flops to match the number of transaction
+	// retries.
+	defer state.SetTestHooks(c, s.State, flip, flop, flip).Check()
+
+	c.Assert(target.Destroy(), gc.ErrorMatches, "state changing too quickly; try again soon")
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	target, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.setMachineVote(c, host.Id(), true)
+	}, nil).Check()
+
+	c.Assert(target.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	target, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+	c.Assert(host.SetHasVote(true), gc.IsNil)
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		s.setMachineVote(c, host.Id(), false)
+	}, nil).Check()
+
+	c.Assert(target.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Dying)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	target, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+	defer state.SetTestHooks(c, s.State, txn.TestHook{
+		Before: func() {
+			machine, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
+				Series: "quantal",
+				Jobs:   []state.MachineJob{state.JobHostUnits},
+			}, host.Id(), instance.LXC)
+			c.Assert(err, gc.IsNil)
+			assertLife(c, machine, state.Alive)
+
+			// test-setup verification for the disqualifying machine.
+			hostHandle, err := s.State.Machine(host.Id())
+			c.Assert(err, gc.IsNil)
+			containers, err := hostHandle.Containers()
+			c.Assert(err, gc.IsNil)
+			c.Assert(containers, gc.HasLen, 1)
+		},
+	}).Check()
+
+	c.Assert(target.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
+}
+
+func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
+	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	target, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	c.Assert(target.AssignToMachine(host), gc.IsNil)
+
+	// This unit will be colocated in the transaction hook to cause a retry.
+	colocated, err := s.service.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(host.SetHasVote(true), gc.IsNil)
+
+	defer state.SetTestHooks(c, s.State, txn.TestHook{
+		Before: func() {
+			hostHandle, err := s.State.Machine(host.Id())
+			c.Assert(err, gc.IsNil)
+
+			// Original assertion preventing host removal is no longer valid
+			c.Assert(hostHandle.SetHasVote(false), gc.IsNil)
+
+			// But now the host gets a colocated unit, a different condition preventing removal
+			c.Assert(colocated.AssignToMachine(hostHandle), gc.IsNil)
+		},
+	}).Check()
+
+	c.Assert(target.Destroy(), gc.IsNil)
+	assertLife(c, host, state.Alive)
 }
 
 func (s *UnitSuite) TestRefresh(c *gc.C) {
