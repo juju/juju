@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
+	"github.com/juju/juju/state/txn"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -283,7 +284,7 @@ type destroyMachineTestCase struct {
 	target    *state.Unit
 	host      *state.Machine
 	desc      string
-	flipHook  []state.TransactionHook
+	flipHook  []txn.TestHook
 	destroyed bool
 }
 
@@ -395,19 +396,19 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 	target, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
-	flip := state.TransactionHook{
+	flip := txn.TestHook{
 		Before: func() {
 			s.setMachineVote(c, host.Id(), true)
 		},
 	}
-	flop := state.TransactionHook{
+	flop := txn.TestHook{
 		Before: func() {
 			s.setMachineVote(c, host.Id(), false)
 		},
 	}
 	// You'll need to adjust the flip-flops to match the number of transaction
 	// retries.
-	defer state.SetTransactionHooks(c, s.State, flip, flop, flip, flop, flip).Check()
+	defer state.SetTestHooks(c, s.State, flip, flop, flip).Check()
 
 	c.Assert(target.Destroy(), gc.ErrorMatches, "state changing too quickly; try again soon")
 }
@@ -449,7 +450,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 	target, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	c.Assert(target.AssignToMachine(host), gc.IsNil)
-	defer state.SetTransactionHooks(c, s.State, state.TransactionHook{
+	defer state.SetTestHooks(c, s.State, txn.TestHook{
 		Before: func() {
 			machine, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 				Series: "quantal",
@@ -484,7 +485,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
 
 	c.Assert(host.SetHasVote(true), gc.IsNil)
 
-	defer state.SetTransactionHooks(c, s.State, state.TransactionHook{
+	defer state.SetTestHooks(c, s.State, txn.TestHook{
 		Before: func() {
 			hostHandle, err := s.State.Machine(host.Id())
 			c.Assert(err, gc.IsNil)
