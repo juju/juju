@@ -7,6 +7,7 @@ var (
 	NewResourceCatalog = newResourceCatalog
 	NewResource        = newResource
 	PutResourceTxn     = &putResourceTxn
+	RequestExpiry      = &requestExpiry
 )
 
 func GetResourceCatalog(ms ManagedStorage) ResourceCatalog {
@@ -19,4 +20,8 @@ func PutManagedResource(ms ManagedStorage, managedResource ManagedResource, id s
 
 func ResourceStoragePath(ms ManagedStorage, envUUID, user, resourcePath string) (string, error) {
 	return ms.(*managedStorage).resourceStoragePath(envUUID, user, resourcePath)
+}
+
+func RequestQueueLength(ms ManagedStorage) int {
+	return len(ms.(*managedStorage).queuedRequests)
 }
