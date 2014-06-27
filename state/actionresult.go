@@ -5,9 +5,7 @@ package state
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/juju/errors"
 	"labix.org/v2/mgo/txn"
 )
 
@@ -26,7 +24,14 @@ type actionResultDoc struct {
 	// Id is the key for this document.  The format of the id encodes
 	// the id of the Action that was used to produce this ActionResult.
 	// The format is: <action id> + actionResultMarker + <generated sequence>
-	Name string `bson:"_id"`
+	Id string `bson:"_id"`
+
+	// UnitName is the name of the unit from which this action result came
+	UnitName string
+
+	// Sequence is the unique instance of this action result, derived
+	// from the action sequence number
+	Sequence int
 
 	// ActionName identifies the action that was run.
 	ActionName string
@@ -60,54 +65,54 @@ func newActionResult(st *State, adoc actionResultDoc) *ActionResult {
 	}
 }
 
-// actionResultMarker is the token used to separate the action id prefix
-// from the unique actionResult suffix
-const actionResultMarker = "_ar_"
-
-// newActionResultId generates a new unique key from an action id
-func newActionResultId(st *State, actionId string) (string, error) {
-	prefix := actionId + actionResultMarker
-	suffix, err := st.sequence(prefix)
-	if err != nil {
-		return "", errors.Errorf("cannot assign new sequence for prefix '%s': %v", prefix, err)
+// newActionResultDoc converts an Action into an actionResultDoc given
+// the finalStatus and the output of the action
+func newActionResultDoc(a *Action, finalStatus ActionStatus, output string) actionResultDoc {
+	prefix := actionResultPrefix(a.doc.UnitName)
+	id := fmt.Sprintf("%s%d", prefix, a.doc.Sequence)
+	return actionResultDoc{
+		Id:         id,
+		UnitName:   a.doc.UnitName,
+		Sequence:   a.doc.Sequence,
+		ActionName: a.doc.Name,
+		Payload:    a.doc.Payload,
+		Status:     finalStatus,
+		Output:     output,
 	}
-	return fmt.Sprintf("%s%d", prefix, suffix), nil
 }
 
-// newActionResultDoc builds a new doc
-func newActionResultDoc(action *Action, status ActionStatus, output string) (*actionResultDoc, error) {
-	id, err := newActionResultId(action.st, action.Id())
-	if err != nil {
-		return nil, err
-	}
-	return &actionResultDoc{
-		Name:       id,
-		ActionName: action.ActionName(),
-		Payload:    action.Payload(),
-		Status:     status,
-		Output:     output,
-	}, nil
+// actionResultPrefix returns a well formed _id prefix for an
+// ActionResult from a given unit
+func actionResultPrefix(unitName string) string {
+	return "ar#" + unitName + "#a#"
 }
 
 // addActionResultOp builds the txn.Op used to add an actionresult
 func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 	return txn.Op{
 		C:      st.actionresults.Name,
-		Id:     doc.Name,
+		Id:     doc.Id,
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
 }
 
-// getActionResultIdPrefix takes an ActionResult.Id() and returns the prefix
-// used to build it.  Useful for filtering.
-func getActionResultIdPrefix(actionResultId string) string {
-	return strings.Split(actionResultId, actionResultMarker)[0]
+// actionIdToActionResultId converts the actionId to the id of it's
+// result.  This is somewhat temporary until the decision to merge
+// action and actionresult is made.
+func actionIdToActionResultId(actionId string) string {
+	if len(actionId) < 2 {
+		return ""
+	}
+	if actionId[:2] != "a#" {
+		return ""
+	}
+	return "ar#" + actionId[2:]
 }
 
 // Id returns the id of the ActionResult.
 func (a *ActionResult) Id() string {
-	return a.doc.Name
+	return a.doc.Id
 }
 
 // ActionName returns the name of the Action.

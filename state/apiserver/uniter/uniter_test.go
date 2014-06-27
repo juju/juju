@@ -896,12 +896,12 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 	for i, actionTest := range actionTests {
 		c.Logf("test %d: %s", i, actionTest.description)
 
-		actionId, err := s.wordpressUnit.AddAction(
+		a, err := s.wordpressUnit.AddAction(
 			actionTest.action.Name,
 			actionTest.action.Params)
 		c.Assert(err, gc.IsNil)
 		actionTag := names.NewActionTag(s.wordpressUnit.UnitTag(), i)
-		c.Assert(actionTag.Id(), gc.Equals, actionId)
+		c.Assert(a.ActionTag(), gc.Equals, actionTag)
 
 		args := params.Entities{
 			Entities: []params.Entity{{
@@ -931,7 +931,7 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
 	actionsQueryResult := results.ActionsQueryResults[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
-	c.Assert(actionsQueryResult.Error.Message, gc.Equals, `action "wordpress/0_a_0" not found`)
+	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action .*wordpress/0[^0-9]+0[^0-9]+ not found`)
 }
 
 func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {

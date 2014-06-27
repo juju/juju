@@ -44,13 +44,13 @@ func (s *actionSuite) TestAction(c *gc.C) {
 
 	for i, actionTest := range actionTests {
 		c.Logf("test %d: %s", i, actionTest.description)
-		actionId, err := s.uniterSuite.wordpressUnit.AddAction(
+		a, err := s.uniterSuite.wordpressUnit.AddAction(
 			actionTest.action.Name,
 			actionTest.action.Params)
 		c.Assert(err, gc.IsNil)
 
 		actionTag := names.NewActionTag(s.uniterSuite.wordpressUnit.UnitTag(), i)
-		c.Assert(actionTag.Id(), gc.Equals, actionId)
+		c.Assert(a.Tag(), gc.Equals, actionTag)
 
 		retrievedAction, err := s.uniter.Action(actionTag)
 		c.Assert(err, gc.IsNil)
@@ -64,7 +64,7 @@ func (s *actionSuite) TestActionNotFound(c *gc.C) {
 	actionTag := names.NewActionTag(names.NewUnitTag("wordpress/0"), 0)
 	_, err := s.uniter.Action(actionTag)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "action \"wordpress/0_a_0\" not found")
+	c.Assert(err, gc.ErrorMatches, "action .*wordpress/0[^0-9]+0[^0-9]+ not found")
 }
 
 func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {

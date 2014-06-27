@@ -7,7 +7,6 @@ package uniter
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/charm"
 	"github.com/juju/errors"
@@ -683,15 +682,15 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 }
 
 // getOneActionById retrieves a single Action by id.
-func (u *UniterAPI) getOneActionById(actionId string) (params.ActionsQueryResult, error) {
+func (u *UniterAPI) getOneActionByTag(tag names.ActionTag) (params.ActionsQueryResult, error) {
 	result := params.ActionsQueryResult{}
-	action, err := u.st.Action(actionId)
+	action, err := u.st.ActionByTag(tag)
 	if err != nil {
 		return result, err
 	}
 
 	result.Action = &params.Action{
-		Name:   action.ActionName(),
+		Name:   action.Name(),
 		Params: action.Payload(),
 	}
 	return result, nil
@@ -721,15 +720,7 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 		if err != nil {
 			return nothing, err
 		}
-
-		// Action prefix must match unit.  Extract the Unit tag.
-		markerInd := strings.Index(actionTag.String(), names.ActionMarker)
-		actionInd := strings.Index(actionTag.String(), names.ActionTagKind)
-		actionInd = actionInd + len(names.ActionTagKind) + 1
-		unitTag, err := names.ParseUnitTag("unit-" + actionTag.String()[actionInd:markerInd])
-		if err != nil {
-			return nothing, err
-		}
+		unitTag := actionTag.UnitTag()
 
 		// The Unit is querying for another Unit's Action.
 		if unitTag.String() != whichUnit.Tag().String() {
@@ -741,8 +732,7 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 			return nothing, common.ErrPerm
 		}
 
-		actionId := actionTag.Id()
-		actionQueryResult, err := u.getOneActionById(actionId)
+		actionQueryResult, err := u.getOneActionByTag(actionTag)
 		if err == nil {
 			results.ActionsQueryResults[i] = actionQueryResult
 		}

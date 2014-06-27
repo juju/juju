@@ -4,7 +4,6 @@
 package state_test
 
 import (
-	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -42,18 +41,17 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 	params := map[string]interface{}{"outfile": "outfile.tar.bz2"}
 
 	// verify can add an Action
-	id, err := s.unit.AddAction(name, params)
+	a, err := s.unit.AddAction(name, params)
 	c.Assert(err, gc.IsNil)
-	assertSaneActionId(c, id, s.unit.Name())
 
 	// verify we can get it back out by Id
-	action, err := s.State.Action(id)
+	action, err := s.State.Action(a.Id())
 	c.Assert(err, gc.IsNil)
 	c.Assert(action, gc.NotNil)
-	c.Assert(action.Id(), gc.Equals, id)
+	c.Assert(action.Id(), gc.Equals, a.Id())
 
 	// verify we get out what we put in
-	c.Assert(action.ActionName(), gc.Equals, name)
+	c.Assert(action.Name(), gc.Equals, name)
 	c.Assert(action.Payload(), jc.DeepEquals, params)
 }
 
@@ -63,36 +61,34 @@ func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 	params_2 := map[string]interface{}{"infile": "infile.zip"}
 
 	// verify can add two actions with same name
-	id_1, err := s.unit.AddAction(name, params_1)
+	a_1, err := s.unit.AddAction(name, params_1)
 	c.Assert(err, gc.IsNil)
-	assertSaneActionId(c, id_1, s.unit.Name())
 
-	id_2, err := s.unit.AddAction(name, params_2)
+	a_2, err := s.unit.AddAction(name, params_2)
 	c.Assert(err, gc.IsNil)
-	assertSaneActionId(c, id_2, s.unit.Name())
 
-	c.Assert(id_1, gc.Not(gc.Equals), id_2)
+	c.Assert(a_1.Id(), gc.Not(gc.Equals), a_2.Id())
 
 	// verify both actually got added
-	actions, err := s.State.UnitActions(s.unit.Name())
+	actions, err := s.unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 2)
 
 	// verify we can Fail one, retrieve the other, and they're not mixed up
-	action_1, err := s.State.Action(id_1)
+	action_1, err := s.State.Action(a_1.Id())
 	c.Assert(err, gc.IsNil)
 	err = action_1.Fail("")
 	c.Assert(err, gc.IsNil)
 
-	action_2, err := s.State.Action(id_2)
+	action_2, err := s.State.Action(a_2.Id())
 	c.Assert(err, gc.IsNil)
 	c.Assert(action_2.Payload(), gc.DeepEquals, params_2)
 
 	// verify only one left, and it's the expected one
-	actions, err = s.State.UnitActions(s.unit.Name())
+	actions, err = s.unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 1)
-	c.Assert(actions[0].Id(), gc.Equals, id_2)
+	c.Assert(actions[0].Id(), gc.Equals, a_2.Id())
 }
 
 func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
@@ -105,9 +101,8 @@ func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// can add action to a dying unit
-	id, err := unit.AddAction("fakeaction1", map[string]interface{}{})
+	_, err = unit.AddAction("fakeaction1", map[string]interface{}{})
 	c.Assert(err, gc.IsNil)
-	assertSaneActionId(c, id, s.unit.Name())
 
 	// make sure unit is dead
 	err = unit.EnsureDead()
@@ -141,14 +136,14 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit)
 
-	id, err := unit.AddAction("action1", nil)
+	a, err := unit.AddAction("action1", nil)
 	c.Assert(err, gc.IsNil)
 
-	action, err := s.State.Action(id)
+	action, err := s.State.Action(a.Id())
 	c.Assert(err, gc.IsNil)
 
 	// ensure no action results for this action
-	results, err := s.State.ActionResultsForAction(action.Id())
+	results, err := unit.ActionResults()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 0)
 
@@ -158,25 +153,16 @@ func (s *ActionSuite) TestFail(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ensure we now have a result for this action
-	results, err = s.State.ActionResultsForAction(action.Id())
+	results, err = unit.ActionResults()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 
-	c.Assert(results[0].ActionName(), gc.Equals, action.ActionName())
-	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
-	c.Assert(results[0].Output(), gc.Equals, reason)
-
-	// ensure we find the same results when searching by unit name
-	results, err = s.State.ActionResultsForUnit(unit.Name())
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results), gc.Equals, 1)
-
-	c.Assert(results[0].ActionName(), gc.Equals, action.ActionName())
+	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
 	c.Assert(results[0].Output(), gc.Equals, reason)
 
 	// validate that a failed action is no longer returned by UnitActions.
-	actions, err := s.State.UnitActions(unit.Name())
+	actions, err := unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 0)
 }
@@ -187,14 +173,14 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit)
 
-	id, err := unit.AddAction("action1", nil)
+	a, err := unit.AddAction("action1", nil)
 	c.Assert(err, gc.IsNil)
 
-	action, err := s.State.Action(id)
+	action, err := s.State.Action(a.Id())
 	c.Assert(err, gc.IsNil)
 
 	// ensure no action results for this action
-	results, err := s.State.ActionResultsForAction(action.Id())
+	results, err := unit.ActionResults()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 0)
 
@@ -204,25 +190,16 @@ func (s *ActionSuite) TestComplete(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// ensure we now have a result for this action
-	results, err = s.State.ActionResultsForAction(action.Id())
+	results, err = unit.ActionResults()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(results), gc.Equals, 1)
 
-	c.Assert(results[0].ActionName(), gc.Equals, action.ActionName())
-	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
-	c.Assert(results[0].Output(), gc.Equals, output)
-
-	// ensure we find the same results when searching by unit name
-	results, err = s.State.ActionResultsForUnit(unit.Name())
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(results), gc.Equals, 1)
-
-	c.Assert(results[0].ActionName(), gc.Equals, action.ActionName())
+	c.Assert(results[0].ActionName(), gc.Equals, action.Name())
 	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
 	c.Assert(results[0].Output(), gc.Equals, output)
 
 	// validate that a completed action is no longer returned by UnitActions.
-	actions, err := s.State.UnitActions(unit.Name())
+	actions, err := unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 0)
 }
@@ -258,41 +235,4 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 	expect := expectActionIds(unit1, "0", "1")
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
-}
-
-func (s *ActionSuite) TestGetActionIdPrefix(c *gc.C) {
-	getPrefixTest(c, state.GetActionIdPrefix, names.ActionMarker)
-}
-
-func (s *ActionSuite) TestGetActionResultIdPrefix(c *gc.C) {
-	getPrefixTest(c, state.GetActionResultIdPrefix, state.ActionResultMarker)
-}
-
-type getPrefixFn func(string) string
-
-func getPrefixTest(c *gc.C, fn getPrefixFn, marker string) {
-	tests := []struct {
-		given    string
-		expected string
-	}{
-		{given: "asdf" + marker + "asdf" + marker, expected: "asdf"},
-		{given: "asdf" + marker + "asdf", expected: "asdf"},
-		{given: "asdf" + marker, expected: "asdf"},
-		{given: marker, expected: ""},
-		{given: marker + "asdf", expected: ""},
-		{given: "", expected: ""},
-	}
-
-	for _, test := range tests {
-		obtained := fn(test.given)
-		c.Assert(obtained, gc.Equals, test.expected)
-	}
-}
-
-// assertSaneActionId verifies that the id is of the expected
-// form (unit id prefix + sequence)
-// This is a temporary assertion, we shouldn't be leaking the actual
-// mongo _id
-func assertSaneActionId(c *gc.C, id, unitName string) {
-	c.Assert(names.IsAction(id), gc.Equals, true)
 }
