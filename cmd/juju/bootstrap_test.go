@@ -506,6 +506,15 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 func (s *BootstrapSuite) TestValidateConstraintsCalledWithMetadatasource(c *gc.C) {
 	sourceDir, _ := createImageMetadata(c)
 	resetJujuHome(c)
+
+	// Bootstrap the environment with the valid source.
+	// Force a dev version by having an odd minor version number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	devVersion := version.Current
+	devVersion.Minor = 11
+	s.PatchValue(&version.Current, devVersion)
+
 	var calledFuncs []string
 	s.PatchValue(&uploadCustomMetadata, func(metadataDir string, env environs.Environ) error {
 		c.Assert(metadataDir, gc.DeepEquals, sourceDir)
@@ -524,6 +533,14 @@ func (s *BootstrapSuite) TestValidateConstraintsCalledWithMetadatasource(c *gc.C
 }
 
 func (s *BootstrapSuite) TestValidateConstraintsCalledWithoutMetadatasource(c *gc.C) {
+	// Bootstrap the environment with the valid source.
+	// Force a dev version by having an odd minor version number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	devVersion := version.Current
+	devVersion.Minor = 11
+	s.PatchValue(&version.Current, devVersion)
+
 	validateCalled := 0
 	s.PatchValue(&validateConstraints, func(cons constraints.Value, env environs.Environ) error {
 		c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=4G"))
