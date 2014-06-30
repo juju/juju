@@ -18,7 +18,7 @@ var logger = loggo.GetLogger("juju.version")
 // mustOsVersion will panic if the osVersion is "unknown" due
 // to an error.
 //
-// If you want to avoid the panic, either call osVersion and handle
+// If you want to avoid the panic, call osVersion and handle
 // the error.
 func mustOsVersion() string {
 	version, err := osVersion()
