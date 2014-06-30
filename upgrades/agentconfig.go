@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/utils/symlink"
 )
 
 var (
@@ -122,11 +123,11 @@ func migrateLocalProviderAgentConfig(context Context) error {
 		return fmt.Errorf("cannot remove %q: %v", spoolConfig, err)
 	}
 	allMachinesLog := filepath.Join(logDir, "all-machines.log")
-	if err := os.Symlink(allMachinesLog, localLogDir+"/"); err != nil && !os.IsExist(err) {
+	if err := symlink.New(allMachinesLog, localLogDir+"/"); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("cannot symlink %q to %q: %v", allMachinesLog, localLogDir, err)
 	}
 	machine0Log := filepath.Join(localLogDir, "machine-0.log")
-	if err := os.Symlink(machine0Log, logDir+"/"); err != nil && !os.IsExist(err) {
+	if err := symlink.New(machine0Log, logDir+"/"); err != nil && !os.IsExist(err) {
 		return fmt.Errorf("cannot symlink %q to %q: %v", machine0Log, logDir, err)
 	}
 

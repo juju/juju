@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/utils/symlink"
 )
 
 type ToolsSuite struct {
@@ -28,7 +29,7 @@ func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	s.toolsDir = tools.SharedToolsDir(s.dataDir, version.Current)
 	err := os.MkdirAll(s.toolsDir, 0755)
 	c.Assert(err, gc.IsNil)
-	err = os.Symlink(s.toolsDir, tools.ToolsDir(s.dataDir, "unit-u-123"))
+	err = symlink.New(s.toolsDir, tools.ToolsDir(s.dataDir, "unit-u-123"))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -38,7 +39,7 @@ func (s *ToolsSuite) TestEnsureJujucSymlinks(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	assertLink := func(path string) time.Time {
-		target, err := os.Readlink(path)
+		target, err := symlink.Read(path)
 		c.Assert(err, gc.IsNil)
 		c.Assert(target, gc.Equals, "./jujud")
 		fi, err := os.Lstat(path)
