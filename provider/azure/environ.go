@@ -201,20 +201,20 @@ func (env *azureEnviron) getVirtualNetworkName() string {
 }
 
 func (env *azureEnviron) createVirtualNetwork() error {
-	// Note: we use the location rather than affinity group
-	// when creating the virtual network, as that is what
-	// the Azure documentation recommends to do
-	// "whenever possible".
+	// Note: the Azure documentation recommends to use
+	// Location when creating virtual network sites.
+	// We have historically used Affinity Group, and
+	// have observed intermittent issues when switching.
+	//location := env.getSnapshot().ecfg.location()
 	vnetName := env.getVirtualNetworkName()
-	location := env.getSnapshot().ecfg.location()
 	azure, err := env.getManagementAPI()
 	if err != nil {
 		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	virtualNetwork := gwacl.VirtualNetworkSite{
-		Name:     vnetName,
-		Location: location,
+		Name:          vnetName,
+		AffinityGroup: env.getAffinityGroupName(),
 		AddressSpacePrefixes: []string{
 			networkDefinition,
 		},
