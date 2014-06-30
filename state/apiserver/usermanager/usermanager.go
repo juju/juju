@@ -25,7 +25,7 @@ func init() {
 type UserManager interface {
 	AddUser(arg params.ModifyUsers) (params.ErrorResults, error)
 	RemoveUser(arg params.Entities) (params.ErrorResults, error)
-	//ChangePassword(arg params.ModifyUsers) (params.ErrorResults, error)
+	SetPassword(args params.ModifyUsers) (params.ErrorResults, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -189,7 +189,12 @@ func (api *UserManagerAPI) SetPassword(args params.ModifyUsers) (params.ErrorRes
 			continue
 		}
 
-		argUser, err := api.state.User(arg.Username)
+		username := arg.Username
+		if username == "" {
+			username = arg.Tag
+		}
+
+		argUser, err := api.state.User(username)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to find user %v", err))
 			continue

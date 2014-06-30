@@ -285,10 +285,11 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 
 func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
 	args := params.ModifyUsers{
-		Changes: []params.ModifyUser{{
-			Username: "admin",
-			Password: "new-password1",
-		},
+		Changes: []params.ModifyUser{
+			{
+				Username: "admin",
+				Password: "new-password1",
+			},
 			{
 				Username: "admin",
 				Password: "new-password2",

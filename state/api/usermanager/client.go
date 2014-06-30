@@ -77,7 +77,10 @@ func (c *Client) UserInfo(username string) (params.UserInfoResult, error) {
 
 func (c *Client) SetPassword(username, password string) error {
 	userArgs := params.ModifyUsers{
-		Changes: []params.ModifyUser{{Username: username, Password: password}},
+		Changes: []params.ModifyUser{{
+			Username: username,
+			Tag:      username,
+			Password: password}},
 	}
 	results := new(params.ErrorResults)
 	err := call(c.st, "SetPassword", userArgs, results)
