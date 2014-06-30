@@ -60,16 +60,16 @@ type ManagedStorage interface {
 	// RemoveForEnvironment deletes data at path, namespaced to the environment.
 	RemoveForEnvironment(envUUID, path string) error
 
-	// PutRequestForEnvironment requests that data, which may already exist in storage,
+	// PutForEnvironmentRequest requests that data, which may already exist in storage,
 	// be saved at path, namespaced to the environment. It allows callers who can
 	// demonstrate proof of ownership of the data to store a reference to it without
 	// having to upload it all. If no such data exists, a NotFound error is returned
 	// and a call to EnvironmentPut is required. If matching data is found, the caller
 	// is returned a response indicating the random byte range to for which they must
 	// provide checksums to complete the process.
-	PutRequestForEnvironment(envUUID, path string, hash ResourceHash) (*RequestResponse, error)
+	PutForEnvironmentRequest(envUUID, path string, hash ResourceHash) (*RequestResponse, error)
 
-	// PutResponse is called to respond to a *PutRequest call in order to
+	// ProofOfAccessResponse is called to respond to a Put..Request call in order to
 	// prove ownership of data for which a storage reference is created.
-	PutResponse(response PutResponse) error
+	ProofOfAccessResponse(putResponse) error
 }

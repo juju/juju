@@ -8,6 +8,7 @@ var (
 	NewResource        = newResource
 	PutResourceTxn     = &putResourceTxn
 	RequestExpiry      = &requestExpiry
+	AfterFunc          = &afterFunc
 )
 
 func GetResourceCatalog(ms ManagedStorage) ResourceCatalog {

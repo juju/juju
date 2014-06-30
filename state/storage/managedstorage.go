@@ -51,7 +51,7 @@ type managedStorage struct {
 
 	// The following attributes are used to manage the processing
 	// of put requests based on proof of access.
-	requestMux     sync.Mutex
+	requestMutex   sync.Mutex
 	nextRequestId  int64
 	queuedRequests map[int64]PutRequest
 }
@@ -79,6 +79,8 @@ const (
 // storing resource entries in the specified database, and resource data in the
 // specified resource storage.
 func NewManagedStorage(db *mgo.Database, txnRunner statetxn.Runner, rs ResourceStorage) ManagedStorage {
+	// Ensure random number generator used to calculate checksum byte range is seeded.
+	rand.Seed(int64(time.Now().Nanosecond()))
 	ms := &managedStorage{
 		resourceStore:   rs,
 		resourceCatalog: newResourceCatalog(db.C(resourceCatalogCollection), txnRunner),
@@ -376,8 +378,8 @@ var (
 	requestExpiry = 60 * time.Second
 )
 
-// PutResponse is used when responding to a put request.
-type PutResponse struct {
+// putResponse is used when responding to a put request.
+type putResponse struct {
 	requestId int64
 	ResourceHash
 }
@@ -400,9 +402,9 @@ type RequestResponse struct {
 	RangeLength int64
 }
 
-// NewPutResponse creates a new PutResponse for the given requestId and hashes.
-func NewPutResponse(requestId int64, md5Hash, sha256Hash string) PutResponse {
-	return PutResponse{
+// NewPutResponse creates a new putResponse for the given requestId and hashes.
+func NewPutResponse(requestId int64, md5Hash, sha256Hash string) putResponse {
+	return putResponse{
 		requestId: requestId,
 		ResourceHash: ResourceHash{
 			MD5Hash:    md5Hash,
@@ -420,6 +422,14 @@ func (ms *managedStorage) calculateExpectedHashes(resourceId, path string) (*Res
 	}
 	defer rdr.Close()
 	rangeLength := rand.Int63n(length)
+	// Restrict the minimum range to 512 or length/2, whichever is smaller.
+	minLength := int64(512)
+	if minLength > length/2 {
+		minLength = length / 2
+	}
+	if rangeLength < minLength {
+		rangeLength = minLength
+	}
 	// Restrict the maximum range to 2048 bytes.
 	if rangeLength > 2048 {
 		rangeLength = 2048
@@ -444,10 +454,10 @@ func (ms *managedStorage) calculateExpectedHashes(resourceId, path string) (*Res
 	}, start, rangeLength, nil
 }
 
-// PutRequestForEnvironment is defined on the ManagedStorage interface.
-func (ms *managedStorage) PutRequestForEnvironment(envUUID, path string, hash ResourceHash) (*RequestResponse, error) {
-	ms.requestMux.Lock()
-	defer ms.requestMux.Unlock()
+// PutForEnvironmentRequest is defined on the ManagedStorage interface.
+func (ms *managedStorage) PutForEnvironmentRequest(envUUID, path string, hash ResourceHash) (*RequestResponse, error) {
+	ms.requestMutex.Lock()
+	defer ms.requestMutex.Unlock()
 
 	// Find the resource id (if it exists) matching the supplied checksums.
 	// If there's no matching data already stored, a NotFound error is returned.
@@ -482,18 +492,23 @@ func (ms *managedStorage) PutRequestForEnvironment(envUUID, path string, hash Re
 	}, nil
 }
 
+// Wrap time.AfterFunc so we can patch for testing.
+var afterFunc = func(d time.Duration, f func()) *time.Timer {
+	return time.AfterFunc(d, f)
+}
+
 func (ms *managedStorage) updatePollTimer(nextRequestIdToExpire int64) {
 	firstUnexpiredRequest := ms.queuedRequests[nextRequestIdToExpire]
 	waitInterval := firstUnexpiredRequest.expiryTime.Sub(time.Now())
-	time.AfterFunc(waitInterval, func() {
+	afterFunc(waitInterval, func() {
 		ms.processRequestExpiry(nextRequestIdToExpire)
 	})
 }
 
 // processRequestExpiry is used to remove an expired put request from the queue.
 func (ms *managedStorage) processRequestExpiry(requestId int64) {
-	ms.requestMux.Lock()
-	defer ms.requestMux.Unlock()
+	ms.requestMutex.Lock()
+	defer ms.requestMutex.Unlock()
 	delete(ms.queuedRequests, requestId)
 
 	// If there are still pending requests, update the timer
@@ -526,11 +541,11 @@ var ErrResponseMismatch = fmt.Errorf("response checksums do not match")
 var ErrResourceDeleted = fmt.Errorf("resource was deleted")
 
 // PutResponse is defined on the ManagedStorage interface.
-func (ms *managedStorage) PutResponse(response PutResponse) error {
-	ms.requestMux.Lock()
+func (ms *managedStorage) ProofOfAccessResponse(response putResponse) error {
+	ms.requestMutex.Lock()
 	request, ok := ms.queuedRequests[response.requestId]
 	delete(ms.queuedRequests, response.requestId)
-	ms.requestMux.Unlock()
+	ms.requestMutex.Unlock()
 	if !ok {
 		return ErrRequestExpired
 	}

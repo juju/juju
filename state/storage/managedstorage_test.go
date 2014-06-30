@@ -305,8 +305,8 @@ func (s *managedStorageSuite) TestPutRaceWhereCatalogEntryRemoved(c *gc.C) {
 	// Remove the resource catalog entry with the resourceId that we are about
 	// to write to a managed resource entry.
 	beforeFunc := []func(){
-		nil,
-		nil,
+		nil, //  resourceCatalog Put()
+		nil, //  managedResource Put()
 		func() {
 			// Shamelessly exploit our knowledge of how ids are made.
 			md5hash, sha256hash := calculateCheckSums(c, 0, int64(len(blob)), blob)
@@ -337,7 +337,7 @@ func (s *managedStorageSuite) TestRemoveRace(c *gc.C) {
 
 func (s *managedStorageSuite) TestPutRequestNotFound(c *gc.C) {
 	hash := storage.ResourceHash{"md5", "sha256"}
-	_, err := s.managedStorage.PutRequestForEnvironment("env", "path/to/blob", hash)
+	_, err := s.managedStorage.PutForEnvironmentRequest("env", "path/to/blob", hash)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
@@ -368,11 +368,11 @@ func calculateCheckSums(c *gc.C, start, length int64, blob []byte) (md5hashHex, 
 func (s *managedStorageSuite) TestPutRequestResponseMD5Mismatch(c *gc.C) {
 	blob, md5hash, sha256hash := s.putTestBlob(c, "path/to/blob")
 	hash := storage.ResourceHash{md5hash, sha256hash}
-	reqResp, err := s.managedStorage.PutRequestForEnvironment("env", "path/to/blob", hash)
+	reqResp, err := s.managedStorage.PutForEnvironmentRequest("env", "path/to/blob", hash)
 	c.Assert(err, gc.IsNil)
 	_, sha256Response := calculateCheckSums(c, reqResp.RangeStart, reqResp.RangeLength, blob)
 	response := storage.NewPutResponse(reqResp.RequestId, "notmd5", sha256Response)
-	err = s.managedStorage.PutResponse(response)
+	err = s.managedStorage.ProofOfAccessResponse(response)
 	c.Assert(err, gc.Equals, storage.ErrResponseMismatch)
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
 }
@@ -380,11 +380,11 @@ func (s *managedStorageSuite) TestPutRequestResponseMD5Mismatch(c *gc.C) {
 func (s *managedStorageSuite) TestPutRequestResponseSHA256Mismatch(c *gc.C) {
 	blob, md5hash, sha256hash := s.putTestBlob(c, "path/to/blob")
 	hash := storage.ResourceHash{md5hash, sha256hash}
-	reqResp, err := s.managedStorage.PutRequestForEnvironment("env", "path/to/blob", hash)
+	reqResp, err := s.managedStorage.PutForEnvironmentRequest("env", "path/to/blob", hash)
 	c.Assert(err, gc.IsNil)
 	md5Response, _ := calculateCheckSums(c, reqResp.RangeStart, reqResp.RangeLength, blob)
 	response := storage.NewPutResponse(reqResp.RequestId, md5Response, "notsha256")
-	err = s.managedStorage.PutResponse(response)
+	err = s.managedStorage.ProofOfAccessResponse(response)
 	c.Assert(err, gc.Equals, storage.ErrResponseMismatch)
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
 }
@@ -399,27 +399,47 @@ func (s *managedStorageSuite) assertPutRequestSingle(c *gc.C, blob []byte, resou
 	c.Assert(err, gc.IsNil)
 	md5hash, sha256hash := calculateCheckSums(c, 0, int64(len(blob)), blob)
 	hash := storage.ResourceHash{md5hash, sha256hash}
-	reqResp, err := s.managedStorage.PutRequestForEnvironment("env", "path/to/blob", hash)
+	reqResp, err := s.managedStorage.PutForEnvironmentRequest("env", "path/to/blob", hash)
 	c.Assert(err, gc.IsNil)
 	md5Response, sha256Response := calculateCheckSums(c, reqResp.RangeStart, reqResp.RangeLength, blob)
 	response := storage.NewPutResponse(reqResp.RequestId, md5Response, sha256Response)
-	err = s.managedStorage.PutResponse(response)
+	err = s.managedStorage.ProofOfAccessResponse(response)
 	c.Assert(err, gc.IsNil)
 	s.assertGet(c, "path/to/blob", blob)
 	s.assertResourceCatalogCount(c, resourceCount)
 }
 
+var trigger struct{} = struct{}{}
+
+// patchedAfterFunc returns a function like time.AfterFunc, but is triggered on a channel
+// select rather than the expiry of a timer interval.
+func patchedAfterFunc(ch chan struct{}) func(d time.Duration, f func()) *time.Timer {
+	return func(d time.Duration, f func()) *time.Timer {
+		go func() {
+			select {
+			case <-ch:
+				f()
+				ch <- trigger
+			}
+		}()
+		return nil
+	}
+}
+
 func (s *managedStorageSuite) TestPutRequestSingle(c *gc.C) {
-	s.PatchValue(storage.RequestExpiry, 5*time.Millisecond)
+	ch := make(chan struct{})
+	s.PatchValue(storage.AfterFunc, patchedAfterFunc(ch))
 	s.assertPutRequestSingle(c, nil, 1)
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
-	// Wait for request timer to trigger.
-	time.Sleep(7 * time.Millisecond)
+	// Trigger the request timeout.
+	ch <- trigger
+	<-ch
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
 }
 
 func (s *managedStorageSuite) TestPutRequestLarge(c *gc.C) {
-	s.PatchValue(storage.RequestExpiry, 5*time.Millisecond)
+	ch := make(chan struct{})
+	s.PatchValue(storage.AfterFunc, patchedAfterFunc(ch))
 	// Use a blob size of 4096 which is greater than max range of put response range length.
 	blob := make([]byte, 4096)
 	for i := 0; i < 4096; i++ {
@@ -427,22 +447,26 @@ func (s *managedStorageSuite) TestPutRequestLarge(c *gc.C) {
 	}
 	s.assertPutRequestSingle(c, blob, 1)
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
-	// Wait for request timer to trigger.
-	time.Sleep(7 * time.Millisecond)
+	// Trigger the request timeout.
+	ch <- trigger
+	<-ch
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
 }
 
 func (s *managedStorageSuite) TestPutRequestMultiSequential(c *gc.C) {
-	s.PatchValue(storage.RequestExpiry, 5*time.Millisecond)
+	ch := make(chan struct{})
+	s.PatchValue(storage.AfterFunc, patchedAfterFunc(ch))
 	s.assertPutRequestSingle(c, nil, 1)
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
-	// Wait for request timer to trigger.
-	time.Sleep(7 * time.Millisecond)
+	// Trigger the request timeout.
+	ch <- trigger
+	<-ch
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
 	s.assertPutRequestSingle(c, nil, 1)
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
-	// Wait for request timer to trigger.
-	time.Sleep(7 * time.Millisecond)
+	// Trigger the request timeout.
+	ch <- trigger
+	<-ch
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
 }
 
@@ -454,13 +478,11 @@ func (s *managedStorageSuite) checkPutResponse(c *gc.C, index int, wg *sync.Wait
 		delay := rand.Intn(3)
 		time.Sleep(time.Duration(delay) * time.Millisecond)
 		expectError := index == 2
-		var response storage.PutResponse
 		if expectError {
-			response = storage.NewPutResponse(requestId, "bad", sha256hash)
-		} else {
-			response = storage.NewPutResponse(requestId, md5hash, sha256hash)
+			md5hash = "bad"
 		}
-		err := s.managedStorage.PutResponse(response)
+		response := storage.NewPutResponse(requestId, md5hash, sha256hash)
+		err := s.managedStorage.ProofOfAccessResponse(response)
 		if expectError {
 			c.Check(err, gc.NotNil)
 		} else {
@@ -489,7 +511,7 @@ func (s *managedStorageSuite) queuePutRequests(c *gc.C, done chan struct{}) {
 			blobPath := fmt.Sprintf("path/to/blob%d", i)
 			blob, md5hash, sha256hash := s.putTestBlob(c, blobPath)
 			hash := storage.ResourceHash{md5hash, sha256hash}
-			reqResp, err := s.managedStorage.PutRequestForEnvironment("env", "path/to/blob", hash)
+			reqResp, err := s.managedStorage.PutForEnvironmentRequest("env", "path/to/blob", hash)
 			c.Assert(err, gc.IsNil)
 			// Let one request timeout
 			if i == 3 {
@@ -504,7 +526,8 @@ func (s *managedStorageSuite) queuePutRequests(c *gc.C, done chan struct{}) {
 }
 
 func (s *managedStorageSuite) TestPutRequestMultiRandom(c *gc.C) {
-	s.PatchValue(storage.RequestExpiry, 100*time.Millisecond)
+	ch := make(chan struct{})
+	s.PatchValue(storage.AfterFunc, patchedAfterFunc(ch))
 	done := make(chan struct{})
 	s.queuePutRequests(c, done)
 	select {
@@ -513,59 +536,83 @@ func (s *managedStorageSuite) TestPutRequestMultiRandom(c *gc.C) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("timed out waiting for put requests to be processed")
 	}
-	len := storage.RequestQueueLength(s.managedStorage)
-	if len > 1 {
-		c.Fatal("request queue length too long")
-	}
-	// Wait for the final request to expire if it hasn't already.
-	time.Sleep(100 * time.Millisecond)
+	// One request hasn't been processed since we left it to timeout.
+	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 1)
+	// Trigger the request timeout.
+	ch <- trigger
+	<-ch
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
 }
 
 func (s *managedStorageSuite) TestPutRequestExpired(c *gc.C) {
-	s.PatchValue(storage.RequestExpiry, 5*time.Millisecond)
+	ch := make(chan struct{})
+	s.PatchValue(storage.AfterFunc, patchedAfterFunc(ch))
 	blob, md5hash, sha256hash := s.putTestBlob(c, "path/to/blob")
 	hash := storage.ResourceHash{md5hash, sha256hash}
-	reqResp, err := s.managedStorage.PutRequestForEnvironment("env", "path/to/blob", hash)
+	reqResp, err := s.managedStorage.PutForEnvironmentRequest("env", "path/to/blob", hash)
 	c.Assert(err, gc.IsNil)
 	md5Response, sha256Response := calculateCheckSums(c, reqResp.RangeStart, reqResp.RangeLength, blob)
-	time.Sleep(7 * time.Millisecond)
+	// Trigger the request timeout.
+	ch <- trigger
+	<-ch
 	response := storage.NewPutResponse(reqResp.RequestId, md5Response, sha256Response)
-	err = s.managedStorage.PutResponse(response)
+	err = s.managedStorage.ProofOfAccessResponse(response)
 	c.Assert(err, gc.Equals, storage.ErrRequestExpired)
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
 }
 
-func (s *managedStorageSuite) TestPutRequestExpiredMulti(c *gc.C) {
+// Run one simple test with the real time.AfterFunc to ensure it works.
+func (s *managedStorageSuite) TestPutRequestExpiredWithRealTimeAfter(c *gc.C) {
 	s.PatchValue(storage.RequestExpiry, 5*time.Millisecond)
 	blob, md5hash, sha256hash := s.putTestBlob(c, "path/to/blob")
 	hash := storage.ResourceHash{md5hash, sha256hash}
-	reqResp, err := s.managedStorage.PutRequestForEnvironment("env", "path/to/blob", hash)
+	reqResp, err := s.managedStorage.PutForEnvironmentRequest("env", "path/to/blob", hash)
 	c.Assert(err, gc.IsNil)
 	md5Response, sha256Response := calculateCheckSums(c, reqResp.RangeStart, reqResp.RangeLength, blob)
-	reqResp2, err := s.managedStorage.PutRequestForEnvironment("env", "path/to/blob2", hash)
+	// Wait for request timer to trigger.
+	time.Sleep(7 * time.Millisecond)
+	response := storage.NewPutResponse(reqResp.RequestId, md5Response, sha256Response)
+	err = s.managedStorage.ProofOfAccessResponse(response)
+	c.Assert(err, gc.Equals, storage.ErrRequestExpired)
+	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
+	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
+}
+
+func (s *managedStorageSuite) TestPutRequestExpiredMulti(c *gc.C) {
+	ch := make(chan struct{})
+	s.PatchValue(storage.AfterFunc, patchedAfterFunc(ch))
+	blob, md5hash, sha256hash := s.putTestBlob(c, "path/to/blob")
+	hash := storage.ResourceHash{md5hash, sha256hash}
+	reqResp, err := s.managedStorage.PutForEnvironmentRequest("env", "path/to/blob", hash)
+	c.Assert(err, gc.IsNil)
+	md5Response, sha256Response := calculateCheckSums(c, reqResp.RangeStart, reqResp.RangeLength, blob)
+	reqResp2, err := s.managedStorage.PutForEnvironmentRequest("env", "path/to/blob2", hash)
 	c.Assert(err, gc.IsNil)
 	md5Response2, sha256Response2 := calculateCheckSums(c, reqResp.RangeStart, reqResp.RangeLength, blob)
-	time.Sleep(7 * time.Millisecond)
+	// Trigger the request timeouts.
+	ch <- trigger
+	<-ch
+	ch <- trigger
+	<-ch
 	c.Assert(storage.RequestQueueLength(s.managedStorage), gc.Equals, 0)
 	response := storage.NewPutResponse(reqResp.RequestId, md5Response, sha256Response)
 	response2 := storage.NewPutResponse(reqResp2.RequestId, md5Response2, sha256Response2)
-	err = s.managedStorage.PutResponse(response)
+	err = s.managedStorage.ProofOfAccessResponse(response)
 	c.Assert(err, gc.Equals, storage.ErrRequestExpired)
-	err = s.managedStorage.PutResponse(response2)
+	err = s.managedStorage.ProofOfAccessResponse(response2)
 	c.Assert(err, gc.Equals, storage.ErrRequestExpired)
 }
 
 func (s *managedStorageSuite) TestPutRequestDeleted(c *gc.C) {
 	blob, md5hash, sha256hash := s.putTestBlob(c, "path/to/blob")
 	hash := storage.ResourceHash{md5hash, sha256hash}
-	reqResp, err := s.managedStorage.PutRequestForEnvironment("env", "path/to/blob", hash)
+	reqResp, err := s.managedStorage.PutForEnvironmentRequest("env", "path/to/blob", hash)
 	c.Assert(err, gc.IsNil)
 	err = s.managedStorage.RemoveForEnvironment("env", "path/to/blob")
 	c.Assert(err, gc.IsNil)
 
 	md5Response, sha256Response := calculateCheckSums(c, reqResp.RangeStart, reqResp.RangeLength, blob)
 	response := storage.NewPutResponse(reqResp.RequestId, md5Response, sha256Response)
-	err = s.managedStorage.PutResponse(response)
+	err = s.managedStorage.ProofOfAccessResponse(response)
 	c.Assert(err, gc.Equals, storage.ErrResourceDeleted)
 }
