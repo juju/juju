@@ -30,23 +30,3 @@ func (s *EndpointSuite) TestEndpoint(c *gc.C) {
 	info := s.APIInfo(c)
 	c.Assert(output, gc.Equals, fmt.Sprintf("%s\n", info.Addrs[0]))
 }
-
-func (s *EndpointSuite) TestPublicIPv4Filtering(c *gc.C) {
-	tests := []struct {
-		addr         string
-		isPublicIPv4 bool
-	}{
-		{"127.0.0.1:17070", true},
-		{"91.189.94.156:17070", true},
-		{"10.0.0.1:17070", false},
-		{"172.16.1.1:17070", false},
-		{"192.168.1.1:17070", false},
-		{"[0:0:0:0:0:0:0:1]:17070", false},
-		{"[::1]:17070", false},
-	}
-	for _, test := range tests {
-		ep, err := newEndpointIP(test.addr)
-		c.Assert(err, gc.IsNil)
-		c.Assert(ep.isPublicV4(), gc.Equals, test.isPublicIPv4)
-	}
-}
