@@ -4,7 +4,8 @@
 package version
 
 import (
-	"io/ioutil"
+	"bufio"
+	"os"
 	"strconv"
 	"strings"
 
@@ -13,18 +14,35 @@ import (
 
 var logger = loggo.GetLogger("juju.version")
 
-func readSeries(releaseFile string) string {
-	data, err := ioutil.ReadFile(releaseFile)
+// mustOsVersion will panic if the osVersion is "unknown" due
+// to an error.
+//
+// If you want to avoid the panic, either call osVersion and handle
+// the error.
+func mustOsVersion() string {
+	version, err := osVersion()
 	if err != nil {
-		return "unknown"
+		panic("osVersion reported an error: " + err.Error())
 	}
-	for _, line := range strings.Split(string(data), "\n") {
+	return version
+}
+
+func readSeries(releaseFile string) (string, error) {
+	f, err := os.Open(releaseFile)
+	if err != nil {
+		return "unknown", err
+	}
+	defer f.Close()
+
+	s := bufio.NewScanner(f)
+	for s.Scan() {
+		line := s.Text()
 		const prefix = "DISTRIB_CODENAME="
 		if strings.HasPrefix(line, prefix) {
-			return strings.Trim(line[len(prefix):], "\t '\"")
+			return strings.Trim(line[len(prefix):], "\t '\""), s.Err()
 		}
 	}
-	return "unknown"
+	return "unknown", s.Err()
 }
 
 // kernelToMajor takes a dotted version and returns just the Major portion

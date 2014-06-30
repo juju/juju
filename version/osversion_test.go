@@ -63,7 +63,9 @@ func (*readSeriesSuite) TestReadSeries(c *gc.C) {
 		c.Logf("test %d", i)
 		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
 		c.Assert(err, gc.IsNil)
-		c.Assert(version.ReadSeries(f), gc.Equals, t.series)
+		series, err := version.ReadSeries(f)
+		c.Assert(err, gc.IsNil)
+		c.Assert(series, gc.Equals, t.series)
 	}
 }
 
