@@ -23,6 +23,7 @@ import (
 )
 
 const toolsFile = "downloaded-tools.txt"
+const dirPerm = 0755
 
 // SharedToolsDir returns the directory that is used to
 // store binaries for the given version of the juju tools
@@ -70,7 +71,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 	// Make a temporary directory in the tools directory,
 	// first ensuring that the tools directory exists.
 	toolsDir := path.Join(dataDir, "tools")
-	err = os.MkdirAll(toolsDir, 0755)
+	err = os.MkdirAll(toolsDir, dirPerm)
 	if err != nil {
 		return err
 	}
@@ -116,7 +117,7 @@ func UnpackTools(dataDir string, tools *coretools.Tools, r io.Reader) (err error
 
 	// The tempdir is created with 0700, so we need to make it more
 	// accessable for juju-run.
-	err = os.Chmod(dir, 0755)
+	err = os.Chmod(dir, dirPerm)
 	if err != nil {
 		return err
 	}
@@ -175,14 +176,15 @@ func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*c
 	if err != nil {
 		return nil, err
 	}
-	tmpName := ToolsDir(dataDir, "tmplink-"+agentName)
-	err = symlink.New(tools.Version.String(), tmpName)
+	// build absolute path to toolsDir. Windows implementation of symlink
+	// will check for the existance of the source file and error if it does
+	// not exists. This is a limitation of junction points (symlinks) on NTFS
+	toolPath := ToolsDir(dataDir, tools.Version.String())
+	toolsDir := ToolsDir(dataDir, agentName)
+
+	err = symlink.Replace(toolsDir, toolPath)
 	if err != nil {
-		return nil, fmt.Errorf("cannot create tools symlink: %v", err)
-	}
-	err = os.Rename(tmpName, ToolsDir(dataDir, agentName))
-	if err != nil {
-		return nil, fmt.Errorf("cannot update tools symlink: %v", err)
+		return nil, fmt.Errorf("cannot replace tools directory: %s", err)
 	}
 	return tools, nil
 }
