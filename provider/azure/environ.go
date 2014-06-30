@@ -205,7 +205,7 @@ func (env *azureEnviron) createVirtualNetwork() error {
 	// Location when creating virtual network sites.
 	// We have historically used Affinity Group, and
 	// have observed intermittent issues when switching.
-	//location := env.getSnapshot().ecfg.location()
+	// http://msdn.microsoft.com/en-us/library/azure/jj157100.aspx
 	vnetName := env.getVirtualNetworkName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
