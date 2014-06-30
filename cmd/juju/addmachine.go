@@ -44,7 +44,9 @@ access the environment storage.
 
 Examples:
    juju add-machine                      (starts a new machine)
+   juju add-machine -n 2                 (starts 2 new machines)
    juju add-machine lxc                  (starts a new machine with an lxc container)
+   juju add-machine lxc -n 2             (starts 2 new machines with an lxc container)
    juju add-machine lxc:4                (starts a new lxc container on machine 4)
    juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
    juju add-machine ssh:user@10.10.0.3   (manually provisions a machine with ssh)
@@ -62,6 +64,8 @@ type AddMachineCommand struct {
 	Constraints constraints.Value
 	// Placement is passed verbatim to the API, to be parsed and evaluated server-side.
 	Placement *instance.Placement
+
+	NumMachines int
 }
 
 func (c *AddMachineCommand) Info() *cmd.Info {
@@ -75,6 +79,7 @@ func (c *AddMachineCommand) Info() *cmd.Info {
 
 func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the charm series")
+	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
 }
 
@@ -127,7 +132,13 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		Constraints: c.Constraints,
 		Jobs:        []params.MachineJob{params.JobHostUnits},
 	}
-	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
+	machines := []params.AddMachineParams{}
+
+	for i := 0; i < c.NumMachines; i++ {
+		machines = append(machines, machineParams)
+	}
+
+	results, err := client.AddMachines(machines)
 	if params.IsCodeNotImplemented(err) {
 		if c.Placement != nil {
 			containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
@@ -151,16 +162,17 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// Currently, only one machine is added, but in future there may be several added in one call.
-	machineInfo := results[0]
-	if machineInfo.Error != nil {
-		return machineInfo.Error
-	}
-	machineId := machineInfo.Machine
+	for _, machineInfo := range results {
+		if machineInfo.Error != nil {
+			return machineInfo.Error
+		}
+		machineId := machineInfo.Machine
 
-	if names.IsContainerMachine(machineId) {
-		ctx.Infof("created container %v", machineId)
-	} else {
-		ctx.Infof("created machine %v", machineId)
+		if names.IsContainerMachine(machineId) {
+			ctx.Infof("created container %v", machineId)
+		} else {
+			ctx.Infof("created machine %v", machineId)
+		}
 	}
 	return nil
 }

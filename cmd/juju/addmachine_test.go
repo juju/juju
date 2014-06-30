@@ -63,6 +63,30 @@ func (s *AddMachineSuite) TestAddMachineWithConstraints(c *gc.C) {
 	c.Assert(mcons, gc.DeepEquals, expectedCons)
 }
 
+func (s *AddMachineSuite) TestAddTwoMachinesWithConstraints(c *gc.C) {
+	context, err := runAddMachine(c, "--constraints", "mem=4G", "-n", "2")
+	c.Assert(err, gc.IsNil)
+	c.Assert(testing.Stderr(context), gc.Equals, "created machine 0\ncreated machine 1\n")
+	for i := 0; i < 2; i++ {
+		m, err := s.State.Machine(strconv.Itoa(i))
+		c.Assert(err, gc.IsNil)
+		mcons, err := m.Constraints()
+		c.Assert(err, gc.IsNil)
+		expectedCons := constraints.MustParse("mem=4G")
+		c.Assert(mcons, gc.DeepEquals, expectedCons)
+	}
+}
+
+func (s *AddMachineSuite) TestAddTwoMachinesWithContainers(c *gc.C) {
+	context, err := runAddMachine(c, "lxc", "-n", "2")
+	c.Assert(err, gc.IsNil)
+	c.Assert(testing.Stderr(context), gc.Equals, "created container 0/lxc/0\ncreated container 1/lxc/0\n")
+	for i := 0; i < 2; i++ {
+		machine := fmt.Sprintf("%d/%s/0", i, instance.LXC)
+		s._assertAddContainer(c, strconv.Itoa(i), machine, instance.LXC)
+	}
+}
+
 func (s *AddMachineSuite) _assertAddContainer(c *gc.C, parentId, containerId string, ctype instance.ContainerType) {
 	m, err := s.State.Machine(parentId)
 	c.Assert(err, gc.IsNil)
