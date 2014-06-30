@@ -74,9 +74,16 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
 	if !options.passwordAuthAllowed {
 		args = append(args, "-o", "PasswordAuthentication no")
 	}
+
+	// We must set ServerAliveInterval or the server may
+	// think we've become unresponsive on long running
+	// command executions such as "apt-get upgrade".
+	args = append(args, "-o", "ServerAliveInterval 30")
+
 	if options.allocatePTY {
 		args = append(args, "-t", "-t") // twice to force
 	}
+
 	identities := append([]string{}, options.identities...)
 	if pk := PrivateKeyFiles(); len(pk) > 0 {
 		// Add client keys as implicit identities
