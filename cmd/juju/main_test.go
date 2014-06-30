@@ -238,7 +238,7 @@ var commandNames = []string{
 	"unset-environment",
 	"upgrade-charm",
 	"upgrade-juju",
-	"user",
+	// "user", -- disabled for 1.20
 	"version",
 }
 

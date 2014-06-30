@@ -142,7 +142,8 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 	r.Register(NewAuthorizedKeysCommand())
 
 	// Manage users and access
-	r.Register(NewUserCommand())
+	// Disable for 1.20 release
+	// r.Register(NewUserCommand())
 
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
