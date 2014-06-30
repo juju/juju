@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 )
 
@@ -59,11 +60,11 @@ func kernelToMajor(getKernelVersion func() (string, error)) (int, error) {
 	return int(majorVersion), nil
 }
 
-func macOSXSeriesFromKernelVersion(getKernelVersion func() (string, error)) string {
+func macOSXSeriesFromKernelVersion(getKernelVersion func() (string, error)) (string, error) {
 	majorVersion, err := kernelToMajor(getKernelVersion)
 	if err != nil {
 		logger.Infof("unable to determine OS version: %v", err)
-		return "unknown"
+		return "unknown", err
 	}
 	return macOSXSeriesFromMajorVersion(majorVersion)
 }
@@ -87,9 +88,10 @@ var macOSXSeries = map[int]string{
 	5:  "puma",
 }
 
-func macOSXSeriesFromMajorVersion(majorVersion int) string {
-	if series, ok := macOSXSeries[majorVersion]; ok {
-		return series
+func macOSXSeriesFromMajorVersion(majorVersion int) (string, error) {
+	series, ok := macOSXSeries[majorVersion]
+	if !ok {
+		return "unknown", errors.Errorf("unknown series %q", series)
 	}
-	return "unknown"
+	return series, nil
 }
