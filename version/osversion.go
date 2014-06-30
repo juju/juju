@@ -4,14 +4,11 @@
 package version
 
 import (
-	"fmt"
 	"io/ioutil"
-	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/juju/loggo"
-	"github.com/juju/utils/exec"
 )
 
 var logger = loggo.GetLogger("juju.version")
@@ -30,10 +27,8 @@ func readSeries(releaseFile string) string {
 	return "unknown"
 }
 
-type kernelVersionFunc func() (string, error)
-
 // kernelToMajor takes a dotted version and returns just the Major portion
-func kernelToMajor(getKernelVersion kernelVersionFunc) (int, error) {
+func kernelToMajor(getKernelVersion func() (string, error)) (int, error) {
 	fullVersion, err := getKernelVersion()
 	if err != nil {
 		return 0, err
@@ -46,7 +41,7 @@ func kernelToMajor(getKernelVersion kernelVersionFunc) (int, error) {
 	return int(majorVersion), nil
 }
 
-func macOSXSeriesFromKernelVersion(getKernelVersion kernelVersionFunc) string {
+func macOSXSeriesFromKernelVersion(getKernelVersion func() (string, error)) string {
 	majorVersion, err := kernelToMajor(getKernelVersion)
 	if err != nil {
 		logger.Infof("unable to determine OS version: %v", err)
@@ -77,27 +72,6 @@ var macOSXSeries = map[int]string{
 func macOSXSeriesFromMajorVersion(majorVersion int) string {
 	if series, ok := macOSXSeries[majorVersion]; ok {
 		return series
-	}
-	return "unknown"
-}
-
-func getWinVersion() string {
-	var com exec.RunParams
-	com.Commands = `(gwmi Win32_OperatingSystem).Name.Split('|')[0]`
-	out, _ := exec.RunCommands(com)
-	if out.Code != 0 {
-		return "unknown"
-	}
-	serie := strings.TrimSpace(string(out.Stdout))
-	if val, ok := windowsVersions[serie]; ok {
-		return val
-	}
-	for key, value := range windowsVersions {
-		reg := regexp.MustCompile(fmt.Sprintf("^%s", key))
-		match := reg.MatchString(serie)
-		if match {
-			return value
-		}
 	}
 	return "unknown"
 }
