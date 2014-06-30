@@ -155,6 +155,15 @@ class Client:
         headers, content = self._request(path, method='DELETE')
 
     def delete_old_machines(self):
+        procs = subprocess.check_output(['bash', '-c', JOYENT_PROCS])
+        for proc in procs.splitlines():
+            command = proc.split()
+            pid = command.pop(0)
+            alive = command.pop(0)
+            if len(alive) > 5 and int(alive.split(':')[0]) > 0:
+                # the pid has an hours column and the value is greater than 1.
+                print("Pid {} is {} old. Ending {}".format(pid, alive, command))
+                subprocess.check_output(['kill', '-9', pid])
         machines = self._list_machines()
         now = datetime.utcnow()
         for machine in machines:
@@ -174,12 +183,8 @@ class Client:
                         break
                 print("stopped")
                 self.delete_machine(machine_id)
-        procs = subprocess.check_output(['bash', '-c', JOYENT_PROCS])
-        for proc in procs.splitlines():
-            pid, alive, command = proc.split(' ', 2)
-            if len(alive) > 5 and int(alive.split(':')[0]) > 0:
-                # the pid has an hours column and the value is greater than 1.
-                subprocess.check_output(['kill', '-9', pid])
+
+
 
 
 def main():
