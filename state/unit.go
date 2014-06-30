@@ -862,6 +862,10 @@ func (u *Unit) AgentPresence() (bool, error) {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (u *Unit) Tag() names.Tag {
+	return u.UnitTag()
+}
+
+func (u *Unit) UnitTag() names.UnitTag {
 	return names.NewUnitTag(u.Name())
 }
 
@@ -1475,12 +1479,11 @@ func (u *Unit) UnassignFromMachine() (err error) {
 
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
-func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, error) {
-	actionId, err := newActionId(u.st, names.NewUnitTag(u.Name()).Id())
+func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
+	doc, err := newActionDoc(u, name, payload)
 	if err != nil {
-		return "", fmt.Errorf("cannot add action; error generating key: %v", err)
+		return nil, fmt.Errorf("cannot add action; %v", err)
 	}
-	doc := actionDoc{Id: actionId, Name: name, Payload: payload}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -1501,9 +1504,19 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 		return ops, nil
 	}
 	if err = u.st.run(buildTxn); err == nil {
-		return actionId, nil
+		return newAction(u.st, doc), nil
 	}
-	return "", err
+	return nil, err
+}
+
+// Actions returns a list of actions for this unit
+func (u *Unit) Actions() ([]*Action, error) {
+	return u.st.matchingActions(u.Name())
+}
+
+// ActionResults returns a list of action results for this unit
+func (u *Unit) ActionResults() ([]*ActionResult, error) {
+	return u.st.matchingActionResults(u.Name())
 }
 
 // Resolve marks the unit as having had any previous state transition
@@ -1579,5 +1592,5 @@ func (u *Unit) ClearResolved() error {
 
 // WatchActions starts and returns an ActionWatcher
 func (u *Unit) WatchActions() StringsWatcher {
-	return newActionWatcher(u.st, u.Tag().Id())
+	return newActionWatcher(u.st, actionPrefix(u.Name()))
 }
