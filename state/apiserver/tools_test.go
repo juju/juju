@@ -29,7 +29,7 @@ type toolsSuite struct {
 var _ = gc.Suite(&toolsSuite{})
 
 func (s *toolsSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
+	s.authHttpSuite.SetUpSuite(c)
 	s.archiveContentType = "application/x-tar-gz"
 }
 

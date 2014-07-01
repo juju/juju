@@ -84,6 +84,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	// Create a uniter API for unit 0.
 	s.uniter, err = uniter.NewUniterAPI(
