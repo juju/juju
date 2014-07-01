@@ -223,11 +223,11 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleHostArch(c *gc.C
 	s.PatchValue(&arch.HostArch, func() string {
 		return "amd64"
 	})
-	// Force a dev version by having an odd minor version number.
+	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
 	devVersion := version.Current
-	devVersion.Minor = 11
+	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
@@ -246,11 +246,11 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleTargetArch(c *gc
 	s.PatchValue(&arch.HostArch, func() string {
 		return "ppc64"
 	})
-	// Force a dev version by having an odd minor version number.
+	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
 	devVersion := version.Current
-	devVersion.Minor = 11
+	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)

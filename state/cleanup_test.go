@@ -323,7 +323,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// make sure unit still has actions
-	actions, err := s.State.UnitActions(unit.Name())
+	actions, err := unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 2)
 
@@ -333,7 +333,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	s.assertCleanupRuns(c)
 
 	// make sure unit still has actions, after first cleanup pass
-	actions, err = s.State.UnitActions(unit.Name())
+	actions, err = unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 2)
 
@@ -341,7 +341,7 @@ func (s *CleanupSuite) TestCleanupActions(c *gc.C) {
 	s.assertCleanupRuns(c)
 
 	// make sure unit has no actions, after second cleanup pass
-	actions, err = s.State.UnitActions(unit.Name())
+	actions, err = unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 0)
 
