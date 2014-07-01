@@ -36,7 +36,7 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch r.Method {
-	case "POST":
+	case "GET":
 		file, sha, err := h.doBackup()
 		if err != nil {
 			h.sendError(w, http.StatusInternalServerError, err.Error())
@@ -78,10 +78,9 @@ func (h *backupHandler) doBackup() (*os.File, string, error) {
 func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message string) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)
-	body, err := json.Marshal(&params.BackupResponse{Error: message})
-	if err != nil {
-		return err
-	}
+	// We ignore any error here in the interest of at least sending the
+	// status code in the response.
+	body, _ := json.Marshal(&params.Error{Message: message})
 	w.Write(body)
 	return nil
 }

@@ -13,14 +13,15 @@ import (
 )
 
 /*
-TODO(ericsnow) Client.AddLocalCharm() and Client.UploadTools() should
+TODO(ericsnow) 2014-07-01 bug #1336542
+Client.AddLocalCharm() and Client.UploadTools() should
 be updated to use this method (and this should be adapted to
 accommodate them.  That will include adding parameters for "args" and
 "payload".
 */
-func (c *Client) getRawRPCRequest(method string) (*http.Request, error) {
+func (c *Client) getRawRPCRequest(httpMethod string, method string) (*http.Request, error) {
 	url := fmt.Sprintf("%s/%s", c.st.serverRoot, method)
-	req, err := http.NewRequest("POST", url, nil)
+	req, err := http.NewRequest(httpMethod, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not create HTTP request: %v", err)
 	}
@@ -30,20 +31,20 @@ func (c *Client) getRawRPCRequest(method string) (*http.Request, error) {
 	return req, nil
 }
 
-func (c *Client) getRawHTTPClient() rawrpc.RawClient {
+func (c *Client) getRawHTTPClient() rawrpc.HTTPDoer {
 	httpclient := utils.GetValidatingHTTPClient()
 	tlsconfig := tls.Config{RootCAs: c.st.certPool, ServerName: "anything"}
 	httpclient.Transport = utils.NewHttpTLSTransport(&tlsconfig)
 	return httpclient
 }
 
-func (c *Client) sendRawRPC(method string, errResult rawrpc.ErrorResult) (*http.Response, error) {
-	req, err := c.getRawRPCRequest(method)
+func (c *Client) sendRawRPC(httpMethod string, method string) (*http.Response, error) {
+	req, err := c.getRawRPCRequest(httpMethod, method)
 	if err != nil {
 		return nil, err
 	}
 
 	// Send the request.
 	httpclient := c.getRawHTTPClient()
-	return rawrpc.Send(httpclient, req, errResult)
+	return rawrpc.Do(httpclient, req)
 }

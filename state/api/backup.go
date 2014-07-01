@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/backup"
 )
 
@@ -26,8 +25,7 @@ func (c *Client) Backup(backupFilePath string, validate bool) (string, error) {
 	}
 
 	// Send the request.
-	var errorResult params.BackupResponse
-	resp, err := c.sendRawRPC("backup", &errorResult)
+	resp, err := c.sendRawRPC("GET", "backup")
 	if err != nil {
 		return "", err
 	}

@@ -4,7 +4,6 @@
 package params
 
 import (
-	"fmt"
 	"time"
 
 	"github.com/juju/utils/exec"
@@ -595,15 +594,6 @@ type CharmsResponse struct {
 	Error    string   `json:",omitempty"`
 	CharmURL string   `json:",omitempty"`
 	Files    []string `json:",omitempty"`
-}
-
-// BackupResponse is the server (error only) response to backup requests
-type BackupResponse struct {
-	Error string `json:",omitempty"`
-}
-
-func (r *BackupResponse) Err() error {
-	return fmt.Errorf(r.Error)
 }
 
 // RunParams is used to provide the parameters to the Run method.

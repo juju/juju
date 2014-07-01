@@ -90,108 +90,78 @@ func (c FakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 }
 
 //---------------------------
-// UnpackJSON() tests
+// Do() tests
 
-func (s *rawrpcSuite) TestUnpackJSONValid(c *gc.C) {
-	var result FakeResult
-	data := bytes.NewBufferString(`{"Error": ""}`)
-	err := rawrpc.UnpackJSON(data, &result)
-
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *rawrpcSuite) TestUnpackJSONMissingErrorResult(c *gc.C) {
-	data := bytes.NewBufferString("")
-	err := rawrpc.UnpackJSON(data, nil)
-
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *rawrpcSuite) TestUnpackJSONNotErrorResult(c *gc.C) {
-	var result struct{}
-	data := bytes.NewBufferString("{}")
-	err := rawrpc.UnpackJSON(data, &result)
-
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *rawrpcSuite) TestUnpackJSONUnreadableData(c *gc.C) {
-	var result struct{}
-	data := InvalidData("invalid!")
-	err := rawrpc.UnpackJSON(data, &result)
-
-	c.Assert(err, gc.ErrorMatches, "could not read response data: .*")
-}
-
-func (s *rawrpcSuite) TestUnpackJSONUnpackableData(c *gc.C) {
-	var result struct{}
-	data := bytes.NewBufferString("not valid JSON")
-	err := rawrpc.UnpackJSON(data, &result)
-
-	c.Assert(err, gc.ErrorMatches, "could not unpack response data: .*")
-}
-
-func (s *rawrpcSuite) TestUnpackJSONFailed(c *gc.C) {
-	var result FakeResult
-	data := bytes.NewBufferString(`{"Error": "failed!"}`)
-	err := rawrpc.UnpackJSON(data, &result)
-
-	c.Assert(err, gc.ErrorMatches, "request failed on server: .*")
-}
-
-//---------------------------
-// Send() tests
-
-func (s *rawrpcSuite) TestSendValidNoData(c *gc.C) {
+func (s *rawrpcSuite) TestDoValidNoData(c *gc.C) {
 	client := FakeHTTPClient{}
-	resp, err := rawrpc.Send(&client, nil, nil)
+	resp, err := rawrpc.Do(&client, nil)
 	data, _ := ioutil.ReadAll(resp.Body)
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "")
 }
 
-func (s *rawrpcSuite) TestSendValidData(c *gc.C) {
+func (s *rawrpcSuite) TestDoValidData(c *gc.C) {
 	client := FakeHTTPClient{Data: bytes.NewBufferString("raw data")}
-	resp, err := rawrpc.Send(&client, nil, nil)
+	resp, err := rawrpc.Do(&client, nil)
 	data, _ := ioutil.ReadAll(resp.Body)
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "raw data")
 }
 
-func (s *rawrpcSuite) TestSendRequestSendFailed(c *gc.C) {
+func (s *rawrpcSuite) TestDoRequestSendFailed(c *gc.C) {
 	client := FakeHTTPClient{Err: fmt.Errorf("failed!")}
-	_, err := rawrpc.Send(&client, nil, nil)
+	_, err := rawrpc.Do(&client, nil)
 
 	c.Assert(err, gc.ErrorMatches, "could not send raw request: .*")
 }
 
-func (s *rawrpcSuite) TestSendMethodNotSupported(c *gc.C) {
+func (s *rawrpcSuite) TestDoMethodNotSupported(c *gc.C) {
 	client := FakeHTTPClient{Code: http.StatusMethodNotAllowed}
-	_, err := rawrpc.Send(&client, nil, nil)
+	_, err := rawrpc.Do(&client, nil)
 
 	c.Assert(err, gc.ErrorMatches, "method not supported by API server")
 }
 
-func (s *rawrpcSuite) TestSendResultError(c *gc.C) {
+// tests for method failures returned by the API server
+
+func (s *rawrpcSuite) TestDoUnreadableErrorData(c *gc.C) {
 	client := FakeHTTPClient{
-		Data: bytes.NewBufferString(`{"Error": "failed!"}`),
+		Data: InvalidData("invalid!"),
 		Code: http.StatusInternalServerError,
 	}
-	var result FakeResult
-	_, err := rawrpc.Send(&client, nil, &result)
+	_, err := rawrpc.Do(&client, nil)
 
-	c.Assert(err, gc.ErrorMatches, "request failed on server: .*")
+	c.Assert(err, gc.ErrorMatches, "could not unpack error response: .*")
 }
 
-func (s *rawrpcSuite) TestSendBadStatusCode(c *gc.C) {
+func (s *rawrpcSuite) TestDoBadErrorData(c *gc.C) {
+	client := FakeHTTPClient{
+		Data: bytes.NewBufferString("not valid JSON"),
+		Code: http.StatusInternalServerError,
+	}
+	_, err := rawrpc.Do(&client, nil)
+
+	c.Assert(err, gc.ErrorMatches, "could not unpack error response: .*")
+}
+
+func (s *rawrpcSuite) TestDoFailedRemotely(c *gc.C) {
+	client := FakeHTTPClient{
+		Data: bytes.NewBufferString(`{"Message": "failed!"}`),
+		Code: http.StatusInternalServerError,
+	}
+	_, err := rawrpc.Do(&client, nil)
+
+	c.Assert(err, gc.ErrorMatches, "failed!")
+}
+
+func (s *rawrpcSuite) TestDoBadStatusCode(c *gc.C) {
 	client := FakeHTTPClient{
 		Data: bytes.NewBufferString(`{}`),
 		Code: http.StatusInternalServerError,
 	}
-	var result FakeResult
-	_, err := rawrpc.Send(&client, nil, &result)
+	_, err := rawrpc.Do(&client, nil)
 
-	c.Assert(err.Error(), gc.Equals, "request failed on server (500)")
+	c.Assert(err.Error(), gc.Equals, "")
 }
