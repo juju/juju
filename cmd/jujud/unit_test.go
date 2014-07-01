@@ -33,6 +33,16 @@ type UnitSuite struct {
 
 var _ = gc.Suite(&UnitSuite{})
 
+func (s *UnitSuite) SetUpSuite(c *gc.C) {
+	s.GitSuite.SetUpSuite(c)
+	s.agentSuite.SetUpSuite(c)
+}
+
+func (s *UnitSuite) TearDownSuite(c *gc.C) {
+	s.agentSuite.TearDownSuite(c)
+	s.GitSuite.TearDownSuite(c)
+}
+
 func (s *UnitSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.agentSuite.SetUpTest(c)
