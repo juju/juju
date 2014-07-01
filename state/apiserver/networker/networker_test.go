@@ -303,10 +303,10 @@ func (s *networkerSuite) TestWatchInterfacesPermissions(c *gc.C) {
 		{Tag: "machine-1"},
 		{Tag: "machine-0-lxc-42"},
 	}}
-	results, err := s.networker.MachineNetworkInfo(args)
+	results, err := s.networker.WatchInterfaces(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, params.MachineNetworkInfoResults{
-		Results: []params.MachineNetworkInfoResult{
+	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -318,7 +318,7 @@ func (s *networkerSuite) TestWatchInterfacesPermissions(c *gc.C) {
 	})
 }
 
-func (s *networkerSuite) TestWatchInterfacesForContainers(c *gc.C) {
+func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -347,91 +347,4 @@ func (s *networkerSuite) TestWatchInterfacesForContainers(c *gc.C) {
 		wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
 		wc.AssertNoChange()
 	}
-}
-
-func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	// Read dynamically generated document Ids.
-	ifaces, err := s.machine.NetworkInterfaces()
-	c.Assert(err, gc.IsNil)
-	c.Assert(ifaces, gc.HasLen, 5)
-
-	// Start network interface watcher.
-	args := params.Entities{Entities: []params.Entity{{Tag: "machine-0"}}}
-	result, err := s.networker.WatchInterfaces(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
-		Results: []params.NotifyWatchResult{
-			{NotifyWatcherId: "1"},
-		},
-	})
-
-	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), gc.Equals, 1)
-	resource := s.resources.Get("1")
-	defer statetesting.AssertStop(c, resource)
-
-	// Check that the WatchInterfaces has consumed the initial event ("returned" in
-	// the Watch call)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
-	wc.AssertNoChange()
-
-	// Disable the first interface.
-	err = ifaces[0].SetDisabled(true)
-	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange()
-
-	// Disable the first interface again, should not report.
-	err = ifaces[0].SetDisabled(true)
-	c.Assert(err, gc.IsNil)
-	wc.AssertNoChange()
-
-	// Enable the first interface.
-	err = ifaces[0].SetDisabled(false)
-	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange()
-
-	// Enable the first interface again, should not report.
-	err = ifaces[0].SetDisabled(false)
-	c.Assert(err, gc.IsNil)
-	wc.AssertNoChange()
-
-	// Remove the network interface.
-	err = ifaces[0].Remove()
-	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange()
-
-	// Add the new interface.
-	_, err = s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
-		MACAddress:    "aa:bb:cc:dd:ee:f3",
-		InterfaceName: "eth3",
-		NetworkName:   "net2",
-	})
-	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange()
-
-	// Add the new interface on the container, should not report.
-	_, err = s.container.AddNetworkInterface(state.NetworkInterfaceInfo{
-		MACAddress:    "aa:bb:cc:dd:ee:e3",
-		InterfaceName: "eth3",
-		NetworkName:   "net2",
-	})
-	c.Assert(err, gc.IsNil)
-	wc.AssertNoChange()
-
-	// Read dynamically generated document Ids.
-	containerIfaces, err := s.container.NetworkInterfaces()
-	c.Assert(err, gc.IsNil)
-	c.Assert(containerIfaces, gc.HasLen, 4)
-
-	// Disable the first interface on the second machine, should not report.
-	err = containerIfaces[0].SetDisabled(true)
-	c.Assert(err, gc.IsNil)
-	wc.AssertNoChange()
-
-	// Remove the network interface on the second machine, should not report.
-	err = containerIfaces[0].Remove()
-	c.Assert(err, gc.IsNil)
-	wc.AssertNoChange()
 }

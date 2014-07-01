@@ -51,7 +51,7 @@ func (st *State) MachineNetworkInfo(machineTag string) ([]network.Info, error) {
 	return results.Results[0].Info, nil
 }
 
-// WatchInterfaces returns a NotifyWatcher that notifies of changes of network
+// WatchInterfaces returns a NotifyWatcher that notifies of changes to network
 // interfaces on the machine.
 func (st *State) WatchInterfaces(machineTag string) (watcher.NotifyWatcher, error) {
 	args := params.Entities{

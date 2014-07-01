@@ -259,10 +259,10 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 func (s *networkerSuite) TestWatchInterfacesPermissionDenied(c *gc.C) {
 	tags := []string{"foo-42", "unit-mysql-0", "service-mysql", "user-foo", "machine-1"}
 	for _, tag := range tags {
-		info, err := s.networker.MachineNetworkInfo(tag)
+		w, err := s.networker.WatchInterfaces(tag)
 		c.Assert(err, gc.ErrorMatches, "permission denied")
 		c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-		c.Assert(info, gc.IsNil)
+		c.Assert(w, gc.IsNil)
 	}
 }
 
