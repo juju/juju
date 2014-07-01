@@ -79,7 +79,6 @@ func (c *Client) SetPassword(username, password string) error {
 	userArgs := params.ModifyUsers{
 		Changes: []params.ModifyUser{{
 			Username: username,
-			Tag:      username,
 			Password: password}},
 	}
 	results := new(params.ErrorResults)
