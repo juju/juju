@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/juju/charm"
@@ -101,6 +102,9 @@ type MachineAgent struct {
 	upgradeComplete  chan struct{}
 	workersStarted   chan struct{}
 	st               *state.State
+
+	mongoInitMutex   sync.Mutex
+	mongoInitialized bool
 }
 
 // Info returns usage information for the command.
@@ -531,6 +535,13 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
 func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
+	a.mongoInitMutex.Lock()
+	defer a.mongoInitMutex.Unlock()
+	if a.mongoInitialized {
+		logger.Debugf("mongo is already initialized")
+		return nil
+	}
+
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return fmt.Errorf("state worker was started with no state serving info")
@@ -606,12 +617,16 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	if peerAddr == "" {
 		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}
-	return maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
+	if err := maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort)),
 		User:           stateInfo.Tag,
 		Password:       stateInfo.Password,
-	})
+	}); err != nil {
+		return err
+	}
+	a.mongoInitialized = true
+	return nil
 }
 
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
@@ -742,6 +757,9 @@ func (a *MachineAgent) upgradeWorker(
 		// and how often StateWorker might run.
 		var st *state.State
 		if needsState {
+			if err := a.ensureMongoServer(agentConfig); err != nil {
+				return err
+			}
 			var err error
 			info, ok := agentConfig.StateInfo()
 			if !ok {
