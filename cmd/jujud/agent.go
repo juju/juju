@@ -198,7 +198,7 @@ type configChanger func(c *agent.Config)
 // returns the opened state and the api entity with
 // the given tag. The given changeConfig function is
 // called if the password changes to set the password.
-func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Entity, error) {
+func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.Entity, resultErr error) {
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,
@@ -225,7 +225,7 @@ func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Enti
 		return nil, nil, err
 	}
 	defer func() {
-		if err != nil {
+		if resultErr != nil {
 			st.Close()
 		}
 	}()

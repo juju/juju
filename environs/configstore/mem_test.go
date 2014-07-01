@@ -19,6 +19,7 @@ func (s *memInterfaceSuite) SetUpSuite(c *gc.C) {
 	s.NewStore = func(c *gc.C) configstore.Storage {
 		return configstore.NewMem()
 	}
+	s.interfaceSuite.SetUpSuite(c)
 }
 
 func (s *memInterfaceSuite) TestMemInfoLocation(c *gc.C) {
