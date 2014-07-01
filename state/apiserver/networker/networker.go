@@ -136,10 +136,7 @@ func (n *NetworkerAPI) watchOneMachineInterfaces(id string) (string, error) {
 		return "", err
 	}
 	watch := machine.WatchInterfaces()
-	// Consume the initial event. Technically, API
-	// calls to Watch 'transmit' the initial event
-	// in the Watch response. But NotifyWatchers
-	// have no state to transmit.
+	// Consume the initial event.
 	if _, ok := <-watch.Changes(); ok {
 		return n.resources.Register(watch), nil
 	}

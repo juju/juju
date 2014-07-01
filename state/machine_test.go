@@ -1800,6 +1800,13 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
+	// Disable two interfaces at once, check that both are reported.
+	err = ifaces[1].SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	err = ifaces[2].SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
 	// Enable the first interface.
 	err = ifaces[0].SetDisabled(false)
 	c.Assert(err, gc.IsNil)
