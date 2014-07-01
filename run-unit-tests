@@ -126,11 +126,9 @@ go version || gccgo -v
 make build
 export JUJU_NOTEST_MONGOJS=1
 if [[ "$RETRY" == "true" ]]; then
-    #go test ./... || go test -p 2 ./...
-    echo "Pretend retry"
+    go test ./... || go test -p 2 ./...
 else
-    #make check
-    echo "Pretend try"
+    make check
 fi
 EOT
 EXIT_STATUS=$?
