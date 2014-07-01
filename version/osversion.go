@@ -4,36 +4,50 @@
 package version
 
 import (
-	"fmt"
-	"io/ioutil"
-	"regexp"
+	"bufio"
+	"os"
 	"strconv"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils/exec"
 )
 
 var logger = loggo.GetLogger("juju.version")
 
-func readSeries(releaseFile string) string {
-	data, err := ioutil.ReadFile(releaseFile)
+// mustOSVersion will panic if the osVersion is "unknown" due
+// to an error.
+//
+// If you want to avoid the panic, call osVersion and handle
+// the error.
+func mustOSVersion() string {
+	version, err := osVersion()
 	if err != nil {
-		return "unknown"
+		panic("osVersion reported an error: " + err.Error())
 	}
-	for _, line := range strings.Split(string(data), "\n") {
-		const prefix = "DISTRIB_CODENAME="
-		if strings.HasPrefix(line, prefix) {
-			return strings.Trim(line[len(prefix):], "\t '\"")
-		}
-	}
-	return "unknown"
+	return version
 }
 
-type kernelVersionFunc func() (string, error)
+func readSeries(releaseFile string) (string, error) {
+	f, err := os.Open(releaseFile)
+	if err != nil {
+		return "unknown", err
+	}
+	defer f.Close()
+
+	s := bufio.NewScanner(f)
+	for s.Scan() {
+		line := s.Text()
+		const prefix = "DISTRIB_CODENAME="
+		if strings.HasPrefix(line, prefix) {
+			return strings.Trim(line[len(prefix):], "\t '\""), s.Err()
+		}
+	}
+	return "unknown", s.Err()
+}
 
 // kernelToMajor takes a dotted version and returns just the Major portion
-func kernelToMajor(getKernelVersion kernelVersionFunc) (int, error) {
+func kernelToMajor(getKernelVersion func() (string, error)) (int, error) {
 	fullVersion, err := getKernelVersion()
 	if err != nil {
 		return 0, err
@@ -46,11 +60,11 @@ func kernelToMajor(getKernelVersion kernelVersionFunc) (int, error) {
 	return int(majorVersion), nil
 }
 
-func macOSXSeriesFromKernelVersion(getKernelVersion kernelVersionFunc) string {
+func macOSXSeriesFromKernelVersion(getKernelVersion func() (string, error)) (string, error) {
 	majorVersion, err := kernelToMajor(getKernelVersion)
 	if err != nil {
 		logger.Infof("unable to determine OS version: %v", err)
-		return "unknown"
+		return "unknown", err
 	}
 	return macOSXSeriesFromMajorVersion(majorVersion)
 }
@@ -74,30 +88,10 @@ var macOSXSeries = map[int]string{
 	5:  "puma",
 }
 
-func macOSXSeriesFromMajorVersion(majorVersion int) string {
-	if series, ok := macOSXSeries[majorVersion]; ok {
-		return series
+func macOSXSeriesFromMajorVersion(majorVersion int) (string, error) {
+	series, ok := macOSXSeries[majorVersion]
+	if !ok {
+		return "unknown", errors.Errorf("unknown series %q", series)
 	}
-	return "unknown"
-}
-
-func getWinVersion() string {
-	var com exec.RunParams
-	com.Commands = `(gwmi Win32_OperatingSystem).Name.Split('|')[0]`
-	out, _ := exec.RunCommands(com)
-	if out.Code != 0 {
-		return "unknown"
-	}
-	serie := strings.TrimSpace(string(out.Stdout))
-	if val, ok := windowsVersions[serie]; ok {
-		return val
-	}
-	for key, value := range windowsVersions {
-		reg := regexp.MustCompile(fmt.Sprintf("^%s", key))
-		match := reg.MatchString(serie)
-		if match {
-			return value
-		}
-	}
-	return "unknown"
+	return series, nil
 }

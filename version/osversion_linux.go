@@ -3,6 +3,6 @@
 
 package version
 
-func osVersion() string {
+func osVersion() (string, error) {
 	return readSeries(lsbReleaseFile)
 }
