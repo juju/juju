@@ -75,27 +75,27 @@ func (s *SSHCommandSuite) TestCommandSSHPass(c *gc.C) {
 	fakesshpass := filepath.Join(s.testbin, "sshpass")
 	err := ioutil.WriteFile(fakesshpass, []byte(echoScript), 0755)
 	s.assertCommandArgs(c, s.command(echoCommand, "123"),
-		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no localhost %s 123",
+		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 localhost %s 123",
 			s.fakessh, echoCommand),
 	)
 	// Now set $SSHPASS.
 	s.PatchEnvironment("SSHPASS", "anyoldthing")
 	s.assertCommandArgs(c, s.command(echoCommand, "123"),
-		fmt.Sprintf("%s -e ssh -o StrictHostKeyChecking no -o PasswordAuthentication no localhost %s 123",
+		fmt.Sprintf("%s -e ssh -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 localhost %s 123",
 			fakesshpass, echoCommand),
 	)
 	// Finally, remove sshpass from $PATH.
 	err = os.Remove(fakesshpass)
 	c.Assert(err, gc.IsNil)
 	s.assertCommandArgs(c, s.command(echoCommand, "123"),
-		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no localhost %s 123",
+		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 localhost %s 123",
 			s.fakessh, echoCommand),
 	)
 }
 
 func (s *SSHCommandSuite) TestCommand(c *gc.C) {
 	s.assertCommandArgs(c, s.command(echoCommand, "123"),
-		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no localhost %s 123",
+		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 localhost %s 123",
 			s.fakessh, echoCommand),
 	)
 }
@@ -104,7 +104,7 @@ func (s *SSHCommandSuite) TestCommandEnablePTY(c *gc.C) {
 	var opts ssh.Options
 	opts.EnablePTY()
 	s.assertCommandArgs(c, s.commandOptions([]string{echoCommand, "123"}, &opts),
-		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -t -t localhost %s 123",
+		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 -t -t localhost %s 123",
 			s.fakessh, echoCommand),
 	)
 }
@@ -113,7 +113,7 @@ func (s *SSHCommandSuite) TestCommandAllowPasswordAuthentication(c *gc.C) {
 	var opts ssh.Options
 	opts.AllowPasswordAuthentication()
 	s.assertCommandArgs(c, s.commandOptions([]string{echoCommand, "123"}, &opts),
-		fmt.Sprintf("%s -o StrictHostKeyChecking no localhost %s 123",
+		fmt.Sprintf("%s -o StrictHostKeyChecking no -o ServerAliveInterval 30 localhost %s 123",
 			s.fakessh, echoCommand),
 	)
 }
@@ -122,7 +122,7 @@ func (s *SSHCommandSuite) TestCommandIdentities(c *gc.C) {
 	var opts ssh.Options
 	opts.SetIdentities("x", "y")
 	s.assertCommandArgs(c, s.commandOptions([]string{echoCommand, "123"}, &opts),
-		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -i x -i y localhost %s 123",
+		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 -i x -i y localhost %s 123",
 			s.fakessh, echoCommand),
 	)
 }
@@ -131,7 +131,7 @@ func (s *SSHCommandSuite) TestCommandPort(c *gc.C) {
 	var opts ssh.Options
 	opts.SetPort(2022)
 	s.assertCommandArgs(c, s.commandOptions([]string{echoCommand, "123"}, &opts),
-		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -p 2022 localhost %s 123",
+		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 -p 2022 localhost %s 123",
 			s.fakessh, echoCommand),
 	)
 }
@@ -147,21 +147,21 @@ func (s *SSHCommandSuite) TestCopy(c *gc.C) {
 	out, err := ioutil.ReadFile(s.fakescp + ".args")
 	c.Assert(err, gc.IsNil)
 	// EnablePTY has no effect for Copy
-	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -i x -i y -P 2022 /tmp/blah foo@bar.com:baz\n")
+	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -o ServerAliveInterval 30 -i x -i y -P 2022 /tmp/blah foo@bar.com:baz\n")
 
 	// Try passing extra args
 	err = s.client.Copy([]string{"/tmp/blah", "foo@bar.com:baz", "-r", "-v"}, &opts)
 	c.Assert(err, gc.IsNil)
 	out, err = ioutil.ReadFile(s.fakescp + ".args")
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -i x -i y -P 2022 /tmp/blah foo@bar.com:baz -r -v\n")
+	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -o ServerAliveInterval 30 -i x -i y -P 2022 /tmp/blah foo@bar.com:baz -r -v\n")
 
 	// Try interspersing extra args
 	err = s.client.Copy([]string{"-r", "/tmp/blah", "-v", "foo@bar.com:baz"}, &opts)
 	c.Assert(err, gc.IsNil)
 	out, err = ioutil.ReadFile(s.fakescp + ".args")
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -i x -i y -P 2022 -r /tmp/blah -v foo@bar.com:baz\n")
+	c.Assert(string(out), gc.Equals, s.fakescp+" -o StrictHostKeyChecking no -o ServerAliveInterval 30 -i x -i y -P 2022 -r /tmp/blah -v foo@bar.com:baz\n")
 }
 
 func (s *SSHCommandSuite) TestCommandClientKeys(c *gc.C) {
@@ -174,7 +174,7 @@ func (s *SSHCommandSuite) TestCommandClientKeys(c *gc.C) {
 	var opts ssh.Options
 	opts.SetIdentities("x", "y")
 	s.assertCommandArgs(c, s.commandOptions([]string{echoCommand, "123"}, &opts),
-		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -i x -i y -i %s localhost %s 123",
+		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 -i x -i y -i %s localhost %s 123",
 			s.fakessh, ck, echoCommand),
 	)
 }
@@ -196,7 +196,7 @@ func (s *SSHCommandSuite) TestCommandDefaultIdentities(c *gc.C) {
 	s.PatchValue(ssh.DefaultIdentities, []string{def1, def2})
 	// If no identities are specified, then the defaults aren't added.
 	s.assertCommandArgs(c, s.commandOptions([]string{echoCommand, "123"}, &opts),
-		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no localhost %s 123",
+		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 localhost %s 123",
 			s.fakessh, echoCommand),
 	)
 	// If identities are specified, then the defaults are must added.
@@ -205,7 +205,7 @@ func (s *SSHCommandSuite) TestCommandDefaultIdentities(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	opts.SetIdentities("x", "y")
 	s.assertCommandArgs(c, s.commandOptions([]string{echoCommand, "123"}, &opts),
-		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -i x -i y -i %s localhost %s 123",
+		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 -i x -i y -i %s localhost %s 123",
 			s.fakessh, def2, echoCommand),
 	)
 }
