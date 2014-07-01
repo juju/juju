@@ -120,7 +120,6 @@ func (s *mongoPingerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *mongoPingerSuite) TestAgentConnectionsShutDownWhenStateDies(c *gc.C) {
-	s.PatchValue(apiserver.MongoPingInterval, coretesting.ShortWait)
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
 	c.Assert(err, gc.IsNil)
