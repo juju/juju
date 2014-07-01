@@ -275,7 +275,7 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 	// Start network interface watcher.
 	w, err := s.networker.WatchInterfaces("machine-0")
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 	wc.AssertOneChange()
 
 	// Disable the first interface.
