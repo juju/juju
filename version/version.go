@@ -38,7 +38,7 @@ var lsbReleaseFile = "/etc/lsb-release"
 // binary, it will override this.
 var Current = Binary{
 	Number: MustParse(version),
-	Series: mustOsVersion(),
+	Series: mustOSVersion(),
 	Arch:   arch.HostArch(),
 }
 
