@@ -1386,18 +1386,30 @@ func (st *State) ActionByTag(tag names.Tag) (*Action, error) {
 
 // actionIdFromTag converts an ActionTag to an actionId
 func actionIdFromTag(tag names.ActionTag) string {
-	prefix := actionPrefix(tag.UnitTag().Id())
+	prefix := actionPrefixFromUnitId(tag.UnitTag().Id())
 	return actionId(prefix, tag.Sequence())
 }
 
-// matchingActions finds actions that match name
-func (st *State) matchingActions(name string) ([]*Action, error) {
+// matchingActions finds actions that match ActionReceiver
+func (st *State) matchingActions(ar ActionReceiver) ([]*Action, error) {
+	prefix := actionPrefix(ar)
+	return st.matchingActionsByPrefix(prefix)
+}
+
+// matchingActionsByUnitId finds actions with a given unit prefix
+func (st *State) matchingActionsByUnitId(unitId string) ([]*Action, error) {
+	prefix := actionPrefixFromUnitId(unitId)
+	return st.matchingActionsByPrefix(prefix)
+}
+
+// matchingActionsByPrefix finds actions with a given prefix
+func (st *State) matchingActionsByPrefix(prefix string) ([]*Action, error) {
 	var doc actionDoc
 	var actions []*Action
 
-	prefix := actionPrefix(name)
 	sel := bson.D{{"_id", bson.D{{"$regex", "^" + regexp.QuoteMeta(prefix)}}}}
 	iter := st.actions.Find(sel).Iter()
+
 	for iter.Next(&doc) {
 		actions = append(actions, newAction(st, doc))
 	}
@@ -1418,11 +1430,11 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 }
 
 // matchingActionResults finds actions that match name
-func (st *State) matchingActionResults(name string) ([]*ActionResult, error) {
+func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, error) {
 	var doc actionResultDoc
 	var results []*ActionResult
 
-	prefix := actionResultPrefix(name)
+	prefix := actionResultPrefix(ar)
 	sel := bson.D{{"_id", bson.D{{"$regex", "^" + regexp.QuoteMeta(prefix)}}}}
 	iter := st.actionresults.Find(sel).Iter()
 	for iter.Next(&doc) {

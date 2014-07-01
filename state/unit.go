@@ -164,6 +164,11 @@ func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
 }
 
+// ActionKey returns the globalKey to fulfill ActionReceiver
+func (u *Unit) ActionKey() string {
+	return u.globalKey()
+}
+
 // Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
@@ -1480,7 +1485,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
 func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
-	doc, err := newActionDoc(u, name, payload)
+	doc, err := newActionDoc(u.st, u, name, payload)
 	if err != nil {
 		return nil, fmt.Errorf("cannot add action; %v", err)
 	}
@@ -1511,12 +1516,12 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, 
 
 // Actions returns a list of actions for this unit
 func (u *Unit) Actions() ([]*Action, error) {
-	return u.st.matchingActions(u.Name())
+	return u.st.matchingActions(u)
 }
 
 // ActionResults returns a list of action results for this unit
 func (u *Unit) ActionResults() ([]*ActionResult, error) {
-	return u.st.matchingActionResults(u.Name())
+	return u.st.matchingActionResults(u)
 }
 
 // Resolve marks the unit as having had any previous state transition
@@ -1592,5 +1597,5 @@ func (u *Unit) ClearResolved() error {
 
 // WatchActions starts and returns an ActionWatcher
 func (u *Unit) WatchActions() StringsWatcher {
-	return newActionWatcher(u.st, actionPrefix(u.Name()))
+	return newActionWatcher(u.st, actionPrefix(u))
 }
