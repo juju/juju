@@ -41,6 +41,7 @@ func (s *environmentSuite) SetUpTest(c *gc.C) {
 		Entity:       s.machine0,
 	}
 	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.api, err = environment.NewEnvironmentAPI(
 		s.State,

@@ -51,6 +51,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.resources = common.NewResources()
+	s.AddCleanup(func(*gc.C) { s.resources.StopAll() })
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -62,10 +63,6 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	// Create a machiner API for machine 1.
 	s.agent, err = agent.NewAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
-}
-func (s *agentSuite) TearDownTest(c *gc.C) {
-	s.resources.StopAll()
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {

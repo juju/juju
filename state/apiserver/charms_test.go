@@ -96,7 +96,7 @@ type charmsSuite struct {
 var _ = gc.Suite(&charmsSuite{})
 
 func (s *charmsSuite) SetUpSuite(c *gc.C) {
-	s.JujuConnSuite.SetUpSuite(c)
+	s.authHttpSuite.SetUpSuite(c)
 	s.archiveContentType = "application/zip"
 }
 
