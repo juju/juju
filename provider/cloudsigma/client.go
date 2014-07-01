@@ -24,6 +24,8 @@ type environClient struct {
 	storage  *environStorage
 }
 
+// tracer matches the gosigma Log interface and maps all of the gosigma 
+// logging to a Trace level logging of juju.provider.cloudsigma
 type tracer struct{}
 
 func (tracer) Logf(format string, args ...interface{}) {
