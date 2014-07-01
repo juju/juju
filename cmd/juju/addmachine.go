@@ -99,6 +99,9 @@ func (c *AddMachineCommand) Init(args []string) error {
 	if err != nil {
 		return err
 	}
+	if c.NumMachines > 1 && c.Placement != nil && c.Placement.Directive != "" {
+		return fmt.Errorf("cannot use -n when specifying a placement directive")
+	}
 	return nil
 }
 

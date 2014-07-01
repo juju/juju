@@ -87,6 +87,11 @@ func (s *AddMachineSuite) TestAddTwoMachinesWithContainers(c *gc.C) {
 	}
 }
 
+func (s *AddMachineSuite) TestAddTwoMachinesWithContainerDirective(c *gc.C) {
+	_, err := runAddMachine(c, "lxc:1", "-n", "2")
+	c.Assert(err, gc.ErrorMatches, "cannot use -n when specifying a placement directive")
+}
+
 func (s *AddMachineSuite) _assertAddContainer(c *gc.C, parentId, containerId string, ctype instance.ContainerType) {
 	m, err := s.State.Machine(parentId)
 	c.Assert(err, gc.IsNil)
