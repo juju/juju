@@ -896,14 +896,16 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 	for i, actionTest := range actionTests {
 		c.Logf("test %d: %s", i, actionTest.description)
 
-		actionId, err := s.wordpressUnit.AddAction(
+		a, err := s.wordpressUnit.AddAction(
 			actionTest.action.Name,
 			actionTest.action.Params)
 		c.Assert(err, gc.IsNil)
+		actionTag := names.NewActionTag(s.wordpressUnit.UnitTag(), i)
+		c.Assert(a.ActionTag(), gc.Equals, actionTag)
 
 		args := params.Entities{
 			Entities: []params.Entity{{
-				Tag: names.NewActionTag(actionId).String(),
+				Tag: actionTag.String(),
 			}},
 		}
 		results, err := s.uniter.Actions(args)
@@ -920,7 +922,7 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
+			Tag: names.NewActionTag(names.NewUnitTag("wordpress/0"), 0).String(),
 		}},
 	}
 	results, err := s.uniter.Actions(args)
@@ -929,7 +931,7 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
 	actionsQueryResult := results.ActionsQueryResults[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
-	c.Assert(actionsQueryResult.Error.Message, gc.Equals, `action "wordpress/0_a_0" not found`)
+	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action .*wordpress/0[^0-9]+0[^0-9]+ not found`)
 }
 
 func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
@@ -952,7 +954,7 @@ func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
+			Tag: names.NewActionTag(names.NewUnitTag("wordpress/0"), 0).String(),
 		}},
 	}
 	// exercises line 738 of state/apiserver/uniter/uniter.go
@@ -965,7 +967,7 @@ func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 	// Same unit, but not one that has access.
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.NewActionTag("mysql/0" + names.ActionMarker + "0").String(),
+			Tag: names.NewActionTag(names.NewUnitTag("mysql/0"), 0).String(),
 		}},
 	}
 	_, err := s.uniter.Actions(args)
