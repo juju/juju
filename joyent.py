@@ -38,6 +38,7 @@ class DeleteRequest(urllib2.Request):
     def get_method(self):
         return "DELETE"
 
+
 class HeadRequest(urllib2.Request):
 
     def get_method(self):
@@ -64,6 +65,8 @@ class Client:
 
     def __init__(self, sdc_url, account, key_id,
                  user_agent=USER_AGENT, verbose=False):
+        if sdc_url.endswith('/'):
+            sdc_url = sdc_url[1:]
         self.sdc_url = sdc_url
         self.account = account
         self.key_id = key_id
@@ -93,17 +96,19 @@ class Client:
 
     def _request(self, path, method="GET", body=None, headers=None):
         headers = self.make_request_headers(headers)
-        container_url = "{}/{}/{}".format(self.sdc_url, self.account, path)
+        if path.startswith('/'):
+            path = path[1:]
+        uri = "{}/{}/{}".format(self.sdc_url, self.account, path)
         if method == 'DELETE':
-            request = DeleteRequest(container_url, headers=headers)
+            request = DeleteRequest(uri, headers=headers)
         if method == 'HEAD':
-            request = HeadRequest(container_url, headers=headers)
+            request = HeadRequest(uri, headers=headers)
         elif method == 'POST':
-            request = PostRequest(container_url, data=body, headers=headers)
+            request = PostRequest(uri, data=body, headers=headers)
         elif method == 'PUT':
-            request = PutRequest(container_url, data=body, headers=headers)
+            request = PutRequest(uri, data=body, headers=headers)
         else:
-            request = urllib2.Request(container_url, headers=headers)
+            request = urllib2.Request(uri, headers=headers)
         try:
             response = urllib2.urlopen(request)
         except Exception as err:
