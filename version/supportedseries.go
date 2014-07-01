@@ -100,8 +100,6 @@ func SeriesVersion(series string) (string, error) {
 }
 
 // SupportedSeries returns the Ubuntu series on which we can run Juju workloads.
-// Must only be run from the server side, not as part of the client as it
-// expects to be run on a Ubuntu platform.
 func SupportedSeries() []string {
 	seriesVersionsMutex.Lock()
 	defer seriesVersionsMutex.Unlock()
