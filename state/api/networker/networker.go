@@ -9,6 +9,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/api/watcher"
 )
 
 const networkerFacade = "Networker"
@@ -50,14 +51,14 @@ func (st *State) MachineNetworkInfo(machineTag string) ([]network.Info, error) {
 	return results.Results[0].Info, nil
 }
 
-// WatchNetworkInterfaces returns a StringsWatcher that notifies of changes of network
+// WatchInterfaces returns a NotifyWatcher that notifies of changes of network
 // interfaces on the machine.
-func (st *State) WatchNetworkInterfaces(machineTag string) (watcher.NotifyWatcher, error) {
+func (st *State) WatchInterfaces(machineTag string) (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag}},
 	}
-	var results params.StringsWatchResults
-	err := m.st.call("WatchNetworkInterfaces", args, &results)
+	var results params.NotifyWatchResults
+	err := st.call("WatchInterfaces", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -71,4 +72,6 @@ func (st *State) WatchNetworkInterfaces(machineTag string) (watcher.NotifyWatche
 	if result.Error != nil {
 		return nil, result.Error
 	}
+	w := watcher.NewNotifyWatcher(st.caller, result)
+	return w, nil
 }

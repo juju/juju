@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/networker"
 	"github.com/juju/juju/state/api/params"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type networkerSuite struct {
@@ -255,29 +256,87 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 	c.Assert(results, gc.DeepEquals, expectedNestedContainerInfo)
 }
 
-func (s *networkerSuite) TestWatchNetworkInterfaces(c *gc.C) {
-	w, err := s.networker.WatchNetworkInterfaces("machine-0")
+func (s *networkerSuite) TestWatchInterfacesPermissionDenied(c *gc.C) {
+	tags := []string{"foo-42", "unit-mysql-0", "service-mysql", "user-foo", "machine-1"}
+	for _, tag := range tags {
+		info, err := s.networker.MachineNetworkInfo(tag)
+		c.Assert(err, gc.ErrorMatches, "permission denied")
+		c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+		c.Assert(info, gc.IsNil)
+	}
+}
+
+func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
+	// Read dynamically generated document Ids.
+	ifaces, err := s.machine.NetworkInterfaces()
 	c.Assert(err, gc.IsNil)
+	c.Assert(ifaces, gc.HasLen, 5)
+
+	// Start network interface watcher.
+	w, err := s.networker.WatchInterfaces("machine-0")
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
-
-	// Initial event.
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
-	// Add another 2 network interfaces, make sure they are detected.
-	s.State.AddNetworkInterface()
-	c.Assert(err, gc.IsNil)
-	s.State.AddNetworkInterface()
+	// Disable the first interface.
+	err = ifaces[0].SetDisabled(true)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
-	// Remove one of interfaces
-	s.State.RemoveNetworkInterface()
+	// Disable the first interface again, should not report.
+	err = ifaces[0].SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Enable the first interface.
+	err = ifaces[0].SetDisabled(false)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 
-        //wc.AssertNoChange()
+	// Enable the first interface again, should not report.
+	err = ifaces[0].SetDisabled(false)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
 
-        statetesting.AssertStop(c, w)
-        wc.AssertClosed()
+	// Remove the network interface.
+	err = ifaces[0].Remove()
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Add the new interface.
+	_, err = s.machine.AddNetworkInterface(state.NetworkInterfaceInfo{
+		MACAddress:    "aa:bb:cc:dd:ee:f3",
+		InterfaceName: "eth3",
+		NetworkName:   "net2",
+	})
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Add the new interface on the container, should not report.
+	_, err = s.container.AddNetworkInterface(state.NetworkInterfaceInfo{
+		MACAddress:    "aa:bb:cc:dd:ee:e3",
+		InterfaceName: "eth3",
+		NetworkName:   "net2",
+	})
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Read dynamically generated document Ids.
+	containerIfaces, err := s.container.NetworkInterfaces()
+	c.Assert(err, gc.IsNil)
+	c.Assert(containerIfaces, gc.HasLen, 4)
+
+	// Disable the first interface on the second machine, should not report.
+	err = containerIfaces[0].SetDisabled(true)
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Remove the network interface on the second machine, should not report.
+	err = containerIfaces[0].Remove()
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// Stop watcher; check Changes chan closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
