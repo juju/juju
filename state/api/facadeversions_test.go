@@ -1,15 +1,15 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package api_test
 
 import (
+	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/apiserver/common"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/utils/set"
 )
 
 type facadeVersionSuite struct {
@@ -34,8 +34,8 @@ func (*facadeVersionSuite) TestFacadeVersionsMatchServerVersions(c *gc.C) {
 		serverFacadeBestVersions[facade.Name] = facade.Versions[len(facade.Versions)-1]
 	}
 	// First check that both sides know about all the same versions
-	c.Check(serverFacadeNames.Difference(clientFacadeNames).SortedValues(), gc.DeepEquals, []string{})
-	c.Check(clientFacadeNames.Difference(serverFacadeNames).SortedValues(), gc.DeepEquals, []string{})
+	c.Check(serverFacadeNames.Difference(clientFacadeNames).SortedValues(), gc.HasLen, 0)
+	c.Check(clientFacadeNames.Difference(serverFacadeNames).SortedValues(), gc.HasLen, 0)
 	// Next check that the best versions match
 	c.Check(*api.FacadeVersions, gc.DeepEquals, serverFacadeBestVersions)
 }

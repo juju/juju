@@ -5,7 +5,7 @@ package base
 
 // APICaller is implemented by the client-facing State object.
 type APICaller interface {
-	// Call makes a call to the API server with the given object type,
+	// APICall makes a call to the API server with the given object type,
 	// id, request and parameters. The response is filled in with the
 	// call's result if the call is successful.
 	APICall(objType string, version int, id, request string, params, response interface{}) error
@@ -39,6 +39,8 @@ type facadeCaller struct {
 	bestVersion int
 	caller      APICaller
 }
+
+var _ FacadeCaller = facadeCaller{}
 
 // FacadeCall will place a request against the API using the requested
 // Facade and the best version that the API server supports that is

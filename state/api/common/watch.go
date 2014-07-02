@@ -12,7 +12,7 @@ import (
 )
 
 // Watch starts a NotifyWatcher for the entity with the specified tag.
-// TODO: Watch should tage a names.Tag instead of a tag string
+// TODO: Watch should tag a names.Tag instead of a tag string
 func Watch(facade base.FacadeCaller, tag string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
