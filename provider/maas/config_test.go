@@ -43,18 +43,22 @@ func (*configSuite) TestParsesMAASSettings(c *gc.C) {
 	server := "http://maas.testing.invalid/maas/"
 	oauth := "consumer-key:resource-token:resource-secret"
 	future := "futurama"
+	iface := "p1p2"
+
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
 	ecfg, err := newConfig(map[string]interface{}{
-		"maas-server":     server,
-		"maas-oauth":      oauth,
-		"maas-agent-name": uuid.String(),
-		"future-key":      future,
+		"maas-server":           server,
+		"network-bridge": iface,
+		"maas-oauth":            oauth,
+		"maas-agent-name":       uuid.String(),
+		"future-key":            future,
 	})
 	c.Assert(err, gc.IsNil)
 	c.Check(ecfg.maasServer(), gc.Equals, server)
 	c.Check(ecfg.maasOAuth(), gc.DeepEquals, oauth)
 	c.Check(ecfg.maasAgentName(), gc.Equals, uuid.String())
+	c.Check(ecfg.networkBridge(), gc.Equals, iface)
 	c.Check(ecfg.UnknownAttrs()["future-key"], gc.DeepEquals, future)
 }
 
@@ -65,6 +69,15 @@ func (*configSuite) TestMaasAgentNameDefault(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	c.Check(ecfg.maasAgentName(), gc.Equals, "")
+}
+
+func (*configSuite) TestMaasNetworkBridgeDefault(c *gc.C) {
+	ecfg, err := newConfig(map[string]interface{}{
+		"maas-server": "http://maas.testing.invalid/maas/",
+		"maas-oauth":  "consumer-key:resource-token:resource-secret",
+	})
+	c.Assert(err, gc.IsNil)
+	c.Check(ecfg.networkBridge(), gc.Equals, "eth0")
 }
 
 func (*configSuite) TestChecksWellFormedMaasServer(c *gc.C) {
