@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/state/watcher"
 )
 
 func init() {
@@ -25,6 +26,7 @@ var logger = loggo.GetLogger("juju.state.apiserver.networker")
 // NetworkerAPI provides access to the Networker API facade.
 type NetworkerAPI struct {
 	st          *state.State
+	resources   *common.Resources
 	authorizer  common.Authorizer
 	getAuthFunc common.GetAuthFunc
 }
@@ -32,7 +34,7 @@ type NetworkerAPI struct {
 // NewNetworkerAPI creates a new client-side Networker API facade.
 func NewNetworkerAPI(
 	st *state.State,
-	_ *common.Resources,
+	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*NetworkerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
@@ -70,6 +72,7 @@ func NewNetworkerAPI(
 
 	return &NetworkerAPI{
 		st:          st,
+		resources:   resources,
 		authorizer:  authorizer,
 		getAuthFunc: getAuthFunc,
 	}, nil
@@ -120,6 +123,45 @@ func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineN
 			if err == nil {
 				id := tag.Id()
 				result.Results[i].Info, err = n.oneMachineInfo(id)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (n *NetworkerAPI) watchOneMachineInterfaces(id string) (string, error) {
+	machine, err := n.st.Machine(id)
+	if err != nil {
+		return "", err
+	}
+	watch := machine.WatchInterfaces()
+	// Consume the initial event.
+	if _, ok := <-watch.Changes(); ok {
+		return n.resources.Register(watch), nil
+	}
+	return "", watcher.MustErr(watch)
+}
+
+// WatchInterfaces returns a NotifyWatcher for observing changes
+// to each unit's service configuration settings.
+func (n *NetworkerAPI) WatchInterfaces(args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	canAccess, err := n.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
+	var tag names.Tag
+	for i, entity := range args.Entities {
+		if !canAccess(entity.Tag) {
+			err = common.ErrPerm
+		} else {
+			tag, err = names.ParseMachineTag(entity.Tag)
+			if err == nil {
+				id := tag.Id()
+				result.Results[i].NotifyWatcherId, err = n.watchOneMachineInterfaces(id)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
