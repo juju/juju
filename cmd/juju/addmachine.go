@@ -105,6 +105,16 @@ func (c *AddMachineCommand) Init(args []string) error {
 	return nil
 }
 
+type AddMachineAPI interface {
+	Close() error
+	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+}
+
+var getAddMachineAPI = func(envname string) (AddMachineAPI, error) {
+	return juju.NewAPIClientFromName(envname)
+}
+
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
 		args := manual.ProvisionMachineArgs{
@@ -118,7 +128,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := getAddMachineAPI(c.EnvName)
 	if err != nil {
 		return err
 	}
@@ -135,10 +145,9 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		Constraints: c.Constraints,
 		Jobs:        []params.MachineJob{params.JobHostUnits},
 	}
-	machines := []params.AddMachineParams{}
-
+	machines := make([]params.AddMachineParams, c.NumMachines)
 	for i := 0; i < c.NumMachines; i++ {
-		machines = append(machines, machineParams)
+		machines[i] = machineParams
 	}
 
 	results, err := client.AddMachines(machines)
@@ -164,10 +173,11 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	// Currently, only one machine is added, but in future there may be several added in one call.
+	errs := []error{}
 	for _, machineInfo := range results {
 		if machineInfo.Error != nil {
-			return machineInfo.Error
+			errs = append(errs, machineInfo.Error)
+			continue
 		}
 		machineId := machineInfo.Machine
 
@@ -176,6 +186,20 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		} else {
 			ctx.Infof("created machine %v", machineId)
 		}
+	}
+	if len(errs) == 1 {
+		return errs[0]
+	}
+	if len(errs) > 1 {
+		ctx.Infof("failed to create %d machines:", len(errs))
+		for _, err := range errs {
+			ctx.Infof("  %v\n", err)
+		}
+		returnErr := ""
+		for _, e := range errs {
+			returnErr = fmt.Sprintf("%s%s\n", returnErr, e)
+		}
+		return fmt.Errorf(returnErr)
 	}
 	return nil
 }

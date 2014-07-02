@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
 )
 
@@ -161,4 +162,54 @@ func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, `cannot add a new machine: invalid placement is invalid`)
 	_, err = runAddMachine(c, "lxc", "--constraints", "container=lxc")
 	c.Check(err, gc.ErrorMatches, `container constraint "lxc" not allowed when adding a machine`)
+}
+
+func (s *AddMachineSuite) TestAddThreeMachinesWithTwoFailures(c *gc.C) {
+	fakeApi := fakeAddMachineAPI{}
+	s.PatchValue(&getAddMachineAPI, func(envName string) (AddMachineAPI, error) {
+		return &fakeApi, nil
+	})
+	fakeApi.successOrder = []bool{true, false, false}
+	expectedOutput := `created machine 0
+failed to create 2 machines:
+  something went wrong
+  something went wrong
+`
+	expectedErr := `something went wrong
+something went wrong
+`
+	context, err := runAddMachine(c, "-n", "3")
+	c.Assert(err, gc.ErrorMatches, expectedErr)
+	c.Assert(testing.Stderr(context), gc.Equals, expectedOutput)
+}
+
+type fakeAddMachineAPI struct {
+	successOrder []bool
+	currentOp    int
+}
+
+func (f *fakeAddMachineAPI) Close() error {
+	return nil
+}
+
+func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	results := []params.AddMachinesResult{}
+	for i := range args {
+		if f.successOrder[i] {
+			results = append(results, params.AddMachinesResult{
+				Machine: strconv.Itoa(i),
+				Error:   nil,
+			})
+		} else {
+			results = append(results, params.AddMachinesResult{
+				Machine: string(i),
+				Error:   &params.Error{"something went wrong", "1"},
+			})
+		}
+		f.currentOp++
+	}
+	return results, nil
+}
+func (f *fakeAddMachineAPI) AddMachines1dot18(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
+	return f.AddMachines(args)
 }
