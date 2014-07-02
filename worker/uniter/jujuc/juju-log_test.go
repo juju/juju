@@ -54,10 +54,11 @@ func assertLogs(c *gc.C, ctx jujuc.Context, writer *loggo.TestWriter, unitname, 
 		args := append(t.args, msg1, msg2)
 		code := cmd.Main(com, &cmd.Context{}, args)
 		c.Assert(code, gc.Equals, 0)
-		c.Assert(writer.Log, gc.HasLen, 1)
-		c.Assert(writer.Log[0].Level, gc.Equals, t.level)
-		c.Assert(writer.Log[0].Module, gc.Equals, fmt.Sprintf("unit.%s.juju-log", unitname))
-		c.Assert(writer.Log[0].Message, gc.Equals, fmt.Sprintf("%s%s %s", badge, msg1, msg2))
+		log := writer.Log()
+		c.Assert(log, gc.HasLen, 1)
+		c.Assert(log[0].Level, gc.Equals, t.level)
+		c.Assert(log[0].Module, gc.Equals, fmt.Sprintf("unit.%s.juju-log", unitname))
+		c.Assert(log[0].Message, gc.Equals, fmt.Sprintf("%s%s %s", badge, msg1, msg2))
 	}
 }
 

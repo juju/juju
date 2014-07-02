@@ -44,7 +44,7 @@ func (*auditSuite) TestAuditEventWrittenToAuditLogger(c *gc.C) {
 		{loggo.INFO, `user-agnus: donut eaten, 7 donut\(s\) remain`},
 	}
 
-	c.Check(tw.Log, jc.LogMatches, messages)
+	c.Check(tw.Log(), jc.LogMatches, messages)
 }
 
 func (*auditSuite) TestAuditWithNilUserWillPanic(c *gc.C) {

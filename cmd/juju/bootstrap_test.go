@@ -426,13 +426,13 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	environs.PrepareFromName("peckham", ctx, store)
 
 	logger := "jenv.warning.test"
-	testWriter := &loggo.TestWriter{}
-	loggo.RegisterWriter(logger, testWriter, loggo.WARNING)
+	var testWriter loggo.TestWriter
+	loggo.RegisterWriter(logger, &testWriter, loggo.WARNING)
 	defer loggo.RemoveWriter(logger)
 
 	_, errc := runCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
 	c.Assert(<-errc, gc.IsNil)
-	c.Assert(testWriter.Log, jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
+	c.Assert(testWriter.Log(), jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
