@@ -486,13 +486,9 @@ func (u *UniterAPI) WatchActions(args params.Entities) (params.StringsWatchResul
 		return nothing, err
 	}
 	for i, entity := range args.Entities {
-		someTag, err := names.ParseTag(entity.Tag)
+		_, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
 			return nothing, err
-		}
-
-		if _, ok := someTag.(names.UnitTag); !ok {
-			return nothing, fmt.Errorf("tag %q wasn't a Unit", someTag.String())
 		}
 
 		err = common.ErrPerm

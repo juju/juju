@@ -780,9 +780,9 @@ func (s *uniterSuite) TestWatchActions(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertNoChange()
 
-	actionId, err := s.wordpressUnit.AddAction("snapshot", nil)
+	addedAction, err := s.wordpressUnit.AddAction("snapshot", nil)
 
-	wc.AssertChange(actionId)
+	wc.AssertChange(addedAction.Id())
 	wc.AssertNoChange()
 }
 
@@ -792,9 +792,9 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	firstActionId, err := s.wordpressUnit.AddAction("backup", nil)
+	firstAction, err := s.wordpressUnit.AddAction("backup", nil)
 	c.Assert(err, gc.IsNil)
-	secondActionId, err := s.wordpressUnit.AddAction("snapshot", nil)
+	secondAction, err := s.wordpressUnit.AddAction("snapshot", nil)
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{
@@ -817,12 +817,12 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
-	wc.AssertChange(firstActionId, secondActionId)
+	wc.AssertChange(firstAction.Id(), secondAction.Id())
 	wc.AssertNoChange()
 
-	actionId, err := s.wordpressUnit.AddAction("backup", nil)
+	addedAction, err := s.wordpressUnit.AddAction("backup", nil)
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(actionId)
+	wc.AssertChange(addedAction.Id())
 	wc.AssertNoChange()
 }
 
@@ -832,7 +832,7 @@ func (s *uniterSuite) TestWatchActionsMalformedTag(c *gc.C) {
 	}}
 	_, err := s.uniter.WatchActions(args)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "\"ewenit-mysql-0\" is not a valid tag")
+	c.Assert(err.Error(), gc.Equals, `"ewenit-mysql-0" is not a valid tag`)
 }
 
 func (s *uniterSuite) TestWatchActionsMalformedUnitName(c *gc.C) {
@@ -841,7 +841,7 @@ func (s *uniterSuite) TestWatchActionsMalformedUnitName(c *gc.C) {
 	}}
 	_, err := s.uniter.WatchActions(args)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "\"unit-mysql-01\" is not a valid unit tag")
+	c.Assert(err.Error(), gc.Equals, `"unit-mysql-01" is not a valid unit tag`)
 }
 
 func (s *uniterSuite) TestWatchActionsNotUnit(c *gc.C) {
@@ -850,7 +850,7 @@ func (s *uniterSuite) TestWatchActionsNotUnit(c *gc.C) {
 	}}
 	_, err := s.uniter.WatchActions(args)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "tag \"action-mysql/0_a_0\" wasn't a Unit")
+	c.Assert(err.Error(), gc.Equals, `"action-mysql/0_a_0" is not a valid unit tag`)
 }
 
 func (s *uniterSuite) TestWatchActionsPermissionDenied(c *gc.C) {
