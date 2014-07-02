@@ -182,8 +182,8 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 		return nil
 	}
 	// Register writer.
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("deprecated-tester", tw, loggo.DEBUG), gc.IsNil)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("deprecated-tester", &tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("deprecated-tester")
 	// Add deprecated message to be checked.
 	messages := []jc.SimpleMessage{
@@ -195,6 +195,6 @@ func (s *syncToolsSuite) TestSyncToolsCommandDeprecatedDestination(c *gc.C) {
 	c.Assert(ctx, gc.NotNil)
 	c.Assert(called, jc.IsTrue)
 	// Check deprecated message was logged.
-	c.Check(tw.Log, jc.LogMatches, messages)
+	c.Check(tw.Log(), jc.LogMatches, messages)
 	s.Reset(c)
 }

@@ -64,7 +64,7 @@ func (s *stateSuite) TestPing(c *gc.C) {
 	c.Assert(err, gc.Equals, rpc.ErrShutdown)
 
 	// Make sure that ping messages have not been logged.
-	for _, m := range tw.Log {
+	for _, m := range tw.Log() {
 		c.Logf("checking %q", m.Message)
 		c.Check(m.Message, gc.Not(gc.Matches), `.*"Request":"Ping".*`)
 	}

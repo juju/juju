@@ -1195,13 +1195,13 @@ func (s *ServiceSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	defer loggo.ResetWriters()
 	logger := loggo.GetLogger("test")
 	logger.SetLogLevel(loggo.DEBUG)
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("constraints-tester", tw, loggo.DEBUG), gc.IsNil)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("constraints-tester", &tw, loggo.DEBUG), gc.IsNil)
 
 	cons := constraints.MustParse("mem=4G cpu-power=10")
 	err := s.mysql.SetConstraints(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`setting constraints on service "mysql": unsupported constraints: cpu-power`},
 	})
