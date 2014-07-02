@@ -30,12 +30,6 @@ type Info struct {
 	// ActionId is the state State.actions ID of the Action document to
 	// be retrieved by RunHook.
 	ActionId string `yaml:"action-id,omitempty"`
-
-	// ActionParams is the map of params sent with an Action Hook.
-	ActionParams map[string]interface{} `yaml:"action-params,omitempty"`
-
-	// ActionName is the name of an Action Hook.
-	ActionName string `yaml:"action-name,omitempty"`
 }
 
 // Validate returns an error if the info is not valid.
