@@ -38,13 +38,17 @@ func (s *InitializeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *InitializeSuite) openState(c *gc.C) {
-	var err error
-	s.State, err = state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
+	s.State = st
 }
 
 func (s *InitializeSuite) TearDownTest(c *gc.C) {
-	s.State.Close()
+	if s.State != nil {
+		s.State.Close()
+	} else {
+		c.Logf("skipping State.Close() due to previous error")
+	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
