@@ -425,6 +425,10 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		err = goyaml.Unmarshal(data, &x)
 		c.Assert(err, gc.IsNil)
 
+		c.Check(x["apt_get_wrapper"], gc.DeepEquals, map[interface{}]interface{}{
+			"command": "eatmydata",
+			"enabled": "auto",
+		})
 		c.Check(x["apt_upgrade"], gc.Equals, true)
 		c.Check(x["apt_update"], gc.Equals, true)
 
@@ -433,7 +437,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		if test.cfg.Config != nil {
 			checkEnvConfig(c, test.cfg.Config, x, scripts)
 		}
-		checkPackage(c, x, "git", true)
+		checkPackage(c, x, "curl", true)
 		tag := names.NewMachineTag(test.cfg.MachineId).String()
 		acfg := getAgentConfig(c, tag, scripts)
 		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
