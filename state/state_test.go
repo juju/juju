@@ -1454,7 +1454,7 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	cons := constraints.MustParse("mem=4G cpu-power=10")
 	err := s.State.SetEnvironConstraints(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`setting environment constraints: unsupported constraints: cpu-power`},
 	})

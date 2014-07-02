@@ -4,6 +4,7 @@
 package resumer_test
 
 import (
+	"sync"
 	stdtesting "testing"
 	"time"
 
@@ -39,16 +40,18 @@ func (s *ResumerSuite) TestResumerCalls(c *gc.C) {
 	resumer.SetInterval(testInterval)
 	defer resumer.RestoreInterval()
 
-	tr := &transactionResumerMock{[]time.Time{}}
-	rr := resumer.NewResumer(tr)
+	var tr transactionResumerMock
+	rr := resumer.NewResumer(&tr)
 	defer func() { c.Assert(rr.Stop(), gc.IsNil) }()
 
 	time.Sleep(10 * testInterval)
 
-	// Check that a numner of calls has happened with a time
+	// Check that a number of calls has happened with a time
 	// difference somewhere between the interval and twice the
 	// interval. A more precise time behavior cannot be
 	// specified due to the load during the test.
+	tr.mu.Lock()
+	defer tr.mu.Unlock()
 	c.Assert(len(tr.timestamps) > 0, gc.Equals, true)
 	for i := 1; i < len(tr.timestamps); i++ {
 		diff := tr.timestamps[i].Sub(tr.timestamps[i-1])
@@ -61,10 +64,13 @@ func (s *ResumerSuite) TestResumerCalls(c *gc.C) {
 // transactionResumerMock is used to check the
 // calls of ResumeTransactions().
 type transactionResumerMock struct {
+	mu         sync.Mutex
 	timestamps []time.Time
 }
 
 func (tr *transactionResumerMock) ResumeTransactions() error {
+	tr.mu.Lock()
 	tr.timestamps = append(tr.timestamps, time.Now())
+	tr.mu.Unlock()
 	return nil
 }

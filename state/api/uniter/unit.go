@@ -413,6 +413,30 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 	return w, nil
 }
 
+// WatchAddresses returns a watcher for observing changes to the
+// unit's addresses. The unit must be assigned to a machine before
+// this method is called, and the returned watcher will be valid only
+// while the unit's assigned machine is not changed.
+func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.call("WatchUnitAddresses", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(u.st.caller, result)
+	return w, nil
+}
+
 // JoinedRelations returns the tags of the relations the unit has joined.
 func (u *Unit) JoinedRelations() ([]string, error) {
 	var results params.StringsResults

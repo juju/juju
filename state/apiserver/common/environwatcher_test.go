@@ -51,13 +51,14 @@ func (s *environWatcherSuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (*environWatcherSuite) TestWatchSuccess(c *gc.C) {
+func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
 	getCanWatch := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
 			return true
 		}, nil
 	}
 	resources := common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{},
 		resources,
@@ -70,11 +71,12 @@ func (*environWatcherSuite) TestWatchSuccess(c *gc.C) {
 	c.Assert(resources.Count(), gc.Equals, 1)
 }
 
-func (*environWatcherSuite) TestWatchGetAuthError(c *gc.C) {
+func (s *environWatcherSuite) TestWatchGetAuthError(c *gc.C) {
 	getCanWatch := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	resources := common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{},
 		resources,
@@ -86,13 +88,14 @@ func (*environWatcherSuite) TestWatchGetAuthError(c *gc.C) {
 	c.Assert(resources.Count(), gc.Equals, 0)
 }
 
-func (*environWatcherSuite) TestWatchAuthError(c *gc.C) {
+func (s *environWatcherSuite) TestWatchAuthError(c *gc.C) {
 	getCanWatch := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
 			return false
 		}, nil
 	}
 	resources := common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{},
 		resources,

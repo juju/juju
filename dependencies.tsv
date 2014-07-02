@@ -12,12 +12,12 @@ github.com/juju/charm	git	caf1b98fd172142ea7ff731c65303231f4783762
 github.com/juju/cmd	git	e2d7df426d54b663f8616901b75d1ccfafcd9997	
 github.com/juju/errgo	git	26caa7d4884f6048c5687fa44c410e5d5d95e554	
 github.com/juju/errors	git	075df0417dbcc39d24ee18248d2f8d6e3eed598b	
-github.com/juju/loggo	git	7e8c70b24b80b95b2284f09306aac0bd93588db8	
+github.com/juju/loggo	git	158009fb40c4a52b3d2c23eb56e72859cfc5321a	
 github.com/juju/names	git	b2e06a0ab1c09f138853d1ef6b11f94ca9f7b675	
 github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb	
 github.com/juju/schema	git	1887e824896b58a0f376fb8517b5eebb825828b8	
 github.com/juju/testing	git	b0941ff1bf4d3db1ffbbe09f75fa8383eae5764c	
-github.com/juju/utils	git	71ae858adb3bf5cc619c3200dfbdf6762de1a94a	
+github.com/juju/utils	git	344b520c12afc98a18f5b4fd763313e340a9a992	
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j	273
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20121003093437-zcyyw0lpvj2nifpk	12
 launchpad.net/goamz	bzr	ian.booth@canonical.com-20140604055617-b7qt909ir9qf4959	47

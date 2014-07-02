@@ -107,9 +107,9 @@ environments:
         tools-url: aknowndeprecatedfield
         lxc-use-clone: true
 `
-	tw := &loggo.TestWriter{}
+	var tw loggo.TestWriter
 	// we only capture Warning or above
-	c.Assert(loggo.RegisterWriter("invalid-env-tester", tw, loggo.WARNING), gc.IsNil)
+	c.Assert(loggo.RegisterWriter("invalid-env-tester", &tw, loggo.WARNING), gc.IsNil)
 	defer loggo.RemoveWriter("invalid-env-tester")
 
 	envs, err := environs.ReadEnvironsBytes([]byte(content))
@@ -118,16 +118,16 @@ environments:
 	sort.Strings(names)
 	c.Check(names, gc.DeepEquals, []string{"deprecated", "valid"})
 	// There should be no warning in the log
-	c.Check(tw.Log, gc.HasLen, 0)
+	c.Check(tw.Log(), gc.HasLen, 0)
 	// Now we actually grab the 'valid' entry
 	_, err = envs.Config("valid")
 	c.Check(err, gc.IsNil)
 	// And still we have no warnings
-	c.Check(tw.Log, gc.HasLen, 0)
+	c.Check(tw.Log(), gc.HasLen, 0)
 	// Only once we grab the deprecated one do we see any warnings
 	_, err = envs.Config("deprecated")
 	c.Check(err, gc.IsNil)
-	c.Check(tw.Log, gc.HasLen, 2)
+	c.Check(tw.Log(), gc.HasLen, 2)
 }
 
 func (*suite) TestNoHomeBeforeConfig(c *gc.C) {
@@ -420,8 +420,9 @@ environments:
 	environs.UpdateEnvironAttrs(envs, "deprecated", attrs)
 	_, err = envs.Config("deprecated")
 	c.Check(err, gc.IsNil)
-	c.Assert(s.writer.Log, gc.HasLen, 1)
-	stripped := strings.Replace(s.writer.Log[0].Message, "\n", "", -1)
+	log := s.writer.Log()
+	c.Assert(log, gc.HasLen, 1)
+	stripped := strings.Replace(log[0].Message, "\n", "", -1)
 	c.Assert(stripped, gc.Matches, expectedMsg)
 }
 
