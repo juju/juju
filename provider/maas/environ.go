@@ -188,13 +188,10 @@ func (env *maasEnviron) getCapabilities() (caps set.Strings, err error) {
 		client := env.getMAASClient().GetSubObject("version/")
 		result, err = client.CallGet("", nil)
 		if err != nil {
-			err0, ok := err.(*gomaasapi.ServerError)
-			if ok && err0.StatusCode == 404 {
+			if err, ok := err.(*gomaasapi.ServerError); ok && err.StatusCode == 404 {
 				return caps, fmt.Errorf("MAAS does not support version info")
-			} else {
-				return caps, err
-			}
-			continue
+			} 
+			return caps, err
 		}
 	}
 	if err != nil {

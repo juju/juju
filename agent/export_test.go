@@ -14,10 +14,8 @@ func Password(config Config) string {
 	c := config.(*configInternal)
 	if c.stateDetails == nil {
 		return c.apiDetails.password
-	} else {
-		return c.stateDetails.password
-	}
-	return ""
+	} 
+	return c.stateDetails.password
 }
 
 func PatchConfig(config Config, fieldName string, value interface{}) error {
