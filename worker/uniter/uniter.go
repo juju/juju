@@ -454,6 +454,19 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
 	// Prepare context.
+
+	hookContext, err := makeHookContext(hi)
+	if err != nil {
+		return err
+	}
+
+	hookRunner, err := makeHookRunner()
+	if err != nil {
+		return err
+	}
+
+	// WIP
+
 	if err = hi.Validate(); err != nil {
 		return err
 	}
