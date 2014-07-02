@@ -1454,7 +1454,7 @@ func (s *StateSuite) TestSetUnsupportedConstraintsWarning(c *gc.C) {
 	cons := constraints.MustParse("mem=4G cpu-power=10")
 	err := s.State.SetEnvironConstraints(cons)
 	c.Assert(err, gc.IsNil)
-	c.Assert(tw.Log, jc.LogMatches, jc.SimpleMessages{{
+	c.Assert(tw.Log(), jc.LogMatches, jc.SimpleMessages{{
 		loggo.WARNING,
 		`setting environment constraints: unsupported constraints: cpu-power`},
 	})
@@ -2531,10 +2531,10 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	actionId, err := u.AddAction("fakeaction", nil)
+	f, err := u.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
-	action, err := s.State.Action(actionId)
-	c.Assert(action.Tag(), gc.Equals, names.NewActionTag("service2/0"+names.ActionMarker+"0"))
+	action, err := s.State.Action(f.Id())
+	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(u.Tag().(names.UnitTag), 0))
 	coll, id, err := state.ParseTag(s.State, action.Tag().String())
 	c.Assert(coll, gc.Equals, "actions")
 	c.Assert(id, gc.Equals, action.Id())
@@ -3531,18 +3531,18 @@ func (s *StateSuite) TestUnitActionsFindsRightActions(c *gc.C) {
 	_, err = unit2.AddAction("action2.2", nil)
 	c.Assert(err, gc.IsNil)
 
-	// Verify that calling UnitActions with unit1.Name() returns only
+	// Verify that calling Actions on unit1 returns only
 	// the three actions added to unit1
-	actions1, err := s.State.UnitActions(unit1.Name())
+	actions1, err := unit1.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions1), gc.Equals, 3)
 	for _, action := range actions1 {
 		c.Assert(action.Name(), gc.Matches, "^action1\\..")
 	}
 
-	// Verify that calling UnitActions with unit2.Name() returns only
-	// the two actions added to unit1
-	actions2, err := s.State.UnitActions(unit2.Name())
+	// Verify that calling Actions on unit2 returns only
+	// the two actions added to unit2
+	actions2, err := unit2.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions2), gc.Equals, 2)
 	for _, action := range actions2 {
@@ -3564,13 +3564,13 @@ func (s *StateSuite) TestWatchActions(c *gc.C) {
 	// add 3 actions
 	_, err = u.AddAction("fakeaction1", nil)
 	c.Assert(err, gc.IsNil)
-	action2, err := u.AddAction("fakeaction2", nil)
+	fa2, err := u.AddAction("fakeaction2", nil)
 	c.Assert(err, gc.IsNil)
 	_, err = u.AddAction("fakeaction3", nil)
 	c.Assert(err, gc.IsNil)
 
 	// fail the middle one
-	action, err := s.State.Action(action2)
+	action, err := s.State.Action(fa2.Id())
 	c.Assert(err, gc.IsNil)
 	err = action.Fail("die scum")
 	c.Assert(err, gc.IsNil)
@@ -3583,7 +3583,7 @@ func (s *StateSuite) TestWatchActions(c *gc.C) {
 
 func expectActionIds(u *state.Unit, suffixes ...string) []string {
 	ids := make([]string, len(suffixes))
-	prefix := state.ActionPrefix(u.Tag())
+	prefix := state.ActionPrefix(u)
 	for i, suffix := range suffixes {
 		ids[i] = prefix + suffix
 	}

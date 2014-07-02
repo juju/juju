@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"time"
 
 	"github.com/juju/charm"
@@ -26,6 +27,7 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
@@ -58,6 +60,7 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/utils/symlink"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
@@ -71,7 +74,7 @@ type eitherState interface{}
 
 var (
 	retryDelay      = 3 * time.Second
-	jujuRun         = "/usr/local/bin/juju-run"
+	jujuRun         = paths.MustSucceed(paths.JujuRun(version.Current.Series))
 	useMultipleCPUs = utils.UseMultipleCPUs
 
 	// The following are defined as variables to
@@ -102,6 +105,9 @@ type MachineAgent struct {
 	upgradeComplete  chan struct{}
 	workersStarted   chan struct{}
 	st               *state.State
+
+	mongoInitMutex   sync.Mutex
+	mongoInitialized bool
 }
 
 // Info returns usage information for the command.
@@ -422,7 +428,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, err
 	}
-	st, m, err := openState(agentConfig)
+	st, m, err := openState(agentConfig, mongo.DialOpts{})
 	if err != nil {
 		return nil, err
 	}
@@ -535,6 +541,13 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
 func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
+	a.mongoInitMutex.Lock()
+	defer a.mongoInitMutex.Unlock()
+	if a.mongoInitialized {
+		logger.Debugf("mongo is already initialized")
+		return nil
+	}
+
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return fmt.Errorf("state worker was started with no state serving info")
@@ -566,7 +579,10 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 			}
 			agentConfig = a.CurrentConfig()
 		}
-		st, m, err := openState(agentConfig)
+		// Note: we set Direct=true in the mongo options because it's
+		// possible that we've previously upgraded the mongo server's
+		// configuration to form a replicaset, but failed to initiate it.
+		st, m, err := openState(agentConfig, mongo.DialOpts{Direct: true})
 		if err != nil {
 			return err
 		}
@@ -607,12 +623,16 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	if peerAddr == "" {
 		return fmt.Errorf("no appropriate peer address found in %q", addrs)
 	}
-	return maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
+	if err := maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort)),
 		User:           stateInfo.Tag,
 		Password:       stateInfo.Password,
-	})
+	}); err != nil {
+		return err
+	}
+	a.mongoInitialized = true
+	return nil
 }
 
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
@@ -643,12 +663,12 @@ func isPreHAVersion(v version.Number) bool {
 	return v.Compare(version.MustParse("1.19.0")) < 0
 }
 
-func openState(agentConfig agent.Config) (_ *state.State, _ *state.Machine, err error) {
+func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.State, _ *state.Machine, err error) {
 	info, ok := agentConfig.StateInfo()
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, err := state.Open(info, dialOpts, environs.NewStatePolicy())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -743,6 +763,9 @@ func (a *MachineAgent) upgradeWorker(
 		// and how often StateWorker might run.
 		var st *state.State
 		if needsState {
+			if err := a.ensureMongoServer(agentConfig); err != nil {
+				return err
+			}
 			var err error
 			info, ok := agentConfig.StateInfo()
 			if !ok {
@@ -829,7 +852,7 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 		return err
 	}
 	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), "jujud")
-	return os.Symlink(jujud, jujuRun)
+	return symlink.New(jujud, jujuRun)
 }
 
 func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {

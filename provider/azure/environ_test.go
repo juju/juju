@@ -980,7 +980,9 @@ func (s *environSuite) TestDestroyDoesNotFailIfVirtualNetworkDeletionFails(c *gc
 	s.setDummyStorage(c, env)
 	responses := getAzureServiceListResponse(c)
 	cleanupResponses := []gwacl.DispatcherResponse{
-		// Fail to delete vnet
+		// Fail to get vnet for deletion
+		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
+		// Fail to delete affinity group
 		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
 	}
 	responses = append(responses, cleanupResponses...)
@@ -988,11 +990,15 @@ func (s *environSuite) TestDestroyDoesNotFailIfVirtualNetworkDeletionFails(c *gc
 
 	err := env.Destroy()
 	c.Check(err, gc.IsNil)
-	c.Assert(*requests, gc.HasLen, 2)
+	c.Assert(*requests, gc.HasLen, 3)
 
 	getRequest := (*requests)[1]
 	c.Check(getRequest.Method, gc.Equals, "GET")
 	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), gc.Equals, true)
+
+	deleteRequest := (*requests)[2]
+	c.Check(deleteRequest.Method, gc.Equals, "DELETE")
+	c.Check(strings.Contains(deleteRequest.URL, env.getAffinityGroupName()), jc.IsTrue)
 }
 
 func (s *environSuite) TestDestroyDoesNotFailIfAffinityGroupDeletionFails(c *gc.C) {
@@ -1255,6 +1261,7 @@ func (*environSuite) TestCreateVirtualNetwork(c *gc.C) {
 	networkConf := (*body.VirtualNetworkSites)[0]
 	c.Check(networkConf.Name, gc.Equals, env.getVirtualNetworkName())
 	c.Check(networkConf.AffinityGroup, gc.Equals, env.getAffinityGroupName())
+	c.Check(networkConf.Location, gc.Equals, "")
 }
 
 func (*environSuite) TestDestroyVirtualNetwork(c *gc.C) {

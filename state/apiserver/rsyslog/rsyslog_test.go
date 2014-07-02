@@ -39,6 +39,7 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 		MachineAgent:   true,
 	}
 	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 	api, err := rsyslog.NewRsyslogAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	s.EnvironWatcherTest = commontesting.NewEnvironWatcherTest(

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/charm"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/juju/juju/state/apiserver/uniter"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
+	patchtesting "github.com/juju/testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -82,6 +84,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	// Create a uniter API for unit 0.
 	s.uniter, err = uniter.NewUniterAPI(
@@ -865,6 +868,114 @@ func (s *uniterSuite) TestCurrentEnvironment(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, expected)
 }
 
+func (s *uniterSuite) TestAction(c *gc.C) {
+	var actionTests = []struct {
+		description string
+		action      params.Action
+	}{{
+		description: "A simple action.",
+		action: params.Action{
+			Name: "snapshot",
+			Params: map[string]interface{}{
+				"outfile": "foo.txt",
+			},
+		},
+	}, {
+		description: "An action with nested parameters.",
+		action: params.Action{
+			Name: "backup",
+			Params: map[string]interface{}{
+				"outfile": "foo.bz2",
+				"compression": map[string]interface{}{
+					"kind":    "bzip",
+					"quality": 5,
+				},
+			},
+		},
+	}}
+
+	for i, actionTest := range actionTests {
+		c.Logf("test %d: %s", i, actionTest.description)
+
+		a, err := s.wordpressUnit.AddAction(
+			actionTest.action.Name,
+			actionTest.action.Params)
+		c.Assert(err, gc.IsNil)
+		actionTag := names.NewActionTag(s.wordpressUnit.UnitTag(), i)
+		c.Assert(a.ActionTag(), gc.Equals, actionTag)
+
+		args := params.Entities{
+			Entities: []params.Entity{{
+				Tag: actionTag.String(),
+			}},
+		}
+		results, err := s.uniter.Actions(args)
+		c.Assert(err, gc.IsNil)
+		c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
+
+		actionsQueryResult := results.ActionsQueryResults[0]
+
+		c.Assert(actionsQueryResult.Error, gc.IsNil)
+		c.Assert(actionsQueryResult.Action, jc.DeepEquals, &actionTest.action)
+	}
+}
+
+func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewActionTag(names.NewUnitTag("wordpress/0"), 0).String(),
+		}},
+	}
+	results, err := s.uniter.Actions(args)
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
+	actionsQueryResult := results.ActionsQueryResults[0]
+	c.Assert(actionsQueryResult.Error, gc.NotNil)
+	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action .*wordpress/0[^0-9]+0[^0-9]+ not found`)
+}
+
+func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
+	// Action doesn't match unit.
+	fakeBadAuth := apiservertesting.FakeAuthorizer{
+		Tag:       s.mysqlUnit.Tag(),
+		LoggedIn:  true,
+		UnitAgent: true,
+		Entity:    s.wordpressUnit,
+	}
+	fakeBadAPI, err := uniter.NewUniterAPI(
+		s.State,
+		s.resources,
+		fakeBadAuth,
+	)
+	c.Assert(err, gc.IsNil)
+
+	restore := patchtesting.PatchValue(&s.uniter, fakeBadAPI)
+	defer restore()
+
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewActionTag(names.NewUnitTag("wordpress/0"), 0).String(),
+		}},
+	}
+	// exercises line 738 of state/apiserver/uniter/uniter.go
+	_, err = s.uniter.Actions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
+}
+
+func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
+	// Same unit, but not one that has access.
+	args := params.Entities{
+		Entities: []params.Entity{{
+			Tag: names.NewActionTag(names.NewUnitTag("mysql/0"), 0).String(),
+		}},
+	}
+	_, err := s.uniter.Actions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
+}
+
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
 	eps, err := s.State.InferEndpoints([]string{first, second})
 	c.Assert(err, gc.IsNil)
@@ -1439,4 +1550,37 @@ func (s *uniterSuite) TestGetOwnerTag(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringResult{
 		Result: "user-admin",
 	})
+}
+
+func (s *uniterSuite) TestWatchUnitAddresses(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-0"},
+		{Tag: "service-wordpress"},
+	}}
+	result, err := s.uniter.WatchUnitAddresses(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
 }

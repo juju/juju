@@ -34,7 +34,8 @@ import (
 
 type lxcSuite struct {
 	lxctesting.TestSuite
-	events chan mock.Event
+	events     chan mock.Event
+	eventsDone chan struct{}
 }
 
 type lxcBrokerSuite struct {
@@ -48,7 +49,9 @@ var _ = gc.Suite(&lxcBrokerSuite{})
 func (s *lxcSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
+	s.eventsDone = make(chan struct{})
 	go func() {
+		defer close(s.eventsDone)
 		for event := range s.events {
 			c.Output(3, fmt.Sprintf("lxc event: <%s, %s>", event.Action, event.InstanceId))
 		}
@@ -58,6 +61,7 @@ func (s *lxcSuite) SetUpTest(c *gc.C) {
 
 func (s *lxcSuite) TearDownTest(c *gc.C) {
 	close(s.events)
+	<-s.eventsDone
 	s.TestSuite.TearDownTest(c)
 }
 

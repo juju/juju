@@ -201,8 +201,12 @@ func (env *azureEnviron) getVirtualNetworkName() string {
 }
 
 func (env *azureEnviron) createVirtualNetwork() error {
+	// Note: the Azure documentation recommends to use
+	// Location when creating virtual network sites.
+	// We have historically used Affinity Group, and
+	// have observed intermittent issues when switching.
+	// http://msdn.microsoft.com/en-us/library/azure/jj157100.aspx
 	vnetName := env.getVirtualNetworkName()
-	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
 		return err
@@ -210,7 +214,7 @@ func (env *azureEnviron) createVirtualNetwork() error {
 	defer env.releaseManagementAPI(azure)
 	virtualNetwork := gwacl.VirtualNetworkSite{
 		Name:          vnetName,
-		AffinityGroup: affinityGroupName,
+		AffinityGroup: env.getAffinityGroupName(),
 		AddressSpacePrefixes: []string{
 			networkDefinition,
 		},
@@ -1051,10 +1055,9 @@ func (env *azureEnviron) Destroy() error {
 	// associated with a vnet or affinity group.
 	if err := env.deleteVirtualNetwork(); err != nil {
 		logger.Warningf("cannot delete the environment's virtual network: %v", err)
-	} else {
-		if err := env.deleteAffinityGroup(); err != nil {
-			logger.Warningf("cannot delete the environment's affinity group: %v", err)
-		}
+	}
+	if err := env.deleteAffinityGroup(); err != nil {
+		logger.Warningf("cannot delete the environment's affinity group: %v", err)
 	}
 
 	// Delete storage.

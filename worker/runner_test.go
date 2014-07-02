@@ -18,7 +18,6 @@ import (
 
 type runnerSuite struct {
 	testing.BaseSuite
-	restartDelay time.Duration
 }
 
 var _ = gc.Suite(&runnerSuite{})
@@ -37,13 +36,7 @@ func noImportance(err0, err1 error) bool {
 
 func (s *runnerSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.restartDelay = worker.RestartDelay
-	worker.RestartDelay = 0
-}
-
-func (s *runnerSuite) TearDownTest(c *gc.C) {
-	worker.RestartDelay = s.restartDelay
-	s.BaseSuite.TearDownTest(c)
+	s.PatchValue(&worker.RestartDelay, time.Duration(0))
 }
 
 func (*runnerSuite) TestOneWorkerStart(c *gc.C) {
@@ -165,6 +158,7 @@ func (*runnerSuite) TestOneWorkerRestartDelay(c *gc.C) {
 	if restartDuration < worker.RestartDelay {
 		c.Fatalf("restart delay was not respected; got %v want %v", restartDuration, worker.RestartDelay)
 	}
+	c.Assert(worker.Stop(runner), gc.IsNil)
 }
 
 type errorLevel int

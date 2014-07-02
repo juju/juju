@@ -90,8 +90,12 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	defer apiclient.Close()
 
 	status, err := apiclient.Status(c.patterns)
-	// Display any error, but continue to print status if some was returned
 	if err != nil {
+		if status == nil {
+			// Status call completely failed, there is nothing to report
+			return err
+		}
+		// Display any error, but continue to print status if some was returned
 		fmt.Fprintf(ctx.Stderr, "%v\n", err)
 	}
 	result := newStatusFormatter(status).format()

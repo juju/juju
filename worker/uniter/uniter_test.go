@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	stdtesting "testing"
 	"time"
 
@@ -69,6 +70,7 @@ type UniterSuite struct {
 var _ = gc.Suite(&UniterSuite{})
 
 func (s *UniterSuite) SetUpSuite(c *gc.C) {
+	s.GitSuite.SetUpSuite(c)
 	s.JujuConnSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 	s.dataDir = c.MkDir()
@@ -89,6 +91,7 @@ func (s *UniterSuite) TearDownSuite(c *gc.C) {
 	os.Setenv("LC_ALL", s.oldLcAll)
 	s.HTTPSuite.TearDownSuite(c)
 	s.JujuConnSuite.TearDownSuite(c)
+	s.GitSuite.TearDownSuite(c)
 }
 
 func (s *UniterSuite) SetUpTest(c *gc.C) {
@@ -159,17 +162,22 @@ type context struct {
 	relationUnits map[string]*state.RelationUnit
 	subordinate   *state.Unit
 
+	mu             sync.Mutex
 	hooksCompleted []string
 }
 
 var _ uniter.UniterExecutionObserver = (*context)(nil)
 
 func (ctx *context) HookCompleted(hookName string) {
+	ctx.mu.Lock()
 	ctx.hooksCompleted = append(ctx.hooksCompleted, hookName)
+	ctx.mu.Unlock()
 }
 
 func (ctx *context) HookFailed(hookName string) {
+	ctx.mu.Lock()
 	ctx.hooksCompleted = append(ctx.hooksCompleted, "fail-"+hookName)
+	ctx.mu.Unlock()
 }
 
 func (ctx *context) run(c *gc.C, steps []stepper) {
@@ -207,6 +215,8 @@ func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 }
 
 func (ctx *context) matchHooks(c *gc.C) (match bool, overshoot bool) {
+	ctx.mu.Lock()
+	defer ctx.mu.Unlock()
 	c.Logf("ctx.hooksCompleted: %#v", ctx.hooksCompleted)
 	if len(ctx.hooksCompleted) < len(ctx.hooks) {
 		return false, false

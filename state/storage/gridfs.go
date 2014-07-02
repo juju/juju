@@ -14,6 +14,7 @@ import (
 var logger = loggo.GetLogger("juju.storage")
 
 type gridFSStorage struct {
+	dbName    string
 	namespace string
 	session   *mgo.Session
 }
@@ -22,15 +23,16 @@ var _ ResourceStorage = (*gridFSStorage)(nil)
 
 // NewGridFS returns a ResourceStorage instance backed by a mongo GridFS.
 // namespace is used to segregate different sets of data.
-func NewGridFS(namespace string, session *mgo.Session) ResourceStorage {
+func NewGridFS(dbName, namespace string, session *mgo.Session) ResourceStorage {
 	return &gridFSStorage{
+		dbName:    dbName,
 		namespace: namespace,
 		session:   session,
 	}
 }
 
 func (g *gridFSStorage) db() *mgo.Database {
-	return g.session.DB("juju")
+	return g.session.DB(g.dbName)
 }
 
 func (g *gridFSStorage) gridFS() *mgo.GridFS {

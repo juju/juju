@@ -461,7 +461,7 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 	case names.NetworkTag:
 		return st.Network(id)
 	case names.ActionTag:
-		return st.Action(id)
+		return st.ActionByTag(t)
 	default:
 		return nil, errors.Errorf("unsupported tag tpe %T", t)
 	}
@@ -474,6 +474,7 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 	if err != nil {
 		return "", "", err
 	}
+	tid := t.Id()
 	switch t.(type) {
 	case names.MachineTag:
 		coll = st.machines.Name
@@ -491,10 +492,11 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.networks.Name
 	case names.ActionTag:
 		coll = st.actions.Name
+		tid = actionIdFromTag(t.(names.ActionTag))
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
-	return coll, t.Id(), nil
+	return coll, tid, nil
 }
 
 // AddCharm adds the ch charm with curl to the state. bundleURL must
@@ -1373,18 +1375,29 @@ func (st *State) Action(id string) (*Action, error) {
 	return newAction(st, doc), nil
 }
 
-// UnitActions returns a list of pending actions for a given Unit
-func (st *State) UnitActions(name string) ([]*Action, error) {
-	return st.Actions(names.NewUnitTag(name).Id())
+// ActionByTag returns an Action given an ActionTag
+func (st *State) ActionByTag(tag names.Tag) (*Action, error) {
+	actionTag, ok := tag.(names.ActionTag)
+	if !ok {
+		return nil, fmt.Errorf("cannot get action from tag %v", tag)
+	}
+	return st.Action(actionIdFromTag(actionTag))
 }
 
-// Actions returns a list of pending actions for an Entity given its Tag()
-func (st *State) Actions(tag string) ([]*Action, error) {
-	var actions []*Action
-	prefix := actionPrefix(tag)
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
-	iter := st.actions.Find(sel).Iter()
+// actionIdFromTag converts an ActionTag to an actionId
+func actionIdFromTag(tag names.ActionTag) string {
+	prefix := actionPrefix(tag.UnitTag().Id())
+	return actionId(prefix, tag.Sequence())
+}
+
+// matchingActions finds actions that match name
+func (st *State) matchingActions(name string) ([]*Action, error) {
 	var doc actionDoc
+	var actions []*Action
+
+	prefix := actionPrefix(name)
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + regexp.QuoteMeta(prefix)}}}}
+	iter := st.actions.Find(sel).Iter()
 	for iter.Next(&doc) {
 		actions = append(actions, newAction(st, doc))
 	}
@@ -1404,31 +1417,14 @@ func (st *State) ActionResult(id string) (*ActionResult, error) {
 	return newActionResult(st, doc), nil
 }
 
-// ActionResultsForUnit returns actionresults that were generated from
-// actions queued to the unit with the given name.
-func (st *State) ActionResultsForUnit(name string) ([]*ActionResult, error) {
-	if !names.IsUnit(name) {
-		return nil, errors.Errorf("%q is not a valid unit name", name)
-	}
-	return st.actionResults(name + names.ActionMarker)
-}
-
-// ActionResultsForAction returns actionresults that were generated from
-// action with given actionId
-func (st *State) ActionResultsForAction(actionId string) ([]*ActionResult, error) {
-	if !names.IsAction(actionId) {
-		return nil, errors.Errorf("%q is not a valid action id", actionId)
-	}
-	return st.actionResults(actionId + actionResultMarker)
-}
-
-// actionResults returns actionresults that match the given id prefix.
-// We assume the prefix has been scrubbed before calling this
-func (st *State) actionResults(prefix string) ([]*ActionResult, error) {
-	var results []*ActionResult
-	sel := bson.D{{"_id", bson.RegEx{Pattern: "^" + regexp.QuoteMeta(prefix)}}}
-	iter := st.actionresults.Find(sel).Iter()
+// matchingActionResults finds actions that match name
+func (st *State) matchingActionResults(name string) ([]*ActionResult, error) {
 	var doc actionResultDoc
+	var results []*ActionResult
+
+	prefix := actionResultPrefix(name)
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + regexp.QuoteMeta(prefix)}}}}
+	iter := st.actionresults.Find(sel).Iter()
 	for iter.Next(&doc) {
 		results = append(results, newActionResult(st, doc))
 	}

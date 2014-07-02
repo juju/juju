@@ -37,6 +37,7 @@ var _ = gc.Suite(&upgraderSuite{})
 func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	// Create a machine to work with
 	var err error

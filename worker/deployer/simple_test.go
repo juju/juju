@@ -132,8 +132,6 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 }
 
 type SimpleToolsFixture struct {
-	testing.BaseSuite
-
 	dataDir  string
 	logDir   string
 	initDir  string
@@ -144,7 +142,6 @@ type SimpleToolsFixture struct {
 var fakeJujud = "#!/bin/bash --norc\n# fake-jujud\nexit 0\n"
 
 func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
-	fix.BaseSuite.SetUpTest(c)
 	fix.dataDir = dataDir
 	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
@@ -172,7 +169,6 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 
 func (fix *SimpleToolsFixture) TearDown(c *gc.C) {
 	os.Setenv("PATH", fix.origPath)
-	fix.BaseSuite.TearDownTest(c)
 }
 
 func (fix *SimpleToolsFixture) makeBin(c *gc.C, name, script string) {

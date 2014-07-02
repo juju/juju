@@ -156,8 +156,8 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 		return fmt.Errorf("bork bork borken")
 	}
 
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("bootstrap-tester", tw, loggo.DEBUG), gc.IsNil)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("bootstrap-tester", &tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("bootstrap-tester")
 
 	env := &mockEnviron{
@@ -172,7 +172,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
-	c.Assert(tw.Log, jc.LogMatches, []jc.SimpleMessage{{
+	c.Assert(tw.Log(), jc.LogMatches, []jc.SimpleMessage{{
 		loggo.ERROR, `cannot stop failed bootstrap instance "i-blah": bork bork borken`,
 	}})
 }

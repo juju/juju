@@ -370,6 +370,98 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	return append(ops, removeOps...), nil
 }
 
+// destroyHostOps returns all necessary operations to destroy the service unit's host machine,
+// or ensure that the conditions preventing its destruction remain stable through the transaction.
+func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
+	if s.doc.Subordinate {
+		return []txn.Op{{
+			C:      s.st.units.Name,
+			Id:     u.doc.Principal,
+			Assert: txn.DocExists,
+			Update: bson.D{{"$pull", bson.D{{"subordinates", u.doc.Name}}}},
+		}}, nil
+	} else if u.doc.MachineId == "" {
+		unitLogger.Errorf("unit %v unassigned", u)
+		return nil, nil
+	}
+
+	machineUpdate := bson.D{{"$pull", bson.D{{"principals", u.doc.Name}}}}
+
+	m, err := u.st.Machine(u.doc.MachineId)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, nil
+		} else {
+			return nil, err
+		}
+	}
+
+	containerCheck := true // whether container conditions allow destroying the host machine
+	containers, err := m.Containers()
+	if err != nil {
+		return nil, err
+	}
+	if len(containers) > 0 {
+		ops = append(ops, txn.Op{
+			C:      u.st.containerRefs.Name,
+			Id:     m.doc.Id,
+			Assert: bson.D{{"children.0", bson.D{{"$exists", 1}}}},
+		})
+		containerCheck = false
+	} else {
+		ops = append(ops, txn.Op{
+			C:  u.st.containerRefs.Name,
+			Id: m.doc.Id,
+			Assert: bson.D{{"$or", []bson.D{
+				{{"children", bson.D{{"$size", 0}}}},
+				{{"children", bson.D{{"$exists", false}}}},
+			}}},
+		})
+	}
+
+	machineCheck := true // whether host machine conditions allow destroy
+	if len(m.doc.Principals) != 1 || m.doc.Principals[0] != u.doc.Name {
+		machineCheck = false
+	} else if hasJob(m.doc.Jobs, JobManageEnviron) {
+		// Check that the machine does not have any responsibilities that
+		// prevent a lifecycle change.
+		machineCheck = false
+	} else if m.doc.HasVote {
+		machineCheck = false
+	}
+
+	// assert that the machine conditions pertaining to host removal conditions
+	// remain the same throughout the transaction.
+	var machineAssert bson.D
+	if machineCheck {
+		machineAssert = bson.D{{"$and", []bson.D{
+			bson.D{{"principals", []string{u.doc.Name}}},
+			bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
+			bson.D{{"hasvote", bson.D{{"$ne", true}}}},
+		}}}
+	} else {
+		machineAssert = bson.D{{"$or", []bson.D{
+			bson.D{{"principals", bson.D{{"$ne", []string{u.doc.Name}}}}},
+			bson.D{{"jobs", bson.D{{"$in", []MachineJob{JobManageEnviron}}}}},
+			bson.D{{"hasvote", true}},
+		}}}
+	}
+
+	// If removal conditions satisfied by machine & container docs, we can
+	// destroy it, in addition to removing the unit principal.
+	if machineCheck && containerCheck {
+		machineUpdate = append(machineUpdate, bson.D{{"$set", bson.D{{"life", Dying}}}}...)
+	}
+
+	ops = append(ops, txn.Op{
+		C:      s.st.machines.Name,
+		Id:     u.doc.MachineId,
+		Assert: machineAssert,
+		Update: machineUpdate,
+	})
+	return ops, nil
+}
+
 var errAlreadyRemoved = stderrors.New("entity has already been removed")
 
 // removeOps returns the operations necessary to remove the unit, assuming
@@ -653,6 +745,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	found := false
 	for _, p := range u.doc.Ports {
 		if p == port {
+			found = true
 			break
 		}
 	}
@@ -769,6 +862,10 @@ func (u *Unit) AgentPresence() (bool, error) {
 // The returned name will be different from other Tag values returned by any
 // other entities from the same state.
 func (u *Unit) Tag() names.Tag {
+	return u.UnitTag()
+}
+
+func (u *Unit) UnitTag() names.UnitTag {
 	return names.NewUnitTag(u.Name())
 }
 
@@ -1382,12 +1479,11 @@ func (u *Unit) UnassignFromMachine() (err error) {
 
 // AddAction adds a new Action of type name and using arguments payload to
 // this Unit, and returns its ID
-func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, error) {
-	actionId, err := newActionId(u.st, names.NewUnitTag(u.Name()).Id())
+func (u *Unit) AddAction(name string, payload map[string]interface{}) (*Action, error) {
+	doc, err := newActionDoc(u, name, payload)
 	if err != nil {
-		return "", fmt.Errorf("cannot add action; error generating key: %v", err)
+		return nil, fmt.Errorf("cannot add action; %v", err)
 	}
-	doc := actionDoc{Id: actionId, Name: name, Payload: payload}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
@@ -1408,9 +1504,19 @@ func (u *Unit) AddAction(name string, payload map[string]interface{}) (string, e
 		return ops, nil
 	}
 	if err = u.st.run(buildTxn); err == nil {
-		return actionId, nil
+		return newAction(u.st, doc), nil
 	}
-	return "", err
+	return nil, err
+}
+
+// Actions returns a list of actions for this unit
+func (u *Unit) Actions() ([]*Action, error) {
+	return u.st.matchingActions(u.Name())
+}
+
+// ActionResults returns a list of action results for this unit
+func (u *Unit) ActionResults() ([]*ActionResult, error) {
+	return u.st.matchingActionResults(u.Name())
 }
 
 // Resolve marks the unit as having had any previous state transition
@@ -1486,5 +1592,5 @@ func (u *Unit) ClearResolved() error {
 
 // WatchActions starts and returns an ActionWatcher
 func (u *Unit) WatchActions() StringsWatcher {
-	return newActionWatcher(u.st, u.Tag().Id())
+	return newActionWatcher(u.st, actionPrefix(u.Name()))
 }
