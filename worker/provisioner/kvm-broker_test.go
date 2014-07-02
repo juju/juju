@@ -32,7 +32,8 @@ import (
 
 type kvmSuite struct {
 	kvmtesting.TestSuite
-	events chan mock.Event
+	events     chan mock.Event
+	eventsDone chan struct{}
 }
 
 type kvmBrokerSuite struct {
@@ -46,7 +47,9 @@ var _ = gc.Suite(&kvmBrokerSuite{})
 func (s *kvmSuite) SetUpTest(c *gc.C) {
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
+	s.eventsDone = make(chan struct{})
 	go func() {
+		defer close(s.eventsDone)
 		for event := range s.events {
 			c.Output(3, fmt.Sprintf("kvm event: <%s, %s>", event.Action, event.InstanceId))
 		}
@@ -56,6 +59,7 @@ func (s *kvmSuite) SetUpTest(c *gc.C) {
 
 func (s *kvmSuite) TearDownTest(c *gc.C) {
 	close(s.events)
+	<-s.eventsDone
 	s.TestSuite.TearDownTest(c)
 }
 

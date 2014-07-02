@@ -108,6 +108,10 @@ var getJujuExecutable = func() (string, error) {
 // getSSHOptions configures and returns SSH options and proxy settings.
 func (c *SSHCommon) getSSHOptions(enablePty bool) (*ssh.Options, error) {
 	var options ssh.Options
+
+	// TODO(waigani) do not save fingerprint only until this bug is addressed:
+	// lp:892552. Also see lp:1334481.
+	options.SetKnownHostsFile("/dev/null")
 	if enablePty {
 		options.EnablePTY()
 	}
@@ -139,6 +143,7 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+
 	host, err := c.hostFromTarget(c.Target)
 	if err != nil {
 		return err

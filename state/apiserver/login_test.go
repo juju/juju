@@ -172,8 +172,8 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machineInState.Tag(), gc.Equals, names.NewMachineTag("0"))
 
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("login-tester", tw, loggo.DEBUG), gc.IsNil)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("login-tester", &tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("login-tester")
 
 	info.Tag = machineInState.Tag().String()
@@ -187,7 +187,7 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag().String())
 
-	c.Assert(tw.Log, jc.LogMatches, []string{
+	c.Assert(tw.Log(), jc.LogMatches, []string{
 		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login",` +
 			`"Params":{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
 			`}`,

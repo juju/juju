@@ -53,6 +53,7 @@ import (
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/utils/symlink"
 )
 
 type commonMachineSuite struct {
@@ -833,7 +834,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
-	err := os.Symlink("/nowhere/special", jujuRun)
+	err := symlink.New("/nowhere/special", jujuRun)
 	c.Assert(err, gc.IsNil)
 	_, err = os.Stat(jujuRun)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -841,7 +842,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 		// juju-run should have been recreated
 		_, err := os.Stat(jujuRun)
 		c.Assert(err, gc.IsNil)
-		link, err := os.Readlink(jujuRun)
+		link, err := symlink.Read(jujuRun)
 		c.Assert(err, gc.IsNil)
 		c.Assert(link, gc.Not(gc.Equals), "/nowhere/special")
 	})

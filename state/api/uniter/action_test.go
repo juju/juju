@@ -44,12 +44,15 @@ func (s *actionSuite) TestAction(c *gc.C) {
 
 	for i, actionTest := range actionTests {
 		c.Logf("test %d: %s", i, actionTest.description)
-		actionId, err := s.uniterSuite.wordpressUnit.AddAction(
+		a, err := s.uniterSuite.wordpressUnit.AddAction(
 			actionTest.action.Name,
 			actionTest.action.Params)
 		c.Assert(err, gc.IsNil)
 
-		retrievedAction, err := s.uniter.Action(actionId)
+		actionTag := names.NewActionTag(s.uniterSuite.wordpressUnit.UnitTag(), i)
+		c.Assert(a.Tag(), gc.Equals, actionTag)
+
+		retrievedAction, err := s.uniter.Action(actionTag)
 		c.Assert(err, gc.IsNil)
 
 		c.Assert(retrievedAction.Name(), gc.DeepEquals, actionTest.action.Name)
@@ -57,18 +60,11 @@ func (s *actionSuite) TestAction(c *gc.C) {
 	}
 }
 
-func (s *actionSuite) TestActionInvalid(c *gc.C) {
-	actionId := "foo"
-	_, err := s.uniter.Action(actionId)
-	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "\"action-foo\" is not a valid action tag")
-}
-
 func (s *actionSuite) TestActionNotFound(c *gc.C) {
-	actionId := "wordpress/0" + names.ActionMarker + "0"
-	_, err := s.uniter.Action(actionId)
+	actionTag := names.NewActionTag(names.NewUnitTag("wordpress/0"), 0)
+	_, err := s.uniter.Action(actionTag)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err.Error(), gc.Equals, "action \"wordpress/0_a_0\" not found")
+	c.Assert(err, gc.ErrorMatches, "action .*wordpress/0[^0-9]+0[^0-9]+ not found")
 }
 
 func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {

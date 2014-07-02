@@ -374,3 +374,39 @@ func (s *unitSuite) TestJoinedRelations(c *gc.C) {
 	sort.Strings(joinedRelations)
 	c.Assert(joinedRelations, gc.DeepEquals, []string{rel2.Tag().String(), rel1.Tag().String()})
 }
+
+func (s *unitSuite) TestWatchAddresses(c *gc.C) {
+	w, err := s.apiUnit.WatchAddresses()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+
+	// Initial event.
+	wc.AssertOneChange()
+
+	// Update config a couple of times, check a single event.
+	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	c.Assert(err, gc.IsNil)
+	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4", network.ScopeUnknown))
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
+
+	// Non-change is not reported.
+	err = s.wordpressMachine.SetAddresses(network.NewAddress("0.1.2.4", network.ScopeUnknown))
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
+	// NOTE: This test is not as exhaustive as the one in state,
+	// because the watcher is already tested there. Here we just
+	// ensure we get the events when we expect them and don't get
+	// them when they're not expected.
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *unitSuite) TestWatchAddressesErrors(c *gc.C) {
+	err := s.wordpressUnit.UnassignFromMachine()
+	c.Assert(err, gc.IsNil)
+	_, err = s.apiUnit.WatchAddresses()
+	c.Assert(err, jc.Satisfies, params.IsCodeNotAssigned)
+}

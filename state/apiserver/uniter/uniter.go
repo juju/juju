@@ -7,7 +7,6 @@ package uniter
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/juju/charm"
 	"github.com/juju/errors"
@@ -683,9 +682,9 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 }
 
 // getOneActionById retrieves a single Action by id.
-func (u *UniterAPI) getOneActionById(actionId string) (params.ActionsQueryResult, error) {
+func (u *UniterAPI) getOneActionByTag(tag names.ActionTag) (params.ActionsQueryResult, error) {
 	result := params.ActionsQueryResult{}
-	action, err := u.st.Action(actionId)
+	action, err := u.st.ActionByTag(tag)
 	if err != nil {
 		return result, err
 	}
@@ -721,15 +720,7 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 		if err != nil {
 			return nothing, err
 		}
-
-		// Action prefix must match unit.  Extract the Unit tag.
-		markerInd := strings.Index(actionTag.String(), names.ActionMarker)
-		actionInd := strings.Index(actionTag.String(), names.ActionTagKind)
-		actionInd = actionInd + len(names.ActionTagKind) + 1
-		unitTag, err := names.ParseUnitTag("unit-" + actionTag.String()[actionInd:markerInd])
-		if err != nil {
-			return nothing, err
-		}
+		unitTag := actionTag.UnitTag()
 
 		// The Unit is querying for another Unit's Action.
 		if unitTag.String() != whichUnit.Tag().String() {
@@ -741,8 +732,7 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 			return nothing, common.ErrPerm
 		}
 
-		actionId := actionTag.Id()
-		actionQueryResult, err := u.getOneActionById(actionId)
+		actionQueryResult, err := u.getOneActionByTag(actionTag)
 		if err == nil {
 			results.ActionsQueryResults[i] = actionQueryResult
 		}
@@ -1061,4 +1051,50 @@ func (u *UniterAPI) GetOwnerTag(args params.Entities) (params.StringResult, erro
 	return params.StringResult{
 		Result: service.GetOwnerTag(),
 	}, nil
+}
+
+func (u *UniterAPI) watchOneUnitAddresses(tag string) (string, error) {
+	unit, err := u.getUnit(tag)
+	if err != nil {
+		return "", err
+	}
+	machineId, err := unit.AssignedMachineId()
+	if err != nil {
+		return "", err
+	}
+	machine, err := u.st.Machine(machineId)
+	if err != nil {
+		return "", err
+	}
+	watch := machine.WatchAddresses()
+	// Consume the initial event. Technically, API
+	// calls to Watch 'transmit' the initial event
+	// in the Watch response. But NotifyWatchers
+	// have no state to transmit.
+	if _, ok := <-watch.Changes(); ok {
+		return u.resources.Register(watch), nil
+	}
+	return "", watcher.MustErr(watch)
+}
+
+// WatchAddresses returns a NotifyWatcher for observing changes
+// to each unit's addresses.
+func (u *UniterAPI) WatchUnitAddresses(args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		watcherId := ""
+		if canAccess(entity.Tag) {
+			watcherId, err = u.watchOneUnitAddresses(entity.Tag)
+		}
+		result.Results[i].NotifyWatcherId = watcherId
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
 }

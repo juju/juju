@@ -84,6 +84,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	// Create a uniter API for unit 0.
 	s.uniter, err = uniter.NewUniterAPI(
@@ -896,14 +897,16 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 	for i, actionTest := range actionTests {
 		c.Logf("test %d: %s", i, actionTest.description)
 
-		actionId, err := s.wordpressUnit.AddAction(
+		a, err := s.wordpressUnit.AddAction(
 			actionTest.action.Name,
 			actionTest.action.Params)
 		c.Assert(err, gc.IsNil)
+		actionTag := names.NewActionTag(s.wordpressUnit.UnitTag(), i)
+		c.Assert(a.ActionTag(), gc.Equals, actionTag)
 
 		args := params.Entities{
 			Entities: []params.Entity{{
-				Tag: names.NewActionTag(actionId).String(),
+				Tag: actionTag.String(),
 			}},
 		}
 		results, err := s.uniter.Actions(args)
@@ -920,7 +923,7 @@ func (s *uniterSuite) TestAction(c *gc.C) {
 func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
+			Tag: names.NewActionTag(names.NewUnitTag("wordpress/0"), 0).String(),
 		}},
 	}
 	results, err := s.uniter.Actions(args)
@@ -929,7 +932,7 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 	c.Assert(results.ActionsQueryResults, gc.HasLen, 1)
 	actionsQueryResult := results.ActionsQueryResults[0]
 	c.Assert(actionsQueryResult.Error, gc.NotNil)
-	c.Assert(actionsQueryResult.Error.Message, gc.Equals, `action "wordpress/0_a_0" not found`)
+	c.Assert(actionsQueryResult.Error, gc.ErrorMatches, `action .*wordpress/0[^0-9]+0[^0-9]+ not found`)
 }
 
 func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
@@ -952,7 +955,7 @@ func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.NewActionTag("wordpress/0" + names.ActionMarker + "0").String(),
+			Tag: names.NewActionTag(names.NewUnitTag("wordpress/0"), 0).String(),
 		}},
 	}
 	// exercises line 738 of state/apiserver/uniter/uniter.go
@@ -965,7 +968,7 @@ func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 	// Same unit, but not one that has access.
 	args := params.Entities{
 		Entities: []params.Entity{{
-			Tag: names.NewActionTag("mysql/0" + names.ActionMarker + "0").String(),
+			Tag: names.NewActionTag(names.NewUnitTag("mysql/0"), 0).String(),
 		}},
 	}
 	_, err := s.uniter.Actions(args)
@@ -1547,4 +1550,37 @@ func (s *uniterSuite) TestGetOwnerTag(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringResult{
 		Result: "user-admin",
 	})
+}
+
+func (s *uniterSuite) TestWatchUnitAddresses(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-0"},
+		{Tag: "service-wordpress"},
+	}}
+	result, err := s.uniter.WatchUnitAddresses(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
 }

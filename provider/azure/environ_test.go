@@ -1260,8 +1260,8 @@ func (*environSuite) TestCreateVirtualNetwork(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	networkConf := (*body.VirtualNetworkSites)[0]
 	c.Check(networkConf.Name, gc.Equals, env.getVirtualNetworkName())
-	c.Check(networkConf.AffinityGroup, gc.Equals, "")
-	c.Check(networkConf.Location, gc.Equals, env.getSnapshot().ecfg.location())
+	c.Check(networkConf.AffinityGroup, gc.Equals, env.getAffinityGroupName())
+	c.Check(networkConf.Location, gc.Equals, "")
 }
 
 func (*environSuite) TestDestroyVirtualNetwork(c *gc.C) {

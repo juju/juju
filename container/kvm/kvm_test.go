@@ -222,12 +222,12 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 			`tags constraint of "foo,bar" being ignored as not supported`,
 		},
 	}} {
-		tw := &loggo.TestWriter{}
-		c.Assert(loggo.RegisterWriter("constraint-tester", tw, loggo.DEBUG), gc.IsNil)
+		var tw loggo.TestWriter
+		c.Assert(loggo.RegisterWriter("constraint-tester", &tw, loggo.DEBUG), gc.IsNil)
 		cons := constraints.MustParse(test.cons)
 		params := kvm.ParseConstraintsToStartParams(cons)
 		c.Check(params, gc.DeepEquals, test.expected)
-		c.Check(tw.Log, jc.LogMatches, test.infoLog)
+		c.Check(tw.Log(), jc.LogMatches, test.infoLog)
 		loggo.RemoveWriter("constraint-tester")
 	}
 }
