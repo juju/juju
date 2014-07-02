@@ -131,7 +131,7 @@ def delete_extra_state_servers(env, instance_id):
             print_now("Deleting state-server-member {}".format(machine))
             host = get_machine_dns_name(env, machine)
             delete_instance(env, extra_instance_id)
-            wait_for_state_server_to_shutdown(host, env, instance_id)
+            wait_for_state_server_to_shutdown(host, env, extra_instance_id)
 
 
 def restore_missing_state_server(env, backup_file):
@@ -139,8 +139,8 @@ def restore_missing_state_server(env, backup_file):
     environ = dict(os.environ)
     print_now("Starting restore.")
     proc = subprocess.Popen(
-        ['juju-restore', '-e', env.environment,  '--constraints', 'mem=2G',
-         backup_file],
+        ['juju', '--show-log', 'restore', '-e', env.environment,
+         '--constraints', 'mem=2G', backup_file],
         env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
     if proc.returncode != 0:
@@ -182,7 +182,8 @@ def wait_for_state_server_to_shutdown(host, env, instance_id):
                 print_now('{} was removed from nova list'.format(instance_id))
                 break
         else:
-            raise Exception('{} was not deleted'.format(instance_id))
+            raise Exception(
+                '{} was not deleted:\n{}'.format(instance_id, output))
 
 
 def main():
