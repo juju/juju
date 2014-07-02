@@ -37,7 +37,7 @@ var facadeVersions = map[string]int{
 func bestVersion(desiredVersion int, versions []int) int {
 	best := 0
 	for _, version := range versions {
-		if version <= desiredVersion && version > best{
+		if version <= desiredVersion && version > best {
 			best = version
 		}
 	}

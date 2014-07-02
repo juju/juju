@@ -36,4 +36,3 @@ func (f *resultCaller) BestAPIVersion() int {
 func (f *resultCaller) RawAPICaller() base.APICaller {
 	return nil
 }
-
