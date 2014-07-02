@@ -5,7 +5,6 @@ package api
 
 import (
 	"net"
-	"sort"
 	"strconv"
 
 	"github.com/juju/juju/network"
@@ -48,10 +47,6 @@ func (st *State) Login(tag, password, nonce string) error {
 		st.environTag = result.EnvironTag
 		st.facadeVersions = make(map[string][]int, len(result.Facades))
 		for _, facade := range result.Facades {
-			// The API will likely return versions in sorted order,
-			// but we sort again so we don't have to trust that all
-			// implementations always will.
-			sort.Ints(facade.Versions)
 			st.facadeVersions[facade.Name] = facade.Versions
 		}
 	}

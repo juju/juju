@@ -67,6 +67,13 @@ func (*facadeVersionSuite) TestBestVersionNoVersions(c *gc.C) {
 	checkBestVersion(c, 1, []int(nil), 0)
 }
 
+func (*facadeVersionSuite) TestBestVersionNotSorted(c *gc.C) {
+	checkBestVersion(c, 0, []int{0, 3, 1, 2}, 0)
+	checkBestVersion(c, 3, []int{0, 3, 1, 2}, 3)
+	checkBestVersion(c, 1, []int{0, 3, 1, 2}, 1)
+	checkBestVersion(c, 2, []int{0, 3, 1, 2}, 2)
+}
+
 func (s *facadeVersionSuite) TestBestFacadeVersionExactMatch(c *gc.C) {
 	s.PatchValue(api.FacadeVersions, map[string]int{"Client": 1})
 	st := api.NewTestingState(api.TestingStateParams{
