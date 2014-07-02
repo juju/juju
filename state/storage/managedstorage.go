@@ -9,9 +9,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math/rand"
 	"os"
 	"path"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"labix.org/v2/mgo"
@@ -45,6 +48,12 @@ type managedStorage struct {
 	resourceCatalog           ResourceCatalog
 	managedResourceCollection *mgo.Collection
 	txnRunner                 statetxn.Runner
+
+	// The following attributes are used to manage the processing
+	// of put requests based on proof of access.
+	requestMutex   sync.Mutex
+	nextRequestId  int64
+	queuedRequests map[int64]PutRequest
 }
 
 var _ ManagedStorage = (*managedStorage)(nil)
@@ -70,12 +79,16 @@ const (
 // storing resource entries in the specified database, and resource data in the
 // specified resource storage.
 func NewManagedStorage(db *mgo.Database, txnRunner statetxn.Runner, rs ResourceStorage) ManagedStorage {
+	// Ensure random number generator used to calculate checksum byte range is seeded.
+	rand.Seed(int64(time.Now().Nanosecond()))
 	ms := &managedStorage{
 		resourceStore:   rs,
 		resourceCatalog: newResourceCatalog(db.C(resourceCatalogCollection), txnRunner),
 		txnRunner:       txnRunner,
+		queuedRequests:  make(map[int64]PutRequest),
 	}
 	ms.managedResourceCollection = db.C(managedResourceCollection)
+	ms.managedResourceCollection.EnsureIndex(mgo.Index{Key: []string{"path"}, Unique: true})
 	return ms
 }
 
@@ -138,25 +151,31 @@ func (ms *managedStorage) preprocessUpload(r io.Reader, length int64) (
 }
 
 // GetForEnvironment is defined on the ManagedStorage interface.
-func (ms *managedStorage) GetForEnvironment(envUUID, path string) (io.ReadCloser, error) {
+func (ms *managedStorage) GetForEnvironment(envUUID, path string) (io.ReadCloser, int64, error) {
 	managedPath, err := ms.resourceStoragePath(envUUID, "", path)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	var doc managedResourceDoc
 	if err := ms.managedResourceCollection.Find(bson.D{{"path", managedPath}}).One(&doc); err != nil {
 		if err == mgo.ErrNotFound {
-			return nil, errors.NotFoundf("resource at path %q", managedPath)
+			return nil, 0, errors.NotFoundf("resource at path %q", managedPath)
 		}
-		return nil, errors.Annotatef(err, "cannot load record for resource with path %q", managedPath)
+		return nil, 0, errors.Annotatef(err, "cannot load record for resource with path %q", managedPath)
 	}
-	r, err := ms.resourceCatalog.Get(doc.ResourceId)
+	return ms.getResource(doc.ResourceId, managedPath)
+}
+
+// getResource returns a reader for the resource with the given resource id.
+func (ms *managedStorage) getResource(resourceId string, path string) (io.ReadCloser, int64, error) {
+	r, err := ms.resourceCatalog.Get(resourceId)
 	if err == ErrUploadPending {
-		return nil, err
+		return nil, 0, err
 	} else if err != nil {
-		return nil, errors.Annotatef(err, "cannot load catalog entry for resource with path %q", managedPath)
+		return nil, 0, errors.Annotatef(err, "cannot load catalog entry for resource with path %q", path)
 	}
-	return ms.resourceStore.Get(r.Path)
+	rdr, err := ms.resourceStore.Get(r.Path)
+	return rdr, r.Length, err
 }
 
 // cleanupResourceCatalog is used to delete a resource catalog record if a put operation fails.
@@ -164,8 +183,9 @@ func cleanupResourceCatalog(rc ResourceCatalog, id string, err *error) {
 	if *err == nil {
 		return
 	}
+	logger.Warningf("cleaning up resource catalog after failed put")
 	_, _, removeErr := rc.Remove(id)
-	if removeErr != nil {
+	if removeErr != nil && !errors.IsNotFound(removeErr) {
 		finalErr := errors.Annotatef(*err, "cannot clean up after failed storage operation because: %v", removeErr)
 		*err = finalErr
 	}
@@ -176,8 +196,9 @@ func cleanupResource(rs ResourceStorage, resourcePath string, err *error) {
 	if *err == nil {
 		return
 	}
+	logger.Warningf("cleaning up resource storage after failed put")
 	removeErr := rs.Remove(resourcePath)
-	if removeErr != nil {
+	if removeErr != nil && !errors.IsNotFound(removeErr) {
 		finalErr := errors.Annotatef(*err, "cannot clean up after failed storage operation because: %v", removeErr)
 		*err = finalErr
 	}
@@ -195,7 +216,7 @@ func (ms *managedStorage) PutForEnvironment(envUUID, path string, r io.Reader, l
 		MD5Hash:    md5hash,
 		SHA256Hash: sha256hash,
 	}
-	resourceId, resourcePath, isNew, err := ms.resourceCatalog.Put(rh)
+	resourceId, resourcePath, isNew, err := ms.resourceCatalog.Put(rh, length)
 	if err != nil {
 		return errors.Annotate(err, "cannot update resource catalog")
 	}
@@ -220,9 +241,13 @@ func (ms *managedStorage) PutForEnvironment(envUUID, path string, r io.Reader, l
 			return errors.Annotatef(err, "cannot mark resource %q as upload complete", managedPath)
 		}
 	}
-
 	// Resource data is saved, resource catalog entry is created/updated, now write the
 	// managed storage entry.
+	return ms.putResourceReference(envUUID, managedPath, resourceId)
+}
+
+// putResourceReference saves a managed resource record for the given path and resource id.
+func (ms *managedStorage) putResourceReference(envUUID, managedPath, resourceId string) error {
 	managedResource := ManagedResource{
 		EnvUUID: envUUID,
 		Path:    managedPath,
@@ -231,7 +256,7 @@ func (ms *managedStorage) PutForEnvironment(envUUID, path string, r io.Reader, l
 	if err != nil {
 		return err
 	}
-	logger.Debugf("managed resource entry created with path %q", managedPath)
+	logger.Debugf("managed resource entry created with path %q -> %q", managedPath, resourceId)
 	// If we are overwriting an existing resource with the same path, the managed resource
 	// entry will no longer reference the same resource catalog entry, so we need to remove
 	// the reference.
@@ -239,6 +264,11 @@ func (ms *managedStorage) PutForEnvironment(envUUID, path string, r io.Reader, l
 		if _, _, err = ms.resourceCatalog.Remove(existingResourceId); err != nil {
 			return errors.Annotatef(err, "cannot remove old resource catalog entry with id %q", existingResourceId)
 		}
+	}
+	// Sanity check - ensure resource catalog entry for resourceId still exists.
+	_, err = ms.resourceCatalog.Get(resourceId)
+	if err != nil {
+		return errors.Annotatef(err, "unexpected deletion of resource catalog entry with id %q", resourceId)
 	}
 	return nil
 }
@@ -342,4 +372,209 @@ func (ms *managedStorage) removeResourceTxn(managedPath string) (string, []txn.O
 		Assert: txn.DocExists,
 		Remove: true,
 	}}, nil
+}
+
+var (
+	requestExpiry = 60 * time.Second
+)
+
+// putResponse is used when responding to a put request.
+type putResponse struct {
+	requestId int64
+	ResourceHash
+}
+
+// PutRequest is to record a request to put a file pending proof of access.
+type PutRequest struct {
+	expiryTime     time.Time
+	resourceId     string
+	envUUID        string
+	user           string
+	path           string
+	expectedHashes ResourceHash
+}
+
+// RequestResponse is returned by a put request to inform the caller
+// the data range over which to calculate the hashes for the response.
+type RequestResponse struct {
+	RequestId   int64
+	RangeStart  int64
+	RangeLength int64
+}
+
+// NewPutResponse creates a new putResponse for the given requestId and hashes.
+func NewPutResponse(requestId int64, md5Hash, sha256Hash string) putResponse {
+	return putResponse{
+		requestId: requestId,
+		ResourceHash: ResourceHash{
+			MD5Hash:    md5Hash,
+			SHA256Hash: sha256Hash,
+		},
+	}
+}
+
+// calculateExpectedHashes picks a random range of bytes from the data cataloged by resourceId
+// and calculates checksums of that data.
+func (ms *managedStorage) calculateExpectedHashes(resourceId, path string) (*ResourceHash, int64, int64, error) {
+	rdr, length, err := ms.getResource(resourceId, path)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	defer rdr.Close()
+	rangeLength := rand.Int63n(length)
+	// Restrict the minimum range to 512 or length/2, whichever is smaller.
+	minLength := int64(512)
+	if minLength > length/2 {
+		minLength = length / 2
+	}
+	if rangeLength < minLength {
+		rangeLength = minLength
+	}
+	// Restrict the maximum range to 2048 bytes.
+	if rangeLength > 2048 {
+		rangeLength = 2048
+	}
+	start := rand.Int63n(length - rangeLength)
+	_, err = rdr.(io.ReadSeeker).Seek(start, 0)
+	if err != nil {
+		return nil, 0, 0, err
+	}
+	md5hash := md5.New()
+	sha256hash := sha256.New()
+	dataRdr := io.LimitReader(rdr, rangeLength)
+	dataRdr = io.TeeReader(io.TeeReader(dataRdr, sha256hash), md5hash)
+	if _, err = ioutil.ReadAll(dataRdr); err != nil {
+		return nil, 0, 0, err
+	}
+	md5hashHex := fmt.Sprintf("%x", md5hash.Sum(nil))
+	sha256hashHex := fmt.Sprintf("%x", sha256hash.Sum(nil))
+	return &ResourceHash{
+		MD5Hash:    md5hashHex,
+		SHA256Hash: sha256hashHex,
+	}, start, rangeLength, nil
+}
+
+// PutForEnvironmentRequest is defined on the ManagedStorage interface.
+func (ms *managedStorage) PutForEnvironmentRequest(envUUID, path string, hash ResourceHash) (*RequestResponse, error) {
+	ms.requestMutex.Lock()
+	defer ms.requestMutex.Unlock()
+
+	// Find the resource id (if it exists) matching the supplied checksums.
+	// If there's no matching data already stored, a NotFound error is returned.
+	resourceId, err := ms.resourceCatalog.Find(&hash)
+	if err != nil {
+		return nil, err
+	}
+	expectedHashes, rangeStart, rangeLength, err := ms.calculateExpectedHashes(resourceId, path)
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot calculate response hashes for resource at path %q", path)
+	}
+
+	requestId := ms.nextRequestId
+	ms.nextRequestId++
+	putRequest := PutRequest{
+		expiryTime:     time.Now().Add(requestExpiry),
+		envUUID:        envUUID,
+		path:           path,
+		resourceId:     resourceId,
+		expectedHashes: *expectedHashes,
+	}
+	ms.queuedRequests[requestId] = putRequest
+	// If this is the only request queued up, start the timer to
+	// expire the request after an interval of requestExpiry.
+	if len(ms.queuedRequests) == 1 {
+		ms.updatePollTimer(requestId)
+	}
+	return &RequestResponse{
+		RequestId:   requestId,
+		RangeStart:  rangeStart,
+		RangeLength: rangeLength,
+	}, nil
+}
+
+// Wrap time.AfterFunc so we can patch for testing.
+var afterFunc = func(d time.Duration, f func()) *time.Timer {
+	return time.AfterFunc(d, f)
+}
+
+func (ms *managedStorage) updatePollTimer(nextRequestIdToExpire int64) {
+	firstUnexpiredRequest := ms.queuedRequests[nextRequestIdToExpire]
+	waitInterval := firstUnexpiredRequest.expiryTime.Sub(time.Now())
+	afterFunc(waitInterval, func() {
+		ms.processRequestExpiry(nextRequestIdToExpire)
+	})
+}
+
+// processRequestExpiry is used to remove an expired put request from the queue.
+func (ms *managedStorage) processRequestExpiry(requestId int64) {
+	ms.requestMutex.Lock()
+	defer ms.requestMutex.Unlock()
+	delete(ms.queuedRequests, requestId)
+
+	// If there are still pending requests, update the timer
+	//to trigger when the next one is due to expire.
+	if len(ms.queuedRequests) > 0 {
+		var lowestRequestId int64
+		for i := requestId + 1; i < ms.nextRequestId; i++ {
+			if _, ok := ms.queuedRequests[i]; ok {
+				lowestRequestId = i
+				break
+			}
+		}
+		if lowestRequestId == 0 {
+			panic("logic error: lowest request id is 0")
+		}
+		ms.updatePollTimer(lowestRequestId)
+	}
+}
+
+// ErrRequestExpired is used to indicate that a put request has already expired
+// when an attempt is made to supply a response.
+var ErrRequestExpired = fmt.Errorf("request expired")
+
+// ErrResponseMismatch is used to indicate that a put response did not contain
+// the expected checksums.
+var ErrResponseMismatch = fmt.Errorf("response checksums do not match")
+
+// ErrResourceDeleted is used to indicate that a resource was deleted before the
+// put response could be acted on.
+var ErrResourceDeleted = fmt.Errorf("resource was deleted")
+
+// PutResponse is defined on the ManagedStorage interface.
+func (ms *managedStorage) ProofOfAccessResponse(response putResponse) error {
+	ms.requestMutex.Lock()
+	request, ok := ms.queuedRequests[response.requestId]
+	delete(ms.queuedRequests, response.requestId)
+	ms.requestMutex.Unlock()
+	if !ok {
+		return ErrRequestExpired
+	}
+	if request.expectedHashes.MD5Hash != response.MD5Hash || request.expectedHashes.SHA256Hash != response.SHA256Hash {
+		return ErrResponseMismatch
+	}
+	// Sanity check - ensure resource hasn't been deleted between when the put request
+	// was made and now.
+	resource, err := ms.resourceCatalog.Get(request.resourceId)
+	if errors.IsNotFound(err) {
+		return ErrResourceDeleted
+	} else if err != nil {
+		return errors.Annotate(err, "confirming resource exists")
+	}
+
+	// Increment the resource catalog reference count.
+	resourceId, _, isNew, err := ms.resourceCatalog.Put(&resource.ResourceHash, resource.Length)
+	if err != nil {
+		return errors.Annotate(err, "cannot update resource catalog")
+	}
+	defer cleanupResourceCatalog(ms.resourceCatalog, resourceId, &err)
+	// We expect an existing catalog entry else it has been deleted from underneath us.
+	if isNew || resourceId != request.resourceId {
+		return ErrResourceDeleted
+	}
+
+	managedPath, err := ms.resourceStoragePath(request.envUUID, request.user, request.path)
+	if err != nil {
+		return err
+	}
+	return ms.putResourceReference(request.envUUID, managedPath, request.resourceId)
 }

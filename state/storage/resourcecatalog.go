@@ -30,7 +30,8 @@ type ResourceHash struct {
 // hashes of the data which are used for de-duping.
 type Resource struct {
 	ResourceHash
-	Path string
+	Path   string
+	Length int64
 }
 
 // resourceDoc is the persistent representation of a Resource.
@@ -39,6 +40,7 @@ type resourceDoc struct {
 	Path       string
 	MD5Hash    string
 	SHA256Hash string
+	Length     int64
 	RefCount   int64
 	// Pending is true while the underlying resource is uploaded.
 	Pending bool
@@ -53,9 +55,10 @@ type resourceCatalog struct {
 var _ ResourceCatalog = (*resourceCatalog)(nil)
 
 // newResource constructs a Resource from its attributes.
-func newResource(path, md5hash, sha256hash string) *Resource {
+func newResource(path, md5hash, sha256hash string, length int64) *Resource {
 	return &Resource{
-		Path: path,
+		Path:   path,
+		Length: length,
 		ResourceHash: ResourceHash{
 			MD5Hash:    md5hash,
 			SHA256Hash: sha256hash},
@@ -65,13 +68,14 @@ func newResource(path, md5hash, sha256hash string) *Resource {
 // newResourceDoc constructs a resourceDoc from a ResourceHash.
 // This is used when writing new data to the resource store.
 // Path is opaque and is generated using a bson object id.
-func newResourceDoc(rh *ResourceHash) resourceDoc {
+func newResourceDoc(rh *ResourceHash, length int64) resourceDoc {
 	return resourceDoc{
 		Id:         rh.MD5Hash + rh.SHA256Hash,
 		Path:       bson.NewObjectId().Hex(),
 		MD5Hash:    rh.MD5Hash,
 		SHA256Hash: rh.SHA256Hash,
 		RefCount:   1,
+		Length:     length,
 		Pending:    true,
 	}
 }
@@ -96,18 +100,27 @@ func (rc *resourceCatalog) Get(id string) (*Resource, error) {
 	if doc.Pending {
 		return nil, ErrUploadPending
 	}
-	return &Resource{
-		Path: doc.Path,
-		ResourceHash: ResourceHash{
-			MD5Hash:    doc.MD5Hash,
-			SHA256Hash: doc.SHA256Hash},
-	}, nil
+	return newResource(doc.Path, doc.MD5Hash, doc.SHA256Hash, doc.Length), nil
+}
+
+// Find is defined on the ResourceCatalog interface.
+func (rc *resourceCatalog) Find(rh *ResourceHash) (string, error) {
+	var doc resourceDoc
+	if err := rc.collection.Find(checksumMatch(rh)).One(&doc); err == mgo.ErrNotFound {
+		return "", errors.NotFoundf("resource with md5=%q, sha256=%q", rh.MD5Hash, rh.SHA256Hash)
+	} else if err != nil {
+		return "", err
+	}
+	if doc.Pending {
+		return "", ErrUploadPending
+	}
+	return doc.Id, nil
 }
 
 // Put is defined on the ResourceCatalog interface.
-func (rc *resourceCatalog) Put(rh *ResourceHash) (id, path string, isNew bool, err error) {
+func (rc *resourceCatalog) Put(rh *ResourceHash, length int64) (id, path string, isNew bool, err error) {
 	buildTxn := func(attempt int) (ops []txn.Op, err error) {
-		id, path, isNew, ops, err = rc.resourceIncRefOps(rh)
+		id, path, isNew, ops, err = rc.resourceIncRefOps(rh, length)
 		return ops, err
 	}
 	if err = rc.txnRunner.Run(buildTxn); err != nil {
@@ -143,7 +156,9 @@ func checksumMatch(rh *ResourceHash) bson.D {
 	return bson.D{{"md5hash", rh.MD5Hash}, {"sha256hash", rh.SHA256Hash}}
 }
 
-func (rc *resourceCatalog) resourceIncRefOps(rh *ResourceHash) (id, path string, isNew bool, ops []txn.Op, err error) {
+func (rc *resourceCatalog) resourceIncRefOps(rh *ResourceHash, length int64) (
+	id, path string, isNew bool, ops []txn.Op, err error,
+) {
 	var doc resourceDoc
 	exists := false
 	checksumMatchTerm := checksumMatch(rh)
@@ -154,13 +169,16 @@ func (rc *resourceCatalog) resourceIncRefOps(rh *ResourceHash) (id, path string,
 		exists = true
 	}
 	if !exists {
-		doc := newResourceDoc(rh)
+		doc := newResourceDoc(rh, length)
 		return doc.Id, doc.Path, true, []txn.Op{{
 			C:      rc.collection.Name,
 			Id:     doc.Id,
 			Assert: txn.DocMissing,
 			Insert: doc,
 		}}, nil
+	}
+	if doc.Length != length {
+		return "", "", false, nil, errors.Errorf("length mismatch in resource document %d != %d", doc.Length, length)
 	}
 	return doc.Id, doc.Path, false, []txn.Op{{
 		C:      rc.collection.Name,
