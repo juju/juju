@@ -54,3 +54,11 @@ func TestingSrvRoot(st *state.State) *srvRoot {
 		objectCache: make(map[objectKey]reflect.Value),
 	}
 }
+
+// TestingUpgradingSrvRoot returns a limited upgradingSrvRoot
+// containing a srvRoot as returned by TestingSrvRoot.
+func TestingUpgradingRoot(st *state.State) *upgradingRoot {
+	return &upgradingRoot{
+		srvRoot: *TestingSrvRoot(st),
+	}
+}

@@ -57,32 +57,6 @@ func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 	return s.setupServerWithValidator(c, nil)
 }
 
-func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
-	srv, err := apiserver.NewServer(
-		s.State,
-		apiserver.ServerConfig{
-			Port:      0,
-			Cert:      []byte(coretesting.ServerCert),
-			Key:       []byte(coretesting.ServerKey),
-			Validator: validator,
-		},
-	)
-	c.Assert(err, gc.IsNil)
-	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
-	info := &api.Info{
-		Tag:        "",
-		Password:   "",
-		EnvironTag: env.Tag().String(),
-		Addrs:      []string{srv.Addr()},
-		CACert:     coretesting.CACert,
-	}
-	return info, func() {
-		err := srv.Stop()
-		c.Assert(err, gc.IsNil)
-	}
-}
-
 func (s *loginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -500,22 +474,50 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
-	validator := func(_ params.Creds) error {
+	validator := func(params.Creds) error {
 		return nil
 	}
-	err := s.runLoginWithValidator(c, validator)
-	c.Assert(err, gc.IsNil)
+	checker := func(c *gc.C, loginErr error, st *api.State) {
+		c.Assert(loginErr, gc.IsNil)
+
+		// Ensure an API call that would be restricted during
+		// upgrades works after a normal login.
+		err := st.Call("Client", "", "DestroyEnvironment", nil, nil)
+		c.Assert(err, gc.IsNil)
+	}
+	s.checkLoginWithValidator(c, validator, checker)
 }
 
 func (s *loginSuite) TestLoginValidationFail(c *gc.C) {
-	validator := func(_ params.Creds) error {
+	validator := func(params.Creds) error {
 		return errors.New("Login not allowed")
 	}
-	err := s.runLoginWithValidator(c, validator)
-	c.Assert(err, gc.ErrorMatches, "Login not allowed")
+	checker := func(c *gc.C, loginErr error, _ *api.State) {
+		c.Assert(loginErr, gc.ErrorMatches, "Login not allowed")
+	}
+	s.checkLoginWithValidator(c, validator, checker)
 }
 
-func (s *loginSuite) runLoginWithValidator(c *gc.C, validator apiserver.LoginValidator) error {
+func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
+	validator := func(params.Creds) error {
+		return apiserver.UpgradeInProgressError
+	}
+	checker := func(c *gc.C, loginErr error, st *api.State) {
+		c.Assert(loginErr, gc.IsNil)
+
+		var statusResult api.Status
+		err := st.Call("Client", "", "FullStatus", params.StatusParams{}, &statusResult)
+		c.Assert(err, gc.IsNil)
+
+		err = st.Call("Client", "", "DestroyEnvironment", nil, nil)
+		c.Assert(err, gc.ErrorMatches, "upgrade in progress - Juju functionality is limited")
+	}
+	s.checkLoginWithValidator(c, validator, checker)
+}
+
+type validationChecker func(c *gc.C, err error, st *api.State)
+
+func (s *loginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginValidator, checker validationChecker) {
 	info, cleanup := s.setupServerWithValidator(c, validator)
 	defer cleanup()
 
@@ -531,7 +533,35 @@ func (s *loginSuite) runLoginWithValidator(c *gc.C, validator apiserver.LoginVal
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 	// Since these are user login tests, the nonce is empty.
-	return st.Login("user-admin", "dummy-secret", "")
+	err = st.Login("user-admin", "dummy-secret", "")
+
+	checker(c, err, st)
+}
+
+func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
+	srv, err := apiserver.NewServer(
+		s.State,
+		apiserver.ServerConfig{
+			Port:      0,
+			Cert:      []byte(coretesting.ServerCert),
+			Key:       []byte(coretesting.ServerKey),
+			Validator: validator,
+		},
+	)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	info := &api.Info{
+		Tag:        "",
+		Password:   "",
+		EnvironTag: env.Tag().String(),
+		Addrs:      []string{srv.Addr()},
+		CACert:     coretesting.CACert,
+	}
+	return info, func() {
+		err := srv.Stop()
+		c.Assert(err, gc.IsNil)
+	}
 }
 
 func (s *loginSuite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
