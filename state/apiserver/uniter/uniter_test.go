@@ -84,6 +84,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	// Create a uniter API for unit 0.
 	s.uniter, err = uniter.NewUniterAPI(
@@ -1549,4 +1550,37 @@ func (s *uniterSuite) TestGetOwnerTag(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringResult{
 		Result: "user-admin",
 	})
+}
+
+func (s *uniterSuite) TestWatchUnitAddresses(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+		{Tag: "machine-0"},
+		{Tag: "service-wordpress"},
+	}}
+	result, err := s.uniter.WatchUnitAddresses(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
 }

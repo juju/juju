@@ -64,7 +64,7 @@ func (s *stateSuite) TestPing(c *gc.C) {
 	c.Assert(err, gc.Equals, rpc.ErrShutdown)
 
 	// Make sure that ping messages have not been logged.
-	for _, m := range tw.Log {
+	for _, m := range tw.Log() {
 		c.Logf("checking %q", m.Message)
 		c.Check(m.Message, gc.Not(gc.Matches), `.*"Request":"Ping".*`)
 	}
@@ -113,14 +113,14 @@ type mongoPingerSuite struct {
 
 var _ = gc.Suite(&mongoPingerSuite{})
 
-func (s *mongoPingerSuite) SetUpTest(c *gc.C) {
-	// We need to set the ping interval before the server is started.
-	s.PatchValue(apiserver.MongoPingInterval, coretesting.ShortWait)
-	s.JujuConnSuite.SetUpTest(c)
+func (s *mongoPingerSuite) SetUpSuite(c *gc.C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	// We need to set the ping interval before the server is started in test setup.
+	restore := gitjujutesting.PatchValue(apiserver.MongoPingInterval, coretesting.ShortWait)
+	s.AddSuiteCleanup(func(*gc.C) { restore() })
 }
 
 func (s *mongoPingerSuite) TestAgentConnectionsShutDownWhenStateDies(c *gc.C) {
-	s.PatchValue(apiserver.MongoPingInterval, coretesting.ShortWait)
 	st, _ := s.OpenAPIAsNewMachine(c)
 	err := st.Ping()
 	c.Assert(err, gc.IsNil)

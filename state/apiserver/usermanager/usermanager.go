@@ -25,6 +25,7 @@ func init() {
 type UserManager interface {
 	AddUser(arg params.ModifyUsers) (params.ErrorResults, error)
 	RemoveUser(arg params.Entities) (params.ErrorResults, error)
+	SetPassword(args params.ModifyUsers) (params.ErrorResults, error)
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -169,6 +170,49 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (params.UserInfoResult
 	}
 
 	return results, nil
+}
+
+func (api *UserManagerAPI) SetPassword(args params.ModifyUsers) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
+	}
+	canWrite, err := api.getCanWrite()
+	if err != nil {
+		return result, err
+	}
+	for i, arg := range args.Changes {
+		if !canWrite(arg.Tag) {
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+
+		username := arg.Username
+		if username == "" {
+			username = arg.Tag
+		}
+
+		argUser, err := api.state.User(username)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to find user %v", err))
+			continue
+		}
+
+		loggedInUser := api.getLoggedInUser()
+		if loggedInUser.Tag() != argUser.Tag() {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("Can only change the password of the current user (%s)", loggedInUser.Name()))
+			continue
+		}
+
+		err = argUser.SetPassword(arg.Password)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("Failed to set password %v", err))
+			continue
+		}
+	}
+	return result, nil
 }
 
 func (api *UserManagerAPI) getLoggedInUser() *state.User {
