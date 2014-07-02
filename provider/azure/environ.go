@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -28,7 +29,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 )
@@ -91,7 +91,7 @@ var _ environs.Environ = (*azureEnviron)(nil)
 var _ simplestreams.HasRegion = (*azureEnviron)(nil)
 var _ imagemetadata.SupportsCustomSources = (*azureEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*azureEnviron)(nil)
-var _ state.Prechecker = (*azureEnviron)(nil)
+var _ hackage.Prechecker = (*azureEnviron)(nil)
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
@@ -308,7 +308,7 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 }
 
 // StateInfo is specified in the Environ interface.
-func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
+func (env *azureEnviron) StateInfo() (*hackage.Info, *api.Info, error) {
 	return common.StateInfo(env)
 }
 

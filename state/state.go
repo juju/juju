@@ -27,6 +27,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
@@ -36,19 +37,17 @@ import (
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.state")
-
-// BootstrapNonce is used as a nonce for the state server machine.
 const (
-	BootstrapNonce = "user-admin:bootstrap"
-	AdminUser      = "admin"
+	AdminUser = "admin"
 )
+
+var logger = loggo.GetLogger("juju.state")
 
 // State represents the state of an environment
 // managed by juju.
 type State struct {
 	transactionRunner statetxn.Runner
-	info              *Info
+	info              *hackage.Info
 	policy            Policy
 	db                *mgo.Database
 	environments      *mgo.Collection

@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/mongo"
@@ -265,7 +266,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	// be a problem issuing database commands.
 	var st *state.State
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(&state.Info{
+		st, err = state.Open(&hackage.Info{
 			Info: mongo.Info{
 				Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
 				CACert: caCert,

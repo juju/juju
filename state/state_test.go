@@ -24,6 +24,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -815,13 +816,13 @@ func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
 		})
 		return err
 	}
-	err := injectMachine("", "i-minvalid", state.BootstrapNonce, state.JobHostUnits)
+	err := injectMachine("", "i-minvalid", config.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
-	err = injectMachine("quantal", "", state.BootstrapNonce, state.JobHostUnits)
+	err = injectMachine("quantal", "", config.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: cannot specify a nonce without an instance id")
 	err = injectMachine("quantal", "i-minvalid", "", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
-	err = injectMachine("quantal", state.BootstrapNonce, "i-mlazy")
+	err = injectMachine("quantal", config.BootstrapNonce, "i-mlazy")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
@@ -836,7 +837,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 		Constraints: cons,
 		InstanceId:  "i-mindustrious",
-		Nonce:       state.BootstrapNonce,
+		Nonce:       config.BootstrapNonce,
 		HardwareCharacteristics: instance.HardwareCharacteristics{
 			Arch:     &arch,
 			Mem:      &mem,
@@ -866,7 +867,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	template := state.MachineTemplate{
 		Series:     "quantal",
 		InstanceId: "i-mindustrious",
-		Nonce:      state.BootstrapNonce,
+		Nonce:      config.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 	}
 	m0, err := s.State.AddOneMachine(template)
@@ -2065,7 +2066,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(relation1, jc.DeepEquals, relation3)
 }
 
-func tryOpenState(info *state.Info) error {
+func tryOpenState(info *hackage.Info) error {
 	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	if err == nil {
 		st.Close()
@@ -2115,7 +2116,7 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 	err = peergrouper.MaybeInitiateMongoServer(args)
 	c.Assert(err, gc.IsNil)
 
-	stateInfo := &state.Info{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
+	stateInfo := &hackage.Info{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
 	dialOpts := mongo.DialOpts{Timeout: time.Second * 30}
 	st, err := state.Open(stateInfo, dialOpts, state.Policy(nil))
 	c.Assert(err, gc.IsNil)

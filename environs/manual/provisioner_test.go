@@ -14,11 +14,11 @@ import (
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/client"
 	"github.com/juju/juju/version"
@@ -124,7 +124,7 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Now check what we would've configured it with.
-	mcfg, err := client.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
+	mcfg, err := client.MachineConfig(s.State, machineId, config.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg, gc.NotNil)
 	c.Check(mcfg.APIInfo, gc.NotNil)
@@ -147,7 +147,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	machineId, err := manual.ProvisionMachine(s.getArgs(c))
 	c.Assert(err, gc.IsNil)
 
-	mcfg, err := client.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
+	mcfg, err := client.MachineConfig(s.State, machineId, config.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
 	script, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)

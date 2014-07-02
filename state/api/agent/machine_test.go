@@ -14,6 +14,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
@@ -140,7 +141,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 }
 
-func tryOpenState(info *state.Info) error {
+func tryOpenState(info *hackage.Info) error {
 	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()

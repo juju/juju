@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
 	"github.com/juju/juju/environs/simplestreams"
@@ -28,7 +29,6 @@ import (
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
 )
@@ -75,8 +75,8 @@ var _ environs.Environ = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
 var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ envtools.SupportsCustomSources = (*environ)(nil)
-var _ state.Prechecker = (*environ)(nil)
-var _ state.InstanceDistributor = (*environ)(nil)
+var _ hackage.Prechecker = (*environ)(nil)
+var _ hackage.InstanceDistributor = (*environ)(nil)
 
 type ec2Instance struct {
 	e *environ
@@ -316,7 +316,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
+func (e *environ) StateInfo() (*hackage.Info, *api.Info, error) {
 	return common.StateInfo(e)
 }
 

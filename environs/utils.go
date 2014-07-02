@@ -3,14 +3,16 @@ package environs
 import (
 	"fmt"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/state"
 )
 
 // GetStorage creates an Environ from the config in state and returns
 // its storage interface.
-func GetStorage(st *state.State) (storage.Storage, error) {
-	envConfig, err := st.EnvironConfig()
+func GetStorage(e interface {
+	EnvironConfig() (*config.Config, error)
+}) (storage.Storage, error) {
+	envConfig, err := e.EnvironConfig()
 	if err != nil {
 		return nil, fmt.Errorf("cannot get environment config: %v", err)
 	}

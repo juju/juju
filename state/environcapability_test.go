@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
@@ -40,7 +41,7 @@ func (p *mockEnvironCapability) SupportsUnitPlacement() error {
 func (s *EnvironCapabilitySuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.capability = mockEnvironCapability{}
-	s.policy.GetEnvironCapability = func(*config.Config) (state.EnvironCapability, error) {
+	s.policy.GetEnvironCapability = func(*config.Config) (hackage.EnvironCapability, error) {
 		return &s.capability, nil
 	}
 }
@@ -78,7 +79,7 @@ func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementAddMachine(c *gc.C) {
 	err = s.addMachineInsideNewMachine(c)
 	c.Assert(err, gc.ErrorMatches, ".*no add-machine for you")
 	// If the policy's EnvironCapability method fails, that will be returned first.
-	s.policy.GetEnvironCapability = func(*config.Config) (state.EnvironCapability, error) {
+	s.policy.GetEnvironCapability = func(*config.Config) (hackage.EnvironCapability, error) {
 		return nil, fmt.Errorf("incapable of EnvironCapability")
 	}
 	_, err = s.addOneMachine(c)
@@ -111,7 +112,7 @@ func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementUnitAssignment(c *gc.C
 
 func (s *EnvironCapabilitySuite) TestEnvironCapabilityUnimplemented(c *gc.C) {
 	var capabilityErr error
-	s.policy.GetEnvironCapability = func(*config.Config) (state.EnvironCapability, error) {
+	s.policy.GetEnvironCapability = func(*config.Config) (hackage.EnvironCapability, error) {
 		return nil, capabilityErr
 	}
 	_, err := s.addOneMachine(c)
@@ -122,7 +123,7 @@ func (s *EnvironCapabilitySuite) TestEnvironCapabilityUnimplemented(c *gc.C) {
 }
 
 func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementNoPolicy(c *gc.C) {
-	s.policy.GetEnvironCapability = func(*config.Config) (state.EnvironCapability, error) {
+	s.policy.GetEnvironCapability = func(*config.Config) (hackage.EnvironCapability, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}

@@ -9,8 +9,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 )
@@ -25,7 +25,7 @@ type TaggedPasswordChanger interface {
 // AuthenticationProvider defines the single method that the provisioner
 // task needs to set up authentication for a machine.
 type AuthenticationProvider interface {
-	SetupAuthentication(machine TaggedPasswordChanger) (*state.Info, *api.Info, error)
+	SetupAuthentication(machine TaggedPasswordChanger) (*hackage.Info, *api.Info, error)
 }
 
 // NewEnvironAuthenticator gets the state and api info once from the environ.
@@ -52,7 +52,7 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 	if err != nil {
 		return nil, err
 	}
-	stateInfo := &state.Info{
+	stateInfo := &hackage.Info{
 		Info: mongo.Info{
 			Addrs:  stateAddresses,
 			CACert: caCert,
@@ -66,11 +66,11 @@ func NewAPIAuthenticator(st *apiprovisioner.State) (AuthenticationProvider, erro
 }
 
 type simpleAuth struct {
-	stateInfo *state.Info
+	stateInfo *hackage.Info
 	apiInfo   *api.Info
 }
 
-func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*state.Info, *api.Info, error) {
+func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*hackage.Info, *api.Info, error) {
 	password, err := utils.RandomPassword()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)

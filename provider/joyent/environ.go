@@ -10,11 +10,11 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 )
 
@@ -42,7 +42,7 @@ type joyentEnviron struct {
 }
 
 var _ environs.Environ = (*joyentEnviron)(nil)
-var _ state.Prechecker = (*joyentEnviron)(nil)
+var _ hackage.Prechecker = (*joyentEnviron)(nil)
 
 // newEnviron create a new Joyent environ instance from config.
 func newEnviron(cfg *config.Config) (*joyentEnviron, error) {
@@ -154,7 +154,7 @@ func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs
 	return common.Bootstrap(ctx, env, args)
 }
 
-func (env *joyentEnviron) StateInfo() (*state.Info, *api.Info, error) {
+func (env *joyentEnviron) StateInfo() (*hackage.Info, *api.Info, error) {
 	return common.StateInfo(env)
 }
 

@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/state"
 )
 
@@ -24,17 +25,17 @@ func NewStatePolicy() state.Policy {
 	return environStatePolicy{}
 }
 
-func (environStatePolicy) Prechecker(cfg *config.Config) (state.Prechecker, error) {
+func (environStatePolicy) Prechecker(cfg *config.Config) (hackage.Prechecker, error) {
 	// Environ implements state.Prechecker.
 	return New(cfg)
 }
 
-func (environStatePolicy) ConfigValidator(providerType string) (state.ConfigValidator, error) {
+func (environStatePolicy) ConfigValidator(providerType string) (hackage.ConfigValidator, error) {
 	// EnvironProvider implements state.ConfigValidator.
 	return Provider(providerType)
 }
 
-func (environStatePolicy) EnvironCapability(cfg *config.Config) (state.EnvironCapability, error) {
+func (environStatePolicy) EnvironCapability(cfg *config.Config) (hackage.EnvironCapability, error) {
 	// Environ implements state.EnvironCapability.
 	return New(cfg)
 }
@@ -47,12 +48,12 @@ func (environStatePolicy) ConstraintsValidator(cfg *config.Config) (constraints.
 	return env.ConstraintsValidator()
 }
 
-func (environStatePolicy) InstanceDistributor(cfg *config.Config) (state.InstanceDistributor, error) {
+func (environStatePolicy) InstanceDistributor(cfg *config.Config) (hackage.InstanceDistributor, error) {
 	env, err := New(cfg)
 	if err != nil {
 		return nil, err
 	}
-	if p, ok := env.(state.InstanceDistributor); ok {
+	if p, ok := env.(hackage.InstanceDistributor); ok {
 		return p, nil
 	}
 	return nil, errors.NotImplementedf("InstanceDistributor")

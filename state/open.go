@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
@@ -21,19 +22,6 @@ import (
 	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 )
-
-// Info encapsulates information about cluster of
-// servers holding juju state and can be used to make a
-// connection to that cluster.
-type Info struct {
-	mongo.Info
-	// Tag holds the name of the entity that is connecting.
-	// It should be empty when connecting as an administrator.
-	Tag string
-
-	// Password holds the password for the connecting entity.
-	Password string
-}
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
@@ -44,7 +32,7 @@ type Info struct {
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(info *Info, opts mongo.DialOpts, policy Policy) (*State, error) {
+func Open(info *hackage.Info, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	di, err := mongo.DialInfo(info.Info, opts)
 	if err != nil {
@@ -78,7 +66,7 @@ func Open(info *Info, opts mongo.DialOpts, policy Policy) (*State, error) {
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
+func Initialize(info *hackage.Info, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
 	st, err := Open(info, opts, policy)
 	if err != nil {
 		return nil, err
@@ -183,7 +171,7 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
+func newState(session *mgo.Session, info *hackage.Info, policy Policy) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
@@ -319,7 +307,7 @@ func (st *State) createStateServersDoc() error {
 }
 
 // MongoConnectionInfo returns information for connecting to mongo
-func (st *State) MongoConnectionInfo() *Info {
+func (st *State) MongoConnectionInfo() *hackage.Info {
 	return st.info
 }
 

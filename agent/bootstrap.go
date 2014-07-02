@@ -164,7 +164,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 	m, err := st.AddOneMachine(state.MachineTemplate{
 		Addresses:               cfg.Addresses,
 		Series:                  version.Current.Series,
-		Nonce:                   state.BootstrapNonce,
+		Nonce:                   config.BootstrapNonce,
 		Constraints:             cfg.Constraints,
 		InstanceId:              cfg.InstanceId,
 		HardwareCharacteristics: cfg.Characteristics,
