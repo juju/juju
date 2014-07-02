@@ -31,22 +31,7 @@ type commonWatcher struct {
 
 	// call should invoke the given API method, placing the call's
 	// returned value in result (if any).
-	call watcherAPICall
-}
-
-// watcherAPICall wraps up the information about what facade and what watcher
-// Id we are calling, and just gives us a simple way to call a common method
-// with a given return value.
-type watcherAPICall func(method string, result interface{}) error
-
-// makeWatcherAPICaller creates a watcherAPICall function for a given facade name
-// and watcherId.
-func makeWatcherAPICaller(caller base.APICaller, facadeName, watcherId string) watcherAPICall {
-	bestVersion := caller.BestFacadeVersion(facadeName)
-	return func(request string, result interface{}) error {
-		return caller.APICall(facadeName, bestVersion,
-			watcherId, request, nil, &result)
-	}
+	call func(method string, result interface{}) error
 }
 
 // init must be called to initialize an embedded commonWatcher's
@@ -131,14 +116,14 @@ func (w *commonWatcher) Err() error {
 // It does not send content for those changes.
 type notifyWatcher struct {
 	commonWatcher
-	caller          base.APICaller
+	caller          base.Caller
 	notifyWatcherId string
 	out             chan struct{}
 }
 
 // If an API call returns a NotifyWatchResult, you can use this to turn it into
 // a local Watcher.
-func NewNotifyWatcher(caller base.APICaller, result params.NotifyWatchResult) NotifyWatcher {
+func NewNotifyWatcher(caller base.Caller, result params.NotifyWatchResult) NotifyWatcher {
 	w := &notifyWatcher{
 		caller:          caller,
 		notifyWatcherId: result.NotifyWatcherId,
@@ -155,7 +140,9 @@ func NewNotifyWatcher(caller base.APICaller, result params.NotifyWatchResult) No
 func (w *notifyWatcher) loop() error {
 	// No results for this watcher type.
 	w.newResult = func() interface{} { return nil }
-	w.call = makeWatcherAPICaller(w.caller, "NotifyWatcher", w.notifyWatcherId)
+	w.call = func(request string, result interface{}) error {
+		return w.caller.Call("NotifyWatcher", w.notifyWatcherId, request, nil, &result)
+	}
 	w.commonWatcher.init()
 	go w.commonLoop()
 
@@ -186,12 +173,12 @@ func (w *notifyWatcher) Changes() <-chan struct{} {
 // The content of the changes is a list of strings.
 type stringsWatcher struct {
 	commonWatcher
-	caller           base.APICaller
+	caller           base.Caller
 	stringsWatcherId string
 	out              chan []string
 }
 
-func NewStringsWatcher(caller base.APICaller, result params.StringsWatchResult) StringsWatcher {
+func NewStringsWatcher(caller base.Caller, result params.StringsWatchResult) StringsWatcher {
 	w := &stringsWatcher{
 		caller:           caller,
 		stringsWatcherId: result.StringsWatcherId,
@@ -208,7 +195,9 @@ func NewStringsWatcher(caller base.APICaller, result params.StringsWatchResult) 
 func (w *stringsWatcher) loop(initialChanges []string) error {
 	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.StringsWatchResult) }
-	w.call = makeWatcherAPICaller(w.caller, "StringsWatcher", w.stringsWatcherId)
+	w.call = func(request string, result interface{}) error {
+		return w.caller.Call("StringsWatcher", w.stringsWatcherId, request, nil, &result)
+	}
 	w.commonWatcher.init()
 	go w.commonLoop()
 
@@ -242,12 +231,12 @@ func (w *stringsWatcher) Changes() <-chan []string {
 // those units known to have entered.
 type relationUnitsWatcher struct {
 	commonWatcher
-	caller                 base.APICaller
+	caller                 base.Caller
 	relationUnitsWatcherId string
 	out                    chan params.RelationUnitsChange
 }
 
-func NewRelationUnitsWatcher(caller base.APICaller, result params.RelationUnitsWatchResult) RelationUnitsWatcher {
+func NewRelationUnitsWatcher(caller base.Caller, result params.RelationUnitsWatchResult) RelationUnitsWatcher {
 	w := &relationUnitsWatcher{
 		caller:                 caller,
 		relationUnitsWatcherId: result.RelationUnitsWatcherId,
@@ -264,7 +253,9 @@ func NewRelationUnitsWatcher(caller base.APICaller, result params.RelationUnitsW
 func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) error {
 	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.RelationUnitsWatchResult) }
-	w.call = makeWatcherAPICaller(w.caller, "RelationUnitsWatcher", w.relationUnitsWatcherId)
+	w.call = func(request string, result interface{}) error {
+		return w.caller.Call("RelationUnitsWatcher", w.relationUnitsWatcherId, request, nil, &result)
+	}
 	w.commonWatcher.init()
 	go w.commonLoop()
 

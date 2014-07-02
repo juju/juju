@@ -17,13 +17,17 @@ import (
 
 // State provides access to an upgrader worker's view of the state.
 type State struct {
-	facade base.FacadeCaller
+	caller base.Caller
+}
+
+func (st *State) call(method string, params, result interface{}) error {
+	return st.caller.Call("Upgrader", "", method, params, result)
 }
 
 // NewState returns a version of the state that provides functionality
 // required by the upgrader worker.
-func NewState(caller base.APICaller) *State {
-	return &State{base.NewFacadeCaller(caller, "Upgrader")}
+func NewState(caller base.Caller) *State {
+	return &State{caller}
 }
 
 // SetVersion sets the tools version associated with the entity with
@@ -37,7 +41,7 @@ func (st *State) SetVersion(tag string, v version.Binary) error {
 			Tools: &params.Version{v},
 		}},
 	}
-	err := st.facade.FacadeCall("SetTools", args, &results)
+	err := st.call("SetTools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return err
@@ -50,7 +54,7 @@ func (st *State) DesiredVersion(tag string) (version.Number, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.facade.FacadeCall("DesiredVersion", args, &results)
+	err := st.call("DesiredVersion", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return version.Number{}, err
@@ -77,7 +81,7 @@ func (st *State) Tools(tag string) (*tools.Tools, utils.SSLHostnameVerification,
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.facade.FacadeCall("Tools", args, &results)
+	err := st.call("Tools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, false, err
@@ -102,7 +106,7 @@ func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := st.facade.FacadeCall("WatchAPIVersion", args, &results)
+	err := st.call("WatchAPIVersion", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -116,6 +120,6 @@ func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error)
 		//  TODO: Not directly tested
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(st.caller, result)
 	return w, nil
 }

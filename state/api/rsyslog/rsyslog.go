@@ -24,12 +24,12 @@ type RsyslogConfig struct {
 
 // State provides access to the Rsyslog API facade.
 type State struct {
-	facade base.FacadeCaller
+	caller base.Caller
 }
 
 // NewState creates a new client-side Rsyslog facade.
-func NewState(caller base.APICaller) *State {
-	return &State{facade: base.NewFacadeCaller(caller, rsyslogAPI)}
+func NewState(caller base.Caller) *State {
+	return &State{caller: caller}
 }
 
 // SetRsyslogCert sets the rsyslog CA certificate,
@@ -40,7 +40,7 @@ func (st *State) SetRsyslogCert(caCert string) error {
 	args := params.SetRsyslogCertParams{
 		CACert: []byte(caCert),
 	}
-	err := st.facade.FacadeCall("SetRsyslogCert", args, &result)
+	err := st.caller.Call(rsyslogAPI, "", "SetRsyslogCert", args, &result)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (st *State) WatchForRsyslogChanges(agentTag string) (watcher.NotifyWatcher,
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
 
-	err := st.facade.FacadeCall("WatchForRsyslogChanges", args, &results)
+	err := st.caller.Call(rsyslogAPI, "", "WatchForRsyslogChanges", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -71,7 +71,7 @@ func (st *State) WatchForRsyslogChanges(agentTag string) (watcher.NotifyWatcher,
 		//  TODO: Not directly tested
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(st.caller, result)
 	return w, nil
 }
 
@@ -81,7 +81,7 @@ func (st *State) GetRsyslogConfig(agentTag string) (*RsyslogConfig, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := st.facade.FacadeCall("GetRsyslogConfig", args, &results)
+	err := st.caller.Call(rsyslogAPI, "", "GetRsyslogConfig", args, &results)
 	if err != nil {
 		return nil, err
 	}

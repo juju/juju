@@ -15,23 +15,26 @@ const machinerFacade = "Machiner"
 
 // State provides access to the Machiner API facade.
 type State struct {
-	facade base.FacadeCaller
+	caller base.Caller
 	*common.APIAddresser
 }
 
+func (st *State) call(method string, params, result interface{}) error {
+	return st.caller.Call(machinerFacade, "", method, params, result)
+}
+
 // NewState creates a new client-side Machiner facade.
-func NewState(caller base.APICaller) *State {
-	facadeCaller := base.NewFacadeCaller(caller, machinerFacade)
+func NewState(caller base.Caller) *State {
 	return &State{
-		facade:       facadeCaller,
-		APIAddresser: common.NewAPIAddresser(facadeCaller),
+		caller:       caller,
+		APIAddresser: common.NewAPIAddresser(machinerFacade, caller),
 	}
 
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
 func (st *State) machineLife(tag names.Tag) (params.Life, error) {
-	return common.Life(st.facade, tag)
+	return common.Life(st.caller, machinerFacade, tag)
 }
 
 // Machine provides access to methods of a state.Machine through the facade.

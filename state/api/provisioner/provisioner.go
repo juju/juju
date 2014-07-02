@@ -20,23 +20,26 @@ type State struct {
 	*common.EnvironWatcher
 	*common.APIAddresser
 
-	facade base.FacadeCaller
+	caller base.Caller
 }
 
 const provisionerFacade = "Provisioner"
 
 // NewState creates a new client-side Machiner facade.
-func NewState(caller base.APICaller) *State {
-	facadeCaller := base.NewFacadeCaller(caller, provisionerFacade)
+func NewState(caller base.Caller) *State {
 	return &State{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		APIAddresser:   common.NewAPIAddresser(facadeCaller),
-		facade:         facadeCaller}
+		EnvironWatcher: common.NewEnvironWatcher(provisionerFacade, caller),
+		APIAddresser:   common.NewAPIAddresser(provisionerFacade, caller),
+		caller:         caller}
+}
+
+func (st *State) call(method string, params, result interface{}) error {
+	return st.caller.Call(provisionerFacade, "", method, params, result)
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
 func (st *State) machineLife(tag names.Tag) (params.Life, error) {
-	return common.Life(st.facade, tag)
+	return common.Life(st.caller, provisionerFacade, tag)
 }
 
 // Machine provides access to methods of a state.Machine through the facade.
@@ -61,34 +64,34 @@ func (st *State) Machine(machineTag string) (*Machine, error) {
 // the current environment.
 func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 	var result params.StringsWatchResult
-	err := st.facade.FacadeCall("WatchEnvironMachines", nil, &result)
+	err := st.call("WatchEnvironMachines", nil, &result)
 	if err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	w := watcher.NewStringsWatcher(st.caller, result)
 	return w, nil
 }
 
 func (st *State) WatchMachineErrorRetry() (watcher.NotifyWatcher, error) {
 	var result params.NotifyWatchResult
-	err := st.facade.FacadeCall("WatchMachineErrorRetry", nil, &result)
+	err := st.call("WatchMachineErrorRetry", nil, &result)
 	if err != nil {
 		return nil, err
 	}
 	if err := result.Error; err != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(st.caller, result)
 	return w, nil
 }
 
 // StateAddresses returns the list of addresses used to connect to the state.
 func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.facade.FacadeCall("StateAddresses", nil, &result)
+	err := st.call("StateAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +104,7 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := st.facade.FacadeCall("Tools", args, &results)
+	err := st.call("Tools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -120,14 +123,14 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 // ContainerManagerConfig returns information from the environment config that is
 // needed for configuring the container manager.
 func (st *State) ContainerManagerConfig(args params.ContainerManagerConfigParams) (result params.ContainerManagerConfig, err error) {
-	err = st.facade.FacadeCall("ContainerManagerConfig", args, &result)
+	err = st.call("ContainerManagerConfig", args, &result)
 	return result, err
 }
 
 // ContainerConfig returns information from the environment config that is
 // needed for container cloud-init.
 func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
-	err = st.facade.FacadeCall("ContainerConfig", nil, &result)
+	err = st.call("ContainerConfig", nil, &result)
 	return result, err
 }
 
@@ -135,7 +138,7 @@ func (st *State) ContainerConfig() (result params.ContainerConfig, err error) {
 // for those machines which have transient provisioning errors.
 func (st *State) MachinesWithTransientErrors() ([]*Machine, []params.StatusResult, error) {
 	var results params.StatusResults
-	err := st.facade.FacadeCall("MachinesWithTransientErrors", nil, &results)
+	err := st.call("MachinesWithTransientErrors", nil, &results)
 	if err != nil {
 		return nil, nil, err
 	}

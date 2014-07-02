@@ -43,7 +43,7 @@ func (u *Unit) Refresh() error {
 
 // Watch returns a watcher for observing changes to the unit.
 func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(u.st.facade, u.tag.String())
+	return common.Watch(u.st.caller, firewallerFacade, u.tag.String())
 }
 
 // Service returns the service.
@@ -71,7 +71,7 @@ func (u *Unit) OpenedPorts() ([]network.Port, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("OpenedPorts", args, &results)
+	err := u.st.call("OpenedPorts", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -92,7 +92,7 @@ func (u *Unit) AssignedMachine() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("GetAssignedMachine", args, &results)
+	err := u.st.call("GetAssignedMachine", args, &results)
 	if err != nil {
 		return "", err
 	}

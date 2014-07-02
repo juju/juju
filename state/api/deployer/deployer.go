@@ -15,19 +15,27 @@ const deployerFacade = "Deployer"
 
 // State provides access to the deployer worker's idea of the state.
 type State struct {
-	facade base.FacadeCaller
+	caller base.Caller
 	*common.APIAddresser
 }
 
 // NewState creates a new State instance that makes API calls
 // through the given caller.
-func NewState(caller base.APICaller) *State {
-	facadeCaller := base.NewFacadeCaller(caller, deployerFacade)
+func NewState(caller base.Caller) *State {
 	return &State{
-		facade:       facadeCaller,
-		APIAddresser: common.NewAPIAddresser(facadeCaller),
+		APIAddresser: common.NewAPIAddresser(deployerFacade, caller),
+		caller:       caller,
 	}
 
+}
+
+func (st *State) call(method string, params, result interface{}) error {
+	return st.caller.Call(deployerFacade, "", method, params, result)
+}
+
+// unitLife returns the lifecycle state of the given unit.
+func (st *State) unitLife(tag names.Tag) (params.Life, error) {
+	return common.Life(st.caller, deployerFacade, tag)
 }
 
 // Unit returns the unit with the given tag.
@@ -36,7 +44,7 @@ func (st *State) Unit(unitTag string) (*Unit, error) {
 	if err != nil {
 		return nil, err
 	}
-	life, err := common.Life(st.facade, tag)
+	life, err := st.unitLife(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +70,7 @@ func (st *State) Machine(machineTag string) (*Machine, error) {
 // StateAddresses returns the list of addresses used to connect to the state.
 func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.facade.FacadeCall("StateAddresses", nil, &result)
+	err := st.call("StateAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +80,6 @@ func (st *State) StateAddresses() ([]string, error) {
 // ConnectionInfo returns all the address information that the deployer task
 // needs in one call.
 func (st *State) ConnectionInfo() (result params.DeployerConnectionValues, err error) {
-	err = st.facade.FacadeCall("ConnectionInfo", nil, &result)
+	err = st.call("ConnectionInfo", nil, &result)
 	return result, err
 }

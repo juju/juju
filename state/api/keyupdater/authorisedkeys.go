@@ -13,12 +13,16 @@ import (
 
 // State provides access to a worker's view of the state.
 type State struct {
-	facade base.FacadeCaller
+	caller base.Caller
+}
+
+func (st *State) call(method string, params, result interface{}) error {
+	return st.caller.Call("KeyUpdater", "", method, params, result)
 }
 
 // NewState returns a version of the state that provides functionality required by the worker.
-func NewState(caller base.APICaller) *State {
-	return &State{base.NewFacadeCaller(caller, "KeyUpdater")}
+func NewState(caller base.Caller) *State {
+	return &State{caller}
 }
 
 // AuthorisedKeys returns the authorised ssh keys for the machine specified by machineTag.
@@ -27,7 +31,7 @@ func (st *State) AuthorisedKeys(machineTag string) ([]string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag}},
 	}
-	err := st.facade.FacadeCall("AuthorisedKeys", args, &results)
+	err := st.call("AuthorisedKeys", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -50,7 +54,7 @@ func (st *State) WatchAuthorisedKeys(machineTag string) (watcher.NotifyWatcher, 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: machineTag}},
 	}
-	err := st.facade.FacadeCall("WatchAuthorisedKeys", args, &results)
+	err := st.call("WatchAuthorisedKeys", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -64,6 +68,6 @@ func (st *State) WatchAuthorisedKeys(machineTag string) (watcher.NotifyWatcher, 
 		//  TODO: Not directly tested
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(st.caller, result)
 	return w, nil
 }

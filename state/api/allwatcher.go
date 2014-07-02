@@ -4,31 +4,26 @@
 package api
 
 import (
-	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 )
 
 // AllWatcher holds information allowing us to get Deltas describing changes
 // to the entire environment.
 type AllWatcher struct {
-	caller base.APICaller
+	client *Client
 	id     *string
 }
 
-func newAllWatcher(caller base.APICaller, id *string) *AllWatcher {
-	return &AllWatcher{caller, id}
+func newAllWatcher(client *Client, id *string) *AllWatcher {
+	return &AllWatcher{client, id}
 }
 
 func (watcher *AllWatcher) Next() ([]params.Delta, error) {
 	info := new(params.AllWatcherNextResults)
-	err := watcher.caller.APICall(
-		"AllWatcher", watcher.caller.BestFacadeVersion("AllWatcher"),
-		*watcher.id, "Next", nil, info)
+	err := watcher.client.st.Call("AllWatcher", *watcher.id, "Next", nil, info)
 	return info.Deltas, err
 }
 
 func (watcher *AllWatcher) Stop() error {
-	return watcher.caller.APICall(
-		"AllWatcher", watcher.caller.BestFacadeVersion("AllWatcher"),
-		*watcher.id, "Stop", nil, nil)
+	return watcher.client.st.Call("AllWatcher", *watcher.id, "Stop", nil, nil)
 }

@@ -10,6 +10,7 @@ import (
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/usermanager"
 	"github.com/juju/juju/testing/factory"
@@ -44,7 +45,7 @@ func (s *usermanagerSuite) TestAddUserOldClient(c *gc.C) {
 	// Here we explicitly call into the UserManager object using the base
 	// APIState so as to be able to call the AddUser method with a different
 	// type of argument.
-	err := s.APIState.APICall("UserManager", 0, "", "AddUser", userArgs, results)
+	err := s.APIState.Call("UserManager", "", "AddUser", userArgs, results)
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)
@@ -95,28 +96,21 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 }
 
 func (s *usermanagerSuite) TestUserInfoNoResults(c *gc.C) {
-	cleanup := usermanager.PatchResponses(s.usermanager,
-		func(interface{}) error {
-			// do nothing, we get an empty result with no error
-			return nil
-		},
-	)
-	defer cleanup()
+	s.PatchValue(usermanager.Call, func(st *api.State, method string, args, result interface{}) error {
+		return nil
+	})
 	tag := names.NewUserTag("foobar")
 	_, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 0")
 }
 
 func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
-	cleanup := usermanager.PatchResponses(s.usermanager,
-		func(result interface{}) error {
-			if result, ok := result.(*params.UserInfoResults); ok {
-				result.Results = make([]params.UserInfoResult, 2)
-			}
-			return nil
-		},
-	)
-	defer cleanup()
+	s.PatchValue(usermanager.Call, func(st *api.State, method string, args, result interface{}) error {
+		if result, ok := result.(*params.UserInfoResults); ok {
+			result.Results = make([]params.UserInfoResult, 2)
+		}
+		return nil
+	})
 	tag := names.NewUserTag("foobar")
 	_, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")

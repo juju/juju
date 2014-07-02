@@ -95,7 +95,6 @@ func (s *keymanagerSuite) TestAddSystemKey(c *gc.C) {
 
 	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	keyManager := keymanager.NewClient(apiState)
-	defer keyManager.Close()
 	newKey := sshtesting.ValidKeyTwo.Key
 	errResults, err := keyManager.AddKeys("juju-system-key", newKey)
 	c.Assert(err, gc.IsNil)
@@ -111,7 +110,6 @@ func (s *keymanagerSuite) TestAddSystemKeyWrongUser(c *gc.C) {
 
 	apiState, _ := s.OpenAPIAsNewMachine(c, state.JobManageEnviron)
 	keyManager := keymanager.NewClient(apiState)
-	defer keyManager.Close()
 	newKey := sshtesting.ValidKeyTwo.Key
 	_, err := keyManager.AddKeys("some-user", newKey)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -183,8 +181,4 @@ func (s *keymanagerSuite) TestImportKeysInvalidUser(c *gc.C) {
 		_, err := s.keymanager.ImportKeys(user, keys...)
 		return err
 	})
-}
-
-func (s *keymanagerSuite) TestExposesBestAPIVersion(c *gc.C) {
-	c.Check(s.keymanager.BestAPIVersion(), gc.Equals, 0)
 }
