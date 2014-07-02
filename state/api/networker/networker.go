@@ -54,7 +54,7 @@ func (st *State) WatchInterfaces(machineTag string) (watcher.NotifyWatcher, erro
 		Entities: []params.Entity{{Tag: machineTag}},
 	}
 	var results params.NotifyWatchResults
-	err := st.call("WatchInterfaces", args, &results)
+	err := st.facade.FacadeCall("WatchInterfaces", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -68,6 +68,6 @@ func (st *State) WatchInterfaces(machineTag string) (watcher.NotifyWatcher, erro
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.caller, result)
+	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }
