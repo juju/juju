@@ -156,10 +156,6 @@ var changeConfigTests = []struct {
 	insert: testing.Attrs{"password": ""},
 	err:    "password: must not be empty",
 }, {
-	info:   "can change region",
-	insert: testing.Attrs{"region": "lvs"},
-	err:    "region: cannot change from .* to .*",
-}, {
 	info:   "can not change storage-port",
 	insert: testing.Attrs{"storage-port": 0},
 	err:    "storage-port: cannot change from .* to .*",
