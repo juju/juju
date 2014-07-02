@@ -60,7 +60,7 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 			{Tag: u.tag.String(), Status: status, Info: info, Data: data},
 		},
 	}
-	err := u.st.facade.FacadeCall("SetStatus", args, &result)
+	err := u.st.call("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (u *Unit) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("EnsureDead", args, &result)
+	err := u.st.call("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -83,7 +83,7 @@ func (u *Unit) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the unit.
 func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(u.st.facade, u.tag.String())
+	return common.Watch(u.st.caller, uniterFacade, u.tag.String())
 }
 
 // Service returns the service.
@@ -111,7 +111,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("ConfigSettings", args, &results)
+	err := u.st.call("ConfigSettings", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +145,7 @@ func (u *Unit) Destroy() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("Destroy", args, &result)
+	err := u.st.call("Destroy", args, &result)
 	if err != nil {
 		return err
 	}
@@ -158,7 +158,7 @@ func (u *Unit) DestroyAllSubordinates() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("DestroyAllSubordinates", args, &result)
+	err := u.st.call("DestroyAllSubordinates", args, &result)
 	if err != nil {
 		return err
 	}
@@ -174,7 +174,7 @@ func (u *Unit) Resolved() (params.ResolvedMode, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("Resolved", args, &results)
+	err := u.st.call("Resolved", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -198,7 +198,7 @@ func (u *Unit) IsPrincipal() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("GetPrincipal", args, &results)
+	err := u.st.call("GetPrincipal", args, &results)
 	if err != nil {
 		return false, err
 	}
@@ -219,7 +219,7 @@ func (u *Unit) HasSubordinates() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("HasSubordinates", args, &results)
+	err := u.st.call("HasSubordinates", args, &results)
 	if err != nil {
 		return false, err
 	}
@@ -246,7 +246,7 @@ func (u *Unit) PublicAddress() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("PublicAddress", args, &results)
+	err := u.st.call("PublicAddress", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -273,7 +273,7 @@ func (u *Unit) PrivateAddress() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("PrivateAddress", args, &results)
+	err := u.st.call("PrivateAddress", args, &results)
 	if err != nil {
 		return "", err
 	}
@@ -299,7 +299,7 @@ func (u *Unit) OpenPort(protocol string, number int) error {
 			{Tag: u.tag.String(), Protocol: protocol, Port: number},
 		},
 	}
-	err := u.st.facade.FacadeCall("OpenPort", args, &result)
+	err := u.st.call("OpenPort", args, &result)
 	if err != nil {
 		return err
 	}
@@ -318,7 +318,7 @@ func (u *Unit) ClosePort(protocol string, number int) error {
 			{Tag: u.tag.String(), Protocol: protocol, Port: number},
 		},
 	}
-	err := u.st.facade.FacadeCall("ClosePort", args, &result)
+	err := u.st.call("ClosePort", args, &result)
 	if err != nil {
 		return err
 	}
@@ -336,7 +336,7 @@ func (u *Unit) CharmURL() (*charm.URL, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("CharmURL", args, &results)
+	err := u.st.call("CharmURL", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -369,7 +369,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) error {
 			{Tag: u.tag.String(), CharmURL: curl.String()},
 		},
 	}
-	err := u.st.facade.FacadeCall("SetCharmURL", args, &result)
+	err := u.st.call("SetCharmURL", args, &result)
 	if err != nil {
 		return err
 	}
@@ -382,7 +382,7 @@ func (u *Unit) ClearResolved() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("ClearResolved", args, &result)
+	err := u.st.call("ClearResolved", args, &result)
 	if err != nil {
 		return err
 	}
@@ -398,7 +398,7 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("WatchConfigSettings", args, &results)
+	err := u.st.call("WatchConfigSettings", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +409,7 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(u.st.caller, result)
 	return w, nil
 }
 
@@ -422,7 +422,7 @@ func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("WatchUnitAddresses", args, &results)
+	err := u.st.call("WatchUnitAddresses", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -433,7 +433,7 @@ func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	w := watcher.NewNotifyWatcher(u.st.caller, result)
 	return w, nil
 }
 
@@ -443,7 +443,7 @@ func (u *Unit) JoinedRelations() ([]string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.facade.FacadeCall("JoinedRelations", args, &results)
+	err := u.st.call("JoinedRelations", args, &results)
 	if err != nil {
 		return nil, err
 	}

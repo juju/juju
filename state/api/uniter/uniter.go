@@ -21,25 +21,28 @@ type State struct {
 	*common.EnvironWatcher
 	*common.APIAddresser
 
-	facade base.FacadeCaller
+	caller base.Caller
 	// unitTag contains the authenticated unit's tag.
 	unitTag string
 }
 
 // NewState creates a new client-side Uniter facade.
-func NewState(caller base.APICaller, authTag string) *State {
-	facadeCaller := base.NewFacadeCaller(caller, uniterFacade)
+func NewState(caller base.Caller, authTag string) *State {
 	return &State{
-		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
-		APIAddresser:   common.NewAPIAddresser(facadeCaller),
-		facade:         facadeCaller,
+		EnvironWatcher: common.NewEnvironWatcher(uniterFacade, caller),
+		APIAddresser:   common.NewAPIAddresser(uniterFacade, caller),
+		caller:         caller,
 		unitTag:        authTag,
 	}
 }
 
+func (st *State) call(method string, params, results interface{}) error {
+	return st.caller.Call(uniterFacade, "", method, params, results)
+}
+
 // life requests the lifecycle of the given entity from the server.
 func (st *State) life(tag names.Tag) (params.Life, error) {
-	return common.Life(st.facade, tag)
+	return common.Life(st.caller, uniterFacade, tag)
 }
 
 // relation requests relation information from the server.
@@ -51,7 +54,7 @@ func (st *State) relation(relationTag, unitTag string) (params.RelationResult, e
 			{Relation: relationTag, Unit: unitTag},
 		},
 	}
-	err := st.facade.FacadeCall("Relation", args, &result)
+	err := st.call("Relation", args, &result)
 	if err != nil {
 		return nothing, err
 	}
@@ -75,7 +78,7 @@ func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, 
 	}
 
 	var results params.ActionsQueryResults
-	err := st.facade.FacadeCall("Actions", args, &results)
+	err := st.call("Actions", args, &results)
 	if err != nil {
 		return nothing, err
 	}
@@ -134,7 +137,7 @@ func (st *State) Service(serviceTag string) (*Service, error) {
 // addresses implemented fully. See also LP bug 1221798.
 func (st *State) ProviderType() (string, error) {
 	var result params.StringResult
-	err := st.facade.FacadeCall("ProviderType", nil, &result)
+	err := st.call("ProviderType", nil, &result)
 	if err != nil {
 		return "", err
 	}
@@ -191,7 +194,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 	args := params.RelationIds{
 		RelationIds: []int{id},
 	}
-	err := st.facade.FacadeCall("RelationById", args, &results)
+	err := st.call("RelationById", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -214,7 +217,7 @@ func (st *State) RelationById(id int) (*Relation, error) {
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
 	var result params.EnvironmentResult
-	err := st.facade.FacadeCall("CurrentEnvironment", nil, &result)
+	err := st.call("CurrentEnvironment", nil, &result)
 	if params.IsCodeNotImplemented(err) {
 		// Fall back to using the 1.16 API.
 		return st.environment1dot16()
@@ -235,7 +238,7 @@ func (st *State) Environment() (*Environment, error) {
 // using an older API server that does not support CurrentEnvironment API call.
 func (st *State) environment1dot16() (*Environment, error) {
 	var result params.StringResult
-	err := st.facade.FacadeCall("CurrentEnvironUUID", nil, &result)
+	err := st.call("CurrentEnvironUUID", nil, &result)
 	if err != nil {
 		return nil, err
 	}
