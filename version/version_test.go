@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
-	stdtesting "testing"
 
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
@@ -24,10 +23,6 @@ type suite struct {
 }
 
 var _ = gc.Suite(&suite{})
-
-func Test(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 // N.B. The FORCE-VERSION logic is tested in the environs package.
 

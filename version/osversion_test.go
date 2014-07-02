@@ -63,7 +63,9 @@ func (*readSeriesSuite) TestReadSeries(c *gc.C) {
 		c.Logf("test %d", i)
 		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
 		c.Assert(err, gc.IsNil)
-		c.Assert(version.ReadSeries(f), gc.Equals, t.series)
+		series, err := version.ReadSeries(f)
+		c.Assert(err, gc.IsNil)
+		c.Assert(series, gc.Equals, t.series)
 	}
 }
 
@@ -113,13 +115,17 @@ func (*kernelVersionSuite) TestKernelToMajorVersionEmpty(c *gc.C) {
 }
 
 func (*kernelVersionSuite) TestMacOSXSeriesFromKernelVersion(c *gc.C) {
-	c.Check(version.MacOSXSeriesFromKernelVersion(sysctlMacOS10dot9dot2), gc.Equals, "mavericks")
+	series, err := version.MacOSXSeriesFromKernelVersion(sysctlMacOS10dot9dot2)
+	c.Assert(err, gc.IsNil)
+	c.Check(series, gc.Equals, "mavericks")
 }
 
 func (*kernelVersionSuite) TestMacOSXSeriesFromKernelVersionError(c *gc.C) {
 	// We suppress the actual error in favor of returning "unknown", but we
 	// do log the error
-	c.Check(version.MacOSXSeriesFromKernelVersion(sysctlError), gc.Equals, "unknown")
+	series, err := version.MacOSXSeriesFromKernelVersion(sysctlError)
+	c.Assert(err, gc.ErrorMatches, "no such syscall")
+	c.Assert(series, gc.Equals, "unknown")
 	c.Check(c.GetTestLog(), gc.Matches, ".* juju.version unable to determine OS version: no such syscall\n")
 }
 
@@ -127,15 +133,21 @@ func (*kernelVersionSuite) TestMacOSXSeries(c *gc.C) {
 	tests := []struct {
 		version int
 		series  string
+		err     string
 	}{
-		{13, "mavericks"},
-		{12, "mountainlion"},
-		{14, "unknown"},
-		{4, "unknown"},
-		{0, "unknown"},
+		{version: 13, series: "mavericks"},
+		{version: 12, series: "mountainlion"},
+		{version: 14, series: "unknown", err: `unknown series ""`},
+		{version: 4, series: "unknown", err: `unknown series ""`},
+		{version: 0, series: "unknown", err: `unknown series ""`},
 	}
 	for _, test := range tests {
-		series := version.MacOSXSeriesFromMajorVersion(test.version)
+		series, err := version.MacOSXSeriesFromMajorVersion(test.version)
+		if test.err != "" {
+			c.Assert(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Assert(err, gc.IsNil)
+		}
 		c.Check(series, gc.Equals, test.series)
 	}
 }

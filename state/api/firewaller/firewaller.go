@@ -29,13 +29,18 @@ func NewState(caller base.APICaller) *State {
 	}
 }
 
+// life requests the life cycle of the given entity from the server.
+func (st *State) life(tag names.Tag) (params.Life, error) {
+	return common.Life(st.facade, tag)
+}
+
 // Unit provides access to methods of a state.Unit through the facade.
 func (st *State) Unit(unitTag string) (*Unit, error) {
-	life, err := common.Life(st.facade, unitTag)
+	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
 		return nil, err
 	}
-	tag, err := names.ParseUnitTag(unitTag)
+	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -49,11 +54,11 @@ func (st *State) Unit(unitTag string) (*Unit, error) {
 // Machine provides access to methods of a state.Machine through the
 // facade.
 func (st *State) Machine(machineTag string) (*Machine, error) {
-	life, err := common.Life(st.facade, machineTag)
+	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return nil, err
 	}
-	tag, err := names.ParseMachineTag(machineTag)
+	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
 	}

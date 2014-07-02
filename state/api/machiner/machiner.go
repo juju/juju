@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/common"
+	"github.com/juju/juju/state/api/params"
 )
 
 const machinerFacade = "Machiner"
@@ -28,13 +29,18 @@ func NewState(caller base.APICaller) *State {
 
 }
 
+// machineLife requests the lifecycle of the given machine from the server.
+func (st *State) machineLife(tag names.Tag) (params.Life, error) {
+	return common.Life(st.facade, tag)
+}
+
 // Machine provides access to methods of a state.Machine through the facade.
 func (st *State) Machine(machineTag string) (*Machine, error) {
-	life, err := common.Life(st.facade, machineTag)
+	tag, err := names.ParseMachineTag(machineTag)
 	if err != nil {
 		return nil, err
 	}
-	tag, err := names.ParseMachineTag(machineTag)
+	life, err := st.machineLife(tag)
 	if err != nil {
 		return nil, err
 	}

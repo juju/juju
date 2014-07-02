@@ -55,6 +55,9 @@ type State struct {
 	// broken.
 	broken chan struct{}
 
+	// closed is a channel that gets closed when State.Close is called.
+	closed chan struct{}
+
 	// tag and password hold the cached login credentials.
 	tag      string
 	password string
@@ -193,7 +196,8 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		}
 	}
 	st.broken = make(chan struct{})
-	go st.heartbeatMonitor(PingPeriod)
+	st.closed = make(chan struct{})
+	go st.heartbeatMonitor()
 	return st, nil
 }
 
@@ -255,13 +259,16 @@ func newWebsocketDialer(cfg *websocket.Config, opts DialOpts) func(<-chan struct
 	}
 }
 
-func (s *State) heartbeatMonitor(pingPeriod time.Duration) {
+func (s *State) heartbeatMonitor() {
 	for {
 		if err := s.Ping(); err != nil {
 			close(s.broken)
 			return
 		}
-		time.Sleep(pingPeriod)
+		select {
+		case <-time.After(PingPeriod):
+		case <-s.closed:
+		}
 	}
 }
 
@@ -295,7 +302,14 @@ func (s *State) APICall(facade string, version int, id, method string, args, res
 }
 
 func (s *State) Close() error {
-	return s.client.Close()
+	err := s.client.Close()
+	select {
+	case <-s.closed:
+	default:
+		close(s.closed)
+	}
+	<-s.broken
+	return err
 }
 
 // Broken returns a channel that's closed when the connection is broken.

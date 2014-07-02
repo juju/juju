@@ -32,11 +32,11 @@ func NewState(caller base.APICaller) *State {
 
 // Unit returns the unit with the given tag.
 func (st *State) Unit(unitTag string) (*Unit, error) {
-	life, err := common.Life(st.facade, unitTag)
+	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
 		return nil, err
 	}
-	tag, err := names.ParseUnitTag(unitTag)
+	life, err := common.Life(st.facade, tag)
 	if err != nil {
 		return nil, err
 	}

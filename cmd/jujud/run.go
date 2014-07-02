@@ -19,8 +19,8 @@ import (
 )
 
 var (
-	AgentDir = "/var/lib/juju/agents"
-	LockDir  = "/var/lib/juju/locks"
+	AgentDir = filepath.Join(dataDir, "agents")
+	LockDir  = filepath.Join(dataDir, "locks")
 )
 
 type RunCommand struct {

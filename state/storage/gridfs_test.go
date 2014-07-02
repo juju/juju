@@ -37,7 +37,7 @@ func (s *gridfsSuite) TearDownSuite(c *gc.C) {
 func (s *gridfsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.stor = storage.NewGridFS("test", s.Session)
+	s.stor = storage.NewGridFS("juju", "test", s.Session)
 }
 
 func (s *gridfsSuite) TearDownTest(c *gc.C) {
@@ -102,7 +102,7 @@ func (s *gridfsSuite) TestRemoveNonExistent(c *gc.C) {
 }
 
 func (s *gridfsSuite) TestNamespaceSeparation(c *gc.C) {
-	anotherStor := storage.NewGridFS("another", s.Session)
+	anotherStor := storage.NewGridFS("juju", "another", s.Session)
 	path := "/path/to/file"
 	assertPut(c, anotherStor, path, "hello world")
 	_, err := s.stor.Get(path)
@@ -110,7 +110,7 @@ func (s *gridfsSuite) TestNamespaceSeparation(c *gc.C) {
 }
 
 func (s *gridfsSuite) TestNamespaceSeparationRemove(c *gc.C) {
-	anotherStor := storage.NewGridFS("another", s.Session)
+	anotherStor := storage.NewGridFS("juju", "another", s.Session)
 	path := "/path/to/file"
 	assertPut(c, s.stor, path, "hello world")
 	assertPut(c, anotherStor, path, "hello again")

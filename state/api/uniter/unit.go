@@ -44,7 +44,7 @@ func (u *Unit) Life() params.Life {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := u.st.life(u.tag.String())
+	life, err := u.st.life(u.tag)
 	if err != nil {
 		return err
 	}
@@ -399,6 +399,30 @@ func (u *Unit) WatchConfigSettings() (watcher.NotifyWatcher, error) {
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.facade.FacadeCall("WatchConfigSettings", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(u.st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchAddresses returns a watcher for observing changes to the
+// unit's addresses. The unit must be assigned to a machine before
+// this method is called, and the returned watcher will be valid only
+// while the unit's assigned machine is not changed.
+func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag.String()}},
+	}
+	err := u.st.facade.FacadeCall("WatchUnitAddresses", args, &results)
 	if err != nil {
 		return nil, err
 	}

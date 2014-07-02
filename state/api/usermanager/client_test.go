@@ -121,3 +121,11 @@ func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
 	_, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.ErrorMatches, "expected 1 result, got 2")
 }
+
+func (s *usermanagerSuite) TestSetUserPassword(c *gc.C) {
+	err := s.usermanager.SetPassword("admin", "new-password")
+	c.Assert(err, gc.IsNil)
+	user, err := s.State.User("admin")
+	c.Assert(err, gc.IsNil)
+	c.Assert(user.PasswordValid("new-password"), gc.Equals, true)
+}

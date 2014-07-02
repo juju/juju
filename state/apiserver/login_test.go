@@ -119,7 +119,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 			defer st.Close()
 
-			_, err = st.Machiner().Machine("0")
+			_, err = st.Machiner().Machine("machine-0")
 			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 			// Since these are user login tests, the nonce is empty.
@@ -127,7 +127,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
-			_, err = st.Machiner().Machine("0")
+			_, err = st.Machiner().Machine("machine-0")
 			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 		}()
 	}
@@ -172,8 +172,8 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machineInState.Tag(), gc.Equals, names.NewMachineTag("0"))
 
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("login-tester", tw, loggo.DEBUG), gc.IsNil)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("login-tester", &tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("login-tester")
 
 	info.Tag = machineInState.Tag().String()
@@ -182,12 +182,12 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 
 	apiConn, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
+	defer apiConn.Close()
 	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag().String())
-	apiConn.Close()
 
-	c.Assert(tw.Log, jc.LogMatches, []string{
+	c.Assert(tw.Log(), jc.LogMatches, []string{
 		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login",` +
 			`"Params":{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
 			`}`,
@@ -484,6 +484,7 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 	// response.
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
+	defer st.Close()
 	var result params.LoginResult
 	creds := &params.Creds{
 		AuthTag:  "user-admin",
@@ -524,7 +525,7 @@ func (s *loginSuite) runLoginWithValidator(c *gc.C, validator apiserver.LoginVal
 	defer st.Close()
 
 	// Ensure not already logged in.
-	_, err = st.Machiner().Machine("0")
+	_, err = st.Machiner().Machine("machine-0")
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 	// Since these are user login tests, the nonce is empty.
@@ -536,6 +537,7 @@ func (s *loginSuite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 	defer cleanup()
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
+	defer st.Close()
 	var result params.LoginResult
 	creds := &params.Creds{
 		AuthTag:  "user-admin",

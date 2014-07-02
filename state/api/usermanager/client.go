@@ -68,3 +68,17 @@ func (c *Client) UserInfo(username string) (params.UserInfoResult, error) {
 	}
 	return result, nil
 }
+
+func (c *Client) SetPassword(username, password string) error {
+	userArgs := params.ModifyUsers{
+		Changes: []params.ModifyUser{{
+			Username: username,
+			Password: password}},
+	}
+	results := new(params.ErrorResults)
+	err := c.facade.FacadeCall("SetPassword", userArgs, results)
+	if err != nil {
+		return err
+	}
+	return results.OneError()
+}
