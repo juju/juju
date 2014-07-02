@@ -83,7 +83,9 @@ func opensshOptions(options *Options, commandKind opensshCommandKind) []string {
 	if options.allocatePTY {
 		args = append(args, "-t", "-t") // twice to force
 	}
-
+	if options.knownHostsFile != "" {
+		args = append(args, "-o", "UserKnownHostsFile "+utils.CommandString(options.knownHostsFile))
+	}
 	identities := append([]string{}, options.identities...)
 	if pk := PrivateKeyFiles(); len(pk) > 0 {
 		// Add client keys as implicit identities

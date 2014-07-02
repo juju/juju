@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/state/apiserver/common"
 	"github.com/juju/juju/state/apiserver/networker"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
+	statetesting "github.com/juju/juju/state/testing"
 )
 
 type networkerSuite struct {
@@ -159,11 +160,15 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 		Tag:          s.machine.Tag(),
 	}
 
+	// Create the resource registry separately to track invocations to
+	// Register.
+	s.resources = common.NewResources()
+
 	// Create a networker API for the machine.
 	var err error
 	s.networker, err = networker.NewNetworkerAPI(
 		s.State,
-		nil,
+		s.resources,
 		s.authorizer,
 	)
 	c.Assert(err, gc.IsNil)
@@ -286,4 +291,60 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 			{Error: nil, Info: expectedNestedContainerInfo},
 		},
 	})
+}
+
+func (s *networkerSuite) TestWatchInterfacesPermissions(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "service-bar"},
+		{Tag: "foo-42"},
+		{Tag: "unit-mysql-0"},
+		{Tag: "service-mysql"},
+		{Tag: "user-foo"},
+		{Tag: "machine-1"},
+		{Tag: "machine-0-lxc-42"},
+	}}
+	results, err := s.networker.WatchInterfaces(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.NotFoundError("machine 0/lxc/42")},
+		},
+	})
+}
+
+func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-0"},
+		{Tag: "machine-0-lxc-0"},
+		{Tag: "machine-0-lxc-0-lxc-0"},
+	}}
+	result, err := s.networker.WatchInterfaces(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{NotifyWatcherId: "1"},
+			{NotifyWatcherId: "2"},
+			{NotifyWatcherId: "3"},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 3)
+	for _, watcherId := range []string{"1", "2", "3"} {
+		resource := s.resources.Get(watcherId)
+		defer statetesting.AssertStop(c, resource)
+
+		// Check that the WatchInterfaces has consumed the initial event ("returned" in
+		// the Watch call)
+		wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+		wc.AssertNoChange()
+	}
 }

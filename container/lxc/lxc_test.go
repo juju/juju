@@ -216,16 +216,20 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	c.Assert(location, gc.Equals, expectedTarget)
 }
 
-func (s *LxcSuite) ensureTemplateStopped(name string) {
+func (s *LxcSuite) ensureTemplateStopped(name string) <-chan struct{} {
+	ch := make(chan struct{}, 1)
 	go func() {
 		for {
 			template := s.ContainerFactory.New(name)
 			if template.IsRunning() {
 				template.Stop()
+				close(ch)
+				return
 			}
 			time.Sleep(50 * time.Millisecond)
 		}
 	}()
+	return ch
 }
 
 func (s *LxcSuite) AssertEvent(c *gc.C, event mock.Event, expected mock.Action, id string) {
@@ -246,7 +250,8 @@ func (s *LxcSuite) TestCreateContainerEventsWithClone(c *gc.C) {
 	// The template containers are created with an upstart job that
 	// stops them once cloud init has finished.  We emulate that here.
 	template := "juju-series-template"
-	s.ensureTemplateStopped(template)
+	ch := s.ensureTemplateStopped(template)
+	defer func() { <-ch }()
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1")
 	id := string(instance.Id())
@@ -259,7 +264,8 @@ func (s *LxcSuite) TestCreateContainerEventsWithClone(c *gc.C) {
 
 func (s *LxcSuite) createTemplate(c *gc.C) golxc.Container {
 	name := "juju-series-template"
-	s.ensureTemplateStopped(name)
+	ch := s.ensureTemplateStopped(name)
+	defer func() { <-ch }()
 	network := container.BridgeNetworkConfig("nic42")
 	authorizedKeys := "authorized keys list"
 	aptProxy := proxy.Settings{}

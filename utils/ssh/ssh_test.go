@@ -109,6 +109,15 @@ func (s *SSHCommandSuite) TestCommandEnablePTY(c *gc.C) {
 	)
 }
 
+func (s *SSHCommandSuite) TestCommandSetKnownHostsFile(c *gc.C) {
+	var opts ssh.Options
+	opts.SetKnownHostsFile("/tmp/known hosts")
+	s.assertCommandArgs(c, s.commandOptions([]string{echoCommand, "123"}, &opts),
+		fmt.Sprintf("%s -o StrictHostKeyChecking no -o PasswordAuthentication no -o ServerAliveInterval 30 -o UserKnownHostsFile \"/tmp/known hosts\" localhost %s 123",
+			s.fakessh, echoCommand),
+	)
+}
+
 func (s *SSHCommandSuite) TestCommandAllowPasswordAuthentication(c *gc.C) {
 	var opts ssh.Options
 	opts.AllowPasswordAuthentication()

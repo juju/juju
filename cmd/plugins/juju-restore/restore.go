@@ -14,8 +14,10 @@ import (
 	"path"
 	"strconv"
 	"text/template"
+	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
@@ -223,7 +225,18 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("cannot re-bootstrap environment: %v", err)
 	}
 	progress("connecting to newly bootstrapped instance")
-	conn, err := juju.NewAPIConn(env, api.DefaultDialOpts())
+	var conn *juju.APIConn
+	// The state server backend may not be ready to accept logins so we retry.
+	// We'll do up to 8 retries over 2 minutes to give the server time to come up.
+	// Typically we expect only 1 retry will be needed.
+	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
+	for a := attempt.Start(); a.Next(); {
+		conn, err = juju.NewAPIConn(env, api.DefaultDialOpts())
+		if err == nil || errors.Cause(err).Error() != "EOF" {
+			break
+		}
+		progress("bootstrapped instance not ready - attempting to redial")
+	}
 	if err != nil {
 		return fmt.Errorf("cannot connect to bootstrap instance: %v", err)
 	}
@@ -247,14 +260,24 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("configuration has no CA certificate")
 	}
 	progress("opening state")
-	st, err := state.Open(&state.Info{
-		Info: mongo.Info{
-			Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
-			CACert: caCert,
-		},
-		Tag:      agentConf.Credentials.Tag,
-		Password: agentConf.Credentials.Password,
-	}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	// We need to retry here to allow mongo to come up on the restored state server.
+	// The connection might succeed due to the mongo dial retries but there may still
+	// be a problem issuing database commands.
+	var st *state.State
+	for a := attempt.Start(); a.Next(); {
+		st, err = state.Open(&state.Info{
+			Info: mongo.Info{
+				Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
+				CACert: caCert,
+			},
+			Tag:      agentConf.Credentials.Tag,
+			Password: agentConf.Credentials.Password,
+		}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+		if err == nil {
+			break
+		}
+		progress("state server not ready - attempting to re-connect")
+	}
 	if err != nil {
 		return fmt.Errorf("cannot open state: %v", err)
 	}
@@ -283,17 +306,17 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	if err != nil {
 		return nil, err
 	}
-	state, err := bootstrap.LoadState(env.Storage())
+	st, err := bootstrap.LoadState(env.Storage())
 	if err != nil {
 		return nil, fmt.Errorf("cannot retrieve environment storage; perhaps the environment was not bootstrapped: %v", err)
 	}
-	if len(state.StateInstances) == 0 {
+	if len(st.StateInstances) == 0 {
 		return nil, fmt.Errorf("no instances found on bootstrap state; perhaps the environment was not bootstrapped")
 	}
-	if len(state.StateInstances) > 1 {
+	if len(st.StateInstances) > 1 {
 		return nil, fmt.Errorf("restore does not support HA juju configurations yet")
 	}
-	inst, err := env.Instances(state.StateInstances)
+	inst, err := env.Instances(st.StateInstances)
 	if err == nil {
 		return nil, fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
 	}
@@ -516,12 +539,12 @@ func runMachineUpdate(m *state.Machine, sshArg string) error {
 func runViaSsh(addr string, script string) error {
 	// This is taken from cmd/juju/ssh.go there is no other clear way to set user
 	userAddr := "ubuntu@" + addr
-	cmd := ssh.Command(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, nil)
+	userCmd := ssh.Command(userAddr, []string{"sudo", "-n", "bash", "-c " + utils.ShQuote(script)}, nil)
 	var stderrBuf bytes.Buffer
 	var stdoutBuf bytes.Buffer
-	cmd.Stderr = &stderrBuf
-	cmd.Stdout = &stdoutBuf
-	err := cmd.Run()
+	userCmd.Stderr = &stderrBuf
+	userCmd.Stdout = &stdoutBuf
+	err := userCmd.Run()
 	if err != nil {
 		return fmt.Errorf("ssh command failed: %v (%q)", err, stderrBuf.String())
 	}

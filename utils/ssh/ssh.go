@@ -32,6 +32,9 @@ type Options struct {
 	// to use when attempting to login. A client implementaton may attempt
 	// with additional identities, but must give preference to these
 	identities []string
+	// knownHostsFile is a path to a file in which to save the host's
+	// fingerprint.
+	knownHostsFile string
 }
 
 // SetProxyCommand sets a command to execute to proxy traffic through.
@@ -50,6 +53,13 @@ func (o *Options) SetPort(port int) {
 // prompts on the target host.
 func (o *Options) EnablePTY() {
 	o.allocatePTY = true
+}
+
+// SetKnownHostsFile sets the host's fingerprint to be saved in the given file.
+//
+// Host fingerprints are saved in ~/.ssh/known_hosts by default.
+func (o *Options) SetKnownHostsFile(file string) {
+	o.knownHostsFile = file
 }
 
 // AllowPasswordAuthentication allows the SSH
