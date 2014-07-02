@@ -120,6 +120,7 @@ def delete_instance(env, instance_id):
     output = subprocess.check_output(command_args, env=environ)
     print_now(output)
 
+
 def delete_extra_state_servers(env, instance_id):
     """Delete the extra state-server instances."""
     status = env.get_status()
@@ -130,7 +131,7 @@ def delete_extra_state_servers(env, instance_id):
             print_now("Deleting state-server-member {}".format(machine))
             host = get_machine_dns_name(env, machine)
             delete_instance(env, extra_instance_id)
-            wait_for_state_server_to_shutdown(host)
+            wait_for_state_server_to_shutdown(host, env, instance_id)
 
 
 def restore_missing_state_server(env, backup_file):
@@ -167,10 +168,21 @@ def wait_for_ha(env):
         raise Exception('Timed out waiting for voting to be enabled.')
 
 
-def wait_for_state_server_to_shutdown(host):
+def wait_for_state_server_to_shutdown(host, env, instance_id):
     print_now("Waiting for port to close on %s" % host)
     wait_for_port(host, 17070, closed=True)
     print_now("Closed.")
+    provider_type = env.config.get('type')
+    if provider_type == 'openstack':
+        environ = dict(os.environ)
+        environ.update(translate_to_env(env.config))
+        for ignored in until_timeout(300):
+            output = subprocess.check_output(['nova', 'list'], env=environ)
+            if instance_id not in output:
+                print_now('{} was removed from nova list'.format(instance_id))
+                break
+        else:
+            raise Exception('{} was not deleted'.format(instance_id))
 
 
 def main():
@@ -209,7 +221,7 @@ def main():
             if args.strategy == 'ha-backup':
                 delete_extra_state_servers(env, instance_id)
             delete_instance(env, instance_id)
-            wait_for_state_server_to_shutdown(bootstrap_host)
+            wait_for_state_server_to_shutdown(bootstrap_host, env, instance_id)
             if args.strategy == 'ha':
                 env.get_status(600)
             else:
