@@ -11,8 +11,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 )
 
-// TODO(ericsnow) Use an "enum" for error "codes".
-
 // HTTPDoer makes an HTTP request. It is implemented by *http.Client,
 // for example.
 type HTTPDoer interface {
@@ -36,7 +34,7 @@ func Do(doer HTTPDoer, req *http.Request) (*http.Response, error) {
 	switch resp.StatusCode {
 	case http.StatusMethodNotAllowed, http.StatusNotFound:
 		// Handle a "not implemented" response.  (The API server is too
-		// so the method is not supported.)
+		// old so the method is not supported.)
 		err = &params.Error{
 			Message: fmt.Sprintf("API method not supported by server"),
 			Code:    params.CodeNotImplemented,

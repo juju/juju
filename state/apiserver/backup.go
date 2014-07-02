@@ -81,6 +81,9 @@ func (h *backupHandler) sendError(w http.ResponseWriter, statusCode int, message
 	// We ignore any error here in the interest of at least sending the
 	// status code in the response.
 	body, _ := json.Marshal(&params.Error{Message: message})
-	w.Write(body)
+	_, err := w.Write(body)
+	if err != nil {
+		return err
+	}
 	return nil
 }
