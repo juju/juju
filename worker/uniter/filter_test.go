@@ -13,6 +13,7 @@ import (
 	"launchpad.net/tomb"
 
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -28,6 +29,7 @@ type FilterSuite struct {
 	unit       *state.Unit
 	mysqlcharm *state.Charm
 	wpcharm    *state.Charm
+	machine    *state.Machine
 
 	st     *api.State
 	uniter *apiuniter.State
@@ -46,9 +48,9 @@ func (s *FilterSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	mid, err := s.unit.AssignedMachineId()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.State.Machine(mid)
+	s.machine, err = s.State.Machine(mid)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
+	err = s.machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 	s.APILogin(c, s.unit)
 }
@@ -216,6 +218,8 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 	svc := s.AddTestingService(c, "upgradetest", oldCharm)
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
+	err = unit.AssignToNewMachine()
+	c.Assert(err, gc.IsNil)
 
 	s.APILogin(c, unit)
 
@@ -289,6 +293,9 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer statetesting.AssertStop(c, f)
 
+	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
+	c.Assert(err, gc.IsNil)
+
 	// Test no changes before the charm URL is set.
 	assertNoChange := func() {
 		s.BackingState.StartSync()
@@ -338,6 +345,12 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	f.DiscardConfigEvent()
 	assertNoChange()
 
+	// Change the addresses of the unit's assigned machine; new event received.
+	err = s.machine.SetAddresses(network.NewAddress("0.1.2.4", network.ScopeUnknown))
+	c.Assert(err, gc.IsNil)
+	s.BackingState.StartSync()
+	assertChange()
+
 	// Check that a filter's initial event works with DiscardConfigEvent
 	// as expected.
 	f, err = newFilter(s.uniter, s.unit.Tag().String())
@@ -351,6 +364,108 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	changeConfig("forsooth")
 	changeConfig("imagination failure")
 	assertChange()
+}
+
+func (s *FilterSuite) TestInitialAddressEventIgnored(c *gc.C) {
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, f)
+
+	// Note: we don't set addresses here because that would
+	// race with the filter starting its address watcher.
+	// We will always receive a config-changed event when
+	// addresses change *after* the filter starts watching
+	// addresses.
+
+	// We should not get any config-change events until
+	// setting the charm URL.
+	s.BackingState.StartSync()
+	select {
+	case <-f.ConfigEvents():
+		c.Fatalf("unexpected config event")
+	case <-time.After(coretesting.ShortWait):
+	}
+
+	// Set the charm URL to trigger config events.
+	err = f.SetCharm(s.wpcharm.URL())
+	c.Assert(err, gc.IsNil)
+
+	// We should get one config-change event only.
+	s.BackingState.StartSync()
+	select {
+	case _, ok := <-f.ConfigEvents():
+		c.Assert(ok, gc.Equals, true)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out")
+	}
+	select {
+	case <-f.ConfigEvents():
+		c.Fatalf("unexpected config event")
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
+func (s *FilterSuite) TestConfigAndAddressEvents(c *gc.C) {
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, f)
+
+	// Set the charm URL to trigger config events.
+	err = f.SetCharm(s.wpcharm.URL())
+	c.Assert(err, gc.IsNil)
+
+	// Changing the machine addresses should also result in
+	// a config-change event.
+	err = s.machine.SetAddresses(
+		network.NewAddress("0.1.2.3", network.ScopeUnknown),
+	)
+	c.Assert(err, gc.IsNil)
+
+	assertChange := func() {
+		select {
+		case _, ok := <-f.ConfigEvents():
+			c.Assert(ok, gc.Equals, true)
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("timed out")
+		}
+	}
+
+	// Config and address events should be coalesced. Start
+	// the synchronisation and sleep a bit to give the filter
+	// a chance to pick them both up.
+	s.BackingState.StartSync()
+	time.Sleep(250 * time.Millisecond)
+	assertChange()
+	select {
+	case <-f.ConfigEvents():
+		c.Fatalf("unexpected config event")
+	case <-time.After(coretesting.ShortWait):
+	}
+}
+
+func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, f)
+
+	// Change the machine addresses.
+	err = s.machine.SetAddresses(
+		network.NewAddress("0.1.2.3", network.ScopeUnknown),
+	)
+	c.Assert(err, gc.IsNil)
+
+	// Set the charm URL to trigger config events.
+	err = f.SetCharm(s.wpcharm.URL())
+	c.Assert(err, gc.IsNil)
+
+	// We should not receive any config-change events.
+	s.BackingState.StartSync()
+	f.DiscardConfigEvent()
+	select {
+	case <-f.ConfigEvents():
+		c.Fatalf("unexpected config event")
+	case <-time.After(coretesting.ShortWait):
+	}
 }
 
 func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {

@@ -96,6 +96,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// Create the resource registry separately to track invocations to
 	// Register.
 	s.resources = common.NewResources()
+	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	// Create a deployer API for machine 1.
 	deployer, err := deployer.NewDeployerAPI(

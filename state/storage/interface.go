@@ -27,10 +27,13 @@ type ResourceCatalog interface {
 	// Get fetches a Resource with the given id.
 	Get(id string) (*Resource, error)
 
+	// Find returns the resource id for the Resource with the given hashes.
+	Find(rh *ResourceHash) (id string, err error)
+
 	// Put ensures a Resource entry exists for the given ResourceHash, returning the id, path,
 	// and a flag indicating if this is a new record.
 	// If the Resource exists, its reference count is incremented, otherwise a new entry is created.
-	Put(rh *ResourceHash) (id, path string, isNew bool, err error)
+	Put(rh *ResourceHash, length int64) (id, path string, isNew bool, err error)
 
 	// UploadComplete records that the underlying resource described by the Resource entry with id
 	// is now fully uploaded and the resource is available for use.
@@ -49,11 +52,24 @@ type ManagedStorage interface {
 	// If the data is still being uploaded and is not fully written yet,
 	// an ErrUploadPending error is returned. This means the path is valid but the caller
 	// should try again to retrieve the data.
-	GetForEnvironment(envUUID, path string) (io.ReadCloser, error)
+	GetForEnvironment(envUUID, path string) (r io.ReadCloser, length int64, err error)
 
 	// PutForEnvironment stores data from reader at path, namespaced to the environment.
 	PutForEnvironment(envUUID, path string, r io.Reader, length int64) error
 
 	// RemoveForEnvironment deletes data at path, namespaced to the environment.
 	RemoveForEnvironment(envUUID, path string) error
+
+	// PutForEnvironmentRequest requests that data, which may already exist in storage,
+	// be saved at path, namespaced to the environment. It allows callers who can
+	// demonstrate proof of ownership of the data to store a reference to it without
+	// having to upload it all. If no such data exists, a NotFound error is returned
+	// and a call to EnvironmentPut is required. If matching data is found, the caller
+	// is returned a response indicating the random byte range to for which they must
+	// provide checksums to complete the process.
+	PutForEnvironmentRequest(envUUID, path string, hash ResourceHash) (*RequestResponse, error)
+
+	// ProofOfAccessResponse is called to respond to a Put..Request call in order to
+	// prove ownership of data for which a storage reference is created.
+	ProofOfAccessResponse(putResponse) error
 }
