@@ -72,6 +72,9 @@ var newConstraintTests = []struct {
 
 func (s *constraintsSuite) TestConstraints(c *gc.C) {
 	for i, t := range newConstraintTests {
+	  // log test params
+	  c.Logf("test (%d): %+v", i, t)
+	
 		var cv constraints.Value
 		if t.arch != nil {
 			cv.Arch = &t.arch.v
@@ -90,13 +93,9 @@ func (s *constraintsSuite) TestConstraints(c *gc.C) {
 		}
 		v, err := newConstraints(t.bootstrap, cv, t.series)
 		if t.err == nil {
-			if !c.Check(*v, gc.Equals, t.expected) {
-				c.Logf("test (%d): %+v", i, t)
-			}
+			c.Check(*v, gc.Equals, t.expected)
 		} else {
-			if !c.Check(err, gc.ErrorMatches, t.err.v) {
-				c.Logf("test (%d): %+v", i, t)
-			}
+			c.Check(err, gc.ErrorMatches, t.err.v)
 		}
 	}
 }
