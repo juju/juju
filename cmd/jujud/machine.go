@@ -59,6 +59,7 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
+	"github.com/juju/utils/symlink"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
@@ -847,7 +848,7 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 		return err
 	}
 	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), "jujud")
-	return os.Symlink(jujud, jujuRun)
+	return symlink.New(jujud, jujuRun)
 }
 
 func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {

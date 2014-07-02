@@ -45,6 +45,7 @@ import (
 	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
+	"github.com/juju/utils/symlink"
 )
 
 // boostrapInstanceId is just the name we give to the bootstrap machine.
@@ -177,7 +178,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	if err := os.RemoveAll(localLogDir); err != nil {
 		return err
 	}
-	if err := os.Symlink(mcfg.LogDir, localLogDir); err != nil {
+	if err := symlink.New(mcfg.LogDir, localLogDir); err != nil {
 		return err
 	}
 	if err := os.Remove(mcfg.CloudInitOutputLog); err != nil && !os.IsNotExist(err) {
