@@ -56,6 +56,7 @@ var configDefaultFields = schema.Defaults{
 
 var configSecretFields = []string{
 	"storage-auth-key",
+	"password",
 }
 
 var configImmutableFields = []string{
