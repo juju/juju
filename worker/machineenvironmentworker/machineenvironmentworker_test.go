@@ -35,13 +35,17 @@ type MachineEnvironmentWatcherSuite struct {
 	machine        *state.Machine
 
 	proxyFile string
-	started   bool
+	started   chan struct{}
 }
 
 var _ = gc.Suite(&MachineEnvironmentWatcherSuite{})
 
 func (s *MachineEnvironmentWatcherSuite) setStarted() {
-	s.started = true
+	select {
+	case <-s.started:
+	default:
+		close(s.started)
+	}
 }
 
 func (s *MachineEnvironmentWatcherSuite) SetUpTest(c *gc.C) {
@@ -53,22 +57,17 @@ func (s *MachineEnvironmentWatcherSuite) SetUpTest(c *gc.C) {
 
 	proxyDir := c.MkDir()
 	s.PatchValue(&machineenvironmentworker.ProxyDirectory, proxyDir)
-	s.started = false
+	s.started = make(chan struct{})
 	s.PatchValue(&machineenvironmentworker.Started, s.setStarted)
 	s.PatchValue(&apt.ConfFile, path.Join(proxyDir, "juju-apt-proxy"))
 	s.proxyFile = path.Join(proxyDir, machineenvironmentworker.ProxyFile)
 }
 
 func (s *MachineEnvironmentWatcherSuite) waitForPostSetup(c *gc.C) {
-	for {
-		select {
-		case <-time.After(testing.LongWait):
-			c.Fatalf("timeout while waiting for setup")
-		case <-time.After(10 * time.Millisecond):
-			if s.started {
-				return
-			}
-		}
+	select {
+	case <-time.After(testing.LongWait):
+		c.Fatalf("timeout while waiting for setup")
+	case <-s.started:
 	}
 }
 

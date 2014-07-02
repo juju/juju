@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -39,6 +40,8 @@ type EnvironInfoData struct {
 }
 
 type environInfo struct {
+	mu sync.Mutex
+
 	path string
 	// initialized signifies whether the info has been written.
 	initialized bool
@@ -138,16 +141,22 @@ func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 
 // Initialized implements EnvironInfo.Initialized.
 func (info *environInfo) Initialized() bool {
+	info.mu.Lock()
+	defer info.mu.Unlock()
 	return info.initialized
 }
 
 // BootstrapConfig implements EnvironInfo.BootstrapConfig.
 func (info *environInfo) BootstrapConfig() map[string]interface{} {
+	info.mu.Lock()
+	defer info.mu.Unlock()
 	return info.EnvInfo.Config
 }
 
 // APICredentials implements EnvironInfo.APICredentials.
 func (info *environInfo) APICredentials() APICredentials {
+	info.mu.Lock()
+	defer info.mu.Unlock()
 	return APICredentials{
 		User:     info.EnvInfo.User,
 		Password: info.EnvInfo.Password,
@@ -156,6 +165,8 @@ func (info *environInfo) APICredentials() APICredentials {
 
 // APIEndpoint implements EnvironInfo.APIEndpoint.
 func (info *environInfo) APIEndpoint() APIEndpoint {
+	info.mu.Lock()
+	defer info.mu.Unlock()
 	return APIEndpoint{
 		Addresses:   info.EnvInfo.StateServers,
 		CACert:      info.EnvInfo.CACert,
@@ -165,6 +176,8 @@ func (info *environInfo) APIEndpoint() APIEndpoint {
 
 // SetBootstrapConfig implements EnvironInfo.SetBootstrapConfig.
 func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
+	info.mu.Lock()
+	defer info.mu.Unlock()
 	if !info.created {
 		panic("bootstrap config set on environment info that has not just been created")
 	}
@@ -173,6 +186,8 @@ func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
 
 // SetAPIEndpoint implements EnvironInfo.SetAPIEndpoint.
 func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
+	info.mu.Lock()
+	defer info.mu.Unlock()
 	info.EnvInfo.StateServers = endpoint.Addresses
 	info.EnvInfo.CACert = endpoint.CACert
 	info.EnvInfo.EnvironUUID = endpoint.EnvironUUID
@@ -180,17 +195,23 @@ func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
 
 // SetAPICredentials implements EnvironInfo.SetAPICredentials.
 func (info *environInfo) SetAPICredentials(creds APICredentials) {
+	info.mu.Lock()
+	defer info.mu.Unlock()
 	info.EnvInfo.User = creds.User
 	info.EnvInfo.Password = creds.Password
 }
 
 // Location returns the location of the environInfo in human readable format.
 func (info *environInfo) Location() string {
+	info.mu.Lock()
+	defer info.mu.Unlock()
 	return fmt.Sprintf("file %q", info.path)
 }
 
 // Write implements EnvironInfo.Write.
 func (info *environInfo) Write() error {
+	info.mu.Lock()
+	defer info.mu.Unlock()
 	data, err := goyaml.Marshal(info.EnvInfo)
 	if err != nil {
 		return errors.Annotate(err, "cannot marshal environment info")
@@ -220,6 +241,8 @@ func (info *environInfo) Write() error {
 
 // Destroy implements EnvironInfo.Destroy.
 func (info *environInfo) Destroy() error {
+	info.mu.Lock()
+	defer info.mu.Unlock()
 	err := os.Remove(info.path)
 	if os.IsNotExist(err) {
 		return fmt.Errorf("environment info has already been removed")
