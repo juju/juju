@@ -273,17 +273,7 @@ func (s *State) heartbeatMonitor() {
 }
 
 func (s *State) Ping() error {
-	return s.Call("Pinger", s.BestFacadeVersion("Pinger"), "", "Ping", nil, nil)
-}
-
-// Call invokes a low-level RPC method of the given objType, id, and
-// request, passing the given parameters and filling in the response
-// results. This should not be used directly by clients.
-// TODO (dimitern) Add tests for all client-facing objects to verify
-// we return the correct error when invoking Call("Object",
-// "non-empty-id",...)
-func (s *State) Call(objType string, version int, id, request string, args, response interface{}) error {
-	return s.APICall(objType, version, id, request, args, response)
+	return s.APICall("Pinger", s.BestFacadeVersion("Pinger"), "", "Ping", nil, nil)
 }
 
 // APICall places a call to the remote machine.

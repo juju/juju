@@ -490,7 +490,7 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 		AuthTag:  "user-admin",
 		Password: "dummy-secret",
 	}
-	err = st.Call("Admin", "", "Login", creds, &result)
+	err = st.APICall("Admin", "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
@@ -543,7 +543,7 @@ func (s *loginSuite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 		AuthTag:  "user-admin",
 		Password: "dummy-secret",
 	}
-	err = st.Call("Admin", "", "Login", creds, &result)
+	err = st.APICall("Admin", "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	c.Check(result.Facades, gc.Not(gc.HasLen), 0)
 	// as a sanity check, ensure that we have Client v0

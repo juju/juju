@@ -44,7 +44,7 @@ func (s *usermanagerSuite) TestAddUserOldClient(c *gc.C) {
 	// Here we explicitly call into the UserManager object using the base
 	// APIState so as to be able to call the AddUser method with a different
 	// type of argument.
-	err := s.APIState.Call("UserManager", 0, "", "AddUser", userArgs, results)
+	err := s.APIState.APICall("UserManager", 0, "", "AddUser", userArgs, results)
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.User("foobar")
 	c.Assert(err, gc.IsNil)

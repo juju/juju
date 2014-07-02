@@ -1870,7 +1870,7 @@ func (s *clientSuite) TestInjectMachinesStillExists(c *gc.C) {
 			Nonce:      "nonce",
 		}},
 	}
-	err := s.APIState.Call("Client", "", "AddMachines", args, &results)
+	err := s.APIState.APICall("Client", "", "AddMachines", args, &results)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results.Machines, gc.HasLen, 1)
 }
