@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/loggo"
@@ -218,6 +219,7 @@ type addresser interface {
 type hostChecker struct {
 	addr   network.Address
 	client ssh.Client
+	wg     *sync.WaitGroup
 
 	// checkDelay is the amount of time to wait between retries.
 	checkDelay time.Duration
@@ -239,6 +241,7 @@ func (*hostChecker) Close() error {
 }
 
 func (hc *hostChecker) loop(dying <-chan struct{}) (io.Closer, error) {
+	defer hc.wg.Done()
 	// The value of connectSSH is taken outside the goroutine that may outlive
 	// hostChecker.loop, or we evoke the wrath of the race detector.
 	connectSSH := connectSSH
@@ -270,6 +273,7 @@ type parallelHostChecker struct {
 	*parallel.Try
 	client ssh.Client
 	stderr io.Writer
+	wg     sync.WaitGroup
 
 	// active is a map of adresses to channels for addresses actively
 	// being tested. The goroutine testing the address will continue
@@ -298,7 +302,9 @@ func (p *parallelHostChecker) UpdateAddresses(addrs []network.Address) {
 			checkDelay:      p.checkDelay,
 			checkHostScript: p.checkHostScript,
 			closed:          closed,
+			wg:              &p.wg,
 		}
+		p.wg.Add(1)
 		p.active[addr] = closed
 		p.Start(hc.loop)
 	}
@@ -354,6 +360,7 @@ func waitSSH(ctx environs.BootstrapContext, interrupted <-chan os.Signal, client
 		checkDelay:      timeout.RetryDelay,
 		checkHostScript: checkHostScript,
 	}
+	defer checker.wg.Wait()
 	defer checker.Kill()
 
 	fmt.Fprintln(ctx.GetStderr(), "Waiting for address")

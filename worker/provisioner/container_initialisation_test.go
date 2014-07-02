@@ -75,7 +75,7 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) worker.StringsWatchHandler {
+func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) (worker.StringsWatchHandler, worker.Runner) {
 	runner := worker.NewRunner(allFatal, noImportance)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
@@ -89,7 +89,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) worker.S
 	runner.StartWorker(watcherName, func() (worker.Worker, error) {
 		return worker.NewStringsWorker(handler), nil
 	})
-	return handler
+	return handler, runner
 }
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
@@ -221,7 +221,11 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 
 	err = os.RemoveAll(s.initLockDir)
 	c.Assert(err, gc.IsNil)
-	handler := s.setupContainerWorker(c, m.Tag().String())
+	handler, runner := s.setupContainerWorker(c, m.Tag().String())
+	runner.Kill()
+	err = runner.Wait()
+	c.Assert(err, gc.IsNil)
+
 	_, err = handler.SetUp()
 	c.Assert(err, gc.IsNil)
 	err = handler.Handle([]string{"0/lxc/0"})
