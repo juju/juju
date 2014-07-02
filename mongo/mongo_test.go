@@ -224,6 +224,14 @@ func (s *MongoSuite) TestUpstartServiceWithReplSet(c *gc.C) {
 	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
 }
 
+func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
+	dataDir := c.MkDir()
+
+	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234)
+	c.Assert(err, gc.IsNil)
+	c.Assert(strings.Contains(svc.Cmd, "--ipv6"), jc.IsTrue)
+}
+
 func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
