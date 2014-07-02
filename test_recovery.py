@@ -146,7 +146,7 @@ def restore_missing_state_server(env, backup_file):
     if proc.returncode != 0:
         raise Exception("Restore failed: \n%s" % err)
     print_now(output)
-    env.wait_for_started(150).status
+    env.wait_for_started(600).status
     print_now("%s restored" % env.environment)
     print_now("PASS")
 
