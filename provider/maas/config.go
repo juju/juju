@@ -9,9 +9,8 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/juju/schema"
-
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/schema"
 )
 
 var configFields = schema.Fields{
@@ -22,16 +21,25 @@ var configFields = schema.Fields{
 	// maas-agent-name is an optional UUID to group the instances
 	// acquired from MAAS, to support multiple environments per MAAS user.
 	"maas-agent-name": schema.String(),
+
+	// maas-bridge-interface is the interface name used by cloudInit
+	// to configure the bridge network, by default "eth0" is used.
+	"network-bridge": schema.String(),
 }
 var configDefaults = schema.Defaults{
 	// For backward-compatibility, maas-agent-name is the empty string
 	// by default. However, new environments should all use a UUID.
-	"maas-agent-name": "",
+	"maas-agent-name":       "",
+	"network-bridge": "eth0",
 }
 
 type maasEnvironConfig struct {
 	*config.Config
 	attrs map[string]interface{}
+}
+
+func (cfg *maasEnvironConfig) networkBridge() string {
+	return cfg.attrs["network-bridge"].(string)
 }
 
 func (cfg *maasEnvironConfig) maasServer() string {
