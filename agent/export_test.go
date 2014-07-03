@@ -14,7 +14,7 @@ func Password(config Config) string {
 	c := config.(*configInternal)
 	if c.stateDetails == nil {
 		return c.apiDetails.password
-	} 
+	}
 	return c.stateDetails.password
 }
 
