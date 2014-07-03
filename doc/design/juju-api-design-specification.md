@@ -68,18 +68,37 @@ the coaller gets notified when the request has finished.
 
 ## System Architecture
 
-### Architectural Design
+Core part of the API architecture is the *RPC* subsystem providing the functionality
+for communication and request dispatching. The latter isn't done statically. Instead
+a registered root object is is responsible for this task. This way different implementations
+can be used for tests and production. The subsystem also provides helpers to dynamically
+resolve the request to a method of a responsible instance and call it with possible
+request parameters. In case of a returned value the subsystem also marshals this and
+send it back as an answer to the caller.
 
-#### RPC
+The *API server* subsystem implements the server side of the API. 
+
+### Note: Order
+
+1. `rpc.NewConn` with a codec return a connection
+2. `connection.Serve` with a root object for the dispatching of requests
+3. `connection.Start` to start serving
+4. calling a named like the request *type* together with an instance ID 
+
+## Data Design
+
+## Component Design
+
+### RPC
 
 Core package for the API is [github.com/juju/juju/rpc](https://github.com/juju/juju/tree/master/rpc).
 It provides a server type using WebSockets to receive requests in JSON, unmarshal 
-them into Go structs and dispatch them using a registry. This registry maps the name
-of the type and the version, both are parts of each request, to a factory method with
-the signature
+them into Go structs and dispatch them using a global registry. This registry maps the 
+name of the type and the version, both are parts of each request, to a factory method
+with the signature
 
 ```
-FactoryMethod(entityID string) (RequestHandlerInstance, error)
+FactoryMethod(st *state.State,r *Resources, a Authorizer, id string) (interface{}, error)
 ```
 
 The individual requests are then mapped to action methods of these request handler 
@@ -100,7 +119,7 @@ Both, `ParameterType` and `ResponseType` have to be structs. Possible responses 
 errors are marshaled again to JSON and wrapped into an envelope containing also the 
 request identifier.
 
-##### Example
+#### Example
 
 If the client wants to change the addresses of a number of machines, it sends the
 request:
@@ -126,7 +145,7 @@ requested version. This type provides a method `SetMachineAddresses()` with
 as results. The parameters will be unmarshalled to the argument type and
 the method called with it.
 
-#### API Server
+### API Server
 
 The business logic itself is implemented in 
 [github.com/juju/juju/state/apiserver](https://github.com/juju/juju/tree/master/state/apiserver) 
@@ -134,23 +153,11 @@ and its sub-packages. They are using the types in
 [github.com/juju/juju/state](https://github.com/juju/juju/tree/master/state) representing 
 the Juju model.
 
-#### API
+### API
 
 The according client logic used by the Juju CLI and the Juju daemon, which 
 are also developed in Go, is located in 
 [github.com/juju/juju/state/api](https://github.com/juju/juju/tree/master/state/api).
-
-### Decomposition Description
-
-### Design Rationale
-
-## Data Design
-
-### Data Description
-
-### Data Dictionary
-
-## Component Design
 
 ## Human Interface Design
 
