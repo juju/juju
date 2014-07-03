@@ -143,7 +143,6 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 }
 
 func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(*gitjujutesting.MgoInstance) string) {
-	rootAddr := getAddr(root)
 	session := root.MustDial()
 	defer session.Close()
 
@@ -151,7 +150,23 @@ func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstanc
 
 	// Add should be idempotent, so re-adding root here shouldn't result in
 	// two copies of root in the replica set
-	members = append(members, Member{Address: rootAddr, Tags: initialTags})
+	members = append(members, Member{Address: getAddr(root), Tags: initialTags})
+
+	instances := make([]*gitjujutesting.MgoInstance, 5)
+	instances[0] = root
+	for i := 1; i < len(instances); i++ {
+		inst := newServer(c)
+		instances[i] = inst
+		defer inst.Destroy()
+		defer func() {
+			err := Remove(session, getAddr(inst))
+			c.Assert(err, gc.IsNil)
+		}()
+		key := fmt.Sprintf("key%d", i)
+		val := fmt.Sprintf("val%d", i)
+		tags := map[string]string{key: val}
+		members = append(members, Member{Address: getAddr(inst), Tags: tags})
+	}
 
 	// We allow for up to 2m per operation, since Add, Set, etc. call
 	// replSetReconfig which may cause primary renegotiation. According
@@ -161,24 +176,6 @@ func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstanc
 	// Note that the delay is set at 500ms to cater for relatively quick
 	// operations without thrashing on those that take longer.
 	strategy := utils.AttemptStrategy{Total: time.Minute * 2, Delay: time.Millisecond * 500}
-
-	instances := make([]*gitjujutesting.MgoInstance, 5)
-	instances[0] = root
-	for i := 1; i < len(instances); i++ {
-		inst := newServer(c)
-		instances[i] = inst
-		defer func() {
-			attemptLoop(c, strategy, "Remove()", func() error {
-				return Remove(session, getAddr(inst))
-			})
-		}()
-		defer inst.Destroy()
-		key := fmt.Sprintf("key%d", i)
-		val := fmt.Sprintf("val%d", i)
-		tags := map[string]string{key: val}
-		members = append(members, Member{Address: getAddr(inst), Tags: tags})
-	}
-
 	attemptLoop(c, strategy, "Add()", func() error {
 		return Add(session, members...)
 	})
