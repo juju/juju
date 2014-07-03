@@ -38,11 +38,30 @@ if [[ -d ~/ci-director ]]; then
     cd ~/ci-director
     bzr pull
 fi
+if [[ "$NEW_JUJU" == "true" ]]; then
+    sudo apt-get update || "! $host is not setup for sudo"
+    sudo apt-get install -y juju-local juju \
+        uvtool-libvirt uvtool python-novaclient euca2ools || echo \
+            "! Could not update juju on $host"
+fi
 EOT
 }
 
 
-CLOUD_CITY=${1:-false}
+CLOUD_CITY="false"
+NEW_JUJU="false"
+while [[ "${1-}" != "" ]]; do
+    case $1 in
+        --cloud-city)
+            CLOUD_CITY="true"
+            ;;
+        --new-juju)
+            NEW_JUJU="true"
+            ;;
+    esac
+    shift
+done
+
 SLAVES=$(juju status *-slave | grep public-address | sed -r 's,^.*: ,,')
 if [[ -z $SLAVES ]]; then
     echo "Set JUJU_HOME to juju-qa's environments and switch to juju-ci."
