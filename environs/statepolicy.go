@@ -9,19 +9,19 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/hackage"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/policy"
 )
 
 // environStatePolicy implements state.Policy in
 // terms of environs.Environ and related types.
 type environStatePolicy struct{}
 
-var _ state.Policy = environStatePolicy{}
+var _ policy.Policy = environStatePolicy{}
 
 // NewStatePolicy returns a state.Policy that is
 // implemented in terms of Environ and related
 // types.
-func NewStatePolicy() state.Policy {
+func NewStatePolicy() policy.Policy {
 	return environStatePolicy{}
 }
 

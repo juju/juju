@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/policy"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/testing"
 )
@@ -49,7 +50,7 @@ func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.State = TestingInitialize(c, nil, Policy(nil))
+	s.State = TestingInitialize(c, nil, policy.Policy(nil))
 	s.State.AddAdminUser("pass")
 }
 

@@ -31,6 +31,7 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/policy"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/state/txn"
 	"github.com/juju/juju/testing"
@@ -71,7 +72,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+		st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), policy.Policy(nil))
 		c.Assert(err, gc.IsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
@@ -2067,7 +2068,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(info *hackage.Info) error {
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, state.TestingDialOpts(), policy.Policy(nil))
 	if err == nil {
 		st.Close()
 	}
@@ -2091,7 +2092,7 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 
 func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
 	info := state.TestingStateInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, state.TestingDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -2118,7 +2119,7 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 
 	stateInfo := &hackage.Info{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
 	dialOpts := mongo.DialOpts{Timeout: time.Second * 30}
-	st, err := state.Open(stateInfo, dialOpts, state.Policy(nil))
+	st, err := state.Open(stateInfo, dialOpts, policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -2133,7 +2134,7 @@ func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
-	}, state.Policy(nil))
+	}, policy.Policy(nil))
 	if err == nil {
 		st.Close()
 	}
@@ -2149,7 +2150,7 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	t0 := time.Now()
 	st, err := state.Open(info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
-	}, state.Policy(nil))
+	}, policy.Policy(nil))
 	if err == nil {
 		st.Close()
 	}
@@ -2245,7 +2246,7 @@ type entity interface {
 
 func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, error)) {
 	info := state.TestingStateInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, state.TestingDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -2266,7 +2267,7 @@ func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, erro
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st1, err := state.Open(info, state.TestingDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 
@@ -2944,7 +2945,7 @@ type waiter interface {
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
 func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -2986,7 +2987,7 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(info, gc.IsNil)
 
-	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -3012,7 +3013,7 @@ func (s *StateSuite) TestOpenCreatesAPIHostPortsDoc(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(addrs, gc.IsNil)
 
-	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -3026,7 +3027,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
 
-	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -3057,7 +3058,7 @@ func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
 	c.Assert(info.MachineIds, gc.HasLen, 0)
 	c.Assert(info.VotingMachineIds, gc.HasLen, 0)
 
-	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -3425,7 +3426,7 @@ func (s *StateSuite) TestOpenCreatesStateServingInfoDoc(c *gc.C) {
 	err := s.stateServers.DropCollection()
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

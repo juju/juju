@@ -8,6 +8,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/policy"
 )
 
 type EnvironSuite struct {
@@ -41,7 +42,7 @@ func (s *EnvironSuite) TestUUID(c *gc.C) {
 	s.State.Close()
 	s.MgoSuite.TearDownTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.State = state.TestingInitialize(c, nil, state.Policy(nil))
+	s.State = state.TestingInitialize(c, nil, policy.Policy(nil))
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	uuidB := env.UUID()
