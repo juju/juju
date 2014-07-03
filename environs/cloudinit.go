@@ -22,20 +22,19 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/version"
 )
 
 // DataDir is the default data directory.
 // Tests can override this where needed, so they don't need to mess with global
 // system state.
-var DataDir = agent.DefaultDataDir
-
-// logDir returns a filesystem path to the location where applications
-// may create a folder containing logs
-var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
+var DataDir = paths.NewDefaultDataDir
 
 // CloudInitOutputLog is the default cloud-init-output.log file path.
-var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
+var CloudInitOutputLog = _cloudInitOuputLog
+
+func _cloudInitOuputLog(logDir string) string {
+	return path.Join(logDir, "cloud-init-output.log")
+}
 
 // NewMachineConfig sets up a basic machine configuration, for a non-bootstrap
 // node.  You'll still need to supply more information, but this takes care of
@@ -44,12 +43,13 @@ func NewMachineConfig(
 	machineID, machineNonce string, networks []string,
 	stateInfo *state.Info, apiInfo *api.Info,
 ) *cloudinit.MachineConfig {
+	logDir := paths.NewDefaultBaseLogDir()
 	mcfg := &cloudinit.MachineConfig{
 		// Fixed entries.
-		DataDir:                 DataDir,
-		LogDir:                  agent.DefaultLogDir,
+		DataDir:                 DataDir(),
+		LogDir:                  logDir,
 		Jobs:                    []params.MachineJob{params.JobHostUnits},
-		CloudInitOutputLog:      CloudInitOutputLog,
+		CloudInitOutputLog:      CloudInitOutputLog(logDir),
 		MachineAgentServiceName: "jujud-" + names.NewMachineTag(machineID).String(),
 
 		// Parameter entries.

@@ -12,6 +12,6 @@ import (
 // original value.
 func PatchDataDir(path string) func() {
 	originalDataDir := environs.DataDir
-	environs.DataDir = path
+	environs.DataDir = func() string { return path }
 	return func() { environs.DataDir = originalDataDir }
 }

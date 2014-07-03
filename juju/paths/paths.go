@@ -2,6 +2,7 @@ package paths
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"github.com/juju/juju/version"
 )
@@ -53,10 +54,39 @@ func TempDir(series string) (string, error) {
 	return osVal(series, tmpDir)
 }
 
+// NewDefaultBaseLogDir returns a filesystem path to the location
+// where applications may create a folder containing logs
+var NewDefaultBaseLogDir = newDefaultBaseLogDir
+
+func newDefaultBaseLogDir() string {
+	return MustSucceed(LogDir(version.Current.Series))
+}
+
+// NewDefaultLogDir will call LogDir ensuring that it succeeds
+// or panicking, this is a convenience function to avoid
+// DefaultLogDir to be defined directly here which causes juju
+// client to panic if called on an unknown windows version.
+var NewDefaultLogDir = newDefaultLogDir
+
+func newDefaultLogDir() string {
+	logDir := NewDefaultBaseLogDir()
+	return filepath.Join(logDir, "juju")
+}
+
 // LogDir returns filesystem path the directory where juju may
 // save log files.
 func LogDir(series string) (string, error) {
 	return osVal(series, logDir)
+}
+
+// NewDefaultDataDir will call DataDir ensuring that it succeeds
+// or panicking. This is a convenience function to avoid
+// DefaultDataDir to be defined directly here which causes juju
+// client to panic if called on an unknown windows version.
+var NewDefaultDataDir = newDefaultDataDir
+
+func newDefaultDataDir() string {
+	return MustSucceed(DataDir(version.Current.Series))
 }
 
 // DataDir returns a filesystem path to the folder used by juju to

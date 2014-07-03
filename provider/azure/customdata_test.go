@@ -9,9 +9,9 @@ import (
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -29,13 +29,14 @@ var _ = gc.Suite(&customDataSuite{})
 // makeMachineConfig produces a valid cloudinit machine config.
 func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 	machineID := "0"
+	logDir := paths.NewDefaultLogDir()
 	return &cloudinit.MachineConfig{
 		MachineId:          machineID,
 		MachineNonce:       "gxshasqlnng",
-		DataDir:            environs.DataDir,
-		LogDir:             agent.DefaultLogDir,
+		DataDir:            environs.DataDir(),
+		LogDir:             logDir,
 		Jobs:               []params.MachineJob{params.JobManageEnviron, params.JobHostUnits},
-		CloudInitOutputLog: environs.CloudInitOutputLog,
+		CloudInitOutputLog: environs.CloudInitOutputLog(logDir),
 		Tools:              &tools.Tools{URL: "file://" + c.MkDir()},
 		StateInfo: &state.Info{
 			Info: mongo.Info{

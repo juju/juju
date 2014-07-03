@@ -10,9 +10,9 @@ import (
 
 	"github.com/juju/schema"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 )
 
 var checkIfRoot = func() bool {
@@ -82,7 +82,7 @@ func (c *environConfig) mongoDir() string {
 }
 
 func (c *environConfig) logDir() string {
-	return fmt.Sprintf("%s-%s", agent.DefaultLogDir, c.namespace())
+	return fmt.Sprintf("%s-%s", paths.NewDefaultLogDir(), c.namespace())
 }
 
 // bootstrapIPAddress returns the IP address of the bootstrap machine.

@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/paths"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -36,7 +37,8 @@ func (s *migrateLocalProviderAgentConfigSuite) SetUpTest(c *gc.C) {
 	s.PatchEnvironment("SUDO_USER", "user")
 	s.PatchValue(upgrades.RootLogDir, c.MkDir())
 	s.PatchValue(upgrades.RootSpoolDir, c.MkDir())
-	s.PatchValue(&agent.DefaultDataDir, c.MkDir())
+	dataDir := c.MkDir()
+	s.PatchValue(&paths.NewDefaultDataDir, func() string { return dataDir })
 	s.PatchValue(upgrades.ChownPath, func(_, _ string) error { return nil })
 	s.PatchValue(upgrades.IsLocalEnviron, func(_ *config.Config) bool { return true })
 }
@@ -53,8 +55,8 @@ func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, st *state.St
 		Password:          "blah",
 		CACert:            testing.CACert,
 		StateAddresses:    []string{"localhost:1111"},
-		DataDir:           agent.DefaultDataDir,
-		LogDir:            agent.DefaultLogDir,
+		DataDir:           paths.NewDefaultDataDir(),
+		LogDir:            paths.NewDefaultLogDir(),
 		UpgradedToVersion: version.MustParse("1.16.0"),
 		Values: map[string]string{
 			"SHARED_STORAGE_ADDR": "blah",
@@ -131,12 +133,12 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C)
 	tag := s.ctx.AgentConfig().Tag()
 
 	// We need to read the actual migrated agent config.
-	configFilePath := agent.ConfigPath(agent.DefaultDataDir, tag)
+	configFilePath := agent.ConfigPath(paths.NewDefaultDataDir(), tag)
 	agentConfig, err := agent.ReadConfig(configFilePath)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(agentConfig.DataDir(), gc.Equals, agent.DefaultDataDir)
-	c.Assert(agentConfig.LogDir(), gc.Equals, agent.DefaultLogDir)
+	c.Assert(agentConfig.DataDir(), gc.Equals, paths.NewDefaultDataDir())
+	c.Assert(agentConfig.LogDir(), gc.Equals, paths.NewDefaultLogDir())
 	c.Assert(agentConfig.Jobs(), gc.HasLen, 0)
 	c.Assert(agentConfig.Value("SHARED_STORAGE_ADDR"), gc.Equals, "blah")
 	c.Assert(agentConfig.Value("SHARED_STORAGE_DIR"), gc.Equals, expectedSharedStorageDir)

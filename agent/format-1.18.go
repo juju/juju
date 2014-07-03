@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/goyaml"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
 )
@@ -83,10 +84,10 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		values:            format.Values,
 	}
 	if config.logDir == "" {
-		config.logDir = DefaultLogDir
+		config.logDir = paths.NewDefaultLogDir()
 	}
 	if config.dataDir == "" {
-		config.dataDir = DefaultDataDir
+		config.dataDir = paths.NewDefaultDataDir()
 	}
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{

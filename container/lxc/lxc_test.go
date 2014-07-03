@@ -19,13 +19,13 @@ import (
 	"launchpad.net/golxc"
 	"launchpad.net/goyaml"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/container/lxc/mock"
 	lxctesting "github.com/juju/juju/container/lxc/testing"
 	containertesting "github.com/juju/juju/container/testing"
 	instancetest "github.com/juju/juju/instance/testing"
+	"github.com/juju/juju/juju/paths"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/utils/symlink"
 )
@@ -204,7 +204,7 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	})
 
 	// Check the mount point has been created inside the container.
-	c.Assert(filepath.Join(s.LxcDir, name, "rootfs", agent.DefaultLogDir), jc.IsDirectory)
+	c.Assert(filepath.Join(s.LxcDir, name, "rootfs", paths.NewDefaultLogDir()), jc.IsDirectory)
 	// Check that the config file is linked in the restart dir.
 	expectedLinkLocation := filepath.Join(s.RestartDir, name+".conf")
 	expectedTarget := filepath.Join(s.LxcDir, name, "config")

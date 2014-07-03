@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
@@ -160,6 +161,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		params.JobManageEnviron,
 		params.JobHostUnits,
 	}
+	logDir := paths.NewDefaultBaseLogDir()
 	cfg := &cloudinit.MachineConfig{
 		MachineId:    "10",
 		MachineNonce: "5432",
@@ -178,10 +180,10 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 			CACert:   "CA CERT\n" + testing.CACert,
 			Tag:      "machine-10",
 		},
-		DataDir:                 environs.DataDir,
-		LogDir:                  agent.DefaultLogDir,
+		DataDir:                 environs.DataDir(),
+		LogDir:                  logDir,
 		Jobs:                    allJobs,
-		CloudInitOutputLog:      environs.CloudInitOutputLog,
+		CloudInitOutputLog:      environs.CloudInitOutputLog(logDir),
 		Config:                  envConfig,
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",

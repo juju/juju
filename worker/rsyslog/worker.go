@@ -15,8 +15,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cert"
+	"github.com/juju/juju/juju/paths"
 	apirsyslog "github.com/juju/juju/state/api/rsyslog"
 	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/utils/syslog"
@@ -27,7 +27,7 @@ var logger = loggo.GetLogger("juju.worker.rsyslog")
 
 var (
 	rsyslogConfDir = "/etc/rsyslog.d"
-	logDir         = agent.DefaultLogDir
+	logDir         = paths.NewDefaultLogDir()
 )
 
 // RsyslogMode describes how to configure rsyslog.
