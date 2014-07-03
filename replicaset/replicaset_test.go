@@ -135,7 +135,7 @@ func (s *MongoSuite) TestAddRemoveSetIPv6(c *gc.C) {
 	s.assertAddRemoveSet(c, root, getAddr)
 }
 
-func (s *MongoSuuite) TestAddRemoveSet(c *gc.C) {
+func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	getAddr := func(inst *gitjujutesting.MgoInstance) string {
 		return inst.Addr()
 	}
