@@ -185,7 +185,7 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer apiConn.Close()
 	// TODO(dfc) why does this return a string
-	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().String())
+	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag().String())
 
