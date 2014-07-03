@@ -144,7 +144,7 @@ func (s *AddMachineSuite) TestAddUnsupportedContainerToMachine(c *gc.C) {
 	m.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	context, err = runAddMachine(c, "lxc:0")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: machine 0 cannot host lxc containers")
-	c.Assert(testing.Stderr(context), gc.Equals, "")
+	c.Assert(testing.Stderr(context), gc.Equals, "failed to create 1 machine\n")
 }
 
 func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
@@ -171,15 +171,10 @@ func (s *AddMachineSuite) TestAddThreeMachinesWithTwoFailures(c *gc.C) {
 	})
 	fakeApi.successOrder = []bool{true, false, false}
 	expectedOutput := `created machine 0
-failed to create 2 machines:
-  something went wrong
-  something went wrong
-`
-	expectedErr := `something went wrong
-something went wrong
+failed to create 2 machines
 `
 	context, err := runAddMachine(c, "-n", "3")
-	c.Assert(err, gc.ErrorMatches, expectedErr)
+	c.Assert(err, gc.ErrorMatches, "something went wrong, something went wrong")
 	c.Assert(testing.Stderr(context), gc.Equals, expectedOutput)
 }
 

@@ -4,7 +4,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
@@ -188,18 +190,16 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	if len(errs) == 1 {
+		fmt.Fprintf(ctx.Stderr, "failed to create 1 machine\n")
 		return errs[0]
 	}
 	if len(errs) > 1 {
-		ctx.Infof("failed to create %d machines:", len(errs))
-		for _, err := range errs {
-			ctx.Infof("  %v\n", err)
-		}
-		returnErr := ""
+		fmt.Fprintf(ctx.Stderr, "failed to create %d machines\n", len(errs))
+		returnErr := []string{}
 		for _, e := range errs {
-			returnErr = fmt.Sprintf("%s%s\n", returnErr, e)
+			returnErr = append(returnErr, fmt.Sprintf("%s", e))
 		}
-		return fmt.Errorf(returnErr)
+		return errors.New(strings.Join(returnErr, ", "))
 	}
 	return nil
 }
