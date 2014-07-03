@@ -10,7 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 )
 
-func (s *simplestreamsSuite) TestSeriesVersion(c *gc.C) {
+func (s *supportedSeriesSuite) TestSeriesVersion(c *gc.C) {
 	vers, err := version.SeriesVersion("precise")
 	if err != nil && err.Error() == `invalid series "precise"` {
 		c.Fatalf(`Unable to lookup series "precise", you may need to: apt-get install distro-info`)
@@ -19,7 +19,7 @@ func (s *simplestreamsSuite) TestSeriesVersion(c *gc.C) {
 	c.Assert(vers, gc.Equals, "12.04")
 }
 
-func (s *simplestreamsSuite) TestSupportedSeries(c *gc.C) {
+func (s *supportedSeriesSuite) TestSupportedSeries(c *gc.C) {
 	series := version.SupportedSeries()
 	sort.Strings(series)
 	c.Assert(series, gc.DeepEquals, []string{"precise", "quantal", "raring", "saucy", "trusty", "utopic"})

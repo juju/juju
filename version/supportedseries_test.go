@@ -10,38 +10,38 @@ import (
 	"github.com/juju/juju/version"
 )
 
-type simplestreamsSuite struct {
+type supportedSeriesSuite struct {
 	testing.BaseSuite
 	cleanup func()
 }
 
-var _ = gc.Suite(&simplestreamsSuite{})
+var _ = gc.Suite(&supportedSeriesSuite{})
 
-func (s *simplestreamsSuite) SetUpTest(c *gc.C) {
+func (s *supportedSeriesSuite) SetUpTest(c *gc.C) {
 	s.cleanup = version.SetSeriesVersions(make(map[string]string))
 }
 
-func (s *simplestreamsSuite) TearDownTest(c *gc.C) {
+func (s *supportedSeriesSuite) TearDownTest(c *gc.C) {
 	s.cleanup()
 }
 
 var getOSFromSeriesTests = []struct {
 	series string
-	want version.OSType
-	err string
-} {{
+	want   version.OSType
+	err    string
+}{{
 	series: "precise",
-	want: version.Ubuntu,
+	want:   version.Ubuntu,
 }, {
 	series: "win2012r2",
-	want: version.Windows,
+	want:   version.Windows,
 }, {
 	// GetOSFromSeries only supports Ubuntu and Windows.
 	series: "mountainlion",
-	err: `invalid series "mountainlion"`,
+	err:    `invalid series "mountainlion"`,
 }}
 
-func (s *simplestreamsSuite) TestGetOSFromSeries(c *gc.C) {
+func (s *supportedSeriesSuite) TestGetOSFromSeries(c *gc.C) {
 	for _, t := range getOSFromSeriesTests {
 		got, err := version.GetOSFromSeries(t.series)
 		if t.err != "" {
