@@ -219,14 +219,10 @@ func CheckUserExists(st *State, name string) (bool, error) {
 
 var StateServerAvailable = &stateServerAvailable
 
-func ActionPrefix(u *Unit) string {
-	return actionPrefix(u.Name())
+func ActionPrefix(r ActionReceiver) string {
+	return actionPrefix(r)
 }
 
 func GetActionResultId(actionId string) (string, bool) {
-	actionResultId := actionIdToActionResultId(actionId)
-	if "" == actionResultId {
-		return "", false
-	}
-	return actionResultId, true
+	return convertActionIdToActionResultId(actionId)
 }
