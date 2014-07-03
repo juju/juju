@@ -642,7 +642,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 			panic(err)
 		}
 		estate.apiServer, err = apiserver.NewServer(st, apiserver.ServerConfig{
-			Addr:    "localhost:0",
+			Port:    0,
 			Cert:    []byte(testing.ServerCert),
 			Key:     []byte(testing.ServerKey),
 			DataDir: DataDir,

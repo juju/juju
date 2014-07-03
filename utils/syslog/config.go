@@ -23,12 +23,11 @@ const tagOffset = len("juju-") + 1
 // The apparmor profile is quite strict about where rsyslog can write files.
 // Instead of poking with the profile, the local provider now logs to
 // {{logDir}}-{{user}}-{{env name}}/all-machines.log, and a symlink is made
-// in the local provider log dir to point to that file. The file is also
-// created with 0644 so the user can read it without poking permissions. By
+// in the local provider log dir to point to that file. By
 // default rsyslog creates files with 0644, but in the ubuntu package, the
-// setting is changed to 0640, which means normal users can't read the log
-// file. Using a new action directive (new as in not-legacy), we can specify
-// the file create mode so it doesn't use the default.
+// setting is changed to 0640. Using a new action directive (new as in
+// not-legacy), we can specify the file create mode so it doesn't use
+// the default.
 //
 // I would dearly love to write the filtering action as follows to avoid setting
 // and resetting the global $FileCreateMode, but alas, precise doesn't support it
@@ -68,13 +67,13 @@ $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 {{end}}
 :syslogtag, startswith, "juju{{namespace}}-" ~
 
-$FileCreateMode 0640
+$FileCreateMode 0600
 
 $RuleSet remote
-$FileCreateMode 0644
+$FileCreateMode 0600
 :syslogtag, startswith, "juju{{namespace}}-" {{logDir}}/all-machines.log;JujuLogFormat{{namespace}}
 :syslogtag, startswith, "juju{{namespace}}-" ~
-$FileCreateMode 0640
+$FileCreateMode 0600
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5

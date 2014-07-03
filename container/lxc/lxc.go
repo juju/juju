@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/version"
+	"github.com/juju/utils/symlink"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
@@ -268,7 +269,7 @@ func autostartContainer(name string) error {
 	// option should be set in the LXC config file, this is done in the networkConfigTemplate
 	// function below.
 	if useRestartDir() {
-		if err := os.Symlink(
+		if err := symlink.New(
 			containerConfigFilename(name),
 			restartSymlink(name),
 		); err != nil {

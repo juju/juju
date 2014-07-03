@@ -16,6 +16,7 @@ import (
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upstart"
+	"github.com/juju/utils/symlink"
 )
 
 func Test(t *testing.T) { gc.TestingT(t) }
@@ -246,7 +247,7 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 		"rm %s; ln -s %s %s",
 		pathTo("status"), pathTo("status-started"), pathTo("status"),
 	))
-	err := os.Symlink(pathTo("status-started"), pathTo("status"))
+	err := symlink.New(pathTo("status-started"), pathTo("status"))
 	c.Assert(err, gc.IsNil)
 
 	conf := s.dummyConf(c)

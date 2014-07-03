@@ -61,7 +61,7 @@ func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.Login
 	srv, err := apiserver.NewServer(
 		s.State,
 		apiserver.ServerConfig{
-			Addr:      "localhost:0",
+			Port:      0,
 			Cert:      []byte(coretesting.ServerCert),
 			Key:       []byte(coretesting.ServerKey),
 			Validator: validator,

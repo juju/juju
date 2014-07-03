@@ -255,14 +255,14 @@ func upstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, 
 		" --sslOnNormalPorts" +
 		" --sslPEMKeyFile " + utils.ShQuote(sslKeyPath(dataDir)) +
 		" --sslPEMKeyPassword ignored" +
-		" --bind_ip 0.0.0.0" +
 		" --port " + fmt.Sprint(port) +
 		" --noprealloc" +
 		" --syslog" +
 		" --smallfiles" +
 		" --journal" +
 		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
-		" --replSet " + ReplicaSetName
+		" --replSet " + ReplicaSetName +
+		" --ipv6"
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
