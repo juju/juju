@@ -167,10 +167,10 @@ func (n *requestNotifier) leave() {
 	logger.Infof("[%X] %s API connection terminated after %v", n.id, n.tag(), time.Since(n.start))
 }
 
-func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
+func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
 }
 
-func (n requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 }
 
 func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
