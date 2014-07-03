@@ -15,6 +15,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -143,8 +144,14 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.EnsureNotBootstrapped(e2)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
+	checkSameInfo := func(a, b *state.Info) {
+		c.Check(a.Addrs, jc.SameContents, b.Addrs)
+		c.Check(a.CACert, gc.DeepEquals, b.CACert)
+	}
+
 	info2, apiInfo2, err := e2.StateInfo()
-	c.Check(info2, gc.DeepEquals, info)
+	checkSameInfo(info2, info)
+
 	c.Check(apiInfo2, gc.DeepEquals, apiInfo)
 
 	err = environs.Destroy(e2, t.ConfigStore)
