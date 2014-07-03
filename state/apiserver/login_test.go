@@ -172,8 +172,8 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machineInState.Tag(), gc.Equals, names.NewMachineTag("0"))
 
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("login-tester", tw, loggo.DEBUG), gc.IsNil)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("login-tester", &tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("login-tester")
 
 	// TODO(dfc) this should be a Tag
@@ -183,13 +183,13 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 
 	apiConn, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
+	defer apiConn.Close()
 	// TODO(dfc) why does this return a string
-	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().(names.MachineTag))
+	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().String())
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag().String())
-	apiConn.Close()
 
-	c.Assert(tw.Log, jc.LogMatches, []string{
+	c.Assert(tw.Log(), jc.LogMatches, []string{
 		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login",` +
 			`"Params":{"AuthTag":"machine-0","Password":"[^"]*","Nonce":"fake_nonce"}` +
 			`}`,
@@ -486,6 +486,7 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 	// response.
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
+	defer st.Close()
 	var result params.LoginResult
 	creds := &params.Creds{
 		AuthTag:  "user-admin",
@@ -538,6 +539,7 @@ func (s *loginSuite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 	defer cleanup()
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
+	defer st.Close()
 	var result params.LoginResult
 	creds := &params.Creds{
 		AuthTag:  "user-admin",

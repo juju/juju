@@ -247,6 +247,8 @@ type machineDoc struct {
 }
 
 func (m *fakeMachine) Refresh() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if err := errorFor("Machine.Refresh", m.doc.id); err != nil {
 		return err
 	}
@@ -255,14 +257,20 @@ func (m *fakeMachine) Refresh() error {
 }
 
 func (m *fakeMachine) GoString() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return fmt.Sprintf("&fakeMachine{%#v}", m.doc)
 }
 
 func (m *fakeMachine) Id() string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.doc.id
 }
 
 func (m *fakeMachine) InstanceId() (instance.Id, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	if err := errorFor("Machine.InstanceId", m.doc.id); err != nil {
 		return "", err
 	}
@@ -270,22 +278,32 @@ func (m *fakeMachine) InstanceId() (instance.Id, error) {
 }
 
 func (m *fakeMachine) Watch() state.NotifyWatcher {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return WatchValue(&m.val)
 }
 
 func (m *fakeMachine) WantsVote() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.doc.wantsVote
 }
 
 func (m *fakeMachine) HasVote() bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.doc.hasVote
 }
 
 func (m *fakeMachine) MongoHostPorts() []network.HostPort {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.doc.mongoHostPorts
 }
 
 func (m *fakeMachine) APIHostPorts() []network.HostPort {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	return m.doc.apiHostPorts
 }
 

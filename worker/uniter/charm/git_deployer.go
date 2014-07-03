@@ -9,6 +9,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/juju/utils/symlink"
 )
 
 const (
@@ -94,7 +96,7 @@ func (d *gitDeployer) Stage(info BundleInfo, abort <-chan struct{}) error {
 
 	// Atomically rename fresh repository to current.
 	tmplink := filepath.Join(updatePath, "tmplink")
-	if err = os.Symlink(updatePath, tmplink); err != nil {
+	if err = symlink.New(updatePath, tmplink); err != nil {
 		return err
 	}
 	return os.Rename(tmplink, d.current.Path())
@@ -195,7 +197,7 @@ func (d *gitDeployer) upgrade() error {
 // repos are orphans, and all will be deleted; this should only be the case when
 // converting a gitDeployer to a manifestDeployer.
 func collectGitOrphans(dataPath string) {
-	current, err := os.Readlink(filepath.Join(dataPath, gitCurrentPath))
+	current, err := symlink.Read(filepath.Join(dataPath, gitCurrentPath))
 	if os.IsNotExist(err) {
 		logger.Warningf("no current staging repo")
 	} else if err != nil {

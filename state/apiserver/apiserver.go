@@ -33,15 +33,17 @@ const loginRateLimit = 10
 
 // Server holds the server side of the API.
 type Server struct {
-	tomb        tomb.Tomb
-	wg          sync.WaitGroup
-	state       *state.State
+	tomb      tomb.Tomb
+	wg        sync.WaitGroup
+	state     *state.State
+	addr      net.Addr
+	dataDir   string
+	logDir    string
+	limiter   utils.Limiter
+	validator LoginValidator
+
+	mu          sync.Mutex // protects the fields that follow
 	environUUID string
-	addr        net.Addr
-	dataDir     string
-	logDir      string
-	limiter     utils.Limiter
-	validator   LoginValidator
 }
 
 // LoginValidator functions are used to decide whether login requests
@@ -165,10 +167,10 @@ func (n *requestNotifier) leave() {
 	logger.Infof("[%X] %s API connection terminated after %v", n.id, n.tag(), time.Since(n.start))
 }
 
-func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
+func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
 }
 
-func (n requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 }
 
 func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
@@ -281,17 +283,37 @@ func (srv *Server) validateEnvironUUID(envUUID string) error {
 		//    after we've connected one time.
 		return nil
 	}
-	if srv.environUUID == "" {
+	if srv.getEnvironUUID() == "" {
 		env, err := srv.state.Environment()
 		if err != nil {
 			return err
 		}
-		srv.environUUID = env.UUID()
+		srv.setEnvironUUID(env.UUID())
 	}
-	if envUUID != srv.environUUID {
-		return common.UnknownEnvironmentError(envUUID)
+	return srv.checkEnvironUUID(envUUID)
+}
+
+// checkEnvironUUID checks if the expected envionUUID matches the
+// current environUUID set on this Server. It returns nil for a match
+// and an error on mismatch.
+func (srv *Server) checkEnvironUUID(expected string) error {
+	actual := srv.getEnvironUUID()
+	if actual != expected {
+		return common.UnknownEnvironmentError(expected)
 	}
 	return nil
+}
+
+func (srv *Server) getEnvironUUID() string {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	return srv.environUUID
+}
+
+func (srv *Server) setEnvironUUID(uuid string) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	srv.environUUID = uuid
 }
 
 func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, envUUID string) error {

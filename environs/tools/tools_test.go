@@ -192,8 +192,8 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsInControlBucket(c *gc.C) {
 }
 
 func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
-	tw := &loggo.TestWriter{}
-	c.Assert(loggo.RegisterWriter("filter-tester", tw, loggo.DEBUG), gc.IsNil)
+	var tw loggo.TestWriter
+	c.Assert(loggo.RegisterWriter("filter-tester", &tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("filter-tester")
 	_, err := envtools.FindTools(
 		s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}}, envtools.DoNotAllowRetry)
@@ -214,7 +214,7 @@ func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
 			jc.SimpleMessage{loggo.DEBUG, `fetchData failed for .*`},
 			jc.SimpleMessage{loggo.DEBUG, `cannot load index .*`})
 	}
-	c.Check(tw.Log, jc.LogMatches, messages)
+	c.Check(tw.Log(), jc.LogMatches, messages)
 }
 
 func (s *SimpleStreamsToolsSuite) TestFindBootstrapTools(c *gc.C) {

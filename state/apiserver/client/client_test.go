@@ -83,19 +83,41 @@ func (s *clientSuite) TestCompatibleSettingsParsing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `unknown option "yummy"`)
 }
 
+var (
+	validSetTestValue     = "a value with spaces\nand newline\nand UTF-8 characters: \U0001F604 / \U0001F44D"
+	invalidSetTestValue   = "a value with an invalid UTF-8 sequence: " + string([]byte{0xFF, 0xFF})
+	correctedSetTestValue = "a value with an invalid UTF-8 sequence: \ufffd\ufffd"
+)
+
 func (s *clientSuite) TestClientServiceSet(c *gc.C) {
 	dummy := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 
 	err := s.APIState.Client().ServiceSet("dummy", map[string]string{
 		"title":    "foobar",
-		"username": "user name",
+		"username": validSetTestValue,
 	})
 	c.Assert(err, gc.IsNil)
 	settings, err := dummy.ConfigSettings()
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "foobar",
-		"username": "user name",
+		"username": validSetTestValue,
+	})
+
+	// Test doesn't fail because Go JSON marshalling converts invalid
+	// UTF-8 sequences transparently to U+FFFD. The test demonstrates
+	// this behavior. It's a currently accepted behavior as it never has
+	// been a real-life issue.
+	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
+		"title":    "foobar",
+		"username": invalidSetTestValue,
+	})
+	c.Assert(err, gc.IsNil)
+	settings, err = dummy.ConfigSettings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
+		"title":    "foobar",
+		"username": correctedSetTestValue,
 	})
 
 	err = s.APIState.Client().ServiceSet("dummy", map[string]string{

@@ -74,6 +74,7 @@ func ExecuteCommandOnMachine(params ExecParams) (result utilexec.ExecResponse, e
 		command.Kill()
 	}
 	// In either case, gather as much as we have from stdout and stderr
+	command.Wait()
 	result.Stderr = stderr.Bytes()
 	result.Stdout = stdout.Bytes()
 	return result, err

@@ -1,27 +1,21 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build darwin
-
 package version
 
 import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
-
-	"github.com/juju/juju/testing"
 )
 
-type macOSXVersionSuite struct {
-	testing.BaseSuite
-}
+type macOSXVersionSuite struct{}
 
 var _ = gc.Suite(&macOSXVersionSuite{})
 
 func (*macOSXVersionSuite) TestGetSysctlVersionPlatform(c *gc.C) {
-	// Test that getSysctlVersion returns something that looks like a dotted revision number
-	releaseVersion, err := getSysctlVersion()
+	// Test that sysctlVersion returns something that looks like a dotted revision number
+	releaseVersion, err := sysctlVersion()
 	c.Assert(err, gc.IsNil)
 	c.Check(releaseVersion, gc.Matches, `\d+\..*`)
 }
@@ -31,5 +25,7 @@ func (s *macOSXVersionSuite) TestOSVersion(c *gc.C) {
 	for _, series := range macOSXSeries {
 		knownSeries.Add(series)
 	}
-	c.Check(osVersion(), jc.Satisfies, knownSeries.Contains)
+	version, err := osVersion()
+	c.Assert(err, gc.IsNil)
+	c.Check(version, jc.Satisfies, knownSeries.Contains)
 }

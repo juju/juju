@@ -267,8 +267,11 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	// the password so that the MgoSuite soft-resetting works. If that fails,
 	// it will still work, but it will take a while since it has to kill the
 	// whole database and start over.
-	if err := s.State.SetAdminMongoPassword(""); err != nil && serverAlive {
-		c.Logf("cannot reset admin password: %v", err)
+	if s.State != nil {
+		if err := s.State.SetAdminMongoPassword(""); err != nil && serverAlive {
+			c.Logf("cannot reset admin password: %v", err)
+		}
+		s.State = nil
 	}
 	for _, st := range s.apiStates {
 		err := st.Close()
@@ -276,18 +279,22 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 	}
-	err := s.Conn.Close()
-	if serverAlive {
-		c.Assert(err, gc.IsNil)
+	s.apiStates = nil
+	if s.Conn != nil {
+		err := s.Conn.Close()
+		if serverAlive {
+			c.Assert(err, gc.IsNil)
+		}
+		s.Conn = nil
 	}
-	err = s.APIConn.Close()
-	if serverAlive {
-		c.Assert(err, gc.IsNil)
+	if s.APIConn != nil {
+		err := s.APIConn.Close()
+		if serverAlive {
+			c.Assert(err, gc.IsNil)
+		}
+		s.APIConn = nil
 	}
 	dummy.Reset()
-	s.apiStates = nil
-	s.Conn = nil
-	s.State = nil
 	utils.SetHome(s.oldHome)
 	osenv.SetJujuHome(s.oldJujuHome)
 	s.oldHome = ""

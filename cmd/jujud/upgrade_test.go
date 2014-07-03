@@ -228,5 +228,9 @@ var upgradeTestDialOpts = api.DialOpts{
 
 func (s *UpgradeSuite) canLoginToAPI(info *api.Info) (out bool) {
 	apiState, err := api.Open(info, upgradeTestDialOpts)
-	return apiState != nil && err == nil
+	if apiState != nil && err == nil {
+		apiState.Close()
+		return true
+	}
+	return false
 }

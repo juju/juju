@@ -306,6 +306,12 @@ func (f *filter) loop(unitTag string) (err error) {
 			watcher.Stop(relationsw, &f.tomb)
 		}
 	}()
+	var addressChanges <-chan struct{}
+	addressesw, err := f.unit.WatchAddresses()
+	if err != nil {
+		return err
+	}
+	defer watcher.Stop(addressesw, &f.tomb)
 
 	// Config events cannot be meaningfully discarded until one is available;
 	// once we receive the initial change, we unblock discard requests by
@@ -339,9 +345,26 @@ func (f *filter) loop(unitTag string) (err error) {
 			if !ok {
 				return watcher.MustErr(configw)
 			}
+			if addressChanges == nil {
+				// We start reacting to address changes after the
+				// first config-changed is processed, ignoring the
+				// initial address changed event.
+				addressChanges = addressesw.Changes()
+				if _, ok := <-addressChanges; !ok {
+					return watcher.MustErr(addressesw)
+				}
+			}
 			filterLogger.Debugf("preparing new config event")
 			f.outConfig = f.outConfigOn
 			discardConfig = f.discardConfig
+		case _, ok = <-addressChanges:
+			filterLogger.Debugf("got address change")
+			if !ok {
+				return watcher.MustErr(addressesw)
+			}
+			// address change causes config-changed event
+			filterLogger.Debugf("preparing new config event")
+			f.outConfig = f.outConfigOn
 		case keys, ok := <-relationsw.Changes():
 			filterLogger.Debugf("got relations change")
 			if !ok {

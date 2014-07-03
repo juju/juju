@@ -67,6 +67,35 @@ func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult
 	return result.Results[0], nil
 }
 
+// getOneAction retrieves a single Action from the state server.
+func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, error) {
+	nothing := params.ActionsQueryResult{}
+
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	}
+
+	var results params.ActionsQueryResults
+	err := st.call("Actions", args, &results)
+	if err != nil {
+		return nothing, err
+	}
+
+	if len(results.ActionsQueryResults) > 1 {
+		return nothing, fmt.Errorf("expected only 1 action query result, got %d", len(results.ActionsQueryResults))
+	}
+
+	// handle server errors
+	result := results.ActionsQueryResults[0]
+	if err := result.Error; err != nil {
+		return nothing, err
+	}
+
+	return result, nil
+}
+
 // Unit provides access to methods of a state.Unit through the facade.
 func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
 	life, err := st.life(tag)
@@ -136,6 +165,18 @@ func (st *State) Relation(relationTag string) (*Relation, error) {
 		tag:  rtag,
 		life: result.Life,
 		st:   st,
+	}, nil
+}
+
+// Action returns the Action with the given tag.
+func (st *State) Action(tag names.ActionTag) (*Action, error) {
+	result, err := st.getOneAction(&tag)
+	if err != nil {
+		return nil, err
+	}
+	return &Action{
+		name:   result.Action.Name,
+		params: result.Action.Params,
 	}, nil
 }
 

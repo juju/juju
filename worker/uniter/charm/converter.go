@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/charm"
 	"github.com/juju/utils/set"
+	"github.com/juju/utils/symlink"
 )
 
 // NewDeployer returns a Deployer of whatever kind is currently in use for the
@@ -123,7 +124,7 @@ func ensureCurrentGitCharm(gitDeployer *gitDeployer, expectURL *charm.URL) error
 //      the manifestDeployer keeps track of what version it's upgrading from.
 // All paths are slash-separated, to match the bundle manifest format.
 func gitManifest(linkPath string) (set.Strings, error) {
-	dirPath, err := os.Readlink(linkPath)
+	dirPath, err := symlink.Read(linkPath)
 	if err != nil {
 		return set.NewStrings(), err
 	}

@@ -372,10 +372,10 @@ func (s *BootstrapSuite) TestBootstrapTwice(c *gc.C) {
 	env := resetJujuHome(c)
 	defaultSeriesVersion := version.Current
 	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
-	// Force a dev version by having an odd minor version number.
+	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
-	defaultSeriesVersion.Minor = 11
+	defaultSeriesVersion.Build = 1234
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
@@ -414,10 +414,10 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	env := resetJujuHome(c)
 	defaultSeriesVersion := version.Current
 	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
-	// Force a dev version by having an odd minor version number.
+	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
-	defaultSeriesVersion.Minor = 11
+	defaultSeriesVersion.Build = 1234
 	s.PatchValue(&version.Current, defaultSeriesVersion)
 
 	store, err := configstore.Default()
@@ -426,13 +426,13 @@ func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {
 	environs.PrepareFromName("peckham", ctx, store)
 
 	logger := "jenv.warning.test"
-	testWriter := &loggo.TestWriter{}
-	loggo.RegisterWriter(logger, testWriter, loggo.WARNING)
+	var testWriter loggo.TestWriter
+	loggo.RegisterWriter(logger, &testWriter, loggo.WARNING)
 	defer loggo.RemoveWriter(logger)
 
 	_, errc := runCommand(ctx, envcmd.Wrap(new(BootstrapCommand)), "-e", "peckham")
 	c.Assert(<-errc, gc.IsNil)
-	c.Assert(testWriter.Log, jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
+	c.Assert(testWriter.Log(), jc.LogMatches, []string{"ignoring environments.yaml: using bootstrap config in .*"})
 }
 
 func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
@@ -488,11 +488,11 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 	env := resetJujuHome(c)
 
 	// Bootstrap the environment with the valid source.
-	// Force a dev version by having an odd minor version number.
+	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
 	devVersion := version.Current
-	devVersion.Minor = 11
+	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
 
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", sourceDir)
@@ -506,6 +506,15 @@ func (s *BootstrapSuite) TestUploadLocalImageMetadata(c *gc.C) {
 func (s *BootstrapSuite) TestValidateConstraintsCalledWithMetadatasource(c *gc.C) {
 	sourceDir, _ := createImageMetadata(c)
 	resetJujuHome(c)
+
+	// Bootstrap the environment with the valid source.
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	devVersion := version.Current
+	devVersion.Build = 1234
+	s.PatchValue(&version.Current, devVersion)
+
 	var calledFuncs []string
 	s.PatchValue(&uploadCustomMetadata, func(metadataDir string, env environs.Environ) error {
 		c.Assert(metadataDir, gc.DeepEquals, sourceDir)
@@ -524,6 +533,14 @@ func (s *BootstrapSuite) TestValidateConstraintsCalledWithMetadatasource(c *gc.C
 }
 
 func (s *BootstrapSuite) TestValidateConstraintsCalledWithoutMetadatasource(c *gc.C) {
+	// Bootstrap the environment with the valid source.
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	devVersion := version.Current
+	devVersion.Build = 1234
+	s.PatchValue(&version.Current, devVersion)
+
 	validateCalled := 0
 	s.PatchValue(&validateConstraints, func(cons constraints.Value, env environs.Environ) error {
 		c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=4G"))
@@ -638,10 +655,10 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	resetJujuHome(c)
 	devVersion := version.Current
-	// Force a dev version by having an odd minor version number.
+	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
 	// upload is only enabled for dev versions.
-	devVersion.Minor = 11
+	devVersion.Build = 1234
 	s.PatchValue(&version.Current, devVersion)
 	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv")
 	err := <-errc
