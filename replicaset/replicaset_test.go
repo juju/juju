@@ -86,6 +86,32 @@ func (s *MongoSuite) dialAndTestInitiate(c *gc.C) {
 	loadData(session, c)
 }
 
+func (s *MongoSuite) dialAndTestInitiateIPv6(c *gc.C, inst *gitjujutesting.MgoInstance, addr string) {
+	session := inst.MustDialDirect()
+	defer session.Close()
+
+	mode := session.Mode()
+	err := Initiate(session, addr, rsName, initialTags)
+	c.Assert(err, gc.IsNil)
+
+	// make sure we haven't messed with the session's mode
+	c.Assert(session.Mode(), gc.Equals, mode)
+
+	// Ids start at 1 for us, so we can differentiate between set and unset
+	expectedMembers := []Member{Member{Id: 1, Address: addr, Tags: initialTags}}
+
+	// need to set mode to strong so that we wait for the write to succeed
+	// before reading and thus ensure that we're getting consistent reads.
+	session.SetMode(mgo.Strong, false)
+
+	mems, err := CurrentMembers(session)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mems, jc.DeepEquals, expectedMembers)
+
+	// now add some data so we get a more real-life test
+	loadData(session, c)
+}
+
 func loadData(session *mgo.Session, c *gc.C) {
 	type foo struct {
 		Name    string
@@ -123,6 +149,116 @@ func attemptLoop(c *gc.C, strategy utils.AttemptStrategy, desc string, f func() 
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *MongoSuite) TestAddRemoveSetIPv6(c *gc.C) {
+	root := newServer(c)
+	defer root.Destroy()
+	rootAddr := fmt.Sprintf("::1:%v", root.Port())
+	s.dialAndTestInitiateIPv6(c, root, rootAddr)
+	session := root.MustDial()
+	defer session.Close()
+
+	members := make([]Member, 0, 5)
+
+	// Add should be idempotent, so re-adding root here shouldn't result in
+	// two copies of root in the replica set
+	members = append(members, Member{Address: rootAddr, Tags: initialTags})
+
+	instances := make([]*gitjujutesting.MgoInstance, 5)
+	instances[0] = root
+	for i := 1; i < len(instances); i++ {
+		inst := newServer(c)
+		instances[i] = inst
+		defer inst.Destroy()
+		defer func() {
+			err := Remove(session, inst.Addr())
+			c.Assert(err, gc.IsNil)
+		}()
+		key := fmt.Sprintf("key%d", i)
+		val := fmt.Sprintf("val%d", i)
+		tags := map[string]string{key: val}
+		addr := fmt.Sprintf("::1:%v", inst.Port())
+		members = append(members, Member{Address: addr, Tags: tags})
+	}
+
+	// We allow for up to 2m per operation, since Add, Set, etc. call
+	// replSetReconfig which may cause primary renegotiation. According
+	// to the Mongo docs, "typically this is 10-20 seconds, but could be
+	// as long as a minute or more."
+	//
+	// Note that the delay is set at 500ms to cater for relatively quick
+	// operations without thrashing on those that take longer.
+	strategy := utils.AttemptStrategy{Total: time.Minute * 2, Delay: time.Millisecond * 500}
+	attemptLoop(c, strategy, "Add()", func() error {
+		return Add(session, members...)
+	})
+
+	expectedMembers := make([]Member, len(members))
+	for i, m := range members {
+		// Ids should start at 1 (for the root) and go up
+		m.Id = i + 1
+		expectedMembers[i] = m
+	}
+
+	var cfg *Config
+	attemptLoop(c, strategy, "CurrentConfig()", func() error {
+		var err error
+		cfg, err = CurrentConfig(session)
+		return err
+	})
+	c.Assert(cfg.Name, gc.Equals, rsName)
+	// 2 since we already changed it once
+	c.Assert(cfg.Version, gc.Equals, 2)
+
+	mems := cfg.Members
+	c.Assert(mems, jc.DeepEquals, expectedMembers)
+
+	// Now remove the last two Members...
+	attemptLoop(c, strategy, "Remove()", func() error {
+		return Remove(session, members[3].Address, members[4].Address)
+	})
+	expectedMembers = expectedMembers[0:3]
+
+	// ... and confirm that CurrentMembers reflects the removal.
+	attemptLoop(c, strategy, "CurrentMembers()", func() error {
+		var err error
+		mems, err = CurrentMembers(session)
+		return err
+	})
+	c.Assert(mems, jc.DeepEquals, expectedMembers)
+
+	// now let's mix it up and set the new members to a mix of the previous
+	// plus the new arbiter
+	mems = []Member{members[3], mems[2], mems[0], members[4]}
+	attemptLoop(c, strategy, "Set()", func() error {
+		err := Set(session, mems)
+		if err != nil {
+			c.Logf("current session mode: %v", session.Mode())
+			session.Refresh()
+		}
+		return err
+	})
+
+	attemptLoop(c, strategy, "Ping()", func() error {
+		// can dial whichever replica address here, mongo will figure it out
+		if session != nil {
+			session.Close()
+		}
+		session = instances[0].MustDialDirect()
+		return session.Ping()
+	})
+
+	// any new members will get an id of max(other_ids...)+1
+	expectedMembers = []Member{members[3], expectedMembers[2], expectedMembers[0], members[4]}
+	expectedMembers[0].Id = 4
+	expectedMembers[3].Id = 5
+
+	attemptLoop(c, strategy, "CurrentMembers()", func() error {
+		var err error
+		mems, err = CurrentMembers(session)
+		return err
+	})
+	c.Assert(mems, jc.DeepEquals, expectedMembers)
+}
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	session := s.root.MustDial()
 	defer session.Close()
