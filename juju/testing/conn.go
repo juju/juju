@@ -279,6 +279,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 	}
+	s.apiStates = nil
 	if s.Conn != nil {
 		err := s.Conn.Close()
 		if serverAlive {
@@ -291,7 +292,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		if serverAlive {
 			c.Assert(err, gc.IsNil)
 		}
-		s.apiStates = nil
+		s.APIConn = nil
 	}
 	dummy.Reset()
 	utils.SetHome(s.oldHome)
