@@ -52,6 +52,7 @@ import (
 	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/minunitsworker"
+	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/resumer"
@@ -299,6 +300,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	})
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+	})
+	a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+		return networker.NewNetworker(st.Networker(), agentConfig), nil
 	})
 
 	// If not a local provider bootstrap machine, start the worker to
