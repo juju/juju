@@ -349,7 +349,3 @@ Facilities are currently not good.
   * juju debug-hooks [TODO: not implemented]
   * juju debug-log [TODO: not implemented]
 
-It may be helpful to note that the charm directory is a git repository that
-holds the complete hook-by-hook history of the deployment. This property is
-not guaranteed, and charms should not depend upon it, but humans who need to
-dig around in charm directories should be aware of it.
