@@ -43,8 +43,8 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/environs/imagemetadata"
+	environsPolicy "github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tools"
@@ -88,7 +88,7 @@ func SampleConfig() testing.Attrs {
 
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy state, if it exists.
-func stateInfo() *hackage.Info {
+func stateInfo() *environsPolicy.Info {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
@@ -102,7 +102,7 @@ func stateInfo() *hackage.Info {
 	} else {
 		addrs = []string{net.JoinHostPort("localhost", mongoPort)}
 	}
-	return &hackage.Info{
+	return &environsPolicy.Info{
 		Info: mongo.Info{
 			Addrs:  addrs,
 			CACert: testing.CACert,
@@ -144,7 +144,7 @@ type OpStartInstance struct {
 	Constraints  constraints.Value
 	Networks     []string
 	NetworkInfo  []network.Info
-	Info         *hackage.Info
+	Info         *environsPolicy.Info
 	APIInfo      *api.Info
 	Secret       string
 }
@@ -686,7 +686,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return nil
 }
 
-func (e *environ) StateInfo() (*hackage.Info, *api.Info, error) {
+func (e *environ) StateInfo() (*environsPolicy.Info, *api.Info, error) {
 	estate, err := e.state()
 	if err != nil {
 		return nil, nil, err

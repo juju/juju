@@ -25,9 +25,9 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -1513,7 +1513,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	s.baseEnvironSuite.SetUpTest(c)
 	s.env = s.setupEnvWithDummyMetadata(c)
 	s.env.ecfg.attrs["force-image-name"] = "my-image"
-	stateInfo := &hackage.Info{
+	stateInfo := &policy.Info{
 		Info: mongo.Info{
 			CACert: coretesting.CACert,
 			Addrs:  []string{"localhost:123"},

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
@@ -110,7 +110,7 @@ type Environ interface {
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
-	StateInfo() (*hackage.Info, *api.Info, error)
+	StateInfo() (*policy.Info, *api.Info, error)
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.
@@ -129,7 +129,7 @@ type Environ interface {
 	ConfigGetter
 
 	// EnvironCapability allows access to this environment's capabilities.
-	hackage.EnvironCapability
+	policy.EnvironCapability
 
 	// ConstraintsValidator returns a Validator instance which
 	// is used to validate and merge constraints.
@@ -178,7 +178,7 @@ type Environ interface {
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 
-	hackage.Prechecker
+	policy.Prechecker
 }
 
 // BootstrapContext is an interface that is passed to

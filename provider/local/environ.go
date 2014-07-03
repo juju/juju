@@ -29,8 +29,8 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
-	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/environs/httpstorage"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
@@ -212,7 +212,7 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 }
 
 // StateInfo is specified in the Environ interface.
-func (env *localEnviron) StateInfo() (*hackage.Info, *api.Info, error) {
+func (env *localEnviron) StateInfo() (*policy.Info, *api.Info, error) {
 	return common.StateInfo(env)
 }
 

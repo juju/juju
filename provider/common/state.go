@@ -10,7 +10,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api"
@@ -52,12 +52,12 @@ func composeAddresses(hostnames []string, port int) []string {
 // getStateInfo puts together the hackage.Info and api.Info for the given
 // config, with the given state-server host names.
 // The given config absolutely must have a CACert.
-func getStateInfo(config *config.Config, hostnames []string) (*hackage.Info, *api.Info) {
+func getStateInfo(config *config.Config, hostnames []string) (*policy.Info, *api.Info) {
 	cert, hasCert := config.CACert()
 	if !hasCert {
 		panic(errors.New("getStateInfo: config has no CACert"))
 	}
-	return &hackage.Info{
+	return &policy.Info{
 			Info: mongo.Info{
 				Addrs:  composeAddresses(hostnames, config.StatePort()),
 				CACert: cert,
@@ -70,7 +70,7 @@ func getStateInfo(config *config.Config, hostnames []string) (*hackage.Info, *ap
 
 // StateInfo is a reusable implementation of Environ.StateInfo, available to
 // providers that also use the other functionality from this file.
-func StateInfo(env environs.Environ) (*hackage.Info, *api.Info, error) {
+func StateInfo(env environs.Environ) (*policy.Info, *api.Info, error) {
 	st, err := bootstrap.LoadState(env.Storage())
 	if err != nil {
 		return nil, nil, err

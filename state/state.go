@@ -27,7 +27,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	environsPolicy "github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
@@ -48,7 +48,7 @@ var logger = loggo.GetLogger("juju.state")
 // managed by juju.
 type State struct {
 	transactionRunner statetxn.Runner
-	info              *hackage.Info
+	info              *environsPolicy.Info
 	policy            policy.Policy
 	db                *mgo.Database
 	environments      *mgo.Collection

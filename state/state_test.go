@@ -24,7 +24,7 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	environsPolicy "github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -2067,7 +2067,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(relation1, jc.DeepEquals, relation3)
 }
 
-func tryOpenState(info *hackage.Info) error {
+func tryOpenState(info *environsPolicy.Info) error {
 	st, err := state.Open(info, state.TestingDialOpts(), policy.Policy(nil))
 	if err == nil {
 		st.Close()
@@ -2117,7 +2117,7 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 	err = peergrouper.MaybeInitiateMongoServer(args)
 	c.Assert(err, gc.IsNil)
 
-	stateInfo := &hackage.Info{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
+	stateInfo := &environsPolicy.Info{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
 	dialOpts := mongo.DialOpts{Timeout: time.Second * 30}
 	st, err := state.Open(stateInfo, dialOpts, policy.Policy(nil))
 	c.Assert(err, gc.IsNil)

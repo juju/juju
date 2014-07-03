@@ -8,7 +8,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -53,7 +53,7 @@ func (p *mockConfigValidator) Validate(cfg, old *config.Config) (valid *config.C
 func (s *ConfigValidatorSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.configValidator = mockConfigValidator{}
-	s.policy.GetConfigValidator = func(string) (hackage.ConfigValidator, error) {
+	s.policy.GetConfigValidator = func(string) (policy.ConfigValidator, error) {
 		return &s.configValidator, nil
 	}
 }
@@ -73,7 +73,7 @@ func (s *ConfigValidatorSuite) TestConfigValidate(c *gc.C) {
 
 func (s *ConfigValidatorSuite) TestUpdateEnvironConfigFailsOnConfigValidateError(c *gc.C) {
 	var configValidatorErr error
-	s.policy.GetConfigValidator = func(string) (hackage.ConfigValidator, error) {
+	s.policy.GetConfigValidator = func(string) (policy.ConfigValidator, error) {
 		configValidatorErr = errors.NotFoundf("")
 		return &s.configValidator, configValidatorErr
 	}
@@ -93,7 +93,7 @@ func (s *ConfigValidatorSuite) TestUpdateEnvironConfigUpdatesState(c *gc.C) {
 
 func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
 	var configValidatorErr error
-	s.policy.GetConfigValidator = func(string) (hackage.ConfigValidator, error) {
+	s.policy.GetConfigValidator = func(string) (policy.ConfigValidator, error) {
 		return nil, configValidatorErr
 	}
 
@@ -105,7 +105,7 @@ func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidateNoPolicy(c *gc.C) {
-	s.policy.GetConfigValidator = func(providerType string) (hackage.ConfigValidator, error) {
+	s.policy.GetConfigValidator = func(providerType string) (policy.ConfigValidator, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}

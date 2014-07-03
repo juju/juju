@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -231,7 +231,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 }
 
 func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
-	info := &hackage.Info{
+	info := &policy.Info{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,

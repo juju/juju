@@ -12,7 +12,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -24,8 +24,8 @@ import (
 // FakeStateInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
 // of the machine to be started.
-func FakeStateInfo(machineId string) *hackage.Info {
-	return &hackage.Info{
+func FakeStateInfo(machineId string) *policy.Info {
+	return &policy.Info{
 		Info: mongo.Info{
 			Addrs:  []string{"0.1.2.3:1234"},
 			CACert: testing.CACert,

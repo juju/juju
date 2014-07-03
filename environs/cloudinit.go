@@ -17,7 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api"
@@ -42,7 +42,7 @@ var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 // the fixed entries and the ones that are always needed.
 func NewMachineConfig(
 	machineID, machineNonce string, networks []string,
-	stateInfo *hackage.Info, apiInfo *api.Info,
+	stateInfo *policy.Info, apiInfo *api.Info,
 ) *cloudinit.MachineConfig {
 	mcfg := &cloudinit.MachineConfig{
 		// Fixed entries.
@@ -144,7 +144,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	}
 	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
 	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
-	mcfg.StateInfo = &hackage.Info{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
+	mcfg.StateInfo = &policy.Info{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 
 	// These really are directly relevant to running a state server.
 	cert, key, err := cfg.GenerateStateServerCertAndKey()

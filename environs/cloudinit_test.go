@@ -18,7 +18,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
@@ -51,7 +51,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
-		StateInfo: &hackage.Info{Tag: "not touched"},
+		StateInfo: &policy.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
@@ -62,7 +62,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		StateInfo: &hackage.Info{Tag: "not touched"},
+		StateInfo: &policy.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: false,
 	})
@@ -76,7 +76,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
-		StateInfo: &hackage.Info{Tag: "not touched"},
+		StateInfo: &policy.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
@@ -87,7 +87,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		StateInfo: &hackage.Info{Tag: "not touched"},
+		StateInfo: &policy.Info{Tag: "not touched"},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: true,
 	})
@@ -115,7 +115,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
 	})
-	c.Check(mcfg.StateInfo, gc.DeepEquals, &hackage.Info{
+	c.Check(mcfg.StateInfo, gc.DeepEquals, &policy.Info{
 		Password: password, Info: mongo.Info{CACert: testing.CACert},
 	})
 	c.Check(mcfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
@@ -164,7 +164,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		MachineId:    "10",
 		MachineNonce: "5432",
 		Tools:        tools,
-		StateInfo: &hackage.Info{
+		StateInfo: &policy.Info{
 			Info: mongo.Info{
 				Addrs:  []string{"127.0.0.1:1234"},
 				CACert: "CA CERT\n" + testing.CACert,

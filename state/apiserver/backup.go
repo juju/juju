@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/backup"
@@ -24,7 +24,7 @@ type backupHandler struct {
 	httpHandler
 }
 
-func getMongoConnectionInfo(state *state.State) (info *hackage.Info) {
+func getMongoConnectionInfo(state *state.State) (info *policy.Info) {
 	return state.MongoConnectionInfo()
 }
 

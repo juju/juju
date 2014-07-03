@@ -19,7 +19,7 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -311,7 +311,7 @@ func parseHostPort(s string) (network.HostPort, error) {
 }
 
 // writeStateAgentConfig creates and writes a state agent config.
-func writeStateAgentConfig(c *gc.C, stateInfo *hackage.Info, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
+func writeStateAgentConfig(c *gc.C, stateInfo *policy.Info, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
 	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(

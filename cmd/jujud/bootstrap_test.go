@@ -22,7 +22,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -178,7 +178,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.initiateParams.Password, gc.Equals, "")
 
-	st, err := state.Open(&hackage.Info{
+	st, err := state.Open(&policy.Info{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -216,7 +216,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&hackage.Info{
+	st, err := state.Open(&policy.Info{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -250,7 +250,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&hackage.Info{
+	st, err := state.Open(&policy.Info{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -271,7 +271,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&hackage.Info{
+	st, err := state.Open(&policy.Info{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -285,7 +285,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 }
 
-func testOpenState(c *gc.C, info *hackage.Info, expectErrType error) {
+func testOpenState(c *gc.C, info *policy.Info, expectErrType error) {
 	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if st != nil {
 		st.Close()
@@ -306,7 +306,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	// Check that we cannot now connect to the state without a
 	// password.
-	info := &hackage.Info{
+	info := &policy.Info{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,

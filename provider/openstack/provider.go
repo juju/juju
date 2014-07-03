@@ -27,9 +27,9 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
@@ -309,8 +309,8 @@ var _ environs.Environ = (*environ)(nil)
 var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
-var _ hackage.Prechecker = (*environ)(nil)
-var _ hackage.InstanceDistributor = (*environ)(nil)
+var _ policy.Prechecker = (*environ)(nil)
+var _ policy.InstanceDistributor = (*environ)(nil)
 
 type openstackInstance struct {
 	e        *environ
@@ -661,7 +661,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) StateInfo() (*hackage.Info, *api.Info, error) {
+func (e *environ) StateInfo() (*policy.Info, *api.Info, error) {
 	return common.StateInfo(e)
 }
 

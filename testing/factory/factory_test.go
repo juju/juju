@@ -8,7 +8,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environs/hackage"
+	environsPolicy "github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -40,7 +40,7 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	policy := statetesting.MockPolicy{}
 
-	info := &hackage.Info{
+	info := &environsPolicy.Info{
 		Info: mongo.Info{
 			Addrs:  []string{jtesting.MgoServer.Addr()},
 			CACert: testing.CACert,

@@ -3,7 +3,7 @@ package policy
 import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 )
 
 // Policy is an interface provided to State that may
@@ -17,15 +17,15 @@ import (
 // in the use of the policy.
 type Policy interface {
 	// Prechecker takes a *config.Config and returns a Prechecker or an error.
-	Prechecker(*config.Config) (hackage.Prechecker, error)
+	Prechecker(*config.Config) (policy.Prechecker, error)
 
 	// ConfigValidator takes a provider type name and returns a ConfigValidator
 	// or an error.
-	ConfigValidator(providerType string) (hackage.ConfigValidator, error)
+	ConfigValidator(providerType string) (policy.ConfigValidator, error)
 
 	// EnvironCapability takes a *config.Config and returns an EnvironCapability
 	// or an error.
-	EnvironCapability(*config.Config) (hackage.EnvironCapability, error)
+	EnvironCapability(*config.Config) (policy.EnvironCapability, error)
 
 	// ConstraintsValidator takes a *config.Config and returns a
 	// constraints.Validator or an error.
@@ -33,5 +33,5 @@ type Policy interface {
 
 	// InstanceDistributor takes a *config.Config and returns an
 	// InstanceDistributor or an error.
-	InstanceDistributor(*config.Config) (hackage.InstanceDistributor, error)
+	InstanceDistributor(*config.Config) (policy.InstanceDistributor, error)
 }

@@ -19,9 +19,9 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
 	"github.com/juju/juju/environs/httpstorage"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/sshstorage"
 	"github.com/juju/juju/environs/storage"
@@ -133,7 +133,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	})
 }
 
-func (e *manualEnviron) StateInfo() (*hackage.Info, *api.Info, error) {
+func (e *manualEnviron) StateInfo() (*policy.Info, *api.Info, error) {
 	return common.StateInfo(e)
 }
 

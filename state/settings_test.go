@@ -10,7 +10,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environs/hackage"
+	environsPolicy "github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/policy"
 	"github.com/juju/juju/testing"
@@ -27,8 +27,8 @@ var _ = gc.Suite(&SettingsSuite{})
 
 // TestingStateInfo returns information suitable for
 // connecting to the testing state server.
-func TestingStateInfo() *hackage.Info {
-	return &hackage.Info{
+func TestingStateInfo() *environsPolicy.Info {
+	return &environsPolicy.Info{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,

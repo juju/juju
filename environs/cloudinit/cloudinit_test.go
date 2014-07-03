@@ -19,7 +19,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api"
@@ -93,7 +93,7 @@ var cloudinitTests = []cloudinitTest{
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &hackage.Info{
+			StateInfo: &policy.Info{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -155,7 +155,7 @@ start jujud-machine-0
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &hackage.Info{
+			StateInfo: &policy.Info{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -199,7 +199,7 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
-			StateInfo: &hackage.Info{
+			StateInfo: &policy.Info{
 				Tag:      "machine-99",
 				Password: "arble",
 				Info: mongo.Info{
@@ -256,7 +256,7 @@ start jujud-machine-99
 			Bootstrap:            false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:         "FAKE_NONCE",
-			StateInfo: &hackage.Info{
+			StateInfo: &policy.Info{
 				Tag:      "machine-2-lxc-1",
 				Password: "arble",
 				Info: mongo.Info{
@@ -294,7 +294,7 @@ start jujud-machine-2-lxc-1
 			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
-			StateInfo: &hackage.Info{
+			StateInfo: &policy.Info{
 				Tag:      "machine-99",
 				Password: "arble",
 				Info: mongo.Info{
@@ -326,7 +326,7 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &hackage.Info{
+			StateInfo: &policy.Info{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -627,7 +627,7 @@ var verifyTests = []struct {
 	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &hackage.Info{
+		cfg.StateInfo = &policy.Info{
 			Tag: "machine-99",
 			Info: mongo.Info{
 				CACert: testing.CACert,
@@ -641,7 +641,7 @@ var verifyTests = []struct {
 	}},
 	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &hackage.Info{
+		cfg.StateInfo = &policy.Info{
 			Info: mongo.Info{
 				Addrs:  []string{"foo:35"},
 				CACert: testing.CACert,
@@ -654,11 +654,11 @@ var verifyTests = []struct {
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateInfo = &hackage.Info{Info: mongo.Info{Addrs: []string{"host:98765"}}}
+		cfg.StateInfo = &policy.Info{Info: mongo.Info{Addrs: []string{"host:98765"}}}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &hackage.Info{
+		cfg.StateInfo = &policy.Info{
 			Tag: "machine-99",
 			Info: mongo.Info{
 				Addrs: []string{"host:98765"},
@@ -764,7 +764,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		Tools:            newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:   "sshkey1",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		StateInfo: &hackage.Info{
+		StateInfo: &policy.Info{
 			Info: mongo.Info{
 				Addrs:  []string{"host:98765"},
 				CACert: testing.CACert,

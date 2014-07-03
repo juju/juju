@@ -10,7 +10,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/environs/hackage"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver"
 	jc "github.com/juju/testing/checkers"
@@ -69,8 +69,8 @@ func (s *backupSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 }
 
 func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
-	testGetMongoConnectionInfo := func(thisState *state.State) *hackage.Info {
-		info := &hackage.Info{
+	testGetMongoConnectionInfo := func(thisState *state.State) *policy.Info {
+		info := &policy.Info{
 			Password: "foobar",
 			Tag:      "machine-0",
 		}
