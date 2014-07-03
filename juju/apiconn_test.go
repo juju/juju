@@ -206,7 +206,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Assert(info, gc.NotNil)
 	ep := info.APIEndpoint()
 	c.Assert(ep.Addresses, gc.HasLen, 1)
-	c.Check(ep.Addresses[0], gc.Matches, `127\.0\.0\.1:\d+`)
+	c.Check(ep.Addresses[0], gc.Matches, `localhost:\d+`)
 	c.Check(ep.CACert, gc.Not(gc.Equals), "")
 	// Old servers won't hand back EnvironTag, so it should stay empty in
 	// the cache

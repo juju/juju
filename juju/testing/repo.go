@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/utils/symlink"
 )
 
 // RepoSuite acts as a JujuConnSuite but also sets up
@@ -38,7 +39,7 @@ func (s *RepoSuite) SetUpTest(c *gc.C) {
 	// and machines are written with hard-coded "quantal" series,
 	// hence they interact badly with a local repository that assumes
 	// only "precise" charms are available.
-	err = os.Symlink(s.SeriesPath, filepath.Join(repoPath, "quantal"))
+	err = symlink.New(s.SeriesPath, filepath.Join(repoPath, "quantal"))
 	c.Assert(err, gc.IsNil)
 }
 

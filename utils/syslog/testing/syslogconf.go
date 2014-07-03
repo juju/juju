@@ -36,13 +36,13 @@ $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 
 :syslogtag, startswith, "juju{{.Namespace}}-" ~
 
-$FileCreateMode 0640
+$FileCreateMode 0600
 
 $RuleSet remote
-$FileCreateMode 0644
+$FileCreateMode 0600
 :syslogtag, startswith, "juju{{.Namespace}}-" /var/log/juju{{.Namespace}}/all-machines.log;JujuLogFormat{{.Namespace}}
 :syslogtag, startswith, "juju{{.Namespace}}-" ~
-$FileCreateMode 0640
+$FileCreateMode 0600
 
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5

@@ -27,6 +27,7 @@ import (
 	containertesting "github.com/juju/juju/container/testing"
 	instancetest "github.com/juju/juju/instance/testing"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/utils/symlink"
 )
 
 func Test(t *stdtesting.T) {
@@ -211,7 +212,7 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(linkInfo.Mode()&os.ModeSymlink, gc.Equals, os.ModeSymlink)
 
-	location, err := os.Readlink(expectedLinkLocation)
+	location, err := symlink.Read(expectedLinkLocation)
 	c.Assert(err, gc.IsNil)
 	c.Assert(location, gc.Equals, expectedTarget)
 }

@@ -19,6 +19,7 @@ import (
 
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
+	"github.com/juju/utils/symlink"
 )
 
 const toolsFile = "downloaded-tools.txt"
@@ -175,7 +176,7 @@ func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*c
 		return nil, err
 	}
 	tmpName := ToolsDir(dataDir, "tmplink-"+agentName)
-	err = os.Symlink(tools.Version.String(), tmpName)
+	err = symlink.New(tools.Version.String(), tmpName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create tools symlink: %v", err)
 	}
