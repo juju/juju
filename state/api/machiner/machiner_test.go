@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -52,18 +53,18 @@ func (s *machinerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-42")
+	machine, err := s.machiner.Machine(names.NewMachineTag("42"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(machine, gc.IsNil)
 
-	machine, err = s.machiner.Machine("machine-1")
+	machine, err = s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Tag(), gc.Equals, "machine-1")
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-1")
+	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, gc.IsNil)
 
 	status, info, data, err := s.machine.Status()
@@ -85,7 +86,7 @@ func (s *machinerSuite) TestSetStatus(c *gc.C) {
 func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.machine.Life(), gc.Equals, state.Alive)
 
-	machine, err := s.machiner.Machine("machine-1")
+	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, gc.IsNil)
 
 	err = machine.EnsureDead()
@@ -112,7 +113,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 }
 
 func (s *machinerSuite) TestRefresh(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-1")
+	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Life(), gc.Equals, params.Alive)
 
@@ -126,7 +127,7 @@ func (s *machinerSuite) TestRefresh(c *gc.C) {
 }
 
 func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-1")
+	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, gc.IsNil)
 
 	addr := s.machine.Addresses()
@@ -146,7 +147,7 @@ func (s *machinerSuite) TestSetMachineAddresses(c *gc.C) {
 }
 
 func (s *machinerSuite) TestWatch(c *gc.C) {
-	machine, err := s.machiner.Machine("machine-1")
+	machine, err := s.machiner.Machine(names.NewMachineTag("1"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Life(), gc.Equals, params.Alive)
 

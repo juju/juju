@@ -17,6 +17,7 @@ import (
 	"github.com/juju/charm/hooks"
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	proxyutils "github.com/juju/utils/proxy"
@@ -161,7 +162,11 @@ func (u *Uniter) setupLocks() (err error) {
 }
 
 func (u *Uniter) init(unitTag string) (err error) {
-	u.unit, err = u.st.Unit(unitTag)
+	tag, err := names.ParseUnitTag(unitTag)
+	if err != nil {
+		return err
+	}
+	u.unit, err = u.st.Unit(tag)
 	if err != nil {
 		return err
 	}
@@ -184,7 +189,11 @@ func (u *Uniter) init(unitTag string) (err error) {
 	if err := os.MkdirAll(u.relationsDir, 0755); err != nil {
 		return err
 	}
-	u.service, err = u.st.Service(u.unit.ServiceTag())
+	serviceTag, err := names.ParseServiceTag(u.unit.ServiceTag())
+	if err != nil {
+		return err
+	}
+	u.service, err = u.st.Service(serviceTag)
 	if err != nil {
 		return err
 	}
