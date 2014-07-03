@@ -135,7 +135,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 		[]network.HostPort{{network.NewAddress("127.0.0.1", network.ScopeMachineLocal), 54321}},
 	})
 
-	_, err = ipv4State.Machiner().Machine(stm.Tag().String())
+	_, err = ipv4State.Machiner().Machine(stm.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 
 	apiInfo.Addrs = []string{net.JoinHostPort("::1", "54321")}
@@ -147,7 +147,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 		[]network.HostPort{{network.NewAddress("::1", network.ScopeMachineLocal), 54321}},
 	})
 
-	_, err = ipv6State.Machiner().Machine(stm.Tag().String())
+	_, err = ipv6State.Machiner().Machine(stm.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 }
 
