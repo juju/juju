@@ -485,7 +485,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
 				return apiserver.NewServer(st, apiserver.ServerConfig{
-					Addr:      fmt.Sprintf(":%d", port),
+					Port:      port,
 					Cert:      cert,
 					Key:       key,
 					DataDir:   dataDir,

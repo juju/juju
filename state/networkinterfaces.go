@@ -162,6 +162,7 @@ func (ni *NetworkInterface) SetDisabled(isDisabled bool) (err error) {
 		return fmt.Errorf("cannot change disabled state on network interface: %v",
 			onAbort(err, errors.NotFoundf("network interface")))
 	}
+	ni.doc.IsDisabled = isDisabled
 	return nil
 }
 
