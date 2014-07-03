@@ -16,15 +16,24 @@ import (
 	"time"
 
 	"github.com/juju/charm"
-	"github.com/juju/loggo"
-	utilexec "github.com/juju/utils/exec"
-	"github.com/juju/utils/proxy"
-
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/uniter"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
+	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/loggo"
+	utilexec "github.com/juju/utils/exec"
 )
+
+// HookContext contains a handle to the HookRunner and HookInfo.  It uses these
+// to implement jujuc.Context.
+type HookContext struct {
+	runner        *HookRunner
+	info          *hook.Info
+	hookName      string
+	actionResults map[string]interface{}
+	actionParams  map[string]interface{}
+}
 
 type missingHookError struct {
 	hookName string
@@ -39,109 +48,38 @@ func IsMissingHookError(err error) bool {
 	return ok
 }
 
-// HookContext is the implementation of jujuc.Context.
-type HookContext struct {
-	unit *uniter.Unit
-
-	// privateAddress is the cached value of the unit's private
-	// address.
-	privateAddress string
-
-	// publicAddress is the cached value of the unit's public
-	// address.
-	publicAddress string
-
-	// configSettings holds the service configuration.
-	configSettings charm.Settings
-
-	// id identifies the context.
-	id string
-
-	// actionParams holds the set of arguments passed with the action.
-	actionParams map[string]interface{}
-
-	// uuid is the universally unique identifier of the environment.
-	uuid string
-
-	// envName is the human friendly name of the environment.
-	envName string
-
-	// relationId identifies the relation for which a relation hook is
-	// executing. If it is -1, the context is not running a relation hook;
-	// otherwise, its value must be a valid key into the relations map.
-	relationId int
-
-	// remoteUnitName identifies the changing unit of the executing relation
-	// hook. It will be empty if the context is not running a relation hook,
-	// or if it is running a relation-broken hook.
-	remoteUnitName string
-
-	// relations contains the context for every relation the unit is a member
-	// of, keyed on relation id.
-	relations map[int]*ContextRelation
-
-	// apiAddrs contains the API server addresses.
-	apiAddrs []string
-
-	// serviceOwner contains the owner of the service
-	serviceOwner string
-
-	// proxySettings are the current proxy settings that the uniter knows about
-	proxySettings proxy.Settings
-}
-
-func NewHookContext(unit *uniter.Unit, id, uuid, envName string,
-	relationId int, remoteUnitName string, relations map[int]*ContextRelation,
-	apiAddrs []string, serviceOwner string, proxySettings proxy.Settings,
-	actionParams map[string]interface{}) (*HookContext, error) {
-	ctx := &HookContext{
-		unit:           unit,
-		id:             id,
-		uuid:           uuid,
-		envName:        envName,
-		relationId:     relationId,
-		remoteUnitName: remoteUnitName,
-		relations:      relations,
-		apiAddrs:       apiAddrs,
-		serviceOwner:   serviceOwner,
-		proxySettings:  proxySettings,
-		actionParams:   actionParams,
+func NewHookContext(hi *hook.Info, hookName string, actionParams map[string]interface{}) *HookContext {
+	newContext := &HookContext{
+		info:         hi,
+		hookName:     hookName,
+		actionParams: actionParams,
 	}
-	// Get and cache the addresses.
-	var err error
-	ctx.publicAddress, err = unit.PublicAddress()
-	if err != nil && !params.IsCodeNoAddressSet(err) {
-		return nil, err
-	}
-	ctx.privateAddress, err = unit.PrivateAddress()
-	if err != nil && !params.IsCodeNoAddressSet(err) {
-		return nil, err
-	}
-	return ctx, nil
+
+	return newContext, nil
 }
 
 func (ctx *HookContext) UnitName() string {
-	return ctx.unit.Name()
+	return ctx.runner.unit.Name()
 }
 
 func (ctx *HookContext) PublicAddress() (string, bool) {
-	return ctx.publicAddress, ctx.publicAddress != ""
+	return ctx.runner.publicAddress, ctx.runner.publicAddress != ""
 }
 
 func (ctx *HookContext) PrivateAddress() (string, bool) {
-	return ctx.privateAddress, ctx.privateAddress != ""
+	return ctx.runner.privateAddress, ctx.runner.privateAddress != ""
 }
 
 func (ctx *HookContext) OpenPort(protocol string, port int) error {
-	return ctx.unit.OpenPort(protocol, port)
+	return ctx.runner.unit.OpenPort(protocol, port)
 }
 
 func (ctx *HookContext) ClosePort(protocol string, port int) error {
-	return ctx.unit.ClosePort(protocol, port)
+	return ctx.runner.unit.ClosePort(protocol, port)
 }
 
 func (ctx *HookContext) OwnerTag() string {
-	return ctx.serviceOwner
+	return ctx.runner.serviceOwner
 }
 
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
@@ -159,10 +97,7 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
-func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
-	if ctx.actionParams == nil {
-		//TODO: Fill me in!
-	}
+func (ctx *HookContext) ActionParams() map[string]interface{} {
 	return ctx.actionParams, nil
 }
 

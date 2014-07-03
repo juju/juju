@@ -336,8 +336,33 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName string, actionParams map[string]interface{}) (context *HookContext, err error) {
+func (u *Uniter) getHookContext(hi *hook.Info) (hctx *HookContext, err error) {
+	if err := hi.Validate(); err != nil {
+		return nil, err
+	}
 
+	name := string(hi.Kind)
+	relId := -1
+
+	if hi.Kind.IsRelation() {
+		relId = hi.RelationId
+		name, err = u.relationers[relId].PrepareHook(hi)
+		if err != nil {
+			return nil, err
+		}
+	} else if hi.Kind == hooks.ActionRequested {
+		action, err := u.st.Action(hi.ActionId)
+		if err != nil {
+			return nil, err
+		}
+		actionParams := action.Params()
+		name = hi.ActionName
+	}
+
+	return NewHookContext(name, relId, actionParams)
+}
+
+func (u *Uniter) getHookRunner(hctxId string) (runner *HookRunner, err error) {
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
 		return nil, err
@@ -356,9 +381,8 @@ func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName st
 
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
-	return NewHookContext(u.unit, hctxId, u.uuid, u.envName, relationId,
-		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
-		actionParams)
+	return NewHookRunner(u.unit, hctxId, u.uuid, u.envName, ctxRelations,
+		apiAddrs, ownerTag, proxySettings)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -410,10 +434,11 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, -1, "", map[string]interface{}(nil))
+	runner, err := u.getHookRunner(hctxId)
 	if err != nil {
 		return nil, err
 	}
+	// , -1, "", map[string]interface{}(nil))
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
 		return nil, err
@@ -455,39 +480,10 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
 func (u *Uniter) runHook(hi hook.Info) (err error) {
 	// Prepare context.
 
-	hookContext, err := makeHookContext(hi)
+	hookContext, err := u.getHookContext(hi)
 	if err != nil {
 		return err
 	}
-
-	hookRunner, err := makeHookRunner()
-	if err != nil {
-		return err
-	}
-
-	// WIP
-
-	if err = hi.Validate(); err != nil {
-		return err
-	}
-
-	hookName := string(hi.Kind)
-	relationId := -1
-	if hi.Kind.IsRelation() {
-		relationId = hi.RelationId
-		if hookName, err = u.relationers[relationId].PrepareHook(hi); err != nil {
-			return err
-		}
-	} else if hi.Kind == hooks.ActionRequested {
-		action, err := u.st.Action(hi.ActionId)
-		if err != nil {
-			return err
-		}
-		hi.ActionParams = action.Params()
-		hi.ActionName = action.Name()
-		hookName = hi.ActionName
-	}
-	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
 	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
 	if err = u.acquireHookLock(lockMessage); err != nil {
@@ -495,10 +491,15 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit, hi.ActionParams)
+	runnerId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
+
+	hookRunner, err := u.getHookRunner(runnerId)
 	if err != nil {
 		return err
 	}
+
+	// WIP
+
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
 		return err
