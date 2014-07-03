@@ -46,12 +46,12 @@ MERGE_REV=""
 
 
 
-if echo "$1" | grep -E '^[0-9-]*$'; then
-    IS_BZR="true"
-    REVNO=$1
-    JUJU_CORE_BRANCH=${2:-$DEFAULT_BZR_JUJU_CORE}
-    PACKAGE="launchpad.net/juju-core"
-else
+#if echo "$1" | grep -E '^[0-9-]*$'; then
+#    IS_BZR="true"
+#    REVNO=$1
+#    JUJU_CORE_BRANCH=${2:-$DEFAULT_BZR_JUJU_CORE}
+#    PACKAGE="launchpad.net/juju-core"
+#else
     IS_BZR="false"
     REVISION=$1
     JUJU_CORE_REPO=${2:-$DEFAULT_GIT_JUJU_CORE}
@@ -63,7 +63,7 @@ else
             MERGE_REV=$5
         fi
     fi
-fi
+#fi
 
 
 HERE=$(pwd)
