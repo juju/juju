@@ -336,7 +336,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hi *hook.Info) (hctx *HookContext, err error) {
+func (u *Uniter) getHookContext(hr *HookRunner, hi *hook.Info) (hctx *HookContext, err error) {
 	if err := hi.Validate(); err != nil {
 		return nil, err
 	}
@@ -359,7 +359,9 @@ func (u *Uniter) getHookContext(hi *hook.Info) (hctx *HookContext, err error) {
 		name = hi.ActionName
 	}
 
-	return NewHookContext(name, relId, actionParams)
+	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), name, u.rand.Int63())
+
+	return NewHookContext(hr, hctxId, name, relId, actionParams)
 }
 
 func (u *Uniter) getHookRunner(hctxId string) (runner *HookRunner, err error) {
@@ -478,29 +480,27 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
-	// Prepare context.
-
-	hookContext, err := u.getHookContext(hi)
+	hookRunner, err := u.getHookRunner()
 	if err != nil {
 		return err
 	}
 
-	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
+	// Prepare context.
+	hookContext, err := u.getHookContext(hookRunner, hi)
+	if err != nil {
+		return err
+	}
+
+	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookContext.hookName)
+
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return err
 	}
 	defer u.hookLock.Unlock()
 
-	runnerId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
-
-	hookRunner, err := u.getHookRunner(runnerId)
-	if err != nil {
-		return err
-	}
-
 	// WIP
 
-	srv, socketPath, err := u.startJujucServer(hctx)
+	srv, socketPath, err := u.startJujucServer(hookContext)
 	if err != nil {
 		return err
 	}
@@ -510,31 +510,26 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if err := u.writeState(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
-	logger.Infof("running %q hook", hookName)
+	logger.Infof("running %q hook", hookContext.hookName)
 
 	ranHook := true
-	switch hi.Kind {
-	case hooks.ActionRequested:
-		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
-	default:
-		err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
-	}
+	err = hctx.RunHook(hookContext.hookName, u.charmPath, u.toolsDir, socketPath)
 
 	if IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
 		logger.Errorf("hook failed: %s", err)
-		u.notifyHookFailed(hookName, hctx)
+		u.notifyHookFailed(hookContext.hookName, hctx)
 		return errHookFailed
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
 	if ranHook {
-		logger.Infof("ran %q hook", hookName)
-		u.notifyHookCompleted(hookName, hctx)
+		logger.Infof("ran %q hook", hookContext.hookName)
+		u.notifyHookCompleted(hookContext.hookName, hookContext)
 	} else {
-		logger.Infof("skipped %q hook (missing)", hookName)
+		logger.Infof("skipped %q hook (missing)", hookContext.hookName)
 	}
 	return u.commitHook(hi)
 }

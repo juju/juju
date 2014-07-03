@@ -41,7 +41,7 @@ type HookRunner struct {
 	proxySettings proxy.Settings
 }
 
-func NewHookRunner(unit *uniter.Unit, id, uuid, envName string, relations map[int]*ContextRelation,
+func NewHookRunner(unit *uniter.Unit, uuid, envName string, relations map[int]*ContextRelation,
 	apiAddrs []string, serviceOwner string, proxySettings proxy.Settings) (*HookContext, error) {
 
 	// Get and cache the addresses.
@@ -55,9 +55,8 @@ func NewHookRunner(unit *uniter.Unit, id, uuid, envName string, relations map[in
 		return nil, err
 	}
 
-	ctx := &HookRunner{
+	runner := &HookRunner{
 		unit:          unit,
-		id:            id,
 		uuid:          uuid,
 		envName:       envName,
 		relations:     relations,
@@ -65,5 +64,5 @@ func NewHookRunner(unit *uniter.Unit, id, uuid, envName string, relations map[in
 		serviceOwner:  serviceOwner,
 		proxySettings: proxySettings,
 	}
-	return ctx, nil
+	return runner, nil
 }

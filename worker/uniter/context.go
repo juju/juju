@@ -29,6 +29,7 @@ import (
 // to implement jujuc.Context.
 type HookContext struct {
 	runner        *HookRunner
+	id            string
 	info          *hook.Info
 	hookName      string
 	actionResults map[string]interface{}
@@ -48,8 +49,10 @@ func IsMissingHookError(err error) bool {
 	return ok
 }
 
-func NewHookContext(hi *hook.Info, hookName string, actionParams map[string]interface{}) *HookContext {
+func NewHookContext(hr *HookRunner, id, hi *hook.Info, hookName string, actionParams map[string]interface{}) *HookContext {
 	newContext := &HookContext{
+		runner:       hr,
+		id:           id,
 		info:         hi,
 		hookName:     hookName,
 		actionParams: actionParams,
@@ -85,7 +88,7 @@ func (ctx *HookContext) OwnerTag() string {
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	if ctx.configSettings == nil {
 		var err error
-		ctx.configSettings, err = ctx.unit.ConfigSettings()
+		ctx.configSettings, err = ctx.runner.unit.ConfigSettings()
 		if err != nil {
 			return nil, err
 		}
@@ -110,13 +113,13 @@ func (ctx *HookContext) RemoteUnitName() (string, bool) {
 }
 
 func (ctx *HookContext) Relation(id int) (jujuc.ContextRelation, bool) {
-	r, found := ctx.relations[id]
+	r, found := ctx.runner.relations[id]
 	return r, found
 }
 
 func (ctx *HookContext) RelationIds() []int {
 	ids := []int{}
-	for id := range ctx.relations {
+	for id := range ctx.runner.relations {
 		ids = append(ids, id)
 	}
 	return ids
@@ -133,10 +136,10 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"CHARM_DIR=" + charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
-		"JUJU_UNIT_NAME=" + ctx.unit.Name(),
-		"JUJU_ENV_UUID=" + ctx.uuid,
-		"JUJU_ENV_NAME=" + ctx.envName,
-		"JUJU_API_ADDRESSES=" + strings.Join(ctx.apiAddrs, " "),
+		"JUJU_UNIT_NAME=" + ctx.runner.unit.Name(),
+		"JUJU_ENV_UUID=" + ctx.runner.uuid,
+		"JUJU_ENV_NAME=" + ctx.runner.envName,
+		"JUJU_API_ADDRESSES=" + strings.Join(ctx.runner.apiAddrs, " "),
 	}
 	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())
@@ -144,7 +147,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		name, _ := ctx.RemoteUnitName()
 		vars = append(vars, "JUJU_REMOTE_UNIT="+name)
 	}
-	vars = append(vars, ctx.proxySettings.AsEnvironmentValues()...)
+	vars = append(vars, ctx.runner.proxySettings.AsEnvironmentValues()...)
 	return vars
 }
 
