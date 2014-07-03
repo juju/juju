@@ -151,6 +151,13 @@ def scp_logs(log_names, directory):
         '-o', 'StrictHostKeyChecking no'] + log_names + [directory])
 
 
+def copy_local_logs(log_names, directory):
+    # Some log files are owned by syslog and readable only by
+    # this user.
+    subprocess.check_call(['sudo', 'chmod', 'go+r'] + log_names)
+    scp_logs(log_names, directory)
+
+
 def dump_logs(env, host, directory, host_id=None):
     log_names = []
     if env.local:
@@ -159,7 +166,7 @@ def dump_logs(env, host, directory, host_id=None):
         log_dir = os.path.join(local, 'log')
         log_names.extend(os.path.join(log_dir, l) for l
                          in os.listdir(log_dir) if l.endswith('.log'))
-        scp_logs(log_names, directory)
+        copy_local_logs(log_names, directory)
     else:
         log_names = [
             'ubuntu@%s:/var/log/%s' % (host, n)
