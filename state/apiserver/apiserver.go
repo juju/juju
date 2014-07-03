@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -36,7 +37,7 @@ type Server struct {
 	tomb      tomb.Tomb
 	wg        sync.WaitGroup
 	state     *state.State
-	addr      net.Addr
+	addr      string
 	dataDir   string
 	logDir    string
 	limiter   utils.Limiter
@@ -53,7 +54,7 @@ type LoginValidator func(params.Creds) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Addr      string
+	Port      int
 	Cert      []byte
 	Key       []byte
 	DataDir   string
@@ -65,7 +66,8 @@ type ServerConfig struct {
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
 func NewServer(s *state.State, cfg ServerConfig) (*Server, error) {
-	lis, err := net.Listen("tcp", cfg.Addr)
+	endpoint := net.JoinHostPort("", strconv.Itoa(cfg.Port))
+	lis, err := net.Listen("tcp", endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -74,9 +76,13 @@ func NewServer(s *state.State, cfg ServerConfig) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
+	_, listeningPort, err := net.SplitHostPort(lis.Addr().String())
+	if err != nil {
+		return nil, err
+	}
 	srv := &Server{
 		state:     s,
-		addr:      lis.Addr(),
+		addr:      net.JoinHostPort("localhost", listeningPort),
 		dataDir:   cfg.DataDir,
 		logDir:    cfg.LogDir,
 		limiter:   utils.NewLimiter(loginRateLimit),
@@ -269,7 +275,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 
 // Addr returns the address that the server is listening on.
 func (srv *Server) Addr() string {
-	return srv.addr.String()
+	return srv.addr
 }
 
 func (srv *Server) validateEnvironUUID(envUUID string) error {
