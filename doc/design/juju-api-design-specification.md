@@ -74,25 +74,57 @@ the coaller gets notified when the request has finished.
 
 Core package for the API is [github.com/juju/juju/rpc](https://github.com/juju/juju/tree/master/rpc).
 It provides a server type using WebSockets to receive requests in JSON, unmarshal 
-them into Go structs and dispatch them using a registered root. It's the task 
-of this root object to act as a factory returning instances of the types specified 
-in each request. The individual requests are then mapped to methods of theses instances 
-which implement the business logic. 
+them into Go structs and dispatch them using a registry. This registry maps the name
+of the type and the version, both are parts of each request, to a factory method with
+the signature
+
+```
+FactoryMethod(entityID string) (RequestHandlerInstance, error)
+```
+
+The individual requests are then mapped to action methods of these request handler 
+instances. Here the business logic is implemented.
 
 Those methods must implement one of the following signatures:
 
-- `Method()`
-- `Method() ResponseType`
-- `Method() (ResponseType, error)`
-- `Method() error`
-- `Method(ParameterType)`
-- `Method(ParameterType) ResponseType`
-- `Method(ParameterType) (ResponseType, error)`
-- `Method(ParameterType) error`
+- `RequestMethod()`
+- `RequestMethod() ResponseType`
+- `RequestMethod() (ResponseType, error)`
+- `RequestMethod() error`
+- `RequestMethod(ParameterType)`
+- `RequestMethod(ParameterType) ResponseType`
+- `RequestMethod(ParameterType) (ResponseType, error)`
+- `RequestMethod(ParameterType) error`
 
 Both, `ParameterType` and `ResponseType` have to be structs. Possible responses and
 errors are marshaled again to JSON and wrapped into an envelope containing also the 
 request identifier.
+
+##### Example
+
+If the client wants to change the addresses of a number of machines, it sends the
+request:
+
+```
+{
+	RequestId: 1234,
+	Type: "Machiner",
+	Version: 0,
+	Request: "SetMachineAddresses",
+	Params: {
+		MachineAddresses: [
+			{Tag: "machine-1", Addresses: ...},
+			{Tag: "machine-2", Addresses: ...}
+		]
+	}
+}
+```
+
+In this case the RPC will create and instance of `apiserver.MachinerAPI` in the
+requested version. This type provides a method `SetMachineAddresses()` with
+`params.SetMachinesAddresses` as argument, and `params.ErrorResults` and `error`
+as results. The parameters will be unmarshalled to the argument type and
+the method called with it.
 
 #### API Server
 
