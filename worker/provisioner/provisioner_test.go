@@ -215,7 +215,6 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 			return
 		}
 	}
-	return
 }
 
 // checkNoOperations checks that the environ was not operated upon.

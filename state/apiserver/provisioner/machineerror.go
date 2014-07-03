@@ -76,5 +76,4 @@ func (w *machineErrorRetry) loop() error {
 			out = nil
 		}
 	}
-	return nil
 }
