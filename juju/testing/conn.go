@@ -276,18 +276,22 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 	}
-	err := s.Conn.Close()
-	if serverAlive {
-		c.Assert(err, gc.IsNil)
+	if s.Conn != nil {
+		err := s.Conn.Close()
+		if serverAlive {
+			c.Assert(err, gc.IsNil)
+		}
+		s.Conn = nil
+		s.State = nil
 	}
-	err = s.APIConn.Close()
-	if serverAlive {
-		c.Assert(err, gc.IsNil)
+	if s.APIConn != nil {
+		err := s.APIConn.Close()
+		if serverAlive {
+			c.Assert(err, gc.IsNil)
+		}
+		s.apiStates = nil
 	}
 	dummy.Reset()
-	s.apiStates = nil
-	s.Conn = nil
-	s.State = nil
 	utils.SetHome(s.oldHome)
 	osenv.SetJujuHome(s.oldJujuHome)
 	s.oldHome = ""
