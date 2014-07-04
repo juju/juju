@@ -21,6 +21,7 @@ type hostPortTest struct {
 	about         string
 	hostPorts     []network.HostPort
 	expectedIndex int
+	preferIPv6    bool
 }
 
 // hostPortTest returns the HostPort equivalent test to the
@@ -34,6 +35,7 @@ func (t selectTest) hostPortTest() hostPortTest {
 		about:         t.about,
 		hostPorts:     hps,
 		expectedIndex: t.expectedIndex,
+		preferIPv6:    t.preferIPv6,
 	}
 }
 
@@ -50,24 +52,30 @@ func (s *PortSuite) TestSelectPublicHostPort(c *gc.C) {
 	for i, t0 := range selectPublicTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		c.Assert(network.SelectPublicHostPort(t.hostPorts), jc.DeepEquals, t.expected())
+		network.PreferIPv6 = t.preferIPv6
+		c.Check(network.SelectPublicHostPort(t.hostPorts), jc.DeepEquals, t.expected())
 	}
+	network.PreferIPv6 = false
 }
 
 func (s *PortSuite) TestSelectInternalHostPort(c *gc.C) {
 	for i, t0 := range selectInternalTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		c.Assert(network.SelectInternalHostPort(t.hostPorts, false), jc.DeepEquals, t.expected())
+		network.PreferIPv6 = t.preferIPv6
+		c.Check(network.SelectInternalHostPort(t.hostPorts, false), jc.DeepEquals, t.expected())
 	}
+	network.PreferIPv6 = false
 }
 
 func (s *PortSuite) TestSelectInternalMachineHostPort(c *gc.C) {
 	for i, t0 := range selectInternalMachineTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		c.Assert(network.SelectInternalHostPort(t.hostPorts, true), gc.DeepEquals, t.expected())
+		network.PreferIPv6 = t.preferIPv6
+		c.Check(network.SelectInternalHostPort(t.hostPorts, true), gc.DeepEquals, t.expected())
 	}
+	network.PreferIPv6 = false
 }
 
 func (*PortSuite) TestAddressesWithPort(c *gc.C) {

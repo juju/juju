@@ -50,7 +50,7 @@ var _ = gc.Suite(&MongoSuite{})
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.root = newServer(c)
-	s.dialAndTestInitiate(c)
+	s.dialAndTestInitiate(c, s.root, s.root.Addr())
 }
 
 func (s *MongoSuite) TearDownTest(c *gc.C) {
@@ -60,19 +60,19 @@ func (s *MongoSuite) TearDownTest(c *gc.C) {
 
 var initialTags = map[string]string{"foo": "bar"}
 
-func (s *MongoSuite) dialAndTestInitiate(c *gc.C) {
-	session := s.root.MustDialDirect()
+func (s *MongoSuite) dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string) {
+	session := inst.MustDialDirect()
 	defer session.Close()
 
 	mode := session.Mode()
-	err := Initiate(session, s.root.Addr(), rsName, initialTags)
+	err := Initiate(session, addr, rsName, initialTags)
 	c.Assert(err, gc.IsNil)
 
 	// make sure we haven't messed with the session's mode
 	c.Assert(session.Mode(), gc.Equals, mode)
 
 	// Ids start at 1 for us, so we can differentiate between set and unset
-	expectedMembers := []Member{Member{Id: 1, Address: s.root.Addr(), Tags: initialTags}}
+	expectedMembers := []Member{Member{Id: 1, Address: addr, Tags: initialTags}}
 
 	// need to set mode to strong so that we wait for the write to succeed
 	// before reading and thus ensure that we're getting consistent reads.
@@ -123,30 +123,49 @@ func attemptLoop(c *gc.C, strategy utils.AttemptStrategy, desc string, f func() 
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *MongoSuite) TestAddRemoveSetIPv6(c *gc.C) {
+	root := newServer(c)
+	defer root.Destroy()
+	// Note: we use the ::1:port format because mongo doesn't understand
+	// [::1]:port
+	getAddr := func(inst *gitjujutesting.MgoInstance) string {
+		return fmt.Sprintf("::1:%v", inst.Port())
+	}
+	s.dialAndTestInitiate(c, root, getAddr(root))
+	s.assertAddRemoveSet(c, root, getAddr)
+}
+
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
-	session := s.root.MustDial()
+	getAddr := func(inst *gitjujutesting.MgoInstance) string {
+		return inst.Addr()
+	}
+	s.assertAddRemoveSet(c, s.root, getAddr)
+}
+
+func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(*gitjujutesting.MgoInstance) string) {
+	session := root.MustDial()
 	defer session.Close()
 
 	members := make([]Member, 0, 5)
 
 	// Add should be idempotent, so re-adding root here shouldn't result in
 	// two copies of root in the replica set
-	members = append(members, Member{Address: s.root.Addr(), Tags: initialTags})
+	members = append(members, Member{Address: getAddr(root), Tags: initialTags})
 
 	instances := make([]*gitjujutesting.MgoInstance, 5)
-	instances[0] = s.root
+	instances[0] = root
 	for i := 1; i < len(instances); i++ {
 		inst := newServer(c)
 		instances[i] = inst
 		defer inst.Destroy()
 		defer func() {
-			err := Remove(session, inst.Addr())
+			err := Remove(session, getAddr(inst))
 			c.Assert(err, gc.IsNil)
 		}()
 		key := fmt.Sprintf("key%d", i)
 		val := fmt.Sprintf("val%d", i)
 		tags := map[string]string{key: val}
-		members = append(members, Member{Address: inst.Addr(), Tags: tags})
+		members = append(members, Member{Address: getAddr(inst), Tags: tags})
 	}
 
 	// We allow for up to 2m per operation, since Add, Set, etc. call
