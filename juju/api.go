@@ -385,8 +385,9 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, st apiState) error {
 	for _, serverHostPorts := range st.APIHostPorts() {
 		for _, hostPort := range serverHostPorts {
 			// Only cache addresses that are likely to be usable,
-			// exclude IPv6 for now and localhost style ones.
-			if hostPort.Type != network.IPv6Address && hostPort.Scope != network.ScopeMachineLocal {
+			// exclude localhost style ones.
+			if hostPort.Scope != network.ScopeMachineLocal &&
+				hostPort.Scope != network.ScopeLinkLocal {
 				addrs = append(addrs, hostPort.NetAddr())
 			}
 		}
