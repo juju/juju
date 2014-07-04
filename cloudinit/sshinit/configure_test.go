@@ -162,3 +162,11 @@ func (s *configureSuite) TestAptUpgrade(c *gc.C) {
 	cfg.SetAptUpgrade(true)
 	assertScriptMatches(c, cfg, aptGetUpgradePattern, true)
 }
+
+func (s *configureSuite) TestAptGetWrapper(c *gc.C) {
+	aptgetRegexp := "(.|\n)* $(which eatmydata || true) " + regexp.QuoteMeta(sshinit.Aptget)
+	cfg := cloudinit.New()
+	cfg.SetAptUpdate(true)
+	cfg.SetAptGetWrapper("eatmydata")
+	assertScriptMatches(c, cfg, aptgetRegexp, false)
+}
