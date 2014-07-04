@@ -30,7 +30,9 @@ var configDefaults = schema.Defaults{
 	// For backward-compatibility, maas-agent-name is the empty string
 	// by default. However, new environments should all use a UUID.
 	"maas-agent-name": "",
-	"network-bridge":  "eth0",
+	// For backward-compatibility, network-bridge is the empty string
+	// by default "eth0" will be returned.
+	"network-bridge": "",
 }
 
 type maasEnvironConfig struct {
@@ -39,7 +41,10 @@ type maasEnvironConfig struct {
 }
 
 func (cfg *maasEnvironConfig) networkBridge() string {
-	return cfg.attrs["network-bridge"].(string)
+	if bridge, ok := cfg.attrs["network-bridge"].(string); ok && bridge != "" {
+		return bridge
+	}
+	return "eth0"
 }
 
 func (cfg *maasEnvironConfig) maasServer() string {
