@@ -76,46 +76,90 @@ resolve the request to a method of a responsible instance and call it with possi
 request parameters. In case of a returned value the subsystem also marshals this and
 send it back as an answer to the caller.
 
-The *API server* subsystem implements the server side of the API. 
+The *API server* subsystem implements the server side of the API. It provides a root
+object for the *RPC* subsystem using a global registry. Here factory methods are registered
+for request types and versions. 
 
-### Note: Order
+When receiving a request the *RPC* uses a defined finder method of the root object 
+interface to retrieve a *method caller* instance matching to the type, version and 
+request information that are part of the request. In case of success the *RPC* executes 
+a call of that method together with an optional ID of the typed instance and also
+optional arguments. The root object of the *API server* returns a method caller 
+which uses the factory method registered for type and version. This factory method
+is called with the *state*, *resources* and an *authorizer* as arguments. The resources 
+hold all the resources for a connection and will be cleaned up when the connection 
+terminates. The authorizer represents a value that can be asked for authorization 
+information on its associated authenticated entity. It allows an API 
+implementation to ask questions about the client that is currently connected.
 
-1. `rpc.NewConn` with a codec return a connection
-2. `connection.Serve` with a root object for the dispatching of requests
-3. `connection.Start` to start serving
-4. calling a named like the request *type* together with an instance ID 
+The result of calling the factory method is an initialized new instance of the request
+type to handle the request itself. The *RPC* subsystem maps the request name, which is
+part of the request, to one of the methods of this instance. There is a number of valid 
+methods signatures, depending on the possible combination of calling parameters, responses, 
+and errors (see description in *Component Design*). 
+
+*TODO: Go API client description.*
 
 ## Data Design
+
+### Message
+
+Messages are encoded in JSON, the same format is used for requests and responses.
+All fields but the request ID are allowed to be empty.
+
+- **RequestId** (Number) holds the sequence number of the request.
+- **Type** (String) holds the type of object to act on.
+- **Version** (Number) holds the version of Type we will be acting on.
+- **Id** (String) holds the ID of the object to act on.
+- **Request** (String) holds the action to perform on the object.
+- **Params** (JSON) holds an optional parameter as JSON structure.
+- **Error** (String) holds the error, if any.
+- **ErrorCode** (String) holds the code of the error, if any.
+- **Response** (JSON) holds an optional response as JSON structure.
 
 ## Component Design
 
 ### RPC
 
-Core package for the API is [github.com/juju/juju/rpc](https://github.com/juju/juju/tree/master/rpc).
-It provides a server type using WebSockets to receive requests in JSON, unmarshal 
-them into Go structs and dispatch them using a global registry. This registry maps the 
-name of the type and the version, both are parts of each request, to a factory method
-with the signature
+Core package for the API is [rpc](https://github.com/juju/juju/tree/master/rpc).
+It defines the `Codec` interface for the reading and writing of messages in an RPC
+session and the `MethodFinder` interface to retrieve the method to call for a request.
+The endpoint type `Conn` uses implementations of `Codec` and `MethodFinder`. This way
+diferent implementations can be used. 
+
+The standard `Codec` is implemented in [jsoncodec](https://github.com/juju/juju/tree/master/rpc/jsoncodec).
+It uses WebSockets for communication and JSON for encoding. The standard `MethodFinder`
+is implemented in [apiserver](https://github.com/juju/juju/tree/master/state/apiserver) (see
+below).
+
+The `MethodFinder` has to implement a method with the signature
 
 ```
-FactoryMethod(st *state.State,r *Resources, a Authorizer, id string) (interface{}, error)
+FindMethod(typeName string, version int, methodName string) (rpcreflect.MethodCaller, error)
 ```
 
-The individual requests are then mapped to action methods of these request handler 
-instances. Here the business logic is implemented.
+The returned `MethodCaller` is an interface implementing the method
 
-Those methods must implement one of the following signatures:
+```
+Call(objId string, arg reflect.Value) (reflect.Value, error)
+```
+
+beside helpers returning the parameter and the result type. It executes the calling of the
+request method on an initialized instance matching to type, version and request name
+together with the request parameters and returning the request result. Those request
+methods implement the business logic and must follow on of the following signatures
+depending on the combination of parameter, result, and error.
 
 - `RequestMethod()`
-- `RequestMethod() ResponseType`
-- `RequestMethod() (ResponseType, error)`
+- `RequestMethod() ResultType`
+- `RequestMethod() (ResultType, error)`
 - `RequestMethod() error`
 - `RequestMethod(ParameterType)`
-- `RequestMethod(ParameterType) ResponseType`
-- `RequestMethod(ParameterType) (ResponseType, error)`
+- `RequestMethod(ParameterType) ResultType`
+- `RequestMethod(ParameterType) (ResultType, error)`
 - `RequestMethod(ParameterType) error`
 
-Both, `ParameterType` and `ResponseType` have to be structs. Possible responses and
+Both, `ParameterType` and `ResultType` have to be structs. Possible results and
 errors are marshaled again to JSON and wrapped into an envelope containing also the 
 request identifier.
 
@@ -148,16 +192,15 @@ the method called with it.
 ### API Server
 
 The business logic itself is implemented in 
-[github.com/juju/juju/state/apiserver](https://github.com/juju/juju/tree/master/state/apiserver) 
+[apiserver](https://github.com/juju/juju/tree/master/state/apiserver) 
 and its sub-packages. They are using the types in 
-[github.com/juju/juju/state](https://github.com/juju/juju/tree/master/state) representing 
+[state](https://github.com/juju/juju/tree/master/state) representing 
 the Juju model.
 
 ### API
 
 The according client logic used by the Juju CLI and the Juju daemon, which 
-are also developed in Go, is located in 
-[github.com/juju/juju/state/api](https://github.com/juju/juju/tree/master/state/api).
+are also developed in Go, is located in [api](https://github.com/juju/juju/tree/master/state/api).
 
 ## Human Interface Design
 
