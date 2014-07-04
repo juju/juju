@@ -8,6 +8,8 @@ import (
 	"sort"
 	"strconv"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/agent"
 	"github.com/juju/juju/state/api/charmrevisionupdater"
@@ -37,7 +39,11 @@ func (st *State) Login(tag, password, nonce string) error {
 		Nonce:    nonce,
 	}, &result)
 	if err == nil {
-		st.authTag = tag
+		authtag, err := names.ParseTag(tag)
+		if err != nil {
+			return err
+		}
+		st.authTag = authtag
 		hostPorts, err := addAddress(result.Servers, st.addr)
 		if err != nil {
 			st.Close()
@@ -130,7 +136,8 @@ func (st *State) Provisioner() *provisioner.State {
 // Uniter returns a version of the state that provides functionality
 // required by the uniter worker.
 func (st *State) Uniter() *uniter.State {
-	return uniter.NewState(st, st.authTag)
+	// TODO(dfc) yes, this can panic, we never checked before
+	return uniter.NewState(st, st.authTag.(names.UnitTag))
 }
 
 // Firewaller returns a version of the state that provides functionality

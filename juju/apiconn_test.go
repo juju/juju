@@ -800,21 +800,25 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointRefresh(c *gc.C) {
 	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
 }
 
-func (s *APIEndpointForEnvSuite) TestAPIEndpointNotMachineLocal(c *gc.C) {
+func (s *APIEndpointForEnvSuite) TestAPIEndpointNotMachineLocalOrLinkLocal(c *gc.C) {
 	store := newConfigStore("env-name", dummyStoreInfo)
 	called := 0
 	hostPorts := [][]network.HostPort{
 		network.AddressesWithPort([]network.Address{
-			network.NewAddress("1.0.0.1", network.ScopePublic),
-			network.NewAddress("192.0.0.1", network.ScopeCloudLocal),
-			network.NewAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewAddress("1.0.0.1", network.ScopeUnknown),
+			network.NewAddress("192.0.0.1", network.ScopeUnknown),
+			network.NewAddress("127.0.0.1", network.ScopeUnknown),
 			network.NewAddress("localhost", network.ScopeMachineLocal),
+			network.NewAddress("::1", network.ScopeUnknown),
+			network.NewAddress("fe80::1", network.ScopeUnknown),
+			network.NewAddress("fc00::1", network.ScopeUnknown),
+			network.NewAddress("2001:db1::1", network.ScopeUnknown),
 		}, 1234),
 		network.AddressesWithPort([]network.Address{
 			network.NewAddress("1.0.0.2", network.ScopeUnknown),
 			network.NewAddress("2002:0:0:0:0:0:100:2", network.ScopeUnknown),
-			network.NewAddress("::1", network.ScopeMachineLocal),
-			network.NewAddress("127.0.0.1", network.ScopeMachineLocal),
+			network.NewAddress("::1", network.ScopeUnknown),
+			network.NewAddress("127.0.0.1", network.ScopeUnknown),
 			network.NewAddress("localhost", network.ScopeMachineLocal),
 		}, 1235),
 	}
@@ -830,6 +834,9 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointNotMachineLocal(c *gc.C) {
 	c.Check(endpoint.Addresses, gc.DeepEquals, []string{
 		"1.0.0.1:1234",
 		"192.0.0.1:1234",
+		"[fc00::1]:1234",
+		"[2001:db1::1]:1234",
 		"1.0.0.2:1235",
+		"[2002:0:0:0:0:0:100:2]:1235",
 	})
 }

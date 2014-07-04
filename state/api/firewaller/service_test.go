@@ -4,6 +4,7 @@
 package firewaller_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -24,7 +25,7 @@ func (s *serviceSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
 
 	var err error
-	apiUnit, err := s.firewaller.Unit(s.units[0].Tag().String())
+	apiUnit, err := s.firewaller.Unit(s.units[0].Tag().(names.UnitTag))
 	s.apiService, err = apiUnit.Service()
 	c.Assert(err, gc.IsNil)
 }

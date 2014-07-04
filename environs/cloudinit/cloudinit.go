@@ -206,11 +206,13 @@ func AddAptCommands(proxySettings proxy.Settings, c *cloudinit.Config) {
 	// Bring packages up-to-date.
 	c.SetAptUpdate(true)
 	c.SetAptUpgrade(true)
+	c.SetAptGetWrapper("eatmydata")
 
-	// juju requires git for managing charm directories.
-	c.AddPackage("git")
 	c.AddPackage("curl")
 	c.AddPackage("cpu-checker")
+	// TODO(axw) 2014-07-02 #1277359
+	// Don't install bridge-utils in cloud-init;
+	// leave it to the networker worker.
 	c.AddPackage("bridge-utils")
 	c.AddPackage("rsyslog-gnutls")
 

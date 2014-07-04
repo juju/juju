@@ -243,12 +243,17 @@ func (f *filter) maybeStopWatcher(w watcher.Stopper) {
 }
 
 func (f *filter) loop(unitTag string) (err error) {
+	// TODO(dfc) named return value is a time bomb
 	defer func() {
 		if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 			err = worker.ErrTerminateAgent
 		}
 	}()
-	if f.unit, err = f.st.Unit(unitTag); err != nil {
+	tag, err := names.ParseUnitTag(unitTag)
+	if err != nil {
+		return err
+	}
+	if f.unit, err = f.st.Unit(tag); err != nil {
 		return err
 	}
 	if err = f.unitChanged(); err != nil {

@@ -48,6 +48,12 @@ type AptSource struct {
 	Prefs  *AptPreferences `yaml:"-"`
 }
 
+// AptGetWrapper describes a wrapper command for running apt-get.
+type AptGetWrapper struct {
+	Command string
+	Enabled interface{} // true, false or "auto"
+}
+
 // AptPreferences is a set of apt_preferences(5) compatible
 // preferences for an apt source. It can be used to override the
 // default priority for the source. Path where the file will be

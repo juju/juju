@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/network"
@@ -35,7 +36,11 @@ func NewMachiner(st *machiner.State, agentConfig agent.Config) worker.Worker {
 
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
-	m, err := mr.st.Machine(mr.tag)
+	tag, err := names.ParseMachineTag(mr.tag)
+	if err != nil {
+		return nil, err
+	}
+	m, err := mr.st.Machine(tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, worker.ErrTerminateAgent
 	} else if err != nil {
