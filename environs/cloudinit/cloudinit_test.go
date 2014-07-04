@@ -141,7 +141,7 @@ echo 'Bootstrapping Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(jujud-machine-0\)'.*
-cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
+cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0.log\\n  chmod 0600 /var/log/juju/machine-0.log\\n\\n  exec /var/lib/juju/tools/machine-0/jujud machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-0
 `,
 	}, {
@@ -239,7 +239,7 @@ install -m 600 /dev/null '/var/lib/juju/agents/machine-99/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/agent\.conf'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
 echo 'Starting Juju machine agent \(jujud-machine-99\)'.*
-cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-99/jujud machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nEOF\\n
+cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chmod 0600 /var/log/juju/machine-99\.log\\n\\n  exec /var/lib/juju/tools/machine-99/jujud machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-99
 `,
 	}, {
@@ -278,7 +278,7 @@ mkdir -p '/var/lib/juju/agents/machine-2-lxc-1'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-2-lxc-1'
-cat >> /etc/init/jujud-machine-2-lxc-1\.conf << 'EOF'\\ndescription "juju machine-2-lxc-1 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-2-lxc-1/jujud machine --data-dir '/var/lib/juju' --machine-id 2/lxc/1 --debug >> /var/log/juju/machine-2-lxc-1\.log 2>&1\\nEOF\\n
+cat >> /etc/init/jujud-machine-2-lxc-1\.conf << 'EOF'\\ndescription "juju machine-2-lxc-1 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-2-lxc-1\.log\\n  chmod 0600 /var/log/juju/machine-2-lxc-1\.log\\n\\n  exec /var/lib/juju/tools/machine-2-lxc-1/jujud machine --data-dir '/var/lib/juju' --machine-id 2/lxc/1 --debug >> /var/log/juju/machine-2-lxc-1\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-2-lxc-1
 `,
 	}, {
@@ -421,29 +421,30 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		data, err := ci.Render()
 		c.Assert(err, gc.IsNil)
 
-		x := make(map[interface{}]interface{})
-		err = goyaml.Unmarshal(data, &x)
+		configKeyValues := make(map[interface{}]interface{})
+		err = goyaml.Unmarshal(data, &configKeyValues)
 		c.Assert(err, gc.IsNil)
 
-		c.Check(x["apt_get_wrapper"], gc.DeepEquals, map[interface{}]interface{}{
+		c.Check(configKeyValues["apt_get_wrapper"], gc.DeepEquals, map[interface{}]interface{}{
 			"command": "eatmydata",
 			"enabled": "auto",
 		})
-		c.Check(x["apt_upgrade"], gc.Equals, true)
-		c.Check(x["apt_update"], gc.Equals, true)
+		c.Check(configKeyValues["apt_upgrade"], gc.Equals, true)
+		c.Check(configKeyValues["apt_update"], gc.Equals, true)
 
-		scripts := getScripts(x)
+		scripts := getScripts(configKeyValues)
 		assertScriptMatch(c, scripts, test.expectScripts, !test.inexactMatch)
 		if test.cfg.Config != nil {
-			checkEnvConfig(c, test.cfg.Config, x, scripts)
+			checkEnvConfig(c, test.cfg.Config, configKeyValues, scripts)
 		}
-		checkPackage(c, x, "curl", true)
+		checkPackage(c, configKeyValues, "curl", true)
+
 		tag := names.NewMachineTag(test.cfg.MachineId).String()
 		acfg := getAgentConfig(c, tag, scripts)
 		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
 		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
 		needCloudArchive := test.cfg.Tools.Version.Series == "precise"
-		checkAptSource(c, x, source, cloudinit.CanonicalCloudArchiveSigningKey, needCloudArchive)
+		checkAptSource(c, configKeyValues, source, cloudinit.CanonicalCloudArchiveSigningKey, needCloudArchive)
 	}
 }
 
@@ -477,14 +478,14 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	c.Check(runCmd[0], gc.Equals, script)
 }
 
-func getScripts(x map[interface{}]interface{}) []string {
+func getScripts(configKeyValue map[interface{}]interface{}) []string {
 	var scripts []string
-	if bootcmds, ok := x["bootcmd"]; ok {
+	if bootcmds, ok := configKeyValue["bootcmd"]; ok {
 		for _, s := range bootcmds.([]interface{}) {
 			scripts = append(scripts, s.(string))
 		}
 	}
-	for _, s := range x["runcmd"].([]interface{}) {
+	for _, s := range configKeyValue["runcmd"].([]interface{}) {
 		scripts = append(scripts, s.(string))
 	}
 	return scripts
@@ -496,23 +497,28 @@ type line struct {
 }
 
 func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
-	for _, s := range got {
-		c.Logf("script: %s", regexp.QuoteMeta(strings.Replace(s, "\n", "\\n", -1)))
+
+	// Convert string slice into line struct slice
+	assembleLines := func(lines []string, lineProcessor func(string) string) []line {
+		var assembledLines []line
+		for lineIdx, currLine := range lines {
+			if nil != lineProcessor {
+				currLine = lineProcessor(currLine)
+			}
+			assembledLines = append(assembledLines, line{
+				index: lineIdx,
+				line:  currLine,
+			})
+		}
+		return assembledLines
 	}
-	var pats []line
-	for i, pat := range strings.Split(strings.Trim(expect, "\n"), "\n") {
-		pats = append(pats, line{
-			index: i,
-			line:  pat,
-		})
-	}
-	var scripts []line
-	for i := range got {
-		scripts = append(scripts, line{
-			index: i,
-			line:  strings.Replace(got[i], "\n", "\\n", -1), // make .* work
-		})
-	}
+
+	pats := assembleLines(strings.Split(strings.Trim(expect, "\n"), "\n"), nil)
+	scripts := assembleLines(got, func(line string) string {
+		return strings.Replace(line, "\n", "\\n", -1) // make .* work
+	})
+
+	// Pop patterns and scripts off the head as we find pairs
 	for {
 		switch {
 		case len(pats) == 0 && len(scripts) == 0:
@@ -535,7 +541,6 @@ func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
 				scripts = scripts[1:]
 			} else if exact {
 				c.Assert(scripts[0].line, gc.Matches, pats[0].line, gc.Commentf("line %d", scripts[0].index))
-				panic("unreachable")
 			} else {
 				scripts = scripts[1:]
 			}
