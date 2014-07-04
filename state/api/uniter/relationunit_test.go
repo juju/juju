@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"github.com/juju/charm"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -57,7 +58,8 @@ func (s *relationUnitSuite) getRelationUnits(c *gc.C) (*state.RelationUnit, *uni
 	c.Assert(err, gc.IsNil)
 	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag().String())
 	c.Assert(err, gc.IsNil)
-	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().String())
+	// TODO(dfc)
+	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRelation.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -160,7 +162,7 @@ func (s *relationUnitSuite) TestEnterScopeErrCannotEnterScopeYet(c *gc.C) {
 	err = loggingSub.Destroy()
 	c.Assert(err, gc.IsNil)
 
-	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().String())
+	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	apiRel, err := s.uniter.Relation(subRel.Tag().String())
 	c.Assert(err, gc.IsNil)
@@ -247,7 +249,7 @@ func (s *relationUnitSuite) TestWatchRelationUnits(c *gc.C) {
 
 	apiRel, err := s.uniter.Relation(s.stateRelation.Tag().String())
 	c.Assert(err, gc.IsNil)
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
+	apiUnit, err := s.uniter.Unit(names.NewUnitTag("wordpress/0"))
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)

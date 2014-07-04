@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state/api/params"
@@ -104,7 +105,7 @@ func (s *settingsSuite) TestWrite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.assertInScope(c, wpRelUnit, true)
 
-	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().String())
+	apiUnit, err := s.uniter.Unit(s.wordpressUnit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	apiRelation, err := s.uniter.Relation(s.stateRelation.Tag().String())
 	c.Assert(err, gc.IsNil)

@@ -10,6 +10,7 @@ import (
 
 	"github.com/juju/charm/hooks"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	ft "github.com/juju/testing/filetesting"
 	"github.com/juju/utils"
@@ -64,7 +65,7 @@ func (s *RelationerSuite) SetUpTest(c *gc.C) {
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
-	apiUnit, err := s.uniter.Unit(unit.Tag().String())
+	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	apiRel, err := s.uniter.Relation(s.rel.Tag().String())
 	c.Assert(err, gc.IsNil)
@@ -429,7 +430,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *gc.C) {
 	uniterState := st.Uniter()
 	c.Assert(uniterState, gc.NotNil)
 
-	apiUnit, err := uniterState.Unit(u.Tag().String())
+	apiUnit, err := uniterState.Unit(u.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	apiRel, err := uniterState.Relation(rel.Tag().String())
 	c.Assert(err, gc.IsNil)

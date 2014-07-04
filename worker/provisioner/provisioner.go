@@ -8,6 +8,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
@@ -248,8 +249,11 @@ func (p *containerProvisioner) loop() error {
 
 func (p *containerProvisioner) getMachine() (*apiprovisioner.Machine, error) {
 	if p.machine == nil {
-		var err error
-		if p.machine, err = p.st.Machine(p.agentConfig.Tag()); err != nil {
+		tag, err := names.ParseMachineTag(p.agentConfig.Tag())
+		if err != nil {
+			return nil, err
+		}
+		if p.machine, err = p.st.Machine(tag); err != nil {
 			logger.Errorf("%s is not in state", p.agentConfig.Tag())
 			return nil, err
 		}

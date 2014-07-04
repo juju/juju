@@ -30,6 +30,25 @@ func (cfg *Config) SetUser(user string) {
 	cfg.set("user", user != "", user)
 }
 
+// SetAptGetWrapper sets a wrapper program for "apt-get".
+// If the command does not exist, the wrapper will be
+// ignored.
+//
+// Note: support for apt_get_wrapper was introduced in
+// cloud-init 0.7.5, and will not be honoured by older
+// versions.
+func (cfg *Config) SetAptGetWrapper(wrapper string) {
+	cfg.set("apt_get_wrapper", wrapper != "", AptGetWrapper{wrapper, "auto"})
+}
+
+// AptGetWrapper returns the value set by SetAptGetWrapper,
+// or a zero AptGetWrapper struct if no call to SetAptGetWrapper
+// has been made.
+func (cfg *Config) AptGetWrapper() AptGetWrapper {
+	wrapper, _ := cfg.attrs["apt_get_wrapper"].(AptGetWrapper)
+	return wrapper
+}
+
 // SetAptUpgrade sets whether cloud-init runs "apt-get upgrade"
 // on first boot.
 func (cfg *Config) SetAptUpgrade(yes bool) {

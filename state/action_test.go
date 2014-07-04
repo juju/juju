@@ -214,17 +214,36 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit2)
 
+	// queue some actions before starting the watcher
+	_, err = unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+	_, err = unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+
 	// set up watcher on first unit
 	w := unit1.WatchActions()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertChange()
+	// make sure the previously pending actions are sent on the watcher
+	expect := expectActionIds(unit1, "0", "1")
+	wc.AssertChange(expect...)
 	wc.AssertNoChange()
 
+	// add watcher on unit2
+	w2 := unit2.WatchActions()
+	defer statetesting.AssertStop(c, w2)
+	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
+	wc2.AssertChange()
+	wc2.AssertNoChange()
+
 	// add action on unit2 and makes sure unit1 watcher doesn't trigger
+	// and unit2 watcher does
 	_, err = unit2.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+	expect2 := expectActionIds(unit2, "0")
+	wc2.AssertChange(expect2...)
+	wc2.AssertNoChange()
 
 	// add a couple actions on unit1 and make sure watcher sees events
 	_, err = unit1.AddAction("fakeaction", nil)
@@ -232,7 +251,7 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 	_, err = unit1.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 
-	expect := expectActionIds(unit1, "0", "1")
+	expect = expectActionIds(unit1, "2", "3")
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
 }

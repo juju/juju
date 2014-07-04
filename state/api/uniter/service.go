@@ -20,7 +20,7 @@ import (
 // Service represents the state of a service.
 type Service struct {
 	st   *State
-	tag  names.Tag
+	tag  names.ServiceTag
 	life params.Life
 }
 
