@@ -10,6 +10,7 @@ shift; shift
 FIXUP_SOURCES=""
 IS_LOCAL="false"
 RETRY="false"
+SAFE="false"
 while [[ "${1-}" != "" ]]; do
     case $1 in
         --force-archive)
@@ -17,6 +18,9 @@ while [[ "${1-}" != "" ]]; do
             ;;
         --retry)
             RETRY="true"
+            ;;
+        --safe)
+            SAFE="true"
             ;;
         --local)
             IS_LOCAL="true"
@@ -127,6 +131,8 @@ make build
 export JUJU_NOTEST_MONGOJS=1
 if [[ "$RETRY" == "true" ]]; then
     go test ./... || go test -p 2 ./...
+elif [[  "$SAFE" == "true"  ]]; then
+    go test -p 2 ./...
 else
     make check
 fi
