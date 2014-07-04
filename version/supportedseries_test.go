@@ -27,18 +27,18 @@ func (s *simplestreamsSuite) TearDownTest(c *gc.C) {
 
 var getOSFromSeriesTests = []struct {
 	series string
-	want version.OSType
-	err string
-} {{
+	want   version.OSType
+	err    string
+}{{
 	series: "precise",
-	want: version.Ubuntu,
+	want:   version.Ubuntu,
 }, {
 	series: "win2012r2",
-	want: version.Windows,
+	want:   version.Windows,
 }, {
 	// GetOSFromSeries only supports Ubuntu and Windows.
 	series: "mountainlion",
-	err: `invalid series "mountainlion"`,
+	err:    `invalid series "mountainlion"`,
 }}
 
 func (s *simplestreamsSuite) TestGetOSFromSeries(c *gc.C) {
