@@ -560,7 +560,6 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 			}
 		}
 	}
-	panic("watcher died")
 }
 
 func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
@@ -683,7 +682,9 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 		st, err := api.Open(conf.APIInfo(), fastDialOpts)
 		c.Assert(err, gc.IsNil)
 		defer st.Close()
-		m, err := st.Machiner().Machine(conf.Tag())
+		tag, err := names.ParseMachineTag(conf.Tag())
+		c.Assert(err, gc.IsNil)
+		m, err := st.Machiner().Machine(tag)
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})

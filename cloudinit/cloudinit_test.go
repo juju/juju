@@ -274,6 +274,13 @@ runcmd:
 			)
 		},
 	},
+	{
+		"SetAptGetWrapper",
+		"apt_get_wrapper:\n  command: eatmydata\n  enabled: auto\n",
+		func(cfg *cloudinit.Config) {
+			cfg.SetAptGetWrapper("eatmydata")
+		},
+	},
 }
 
 const (

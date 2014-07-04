@@ -52,12 +52,15 @@ var ubuntuSeries = []string{
 // TODO: Replace this with actuall full names once we compile a complete
 // list with al flavors
 var windowsVersions = map[string]string{
-	"Microsoft Hyper-V Server 2012 R2": "win2012hvr2",
-	"Microsoft Hyper-V Server 2012":    "win2012hv",
-	"Microsoft Windows Server 2012 R2": "win2012r2",
-	"Microsoft Windows Server 2012":    "win2012",
-	"Windows Storage Server 2012 R2":   "win2012r2",
-	"Windows Storage Server 2012":      "win2012",
+	"Hyper-V Server 2012 R2":         "win2012hvr2",
+	"Hyper-V Server 2012":            "win2012hv",
+	"Windows Server 2012 R2":         "win2012r2",
+	"Windows Server 2012":            "win2012",
+	"Windows Storage Server 2012 R2": "win2012r2",
+	"Windows Storage Server 2012":    "win2012",
+	"Windows 7":                      "win7",
+	"Windows 8":                      "win8",
+	"Windows 8.1":                    "win81",
 }
 
 // GetOSFromSeries will return the operating system based

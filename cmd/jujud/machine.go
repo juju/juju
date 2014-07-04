@@ -375,11 +375,15 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State
 func (a *MachineAgent) updateSupportedContainers(
 	runner worker.Runner,
 	st *api.State,
-	tag string,
+	machineTag string,
 	containers []instance.ContainerType,
 	agentConfig agent.Config,
 ) error {
 	pr := st.Provisioner()
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return err
+	}
 	machine, err := pr.Machine(tag)
 	if err != nil {
 		return fmt.Errorf("%s is not in state: %v", tag, err)
@@ -485,7 +489,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
 				return apiserver.NewServer(st, apiserver.ServerConfig{
-					Addr:      fmt.Sprintf(":%d", port),
+					Port:      port,
 					Cert:      cert,
 					Key:       key,
 					DataDir:   dataDir,

@@ -13,12 +13,14 @@ import (
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cert"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -44,7 +46,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
 	srv, err := apiserver.NewServer(s.State, apiserver.ServerConfig{
-		Addr: "localhost:0",
+		Port: 0,
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
 	})
@@ -73,13 +75,13 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
-	_, err = st.Machiner().Machine(stm.Tag().String())
+	_, err = st.Machiner().Machine(stm.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 
 	err = srv.Stop()
 	c.Assert(err, gc.IsNil)
 
-	_, err = st.Machiner().Machine(stm.Tag().String())
+	_, err = st.Machiner().Machine(stm.Tag().(names.MachineTag))
 	// The client has not necessarily seen the server shutdown yet,
 	// so there are two possible errors.
 	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
@@ -88,6 +90,64 @@ func (s *serverSuite) TestStop(c *gc.C) {
 
 	// Check it can be stopped twice.
 	err = srv.Stop()
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
+	// Start our own instance of the server listening on
+	// both IPv4 and IPv6 localhost addresses and port 54321.
+	srv, err := apiserver.NewServer(s.State, apiserver.ServerConfig{
+		Port: 54321,
+		Cert: []byte(coretesting.ServerCert),
+		Key:  []byte(coretesting.ServerKey),
+	})
+	c.Assert(err, gc.IsNil)
+	defer srv.Stop()
+
+	// srv.Addr() always reports "localhost" as address.
+	// This way it can be used to construct URLs which
+	// will work for both IPv4 and IPv6-only networks,
+	// as localhost resolves as both 127.0.0.1 and ::1.
+	c.Assert(srv.Addr(), gc.Equals, "localhost:54321")
+
+	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = stm.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = stm.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+
+	// Now connect twice - using IPv4 and IPv6 endpoints.
+	apiInfo := &api.Info{
+		Tag:      stm.Tag().String(),
+		Password: password,
+		Nonce:    "fake_nonce",
+		Addrs:    []string{net.JoinHostPort("127.0.0.1", "54321")},
+		CACert:   coretesting.CACert,
+	}
+	ipv4State, err := api.Open(apiInfo, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	defer ipv4State.Close()
+	c.Assert(ipv4State.Addr(), gc.Equals, "127.0.0.1:54321")
+	c.Assert(ipv4State.APIHostPorts(), jc.DeepEquals, [][]network.HostPort{
+		[]network.HostPort{{network.NewAddress("127.0.0.1", network.ScopeMachineLocal), 54321}},
+	})
+
+	_, err = ipv4State.Machiner().Machine(stm.Tag().(names.MachineTag))
+	c.Assert(err, gc.IsNil)
+
+	apiInfo.Addrs = []string{net.JoinHostPort("::1", "54321")}
+	ipv6State, err := api.Open(apiInfo, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	defer ipv6State.Close()
+	c.Assert(ipv6State.Addr(), gc.Equals, "[::1]:54321")
+	c.Assert(ipv6State.APIHostPorts(), jc.DeepEquals, [][]network.HostPort{
+		[]network.HostPort{{network.NewAddress("::1", network.ScopeMachineLocal), 54321}},
+	})
+
+	_, err = ipv6State.Machiner().Machine(stm.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -230,7 +290,7 @@ func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
 	// for the correct location, but other Paths should fail.
 	srv, err := apiserver.NewServer(s.State, apiserver.ServerConfig{
-		Addr: "localhost:0",
+		Port: 0,
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
 	})

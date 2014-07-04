@@ -202,13 +202,13 @@ func (s *UpstartSuite) assertInstall(c *gc.C, conf *upstart.Conf, expectEnd stri
 
 func (s *UpstartSuite) TestInstallSimple(c *gc.C) {
 	conf := s.dummyConf(c)
-	s.assertInstall(c, conf, "\n\nexec do something\n")
+	s.assertInstall(c, conf, "\n\nscript\n\n  exec do something\nend script\n")
 }
 
 func (s *UpstartSuite) TestInstallOutput(c *gc.C) {
 	conf := s.dummyConf(c)
 	conf.Out = "/some/output/path"
-	s.assertInstall(c, conf, "\n\nexec do something >> /some/output/path 2>&1\n")
+	s.assertInstall(c, conf, "\n\nscript\n\n  # Ensure log files are properly protected\n  touch /some/output/path\n  chmod 0600 /some/output/path\n\n  exec do something >> /some/output/path 2>&1\nend script\n")
 }
 
 func (s *UpstartSuite) TestInstallEnv(c *gc.C) {
@@ -218,7 +218,10 @@ func (s *UpstartSuite) TestInstallEnv(c *gc.C) {
 env QUX="ping pong"
 
 
-exec do something
+script
+
+  exec do something
+end script
 `)
 }
 
@@ -229,7 +232,10 @@ func (s *UpstartSuite) TestInstallLimit(c *gc.C) {
 limit nofile 65000 65000
 limit nproc 20000 20000
 
-exec do something
+script
+
+  exec do something
+end script
 `)
 }
 

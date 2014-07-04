@@ -1532,6 +1532,20 @@ func (st *State) WatchActions() StringsWatcher {
 	return newActionWatcher(st)
 }
 
+// initial pre-loads the actions documents that are already queued for
+// the units this watcher was started for
+func (w *actionWatcher) initial() (*set.Strings, error) {
+	var actions set.Strings
+	var doc actionDoc
+	iter := w.st.actions.Find(nil).Iter()
+	for iter.Next(&doc) {
+		if w.filterFn(doc.Id) {
+			actions.Add(doc.Id)
+		}
+	}
+	return &actions, iter.Close()
+}
+
 func newActionWatcher(st *State, prefixIds ...string) StringsWatcher {
 	w := &actionWatcher{
 		commonWatcher: commonWatcher{st: st},
@@ -1577,7 +1591,10 @@ func (w *actionWatcher) Changes() <-chan []string {
 
 func (w *actionWatcher) loop() error {
 	in := make(chan watcher.Change)
-	changes := &set.Strings{}
+	changes, err := w.initial()
+	if err != nil {
+		return err
+	}
 
 	if w.filterFn != nil {
 		w.st.watcher.WatchCollectionWithFilter(w.st.actions.Name, in, w.filterFn)

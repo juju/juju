@@ -5,6 +5,7 @@ package uniter_test
 
 import (
 	"github.com/juju/charm"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -90,7 +91,7 @@ func (s *relationSuite) TestUnit(c *gc.C) {
 	_, err := s.apiRelation.Unit(nil)
 	c.Assert(err, gc.ErrorMatches, "unit is nil")
 
-	apiUnit, err := s.uniter.Unit("unit-wordpress-0")
+	apiUnit, err := s.uniter.Unit(names.NewUnitTag("wordpress/0"))
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := s.apiRelation.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)

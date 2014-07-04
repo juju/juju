@@ -61,7 +61,7 @@ func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.Login
 	srv, err := apiserver.NewServer(
 		s.State,
 		apiserver.ServerConfig{
-			Addr:      "localhost:0",
+			Port:      0,
 			Cert:      []byte(coretesting.ServerCert),
 			Key:       []byte(coretesting.ServerKey),
 			Validator: validator,
@@ -119,7 +119,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 			defer st.Close()
 
-			_, err = st.Machiner().Machine("machine-0")
+			_, err = st.Machiner().Machine(names.NewMachineTag("0"))
 			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 			// Since these are user login tests, the nonce is empty.
@@ -127,7 +127,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
-			_, err = st.Machiner().Machine("machine-0")
+			_, err = st.Machiner().Machine(names.NewMachineTag("0"))
 			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 		}()
 	}
@@ -176,6 +176,7 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	c.Assert(loggo.RegisterWriter("login-tester", &tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("login-tester")
 
+	// TODO(dfc) this should be a Tag
 	info.Tag = machineInState.Tag().String()
 	info.Password = password
 	info.Nonce = "fake_nonce"
@@ -183,7 +184,8 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	apiConn, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer apiConn.Close()
-	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().String())
+	// TODO(dfc) why does this return a string
+	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag().String())
 
@@ -525,7 +527,7 @@ func (s *loginSuite) runLoginWithValidator(c *gc.C, validator apiserver.LoginVal
 	defer st.Close()
 
 	// Ensure not already logged in.
-	_, err = st.Machiner().Machine("machine-0")
+	_, err = st.Machiner().Machine(names.NewMachineTag("0"))
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 	// Since these are user login tests, the nonce is empty.

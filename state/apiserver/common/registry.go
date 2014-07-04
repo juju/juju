@@ -229,7 +229,6 @@ func (f *FacadeRegistry) List() []FacadeDescription {
 		descriptions[i] = descriptionFromVersions(name, facades)
 	}
 	return descriptions
-	return nil
 }
 
 // Discard gets rid of a registration that has already been done. Calling
