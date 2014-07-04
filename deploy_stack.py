@@ -120,7 +120,6 @@ def deploy_dummy_stack(env, charm_prefix):
         env.wait_for_started(3600)
     else:
         env.wait_for_started()
-    env.wait_for_started()
     # Wait up to 30 seconds for token to be created.
     logging.info('Retrieving token.')
     get_token="""
