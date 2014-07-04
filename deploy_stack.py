@@ -112,7 +112,14 @@ def deploy_dummy_stack(env, charm_prefix):
     env.deploy(charm_prefix + 'dummy-sink')
     env.juju('add-relation', 'dummy-source', 'dummy-sink')
     env.juju('expose', 'dummy-sink')
-    env.wait_for_started()
+    if env.kvm:
+        # A single virtual machine may need up to 30 minutes before
+        # "apt-get update" and other initialisation steps are
+        # finished; two machines initializing concurrently may
+        # need even 40 minutes.
+        env.wait_for_started(3600)
+    else:
+        env.wait_for_started()
     # Wait up to 30 seconds for token to be created.
     logging.info('Retrieving token.')
     get_token="""
