@@ -9,10 +9,11 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/juju/juju/state/backup"
 )
+
+var getHashByFilename = backup.GetHashByFilename
 
 // Backup requests a state-server backup file from the server and saves it to
 // the local filesystem. It returns the name of the file created.
@@ -20,9 +21,15 @@ import (
 // on the system being backed up.
 func (c *Client) Backup(backupFilePath string, validate bool) (string, error) {
 	if backupFilePath == "" {
-		formattedDate := time.Now().Format(backup.TimestampFormat)
-		backupFilePath = fmt.Sprintf(backup.FilenameTemplate, formattedDate)
+		backupFilePath = backup.DefaultFilename()
 	}
+
+	// Open the backup file.
+	file, err := os.Create(backupFilePath)
+	if err != nil {
+		return "", fmt.Errorf("error creating backup file: %v", err)
+	}
+	defer file.Close()
 
 	// Send the request.
 	resp, err := c.sendRawRPC("GET", "backup")
@@ -32,9 +39,9 @@ func (c *Client) Backup(backupFilePath string, validate bool) (string, error) {
 	defer resp.Body.Close()
 
 	// Write out the archive.
-	err = writeBackupFile(backupFilePath, resp.Body)
+	_, err = io.Copy(file, resp.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error writing the backup file: %v", err)
 	}
 
 	// Validate the result.
@@ -48,39 +55,24 @@ func (c *Client) Backup(backupFilePath string, validate bool) (string, error) {
 	return backupFilePath, nil
 }
 
-func writeBackupFile(backupFilePath string, body io.Reader) error {
-	file, err := os.Create(backupFilePath)
-	if err != nil {
-		return fmt.Errorf("Error creating backup file: %v", err)
-	}
-	defer file.Close()
-	_, err = io.Copy(file, body)
-	if err != nil {
-		return fmt.Errorf("Error writing the backup file: %v", err)
-	}
-	return nil
-}
-
 func validateBackupHash(backupFilePath string, resp *http.Response) error {
 	// Get the expected hash.
 	prefix := "SHA="
 	digest := resp.Header.Get("Digest")
-	if !strings.HasPrefix(digest, prefix) {
-		msg := "SHA digest missing from response. Can't verify backup file."
+	if digest == "" {
+		msg := "could not verify backup file: SHA digest missing from response"
 		return fmt.Errorf(msg)
+	}
+	if !strings.HasPrefix(digest, prefix) {
+		msg := "could not verify backup file: unrecognized Digest header (expected \"%s\")"
+		return fmt.Errorf(msg, prefix)
 	}
 	expected := digest[len(prefix):]
 
 	// Get the actual hash.
-	tarball, err := os.Open(backupFilePath)
+	actual, err := getHashByFilename(backupFilePath)
 	if err != nil {
-		return fmt.Errorf("could not open backup file: %s", backupFilePath)
-	}
-	defer tarball.Close()
-
-	actual, err := backup.GetHash(tarball)
-	if err != nil {
-		return err
+		return fmt.Errorf("could not verify backup file: %v", err)
 	}
 
 	// Compare the hashes.

@@ -11,24 +11,66 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/juju/loggo"
 )
 
-// YYYYMMDD-HHMMSS
-const TimestampFormat = "20141231-235959"
-const FilenameTemplate = "jujubackup-%s.tar.gz"
+const (
+	TimestampFormat  = "%04d%02d%02d-%02d%02d%02d" // YYYYMMDD-hhmmss
+	FilenameTemplate = "jujubackup-%s.tar.gz"      // Takes the timestamp.
+	CompressionType  = "application/x-tar-gz"
+)
 
 var logger = loggo.GetLogger("juju.backup")
 
-func GetHash(archive io.Reader) (string, error) {
+//---------------------------
+// timestamps and filenames
+
+// DefaultTimestamp returns "now" as a string formatted as
+// "YYYYMMDD-hhmmss".
+func DefaultTimestamp(now time.Time) string {
+	// Unfortunately time.Time.Format() is not smart enough for us.
+	Y, M, D := now.Date()
+	h, m, s := now.Clock()
+	return fmt.Sprintf(TimestampFormat, Y, M, D, h, m, s)
+}
+
+// DefaultFilename returns a filename to use for a backup.  The name is
+// derived from the current time and date.
+func DefaultFilename() string {
+	formattedDate := DefaultTimestamp(time.Now().UTC())
+	return fmt.Sprintf(FilenameTemplate, formattedDate)
+}
+
+// TimestampFromDefaultFilename extracts the timestamp from the filename.
+func TimestampFromDefaultFilename(filename string) (time.Time, error) {
+	// Unfortunately we can't just use time.Parse().
+	re, err := regexp.Compile(`-\d{8}-\d{6}\.`)
+	if err != nil {
+		return time.Time{}, err
+	}
+	match := re.FindString(filename)
+	match = match[1:len(match)]
+
+	var Y, M, D, h, m, s int
+	fmt.Sscanf(match, TimestampFormat, &Y, &M, &D, &h, &m, &s)
+	return time.Date(Y, time.Month(M), D, h, m, s, 0, time.UTC), nil
+}
+
+//---------------------------
+// file hashes
+
+// GetHash returns the SHA1 hash generated from the provided file.
+func GetHash(file io.Reader) (string, error) {
 	shahash := sha1.New()
-	_, err := io.Copy(shahash, archive)
+	_, err := io.Copy(shahash, file)
 	if err != nil {
 		return "", fmt.Errorf("unable to extract hash: %v", err)
 	}
@@ -36,46 +78,112 @@ func GetHash(archive io.Reader) (string, error) {
 	return base64.StdEncoding.EncodeToString(shahash.Sum(nil)), nil
 }
 
-// tarFiles returns a sha1 hash of targetPath after writing out the archive.
-// This archive holds the files listed in fileList. If compress is true,
-// the archive will also be gzip compressed.
-func tarFiles(fileList []string, targetPath, strip string, compress bool) (shaSum string, err error) {
-	checkClose := func(w io.Closer) {
-		if closeErr := w.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("error closing backup file: %v", closeErr)
+// GetHash returns the SHA1 hash generated from the provided compressed file.
+func GetHashUncompressed(compressed io.Reader, mimetype string) (string, error) {
+	var archive io.ReadCloser
+	var err error
+
+	switch mimetype {
+	case "application/x-tar":
+		return "", fmt.Errorf("not compressed: %s", mimetype)
+	default:
+		// Fall back to "application/x-tar-gz".
+		archive, err = gzip.NewReader(compressed)
+	}
+	if err != nil {
+		return "", fmt.Errorf("unable to open: %v", err)
+	}
+	defer archive.Close()
+
+	return GetHash(archive)
+}
+
+// GetHashByFilename opens the file, unpacks it if compressed, and
+// computes the SHA1 hash of the contents.
+func GetHashByFilename(filename string) (string, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return "", fmt.Errorf("unable to open: %v", err)
+	}
+	defer file.Close()
+
+	var mimetype string
+	if strings.HasSuffix(filename, ".tar.gz") {
+		mimetype = "application/x-tar-gz"
+	} else {
+		ext := filepath.Ext(filename)
+		mimetype = mime.TypeByExtension(ext)
+		if mimetype == "" {
+			return "", fmt.Errorf("unsupported filename (%s)", filename)
 		}
 	}
+
+	if mimetype == "application/x-tar" {
+		return GetHash(file)
+	} else {
+		return GetHashUncompressed(file, mimetype)
+	}
+}
+
+//---------------------------
+// archive helpers
+
+func writeArchive(fileList []string, outfile io.Writer, strip string, compress bool) error {
+	var err error
+
+	if compress {
+		gzw := gzip.NewWriter(outfile)
+		defer gzw.Close()
+		outfile = gzw
+	}
+	tarw := tar.NewWriter(outfile)
+	defer tarw.Close()
+
+	for _, ent := range fileList {
+		if err = AddToTarfile(ent, strip, tarw); err != nil {
+			return fmt.Errorf("backup failed: %v", err)
+		}
+	}
+
+	return nil
+}
+
+// CreateArchive returns a sha1 hash of targetPath after writing out the
+// archive.  This archive holds the files listed in fileList. If
+// compress is true, the archive will also be gzip compressed.
+func CreateArchive(fileList []string, targetPath, strip string, compress bool) (string, error) {
+	// Create the archive file.
 	tarball, err := os.Create(targetPath)
 	if err != nil {
 		return "", fmt.Errorf("cannot create backup file %q", targetPath)
 	}
-	defer checkClose(tarball)
+	defer tarball.Close()
 
-	var outfile io.Writer
-	if compress {
-		gzw := gzip.NewWriter(tarball)
-		defer checkClose(gzw)
-		outfile = gzw
-	} else {
-		outfile = tarball
+	// Write out the archive.
+	err = writeArchive(fileList, tarball, strip, compress)
+	if err != nil {
+		return "", err
 	}
 
-	tarw := tar.NewWriter(outfile)
-	defer checkClose(tarw)
-	for _, ent := range fileList {
-		if err := writeContents(ent, strip, tarw); err != nil {
-			return "", fmt.Errorf("backup failed: %v", err)
-		}
-	}
-
-	// Return the hash.
+	// Return the hash
 	tarball.Seek(0, os.SEEK_SET)
-	return GetHash(tarball)
+	var data []byte
+	tarball.Read(data)
+	tarball.Seek(0, os.SEEK_SET)
+	if compress {
+		// We want the hash of the uncompressed file, since the
+		// compressed archive will have a different hash depending on
+		// the compression format.
+		//	    return GetHash(tarball)
+		return GetHashUncompressed(tarball, CompressionType)
+	} else {
+		return GetHash(tarball)
+	}
 }
 
-// writeContents creates an entry for the given file
+// AddToTarfile creates an entry for the given file
 // or directory in the given tar archive.
-func writeContents(fileName, strip string, tarw *tar.Writer) error {
+func AddToTarfile(fileName, strip string, tarw *tar.Writer) error {
 	f, err := os.Open(fileName)
 	if err != nil {
 		return err
@@ -112,13 +220,16 @@ func writeContents(fileName, strip string, tarw *tar.Writer) error {
 			return fmt.Errorf("error reading directory %q: %v", fileName, err)
 		}
 		for _, name := range names {
-			if err := writeContents(filepath.Join(fileName, name), strip, tarw); err != nil {
+			if err := AddToTarfile(filepath.Join(fileName, name), strip, tarw); err != nil {
 				return err
 			}
 		}
 	}
 
 }
+
+//---------------------------
+// state backups
 
 var getFilesToBackup = _getFilesToBackup
 
@@ -190,15 +301,14 @@ func _getMongodumpPath() (string, error) {
 // and a root.tar file which contains all the system files obtained from
 // the output of getFilesToBackup
 func Backup(password string, username string, outputFolder string, addr string) (string, string, error) {
-	formattedDate := time.Now().Format(TimestampFormat)
-	bkpFile := fmt.Sprintf(FilenameTemplate, formattedDate)
+	bkpFile := filepath.Join(outputFolder, DefaultFilename())
 
 	mongodumpPath, err := getMongodumpPath()
 	if err != nil {
 		return "", "", fmt.Errorf("mongodump not available: %v", err)
 	}
 
-	tempDir, err := ioutil.TempDir("", "jujuBackup")
+	tempDir, err := ioutil.TempDir("", "jujuBackup-")
 	defer os.RemoveAll(tempDir)
 	bkpDir := filepath.Join(tempDir, "juju-backup")
 	dumpDir := filepath.Join(bkpDir, "dump")
@@ -224,13 +334,13 @@ func Backup(password string, username string, outputFolder string, addr string) 
 	if err != nil {
 		return "", "", fmt.Errorf("cannot determine files to backup: %v", err)
 	}
-	_, err = tarFiles(backupFiles, tarFile, string(os.PathSeparator), false)
+	_, err = CreateArchive(backupFiles, tarFile, string(os.PathSeparator), false)
 	if err != nil {
 		return "", "", fmt.Errorf("cannot backup configuration files: %v", err)
 	}
 
-	shaSum, err := tarFiles([]string{bkpDir},
-		filepath.Join(outputFolder, bkpFile),
+	shaSum, err := CreateArchive([]string{bkpDir},
+		bkpFile,
 		fmt.Sprintf("%s%s", tempDir, string(os.PathSeparator)),
 		true)
 	if err != nil {

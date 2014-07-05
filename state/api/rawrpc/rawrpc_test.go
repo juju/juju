@@ -121,7 +121,7 @@ func (s *rawrpcSuite) TestDoMethodNotSupported(c *gc.C) {
 	client := FakeHTTPClient{Code: http.StatusMethodNotAllowed}
 	_, err := rawrpc.Do(&client, nil)
 
-	c.Assert(err, gc.ErrorMatches, "method not supported by API server")
+	c.Assert(err, gc.ErrorMatches, "API method not supported by server")
 }
 
 // tests for method failures returned by the API server

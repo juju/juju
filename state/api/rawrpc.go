@@ -4,12 +4,10 @@
 package api
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net/http"
 
 	"github.com/juju/juju/state/api/rawrpc"
-	"github.com/juju/utils"
 )
 
 /*
@@ -20,7 +18,13 @@ accommodate them.  That will include adding parameters for "args" and
 "payload".
 */
 func (c *Client) getRawRPCRequest(httpMethod string, method string) (*http.Request, error) {
-	url := fmt.Sprintf("%s/%s", c.st.serverRoot, method)
+	envinfo, err := c.EnvironmentInfo()
+	if err != nil {
+		return nil, err
+	}
+	url := fmt.Sprintf("%s/environment/%s/%s", c.st.serverRoot, envinfo.UUID, method)
+	//	url := fmt.Sprintf("%s/%s", c.st.serverRoot, method)
+
 	req, err := http.NewRequest(httpMethod, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("could not create HTTP request: %v", err)
@@ -32,10 +36,7 @@ func (c *Client) getRawRPCRequest(httpMethod string, method string) (*http.Reque
 }
 
 func (c *Client) getRawHTTPClient() rawrpc.HTTPDoer {
-	httpclient := utils.GetValidatingHTTPClient()
-	tlsconfig := tls.Config{RootCAs: c.st.certPool, ServerName: "anything"}
-	httpclient.Transport = utils.NewHttpTLSTransport(&tlsconfig)
-	return httpclient
+	return c.st.SecureHTTPClient("anything")
 }
 
 func (c *Client) sendRawRPC(httpMethod string, method string) (*http.Response, error) {

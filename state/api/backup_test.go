@@ -5,6 +5,7 @@ package api_test
 
 import (
 	"bytes"
+	"compress/gzip"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -16,27 +17,22 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/apiserver"
 	"github.com/juju/juju/state/backup"
+	"github.com/juju/juju/testing"
 )
+
+const tempPrefix = "test-juju-backup-client-"
 
 //---------------------------
 // test helpers
 
-type fakeFile struct {
-	*bytes.Buffer
-}
-
-func (f *fakeFile) Close() error {
-	return nil
-}
-
 func getBackupResponse(data string, digest string) *http.Response {
 	resp := http.Response{}
 
-	resp.Body = &fakeFile{bytes.NewBufferString(data)}
+	resp.Body = &testing.CloseableBuffer{bytes.NewBufferString(data)}
 
 	resp.Header = http.Header{}
 	if digest == "" && data != "" {
-		hash, _ := backup.GetHash(resp.Body)
+		hash, _ := backup.GetHashUncompressed(resp.Body, "application/x-tar-gz")
 		resp.Header.Set("Digest", "SHA="+hash)
 	} else {
 		resp.Header.Set("Digest", digest)
@@ -56,10 +52,13 @@ func (s *clientSuite) setBackupServerSuccess() {
 		defer archive.Close()
 		s.removeBackupArchive(backupFilePath)
 
-		archive.Write([]byte("foobarbam"))
+		compressed := gzip.NewWriter(archive)
+		defer compressed.Close()
+
+		compressed.Write([]byte("foobarbam"))
 
 		archive.Seek(0, os.SEEK_SET)
-		hash, err := backup.GetHash(archive)
+		hash, err := backup.GetHashUncompressed(archive, "application/gzip")
 		if err != nil {
 			return "", "", err
 		}
@@ -80,27 +79,31 @@ func (s *clientSuite) removeBackupArchive(filename string) {
 	s.AddCleanup(func(*gc.C) { os.Remove(filename) })
 }
 
+func (s *clientSuite) assertFilenameMatchesDefault(c *gc.C, filename string) {
+	c.Assert(filename, gc.Matches, fmt.Sprintf(backup.FilenameTemplate, ".*"))
+}
+
 //---------------------------
 // Success tests
 
 func (s *clientSuite) TestBackupValid(c *gc.C) {
 	s.setBackupServerSuccess()
-	expected := fmt.Sprintf(backup.FilenameTemplate, "20140623-010101")
 	client := s.APIState.Client()
 
+	filenameOrig := fmt.Sprintf(backup.FilenameTemplate, "20140623-010101")
 	validate := false
-	filename, err := client.Backup(expected, validate)
+	filename, err := client.Backup(filenameOrig, validate)
 	if filename != "" {
 		s.removeBackupArchive(filename)
 	}
 
-	c.Assert(err, gc.IsNil)
-	c.Assert(filename, gc.Equals, expected)
+	c.Check(err, gc.IsNil)
+
+	c.Check(filename, gc.Equals, filenameOrig)
 }
 
 func (s *clientSuite) TestBackupDefaultFilename(c *gc.C) {
 	s.setBackupServerSuccess()
-	expected := fmt.Sprintf(backup.FilenameTemplate, ".*")
 	client := s.APIState.Client()
 
 	validate := false
@@ -110,14 +113,14 @@ func (s *clientSuite) TestBackupDefaultFilename(c *gc.C) {
 	}
 
 	c.Assert(err, gc.IsNil)
-	c.Assert(filename, gc.Matches, expected)
+	s.assertFilenameMatchesDefault(c, filename)
 }
 
 func (s *clientSuite) TestBackupValidateHashSuccess(c *gc.C) {
 	hash := "kVi4iZOb1a7A9SBOPIv7ShWUKIU="
 	data := "...archive data..."
 
-	archive, _ := ioutil.TempFile("", "")
+	archive, _ := ioutil.TempFile("", tempPrefix)
 	defer archive.Close()
 	filename := archive.Name()
 	s.removeBackupArchive(filename)
@@ -148,55 +151,53 @@ func (s *clientSuite) TestBackupDigestHeaderMissing(c *gc.C) {
 	resp := http.Response{}
 	err := api.ValidateBackupHash("", &resp)
 
-	c.Assert(err, gc.ErrorMatches, "SHA digest missing from response. Can't verify backup file.")
+	c.Assert(err, gc.ErrorMatches, "could not verify backup file: SHA digest missing from response")
 }
 
 func (s *clientSuite) TestBackupDigestHeaderEmpty(c *gc.C) {
 	resp := getBackupResponse("", "")
 	err := api.ValidateBackupHash("", resp)
 
-	c.Assert(err, gc.ErrorMatches, "SHA digest missing from response. Can't verify backup file.")
+	c.Assert(err, gc.ErrorMatches, "could not verify backup file: SHA digest missing from response")
 }
 
 func (s *clientSuite) TestBackupDigestHeaderInvalid(c *gc.C) {
 	resp := getBackupResponse("", "not valid SHA hash")
 	err := api.ValidateBackupHash("", resp)
 
-	c.Assert(err, gc.ErrorMatches, "SHA digest missing from response. Can't verify backup file.")
+	c.Assert(err, gc.ErrorMatches, "could not verify backup file: unrecognized Digest header (expected \"SHA=\")")
 }
 
 func (s *clientSuite) TestBackupOutfileNotOpened(c *gc.C) {
 	resp := getBackupResponse("...archive data...", "")
 	err := api.ValidateBackupHash("/tmp/backup-does-not-exist.tar.gz", resp)
 
-	c.Assert(err, gc.ErrorMatches, "could not open backup file: .*")
+	c.Assert(err, gc.ErrorMatches, "could not verify backup file: unable to open: .*")
 }
 
 // XXX How to test this?  (patching GetHash does not work)
-/*
 func (s *clientSuite) TestBackupHashNotExtracted(c *gc.C) {
-    gethash := func(archive *os.File) (string, error) {
-        return "", fmt.Errorf("unable to extract hash: error!")
-    }
-	s.PatchValue(backup.GetHash, gethash)
+	gethash := func(filename string) (string, error) {
+		return "", fmt.Errorf("unable to extract hash: error!")
+	}
+	s.PatchValue(api.GetHashByFilename, gethash)
 
-    archive, _ := ioutil.TempFile("", "")
-    defer archive.Close()
-    filename := archive.Name()
+	archive, _ := ioutil.TempFile("", tempPrefix)
+	defer archive.Close()
+	filename := archive.Name()
 	s.removeBackupArchive(filename)
 
-    resp := getBackupResponse("...", "")
-    err := api.ValidateBackupHash(filename, resp)
+	resp := getBackupResponse("...", "")
+	err := api.ValidateBackupHash(filename, resp)
 
-    c.Assert(err, gc.ErrorMatches, "unable to extract hash: .*")
+	c.Assert(err, gc.ErrorMatches, "unable to extract hash: .*")
 }
-*/
 
 func (s *clientSuite) TestBackupHashMismatch(c *gc.C) {
 	hash := "invalid hash"
 	data := "...archive data..."
 
-	archive, _ := ioutil.TempFile("", "")
+	archive, _ := ioutil.TempFile("", tempPrefix)
 	defer archive.Close()
 	filename := archive.Name()
 	s.removeBackupArchive(filename)
@@ -211,6 +212,14 @@ func (s *clientSuite) TestBackupHashMismatch(c *gc.C) {
 
 //---------------------------
 // System tests
+
+/*
+1) the filename is created on disk
+2) The content of the filename is not nil
+3) It is a valid tarball
+4) The hash matches expectations (though presumably that's already covered by other code)
+5) we could assert that some of the filenames in the tarball match what we expect to be in a backup.
+*/
 
 // XXX How to test this?
 func (s *clientSuite) TestBackup(c *gc.C) {
