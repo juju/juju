@@ -720,7 +720,7 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 		if err != nil {
 			return nothing, err
 		}
-		unitTag := actionTag.UnitTag()
+		unitTag := actionTag.PrefixTag()
 
 		// The Unit is querying for another Unit's Action.
 		if unitTag.String() != whichUnit.Tag().String() {

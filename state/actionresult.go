@@ -21,7 +21,7 @@ const (
 	ActionCompleted ActionStatus = "complete"
 )
 
-const actionResultMarker string = "#ar#"
+const actionResultMarker string = "_ar_"
 
 type actionResultDoc struct {
 	// Id is the key for this document.  The format of the id encodes
@@ -50,6 +50,42 @@ type actionResultDoc struct {
 type ActionResult struct {
 	st  *State
 	doc actionResultDoc
+}
+
+// Id returns the id of the ActionResult.
+func (a *ActionResult) Id() string {
+	return a.doc.Id
+}
+
+// ActionName returns the name of the Action.
+func (a *ActionResult) ActionName() string {
+	return a.doc.ActionName
+}
+
+// Payload will contain a structure representing arguments or parameters
+// that were passed to the action.
+func (a *ActionResult) Payload() map[string]interface{} {
+	return a.doc.Payload
+}
+
+// Status returns the final state of the action.
+func (a *ActionResult) Status() ActionStatus {
+	return a.doc.Status
+}
+
+// Output returns the text caputured from the action as it was executed.
+func (a *ActionResult) Output() string {
+	return a.doc.Output
+}
+
+// globalKey returns the global database key for the action.
+func (a *ActionResult) globalKey() string {
+	return actionResultGlobalKey(a.doc.Id)
+}
+
+// actionResultGlobalKey returns the global database key for the named action.
+func actionResultGlobalKey(name string) string {
+	return "ar#" + name
 }
 
 // newActionResult builds an ActionResult from the supplied state and
@@ -91,7 +127,7 @@ func convertActionIdToActionResultId(actionId string) (string, bool) {
 // actionResultPrefix returns a string prefix for matching action results for
 // the given ActionReceiver
 func actionResultPrefix(ar ActionReceiver) string {
-	return ar.ActionKey() + actionResultMarker
+	return ar.Name() + actionResultMarker
 }
 
 // addActionResultOp builds the txn.Op used to add an actionresult
@@ -102,30 +138,4 @@ func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 		Assert: txn.DocMissing,
 		Insert: doc,
 	}
-}
-
-// Id returns the id of the ActionResult.
-func (a *ActionResult) Id() string {
-	return a.doc.Id
-}
-
-// ActionName returns the name of the Action.
-func (a *ActionResult) ActionName() string {
-	return a.doc.ActionName
-}
-
-// Payload will contain a structure representing arguments or parameters
-// that were passed to the action.
-func (a *ActionResult) Payload() map[string]interface{} {
-	return a.doc.Payload
-}
-
-// Status returns the final state of the action.
-func (a *ActionResult) Status() ActionStatus {
-	return a.doc.Status
-}
-
-// Output returns the text caputured from the action as it was executed.
-func (a *ActionResult) Output() string {
-	return a.doc.Output
 }
