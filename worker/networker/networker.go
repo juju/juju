@@ -13,7 +13,6 @@ import (
 	"github.com/juju/utils/exec"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/network"
 	apinetworker "github.com/juju/juju/state/api/networker"
 	//"github.com/juju/juju/state/api/params"
@@ -64,7 +63,7 @@ func (nw *Networker) SetUp() (watcher.NotifyWatcher, error) {
 
 func (s *setupInfo) ensureVLANModule() {
 	commands := []string{
-		`dpkg-query -s vlan || ` + sshinit.Aptget + ` install vlan`,
+		`dpkg-query -s vlan || apt-get --option Dpkg::Options::=--force-confold --assume-yes install vlan`,
 		`lsmod | grep -q 8021q || modprobe 8021q`,
 		`grep -q 8021q /etc/modules || echo 8021q >> /etc/modules`,
 		`vconfig set_name_type DEV_PLUS_VID_NO_PAD`,

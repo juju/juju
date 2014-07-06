@@ -243,7 +243,7 @@ func (s *networkerSuite) TestNetworker(c *gc.C) {
 
 	// Verify the executed commands
 	expectedCommands := []string{
-		"dpkg-query -s vlan || apt-get --option Dpkg::Options::=--force-confold --assume-yes  install vlan",
+		"dpkg-query -s vlan || apt-get --option Dpkg::Options::=--force-confold --assume-yes install vlan",
 		"lsmod | grep -q 8021q || modprobe 8021q",
 		"grep -q 8021q /etc/modules || echo 8021q >> /etc/modules",
 		"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
