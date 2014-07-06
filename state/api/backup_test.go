@@ -175,12 +175,11 @@ func (s *clientSuite) TestBackupOutfileNotOpened(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "could not verify backup file: unable to open: .*")
 }
 
-// XXX How to test this?  (patching GetHash does not work)
 func (s *clientSuite) TestBackupHashNotExtracted(c *gc.C) {
 	gethash := func(filename string) (string, error) {
 		return "", fmt.Errorf("unable to extract hash: error!")
 	}
-	s.PatchValue(api.GetHashByFilename, gethash)
+	s.PatchValue(api.GetBackupHash, gethash)
 
 	archive, _ := ioutil.TempFile("", tempPrefix)
 	defer archive.Close()

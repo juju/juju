@@ -100,6 +100,17 @@ func GetHashUncompressed(compressed io.Reader, mimetype string) (string, error) 
 
 // GetHashByFilename opens the file, unpacks it if compressed, and
 // computes the SHA1 hash of the contents.
+func GetHashDefault(filename string) (string, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return "", fmt.Errorf("unable to open: %v", err)
+	}
+	defer file.Close()
+	return GetHashUncompressed(file, CompressionType)
+}
+
+// GetHashByFilename opens the file, unpacks it if compressed, and
+// computes the SHA1 hash of the contents.
 func GetHashByFilename(filename string) (string, error) {
 	file, err := os.Open(filename)
 	if err != nil {

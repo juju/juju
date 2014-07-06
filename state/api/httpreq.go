@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/juju/juju/state/api/rawrpc"
+	"github.com/juju/juju/state/api/httpreq"
 )
 
 /*
@@ -17,7 +17,7 @@ be updated to use this method (and this should be adapted to
 accommodate them.  That will include adding parameters for "args" and
 "payload".
 */
-func (c *Client) getRawRPCRequest(httpMethod string, method string) (*http.Request, error) {
+func (c *Client) getHTTPRequest(httpMethod string, method string) (*http.Request, error) {
 	envinfo, err := c.EnvironmentInfo()
 	if err != nil {
 		return nil, err
@@ -35,17 +35,17 @@ func (c *Client) getRawRPCRequest(httpMethod string, method string) (*http.Reque
 	return req, nil
 }
 
-func (c *Client) getRawHTTPClient() rawrpc.HTTPDoer {
+func (c *Client) getRawHTTPClient() httpreq.HTTPDoer {
 	return c.st.SecureHTTPClient("anything")
 }
 
-func (c *Client) sendRawRPC(httpMethod string, method string) (*http.Response, error) {
-	req, err := c.getRawRPCRequest(httpMethod, method)
+func (c *Client) sendHTTPRequest(httpMethod string, method string) (*http.Response, error) {
+	req, err := c.getHTTPRequest(httpMethod, method)
 	if err != nil {
 		return nil, err
 	}
 
 	// Send the request.
 	httpclient := c.getRawHTTPClient()
-	return rawrpc.Do(httpclient, req)
+	return httpreq.Do(httpclient, req)
 }

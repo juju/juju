@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package rawrpc_test
+package httpreq_test
 
 import (
 	"bytes"
@@ -12,15 +12,15 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/api/rawrpc"
+	"github.com/juju/juju/state/api/httpreq"
 	coretesting "github.com/juju/juju/testing"
 )
 
-type rawrpcSuite struct {
+type httpreqSuite struct {
 	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&rawrpcSuite{})
+var _ = gc.Suite(&httpreqSuite{})
 
 //---------------------------
 // test helpers
@@ -92,76 +92,76 @@ func (c FakeHTTPClient) Do(req *http.Request) (*http.Response, error) {
 //---------------------------
 // Do() tests
 
-func (s *rawrpcSuite) TestDoValidNoData(c *gc.C) {
+func (s *httpreqSuite) TestDoValidNoData(c *gc.C) {
 	client := FakeHTTPClient{}
-	resp, err := rawrpc.Do(&client, nil)
+	resp, err := httpreq.Do(&client, nil)
 	data, _ := ioutil.ReadAll(resp.Body)
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "")
 }
 
-func (s *rawrpcSuite) TestDoValidData(c *gc.C) {
+func (s *httpreqSuite) TestDoValidData(c *gc.C) {
 	client := FakeHTTPClient{Data: bytes.NewBufferString("raw data")}
-	resp, err := rawrpc.Do(&client, nil)
+	resp, err := httpreq.Do(&client, nil)
 	data, _ := ioutil.ReadAll(resp.Body)
 
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "raw data")
 }
 
-func (s *rawrpcSuite) TestDoRequestSendFailed(c *gc.C) {
+func (s *httpreqSuite) TestDoRequestSendFailed(c *gc.C) {
 	client := FakeHTTPClient{Err: fmt.Errorf("failed!")}
-	_, err := rawrpc.Do(&client, nil)
+	_, err := httpreq.Do(&client, nil)
 
-	c.Assert(err, gc.ErrorMatches, "could not send raw request: .*")
+	c.Assert(err, gc.ErrorMatches, "could not send API request: .*")
 }
 
-func (s *rawrpcSuite) TestDoMethodNotSupported(c *gc.C) {
+func (s *httpreqSuite) TestDoMethodNotSupported(c *gc.C) {
 	client := FakeHTTPClient{Code: http.StatusMethodNotAllowed}
-	_, err := rawrpc.Do(&client, nil)
+	_, err := httpreq.Do(&client, nil)
 
 	c.Assert(err, gc.ErrorMatches, "API method not supported by server")
 }
 
 // tests for method failures returned by the API server
 
-func (s *rawrpcSuite) TestDoUnreadableErrorData(c *gc.C) {
+func (s *httpreqSuite) TestDoUnreadableErrorData(c *gc.C) {
 	client := FakeHTTPClient{
 		Data: InvalidData("invalid!"),
 		Code: http.StatusInternalServerError,
 	}
-	_, err := rawrpc.Do(&client, nil)
+	_, err := httpreq.Do(&client, nil)
 
 	c.Assert(err, gc.ErrorMatches, "could not unpack error response: .*")
 }
 
-func (s *rawrpcSuite) TestDoBadErrorData(c *gc.C) {
+func (s *httpreqSuite) TestDoBadErrorData(c *gc.C) {
 	client := FakeHTTPClient{
 		Data: bytes.NewBufferString("not valid JSON"),
 		Code: http.StatusInternalServerError,
 	}
-	_, err := rawrpc.Do(&client, nil)
+	_, err := httpreq.Do(&client, nil)
 
 	c.Assert(err, gc.ErrorMatches, "could not unpack error response: .*")
 }
 
-func (s *rawrpcSuite) TestDoFailedRemotely(c *gc.C) {
+func (s *httpreqSuite) TestDoFailedRemotely(c *gc.C) {
 	client := FakeHTTPClient{
 		Data: bytes.NewBufferString(`{"Message": "failed!"}`),
 		Code: http.StatusInternalServerError,
 	}
-	_, err := rawrpc.Do(&client, nil)
+	_, err := httpreq.Do(&client, nil)
 
 	c.Assert(err, gc.ErrorMatches, "failed!")
 }
 
-func (s *rawrpcSuite) TestDoBadStatusCode(c *gc.C) {
+func (s *httpreqSuite) TestDoBadStatusCode(c *gc.C) {
 	client := FakeHTTPClient{
 		Data: bytes.NewBufferString(`{}`),
 		Code: http.StatusInternalServerError,
 	}
-	_, err := rawrpc.Do(&client, nil)
+	_, err := httpreq.Do(&client, nil)
 
 	c.Assert(err.Error(), gc.Equals, "")
 }

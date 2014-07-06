@@ -13,7 +13,7 @@ import (
 	"github.com/juju/juju/state/backup"
 )
 
-var getHashByFilename = backup.GetHashByFilename
+var getBackupHash = backup.GetHashDefault
 
 // Backup requests a state-server backup file from the server and saves it to
 // the local filesystem. It returns the name of the file created.
@@ -32,7 +32,7 @@ func (c *Client) Backup(backupFilePath string, validate bool) (string, error) {
 	defer file.Close()
 
 	// Send the request.
-	resp, err := c.sendRawRPC("GET", "backup")
+	resp, err := c.sendHTTPRequest("POST", "backup")
 	if err != nil {
 		return "", err
 	}
@@ -70,7 +70,7 @@ func validateBackupHash(backupFilePath string, resp *http.Response) error {
 	expected := digest[len(prefix):]
 
 	// Get the actual hash.
-	actual, err := getHashByFilename(backupFilePath)
+	actual, err := getBackupHash(backupFilePath)
 	if err != nil {
 		return fmt.Errorf("could not verify backup file: %v", err)
 	}

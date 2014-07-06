@@ -11,7 +11,7 @@ var (
 	SlideAddressToFront = slideAddressToFront
 
 	ValidateBackupHash = validateBackupHash
-	GetHashByFilename  = &getHashByFilename
+	GetBackupHash      = &getBackupHash
 )
 
 // SetServerRoot allows changing the URL to the internal API server

@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package rawrpc
+package httpreq
 
 import (
 	"encoding/json"
@@ -23,7 +23,7 @@ func Do(doer HTTPDoer, req *http.Request) (*http.Response, error) {
 	// Send the request.
 	resp, err := doer.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("could not send raw request: %v", err)
+		return nil, fmt.Errorf("could not send API request: %v", err)
 	}
 	if resp.StatusCode == http.StatusOK {
 		return resp, nil
