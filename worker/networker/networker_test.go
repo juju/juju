@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 
-	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
@@ -19,7 +18,6 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apinetworker "github.com/juju/juju/state/api/networker"
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/networker"
 )
@@ -125,16 +123,6 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 	// Create the networker API facade.
 	s.networkerState = s.st.Networker()
 	c.Assert(s.networkerState, gc.NotNil)
-}
-
-func (s *networkerSuite) TestMachineNetworkInfoPermissionDenied(c *gc.C) {
-	tags := []string{"foo-42", "unit-mysql-0", "service-mysql", "user-foo", "machine-1"}
-	for _, tag := range tags {
-		info, err := s.networkerState.MachineNetworkInfo(tag)
-		c.Assert(err, gc.ErrorMatches, "permission denied")
-		c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-		c.Assert(info, gc.IsNil)
-	}
 }
 
 type mockConfig struct {
