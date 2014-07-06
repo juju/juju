@@ -33,13 +33,19 @@ default: build
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
-build:
+$(GOPATH)/bin/godeps:
+	go get launchpad.net/godeps
+
+godeps: $(GOPATH)/bin/godeps
+	godeps -u dependencies.tsv
+
+build: godeps
 	go build $(PROJECT)/...
 
-check:
+check: godeps
 	go test -test.timeout=1200s $(PROJECT)/...
 
-install:
+install: godeps
 	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
 
 clean:
