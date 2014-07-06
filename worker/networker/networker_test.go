@@ -6,10 +6,10 @@ package networker_test
 import (
 	"fmt"
 	"io/ioutil"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -169,8 +169,8 @@ iface eth1.2 inet dhcp
 auto eth2
 iface eth2 inet dhcp
 `
-const readyInterfaces = "|eth0|eth1|"
-const interfacesWithAddress = "|eth0|eth2|"
+var readyInterfaces = set.NewStrings("eth0", "eth1")
+var interfacesWithAddress = set.NewStrings("eth0", "eth2")
 
 const expectedInterfacesFile = `# This file describes the network interfaces available on your system
 # and how to activate them. For more information see interfaces(5).
@@ -212,11 +212,11 @@ func (s *networkerSuite) TestNetworker(c *gc.C) {
 	// Patch the network interface functions
 	s.PatchValue(&networker.InterfaceIsUp,
 		func(name string) bool {
-			return strings.Contains(readyInterfaces, "|"+name+"|")
+			return readyInterfaces.Contains(name)
 		})
 	s.PatchValue(&networker.InterfaceHasAddress,
 		func(name string) bool {
-			return strings.Contains(interfacesWithAddress, "|"+name+"|")
+			return interfacesWithAddress.Contains(name)
 		})
 
 	// Path the command executor
