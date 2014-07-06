@@ -37,8 +37,8 @@ This document provides a detailed specification of
 ### Definitions and Acronyms
 
 Facade
-: A registered type providing a grouped set of methods which can be addressed 
-by API requests.
+: A registered and versioned type which is addressed by API requests. It creates an
+instance providing a set of methods for one entity or a cohesive functionality.
 JSON
 : JavaScript Object Notation
 RPC
@@ -197,10 +197,19 @@ and its sub-packages. They are using the types in
 [state](https://github.com/juju/juju/tree/master/state) representing 
 the Juju model.
 
+- Start `apiserver.NewServer()`
+- `server.apiHandler()` receives requests and start websocket
+- `server.serverConn()` rund´s the RPC on the websocket using the websocket JSON codec
+
 ### API
 
-The according client logic used by the Juju CLI and the Juju daemon, which 
-are also developed in Go, is located in [api](https://github.com/juju/juju/tree/master/state/api).
+The according client logic used by the Juju CLI and the Juju daemon, which are also
+developed in Go, is located in [api](https://github.com/juju/juju/tree/master/state/api).
+
+- Connect with `api.Open()`
+- `api.State` as entry point
+- `api.Call()` to invoke a low level RPC call
+- `api.BestFacadeVersion()` to retrieve the best available version for a facade
 
 ## Human Interface Design
 
