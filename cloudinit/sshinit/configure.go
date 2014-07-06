@@ -119,13 +119,13 @@ func ConfigureScript(cloudcfg *cloudinit.Config) (string, error) {
 //  * --assume-yes answers yes to any yes/no question in apt-get;
 //  * the --force-confold option is passed to dpkg, and tells dpkg
 //    to always keep old configuration files in the face of change.
-const Aptget = "apt-get --option Dpkg::Options::=--force-confold --assume-yes "
+const aptget = "apt-get --option Dpkg::Options::=--force-confold --assume-yes "
 
 // addPackageCommands returns a slice of commands that, when run,
 // will add the required apt repositories and packages.
 func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	// If apt_get_wrapper is specified, then prepend it to aptget.
-	aptget := Aptget
+	aptget := aptget
 	wrapper := cfg.AptGetWrapper()
 	switch wrapper.Enabled {
 	case true:
@@ -138,7 +138,7 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	if len(cfg.AptSources()) > 0 {
 		// Ensure add-apt-repository is available.
 		cmds = append(cmds, cloudinit.LogProgressCmd("Installing add-apt-repository"))
-		cmds = append(cmds, Aptget+"install python-software-properties")
+		cmds = append(cmds, aptget+"install python-software-properties")
 	}
 	for _, src := range cfg.AptSources() {
 		// PPA keys are obtained by add-apt-repository, from launchpad.
@@ -160,11 +160,11 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	}
 	if len(cfg.AptSources()) > 0 || cfg.AptUpdate() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get update"))
-		cmds = append(cmds, Aptget+"update")
+		cmds = append(cmds, aptget+"update")
 	}
 	if cfg.AptUpgrade() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Running apt-get upgrade"))
-		cmds = append(cmds, Aptget+"upgrade")
+		cmds = append(cmds, aptget+"upgrade")
 	}
 	for _, pkg := range cfg.Packages() {
 		cmds = append(cmds, cloudinit.LogProgressCmd("Installing package: %s", pkg))
@@ -173,7 +173,7 @@ func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 			// contain additional arguments.
 			pkg = utils.ShQuote(pkg)
 		}
-		cmd := fmt.Sprintf(Aptget+"install %s", pkg)
+		cmd := fmt.Sprintf(aptget+"install %s", pkg)
 		cmds = append(cmds, cmd)
 	}
 	if len(cmds) > 0 {
