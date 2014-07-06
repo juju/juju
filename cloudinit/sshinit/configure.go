@@ -125,7 +125,7 @@ const Aptget = "apt-get --option Dpkg::Options::=--force-confold --assume-yes "
 // will add the required apt repositories and packages.
 func addPackageCommands(cfg *cloudinit.Config) ([]string, error) {
 	// If apt_get_wrapper is specified, then prepend it to aptget.
-	aptget := aptget
+	aptget := Aptget
 	wrapper := cfg.AptGetWrapper()
 	switch wrapper.Enabled {
 	case true:

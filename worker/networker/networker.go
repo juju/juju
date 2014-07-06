@@ -16,12 +16,12 @@ import (
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/network"
 	apinetworker "github.com/juju/juju/state/api/networker"
-	"github.com/juju/juju/state/api/params"
+	//"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/worker"
 )
 
-var logger = loggo.GetLogger("juju.worker.networker")
+var logger = loggo.GetLogger("juju.networker")
 
 // Patches for testing.
 var (
@@ -49,68 +49,17 @@ type setupInfo struct {
 	commands []string
 }
 
-// nopCaller implements base.Caller and never calls the API.
-// Once we can watch networks, drop this.
-type nopCaller struct{}
-
-func (c *nopCaller) Call(_, _, _ string, _, _ interface{}) error {
-	return nil
-}
-
 // NewNetworker returns a Worker that handles machine networking configuration.
 func NewNetworker(st *apinetworker.State, agentConfig agent.Config) worker.Worker {
 	nw := &Networker{
 		st:  st,
 		tag: agentConfig.Tag(),
 	}
-	return worker.NewStringsWorker(nw)
+	return worker.NewNotifyWorker(nw)
 }
 
-func (nw *Networker) SetUp() (watcher.StringsWatcher, error) {
-	s := &setupInfo{}
-	var err error
-	interfacesFile := NetworkDir + "/interfaces"
-	s.ifxData, err = ioutil.ReadFile(interfacesFile)
-	if err != nil {
-		logger.Errorf("failed to read %s: %v", interfacesFile, err)
-		return nil, err
-	}
-	s.networks, err = nw.st.MachineNetworkInfo(nw.tag)
-	logger.Infof("s.networks=%#v", s.networks)
-	if err != nil {
-		logger.Errorf("failed to process network info: %v", err)
-		return nil, err
-	}
-
-	// Verify that eth0 interfaces is properly configured and brought up.
-	if !s.interfaceIsConfigured("eth0") || !InterfaceHasAddress("eth0") {
-		if !s.interfaceIsConfigured("eth0") {
-			logger.Errorf("interface eth0 has to be configured")
-		}
-		if !InterfaceHasAddress("eth0") {
-			logger.Errorf("interface eth0 has to be bring up")
-		}
-		logger.Errorf("interface eth0 has to be configured and bring up")
-		return nil, fmt.Errorf("interface eth0 has to be configured and bring up")
-	}
-
-	// Update interface file
-	s.configureInterfaces()
-	err = ioutil.WriteFile(interfacesFile, s.ifxData, 0644)
-	if err != nil {
-		logger.Errorf("failed to write %s: %v", interfacesFile, err)
-		return nil, err
-	}
-
-	// Generate a list of commands to configure networks.
-	s.ensureVLANModule()
-	s.bringUpInterfaces()
-
-	err = ExecuteCommands(s.commands)
-	if err != nil {
-		return nil, err
-	}
-	return watcher.NewStringsWatcher(&nopCaller{}, params.StringsWatchResult{}), nil
+func (nw *Networker) SetUp() (watcher.NotifyWatcher, error) {
+	return nw.st.WatchInterfaces(nw.tag)
 }
 
 func (s *setupInfo) ensureVLANModule() {
@@ -208,9 +157,48 @@ func interfaceHasAddress(interfaceName string) bool {
 	return len(addrs) != 0
 }
 
-func (nw *Networker) Handle(networkNames []string) error {
-	// Nothing to do here.
-	return nil
+func (nw *Networker) Handle() error {
+	s := &setupInfo{}
+	var err error
+	interfacesFile := NetworkDir + "/interfaces"
+	s.ifxData, err = ioutil.ReadFile(interfacesFile)
+	if err != nil {
+		logger.Errorf("failed to read %s: %v", interfacesFile, err)
+		return err
+	}
+	s.networks, err = nw.st.MachineNetworkInfo(nw.tag)
+	logger.Infof("s.networks=%#v", s.networks)
+	if err != nil {
+		logger.Errorf("failed to process network info: %v", err)
+		return err
+	}
+
+	// Verify that eth0 interfaces is properly configured and brought up.
+	if !s.interfaceIsConfigured("eth0") || !InterfaceHasAddress("eth0") {
+		if !s.interfaceIsConfigured("eth0") {
+			logger.Errorf("interface eth0 has to be configured")
+		}
+		if !InterfaceHasAddress("eth0") {
+			logger.Errorf("interface eth0 has to be bring up")
+		}
+		logger.Errorf("interface eth0 has to be configured and bring up")
+		return fmt.Errorf("interface eth0 has to be configured and bring up")
+	}
+
+	// Update interface file
+	s.configureInterfaces()
+	err = ioutil.WriteFile(interfacesFile, s.ifxData, 0644)
+	if err != nil {
+		logger.Errorf("failed to write %s: %v", interfacesFile, err)
+		return err
+	}
+
+	// Generate a list of commands to configure networks.
+	s.ensureVLANModule()
+	s.bringUpInterfaces()
+
+	err = ExecuteCommands(s.commands)
+	return err
 }
 
 func (nw *Networker) TearDown() error {
