@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strings"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -207,27 +206,28 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, gc.IsNil)
 	uconf := string(uconfData)
-	var execLine string
-	for _, line := range strings.Split(uconf, "\n") {
-		if strings.HasPrefix(line, "exec ") {
-			execLine = line
-			break
-		}
-	}
-	if execLine == "" {
+
+	regex := regexp.MustCompile("(?m)(?:^\\s)*exec\\s.+$")
+	execs := regex.FindAllString(uconf, -1)
+
+	if nil == execs {
 		c.Fatalf("no command found in %s:\n%s", uconfPath, uconf)
+	} else if 1 > len(execs) {
+		c.Fatalf("Test is not built to handle more than one exec line.")
 	}
+
 	logPath := filepath.Join(fix.logDir, tag+".log")
 	jujudPath := filepath.Join(toolsDir, "jujud")
+
 	for _, pat := range []string{
 		"^exec " + jujudPath + " unit ",
 		" --unit-name " + name + " ",
 		" >> " + logPath + " 2>&1$",
 	} {
-		match, err := regexp.MatchString(pat, execLine)
+		match, err := regexp.MatchString(pat, execs[0])
 		c.Assert(err, gc.IsNil)
 		if !match {
-			c.Fatalf("failed to match:\n%s\nin:\n%s", pat, execLine)
+			c.Fatalf("failed to match:\n%s\nin:\n%s", pat, execs[0])
 		}
 	}
 
