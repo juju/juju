@@ -125,10 +125,10 @@ if [[ \$needs_ppa == 'true' ]]; then
 fi
 sudo apt-get update
 sudo apt-get upgrade -y
-sudo apt-get install -y build-essential
+sudo apt-get install -y make
 # Hack rules to allow i386 to run.
 sed -i 's/x86/86/' Makefile
-sed -i 's/go test/go test -test.timeout=1200s/' Makefile
+sed -i 's/go test \$/go test -test.timeout=1200s \$/' Makefile
 # Trusty needs mongodb-server and juju-mongodb
 if [[ \$(lsb_release -sc) == "trusty" ]]; then
     sudo apt-get install -y mongodb-server
