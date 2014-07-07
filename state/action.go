@@ -99,7 +99,7 @@ func (a *Action) Tag() names.Tag {
 // ActionTag returns an ActionTag constructed from this action's
 // Prefix and Sequence
 func (a *Action) ActionTag() names.ActionTag {
-	return names.HydrateActionTag(a.Prefix(), a.Sequence())
+	return names.JoinActionTag(a.Prefix(), a.Sequence())
 }
 
 // Name returns the name of the action, as defined in the charm
