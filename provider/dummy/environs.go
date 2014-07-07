@@ -90,9 +90,19 @@ func stateInfo() *state.Info {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
+	mongoPort := strconv.Itoa(gitjujutesting.MgoServer.Port())
+	var addrs []string
+	if providerInstance.preferIPv6 {
+		addrs = []string{
+			net.JoinHostPort("::1", mongoPort),
+			net.JoinHostPort("localhost", mongoPort),
+		}
+	} else {
+		addrs = []string{net.JoinHostPort("localhost", mongoPort)}
+	}
 	return &state.Info{
 		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			Addrs:  addrs,
 			CACert: testing.CACert,
 		},
 	}
@@ -167,6 +177,7 @@ type environProvider struct {
 	mu          sync.Mutex
 	ops         chan<- Operation
 	statePolicy state.Policy
+	preferIPv6  bool
 	// We have one state for each environment name
 	state      map[int]*environState
 	maxStateId int
@@ -248,6 +259,7 @@ func Reset() {
 	if mongoAlive() {
 		gitjujutesting.MgoServer.Reset()
 	}
+	network.PreferIPv6 = providerInstance.preferIPv6
 	providerInstance.statePolicy = environs.NewStatePolicy()
 }
 
@@ -310,7 +322,7 @@ func newState(name string, ops chan<- Operation, policy state.Policy) *environSt
 // listen starts a network listener listening for http
 // requests to retrieve files in the state's storage.
 func (s *environState) listen() {
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		panic(fmt.Errorf("cannot start listener: %v", err))
 	}
@@ -327,6 +339,19 @@ func SetStatePolicy(policy state.Policy) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.statePolicy = policy
+}
+
+// SetPreferIPv6Addresses sets the network.PreferIPv6 flag, which
+// changes what machine addresses are preferred when selecting a
+// public or internal addresses. When true, changes StartInstance to
+// create an IPv6 address in addition to IPv4 ones.
+func SetPreferIPv6Addresses(value bool) {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.preferIPv6 = value
+	network.PreferIPv6 = value
+	logger.Debugf("setting PreferIPv6 = %v", value)
 }
 
 // Listen closes the previously registered listener (if any).
@@ -611,11 +636,12 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if estate.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
+	instIds := []instance.Id{"localhost"}
 	// Write the bootstrap file just like a normal provider. However
 	// we need to release the mutex for the save state to work, so regain
 	// it after the call.
 	estate.mu.Unlock()
-	if err := bootstrap.SaveState(e.Storage(), &bootstrap.BootstrapState{StateInstances: []instance.Id{"localhost"}}); err != nil {
+	if err := bootstrap.SaveState(e.Storage(), &bootstrap.BootstrapState{StateInstances: instIds}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		estate.mu.Lock() // otherwise defered unlock will fail
 		return err
@@ -761,9 +787,14 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	series := args.Tools.OneSeries()
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
+	addrs := network.NewAddresses(idString+".dns", "127.0.0.1")
+	if providerInstance.preferIPv6 {
+		addrs = append(addrs, network.NewAddress(fmt.Sprintf("fc00::%x", estate.maxId+1), network.ScopeUnknown))
+	}
+	logger.Debugf("StartInstance addresses: %v", addrs)
 	i := &dummyInstance{
 		id:           instance.Id(idString),
-		addresses:    network.NewAddresses(idString + ".dns"),
+		addresses:    addrs,
 		ports:        make(map[network.Port]bool),
 		machineId:    machineId,
 		series:       series,
