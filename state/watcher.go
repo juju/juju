@@ -1546,12 +1546,12 @@ func (w *actionWatcher) initial() (*set.Strings, error) {
 	return &actions, iter.Close()
 }
 
-func newActionWatcher(st *State, prefixIds ...string) StringsWatcher {
+func newActionWatcher(st *State, receivers ...ActionReceiver) StringsWatcher {
 	w := &actionWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan []string),
 	}
-	w.filterFn = w.makeFilter(prefixIds...)
+	w.filterFn = w.makeFilter(receivers...)
 
 	go func() {
 		defer w.tomb.Done()
@@ -1562,22 +1562,24 @@ func newActionWatcher(st *State, prefixIds ...string) StringsWatcher {
 	return w
 }
 
-// makeActionWatcherFilter constructs a predicate to filter keys
-// that have the prefix of one of the passed in tags, or returns
-// nil if tags is empty
-func (w *actionWatcher) makeFilter(ids ...string) func(interface{}) bool {
-	if len(ids) == 0 {
+// makeFilter constructs a predicate to filter keys that have the prefix matching
+// one of the passed in ActionReceivers, or returns nil if tags is empty
+func (w *actionWatcher) makeFilter(receivers ...ActionReceiver) func(interface{}) bool {
+	if len(receivers) == 0 {
 		return nil
+	}
+	prefixes := make([]string, len(receivers))
+	for ix, receiver := range receivers {
+		prefixes[ix] = ensureActionMarker(receiver.Name())
 	}
 	return func(key interface{}) bool {
 		if k, ok := key.(string); ok {
-			for _, id := range ids {
-				if strings.HasPrefix(k, id) {
+			for _, prefix := range prefixes {
+				if strings.HasPrefix(k, prefix) {
 					return true
 				}
 			}
 		} else {
-			// TODO(jcw4,fwereade) error out and w.tomb.Kill here? doesn't seem right.
 			logger.Warningf("actionWatcher got unexpected changes key.  expected string key got %+v", key)
 		}
 		return false

@@ -219,8 +219,8 @@ func CheckUserExists(st *State, name string) (bool, error) {
 
 var StateServerAvailable = &stateServerAvailable
 
-func ActionPrefix(r ActionReceiver) string {
-	return actionPrefix(r)
+func EnsureActionMarker(prefix string) string {
+	return ensureActionMarker(prefix)
 }
 
 func GetActionResultId(actionId string) (string, bool) {
