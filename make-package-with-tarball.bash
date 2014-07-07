@@ -9,8 +9,7 @@ HERE=$(pwd)
 SCRIPT_DIR=$(cd $(dirname "${BASH_SOURCE[0]}") && pwd )
 
 PACKAGING_DEFAULT="lp:~juju-qa/juju-release-tools/packaging-juju-core-default"
-PACKAGING_1_18_JUJUDB="lp:~juju-qa/juju-core/packaging-1-18-juju-mongodb"
-PACKAGING_1_18_DEFAULT_MONGODB="lp:~juju-qa/juju-core/packaging-1-18-mongodb-server"
+PACKAGING_1_20="lp:~juju-qa/juju-release-tools/packaging-juju-core-default"
 
 
 usage() {
@@ -38,13 +37,9 @@ check_deps() {
 
 make_source_package_branch() {
     echo "Phase 1: Updating the source package branch."
-    if [[ $VERSION =~ ^1.18.*$ ]]; then
-        # Packaging binaries in launchpad.net/juju-core.
-        if [[ $SERIES == "saucy" || $SERIES == "precise" ]]; then
-            PACKAGING_BRANCH=$PACKAGING_1_18_MONGODB
-        else
-            PACKAGING_BRANCH=$PACKAGING_1_18_JUJUDB
-        fi
+    if [[ $VERSION =~ ^1.20.*$ ]]; then
+        # Packaging binaries stable.
+        PACKAGING_BRANCH=$PACKAGING_1_20
     else
         # Packaging binaries in github.com/juju/juju.
         PACKAGING_BRANCH=$PACKAGING_DEFAULT
