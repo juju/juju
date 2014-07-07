@@ -318,23 +318,37 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	return err
 }
 
+// restoreInterfacesFiles returns a string representing the upstart command to
+// revert MAAS changes to interfaces file.
+func restoreInterfacesFiles() string {
+	return `mkdir -p etc/network/interfaces.d
+cat > /etc/network/interfaces.d/eth0.cfg << EOF
+# The primary network interface
+auto eth0
+iface eth0 inet dhcp
+EOF
+sed -i '/auto eth0/{N;s/auto eth0\niface eth0 inet dhcp//}' /etc/network/interfaces
+cat >> /etc/network/interfaces << EOF
+# Source interfaces
+# Please check /etc/network/interfaces.d before changing this file
+# as interfaces may have been defined in /etc/network/interfaces.d
+# NOTE: the primary ethernet device is defined in
+# /etc/network/interfaces.d/eth0
+# See LP: #1262951
+source /etc/network/interfaces.d/*.cfg
+EOF
+`
+}
+
 // createBridgeNetwork returns a string representing the upstart command to
 // create a bridged eth0.
 func createBridgeNetwork() string {
-	return `cat > /etc/network/eth0.config << EOF
-iface eth0 inet manual
-
+	return `cat > /etc/network/interfaces.d/br0.cfg << EOF
 auto br0
 iface br0 inet dhcp
   bridge_ports eth0
 EOF
 `
-}
-
-// linkBridgeInInterfaces adds the file created by createBridgeNetwork to the
-// interfaces file.
-func linkBridgeInInterfaces() string {
-	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
 }
 
 var unsupportedConstraints = []string{
@@ -496,8 +510,8 @@ func newCloudinitConfig(hostname string, networkInfo []network.Info) (*cloudinit
 		"set -xe",
 		runCmd,
 		"ifdown eth0",
+		restoreInterfacesFiles(),
 		createBridgeNetwork(),
-		linkBridgeInInterfaces(),
 		"ifup br0",
 	)
 	setupNetworksOnBoot(cloudcfg, networkInfo)
@@ -507,8 +521,7 @@ func newCloudinitConfig(hostname string, networkInfo []network.Info) (*cloudinit
 // setupNetworksOnBoot prepares a script to enable and start all
 // enabled network interfaces on boot.
 func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []network.Info) {
-	const ifaceConfig = `cat >> /etc/network/interfaces << EOF
-
+	const ifaceConfig = `cat > /etc/network/interfaces.d/%s << EOF
 auto %s
 iface %s inet dhcp
 EOF
@@ -538,7 +551,7 @@ EOF
 			// in place.
 
 			// Register and bring up the physical interface.
-			script(ifaceConfig, info.InterfaceName, info.InterfaceName)
+			script(ifaceConfig, info.InterfaceName, info.InterfaceName, info.InterfaceName)
 			script("ifup %s", info.InterfaceName)
 			configured.Add(info.InterfaceName)
 		}
@@ -547,7 +560,7 @@ EOF
 			// its parent interface was brought up.
 			script("vconfig add %s %d", info.InterfaceName, info.VLANTag)
 			vlan := info.ActualInterfaceName()
-			script(ifaceConfig, vlan, vlan)
+			script(ifaceConfig, vlan, vlan, vlan)
 			script("ifup %s", vlan)
 		}
 	}
