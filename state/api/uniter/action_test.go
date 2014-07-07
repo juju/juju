@@ -7,6 +7,7 @@ import (
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/uniter"
 )
@@ -74,4 +75,42 @@ func (s *actionSuite) TestNewActionAndAccessors(c *gc.C) {
 	testParams := testAction.Params()
 	c.Assert(testName, gc.Equals, "snapshot")
 	c.Assert(testParams, gc.DeepEquals, basicParams)
+}
+
+func (s *actionSuite) TestActionComplete(c *gc.C) {
+	results, err := s.uniterSuite.wordpressUnit.ActionResults()
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, ([]*state.ActionResult)(nil))
+
+	action, err := s.uniterSuite.wordpressUnit.AddAction("gabloxi", nil)
+	c.Assert(err, gc.IsNil)
+
+	err = s.uniter.ActionComplete(action.ActionTag(), "it worked!")
+	c.Assert(err, gc.IsNil)
+
+	results, err = s.uniterSuite.wordpressUnit.ActionResults()
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 1)
+	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
+	c.Assert(results[0].Output(), gc.Equals, "it worked!")
+	c.Assert(results[0].ActionName(), gc.Equals, "gabloxi")
+}
+
+func (s *actionSuite) TestActionFail(c *gc.C) {
+	results, err := s.uniterSuite.wordpressUnit.ActionResults()
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, ([]*state.ActionResult)(nil))
+
+	action, err := s.uniterSuite.wordpressUnit.AddAction("beebz", nil)
+	c.Assert(err, gc.IsNil)
+
+	err = s.uniter.ActionFail(action.ActionTag(), "it failed!")
+	c.Assert(err, gc.IsNil)
+
+	results, err = s.uniterSuite.wordpressUnit.ActionResults()
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 1)
+	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
+	c.Assert(results[0].Output(), gc.Equals, "it failed!")
+	c.Assert(results[0].ActionName(), gc.Equals, "beebz")
 }

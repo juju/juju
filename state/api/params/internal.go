@@ -264,6 +264,14 @@ type Action struct {
 	Params map[string]interface{} `json:"action-params,omitempty"`
 }
 
+// ActionResult holds the action tag and output used when recording
+// the result of an action.  This is an argument, not a result, despite
+// the confusing name.
+type ActionResult struct {
+	ActionTag string
+	Output    string
+}
+
 // EntityPort holds an entity's tag, a protocol and a port.
 type EntityPort struct {
 	Tag      string

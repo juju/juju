@@ -1095,6 +1095,62 @@ func (s *uniterSuite) TestActionPermissionDenied(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, common.ErrPerm.Error())
 }
 
+func (s *uniterSuite) TestActionComplete(c *gc.C) {
+	testName := "frobz"
+	testOutput := "completed frobz successfully"
+
+	results, err := s.wordpressUnit.ActionResults()
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, ([]*state.ActionResult)(nil))
+
+	action, err := s.wordpressUnit.AddAction(testName, nil)
+	c.Assert(err, gc.IsNil)
+
+	actionResult := params.ActionResult{
+		ActionTag: action.ActionTag().String(),
+		Output:    testOutput,
+	}
+
+	res, err := s.uniter.ActionComplete(actionResult)
+	c.Assert(err, gc.IsNil)
+	c.Assert(res, gc.DeepEquals, params.BoolResult{Error: nil, Result: true})
+
+	results, err = s.wordpressUnit.ActionResults()
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 1)
+	c.Assert(results[0].Status(), gc.Equals, state.ActionCompleted)
+	c.Assert(results[0].Output(), gc.Equals, testOutput)
+	c.Assert(results[0].ActionName(), gc.Equals, testName)
+}
+
+func (s *uniterSuite) TestActionFail(c *gc.C) {
+	testName := "wgork"
+	testError := "wgork was a dismal failure"
+
+	results, err := s.wordpressUnit.ActionResults()
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, ([]*state.ActionResult)(nil))
+
+	action, err := s.wordpressUnit.AddAction(testName, nil)
+	c.Assert(err, gc.IsNil)
+
+	actionResult := params.ActionResult{
+		ActionTag: action.ActionTag().String(),
+		Output:    testError,
+	}
+
+	res, err := s.uniter.ActionFail(actionResult)
+	c.Assert(err, gc.IsNil)
+	c.Assert(res, gc.DeepEquals, params.BoolResult{Error: nil, Result: true})
+
+	results, err = s.wordpressUnit.ActionResults()
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(results), gc.Equals, 1)
+	c.Assert(results[0].Status(), gc.Equals, state.ActionFailed)
+	c.Assert(results[0].Output(), gc.Equals, testError)
+	c.Assert(results[0].ActionName(), gc.Equals, testName)
+}
+
 func (s *uniterSuite) addRelation(c *gc.C, first, second string) *state.Relation {
 	eps, err := s.State.InferEndpoints([]string{first, second})
 	c.Assert(err, gc.IsNil)
