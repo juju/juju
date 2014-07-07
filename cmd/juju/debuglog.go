@@ -13,7 +13,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/state/api"
 )
 
@@ -77,13 +76,13 @@ type DebugLogAPI interface {
 	Close() error
 }
 
-var getDebugLogAPI = func(envName string) (DebugLogAPI, error) {
-	return juju.NewAPIClientFromName(envName)
+var getDebugLogAPI = func(c *DebugLogCommand) (DebugLogAPI, error) {
+	return c.NewAPIClient()
 }
 
 // Run retrieves the debug log via the API.
 func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
-	client, err := getDebugLogAPI(c.EnvName)
+	client, err := getDebugLogAPI(c)
 	if err != nil {
 		return err
 	}

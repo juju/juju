@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // RemoveServiceCommand causes an existing service to be destroyed.
@@ -41,7 +40,7 @@ func (c *RemoveServiceCommand) Init(args []string) error {
 }
 
 func (c *RemoveServiceCommand) Run(_ *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

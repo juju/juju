@@ -350,7 +350,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 
 func (s *RunSuite) setupMockAPI() *mockRunAPI {
 	mock := &mockRunAPI{}
-	s.PatchValue(&getAPIClient, func(name string) (RunClient, error) {
+	s.PatchValue(&getRunAPIClient, func(_ *RunCommand) (RunClient, error) {
 		return mock, nil
 	})
 	return mock
