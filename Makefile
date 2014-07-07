@@ -9,7 +9,7 @@ endif
 PROJECT := github.com/juju/juju
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
-ifeq ($(shell uname -p | sed -r 's/.*(x86|armel|armhf).*/golang/'), golang)
+ifeq ($(shell uname -p | sed -r 's/.*(86|armel|armhf).*/golang/'), golang)
 	GO_C := golang
 	INSTALL_FLAGS := 
 else
@@ -18,7 +18,6 @@ else
 endif
 
 define DEPENDENCIES
-  build-essential
   bzr
   distro-info-data
   git-core
@@ -38,7 +37,7 @@ build:
 	go build $(PROJECT)/...
 
 check:
-	go test $(PROJECT)/...
+	go test -test.timeout=1200s $(PROJECT)/...
 
 install:
 	go install $(INSTALL_FLAGS) -v $(PROJECT)/...
@@ -82,7 +81,8 @@ ifeq ($(shell lsb_release -cs|sed -r 's/precise|quantal|raring/old/'),old)
 	@sudo apt-get update
 endif
 	@echo Installing dependencies
-	@sudo apt-get --yes install $(strip $(DEPENDENCIES)) \
+	@sudo apt-get --yes install --no-install-recommends \
+	$(strip $(DEPENDENCIES)) \
 	$(shell apt-cache madison juju-mongodb mongodb-server | head -1 | cut -d '|' -f1)
 
 # Install bash_completion
