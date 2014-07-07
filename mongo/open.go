@@ -92,7 +92,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 			logger.Debugf("TLS handshake failed: %v", err)
 			return nil, err
 		}
-		logger.Infof("dialled mongo successfully")
+		logger.Infof("dialled mongo successfully on address %q", addr)
 		return cc, nil
 	}
 
