@@ -39,25 +39,16 @@ major.minor.patch versions in the code:
     scripts/win-installer/setup.iss
 
 
-## Making a package
+## Making a source package
 
 You can make a package from a release tarball. The script uses
 bzr-builddeb and a source package branch to create a either a binary or
 source package. This command will create a source package based on the
 Ubuntu juju-core source package branch.
-    make-package-with-tarball.bash stable ./juju-core_1.20.1.tar.gz \
+    make-package-with-tarball.bash trusty ./juju-core_1.20.1.tar.gz \
         'Full Name <user@example.com>'
 
-The first script argument is the intent, <testing|devel|stable>. It
-determines the base source package branch and whether to create a binary
-package.
-    testing: use the devel package  branch and create a binary package
-    devel: use the devel package  branch and create a source package
-    stable: use the stable package branch and create a source package
-
-The devel and stable packaging branches are functionally the same at the
-moment. If juju-core deps or rules need to change, we will update the
-devel packaging branch first.
+The first script argument is any Ubuntu series.
 
 You must provide a proper name and email address to use for the package
 changelog. The email address will also be used to select the identity to
@@ -66,10 +57,14 @@ sign the source package.
 
 ### Creating a binary package for testing
 
-You can create a binary package using the testing mode of the packaging
-script
-    make-package-with-tarball.bash testing ./juju-core_1.20.1.tar.gz \
-        'Full Name <user@example.com>'
+You can create a binary package using the *dsc file created with the
+source package on your localhost:
+    build-package-with-dsc.bash localhost '' \
+        ./tmp.KUVlbtnnet/juju-core_1.20.1-0ubuntu1~14.04.1~juju1.dsc
+
+You can pass
+    user@other-host '<extra-ssh-opts>'
+to build on a host that provides desired architecture and series
 
 
 ## Assemble the juju tools
