@@ -231,6 +231,24 @@ def get_job_instances(job_name):
     return (machine_id for machine_id, name in description)
 
 
+def check_free_disk_space(path, required, purpose):
+    df_result = subprocess.check_output(["df", "-k", path])
+    df_result = df_result.split('\n')[1]
+    df_result = re.split(' +', df_result)
+    available = int(df_result[3])
+    if available < required:
+        message = (
+            "Warning: Probably not enough disk space available for\n"
+            "%(purpose)s in directory %(path)s,\n"
+            "mount point %(mount)s\n"
+            "required: %(required)skB, available: %(available)skB."
+            )
+        print(message % {
+            'path': path, 'mount': df_result[5], 'required': required,
+            'available': available, 'purpose': purpose
+            })
+
+
 def bootstrap_from_env(juju_home, env):
     if env.config['type'] == 'local':
         env.config.setdefault('root-dir', os.path.join(juju_home, 'local'))
@@ -240,6 +258,20 @@ def bootstrap_from_env(juju_home, env):
         if os.path.lexists(jenv_path):
             raise Exception('%s already exists!' % jenv_path)
         new_jenv_path = get_jenv_path(temp_juju_home, env.environment)
+        if env.local:
+            # MongoDB requires a lot of free disk space, and the only
+            # visible error message is from "juju bootstrap":
+            # "cannot initiate replication set" if disk space is low.
+            # What "low" exactly means, is unclear, but 8GB should be
+            # enough.
+            check_free_disk_space(temp_juju_home, 8000000, "MongoDB files")
+            if env.kvm:
+                check_free_disk_space(
+                    "/var/lib/uvtool/libvirt/images", 2000000,
+                    "KVM disk files")
+            else:
+                check_free_disk_space(
+                    "/var/lib/lxc", 2000000, "LXC containers")
         # Create a symlink to allow access while bootstrapping, and to reduce
         # races.  Can't use a hard link because jenv doesn't exist until
         # partway through bootstrap.
