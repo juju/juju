@@ -166,7 +166,7 @@ func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddThreeMachinesWithTwoFailures(c *gc.C) {
 	fakeApi := fakeAddMachineAPI{}
-	s.PatchValue(&getAddMachineAPI, func(envName string) (AddMachineAPI, error) {
+	s.PatchValue(&getAddMachineAPI, func(c *AddMachineCommand) (AddMachineAPI, error) {
 		return &fakeApi, nil
 	})
 	fakeApi.successOrder = []bool{true, false, false}
@@ -185,6 +185,10 @@ type fakeAddMachineAPI struct {
 
 func (f *fakeAddMachineAPI) Close() error {
 	return nil
+}
+
+func (f *fakeAddMachineAPI) EnvironmentUUID() string {
+	return "fake-uuid"
 }
 
 func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {

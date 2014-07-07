@@ -19,6 +19,7 @@ import (
 	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/constraints"
@@ -487,6 +488,20 @@ func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	info := new(EnvironmentInfo)
 	err := c.call("EnvironmentInfo", nil, info)
 	return info, err
+}
+
+// EnvironmentUUID returns the environment UUID from the client connection.
+func (c *Client) EnvironmentUUID() string {
+	value := c.st.EnvironTag()
+	if value != "" {
+		tag, err := names.ParseEnvironTag(value)
+		if err != nil {
+			logger.Warningf("environ tag not an environ: %v", err)
+			return ""
+		}
+		return tag.Id()
+	}
+	return ""
 }
 
 // WatchAll holds the id of the newly-created AllWatcher.
