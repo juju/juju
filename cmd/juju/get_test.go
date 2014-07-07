@@ -6,8 +6,8 @@ package main
 import (
 	"bytes"
 
-	"github.com/juju/charm"
 	"github.com/juju/cmd"
+	"gopkg.in/juju/charm.v2"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 

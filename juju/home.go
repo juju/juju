@@ -7,7 +7,7 @@ import (
 	stderrors "errors"
 	"fmt"
 
-	"github.com/juju/charm"
+	"gopkg.in/juju/charm.v2"
 
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/utils/ssh"

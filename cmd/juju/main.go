@@ -14,7 +14,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju"
-
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 )
