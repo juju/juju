@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/state/api/params"
 )
 
@@ -95,7 +94,7 @@ func (c *AddMachineCommand) Init(args []string) error {
 	}
 	c.Placement, err = instance.ParsePlacement(placement)
 	if err == instance.ErrPlacementScopeMissing {
-		placement = c.EnvName + ":" + placement
+		placement = "env-uuid" + ":" + placement
 		c.Placement, err = instance.ParsePlacement(placement)
 	}
 	if err != nil {
@@ -111,10 +110,11 @@ type AddMachineAPI interface {
 	Close() error
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	EnvironmentUUID() string
 }
 
-var getAddMachineAPI = func(envname string) (AddMachineAPI, error) {
-	return juju.NewAPIClientFromName(envname)
+var getAddMachineAPI = func(c *AddMachineCommand) (AddMachineAPI, error) {
+	return c.NewAPIClient()
 }
 
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
@@ -130,11 +130,14 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	client, err := getAddMachineAPI(c.EnvName)
+	client, err := getAddMachineAPI(c)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+	if c.Placement != nil && c.Placement.Scope == "env-uuid" {
+		c.Placement.Scope = client.EnvironmentUUID()
+	}
 
 	if c.Placement != nil && c.Placement.Scope == instance.MachineScope {
 		// It does not make sense to add-machine <id>.
