@@ -26,10 +26,10 @@ any posix system, can create a release tarball with just this script.
 
 Select a juju-core branch and a revision to create a tarball with
 juju-core and all its dependent libraries. This command for example
-selects revision 1985 of lp:juju-core/1.18
-    make-release-tarball.bash 2262 lp:juju-core/1.18
+selects revision 034be9cb of https://github.com/juju/juju
+    make-release-tarball.bash 034be9cb https://github.com/juju/juju
 
-The example will create juju-core_1.18.0.tar.gz.
+The example will create juju-core_1.20.1.tar.gz.
 
 You can pass ‘-1’ as the revision to select tip. The release version is
 derived from the source code. If you are making your own release, with
@@ -45,7 +45,7 @@ You can make a package from a release tarball. The script uses
 bzr-builddeb and a source package branch to create a either a binary or
 source package. This command will create a source package based on the
 Ubuntu juju-core source package branch.
-    make-package-with-tarball.bash stable ./juju-core_1.18.0.tar.gz \
+    make-package-with-tarball.bash stable ./juju-core_1.20.1.tar.gz \
         'Full Name <user@example.com>'
 
 The first script argument is the intent, <testing|devel|stable>. It
@@ -68,7 +68,7 @@ sign the source package.
 
 You can create a binary package using the testing mode of the packaging
 script
-    make-package-with-tarball.bash testing ./juju-core_1.18.0.tar.gz \
+    make-package-with-tarball.bash testing ./juju-core_1.20.1.tar.gz \
         'Full Name <user@example.com>'
 
 
@@ -78,7 +78,7 @@ Every juju-core package contains a client and a server. The server is
 the “juju tool”  that provides the state-server on the bootstrap node
 and the agent on the unit nodes. You can create the directory tree of
 tools and metadata for a new released by running:
-    assemble-public-tools.bash 1.18.0 new-tools/
+    assemble-public-tools.bash 1.21.1 new-tools/
 
 The script takes two arguments, a release version, and a destination
 directory. The new-tools/ directory has 3 or 4 subdirectories for the
@@ -107,11 +107,11 @@ with the PRIVATE argument to create a new-tools/juju-dist/ directory
 with just the tools you will support in your cloud.
     assemble-public-tools.bash ignore new-tools/ PRIVATE
 
-Thus to assemble the simple streams metadata and tools for 1.18.0, you
+Thus to assemble the simple streams metadata and tools for 1.20.1, you
 would run the script once to get all the tools. Then delete all the
 older versions in new-tools/tools. You might even delete the unsupported
 architectures such as i386 or arm. Then run the script with the PRIVATE
-flag to get just the 1.18.0 tools for amd64.
+flag to get just the 1.20.1 tools for amd64.
 
 You can copy your own deb packages to new-tools/debs after the first run
 and then run the script again to extract the tools. This would be a
@@ -119,13 +119,6 @@ two-phased run of the  script. Run the script once  get all the released
 tools.  Then add your own packages and tools and remove the unwanted
 tools. Run the script again with the PRIVATE argument to generate a
 new-tools/juju-dist/ dir of just what the private cloud wants.
-
-One warning about versions and directories. The script knows that
-juju-core 1.18.x is the first juju to use simple streams, and the last
-juju to use tools in the public container. If your cloud is 1.18+ then
-there are no concerns -- everything will be in simple-streams format. If
-you are supporting Juju 1.10 to 1.14.1, you must include a version of
-1.18 to ensure the old deployments can find the newer versions of juju.
 
 
 ## Publishing tools to a cloud
@@ -154,8 +147,7 @@ public swift container. The swift client is using these variables
 defined in the env: OS_USERNAME, OS_TENANT_NAME, OS_PASSWORD,
 OS_AUTH_URL, OS_REGION_NAME, which selects the public container. It
 uploads tools to the path that matches to local path (releases/). It
-uploads metadata to a path that matches the local path (v1/), then it
-uploads any 1.18 tools I can find to the historic path (tools/).
+uploads metadata to a path that matches the local path (v1/).
 
 
 ## Configure clients to use the published tools
@@ -165,13 +157,4 @@ how to find public tools from many sources. You can configure the juju
 client to look for tools at the location you uploaded them to in  your
 private cloud.  From the previous step, the location is the
 juju-dist/tools/ path in the public container
-    tools-url: https://<swift.example.com>/v1/<public-container>/juju-dist/tools
-
-*Note:* In old configs, the public-bucket-url key was used to find tools.
-Juju 1.18 will assume that tools are located in /juju-dist/tools path of
-the public-bucket-url when tools-url is not defined. Update the configs
-with tools-url to explicitly set where tools will be found.
-
-*Note:* in future configs, starting with Juju 1.18, use the
-tools-metadata-url key to specify the location you uploaded the tools to
-in your private cloud.
+    tools-metadata-url: https://<swift.example.com>/v1/<public-container>/juju-dist/tools
