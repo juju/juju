@@ -19,10 +19,10 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
@@ -117,7 +117,7 @@ type Config interface {
 
 	// StateInfo returns details for connecting to the state server and reports
 	// whether those details are available
-	StateInfo() (*state.Info, bool)
+	StateInfo() (*authentication.ConnectionInfo, bool)
 
 	// OldPassword returns the fallback password when connecting to the
 	// API server.
@@ -639,13 +639,13 @@ func (c *configInternal) APIInfo() *api.Info {
 	}
 }
 
-func (c *configInternal) StateInfo() (info *state.Info, ok bool) {
+func (c *configInternal) StateInfo() (info *authentication.ConnectionInfo, ok bool) {
 	ssi, ok := c.StateServingInfo()
 	if !ok {
 		return nil, false
 	}
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
-	return &state.Info{
+	return &authentication.ConnectionInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
 			CACert: c.caCert,

@@ -17,6 +17,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -104,7 +105,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.setUpConn(c)
 }
 
-func (s *JujuConnSuite) StateInfo(c *gc.C) *state.Info {
+func (s *JujuConnSuite) StateInfo(c *gc.C) *authentication.ConnectionInfo {
 	info, _, err := s.Conn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Password = "dummy-secret"

@@ -118,13 +118,13 @@ func (s *commonMachineSuite) TearDownTest(c *gc.C) {
 // agent's configuration and the tools currently running.
 func (s *commonMachineSuite) primeAgent(
 	c *gc.C, vers version.Binary,
-	jobs ...state.MachineJob) (m *state.Machine, config agent.ConfigSetterWriter, tools *tools.Tools) {
+	jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 
 	// Add a machine and ensure it is provisioned.
 	m, err := s.State.AddMachine("quantal", jobs...)
 	c.Assert(err, gc.IsNil)
 	inst, md := jujutesting.AssertStartInstance(c, s.Conn.Environ, m.Id())
-	c.Assert(m.SetProvisioned(inst.Id(), state.BootstrapNonce, md), gc.IsNil)
+	c.Assert(m.SetProvisioned(inst.Id(), config.BootstrapNonce, md), gc.IsNil)
 
 	// Add an address for the tests in case the maybeInitiateMongoServer
 	// codepath is exercised.
@@ -139,17 +139,17 @@ func (s *commonMachineSuite) primeAgent(
 	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, gc.IsNil)
-		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword, vers)
-		info, ok := config.StateServingInfo()
+		agentConfig, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword, vers)
+		info, ok := agentConfig.StateServingInfo()
 		c.Assert(ok, jc.IsTrue)
 		err = s.State.SetStateServingInfo(info)
 		c.Assert(err, gc.IsNil)
 	} else {
-		config, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword, vers)
+		agentConfig, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword, vers)
 	}
-	err = config.Write()
+	err = agentConfig.Write()
 	c.Assert(err, gc.IsNil)
-	return m, config, tools
+	return m, agentConfig, tools
 }
 
 // newAgent returns a new MachineAgent instance

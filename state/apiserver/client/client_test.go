@@ -1362,7 +1362,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = m.SetProvisioned("i-0", state.BootstrapNonce, nil)
+	err = m.SetProvisioned("i-0", config.BootstrapNonce, nil)
 	c.Assert(err, gc.IsNil)
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, gc.IsNil)

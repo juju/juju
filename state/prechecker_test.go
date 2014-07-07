@@ -116,7 +116,7 @@ func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 	template := state.MachineTemplate{
 		InstanceId: instance.Id("bootstrap"),
 		Series:     "precise",
-		Nonce:      state.BootstrapNonce,
+		Nonce:      config.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobManageEnviron},
 		Placement:  "anyoldthing",
 	}

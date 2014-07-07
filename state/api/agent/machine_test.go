@@ -13,6 +13,7 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -140,7 +141,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 }
 
-func tryOpenState(info *state.Info) error {
+func tryOpenState(info *authentication.ConnectionInfo) error {
 	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
