@@ -225,9 +225,10 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 			"cat >> /etc/network/interfaces << EOF\n# Source interfaces\n" +
 			"# Please check /etc/network/interfaces.d before changing this file\n" +
 			"# as interfaces may have been defined in /etc/network/interfaces.d\n" +
-			"# NOTE: the primary ethernet device is defined in\n# /etc/network/interfaces.d/eth0\n" +
+			"# NOTE: the primary ethernet device is defined in\n# /etc/network/interfaces.d/eth0.cfg\n" +
 			"# See LP: #1262951\nsource /etc/network/interfaces.d/*.cfg\nEOF\n",
-		"cat > /etc/network/interfaces.d/br0.cfg << EOF\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
+		"cat > /etc/network/interfaces.d/br0.cfg << EOF\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n" +
+			"sed -i 's/iface eth0 inet dhcp/iface eth0 inet manual/' /etc/network/interfaces.d/eth0.cfg\n",
 		"ifup br0",
 		// Networking/VLAN stuff.
 		"sh -c 'lsmod | grep -q 8021q || modprobe 8021q'",

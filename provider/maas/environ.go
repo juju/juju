@@ -333,7 +333,7 @@ cat >> /etc/network/interfaces << EOF
 # Please check /etc/network/interfaces.d before changing this file
 # as interfaces may have been defined in /etc/network/interfaces.d
 # NOTE: the primary ethernet device is defined in
-# /etc/network/interfaces.d/eth0
+# /etc/network/interfaces.d/eth0.cfg
 # See LP: #1262951
 source /etc/network/interfaces.d/*.cfg
 EOF
@@ -348,6 +348,7 @@ auto br0
 iface br0 inet dhcp
   bridge_ports eth0
 EOF
+sed -i 's/iface eth0 inet dhcp/iface eth0 inet manual/' /etc/network/interfaces.d/eth0.cfg
 `
 }
 
