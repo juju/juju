@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/juju/charm"
+	"github.com/juju/charm/hooks"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/uniter"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
@@ -49,7 +50,7 @@ func IsMissingHookError(err error) bool {
 	return ok
 }
 
-func NewHookContext(hr *HookRunner, id, hi *hook.Info, hookName string, actionParams map[string]interface{}) *HookContext {
+func NewHookContext(hr *HookRunner, id string, hi *hook.Info, hookName string, actionParams map[string]interface{}) *HookContext {
 	newContext := &HookContext{
 		runner:       hr,
 		id:           id,
@@ -58,7 +59,7 @@ func NewHookContext(hr *HookRunner, id, hi *hook.Info, hookName string, actionPa
 		actionParams: actionParams,
 	}
 
-	return newContext, nil
+	return newContext
 }
 
 func (ctx *HookContext) UnitName() string {
@@ -86,30 +87,22 @@ func (ctx *HookContext) OwnerTag() string {
 }
 
 func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
-	if ctx.configSettings == nil {
-		var err error
-		ctx.configSettings, err = ctx.runner.unit.ConfigSettings()
-		if err != nil {
-			return nil, err
-		}
-	}
-	result := charm.Settings{}
-	for name, value := range ctx.configSettings {
-		result[name] = value
-	}
-	return result, nil
+	return ctx.runner.ConfigSettings()
 }
 
 func (ctx *HookContext) ActionParams() map[string]interface{} {
-	return ctx.actionParams, nil
+	return ctx.actionParams
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
-	return ctx.Relation(ctx.relationId)
+	if ctx.info.Kind.IsRelation() {
+		return ctx.Relation(ctx.info.RelationId)
+	}
+	return ctx.Relation(-1)
 }
 
 func (ctx *HookContext) RemoteUnitName() (string, bool) {
-	return ctx.remoteUnitName, ctx.remoteUnitName != ""
+	return ctx.info.RemoteUnit, ctx.info.RemoteUnit != ""
 }
 
 func (ctx *HookContext) Relation(id int) (jujuc.ContextRelation, bool) {
@@ -153,7 +146,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 
 func (ctx *HookContext) finalizeContext(process string, err error) error {
 	writeChanges := err == nil
-	for id, rctx := range ctx.relations {
+	for id, rctx := range ctx.runner.relations {
 		if writeChanges {
 			if e := rctx.WriteSettings(); e != nil {
 				e = fmt.Errorf(
@@ -187,32 +180,27 @@ func (ctx *HookContext) GetLogger(hookName string) loggo.Logger {
 	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", ctx.UnitName(), hookName))
 }
 
-// RunAction executes a hook from the charm's actions in an environment which
-// allows it to to call back into the hook context to execute jujuc tools.
-func (ctx *HookContext) RunAction(hookName, charmDir, toolsDir, socketPath string) error {
-	return ctx.runCharmHookWithLocation(hookName, charmDir, toolsDir, socketPath, "actions")
-}
-
 // RunHook executes a built-in hook in an environment which allows it to to
 // call back into the hook context to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
-	return ctx.runCharmHookWithLocation(hookName, charmDir, toolsDir, socketPath, "hooks")
-}
-
-func (ctx *HookContext) runCharmHookWithLocation(hookName, charmDir, toolsDir, socketPath string, charmLocation string) error {
 	var err error
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
-	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())
+	debugctx := unitdebug.NewHooksContext(ctx.runner.unit.Name())
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, charmDir, env)
 	} else {
-		err = ctx.runCharmHook(hookName, charmDir, env, charmLocation)
+		err = ctx.runCharmHook(hookName, charmDir, env)
 	}
 	return ctx.finalizeContext(hookName, err)
 }
 
-func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string, charmLocation string) error {
+func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string) error {
+	charmLocation := "hooks"
+	if ctx.info.Kind == hooks.ActionRequested {
+		charmLocation = "actions"
+	}
+
 	hook, err := exec.LookPath(filepath.Join(charmDir, charmLocation, hookName))
 	if err != nil {
 		if ee, ok := err.(*exec.Error); ok && os.IsNotExist(ee.Err) {

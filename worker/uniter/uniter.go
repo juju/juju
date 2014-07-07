@@ -341,30 +341,37 @@ func (u *Uniter) getHookContext(hr *HookRunner, hi *hook.Info) (hctx *HookContex
 		return nil, err
 	}
 
-	name := string(hi.Kind)
-	relId := -1
+	hookName := string(hi.Kind)
+	actionParams := map[string]interface{}{}
 
 	if hi.Kind.IsRelation() {
-		relId = hi.RelationId
-		name, err = u.relationers[relId].PrepareHook(hi)
+		hookName, err = u.relationers[hi.RelationId].PrepareHook(*hi)
 		if err != nil {
 			return nil, err
 		}
 	} else if hi.Kind == hooks.ActionRequested {
+		// XXX: Get John's PR
 		action, err := u.st.Action(hi.ActionId)
 		if err != nil {
 			return nil, err
 		}
-		actionParams := action.Params()
-		name = hi.ActionName
+		actionParams = action.Params()
+		hookName = action.Name()
+
+		// TODO: Validate
 	}
 
-	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), name, u.rand.Int63())
+	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
-	return NewHookContext(hr, hctxId, name, relId, actionParams)
+	// in this case, getHookContext was called by RunCommands.
+	if hi.Kind == "" {
+		hctxId = fmt.Sprintf("%s:%s:%d", u.unit.Name(), "run-commands", u.rand.Int63())
+	}
+
+	return NewHookContext(hr, hctxId, hi, hookName, actionParams), nil
 }
 
-func (u *Uniter) getHookRunner(hctxId string) (runner *HookRunner, err error) {
+func (u *Uniter) getHookRunner() (runner *HookRunner, err error) {
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
 		return nil, err
@@ -383,7 +390,7 @@ func (u *Uniter) getHookRunner(hctxId string) (runner *HookRunner, err error) {
 
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
-	return NewHookRunner(u.unit, hctxId, u.uuid, u.envName, ctxRelations,
+	return NewHookRunner(u.unit, u.uuid, u.envName, ctxRelations,
 		apiAddrs, ownerTag, proxySettings)
 }
 
@@ -436,11 +443,11 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer u.hookLock.Unlock()
 
-	runner, err := u.getHookRunner(hctxId)
+	runner, err := u.getHookRunner()
 	if err != nil {
 		return nil, err
 	}
-	// , -1, "", map[string]interface{}(nil))
+	hctx, err := u.getHookContext(runner, &hook.Info{RelationId: -1})
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
 		return nil, err
@@ -486,7 +493,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 
 	// Prepare context.
-	hookContext, err := u.getHookContext(hookRunner, hi)
+	hookContext, err := u.getHookContext(hookRunner, &hi)
 	if err != nil {
 		return err
 	}
@@ -513,13 +520,13 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	logger.Infof("running %q hook", hookContext.hookName)
 
 	ranHook := true
-	err = hctx.RunHook(hookContext.hookName, u.charmPath, u.toolsDir, socketPath)
+	err = hookContext.RunHook(hookContext.hookName, u.charmPath, u.toolsDir, socketPath)
 
 	if IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
 		logger.Errorf("hook failed: %s", err)
-		u.notifyHookFailed(hookContext.hookName, hctx)
+		u.notifyHookFailed(hookContext.hookName, hookContext)
 		return errHookFailed
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
@@ -565,8 +572,13 @@ func (u *Uniter) currentHookName() string {
 		name := relationer.ru.Endpoint().Name
 		hookName = fmt.Sprintf("%s-%s", name, hookInfo.Kind)
 	} else if hookInfo.Kind == hooks.ActionRequested {
-		hookName = hookInfo.ActionName
+		hookName = fmt.Sprintf("%s-%s", hookName, hookInfo.ActionId)
 	}
+
+	// TODO: How do we handle Action hooks?  Getting the Name requires
+	// API call.  Elsewhere, the Name of the Hook is considered to be
+	// the name of the Action in order to find and run the executable.
+
 	return hookName
 }
 
