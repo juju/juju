@@ -191,13 +191,9 @@ the method called with it.
 
 ### API Server
 
-The business logic itself is implemented in 
-[apiserver](https://github.com/juju/juju/tree/master/state/apiserver) 
-and its sub-packages. They are using the types in 
-[state](https://github.com/juju/juju/tree/master/state) representing 
-the Juju model.
+The API server is implemented in the package [apiserver](https://github.com/juju/juju/tree/master/state/apiserver)
+and its sub-packages. It is started inside the *machine agent* by calling `apiserver.NewServer()`.
 
-- Start `apiserver.NewServer()`
 - `server.apiHandler()` receives requests and start websocket
 - `server.serverConn()` rund´s the RPC on the websocket using the websocket JSON codec
 
