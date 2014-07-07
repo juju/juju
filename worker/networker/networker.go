@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"os"
 	"strings"
+	"syscall"
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
@@ -38,8 +40,13 @@ type Networker struct {
 
 // Internal struct to store information required to setup networks.
 type setupInfo struct {
-	// The current contents of '/etc/network/interfaces' file.
-	ifxData []byte
+	// The name and contents of '/etc/network/interfaces' file.
+	ifaceFileName string
+	ifaceFileData []byte
+
+	// The name and contents of files from '/etc/network/interfaces.d/' directory.
+	ifaceDirName string
+	ifaceDirData map[string][]byte
 
 	// The result of MachineNetworkInfo API call.
 	networks []network.Info
@@ -90,7 +97,7 @@ func interfacePattern(interfaceName string) string {
 
 func (s *setupInfo) interfaceIsConfigured(interfaceName string) bool {
 	substr := interfacePattern(interfaceName)
-	return strings.Contains(string(s.ifxData), substr)
+	return strings.Contains(string(s.ifaceFileData), substr)
 }
 
 func (s *setupInfo) configureInterfaces() {
@@ -104,8 +111,8 @@ func (s *setupInfo) configureInterfaces() {
 
 func (s *setupInfo) configureInterface(interfaceName string) {
 	substr := interfacePattern(interfaceName)
-	if !strings.Contains(string(s.ifxData), substr) {
-		s.ifxData = append(s.ifxData, []byte(substr)...)
+	if !strings.Contains(string(s.ifaceFileData), substr) {
+		s.ifaceFileData = append(s.ifaceFileData, []byte(substr)...)
 	}
 }
 
@@ -156,13 +163,70 @@ func interfaceHasAddress(interfaceName string) bool {
 	return len(addrs) != 0
 }
 
-func (nw *Networker) Handle() error {
-	s := &setupInfo{}
+func (s *setupInfo) ReadInterfacesFiles() error {
 	var err error
-	interfacesFile := NetworkDir + "/interfaces"
-	s.ifxData, err = ioutil.ReadFile(interfacesFile)
+	s.ifaceFileData, err = ioutil.ReadFile(s.ifaceFileName)
 	if err != nil {
-		logger.Errorf("failed to read %s: %v", interfacesFile, err)
+		logger.Errorf("failed to read file %q: %v", s.ifaceFileName, err)
+		return err
+	}
+	files, err := ioutil.ReadDir(s.ifaceDirName)
+	if err != nil {
+		if e, ok := err.(*os.PathError); ok && e.Err == syscall.ENOENT {
+                        // ignore error when directory is absent
+                } else {
+                        logger.Errorf("failed to read directory %q: %#v\n", s.ifaceDirName, err)
+                        return err
+                }
+	}
+	for _, file := range files {
+		if file.Mode().IsRegular() {
+			fileName := s.ifaceDirName + "/" + file.Name()
+			data, err := ioutil.ReadFile(fileName)
+			if err != nil {
+				// just report and ignore the error
+				logger.Errorf("failed to read file %q: %v", fileName, err)
+			}
+			s.ifaceDirData[file.Name()] = data
+		}
+	}
+	return nil
+}
+
+func (s *setupInfo) WriteInterfacesFiles() error {
+	err := ioutil.WriteFile(s.ifaceFileName, s.ifaceFileData, 0644)
+	if err != nil {
+		logger.Errorf("failed to white file %q: %v", s.ifaceFileName, err)
+		return err
+	}
+	err = os.Mkdir(s.ifaceDirName, 0755)
+	if err != nil {
+		if e, ok := err.(*os.PathError); ok && e.Err == syscall.EEXIST {
+                        // ignore error when directory already exists
+                } else {
+                        logger.Errorf("failed to create directory %q: %#v\n", s.ifaceDirName, err)
+                        return err
+                }
+	}
+	for name, data := range s.ifaceDirData {
+		fileName := s.ifaceDirName + "/" + name
+		err = ioutil.WriteFile(fileName, data, 0644)
+		if err != nil {
+			logger.Errorf("failed to write file %q: %v", fileName, err)
+			return err
+		}
+	}
+	return nil
+}
+
+func (nw *Networker) Handle() error {
+	s := &setupInfo{
+		ifaceFileName: NetworkDir + "/interfaces",
+		ifaceDirName: NetworkDir + "/interfaces.d",
+		ifaceDirData: make(map[string][]byte),
+	}
+	err := s.ReadInterfacesFiles()
+	if err != nil {
 		return err
 	}
 	s.networks, err = nw.st.MachineNetworkInfo(nw.tag)
@@ -186,9 +250,8 @@ func (nw *Networker) Handle() error {
 
 	// Update interface file
 	s.configureInterfaces()
-	err = ioutil.WriteFile(interfacesFile, s.ifxData, 0644)
+	err = s.WriteInterfacesFiles()
 	if err != nil {
-		logger.Errorf("failed to write %s: %v", interfacesFile, err)
 		return err
 	}
 
