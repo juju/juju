@@ -120,7 +120,13 @@ build_binary_packages() {
         go version || gccgo -v
         dpkg-source -x $juju_version.dsc
         cd juju-core-$version
-        dpkg-buildpackage -us -uc
+        if [[ -n \$(pidof go) ]]; then
+            # Go is either building or testing; do not clean its procs in /tmp.
+            build_opts="-nc"
+        else
+            build_opts=""
+        fi
+        dpkg-buildpackage -us -uc \$build_opts
 EOT
 }
 
