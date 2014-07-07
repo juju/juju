@@ -11,6 +11,7 @@ FIXUP_SOURCES=""
 IS_LOCAL="false"
 RETRY="false"
 SAFE="false"
+USE_TMPFS="false"
 while [[ "${1-}" != "" ]]; do
     case $1 in
         --force-archive)
@@ -26,6 +27,9 @@ while [[ "${1-}" != "" ]]; do
             IS_LOCAL="true"
             shift
             tarfile=$1
+            ;;
+        --use-tmpfs)
+            USE_TMPFS="true"
             ;;
     esac
     shift
@@ -92,6 +96,11 @@ ssh -o "StrictHostKeyChecking no" -o "UserKnownHostsFile /dev/null" \
     ubuntu@$instance_name  <<EOT
 set -eux
 ssh-keygen -t rsa -b 2048 -N "" -f ~/.ssh/id_rsa
+if [[ "$USE_TMPFS" == "true" ]]; then
+    sudo mkdir -m 777 /mnt/tmp
+    sudo mount -t tmpfs -o size=2G /mnt/tmp /mnt/tmp
+    export TMPDIR=/mnt/tmp
+fi
 tar -xzvf $tarfile
 export GOPATH=\$HOME/$juju_version
 if [[ -d \$GOPATH/src/launchpad.net/juju-core ]]; then
