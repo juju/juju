@@ -522,7 +522,7 @@ func newCloudinitConfig(hostname string, networkInfo []network.Info) (*cloudinit
 // setupNetworksOnBoot prepares a script to enable and start all
 // enabled network interfaces on boot.
 func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []network.Info) {
-	const ifaceConfig = `cat > /etc/network/interfaces.d/%s << EOF
+	const ifaceConfig = `cat > /etc/network/interfaces.d/%s.cfg << EOF
 auto %s
 iface %s inet dhcp
 EOF
