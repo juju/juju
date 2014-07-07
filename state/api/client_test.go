@@ -94,6 +94,14 @@ func (s *clientSuite) TestAddLocalCharm(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotImplemented)
 }
 
+func (s *clientSuite) TestClientEnvironmentUUID(c *gc.C) {
+	environ, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+
+	client := s.APIState.Client()
+	c.Assert(client.EnvironmentUUID(), gc.Equals, environ.Tag().Id())
+}
+
 func (s *clientSuite) TestWatchDebugLogConnected(c *gc.C) {
 	// Shows both the unmarshalling of a real error, and
 	// that the api server is connected.

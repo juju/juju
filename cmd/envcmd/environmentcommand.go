@@ -14,7 +14,11 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/state/api"
 )
 
 const CurrentEnvironmentFilename = "current-environment"
@@ -86,11 +90,26 @@ type EnvironCommand interface {
 // that wish to implement EnvironCommand.
 type EnvCommandBase struct {
 	cmd.CommandBase
+	// EnvName will very soon be package visible only as we want to be able
+	// to specify an environment in multiple ways, and not always referencing
+	// a file on disk based on the EnvName or the environemnts.yaml file.
 	EnvName string
 }
 
 func (c *EnvCommandBase) SetEnvName(envName string) {
 	c.EnvName = envName
+}
+
+func (c *EnvCommandBase) NewAPIClient() (*api.Client, error) {
+	// This is work in progress as we remove the EnvName from downstream code.
+	// We want to be able to specify the environment in a number of ways, one of
+	// which is the connection name on the client machine.
+	return juju.NewAPIClientFromName(c.EnvName)
+}
+
+func (c *EnvCommandBase) Config(store configstore.Storage) (*config.Config, error) {
+	cfg, _, err := environs.ConfigForName(c.EnvName, store)
+	return cfg, err
 }
 
 // Wrap wraps the specified EnvironCommand, returning a Command

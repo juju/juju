@@ -4,6 +4,7 @@
 package dummy_test
 
 import (
+	"net/url"
 	stdtesting "testing"
 	"time"
 
@@ -20,6 +21,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -135,6 +137,33 @@ func (s *suite) TestListNetworks(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(netInfo, jc.DeepEquals, expectInfo)
 	assertListNetworks(c, e, opc, expectInfo)
+}
+
+func (s *suite) TestSetPreferIPv6Addresses(c *gc.C) {
+	dummy.SetPreferIPv6Addresses(true)
+	e := s.bootstrapTestEnviron(c)
+	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
+	c.Assert(inst, gc.NotNil)
+	addrs, err := inst.Addresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, jc.DeepEquals, network.NewAddresses("only-0.dns", "127.0.0.1", "fc00::1"))
+	storageURL, err := e.Storage().URL("tools/releases/juju-" + version.Current.String() + ".tgz")
+	c.Assert(err, gc.IsNil)
+	toolsURL, err := url.Parse(storageURL)
+	c.Assert(err, gc.IsNil)
+	c.Assert(toolsURL.Host, gc.Matches, `\[::1\]:\d+`)
+
+	dummy.SetPreferIPv6Addresses(false)
+	inst, _ = jujutesting.AssertStartInstance(c, e, "1")
+	c.Assert(inst, gc.NotNil)
+	addrs, err = inst.Addresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, jc.DeepEquals, network.NewAddresses("only-1.dns", "127.0.0.1"))
+	storageURL, err = e.Storage().URL("tools/releases/juju-" + version.Current.String() + ".tgz")
+	c.Assert(err, gc.IsNil)
+	toolsURL, err = url.Parse(storageURL)
+	c.Assert(err, gc.IsNil)
+	c.Assert(toolsURL.Host, gc.Matches, `127\.0\.0\.1:\d+`)
 }
 
 func assertAllocateAddress(c *gc.C, e environs.Environ, opc chan dummy.Operation, expectInstId instance.Id, expectNetId network.Id, expectAddress network.Address) {
