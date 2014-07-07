@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -151,7 +150,7 @@ func (c *DeployCommand) Init(args []string) error {
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

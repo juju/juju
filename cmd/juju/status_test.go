@@ -2253,7 +2253,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 		Networks: map[string]api.NetworkStatus{},
 		// Relations field intentionally not set
 	})
-	s.PatchValue(&newApiClientForStatus, func(_ string) (statusAPI, error) {
+	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
 		return &client, nil
 	})
 

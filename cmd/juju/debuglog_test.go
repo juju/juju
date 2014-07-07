@@ -104,7 +104,7 @@ func (s *DebugLogSuite) TestArgParsing(c *gc.C) {
 
 func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 	fake := &fakeDebugLogAPI{}
-	s.PatchValue(&getDebugLogAPI, func(envName string) (DebugLogAPI, error) {
+	s.PatchValue(&getDebugLogAPI, func(_ *DebugLogCommand) (DebugLogAPI, error) {
 		return fake, nil
 	})
 	_, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}),
@@ -124,7 +124,7 @@ func (s *DebugLogSuite) TestParamsPassed(c *gc.C) {
 }
 
 func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
-	s.PatchValue(&getDebugLogAPI, func(envName string) (DebugLogAPI, error) {
+	s.PatchValue(&getDebugLogAPI, func(_ *DebugLogCommand) (DebugLogAPI, error) {
 		return &fakeDebugLogAPI{log: "this is the log output"}, nil
 	})
 	ctx, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}))
@@ -137,7 +137,7 @@ func (s *DebugLogSuite) TestTailFallback(c *gc.C) {
 		fmt.Fprintf(ctx.Stdout, "%s", sshCmd.Args)
 		return nil
 	})
-	s.PatchValue(&getDebugLogAPI, func(envName string) (DebugLogAPI, error) {
+	s.PatchValue(&getDebugLogAPI, func(_ *DebugLogCommand) (DebugLogAPI, error) {
 		return &fakeDebugLogAPI{err: errors.NotSupportedf("testing")}, nil
 	})
 	ctx, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}), "-n", "100")
