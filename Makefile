@@ -33,11 +33,16 @@ default: build
 # and will only work - when this tree is found on the GOPATH.
 ifeq ($(CURDIR),$(PROJECT_DIR))
 
+ifeq ($(JUJU_MAKE_GODEPS),true)
 $(GOPATH)/bin/godeps:
 	go get launchpad.net/godeps
 
 godeps: $(GOPATH)/bin/godeps
-	godeps -u dependencies.tsv
+	$(GOPATH)/bin/godeps -u dependencies.tsv
+else
+godeps:
+	@echo "skipping godeps"
+endif
 
 build: godeps
 	go build $(PROJECT)/...
