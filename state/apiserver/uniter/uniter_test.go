@@ -805,7 +805,10 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
 		Results: []params.StringsWatchResult{
-			{StringsWatcherId: "1", Changes: []string{}},
+			{StringsWatcherId: "1", Changes: []string{
+				firstAction.Id(),
+				secondAction.Id(),
+			}},
 		},
 	})
 
@@ -818,7 +821,6 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 	// the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
 	wc.AssertChange(firstAction.Id(), secondAction.Id())
-	wc.AssertNoChange()
 
 	addedAction, err := s.wordpressUnit.AddAction("backup", nil)
 	c.Assert(err, gc.IsNil)
