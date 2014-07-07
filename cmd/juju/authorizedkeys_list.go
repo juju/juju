@@ -11,7 +11,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -42,7 +41,7 @@ func (c *ListKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ListKeysCommand) Run(context *cmd.Context) error {
-	client, err := juju.NewKeyManagerClient(c.EnvName)
+	client, err := c.NewKeyManagerClient()
 	if err != nil {
 		return err
 	}

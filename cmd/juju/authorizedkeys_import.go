@@ -11,7 +11,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 var importKeysDoc = `
@@ -50,7 +49,7 @@ func (c *ImportKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ImportKeysCommand) Run(context *cmd.Context) error {
-	client, err := juju.NewKeyManagerClient(c.EnvName)
+	client, err := c.NewKeyManagerClient()
 	if err != nil {
 		return err
 	}

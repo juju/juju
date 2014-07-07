@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/keymanager"
 )
 
 const CurrentEnvironmentFilename = "current-environment"
@@ -105,6 +106,13 @@ func (c *EnvCommandBase) NewAPIClient() (*api.Client, error) {
 	// We want to be able to specify the environment in a number of ways, one of
 	// which is the connection name on the client machine.
 	return juju.NewAPIClientFromName(c.EnvName)
+}
+
+func (c *EnvCommandBase) NewKeyManagerClient() (*keymanager.Client, error) {
+	// This is work in progress as we remove the EnvName from downstream code.
+	// We want to be able to specify the environment in a number of ways, one of
+	// which is the connection name on the client machine.
+	return juju.NewKeyManagerClient(c.EnvName)
 }
 
 func (c *EnvCommandBase) Config(store configstore.Storage) (*config.Config, error) {
