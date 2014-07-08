@@ -8,7 +8,6 @@ import (
 	"io"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"launchpad.net/gnuflag"
 
@@ -89,9 +88,6 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 	defer client.Close()
 	debugLog, err := client.WatchDebugLog(c.params)
 	if err != nil {
-		if errors.IsNotSupported(err) {
-			return c.watchDebugLog1dot18(ctx)
-		}
 		return err
 	}
 	defer debugLog.Close()
@@ -101,22 +97,4 @@ func (c *DebugLogCommand) Run(ctx *cmd.Context) (err error) {
 
 var runSSHCommand = func(sshCmd *SSHCommand, ctx *cmd.Context) error {
 	return sshCmd.Run(ctx)
-}
-
-// watchDebugLog1dot18 runs in case of an older API server and uses ssh
-// but with server-side grep.
-func (c *DebugLogCommand) watchDebugLog1dot18(ctx *cmd.Context) error {
-	ctx.Infof("Server does not support new stream log, falling back to tail")
-	ctx.Verbosef("filters are not supported with tail")
-	sshCmd := &SSHCommand{}
-	tailCmd := fmt.Sprintf("tail -n -%d -f %s", c.params.Backlog, DefaultLogLocation)
-	// If the api doesn't support WatchDebugLog, then it won't be running in
-	// HA either, so machine 0 is where it is all at.
-	args := []string{"0", tailCmd}
-	err := sshCmd.Init(args)
-	if err != nil {
-		return err
-	}
-	sshCmd.EnvName = c.EnvName
-	return runSSHCommand(sshCmd, ctx)
 }
