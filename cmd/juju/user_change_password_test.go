@@ -6,6 +6,7 @@ package main
 import (
 	"errors"
 	"fmt"
+
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/cmd"

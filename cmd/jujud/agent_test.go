@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -271,7 +272,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Bina
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
-			Nonce:             state.BootstrapNonce,
+			Nonce:             agent.BootstrapNonce,
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiInfo.Addrs,
 			CACert:            stateInfo.CACert,
@@ -308,7 +309,7 @@ func parseHostPort(s string) (network.HostPort, error) {
 }
 
 // writeStateAgentConfig creates and writes a state agent config.
-func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
+func writeStateAgentConfig(c *gc.C, stateInfo *authentication.ConnectionInfo, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
 	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
@@ -317,7 +318,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
-			Nonce:             state.BootstrapNonce,
+			Nonce:             agent.BootstrapNonce,
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiAddr,
 			CACert:            stateInfo.CACert,
