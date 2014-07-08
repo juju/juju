@@ -20,7 +20,7 @@ The keys are imported using ssh-import-id.
 
 // ImportKeysCommand is used to add new authorized ssh keys for a user.
 type ImportKeysCommand struct {
-	envcmd.EnvCommandBase
+	AuthorizedKeysBase
 	user      string
 	sshKeyIds []string
 }

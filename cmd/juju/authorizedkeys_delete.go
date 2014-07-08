@@ -21,7 +21,7 @@ typically something like "user@host", or the key fingerprint found by using ssh-
 
 // DeleteKeysCommand is used to delete authorized ssh keys for a user.
 type DeleteKeysCommand struct {
-	envcmd.EnvCommandBase
+	AuthorizedKeysBase
 	user   string
 	keyIds []string
 }

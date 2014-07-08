@@ -22,7 +22,7 @@ By default, just the key fingerprint is printed. Use --full to display the entir
 
 // ListKeysCommand is used to list the authorized ssh keys.
 type ListKeysCommand struct {
-	envcmd.EnvCommandBase
+	AuthorizedKeysBase
 	showFullKey bool
 	user        string
 }

@@ -19,7 +19,7 @@ Add new authorized ssh keys to allow the holder of those keys to log on to Juju 
 
 // AddKeysCommand is used to add a new authorized ssh key for a user.
 type AddKeysCommand struct {
-	envcmd.EnvCommandBase
+	AuthorizedKeysBase
 	user    string
 	sshKeys []string
 }
