@@ -71,7 +71,7 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 	testGetMongoConnectionInfo := func(thisState *state.State) *state.Info {
 		info := &state.Info{
 			Password: "foobar",
-			Tag:      "machine-0",
+			Tag:      names.NewMachineTag("0"),
 		}
 		info.Addrs = append(info.Addrs, "localhost:80")
 		return info

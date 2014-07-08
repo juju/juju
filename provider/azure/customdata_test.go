@@ -42,7 +42,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 				CACert: testing.CACert,
 				Addrs:  []string{"127.0.0.1:123"},
 			},
-			Tag:      names.NewMachineTag(machineID).String(),
+			Tag:      names.NewMachineTag(machineID),
 			Password: "password",
 		},
 		APIInfo: &api.Info{

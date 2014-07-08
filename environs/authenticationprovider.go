@@ -79,7 +79,7 @@ func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*sta
 		return nil, nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
 	}
 	stateInfo := *auth.stateInfo
-	stateInfo.Tag = machine.Tag().String()
+	stateInfo.Tag = machine.Tag()
 	stateInfo.Password = password
 	apiInfo := *auth.apiInfo
 	apiInfo.Tag = machine.Tag().String()

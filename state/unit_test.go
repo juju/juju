@@ -906,13 +906,13 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Sanity check that we cannot connect with the wrong
 	// password
-	info.Tag = m.Tag().String()
+	info.Tag = m.Tag()
 	info.Password = "foo1"
 	err = tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	// Connect as the machine entity.
-	info.Tag = m.Tag().String()
+	info.Tag = m.Tag()
 	info.Password = "foo"
 	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
@@ -927,7 +927,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Now connect as the unit entity and, as that
 	// that entity, change the password for a new unit.
-	info.Tag = unit.Tag().String()
+	info.Tag = unit.Tag()
 	info.Password = "bar"
 	st2, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)

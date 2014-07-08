@@ -6,6 +6,7 @@ package environs_test
 import (
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
@@ -45,13 +46,14 @@ type CloudInitSuite struct {
 var _ = gc.Suite(&CloudInitSuite{})
 
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
+	userTag := names.NewUserTag("not touched")
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
-		StateInfo: &state.Info{Tag: "not touched"},
+		StateInfo: &state.Info{Tag: userTag},
 		APIInfo:   &api.Info{Tag: "not touched"},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
@@ -62,13 +64,14 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		StateInfo: &state.Info{Tag: "not touched"},
+		StateInfo: &state.Info{Tag: userTag},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: false,
 	})
 }
 
 func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
+	userTag := names.NewUserTag("not touched")
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
@@ -76,7 +79,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
-		StateInfo: &state.Info{Tag: "not touched"},
+		StateInfo: &state.Info{Tag: userTag},
 		APIInfo:   &api.Info{Tag: "not touched"},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
@@ -87,7 +90,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		StateInfo: &state.Info{Tag: "not touched"},
+		StateInfo: &state.Info{Tag: userTag},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: true,
 	})
@@ -170,7 +173,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 				CACert: "CA CERT\n" + testing.CACert,
 			},
 			Password: "pw1",
-			Tag:      "machine-10",
+			Tag:      names.NewMachineTag("10"),
 		},
 		APIInfo: &api.Info{
 			Addrs:    []string{"127.0.0.1:1234"},

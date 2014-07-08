@@ -111,7 +111,7 @@ apiport: 17070
 `[1:]
 
 const configDataWithoutNewAttributes = `
-tag: omg
+tag: user-omg
 nonce: a nonce
 cacert: Y2EgY2VydA==
 stateaddresses:

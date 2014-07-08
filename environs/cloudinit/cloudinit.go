@@ -591,8 +591,8 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.Config == nil {
 			return fmt.Errorf("missing environment configuration")
 		}
-		if cfg.StateInfo.Tag != "" {
-			return fmt.Errorf("entity tag must be blank when starting a state server")
+		if cfg.StateInfo.Tag != nil {
+			return fmt.Errorf("entity tag must be nil when starting a state server")
 		}
 		if cfg.APIInfo.Tag != "" {
 			return fmt.Errorf("entity tag must be blank when starting a state server")
@@ -622,7 +622,7 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if len(cfg.StateInfo.Addrs) == 0 {
 			return fmt.Errorf("missing state hosts")
 		}
-		if cfg.StateInfo.Tag != names.NewMachineTag(cfg.MachineId).String() {
+		if cfg.StateInfo.Tag != names.NewMachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity tag must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {

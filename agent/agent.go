@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/juju/paths"
@@ -226,7 +227,7 @@ type configInternal struct {
 	configFilePath    string
 	dataDir           string
 	logDir            string
-	tag               string
+	tag               names.Tag
 	nonce             string
 	jobs              []params.MachineJob
 	upgradedToVersion version.Number
@@ -274,6 +275,10 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if len(configParams.CACert) == 0 {
 		return nil, errors.Trace(requiredError("CA certificate"))
 	}
+	tag, err := names.ParseTag(configParams.Tag)
+	if err != nil {
+		return nil, err
+	}
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
 	config := &configInternal{
@@ -281,7 +286,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		dataDir:           configParams.DataDir,
 		jobs:              configParams.Jobs,
 		upgradedToVersion: configParams.UpgradedToVersion,
-		tag:               configParams.Tag,
+		tag:               tag,
 		nonce:             configParams.Nonce,
 		caCert:            configParams.CACert,
 		oldPassword:       configParams.Password,
@@ -331,17 +336,17 @@ func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.Sta
 }
 
 // Dir returns the agent-specific data directory.
-func Dir(dataDir, agentName string) string {
+func Dir(dataDir string, tag names.Tag) string {
 	// Note: must use path, not filepath, as this
 	// function is used by the client on Windows.
-	return path.Join(dataDir, "agents", agentName)
+	return path.Join(dataDir, "agents", tag.String())
 }
 
 // ConfigPath returns the full path to the agent config file.
 // NOTE: Delete this once all agents accept --config instead
 // of --data-dir - it won't be needed anymore.
-func ConfigPath(dataDir, agentName string) string {
-	return filepath.Join(Dir(dataDir, agentName), agentConfigFilename)
+func ConfigPath(dataDir string, tag names.Tag) string {
+	return filepath.Join(Dir(dataDir, tag), agentConfigFilename)
 }
 
 // ReadConfig reads configuration data from the given location.
@@ -554,7 +559,7 @@ func (c *configInternal) OldPassword() string {
 }
 
 func (c *configInternal) Tag() string {
-	return c.tag
+	return c.tag.String()
 }
 
 func (c *configInternal) Dir() string {
@@ -634,7 +639,7 @@ func (c *configInternal) APIInfo() *api.Info {
 		Addrs:    addrs,
 		Password: c.apiDetails.password,
 		CACert:   c.caCert,
-		Tag:      c.tag,
+		Tag:      c.tag.String(),
 		Nonce:    c.nonce,
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -27,9 +28,10 @@ import (
 // connection to that cluster.
 type Info struct {
 	mongo.Info
+
 	// Tag holds the name of the entity that is connecting.
-	// It should be empty when connecting as an administrator.
-	Tag string
+	// It should be nil when connecting as an administrator.
+	Tag names.Tag
 
 	// Password holds the password for the connecting entity.
 	Password string
@@ -187,14 +189,14 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
-	if info.Tag != "" {
-		if err := db.Login(info.Tag, info.Password); err != nil {
+	if info.Tag != nil {
+		if err := db.Login(info.Tag.String(), info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", info.Tag))
 		}
-		if err := pdb.Login(info.Tag, info.Password); err != nil {
+		if err := pdb.Login(info.Tag.String(), info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
 		}
-		if err := admin.Login(info.Tag, info.Password); err != nil {
+		if err := admin.Login(info.Tag.String(), info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
 		}
 	} else if info.Password != "" {

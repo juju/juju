@@ -75,7 +75,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           "/not/used/here",
-			Tag:               "tag",
+			Tag:               "user-tag",
 			UpgradedToVersion: version.Current.Number,
 			Password:          "dummy-secret",
 			Nonce:             "nonce",

@@ -30,7 +30,7 @@ func FakeStateInfo(machineId string) *state.Info {
 			Addrs:  []string{"0.1.2.3:1234"},
 			CACert: testing.CACert,
 		},
-		Tag:      names.NewMachineTag(machineId).String(),
+		Tag:      names.NewMachineTag(machineId),
 		Password: "unimportant",
 	}
 }

@@ -200,7 +200,7 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
 			StateInfo: &state.Info{
-				Tag:      "machine-99",
+				Tag:      names.NewMachineTag("99"),
 				Password: "arble",
 				Info: mongo.Info{
 					Addrs:  []string{"state-addr.testing.invalid:12345"},
@@ -257,7 +257,7 @@ start jujud-machine-99
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:         "FAKE_NONCE",
 			StateInfo: &state.Info{
-				Tag:      "machine-2-lxc-1",
+				Tag:      names.NewMachineTag("2/lxc/1"),
 				Password: "arble",
 				Info: mongo.Info{
 					Addrs:  []string{"state-addr.testing.invalid:12345"},
@@ -295,7 +295,7 @@ start jujud-machine-2-lxc-1
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
 			StateInfo: &state.Info{
-				Tag:      "machine-99",
+				Tag:      names.NewMachineTag("99"),
 				Password: "arble",
 				Info: mongo.Info{
 					Addrs:  []string{"state-addr.testing.invalid:12345"},
@@ -628,7 +628,7 @@ var verifyTests = []struct {
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
 		cfg.StateInfo = &state.Info{
-			Tag: "machine-99",
+			Tag: names.NewMachineTag("99"),
 			Info: mongo.Info{
 				CACert: testing.CACert,
 			},
@@ -646,7 +646,7 @@ var verifyTests = []struct {
 				Addrs:  []string{"foo:35"},
 				CACert: testing.CACert,
 			},
-			Tag: "machine-99",
+			Tag: names.NewMachineTag("99"),
 		}
 		cfg.APIInfo = &api.Info{
 			Tag:    "machine-99",
@@ -659,7 +659,7 @@ var verifyTests = []struct {
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
 		cfg.StateInfo = &state.Info{
-			Tag: "machine-99",
+			Tag: names.NewMachineTag("99"),
 			Info: mongo.Info{
 				Addrs: []string{"host:98765"},
 			},
@@ -703,13 +703,13 @@ var verifyTests = []struct {
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.StateInfo
-		info.Tag = "machine-0"
+		info.Tag = names.NewMachineTag("0")
 		cfg.StateInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.StateInfo
-		info.Tag = ""
+		info.Tag = nil // admin user
 		cfg.StateInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
@@ -724,9 +724,9 @@ var verifyTests = []struct {
 		info.Tag = ""
 		cfg.APIInfo = &info
 	}},
-	{"entity tag must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must be nil when starting a state server", func(cfg *cloudinit.MachineConfig) {
 		info := *cfg.StateInfo
-		info.Tag = "machine-0"
+		info.Tag = names.NewMachineTag("0")
 		cfg.StateInfo = &info
 	}},
 	{"entity tag must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
@@ -749,7 +749,7 @@ var verifyTests = []struct {
 		apiInfo.Tag = "machine-99"
 		cfg.APIInfo = &apiInfo
 		stateInfo := *cfg.StateInfo
-		stateInfo.Tag = "machine-99"
+		stateInfo.Tag = names.NewMachineTag("99")
 		cfg.StateInfo = &stateInfo
 	}},
 }
