@@ -565,7 +565,7 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 // values are always treated as removed; true values cause the associated
 // document to be read, and whether it's treated as added or removed depends
 // on the value of the document's Departing field.
-func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}]bool) (err error) {
+func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}]bool) error {
 	var existIds []string
 	for id, exists := range ids {
 		switch id := id.(type) {
