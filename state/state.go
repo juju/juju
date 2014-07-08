@@ -27,29 +27,29 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
+	environsPolicy "github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/state/policy"
 	"github.com/juju/juju/state/presence"
 	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 )
 
-var logger = loggo.GetLogger("juju.state")
-
-// BootstrapNonce is used as a nonce for the state server machine.
 const (
-	BootstrapNonce = "user-admin:bootstrap"
-	AdminUser      = "admin"
+	AdminUser = "admin"
 )
+
+var logger = loggo.GetLogger("juju.state")
 
 // State represents the state of an environment
 // managed by juju.
 type State struct {
 	transactionRunner statetxn.Runner
-	info              *Info
-	policy            Policy
+	info              *environsPolicy.Info
+	policy            policy.Policy
 	db                *mgo.Database
 	environments      *mgo.Collection
 	charms            *mgo.Collection
@@ -1449,13 +1449,13 @@ func (st *State) Unit(name string) (*Unit, error) {
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the environment, this may lead to new instances being launched
 // within the environment.
-func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
+func (st *State) AssignUnit(u *Unit, assignmentPolicy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
 	defer errors.Maskf(&err, "cannot assign unit %q to machine", u)
 	var m *Machine
-	switch policy {
+	switch assignmentPolicy {
 	case AssignLocal:
 		m, err = st.Machine("0")
 		if err != nil {
@@ -1475,7 +1475,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	case AssignNew:
 		return u.AssignToNewMachine()
 	}
-	return fmt.Errorf("unknown unit assignment policy: %q", policy)
+	return fmt.Errorf("unknown unit assignment policy: %q", assignmentPolicy)
 }
 
 // StartSync forces watchers to resynchronize their state with the

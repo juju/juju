@@ -44,6 +44,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	environsPolicy "github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/tools"
@@ -56,6 +57,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/apiserver"
+	"github.com/juju/juju/state/policy"
 	"github.com/juju/juju/testing"
 )
 
@@ -86,7 +88,7 @@ func SampleConfig() testing.Attrs {
 
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy state, if it exists.
-func stateInfo() *state.Info {
+func stateInfo() *environsPolicy.Info {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
@@ -100,7 +102,7 @@ func stateInfo() *state.Info {
 	} else {
 		addrs = []string{net.JoinHostPort("localhost", mongoPort)}
 	}
-	return &state.Info{
+	return &environsPolicy.Info{
 		Info: mongo.Info{
 			Addrs:  addrs,
 			CACert: testing.CACert,
@@ -142,7 +144,7 @@ type OpStartInstance struct {
 	Constraints  constraints.Value
 	Networks     []string
 	NetworkInfo  []network.Info
-	Info         *state.Info
+	Info         *environsPolicy.Info
 	APIInfo      *api.Info
 	Secret       string
 }
@@ -176,8 +178,8 @@ type OpPutFile struct {
 type environProvider struct {
 	mu          sync.Mutex
 	ops         chan<- Operation
-	statePolicy state.Policy
 	preferIPv6  bool
+	statePolicy policy.Policy
 	// We have one state for each environment name
 	state      map[int]*environState
 	maxStateId int
@@ -194,7 +196,7 @@ type environState struct {
 	id           int
 	name         string
 	ops          chan<- Operation
-	statePolicy  state.Policy
+	statePolicy  policy.Policy
 	mu           sync.Mutex
 	maxId        int // maximum instance id allocated so far.
 	maxAddr      int // maximum allocated address last byte
@@ -306,7 +308,7 @@ func (e *environ) GetStateInAPIServer() *state.State {
 // newState creates the state for a new environment with the
 // given name and starts an http server listening for
 // storage requests.
-func newState(name string, ops chan<- Operation, policy state.Policy) *environState {
+func newState(name string, ops chan<- Operation, policy policy.Policy) *environState {
 	s := &environState{
 		name:        name,
 		ops:         ops,
@@ -334,7 +336,7 @@ func (s *environState) listen() {
 
 // SetStatePolicy sets the state.Policy to use when a
 // state server is initialised by dummy.
-func SetStatePolicy(policy state.Policy) {
+func SetStatePolicy(policy policy.Policy) {
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -684,7 +686,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return nil
 }
 
-func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
+func (e *environ) StateInfo() (*environsPolicy.Info, *api.Info, error) {
 	estate, err := e.state()
 	if err != nil {
 		return nil, nil, err

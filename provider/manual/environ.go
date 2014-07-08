@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/httpstorage"
 	"github.com/juju/juju/environs/manual"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/sshstorage"
 	"github.com/juju/juju/environs/storage"
@@ -30,7 +31,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/worker/localstorage"
@@ -133,7 +133,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	})
 }
 
-func (e *manualEnviron) StateInfo() (*state.Info, *api.Info, error) {
+func (e *manualEnviron) StateInfo() (*policy.Info, *api.Info, error) {
 	return common.StateInfo(e)
 }
 

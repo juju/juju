@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/httpstorage"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
@@ -39,7 +40,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/upstart"
@@ -212,7 +212,7 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 }
 
 // StateInfo is specified in the Environ interface.
-func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
+func (env *localEnviron) StateInfo() (*policy.Info, *api.Info, error) {
 	return common.StateInfo(env)
 }
 

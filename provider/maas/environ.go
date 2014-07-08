@@ -25,13 +25,13 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
 )
@@ -96,7 +96,7 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 }
 
 // StateInfo is specified in the Environ interface.
-func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
+func (env *maasEnviron) StateInfo() (*policy.Info, *api.Info, error) {
 	return common.StateInfo(env)
 }
 

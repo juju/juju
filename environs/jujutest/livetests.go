@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/policy"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/environs/sync"
 	envtesting "github.com/juju/juju/environs/testing"
@@ -147,7 +148,7 @@ func (t *LiveTests) Destroy(c *gc.C) {
 func (t *LiveTests) TestPrechecker(c *gc.C) {
 	// Providers may implement Prechecker. If they do, then they should
 	// return nil for empty constraints (excluding the null provider).
-	prechecker, ok := t.Env.(state.Prechecker)
+	prechecker, ok := t.Env.(policy.Prechecker)
 	if !ok {
 		return
 	}

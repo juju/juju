@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 	apiserverprovisioner "github.com/juju/juju/state/apiserver/provisioner"
+	"github.com/juju/juju/state/policy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/provisioner"
 )
@@ -121,7 +122,7 @@ func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
 // so the Settings returned from the watcher will not pass
 // validation.
 func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
-	st, err := state.Open(s.StateInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.StateInfo(c), mongo.DefaultDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	attrs := map[string]interface{}{"type": "unknown"}
@@ -131,7 +132,7 @@ func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
 
 // fixEnvironment undoes the work of invalidateEnvironment.
 func (s *CommonProvisionerSuite) fixEnvironment(c *gc.C) error {
-	st, err := state.Open(s.StateInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.StateInfo(c), mongo.DefaultDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	attrs := map[string]interface{}{"type": s.cfg.AllAttrs()["type"]}

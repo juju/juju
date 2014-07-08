@@ -23,6 +23,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/provisioner"
 	apitesting "github.com/juju/juju/state/api/testing"
+	"github.com/juju/juju/state/policy"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
@@ -548,7 +549,7 @@ func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 
 func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	args := params.ContainerManagerConfigParams{Type: instance.LXC}
-	st, err := state.Open(s.StateInfo(c), mongo.DialOpts{}, state.Policy(nil))
+	st, err := state.Open(s.StateInfo(c), mongo.DialOpts{}, policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

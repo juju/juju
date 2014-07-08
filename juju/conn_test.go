@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/policy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
@@ -143,7 +144,7 @@ func (*NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	info.Password = utils.UserPasswordHash("side-effect secret", utils.CompatSalt)
 	// Use a state without a nil policy, which will allow us to set an invalid config.
-	st, err := state.Open(info, mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, mongo.DefaultDialOpts(), policy.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, st)
 

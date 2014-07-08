@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
+	"github.com/juju/juju/environs/policy"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
@@ -104,7 +105,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.setUpConn(c)
 }
 
-func (s *JujuConnSuite) StateInfo(c *gc.C) *state.Info {
+func (s *JujuConnSuite) StateInfo(c *gc.C) *policy.Info {
 	info, _, err := s.Conn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Password = "dummy-secret"

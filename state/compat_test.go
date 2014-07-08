@@ -10,6 +10,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/state/policy"
 	"github.com/juju/juju/testing"
 )
 
@@ -38,7 +39,7 @@ func (s *compatSuite) TearDownSuite(c *gc.C) {
 func (s *compatSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.state = TestingInitialize(c, nil, Policy(nil))
+	s.state = TestingInitialize(c, nil, policy.Policy(nil))
 	env, err := s.state.Environment()
 	c.Assert(err, gc.IsNil)
 	s.env = env

@@ -18,6 +18,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state/policy"
 	statetxn "github.com/juju/juju/state/txn"
 	txntesting "github.com/juju/juju/state/txn/testing"
 	"github.com/juju/juju/testing"
@@ -41,7 +42,7 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 
 // SetPolicy updates the State's policy field to the
 // given Policy, and returns the old value.
-func SetPolicy(st *State, p Policy) Policy {
+func SetPolicy(st *State, p policy.Policy) policy.Policy {
 	old := st.policy
 	st.policy = p
 	return old
@@ -50,7 +51,7 @@ func SetPolicy(st *State, p Policy) Policy {
 // TestingInitialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default environment
 // configuration will be used.
-func TestingInitialize(c *gc.C, cfg *config.Config, policy Policy) *State {
+func TestingInitialize(c *gc.C, cfg *config.Config, policy policy.Policy) *State {
 	if cfg == nil {
 		cfg = testing.EnvironConfig(c)
 	}
