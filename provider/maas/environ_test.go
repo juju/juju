@@ -212,7 +212,7 @@ func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
 		{InterfaceName: "eth4", VLANTag: 12, Disabled: true},
 		{InterfaceName: "eth5", VLANTag: 66, Disabled: true},
 	}
-	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid", nwInfo)
+	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid", nwInfo, "eth0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
 	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, []interface{}{
