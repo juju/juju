@@ -259,14 +259,18 @@ func (w *lifecycleWatcher) initial() (set.Strings, error) {
 
 func (w *lifecycleWatcher) merge(ids set.Strings, updates map[interface{}]bool) error {
 	// Separate ids into those thought to exist and those known to be removed.
-	changed := []string{}
-	latest := map[string]Life{}
+	var changed []string
+	latest := make(map[string]Life)
 	for id, exists := range updates {
-		id := id.(string)
-		if exists {
-			changed = append(changed, id)
-		} else {
-			latest[id] = Dead
+		switch id := id.(type) {
+		case string:
+			if exists {
+				changed = append(changed, id)
+			} else {
+				latest[id] = Dead
+			}
+		default:
+			return errors.Errorf("id is not of type string, got %T", id)
 		}
 	}
 
@@ -561,22 +565,22 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 // values are always treated as removed; true values cause the associated
 // document to be read, and whether it's treated as added or removed depends
 // on the value of the document's Departing field.
-func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}]bool) (err error) {
-	existIds := []string{}
-	for id_, exists := range ids {
-		id, ok := id_.(string)
-		if !ok {
-			logger.Warningf("ignoring bad relation scope id: %#v", id_)
-			continue
-		}
-		if exists {
-			existIds = append(existIds, id)
-		} else {
-			doc := &relationScopeDoc{Key: id}
-			info.remove(doc.unitName())
+func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}]bool) error {
+	var existIds []string
+	for id, exists := range ids {
+		switch id := id.(type) {
+		case string:
+			if exists {
+				existIds = append(existIds, id)
+			} else {
+				doc := &relationScopeDoc{Key: id}
+				info.remove(doc.unitName())
+			}
+		default:
+			logger.Warningf("ignoring bad relation scope id: %#v", id)
 		}
 	}
-	docs := []relationScopeDoc{}
+	var docs []relationScopeDoc
 	sel := bson.D{{"_id", bson.D{{"$in", existIds}}}}
 	if err := w.st.relationScopes.Find(sel).All(&docs); err != nil {
 		return err
@@ -746,10 +750,11 @@ func (w *relationUnitsWatcher) finish() {
 }
 
 func (w *relationUnitsWatcher) loop() (err error) {
-	sentInitial := false
-	changes := params.RelationUnitsChange{}
-	out := w.out
-	out = nil
+	var (
+		sentInitial bool
+		changes     params.RelationUnitsChange
+		out         chan<- params.RelationUnitsChange
+	)
 	for {
 		select {
 		case <-w.st.watcher.Dead():
@@ -1203,11 +1208,11 @@ func (w *entityWatcher) Changes() <-chan struct{} {
 // a watcher.Watcher to be primed with the correct revision
 // id.
 func getTxnRevno(coll *mgo.Collection, key string) (int64, error) {
-	doc := &struct {
+	doc := struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
 	fields := bson.D{{"txn-revno", 1}}
-	if err := coll.FindId(key).Select(fields).One(doc); err == mgo.ErrNotFound {
+	if err := coll.FindId(key).Select(fields).One(&doc); err == mgo.ErrNotFound {
 		return -1, nil
 	} else if err != nil {
 		return 0, err
@@ -1632,14 +1637,15 @@ func (w *actionWatcher) loop() error {
 
 func (w *actionWatcher) merge(changes set.Strings, updates map[interface{}]bool) error {
 	for id, exists := range updates {
-		if id, ok := id.(string); ok {
+		switch id := id.(type) {
+		case string:
 			if exists {
 				changes.Add(id)
 			} else {
 				changes.Remove(id)
 			}
-		} else {
-			return fmt.Errorf("id is not of type string")
+		default:
+			return errors.Errorf("id is not of type string, got %T", id)
 		}
 	}
 	return nil
