@@ -222,8 +222,7 @@ func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner {
-	machineTag := names.NewMachineTag(s.machineId).String()
-	// TODO(dfc) agentConfigForTag should take a tag.
+	machineTag := names.NewMachineTag(s.machineId)
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	// TODO(dfc) agentConfig.Tag should return a names.MachineTag
 	tag, err := names.ParseMachineTag(agentConfig.Tag())

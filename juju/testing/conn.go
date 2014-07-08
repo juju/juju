@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
@@ -342,13 +343,13 @@ func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *
 	return service
 }
 
-func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.ConfigSetter {
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           s.DataDir(),
-			Tag:               tag,
+			Tag:               tag.String(),
 			UpgradedToVersion: version.Current.Number,
 			Password:          password,
 			Nonce:             "nonce",

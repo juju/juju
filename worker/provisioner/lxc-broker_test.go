@@ -256,7 +256,7 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
-	parentMachineTag := names.NewMachineTag(s.parentMachineId).String()
+	parentMachineTag := names.NewMachineTag(s.parentMachineId)
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
 	// TODO(dfc)
 	tag, err := names.ParseMachineTag(agentConfig.Tag())
