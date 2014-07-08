@@ -4,13 +4,10 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
 
-	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
