@@ -367,13 +367,13 @@ func (s *unitSuite) TestWatchActions(c *gc.C) {
 	wc.AssertChange()
 
 	// Add a couple of actions and make sure the changes are detected.
-	actionId, err := s.wordpressUnit.AddAction("snapshot", map[string]interface{}{
+	action, err := s.wordpressUnit.AddAction("snapshot", map[string]interface{}{
 		"outfile": "foo.txt",
 	})
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(actionId)
+	wc.AssertChange(action.Id())
 
-	actionId, err = s.wordpressUnit.AddAction("backup", map[string]interface{}{
+	action, err = s.wordpressUnit.AddAction("backup", map[string]interface{}{
 		"outfile": "foo.bz2",
 		"compression": map[string]interface{}{
 			"kind":    "bzip",
@@ -381,7 +381,7 @@ func (s *unitSuite) TestWatchActions(c *gc.C) {
 		},
 	})
 	c.Assert(err, gc.IsNil)
-	wc.AssertChange(actionId)
+	wc.AssertChange(action.Id())
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
