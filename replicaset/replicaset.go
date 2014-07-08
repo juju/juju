@@ -23,6 +23,10 @@ const (
 	// attempts to replSetInitiate.
 	initiateAttemptDelay = 100 * time.Millisecond
 
+	// maxInitiateStatusAttempts is the maximum number of attempts
+	// to get the replication status after Initiate.
+	maxInitiateStatusAttempts = 50
+
 	// rsMembersUnreachableError is the error message returned from mongo
 	// when it thinks that replicaset members are unreachable. This can
 	// occur if replSetInitiate is executed shortly after starting up mongo.
@@ -57,6 +61,7 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 	logger.Infof("Initiating replicaset with config %#v", cfg)
 	var err error
 	for i := 0; i < maxInitiateAttempts; i++ {
+		monotonicSession.Refresh()
 		err = monotonicSession.Run(bson.D{{"replSetInitiate", cfg}}, nil)
 		if err != nil && err.Error() == rsMembersUnreachableError {
 			time.Sleep(initiateAttemptDelay)
@@ -65,6 +70,22 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 		break
 	}
 
+	// Wait for replSetInitiate to complete. Even if err != nil,
+	// it may be that replSetInitiate is still in progress, so
+	// attempt CurrentStatus.
+	for i := 0; i < maxInitiateStatusAttempts; i++ {
+		monotonicSession.Refresh()
+		var status *Status
+		status, err = CurrentStatus(monotonicSession)
+		if err != nil {
+			logger.Warningf("Initiate: fetching replication status failed: %v", err)
+		}
+		if err != nil || len(status.Members) == 0 {
+			time.Sleep(initiateAttemptDelay)
+			continue
+		}
+		break
+	}
 	return err
 }
 
