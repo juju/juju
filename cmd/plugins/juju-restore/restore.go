@@ -216,7 +216,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	cfg, _, err := environs.ConfigForName(c.EnvName, store)
+	cfg, err := c.Config(store)
 	if err != nil {
 		return err
 	}
