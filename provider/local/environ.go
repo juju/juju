@@ -161,6 +161,11 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		agent.Namespace:   env.config.namespace(),
 		agent.StorageDir:  env.config.storageDir(),
 		agent.StorageAddr: env.config.storageAddr(),
+
+		// The local provider only supports a single state server,
+		// so we make the oplog size to a small value. This makes
+		// the preallocation faster with no disadvantage.
+		agent.MongoOplogSize: "1", // 1MB
 	}
 	if err := environs.FinishMachineConfig(mcfg, cfg, args.Constraints); err != nil {
 		return err
