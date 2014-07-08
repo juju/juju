@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/utils/ssh"
 )
 
