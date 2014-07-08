@@ -45,7 +45,11 @@ type machineInfo struct {
 	Hostname string `yaml:,omitempty`
 }
 
-var _MAASInstanceFilename = environs.DataDir + "/MAASmachine.txt"
+var _MAASInstanceFilename = maasInstanceFilename
+
+func maasInstanceFilename() string {
+	return environs.DataDir() + "/MAASmachine.txt"
+}
 
 // cloudinitRunCmd returns the shell command that, when run, will create the
 // "machine info" file containing the hostname of a machine.
@@ -55,12 +59,12 @@ func (info *machineInfo) cloudinitRunCmd() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, utils.ShQuote(environs.DataDir), utils.ShQuote(string(yaml)), utils.ShQuote(_MAASInstanceFilename))
+	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, utils.ShQuote(environs.DataDir()), utils.ShQuote(string(yaml)), utils.ShQuote(_MAASInstanceFilename()))
 	return script, nil
 }
 
 // load loads the "machine info" file and parse the content into the info
 // object.
 func (info *machineInfo) load() error {
-	return utils.ReadYaml(_MAASInstanceFilename, info)
+	return utils.ReadYaml(_MAASInstanceFilename(), info)
 }

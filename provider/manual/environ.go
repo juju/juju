@@ -15,7 +15,6 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -27,6 +26,7 @@ import (
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
@@ -125,7 +125,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	return manual.Bootstrap(manual.BootstrapArgs{
 		Context:                 ctx,
 		Host:                    host,
-		DataDir:                 agent.DefaultDataDir,
+		DataDir:                 paths.NewDefaultDataDir(),
 		Environ:                 e,
 		PossibleTools:           selectedTools,
 		Series:                  series,
@@ -154,7 +154,7 @@ func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 		var stor storage.Storage
 		if envConfig.useSSHStorage() {
 			storageDir := e.StorageDir()
-			storageTmpdir := path.Join(agent.DefaultDataDir, storageTmpSubdir)
+			storageTmpdir := path.Join(paths.NewDefaultDataDir(), storageTmpSubdir)
 			stor, err = newSSHStorage("ubuntu@"+e.cfg.bootstrapHost(), storageDir, storageTmpdir)
 			if err != nil {
 				return fmt.Errorf("initialising SSH storage failed: %v", err)
@@ -262,8 +262,8 @@ exit 0
 		script,
 		terminationworker.TerminationSignal,
 		mongo.ServiceName(""),
-		utils.ShQuote(agent.DefaultDataDir),
-		utils.ShQuote(agent.DefaultLogDir),
+		utils.ShQuote(paths.NewDefaultDataDir()),
+		utils.ShQuote(paths.NewDefaultLogDir()),
 	)
 	stderr, err := runSSHCommand(
 		"ubuntu@"+e.envConfig().bootstrapHost(),
@@ -315,7 +315,7 @@ func (e *manualEnviron) StorageAddr() string {
 }
 
 func (e *manualEnviron) StorageDir() string {
-	return path.Join(agent.DefaultDataDir, storageSubdir)
+	return path.Join(paths.NewDefaultDataDir(), storageSubdir)
 }
 
 func (e *manualEnviron) SharedStorageAddr() string {

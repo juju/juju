@@ -30,21 +30,6 @@ import (
 
 var logger = loggo.GetLogger("juju.agent")
 
-// logDir returns a filesystem path to the location where juju
-// may create a folder containing its logs
-var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
-
-// dataDir returns the default data directory for this running system
-var dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
-
-// DefaultLogDir defines the default log directory for juju agents.
-// It's defined as a variable so it could be overridden in tests.
-var DefaultLogDir = path.Join(logDir, "juju")
-
-// DefaultDataDir defines the default data directory for juju agents.
-// It's defined as a variable so it could be overridden in tests.
-var DefaultDataDir = dataDir
-
 // SystemIdentity is the name of the file where the environment SSH key is kept.
 const SystemIdentity = "system-identity"
 
@@ -258,7 +243,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if configParams.DataDir == "" {
 		return nil, errors.Trace(requiredError("data directory"))
 	}
-	logDir := DefaultLogDir
+	logDir := paths.NewDefaultLogDir()
 	if configParams.LogDir != "" {
 		logDir = configParams.LogDir
 	}

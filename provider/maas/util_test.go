@@ -39,7 +39,7 @@ func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	hostname := "hostname"
 	filename := "path/to/file"
 	old_MAASInstanceFilename := _MAASInstanceFilename
-	_MAASInstanceFilename = filename
+	_MAASInstanceFilename = func() string { return filename }
 	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
 	info := machineInfo{hostname}
 
@@ -48,7 +48,7 @@ func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, gc.IsNil)
-	expected := fmt.Sprintf("mkdir -p '%s'; echo -n '%s' > '%s'", environs.DataDir, yaml, filename)
+	expected := fmt.Sprintf("mkdir -p '%s'; echo -n '%s' > '%s'", environs.DataDir(), yaml, filename)
 	c.Check(script, gc.Equals, expected)
 }
 
@@ -57,7 +57,7 @@ func (*utilSuite) TestMachineInfoLoad(c *gc.C) {
 	yaml := fmt.Sprintf("hostname: %s\n", hostname)
 	filename := createTempFile(c, []byte(yaml))
 	old_MAASInstanceFilename := _MAASInstanceFilename
-	_MAASInstanceFilename = filename
+	_MAASInstanceFilename = func() string { return filename }
 	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
 	info := machineInfo{}
 

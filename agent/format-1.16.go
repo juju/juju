@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/goyaml"
 
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
 )
@@ -93,8 +94,8 @@ func (formatter_1_16) unmarshal(data []byte) (*configInternal, error) {
 	config := &configInternal{
 		tag:               format.Tag,
 		nonce:             format.Nonce,
-		dataDir:           DefaultDataDir,
-		logDir:            DefaultLogDir,
+		dataDir:           paths.NewDefaultDataDir(),
+		logDir:            paths.NewDefaultLogDir(),
 		upgradedToVersion: *format.UpgradedToVersion,
 		caCert:            string(caCert),
 		oldPassword:       format.OldPassword,

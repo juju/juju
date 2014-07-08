@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -152,7 +153,7 @@ var agentConfigTests = []struct {
 		Nonce:             "a nonce",
 	},
 	inspectConfig: func(c *gc.C, cfg agent.Config) {
-		c.Check(cfg.LogDir(), gc.Equals, agent.DefaultLogDir)
+		c.Check(cfg.LogDir(), gc.Equals, paths.NewDefaultLogDir())
 	},
 }}
 

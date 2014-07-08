@@ -17,10 +17,10 @@ import (
 	"github.com/juju/names"
 	"launchpad.net/golxc"
 
-	"github.com/juju/juju/agent"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/version"
 	"github.com/juju/utils/symlink"
 )
@@ -87,7 +87,7 @@ func NewContainerManager(conf container.ManagerConfig) (container.Manager, error
 	}
 	logDir := conf.PopValue(container.ConfigLogDir)
 	if logDir == "" {
-		logDir = agent.DefaultLogDir
+		logDir = paths.NewDefaultLogDir()
 	}
 	var useClone bool
 	useCloneVal := conf.PopValue("use-clone")
