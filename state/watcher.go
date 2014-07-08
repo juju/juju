@@ -244,7 +244,7 @@ func (w *lifecycleWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *lifecycleWatcher) initial() (*set.Strings, error) {
+func (w *lifecycleWatcher) initial() (set.Strings, error) {
 	var ids set.Strings
 	var doc lifeDoc
 	iter := w.coll.Find(w.members).Select(lifeFields).Iter()
@@ -254,19 +254,23 @@ func (w *lifecycleWatcher) initial() (*set.Strings, error) {
 			w.life[doc.Id] = doc.Life
 		}
 	}
-	return &ids, iter.Close()
+	return ids, iter.Close()
 }
 
-func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[interface{}]bool) error {
+func (w *lifecycleWatcher) merge(ids set.Strings, updates map[interface{}]bool) error {
 	// Separate ids into those thought to exist and those known to be removed.
-	changed := []string{}
-	latest := map[string]Life{}
+	var changed []string
+	latest := make(map[string]Life)
 	for id, exists := range updates {
-		id := id.(string)
-		if exists {
-			changed = append(changed, id)
-		} else {
-			latest[id] = Dead
+		switch id := id.(type) {
+		case string:
+			if exists {
+				changed = append(changed, id)
+			} else {
+				latest[id] = Dead
+			}
+		default:
+			return errors.Errorf("id is not of type string, got %T", id)
 		}
 	}
 
@@ -345,7 +349,7 @@ func (w *lifecycleWatcher) loop() error {
 				out = w.out
 			}
 		case out <- ids.Values():
-			ids = &set.Strings{}
+			ids = set.NewStrings()
 			out = nil
 		}
 	}
@@ -382,7 +386,7 @@ func (st *State) WatchMinUnits() StringsWatcher {
 	return newMinUnitsWatcher(st)
 }
 
-func (w *minUnitsWatcher) initial() (*set.Strings, error) {
+func (w *minUnitsWatcher) initial() (set.Strings, error) {
 	var serviceNames set.Strings
 	var doc minUnitsDoc
 	iter := w.st.minUnits.Find(nil).Iter()
@@ -390,10 +394,10 @@ func (w *minUnitsWatcher) initial() (*set.Strings, error) {
 		w.known[doc.ServiceName] = doc.Revno
 		serviceNames.Add(doc.ServiceName)
 	}
-	return &serviceNames, iter.Close()
+	return serviceNames, iter.Close()
 }
 
-func (w *minUnitsWatcher) merge(serviceNames *set.Strings, change watcher.Change) error {
+func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change) error {
 	serviceName := change.Id.(string)
 	if change.Revno == -1 {
 		delete(w.known, serviceName)
@@ -436,7 +440,7 @@ func (w *minUnitsWatcher) loop() (err error) {
 			}
 		case out <- serviceNames.Values():
 			out = nil
-			serviceNames = new(set.Strings)
+			serviceNames = set.NewStrings()
 		}
 	}
 }
@@ -561,22 +565,22 @@ func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
 // values are always treated as removed; true values cause the associated
 // document to be read, and whether it's treated as added or removed depends
 // on the value of the document's Departing field.
-func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}]bool) (err error) {
-	existIds := []string{}
-	for id_, exists := range ids {
-		id, ok := id_.(string)
-		if !ok {
-			logger.Warningf("ignoring bad relation scope id: %#v", id_)
-			continue
-		}
-		if exists {
-			existIds = append(existIds, id)
-		} else {
-			doc := &relationScopeDoc{Key: id}
-			info.remove(doc.unitName())
+func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[interface{}]bool) error {
+	var existIds []string
+	for id, exists := range ids {
+		switch id := id.(type) {
+		case string:
+			if exists {
+				existIds = append(existIds, id)
+			} else {
+				doc := &relationScopeDoc{Key: id}
+				info.remove(doc.unitName())
+			}
+		default:
+			logger.Warningf("ignoring bad relation scope id: %#v", id)
 		}
 	}
-	docs := []relationScopeDoc{}
+	var docs []relationScopeDoc
 	sel := bson.D{{"_id", bson.D{{"$in", existIds}}}}
 	if err := w.st.relationScopes.Find(sel).All(&docs); err != nil {
 		return err
@@ -746,10 +750,11 @@ func (w *relationUnitsWatcher) finish() {
 }
 
 func (w *relationUnitsWatcher) loop() (err error) {
-	sentInitial := false
-	changes := params.RelationUnitsChange{}
-	out := w.out
-	out = nil
+	var (
+		sentInitial bool
+		changes     params.RelationUnitsChange
+		out         chan<- params.RelationUnitsChange
+	)
 	for {
 		select {
 		case <-w.st.watcher.Dead():
@@ -1203,11 +1208,11 @@ func (w *entityWatcher) Changes() <-chan struct{} {
 // a watcher.Watcher to be primed with the correct revision
 // id.
 func getTxnRevno(coll *mgo.Collection, key string) (int64, error) {
-	doc := &struct {
+	doc := struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
 	fields := bson.D{{"txn-revno", 1}}
-	if err := coll.FindId(key).Select(fields).One(doc); err == mgo.ErrNotFound {
+	if err := coll.FindId(key).Select(fields).One(&doc); err == mgo.ErrNotFound {
 		return -1, nil
 	} else if err != nil {
 		return 0, err
@@ -1534,7 +1539,7 @@ func (st *State) WatchActions() StringsWatcher {
 
 // initial pre-loads the actions documents that are already queued for
 // the units this watcher was started for
-func (w *actionWatcher) initial() (*set.Strings, error) {
+func (w *actionWatcher) initial() (set.Strings, error) {
 	var actions set.Strings
 	var doc actionDoc
 	iter := w.st.actions.Find(nil).Iter()
@@ -1543,15 +1548,15 @@ func (w *actionWatcher) initial() (*set.Strings, error) {
 			actions.Add(doc.Id)
 		}
 	}
-	return &actions, iter.Close()
+	return actions, iter.Close()
 }
 
-func newActionWatcher(st *State, prefixIds ...string) StringsWatcher {
+func newActionWatcher(st *State, receivers ...ActionReceiver) StringsWatcher {
 	w := &actionWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan []string),
 	}
-	w.filterFn = w.makeFilter(prefixIds...)
+	w.filterFn = w.makeFilter(receivers...)
 
 	go func() {
 		defer w.tomb.Done()
@@ -1562,22 +1567,24 @@ func newActionWatcher(st *State, prefixIds ...string) StringsWatcher {
 	return w
 }
 
-// makeActionWatcherFilter constructs a predicate to filter keys
-// that have the prefix of one of the passed in tags, or returns
-// nil if tags is empty
-func (w *actionWatcher) makeFilter(ids ...string) func(interface{}) bool {
-	if len(ids) == 0 {
+// makeFilter constructs a predicate to filter keys that have the prefix matching
+// one of the passed in ActionReceivers, or returns nil if tags is empty
+func (w *actionWatcher) makeFilter(receivers ...ActionReceiver) func(interface{}) bool {
+	if len(receivers) == 0 {
 		return nil
+	}
+	prefixes := make([]string, len(receivers))
+	for ix, receiver := range receivers {
+		prefixes[ix] = ensureActionMarker(receiver.Name())
 	}
 	return func(key interface{}) bool {
 		if k, ok := key.(string); ok {
-			for _, id := range ids {
-				if strings.HasPrefix(k, id) {
+			for _, prefix := range prefixes {
+				if strings.HasPrefix(k, prefix) {
 					return true
 				}
 			}
 		} else {
-			// TODO(jcw4,fwereade) error out and w.tomb.Kill here? doesn't seem right.
 			logger.Warningf("actionWatcher got unexpected changes key.  expected string key got %+v", key)
 		}
 		return false
@@ -1622,22 +1629,23 @@ func (w *actionWatcher) loop() error {
 				out = w.out
 			}
 		case out <- changes.Values():
-			changes = &set.Strings{}
+			changes = set.NewStrings()
 			out = nil
 		}
 	}
 }
 
-func (w *actionWatcher) merge(changes *set.Strings, updates map[interface{}]bool) error {
+func (w *actionWatcher) merge(changes set.Strings, updates map[interface{}]bool) error {
 	for id, exists := range updates {
-		if id, ok := id.(string); ok {
+		switch id := id.(type) {
+		case string:
 			if exists {
 				changes.Add(id)
 			} else {
 				changes.Remove(id)
 			}
-		} else {
-			return fmt.Errorf("id is not of type string")
+		default:
+			return errors.Errorf("id is not of type string, got %T", id)
 		}
 	}
 	return nil

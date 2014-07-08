@@ -11,7 +11,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // RemoveMachineCommand causes an existing machine to be destroyed.
@@ -63,7 +62,7 @@ func (c *RemoveMachineCommand) Init(args []string) error {
 }
 
 func (c *RemoveMachineCommand) Run(_ *cmd.Context) error {
-	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
+	apiclient, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

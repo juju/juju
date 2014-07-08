@@ -2400,7 +2400,7 @@ var findEntityTests = []findEntityTest{{
 	tag: "action-",
 	err: `"action-" is not a valid action tag`,
 }, {
-	tag: "action-ser-vice2/0" + names.ActionMarker + "0",
+	tag: "action-ser-vice2/0_a_0",
 }, {
 	// TODO(axw) 2013-12-04 #1257587
 	// remove backwards compatibility for environment-tag; see state.go
@@ -2494,9 +2494,9 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	for _, name := range bad {
 		c.Logf(name)
 		coll, id, err := state.ParseTag(s.State, name)
+		c.Assert(err, gc.ErrorMatches, `".*" is not a valid( [a-z]+)? tag`)
 		c.Check(coll, gc.Equals, "")
 		c.Check(id, gc.Equals, "")
-		c.Assert(err, gc.ErrorMatches, `".*" is not a valid( [a-z]+)? tag`)
 	}
 }
 
@@ -2504,17 +2504,17 @@ func (s *StateSuite) TestParseMachineTag(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	coll, id, err := state.ParseTag(s.State, m.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "machines")
 	c.Assert(id, gc.Equals, m.Id())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseServiceTag(c *gc.C) {
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "dummy"))
 	coll, id, err := state.ParseTag(s.State, svc.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "services")
 	c.Assert(id, gc.Equals, svc.Name())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseUnitTag(c *gc.C) {
@@ -2522,9 +2522,9 @@ func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	coll, id, err := state.ParseTag(s.State, u.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "units")
 	c.Assert(id, gc.Equals, u.Name())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseActionTag(c *gc.C) {
@@ -2534,28 +2534,28 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	f, err := u.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 	action, err := s.State.Action(f.Id())
-	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(u.Tag().(names.UnitTag), 0))
+	c.Assert(action.Tag(), gc.Equals, names.JoinActionTag(u.Name(), 0))
 	coll, id, err := state.ParseTag(s.State, action.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "actions")
 	c.Assert(id, gc.Equals, action.Id())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseUserTag(c *gc.C) {
 	user := s.factory.MakeAnyUser()
 	coll, id, err := state.ParseTag(s.State, user.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseEnvironmentTag(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	coll, id, err := state.ParseTag(s.State, env.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "environments")
 	c.Assert(id, gc.Equals, env.UUID())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
@@ -2567,9 +2567,9 @@ func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	coll, id, err := state.ParseTag(s.State, net1.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "networks")
 	c.Assert(id, gc.Equals, net1.Name())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {
@@ -3583,7 +3583,7 @@ func (s *StateSuite) TestWatchActions(c *gc.C) {
 
 func expectActionIds(u *state.Unit, suffixes ...string) []string {
 	ids := make([]string, len(suffixes))
-	prefix := state.ActionPrefix(u)
+	prefix := state.EnsureActionMarker(u.Name())
 	for i, suffix := range suffixes {
 		ids[i] = prefix + suffix
 	}

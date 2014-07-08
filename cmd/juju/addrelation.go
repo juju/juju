@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // AddRelationCommand adds a relation between two service endpoints.
@@ -35,7 +34,7 @@ func (c *AddRelationCommand) Init(args []string) error {
 }
 
 func (c *AddRelationCommand) Run(_ *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

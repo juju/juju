@@ -532,10 +532,12 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 		}
 		switch authTag := authTag.(type) {
 		case names.UserTag:
-			return nil // user logins always allowed
+			// use a restricted API mode
+			return apiserver.UpgradeInProgressError
 		case names.MachineTag:
 			if authTag == a.Tag() {
-				return nil // allow logins from the local machine
+				// allow logins from the local machine
+				return nil
 			}
 		}
 		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)

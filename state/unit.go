@@ -164,11 +164,6 @@ func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
 }
 
-// ActionKey returns the globalKey to fulfill ActionReceiver
-func (u *Unit) ActionKey() string {
-	return u.globalKey()
-}
-
 // Life returns whether the unit is Alive, Dying or Dead.
 func (u *Unit) Life() Life {
 	return u.doc.Life
@@ -1597,5 +1592,5 @@ func (u *Unit) ClearResolved() error {
 
 // WatchActions starts and returns an ActionWatcher
 func (u *Unit) WatchActions() StringsWatcher {
-	return newActionWatcher(u.st, actionPrefix(u))
+	return newActionWatcher(u.st, u)
 }
