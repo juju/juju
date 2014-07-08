@@ -90,7 +90,7 @@ type filter struct {
 	upgradeAvailable serviceCharm
 	upgrade          *charm.URL
 	relations        []int
-	actionsPending   [](*hook.Info)
+	actionsPending   []string
 	nextAction       *hook.Info
 }
 
@@ -315,6 +315,7 @@ func (f *filter) loop(unitTag string) (err error) {
 	if err != nil {
 		return err
 	}
+	f.actionsPending = make([]string, 0)
 	defer func() {
 		if actionsw != nil {
 			watcher.Stop(actionsw, &f.tomb)
@@ -388,26 +389,12 @@ func (f *filter) loop(unitTag string) (err error) {
 			// address change causes config-changed event
 			filterLogger.Debugf("preparing new config event")
 			f.outConfig = f.outConfigOn
-		case keys, ok := <-actionsw.Changes():
-			filterLogger.Debugf("got %d actions", len(keys))
+		case ids, ok := <-actionsw.Changes():
+			filterLogger.Debugf("got %d actions", len(ids))
 			if !ok {
 				return watcher.MustErr(actionsw)
 			}
-			infos := make([](*hook.Info), len(keys))
-			filterLogger.Debugf("preparing new action infos")
-			for i, key := range keys {
-				newHookInfo := &hook.Info{
-					Kind:     hooks.ActionRequested,
-					ActionId: key,
-				}
-				infos[i] = newHookInfo
-			}
-			// The initial event is probably just the addition
-			// of the watcher, so it's fine if there was nothing
-			// in the event.
-			if len(infos) > 0 {
-				f.actionsChanged(infos)
-			}
+			f.gotActions(ids)
 		case keys, ok := <-relationsw.Changes():
 			filterLogger.Debugf("got relations change")
 			if !ok {
@@ -439,19 +426,8 @@ func (f *filter) loop(unitTag string) (err error) {
 			filterLogger.Debugf("sent config event")
 			f.outConfig = nil
 		case f.outAction <- f.nextAction:
+			f.nextAction = f.getNextAction()
 			filterLogger.Debugf("sent action event")
-			switch howManyMore := len(f.actionsPending); {
-			case howManyMore > 1:
-				f.nextAction = f.actionsPending[0]
-				f.actionsPending = f.actionsPending[1:]
-			case howManyMore == 1:
-				f.nextAction = f.actionsPending[0]
-				f.actionsPending = [](*hook.Info){}
-			default:
-				// no more actions for now
-				f.nextAction = nil
-				f.outAction = nil
-			}
 		case f.outRelations <- f.relations:
 			filterLogger.Debugf("sent relations event")
 			f.outRelations = nil
@@ -624,28 +600,38 @@ outer:
 		f.outRelations = f.outRelationsOn
 	}
 }
-
-func (f *filter) actionsChanged(infos [](*hook.Info)) {
+func (f *filter) gotActions(ids []string) {
+	// Make sure we don't have duplicates; append to pending slice
 outer:
-	for _, info := range infos {
+	for _, id := range ids {
 		for _, existing := range f.actionsPending {
-			if info.ActionId == existing.ActionId {
+			if id == existing {
 				continue outer
 			}
 		}
-		f.actionsPending = append(f.actionsPending, info)
-	}
-	if f.nextAction == nil {
-		f.nextAction = f.actionsPending[0]
 
-		if len(f.actionsPending) > 1 {
-			f.actionsPending = f.actionsPending[1:]
-		} else {
-			f.actionsPending = [](*hook.Info){}
+		f.actionsPending = append(f.actionsPending, id)
+	}
+
+	f.nextAction = f.getNextAction()
+}
+
+func (f *filter) getNextAction() *hook.Info {
+	if len(f.actionsPending) > 0 {
+		nextAction := hook.Info{
+			Kind:     hooks.ActionRequested,
+			ActionId: f.actionsPending[0],
 		}
+
+		f.outAction = f.outActionOn
+		f.actionsPending = f.actionsPending[1:]
+
+		return &nextAction
+	} else {
+		f.outAction = nil
 	}
 
-	f.outAction = f.outActionOn
+	return nil
 }
 
 // serviceCharm holds information about a charm.
