@@ -9,6 +9,9 @@ var (
 	WebsocketDialConfig = &websocketDialConfig
 	SetUpWebsocket      = setUpWebsocket
 	SlideAddressToFront = slideAddressToFront
+
+	ValidateBackupHash = validateBackupHash
+	GetBackupHash      = &getBackupHash
 )
 
 // SetServerRoot allows changing the URL to the internal API server

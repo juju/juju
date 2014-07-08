@@ -1,13 +1,12 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// XXX Change to backup_test
 package backup
 
 import (
 	"archive/tar"
 	"compress/gzip"
-	"crypto/sha1"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -15,6 +14,7 @@ import (
 	"path"
 	"strings"
 	stdtesting "testing"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
@@ -140,36 +140,61 @@ func (b *BackupSuite) assertTarContents(c *gc.C, expectedContents []expectedTarC
 
 }
 
-func shaSumFile(c *gc.C, fileToSum string) string {
-	f, err := os.Open(fileToSum)
-	c.Assert(err, gc.IsNil)
-	defer f.Close()
-	shahash := sha1.New()
-	_, err = io.Copy(shahash, f)
-	c.Assert(err, gc.IsNil)
-	return base64.StdEncoding.EncodeToString(shahash.Sum(nil))
+func (b *BackupSuite) TestDefaultFilename(c *gc.C) {
+	filename := DefaultFilename()
+
+	// This is a sanity check that no one accidentally
+	// (or accidentally maliciously) broken the default filename format.
+	c.Check(filename, gc.Matches, `jujubackup-\d{8}-\d{6}\..*`)
+	// The most crucial part is that the suffix is .tar.gz.
+	c.Assert(filename, gc.Matches, `.*\.tar\.gz$`)
 }
 
-func (b *BackupSuite) TestTarFilesUncompressed(c *gc.C) {
+func (b *BackupSuite) TestDefaultFilenameDateFormat(c *gc.C) {
+	filename := DefaultFilename()
+	_, err := TimestampFromDefaultFilename(filename)
+
+	c.Check(err, gc.IsNil)
+}
+
+func (b *BackupSuite) TestDefaultFilenameUnique(c *gc.C) {
+	filename1 := DefaultFilename()
+	time.Sleep(1 * time.Second)
+	filename2 := DefaultFilename()
+
+	c.Check(filename1, gc.Not(gc.Equals), filename2)
+}
+
+func (b *BackupSuite) TestGetHash(c *gc.C) {
+	archive := testing.NewCloseableBufferString("bam")
+	hash, err := GetHash(archive)
+
+	c.Assert(err, gc.IsNil)
+	c.Check(hash, gc.Equals, "evJYWUtQ/4dKBHtUqSRC6B9FjPs=")
+}
+
+func (b *BackupSuite) TestCreateArchiveUncompressed(c *gc.C) {
 	b.createTestFiles(c)
 	outputTar := path.Join(b.cwd, "output_tar_file.tar")
 	trimPath := fmt.Sprintf("%s/", b.cwd)
-	shaSum, err := tarFiles(b.testFiles, outputTar, trimPath, false)
+	shaSum, err := CreateArchive(b.testFiles, outputTar, trimPath, false)
 	c.Check(err, gc.IsNil)
-	fileShaSum := shaSumFile(c, outputTar)
+	fileShaSum, err := GetHashByFilename(outputTar)
+	c.Assert(err, gc.IsNil)
 	c.Assert(shaSum, gc.Equals, fileShaSum)
 	b.removeTestFiles(c)
 	b.assertTarContents(c, testExpectedTarContents, outputTar, false)
 }
 
-func (b *BackupSuite) TestTarFilesCompressed(c *gc.C) {
+func (b *BackupSuite) TestCreateArchiveCompressed(c *gc.C) {
 	b.createTestFiles(c)
 	outputTarGz := path.Join(b.cwd, "output_tar_file.tgz")
 	trimPath := fmt.Sprintf("%s/", b.cwd)
-	shaSum, err := tarFiles(b.testFiles, outputTarGz, trimPath, true)
+	shaSum, err := CreateArchive(b.testFiles, outputTarGz, trimPath, true)
 	c.Check(err, gc.IsNil)
 
-	fileShaSum := shaSumFile(c, outputTarGz)
+	fileShaSum, err := GetHashByFilename(outputTarGz)
+	c.Assert(err, gc.IsNil)
 	c.Assert(shaSum, gc.Equals, fileShaSum)
 
 	b.assertTarContents(c, testExpectedTarContents, outputTarGz, true)
@@ -185,14 +210,17 @@ func (b *BackupSuite) TestBackUp(c *gc.C) {
 		return nil
 	}
 	bkpFile, shaSum, err := Backup("boguspassword", "bogus-user", b.cwd, "localhost:8080")
-	c.Check(err, gc.IsNil)
-	c.Assert(ranCommand, gc.Equals, true)
-	fileShaSum := shaSumFile(c, path.Join(b.cwd, bkpFile))
+	c.Check(ranCommand, gc.Equals, true)
+	c.Assert(err, gc.IsNil)
+
+	fileShaSum, err := GetHashByFilename(bkpFile)
+	c.Assert(err, gc.IsNil)
 	c.Assert(shaSum, gc.Equals, fileShaSum)
+
 	bkpExpectedContents := []expectedTarContents{
 		{"juju-backup", ""},
 		{"juju-backup/dump", ""},
 		{"juju-backup/root.tar", ""},
 	}
-	b.assertTarContents(c, bkpExpectedContents, path.Join(b.cwd, bkpFile), true)
+	b.assertTarContents(c, bkpExpectedContents, bkpFile, true)
 }

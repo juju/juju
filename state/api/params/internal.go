@@ -4,6 +4,7 @@
 package params
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/juju/utils/exec"
@@ -490,6 +491,10 @@ type ToolsResult struct {
 	Error                          *Error
 }
 
+func (r *ToolsResult) Err() error {
+	return r.Error
+}
+
 // ToolsResults is a list of tools for various requested agents.
 type ToolsResults struct {
 	Results []ToolsResult
@@ -596,9 +601,11 @@ type CharmsResponse struct {
 	Files    []string `json:",omitempty"`
 }
 
-// BackupResponse is the server (error only) response to backup requests
-type BackupResponse struct {
-	Error string `json:",omitempty"`
+func (r *CharmsResponse) Err() error {
+	if r.Error == "" {
+		return nil
+	}
+	return fmt.Errorf(r.Error)
 }
 
 // RunParams is used to provide the parameters to the Run method.

@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"fmt"
 	"io"
+	"net/http"
 	"strings"
 	"time"
 
@@ -312,6 +313,15 @@ func (s *State) Broken() <-chan struct{} {
 // points don't reach. This is exported for testing purposes only.
 func (s *State) RPCClient() *rpc.Conn {
 	return s.client
+}
+
+// SecureHTTPClient returns an http.Client that can be used to securely
+// connect to the state server.
+func (s *State) SecureHTTPClient(host string) *http.Client {
+	httpclient := utils.GetValidatingHTTPClient()
+	tlsconfig := tls.Config{RootCAs: s.certPool, ServerName: host}
+	httpclient.Transport = utils.NewHttpTLSTransport(&tlsconfig)
+	return httpclient
 }
 
 // Addr returns the address used to connect to the API server.

@@ -252,7 +252,8 @@ func (s *debugLogSuite) dialWebsocket(c *gc.C, queryParams url.Values) (*websock
 }
 
 func (s *debugLogSuite) logURL(c *gc.C, scheme string, queryParams url.Values) *url.URL {
-	logURL := s.baseURL(c)
+	logURL, err := s.baseURL()
+	c.Assert(err, gc.IsNil)
 	query := ""
 	if queryParams != nil {
 		query = queryParams.Encode()

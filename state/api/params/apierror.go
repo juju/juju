@@ -9,6 +9,10 @@ import (
 	"github.com/juju/juju/rpc"
 )
 
+type FailableResult interface {
+	Err() error
+}
+
 // Error is the type of error returned by any call to the state API
 type Error struct {
 	Message string
@@ -21,6 +25,10 @@ func (e *Error) Error() string {
 
 func (e *Error) ErrorCode() string {
 	return e.Code
+}
+
+func (e *Error) Err() error {
+	return e
 }
 
 var _ rpc.ErrorCoder = (*Error)(nil)
