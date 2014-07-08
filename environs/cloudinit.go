@@ -68,7 +68,7 @@ func NewMachineConfig(
 func NewBootstrapMachineConfig(privateSystemSSHKey string) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	mcfg := NewMachineConfig("0", config.BootstrapNonce, nil, nil, nil)
+	mcfg := NewMachineConfig("0", agent.BootstrapNonce, nil, nil, nil)
 	mcfg.Bootstrap = true
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}

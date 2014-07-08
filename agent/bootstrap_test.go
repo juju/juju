@@ -115,7 +115,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits})
 	c.Assert(m.Series(), gc.Equals, version.Current.Series)
-	c.Assert(m.CheckProvisioned(config.BootstrapNonce), jc.IsTrue)
+	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), gc.DeepEquals, mcfg.Addresses)
 	gotConstraints, err := m.Constraints()
 	c.Assert(err, gc.IsNil)

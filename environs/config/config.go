@@ -28,9 +28,6 @@ import (
 var logger = loggo.GetLogger("juju.environs.config")
 
 const (
-	// BootstrapNonce is used as a nonce for the state server machine.
-	BootstrapNonce = "user-admin:bootstrap"
-
 	// FwInstance requests the use of an individual firewall per instance.
 	FwInstance = "instance"
 

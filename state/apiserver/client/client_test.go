@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -1362,7 +1363,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = m.SetProvisioned("i-0", config.BootstrapNonce, nil)
+	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
 	c.Assert(err, gc.IsNil)
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, gc.IsNil)

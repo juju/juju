@@ -124,7 +124,7 @@ func (s *commonMachineSuite) primeAgent(
 	m, err := s.State.AddMachine("quantal", jobs...)
 	c.Assert(err, gc.IsNil)
 	inst, md := jujutesting.AssertStartInstance(c, s.Conn.Environ, m.Id())
-	c.Assert(m.SetProvisioned(inst.Id(), config.BootstrapNonce, md), gc.IsNil)
+	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), gc.IsNil)
 
 	// Add an address for the tests in case the maybeInitiateMongoServer
 	// codepath is exercised.

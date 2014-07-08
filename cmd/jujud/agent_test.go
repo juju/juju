@@ -19,7 +19,6 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/juju/testing"
@@ -273,7 +272,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Bina
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
-			Nonce:             config.BootstrapNonce,
+			Nonce:             agent.BootstrapNonce,
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiInfo.Addrs,
 			CACert:            stateInfo.CACert,
@@ -319,7 +318,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *authentication.ConnectionInfo, da
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
-			Nonce:             config.BootstrapNonce,
+			Nonce:             agent.BootstrapNonce,
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiAddr,
 			CACert:            stateInfo.CACert,

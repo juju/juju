@@ -22,6 +22,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
@@ -816,13 +817,13 @@ func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
 		})
 		return err
 	}
-	err := injectMachine("", "i-minvalid", config.BootstrapNonce, state.JobHostUnits)
+	err := injectMachine("", "i-minvalid", agent.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
-	err = injectMachine("quantal", "", config.BootstrapNonce, state.JobHostUnits)
+	err = injectMachine("quantal", "", agent.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: cannot specify a nonce without an instance id")
 	err = injectMachine("quantal", "i-minvalid", "", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
-	err = injectMachine("quantal", config.BootstrapNonce, "i-mlazy")
+	err = injectMachine("quantal", agent.BootstrapNonce, "i-mlazy")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
@@ -837,7 +838,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 		Constraints: cons,
 		InstanceId:  "i-mindustrious",
-		Nonce:       config.BootstrapNonce,
+		Nonce:       agent.BootstrapNonce,
 		HardwareCharacteristics: instance.HardwareCharacteristics{
 			Arch:     &arch,
 			Mem:      &mem,
@@ -867,7 +868,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	template := state.MachineTemplate{
 		Series:     "quantal",
 		InstanceId: "i-mindustrious",
-		Nonce:      config.BootstrapNonce,
+		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 	}
 	m0, err := s.State.AddOneMachine(template)
