@@ -1526,7 +1526,8 @@ func (w *cleanupWatcher) loop() (err error) {
 // actionWatcher notifies of changes in the actions collection.
 type actionWatcher struct {
 	commonWatcher
-	out      chan []string
+	source   chan watcher.Change
+	sink     chan []string
 	filterFn func(interface{}) bool
 }
 
@@ -1537,80 +1538,47 @@ func (st *State) WatchActions() StringsWatcher {
 	return newActionWatcher(st)
 }
 
-// initial pre-loads the actions documents that are already queued for
-// the units this watcher was started for
-func (w *actionWatcher) initial() (set.Strings, error) {
-	var actions set.Strings
-	var doc actionDoc
-	iter := w.st.actions.Find(nil).Iter()
-	for iter.Next(&doc) {
-		if w.filterFn(doc.Id) {
-			actions.Add(doc.Id)
-		}
-	}
-	return actions, iter.Close()
-}
-
 func newActionWatcher(st *State, receivers ...ActionReceiver) StringsWatcher {
 	w := &actionWatcher{
 		commonWatcher: commonWatcher{st: st},
-		out:           make(chan []string),
+		source:        make(chan watcher.Change),
+		sink:          make(chan []string),
 	}
 	w.filterFn = w.makeFilter(receivers...)
 
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.out)
+		defer close(w.sink)
+		defer close(w.source)
 		w.tomb.Kill(w.loop())
 	}()
 
 	return w
 }
 
-// makeFilter constructs a predicate to filter keys that have the prefix matching
-// one of the passed in ActionReceivers, or returns nil if tags is empty
-func (w *actionWatcher) makeFilter(receivers ...ActionReceiver) func(interface{}) bool {
-	if len(receivers) == 0 {
-		return nil
-	}
-	prefixes := make([]string, len(receivers))
-	for ix, receiver := range receivers {
-		prefixes[ix] = ensureActionMarker(receiver.Name())
-	}
-	return func(key interface{}) bool {
-		if k, ok := key.(string); ok {
-			for _, prefix := range prefixes {
-				if strings.HasPrefix(k, prefix) {
-					return true
-				}
-			}
-		} else {
-			logger.Warningf("actionWatcher got unexpected changes key.  expected string key got %+v", key)
-		}
-		return false
-	}
-}
-
 // Changes returns the event channel for w
 func (w *actionWatcher) Changes() <-chan []string {
-	return w.out
+	return w.sink
 }
 
 func (w *actionWatcher) loop() error {
-	in := make(chan watcher.Change)
-	changes, err := w.initial()
+	var (
+		initial set.Strings
+		changes set.Strings
+		in      <-chan watcher.Change = w.source
+		out     chan<- []string       = w.sink
+		err     error
+	)
+
+	w.st.watcher.WatchCollectionWithFilter(w.st.actions.Name, w.source, w.filterFn)
+	defer w.st.watcher.UnwatchCollection(w.st.actions.Name, w.source)
+
+	initial, err = w.initial()
 	if err != nil {
 		return err
 	}
+	changes = initial
 
-	if w.filterFn != nil {
-		w.st.watcher.WatchCollectionWithFilter(w.st.actions.Name, in, w.filterFn)
-	} else {
-		w.st.watcher.WatchCollection(w.st.actions.Name, in)
-	}
-	defer w.st.watcher.UnwatchCollection(w.st.actions.Name, in)
-
-	out := w.out
 	for {
 		select {
 		case <-w.tomb.Dying():
@@ -1622,11 +1590,13 @@ func (w *actionWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := w.merge(changes, updates); err != nil {
+			if err := w.merge(changes, initial, updates); err != nil {
 				return err
 			}
 			if !changes.IsEmpty() {
-				out = w.out
+				out = w.sink
+			} else {
+				out = nil
 			}
 		case out <- changes.Values():
 			changes = set.NewStrings()
@@ -1635,12 +1605,61 @@ func (w *actionWatcher) loop() error {
 	}
 }
 
-func (w *actionWatcher) merge(changes set.Strings, updates map[interface{}]bool) error {
+// makeFilter constructs a predicate to filter keys that have the prefix matching
+// one of the passed in ActionReceivers, or returns nil if tags is empty
+func (w *actionWatcher) makeFilter(receivers ...ActionReceiver) func(interface{}) bool {
+	if len(receivers) == 0 {
+		return nil
+	}
+
+	prefixes := make([]string, len(receivers))
+	for ix, receiver := range receivers {
+		// ensureActionMarker delimits the prefix with the actionMarker,
+		// ensuring that the filter only matches exact prefixes
+		prefixes[ix] = ensureActionMarker(receiver.Name())
+	}
+
+	return func(key interface{}) bool {
+		switch key.(type) {
+		case string:
+			for _, prefix := range prefixes {
+				if strings.HasPrefix(key.(string), prefix) {
+					return true
+				}
+			}
+		default:
+			watchLogger.Errorf("key is not type string, got %T", key)
+		}
+		return false
+	}
+}
+
+// initial pre-loads the actions documents that are already queued for
+// the units this watcher was started for
+func (w *actionWatcher) initial() (set.Strings, error) {
+	var actions set.Strings
+	iter := w.st.actions.Find(nil).Iter()
+	var doc actionDoc
+	for iter.Next(&doc) {
+		if w.filterFn(doc.Id) {
+			actions.Add(doc.Id)
+		}
+	}
+	return actions, iter.Close()
+}
+
+// merge cleans up the pending changes to account for actionId's being
+// removed before this watcher consumes them, and to account for the slight
+// potential overlap between the inital actionIds pending before the watcher
+// starts, and actionId's the watcher detects
+func (w *actionWatcher) merge(changes, initial set.Strings, updates map[interface{}]bool) error {
 	for id, exists := range updates {
 		switch id := id.(type) {
 		case string:
 			if exists {
-				changes.Add(id)
+				if !initial.Contains(id) {
+					changes.Add(id)
+				}
 			} else {
 				changes.Remove(id)
 			}
