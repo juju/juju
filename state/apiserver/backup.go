@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -44,6 +45,9 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/octet-stream")
+		filename := filepath.Base(file.Name())
+		w.Header().Set("Content-Disposition",
+			fmt.Sprintf("attachment; filename=\"%s\"", filename))
 		w.Header().Set("Digest", fmt.Sprintf("SHA=%s", sha))
 
 		w.WriteHeader(http.StatusOK)
