@@ -13,6 +13,7 @@ import (
 	"os/exec"
 	"path"
 	"path/filepath"
+	"strconv"
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
@@ -134,7 +135,25 @@ func RemoveService(namespace string) error {
 	return upstartServiceStopAndRemove(svc)
 }
 
-// EnsureMongoServer ensures that the correct mongo upstart script is installed
+// EnsureServerParams is a parameter struct for EnsureServer.
+type EnsureServerParams struct {
+	params.StateServingInfo
+
+	// DataDir is the machine agent data directory.
+	DataDir string
+
+	// Namespace is the machine agent's namespace, which is used to
+	// generate a unique service name for Mongo.
+	Namespace string
+
+	// OplogSize is the size of the Mongo oplog.
+	// If this is zero, then EnsureServer will
+	// calculate a default size according to the
+	// algorithm defined in Mongo.
+	OplogSize int
+}
+
+// EnsureServer ensures that the correct mongo upstart script is installed
 // and running.
 //
 // This method will remove old versions of the mongo upstart script as necessary
@@ -143,21 +162,24 @@ func RemoveService(namespace string) error {
 // The namespace is a unique identifier to prevent multiple instances of mongo
 // on this machine from colliding. This should be empty unless using
 // the local provider.
-func EnsureServer(dataDir string, namespace string, info params.StateServingInfo) error {
-	logger.Infof("Ensuring mongo server is running; data directory %s; port %d", dataDir, info.StatePort)
-	dbDir := filepath.Join(dataDir, "db")
+func EnsureServer(args EnsureServerParams) error {
+	logger.Infof(
+		"Ensuring mongo server is running; data directory %s; port %d",
+		args.DataDir, args.StatePort,
+	)
+	dbDir := filepath.Join(args.DataDir, "db")
 
 	if err := os.MkdirAll(dbDir, 0700); err != nil {
 		return fmt.Errorf("cannot create mongo database directory: %v", err)
 	}
 
-	certKey := info.Cert + "\n" + info.PrivateKey
-	err := utils.AtomicWriteFile(sslKeyPath(dataDir), []byte(certKey), 0600)
+	certKey := args.Cert + "\n" + args.PrivateKey
+	err := utils.AtomicWriteFile(sslKeyPath(args.DataDir), []byte(certKey), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write SSL key: %v", err)
 	}
 
-	err = utils.AtomicWriteFile(sharedSecretPath(dataDir), []byte(info.SharedSecret), 0600)
+	err = utils.AtomicWriteFile(sharedSecretPath(args.DataDir), []byte(args.SharedSecret), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write mongod shared secret: %v", err)
 	}
@@ -180,7 +202,14 @@ func EnsureServer(dataDir string, namespace string, info params.StateServingInfo
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 
-	upstartConf, mongoPath, err := upstartService(namespace, dataDir, dbDir, info.StatePort)
+	oplogSizeMB := args.OplogSize
+	if oplogSizeMB == 0 {
+		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
+			return err
+		}
+	}
+
+	upstartConf, mongoPath, err := upstartService(args.Namespace, args.DataDir, dbDir, args.StatePort, oplogSizeMB)
 	if err != nil {
 		return err
 	}
@@ -192,7 +221,7 @@ func EnsureServer(dataDir string, namespace string, info params.StateServingInfo
 	if err := makeJournalDirs(dbDir); err != nil {
 		return fmt.Errorf("error creating journal directories: %v", err)
 	}
-	if err := preallocOplog(dbDir); err != nil {
+	if err := preallocOplog(dbDir, oplogSizeMB); err != nil {
 		return fmt.Errorf("error creating oplog files: %v", err)
 	}
 	return upstartConfInstall(upstartConf)
@@ -242,7 +271,7 @@ func sharedSecretPath(dataDir string) string {
 // upstartService returns the upstart config for the mongo state service.
 // It also returns the path to the mongod executable that the upstart config
 // will be using.
-func upstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, string, error) {
+func upstartService(namespace, dataDir, dbDir string, port, oplogSizeMB int) (*upstart.Conf, string, error) {
 	svc := upstart.NewService(ServiceName(namespace))
 
 	mongoPath, err := Path()
@@ -262,7 +291,8 @@ func upstartService(namespace, dataDir, dbDir string, port int) (*upstart.Conf, 
 		" --journal" +
 		" --keyFile " + utils.ShQuote(sharedSecretPath(dataDir)) +
 		" --replSet " + ReplicaSetName +
-		" --ipv6"
+		" --ipv6 " +
+		" --oplogSize " + strconv.Itoa(oplogSizeMB)
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",

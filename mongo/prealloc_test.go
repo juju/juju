@@ -71,7 +71,7 @@ func (s *preallocSuite) TestOplogSize(c *gc.C) {
 		s.PatchValue(mongo.HostWordSize, test.hostWordSize)
 		s.PatchValue(mongo.RuntimeGOOS, test.runtimeGOOS)
 		availSpace = test.availSpace
-		size, err := mongo.OplogSize("")
+		size, err := mongo.DefaultOplogSize("")
 		c.Check(err, gc.IsNil)
 		c.Check(size, gc.Equals, test.expected)
 	}
