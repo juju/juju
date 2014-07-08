@@ -515,6 +515,7 @@ func (s *FilterSuite) TestActionEvents(c *gc.C) {
 	}
 
 	assertChange(testIds)
+	assertNoChange()
 }
 
 func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {
