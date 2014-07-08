@@ -863,6 +863,16 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	c.Assert(mid, gc.Equals, machine.Id())
 }
 
+func (s *clientSuite) TestClientServiceDeployToMachineNotFound(c *gc.C) {
+	err := s.APIState.Client().ServiceDeploy(
+		"cs:precise/service-name-1", "service-name", 1, "", constraints.Value{}, "42",
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy "service-name" to machine 42: machine 42 not found`)
+
+	_, err = s.State.Service("service-name")
+	c.Assert(err, gc.ErrorMatches, `service "service-name" not found`)
+}
+
 func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
