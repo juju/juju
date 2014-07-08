@@ -1645,7 +1645,7 @@ func (w *actionWatcher) merge(changes set.Strings, updates map[interface{}]bool)
 				changes.Remove(id)
 			}
 		default:
-			return errors.Errorf("id is not of type string, go %T", id)
+			return errors.Errorf("id is not of type string, got %T", id)
 		}
 	}
 	return nil
