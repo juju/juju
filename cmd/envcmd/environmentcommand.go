@@ -101,10 +101,18 @@ func (c *EnvCommandBase) SetEnvName(envName string) {
 }
 
 func (c *EnvCommandBase) NewAPIClient() (*api.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, err
+	}
+	return root.Client(), nil
+}
+
+func (c *EnvCommandBase) NewAPIRoot() (*api.State, error) {
 	// This is work in progress as we remove the EnvName from downstream code.
 	// We want to be able to specify the environment in a number of ways, one of
 	// which is the connection name on the client machine.
-	return juju.NewAPIClientFromName(c.EnvName)
+	return juju.NewAPIFromName(c.EnvName)
 }
 
 func (c *EnvCommandBase) Config(store configstore.Storage) (*config.Config, error) {
