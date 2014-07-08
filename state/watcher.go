@@ -244,7 +244,7 @@ func (w *lifecycleWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *lifecycleWatcher) initial() (*set.Strings, error) {
+func (w *lifecycleWatcher) initial() (set.Strings, error) {
 	var ids set.Strings
 	var doc lifeDoc
 	iter := w.coll.Find(w.members).Select(lifeFields).Iter()
@@ -254,10 +254,10 @@ func (w *lifecycleWatcher) initial() (*set.Strings, error) {
 			w.life[doc.Id] = doc.Life
 		}
 	}
-	return &ids, iter.Close()
+	return ids, iter.Close()
 }
 
-func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[interface{}]bool) error {
+func (w *lifecycleWatcher) merge(ids set.Strings, updates map[interface{}]bool) error {
 	// Separate ids into those thought to exist and those known to be removed.
 	changed := []string{}
 	latest := map[string]Life{}
@@ -345,7 +345,7 @@ func (w *lifecycleWatcher) loop() error {
 				out = w.out
 			}
 		case out <- ids.Values():
-			ids = &set.Strings{}
+			ids = set.NewStrings()
 			out = nil
 		}
 	}
@@ -382,7 +382,7 @@ func (st *State) WatchMinUnits() StringsWatcher {
 	return newMinUnitsWatcher(st)
 }
 
-func (w *minUnitsWatcher) initial() (*set.Strings, error) {
+func (w *minUnitsWatcher) initial() (set.Strings, error) {
 	var serviceNames set.Strings
 	var doc minUnitsDoc
 	iter := w.st.minUnits.Find(nil).Iter()
@@ -390,10 +390,10 @@ func (w *minUnitsWatcher) initial() (*set.Strings, error) {
 		w.known[doc.ServiceName] = doc.Revno
 		serviceNames.Add(doc.ServiceName)
 	}
-	return &serviceNames, iter.Close()
+	return serviceNames, iter.Close()
 }
 
-func (w *minUnitsWatcher) merge(serviceNames *set.Strings, change watcher.Change) error {
+func (w *minUnitsWatcher) merge(serviceNames set.Strings, change watcher.Change) error {
 	serviceName := change.Id.(string)
 	if change.Revno == -1 {
 		delete(w.known, serviceName)
@@ -436,7 +436,7 @@ func (w *minUnitsWatcher) loop() (err error) {
 			}
 		case out <- serviceNames.Values():
 			out = nil
-			serviceNames = new(set.Strings)
+			serviceNames = set.NewStrings()
 		}
 	}
 }
@@ -1534,7 +1534,7 @@ func (st *State) WatchActions() StringsWatcher {
 
 // initial pre-loads the actions documents that are already queued for
 // the units this watcher was started for
-func (w *actionWatcher) initial() (*set.Strings, error) {
+func (w *actionWatcher) initial() (set.Strings, error) {
 	var actions set.Strings
 	var doc actionDoc
 	iter := w.st.actions.Find(nil).Iter()
@@ -1543,7 +1543,7 @@ func (w *actionWatcher) initial() (*set.Strings, error) {
 			actions.Add(doc.Id)
 		}
 	}
-	return &actions, iter.Close()
+	return actions, iter.Close()
 }
 
 func newActionWatcher(st *State, receivers ...ActionReceiver) StringsWatcher {
@@ -1624,13 +1624,13 @@ func (w *actionWatcher) loop() error {
 				out = w.out
 			}
 		case out <- changes.Values():
-			changes = &set.Strings{}
+			changes = set.NewStrings()
 			out = nil
 		}
 	}
 }
 
-func (w *actionWatcher) merge(changes *set.Strings, updates map[interface{}]bool) error {
+func (w *actionWatcher) merge(changes set.Strings, updates map[interface{}]bool) error {
 	for id, exists := range updates {
 		if id, ok := id.(string); ok {
 			if exists {
