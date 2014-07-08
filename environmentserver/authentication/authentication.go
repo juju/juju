@@ -18,6 +18,7 @@ import (
 // servers holding juju state and can be used to make a
 // connection to that cluster.
 type ConnectionInfo struct {
+	// mongo.Info contains the addresses and cert of the mongo cluster.
 	mongo.Info
 	// Tag holds the name of the entity that is connecting.
 	// It should be empty when connecting as an administrator.
@@ -34,7 +35,7 @@ type TaggedPasswordChanger interface {
 	Tag() names.Tag
 }
 
-// NewAuthenticator returns a simpleAuth populated connectionInfo and apiInfo
+// NewAuthenticator returns a simpleAuth populated with connectionInfo and apiInfo
 func NewAuthenticator(connectionInfo *ConnectionInfo, apiInfo *api.Info) AuthenticationProvider {
 	return &simpleAuth{
 		stateInfo: connectionInfo,
