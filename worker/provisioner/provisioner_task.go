@@ -145,7 +145,7 @@ func (task *provisionerTask) loop() error {
 				return watcher.MustErr(task.machineWatcher)
 			}
 			if err := task.processMachines(ids); err != nil {
-				return errors.Annotatef(err, "failed to process updated machines")
+				return errors.Annotate(err, "failed to process updated machines")
 			}
 			// We've seen a set of changes. Enable safe mode change.
 			safeModeChan = task.safeModeChan
@@ -159,12 +159,12 @@ func (task *provisionerTask) loop() error {
 				// Safe mode has been disabled, so process current machines
 				// so that unknown machines will be immediately dealt with.
 				if err := task.processMachines(nil); err != nil {
-					return errors.Annotatef(err, "failed to process machines after safe mode disabled")
+					return errors.Annotate(err, "failed to process machines after safe mode disabled")
 				}
 			}
 		case <-retryChan:
 			if err := task.processMachinesWithTransientErrors(); err != nil {
-				return errors.Annotatef(err, "failed to process machines with transient errors")
+				return errors.Annotate(err, "failed to process machines with transient errors")
 			}
 		}
 	}
@@ -267,7 +267,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 
 	instances, err := task.broker.AllInstances()
 	if err != nil {
-		errors.Annotate(err, "failed to get all instances from broker")
+		return errors.Annotate(err, "failed to get all instances from broker")
 	}
 	for _, i := range instances {
 		task.instances[i.Id()] = i
@@ -487,7 +487,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	task.setErrorStatus("cannot register instance for machine %v: %v", machine, err)
 	if err := task.broker.StopInstances(inst.Id()); err != nil {
 		// We cannot even stop the instance, log the error and quit.
-		errors.Annotatef(err, "cannot stop instance %q for machine %v", inst.Id(), machine)
+		return errors.Annotatef(err, "cannot stop instance %q for machine %v", inst.Id(), machine)
 	}
 	return nil
 }
@@ -516,7 +516,7 @@ type provisioningInfo struct {
 func (task *provisionerTask) provisioningInfo(machine *apiprovisioner.Machine) (*provisioningInfo, error) {
 	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
 	if err != nil {
-		return nil, errors.Annotatef(err, "failed to setup authentication")
+		return nil, errors.Annotate(err, "failed to setup authentication")
 	}
 	// Generated a nonce for the new instance, with the format: "machine-#:UUID".
 	// The first part is a badge, specifying the tag of the machine the provisioner
