@@ -187,8 +187,16 @@ func (b *BackupSuite) TestBackUp(c *gc.C) {
 	bkpFile, shaSum, err := Backup("boguspassword", "bogus-user", b.cwd, "localhost:8080")
 	c.Check(err, gc.IsNil)
 	c.Assert(ranCommand, gc.Equals, true)
+
+	// It is important that the filename uses non-special characters
+	// only because it is returned in a header (unencoded) by the
+	// backup API call. This also avoids compatibility problems with
+	// client side filename conventions.
+	c.Check(bkpFile, gc.Matches, `^[a-z0-9_.-]+$`)
+
 	fileShaSum := shaSumFile(c, path.Join(b.cwd, bkpFile))
 	c.Assert(shaSum, gc.Equals, fileShaSum)
+
 	bkpExpectedContents := []expectedTarContents{
 		{"juju-backup", ""},
 		{"juju-backup/dump", ""},
