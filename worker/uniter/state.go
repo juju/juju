@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"github.com/juju/charm"
-	"github.com/juju/charm/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 
@@ -78,7 +77,6 @@ type State struct {
 func (st State) validate() (err error) {
 	defer errors.Maskf(&err, "invalid uniter state")
 	hasHook := st.Hook != nil
-	isAction := hasHook && st.Hook.Kind == hooks.ActionRequested
 	hasCharm := st.CharmURL != nil
 	switch st.Op {
 	case Install:

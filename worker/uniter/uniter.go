@@ -350,8 +350,7 @@ func (u *Uniter) getHookContext(hr *HookRunner, hi *hook.Info) (hctx *HookContex
 			return nil, err
 		}
 	} else if hi.Kind == hooks.ActionRequested {
-		// XXX: Get John's PR
-		action, err := u.st.Action(hi.ActionId)
+		action, err := u.st.Action(names.NewActionTag(hi.ActionId))
 		if err != nil {
 			return nil, err
 		}
@@ -436,7 +435,6 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", commands)
-	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return nil, err
