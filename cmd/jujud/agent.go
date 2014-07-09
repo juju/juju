@@ -65,9 +65,13 @@ func (c *AgentConf) CheckArgs(args []string) error {
 }
 
 func (c *AgentConf) ReadConfig(tag string) error {
+	t, err := names.ParseTag(tag)
+	if err != nil {
+		return err
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	conf, err := agent.ReadConfig(agent.ConfigPath(c.dataDir, tag))
+	conf, err := agent.ReadConfig(agent.ConfigPath(c.dataDir, t))
 	if err != nil {
 		return err
 	}

@@ -4,6 +4,7 @@
 package agent_test
 
 import (
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -148,7 +149,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to the state.
-	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, "machine-0"))
+	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, names.NewMachineTag("0")))
 	c.Assert(err, gc.IsNil)
 	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
@@ -236,7 +237,7 @@ func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
-		Tag:      "",
+		Tag:      nil, // admin user
 		Password: password,
 	}
 	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())

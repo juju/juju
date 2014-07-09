@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -331,7 +332,8 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	testOpenState(c, info, errors.Unauthorizedf(""))
 
 	// Check we can log in to mongo as admin.
-	info.Tag, info.Password = "", testPasswordHash()
+	// TODO(dfc) does passing nil for the admin user name make your skin crawl ? mine too.
+	info.Tag, info.Password = nil, testPasswordHash()
 	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	// Reset password so the tests can continue to use the same server.
@@ -347,7 +349,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// Check that the machine configuration has been given a new
 	// password and that we can connect to mongo as that machine
 	// and that the in-mongo password also verifies correctly.
-	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), "machine-0"))
+	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), names.NewMachineTag("0")))
 	c.Assert(err, gc.IsNil)
 
 	stateinfo, ok := machineConf1.StateInfo()

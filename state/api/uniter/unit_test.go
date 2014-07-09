@@ -4,11 +4,13 @@
 package uniter_test
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -352,6 +354,93 @@ func (s *unitSuite) TestWatchConfigSettings(c *gc.C) {
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *unitSuite) TestWatchActions(c *gc.C) {
+	w, err := s.apiUnit.WatchActions()
+	c.Assert(err, gc.IsNil)
+
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
+
+	// Initial event.
+	wc.AssertChange()
+
+	// Add a couple of actions and make sure the changes are detected.
+	action, err := s.wordpressUnit.AddAction("snapshot", map[string]interface{}{
+		"outfile": "foo.txt",
+	})
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(action.Id())
+
+	action, err = s.wordpressUnit.AddAction("backup", map[string]interface{}{
+		"outfile": "foo.bz2",
+		"compression": map[string]interface{}{
+			"kind":    "bzip",
+			"quality": float64(5.0),
+		},
+	})
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(action.Id())
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *unitSuite) TestWatchActionsError(c *gc.C) {
+	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, params, results interface{}) error {
+		return fmt.Errorf("Test error")
+	})
+
+	defer restore()
+
+	_, err := s.apiUnit.WatchActions()
+	c.Assert(err.Error(), gc.Equals, "Test error")
+}
+
+func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
+	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, args, results interface{}) error {
+		if results, ok := results.(*params.StringsWatchResults); ok {
+			results.Results = make([]params.StringsWatchResult, 1)
+			results.Results[0] = params.StringsWatchResult{
+				Error: &params.Error{
+					Message: "An error in the watch result.",
+					Code:    params.CodeNotAssigned,
+				},
+			}
+		}
+		return nil
+	})
+
+	defer restore()
+
+	_, err := s.apiUnit.WatchActions()
+	c.Assert(err.Error(), gc.Equals, "An error in the watch result.")
+}
+
+func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
+	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, params, results interface{}) error {
+		return nil
+	})
+
+	defer restore()
+
+	_, err := s.apiUnit.WatchActions()
+	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 0")
+}
+
+func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
+	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, args, results interface{}) error {
+		if results, ok := results.(*params.StringsWatchResults); ok {
+			results.Results = make([]params.StringsWatchResult, 2)
+		}
+		return nil
+	})
+
+	defer restore()
+
+	_, err := s.apiUnit.WatchActions()
+	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")
 }
 
 func (s *unitSuite) TestServiceNameAndTag(c *gc.C) {

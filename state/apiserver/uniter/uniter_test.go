@@ -749,6 +749,127 @@ func (s *uniterSuite) TestWatchConfigSettings(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *uniterSuite) TestWatchActions(c *gc.C) {
+	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.WatchActions(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{StringsWatcherId: "1", Changes: []string{}},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+
+	addedAction, err := s.wordpressUnit.AddAction("snapshot", nil)
+
+	wc.AssertChange(addedAction.Id())
+	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
+	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	firstAction, err := s.wordpressUnit.AddAction("backup", nil)
+	c.Assert(err, gc.IsNil)
+	secondAction, err := s.wordpressUnit.AddAction("snapshot", nil)
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-wordpress-0"},
+	}}
+
+	result, err := s.uniter.WatchActions(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
+		Results: []params.StringsWatchResult{
+			{StringsWatcherId: "1", Changes: []string{
+				firstAction.Id(),
+				secondAction.Id(),
+			}},
+		},
+	})
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	// TODO: @jcw4 -- this should be:
+	// wc.AssertNoChange()
+	wc.AssertChange(firstAction.Id(), secondAction.Id())
+
+	addedAction, err := s.wordpressUnit.AddAction("backup", nil)
+	c.Assert(err, gc.IsNil)
+	wc.AssertChange(addedAction.Id())
+	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestWatchActionsMalformedTag(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "ewenit-mysql-0"},
+	}}
+	_, err := s.uniter.WatchActions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, `"ewenit-mysql-0" is not a valid tag`)
+}
+
+func (s *uniterSuite) TestWatchActionsMalformedUnitName(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-01"},
+	}}
+	_, err := s.uniter.WatchActions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, `"unit-mysql-01" is not a valid unit tag`)
+}
+
+func (s *uniterSuite) TestWatchActionsNotUnit(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "action-mysql/0_a_0"},
+	}}
+	_, err := s.uniter.WatchActions(args)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, `"action-mysql/0_a_0" is not a valid unit tag`)
+}
+
+func (s *uniterSuite) TestWatchActionsPermissionDenied(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-nonexistentgarbage-0"},
+	}}
+	results, err := s.uniter.WatchActions(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.NotNil)
+	c.Assert(len(results.Results), gc.Equals, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.NotNil)
+	c.Assert(result.Error.Message, gc.Equals, "permission denied")
+}
+
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, gc.IsNil)

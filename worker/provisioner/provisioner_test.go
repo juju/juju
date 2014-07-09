@@ -346,7 +346,7 @@ func (s *CommonProvisionerSuite) waitInstanceId(c *gc.C, m *state.Machine, expec
 }
 
 func (s *CommonProvisionerSuite) newEnvironProvisioner(c *gc.C) provisioner.Provisioner {
-	machineTag := "machine-0"
+	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
 	return provisioner.NewEnvironProvisioner(s.provisioner, agentConfig)
 }

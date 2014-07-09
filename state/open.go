@@ -175,14 +175,14 @@ func newState(session *mgo.Session, info *authentication.ConnectionInfo, policy 
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
-	if info.Tag != "" {
-		if err := db.Login(info.Tag, info.Password); err != nil {
+	if info.Tag != nil {
+		if err := db.Login(info.Tag.String(), info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", info.Tag))
 		}
-		if err := pdb.Login(info.Tag, info.Password); err != nil {
+		if err := pdb.Login(info.Tag.String(), info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
 		}
-		if err := admin.Login(info.Tag, info.Password); err != nil {
+		if err := admin.Login(info.Tag.String(), info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
 		}
 	} else if info.Password != "" {
