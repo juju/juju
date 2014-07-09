@@ -95,11 +95,10 @@ func (st *State) StateAddresses() ([]string, error) {
 }
 
 // Tools returns the agent tools for the given entity.
-// TODO(dfc) should only accept names.MachineTag
-func (st *State) Tools(tag string) (*tools.Tools, error) {
+func (st *State) Tools(tag names.MachineTag) (*tools.Tools, error) {
 	var results params.ToolsResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	err := st.call("Tools", args, &results)
 	if err != nil {
