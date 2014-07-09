@@ -10,11 +10,14 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/apiserver"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
+
+	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/apiserver"
 )
 
 type backupSuite struct {
@@ -68,8 +71,8 @@ func (s *backupSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
 }
 
 func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
-	testGetMongoConnectionInfo := func(thisState *state.State) *state.Info {
-		info := &state.Info{
+	testGetMongoConnectionInfo := func(thisState *state.State) *authentication.ConnectionInfo {
+		info := &authentication.ConnectionInfo{
 			Password: "foobar",
 			Tag:      names.NewMachineTag("0"),
 		}
@@ -107,6 +110,8 @@ func (s *backupSuite) TestBackupCalledAndFileServed(c *gc.C) {
 
 	c.Check(resp.StatusCode, gc.Equals, 200)
 	c.Check(resp.Header.Get("Digest"), gc.Equals, "SHA=some-sha")
+	c.Check(resp.Header.Get("Content-Disposition"), gc.Equals,
+		"attachment; filename=\"testBackupFile\"")
 	c.Check(resp.Header.Get("Content-Type"), gc.Equals, "application/octet-stream")
 
 	body, _ := ioutil.ReadAll(resp.Body)

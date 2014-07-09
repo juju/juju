@@ -12,9 +12,9 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
@@ -499,7 +499,7 @@ func (*suite) TestSetPassword(c *gc.C) {
 	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)
 	userTag, err := names.ParseTag(attrParams.Tag)
 	c.Assert(err, gc.IsNil)
-	expectStateInfo := &state.Info{
+	expectStateInfo := &authentication.ConnectionInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
 			CACert: attrParams.CACert,

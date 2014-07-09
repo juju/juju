@@ -15,11 +15,11 @@ import (
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
@@ -42,7 +42,7 @@ var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 // the fixed entries and the ones that are always needed.
 func NewMachineConfig(
 	machineID, machineNonce string, networks []string,
-	stateInfo *state.Info, apiInfo *api.Info,
+	stateInfo *authentication.ConnectionInfo, apiInfo *api.Info,
 ) *cloudinit.MachineConfig {
 	mcfg := &cloudinit.MachineConfig{
 		// Fixed entries.
@@ -68,7 +68,7 @@ func NewMachineConfig(
 func NewBootstrapMachineConfig(privateSystemSSHKey string) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	mcfg := NewMachineConfig("0", state.BootstrapNonce, nil, nil, nil)
+	mcfg := NewMachineConfig("0", agent.BootstrapNonce, nil, nil, nil)
 	mcfg.Bootstrap = true
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
@@ -144,7 +144,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	}
 	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
 	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
-	mcfg.StateInfo = &state.Info{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
+	mcfg.StateInfo = &authentication.ConnectionInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 
 	// These really are directly relevant to running a state server.
 	cert, key, err := cfg.GenerateStateServerCertAndKey()

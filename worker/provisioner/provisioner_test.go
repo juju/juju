@@ -16,6 +16,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
@@ -885,7 +886,7 @@ func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool, broker env
 	c.Assert(err, gc.IsNil)
 	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
 	c.Assert(err, gc.IsNil)
-	auth, err := environs.NewAPIAuthenticator(s.provisioner)
+	auth, err := authentication.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewProvisionerTask(
 		"machine-0", safeMode, s.provisioner,

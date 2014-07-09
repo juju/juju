@@ -51,6 +51,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 	if err != nil {
 		return false, fmt.Errorf("can't dial mongo to ensure admin user: %v", err)
 	}
+	session.SetSocketTimeout(SocketTimeout)
 	err = session.DB("admin").Login(p.User, p.Password)
 	session.Close()
 	if err == nil {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	envtools "github.com/juju/juju/environs/tools"
@@ -24,6 +25,15 @@ func findInstanceTools(env environs.Environ, series, arch string) (*tools.Tools,
 		return nil, err
 	}
 	return possibleTools[0], nil
+}
+
+// newEnvironAuthenticator gets the state and api info once from the environ.
+func newEnvironAuthenticator(env environs.Environ) (authentication.AuthenticationProvider, error) {
+	connectionInfo, apiInfo, err := env.StateInfo()
+	if err != nil {
+		return nil, err
+	}
+	return authentication.NewAuthenticator(connectionInfo, apiInfo), nil
 }
 
 // MachineConfig returns information from the environment config that is
@@ -63,7 +73,7 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 	}
 
 	// Find the secrets and API endpoints.
-	auth, err := environs.NewEnvironAuthenticator(env)
+	auth, err := newEnvironAuthenticator(env)
 	if err != nil {
 		return nil, err
 	}

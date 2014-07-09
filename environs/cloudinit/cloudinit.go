@@ -21,9 +21,9 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	coretools "github.com/juju/juju/tools"
@@ -52,7 +52,7 @@ type MachineConfig struct {
 	// set), there must be at least one state server address supplied.
 	// The entity name must match that of the machine being started,
 	// or be empty when starting a state server.
-	StateInfo *state.Info
+	StateInfo *authentication.ConnectionInfo
 
 	// APIInfo holds the means for the new instance to communicate with the
 	// juju state API. Unless the new machine is running a state server (StateServer is

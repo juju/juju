@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/juju/cmd"
@@ -159,6 +160,33 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return m.SetHasVote(true)
 }
 
+// newEnsureServerParams creates an EnsureServerParams from an agent configuration.
+func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
+	// If oplog size is specified in the agent configuration, use that.
+	// Otherwise leave the default zero value to indicate to EnsureServer
+	// that it should calculate the size.
+	var oplogSize int
+	if oplogSizeString := agentConfig.Value(agent.MongoOplogSize); oplogSizeString != "" {
+		var err error
+		if oplogSize, err = strconv.Atoi(oplogSizeString); err != nil {
+			return mongo.EnsureServerParams{}, fmt.Errorf("invalid oplog size: %q", oplogSizeString)
+		}
+	}
+
+	servingInfo, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
+	}
+
+	params := mongo.EnsureServerParams{
+		StateServingInfo: servingInfo,
+		DataDir:          agentConfig.DataDir(),
+		Namespace:        agentConfig.Value(agent.Namespace),
+		OplogSize:        oplogSize,
+	}
+	return params, nil
+}
+
 func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
@@ -186,11 +214,11 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	}
 
 	logger.Debugf("calling ensureMongoServer")
-	err = ensureMongoServer(
-		agentConfig.DataDir(),
-		agentConfig.Value(agent.Namespace),
-		servingInfo,
-	)
+	ensureServerParams, err := newEnsureServerParams(agentConfig)
+	if err != nil {
+		return err
+	}
+	err = ensureMongoServer(ensureServerParams)
 	if err != nil {
 		return err
 	}

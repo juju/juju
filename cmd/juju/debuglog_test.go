@@ -4,13 +4,10 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"strings"
 
-	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -130,20 +127,6 @@ func (s *DebugLogSuite) TestLogOutput(c *gc.C) {
 	ctx, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}))
 	c.Assert(err, gc.IsNil)
 	c.Assert(testing.Stdout(ctx), gc.Equals, "this is the log output")
-}
-
-func (s *DebugLogSuite) TestTailFallback(c *gc.C) {
-	s.PatchValue(&runSSHCommand, func(sshCmd *SSHCommand, ctx *cmd.Context) error {
-		fmt.Fprintf(ctx.Stdout, "%s", sshCmd.Args)
-		return nil
-	})
-	s.PatchValue(&getDebugLogAPI, func(_ *DebugLogCommand) (DebugLogAPI, error) {
-		return &fakeDebugLogAPI{err: errors.NotSupportedf("testing")}, nil
-	})
-	ctx, err := testing.RunCommand(c, envcmd.Wrap(&DebugLogCommand{}), "-n", "100")
-	c.Assert(err, gc.IsNil)
-	c.Check(testing.Stderr(ctx), gc.Equals, "Server does not support new stream log, falling back to tail\n")
-	c.Check(testing.Stdout(ctx), gc.Equals, "[tail -n -100 -f /var/log/juju/all-machines.log]")
 }
 
 func newFakeDebugLogAPI(log string) DebugLogAPI {

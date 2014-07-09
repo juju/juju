@@ -13,6 +13,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/tools"
@@ -53,7 +54,7 @@ func NewProvisionerTask(
 	machineWatcher apiwatcher.StringsWatcher,
 	retryWatcher apiwatcher.NotifyWatcher,
 	broker environs.InstanceBroker,
-	auth environs.AuthenticationProvider,
+	auth authentication.AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
 		machineTag:     machineTag,
@@ -80,7 +81,7 @@ type provisionerTask struct {
 	retryWatcher   apiwatcher.NotifyWatcher
 	broker         environs.InstanceBroker
 	tomb           tomb.Tomb
-	auth           environs.AuthenticationProvider
+	auth           authentication.AuthenticationProvider
 
 	safeMode     bool
 	safeModeChan chan bool
