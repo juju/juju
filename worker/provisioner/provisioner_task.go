@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
@@ -144,7 +145,7 @@ func (task *provisionerTask) loop() error {
 				return watcher.MustErr(task.machineWatcher)
 			}
 			if err := task.processMachines(ids); err != nil {
-				return fmt.Errorf("failed to process updated machines: %v", err)
+				return errors.Annotatef(err, "failed to process updated machines")
 			}
 			// We've seen a set of changes. Enable safe mode change.
 			safeModeChan = task.safeModeChan
@@ -158,12 +159,12 @@ func (task *provisionerTask) loop() error {
 				// Safe mode has been disabled, so process current machines
 				// so that unknown machines will be immediately dealt with.
 				if err := task.processMachines(nil); err != nil {
-					return fmt.Errorf("failed to process machines after safe mode disabled: %v", err)
+					return errors.Annotatef(err, "failed to process machines after safe mode disabled")
 				}
 			}
 		case <-retryChan:
 			if err := task.processMachinesWithTransientErrors(); err != nil {
-				return fmt.Errorf("failed to process machines with transient errors: %v", err)
+				return errors.Annotatef(err, "failed to process machines with transient errors")
 			}
 		}
 	}
@@ -266,8 +267,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 
 	instances, err := task.broker.AllInstances()
 	if err != nil {
-		logger.Errorf("failed to get all instances from broker: %v", err)
-		return err
+		errors.Annotate(err, "failed to get all instances from broker")
 	}
 	for _, i := range instances {
 		task.instances[i.Id()] = i
@@ -286,7 +286,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 		case err == nil:
 			task.machines[id] = machine
 		default:
-			logger.Errorf("failed to get machine: %v", err)
+			return errors.Annotatef(err, "failed to get machine %v", id)
 		}
 	}
 	return nil
@@ -306,13 +306,11 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*apipr
 			if _, err := machine.InstanceId(); err == nil {
 				continue
 			} else if !params.IsCodeNotProvisioned(err) {
-				logger.Errorf("failed to load machine %q instance id: %v", machine, err)
-				return nil, nil, err
+				return nil, nil, errors.Annotatef(err, "failed to load machine %q instance id: %v", machine)
 			}
 			logger.Infof("killing dying, unprovisioned machine %q", machine)
 			if err := machine.EnsureDead(); err != nil {
-				logger.Errorf("failed to ensure machine dead %q: %v", machine, err)
-				return nil, nil, err
+				return nil, nil, errors.Annotatef(err, "failed to ensure machine dead %q: %v", machine)
 			}
 			fallthrough
 		case params.Dead:
@@ -403,8 +401,7 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 		ids[i] = inst.Id()
 	}
 	if err := task.broker.StopInstances(ids...); err != nil {
-		logger.Errorf("broker failed to stop instances: %v", err)
-		return err
+		return errors.Annotate(err, "broker failed to stop instances")
 	}
 	return nil
 }
@@ -412,7 +409,7 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) error {
 	for _, m := range machines {
 		if err := task.startMachine(m); err != nil {
-			return fmt.Errorf("cannot start machine %v: %v", m, err)
+			return errors.Annotatef(err, "cannot start machine %v", m)
 		}
 	}
 	return nil
@@ -422,8 +419,7 @@ func (task *provisionerTask) setErrorStatus(message string, machine *apiprovisio
 	logger.Errorf(message, machine, err)
 	if err1 := machine.SetStatus(params.StatusError, err.Error(), nil); err1 != nil {
 		// Something is wrong with this machine, better report it back.
-		logger.Errorf("cannot set error status for machine %q: %v", machine, err1)
-		return err1
+		return errors.Annotatef(err1, "cannot set error status for machine %q", machine)
 	}
 	return nil
 }
@@ -491,8 +487,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 	task.setErrorStatus("cannot register instance for machine %v: %v", machine, err)
 	if err := task.broker.StopInstances(inst.Id()); err != nil {
 		// We cannot even stop the instance, log the error and quit.
-		logger.Errorf("cannot stop instance %q for machine %v: %v", inst.Id(), machine, err)
-		return err
+		errors.Annotatef(err, "cannot stop instance %q for machine %v", inst.Id(), machine)
 	}
 	return nil
 }
@@ -521,8 +516,7 @@ type provisioningInfo struct {
 func (task *provisionerTask) provisioningInfo(machine *apiprovisioner.Machine) (*provisioningInfo, error) {
 	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
 	if err != nil {
-		logger.Errorf("failed to setup authentication: %v", err)
-		return nil, err
+		return nil, errors.Annotatef(err, "failed to setup authentication")
 	}
 	// Generated a nonce for the new instance, with the format: "machine-#:UUID".
 	// The first part is a badge, specifying the tag of the machine the provisioner
