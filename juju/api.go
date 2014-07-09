@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/keymanager"
-	"github.com/juju/juju/state/api/usermanager"
 )
 
 // The following are variables so that they can be
@@ -88,24 +86,6 @@ func NewAPIClientFromName(envName string) (*api.Client, error) {
 		return nil, err
 	}
 	return st.Client(), nil
-}
-
-// NewKeyManagerClient returns an api.keymanager.Client connected to the API Server for
-// the named environment. If envName is "", the default environment will be used.
-func NewKeyManagerClient(envName string) (*keymanager.Client, error) {
-	st, err := newAPIClient(envName)
-	if err != nil {
-		return nil, err
-	}
-	return keymanager.NewClient(st), nil
-}
-
-func NewUserManagerClient(envName string) (*usermanager.Client, error) {
-	st, err := newAPIClient(envName)
-	if err != nil {
-		return nil, err
-	}
-	return usermanager.NewClient(st), nil
 }
 
 // NewAPIFromName returns an api.State connected to the API Server for

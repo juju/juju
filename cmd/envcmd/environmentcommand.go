@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/environs"
@@ -118,6 +119,45 @@ func (c *EnvCommandBase) NewAPIRoot() (*api.State, error) {
 func (c *EnvCommandBase) Config(store configstore.Storage) (*config.Config, error) {
 	cfg, _, err := environs.ConfigForName(c.EnvName, store)
 	return cfg, err
+}
+
+// ConnectionUser returns the user that is used for connecting to the environment
+// specified.
+func (c *EnvCommandBase) ConnectionCredentials() (configstore.APICredentials, error) {
+	// TODO: the user may soon be specified through the command line
+	// or through an environment setting, so return these when they are ready.
+	var emptyCreds configstore.APICredentials
+	info, err := connectionInfoForName(c.EnvName)
+	if err != nil {
+		return emptyCreds, errors.Trace(err)
+	}
+	return info.APICredentials(), nil
+}
+
+type ConnectionWriter interface {
+	Write() error
+	SetAPICredentials(configstore.APICredentials)
+	SetAPIEndpoint(configstore.APIEndpoint)
+	SetBootstrapConfig(map[string]interface{})
+	Location() string
+}
+
+func connectionInfoForName(envName string) (configstore.EnvironInfo, error) {
+	store, err := configstore.Default()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	info, err := store.ReadInfo(envName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return info, nil
+}
+
+func (c *EnvCommandBase) ConnectionWriter() (ConnectionWriter, error) {
+	// TODO: when accessing with just command line params or environment
+	// variables, this should error.
+	return connectionInfoForName(c.EnvName)
 }
 
 // Wrap wraps the specified EnvironCommand, returning a Command
