@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/charm/hooks"
+	"github.com/juju/names"
 )
 
 // Info holds details required to execute a hook. Not all fields are
@@ -40,7 +41,12 @@ func (hi Info) Validate() error {
 			return fmt.Errorf("%q hook requires a remote unit", hi.Kind)
 		}
 		fallthrough
-	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.ActionRequested, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken:
+	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken:
+		return nil
+	case hooks.ActionRequested:
+		if !names.IsAction(hi.ActionId) {
+			return fmt.Errorf("action id %q cannot be parsed as an Action tag", hi.ActionId)
+		}
 		return nil
 	}
 	return fmt.Errorf("unknown hook kind %q", hi.Kind)
