@@ -3,3 +3,5 @@
 package uniter
 
 var NewSettings = newSettings
+
+var Call = &call
