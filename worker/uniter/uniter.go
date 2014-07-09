@@ -459,6 +459,8 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 
 	hookName := string(hi.Kind)
+	actionParams := map[string]interface{}(nil)
+
 	relationId := -1
 	if hi.Kind.IsRelation() {
 		relationId = hi.RelationId
@@ -470,9 +472,8 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		if err != nil {
 			return err
 		}
-		hi.ActionParams = action.Params()
-		hi.ActionName = action.Name()
-		hookName = hi.ActionName
+		actionParams = action.Params()
+		hookName = action.Name()
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
@@ -482,7 +483,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit, hi.ActionParams)
+	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit, actionParams)
 	if err != nil {
 		return err
 	}
@@ -560,7 +561,7 @@ func (u *Uniter) currentHookName() string {
 		name := relationer.ru.Endpoint().Name
 		hookName = fmt.Sprintf("%s-%s", name, hookInfo.Kind)
 	} else if hookInfo.Kind == hooks.ActionRequested {
-		hookName = hookInfo.ActionName
+		hookName = fmt.Sprintf("%s-%s", hookName, hookInfo.ActionId)
 	}
 	return hookName
 }
