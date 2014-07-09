@@ -175,7 +175,7 @@ func (b *BackupSuite) TestTarFilesCompressed(c *gc.C) {
 	b.assertTarContents(c, testExpectedTarContents, outputTarGz, true)
 }
 
-func (b *BackupSuite) TestBackUp(c *gc.C) {
+func (b *BackupSuite) TestBackup(c *gc.C) {
 	b.createTestFiles(c)
 	ranCommand := false
 	getMongodumpPath = func() (string, error) { return "bogusmongodump", nil }
@@ -203,4 +203,10 @@ func (b *BackupSuite) TestBackUp(c *gc.C) {
 		{"juju-backup/root.tar", ""},
 	}
 	b.assertTarContents(c, bkpExpectedContents, path.Join(b.cwd, bkpFile), true)
+}
+
+func (b *BackupSuite) TestStorageName(c *gc.C) {
+	c.Assert(StorageName("foo"), gc.Equals, "/backups/foo")
+	c.Assert(StorageName("/foo/bar"), gc.Equals, "/backups/bar")
+	c.Assert(StorageName("foo/bar"), gc.Equals, "/backups/bar")
 }
