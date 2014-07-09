@@ -52,6 +52,16 @@ func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {
 	c.Assert(m.Series(), gc.DeepEquals, "series")
 }
 
+func (s *AddMachineSuite) TestAddMachineWithCustomKeyFails(c *gc.C) {
+	_, err := runAddMachine(c, "-i", "~/mykeys/id_rsa.pub")
+	c.Assert(err, gc.ErrorMatches, "-i can only be used when manually provisioning a machine with ssh")
+}
+
+func (s *AddMachineSuite) TestAddMachineWithCustomKey(c *gc.C) {
+	err := testing.InitCommand(envcmd.Wrap(&AddMachineCommand{}), []string{"ssh:user@10.10.0.3", "-i", "~/mykeys/id_rsa.pub"})
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *AddMachineSuite) TestAddMachineWithConstraints(c *gc.C) {
 	context, err := runAddMachine(c, "--constraints", "mem=4G")
 	c.Assert(err, gc.IsNil)
@@ -205,6 +215,7 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 	}
 	return results, nil
 }
+
 func (f *fakeAddMachineAPI) AddMachines1dot18(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
 	return f.AddMachines(args)
 }

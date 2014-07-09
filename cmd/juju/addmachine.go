@@ -45,13 +45,14 @@ target machine must be able to communicate with the API server, and be able to
 access the environment storage.
 
 Examples:
-   juju add-machine                      (starts a new machine)
-   juju add-machine -n 2                 (starts 2 new machines)
-   juju add-machine lxc                  (starts a new machine with an lxc container)
-   juju add-machine lxc -n 2             (starts 2 new machines with an lxc container)
-   juju add-machine lxc:4                (starts a new lxc container on machine 4)
-   juju add-machine --constraints mem=8G (starts a machine with at least 8GB RAM)
-   juju add-machine ssh:user@10.10.0.3   (manually provisions a machine with ssh)
+   juju add-machine                                  (starts a new machine)
+   juju add-machine -n 2                             (starts 2 new machines)
+   juju add-machine lxc                              (starts a new machine with an lxc container)
+   juju add-machine lxc -n 2                         (starts 2 new machines with an lxc container)
+   juju add-machine lxc:4                            (starts a new lxc container on machine 4)
+   juju add-machine --constraints mem=8G             (starts a machine with at least 8GB RAM)
+   juju add-machine ssh:user@10.10.0.3               (manually provisions a machine with ssh)
+   juju add-machine ssh:user@10.10.0.3 -i ~/myid.pub (manually provisions a machine with a specific ssh key)
 
 See Also:
    juju help constraints
@@ -62,6 +63,8 @@ type AddMachineCommand struct {
 	envcmd.EnvCommandBase
 	// If specified, use this series, else use the environment default-series
 	Series string
+	// If specified, use this public key, else use the public keys found in ~/.ssh
+	Key string
 	// If specified, these constraints are merged with those already in the environment.
 	Constraints constraints.Value
 	// Placement is passed verbatim to the API, to be parsed and evaluated server-side.
@@ -81,7 +84,8 @@ func (c *AddMachineCommand) Info() *cmd.Info {
 
 func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the charm series")
-	f.IntVar(&c.NumMachines, "n", 1, "The number of machines to add")
+	f.StringVar(&c.Key, "i", "", "an identity key to manually provision a machine with ssh")
+	f.IntVar(&c.NumMachines, "n", 1, "the number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
 }
 
@@ -93,6 +97,10 @@ func (c *AddMachineCommand) Init(args []string) error {
 	if err != nil {
 		return err
 	}
+	if c.Key != "" && (len(args) == 0 || !strings.HasPrefix(args[0], "ssh")) {
+		return fmt.Errorf("-i can only be used when manually provisioning a machine with ssh")
+	}
+
 	c.Placement, err = instance.ParsePlacement(placement)
 	if err == instance.ErrPlacementScopeMissing {
 		placement = c.EnvName + ":" + placement
@@ -125,6 +133,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 			Stdin:   ctx.Stdin,
 			Stdout:  ctx.Stdout,
 			Stderr:  ctx.Stderr,
+			Key:     c.Key,
 		}
 		_, err := manual.ProvisionMachine(args)
 		return err
@@ -144,6 +153,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	machineParams := params.AddMachineParams{
 		Placement:   c.Placement,
 		Series:      c.Series,
+		Key:         c.Key,
 		Constraints: c.Constraints,
 		Jobs:        []params.MachineJob{params.JobHostUnits},
 	}

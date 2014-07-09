@@ -92,6 +92,7 @@ type AddMachineParams struct {
 	// The following fields hold attributes that will be given to the
 	// new machine when it is created.
 	Series      string
+	Key         string
 	Constraints constraints.Value
 	Jobs        []MachineJob
 

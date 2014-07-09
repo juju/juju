@@ -25,6 +25,10 @@ type ConfigureParams struct {
 	// If Client is nil, ssh.DefaultClient will be used.
 	Client ssh.Client
 
+	// Key is the path to a ssh key used to connect. If unset, the default
+	// keys in ~/.ssh will be used.
+	Key string
+
 	// Config is the cloudinit config to carry out.
 	Config *cloudinit.Config
 
@@ -53,7 +57,10 @@ func RunConfigureScript(script string, params ConfigureParams) error {
 	if client == nil {
 		client = ssh.DefaultClient
 	}
-	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
+	var options ssh.Options
+	options.SetIdentities(params.Key)
+
+	cmd := client.Command(params.Host, []string{"sudo", "/bin/bash"}, &options)
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stderr = params.ProgressWriter
 	return cmd.Run()
