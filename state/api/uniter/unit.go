@@ -437,6 +437,9 @@ func (u *Unit) WatchAddresses() (watcher.NotifyWatcher, error) {
 	return w, nil
 }
 
+// WatchActions returns a StringsWatcher for observing the ids of Actions
+// added to the Unit.  The initial event will contain the ids of any Actions
+// pending at the time the Watcher is made.
 func (u *Unit) WatchActions() (watcher.StringsWatcher, error) {
 	var results params.StringsWatchResults
 	args := params.Entities{

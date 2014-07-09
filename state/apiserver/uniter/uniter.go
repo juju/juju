@@ -740,6 +740,8 @@ func (u *UniterAPI) getOneActionByTag(tag names.ActionTag) (params.ActionsQueryR
 	return result, nil
 }
 
+// Actions returns the Actions by Tags passed and ensures that the Unit asking
+// for them is the same Unit that has the Actions.
 func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, error) {
 	nothing := params.ActionsQueryResults{}
 
