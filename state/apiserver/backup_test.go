@@ -10,15 +10,17 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
+	gc "launchpad.net/gocheck"
+
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver"
-	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
-	gc "launchpad.net/gocheck"
 )
 
 var uploadBackupToStorage = *apiserver.UploadBackupToStorage
@@ -95,7 +97,7 @@ func (s *backupSuite) TestBackupCalledAndFileServedAndStored(c *gc.C) {
 	testGetMongoConnectionInfo := func(thisState *state.State) *authentication.ConnectionInfo {
 		info := &authentication.ConnectionInfo{
 			Password: "foobar",
-			Tag:      "machine-0",
+			Tag:      names.NewMachineTag("0"),
 		}
 		info.Addrs = append(info.Addrs, "localhost:80")
 		return info

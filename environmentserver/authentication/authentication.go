@@ -21,8 +21,8 @@ type ConnectionInfo struct {
 	// mongo.Info contains the addresses and cert of the mongo cluster.
 	mongo.Info
 	// Tag holds the name of the entity that is connecting.
-	// It should be empty when connecting as an administrator.
-	Tag string
+	// It should be nil when connecting as an administrator.
+	Tag names.Tag
 
 	// Password holds the password for the connecting entity.
 	Password string
@@ -91,7 +91,7 @@ func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*Con
 		return nil, nil, fmt.Errorf("cannot set API password for machine %v: %v", machine, err)
 	}
 	stateInfo := *auth.stateInfo
-	stateInfo.Tag = machine.Tag().String()
+	stateInfo.Tag = machine.Tag()
 	stateInfo.Password = password
 	apiInfo := *auth.apiInfo
 	apiInfo.Tag = machine.Tag().String()

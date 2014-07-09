@@ -81,7 +81,7 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if !ok {
 		return nil, nil, fmt.Errorf("stateinfo not available")
 	}
-	info.Tag = ""
+	info.Tag = nil
 	info.Password = ""
 
 	logger.Debugf("initializing address %v", info.Addrs)

@@ -192,16 +192,16 @@ func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag string) 
 	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
 }
 
-func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir string) {
+func (fix *SimpleToolsFixture) paths(tag names.Tag) (confPath, agentDir, toolsDir string) {
 	confName := fmt.Sprintf("jujud-%s.conf", tag)
 	confPath = filepath.Join(fix.initDir, confName)
 	agentDir = agent.Dir(fix.dataDir, tag)
-	toolsDir = tools.ToolsDir(fix.dataDir, tag)
+	toolsDir = tools.ToolsDir(fix.dataDir, tag.String())
 	return
 }
 
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string) {
-	tag := names.NewUnitTag(name).String()
+	tag := names.NewUnitTag(name)
 	uconfPath, _, toolsDir := fix.paths(tag)
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, gc.IsNil)
@@ -216,7 +216,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 		c.Fatalf("Test is not built to handle more than one exec line.")
 	}
 
-	logPath := filepath.Join(fix.logDir, tag+".log")
+	logPath := filepath.Join(fix.logDir, tag.String()+".log")
 	jujudPath := filepath.Join(toolsDir, "jujud")
 
 	for _, pat := range []string{
@@ -233,7 +233,8 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 
 	conf, err := agent.ReadConfig(agent.ConfigPath(fix.dataDir, tag))
 	c.Assert(err, gc.IsNil)
-	c.Assert(conf.Tag(), gc.Equals, tag)
+	// TODO(dfc) conf.Tag should return a Tag
+	c.Assert(conf.Tag(), gc.Equals, tag.String())
 	c.Assert(conf.DataDir(), gc.Equals, fix.dataDir)
 
 	jujudData, err := ioutil.ReadFile(jujudPath)
@@ -242,7 +243,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
-	tag := names.NewUnitTag(name).String()
+	tag := names.NewUnitTag(name)
 	confPath, agentDir, toolsDir := fix.paths(tag)
 	for _, path := range []string{confPath, agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)

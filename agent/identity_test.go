@@ -23,7 +23,7 @@ type identitySuite struct {
 var _ = gc.Suite(&identitySuite{})
 
 var attributeParams = AgentConfigParams{
-	Tag:               "omg",
+	Tag:               "user-omg", // the omg user
 	UpgradedToVersion: version.Current.Number,
 	Password:          "sekrit",
 	CACert:            "ca cert",

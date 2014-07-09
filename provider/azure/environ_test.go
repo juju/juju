@@ -16,6 +16,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -1519,7 +1520,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 			Addrs:  []string{"localhost:123"},
 		},
 		Password: "password",
-		Tag:      "machine-1",
+		Tag:      names.NewMachineTag("1"),
 	}
 	apiInfo := &api.Info{
 		Addrs:    []string{"localhost:124"},

@@ -81,7 +81,12 @@ func (h *backupHandler) doBackup() (*os.File, string, error) {
 	defer os.RemoveAll(tempDir)
 
 	info := GetMongoConnectionInfo(h.state)
-	filename, sha, err := Backup(info.Password, info.Tag, tempDir, info.Addrs[0])
+	// TODO(dfc) Backup should take a Tag
+	var tag string
+	if info.Tag != nil {
+		tag = info.Tag.String()
+	}
+	filename, sha, err := Backup(info.Password, tag, tempDir, info.Addrs[0])
 	if err != nil {
 		return nil, "", fmt.Errorf("backup failed: %v", err)
 	}

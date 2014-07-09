@@ -200,7 +200,7 @@ func (s *UpgradeSuite) waitForUpgradeToFinish(c *gc.C) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		conf, err := agent.ReadConfig(agent.ConfigPath(
 			s.machine0Config.DataDir(),
-			s.machine0.Tag().String(),
+			s.machine0.Tag(),
 		))
 		c.Assert(err, gc.IsNil)
 		success = conf.UpgradedToVersion() == s.upgradeToVersion.Number
