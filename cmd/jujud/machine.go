@@ -542,13 +542,18 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
-func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
+func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	a.mongoInitMutex.Lock()
 	defer a.mongoInitMutex.Unlock()
 	if a.mongoInitialized {
 		logger.Debugf("mongo is already initialized")
 		return nil
 	}
+	defer func() {
+		if err == nil {
+			a.mongoInitialized = true
+		}
+	}()
 
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
@@ -633,7 +638,6 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	}); err != nil {
 		return err
 	}
-	a.mongoInitialized = true
 	return nil
 }
 
