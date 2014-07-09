@@ -48,6 +48,7 @@ const (
 	StorageDir       = "STORAGE_DIR"
 	StorageAddr      = "STORAGE_ADDR"
 	AgentServiceName = "AGENT_SERVICE_NAME"
+	MongoOplogSize   = "MONGO_OPLOG_SIZE"
 )
 
 // The Config interface is the sole way that the agent gets access to the
