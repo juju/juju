@@ -820,9 +820,7 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 	// Check that the Watch has consumed the initial event ("returned" in
 	// the Watch call)
 	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
-	// TODO: @jcw4 -- this should be:
-	// wc.AssertNoChange()
-	wc.AssertChange(firstAction.Id(), secondAction.Id())
+	wc.AssertNoChange()
 
 	addedAction, err := s.wordpressUnit.AddAction("backup", nil)
 	c.Assert(err, gc.IsNil)
