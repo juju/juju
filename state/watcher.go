@@ -1563,17 +1563,15 @@ func (w *actionWatcher) Changes() <-chan []string {
 
 func (w *actionWatcher) loop() error {
 	var (
-		initial set.Strings
 		changes set.Strings
 		in      <-chan watcher.Change = w.source
 		out     chan<- []string       = w.sink
-		err     error
 	)
 
 	w.st.watcher.WatchCollectionWithFilter(w.st.actions.Name, w.source, w.filterFn)
 	defer w.st.watcher.UnwatchCollection(w.st.actions.Name, w.source)
 
-	initial, err = w.initial()
+	initial, err := w.initial()
 	if err != nil {
 		return err
 	}
