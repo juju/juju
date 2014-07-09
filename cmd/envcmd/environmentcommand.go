@@ -121,8 +121,8 @@ func (c *EnvCommandBase) Config(store configstore.Storage) (*config.Config, erro
 	return cfg, err
 }
 
-// ConnectionUser returns the user that is used for connecting to the environment
-// specified.
+// ConnectionCredentials returns the credentials used to connect to the API for
+// the specified environment.
 func (c *EnvCommandBase) ConnectionCredentials() (configstore.APICredentials, error) {
 	// TODO: the user may soon be specified through the command line
 	// or through an environment setting, so return these when they are ready.
@@ -134,6 +134,9 @@ func (c *EnvCommandBase) ConnectionCredentials() (configstore.APICredentials, er
 	return info.APICredentials(), nil
 }
 
+// ConnectionWriter defines the methods needed to write information about
+// a given connection.  This is a subset of the methods in the interface
+// defined in configstore.EnvironInfo.
 type ConnectionWriter interface {
 	Write() error
 	SetAPICredentials(configstore.APICredentials)
@@ -154,6 +157,10 @@ func connectionInfoForName(envName string) (configstore.EnvironInfo, error) {
 	return info, nil
 }
 
+// ConnectionWriter returns an instance that is able to be used
+// to record information about the connection.  When the connection
+// is determined through either command line parameters or environment
+// variables, an error is returned.
 func (c *EnvCommandBase) ConnectionWriter() (ConnectionWriter, error) {
 	// TODO: when accessing with just command line params or environment
 	// variables, this should error.
