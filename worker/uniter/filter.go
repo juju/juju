@@ -7,6 +7,7 @@ import (
 	"sort"
 
 	"github.com/juju/charm"
+	"github.com/juju/charm/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"launchpad.net/tomb"
@@ -16,6 +17,7 @@ import (
 	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/worker/uniter/hook"
 )
 
 var filterLogger = loggo.GetLogger("juju.worker.uniter.filter")
@@ -36,6 +38,8 @@ type filter struct {
 	// to the client.
 	outConfig      chan struct{}
 	outConfigOn    chan struct{}
+	outAction      chan *hook.Info
+	outActionOn    chan *hook.Info
 	outUpgrade     chan *charm.URL
 	outUpgradeOn   chan *charm.URL
 	outResolved    chan params.ResolvedMode
@@ -86,6 +90,8 @@ type filter struct {
 	upgradeAvailable serviceCharm
 	upgrade          *charm.URL
 	relations        []int
+	actionsPending   []string
+	nextAction       *hook.Info
 }
 
 // newFilter returns a filter that handles state changes pertaining to the
@@ -96,6 +102,8 @@ func newFilter(st *uniter.State, unitTag string) (*filter, error) {
 		outUnitDying:      make(chan struct{}),
 		outConfig:         make(chan struct{}),
 		outConfigOn:       make(chan struct{}),
+		outAction:         make(chan *hook.Info),
+		outActionOn:       make(chan *hook.Info),
 		outUpgrade:        make(chan *charm.URL),
 		outUpgradeOn:      make(chan *charm.URL),
 		outResolved:       make(chan params.ResolvedMode),
@@ -156,6 +164,12 @@ func (f *filter) ResolvedEvents() <-chan params.ResolvedMode {
 // configuration changes, or when an event is explicitly requested.
 func (f *filter) ConfigEvents() <-chan struct{} {
 	return f.outConfigOn
+}
+
+// ActionEvents returns a channel that will receive a signal whenever the unit
+// receives new Actions.
+func (f *filter) ActionEvents() <-chan *hook.Info {
+	return f.outActionOn
 }
 
 // RelationsEvents returns a channel that will receive the ids of all the service's
@@ -297,6 +311,16 @@ func (f *filter) loop(unitTag string) (err error) {
 			watcher.Stop(configw, &f.tomb)
 		}
 	}()
+	actionsw, err := f.unit.WatchActions()
+	if err != nil {
+		return err
+	}
+	f.actionsPending = make([]string, 0)
+	defer func() {
+		if actionsw != nil {
+			watcher.Stop(actionsw, &f.tomb)
+		}
+	}()
 	relationsw, err := f.service.WatchRelations()
 	if err != nil {
 		return err
@@ -365,6 +389,13 @@ func (f *filter) loop(unitTag string) (err error) {
 			// address change causes config-changed event
 			filterLogger.Debugf("preparing new config event")
 			f.outConfig = f.outConfigOn
+		case ids, ok := <-actionsw.Changes():
+			filterLogger.Debugf("got %d actions", len(ids))
+			if !ok {
+				return watcher.MustErr(actionsw)
+			}
+			f.actionsPending = append(f.actionsPending, ids...)
+			f.nextAction = f.getNextAction()
 		case keys, ok := <-relationsw.Changes():
 			filterLogger.Debugf("got relations change")
 			if !ok {
@@ -395,6 +426,9 @@ func (f *filter) loop(unitTag string) (err error) {
 		case f.outConfig <- nothing:
 			filterLogger.Debugf("sent config event")
 			f.outConfig = nil
+		case f.outAction <- f.nextAction:
+			f.nextAction = f.getNextAction()
+			filterLogger.Debugf("sent action event")
 		case f.outRelations <- f.relations:
 			filterLogger.Debugf("sent relations event")
 			f.outRelations = nil
@@ -566,6 +600,24 @@ outer:
 		sort.Ints(f.relations)
 		f.outRelations = f.outRelationsOn
 	}
+}
+
+func (f *filter) getNextAction() *hook.Info {
+	if len(f.actionsPending) > 0 {
+		nextAction := hook.Info{
+			Kind:     hooks.ActionRequested,
+			ActionId: f.actionsPending[0],
+		}
+
+		f.outAction = f.outActionOn
+		f.actionsPending = f.actionsPending[1:]
+
+		return &nextAction
+	} else {
+		f.outAction = nil
+	}
+
+	return nil
 }
 
 // serviceCharm holds information about a charm.
