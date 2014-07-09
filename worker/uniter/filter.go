@@ -394,7 +394,8 @@ func (f *filter) loop(unitTag string) (err error) {
 			if !ok {
 				return watcher.MustErr(actionsw)
 			}
-			f.gotActions(ids)
+			f.actionsPending = append(f.actionsPending, ids...)
+			f.nextAction = f.getNextAction()
 		case keys, ok := <-relationsw.Changes():
 			filterLogger.Debugf("got relations change")
 			if !ok {
@@ -599,21 +600,6 @@ outer:
 		sort.Ints(f.relations)
 		f.outRelations = f.outRelationsOn
 	}
-}
-func (f *filter) gotActions(ids []string) {
-	// Make sure we don't have duplicates; append to pending slice
-outer:
-	for _, id := range ids {
-		for _, existing := range f.actionsPending {
-			if id == existing {
-				continue outer
-			}
-		}
-
-		f.actionsPending = append(f.actionsPending, id)
-	}
-
-	f.nextAction = f.getNextAction()
 }
 
 func (f *filter) getNextAction() *hook.Info {
