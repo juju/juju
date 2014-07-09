@@ -46,6 +46,8 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			h.sendError(w, http.StatusInternalServerError, err.Error())
 			return
 		}
+		defer file.Close()
+
 		if err := uploadBackupToStorage(h.state, file); err != nil {
 			h.sendError(w, http.StatusInternalServerError,
 				"backup storage failed: "+err.Error())
