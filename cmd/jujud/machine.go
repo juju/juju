@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
@@ -304,9 +305,12 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "machineenvironmentworker", func() (worker.Worker, error) {
 		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
 	})
-	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
-		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
-	})
+	// syslog is not supported on windows (yet)
+	if version.Current.OS != version.Windows {
+		a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
+			return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+		})
+	}
 	if networker.CanStart() {
 		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
 			return networker.NewNetworker(st.Networker(), agentConfig)
@@ -319,9 +323,12 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
-		a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
-			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
-		})
+		// authenticationworker is not supported on windows (yet)
+		if version.Current.OS != version.Windows {
+			a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
+				return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
+			})
+		}
 	}
 
 	// Perform the operations needed to set up hosting for containers.
@@ -958,7 +965,7 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), "jujud")
+	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), jujunames.Jujud)
 	return symlink.New(jujud, jujuRun)
 }
 

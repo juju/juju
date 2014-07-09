@@ -106,9 +106,12 @@ func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
 	runner.StartWorker("apiaddressupdater", func() (worker.Worker, error) {
 		return apiaddressupdater.NewAPIAddressUpdater(st.Uniter(), a), nil
 	})
-	runner.StartWorker("rsyslog", func() (worker.Worker, error) {
-		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
-	})
+	// Windows does not have support for syslog (yet)
+	if version.Current.OS != version.Windows {
+		runner.StartWorker("rsyslog", func() (worker.Worker, error) {
+			return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslog.RsyslogModeForwarding)
+		})
+	}
 	return newCloseWorker(runner, st), nil
 }
 

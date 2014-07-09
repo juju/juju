@@ -8,11 +8,13 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/juju/charm"
 	"github.com/juju/names"
+	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
@@ -34,7 +36,49 @@ type RunHookSuite struct {
 	HookContextSuite
 }
 
+type MergeEnvSuite struct {
+	envtesting.IsolationSuite
+}
+
+type sortEnv []string
+
+func (s sortEnv) Less(i, j int) bool {
+	return s[i] < s[j]
+}
+
+func (s sortEnv) Swap(i, j int) {
+	s[i], s[j] = s[j], s[i]
+}
+
+func (s sortEnv) Len() int {
+	return len(s)
+}
+
+func sortString(s []string) []string {
+	r := []string(s)
+	sort.Sort(sortEnv(r))
+	return r
+}
+
 var _ = gc.Suite(&RunHookSuite{})
+var _ = gc.Suite(&MergeEnvSuite{})
+
+func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
+	// environment does not get fully cleared on Windows
+	// when using testing.IsolationSuite
+	origEnv := os.Environ()
+	extraExpected := []string{
+		"DUMMYVAR=foo",
+		"DUMMYVAR2=bar",
+		"NEWVAR=ImNew",
+	}
+	expectEnv := append(origEnv, extraExpected...)
+	os.Setenv("DUMMYVAR2", "ChangeMe")
+	os.Setenv("DUMMYVAR", "foo")
+
+	newEnv := uniter.MergeEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"})
+	c.Assert(sortString(expectEnv), gc.DeepEquals, sortString(newEnv))
+}
 
 type hookSpec struct {
 	// name is the name of the hook.

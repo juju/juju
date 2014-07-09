@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/worker/uniter/jujuc"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
@@ -117,13 +118,13 @@ func Main(args []string) {
 		os.Exit(2)
 	}
 	commandName := filepath.Base(args[0])
-	if commandName == "jujud" {
+	if commandName == names.Jujud {
 		code, err = jujuDMain(args, ctx)
-	} else if commandName == "jujuc" {
+	} else if commandName == names.Jujuc {
 		fmt.Fprint(os.Stderr, jujudDoc)
 		code = 2
 		err = fmt.Errorf("jujuc should not be called directly")
-	} else if commandName == "juju-run" {
+	} else if commandName == names.JujuRun {
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
 	} else {
 		code, err = jujuCMain(commandName, args)
