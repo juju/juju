@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"sync/atomic"
 
+	"github.com/juju/names"
 	"github.com/juju/utils/fslock"
 
 	"github.com/juju/juju/agent"
@@ -149,7 +150,11 @@ func (cs *ContainerSetup) TearDown() error {
 }
 
 func (cs *ContainerSetup) getContainerArtifacts(containerType instance.ContainerType) (container.Initialiser, environs.InstanceBroker, error) {
-	tools, err := cs.provisioner.Tools(cs.config.Tag())
+	tag, err := names.ParseMachineTag(cs.config.Tag())
+	if err != nil {
+		return nil, nil, err
+	}
+	tools, err := cs.provisioner.Tools(tag)
 	if err != nil {
 		logger.Errorf("cannot get tools from machine for %s container", containerType)
 		return nil, nil, err

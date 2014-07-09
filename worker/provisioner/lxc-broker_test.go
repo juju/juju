@@ -256,9 +256,12 @@ func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) provisioner.Provisioner {
-	parentMachineTag := names.NewMachineTag(s.parentMachineId).String()
+	parentMachineTag := names.NewMachineTag(s.parentMachineId)
 	agentConfig := s.AgentConfigForTag(c, parentMachineTag)
-	tools, err := s.provisioner.Tools(agentConfig.Tag())
+	// TODO(dfc)
+	tag, err := names.ParseMachineTag(agentConfig.Tag())
+	c.Assert(err, gc.IsNil)
+	tools, err := s.provisioner.Tools(tag)
 	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju", "use-clone": "false"}
 	broker, err := provisioner.NewLxcBroker(s.provisioner, tools, agentConfig, managerConfig)
