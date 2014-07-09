@@ -460,6 +460,7 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 
 	// We should not receive any config-change events.
 	s.BackingState.StartSync()
+	time.Sleep(250 * time.Millisecond)
 	f.DiscardConfigEvent()
 	select {
 	case <-f.ConfigEvents():
