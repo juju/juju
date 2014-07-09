@@ -546,7 +546,6 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	if !ok {
 		return fmt.Errorf("state worker was started with no state serving info")
 	}
-	namespace := agentConfig.Value(agent.Namespace)
 
 	// When upgrading from a pre-HA-capable environment,
 	// we must add machine-0 to the admin database and
@@ -590,11 +589,11 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	}
 
 	// ensureMongoServer installs/upgrades the upstart config as necessary.
-	if err := ensureMongoServer(
-		agentConfig.DataDir(),
-		namespace,
-		servingInfo,
-	); err != nil {
+	ensureServerParams, err := newEnsureServerParams(agentConfig)
+	if err != nil {
+		return err
+	}
+	if err := ensureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
 	if !shouldInitiateMongoServer {
