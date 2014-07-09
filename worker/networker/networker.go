@@ -5,11 +5,8 @@ package networker
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
-	"os"
 	"strings"
-	"syscall"
 
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
@@ -26,11 +23,13 @@ var logger = loggo.GetLogger("juju.networker")
 
 // Patches for testing.
 var (
-	NetworkDir          = "/etc/network"
 	InterfaceIsUp       = interfaceIsUp
 	InterfaceHasAddress = interfaceHasAddress
 	ExecuteCommands     = executeCommands
 )
+
+// Interface for juju internal network
+var InternalInterface = "eth0"
 
 // Networker configures network interfaces on the machine, as needed.
 type Networker struct {
@@ -41,12 +40,7 @@ type Networker struct {
 // Internal struct to store information required to setup networks.
 type setupInfo struct {
 	// The name and contents of '/etc/network/interfaces' file.
-	ifaceFileName string
-	ifaceFileData []byte
-
-	// The name and contents of files from '/etc/network/interfaces.d/' directory.
-	ifaceDirName string
-	ifaceDirData map[string][]byte
+	FileInfo
 
 	// The result of MachineNetworkInfo API call.
 	networks []network.Info
@@ -68,6 +62,16 @@ func (nw *Networker) SetUp() (watcher.NotifyWatcher, error) {
 	return nw.st.WatchInterfaces(nw.tag)
 }
 
+const newSchema = `
+# Source interfaces
+# Please check %s/interfaces.d before changing this file
+# as interfaces may have been defined in %s/interfaces.d
+# NOTE: the primary ethernet device is defined in
+# %s/interfaces.d/eth0.cfg
+# See LP: #1262951
+source %s/interfaces.d/*.cfg
+`
+
 func (s *setupInfo) ensureVLANModule() {
 	commands := []string{
 		`dpkg-query -s vlan || apt-get --option Dpkg::Options::=--force-confold --assume-yes install vlan`,
@@ -81,7 +85,7 @@ func (s *setupInfo) ensureVLANModule() {
 func (s *setupInfo) bringUpInterfaces() {
 	for _, network := range s.networks {
 		name := network.ActualInterfaceName()
-		if name != "eth0" && !InterfaceIsUp(name) {
+		if name != InternalInterface && !InterfaceIsUp(name) {
 			command := fmt.Sprintf(`ifup %s`, name)
 			s.commands = append(s.commands, command)
 		}
@@ -89,7 +93,7 @@ func (s *setupInfo) bringUpInterfaces() {
 }
 
 func interfacePattern(interfaceName string) string {
-	if interfaceName == "eth0" {
+	if interfaceName == InternalInterface {
 		return fmt.Sprintf("\nauto %s\nsource %s/%s.config\n", interfaceName, NetworkDir, interfaceName)
 	}
 	return fmt.Sprintf("\nauto %s\niface %s inet dhcp\n", interfaceName, interfaceName)
@@ -97,13 +101,14 @@ func interfacePattern(interfaceName string) string {
 
 func (s *setupInfo) interfaceIsConfigured(interfaceName string) bool {
 	substr := interfacePattern(interfaceName)
-	return strings.Contains(string(s.ifaceFileData), substr)
+	file, ok := s.Files[interfaceName]
+	return ok && strings.Contains(file.Data, substr)
 }
 
 func (s *setupInfo) configureInterfaces() {
 	for _, network := range s.networks {
 		name := network.ActualInterfaceName()
-		if name != "eth0" {
+		if name != InternalInterface {
 			s.configureInterface(name)
 		}
 	}
@@ -111,8 +116,12 @@ func (s *setupInfo) configureInterfaces() {
 
 func (s *setupInfo) configureInterface(interfaceName string) {
 	substr := interfacePattern(interfaceName)
-	if !strings.Contains(string(s.ifaceFileData), substr) {
-		s.ifaceFileData = append(s.ifaceFileData, []byte(substr)...)
+	if !strings.Contains(s.Files[interfaceName].Data, substr) {
+		s.Files[interfaceName] = &File{
+			FileName: fmt.Sprintf("%s/%s.cfg", IfacesDirName, interfaceName),
+			Data:     substr,
+			Op:       DoWrite,
+		}
 	}
 }
 
@@ -163,69 +172,9 @@ func interfaceHasAddress(interfaceName string) bool {
 	return len(addrs) != 0
 }
 
-func (s *setupInfo) ReadInterfacesFiles() error {
-	var err error
-	s.ifaceFileData, err = ioutil.ReadFile(s.ifaceFileName)
-	if err != nil {
-		logger.Errorf("failed to read file %q: %v", s.ifaceFileName, err)
-		return err
-	}
-	files, err := ioutil.ReadDir(s.ifaceDirName)
-	if err != nil {
-		if e, ok := err.(*os.PathError); ok && e.Err == syscall.ENOENT {
-                        // ignore error when directory is absent
-                } else {
-                        logger.Errorf("failed to read directory %q: %#v\n", s.ifaceDirName, err)
-                        return err
-                }
-	}
-	for _, file := range files {
-		if file.Mode().IsRegular() {
-			fileName := s.ifaceDirName + "/" + file.Name()
-			data, err := ioutil.ReadFile(fileName)
-			if err != nil {
-				// just report and ignore the error
-				logger.Errorf("failed to read file %q: %v", fileName, err)
-			}
-			s.ifaceDirData[file.Name()] = data
-		}
-	}
-	return nil
-}
-
-func (s *setupInfo) WriteInterfacesFiles() error {
-	err := ioutil.WriteFile(s.ifaceFileName, s.ifaceFileData, 0644)
-	if err != nil {
-		logger.Errorf("failed to white file %q: %v", s.ifaceFileName, err)
-		return err
-	}
-	err = os.Mkdir(s.ifaceDirName, 0755)
-	if err != nil {
-		if e, ok := err.(*os.PathError); ok && e.Err == syscall.EEXIST {
-                        // ignore error when directory already exists
-                } else {
-                        logger.Errorf("failed to create directory %q: %#v\n", s.ifaceDirName, err)
-                        return err
-                }
-	}
-	for name, data := range s.ifaceDirData {
-		fileName := s.ifaceDirName + "/" + name
-		err = ioutil.WriteFile(fileName, data, 0644)
-		if err != nil {
-			logger.Errorf("failed to write file %q: %v", fileName, err)
-			return err
-		}
-	}
-	return nil
-}
-
 func (nw *Networker) Handle() error {
-	s := &setupInfo{
-		ifaceFileName: NetworkDir + "/interfaces",
-		ifaceDirName: NetworkDir + "/interfaces.d",
-		ifaceDirData: make(map[string][]byte),
-	}
-	err := s.ReadInterfacesFiles()
+	s := &setupInfo{}
+	err := s.FileInfo.ReadInterfacesFiles()
 	if err != nil {
 		return err
 	}
@@ -236,21 +185,20 @@ func (nw *Networker) Handle() error {
 		return err
 	}
 
-	// Verify that eth0 interfaces is properly configured and brought up.
-	if !s.interfaceIsConfigured("eth0") || !InterfaceHasAddress("eth0") {
-		if !s.interfaceIsConfigured("eth0") {
-			logger.Errorf("interface eth0 has to be configured")
+	// Verify that internal interface is properly configured and brought up.
+	if !s.interfaceIsConfigured(InternalInterface) || !InterfaceHasAddress(InternalInterface) {
+		if !s.interfaceIsConfigured(InternalInterface) {
+			logger.Errorf("interface %q has to be configured", InternalInterface)
 		}
-		if !InterfaceHasAddress("eth0") {
-			logger.Errorf("interface eth0 has to be bring up")
+		if !InterfaceHasAddress(InternalInterface) {
+			logger.Errorf("interface %q has to be bring up", InternalInterface)
 		}
-		logger.Errorf("interface eth0 has to be configured and bring up")
-		return fmt.Errorf("interface eth0 has to be configured and bring up")
+		return fmt.Errorf("interface %q has to be configured and bring up", InternalInterface)
 	}
 
 	// Update interface file
 	s.configureInterfaces()
-	err = s.WriteInterfacesFiles()
+	err = s.FileInfo.WriteInterfacesFiles()
 	if err != nil {
 		return err
 	}

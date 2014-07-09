@@ -157,6 +157,7 @@ iface eth1.2 inet dhcp
 auto eth2
 iface eth2 inet dhcp
 `
+
 var readyInterfaces = set.NewStrings("eth0", "eth1")
 var interfacesWithAddress = set.NewStrings("eth0", "eth2")
 
