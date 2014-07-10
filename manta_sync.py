@@ -96,11 +96,19 @@ class Client:
 
     def ls(self, container_path):
         """Return a dict of a directory or file listing."""
-        headers, content = self._request(container_path)
         files = {}
-        for string in content.splitlines():
-            data = json.loads(string)
-            files[data['name']] = data
+        marker = ''
+        incomplete = True
+        while incomplete:
+            path_query = "{}?limit=256&marker={}".format(container_path, marker)
+            last_marker = marker
+            headers, content = self._request(path_query)
+            for string in content.splitlines():
+                data = json.loads(string)
+                marker = data['name']
+                files[marker] = data
+            if last_marker == marker:
+                incomplete = False
         return files
 
     def put_object(self, remote_path, path=None,
