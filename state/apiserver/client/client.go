@@ -15,6 +15,8 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/manual"
@@ -347,7 +349,22 @@ func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 	}
 	// Update service's constraints.
 	if args.Constraints != nil {
+		if err := c.warningIfUnsupported(*args.Constraints, args.ServiceName); err != nil {
+			return err
+		}
 		return service.SetConstraints(*args.Constraints)
+	}
+	return nil
+}
+
+func (c *Client) warningIfUnsupported(cons constraints.Value, serviceName string) error {
+	deployer := environmentserver.NewDeployer(c.api.state)
+	unsupported, err := deployer.ValidateConstraints(cons)
+	if len(unsupported) > 0 {
+		logger.Warningf(
+			"setting constraints on service %q: unsupported constraints: %v", serviceName, strings.Join(unsupported, ","))
+	} else if err != nil {
+		return err
 	}
 	return nil
 }
@@ -664,13 +681,16 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		Addresses:               p.Addrs,
 		Placement:               placementDirective,
 	}
+
+	deployer := environmentserver.NewDeployer(c.api.state)
+
 	if p.ContainerType == "" {
-		return c.api.state.AddOneMachine(template)
+		return deployer.AddOneMachine(template)
 	}
 	if p.ParentId != "" {
-		return c.api.state.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
+		return deployer.AddMachineInsideMachine(template, p.ParentId, p.ContainerType)
 	}
-	return c.api.state.AddMachineInsideNewMachine(template, template, p.ContainerType)
+	return deployer.AddMachineInsideNewMachine(template, template, p.ContainerType)
 }
 
 func stateJobs(jobs []params.MachineJob) ([]state.MachineJob, error) {

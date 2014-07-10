@@ -77,6 +77,10 @@ type MachineTemplate struct {
 	principals []string
 }
 
+func (m *MachineTemplate) Principals() []string {
+	return m.principals
+}
+
 // AddMachineInsideNewMachine creates a new machine within a container
 // of the given type inside another new machine. The two given templates
 // specify the form of the child and parent respectively.
@@ -98,29 +102,6 @@ func (st *State) AddMachineInsideMachine(template MachineTemplate, parentId stri
 	return st.addMachine(mdoc, ops)
 }
 
-// AddMachine adds a machine with the given series and jobs.
-// It is deprecated and around for testing purposes only.
-func (st *State) AddMachine(series string, jobs ...MachineJob) (*Machine, error) {
-	ms, err := st.AddMachines(MachineTemplate{
-		Series: series,
-		Jobs:   jobs,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return ms[0], nil
-}
-
-// AddOneMachine machine adds a new machine configured according to the
-// given template.
-func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
-	ms, err := st.AddMachines(template)
-	if err != nil {
-		return nil, err
-	}
-	return ms[0], nil
-}
-
 // AddMachines adds new machines configured according to the
 // given templates.
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
@@ -132,16 +113,10 @@ func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err er
 	} else if env.Life() != Alive {
 		return nil, fmt.Errorf("environment is no longer alive")
 	}
+
 	var ops []txn.Op
 	var mdocs []*machineDoc
 	for _, template := range templates {
-		// Adding a machine without any principals is
-		// only permitted if unit placement is supported.
-		if len(template.principals) == 0 && template.InstanceId == "" {
-			if err := st.supportsUnitPlacement(); err != nil {
-				return nil, err
-			}
-		}
 		mdoc, addOps, err := st.addMachineOps(template)
 		if err != nil {
 			return nil, err
@@ -182,65 +157,10 @@ func (st *State) addMachine(mdoc *machineDoc, ops []txn.Op) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// effectiveMachineTemplate verifies that the given template is
-// valid and combines it with values from the state
-// to produce a resulting template that more accurately
-// represents the data that will be inserted into the state.
-func (st *State) effectiveMachineTemplate(p MachineTemplate, allowStateServer bool) (tmpl MachineTemplate, err error) {
-	// First check for obvious errors.
-	if p.Series == "" {
-		return tmpl, fmt.Errorf("no series specified")
-	}
-	if p.InstanceId != "" {
-		if p.Nonce == "" {
-			return tmpl, fmt.Errorf("cannot add a machine with an instance id and no nonce")
-		}
-	} else if p.Nonce != "" {
-		return tmpl, fmt.Errorf("cannot specify a nonce without an instance id")
-	}
-
-	p.Constraints, err = st.resolveConstraints(p.Constraints)
-	if err != nil {
-		return tmpl, err
-	}
-	// Machine constraints do not use a container constraint value.
-	// Both provisioning and deployment constraints use the same
-	// constraints.Value struct so here we clear the container
-	// value. Provisioning ignores the container value but clearing
-	// it avoids potential confusion.
-	p.Constraints.Container = nil
-
-	if len(p.Jobs) == 0 {
-		return tmpl, fmt.Errorf("no jobs specified")
-	}
-	jset := make(map[MachineJob]bool)
-	for _, j := range p.Jobs {
-		if jset[j] {
-			return MachineTemplate{}, fmt.Errorf("duplicate job: %s", j)
-		}
-		jset[j] = true
-	}
-	if jset[JobManageEnviron] {
-		if !allowStateServer {
-			return tmpl, errStateServerNotAllowed
-		}
-	}
-	return p, nil
-}
-
 // addMachineOps returns operations to add a new top level machine
 // based on the given template. It also returns the machine document
 // that will be inserted.
 func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op, error) {
-	template, err := st.effectiveMachineTemplate(template, true)
-	if err != nil {
-		return nil, nil, err
-	}
-	if template.InstanceId == "" {
-		if err := st.precheckInstance(template.Series, template.Constraints, template.Placement); err != nil {
-			return nil, nil, err
-		}
-	}
 	seq, err := st.sequence("machine")
 	if err != nil {
 		return nil, nil, err
@@ -291,27 +211,13 @@ func (m *Machine) supportsContainerType(ctype instance.ContainerType) bool {
 // addMachineInsideMachineOps returns operations to add a machine inside
 // a container of the given type on an existing machine.
 func (st *State) addMachineInsideMachineOps(template MachineTemplate, parentId string, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
-	if template.InstanceId != "" {
-		return nil, nil, fmt.Errorf("cannot specify instance id for a new container")
-	}
-	template, err := st.effectiveMachineTemplate(template, false)
-	if err != nil {
-		return nil, nil, err
-	}
-	if containerType == "" {
-		return nil, nil, fmt.Errorf("no container type specified")
-	}
-	// Adding a machine within a machine implies add-machine or placement.
-	if err := st.supportsUnitPlacement(); err != nil {
-		return nil, nil, err
-	}
-
 	// If a parent machine is specified, make sure it exists
 	// and can support the requested container type.
 	parent, err := st.Machine(parentId)
 	if err != nil {
 		return nil, nil, err
 	}
+
 	if !parent.supportsContainerType(containerType) {
 		return nil, nil, fmt.Errorf("machine %s cannot host %s containers", parentId, containerType)
 	}
@@ -347,36 +253,13 @@ func (st *State) newContainerId(parentId string, containerType instance.Containe
 // new machine. The two given templates specify the form
 // of the child and parent respectively.
 func (st *State) addMachineInsideNewMachineOps(template, parentTemplate MachineTemplate, containerType instance.ContainerType) (*machineDoc, []txn.Op, error) {
-	if template.InstanceId != "" || parentTemplate.InstanceId != "" {
-		return nil, nil, fmt.Errorf("cannot specify instance id for a new container")
-	}
 	seq, err := st.sequence("machine")
 	if err != nil {
 		return nil, nil, err
 	}
-	parentTemplate, err = st.effectiveMachineTemplate(parentTemplate, false)
-	if err != nil {
-		return nil, nil, err
-	}
-	if containerType == "" {
-		return nil, nil, fmt.Errorf("no container type specified")
-	}
-	if parentTemplate.InstanceId == "" {
-		// Adding a machine within a machine implies add-machine or placement.
-		if err := st.supportsUnitPlacement(); err != nil {
-			return nil, nil, err
-		}
-		if err := st.precheckInstance(parentTemplate.Series, parentTemplate.Constraints, parentTemplate.Placement); err != nil {
-			return nil, nil, err
-		}
-	}
 
 	parentDoc := machineDocForTemplate(parentTemplate, strconv.Itoa(seq))
 	newId, err := st.newContainerId(parentDoc.Id, containerType)
-	if err != nil {
-		return nil, nil, err
-	}
-	template, err = st.effectiveMachineTemplate(template, false)
 	if err != nil {
 		return nil, nil, err
 	}

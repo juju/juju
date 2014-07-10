@@ -1,7 +1,7 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2015 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package environmentserver
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 )
@@ -30,17 +31,21 @@ type Policy interface {
 	// or an error.
 	ConfigValidator(providerType string) (ConfigValidator, error)
 
-	// EnvironCapability takes a *config.Config and returns an EnvironCapability
-	// or an error.
-	EnvironCapability(*config.Config) (EnvironCapability, error)
-
-	// ConstraintsValidator takes a *config.Config and returns a
-	// constraints.Validator or an error.
-	ConstraintsValidator(*config.Config) (constraints.Validator, error)
-
 	// InstanceDistributor takes a *config.Config and returns an
 	// InstanceDistributor or an error.
 	InstanceDistributor(*config.Config) (InstanceDistributor, error)
+}
+
+type Capability interface {
+	// EnvironCapability takes a *config.Config and returns an EnvironCapability
+	// or an error.
+	EnvironCapability(*config.Config) (EnvironCapability, error)
+}
+
+type Constraints interface {
+	// ConstraintsValidator takes a *config.Config and returns a
+	// constraints.Validator or an error.
+	ConstraintsValidator() (constraints.Validator, error)
 }
 
 // Prechecker is a policy interface that is provided to State
@@ -83,57 +88,65 @@ type EnvironCapability interface {
 
 // precheckInstance calls the state's assigned policy, if non-nil, to obtain
 // a Prechecker, and calls PrecheckInstance if a non-nil Prechecker is returned.
-func (st *State) precheckInstance(series string, cons constraints.Value, placement string) error {
-	if st.policy == nil {
-		return nil
-	}
-	cfg, err := st.EnvironConfig()
+func (d *deployer) PrecheckInstance(series string, cons constraints.Value, placement string) error {
+	cfg, err := d.state.EnvironConfig()
 	if err != nil {
 		return err
 	}
-	prechecker, err := st.policy.Prechecker(cfg)
+
+	env, err := environs.New(cfg)
+	if err != nil {
+		return err
+	}
+
+	prechecker := Prechecker(env)
+
 	if errors.IsNotImplemented(err) {
 		return nil
 	} else if err != nil {
 		return err
 	}
+
 	if prechecker == nil {
 		return fmt.Errorf("policy returned nil prechecker without an error")
 	}
+
 	return prechecker.PrecheckInstance(series, cons, placement)
 }
 
-func (st *State) constraintsValidator() (constraints.Validator, error) {
+func (d *deployer) ConstraintsValidator() (constraints.Validator, error) {
 	// Default behaviour is to simply use a standard validator with
 	// no environment specific behaviour built in.
 	defaultValidator := constraints.NewValidator()
-	if st.policy == nil {
-		return defaultValidator, nil
-	}
-	cfg, err := st.EnvironConfig()
+
+	cfg, err := d.state.EnvironConfig()
 	if err != nil {
 		return nil, err
 	}
-	validator, err := st.policy.ConstraintsValidator(cfg)
-	if errors.IsNotImplemented(err) {
-		return defaultValidator, nil
-	} else if err != nil {
+	env, err := environs.New(cfg)
+	if err != nil {
 		return nil, err
 	}
+
+	validator, ok := env.(Constraints)
+	if !ok {
+		return defaultValidator, nil
+	}
+
 	if validator == nil {
 		return nil, fmt.Errorf("policy returned nil constraints validator without an error")
 	}
-	return validator, nil
+	return validator.ConstraintsValidator()
 }
 
 // resolveConstraints combines the given constraints with the environ constraints to get
 // a constraints which will be used to create a new instance.
-func (st *State) resolveConstraints(cons constraints.Value) (constraints.Value, error) {
-	validator, err := st.constraintsValidator()
+func (d *deployer) ResolveConstraints(cons constraints.Value) (constraints.Value, error) {
+	validator, err := d.ConstraintsValidator()
 	if err != nil {
 		return constraints.Value{}, err
 	}
-	envCons, err := st.EnvironConstraints()
+	envCons, err := d.state.EnvironConstraints()
 	if err != nil {
 		return constraints.Value{}, err
 	}
@@ -142,8 +155,8 @@ func (st *State) resolveConstraints(cons constraints.Value) (constraints.Value, 
 
 // validateConstraints returns an error if the given constraints are not valid for the
 // current environment, and also any unsupported attributes.
-func (st *State) validateConstraints(cons constraints.Value) ([]string, error) {
-	validator, err := st.constraintsValidator()
+func (d *deployer) ValidateConstraints(cons constraints.Value) ([]string, error) {
+	validator, err := d.ConstraintsValidator()
 	if err != nil {
 		return nil, err
 	}
@@ -153,16 +166,24 @@ func (st *State) validateConstraints(cons constraints.Value) ([]string, error) {
 // validate calls the state's assigned policy, if non-nil, to obtain
 // a ConfigValidator, and calls Validate if a non-nil ConfigValidator is
 // returned.
-func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	if st.policy == nil {
-		return cfg, nil
+func (d *deployer) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+	currentConfig, err := d.state.EnvironConfig()
+	if err != nil {
+		return nil, err
 	}
-	configValidator, err := st.policy.ConfigValidator(cfg.Type())
-	if errors.IsNotImplemented(err) {
+
+	env, err := environs.New(currentConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	configValidator, ok := env.(ConfigValidator)
+	if !ok {
 		return cfg, nil
 	} else if err != nil {
 		return nil, err
 	}
+
 	if configValidator == nil {
 		return nil, fmt.Errorf("policy returned nil configValidator without an error")
 	}
@@ -172,19 +193,20 @@ func (st *State) validate(cfg, old *config.Config) (valid *config.Config, err er
 // supportsUnitPlacement calls the state's assigned policy, if non-nil,
 // to obtain an EnvironCapability, and calls SupportsUnitPlacement if a
 // non-nil EnvironCapability is returned.
-func (st *State) supportsUnitPlacement() error {
-	if st.policy == nil {
-		return nil
-	}
-	cfg, err := st.EnvironConfig()
+func (d *deployer) SupportsUnitPlacement() error {
+	cfg, err := d.state.EnvironConfig()
 	if err != nil {
 		return err
 	}
-	capability, err := st.policy.EnvironCapability(cfg)
-	if errors.IsNotImplemented(err) {
-		return nil
-	} else if err != nil {
+
+	env, err := environs.New(cfg)
+	if err != nil {
 		return err
+	}
+
+	capability, ok := env.(EnvironCapability)
+	if !ok {
+		return nil
 	}
 	if capability == nil {
 		return fmt.Errorf("policy returned nil EnvironCapability without an error")

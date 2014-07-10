@@ -11,6 +11,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -888,7 +889,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	subUnit := s.addSubordinateUnit(c)
 
 	info := state.TestingMongoInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -918,7 +919,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// Connect as the machine entity.
 	info.Tag = m.Tag()
 	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st1, err := state.Open(info, state.TestingDialOpts(), environmentserver.Deployer(nil))
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 
@@ -933,7 +934,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// that entity, change the password for a new unit.
 	info.Tag = unit.Tag()
 	info.Password = "bar"
-	st2, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st2, err := state.Open(info, state.TestingDialOpts(), environmentserver.Deployer(nil))
 	c.Assert(err, gc.IsNil)
 	defer st2.Close()
 

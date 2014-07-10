@@ -21,6 +21,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -163,7 +164,9 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	if len(jobs) == 0 {
 		jobs = []state.MachineJob{state.JobHostUnits}
 	}
-	machine, err := s.State.AddMachine("quantal", jobs...)
+
+	deployer := environmentserver.NewDeployer(s.State)
+	machine, err := deployer.AddMachine("quantal", jobs...)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)

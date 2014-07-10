@@ -32,7 +32,7 @@ import (
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func Open(info *authentication.MongoInfo, opts mongo.DialOpts) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	di, err := mongo.DialInfo(info.Info, opts)
 	if err != nil {
@@ -54,7 +54,7 @@ func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 	}
 	session.SetSafe(safe)
 
-	st, err := newState(session, info, policy)
+	st, err := newState(session, info)
 	if err != nil {
 		session.Close()
 		return nil, err
@@ -66,8 +66,8 @@ func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
-	st, err := Open(info, opts, policy)
+func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.DialOpts) (rst *State, err error) {
+	st, err := Open(info, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +172,7 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (*State, error) {
+func newState(session *mgo.Session, info *authentication.MongoInfo) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
@@ -194,7 +194,7 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 
 	st := &State{
 		mongoInfo:         mongoInfo,
-		policy:            policy,
+		info:              info,
 		db:                db,
 		environments:      db.C("environments"),
 		charms:            db.C("charms"),
@@ -222,6 +222,7 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 		stateServers:      db.C("stateServers"),
 		openedPorts:       db.C("openedPorts"),
 	}
+
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:

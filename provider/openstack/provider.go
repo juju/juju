@@ -25,6 +25,8 @@ import (
 	"launchpad.net/goose/swift"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -36,7 +38,7 @@ import (
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
 )
 
@@ -308,8 +310,8 @@ var _ environs.Environ = (*environ)(nil)
 var _ imagemetadata.SupportsCustomSources = (*environ)(nil)
 var _ envtools.SupportsCustomSources = (*environ)(nil)
 var _ simplestreams.HasRegion = (*environ)(nil)
-var _ state.Prechecker = (*environ)(nil)
-var _ state.InstanceDistributor = (*environ)(nil)
+var _ environmentserver.Prechecker = (*environ)(nil)
+var _ environmentserver.InstanceDistributor = (*environ)(nil)
 
 type openstackInstance struct {
 	e        *environ

@@ -19,6 +19,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -147,7 +148,7 @@ func (t *LiveTests) Destroy(c *gc.C) {
 func (t *LiveTests) TestPrechecker(c *gc.C) {
 	// Providers may implement Prechecker. If they do, then they should
 	// return nil for empty constraints (excluding the null provider).
-	prechecker, ok := t.Env.(state.Prechecker)
+	prechecker, ok := t.Env.(environmentserver.Prechecker)
 	if !ok {
 		return
 	}

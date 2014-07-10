@@ -1081,7 +1081,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}
 	// assignToMachine implies assignment to an existing machine,
 	// which is only permitted if unit placement is supported.
-	if err := u.st.supportsUnitPlacement(); err != nil {
+	if err := u.st.environmentValidation.SupportsUnitPlacement(); err != nil {
 		return err
 	}
 	assert := append(isAliveDoc, bson.D{
@@ -1519,7 +1519,7 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 	// Shuffle machines to reduce likelihood of collisions.
 	// The partition of provisioned/unprovisioned machines
 	// must be maintained.
-	if instances, err = distributeUnit(u, instances); err != nil {
+	if instances, err = u.st.EnvironmentDistribution.DistributeUnit(u, instances); err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}
