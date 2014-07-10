@@ -617,7 +617,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	//
 	// TODO(axw) remove this when we no longer need
 	// to upgrade from pre-HA-capable environments.
-	stateInfo, ok := agentConfig.StateInfo()
+	stateInfo, ok := agentConfig.MongoInfo()
 	if !ok {
 		return fmt.Errorf("state worker was started with no state serving info")
 	}
@@ -642,7 +642,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 }
 
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
-	stateInfo, ok1 := agentConfig.StateInfo()
+	stateInfo, ok1 := agentConfig.MongoInfo()
 	servingInfo, ok2 := agentConfig.StateServingInfo()
 	if !ok1 || !ok2 {
 		return false, fmt.Errorf("no state serving info configuration")
@@ -670,7 +670,7 @@ func isPreHAVersion(v version.Number) bool {
 }
 
 func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.State, _ *state.Machine, err error) {
-	info, ok := agentConfig.StateInfo()
+	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
@@ -773,7 +773,7 @@ func (a *MachineAgent) upgradeWorker(
 				return err
 			}
 			var err error
-			info, ok := agentConfig.StateInfo()
+			info, ok := agentConfig.MongoInfo()
 			if !ok {
 				return fmt.Errorf("no state info available")
 			}

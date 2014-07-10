@@ -144,7 +144,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.EnsureNotBootstrapped(e2)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
-	checkSameInfo := func(a, b *authentication.ConnectionInfo) {
+	checkSameInfo := func(a, b *authentication.MongoInfo) {
 		c.Check(a.Addrs, jc.SameContents, b.Addrs)
 		c.Check(a.CACert, gc.DeepEquals, b.CACert)
 	}

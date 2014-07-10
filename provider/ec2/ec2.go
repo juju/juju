@@ -317,7 +317,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) StateInfo() (*authentication.ConnectionInfo, *api.Info, error) {
+func (e *environ) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
 	return common.StateInfo(e)
 }
 

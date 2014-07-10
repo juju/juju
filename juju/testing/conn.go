@@ -106,7 +106,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.setUpConn(c)
 }
 
-func (s *JujuConnSuite) StateInfo(c *gc.C) *authentication.ConnectionInfo {
+func (s *JujuConnSuite) MongoInfo(c *gc.C) *authentication.MongoInfo {
 	info, _, err := s.Conn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Password = "dummy-secret"
@@ -354,7 +354,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 			UpgradedToVersion: version.Current.Number,
 			Password:          password,
 			Nonce:             "nonce",
-			StateAddresses:    s.StateInfo(c).Addrs,
+			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
 		})

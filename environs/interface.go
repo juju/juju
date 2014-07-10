@@ -111,7 +111,7 @@ type Environ interface {
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
-	StateInfo() (*authentication.ConnectionInfo, *api.Info, error)
+	StateInfo() (*authentication.MongoInfo, *api.Info, error)
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.

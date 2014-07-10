@@ -499,7 +499,7 @@ func (*suite) TestSetPassword(c *gc.C) {
 	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)
 	userTag, err := names.ParseTag(attrParams.Tag)
 	c.Assert(err, gc.IsNil)
-	expectStateInfo := &authentication.ConnectionInfo{
+	expectStateInfo := &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
 			CACert: attrParams.CACert,
@@ -507,7 +507,7 @@ func (*suite) TestSetPassword(c *gc.C) {
 		Tag:      userTag,
 		Password: "",
 	}
-	info, ok := conf.StateInfo()
+	info, ok := conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(info, jc.DeepEquals, expectStateInfo)
 
@@ -517,7 +517,7 @@ func (*suite) TestSetPassword(c *gc.C) {
 	expectStateInfo.Password = "newpassword"
 
 	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
-	info, ok = conf.StateInfo()
+	info, ok = conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(info, jc.DeepEquals, expectStateInfo)
 }
