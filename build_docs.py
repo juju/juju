@@ -30,7 +30,8 @@ def build_docs(cwd, args):
     output = subprocess.check_output(['git', 'checkout', args.branch])
     if args.verbose:
         print(output)
-    message = subprocess.check_output(['git', 'log', '--format=oneline', '-1'])
+    message = subprocess.check_output(
+        ['git', 'log', '--format=oneline', '-1'])
     output = subprocess.check_output(['grep', 'apt-get install', 'Makefile'])
     if args.verbose:
         print('These packages are requried to build docs.')
@@ -68,7 +69,7 @@ def build_docs(cwd, args):
 def main(cwd):
     parser = ArgumentParser('Build and republish Juju docs.')
     parser.add_argument(
-        '-v', '--verbose', action='store_true', help='Increse verbosity.')
+        '-v', '--verbose', action='store_true', help='Increase verbosity.')
     parser.add_argument(
         '-s', '--source', default=DEFAULT_SOURCE_URL,
         help='The source repo/branch of docs. Default={}'.format(
