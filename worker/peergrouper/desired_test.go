@@ -75,7 +75,7 @@ func desiredPeerGroupTests(ipVersion testIPVersion) []desiredPeerGroupTest {
 			members: append(mkMembers("1v", ipVersion), replicaset.Member{
 				Id:      2,
 				Votes:   newInt(2),
-				Address: "0.1.2.12:1234",
+				Address: fmt.Sprintf(ipVersion.formatHostPort, 12, mongoPort),
 			}),
 			statuses:     mkStatuses("1p 2s", ipVersion),
 			expectVoting: []bool{true},
