@@ -9,6 +9,7 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/juju/names"
 	"github.com/juju/utils/parallel"
 	gc "launchpad.net/gocheck"
 
@@ -136,18 +137,18 @@ func (s *apiclientSuite) TestOpenPassesEnvironTag(c *gc.C) {
 	// c.Check(info.EnvironTag, gc.Equals, env.Tag())
 	// c.Assert(info.EnvironTag, gc.Not(gc.Equals), "")
 	// We start by ensuring we have an invalid tag, and Open should fail.
-	info.EnvironTag = "environment-bad-tag"
+	info.EnvironTag = names.NewEnvironTag("bad-tag")
 	_, err = api.Open(info, api.DialOpts{})
 	c.Check(err, gc.ErrorMatches, `unknown environment: "bad-tag"`)
 	c.Check(params.ErrCode(err), gc.Equals, params.CodeNotFound)
 	// Now set it to the right tag, and we should succeed.
-	info.EnvironTag = env.Tag().String()
+	info.EnvironTag = env.Tag()
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	st.Close()
-	// Backwards compatibility, we should succeed if we pass just "" as the
+	// Backwards compatibility, we should succeed if we do not set an
 	// environ tag
-	info.EnvironTag = ""
+	info.EnvironTag = nil
 	st, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	st.Close()
