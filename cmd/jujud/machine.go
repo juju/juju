@@ -528,10 +528,12 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 		}
 		switch authTag := authTag.(type) {
 		case names.UserTag:
-			return nil // user logins always allowed
+			// use a restricted API mode
+			return apiserver.UpgradeInProgressError
 		case names.MachineTag:
 			if authTag == a.Tag() {
-				return nil // allow logins from the local machine
+				// allow logins from the local machine
+				return nil
 			}
 		}
 		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
@@ -540,19 +542,23 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
-func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
+func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	a.mongoInitMutex.Lock()
 	defer a.mongoInitMutex.Unlock()
 	if a.mongoInitialized {
 		logger.Debugf("mongo is already initialized")
 		return nil
 	}
+	defer func() {
+		if err == nil {
+			a.mongoInitialized = true
+		}
+	}()
 
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return fmt.Errorf("state worker was started with no state serving info")
 	}
-	namespace := agentConfig.Value(agent.Namespace)
 
 	// When upgrading from a pre-HA-capable environment,
 	// we must add machine-0 to the admin database and
@@ -596,11 +602,11 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	}
 
 	// ensureMongoServer installs/upgrades the upstart config as necessary.
-	if err := ensureMongoServer(
-		agentConfig.DataDir(),
-		namespace,
-		servingInfo,
-	); err != nil {
+	ensureServerParams, err := newEnsureServerParams(agentConfig)
+	if err != nil {
+		return err
+	}
+	if err := ensureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
 	if !shouldInitiateMongoServer {
@@ -626,12 +632,12 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	if err := maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort)),
-		User:           stateInfo.Tag,
-		Password:       stateInfo.Password,
+		// TODO(dfc) InitiateMongoParams should take a Tag
+		User:     stateInfo.Tag.String(),
+		Password: stateInfo.Password,
 	}); err != nil {
 		return err
 	}
-	a.mongoInitialized = true
 	return nil
 }
 
@@ -654,7 +660,7 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		Namespace: agentConfig.Value(agent.Namespace),
 		DataDir:   agentConfig.DataDir(),
 		Port:      servingInfo.StatePort,
-		User:      stateInfo.Tag,
+		User:      stateInfo.Tag.String(),
 		Password:  stateInfo.Password,
 	})
 }

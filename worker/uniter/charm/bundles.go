@@ -89,6 +89,8 @@ func (d *BundlesDir) download(info BundleInfo, abort <-chan struct{}) (err error
 			if err := os.MkdirAll(d.path, 0755); err != nil {
 				return err
 			}
+			// Renaming an open file is not possible on Windows
+			st.File.Close()
 			return os.Rename(st.File.Name(), d.bundlePath(info))
 		}
 	}

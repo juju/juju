@@ -12,7 +12,6 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/simplestreams"
@@ -23,7 +22,7 @@ import (
 
 // ValidateToolsMetadataCommand
 type ValidateToolsMetadataCommand struct {
-	envcmd.EnvCommandBase
+	ImageMetadataCommandBase
 	out          cmd.Output
 	providerType string
 	metadataDir  string
@@ -145,7 +144,7 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		environ, err := environs.PrepareFromName(c.EnvName, context, store)
+		environ, err := c.prepare(context, store)
 		if err == nil {
 			mdLookup, ok := environ.(simplestreams.MetadataValidator)
 			if !ok {

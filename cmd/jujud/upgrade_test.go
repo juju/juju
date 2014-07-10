@@ -33,6 +33,13 @@ type UpgradeSuite struct {
 
 var _ = gc.Suite(&UpgradeSuite{})
 
+type exposedAPI bool
+
+var (
+	FullAPIExposed       exposedAPI = true
+	RestrictedAPIExposed exposedAPI = false
+)
+
 func fakeRestart() error { return nil }
 
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
@@ -68,7 +75,7 @@ func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 	s.assertHostUpgrades(c)
 }
 
-func (s *UpgradeSuite) TestClientLoginsOnlyDuringUpgrade(c *gc.C) {
+func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	// Override the main upgrade entry point so that the test can
 	// control when upgrades start and finish.
 	upgradeCh := make(chan bool)
@@ -99,8 +106,8 @@ func (s *UpgradeSuite) TestClientLoginsOnlyDuringUpgrade(c *gc.C) {
 
 	c.Assert(waitForUpgradeToStart(upgradeCh), gc.Equals, true)
 
-	// Only user and local logins are allowed during upgrade
-	c.Assert(s.canLoginToAPIAsUser(c), gc.Equals, true)
+	// Only user and local logins are allowed during upgrade. Users get a restricted API.
+	s.checkLoginToAPIAsUser(c, RestrictedAPIExposed)
 	c.Assert(s.canLoginToAPIAsMachine(c, s.machine0Config), gc.Equals, true)
 	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, false)
 
@@ -108,8 +115,8 @@ func (s *UpgradeSuite) TestClientLoginsOnlyDuringUpgrade(c *gc.C) {
 
 	s.waitForUpgradeToFinish(c)
 
-	// All user and machine logins are allowed after upgrade
-	c.Assert(s.canLoginToAPIAsUser(c), gc.Equals, true)
+	// All logins are allowed after upgrade
+	s.checkLoginToAPIAsUser(c, FullAPIExposed)
 	c.Assert(s.canLoginToAPIAsMachine(c, s.machine0Config), gc.Equals, true)
 	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, true)
 }
@@ -193,7 +200,7 @@ func (s *UpgradeSuite) waitForUpgradeToFinish(c *gc.C) {
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
 		conf, err := agent.ReadConfig(agent.ConfigPath(
 			s.machine0Config.DataDir(),
-			s.machine0.Tag().String(),
+			s.machine0.Tag(),
 		))
 		c.Assert(err, gc.IsNil)
 		success = conf.UpgradedToVersion() == s.upgradeToVersion.Number
@@ -204,33 +211,47 @@ func (s *UpgradeSuite) waitForUpgradeToFinish(c *gc.C) {
 	c.Assert(success, jc.IsTrue)
 }
 
-func (s *UpgradeSuite) canLoginToAPIAsUser(c *gc.C) bool {
+func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, expectFullApi exposedAPI) {
 	info := s.machine0Config.APIInfo()
 	defaultInfo := s.APIInfo(c)
 	info.Tag = defaultInfo.Tag
 	info.Password = defaultInfo.Password
 	info.Nonce = ""
-	return s.canLoginToAPI(info)
+
+	apiState, err := api.Open(info, upgradeTestDialOpts)
+	c.Assert(err, gc.IsNil)
+	defer apiState.Close()
+
+	// this call should always work
+	var result api.Status
+	err = apiState.Call("Client", "", "FullStatus", nil, &result)
+	c.Assert(err, gc.IsNil)
+
+	// this call should only work if API is not restricted
+	err = apiState.Call("Client", "", "DestroyEnvironment", nil, nil)
+	if expectFullApi {
+		c.Assert(err, gc.IsNil)
+	} else {
+		c.Assert(err, gc.ErrorMatches, "upgrade in progress .+")
+	}
 }
 
 func (s *UpgradeSuite) canLoginToAPIAsMachine(c *gc.C, config agent.Config) bool {
 	// Ensure logins are always to the API server (machine-0)
 	info := config.APIInfo()
 	info.Addrs = s.machine0Config.APIInfo().Addrs
-	return s.canLoginToAPI(info)
+	apiState, err := api.Open(info, upgradeTestDialOpts)
+	if apiState != nil {
+		apiState.Close()
+	}
+	if apiState != nil && err == nil {
+		return true
+	}
+	return false
 }
 
 var upgradeTestDialOpts = api.DialOpts{
 	DialAddressInterval: 50 * time.Millisecond,
 	Timeout:             1 * time.Minute,
 	RetryDelay:          250 * time.Millisecond,
-}
-
-func (s *UpgradeSuite) canLoginToAPI(info *api.Info) (out bool) {
-	apiState, err := api.Open(info, upgradeTestDialOpts)
-	if apiState != nil && err == nil {
-		apiState.Close()
-		return true
-	}
-	return false
 }

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // UnsetCommand sets configuration values of a service back
@@ -49,7 +48,7 @@ func (c *UnsetCommand) Init(args []string) error {
 
 // Run resets the configuration of a service.
 func (c *UnsetCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
+	apiclient, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

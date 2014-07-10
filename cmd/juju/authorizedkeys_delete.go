@@ -9,9 +9,6 @@ import (
 
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
-
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 var deleteKeysDoc = `
@@ -22,7 +19,7 @@ typically something like "user@host", or the key fingerprint found by using ssh-
 
 // DeleteKeysCommand is used to delete authorized ssh keys for a user.
 type DeleteKeysCommand struct {
-	envcmd.EnvCommandBase
+	AuthorizedKeysBase
 	user   string
 	keyIds []string
 }
@@ -51,7 +48,7 @@ func (c *DeleteKeysCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeleteKeysCommand) Run(context *cmd.Context) error {
-	client, err := juju.NewKeyManagerClient(c.EnvName)
+	client, err := c.NewKeyManagerClient()
 	if err != nil {
 		return err
 	}

@@ -15,7 +15,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // SetCommand updates the configuration of a service.
@@ -72,7 +71,7 @@ func (c *SetCommand) Init(args []string) error {
 
 // Run updates the configuration of a service.
 func (c *SetCommand) Run(ctx *cmd.Context) error {
-	api, err := juju.NewAPIClientFromName(c.EnvName)
+	api, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

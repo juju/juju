@@ -13,6 +13,7 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -134,13 +135,16 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	// This is because there's no mongo password set for s.machine,
 	// which has JobHostUnits
 	info := s.StateInfo(c)
-	info.Tag = entity.Tag()
+	// TODO(dfc) this entity.Tag should return a Tag
+	tag, err := names.ParseTag(entity.Tag())
+	c.Assert(err, gc.IsNil)
+	info.Tag = tag
 	info.Password = "foo-12345678901234567890"
 	err = tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 }
 
-func tryOpenState(info *state.Info) error {
+func tryOpenState(info *authentication.ConnectionInfo) error {
 	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()

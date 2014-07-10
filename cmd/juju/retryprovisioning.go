@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // RetryProvisioningCommand updates machines' error status to tell
@@ -43,7 +42,7 @@ func (c *RetryProvisioningCommand) Init(args []string) error {
 }
 
 func (c *RetryProvisioningCommand) Run(context *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

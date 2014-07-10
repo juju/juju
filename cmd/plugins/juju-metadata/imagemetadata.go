@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -22,9 +23,21 @@ import (
 	"github.com/juju/juju/juju/arch"
 )
 
+type ImageMetadataCommandBase struct {
+	envcmd.EnvCommandBase
+}
+
+func (c *ImageMetadataCommandBase) prepare(context *cmd.Context, store configstore.Storage) (environs.Environ, error) {
+	cfg, err := c.Config(store)
+	if err != nil {
+		return nil, errors.Annotate(err, "could not get config from store")
+	}
+	return environs.Prepare(cfg, context, store)
+}
+
 // ImageMetadataCommand is used to write out simplestreams image metadata information.
 type ImageMetadataCommand struct {
-	envcmd.EnvCommandBase
+	ImageMetadataCommandBase
 	Dir            string
 	Series         string
 	Arch           string
@@ -67,7 +80,7 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 	c.privateStorage = "<private storage name>"
 	var environ environs.Environ
 	if store, err := configstore.Default(); err == nil {
-		if environ, err = environs.PrepareFromName(c.EnvName, context, store); err == nil {
+		if environ, err = c.prepare(context, store); err == nil {
 			logger.Infof("creating image metadata for environment %q", environ.Name())
 			// If the user has not specified region and endpoint, try and get it from the environment.
 			if c.Region == "" || c.Endpoint == "" {
@@ -98,7 +111,7 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 				c.privateStorage = v.(string)
 			}
 		} else {
-			logger.Warningf("environment %q could not be opened: %v", c.EnvName, err)
+			logger.Warningf("environment could not be opened: %v", err)
 		}
 	}
 	if environ == nil {

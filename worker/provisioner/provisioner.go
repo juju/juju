@@ -12,6 +12,7 @@ import (
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
@@ -101,7 +102,7 @@ func (p *provisioner) Stop() error {
 
 // getStartTask creates a new worker for the provisioner,
 func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
-	auth, err := environs.NewAPIAuthenticator(p.st)
+	auth, err := authentication.NewAPIAuthenticator(p.st)
 	if err != nil {
 		return nil, err
 	}

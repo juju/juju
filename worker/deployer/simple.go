@@ -162,13 +162,14 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if err := svc.StopAndRemove(); err != nil {
 		return err
 	}
-	tag := names.NewUnitTag(unitName).String()
+	tag := names.NewUnitTag(unitName)
 	dataDir := ctx.agentConfig.DataDir()
 	agentDir := agent.Dir(dataDir, tag)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
-	toolsDir := tools.ToolsDir(dataDir, tag)
+	// TODO(dfc) should take a Tag
+	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	return os.Remove(toolsDir)
 }
 

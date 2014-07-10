@@ -19,6 +19,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
+const (
+	// BootstrapNonce is used as a nonce for the state server machine.
+	BootstrapNonce = "user-admin:bootstrap"
+)
+
 // InitializeState should be called on the bootstrap machine's agent
 // configuration. It uses that information to create the state server, dial the
 // state server, and initialize it. It also generates a new password for the
@@ -76,7 +81,7 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if !ok {
 		return nil, nil, fmt.Errorf("stateinfo not available")
 	}
-	info.Tag = ""
+	info.Tag = nil
 	info.Password = ""
 
 	logger.Debugf("initializing address %v", info.Addrs)
@@ -164,7 +169,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 	m, err := st.AddOneMachine(state.MachineTemplate{
 		Addresses:               cfg.Addresses,
 		Series:                  version.Current.Series,
-		Nonce:                   state.BootstrapNonce,
+		Nonce:                   BootstrapNonce,
 		Constraints:             cfg.Constraints,
 		InstanceId:              cfg.InstanceId,
 		HardwareCharacteristics: cfg.Characteristics,

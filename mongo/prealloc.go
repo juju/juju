@@ -38,24 +38,20 @@ var (
 
 // preallocOplog preallocates the Mongo oplog in the
 // specified Mongo datadabase directory.
-func preallocOplog(dir string) error {
-	size, err := oplogSize(dir)
-	if err != nil {
-		return err
-	}
-	// oplogSize returns MB, we want to work in bytes.
-	sizes := preallocFileSizes(size * 1024 * 1024)
+func preallocOplog(dir string, oplogSizeMB int) error {
+	// preallocFiles expects sizes in bytes.
+	sizes := preallocFileSizes(oplogSizeMB * 1024 * 1024)
 	prefix := filepath.Join(dir, "local.")
 	return preallocFiles(prefix, sizes...)
 }
 
-// oplogSize returns the default size in MB for the mongo oplog
-// based on the directory of the mongo database.
+// defaultOplogSize returns the default size in MB for the
+// mongo oplog based on the directory of the mongo database.
 //
 // The size of the oplog is calculated according to the
 // formula used by Mongo:
 //     http://docs.mongodb.org/manual/core/replica-set-oplog/
-func oplogSize(dir string) (int, error) {
+func defaultOplogSize(dir string) (int, error) {
 	if hostWordSize == 32 {
 		// "For 32-bit systems, MongoDB allocates about 48 megabytes
 		// of space to the oplog."

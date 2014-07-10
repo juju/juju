@@ -22,7 +22,9 @@ import (
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -815,13 +817,13 @@ func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
 		})
 		return err
 	}
-	err := injectMachine("", "i-minvalid", state.BootstrapNonce, state.JobHostUnits)
+	err := injectMachine("", "i-minvalid", agent.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
-	err = injectMachine("quantal", "", state.BootstrapNonce, state.JobHostUnits)
+	err = injectMachine("quantal", "", agent.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: cannot specify a nonce without an instance id")
 	err = injectMachine("quantal", "i-minvalid", "", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
-	err = injectMachine("quantal", state.BootstrapNonce, "i-mlazy")
+	err = injectMachine("quantal", agent.BootstrapNonce, "i-mlazy")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
@@ -836,7 +838,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 		Jobs:        []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 		Constraints: cons,
 		InstanceId:  "i-mindustrious",
-		Nonce:       state.BootstrapNonce,
+		Nonce:       agent.BootstrapNonce,
 		HardwareCharacteristics: instance.HardwareCharacteristics{
 			Arch:     &arch,
 			Mem:      &mem,
@@ -866,7 +868,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	template := state.MachineTemplate{
 		Series:     "quantal",
 		InstanceId: "i-mindustrious",
-		Nonce:      state.BootstrapNonce,
+		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 	}
 	m0, err := s.State.AddOneMachine(template)
@@ -2065,7 +2067,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(relation1, jc.DeepEquals, relation3)
 }
 
-func tryOpenState(info *state.Info) error {
+func tryOpenState(info *authentication.ConnectionInfo) error {
 	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	if err == nil {
 		st.Close()
@@ -2075,15 +2077,15 @@ func tryOpenState(info *state.Info) error {
 
 func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	info := state.TestingStateInfo()
-	info.Tag, info.Password = "arble", "bar"
+	info.Tag, info.Password = names.NewUserTag("arble"), "bar"
 	err := tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
-	info.Tag, info.Password = "arble", ""
+	info.Tag, info.Password = names.NewUserTag("arble"), ""
 	err = tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
-	info.Tag, info.Password = "", ""
+	info.Tag, info.Password = nil, ""
 	err = tryOpenState(info)
 	c.Assert(err, gc.IsNil)
 }
@@ -2115,7 +2117,7 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 	err = peergrouper.MaybeInitiateMongoServer(args)
 	c.Assert(err, gc.IsNil)
 
-	stateInfo := &state.Info{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
+	stateInfo := &authentication.ConnectionInfo{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
 	dialOpts := mongo.DialOpts{Timeout: time.Second * 30}
 	st, err := state.Open(stateInfo, dialOpts, state.Policy(nil))
 	c.Assert(err, gc.IsNil)
@@ -2258,7 +2260,7 @@ func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, erro
 	c.Assert(err, gc.IsNil)
 
 	// Check that we cannot log in with the wrong password.
-	info.Tag = ent.Tag().String()
+	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
@@ -2287,7 +2289,7 @@ func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, erro
 	c.Assert(err, gc.IsNil)
 
 	// Check that the administrator can still log in.
-	info.Tag, info.Password = "", "admin-secret"
+	info.Tag, info.Password = nil, "admin-secret"
 	err = tryOpenState(info)
 	c.Assert(err, gc.IsNil)
 
@@ -2400,7 +2402,7 @@ var findEntityTests = []findEntityTest{{
 	tag: "action-",
 	err: `"action-" is not a valid action tag`,
 }, {
-	tag: "action-ser-vice2/0" + names.ActionMarker + "0",
+	tag: "action-ser-vice2/0_a_0",
 }, {
 	// TODO(axw) 2013-12-04 #1257587
 	// remove backwards compatibility for environment-tag; see state.go
@@ -2494,9 +2496,9 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	for _, name := range bad {
 		c.Logf(name)
 		coll, id, err := state.ParseTag(s.State, name)
+		c.Assert(err, gc.ErrorMatches, `".*" is not a valid( [a-z]+)? tag`)
 		c.Check(coll, gc.Equals, "")
 		c.Check(id, gc.Equals, "")
-		c.Assert(err, gc.ErrorMatches, `".*" is not a valid( [a-z]+)? tag`)
 	}
 }
 
@@ -2504,17 +2506,17 @@ func (s *StateSuite) TestParseMachineTag(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	coll, id, err := state.ParseTag(s.State, m.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "machines")
 	c.Assert(id, gc.Equals, m.Id())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseServiceTag(c *gc.C) {
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "dummy"))
 	coll, id, err := state.ParseTag(s.State, svc.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "services")
 	c.Assert(id, gc.Equals, svc.Name())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseUnitTag(c *gc.C) {
@@ -2522,9 +2524,9 @@ func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
 	coll, id, err := state.ParseTag(s.State, u.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "units")
 	c.Assert(id, gc.Equals, u.Name())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseActionTag(c *gc.C) {
@@ -2534,28 +2536,28 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	f, err := u.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
 	action, err := s.State.Action(f.Id())
-	c.Assert(action.Tag(), gc.Equals, names.NewActionTag(u.Tag().(names.UnitTag), 0))
+	c.Assert(action.Tag(), gc.Equals, names.JoinActionTag(u.Name(), 0))
 	coll, id, err := state.ParseTag(s.State, action.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "actions")
 	c.Assert(id, gc.Equals, action.Id())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseUserTag(c *gc.C) {
 	user := s.factory.MakeAnyUser()
 	coll, id, err := state.ParseTag(s.State, user.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseEnvironmentTag(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	coll, id, err := state.ParseTag(s.State, env.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "environments")
 	c.Assert(id, gc.Equals, env.UUID())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
@@ -2567,9 +2569,9 @@ func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	coll, id, err := state.ParseTag(s.State, net1.Tag().String())
+	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "networks")
 	c.Assert(id, gc.Equals, net1.Name())
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestWatchCleanups(c *gc.C) {
@@ -3583,7 +3585,7 @@ func (s *StateSuite) TestWatchActions(c *gc.C) {
 
 func expectActionIds(u *state.Unit, suffixes ...string) []string {
 	ids := make([]string, len(suffixes))
-	prefix := state.ActionPrefix(u)
+	prefix := state.EnsureActionMarker(u.Name())
 	for i, suffix := range suffixes {
 		ids[i] = prefix + suffix
 	}

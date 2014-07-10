@@ -10,7 +10,6 @@ import (
 	"github.com/juju/names"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // RemoveUnitCommand is responsible for destroying service units.
@@ -44,7 +43,7 @@ func (c *RemoveUnitCommand) Init(args []string) error {
 // Run connects to the environment specified on the command line and destroys
 // units therein.
 func (c *RemoveUnitCommand) Run(_ *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

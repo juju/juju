@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/juju"
 )
 
 const getConstraintsDoc = `
@@ -88,7 +87,7 @@ func (c *GetConstraintsCommand) Init(args []string) error {
 }
 
 func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
+	apiclient, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}
@@ -136,7 +135,7 @@ func (c *SetConstraintsCommand) Init(args []string) (err error) {
 }
 
 func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
-	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
+	apiclient, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -863,6 +864,16 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	c.Assert(mid, gc.Equals, machine.Id())
 }
 
+func (s *clientSuite) TestClientServiceDeployToMachineNotFound(c *gc.C) {
+	err := s.APIState.Client().ServiceDeploy(
+		"cs:precise/service-name-1", "service-name", 1, "", constraints.Value{}, "42",
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy "service-name" to machine 42: machine 42 not found`)
+
+	_, err = s.State.Service("service-name")
+	c.Assert(err, gc.ErrorMatches, `service "service-name" not found`)
+}
+
 func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
@@ -1352,7 +1363,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = m.SetProvisioned("i-0", state.BootstrapNonce, nil)
+	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
 	c.Assert(err, gc.IsNil)
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, gc.IsNil)

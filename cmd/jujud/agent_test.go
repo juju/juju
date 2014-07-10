@@ -11,12 +11,14 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
@@ -241,7 +243,7 @@ func (s *agentSuite) SetUpSuite(c *gc.C) {
 	// a bit when some tests are restarting every 50ms for 10 seconds,
 	// so use a slightly more friendly delay.
 	worker.RestartDelay = 250 * time.Millisecond
-	s.PatchValue(&ensureMongoServer, func(string, string, params.StateServingInfo) error {
+	s.PatchValue(&ensureMongoServer, func(mongo.EnsureServerParams) error {
 		return nil
 	})
 }
@@ -271,7 +273,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Bina
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
-			Nonce:             state.BootstrapNonce,
+			Nonce:             agent.BootstrapNonce,
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiInfo.Addrs,
 			CACert:            stateInfo.CACert,
@@ -308,7 +310,7 @@ func parseHostPort(s string) (network.HostPort, error) {
 }
 
 // writeStateAgentConfig creates and writes a state agent config.
-func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
+func writeStateAgentConfig(c *gc.C, stateInfo *authentication.ConnectionInfo, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
 	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
@@ -317,7 +319,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *state.Info, dataDir, tag, passwor
 			Tag:               tag,
 			UpgradedToVersion: vers.Number,
 			Password:          password,
-			Nonce:             state.BootstrapNonce,
+			Nonce:             agent.BootstrapNonce,
 			StateAddresses:    stateInfo.Addrs,
 			APIAddresses:      apiAddr,
 			CACert:            stateInfo.CACert,
@@ -360,7 +362,7 @@ func (s *agentSuite) initAgent(c *gc.C, a cmd.Command, args ...string) {
 }
 
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
-	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag().String()))
+	conf, err := agent.ReadConfig(agent.ConfigPath(s.DataDir(), ent.Tag()))
 	c.Assert(err, gc.IsNil)
 
 	conf.SetPassword("")
@@ -397,7 +399,10 @@ func (e *errorAPIOpener) OpenAPI(_ api.DialOpts) (*api.State, string, error) {
 }
 
 func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
-	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
+	// TODO(dfc) tag should be a Tag not a string
+	t, err := names.ParseTag(tag)
+	c.Assert(err, gc.IsNil)
+	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, t))
 	c.Assert(err, gc.IsNil)
 	info, ok := config.StateInfo()
 	c.Assert(ok, jc.IsTrue)
@@ -407,14 +412,19 @@ func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 }
 
 func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
-	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
+	// TODO(dfc) tag should be a Tag not a string
+	t, err := names.ParseTag(tag)
+	c.Assert(err, gc.IsNil)
+	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, t))
 	c.Assert(err, gc.IsNil)
 	_, ok := config.StateInfo()
 	c.Assert(ok, jc.IsFalse)
 }
 
 func refreshConfig(c *gc.C, config agent.Config) agent.ConfigSetterWriter {
-	config1, err := agent.ReadConfig(agent.ConfigPath(config.DataDir(), config.Tag()))
+	tag, err := names.ParseTag(config.Tag())
+	c.Assert(err, gc.IsNil)
+	config1, err := agent.ReadConfig(agent.ConfigPath(config.DataDir(), tag))
 	c.Assert(err, gc.IsNil)
 	return config1
 }

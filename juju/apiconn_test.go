@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -130,7 +131,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	}
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.Equals, "environment-fake-uuid")
+		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag("fake-uuid"))
 		called++
 		return expectState, nil
 	}
@@ -190,7 +191,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 		c.Check(string(apiInfo.CACert), gc.Not(gc.Equals), "")
 		c.Check(apiInfo.Password, gc.Equals, "adminpass")
 		// EnvironTag wasn't in regular Config
-		c.Check(apiInfo.EnvironTag, gc.Equals, "")
+		c.Check(apiInfo.EnvironTag, gc.IsNil)
 		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 		called++
 		return expectState, nil
@@ -279,7 +280,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	expectState := mockedAPIState(true, true)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.Equals, "")
+		c.Check(apiInfo.EnvironTag, gc.IsNil)
 		called++
 		return expectState, nil
 	}
@@ -308,7 +309,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	expectState := mockedAPIState(false, true)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.Equals, "")
+		c.Check(apiInfo.EnvironTag, gc.IsNil)
 		called++
 		return expectState, nil
 	}
@@ -337,7 +338,7 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	expectState := mockedAPIState(true, false)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.Equals, "environment-fake-uuid")
+		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag("fake-uuid"))
 		called++
 		return expectState, nil
 	}
@@ -767,7 +768,7 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointNotCached(c *gc.C) {
 		c.Check(apiInfo.Password, gc.Equals, coretesting.DefaultMongoPassword)
 		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
 		// we didn't know about it when connecting
-		c.Check(apiInfo.EnvironTag, gc.Equals, "")
+		c.Check(apiInfo.EnvironTag, gc.IsNil)
 		called++
 		return expectState, nil
 	}

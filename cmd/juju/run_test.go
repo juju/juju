@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/juju/cmd"
@@ -349,7 +350,7 @@ func (s *RunSuite) TestSingleResponse(c *gc.C) {
 
 func (s *RunSuite) setupMockAPI() *mockRunAPI {
 	mock := &mockRunAPI{}
-	s.PatchValue(&getAPIClient, func(name string) (RunClient, error) {
+	s.PatchValue(&getRunAPIClient, func(_ *RunCommand) (RunClient, error) {
 		return mock, nil
 	})
 	return mock
@@ -409,12 +410,19 @@ func (*mockRunAPI) Close() error {
 }
 
 func (m *mockRunAPI) RunOnAllMachines(commands string, timeout time.Duration) ([]params.RunResult, error) {
+
+	sortedMachineIds := make([]string, 0, len(m.machines))
+	for machineId := range m.machines {
+		sortedMachineIds = append(sortedMachineIds, machineId)
+	}
+	sort.Strings(sortedMachineIds)
+
 	var result []params.RunResult
-	for machine := range m.machines {
-		response, found := m.responses[machine]
+	for _, machineId := range sortedMachineIds {
+		response, found := m.responses[machineId]
 		if !found {
 			// Consider this a timeout
-			response = params.RunResult{MachineId: machine, Error: "command timed out"}
+			response = params.RunResult{MachineId: machineId, Error: "command timed out"}
 		}
 		result = append(result, response)
 	}

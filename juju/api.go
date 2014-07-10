@@ -17,8 +17,6 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/keymanager"
-	"github.com/juju/juju/state/api/usermanager"
 )
 
 // The following are variables so that they can be
@@ -88,24 +86,6 @@ func NewAPIClientFromName(envName string) (*api.Client, error) {
 		return nil, err
 	}
 	return st.Client(), nil
-}
-
-// NewKeyManagerClient returns an api.keymanager.Client connected to the API Server for
-// the named environment. If envName is "", the default environment will be used.
-func NewKeyManagerClient(envName string) (*keymanager.Client, error) {
-	st, err := newAPIClient(envName)
-	if err != nil {
-		return nil, err
-	}
-	return keymanager.NewClient(st), nil
-}
-
-func NewUserManagerClient(envName string) (*usermanager.Client, error) {
-	st, err := newAPIClient(envName)
-	if err != nil {
-		return nil, err
-	}
-	return usermanager.NewClient(st), nil
 }
 
 // NewAPIFromName returns an api.State connected to the API Server for
@@ -268,11 +248,11 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
 	}
 	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
-	environTag := ""
+	var environTag names.Tag
 	if endpoint.EnvironUUID != "" {
 		// Note: we should be validating that EnvironUUID contains a
 		// valid UUID.
-		environTag = names.NewEnvironTag(endpoint.EnvironUUID).String()
+		environTag = names.NewEnvironTag(endpoint.EnvironUUID)
 	}
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
@@ -353,8 +333,8 @@ func environAPIInfo(environ environs.Environ) (*api.Info, error) {
 // connected to the API server.
 func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	defer errors.Contextf(&err, "failed to cache API credentials")
-	environUUID := ""
-	if apiInfo.EnvironTag != "" {
+	var environUUID string
+	if apiInfo.EnvironTag != nil {
 		tag, err := names.ParseEnvironTag(apiInfo.Tag)
 		if err != nil {
 			return err
