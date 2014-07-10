@@ -121,7 +121,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
 		args := manual.ProvisionMachineArgs{
 			Host:    c.Placement.Directive,
-			EnvName: c.EnvName,
+			EnvName: c.ConnectionName(), // TODO: fix this
 			Stdin:   ctx.Stdin,
 			Stdout:  ctx.Stdout,
 			Stderr:  ctx.Stderr,
