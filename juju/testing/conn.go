@@ -116,14 +116,14 @@ func (s *JujuConnSuite) StateInfo(c *gc.C) *authentication.ConnectionInfo {
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	_, apiInfo, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
-	apiInfo.Tag = "user-admin"
+	apiInfo.Tag = names.NewUserTag("admin")
 	apiInfo.Password = "dummy-secret"
 	return apiInfo
 }
 
 // openAPIAs opens the API and ensures that the *api.State returned will be
 // closed during the test teardown by using a cleanup function.
-func (s *JujuConnSuite) openAPIAs(c *gc.C, tag, password, nonce string) *api.State {
+func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Tag = tag
@@ -139,14 +139,14 @@ func (s *JujuConnSuite) openAPIAs(c *gc.C, tag, password, nonce string) *api.Sta
 // OpenAPIAs opens the API using the given identity tag and password for
 // authentication.  The returned *api.State should not be closed by the caller
 // as a cleanup function has been registered to do that.
-func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag, password string) *api.State {
+func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag names.Tag, password string) *api.State {
 	return s.openAPIAs(c, tag, password, "")
 }
 
 // OpenAPIAsMachine opens the API using the given machine tag, password and
 // nonce for authentication. The returned *api.State should not be closed by
 // the caller as a cleanup function has been registered to do that.
-func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *api.State {
+func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag names.Tag, password, nonce string) *api.State {
 	return s.openAPIAs(c, tag, password, nonce)
 }
 
@@ -166,7 +166,7 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	return s.openAPIAs(c, machine.Tag().String(), password, "fake_nonce"), machine
+	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce"), machine
 }
 
 func PreferredDefaultVersions(conf *config.Config, template version.Binary) []version.Binary {

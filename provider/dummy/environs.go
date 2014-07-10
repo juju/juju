@@ -781,8 +781,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	if args.MachineConfig.StateInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
-	// TODO(dfc) APIInfo.Tag should be a Tag
-	if args.MachineConfig.APIInfo.Tag != names.NewMachineTag(machineId).String() {
+	if args.MachineConfig.APIInfo.Tag != names.NewMachineTag(machineId) {
 		return nil, nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
 	logger.Infof("would pick tools from %s", args.Tools)

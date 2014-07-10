@@ -94,7 +94,7 @@ func (auth *simpleAuth) SetupAuthentication(machine TaggedPasswordChanger) (*Con
 	stateInfo.Tag = machine.Tag()
 	stateInfo.Password = password
 	apiInfo := *auth.apiInfo
-	apiInfo.Tag = machine.Tag().String()
+	apiInfo.Tag = machine.Tag()
 	apiInfo.Password = password
 	return &stateInfo, &apiInfo, nil
 }
