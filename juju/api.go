@@ -335,7 +335,7 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	defer errors.Contextf(&err, "failed to cache API credentials")
 	environUUID := ""
 	if apiInfo.EnvironTag != "" {
-		tag, err := names.ParseEnvironTag(apiInfo.Tag)
+		tag, err := names.ParseEnvironTag(apiInfo.EnvironTag)
 		if err != nil {
 			return err
 		}
