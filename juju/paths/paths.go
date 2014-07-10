@@ -19,7 +19,7 @@ var linuxVals = map[osVarType]string{
 	tmpDir:  "/tmp",
 	logDir:  "/var/log",
 	dataDir: "/var/lib/juju",
-	jujuRun: "/usr/local/bin/juju-run",
+	jujuRun: "/usr/bin/juju-run",
 }
 
 var winVals = map[osVarType]string{
