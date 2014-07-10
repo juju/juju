@@ -32,7 +32,7 @@ import (
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(info *authentication.ConnectionInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
+func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	di, err := mongo.DialInfo(info.Info, opts)
 	if err != nil {
@@ -66,7 +66,7 @@ func Open(info *authentication.ConnectionInfo, opts mongo.DialOpts, policy Polic
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *authentication.ConnectionInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
+func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
 	st, err := Open(info, opts, policy)
 	if err != nil {
 		return nil, err
@@ -171,7 +171,7 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, info *authentication.ConnectionInfo, policy Policy) (*State, error) {
+func newState(session *mgo.Session, info *authentication.MongoInfo, policy Policy) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
@@ -307,7 +307,7 @@ func (st *State) createStateServersDoc() error {
 }
 
 // MongoConnectionInfo returns information for connecting to mongo
-func (st *State) MongoConnectionInfo() *authentication.ConnectionInfo {
+func (st *State) MongoConnectionInfo() *authentication.MongoInfo {
 	return st.info
 }
 

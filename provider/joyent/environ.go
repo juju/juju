@@ -155,7 +155,7 @@ func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs
 	return common.Bootstrap(ctx, env, args)
 }
 
-func (env *joyentEnviron) StateInfo() (*authentication.ConnectionInfo, *api.Info, error) {
+func (env *joyentEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
 	return common.StateInfo(env)
 }
 

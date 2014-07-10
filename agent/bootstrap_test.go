@@ -232,7 +232,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 }
 
 func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
-	info := &authentication.ConnectionInfo{
+	info := &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,

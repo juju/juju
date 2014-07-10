@@ -47,7 +47,7 @@ const (
 // managed by juju.
 type State struct {
 	transactionRunner statetxn.Runner
-	info              *authentication.ConnectionInfo
+	info              *authentication.MongoInfo
 	policy            Policy
 	db                *mgo.Database
 	environments      *mgo.Collection

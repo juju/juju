@@ -93,7 +93,7 @@ var cloudinitTests = []cloudinitTest{
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &authentication.ConnectionInfo{
+			MongoInfo: &authentication.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -155,7 +155,7 @@ start jujud-machine-0
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &authentication.ConnectionInfo{
+			MongoInfo: &authentication.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -199,7 +199,7 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
-			StateInfo: &authentication.ConnectionInfo{
+			MongoInfo: &authentication.MongoInfo{
 				Tag:      names.NewMachineTag("99"),
 				Password: "arble",
 				Info: mongo.Info{
@@ -256,7 +256,7 @@ start jujud-machine-99
 			Bootstrap:            false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:         "FAKE_NONCE",
-			StateInfo: &authentication.ConnectionInfo{
+			MongoInfo: &authentication.MongoInfo{
 				Tag:      names.NewMachineTag("2/lxc/1"),
 				Password: "arble",
 				Info: mongo.Info{
@@ -294,7 +294,7 @@ start jujud-machine-2-lxc-1
 			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
-			StateInfo: &authentication.ConnectionInfo{
+			MongoInfo: &authentication.MongoInfo{
 				Tag:      names.NewMachineTag("99"),
 				Password: "arble",
 				Info: mongo.Info{
@@ -326,7 +326,7 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &authentication.ConnectionInfo{
+			MongoInfo: &authentication.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -620,14 +620,14 @@ var verifyTests = []struct {
 		cfg.Config = nil
 	}},
 	{"missing state info", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateInfo = nil
+		cfg.MongoInfo = nil
 	}},
 	{"missing API info", func(cfg *cloudinit.MachineConfig) {
 		cfg.APIInfo = nil
 	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &authentication.ConnectionInfo{
+		cfg.MongoInfo = &authentication.MongoInfo{
 			Tag: names.NewMachineTag("99"),
 			Info: mongo.Info{
 				CACert: testing.CACert,
@@ -641,7 +641,7 @@ var verifyTests = []struct {
 	}},
 	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &authentication.ConnectionInfo{
+		cfg.MongoInfo = &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"foo:35"},
 				CACert: testing.CACert,
@@ -654,11 +654,11 @@ var verifyTests = []struct {
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateInfo = &authentication.ConnectionInfo{Info: mongo.Info{Addrs: []string{"host:98765"}}}
+		cfg.MongoInfo = &authentication.MongoInfo{Info: mongo.Info{Addrs: []string{"host:98765"}}}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &authentication.ConnectionInfo{
+		cfg.MongoInfo = &authentication.MongoInfo{
 			Tag: names.NewMachineTag("99"),
 			Info: mongo.Info{
 				Addrs: []string{"host:98765"},
@@ -702,15 +702,15 @@ var verifyTests = []struct {
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		info := *cfg.StateInfo
+		info := *cfg.MongoInfo
 		info.Tag = names.NewMachineTag("0")
-		cfg.StateInfo = &info
+		cfg.MongoInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		info := *cfg.StateInfo
+		info := *cfg.MongoInfo
 		info.Tag = nil // admin user
-		cfg.StateInfo = &info
+		cfg.MongoInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
@@ -725,9 +725,9 @@ var verifyTests = []struct {
 		cfg.APIInfo = &info
 	}},
 	{"entity tag must be nil when starting a state server", func(cfg *cloudinit.MachineConfig) {
-		info := *cfg.StateInfo
+		info := *cfg.MongoInfo
 		info.Tag = names.NewMachineTag("0")
-		cfg.StateInfo = &info
+		cfg.MongoInfo = &info
 	}},
 	{"entity tag must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
 		info := *cfg.APIInfo
@@ -748,9 +748,9 @@ var verifyTests = []struct {
 		apiInfo := *cfg.APIInfo
 		apiInfo.Tag = "machine-99"
 		cfg.APIInfo = &apiInfo
-		stateInfo := *cfg.StateInfo
+		stateInfo := *cfg.MongoInfo
 		stateInfo.Tag = names.NewMachineTag("99")
-		cfg.StateInfo = &stateInfo
+		cfg.MongoInfo = &stateInfo
 	}},
 }
 
@@ -764,7 +764,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		Tools:            newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:   "sshkey1",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		StateInfo: &authentication.ConnectionInfo{
+		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"host:98765"},
 				CACert: testing.CACert,

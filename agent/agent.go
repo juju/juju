@@ -119,7 +119,7 @@ type Config interface {
 
 	// MongoInfo returns details for connecting to the state server's mongo
 	// database and reports whether those details are available
-	MongoInfo() (*authentication.ConnectionInfo, bool)
+	MongoInfo() (*authentication.MongoInfo, bool)
 
 	// OldPassword returns the fallback password when connecting to the
 	// API server.
@@ -645,13 +645,13 @@ func (c *configInternal) APIInfo() *api.Info {
 	}
 }
 
-func (c *configInternal) MongoInfo() (info *authentication.ConnectionInfo, ok bool) {
+func (c *configInternal) MongoInfo() (info *authentication.MongoInfo, ok bool) {
 	ssi, ok := c.StateServingInfo()
 	if !ok {
 		return nil, false
 	}
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
-	return &authentication.ConnectionInfo{
+	return &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
 			CACert: c.caCert,

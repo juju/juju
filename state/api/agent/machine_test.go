@@ -144,7 +144,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 }
 
-func tryOpenState(info *authentication.ConnectionInfo) error {
+func tryOpenState(info *authentication.MongoInfo) error {
 	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()

@@ -26,8 +26,8 @@ var _ = gc.Suite(&SettingsSuite{})
 
 // TestingMongoInfo returns information suitable for
 // connecting to the testing state server's mongo database.
-func TestingMongoInfo() *authentication.ConnectionInfo {
-	return &authentication.ConnectionInfo{
+func TestingMongoInfo() *authentication.MongoInfo {
+	return &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,

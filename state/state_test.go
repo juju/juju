@@ -2067,7 +2067,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	c.Assert(relation1, jc.DeepEquals, relation3)
 }
 
-func tryOpenState(info *authentication.ConnectionInfo) error {
+func tryOpenState(info *authentication.MongoInfo) error {
 	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	if err == nil {
 		st.Close()
@@ -2117,7 +2117,7 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 	err = peergrouper.MaybeInitiateMongoServer(args)
 	c.Assert(err, gc.IsNil)
 
-	stateInfo := &authentication.ConnectionInfo{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
+	stateInfo := &authentication.MongoInfo{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
 	dialOpts := mongo.DialOpts{Timeout: time.Second * 30}
 	st, err := state.Open(stateInfo, dialOpts, state.Policy(nil))
 	c.Assert(err, gc.IsNil)

@@ -217,7 +217,7 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 }
 
 // StateInfo is specified in the Environ interface.
-func (env *localEnviron) StateInfo() (*authentication.ConnectionInfo, *api.Info, error) {
+func (env *localEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
 	return common.StateInfo(env)
 }
 

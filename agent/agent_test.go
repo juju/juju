@@ -499,7 +499,7 @@ func (*suite) TestSetPassword(c *gc.C) {
 	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)
 	userTag, err := names.ParseTag(attrParams.Tag)
 	c.Assert(err, gc.IsNil)
-	expectStateInfo := &authentication.ConnectionInfo{
+	expectStateInfo := &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
 			CACert: attrParams.CACert,

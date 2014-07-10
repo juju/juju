@@ -24,8 +24,8 @@ import (
 // FakeStateInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
 // of the machine to be started.
-func FakeStateInfo(machineId string) *authentication.ConnectionInfo {
-	return &authentication.ConnectionInfo{
+func FakeStateInfo(machineId string) *authentication.MongoInfo {
+	return &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{"0.1.2.3:1234"},
 			CACert: testing.CACert,

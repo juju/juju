@@ -37,7 +37,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		Jobs:               []params.MachineJob{params.JobManageEnviron, params.JobHostUnits},
 		CloudInitOutputLog: environs.CloudInitOutputLog,
 		Tools:              &tools.Tools{URL: "file://" + c.MkDir()},
-		StateInfo: &authentication.ConnectionInfo{
+		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				CACert: testing.CACert,
 				Addrs:  []string{"127.0.0.1:123"},

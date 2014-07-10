@@ -128,12 +128,12 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg, gc.NotNil)
 	c.Check(mcfg.APIInfo, gc.NotNil)
-	c.Check(mcfg.StateInfo, gc.NotNil)
+	c.Check(mcfg.MongoInfo, gc.NotNil)
 
 	stateInfo, apiInfo, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
-	c.Check(mcfg.StateInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
+	c.Check(mcfg.MongoInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {

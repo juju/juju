@@ -1514,7 +1514,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	s.baseEnvironSuite.SetUpTest(c)
 	s.env = s.setupEnvWithDummyMetadata(c)
 	s.env.ecfg.attrs["force-image-name"] = "my-image"
-	stateInfo := &authentication.ConnectionInfo{
+	stateInfo := &authentication.MongoInfo{
 		Info: mongo.Info{
 			CACert: coretesting.CACert,
 			Addrs:  []string{"localhost:123"},

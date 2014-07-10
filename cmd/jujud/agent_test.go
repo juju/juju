@@ -310,7 +310,7 @@ func parseHostPort(s string) (network.HostPort, error) {
 }
 
 // writeStateAgentConfig creates and writes a state agent config.
-func writeStateAgentConfig(c *gc.C, stateInfo *authentication.ConnectionInfo, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
+func writeStateAgentConfig(c *gc.C, stateInfo *authentication.MongoInfo, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
 	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(

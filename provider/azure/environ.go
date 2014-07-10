@@ -309,7 +309,7 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 }
 
 // StateInfo is specified in the Environ interface.
-func (env *azureEnviron) StateInfo() (*authentication.ConnectionInfo, *api.Info, error) {
+func (env *azureEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
 	return common.StateInfo(env)
 }
 

@@ -96,7 +96,7 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 }
 
 // StateInfo is specified in the Environ interface.
-func (env *maasEnviron) StateInfo() (*authentication.ConnectionInfo, *api.Info, error) {
+func (env *maasEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
 	return common.StateInfo(env)
 }
 

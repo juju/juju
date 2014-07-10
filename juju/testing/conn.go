@@ -106,7 +106,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.setUpConn(c)
 }
 
-func (s *JujuConnSuite) MongoInfo(c *gc.C) *authentication.ConnectionInfo {
+func (s *JujuConnSuite) MongoInfo(c *gc.C) *authentication.MongoInfo {
 	info, _, err := s.Conn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Password = "dummy-secret"
