@@ -5,15 +5,10 @@ package juju_test
 
 import (
 	"fmt"
-	"github.com/juju/names"
 	"os"
 	"time"
 
-<<<<<<< HEAD
-	"github.com/juju/errors"
 	"github.com/juju/names"
-=======
->>>>>>> Update the api and cache test.
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
