@@ -554,7 +554,7 @@ func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.Login
 	info := &api.Info{
 		Tag:        "",
 		Password:   "",
-		EnvironTag: env.Tag().String(),
+		EnvironTag: env.Tag(),
 		Addrs:      []string{srv.Addr()},
 		CACert:     coretesting.CACert,
 	}
