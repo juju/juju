@@ -154,7 +154,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
-	info, ok := cfg.StateInfo()
+	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	st1, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)

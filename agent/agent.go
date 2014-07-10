@@ -117,9 +117,9 @@ type Config interface {
 	// APIInfo returns details for connecting to the API server.
 	APIInfo() *api.Info
 
-	// StateInfo returns details for connecting to the state server and reports
-	// whether those details are available
-	StateInfo() (*authentication.ConnectionInfo, bool)
+	// MongoInfo returns details for connecting to the state server's mongo
+	// database and reports whether those details are available
+	MongoInfo() (*authentication.ConnectionInfo, bool)
 
 	// OldPassword returns the fallback password when connecting to the
 	// API server.
@@ -645,7 +645,7 @@ func (c *configInternal) APIInfo() *api.Info {
 	}
 }
 
-func (c *configInternal) StateInfo() (info *authentication.ConnectionInfo, ok bool) {
+func (c *configInternal) MongoInfo() (info *authentication.ConnectionInfo, ok bool) {
 	ssi, ok := c.StateServingInfo()
 	if !ok {
 		return nil, false

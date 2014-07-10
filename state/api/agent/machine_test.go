@@ -134,7 +134,7 @@ func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	// Check that we cannot log in to mongo with the correct password.
 	// This is because there's no mongo password set for s.machine,
 	// which has JobHostUnits
-	info := s.StateInfo(c)
+	info := s.MongoInfo(c)
 	// TODO(dfc) this entity.Tag should return a Tag
 	tag, err := names.ParseTag(entity.Tag())
 	c.Assert(err, gc.IsNil)

@@ -265,7 +265,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Bina
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	stateInfo := s.StateInfo(c)
+	stateInfo := s.MongoInfo(c)
 	apiInfo := s.APIInfo(c)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -347,7 +347,7 @@ func (s *agentSuite) primeStateAgent(
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	stateInfo := s.StateInfo(c)
+	stateInfo := s.MongoInfo(c)
 	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password, vers)
 	s.primeAPIHostPorts(c)
 	return conf, agentTools
@@ -404,7 +404,7 @@ func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 	c.Assert(err, gc.IsNil)
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, t))
 	c.Assert(err, gc.IsNil)
-	info, ok := config.StateInfo()
+	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -417,7 +417,7 @@ func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
 	c.Assert(err, gc.IsNil)
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, t))
 	c.Assert(err, gc.IsNil)
-	_, ok := config.StateInfo()
+	_, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsFalse)
 }
 

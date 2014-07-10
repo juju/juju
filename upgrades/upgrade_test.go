@@ -108,7 +108,7 @@ type mockAgentConfig struct {
 	jobs         []params.MachineJob
 	apiAddresses []string
 	values       map[string]string
-	stateInfo    *authentication.ConnectionInfo
+	mongoInfo    *authentication.ConnectionInfo
 }
 
 func (mock *mockAgentConfig) Tag() string {
@@ -139,8 +139,8 @@ func (mock *mockAgentConfig) Value(name string) string {
 	return mock.values[name]
 }
 
-func (mock *mockAgentConfig) StateInfo() (*authentication.ConnectionInfo, bool) {
-	return mock.stateInfo, true
+func (mock *mockAgentConfig) MongoInfo() (*authentication.ConnectionInfo, bool) {
+	return mock.mongoInfo, true
 }
 
 func targets(targets ...upgrades.Target) (upgradeTargets []upgrades.Target) {

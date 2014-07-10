@@ -352,7 +352,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), names.NewMachineTag("0")))
 	c.Assert(err, gc.IsNil)
 
-	stateinfo, ok := machineConf1.StateInfo()
+	stateinfo, ok := machineConf1.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	st, err = state.Open(stateinfo, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)

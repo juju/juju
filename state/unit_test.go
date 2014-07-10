@@ -883,7 +883,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// as a side-effect of a principal entering relation scope.)
 	subUnit := s.addSubordinateUnit(c)
 
-	info := state.TestingStateInfo()
+	info := state.TestingMongoInfo()
 	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()

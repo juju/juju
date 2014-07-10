@@ -507,7 +507,7 @@ func (*suite) TestSetPassword(c *gc.C) {
 		Tag:      userTag,
 		Password: "",
 	}
-	info, ok := conf.StateInfo()
+	info, ok := conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(info, jc.DeepEquals, expectStateInfo)
 
@@ -517,7 +517,7 @@ func (*suite) TestSetPassword(c *gc.C) {
 	expectStateInfo.Password = "newpassword"
 
 	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
-	info, ok = conf.StateInfo()
+	info, ok = conf.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(info, jc.DeepEquals, expectStateInfo)
 }

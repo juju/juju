@@ -24,9 +24,9 @@ type SettingsSuite struct {
 
 var _ = gc.Suite(&SettingsSuite{})
 
-// TestingStateInfo returns information suitable for
-// connecting to the testing state server.
-func TestingStateInfo() *authentication.ConnectionInfo {
+// TestingMongoInfo returns information suitable for
+// connecting to the testing state server's mongo database.
+func TestingMongoInfo() *authentication.ConnectionInfo {
 	return &authentication.ConnectionInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
@@ -57,7 +57,7 @@ func (s *SettingsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	// TODO(dfc) this logic is duplicated with the metawatcher_test.
-	state, err := Open(TestingStateInfo(), TestingDialOpts(), Policy(nil))
+	state, err := Open(TestingMongoInfo(), TestingDialOpts(), Policy(nil))
 	c.Assert(err, gc.IsNil)
 
 	s.state = state

@@ -54,7 +54,7 @@ func TestingInitialize(c *gc.C, cfg *config.Config, policy Policy) *State {
 	if cfg == nil {
 		cfg = testing.EnvironConfig(c)
 	}
-	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts(), policy)
+	st, err := Initialize(TestingMongoInfo(), cfg, TestingDialOpts(), policy)
 	c.Assert(err, gc.IsNil)
 	return st
 }
