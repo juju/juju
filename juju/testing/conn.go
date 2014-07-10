@@ -11,12 +11,14 @@ import (
 
 	"github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -104,7 +106,7 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.setUpConn(c)
 }
 
-func (s *JujuConnSuite) StateInfo(c *gc.C) *state.Info {
+func (s *JujuConnSuite) MongoInfo(c *gc.C) *authentication.MongoInfo {
 	info, _, err := s.Conn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Password = "dummy-secret"
@@ -342,17 +344,17 @@ func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *
 	return service
 }
 
-func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.ConfigSetter {
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           s.DataDir(),
-			Tag:               tag,
+			Tag:               tag.String(),
 			UpgradedToVersion: version.Current.Number,
 			Password:          password,
 			Nonce:             "nonce",
-			StateAddresses:    s.StateInfo(c).Addrs,
+			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
 		})

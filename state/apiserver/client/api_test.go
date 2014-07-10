@@ -110,8 +110,8 @@ func setDefaultStatus(c *gc.C, entity setStatuser) {
 }
 
 func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) error {
-	stateInfo := s.StateInfo(c)
-	stateInfo.Tag = e.Tag().String()
+	stateInfo := s.MongoInfo(c)
+	stateInfo.Tag = e.Tag()
 	stateInfo.Password = password
 	st, err := state.Open(stateInfo, mongo.DialOpts{
 		Timeout: 25 * time.Millisecond,

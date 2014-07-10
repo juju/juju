@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
@@ -110,7 +111,7 @@ type Environ interface {
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
-	StateInfo() (*state.Info, *api.Info, error)
+	StateInfo() (*authentication.MongoInfo, *api.Info, error)
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.

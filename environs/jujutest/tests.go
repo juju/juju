@@ -14,6 +14,7 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -22,7 +23,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -144,7 +144,7 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.EnsureNotBootstrapped(e2)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
-	checkSameInfo := func(a, b *state.Info) {
+	checkSameInfo := func(a, b *authentication.MongoInfo) {
 		c.Check(a.Addrs, jc.SameContents, b.Addrs)
 		c.Check(a.CACert, gc.DeepEquals, b.CACert)
 	}

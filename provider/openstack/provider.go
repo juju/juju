@@ -25,6 +25,7 @@ import (
 	"launchpad.net/goose/swift"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -661,7 +662,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
+func (e *environ) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
 	return common.StateInfo(e)
 }
 

@@ -19,6 +19,7 @@ import (
 	"github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -192,7 +193,7 @@ func (s *clientSuite) TestDebugLogRootPath(c *gc.C) {
 
 	// If the server is old, we log at "/log"
 	info := s.APIInfo(c)
-	info.EnvironTag = ""
+	info.EnvironTag = nil
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer apistate.Close()
@@ -208,7 +209,7 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	info := s.APIInfo(c)
-	info.EnvironTag = environ.Tag().String()
+	info.EnvironTag = environ.Tag()
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer apistate.Close()
@@ -222,7 +223,7 @@ func (s *clientSuite) TestDebugLogAtUUIDLogPath(c *gc.C) {
 func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	info := s.APIInfo(c)
 	// Backwards compatibility, passing EnvironTag = "" should just work
-	info.EnvironTag = ""
+	info.EnvironTag = nil
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	apistate.Close()
@@ -230,13 +231,13 @@ func (s *clientSuite) TestOpenUsesEnvironUUIDPaths(c *gc.C) {
 	// Passing in the correct environment UUID should also work
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	info.EnvironTag = environ.Tag().String()
+	info.EnvironTag = environ.Tag()
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	apistate.Close()
 
 	// Passing in a bad environment UUID should fail with a known error
-	info.EnvironTag = "environment-dead-beef-123456"
+	info.EnvironTag = names.NewEnvironTag("dead-beef-123456")
 	apistate, err = api.Open(info, api.DialOpts{})
 	c.Check(err, gc.ErrorMatches, `unknown environment: "dead-beef-123456"`)
 	c.Check(err, jc.Satisfies, params.IsCodeNotFound)

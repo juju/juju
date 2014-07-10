@@ -16,12 +16,12 @@ import (
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
@@ -93,7 +93,7 @@ var cloudinitTests = []cloudinitTest{
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &state.Info{
+			MongoInfo: &authentication.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -155,7 +155,7 @@ start jujud-machine-0
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &state.Info{
+			MongoInfo: &authentication.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -199,8 +199,8 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
-			StateInfo: &state.Info{
-				Tag:      "machine-99",
+			MongoInfo: &authentication.MongoInfo{
+				Tag:      names.NewMachineTag("99"),
 				Password: "arble",
 				Info: mongo.Info{
 					Addrs:  []string{"state-addr.testing.invalid:12345"},
@@ -256,8 +256,8 @@ start jujud-machine-99
 			Bootstrap:            false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:         "FAKE_NONCE",
-			StateInfo: &state.Info{
-				Tag:      "machine-2-lxc-1",
+			MongoInfo: &authentication.MongoInfo{
+				Tag:      names.NewMachineTag("2/lxc/1"),
 				Password: "arble",
 				Info: mongo.Info{
 					Addrs:  []string{"state-addr.testing.invalid:12345"},
@@ -294,8 +294,8 @@ start jujud-machine-2-lxc-1
 			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:       "FAKE_NONCE",
-			StateInfo: &state.Info{
-				Tag:      "machine-99",
+			MongoInfo: &authentication.MongoInfo{
+				Tag:      names.NewMachineTag("99"),
 				Password: "arble",
 				Info: mongo.Info{
 					Addrs:  []string{"state-addr.testing.invalid:12345"},
@@ -326,7 +326,7 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &state.Info{
+			MongoInfo: &authentication.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -620,15 +620,15 @@ var verifyTests = []struct {
 		cfg.Config = nil
 	}},
 	{"missing state info", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateInfo = nil
+		cfg.MongoInfo = nil
 	}},
 	{"missing API info", func(cfg *cloudinit.MachineConfig) {
 		cfg.APIInfo = nil
 	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &state.Info{
-			Tag: "machine-99",
+		cfg.MongoInfo = &authentication.MongoInfo{
+			Tag: names.NewMachineTag("99"),
 			Info: mongo.Info{
 				CACert: testing.CACert,
 			},
@@ -641,12 +641,12 @@ var verifyTests = []struct {
 	}},
 	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &state.Info{
+		cfg.MongoInfo = &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"foo:35"},
 				CACert: testing.CACert,
 			},
-			Tag: "machine-99",
+			Tag: names.NewMachineTag("99"),
 		}
 		cfg.APIInfo = &api.Info{
 			Tag:    "machine-99",
@@ -654,12 +654,12 @@ var verifyTests = []struct {
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateInfo = &state.Info{Info: mongo.Info{Addrs: []string{"host:98765"}}}
+		cfg.MongoInfo = &authentication.MongoInfo{Info: mongo.Info{Addrs: []string{"host:98765"}}}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &state.Info{
-			Tag: "machine-99",
+		cfg.MongoInfo = &authentication.MongoInfo{
+			Tag: names.NewMachineTag("99"),
 			Info: mongo.Info{
 				Addrs: []string{"host:98765"},
 			},
@@ -702,15 +702,15 @@ var verifyTests = []struct {
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		info := *cfg.StateInfo
-		info.Tag = "machine-0"
-		cfg.StateInfo = &info
+		info := *cfg.MongoInfo
+		info.Tag = names.NewMachineTag("0")
+		cfg.MongoInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		info := *cfg.StateInfo
-		info.Tag = ""
-		cfg.StateInfo = &info
+		info := *cfg.MongoInfo
+		info.Tag = nil // admin user
+		cfg.MongoInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
@@ -724,10 +724,10 @@ var verifyTests = []struct {
 		info.Tag = ""
 		cfg.APIInfo = &info
 	}},
-	{"entity tag must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
-		info := *cfg.StateInfo
-		info.Tag = "machine-0"
-		cfg.StateInfo = &info
+	{"entity tag must be nil when starting a state server", func(cfg *cloudinit.MachineConfig) {
+		info := *cfg.MongoInfo
+		info.Tag = names.NewMachineTag("0")
+		cfg.MongoInfo = &info
 	}},
 	{"entity tag must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
 		info := *cfg.APIInfo
@@ -748,9 +748,9 @@ var verifyTests = []struct {
 		apiInfo := *cfg.APIInfo
 		apiInfo.Tag = "machine-99"
 		cfg.APIInfo = &apiInfo
-		stateInfo := *cfg.StateInfo
-		stateInfo.Tag = "machine-99"
-		cfg.StateInfo = &stateInfo
+		stateInfo := *cfg.MongoInfo
+		stateInfo.Tag = names.NewMachineTag("99")
+		cfg.MongoInfo = &stateInfo
 	}},
 }
 
@@ -764,7 +764,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		Tools:            newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:   "sshkey1",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		StateInfo: &state.Info{
+		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"host:98765"},
 				CACert: testing.CACert,

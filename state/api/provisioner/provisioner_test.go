@@ -548,7 +548,7 @@ func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 
 func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	args := params.ContainerManagerConfigParams{Type: instance.LXC}
-	st, err := state.Open(s.StateInfo(c), mongo.DialOpts{}, state.Policy(nil))
+	st, err := state.Open(s.MongoInfo(c), mongo.DialOpts{}, state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -617,9 +617,8 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestToolsWrongMachine(c *gc.C) {
-	tools, err := s.provisioner.Tools("42")
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	tools, err := s.provisioner.Tools(names.NewMachineTag("42"))
+	c.Assert(err, gc.ErrorMatches, "machine 42 not found")
 	c.Assert(tools, gc.IsNil)
 }
 
@@ -630,7 +629,7 @@ func (s *provisionerSuite) TestTools(c *gc.C) {
 	s.machine.SetAgentVersion(cur)
 	// Provisioner.Tools returns the *desired* set of tools, not the
 	// currently running set. We want to be upgraded to cur.Version
-	stateTools, err := s.provisioner.Tools(s.machine.Tag().String())
+	stateTools, err := s.provisioner.Tools(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateTools.Version, gc.Equals, cur)
 	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")

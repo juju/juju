@@ -27,6 +27,10 @@ type Info struct {
 	// associated with RemoteUnit. It is only set when RemoteUnit is set.
 	ChangeVersion int64 `yaml:"change-version,omitempty"`
 
+	// ActionId is the state State.actions ID of the Action document to
+	// be retrieved by RunHook.
+	ActionId string `yaml:"action-id,omitempty"`
+
 	// ActionParams is the map of params sent with an Action Hook.
 	ActionParams map[string]interface{} `yaml:"action-params,omitempty"`
 

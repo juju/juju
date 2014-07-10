@@ -6,6 +6,7 @@ package environs_test
 import (
 	"time"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
@@ -15,13 +16,13 @@ import (
 	"github.com/juju/juju/cert"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
@@ -45,13 +46,14 @@ type CloudInitSuite struct {
 var _ = gc.Suite(&CloudInitSuite{})
 
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
+	userTag := names.NewUserTag("not touched")
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
-		StateInfo: &state.Info{Tag: "not touched"},
+		MongoInfo: &authentication.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: "not touched"},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
@@ -62,13 +64,14 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		StateInfo: &state.Info{Tag: "not touched"},
+		MongoInfo: &authentication.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: false,
 	})
 }
 
 func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
+	userTag := names.NewUserTag("not touched")
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"authorized-keys":           "we-are-the-keys",
 		"ssl-hostname-verification": false,
@@ -76,7 +79,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
-		StateInfo: &state.Info{Tag: "not touched"},
+		MongoInfo: &authentication.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: "not touched"},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
@@ -87,7 +90,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		StateInfo: &state.Info{Tag: "not touched"},
+		MongoInfo: &authentication.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: "not touched"},
 		DisableSSLHostnameVerification: true,
 	})
@@ -115,7 +118,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
 	})
-	c.Check(mcfg.StateInfo, gc.DeepEquals, &state.Info{
+	c.Check(mcfg.MongoInfo, gc.DeepEquals, &authentication.MongoInfo{
 		Password: password, Info: mongo.Info{CACert: testing.CACert},
 	})
 	c.Check(mcfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
@@ -164,13 +167,13 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		MachineId:    "10",
 		MachineNonce: "5432",
 		Tools:        tools,
-		StateInfo: &state.Info{
+		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"127.0.0.1:1234"},
 				CACert: "CA CERT\n" + testing.CACert,
 			},
 			Password: "pw1",
-			Tag:      "machine-10",
+			Tag:      names.NewMachineTag("10"),
 		},
 		APIInfo: &api.Info{
 			Addrs:    []string{"127.0.0.1:1234"},

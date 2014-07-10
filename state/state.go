@@ -26,6 +26,7 @@ import (
 	"labix.org/v2/mgo/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api/params"
@@ -38,17 +39,15 @@ import (
 
 var logger = loggo.GetLogger("juju.state")
 
-// BootstrapNonce is used as a nonce for the state server machine.
 const (
-	BootstrapNonce = "user-admin:bootstrap"
-	AdminUser      = "admin"
+	AdminUser = "admin"
 )
 
 // State represents the state of an environment
 // managed by juju.
 type State struct {
 	transactionRunner statetxn.Runner
-	info              *Info
+	info              *authentication.MongoInfo
 	policy            Policy
 	db                *mgo.Database
 	environments      *mgo.Collection

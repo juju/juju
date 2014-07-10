@@ -13,7 +13,7 @@ import (
 
 func updateRsyslogPort(context Context) error {
 	agentConfig := context.AgentConfig()
-	info, ok := agentConfig.StateInfo()
+	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return fmt.Errorf("Failed to get StateInfo")
 	}

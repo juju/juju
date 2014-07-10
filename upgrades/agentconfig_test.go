@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -96,7 +97,8 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigProcessed(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	expectedLogDir := filepath.Join(*upgrades.RootLogDir, "juju-"+namespace)
 	expectedJobs := []params.MachineJob{params.JobManageEnviron}
-	tag := s.ctx.AgentConfig().Tag()
+	tag, err := names.ParseTag(s.ctx.AgentConfig().Tag())
+	c.Assert(err, gc.IsNil)
 
 	// We need to read the actual migrated agent config.
 	configFilePath := agent.ConfigPath(expectedDataDir, tag)
@@ -128,7 +130,8 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C)
 	expectedSharedStorageDir := filepath.Join(rootDir, "shared-storage")
 	_, err = os.Lstat(expectedSharedStorageDir)
 	c.Assert(err, gc.IsNil)
-	tag := s.ctx.AgentConfig().Tag()
+	tag, err := names.ParseTag(s.ctx.AgentConfig().Tag())
+	c.Assert(err, gc.IsNil)
 
 	// We need to read the actual migrated agent config.
 	configFilePath := agent.ConfigPath(agent.DefaultDataDir, tag)

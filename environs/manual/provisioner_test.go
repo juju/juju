@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/shell"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs/cloudinit"
@@ -18,7 +19,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/client"
 	"github.com/juju/juju/version"
@@ -124,16 +124,16 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Now check what we would've configured it with.
-	mcfg, err := client.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
+	mcfg, err := client.MachineConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg, gc.NotNil)
 	c.Check(mcfg.APIInfo, gc.NotNil)
-	c.Check(mcfg.StateInfo, gc.NotNil)
+	c.Check(mcfg.MongoInfo, gc.NotNil)
 
 	stateInfo, apiInfo, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
-	c.Check(mcfg.StateInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
+	c.Check(mcfg.MongoInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
@@ -147,7 +147,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	machineId, err := manual.ProvisionMachine(s.getArgs(c))
 	c.Assert(err, gc.IsNil)
 
-	mcfg, err := client.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
+	mcfg, err := client.MachineConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
 	script, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)

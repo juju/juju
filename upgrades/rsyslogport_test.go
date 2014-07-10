@@ -25,7 +25,7 @@ func (s *rsyslogPortSuite) SetUpTest(c *gc.C) {
 	s.ctx = &mockContext{
 		agentConfig: &mockAgentConfig{
 			dataDir:   s.DataDir(),
-			stateInfo: s.StateInfo(c),
+			mongoInfo: s.MongoInfo(c),
 		},
 		apiState: apiState,
 		state:    s.State,

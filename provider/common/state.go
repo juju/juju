@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 )
 
@@ -49,15 +49,15 @@ func composeAddresses(hostnames []string, port int) []string {
 	return addresses
 }
 
-// getStateInfo puts together the state.Info and api.Info for the given
+// getStateInfo puts together the authentication.MongoInfo and api.Info for the given
 // config, with the given state-server host names.
 // The given config absolutely must have a CACert.
-func getStateInfo(config *config.Config, hostnames []string) (*state.Info, *api.Info) {
+func getStateInfo(config *config.Config, hostnames []string) (*authentication.MongoInfo, *api.Info) {
 	cert, hasCert := config.CACert()
 	if !hasCert {
 		panic(errors.New("getStateInfo: config has no CACert"))
 	}
-	return &state.Info{
+	return &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  composeAddresses(hostnames, config.StatePort()),
 				CACert: cert,
@@ -70,7 +70,7 @@ func getStateInfo(config *config.Config, hostnames []string) (*state.Info, *api.
 
 // StateInfo is a reusable implementation of Environ.StateInfo, available to
 // providers that also use the other functionality from this file.
-func StateInfo(env environs.Environ) (*state.Info, *api.Info, error) {
+func StateInfo(env environs.Environ) (*authentication.MongoInfo, *api.Info, error) {
 	st, err := bootstrap.LoadState(env.Storage())
 	if err != nil {
 		return nil, nil, err

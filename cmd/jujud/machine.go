@@ -546,19 +546,23 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
-func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
+func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	a.mongoInitMutex.Lock()
 	defer a.mongoInitMutex.Unlock()
 	if a.mongoInitialized {
 		logger.Debugf("mongo is already initialized")
 		return nil
 	}
+	defer func() {
+		if err == nil {
+			a.mongoInitialized = true
+		}
+	}()
 
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return fmt.Errorf("state worker was started with no state serving info")
 	}
-	namespace := agentConfig.Value(agent.Namespace)
 
 	// When upgrading from a pre-HA-capable environment,
 	// we must add machine-0 to the admin database and
@@ -602,11 +606,11 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	}
 
 	// ensureMongoServer installs/upgrades the upstart config as necessary.
-	if err := ensureMongoServer(
-		agentConfig.DataDir(),
-		namespace,
-		servingInfo,
-	); err != nil {
+	ensureServerParams, err := newEnsureServerParams(agentConfig)
+	if err != nil {
+		return err
+	}
+	if err := ensureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
 	if !shouldInitiateMongoServer {
@@ -617,7 +621,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	//
 	// TODO(axw) remove this when we no longer need
 	// to upgrade from pre-HA-capable environments.
-	stateInfo, ok := agentConfig.StateInfo()
+	stateInfo, ok := agentConfig.MongoInfo()
 	if !ok {
 		return fmt.Errorf("state worker was started with no state serving info")
 	}
@@ -632,17 +636,17 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	if err := maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort)),
-		User:           stateInfo.Tag,
-		Password:       stateInfo.Password,
+		// TODO(dfc) InitiateMongoParams should take a Tag
+		User:     stateInfo.Tag.String(),
+		Password: stateInfo.Password,
 	}); err != nil {
 		return err
 	}
-	a.mongoInitialized = true
 	return nil
 }
 
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
-	stateInfo, ok1 := agentConfig.StateInfo()
+	stateInfo, ok1 := agentConfig.MongoInfo()
 	servingInfo, ok2 := agentConfig.StateServingInfo()
 	if !ok1 || !ok2 {
 		return false, fmt.Errorf("no state serving info configuration")
@@ -660,7 +664,7 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		Namespace: agentConfig.Value(agent.Namespace),
 		DataDir:   agentConfig.DataDir(),
 		Port:      servingInfo.StatePort,
-		User:      stateInfo.Tag,
+		User:      stateInfo.Tag.String(),
 		Password:  stateInfo.Password,
 	})
 }
@@ -670,7 +674,7 @@ func isPreHAVersion(v version.Number) bool {
 }
 
 func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.State, _ *state.Machine, err error) {
-	info, ok := agentConfig.StateInfo()
+	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
@@ -773,7 +777,7 @@ func (a *MachineAgent) upgradeWorker(
 				return err
 			}
 			var err error
-			info, ok := agentConfig.StateInfo()
+			info, ok := agentConfig.MongoInfo()
 			if !ok {
 				return fmt.Errorf("no state info available")
 			}

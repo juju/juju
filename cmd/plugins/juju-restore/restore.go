@@ -19,12 +19,14 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -259,18 +261,23 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if !ok {
 		return fmt.Errorf("configuration has no CA certificate")
 	}
+	// TODO(dfc) agenConf.Credentials should supply a Tag
+	tag, err := names.ParseTag(agentConf.Credentials.Tag)
+	if err != nil {
+		return err
+	}
 	progress("opening state")
 	// We need to retry here to allow mongo to come up on the restored state server.
 	// The connection might succeed due to the mongo dial retries but there may still
 	// be a problem issuing database commands.
 	var st *state.State
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(&state.Info{
+		st, err = state.Open(&authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
 				CACert: caCert,
 			},
-			Tag:      agentConf.Credentials.Tag,
+			Tag:      tag,
 			Password: agentConf.Credentials.Password,
 		}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 		if err == nil {

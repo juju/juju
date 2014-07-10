@@ -250,6 +250,13 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		return fmt.Errorf("charm url must include revision")
 	}
 
+	if args.ToMachineSpec != "" && names.IsMachine(args.ToMachineSpec) {
+		_, err = c.api.state.Machine(args.ToMachineSpec)
+		if err != nil {
+			return fmt.Errorf(`cannot deploy "%v" to machine %v: %v`, args.ServiceName, args.ToMachineSpec, err)
+		}
+	}
+
 	// Try to find the charm URL in state first.
 	ch, err := c.api.state.Charm(curl)
 	if errors.IsNotFound(err) {

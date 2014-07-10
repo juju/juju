@@ -13,6 +13,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -107,7 +108,7 @@ type mockAgentConfig struct {
 	jobs         []params.MachineJob
 	apiAddresses []string
 	values       map[string]string
-	stateInfo    *state.Info
+	mongoInfo    *authentication.MongoInfo
 }
 
 func (mock *mockAgentConfig) Tag() string {
@@ -138,8 +139,8 @@ func (mock *mockAgentConfig) Value(name string) string {
 	return mock.values[name]
 }
 
-func (mock *mockAgentConfig) StateInfo() (*state.Info, bool) {
-	return mock.stateInfo, true
+func (mock *mockAgentConfig) MongoInfo() (*authentication.MongoInfo, bool) {
+	return mock.mongoInfo, true
 }
 
 func targets(targets ...upgrades.Target) (upgradeTargets []upgrades.Target) {

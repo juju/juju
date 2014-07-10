@@ -22,6 +22,7 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
 )
@@ -96,7 +96,7 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 }
 
 // StateInfo is specified in the Environ interface.
-func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
+func (env *maasEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
 	return common.StateInfo(env)
 }
 
@@ -319,22 +319,24 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 }
 
 // createBridgeNetwork returns a string representing the upstart command to
-// create a bridged eth0.
-func createBridgeNetwork() string {
-	return `cat > /etc/network/eth0.config << EOF
-iface eth0 inet manual
+// create a bridged interface.
+func createBridgeNetwork(iface string) string {
+	return fmt.Sprintf(`cat > /etc/network/%s.config << EOF
+iface %s inet manual
 
 auto br0
 iface br0 inet dhcp
-  bridge_ports eth0
+  bridge_ports %s
 EOF
-`
+`, iface, iface, iface)
+
 }
 
 // linkBridgeInInterfaces adds the file created by createBridgeNetwork to the
 // interfaces file.
-func linkBridgeInInterfaces() string {
-	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
+func linkBridgeInInterfaces(iface string) string {
+	return fmt.Sprintf(`sed -i "s/iface %s inet dhcp/source \/etc\/network\/%s.config/" /etc/network/interfaces`,
+		iface, iface)
 }
 
 var unsupportedConstraints = []string{
@@ -461,7 +463,9 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
 	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
-	cloudcfg, err := newCloudinitConfig(hostname, networkInfo)
+
+	iface := environ.ecfg().networkBridge()
+	cloudcfg, err := newCloudinitConfig(hostname, networkInfo, iface)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -483,30 +487,32 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
-func newCloudinitConfig(hostname string, networkInfo []network.Info) (*cloudinit.Config, error) {
+func newCloudinitConfig(hostname string, networkInfo []network.Info, iface string) (*cloudinit.Config, error) {
 	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd()
+
 	if err != nil {
 		return nil, err
 	}
+
 	cloudcfg := cloudinit.New()
 	cloudcfg.SetAptUpdate(true)
 	cloudcfg.AddPackage("bridge-utils")
 	cloudcfg.AddScripts(
 		"set -xe",
 		runCmd,
-		"ifdown eth0",
-		createBridgeNetwork(),
-		linkBridgeInInterfaces(),
+		fmt.Sprintf("ifdown %s", iface),
+		createBridgeNetwork(iface),
+		linkBridgeInInterfaces(iface),
 		"ifup br0",
 	)
-	setupNetworksOnBoot(cloudcfg, networkInfo)
+	setupNetworksOnBoot(cloudcfg, networkInfo, iface)
 	return cloudcfg, nil
 }
 
 // setupNetworksOnBoot prepares a script to enable and start all
 // enabled network interfaces on boot.
-func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []network.Info) {
+func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []network.Info, iface string) {
 	const ifaceConfig = `cat >> /etc/network/interfaces << EOF
 
 auto %s
@@ -521,7 +527,7 @@ EOF
 	}
 	// Because eth0 is already configured in the br0 bridge, we
 	// don't want to break that.
-	configured := set.NewStrings("eth0")
+	configured := set.NewStrings(iface)
 
 	// In order to support VLANs, we need to include 8021q module
 	// configure vconfig's set_name_type, but due to bug #1316762,

@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -154,7 +155,7 @@ func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs
 	return common.Bootstrap(ctx, env, args)
 }
 
-func (env *joyentEnviron) StateInfo() (*state.Info, *api.Info, error) {
+func (env *joyentEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
 	return common.StateInfo(env)
 }
 
