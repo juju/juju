@@ -8,6 +8,7 @@ import (
 var (
 	ProviderConnectDelay = &providerConnectDelay
 	GetConfig            = getConfig
+	CacheChangedAPIInfo  = cacheChangedAPIInfo
 )
 
 type APIState apiState
