@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/environs"
@@ -118,6 +119,52 @@ func (c *EnvCommandBase) NewAPIRoot() (*api.State, error) {
 func (c *EnvCommandBase) Config(store configstore.Storage) (*config.Config, error) {
 	cfg, _, err := environs.ConfigForName(c.EnvName, store)
 	return cfg, err
+}
+
+// ConnectionCredentials returns the credentials used to connect to the API for
+// the specified environment.
+func (c *EnvCommandBase) ConnectionCredentials() (configstore.APICredentials, error) {
+	// TODO: the user may soon be specified through the command line
+	// or through an environment setting, so return these when they are ready.
+	var emptyCreds configstore.APICredentials
+	info, err := connectionInfoForName(c.EnvName)
+	if err != nil {
+		return emptyCreds, errors.Trace(err)
+	}
+	return info.APICredentials(), nil
+}
+
+// ConnectionWriter defines the methods needed to write information about
+// a given connection.  This is a subset of the methods in the interface
+// defined in configstore.EnvironInfo.
+type ConnectionWriter interface {
+	Write() error
+	SetAPICredentials(configstore.APICredentials)
+	SetAPIEndpoint(configstore.APIEndpoint)
+	SetBootstrapConfig(map[string]interface{})
+	Location() string
+}
+
+func connectionInfoForName(envName string) (configstore.EnvironInfo, error) {
+	store, err := configstore.Default()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	info, err := store.ReadInfo(envName)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return info, nil
+}
+
+// ConnectionWriter returns an instance that is able to be used
+// to record information about the connection.  When the connection
+// is determined through either command line parameters or environment
+// variables, an error is returned.
+func (c *EnvCommandBase) ConnectionWriter() (ConnectionWriter, error) {
+	// TODO: when accessing with just command line params or environment
+	// variables, this should error.
+	return connectionInfoForName(c.EnvName)
 }
 
 // Wrap wraps the specified EnvironCommand, returning a Command

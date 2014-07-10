@@ -7,10 +7,25 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/state/api/usermanager"
 )
 
 type UserCommand struct {
 	*cmd.SuperCommand
+}
+
+type UserCommandBase struct {
+	envcmd.EnvCommandBase
+}
+
+// NewUserManagerClient returns a usermanager client for the root api endpoint
+// that the environment command returns.
+func (c *UserCommandBase) NewUserManagerClient() (*usermanager.Client, error) {
+	root, err := c.NewAPIRoot()
+	if err != nil {
+		return nil, err
+	}
+	return usermanager.NewClient(root), nil
 }
 
 const userCommandDoc = `

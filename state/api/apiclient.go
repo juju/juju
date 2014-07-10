@@ -96,7 +96,7 @@ type Info struct {
 
 	// Environ holds the environ tag for the environment we are trying to
 	// connect to.
-	EnvironTag string
+	EnvironTag names.Tag
 }
 
 // DialOpts holds configuration parameters that control the
@@ -137,12 +137,8 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	pool.AddCert(xcert)
 
 	var environUUID string
-	if info.EnvironTag != "" {
-		tag, err := names.ParseEnvironTag(info.EnvironTag)
-		if err != nil {
-			return nil, err
-		}
-		environUUID = tag.Id()
+	if info.EnvironTag != nil {
+		environUUID = info.EnvironTag.Id()
 	}
 	// Dial all addresses at reasonable intervals.
 	try := parallel.NewTry(0, nil)
