@@ -20,6 +20,46 @@ import (
 	"github.com/juju/juju/worker"
 )
 
+type testIPVersion struct {
+	version           string
+	formatHostPort    string
+	formatHost        string
+	machineFormatHost string
+	extraHostPort     string
+	extraHost         string
+	extraAddress      string
+	addressType       network.AddressType
+}
+
+var (
+	testIPv4 = testIPVersion{
+		version:           "IPv4",
+		formatHostPort:    "0.1.2.%d:%d",
+		formatHost:        "0.1.2.%d",
+		machineFormatHost: "0.1.2.%d",
+		extraHostPort:     "0.1.99.99:9876",
+		extraHost:         "0.1.99.13",
+		extraAddress:      "0.1.99.13:1234",
+		addressType:       network.IPv4Address,
+	}
+	testIPv6 = testIPVersion{
+		version:           "IPv6",
+		formatHostPort:    "[2001:DB8::%d]:%d",
+		formatHost:        "[2001:DB8::%d]",
+		machineFormatHost: "2001:DB8::%d",
+		extraHostPort:     "[2001:DB8::99:99]:9876",
+		extraHost:         "2001:DB8::99:13",
+		extraAddress:      "[2001:DB8::99:13]:1234",
+		addressType:       network.IPv6Address,
+	}
+)
+
+// testForIPv4AndIPv6 runs the passed test for IPv4 and IPv6.
+func testForIPv4AndIPv6(t func(ipVersion testIPVersion)) {
+	t(testIPv4)
+	t(testIPv6)
+}
+
 type workerJujuConnSuite struct {
 	testing.JujuConnSuite
 }
@@ -34,9 +74,9 @@ func (s *workerJujuConnSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
-	test := func(ipv6 bool) {
+	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		st := newFakeState()
-		initState(c, st, 3, ipv6)
+		initState(c, st, 3, ipVersion)
 
 		watcher := s.State.WatchAPIHostPorts()
 		cwatch := statetesting.NewNotifyWatcherC(c, s.State, watcher)
@@ -60,22 +100,18 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 		cwatch.AssertOneChange()
 		hps, err := s.State.APIHostPorts()
 		c.Assert(err, gc.IsNil)
-		assertAPIHostPorts(c, hps, expectedAPIHostPorts(3, ipv6))
-	}
-	test(IPv4)
-	test(IPv6)
+		assertAPIHostPorts(c, hps, expectedAPIHostPorts(3, ipVersion))
+	})
 }
 
 func (s *workerJujuConnSuite) TestPublisherRejectsNoServers(c *gc.C) {
-	test := func(ipv6 bool) {
+	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		st := newFakeState()
-		initState(c, st, 3, ipv6)
+		initState(c, st, 3, ipVersion)
 		statePublish := newPublisher(s.State)
 		err := statePublish.publishAPIServers(nil, nil)
 		c.Assert(err, gc.ErrorMatches, "no api servers specified")
-	}
-	test(IPv4)
-	test(IPv6)
+	})
 }
 
 type workerSuite struct {
@@ -92,42 +128,32 @@ func (s *workerSuite) SetUpTest(c *gc.C) {
 // initState initializes the fake state with a single
 // replicaset member and numMachines machines
 // primed to vote.
-func initState(c *gc.C, st *fakeState, numMachines int, ipv6 bool) {
-	formatHostPort := "0.1.2.%d:%d"
-	formatHost := "0.1.2.%d"
-	if ipv6 {
-		formatHostPort = "[2001:DB8::%d]:%d"
-		formatHost = "[2001:DB8::%d]"
-	}
+func initState(c *gc.C, st *fakeState, numMachines int, ipVersion testIPVersion) {
 	var ids []string
 	for i := 10; i < 10+numMachines; i++ {
 		id := fmt.Sprint(i)
 		m := st.addMachine(id, true)
 		m.setInstanceId(instance.Id("id-" + id))
-		m.setStateHostPort(fmt.Sprintf(formatHostPort, i, mongoPort))
+		m.setStateHostPort(fmt.Sprintf(ipVersion.formatHostPort, i, mongoPort))
 		ids = append(ids, id)
 		c.Assert(m.MongoHostPorts(), gc.HasLen, 1)
 
-		m.setAPIHostPorts(addressesWithPort(apiPort, fmt.Sprintf(formatHost, i)))
+		m.setAPIHostPorts(addressesWithPort(apiPort, fmt.Sprintf(ipVersion.formatHost, i)))
 	}
 	st.machine("10").SetHasVote(true)
 	st.setStateServers(ids...)
-	st.session.Set(mkMembers("0v", ipv6))
-	st.session.setStatus(mkStatuses("0p", ipv6))
+	st.session.Set(mkMembers("0v", ipVersion))
+	st.session.setStatus(mkStatuses("0p", ipVersion))
 	st.check = checkInvariants
 }
 
 // expectedAPIHostPorts returns the expected addresses
 // of the machines as created by initState.
-func expectedAPIHostPorts(n int, ipv6 bool) [][]network.HostPort {
-	formatHost := "0.1.2.%d"
-	if ipv6 {
-		formatHost = "[2001:DB8::%d]"
-	}
+func expectedAPIHostPorts(n int, ipVersion testIPVersion) [][]network.HostPort {
 	servers := make([][]network.HostPort, n)
 	for i := range servers {
 		servers[i] = []network.HostPort{{
-			Address: network.NewAddress(fmt.Sprintf(formatHost, i+10), network.ScopeUnknown),
+			Address: network.NewAddress(fmt.Sprintf(ipVersion.formatHost, i+10), network.ScopeUnknown),
 			Port:    apiPort,
 		}}
 	}
@@ -139,15 +165,15 @@ func addressesWithPort(port int, addrs ...string) []network.HostPort {
 }
 
 func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
-	test := func(ipv6 bool) {
+	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		s.PatchValue(&pollInterval, 5*time.Millisecond)
 
 		st := newFakeState()
-		initState(c, st, 3, ipv6)
+		initState(c, st, 3, ipVersion)
 
 		memberWatcher := st.session.members.Watch()
 		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipv6))
+		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
 		w := newWorker(st, noPublisher{})
@@ -157,28 +183,24 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 
 		// Wait for the worker to set the initial members.
 		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", ipv6))
+		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", ipVersion))
 
 		// Update the status of the new members
 		// and check that they become voting.
 		c.Logf("updating new member status")
-		st.session.setStatus(mkStatuses("0p 1s 2s", ipv6))
+		st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
 		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", ipv6))
+		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v", ipVersion))
 
 		c.Logf("adding another machine")
 		// Add another machine.
 		m13 := st.addMachine("13", false)
-		if ipv6 {
-			m13.setStateHostPort(fmt.Sprintf("[2001:DB8::%d]:%d", 13, mongoPort))
-		} else {
-			m13.setStateHostPort(fmt.Sprintf("0.1.2.%d:%d", 13, mongoPort))
-		}
+		m13.setStateHostPort(fmt.Sprintf(ipVersion.formatHostPort, 13, mongoPort))
 		st.setStateServers("10", "11", "12", "13")
 
 		c.Logf("waiting for new member to be added")
 		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipv6))
+		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
 		// Remove vote from an existing member;
 		// and give it to the new machine.
@@ -188,13 +210,13 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		st.machine("10").setWantsVote(false)
 		st.machine("13").setWantsVote(true)
 
-		st.session.setStatus(mkStatuses("0p 1s 2s 3s", ipv6))
+		st.session.setStatus(mkStatuses("0p 1s 2s 3s", ipVersion))
 
 		// Check that the new machine gets the vote and the
 		// old machine loses it.
 		c.Logf("waiting for vote switch")
 		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipv6))
+		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
 
 		c.Logf("removing old machine")
 		// Remove the old machine.
@@ -204,14 +226,12 @@ func (s *workerSuite) TestSetsAndUpdatesMembers(c *gc.C) {
 		// Check that it's removed from the members.
 		c.Logf("waiting for removal")
 		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("1v 2v 3v", ipv6))
-	}
-	test(IPv4)
-	test(IPv6)
+		assertMembers(c, memberWatcher.Value(), mkMembers("1v 2v 3v", ipVersion))
+	})
 }
 
 func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
-	test := func(ipv6 bool) {
+	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		st := newFakeState()
 
 		// Simulate a state where we have four state servers,
@@ -225,7 +245,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		// 0 to 3. We'll arrange things so that it will succeed in
 		// setting the membership but fail setting the HasVote
 		// to false.
-		initState(c, st, 4, ipv6)
+		initState(c, st, 4, ipVersion)
 		st.machine("10").SetHasVote(true)
 		st.machine("11").SetHasVote(true)
 		st.machine("12").SetHasVote(true)
@@ -236,8 +256,8 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 		st.machine("12").setWantsVote(true)
 		st.machine("13").setWantsVote(true)
 
-		st.session.Set(mkMembers("0v 1v 2v 3", ipv6))
-		st.session.setStatus(mkStatuses("0H 1p 2s 3s", ipv6))
+		st.session.Set(mkMembers("0v 1v 2v 3", ipVersion))
+		st.session.setStatus(mkStatuses("0H 1p 2s 3s", ipVersion))
 
 		// Make the worker fail to set HasVote to false
 		// after changing the replica set membership.
@@ -245,7 +265,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 
 		memberWatcher := st.session.members.Watch()
 		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipv6))
+		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1v 2v 3", ipVersion))
 
 		w := newWorker(st, noPublisher{})
 		done := make(chan error)
@@ -255,7 +275,7 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 
 		// Wait for the worker to set the initial members.
 		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipv6))
+		assertMembers(c, memberWatcher.Value(), mkMembers("0 1v 2v 3v", ipVersion))
 
 		// The worker should encounter an error setting the
 		// has-vote status to false and exit.
@@ -306,19 +326,17 @@ func (s *workerSuite) TestHasVoteMaintainedEvenWhenReplicaSetFails(c *gc.C) {
 				c.Fatalf("timed out waiting for vote to be set")
 			}
 		}
-	}
-	test(IPv4)
-	test(IPv6)
+	})
 }
 
 func (s *workerSuite) TestAddressChange(c *gc.C) {
-	test := func(ipv6 bool) {
+	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		st := newFakeState()
-		initState(c, st, 3, ipv6)
+		initState(c, st, 3, ipVersion)
 
 		memberWatcher := st.session.members.Watch()
 		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipv6))
+		assertMembers(c, memberWatcher.Value(), mkMembers("0v", ipVersion))
 
 		logger.Infof("starting worker")
 		w := newWorker(st, noPublisher{})
@@ -328,28 +346,18 @@ func (s *workerSuite) TestAddressChange(c *gc.C) {
 
 		// Wait for the worker to set the initial members.
 		mustNext(c, memberWatcher)
-		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", ipv6))
+		assertMembers(c, memberWatcher.Value(), mkMembers("0v 1 2", ipVersion))
 
 		// Change an address and wait for it to be changed in the
 		// members.
-		if ipv6 {
-			st.machine("11").setStateHostPort("[2001:DB8::99:99]:9876")
-		} else {
-			st.machine("11").setStateHostPort("0.1.99.99:9876")
-		}
+		st.machine("11").setStateHostPort(ipVersion.extraHostPort)
 
 		mustNext(c, memberWatcher)
-		expectMembers := mkMembers("0v 1 2", ipv6)
-		if ipv6 {
-			expectMembers[1].Address = "[2001:DB8::99:99]:9876"
-		} else {
-			expectMembers[1].Address = "0.1.99.99:9876"
-		}
+		expectMembers := mkMembers("0v 1 2", ipVersion)
+		expectMembers[1].Address = ipVersion.extraHostPort
 		assertMembers(c, memberWatcher.Value(), expectMembers)
 		resetErrors()
-	}
-	test(IPv4)
-	test(IPv6)
+	})
 }
 
 var fatalErrorsTests = []struct {
@@ -377,14 +385,14 @@ var fatalErrorsTests = []struct {
 }}
 
 func (s *workerSuite) TestFatalErrors(c *gc.C) {
-	test := func(ipv6 bool) {
+	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		s.PatchValue(&pollInterval, 5*time.Millisecond)
 		for i, testCase := range fatalErrorsTests {
 			c.Logf("test %d: %s -> %s", i, testCase.errPattern, testCase.expectErr)
 			resetErrors()
 			st := newFakeState()
 			st.session.InstantlyReady = true
-			initState(c, st, 3, ipv6)
+			initState(c, st, 3, ipVersion)
 			setErrorFor(testCase.errPattern, errors.New("sample"))
 			w := newWorker(st, noPublisher{})
 			done := make(chan error)
@@ -398,16 +406,14 @@ func (s *workerSuite) TestFatalErrors(c *gc.C) {
 				c.Fatalf("timed out waiting for error")
 			}
 		}
-	}
-	test(IPv4)
-	test(IPv6)
+	})
 }
 
 func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
-	test := func(ipv6 bool) {
+	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		st := newFakeState()
-		initState(c, st, 3, ipv6)
-		st.session.setStatus(mkStatuses("0p 1s 2s", ipv6))
+		initState(c, st, 3, ipVersion)
+		st.session.setStatus(mkStatuses("0p 1s 2s", ipVersion))
 		var isSet voyeur.Value
 		count := 0
 		setErrorFuncFor("Session.Set", func() error {
@@ -444,9 +450,7 @@ func (s *workerSuite) TestSetMembersErrorIsNotFatal(c *gc.C) {
 
 		c.Assert(n1-n0, jc.LessThan, 3)
 		resetErrors()
-	}
-	test(IPv4)
-	test(IPv6)
+	})
 }
 
 type publisherFunc func(apiServers [][]network.HostPort, instanceIds []instance.Id) error
@@ -456,7 +460,7 @@ func (f publisherFunc) publishAPIServers(apiServers [][]network.HostPort, instan
 }
 
 func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
-	test := func(ipv6 bool) {
+	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		publishCh := make(chan [][]network.HostPort)
 		publish := func(apiServers [][]network.HostPort, instanceIds []instance.Id) error {
 			publishCh <- apiServers
@@ -464,41 +468,35 @@ func (s *workerSuite) TestStateServersArePublished(c *gc.C) {
 		}
 
 		st := newFakeState()
-		initState(c, st, 3, false)
+		initState(c, st, 3, ipVersion)
 		w := newWorker(st, publisherFunc(publish))
 		defer func() {
 			c.Check(worker.Stop(w), gc.IsNil)
 		}()
 		select {
 		case servers := <-publishCh:
-			assertAPIHostPorts(c, servers, expectedAPIHostPorts(3, false))
+			assertAPIHostPorts(c, servers, expectedAPIHostPorts(3, ipVersion))
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for publish")
 		}
 
 		// Change one of the servers' API addresses and check that it's published.
 		var newMachine10APIHostPorts []network.HostPort
-		if ipv6 {
-			newMachine10APIHostPorts = addressesWithPort(apiPort, "[2001:DB8::2:8:124]:9876")
-		} else {
-			newMachine10APIHostPorts = addressesWithPort(apiPort, "0.2.8.124")
-		}
+		newMachine10APIHostPorts = addressesWithPort(apiPort, ipVersion.extraHostPort)
 		st.machine("10").setAPIHostPorts(newMachine10APIHostPorts)
 		select {
 		case servers := <-publishCh:
-			expected := expectedAPIHostPorts(3, false)
+			expected := expectedAPIHostPorts(3, ipVersion)
 			expected[0] = newMachine10APIHostPorts
 			assertAPIHostPorts(c, servers, expected)
 		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for publish")
 		}
-	}
-	test(IPv4)
-	test(IPv6)
+	})
 }
 
 func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
-	test := func(ipv6 bool) {
+	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		s.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
 		s.PatchValue(&initialRetryInterval, 5*time.Millisecond)
 		s.PatchValue(&maxRetryInterval, initialRetryInterval)
@@ -515,7 +513,7 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 			return nil
 		}
 		st := newFakeState()
-		initState(c, st, 3, ipv6)
+		initState(c, st, 3, ipVersion)
 
 		w := newWorker(st, publisherFunc(publish))
 		defer func() {
@@ -525,7 +523,7 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 		for i := 0; i < 4; i++ {
 			select {
 			case servers := <-publishCh:
-				assertAPIHostPorts(c, servers, expectedAPIHostPorts(3, ipv6))
+				assertAPIHostPorts(c, servers, expectedAPIHostPorts(3, ipVersion))
 			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timed out waiting for publish #%d", i)
 			}
@@ -535,13 +533,11 @@ func (s *workerSuite) TestWorkerRetriesOnPublishError(c *gc.C) {
 			c.Errorf("unexpected publish event")
 		case <-time.After(coretesting.ShortWait):
 		}
-	}
-	test(IPv4)
-	test(IPv6)
+	})
 }
 
 func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
-	test := func(ipv6 bool) {
+	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		s.PatchValue(&pollInterval, coretesting.LongWait+time.Second)
 		s.PatchValue(&initialRetryInterval, 5*time.Millisecond)
 		s.PatchValue(&maxRetryInterval, initialRetryInterval)
@@ -553,7 +549,7 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 			return nil
 		}
 		st := newFakeState()
-		initState(c, st, 3, ipv6)
+		initState(c, st, 3, ipVersion)
 
 		w := newWorker(st, publisherFunc(publish))
 		defer func() {
@@ -566,9 +562,7 @@ func (s *workerSuite) TestWorkerPublishesInstanceIds(c *gc.C) {
 		case <-time.After(coretesting.LongWait):
 			c.Errorf("timed out waiting for publish")
 		}
-	}
-	test(IPv4)
-	test(IPv6)
+	})
 }
 
 // mustNext waits for w's value to be set and returns it.
