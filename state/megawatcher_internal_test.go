@@ -36,11 +36,6 @@ type storeManagerStateSuite struct {
 	State *State
 }
 
-func (s *storeManagerStateSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
-}
-
 func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)

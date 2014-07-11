@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -41,6 +42,9 @@ func (s *InitializeSuite) openState(c *gc.C) {
 	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	s.State = st
+
+	deployer := environmentserver.NewDeployer(s.State)
+	s.State.SetEnvironment(deployer, deployer, deployer, deployer)
 }
 
 func (s *InitializeSuite) TearDownTest(c *gc.C) {

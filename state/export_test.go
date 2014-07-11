@@ -172,6 +172,26 @@ func init() {
 	logSize = logSizeTests
 }
 
+func AssertAliveOp(e *Environment) txn.Op {
+	return e.assertAliveOp()
+}
+
+func RemoveRequestedNetworksOp(st *State, id string) txn.Op {
+	return removeRequestedNetworksOp(st, id)
+}
+
+func RunTransaction(st *State, ops []txn.Op) error {
+	return st.runTransaction(ops)
+}
+
+type globalKeyProvider interface {
+	globalKey() string
+}
+
+func GlobalKey(g globalKeyProvider) string {
+	return g.globalKey()
+}
+
 // TxnRevno returns the txn-revno field of the document
 // associated with the given Id in the given collection.
 func TxnRevno(st *State, coll string, id interface{}) (int64, error) {
