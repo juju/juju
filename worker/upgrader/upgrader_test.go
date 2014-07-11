@@ -13,6 +13,7 @@ import (
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -28,7 +29,6 @@ import (
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/utils/symlink"
 )
 
 func TestPackage(t *stdtesting.T) {

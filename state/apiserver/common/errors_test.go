@@ -8,12 +8,12 @@ import (
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
-	"github.com/juju/juju/state/txn"
 	"github.com/juju/juju/testing"
 )
 

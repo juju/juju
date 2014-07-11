@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -53,7 +54,6 @@ import (
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/utils/symlink"
 )
 
 type commonMachineSuite struct {

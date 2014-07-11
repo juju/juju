@@ -14,11 +14,10 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	"github.com/juju/utils/exec"
 
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/worker/uniter/jujuc"
-	"github.com/juju/utils/exec"
-
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
 )
