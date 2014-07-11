@@ -9,6 +9,7 @@ import (
 	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	patchtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/state/apiserver/uniter"
 	statetesting "github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	patchtesting "github.com/juju/testing"
 )
 
 func Test(t *stdtesting.T) {

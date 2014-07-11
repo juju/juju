@@ -7,8 +7,9 @@ import (
 	"os/exec"
 	"runtime"
 
-	"github.com/juju/juju/version"
 	gc "launchpad.net/gocheck"
+
+	"github.com/juju/juju/version"
 )
 
 type CurrentSuite struct{}

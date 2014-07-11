@@ -18,6 +18,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
 	"labix.org/v2/mgo"
 	"launchpad.net/gnuflag"
@@ -59,7 +60,6 @@ import (
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/terminationworker"
 	"github.com/juju/juju/worker/upgrader"
-	"github.com/juju/utils/symlink"
 )
 
 var logger = loggo.GetLogger("juju.cmd.jujud")
