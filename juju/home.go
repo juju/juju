@@ -13,9 +13,9 @@ import (
 	"github.com/juju/juju/utils/ssh"
 )
 
-// InitJujuHome initializes the charm, environs/config and utils/ssh packages
+// InitJujuHome initializes the charm cache, environs/config and utils/ssh packages
 // to use default paths based on the $JUJU_HOME or $HOME environment variables.
-// This function should be called before calling NewConn or Conn.Deploy.
+// This function should be called before running a Juju CLI command.
 func InitJujuHome() error {
 	jujuHome := osenv.JujuHomeDir()
 	if jujuHome == "" {

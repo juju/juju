@@ -14,7 +14,6 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/constraints"
-	//	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"

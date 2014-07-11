@@ -247,6 +247,8 @@ var redialStrategy = utils.AttemptStrategy{
 	Delay: 250 * time.Millisecond,
 }
 
+// newState returns a new State that uses the given environment.
+// The environment must have already been bootstrapped.
 func newState(environ environs.Environ, mongoInfo *authentication.MongoInfo) (*state.State, error) {
 	password := environ.Config().AdminSecret()
 	if password == "" {
@@ -453,13 +455,6 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		}
 	}
 	s.apiStates = nil
-	//	if s.s != nil {
-	//		err := s.Conn.Close()
-	//		if serverAlive {
-	//			c.Assert(err, gc.IsNil)
-	//		}
-	//		s.Conn = nil
-	//	}
 	if s.APIConn != nil {
 		err := s.APIConn.Close()
 		if serverAlive {

@@ -39,7 +39,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	//	"github.com/juju/juju/mongo"
 )
 
 // LiveTests contains tests that are designed to run against a live server
@@ -398,6 +397,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Logf("opening API connection")
 	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
+	defer apiConn.Close()
 
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
