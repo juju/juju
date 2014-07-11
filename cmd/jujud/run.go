@@ -5,17 +5,17 @@ package main
 
 import (
 	"fmt"
-	"net/rpc"
 	"os"
 	"path/filepath"
 
 	"github.com/juju/cmd"
-	"github.com/juju/juju/version"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 )
 
@@ -107,6 +107,24 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	return cmd.NewRcPassthroughError(result.Code)
 }
 
+func (c *RunCommand) nixSockPath() string {
+	unitDir := filepath.Join(AgentDir, c.unit)
+	return filepath.Join(unitDir, uniter.RunListenerFile)
+}
+
+func (c *RunCommand) winSockPath() string {
+	return fmt.Sprintf(`\\.\pipe\%s-run`, c.unit)
+}
+
+func (c *RunCommand) sockPath() string {
+	switch version.Current.OS {
+	case version.Windows:
+		return c.winSockPath()
+	default:
+		return c.nixSockPath()
+	}
+}
+
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	unitDir := filepath.Join(AgentDir, c.unit)
 	logger.Debugf("looking for unit dir %s", unitDir)
@@ -117,10 +135,9 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	} else if err != nil {
 		return nil, err
 	}
-
-	socketPath := filepath.Join(unitDir, uniter.RunListenerFile)
 	// make sure the socket exists
-	client, err := rpc.Dial("unix", socketPath)
+	socketPath := c.sockPath()
+	client, err := sockets.Dial(socketPath)
 	if err != nil {
 		return nil, err
 	}
