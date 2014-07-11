@@ -23,7 +23,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
-	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
