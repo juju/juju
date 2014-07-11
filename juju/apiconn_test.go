@@ -86,6 +86,18 @@ func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	cs.FakeJujuHomeSuite.TearDownTest(c)
 }
 
+func bootstrapEnv(c *gc.C, envName string, store configstore.Storage) {
+	if store == nil {
+		store = configstore.NewMem()
+	}
+	ctx := coretesting.Context(c)
+	env, err := environs.PrepareFromName(envName, ctx, store)
+	c.Assert(err, gc.IsNil)
+	envtesting.UploadFakeTools(c, env.Storage())
+	err = bootstrap.Bootstrap(ctx, env, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	// The connection logic should not delay the config connection

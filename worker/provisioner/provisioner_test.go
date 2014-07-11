@@ -150,7 +150,7 @@ func stop(c *gc.C, s stopper) {
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
-	instance, _ := testing.AssertStartInstance(c, s.Conn.Environ, id)
+	instance, _ := testing.AssertStartInstance(c, s.Environ, id)
 	select {
 	case o := <-s.op:
 		switch o := o.(type) {
