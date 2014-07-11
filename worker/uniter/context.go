@@ -159,11 +159,8 @@ func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
 	return result, nil
 }
 
-func (ctx *HookContext) ActionParams() (map[string]interface{}, error) {
-	if ctx.actionParams == nil {
-		//TODO: Fill me in!
-	}
-	return ctx.actionParams, nil
+func (ctx *HookContext) ActionParams() map[string]interface{} {
+	return ctx.actionParams
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {

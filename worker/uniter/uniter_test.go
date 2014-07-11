@@ -1294,6 +1294,19 @@ var actionEventTests = []uniterTest{
 			"action-log",
 			"fail-action-log-fail",
 		},
+	), ut(
+		"actions not implemented are not errors, like hooks",
+		createCharm{},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		addAction{"action-log", nil},
+		waitNoHooks{"action-log", "fail-action-log"},
 	),
 }
 
@@ -1829,6 +1842,35 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 			}
 		case <-timeout:
 			c.Fatalf("never got expected hooks")
+		}
+	}
+}
+
+// make sure no hooks are run from the given slice
+type waitNoHooks []string
+
+func (s waitNoHooks) step(c *gc.C, ctx *context) {
+	if len(s) == 0 {
+		// Give unwanted hooks a moment to run...
+		ctx.s.BackingState.StartSync()
+		time.Sleep(coretesting.ShortWait)
+	}
+	ctx.hooks = append(ctx.hooks, s...)
+	c.Logf("waiting to make sure hooks don't run: %#v", ctx.hooks)
+	match, _ := ctx.matchHooks(c)
+	if match {
+		c.Fatalf("received unwanted hook")
+	}
+	timeout := time.After(worstCase)
+	for {
+		ctx.s.BackingState.StartSync()
+		select {
+		case <-time.After(coretesting.ShortWait):
+			if match, _ = ctx.matchHooks(c); match {
+				c.Fatalf("received unwanted hook")
+			}
+		case <-timeout:
+			return
 		}
 	}
 }
