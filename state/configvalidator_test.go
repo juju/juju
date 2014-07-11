@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/state"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -110,7 +109,6 @@ func (s *ConfigValidatorSuite) TestConfigValidateNoPolicy(c *gc.C) {
 		return nil, nil
 	}
 
-	state.SetPolicy(s.State, nil)
 	err := s.updateEnvironConfig(c)
 	c.Assert(err, gc.IsNil)
 }

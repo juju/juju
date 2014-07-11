@@ -35,7 +35,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine to work with
 	var err error
-	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.rawMachine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// The default auth is as the machine agent

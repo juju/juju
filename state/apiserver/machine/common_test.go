@@ -28,10 +28,10 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	s.machine0, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
-	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine1, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,

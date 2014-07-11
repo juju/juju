@@ -94,7 +94,6 @@ func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *gc.C) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}
-	state.SetPolicy(s.State, nil)
 	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
 	c.Assert(err, gc.IsNil)
 }
@@ -110,7 +109,7 @@ func (s *PrecheckerSuite) addOneMachine(c *gc.C, envCons constraints.Value, plac
 		Jobs:        oneJob,
 		Placement:   placement,
 	}
-	_, err = s.State.AddOneMachine(template)
+	_, err = s.State.EnvironmentDeployer.AddOneMachine(template)
 	return template, err
 }
 
@@ -122,7 +121,7 @@ func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 		Jobs:       []state.MachineJob{state.JobManageEnviron},
 		Placement:  "anyoldthing",
 	}
-	_, err := s.State.AddOneMachine(template)
+	_, err := s.State.EnvironmentDeployer.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 	// PrecheckInstance should not have been called, as we've
 	// injected a machine with an existing instance.

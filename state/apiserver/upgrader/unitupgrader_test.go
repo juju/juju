@@ -44,7 +44,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine and unit to work with
 	var err error
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	s.rawUnit, err = svc.AddUnit()

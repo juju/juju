@@ -17,7 +17,7 @@ type statusSuite struct {
 var _ = gc.Suite(&statusSuite{})
 
 func (s *statusSuite) addMachine(c *gc.C) *state.Machine {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	return machine
 }

@@ -59,7 +59,7 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.machines = make([]*state.Machine, 3)
 	for i := range s.machines {
 		var err error
-		s.machines[i], err = s.State.AddOneMachine(state.MachineTemplate{
+		s.machines[i], err = s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 			Series: "quantal",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		})
@@ -179,7 +179,6 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}
-	state.SetPolicy(s.State, nil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	_, err = unit.AssignToCleanMachine()

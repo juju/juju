@@ -139,7 +139,7 @@ func (s *CleanupSuite) TestCleanupRelationSettings(c *gc.C) {
 }
 
 func (s *CleanupSuite) TestForceDestroyMachineErrors(c *gc.C) {
-	manager, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	manager, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	s.assertDoesNotNeedCleanup(c)
 	err = manager.ForceDestroy()
@@ -153,7 +153,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineUnit(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a machine.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// Create a relation with a unit in scope and assigned to the machine.
@@ -185,7 +185,7 @@ func (s *CleanupSuite) TestCleanupForceDestroyedMachineWithContainer(c *gc.C) {
 	s.assertDoesNotNeedCleanup(c)
 
 	// Create a machine with a container.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",

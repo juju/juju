@@ -40,22 +40,14 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 	return txntesting.SetRetryHooks(c, st.transactionRunner, block, check)
 }
 
-// SetPolicy updates the State's policy field to the
-// given Policy, and returns the old value.
-func SetPolicy(st *State, p Policy) Policy {
-	old := st.policy
-	st.policy = p
-	return old
-}
-
 // TestingInitialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default environment
 // configuration will be used.
-func TestingInitialize(c *gc.C, cfg *config.Config, policy Policy) *State {
+func TestingInitialize(c *gc.C, cfg *config.Config) *State {
 	if cfg == nil {
 		cfg = testing.EnvironConfig(c)
 	}
-	st, err := Initialize(TestingMongoInfo(), cfg, TestingDialOpts(), policy)
+	st, err := Initialize(TestingMongoInfo(), cfg, TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	return st
 }

@@ -10,6 +10,7 @@ import (
 	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/juju/testing"
@@ -36,6 +37,7 @@ type ConnSuite struct {
 	State        *state.State
 	policy       statetesting.MockPolicy
 	factory      *factory.Factory
+	Deployer     environmentserver.Deployer
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
@@ -52,7 +54,10 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.BaseSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.policy = statetesting.MockPolicy{}
-	cs.State = state.TestingInitialize(c, nil, &cs.policy)
+
+	cs.State = state.TestingInitialize(c, nil)
+	cs.Deployer = environmentserver.NewDeployer(cs.State)
+
 	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
 	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
@@ -60,7 +65,9 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
+
 	cs.State.AddAdminUser("pass")
+	cs.State.SetEnvironment(cs.Deployer, cs.Deployer, cs.Deployer, cs.Deployer)
 	cs.factory = factory.NewFactory(cs.State, c)
 }
 

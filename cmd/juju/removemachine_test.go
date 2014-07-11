@@ -47,7 +47,7 @@ func (s *RemoveMachineSuite) TestRemoveMachineWithUnit(c *gc.C) {
 func (s *RemoveMachineSuite) TestDestroyEmptyMachine(c *gc.C) {
 	// Destroy an empty machine alongside a state server; only the empty machine
 	// gets destroyed.
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = runRemoveMachine(c, "0", "1")
 	c.Assert(err, gc.ErrorMatches, `some machines were not destroyed: machine 1 does not exist`)
@@ -65,10 +65,10 @@ func (s *RemoveMachineSuite) TestDestroyEmptyMachine(c *gc.C) {
 
 func (s *RemoveMachineSuite) TestDestroyDeadMachine(c *gc.C) {
 	// Destroying a Dead machine is a no-op; destroying it alongside a JobManageEnviron
-	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	// machine complains only about the JME machine.
-	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m1, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = m1.EnsureDead()
 	c.Assert(err, gc.IsNil)
@@ -84,7 +84,7 @@ func (s *RemoveMachineSuite) TestDestroyDeadMachine(c *gc.C) {
 
 func (s *RemoveMachineSuite) TestForce(c *gc.C) {
 	// Create a manager machine.
-	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	// Create a machine running a unit.
@@ -126,7 +126,7 @@ func (s *RemoveMachineSuite) TestBadArgs(c *gc.C) {
 }
 
 func (s *RemoveMachineSuite) TestEnvironmentArg(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = runRemoveMachine(c, "0", "-e", "dummyenv")
 	c.Assert(err, gc.IsNil)

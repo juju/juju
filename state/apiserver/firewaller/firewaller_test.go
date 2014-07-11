@@ -53,7 +53,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
 	for i := 0; i <= 2; i++ {
-		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)
 	}

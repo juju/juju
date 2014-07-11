@@ -49,7 +49,7 @@ func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.State = TestingInitialize(c, nil, Policy(nil))
+	s.State = TestingInitialize(c, nil)
 	s.State.AddAdminUser("pass")
 }
 
@@ -73,7 +73,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	add := func(e params.EntityInfo) {
 		entities = append(entities, e)
 	}
-	m, err := s.State.AddMachine("quantal", JobManageEnviron)
+	m, err := s.State.EnvironmentDeployer.AddMachine("quantal", JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	// TODO(dfc) instance.Id should take a TAG!
@@ -146,7 +146,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		c.Assert(err, gc.IsNil)
 		c.Assert(wu.Tag().String(), gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
 
-		m, err := s.State.AddMachine("quantal", JobHostUnits)
+		m, err := s.State.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -280,7 +280,7 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "machine is added if it's in backing but not in Store",
 		setUp: func(c *gc.C, st *State) {
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = m.SetStatus(params.StatusError, "failure", nil)
 			c.Assert(err, gc.IsNil)
@@ -312,7 +312,7 @@ var allWatcherChangedTests = []struct {
 			},
 		},
 		setUp: func(c *gc.C, st *State) {
-			m, err := st.AddMachine("trusty", JobManageEnviron)
+			m, err := st.EnvironmentDeployer.AddMachine("trusty", JobManageEnviron)
 			c.Assert(err, gc.IsNil)
 			err = m.SetProvisioned("i-0", "bootstrap_nonce", nil)
 			c.Assert(err, gc.IsNil)
@@ -361,7 +361,9 @@ var allWatcherChangedTests = []struct {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			err = u.OpenPort("tcp", 12345)
+			c.Assert(err, gc.IsNil)
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, gc.IsNil)
@@ -396,7 +398,7 @@ var allWatcherChangedTests = []struct {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, gc.IsNil)
@@ -424,7 +426,9 @@ var allWatcherChangedTests = []struct {
 			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			err = u.OpenPort("tcp", 12345)
+			c.Assert(err, gc.IsNil)
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, gc.IsNil)
@@ -609,7 +613,7 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "annotation is added if it's in backing but not in Store",
 		setUp: func(c *gc.C, st *State) {
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = m.SetAnnotations(map[string]string{"foo": "bar", "arble": "baz"})
 			c.Assert(err, gc.IsNil)
@@ -635,7 +639,7 @@ var allWatcherChangedTests = []struct {
 			},
 		}},
 		setUp: func(c *gc.C, st *State) {
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = m.SetAnnotations(map[string]string{
 				"arble":  "khroomph",
@@ -777,7 +781,7 @@ var allWatcherChangedTests = []struct {
 			StatusInfo: "failure",
 		}},
 		setUp: func(c *gc.C, st *State) {
-			m, err := st.AddMachine("quantal", JobHostUnits)
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = m.SetStatus(params.StatusStarted, "", nil)
 			c.Assert(err, gc.IsNil)
@@ -987,11 +991,11 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
-	m0, err := s.State.AddMachine("quantal", JobManageEnviron)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m0.Id(), gc.Equals, "0")
 
-	m1, err := s.State.AddMachine("saucy", JobHostUnits)
+	m1, err := s.State.EnvironmentDeployer.AddMachine("saucy", JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m1.Id(), gc.Equals, "1")
 
@@ -1035,7 +1039,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = m1.Remove()
 	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("trusty", JobHostUnits)
+	m2, err := s.State.EnvironmentDeployer.AddMachine("trusty", JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m2.Id(), gc.Equals, "2")
 	s.State.StartSync()

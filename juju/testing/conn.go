@@ -63,6 +63,7 @@ type JujuConnSuite struct {
 	envtesting.ToolsFixture
 	State        *state.State
 	Environ      environs.Environ
+	Deployer     environmentserver.Deployer
 	APIState     *api.State
 	apiStates    []*api.State // additional api.States to close on teardown
 	ConfigStore  configstore.Storage
@@ -166,6 +167,8 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	}
 
 	deployer := environmentserver.NewDeployer(s.State)
+	s.Deployer = deployer
+
 	machine, err := deployer.AddMachine("quantal", jobs...)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
@@ -242,6 +245,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 
+	deployer := environmentserver.NewDeployer(s.State)
+	s.Deployer = deployer
+
 	s.Environ = environ
 }
 
@@ -263,7 +269,7 @@ func newState(environ environs.Environ, mongoInfo *authentication.MongoInfo) (*s
 
 	mongoInfo.Password = password
 	opts := mongo.DefaultDialOpts()
-	st, err := state.Open(mongoInfo, opts, environs.NewStatePolicy())
+	st, err := state.Open(mongoInfo, opts)
 	if errors.IsUnauthorized(err) {
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
@@ -274,7 +280,7 @@ func newState(environ environs.Environ, mongoInfo *authentication.MongoInfo) (*s
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(mongoInfo, opts, environs.NewStatePolicy())
+			st, err = state.Open(mongoInfo, opts)
 			if !errors.IsUnauthorized(err) {
 				break
 			}

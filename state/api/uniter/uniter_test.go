@@ -64,7 +64,7 @@ func (s *uniterSuite) setUpTest(c *gc.C, addStateServer bool) {
 }
 
 func (s *uniterSuite) addMachineServiceCharmAndUnit(c *gc.C, serviceName string) (*state.Machine, *state.Service, *state.Charm, *state.Unit) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	charm := s.AddTestingCharm(c, serviceName)
 	service := s.AddTestingService(c, serviceName, charm)

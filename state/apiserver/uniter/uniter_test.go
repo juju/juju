@@ -56,9 +56,9 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.wpCharm = s.AddTestingCharm(c, "wordpress")
 	// Create two machines, two services and add a unit to each service.
 	var err error
-	s.machine0, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
+	s.machine0, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	s.machine1, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine1, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	s.wordpress = s.AddTestingService(c, "wordpress", s.wpCharm)
 	s.mysql = s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))

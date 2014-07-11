@@ -47,14 +47,14 @@ func (s *EnvironCapabilitySuite) SetUpTest(c *gc.C) {
 }
 
 func (s *EnvironCapabilitySuite) addOneMachine(c *gc.C) (*state.Machine, error) {
-	return s.State.AddOneMachine(state.MachineTemplate{
+	return s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
 }
 
 func (s *EnvironCapabilitySuite) addOneMachineWithInstanceId(c *gc.C) (*state.Machine, error) {
-	return s.State.AddOneMachine(state.MachineTemplate{
+	return s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "i-rate",
@@ -127,7 +127,6 @@ func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementNoPolicy(c *gc.C) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}
-	state.SetPolicy(s.State, nil)
 	_, err := s.addOneMachine(c)
 	c.Assert(err, gc.IsNil)
 }

@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -17,6 +18,7 @@ import (
 
 type AddUnitSuite struct {
 	jujutesting.RepoSuite
+	deployer environmentserver.Deployer
 }
 
 var _ = gc.Suite(&AddUnitSuite{})
@@ -84,9 +86,9 @@ func (s *AddUnitSuite) assertForceMachine(c *gc.C, svc *state.Service, expectedN
 
 func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
 	curl := s.setupService(c)
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machine2, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine2, err := s.State.EnvironmentDeployer.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", machine2.Id())
@@ -100,13 +102,13 @@ func (s *AddUnitSuite) TestForceMachine(c *gc.C) {
 
 func (s *AddUnitSuite) TestForceMachineExistingContainer(c *gc.C) {
 	curl := s.setupService(c)
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	template := state.MachineTemplate{
 		Series: "precise",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
+	container, err := s.Deployer.AddMachineInsideMachine(template, machine.Id(), instance.LXC)
 	c.Assert(err, gc.IsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", container.Id())
@@ -120,7 +122,7 @@ func (s *AddUnitSuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *AddUnitSuite) TestForceMachineNewContainer(c *gc.C) {
 	curl := s.setupService(c)
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	err = runAddUnit(c, "some-service-name", "--to", "lxc:"+machine.Id())

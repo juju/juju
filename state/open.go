@@ -172,7 +172,7 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, info *authentication.MongoInfo) (*State, error) {
+func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
@@ -194,7 +194,6 @@ func newState(session *mgo.Session, info *authentication.MongoInfo) (*State, err
 
 	st := &State{
 		mongoInfo:         mongoInfo,
-		info:              info,
 		db:                db,
 		environments:      db.C("environments"),
 		charms:            db.C("charms"),

@@ -9,7 +9,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -93,7 +92,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
-	st := state.TestingInitialize(c, cfg, environmentserver.Deployer(nil))
+	st := state.TestingInitialize(c, cfg)
 	st.Close()
 
 	// A second initialize returns an open *State, but ignores its params.
@@ -122,7 +121,7 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks UpdateEnvironConfig.
-	st := state.TestingInitialize(c, good, environmentserver.Deployer(nil))
+	st := state.TestingInitialize(c, good)
 	st.Close()
 
 	s.openState(c)
@@ -146,7 +145,7 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	_, err = state.Initialize(state.TestingMongoInfo(), bad, state.TestingDialOpts())
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
-	st := state.TestingInitialize(c, good, environmentserver.Deployer(nil))
+	st := state.TestingInitialize(c, good)
 	st.Close()
 
 	s.openState(c)

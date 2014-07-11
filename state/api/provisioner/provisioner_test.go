@@ -51,7 +51,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobManageEnviron)
+	s.machine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
@@ -123,7 +123,7 @@ func (s *provisionerSuite) TestGetSetStatusWithData(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetStatus(params.StatusError, "blah", params.StatusData{"transient": true})
 	c.Assert(err, gc.IsNil)
@@ -143,7 +143,7 @@ func (s *provisionerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 
 func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 	// Create a fresh machine to test the complete scenario.
-	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	otherMachine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(otherMachine.Life(), gc.Equals, state.Alive)
 
@@ -183,7 +183,7 @@ func (s *provisionerSuite) TestEnsureDeadAndRemove(c *gc.C) {
 
 func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 	// Create a fresh machine to test the complete scenario.
-	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	otherMachine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(otherMachine.Life(), gc.Equals, state.Alive)
 
@@ -202,7 +202,7 @@ func (s *provisionerSuite) TestRefreshAndLife(c *gc.C) {
 
 func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 	// Create a fresh machine, since machine 0 is already provisioned.
-	notProvisionedMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	notProvisionedMachine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	apiMachine, err := s.provisioner.Machine(notProvisionedMachine.Tag().(names.MachineTag))
@@ -331,7 +331,7 @@ func (s *provisionerSuite) TestSetInstanceInfo(c *gc.C) {
 
 func (s *provisionerSuite) TestSeries(c *gc.C) {
 	// Create a fresh machine with different series.
-	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
+	foobarMachine, err := s.State.EnvironmentDeployer.AddMachine("foobar", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	apiMachine, err := s.provisioner.Machine(foobarMachine.Tag().(names.MachineTag))
@@ -355,7 +355,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(instances, gc.DeepEquals, []instance.Id{"i-manager"})
 
-	machine1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine1, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	apiMachine, err = s.provisioner.Machine(machine1.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
@@ -381,7 +381,7 @@ func (s *provisionerSuite) TestDistributionGroup(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestDistributionGroupMachineNotFound(c *gc.C) {
-	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	stateMachine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	apiMachine, err := s.provisioner.Machine(stateMachine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
@@ -416,7 +416,7 @@ func (s *provisionerSuite) TestProvisioningInfo(c *gc.C) {
 }
 
 func (s *provisionerSuite) TestProvisioningInfoMachineNotFound(c *gc.C) {
-	stateMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	stateMachine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	apiMachine, err := s.provisioner.Machine(stateMachine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
@@ -502,9 +502,9 @@ func (s *provisionerSuite) TestWatchEnvironMachines(c *gc.C) {
 	wc.AssertChange(s.machine.Id())
 
 	// Add another 2 machines make sure they are detected.
-	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	otherMachine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	otherMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	otherMachine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("1", "2")
 

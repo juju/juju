@@ -120,7 +120,7 @@ func (s *charmsSuite) TestRequiresPOSTorGET(c *gc.C) {
 
 func (s *charmsSuite) TestAuthRequiresUser(c *gc.C) {
 	// Add a machine and try to login.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)

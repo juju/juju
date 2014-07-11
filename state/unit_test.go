@@ -11,7 +11,6 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -208,7 +207,7 @@ func (s *UnitSuite) TestPublicAddressSubordinate(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPublicAddress(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
@@ -229,7 +228,7 @@ func (s *UnitSuite) TestPublicAddress(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPublicAddressMachineAddresses(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
@@ -265,7 +264,7 @@ func (s *UnitSuite) TestPrivateAddressSubordinate(c *gc.C) {
 }
 
 func (s *UnitSuite) TestPrivateAddress(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
@@ -299,7 +298,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 
 	{
 		tc := destroyMachineTestCase{desc: "standalone principal", destroyed: true}
-		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		tc.host, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		tc.target, err = s.service.AddUnit()
 		c.Assert(err, gc.IsNil)
@@ -308,7 +307,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "co-located principals", destroyed: false}
-		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		tc.host, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		tc.target, err = s.service.AddUnit()
 		c.Assert(err, gc.IsNil)
@@ -321,7 +320,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "host has container", destroyed: false}
-		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		tc.host, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		_, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 			Series: "quantal",
@@ -336,7 +335,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "host has vote", destroyed: false}
-		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		tc.host, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		c.Assert(tc.host.SetHasVote(true), gc.IsNil)
 		tc.target, err = s.service.AddUnit()
@@ -347,7 +346,7 @@ func (s *UnitSuite) destroyMachineTestCases(c *gc.C) []destroyMachineTestCase {
 	}
 	{
 		tc := destroyMachineTestCase{desc: "unassigned unit", destroyed: true}
-		tc.host, err = s.State.AddMachine("quantal", state.JobHostUnits)
+		tc.host, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		tc.target, err = s.service.AddUnit()
 		c.Assert(err, gc.IsNil)
@@ -396,7 +395,7 @@ func (s *UnitSuite) setMachineVote(c *gc.C, id string, hasVote bool) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	target, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -419,7 +418,7 @@ func (s *UnitSuite) TestRemoveUnitMachineThrashed(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	target, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -434,7 +433,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryVoter(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	target, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -450,7 +449,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryNoVoter(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	target, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -478,7 +477,7 @@ func (s *UnitSuite) TestRemoveUnitMachineRetryContainer(c *gc.C) {
 }
 
 func (s *UnitSuite) TestRemoveUnitMachineRetryOrCond(c *gc.C) {
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	target, err := s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -742,7 +741,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	defer state.SetRetryHooks(c, s.State, func() {
@@ -760,7 +759,7 @@ func (s *UnitSuite) TestDestroyAssignRetry(c *gc.C) {
 }
 
 func (s *UnitSuite) TestDestroyUnassignRetry(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
@@ -898,7 +897,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Add a new machine, assign the units to it
 	// and set its password.
-	m, err := st.AddMachine("quantal", state.JobHostUnits)
+	m, err := st.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	unit, err := st.Unit(s.unit.Name())
 	c.Assert(err, gc.IsNil)
@@ -919,7 +918,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// Connect as the machine entity.
 	info.Tag = m.Tag()
 	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialOpts(), environmentserver.Deployer(nil))
+	st1, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 
@@ -934,7 +933,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// that entity, change the password for a new unit.
 	info.Tag = unit.Tag()
 	info.Password = "bar"
-	st2, err := state.Open(info, state.TestingDialOpts(), environmentserver.Deployer(nil))
+	st2, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st2.Close()
 

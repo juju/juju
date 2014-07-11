@@ -39,7 +39,7 @@ func (s *compatSuite) TearDownSuite(c *gc.C) {
 func (s *compatSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.state = TestingInitialize(c, nil, Policy(nil))
+	s.state = TestingInitialize(c, nil)
 	env, err := s.state.Environment()
 	c.Assert(err, gc.IsNil)
 	s.env = env
@@ -90,7 +90,7 @@ func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 }
 
 func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	machine, err := s.state.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all machines have associated document in the
 	// requested networks collection. We remove it here to test

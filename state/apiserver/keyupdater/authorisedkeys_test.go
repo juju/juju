@@ -36,9 +36,9 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 
 	// Create machines to work with
 	var err error
-	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.rawMachine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.unrelatedMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.unrelatedMachine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// The default auth is as a state server

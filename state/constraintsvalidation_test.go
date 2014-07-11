@@ -29,7 +29,7 @@ func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *constraintsValidationSuite) addOneMachine(c *gc.C, cons constraints.Value) (*state.Machine, error) {
-	return s.State.AddOneMachine(state.MachineTemplate{
+	return s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,

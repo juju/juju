@@ -26,11 +26,11 @@ var _ = gc.Suite(&destroyEnvironmentSuite{})
 // setUpManual adds "manually provisioned" machines to state:
 // one manager machine, and one non-manager.
 func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
-	m0, err := s.State.AddMachine("precise", state.JobManageEnviron)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("precise", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m0.SetProvisioned(instance.Id("manual:0"), "manual:0:fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	m1, err = s.State.AddMachine("precise", state.JobHostUnits)
+	m1, err = s.State.EnvironmentDeployer.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = m1.SetProvisioned(instance.Id("manual:1"), "manual:1:fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -41,13 +41,13 @@ func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
 // one manager machine, one non-manager, and a container in the
 // non-manager.
 func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Machine) {
-	m0, err := s.State.AddMachine("precise", state.JobManageEnviron)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("precise", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, s.Environ, m0.Id())
 	err = m0.SetProvisioned(inst.Id(), "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 
-	m1, err = s.State.AddMachine("precise", state.JobHostUnits)
+	m1, err = s.State.EnvironmentDeployer.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	inst, _ = testing.AssertStartInstance(c, s.Environ, m1.Id())
 	err = m1.SetProvisioned(inst.Id(), "fake_nonce", nil)

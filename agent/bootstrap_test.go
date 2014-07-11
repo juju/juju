@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -94,7 +93,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, m, err := agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, m, err := agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -159,7 +158,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
 	info, ok := cfg.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
-	st1, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
+	st1, err := state.Open(info, mongo.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 }
@@ -179,7 +178,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 	_, available := cfg.StateServingInfo()
 	c.Assert(available, gc.Equals, false)
 
-	_, _, err = agent.InitializeState(cfg, nil, agent.BootstrapMachineConfig{}, mongo.DialOpts{}, environs.NewStatePolicy())
+	_, _, err = agent.InitializeState(cfg, nil, agent.BootstrapMachineConfig{}, mongo.DialOpts{})
 	// InitializeState will fail attempting to get the api port information
 	c.Assert(err, gc.ErrorMatches, "state serving information not available")
 }
@@ -221,13 +220,13 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	envCfg, err := config.New(config.NoDefaults, envAttrs)
 	c.Assert(err, gc.IsNil)
 
-	st, _, err := agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, _, err := agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	err = st.SetAdminMongoPassword("")
 	c.Check(err, gc.IsNil)
 	st.Close()
 
-	st, _, err = agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, _, err = agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{})
 	if err == nil {
 		st.Close()
 	}
@@ -243,7 +242,7 @@ func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 		Tag:      nil, // admin user
 		Password: password,
 	}
-	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	_, err = st.Machine("0")

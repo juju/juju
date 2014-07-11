@@ -40,7 +40,7 @@ var _ = gc.Suite(&machinerSuite{})
 
 func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
-	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.SetAddresses(network.NewAddress("10.0.0.1", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)

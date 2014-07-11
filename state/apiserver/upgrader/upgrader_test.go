@@ -43,10 +43,10 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	var err error
 	// The first machine created is the only one allowed to
 	// JobManageEnviron
-	s.apiMachine, err = s.State.AddMachine("quantal", state.JobHostUnits,
+	s.apiMachine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits,
 		state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	s.rawMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.rawMachine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// The default auth is as the machine agent

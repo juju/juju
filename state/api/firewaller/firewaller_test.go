@@ -46,7 +46,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	s.units = make([]*state.Unit, 3)
 
 	var err error
-	s.machines[0], err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
+	s.machines[0], err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
@@ -60,7 +60,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	// Note that the specific machine ids allocated are assumed
 	// to be numerically consecutive from zero.
 	for i := 1; i <= 2; i++ {
-		s.machines[i], err = s.State.AddMachine("quantal", state.JobHostUnits)
+		s.machines[i], err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 	}
 	// Create a service and three units for these machines.

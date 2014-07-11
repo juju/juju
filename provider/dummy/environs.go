@@ -272,7 +272,6 @@ func Reset() {
 	if mongoAlive() {
 		gitjujutesting.MgoServer.Reset()
 	}
-	network.PreferIPv6 = providerInstance.preferIPv6
 }
 
 func (state *environState) destroy() {
