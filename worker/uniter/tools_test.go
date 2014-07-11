@@ -9,13 +9,13 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/jujuc"
-	"github.com/juju/utils/symlink"
 )
 
 type ToolsSuite struct {

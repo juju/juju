@@ -5,8 +5,9 @@ package apiserver
 
 import (
 	"github.com/juju/errors"
-	"github.com/juju/juju/rpc/rpcreflect"
 	"github.com/juju/utils/set"
+
+	"github.com/juju/juju/rpc/rpcreflect"
 )
 
 var inUpgradeError = errors.New("upgrade in progress - Juju functionality is limited")

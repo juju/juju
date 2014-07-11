@@ -10,10 +10,11 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/juju/utils/symlink"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/utils/symlink"
 )
 
 var (

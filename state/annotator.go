@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	"github.com/juju/errors"
 )
 
 // annotatorDoc represents the internal state of annotations for an Entity in
