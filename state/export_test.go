@@ -18,12 +18,12 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	statetxn "github.com/juju/juju/state/txn"
-	txntesting "github.com/juju/juju/state/txn/testing"
 	"github.com/juju/juju/testing"
+	jujutxn "github.com/juju/txn"
+	txntesting "github.com/juju/txn/testing"
 )
 
-func SetTestHooks(c *gc.C, st *State, hooks ...statetxn.TestHook) txntesting.TransactionChecker {
+func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	return txntesting.SetTestHooks(c, st.transactionRunner, hooks...)
 }
 

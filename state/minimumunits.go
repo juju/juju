@@ -8,7 +8,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	statetxn "github.com/juju/juju/state/txn"
+	jujutxn "github.com/juju/txn"
 )
 
 // minUnitsDoc keeps track of relevant changes on the service's MinUnits field
@@ -56,7 +56,7 @@ func (s *Service) SetMinUnits(minUnits int) (err error) {
 			return nil, errors.New("service is no longer alive")
 		}
 		if minUnits == service.doc.MinUnits {
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 		return setMinUnitsOps(service, minUnits), nil
 	}

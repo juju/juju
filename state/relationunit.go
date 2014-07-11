@@ -15,7 +15,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	statetxn "github.com/juju/juju/state/txn"
+	jujutxn "github.com/juju/txn"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -281,7 +281,7 @@ func (ru *RelationUnit) LeaveScope() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := ru.relation.Refresh(); errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoOperations
+				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
@@ -290,7 +290,7 @@ func (ru *RelationUnit) LeaveScope() error {
 		if err != nil {
 			return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 		} else if count == 0 {
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 		ops := []txn.Op{{
 			C:      ru.st.relationScopes.Name,

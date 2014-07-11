@@ -32,9 +32,9 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
+	jujutxn "github.com/juju/txn"
 )
 
 var logger = loggo.GetLogger("juju.state")
@@ -46,7 +46,7 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	transactionRunner statetxn.Runner
+	transactionRunner jujutxn.Runner
 	info              *authentication.MongoInfo
 	policy            Policy
 	db                *mgo.Database
@@ -101,7 +101,7 @@ func (st *State) runTransaction(ops []txn.Op) error {
 }
 
 // run is a convenience method delegating to transactionRunner.
-func (st *State) run(transactions statetxn.TransactionSource) error {
+func (st *State) run(transactions jujutxn.TransactionSource) error {
 	return st.transactionRunner.Run(transactions)
 }
 
@@ -219,7 +219,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		}
 		if newVersion.String() == currentVersion {
 			// Nothing to do.
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 
 		if err := st.checkCanUpgrade(currentVersion, newVersion.String()); err != nil {
@@ -234,7 +234,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		}}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == statetxn.ErrExcessiveContention {
+	if err = st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotate(err, "cannot set agent version")
 	}
 	return err
@@ -662,7 +662,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			// The charm exists and it's either uploaded or still
 			// pending, but it's not a placeholder. In any case,
 			// there's nothing to do.
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		} else if err == mgo.ErrNotFound {
 			// Prepare the pending charm document for insertion.
 			uploadedCharm = charmDoc{
@@ -735,7 +735,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 			return nil, err
 		}
 		if err == nil {
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 
 		// Delete all previous placeholders so we don't fill up the database with unused data.
