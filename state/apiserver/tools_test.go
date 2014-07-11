@@ -120,7 +120,7 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Check the response.
-	stor := s.Conn.Environ.Storage()
+	stor := s.Environ.Storage()
 	toolsURL, err := stor.URL(tools.StorageName(vers))
 	c.Assert(err, gc.IsNil)
 	expectedTools[0].URL = toolsURL
@@ -145,7 +145,7 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
 	c.Assert(err, gc.IsNil)
 	// Check the response.
-	stor := s.Conn.Environ.Storage()
+	stor := s.Environ.Storage()
 	toolsURL, err := stor.URL(tools.StorageName(vers))
 	c.Assert(err, gc.IsNil)
 	expectedTools[0].URL = toolsURL
@@ -162,7 +162,7 @@ func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
 	c.Assert(err, gc.IsNil)
 	// Check the response.
-	stor := s.Conn.Environ.Storage()
+	stor := s.Environ.Storage()
 	toolsURL, err := stor.URL(tools.StorageName(vers))
 	c.Assert(err, gc.IsNil)
 	expectedTools[0].URL = toolsURL
@@ -187,7 +187,7 @@ func (s *toolsSuite) TestUploadFakeSeries(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Check the response.
-	stor := s.Conn.Environ.Storage()
+	stor := s.Environ.Storage()
 	toolsURL, err := stor.URL(tools.StorageName(vers))
 	c.Assert(err, gc.IsNil)
 	expectedTools[0].URL = toolsURL

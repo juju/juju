@@ -51,7 +51,7 @@ func stopWatcher(c *gc.C, w state.NotifyWatcher) {
 
 func (s *environSuite) TestInvalidConfig(c *gc.C) {
 	var oldType string
-	oldType = s.Conn.Environ.Config().AllAttrs()["type"].(string)
+	oldType = s.Environ.Config().AllAttrs()["type"].(string)
 
 	// Create an invalid config by taking the current config and
 	// tweaking the provider type.

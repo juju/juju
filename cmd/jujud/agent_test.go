@@ -257,7 +257,7 @@ func (s *agentSuite) TearDownSuite(c *gc.C) {
 // for an agent with the given entity name.  It returns the agent's
 // configuration and the current tools.
 func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
-	stor := s.Conn.Environ.Storage()
+	stor := s.Environ.Storage()
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
 	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
@@ -342,7 +342,7 @@ func writeStateAgentConfig(c *gc.C, stateInfo *authentication.MongoInfo, dataDir
 func (s *agentSuite) primeStateAgent(
 	c *gc.C, tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 
-	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
+	agentTools := envtesting.PrimeTools(c, s.Environ.Storage(), s.DataDir(), vers)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
