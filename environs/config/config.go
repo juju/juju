@@ -667,6 +667,13 @@ func (c *Config) Development() bool {
 	return c.defined["development"].(bool)
 }
 
+// PreferIPv6 returns whether IPv6 addresses for API endpoints and
+// machines will be preferred (when available) over IPv4.
+func (c *Config) PreferIPv6() bool {
+	v, _ := c.defined["prefer-ipv6"].(bool)
+	return v
+}
+
 // SSLHostnameVerification returns weather the environment has requested
 // SSL hostname verification to be enabled.
 func (c *Config) SSLHostnameVerification() bool {
@@ -801,6 +808,7 @@ var fields = schema.Fields{
 	"proxy-ssh":                 schema.Bool(),
 	"lxc-clone":                 schema.Bool(),
 	"lxc-clone-aufs":            schema.Bool(),
+	"prefer-ipv6":               schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url":     schema.String(),
@@ -865,6 +873,7 @@ var alwaysOptional = schema.Defaults{
 	"test-mode":      false,
 	"proxy-ssh":      false,
 	"lxc-clone-aufs": false,
+	"prefer-ipv6":    false,
 }
 
 func allowEmpty(attr string) bool {
@@ -888,6 +897,7 @@ func allDefaults() schema.Defaults {
 		"bootstrap-retry-delay":     DefaultBootstrapSSHRetryDelay,
 		"bootstrap-addresses-delay": DefaultBootstrapSSHAddressesDelay,
 		"proxy-ssh":                 true,
+		"prefer-ipv6":               false,
 	}
 	for attr, val := range alwaysOptional {
 		if _, ok := d[attr]; !ok {
@@ -928,6 +938,7 @@ var immutableAttributes = []string{
 	"lxc-clone",
 	"lxc-clone-aufs",
 	"syslog-port",
+	"prefer-ipv6",
 }
 
 var (

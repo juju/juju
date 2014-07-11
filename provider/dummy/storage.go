@@ -149,7 +149,7 @@ func (s *storageServer) URL(name string) (string, error) {
 		panic(err.Error())
 	}
 	hostPort := ""
-	if providerInstance.preferIPv6 {
+	if s.state.preferIPv6 {
 		hostPort = net.JoinHostPort("::1", port)
 	} else {
 		hostPort = net.JoinHostPort("127.0.0.1", port)

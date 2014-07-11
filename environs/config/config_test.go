@@ -338,6 +338,32 @@ var configTests = []configTest{
 		},
 		err: `development: expected bool, got string\("invalid"\)`,
 	}, {
+		about:       "Invalid prefer-ipv6 flag",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":            "my-type",
+			"name":            "my-name",
+			"authorized-keys": testing.FakeAuthKeys,
+			"prefer-ipv6":     "invalid",
+		},
+		err: `prefer-ipv6: expected bool, got string\("invalid"\)`,
+	}, {
+		about:       "prefer-ipv6 off",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":        "my-type",
+			"name":        "my-name",
+			"prefer-ipv6": false,
+		},
+	}, {
+		about:       "prefer-ipv6 on",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type":        "my-type",
+			"name":        "my-name",
+			"prefer-ipv6": true,
+		},
+	}, {
 		about:       "Invalid agent version",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -1075,6 +1101,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false
 	attrs["lxc-clone-aufs"] = false
+	attrs["prefer-ipv6"] = false
 
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
