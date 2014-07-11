@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
-	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -230,7 +230,7 @@ func newState(session *mgo.Session, info *authentication.MongoInfo, policy Polic
 	}
 	mgoRunner := txn.NewRunner(db.C("txns"))
 	mgoRunner.ChangeLog(db.C("txns.log"))
-	st.transactionRunner = statetxn.NewRunner(mgoRunner)
+	st.transactionRunner = jujutxn.NewRunner(mgoRunner)
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, item := range indexes {

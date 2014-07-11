@@ -33,11 +33,11 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/state/txn"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
+	"github.com/juju/txn"
 )
 
 var goodPassword = "foo-12345678901234567890"
