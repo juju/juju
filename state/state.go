@@ -20,6 +20,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -34,7 +35,6 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
-	jujutxn "github.com/juju/txn"
 )
 
 var logger = loggo.GetLogger("juju.state")

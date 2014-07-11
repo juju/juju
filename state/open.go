@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -20,7 +21,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
-	jujutxn "github.com/juju/txn"
 )
 
 // Open connects to the server described by the given

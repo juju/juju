@@ -5,10 +5,9 @@ package state
 
 import (
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	jujutxn "github.com/juju/txn"
 )
 
 // minUnitsDoc keeps track of relevant changes on the service's MinUnits field

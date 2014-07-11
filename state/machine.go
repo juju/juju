@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"labix.org/v2/mgo"
@@ -24,7 +25,6 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	jujutxn "github.com/juju/txn"
 )
 
 // Machine represents the state of a machine.

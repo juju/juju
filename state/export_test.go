@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
+	jujutxn "github.com/juju/txn"
+	txntesting "github.com/juju/txn/testing"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -19,8 +21,6 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/testing"
-	jujutxn "github.com/juju/txn"
-	txntesting "github.com/juju/txn/testing"
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {

@@ -13,13 +13,13 @@ import (
 	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state/api/params"
-	jujutxn "github.com/juju/txn"
 )
 
 // Service represents the state of a service.
