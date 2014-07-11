@@ -86,14 +86,15 @@ func SampleConfig() testing.Attrs {
 }
 
 // stateInfo returns a *state.Info which allows clients to connect to the
-// shared dummy state, if it exists.
-func stateInfo() *authentication.MongoInfo {
+// shared dummy state, if it exists. If preferIPv6 is true, an IPv6 endpoint
+// will be added as primary.
+func stateInfo(preferIPv6 bool) *authentication.MongoInfo {
 	if gitjujutesting.MgoServer.Addr() == "" {
 		panic("dummy environ state tests must be run with MgoTestPackage")
 	}
 	mongoPort := strconv.Itoa(gitjujutesting.MgoServer.Port())
 	var addrs []string
-	if providerInstance.preferIPv6 {
+	if preferIPv6 {
 		addrs = []string{
 			net.JoinHostPort("::1", mongoPort),
 			net.JoinHostPort("localhost", mongoPort),
@@ -178,7 +179,6 @@ type environProvider struct {
 	mu          sync.Mutex
 	ops         chan<- Operation
 	statePolicy state.Policy
-	preferIPv6  bool
 	// We have one state for each environment name
 	state      map[int]*environState
 	maxStateId int
@@ -207,6 +207,7 @@ type environState struct {
 	httpListener net.Listener
 	apiServer    *apiserver.Server
 	apiState     *state.State
+	preferIPv6   bool
 }
 
 // environ represents a client's connection to a given environment's
@@ -260,7 +261,6 @@ func Reset() {
 	if mongoAlive() {
 		gitjujutesting.MgoServer.Reset()
 	}
-	network.PreferIPv6 = providerInstance.preferIPv6
 	providerInstance.statePolicy = environs.NewStatePolicy()
 }
 
@@ -340,19 +340,6 @@ func SetStatePolicy(policy state.Policy) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.statePolicy = policy
-}
-
-// SetPreferIPv6Addresses sets the network.PreferIPv6 flag, which
-// changes what machine addresses are preferred when selecting a
-// public or internal addresses. When true, changes StartInstance to
-// create an IPv6 address in addition to IPv4 ones.
-func SetPreferIPv6Addresses(value bool) {
-	p := &providerInstance
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	p.preferIPv6 = value
-	network.PreferIPv6 = value
-	logger.Debugf("setting PreferIPv6 = %v", value)
 }
 
 // Listen closes the previously registered listener (if any).
@@ -614,6 +601,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
 	}
+	network.InitializeFromConfig(e.Config())
 	password := e.Config().AdminSecret()
 	if password == "" {
 		return fmt.Errorf("admin-secret is required for bootstrap")
@@ -637,6 +625,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if estate.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
+	estate.preferIPv6 = e.Config().PreferIPv6()
 	instIds := []instance.Id{"localhost"}
 	// Write the bootstrap file just like a normal provider. However
 	// we need to release the mutex for the save state to work, so regain
@@ -653,7 +642,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
 		// so that we can call it here.
 
-		info := stateInfo()
+		info := stateInfo(estate.preferIPv6)
 		st, err := state.Initialize(info, cfg, mongo.DefaultDialOpts(), estate.statePolicy)
 		if err != nil {
 			panic(err)
@@ -701,7 +690,7 @@ func (e *environ) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
 	if !estate.bootstrapped {
 		return nil, nil, environs.ErrNotBootstrapped
 	}
-	return stateInfo(), &api.Info{
+	return stateInfo(estate.preferIPv6), &api.Info{
 		Addrs:  []string{estate.apiServer.Addr()},
 		CACert: testing.CACert,
 	}, nil
@@ -790,7 +779,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 
 	idString := fmt.Sprintf("%s-%d", e.name, estate.maxId)
 	addrs := network.NewAddresses(idString+".dns", "127.0.0.1")
-	if providerInstance.preferIPv6 {
+	if estate.preferIPv6 {
 		addrs = append(addrs, network.NewAddress(fmt.Sprintf("fc00::%x", estate.maxId+1), network.ScopeUnknown))
 	}
 	logger.Debugf("StartInstance addresses: %v", addrs)
