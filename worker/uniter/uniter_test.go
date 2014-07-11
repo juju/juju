@@ -204,6 +204,18 @@ juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
 exit 1
 `[1:]
 
+var actions = map[string]string{
+	"action-log": `
+#!/bin/bash --norc
+juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
+`[1:],
+	"action-log-fail": `
+#!/bin/bash --norc
+juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
+exit 1
+`[1:],
+}
+
 func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	hook := badHook
 	if good {
@@ -211,6 +223,14 @@ func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	}
 	content := fmt.Sprintf(hook, filepath.Base(path))
 	err := ioutil.WriteFile(path, []byte(content), 0755)
+	c.Assert(err, gc.IsNil)
+}
+
+func (ctx *context) writeAction(c *gc.C, path, name string) {
+	actionPath := filepath.Join(path, "actions", name)
+	hook := actions[name]
+	content := fmt.Sprintf(hook, filepath.Base(actionPath))
+	err := ioutil.WriteFile(actionPath, []byte(content), 0755)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1230,16 +1250,11 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 var actionEventTests = []uniterTest{
 	// Relations.
 	ut(
-		// This test does an add-relation as quickly as possible
-		// after an upgrade-charm, in the hope that the scheduler will
-		// deliver the events in the wrong order. The observed
-		// behaviour should be the same in either case.
 		"simple action event",
 		createCharm{
 			revision: 0,
 			customize: func(c *gc.C, ctx *context, path string) {
-				hpath := filepath.Join(path, "actions", "foo")
-				ctx.writeHook(c, hpath, true)
+				ctx.writeAction(c, path, "action-log")
 			},
 		},
 		serveCharm{},
@@ -1250,8 +1265,35 @@ var actionEventTests = []uniterTest{
 		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
-		addAction{"foo", nil},
-		waitHooks{"foo"},
+		addAction{"action-log", nil},
+		waitHooks{"action-log"},
+	), ut(
+		"pending actions get consumed",
+		createCharm{
+			revision: 0,
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeAction(c, path, "action-log")
+				ctx.writeAction(c, path, "action-log-fail")
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		addAction{"action-log", nil},
+		addAction{"action-log-fail", nil},
+		addAction{"action-log", nil},
+		addAction{"action-log-fail", nil},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		waitHooks{
+			"action-log",
+			"fail-action-log-fail",
+			"action-log",
+			"fail-action-log-fail",
+		},
 	),
 }
 
