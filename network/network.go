@@ -6,7 +6,7 @@ package network
 import (
 	"fmt"
 
-	"launchpad.net/loggo"
+	"github.com/juju/loggo"
 )
 
 var logger = loggo.GetLogger("juju.network")
