@@ -46,8 +46,6 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 }
 
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
-	_, err := s.State.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
 	charm := state.AddTestingCharm(c, s.State, "mysql")
 	service, err := s.State.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
