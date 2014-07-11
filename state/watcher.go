@@ -1679,7 +1679,7 @@ type machineInterfacesWatcher struct {
 
 var _ NotifyWatcher = (*machineInterfacesWatcher)(nil)
 
-// WatchInterfaces returns a new StringsWatcher watching m's network interfaces.
+// WatchInterfaces returns a new NotifyWatcher watching m's network interfaces.
 func (m *Machine) WatchInterfaces() NotifyWatcher {
 	return newMachineInterfacesWatcher(m)
 }
