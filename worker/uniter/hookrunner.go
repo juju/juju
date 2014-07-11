@@ -40,10 +40,16 @@ type HookRunner struct {
 
 	// configSettings are the current charm.Settings for the runner.
 	configSettings charm.Settings
+
+	// charmDir is the path of the charm.
+	charmDir string
+
+	// toolsDir is the path of the charm's tools.
+	toolsDir string
 }
 
 func NewHookRunner(unit *uniter.Unit, uuid, envName string, relations map[int]*ContextRelation,
-	apiAddrs []string, serviceOwner string, proxySettings proxy.Settings) (*HookRunner, error) {
+	apiAddrs []string, serviceOwner string, proxySettings proxy.Settings, charmDir, toolsDir string) (*HookRunner, error) {
 	runner := &HookRunner{
 		unit:          unit,
 		uuid:          uuid,
@@ -52,6 +58,8 @@ func NewHookRunner(unit *uniter.Unit, uuid, envName string, relations map[int]*C
 		apiAddrs:      apiAddrs,
 		serviceOwner:  serviceOwner,
 		proxySettings: proxySettings,
+		charmDir:      charmDir,
+		toolsDir:      toolsDir,
 	}
 
 	// Get and cache the addresses.

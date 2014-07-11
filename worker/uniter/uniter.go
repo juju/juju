@@ -344,6 +344,8 @@ func (u *Uniter) getHookContext(hr *HookRunner, hi *hook.Info) (hctx *HookContex
 	hookName := string(hi.Kind)
 	actionParams := map[string]interface{}{}
 
+	// Get a proper name if we have a Relation or Action.  If we have an
+	// Action, make sure its params are valid.
 	if hi.Kind.IsRelation() {
 		hookName, err = u.relationers[hi.RelationId].PrepareHook(*hi)
 		if err != nil {
@@ -357,17 +359,12 @@ func (u *Uniter) getHookContext(hr *HookRunner, hi *hook.Info) (hctx *HookContex
 		actionParams = action.Params()
 		hookName = action.Name()
 
-		// TODO: Validate
+		// TODO(binary132): Validate
 	}
 
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
-	// in this case, getHookContext was called by RunCommands.
-	if hi.Kind == "" {
-		hctxId = fmt.Sprintf("%s:%s:%d", u.unit.Name(), "run-commands", u.rand.Int63())
-	}
-
-	return NewHookContext(hr, hctxId, hi, hookName, actionParams), nil
+	return NewHookContext(hr, hctxId, hi, hookName, actionParams)
 }
 
 func (u *Uniter) getHookRunner() (runner *HookRunner, err error) {
@@ -390,7 +387,7 @@ func (u *Uniter) getHookRunner() (runner *HookRunner, err error) {
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
 	return NewHookRunner(u.unit, u.uuid, u.envName, ctxRelations,
-		apiAddrs, ownerTag, proxySettings)
+		apiAddrs, ownerTag, proxySettings, u.charmPath, u.toolsDir)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -445,14 +442,20 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	if err != nil {
 		return nil, err
 	}
-	hctx, err := u.getHookContext(runner, &hook.Info{RelationId: -1})
+	hctx, err := u.getHookContext(runner, &hook.Info{
+		Kind:       hooks.RunCommands,
+		RelationId: -1,
+	})
+	if err != nil {
+		return nil, err
+	}
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
 		return nil, err
 	}
 	defer srv.Close()
 
-	result, err := hctx.RunCommands(commands, u.charmPath, u.toolsDir, socketPath)
+	result, err := hctx.RunCommands(commands, socketPath)
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
 	}
@@ -518,7 +521,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	logger.Infof("running %q hook", hookContext.hookName)
 
 	ranHook := true
-	err = hookContext.RunHook(hookContext.hookName, u.charmPath, u.toolsDir, socketPath)
+	err = hookContext.RunHook(socketPath)
 
 	if IsMissingHookError(err) {
 		ranHook = false
@@ -550,8 +553,9 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 		if hi.Kind == hooks.RelationBroken {
 			delete(u.relationers, hi.RelationId)
 		}
-	}
-	if hi.Kind == hooks.ConfigChanged {
+	} else if hi.Kind == hooks.ActionRequested {
+		// TODO(binary132): complete Action
+	} else if hi.Kind == hooks.ConfigChanged {
 		u.ranConfigChanged = true
 	}
 	if err := u.writeState(Continue, Pending, &hi, nil); err != nil {

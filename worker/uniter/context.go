@@ -33,6 +33,7 @@ type HookContext struct {
 	id            string
 	info          *hook.Info
 	hookName      string
+	hookPath      string
 	actionResults map[string]interface{}
 	actionParams  map[string]interface{}
 }
@@ -50,7 +51,13 @@ func IsMissingHookError(err error) bool {
 	return ok
 }
 
-func NewHookContext(hr *HookRunner, id string, hi *hook.Info, hookName string, actionParams map[string]interface{}) *HookContext {
+// NewHookContext builds a HookContext for the named hook.  If the Hook is of
+// the RunCommands type (a generic context which requires no hook in the charm),
+// simply put it together without a hook path.  Otherwise, check the path to
+// make sure the hook is implemented before trying to run it.
+func NewHookContext(hr *HookRunner, id string, hi *hook.Info, hookName string,
+	actionParams map[string]interface{}) (*HookContext, error) {
+
 	newContext := &HookContext{
 		runner:       hr,
 		id:           id,
@@ -58,8 +65,31 @@ func NewHookContext(hr *HookRunner, id string, hi *hook.Info, hookName string, a
 		hookName:     hookName,
 		actionParams: actionParams,
 	}
+	// for generic commands, no further work is needed for a complete context.
+	if hi.Kind == hooks.RunCommands {
+		return newContext, nil
+	}
 
-	return newContext
+	// otherwise, take a look to make sure the hook is there, and set the
+	// hookPath for the context.
+	hookLocation := "hooks"
+	if hi.Kind == hooks.ActionRequested {
+		hookLocation = "actions"
+	}
+	hookPath, err := exec.LookPath(filepath.Join(hr.charmDir, hookLocation, hookName))
+	if err != nil {
+		if ee, ok := err.(*exec.Error); ok && os.IsNotExist(ee.Err) {
+			// Missing hook is perfectly valid, but worth mentioning.
+			logger.Infof("hook %q not implemented", hookName)
+			return nil, &missingHookError{hookName}
+		}
+		return nil, err
+	}
+
+	// If everything checked out, we have our hook path.
+	newContext.hookPath = hookPath
+
+	return newContext, nil
 }
 
 func (ctx *HookContext) UnitName() string {
@@ -121,12 +151,12 @@ func (ctx *HookContext) RelationIds() []int {
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into ctx.
-func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string {
+func (ctx *HookContext) hookVars(socketPath string) []string {
 	vars := []string{
 		"APT_LISTCHANGES_FRONTEND=none",
 		"DEBIAN_FRONTEND=noninteractive",
-		"PATH=" + toolsDir + ":" + os.Getenv("PATH"),
-		"CHARM_DIR=" + charmDir,
+		"PATH=" + ctx.runner.toolsDir + ":" + os.Getenv("PATH"),
+		"CHARM_DIR=" + ctx.runner.charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.runner.unit.Name(),
@@ -166,53 +196,38 @@ func (ctx *HookContext) finalizeContext(process string, err error) error {
 
 // RunCommands executes the commands in an environment which allows it to to
 // call back into the hook context to execute jujuc tools.
-func (ctx *HookContext) RunCommands(commands, charmDir, toolsDir, socketPath string) (*utilexec.ExecResponse, error) {
-	env := ctx.hookVars(charmDir, toolsDir, socketPath)
+func (ctx *HookContext) RunCommands(commands, socketPath string) (*utilexec.ExecResponse, error) {
+	env := ctx.hookVars(socketPath)
 	result, err := utilexec.RunCommands(
 		utilexec.RunParams{
 			Commands:    commands,
-			WorkingDir:  charmDir,
+			WorkingDir:  ctx.runner.charmDir,
 			Environment: env})
 	return result, ctx.finalizeContext("run commands", err)
 }
 
-func (ctx *HookContext) GetLogger(hookName string) loggo.Logger {
-	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", ctx.UnitName(), hookName))
+func (ctx *HookContext) GetLogger() loggo.Logger {
+	return loggo.GetLogger(fmt.Sprintf("unit.%s.%s", ctx.UnitName(), ctx.hookName))
 }
 
 // RunHook executes a built-in hook in an environment which allows it to to
 // call back into the hook context to execute jujuc tools.
-func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
+func (ctx *HookContext) RunHook(socketPath string) error {
 	var err error
-	env := ctx.hookVars(charmDir, toolsDir, socketPath)
 	debugctx := unitdebug.NewHooksContext(ctx.runner.unit.Name())
-	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
-		logger.Infof("executing %s via debug-hooks", hookName)
-		err = session.RunHook(hookName, charmDir, env)
+	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(ctx.hookName) {
+		logger.Infof("executing %s via debug-hooks", ctx.hookName)
+		err = session.RunHook(ctx.hookName, ctx.runner.charmDir, ctx.hookVars(socketPath))
 	} else {
-		err = ctx.runCharmHook(hookName, charmDir, env)
+		err = ctx.runCharmHook(socketPath)
 	}
-	return ctx.finalizeContext(hookName, err)
+	return ctx.finalizeContext(ctx.hookName, err)
 }
 
-func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string) error {
-	charmLocation := "hooks"
-	if ctx.info.Kind == hooks.ActionRequested {
-		charmLocation = "actions"
-	}
-
-	hook, err := exec.LookPath(filepath.Join(charmDir, charmLocation, hookName))
-	if err != nil {
-		if ee, ok := err.(*exec.Error); ok && os.IsNotExist(ee.Err) {
-			// Missing hook is perfectly valid, but worth mentioning.
-			logger.Infof("skipped %q hook (not implemented)", hookName)
-			return &missingHookError{hookName}
-		}
-		return err
-	}
-	ps := exec.Command(hook)
-	ps.Env = env
-	ps.Dir = charmDir
+func (ctx *HookContext) runCharmHook(socketPath string) error {
+	ps := exec.Command(ctx.hookPath)
+	ps.Env = ctx.hookVars(socketPath)
+	ps.Dir = ctx.runner.charmDir
 	outReader, outWriter, err := os.Pipe()
 	if err != nil {
 		return fmt.Errorf("cannot make logging pipe: %v", err)
@@ -222,7 +237,7 @@ func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string) er
 	hookLogger := &hookLogger{
 		r:      outReader,
 		done:   make(chan struct{}),
-		logger: ctx.GetLogger(hookName),
+		logger: ctx.GetLogger(),
 	}
 	go hookLogger.run()
 	err = ps.Start()
