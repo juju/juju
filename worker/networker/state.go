@@ -24,7 +24,7 @@ type configState struct {
 
 // apply writes updates to network config files and executes commands to bring up and down interfaces.
 func (s *configState) apply() error {
-	if err := s.configFiles.WriteOrRemove(); err != nil {
+	if err := s.configFiles.writeOrRemove(); err != nil {
 		return err
 	}
 	if err := ExecuteCommands(s.commands); err != nil {
@@ -49,7 +49,7 @@ func (s *configState) bringUpInterfaces() {
 	// Iterate by state networks infos.
 	for _, info := range s.networkInfo {
 		ifaceName := info.ActualInterfaceName()
-		if ifaceName != InternalInterface && ifaceName != InternalBridge {
+		if ifaceName != privateInterface && ifaceName != privateBridge {
 			if info.Disabled {
 				s.configFiles.removeManaged(ifaceName)
 			} else {
@@ -82,7 +82,7 @@ func (s *configState) bringDownInterfaces() {
 
 	// Iterate by existing config files.
 	for ifaceName, _ := range s.configFiles {
-		if ifaceName != InternalInterface && ifaceName != InternalBridge {
+		if ifaceName != privateInterface && ifaceName != privateBridge {
 			// Interface goes down if it was disabled or its config was changed
 			info := s.lookupNetworkInfo(ifaceName)
 			if (info == nil || info.Disabled) && InterfaceIsUp(ifaceName) {

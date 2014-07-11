@@ -17,52 +17,52 @@ import (
 var logger = loggo.GetLogger("juju.networker")
 
 // Interface and bridge interface for juju internal network
-var InternalInterface string
-var InternalBridge string
+var privateInterface string
+var privateBridge string
 
-// Networker configures network interfaces on the machine, as needed.
-type Networker struct {
+// networker configures network interfaces on the machine, as needed.
+type networker struct {
 	st  *apinetworker.State
 	tag string
 }
 
 // NewNetworker returns a Worker that handles machine networking configuration.
 func NewNetworker(st *apinetworker.State, agentConfig agent.Config) worker.Worker {
-	nw := &Networker{
+	nw := &networker{
 		st:  st,
 		tag: agentConfig.Tag(),
 	}
 	return worker.NewNotifyWorker(nw)
 }
 
-func (nw *Networker) SetUp() (watcher.NotifyWatcher, error) {
+func (nw *networker) SetUp() (watcher.NotifyWatcher, error) {
 	var err error
 	s := &configState{}
 
 	// Read network configuration files and revert modifications made by MAAS.
-	if err = s.configFiles.ReadAll(); err != nil {
+	if err = s.configFiles.readAll(); err != nil {
 		return nil, err
 	}
-	if err = s.configFiles.FixMAAS(); err != nil {
+	if err = s.configFiles.fixMAAS(); err != nil {
 		return nil, err
 	}
 
 	// Need to configure network interface for juju internal network.
-	InternalInterface = "eth0"
+	privateInterface = "eth0"
 	if s.configFiles["br0"] != nil {
-		InternalBridge = "br0"
+		privateBridge = "br0"
 	} else {
-		InternalBridge = InternalInterface
+		privateBridge = privateInterface
 	}
 
 	// Verify that internal interface is properly configured and brought up.
-	if !InterfaceIsUp(InternalInterface) {
-		logger.Errorf("interface %q has to be up", InternalInterface)
-		return nil, fmt.Errorf("interface %q has to be up", InternalInterface)
+	if !InterfaceIsUp(privateInterface) {
+		logger.Errorf("interface %q has to be up", privateInterface)
+		return nil, fmt.Errorf("interface %q has to be up", privateInterface)
 	}
-	if !InterfaceIsUp(InternalBridge) || !InterfaceHasAddress(InternalBridge) {
-		logger.Errorf("interface %q has to be up", InternalBridge)
-		return nil, fmt.Errorf("interface %q has to be up", InternalBridge)
+	if !InterfaceIsUp(privateBridge) || !InterfaceHasAddress(privateBridge) {
+		logger.Errorf("interface %q has to be up", privateBridge)
+		return nil, fmt.Errorf("interface %q has to be up", privateBridge)
 	}
 
 	// Add commands to install VLAN module.
@@ -75,7 +75,7 @@ func (nw *Networker) SetUp() (watcher.NotifyWatcher, error) {
 	return nw.st.WatchInterfaces(nw.tag)
 }
 
-func (nw *Networker) Handle() error {
+func (nw *networker) Handle() error {
 	var err error
 	s := &configState{}
 
@@ -105,7 +105,7 @@ func (nw *Networker) Handle() error {
 	return nil
 }
 
-func (nw *Networker) TearDown() error {
+func (nw *networker) TearDown() error {
 	// Nothing to do here.
 	return nil
 }

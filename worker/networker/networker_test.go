@@ -125,10 +125,7 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.networkerState, gc.NotNil)
 
 	// Create temporary directory to store interfaces file.
-	s.PatchValue(&networker.ConfigDirName, c.MkDir())
-	s.PatchValue(&networker.ConfigFileName, networker.ConfigDirName+"/interfaces")
-	s.PatchValue(&networker.ConfigSubDirName, networker.ConfigDirName+"/interfaces.d")
-
+	networker.ChangeConfigDirName(c.MkDir())
 }
 
 type mockConfig struct {
@@ -185,7 +182,7 @@ type configState struct {
 
 func executeCommandsHook(c *gc.C, s *networkerSuite, commands []string) error {
 	cs := &configState{}
-	err := cs.files.ReadAll()
+	err := networker.ReadAll(&cs.files)
 	c.Assert(err, gc.IsNil)
 	cs.commands = append(cs.commands, commands...)
 	// modify state of interfaces
@@ -255,15 +252,15 @@ loop:
 				networker.ConfigSubDirName, networker.ConfigSubDirName, networker.ConfigSubDirName),
 		},
 		"br0": {
-			FileName: networker.FileName("br0"),
+			FileName: networker.IfaceConfigFileName("br0"),
 			Data: "auto br0\niface br0 inet dhcp\n  bridge_ports eth0\n",
 		},
 		"eth0": {
-			FileName: networker.FileName("eth0"),
+			FileName: networker.IfaceConfigFileName("eth0"),
 			Data: "auto eth0\niface eth0 inet manual\n",
 		},
 		"wlan0": {
-			FileName: networker.FileName("wlan0"),
+			FileName: networker.IfaceConfigFileName("wlan0"),
 			Data: "auto wlan0\niface wlan0 inet dhcp\n",
 		},
 	}
@@ -287,19 +284,19 @@ loop:
 
 	// Verify the executed commands from Handle()
 	expectedConfigFiles["eth0.69"] = &networker.ConfigFile{
-		FileName: networker.FileName("eth0.69"),
+		FileName: networker.IfaceConfigFileName("eth0.69"),
 		Data: "# Managed by Networker, don't change\nauto eth0.69\niface eth0.69 inet dhcp\n\n",
 	}
 	expectedConfigFiles["eth1"] = &networker.ConfigFile{
-		FileName: networker.FileName("eth1"),
+		FileName: networker.IfaceConfigFileName("eth1"),
 		Data: "# Managed by Networker, don't change\nauto eth1\niface eth1 inet dhcp\n\n",
 	}
 	expectedConfigFiles["eth1.42"] = &networker.ConfigFile{
-		FileName: networker.FileName("eth1.42"),
+		FileName: networker.IfaceConfigFileName("eth1.42"),
 		Data: "# Managed by Networker, don't change\nauto eth1.42\niface eth1.42 inet dhcp\n\n",
 	}
 	expectedConfigFiles["eth2"] = &networker.ConfigFile{
-		FileName: networker.FileName("eth2"),
+		FileName: networker.IfaceConfigFileName("eth2"),
 		Data: "# Managed by Networker, don't change\nauto eth2\niface eth2 inet dhcp\n\n",
 	}
 	for k, _ := range s.configStates[2].files {

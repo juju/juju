@@ -4,6 +4,7 @@
 package networker
 
 import (
+	"path/filepath"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -13,16 +14,16 @@ import (
 
 // Patches for testing.
 var (
-	ConfigDirName    = "/etc/network"
-	ConfigFileName   = ConfigDirName + "/interfaces"
-	ConfigSubDirName = ConfigDirName + "/interfaces.d"
+	configDirName    = "/etc/network"
+	configFileName   = filepath.Join(configDirName, "interfaces")
+	configSubDirName = filepath.Join(configDirName, "interfaces.d")
 )
 
 // Indication what to do with file.
 const (
-	DoNone = iota
-	DoWrite
-	DoRemove
+	doNone = iota
+	doWrite
+	doRemove
 )
 
 // file struct contains information about config file, its contents and what to do to apply changes.
@@ -39,31 +40,33 @@ type ConfigFile struct {
 type ConfigFiles map[string]*ConfigFile
 
 func (cf ConfigFiles) readOneFile(key, fileName string) error {
-	cf[key] = &ConfigFile{FileName: fileName}
 	data, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		logger.Errorf("failed to read file %q: %v", fileName, err)
 		return err
 	}
-	cf[key].Data = string(data)
+	cf[key] = &ConfigFile{
+		FileName: fileName,
+		Data: string(data),
+	}
 	return nil
 }
 
-func (cf *ConfigFiles) ReadAll() error {
+func (cf *ConfigFiles) readAll() error {
 	var err error
 	*cf = ConfigFiles{}
-	err = cf.readOneFile("", ConfigFileName)
+	err = cf.readOneFile("", configFileName)
 	if err != nil {
 		return err
 	}
 
 	// Read /etc/network/interfaces.d/*.cfg files.
-	files, err := ioutil.ReadDir(ConfigSubDirName)
+	files, err := ioutil.ReadDir(configSubDirName)
 	if err != nil {
 		if e, ok := err.(*os.PathError); ok && e.Err == syscall.ENOENT {
 			// ignore error when directory is absent
 		} else {
-			logger.Errorf("failed to read directory %q: %#v\n", ConfigSubDirName, err)
+			logger.Errorf("failed to read directory %q: %#v\n", configSubDirName, err)
 			return err
 		}
 	}
@@ -71,7 +74,7 @@ func (cf *ConfigFiles) ReadAll() error {
 		name := info.Name()
 		if info.Mode().IsRegular() && len(name) > 4 && name[len(name)-4:] == ".cfg" {
 			ifaceName := name[:len(name)-4]
-			err = cf.readOneFile(ifaceName, fmt.Sprintf("%s/%s", ConfigSubDirName, name))
+			err = cf.readOneFile(ifaceName, fmt.Sprintf("%s/%s", configSubDirName, name))
 			if err != nil {
 				return err
 			}
@@ -80,26 +83,26 @@ func (cf *ConfigFiles) ReadAll() error {
 	return nil
 }
 
-func (cf ConfigFiles) WriteOrRemove() error {
+func (cf ConfigFiles) writeOrRemove() error {
 	// Create /etc/network/interfaces.d directory is absent
-	err := os.Mkdir(ConfigSubDirName, 0755)
+	err := os.Mkdir(configSubDirName, 0755)
 	if err != nil {
 		if e, ok := err.(*os.PathError); ok && e.Err == syscall.EEXIST {
 			// ignore error when directory already exists
 		} else {
-			logger.Errorf("failed to create directory %q: %#v\n", ConfigSubDirName, err)
+			logger.Errorf("failed to create directory %q: %#v\n", configSubDirName, err)
 			return err
 		}
 	}
 	for _, f := range cf {
 		fileName := f.FileName
-		if f.Op == DoRemove {
+		if f.Op == doRemove {
 			err = os.Remove(fileName)
 			if err != nil {
 				logger.Errorf("failed to remove file %q: %v", fileName, err)
 				return err
 			}
-		} else if f.Op == DoWrite {
+		} else if f.Op == doWrite {
 			err := ioutil.WriteFile(fileName, []byte(f.Data), 0644)
 			if err != nil {
 				logger.Errorf("failed to white file %q: %v", fileName, err)
@@ -117,36 +120,36 @@ func managedText(ifaceName, configText string) string {
 	return fmt.Sprintf(managedFormat, managedPrefix, ifaceName, ifaceName, configText)
 }
 
-func FileName(ifaceName string) string {
-	return fmt.Sprintf("%s/%s.cfg", ConfigSubDirName, ifaceName)
+func ifaceConfigFileName(ifaceName string) string {
+	return filepath.Join(configSubDirName, ifaceName + ".cfg")
 }
 
 func (cf ConfigFiles) addManaged(ifaceName, configText string) {
 	cf[ifaceName] = &ConfigFile{
-		FileName: FileName(ifaceName),
+		FileName: ifaceConfigFileName(ifaceName),
 		Data:     managedText(ifaceName, configText),
-		Op:       DoWrite,
+		Op:       doWrite,
 	}
 }
 
 func (cf ConfigFiles) removeManaged(ifaceName string) {
 	if cf[ifaceName] != nil {
 		cf[ifaceName].Data = ""
-		cf[ifaceName].Op = DoRemove
+		cf[ifaceName].Op = doRemove
 	}
 }
 
 func (cf ConfigFiles) isManaged(ifaceName string) bool {
-	return ifaceName != InternalInterface &&
-		ifaceName != InternalBridge &&
+	return ifaceName != privateInterface &&
+		ifaceName != privateBridge &&
 		cf[ifaceName] != nil &&
 		len(cf[ifaceName].Data) > len(managedPrefix) &&
 		cf[ifaceName].Data[:len(managedPrefix)] == managedPrefix
 }
 
 func (cf ConfigFiles) isChanged(ifaceName, configText string) bool {
-	return ifaceName != InternalInterface &&
-		ifaceName != InternalBridge &&
+	return ifaceName != privateInterface &&
+		ifaceName != privateBridge &&
 		(cf[ifaceName] == nil || cf[ifaceName].Data != managedText(ifaceName, configText))
 }
 
@@ -155,8 +158,8 @@ func (cf ConfigFiles) filterManaged() {
 	for key, file := range cf {
 		if key == "" ||
 			key[0] == '#' ||
-			key == InternalInterface ||
-			key == InternalBridge ||
+			key == privateInterface ||
+			key == privateBridge ||
 			len(file.Data) <= len(managedPrefix) ||
 			file.Data[:len(managedPrefix)] != managedPrefix {
 			delete(cf, key)
@@ -165,14 +168,14 @@ func (cf ConfigFiles) filterManaged() {
 }
 
 func (cf *ConfigFiles) readManaged() error {
-	if err := cf.ReadAll(); err != nil {
+	if err := cf.readAll(); err != nil {
 		return err
 	}
 	cf.filterManaged()
 	return nil
 }
 
-func SplitByInterfaces(data string) (map[string]string, error) {
+func splitByInterfaces(data string) (map[string]string, error) {
 	re, err := regexp.Compile(`(^|\n)(#[^\n]*\n)*(auto|allow\-\w+|iface|mapping|source|source\-directory)\s+([^\s]+)`)
 	if err != nil {
 		return nil, fmt.Errorf("should not be: %s", err)
@@ -215,9 +218,9 @@ const SourceCommentAndCommand = `# Source interfaces
 source %s/*.cfg
 `
 
-func (cf ConfigFiles) FixMAAS() error {
+func (cf ConfigFiles) fixMAAS() error {
 	re, err := regexp.Compile(fmt.Sprintf("(^|\n)source\\s+(%s/[0-9A-Za-z_.:]+\\.config)\\s*\n",
-		regexp.QuoteMeta(ConfigDirName)))
+		regexp.QuoteMeta(configDirName)))
 	if err != nil {
 		return fmt.Errorf("should not be: %s", err)
 	}
@@ -230,31 +233,31 @@ func (cf ConfigFiles) FixMAAS() error {
 			return err
 		}
 		data = data[:sl[3]] + cf[key].Data + data[sl[1]:]
-		cf[""].Op = DoWrite
+		cf[""].Op = doWrite
 		cf[key].Data = ""
-		cf[key].Op = DoRemove
+		cf[key].Op = doRemove
 	}
 
 	// Verify the presence of source line to load files from /etc/network/interfaces.d
-	re, err = regexp.Compile(fmt.Sprintf("(^|\n)source\\s+%s\\s*\n", regexp.QuoteMeta(ConfigSubDirName+"/*.cfg")))
+	re, err = regexp.Compile(fmt.Sprintf("(^|\n)source\\s+%s\\s*\n", regexp.QuoteMeta(configSubDirName+"/*.cfg")))
 	if err != nil {
 		return fmt.Errorf("should not be: %s", err)
 	}
 	if !re.MatchString(data) {
 		// Should add source line and delete from files from /etc/network/interfaces.d,
 		// because they were not intended to load
-		data += fmt.Sprintf(SourceCommentAndCommand, ConfigSubDirName, ConfigSubDirName,
-			ConfigSubDirName, ConfigSubDirName)
+		data += fmt.Sprintf(SourceCommentAndCommand, configSubDirName, configSubDirName,
+			configSubDirName, configSubDirName)
 		for ifaceName, f := range cf {
 			if ifaceName != "" && ifaceName[0] != '#' {
 				f.Data = ""
-				f.Op = DoRemove
+				f.Op = doRemove
 			}
 		}
 	}
 
 	// Split /etc/network/interfaces into files in /etc/network/interfaces.d
-	parts, err := SplitByInterfaces(data)
+	parts, err := splitByInterfaces(data)
 	if err != nil {
 		return err
 	}
@@ -262,14 +265,14 @@ func (cf ConfigFiles) FixMAAS() error {
 		for ifaceName, part := range parts {
 			var fileName string
 			if ifaceName != "" {
-				fileName = fmt.Sprintf("%s/%s.cfg", ConfigSubDirName, ifaceName)
+				fileName = fmt.Sprintf("%s/%s.cfg", configSubDirName, ifaceName)
 			} else {
-				fileName = ConfigFileName
+				fileName = configFileName
 			}
 			cf[ifaceName] = &ConfigFile{
 				FileName: fileName,
 				Data:     part,
-				Op:       DoWrite,
+				Op:       doWrite,
 			}
 		}
 	}

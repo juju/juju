@@ -10,8 +10,15 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/networker"
 )
+
+type configSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&configSuite{})
 
 const interfacesTemplate = `# Blah-blah
 
@@ -57,7 +64,14 @@ iface lo inet loopback
 
 `
 
-func (s *networkerSuite) TestConfigFileOperations(c *gc.C) {
+func (s *configSuite) SetUpTest(c *gc.C) {
+	s.BaseSuite.SetUpTest(c)
+
+	// Create temporary directory to store interfaces file.
+	networker.ChangeConfigDirName(c.MkDir())
+}
+
+func (s *configSuite) TestConfigFileOperations(c *gc.C) {
 	// Create sample config files
 	interfacesContents := fmt.Sprintf(interfacesTemplate, networker.ConfigDirName, networker.ConfigDirName)
 	err := ioutil.WriteFile(networker.ConfigFileName, []byte(interfacesContents), 0644)
@@ -73,8 +87,8 @@ func (s *networkerSuite) TestConfigFileOperations(c *gc.C) {
 	err = ioutil.WriteFile(networker.ConfigSubDirName+"/eth4.cfg", []byte(interfacesDSlashEth4DotCfgContents), 0644)
 	c.Assert(err, gc.IsNil)
 
-	cf := make(networker.ConfigFiles)
-	err = cf.ReadAll()
+	cf := networker.ConfigFiles{}
+	err = networker.ReadAll(&cf)
 	c.Assert(err, gc.IsNil)
 	expect := networker.ConfigFiles{
 		"": &networker.ConfigFile{
@@ -91,7 +105,7 @@ func (s *networkerSuite) TestConfigFileOperations(c *gc.C) {
 		},
 	}
 	c.Assert(cf, gc.DeepEquals, expect)
-	err = cf.FixMAAS()
+	err = networker.FixMAAS(cf)
 	c.Assert(err, gc.IsNil)
 	expect = networker.ConfigFiles{
 		"": &networker.ConfigFile{
@@ -149,12 +163,12 @@ func (s *networkerSuite) TestConfigFileOperations(c *gc.C) {
 		},
 	}
 	c.Assert(cf, gc.DeepEquals, expect)
-	err = cf.WriteOrRemove()
+	err = networker.WriteOrRemove(cf)
 	c.Assert(err, gc.IsNil)
 
 	// Do another ineration
-	cf = make(networker.ConfigFiles)
-	err = cf.ReadAll()
+	cf = networker.ConfigFiles{}
+	err = networker.ReadAll(&cf)
 	c.Assert(err, gc.IsNil)
 	expect = networker.ConfigFiles{
 		"": &networker.ConfigFile{
@@ -191,8 +205,8 @@ func (s *networkerSuite) TestConfigFileOperations(c *gc.C) {
 	}
 	c.Assert(cf, gc.DeepEquals, expect)
 
-	// FixMAAS should not change anything
-	err = cf.FixMAAS()
+	// fixMAAS should not change anything
+	err = networker.FixMAAS(cf)
 	c.Assert(err, gc.IsNil)
 	c.Assert(cf, gc.DeepEquals, expect)
 }
@@ -215,7 +229,7 @@ source-directory somedir
 fff
 `
 
-func (s *networkerSuite) TestSplitByInterfaces(c *gc.C) {
+func (s *configSuite) TestSplitByInterfaces(c *gc.C) {
 	split, err := networker.SplitByInterfaces(interfacesData)
 	expect := map[string]string{
 		"":       "source eth2.cfg\nddd\nsource-directory somedir\nfff\n",

@@ -6,10 +6,17 @@ package networker_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/networker"
 )
 
-func (s *networkerSuite) TestExecuteCommands(c *gc.C) {
+type utilsSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&utilsSuite{})
+
+func (s *configSuite) TestExecuteCommands(c *gc.C) {
 	commands := []string{
 		"echo start",
 		"sh -c 'echo STDOUT; echo STDERR >&2; exit 123'",

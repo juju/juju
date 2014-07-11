@@ -15,6 +15,7 @@ var (
 	ExecuteCommands     = executeCommands
 	InterfaceIsUp       = interfaceIsUp
 	InterfaceHasAddress = interfaceHasAddress
+
 )
 
 // executeCommands execute a batch of commands one by one.
