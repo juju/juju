@@ -163,6 +163,7 @@ func binaryVersion(major, minor, patch, build int, tag, series, arch string) ver
 		},
 		Series: series,
 		Arch:   arch,
+		OS:     version.Ubuntu,
 	}
 }
 
@@ -172,17 +173,17 @@ func (*suite) TestParseBinary(c *gc.C) {
 		err    string
 		expect version.Binary
 	}{{
-		v:      "1.2.3-a-b",
-		expect: binaryVersion(1, 2, 3, 0, "", "a", "b"),
+		v:      "1.2.3-trusty-amd64",
+		expect: binaryVersion(1, 2, 3, 0, "", "trusty", "amd64"),
 	}, {
-		v:      "1.2.3.4-a-b",
-		expect: binaryVersion(1, 2, 3, 4, "", "a", "b"),
+		v:      "1.2.3.4-trusty-amd64",
+		expect: binaryVersion(1, 2, 3, 4, "", "trusty", "amd64"),
 	}, {
-		v:      "1.2-alpha3-a-b",
-		expect: binaryVersion(1, 2, 3, 0, "alpha", "a", "b"),
+		v:      "1.2-alpha3-trusty-amd64",
+		expect: binaryVersion(1, 2, 3, 0, "alpha", "trusty", "amd64"),
 	}, {
-		v:      "1.2-alpha3.4-a-b",
-		expect: binaryVersion(1, 2, 3, 4, "alpha", "a", "b"),
+		v:      "1.2-alpha3.4-trusty-amd64",
+		expect: binaryVersion(1, 2, 3, 4, "alpha", "trusty", "amd64"),
 	}, {
 		v:   "1.2.3",
 		err: "invalid binary version.*",
@@ -190,10 +191,10 @@ func (*suite) TestParseBinary(c *gc.C) {
 		v:   "1.2-beta1",
 		err: "invalid binary version.*",
 	}, {
-		v:   "1.2.3--b",
+		v:   "1.2.3--amd64",
 		err: "invalid binary version.*",
 	}, {
-		v:   "1.2.3-a-",
+		v:   "1.2.3-trusty-",
 		err: "invalid binary version.*",
 	}}
 
@@ -210,12 +211,13 @@ func (*suite) TestParseBinary(c *gc.C) {
 
 	for i, test := range parseTests {
 		c.Logf("test 2: %d", i)
-		v := test.v + "-a-b"
+		v := test.v + "-trusty-amd64"
 		got, err := version.ParseBinary(v)
 		expect := version.Binary{
 			Number: test.expect,
-			Series: "a",
-			Arch:   "b",
+			Series: "trusty",
+			Arch:   "amd64",
+			OS:     version.Ubuntu,
 		}
 		if test.err != "" {
 			c.Assert(err, gc.ErrorMatches, strings.Replace(test.err, "version", "binary version", 1))
@@ -253,7 +255,7 @@ func (*suite) TestBinaryMarshalUnmarshal(c *gc.C) {
 		}
 		// Work around goyaml bug #1096149
 		// SetYAML is not called for non-pointer fields.
-		bp := version.MustParseBinary("1.2.3-foo-bar")
+		bp := version.MustParseBinary("1.2.3-trusty-amd64")
 		v := doc{&bp}
 		data, err := m.marshal(&v)
 		c.Assert(err, gc.IsNil)
