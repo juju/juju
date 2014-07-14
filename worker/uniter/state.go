@@ -91,8 +91,8 @@ func (st State) validate() (err error) {
 			return fmt.Errorf("missing charm URL")
 		}
 	case RunHook:
-		if isAction && st.Hook.ActionName == "" {
-			return fmt.Errorf("missing action name")
+		if isAction && st.Hook.ActionId == "" {
+			return fmt.Errorf("missing action id")
 		}
 		fallthrough
 	case Continue:
