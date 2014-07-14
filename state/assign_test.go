@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/txn"
+	"github.com/juju/txn"
 )
 
 type AssignSuite struct {

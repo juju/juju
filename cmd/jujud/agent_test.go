@@ -257,7 +257,7 @@ func (s *agentSuite) TearDownSuite(c *gc.C) {
 // for an agent with the given entity name.  It returns the agent's
 // configuration and the current tools.
 func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
-	stor := s.Conn.Environ.Storage()
+	stor := s.Environ.Storage()
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
 	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
@@ -265,7 +265,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string, vers version.Bina
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	stateInfo := s.StateInfo(c)
+	stateInfo := s.MongoInfo(c)
 	apiInfo := s.APIInfo(c)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
@@ -310,7 +310,7 @@ func parseHostPort(s string) (network.HostPort, error) {
 }
 
 // writeStateAgentConfig creates and writes a state agent config.
-func writeStateAgentConfig(c *gc.C, stateInfo *authentication.ConnectionInfo, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
+func writeStateAgentConfig(c *gc.C, stateInfo *authentication.MongoInfo, dataDir, tag, password string, vers version.Binary) agent.ConfigSetterWriter {
 	port := gitjujutesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
 	conf, err := agent.NewStateMachineConfig(
@@ -342,12 +342,12 @@ func writeStateAgentConfig(c *gc.C, stateInfo *authentication.ConnectionInfo, da
 func (s *agentSuite) primeStateAgent(
 	c *gc.C, tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 
-	agentTools := envtesting.PrimeTools(c, s.Conn.Environ.Storage(), s.DataDir(), vers)
+	agentTools := envtesting.PrimeTools(c, s.Environ.Storage(), s.DataDir(), vers)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	stateInfo := s.StateInfo(c)
+	stateInfo := s.MongoInfo(c)
 	conf := writeStateAgentConfig(c, stateInfo, s.DataDir(), tag, password, vers)
 	s.primeAPIHostPorts(c)
 	return conf, agentTools
@@ -404,7 +404,7 @@ func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 	c.Assert(err, gc.IsNil)
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, t))
 	c.Assert(err, gc.IsNil)
-	info, ok := config.StateInfo()
+	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	st, err := state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
@@ -417,7 +417,7 @@ func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
 	c.Assert(err, gc.IsNil)
 	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, t))
 	c.Assert(err, gc.IsNil)
-	_, ok := config.StateInfo()
+	_, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsFalse)
 }
 

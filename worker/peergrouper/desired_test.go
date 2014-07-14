@@ -28,7 +28,7 @@ const (
 	apiPort   = 5678
 )
 
-var desiredPeerGroupTests = []struct {
+type desiredPeerGroupTest struct {
 	about    string
 	machines []*machine
 	statuses []replicaset.MemberStatus
@@ -37,196 +37,203 @@ var desiredPeerGroupTests = []struct {
 	expectMembers []replicaset.Member
 	expectVoting  []bool
 	expectErr     string
-}{{
-	// Note that this should never happen - mongo
-	// should always be bootstrapped with at least a single
-	// member in its member-set.
-	about:     "no members - error",
-	expectErr: "current member set is empty",
-}, {
-	about:    "one machine, two more proposed members",
-	machines: mkMachines("10v 11v 12v"),
-	statuses: mkStatuses("0p"),
-	members:  mkMembers("0v"),
+}
 
-	expectMembers: mkMembers("0v 1 2"),
-	expectVoting:  []bool{true, false, false},
-}, {
-	about:         "single machine, no change",
-	machines:      mkMachines("11v"),
-	members:       mkMembers("1v"),
-	statuses:      mkStatuses("1p"),
-	expectVoting:  []bool{true},
-	expectMembers: nil,
-}, {
-	about:        "extra member with nil Vote",
-	machines:     mkMachines("11v"),
-	members:      mkMembers("1v 2vT"),
-	statuses:     mkStatuses("1p 2s"),
-	expectVoting: []bool{true},
-	expectErr:    "voting non-machine member.* found in peer group",
-}, {
-	about:    "extra member with >1 votes",
-	machines: mkMachines("11v"),
-	members: append(mkMembers("1v"), replicaset.Member{
-		Id:      2,
-		Votes:   newInt(2),
-		Address: "0.1.2.12:1234",
-	}),
-	statuses:     mkStatuses("1p 2s"),
-	expectVoting: []bool{true},
-	expectErr:    "voting non-machine member.* found in peer group",
-}, {
-	about:         "new machine with no associated member",
-	machines:      mkMachines("11v 12v"),
-	members:       mkMembers("1v"),
-	statuses:      mkStatuses("1p"),
-	expectVoting:  []bool{true, false},
-	expectMembers: mkMembers("1v 2"),
-}, {
-	about:         "one machine has become ready to vote  (-> no change)",
-	machines:      mkMachines("11v 12v"),
-	members:       mkMembers("1v 2"),
-	statuses:      mkStatuses("1p 2s"),
-	expectVoting:  []bool{true, false},
-	expectMembers: nil,
-}, {
-	about:         "two machines have become ready to vote (-> added)",
-	machines:      mkMachines("11v 12v 13v"),
-	members:       mkMembers("1v 2 3"),
-	statuses:      mkStatuses("1p 2s 3s"),
-	expectVoting:  []bool{true, true, true},
-	expectMembers: mkMembers("1v 2v 3v"),
-}, {
-	about:         "two machines have become ready to vote but one is not healthy (-> no change)",
-	machines:      mkMachines("11v 12v 13v"),
-	members:       mkMembers("1v 2 3"),
-	statuses:      mkStatuses("1p 2s 3sH"),
-	expectVoting:  []bool{true, false, false},
-	expectMembers: nil,
-}, {
-	about:         "three machines have become ready to vote (-> 2 added)",
-	machines:      mkMachines("11v 12v 13v 14v"),
-	members:       mkMembers("1v 2 3 4"),
-	statuses:      mkStatuses("1p 2s 3s 4s"),
-	expectVoting:  []bool{true, true, true, false},
-	expectMembers: mkMembers("1v 2v 3v 4"),
-}, {
-	about:         "one machine ready to lose vote with no others -> no change",
-	machines:      mkMachines("11"),
-	members:       mkMembers("1v"),
-	statuses:      mkStatuses("1p"),
-	expectVoting:  []bool{true},
-	expectMembers: nil,
-}, {
-	about:         "two machines ready to lose vote -> votes removed",
-	machines:      mkMachines("11 12v 13"),
-	members:       mkMembers("1v 2v 3v"),
-	statuses:      mkStatuses("1p 2p 3p"),
-	expectVoting:  []bool{false, true, false},
-	expectMembers: mkMembers("1 2v 3"),
-}, {
-	about:         "machines removed as state server -> removed from members",
-	machines:      mkMachines("11v"),
-	members:       mkMembers("1v 2 3"),
-	statuses:      mkStatuses("1p 2s 3s"),
-	expectVoting:  []bool{true},
-	expectMembers: mkMembers("1v"),
-}, {
-	about:         "a candidate can take the vote of a non-candidate when they're ready",
-	machines:      mkMachines("11v 12v 13 14v"),
-	members:       mkMembers("1v 2v 3v 4"),
-	statuses:      mkStatuses("1p 2s 3s 4s"),
-	expectVoting:  []bool{true, true, false, true},
-	expectMembers: mkMembers("1v 2v 3 4v"),
-}, {
-	about:         "several candidates can take non-candidates' votes",
-	machines:      mkMachines("11v 12v 13 14 15 16v 17v 18v"),
-	members:       mkMembers("1v 2v 3v 4v 5v 6 7 8"),
-	statuses:      mkStatuses("1p 2s 3s 4s 5s 6s 7s 8s"),
-	expectVoting:  []bool{true, true, false, false, false, true, true, true},
-	expectMembers: mkMembers("1v 2v 3 4 5 6v 7v 8v"),
-}, {
-	about: "a changed machine address should propagate to the members",
-	machines: append(mkMachines("11v 12v"), &machine{
-		id:        "13",
-		wantsVote: true,
-		mongoHostPorts: []network.HostPort{{
-			Address: network.Address{
-				Value: "0.1.99.13",
-				Type:  network.IPv4Address,
-				Scope: network.ScopeCloudLocal,
-			},
-			Port: 1234,
-		}},
-	}),
-	statuses:     mkStatuses("1s 2p 3p"),
-	members:      mkMembers("1v 2v 3v"),
-	expectVoting: []bool{true, true, true},
-	expectMembers: append(mkMembers("1v 2v"), replicaset.Member{
-		Id:      3,
-		Address: "0.1.99.13:1234",
-		Tags:    memberTag("13"),
-	}),
-}, {
-	about: "a machine's address is ignored if it changes to empty",
-	machines: append(mkMachines("11v 12v"), &machine{
-		id:             "13",
-		wantsVote:      true,
-		mongoHostPorts: nil,
-	}),
-	statuses:      mkStatuses("1s 2p 3p"),
-	members:       mkMembers("1v 2v 3v"),
-	expectVoting:  []bool{true, true, true},
-	expectMembers: nil,
-}}
+func desiredPeerGroupTests(ipVersion testIPVersion) []desiredPeerGroupTest {
+	return []desiredPeerGroupTest{
+		{
+			// Note that this should never happen - mongo
+			// should always be bootstrapped with at least a single
+			// member in its member-set.
+			about:     "no members - error",
+			expectErr: "current member set is empty",
+		}, {
+			about:    "one machine, two more proposed members",
+			machines: mkMachines("10v 11v 12v", ipVersion),
+			statuses: mkStatuses("0p", ipVersion),
+			members:  mkMembers("0v", ipVersion),
+
+			expectMembers: mkMembers("0v 1 2", ipVersion),
+			expectVoting:  []bool{true, false, false},
+		}, {
+			about:         "single machine, no change",
+			machines:      mkMachines("11v", ipVersion),
+			members:       mkMembers("1v", ipVersion),
+			statuses:      mkStatuses("1p", ipVersion),
+			expectVoting:  []bool{true},
+			expectMembers: nil,
+		}, {
+			about:        "extra member with nil Vote",
+			machines:     mkMachines("11v", ipVersion),
+			members:      mkMembers("1v 2v", ipVersion),
+			statuses:     mkStatuses("1p 2s", ipVersion),
+			expectVoting: []bool{true},
+			expectErr:    "voting non-machine member.* found in peer group",
+		}, {
+			about:    "extra member with >1 votes",
+			machines: mkMachines("11v", ipVersion),
+			members: append(mkMembers("1v", ipVersion), replicaset.Member{
+				Id:      2,
+				Votes:   newInt(2),
+				Address: fmt.Sprintf(ipVersion.formatHostPort, 12, mongoPort),
+			}),
+			statuses:     mkStatuses("1p 2s", ipVersion),
+			expectVoting: []bool{true},
+			expectErr:    "voting non-machine member.* found in peer group",
+		}, {
+			about:         "new machine with no associated member",
+			machines:      mkMachines("11v 12v", ipVersion),
+			members:       mkMembers("1v", ipVersion),
+			statuses:      mkStatuses("1p", ipVersion),
+			expectVoting:  []bool{true, false},
+			expectMembers: mkMembers("1v 2", ipVersion),
+		}, {
+			about:         "one machine has become ready to vote (-> no change)",
+			machines:      mkMachines("11v 12v", ipVersion),
+			members:       mkMembers("1v 2", ipVersion),
+			statuses:      mkStatuses("1p 2s", ipVersion),
+			expectVoting:  []bool{true, false},
+			expectMembers: nil,
+		}, {
+			about:         "two machines have become ready to vote (-> added)",
+			machines:      mkMachines("11v 12v 13v", ipVersion),
+			members:       mkMembers("1v 2 3", ipVersion),
+			statuses:      mkStatuses("1p 2s 3s", ipVersion),
+			expectVoting:  []bool{true, true, true},
+			expectMembers: mkMembers("1v 2v 3v", ipVersion),
+		}, {
+			about:         "two machines have become ready to vote but one is not healthy (-> no change)",
+			machines:      mkMachines("11v 12v 13v", ipVersion),
+			members:       mkMembers("1v 2 3", ipVersion),
+			statuses:      mkStatuses("1p 2s 3sH", ipVersion),
+			expectVoting:  []bool{true, false, false},
+			expectMembers: nil,
+		}, {
+			about:         "three machines have become ready to vote (-> 2 added)",
+			machines:      mkMachines("11v 12v 13v 14v", ipVersion),
+			members:       mkMembers("1v 2 3 4", ipVersion),
+			statuses:      mkStatuses("1p 2s 3s 4s", ipVersion),
+			expectVoting:  []bool{true, true, true, false},
+			expectMembers: mkMembers("1v 2v 3v 4", ipVersion),
+		}, {
+			about:         "one machine ready to lose vote with no others -> no change",
+			machines:      mkMachines("11", ipVersion),
+			members:       mkMembers("1v", ipVersion),
+			statuses:      mkStatuses("1p", ipVersion),
+			expectVoting:  []bool{true},
+			expectMembers: nil,
+		}, {
+			about:         "two machines ready to lose vote -> votes removed",
+			machines:      mkMachines("11 12v 13", ipVersion),
+			members:       mkMembers("1v 2v 3v", ipVersion),
+			statuses:      mkStatuses("1p 2p 3p", ipVersion),
+			expectVoting:  []bool{false, true, false},
+			expectMembers: mkMembers("1 2v 3", ipVersion),
+		}, {
+			about:         "machines removed as state server -> removed from members",
+			machines:      mkMachines("11v", ipVersion),
+			members:       mkMembers("1v 2 3", ipVersion),
+			statuses:      mkStatuses("1p 2s 3s", ipVersion),
+			expectVoting:  []bool{true},
+			expectMembers: mkMembers("1v", ipVersion),
+		}, {
+			about:         "a candidate can take the vote of a non-candidate when they're ready",
+			machines:      mkMachines("11v 12v 13 14v", ipVersion),
+			members:       mkMembers("1v 2v 3v 4", ipVersion),
+			statuses:      mkStatuses("1p 2s 3s 4s", ipVersion),
+			expectVoting:  []bool{true, true, false, true},
+			expectMembers: mkMembers("1v 2v 3 4v", ipVersion),
+		}, {
+			about:         "several candidates can take non-candidates' votes",
+			machines:      mkMachines("11v 12v 13 14 15 16v 17v 18v", ipVersion),
+			members:       mkMembers("1v 2v 3v 4v 5v 6 7 8", ipVersion),
+			statuses:      mkStatuses("1p 2s 3s 4s 5s 6s 7s 8s", ipVersion),
+			expectVoting:  []bool{true, true, false, false, false, true, true, true},
+			expectMembers: mkMembers("1v 2v 3 4 5 6v 7v 8v", ipVersion),
+		}, {
+			about: "a changed machine address should propagate to the members",
+			machines: append(mkMachines("11v 12v", ipVersion), &machine{
+				id:        "13",
+				wantsVote: true,
+				mongoHostPorts: []network.HostPort{{
+					Address: network.Address{
+						Value: ipVersion.extraHost,
+						Type:  ipVersion.addressType,
+						Scope: network.ScopeCloudLocal,
+					},
+					Port: 1234,
+				}},
+			}),
+			statuses:     mkStatuses("1s 2p 3p", ipVersion),
+			members:      mkMembers("1v 2v 3v", ipVersion),
+			expectVoting: []bool{true, true, true},
+			expectMembers: append(mkMembers("1v 2v", ipVersion), replicaset.Member{
+				Id:      3,
+				Address: ipVersion.extraAddress,
+				Tags:    memberTag("13"),
+			}),
+		}, {
+			about: "a machine's address is ignored if it changes to empty",
+			machines: append(mkMachines("11v 12v", ipVersion), &machine{
+				id:             "13",
+				wantsVote:      true,
+				mongoHostPorts: nil,
+			}),
+			statuses:      mkStatuses("1s 2p 3p", ipVersion),
+			members:       mkMembers("1v 2v 3v", ipVersion),
+			expectVoting:  []bool{true, true, true},
+			expectMembers: nil,
+		}}
+}
 
 func (*desiredPeerGroupSuite) TestDesiredPeerGroup(c *gc.C) {
-	for i, test := range desiredPeerGroupTests {
-		c.Logf("\ntest %d: %s", i, test.about)
-		machineMap := make(map[string]*machine)
-		for _, m := range test.machines {
-			c.Assert(machineMap[m.id], gc.IsNil)
-			machineMap[m.id] = m
-		}
-		info := &peerGroupInfo{
-			machines: machineMap,
-			statuses: test.statuses,
-			members:  test.members,
-		}
-		members, voting, err := desiredPeerGroup(info)
-		if test.expectErr != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectErr)
-			c.Assert(members, gc.IsNil)
-			continue
-		}
-		sort.Sort(membersById(members))
-		c.Assert(members, jc.DeepEquals, test.expectMembers)
-		if len(members) == 0 {
-			continue
-		}
-		for i, m := range test.machines {
-			vote, votePresent := voting[m]
-			c.Check(votePresent, jc.IsTrue)
-			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
-		}
-		// Assure ourselves that the total number of desired votes is odd in
-		// all circumstances.
-		c.Assert(countVotes(members)%2, gc.Equals, 1)
+	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
+		for i, test := range desiredPeerGroupTests(ipVersion) {
+			c.Logf("\ntest %d: %s", i, test.about)
+			machineMap := make(map[string]*machine)
+			for _, m := range test.machines {
+				c.Assert(machineMap[m.id], gc.IsNil)
+				machineMap[m.id] = m
+			}
+			info := &peerGroupInfo{
+				machines: machineMap,
+				statuses: test.statuses,
+				members:  test.members,
+			}
+			members, voting, err := desiredPeerGroup(info)
+			if test.expectErr != "" {
+				c.Assert(err, gc.ErrorMatches, test.expectErr)
+				c.Assert(members, gc.IsNil)
+				continue
+			}
+			sort.Sort(membersById(members))
+			c.Assert(members, jc.DeepEquals, test.expectMembers)
+			if len(members) == 0 {
+				continue
+			}
+			for i, m := range test.machines {
+				vote, votePresent := voting[m]
+				c.Check(votePresent, jc.IsTrue)
+				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
+			}
+			// Assure ourselves that the total number of desired votes is odd in
+			// all circumstances.
+			c.Assert(countVotes(members)%2, gc.Equals, 1)
 
-		// Make sure that when the members are set as
-		// required, that there's no further change
-		// if desiredPeerGroup is called again.
-		info.members = members
-		members, voting, err = desiredPeerGroup(info)
-		c.Assert(members, gc.IsNil)
-		for i, m := range test.machines {
-			vote, votePresent := voting[m]
-			c.Check(votePresent, jc.IsTrue)
-			c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
+			// Make sure that when the members are set as
+			// required, that there's no further change
+			// if desiredPeerGroup is called again.
+			info.members = members
+			members, voting, err = desiredPeerGroup(info)
+			c.Assert(members, gc.IsNil)
+			for i, m := range test.machines {
+				vote, votePresent := voting[m]
+				c.Check(votePresent, jc.IsTrue)
+				c.Check(vote, gc.Equals, test.expectVoting[i], gc.Commentf("machine %s", m.id))
+			}
+			c.Assert(err, gc.IsNil)
 		}
-		c.Assert(err, gc.IsNil)
-	}
+	})
 }
 
 func countVotes(members []replicaset.Member) int {
@@ -254,7 +261,7 @@ func newFloat64(f float64) *float64 {
 // Each machine in the description is white-space separated
 // and holds the decimal machine id followed by an optional
 // "v" if the machine wants a vote.
-func mkMachines(description string) []*machine {
+func mkMachines(description string, ipVersion testIPVersion) []*machine {
 	descrs := parseDescr(description)
 	ms := make([]*machine, len(descrs))
 	for i, d := range descrs {
@@ -262,8 +269,8 @@ func mkMachines(description string) []*machine {
 			id: fmt.Sprint(d.id),
 			mongoHostPorts: []network.HostPort{{
 				Address: network.Address{
-					Value: fmt.Sprintf("0.1.2.%d", d.id),
-					Type:  network.IPv4Address,
+					Value: fmt.Sprintf(ipVersion.machineFormatHost, d.id),
+					Type:  ipVersion.addressType,
 					Scope: network.ScopeCloudLocal,
 				},
 				Port: mongoPort,
@@ -286,14 +293,14 @@ func memberTag(id string) map[string]string {
 // 	- 'T' if the member has no associated machine tags.
 // Unless the T flag is specified, the machine tag
 // will be the replica-set id + 10.
-func mkMembers(description string) []replicaset.Member {
+func mkMembers(description string, ipVersion testIPVersion) []replicaset.Member {
 	descrs := parseDescr(description)
 	ms := make([]replicaset.Member, len(descrs))
 	for i, d := range descrs {
 		machineId := d.id + 10
 		m := replicaset.Member{
 			Id:      d.id,
-			Address: fmt.Sprintf("0.1.2.%d:%d", machineId, mongoPort),
+			Address: fmt.Sprintf(ipVersion.formatHostPort, machineId, mongoPort),
 			Tags:    memberTag(fmt.Sprint(machineId)),
 		}
 		if !strings.Contains(d.flags, "v") {
@@ -321,14 +328,14 @@ var stateFlags = map[rune]replicaset.MemberState{
 // 	- 'H' if the instance is not healthy.
 //	- 'p' if the instance is in PrimaryState
 //	- 's' if the instance is in SecondaryState
-func mkStatuses(description string) []replicaset.MemberStatus {
+func mkStatuses(description string, ipVersion testIPVersion) []replicaset.MemberStatus {
 	descrs := parseDescr(description)
 	ss := make([]replicaset.MemberStatus, len(descrs))
 	for i, d := range descrs {
 		machineId := d.id + 10
 		s := replicaset.MemberStatus{
 			Id:      d.id,
-			Address: fmt.Sprintf("0.1.2.%d:%d", machineId, mongoPort),
+			Address: fmt.Sprintf(ipVersion.formatHostPort, machineId, mongoPort),
 			Healthy: !strings.Contains(d.flags, "H"),
 			State:   replicaset.UnknownState,
 		}

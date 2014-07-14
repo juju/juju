@@ -9,8 +9,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/schema"
+
+	"github.com/juju/juju/environs/config"
 )
 
 var configFields = schema.Fields{

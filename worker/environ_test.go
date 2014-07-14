@@ -51,11 +51,11 @@ func stopWatcher(c *gc.C, w state.NotifyWatcher) {
 
 func (s *environSuite) TestInvalidConfig(c *gc.C) {
 	var oldType string
-	oldType = s.Conn.Environ.Config().AllAttrs()["type"].(string)
+	oldType = s.Environ.Config().AllAttrs()["type"].(string)
 
 	// Create an invalid config by taking the current config and
 	// tweaking the provider type.
-	info := s.StateInfo(c)
+	info := s.MongoInfo(c)
 	opts := mongo.DefaultDialOpts()
 	st2, err := state.Open(info, opts, state.Policy(nil))
 	c.Assert(err, gc.IsNil)
@@ -86,7 +86,7 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 
 func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
 	// reopen the state so that we can wangle a dodgy environ config in there.
-	st, err := state.Open(s.StateInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	err = st.UpdateEnvironConfig(map[string]interface{}{"secret": 999}, nil, nil)
@@ -112,7 +112,7 @@ func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
 	var oldType string
 	oldType = env.Config().AllAttrs()["type"].(string)
 
-	info := s.StateInfo(c)
+	info := s.MongoInfo(c)
 	opts := mongo.DefaultDialOpts()
 	st2, err := state.Open(info, opts, state.Policy(nil))
 	defer st2.Close()

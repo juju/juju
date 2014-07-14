@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/parallel"
 
@@ -18,6 +19,8 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api"
 )
+
+var logger = loggo.GetLogger("juju.api")
 
 // The following are variables so that they can be
 // changed by tests.

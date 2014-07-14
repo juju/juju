@@ -27,15 +27,6 @@ func findInstanceTools(env environs.Environ, series, arch string) (*tools.Tools,
 	return possibleTools[0], nil
 }
 
-// newEnvironAuthenticator gets the state and api info once from the environ.
-func newEnvironAuthenticator(env environs.Environ) (authentication.AuthenticationProvider, error) {
-	connectionInfo, apiInfo, err := env.StateInfo()
-	if err != nil {
-		return nil, err
-	}
-	return authentication.NewAuthenticator(connectionInfo, apiInfo), nil
-}
-
 // MachineConfig returns information from the environment config that is
 // needed for machine cloud-init (for non-state servers only).
 // It is exposed for testing purposes.
@@ -72,12 +63,14 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 		return nil, err
 	}
 
-	// Find the secrets and API endpoints.
-	auth, err := newEnvironAuthenticator(env)
+	// Find the API endpoints.
+	_, apiInfo, err := env.StateInfo()
 	if err != nil {
 		return nil, err
 	}
-	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
+
+	auth := authentication.NewAuthenticator(st.MongoConnectionInfo(), apiInfo)
+	mongoInfo, apiInfo, err := auth.SetupAuthentication(machine)
 	if err != nil {
 		return nil, err
 	}
@@ -88,7 +81,7 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 		return nil, err
 	}
 
-	mcfg := environs.NewMachineConfig(machineId, nonce, networks, stateInfo, apiInfo)
+	mcfg := environs.NewMachineConfig(machineId, nonce, networks, mongoInfo, apiInfo)
 	if dataDir != "" {
 		mcfg.DataDir = dataDir
 	}

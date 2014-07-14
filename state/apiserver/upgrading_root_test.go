@@ -4,9 +4,10 @@
 package apiserver_test
 
 import (
+	gc "launchpad.net/gocheck"
+
 	"github.com/juju/juju/state/apiserver"
 	"github.com/juju/juju/testing"
-	gc "launchpad.net/gocheck"
 )
 
 type upgradingRootSuite struct {
