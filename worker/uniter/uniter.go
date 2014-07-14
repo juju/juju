@@ -504,10 +504,9 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	// we don't know whether we're running an Action or a regular Hook.
 	// RunAction simply calls the exact same method as RunHook, but with
 	// the location as "actions" instead of "hooks".
-	switch hi.Kind {
-	case hooks.ActionRequested:
+	if hi.Kind == hooks.ActionRequested {
 		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
-	default:
+	} else {
 		err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
 	}
 

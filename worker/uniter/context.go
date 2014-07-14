@@ -30,6 +30,8 @@ type missingHookError struct {
 	hookName string
 }
 
+type actionParams map[string]interface{}
+
 func (e *missingHookError) Error() string {
 	return e.hookName + " does not exist"
 }
@@ -90,10 +92,19 @@ type HookContext struct {
 	proxySettings proxy.Settings
 }
 
-func NewHookContext(unit *uniter.Unit, id, uuid, envName string,
-	relationId int, remoteUnitName string, relations map[int]*ContextRelation,
-	apiAddrs []string, serviceOwner string, proxySettings proxy.Settings,
-	actionParams map[string]interface{}) (*HookContext, error) {
+func NewHookContext(
+	unit *uniter.Unit,
+	id,
+	uuid,
+	envName string,
+	relationId int,
+	remoteUnitName string,
+	relations map[int]*ContextRelation,
+	apiAddrs []string,
+	serviceOwner string,
+	proxySettings proxy.Settings,
+	actionParams map[string]interface{},
+) (*HookContext, error) {
 	ctx := &HookContext{
 		unit:           unit,
 		id:             id,
@@ -249,16 +260,16 @@ func (ctx *HookContext) GetLogger(hookName string) loggo.Logger {
 // RunAction executes a hook from the charm's actions in an environment which
 // allows it to to call back into the hook context to execute jujuc tools.
 func (ctx *HookContext) RunAction(hookName, charmDir, toolsDir, socketPath string) error {
-	return ctx.runCharmHookWithLocation(hookName, charmDir, toolsDir, socketPath, "actions")
+	return ctx.runCharmHookWithLocation(hookName, "actions", charmDir, toolsDir, socketPath)
 }
 
 // RunHook executes a built-in hook in an environment which allows it to to
 // call back into the hook context to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
-	return ctx.runCharmHookWithLocation(hookName, charmDir, toolsDir, socketPath, "hooks")
+	return ctx.runCharmHookWithLocation(hookName, "hooks", charmDir, toolsDir, socketPath)
 }
 
-func (ctx *HookContext) runCharmHookWithLocation(hookName, charmDir, toolsDir, socketPath string, charmLocation string) error {
+func (ctx *HookContext) runCharmHookWithLocation(hookName, charmLocation, charmDir, toolsDir, socketPath string) error {
 	var err error
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
 	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())

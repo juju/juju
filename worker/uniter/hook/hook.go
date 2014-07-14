@@ -45,7 +45,7 @@ func (hi Info) Validate() error {
 		return nil
 	case hooks.ActionRequested:
 		if !names.IsAction(hi.ActionId) {
-			return fmt.Errorf("action id %q cannot be parsed as an Action tag", hi.ActionId)
+			return fmt.Errorf("action id %q cannot be parsed as an action tag", hi.ActionId)
 		}
 		return nil
 	}

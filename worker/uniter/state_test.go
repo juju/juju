@@ -115,7 +115,7 @@ var stateTests = []struct {
 				ActionId: "foo",
 			},
 		},
-		err: `action id "foo" cannot be parsed as an Action tag`,
+		err: `action id "foo" cannot be parsed as an action tag`,
 	},
 	// Upgrade operation.
 	{

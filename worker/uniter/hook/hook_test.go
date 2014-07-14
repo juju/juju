@@ -42,7 +42,7 @@ var validateTests = []struct {
 	{hook.Info{Kind: hooks.ConfigChanged}, ""},
 	{
 		hook.Info{Kind: hooks.ActionRequested},
-		`action id "" cannot be parsed as an Action tag`,
+		`action id "" cannot be parsed as an action tag`,
 	},
 	{hook.Info{Kind: hooks.ActionRequested, ActionId: "wordpress/0_a_1"}, ""},
 	{hook.Info{Kind: hooks.UpgradeCharm}, ""},
