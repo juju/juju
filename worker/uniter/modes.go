@@ -168,9 +168,12 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 	}
 	defer watcher.Stop(w, &u.tomb)
 	for {
+		hi := hook.Info{}
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
+		case info := <-u.f.ActionEvents():
+			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case _, ok := <-w.Changes():
 			if !ok {
 				return nil, watcher.MustErr(w)
@@ -189,6 +192,11 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 				return nil, err
 			}
 			return nil, worker.ErrTerminateAgent
+		}
+		if err := u.runHook(hi); err == errHookFailed {
+			return ModeHookError, nil
+		} else if err != nil {
+			return nil, err
 		}
 	}
 }
@@ -240,6 +248,8 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			return modeAbideDyingLoop(u)
 		case <-u.f.ConfigEvents():
 			hi = hook.Info{Kind: hooks.ConfigChanged}
+		case info := <-u.f.ActionEvents():
+			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case hi = <-u.relationHooks:
 		case ids := <-u.f.RelationsEvents():
 			added, err := u.updateRelations(ids)
@@ -287,6 +297,8 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			return nil, tomb.ErrDying
 		case <-u.f.ConfigEvents():
 			hi = hook.Info{Kind: hooks.ConfigChanged}
+		case info := <-u.f.ActionEvents():
+			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case hi = <-u.relationHooks:
 		}
 		if err = u.runHook(hi); err == errHookFailed {
@@ -320,9 +332,12 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 	u.f.WantResolvedEvent()
 	u.f.WantUpgradeEvent(true)
 	for {
+		hi := hook.Info{}
 		select {
 		case <-u.tomb.Dying():
 			return nil, tomb.ErrDying
+		case info := <-u.f.ActionEvents():
+			hi = hook.Info{Kind: info.Kind, ActionId: info.ActionId}
 		case rm := <-u.f.ResolvedEvents():
 			switch rm {
 			case params.ResolvedRetryHooks:
@@ -343,6 +358,11 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			return ModeContinue, nil
 		case curl := <-u.f.UpgradeEvents():
 			return ModeUpgrading(curl), nil
+		}
+		if err := u.runHook(hi); err == errHookFailed {
+			return ModeHookError, nil
+		} else if err != nil {
+			return nil, err
 		}
 	}
 }
