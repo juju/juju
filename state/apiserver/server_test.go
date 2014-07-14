@@ -65,7 +65,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	// Note we can't use openAs because we're not connecting to
 	// s.APIConn.
 	apiInfo := &api.Info{
-		Tag:      stm.Tag().String(),
+		Tag:      stm.Tag(),
 		Password: password,
 		Nonce:    "fake_nonce",
 		Addrs:    []string{srv.Addr()},
@@ -121,7 +121,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 
 	// Now connect twice - using IPv4 and IPv6 endpoints.
 	apiInfo := &api.Info{
-		Tag:      stm.Tag().String(),
+		Tag:      stm.Tag(),
 		Password: password,
 		Nonce:    "fake_nonce",
 		Addrs:    []string{net.JoinHostPort("127.0.0.1", "54321")},
@@ -169,7 +169,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	// This does almost exactly the same as OpenAPIAsMachine but checks
 	// for failures instead.
 	_, info, err := s.APIConn.Environ.StateInfo()
-	info.Tag = stm.Tag().String()
+	info.Tag = stm.Tag()
 	info.Password = password
 	info.Nonce = "invalid-nonce"
 	st, err := api.Open(info, fastDialOpts)
@@ -196,7 +196,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Try connecting, it will fail.
-	info.Tag = stm1.Tag().String()
+	info.Tag = stm1.Tag()
 	info.Nonce = ""
 	st, err = api.Open(info, fastDialOpts)
 	assertNotProvisioned(err)
@@ -220,7 +220,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	s.assertAlive(c, machine, false)
 
 	// Login as the machine agent of the created machine.
-	st := s.OpenAPIAsMachine(c, machine.Tag().String(), password, "fake_nonce")
+	st := s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, machine, true)
@@ -250,7 +250,7 @@ func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 	s.assertAlive(c, unit, false)
 
 	// Login as the unit agent of the created unit.
-	st := s.OpenAPIAs(c, unit.Tag().String(), password)
+	st := s.OpenAPIAs(c, unit.Tag(), password)
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, unit, true)

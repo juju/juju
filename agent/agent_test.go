@@ -488,10 +488,13 @@ func (*suite) TestSetPassword(c *gc.C) {
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 
+	tag, err := names.ParseTag(attrParams.Tag)
+	c.Assert(err, gc.IsNil)
+
 	expectAPIInfo := &api.Info{
 		Addrs:    attrParams.APIAddresses,
 		CACert:   attrParams.CACert,
-		Tag:      attrParams.Tag,
+		Tag:      tag,
 		Password: "",
 		Nonce:    attrParams.Nonce,
 	}

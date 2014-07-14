@@ -199,7 +199,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	called := 0
 	expectState := &mockAPIState{}
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		c.Check(apiInfo.Tag, gc.Equals, "user-admin")
+		c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin"))
 		c.Check(string(apiInfo.CACert), gc.Not(gc.Equals), "")
 		c.Check(apiInfo.Password, gc.Equals, "adminpass")
 		// EnvironTag wasn't in regular Config
@@ -279,7 +279,7 @@ func mockedAPIState(hasHostPort, hasEnvironTag bool) *mockAPIState {
 }
 
 func checkCommonAPIInfoAttrs(c *gc.C, apiInfo *api.Info, opts api.DialOpts) {
-	c.Check(apiInfo.Tag, gc.Equals, "user-foo")
+	c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("foo"))
 	c.Check(string(apiInfo.CACert), gc.Equals, "certificated")
 	c.Check(apiInfo.Password, gc.Equals, "foopass")
 	c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
@@ -775,7 +775,7 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointNotCached(c *gc.C) {
 	called := 0
 	expectState := mockedAPIState(true, true)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		c.Check(apiInfo.Tag, gc.Equals, "user-admin")
+		c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin"))
 		c.Check(string(apiInfo.CACert), gc.Equals, coretesting.CACert)
 		c.Check(apiInfo.Password, gc.Equals, coretesting.DefaultMongoPassword)
 		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())

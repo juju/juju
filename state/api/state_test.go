@@ -43,11 +43,11 @@ func (s *stateSuite) OpenAPIWithoutLogin(c *gc.C) (*api.State, string, string) {
 	info := s.APIInfo(c)
 	tag := info.Tag
 	password := info.Password
-	info.Tag = ""
+	info.Tag = nil
 	info.Password = ""
 	apistate, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
-	return apistate, tag, password
+	return apistate, tag.String(), password
 }
 
 func (s *stateSuite) TestAPIHostPortsAlwaysIncludesTheConnection(c *gc.C) {

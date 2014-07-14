@@ -594,8 +594,8 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.MongoInfo.Tag != nil {
 			return fmt.Errorf("entity tag must be nil when starting a state server")
 		}
-		if cfg.APIInfo.Tag != "" {
-			return fmt.Errorf("entity tag must be blank when starting a state server")
+		if cfg.APIInfo.Tag != nil {
+			return fmt.Errorf("entity tag must be nil when starting a state server")
 		}
 		if cfg.StateServingInfo == nil {
 			return fmt.Errorf("missing state serving info")
@@ -628,7 +628,7 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if len(cfg.APIInfo.Addrs) == 0 {
 			return fmt.Errorf("missing API hosts")
 		}
-		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId).String() {
+		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity tag must match started machine")
 		}
 		if cfg.StateServingInfo != nil {
