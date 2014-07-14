@@ -232,6 +232,7 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
+	result.PreferIPv6 = config.PreferIPv6()
 	return result, nil
 }
 

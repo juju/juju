@@ -614,6 +614,7 @@ func (s *provisionerSuite) TestContainerConfig(c *gc.C) {
 	c.Assert(result.ProviderType, gc.Equals, "dummy")
 	c.Assert(result.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
 	c.Assert(result.SSLHostnameVerification, jc.IsTrue)
+	c.Assert(result.PreferIPv6, jc.IsTrue)
 }
 
 func (s *provisionerSuite) TestToolsWrongMachine(c *gc.C) {
