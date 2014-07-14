@@ -17,7 +17,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/utils/ssh"
 )
@@ -187,7 +186,7 @@ func (c *SSHCommon) ensureAPIClient() (*api.Client, error) {
 // initAPIClient initialises the API connection.
 // It is the caller's responsibility to close the connection.
 func (c *SSHCommon) initAPIClient() (*api.Client, error) {
-	st, err := juju.NewAPIFromName(c.EnvName)
+	st, err := c.NewAPIRoot()
 	if err != nil {
 		return nil, err
 	}

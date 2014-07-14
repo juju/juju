@@ -93,7 +93,7 @@ func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command := exec.Command(c.name, c.args...)
 	command.Env = append(os.Environ(), []string{
 		osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
-		osenv.JujuEnvEnvKey + "=" + c.EnvName}...,
+		osenv.JujuEnvEnvKey + "=" + c.ConnectionName()}...,
 	)
 
 	// Now hook up stdin, stdout, stderr
