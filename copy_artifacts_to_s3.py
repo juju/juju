@@ -40,7 +40,7 @@ def copy_job_artifacts(job, artifact_matchers, juju_ci, work_dir):
             if matcher.search(artifact['fileName']) is not None:
                 source_url = '%s/artifact/%s' % (
                     build_info['url'], artifact['fileName'])
-                dest_url = '%s/products/build-%s/%s' % (
+                dest_url = '%s/juju-ci/products/build-%s/%s' % (
                     ARCHIVE_BUCKET_URL, os.getenv('BUILD_NUMBER'),
                     artifact['fileName'])
                 local_path = os.path.join(work_dir, artifact['fileName'])
