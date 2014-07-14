@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/juju/charm"
+	"github.com/juju/charm/hooks"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	apiuniter "github.com/juju/juju/state/api/uniter"
 	"github.com/juju/juju/worker/uniter"
+	"github.com/juju/juju/worker/uniter/hook"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
@@ -135,14 +137,19 @@ var runHookTests = []struct {
 	err           string
 	env           map[string]string
 	proxySettings proxy.Settings
+	kind          hooks.Kind
+	actionName    string
+	actionParams  map[string]interface{}
 }{
 	{
 		summary: "missing hook is not an error",
 		relid:   -1,
+		kind:    hooks.ActionRequested,
 	}, {
 		summary: "report failure to execute hook",
 		relid:   -1,
 		spec:    hookSpec{perm: 0600},
+		kind:    hooks.Start,
 		err:     `exec: .*something-happened": permission denied`,
 	}, {
 		summary: "report error indicated by hook's exit status",
@@ -151,7 +158,8 @@ var runHookTests = []struct {
 			perm: 0700,
 			code: 99,
 		},
-		err: "exit status 99",
+		kind: hooks.Start,
+		err:  "exit status 99",
 	}, {
 		summary: "output logging",
 		relid:   -1,
@@ -160,6 +168,7 @@ var runHookTests = []struct {
 			stdout: "stdout",
 			stderr: "stderr",
 		},
+		kind: hooks.Start,
 	}, {
 		summary: "output logging with background process",
 		relid:   -1,
@@ -168,6 +177,7 @@ var runHookTests = []struct {
 			stdout:     "stdout",
 			background: "not printed",
 		},
+		kind: hooks.Start,
 	}, {
 		summary: "long line split",
 		relid:   -1,
@@ -175,6 +185,7 @@ var runHookTests = []struct {
 			perm:   0700,
 			stdout: strings.Repeat("a", lineBufferSize+10),
 		},
+		kind: hooks.Start,
 	}, {
 		summary: "check shell environment for non-relation hook context",
 		relid:   -1,
@@ -194,6 +205,7 @@ var runHookTests = []struct {
 			"no_proxy":           "no proxy",
 			"NO_PROXY":           "no proxy",
 		},
+		kind: hooks.Start,
 	}, {
 		summary: "check shell environment for relation-broken hook context",
 		relid:   1,
@@ -206,6 +218,7 @@ var runHookTests = []struct {
 			"JUJU_RELATION_ID":   "db:1",
 			"JUJU_REMOTE_UNIT":   "",
 		},
+		kind: hooks.RelationBroken,
 	}, {
 		summary: "check shell environment for relation hook context",
 		relid:   1,
@@ -219,6 +232,7 @@ var runHookTests = []struct {
 			"JUJU_RELATION_ID":   "db:1",
 			"JUJU_REMOTE_UNIT":   "r/1",
 		},
+		kind: hooks.RelationChanged,
 	},
 }
 
@@ -227,7 +241,13 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for i, t := range runHookTests {
 		c.Logf("\ntest %d: %s; perm %v", i, t.summary, t.spec.perm)
-		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, t.proxySettings)
+		hi := &hook.Info{
+			RelationId: t.relid,
+			RemoteUnit: t.remote,
+			Kind:       t.kind,
+		}
+
+		toolsDir := c.MkDir()
 		var charmDir, outPath string
 		var hookExists bool
 		if t.spec.perm == 0 {
@@ -239,13 +259,30 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 			charmDir, outPath = makeCharm(c, spec)
 			hookExists = true
 		}
-		toolsDir := c.MkDir()
+
+		if hi.RelationId != -1 {
+			_, found := s.relctxs[hi.RelationId]
+			c.Assert(found, jc.IsTrue)
+		}
+
+		hr, err := uniter.NewHookRunner(s.apiUnit, uuid.String(), "test-env-name",
+			s.relctxs, apiAddrs, "test-owner", t.proxySettings, charmDir, toolsDir)
+		c.Assert(err, gc.IsNil)
+
+		action, err := &apiuniter.NewAction(t.actionName, t.actionParams)
+		c.Assert(err, gc.IsNil)
+
+		ctx, err := s.getHookContext(hr, hi, action)
+		if !hookExists {
+			c.Assert(uniter.IsMissingHookError(err), jc.IsTrue)
+		} else {
+			c.Assert(err, gc.IsNil)
+		}
+
 		t0 := time.Now()
-		err := ctx.RunHook("something-happened", charmDir, toolsDir, "/path/to/socket")
+		err = ctx.RunHook("/path/to/socket")
 		if t.err == "" && hookExists {
 			c.Assert(err, gc.IsNil)
-		} else if !hookExists {
-			c.Assert(uniter.IsMissingHookError(err), jc.IsTrue)
 		} else {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
@@ -279,7 +316,6 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	// Create a charm with a breaking hook.
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	ctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
 	charmDir, _ := makeCharm(c, hookSpec{
 		name: "something-happened",
 		perm: 0700,
@@ -292,8 +328,19 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	node1, err := s.relctxs[1].Settings()
 	node1.Set("bar", "2")
 
+	hi := &hook.Info{RelationId: -1}
+
+	proxySettings := proxy.Settings{}
+
+	hr, err := uniter.NewHookRunner(s.apiUnit, uuid.String(), "test-env-name",
+		s.relctxs, apiAddrs, "test-owner", proxySettings, charmDir, c.MkDir())
+	c.Assert(err, gc.IsNil)
+
+	ctx, err := s.getHookContext(hr, hi)
+	c.Assert(err, gc.IsNil)
+
 	// Run the failing hook.
-	err = ctx.RunHook("something-happened", charmDir, c.MkDir(), "/path/to/socket")
+	err = ctx.RunHook("/path/to/socket")
 	c.Assert(err, gc.ErrorMatches, "exit status 123")
 
 	// Check that the changes to the local settings nodes have been discarded.
@@ -320,8 +367,11 @@ func (s *RunHookSuite) TestRunHookRelationFlushing(c *gc.C) {
 	node0.Set("baz", "3")
 	node1.Set("qux", "4")
 
-	// Run the hook.
-	err = ctx.RunHook("something-happened", charmDir, c.MkDir(), "/path/to/socket")
+	// Get the new context and run the hook.
+	ctx, err = s.getHookContext(hr, hi)
+	c.Assert(err, gc.IsNil)
+
+	err = ctx.RunHook("/path/to/socket")
 	c.Assert(err, gc.IsNil)
 
 	// Check that the changes to the local settings nodes are still there.
@@ -565,15 +615,28 @@ type InterfaceSuite struct {
 
 var _ = gc.Suite(&InterfaceSuite{})
 
-func (s *InterfaceSuite) GetContext(c *gc.C, relId int,
-	remoteName string) jujuc.Context {
+func (s *InterfaceSuite) GetContext(c *gc.C, relId int, remoteName string,
+	charmDir, toolsDir string) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), relId, remoteName, noProxies)
+	hi := &hook.Info{
+		RelationId: relId,
+		RemoteUnit: remoteName,
+	}
+
+	proxySettings := proxy.Settings{}
+
+	hr, err := uniter.NewHookRunner(s.apiUnit, uuid.String(), "test-env-name",
+		s.relctxs, apiAddrs, "test-owner", proxySettings, charmDir, toolsDir)
+	c.Assert(err, gc.IsNil)
+
+	ctx, err := s.HookContextSuite.getHookContext(hr, hi)
+	c.Assert(err, gc.IsNil)
+	return ctx
 }
 
 func (s *InterfaceSuite) TestUtils(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", "", "")
 	c.Assert(ctx.UnitName(), gc.Equals, "u/0")
 	r, found := ctx.HookRelation()
 	c.Assert(found, jc.IsFalse)
@@ -590,20 +653,20 @@ func (s *InterfaceSuite) TestUtils(c *gc.C) {
 	c.Assert(found, jc.IsFalse)
 	c.Assert(r, gc.IsNil)
 
-	ctx = s.GetContext(c, 1, "")
+	ctx = s.GetContext(c, 1, "", "", "")
 	r, found = ctx.HookRelation()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(r.Name(), gc.Equals, "db")
 	c.Assert(r.FakeId(), gc.Equals, "db:1")
 
-	ctx = s.GetContext(c, 1, "u/123")
+	ctx = s.GetContext(c, 1, "u/123", "", "")
 	name, found = ctx.RemoteUnitName()
 	c.Assert(found, jc.IsTrue)
 	c.Assert(name, gc.Equals, "u/123")
 }
 
 func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", "", "")
 	pr, ok := ctx.PrivateAddress()
 	c.Assert(ok, jc.IsTrue)
 	c.Assert(pr, gc.Equals, "u-0.testing.invalid")
@@ -628,7 +691,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *gc.C) {
 }
 
 func (s *InterfaceSuite) TestConfigCaching(c *gc.C) {
-	ctx := s.GetContext(c, -1, "")
+	ctx := s.GetContext(c, -1, "", "", "")
 	settings, err := ctx.ConfigSettings()
 	c.Assert(err, gc.IsNil)
 	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
@@ -720,17 +783,24 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.relctxs[rel.Id()] = uniter.NewContextRelation(apiRelUnit, nil)
 }
 
-func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
-	remote string, proxies proxy.Settings) *uniter.HookContext {
-	if relid != -1 {
-		_, found := s.relctxs[relid]
-		c.Assert(found, jc.IsTrue)
+func (s *HookContextSuite) getHookContext(hr *uniter.HookRunner, hi *hook.Info, action *apiuniter.Action) (*uniter.HookContext, error) {
+	if err := hi.Validate(); err != nil {
+		return nil, err
 	}
-	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
-		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
-		proxies)
-	c.Assert(err, gc.IsNil)
-	return context
+
+	hookName := string(hi.Kind)
+	actionParams := map[string]interface{}{}
+
+	if hi.Kind.IsRelation() {
+		hookName = fmt.Sprintf("%s-%s", s.relctxs[hi.RelationId].Name(), hi.Kind)
+	} else if hi.Kind == hooks.ActionRequested {
+		actionParams = action.Params()
+		hookName = action.Name()
+	}
+
+	hctxId := fmt.Sprintf("%s:%s:%d", s.unit.Name(), hookName, 123)
+
+	return uniter.NewHookContext(hr, hctxId, hi, hookName, actionParams)
 }
 
 func convertSettings(settings params.RelationSettings) map[string]interface{} {
@@ -755,16 +825,32 @@ type RunCommandSuite struct {
 
 var _ = gc.Suite(&RunCommandSuite{})
 
-func (s *RunCommandSuite) getHookContext(c *gc.C) *uniter.HookContext {
-	uuid, err := utils.NewUUID()
-	c.Assert(err, gc.IsNil)
-	return s.HookContextSuite.getHookContext(c, uuid.String(), -1, "", noProxies)
+func (s *RunCommandSuite) getHookContext(hr *uniter.HookRunner, hi *hook.Info) (*uniter.HookContext, error) {
+	ctx, err := s.HookContextSuite.getHookContext(hr, hi)
+	if err != nil {
+		return nil, err
+	}
+
+	return ctx, nil
 }
 
 func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
-	context := s.getHookContext(c)
 	charmDir := c.MkDir()
-	result, err := context.RunCommands("env | sort", charmDir, "/path/to/tools", "/path/to/socket")
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+
+	hr, err := uniter.NewHookRunner(s.apiUnit, uuid.String(), "test-env-name",
+		s.relctxs, apiAddrs, "test-owner", proxy.Settings{}, charmDir, "/path/to/tools")
+	c.Assert(err, gc.IsNil)
+
+	hi := &hook.Info{
+		RelationId: -1,
+	}
+
+	context, err := s.getHookContext(hr, hi)
+	c.Assert(err, gc.IsNil)
+
+	result, err := context.RunCommands("env | sort", "/path/to/socket")
 	c.Assert(err, gc.IsNil)
 
 	executionEnvironment := map[string]string{}
@@ -789,14 +875,27 @@ func (s *RunCommandSuite) TestRunCommandsHasEnvironSet(c *gc.C) {
 }
 
 func (s *RunCommandSuite) TestRunCommandsStdOutAndErrAndRC(c *gc.C) {
-	context := s.getHookContext(c)
 	charmDir := c.MkDir()
+	uuid, err := utils.NewUUID()
+	c.Assert(err, gc.IsNil)
+
+	hi := &hook.Info{
+		RelationId: -1,
+	}
+
+	hr, err := uniter.NewHookRunner(s.apiUnit, uuid.String(), "test-env-name",
+		s.relctxs, apiAddrs, "test-owner", proxy.Settings{}, charmDir, "/path/to/tools")
+	c.Assert(err, gc.IsNil)
+
+	context, err := s.getHookContext(hr, hi)
+	c.Assert(err, gc.IsNil)
+	// context := s.getHookContext(c, charmDir, "/path/to/tools")
 	commands := `
 echo this is standard out
 echo this is standard err >&2
 exit 42
 `
-	result, err := context.RunCommands(commands, charmDir, "/path/to/tools", "/path/to/socket")
+	result, err := context.RunCommands(commands, "/path/to/socket")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(result.Code, gc.Equals, 42)

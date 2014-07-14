@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -335,8 +336,38 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName string) (context *HookContext, err error) {
+func (u *Uniter) getHookContext(hr *HookRunner, hi *hook.Info) (hctx *HookContext, err error) {
+	if err := hi.Validate(); err != nil {
+		return nil, err
+	}
 
+	hookName := string(hi.Kind)
+	actionParams := map[string]interface{}{}
+
+	// Get a proper name if we have a Relation or Action.  If we have an
+	// Action, make sure its params are valid.
+	if hi.Kind.IsRelation() {
+		hookName, err = u.relationers[hi.RelationId].PrepareHook(*hi)
+		if err != nil {
+			return nil, err
+		}
+	} else if hi.Kind == hooks.ActionRequested {
+		action, err := u.st.Action(names.NewActionTag(hi.ActionId))
+		if err != nil {
+			return nil, err
+		}
+		actionParams = action.Params()
+		hookName = action.Name()
+
+		// TODO(binary132): Validate
+	}
+
+	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
+
+	return NewHookContext(hr, hctxId, hi, hookName, actionParams)
+}
+
+func (u *Uniter) getHookRunner() (runner *HookRunner, err error) {
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
 		return nil, err
@@ -355,8 +386,8 @@ func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName st
 
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
-	return NewHookContext(u.unit, hctxId, u.uuid, u.envName, relationId,
-		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings)
+	return NewHookRunner(u.unit, u.uuid, u.envName, ctxRelations,
+		apiAddrs, ownerTag, proxySettings, u.charmPath, u.toolsDir)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -401,14 +432,20 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 // RunCommands executes the supplied commands in a hook context.
 func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err error) {
 	logger.Tracef("run commands: %s", commands)
-	hctxId := fmt.Sprintf("%s:run-commands:%d", u.unit.Name(), u.rand.Int63())
 	lockMessage := fmt.Sprintf("%s: running commands", u.unit.Name())
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return nil, err
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, -1, "")
+	runner, err := u.getHookRunner()
+	if err != nil {
+		return nil, err
+	}
+	hctx, err := u.getHookContext(runner, &hook.Info{
+		Kind:       hooks.RunCommands,
+		RelationId: -1,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -418,7 +455,7 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer srv.Close()
 
-	result, err := hctx.RunCommands(commands, u.charmPath, u.toolsDir, socketPath)
+	result, err := hctx.RunCommands(commands, socketPath)
 	if result != nil {
 		logger.Tracef("run commands: rc=%v\nstdout:\n%sstderr:\n%s", result.Code, result.Stdout, result.Stderr)
 	}
@@ -451,32 +488,27 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
-	// Prepare context.
-	if err = hi.Validate(); err != nil {
+	hookRunner, err := u.getHookRunner()
+	if err != nil {
 		return err
 	}
 
-	hookName := string(hi.Kind)
-	relationId := -1
-	if hi.Kind.IsRelation() {
-		relationId = hi.RelationId
-		if hookName, err = u.relationers[relationId].PrepareHook(hi); err != nil {
-			return err
-		}
+	// Prepare context.
+	hookContext, err := u.getHookContext(hookRunner, &hi)
+	if err != nil {
+		return err
 	}
-	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
-	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
+	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookContext.hookName)
+
 	if err = u.acquireHookLock(lockMessage); err != nil {
 		return err
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit)
-	if err != nil {
-		return err
-	}
-	srv, socketPath, err := u.startJujucServer(hctx)
+	// WIP
+
+	srv, socketPath, err := u.startJujucServer(hookContext)
 	if err != nil {
 		return err
 	}
@@ -486,24 +518,26 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if err := u.writeState(RunHook, Pending, &hi, nil); err != nil {
 		return err
 	}
-	logger.Infof("running %q hook", hookName)
+	logger.Infof("running %q hook", hookContext.hookName)
+
 	ranHook := true
-	err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
+	err = hookContext.RunHook(socketPath)
+
 	if IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
 		logger.Errorf("hook failed: %s", err)
-		u.notifyHookFailed(hookName, hctx)
+		u.notifyHookFailed(hookContext.hookName, hookContext)
 		return errHookFailed
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
 		return err
 	}
 	if ranHook {
-		logger.Infof("ran %q hook", hookName)
-		u.notifyHookCompleted(hookName, hctx)
+		logger.Infof("ran %q hook", hookContext.hookName)
+		u.notifyHookCompleted(hookContext.hookName, hookContext)
 	} else {
-		logger.Infof("skipped %q hook (missing)", hookName)
+		logger.Infof("skipped %q hook (missing)", hookContext.hookName)
 	}
 	return u.commitHook(hi)
 }
@@ -519,8 +553,9 @@ func (u *Uniter) commitHook(hi hook.Info) error {
 		if hi.Kind == hooks.RelationBroken {
 			delete(u.relationers, hi.RelationId)
 		}
-	}
-	if hi.Kind == hooks.ConfigChanged {
+	} else if hi.Kind == hooks.ActionRequested {
+		// TODO(binary132): complete Action
+	} else if hi.Kind == hooks.ConfigChanged {
 		u.ranConfigChanged = true
 	}
 	if err := u.writeState(Continue, Pending, &hi, nil); err != nil {
@@ -538,7 +573,14 @@ func (u *Uniter) currentHookName() string {
 		relationer := u.relationers[hookInfo.RelationId]
 		name := relationer.ru.Endpoint().Name
 		hookName = fmt.Sprintf("%s-%s", name, hookInfo.Kind)
+	} else if hookInfo.Kind == hooks.ActionRequested {
+		hookName = fmt.Sprintf("%s-%s", hookName, hookInfo.ActionId)
 	}
+
+	// TODO: How do we handle Action hooks?  Getting the Name requires
+	// API call.  Elsewhere, the Name of the Hook is considered to be
+	// the name of the Action in order to find and run the executable.
+
 	return hookName
 }
 

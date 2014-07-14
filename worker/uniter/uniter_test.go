@@ -1227,6 +1227,38 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 	s.runUniterTests(c, relationsErrorTests)
 }
 
+var actionEventTests = []uniterTest{
+	// Relations.
+	ut(
+		// This test does an add-relation as quickly as possible
+		// after an upgrade-charm, in the hope that the scheduler will
+		// deliver the events in the wrong order. The observed
+		// behaviour should be the same in either case.
+		"simple action event",
+		createCharm{
+			revision: 0,
+			customize: func(c *gc.C, ctx *context, path string) {
+				hpath := filepath.Join(path, "actions", "foo")
+				ctx.writeHook(c, hpath, true)
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		addAction{"foo", nil},
+		waitHooks{"foo"},
+	),
+}
+
+func (s *UniterSuite) TestActionEvents(c *gc.C) {
+	s.runUniterTests(c, actionEventTests)
+}
+
 var subordinatesTests = []uniterTest{
 	// Subordinates.
 	ut(
@@ -1772,6 +1804,16 @@ type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *gc.C, ctx *context) {
 	err := ctx.svc.UpdateConfigSettings(corecharm.Settings(s))
+	c.Assert(err, gc.IsNil)
+}
+
+type addAction struct {
+	name   string
+	params map[string]interface{}
+}
+
+func (s addAction) step(c *gc.C, ctx *context) {
+	_, err := ctx.unit.AddAction(s.name, s.params)
 	c.Assert(err, gc.IsNil)
 }
 
