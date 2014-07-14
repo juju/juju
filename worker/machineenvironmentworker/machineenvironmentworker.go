@@ -66,7 +66,7 @@ var _ worker.NotifyWatchHandler = (*MachineEnvironmentWorker)(nil)
 func NewMachineEnvironmentWorker(api *environment.Facade, agentConfig agent.Config) worker.Worker {
 	// We don't write out system files for the local provider on machine zero
 	// as that is the host machine.
-	writeSystemFiles := (agentConfig.Tag() != names.NewMachineTag("0").String() ||
+	writeSystemFiles := (agentConfig.Tag() != names.NewMachineTag("0") ||
 		agentConfig.Value(agent.ProviderType) != provider.Local)
 	logger.Debugf("write system files: %v", writeSystemFiles)
 	envWorker := &MachineEnvironmentWorker{

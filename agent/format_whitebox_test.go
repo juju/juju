@@ -59,9 +59,7 @@ func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
 	err := config.Write()
 	c.Assert(err, gc.IsNil)
 
-	tag, err := names.ParseTag(config.Tag())
-	c.Assert(err, gc.IsNil)
-	configPath := ConfigPath(config.DataDir(), tag)
+	configPath := ConfigPath(config.DataDir(), config.Tag())
 	formatPath := filepath.Join(config.Dir(), legacyFormatFilename)
 	assertFileExists(c, configPath)
 	assertFileNotExist(c, formatPath)
@@ -93,9 +91,7 @@ func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
 func assertWriteAndRead(c *gc.C, config *configInternal) {
 	err := config.Write()
 	c.Assert(err, gc.IsNil)
-	tag, err := names.ParseTag(config.Tag())
-	c.Assert(err, gc.IsNil)
-	configPath := ConfigPath(config.DataDir(), tag)
+	configPath := ConfigPath(config.DataDir(), config.Tag())
 	readConfig, err := ReadConfig(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(readConfig, jc.DeepEquals, config)

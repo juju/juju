@@ -264,9 +264,7 @@ func (*suite) TestMigrate(c *gc.C) {
 
 		// Make sure we can read it back successfully and it
 		// matches what we wrote.
-		tag, err := names.ParseTag(newConfig.Tag())
-		c.Assert(err, gc.IsNil)
-		configPath := agent.ConfigPath(newConfig.DataDir(), tag)
+		configPath := agent.ConfigPath(newConfig.DataDir(), newConfig.Tag())
 		readConfig, err := agent.ReadConfig(configPath)
 		c.Check(err, gc.IsNil)
 		c.Check(newConfig, jc.DeepEquals, readConfig)
@@ -373,7 +371,7 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(conf.DataDir(), gc.Equals, "/data/dir")
 	c.Assert(conf.SystemIdentityPath(), gc.Equals, "/data/dir/system-identity")
-	c.Assert(conf.Tag(), gc.Equals, "user-omg")
+	c.Assert(conf.Tag(), gc.Equals, names.NewUserTag("omg"))
 	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/user-omg")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, version.Current.Number)
@@ -436,9 +434,7 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(conf.Write(), gc.IsNil)
-	tag, err := names.ParseTag(conf.Tag())
-	c.Assert(err, gc.IsNil)
-	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataDir(), tag))
+	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 	c.Assert(err, gc.IsNil)
 	c.Assert(reread, jc.DeepEquals, conf)
 }

@@ -400,11 +400,8 @@ func (e *errorAPIOpener) OpenAPI(_ api.DialOpts) (*api.State, string, error) {
 	return nil, "", e.err
 }
 
-func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
-	// TODO(dfc) tag should be a Tag not a string
-	t, err := names.ParseTag(tag)
-	c.Assert(err, gc.IsNil)
-	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, t))
+func (s *agentSuite) assertCanOpenState(c *gc.C, tag names.Tag, dataDir string) {
+	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, gc.IsNil)
 	info, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
@@ -413,20 +410,15 @@ func (s *agentSuite) assertCanOpenState(c *gc.C, tag, dataDir string) {
 	st.Close()
 }
 
-func (s *agentSuite) assertCannotOpenState(c *gc.C, tag, dataDir string) {
-	// TODO(dfc) tag should be a Tag not a string
-	t, err := names.ParseTag(tag)
-	c.Assert(err, gc.IsNil)
-	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, t))
+func (s *agentSuite) assertCannotOpenState(c *gc.C, tag names.Tag, dataDir string) {
+	config, err := agent.ReadConfig(agent.ConfigPath(dataDir, tag))
 	c.Assert(err, gc.IsNil)
 	_, ok := config.MongoInfo()
 	c.Assert(ok, jc.IsFalse)
 }
 
 func refreshConfig(c *gc.C, config agent.Config) agent.ConfigSetterWriter {
-	tag, err := names.ParseTag(config.Tag())
-	c.Assert(err, gc.IsNil)
-	config1, err := agent.ReadConfig(agent.ConfigPath(config.DataDir(), tag))
+	config1, err := agent.ReadConfig(agent.ConfigPath(config.DataDir(), config.Tag()))
 	c.Assert(err, gc.IsNil)
 	return config1
 }

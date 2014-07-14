@@ -53,7 +53,7 @@ type RsyslogConfigHandler struct {
 	mode            RsyslogMode
 	syslogConfig    *syslog.SyslogConfig
 	rsyslogConfPath string
-	tag             string
+	tag             names.Tag
 	// We store the syslog-port and rsyslog-ca-cert
 	// values after writing the rsyslog configuration,
 	// so we can decide whether a change has occurred.
@@ -67,7 +67,7 @@ var _ worker.NotifyWatchHandler = (*RsyslogConfigHandler)(nil)
 // WatchForRsyslogChanges and updates rsyslog configuration based
 // on changes. The worker will remove the configuration file
 // on teardown.
-func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag, namespace string, stateServerAddrs []string) (worker.Worker, error) {
+func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string) (worker.Worker, error) {
 	handler, err := newRsyslogConfigHandler(st, mode, tag, namespace, stateServerAddrs)
 	if err != nil {
 		return nil, err
@@ -76,34 +76,27 @@ func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag, namespa
 	return worker.NewNotifyWorker(handler), nil
 }
 
-func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag, namespace string, stateServerAddrs []string) (*RsyslogConfigHandler, error) {
+func newRsyslogConfigHandler(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string) (*RsyslogConfigHandler, error) {
 	var syslogConfig *syslog.SyslogConfig
 	if mode == RsyslogModeAccumulate {
-		syslogConfig = syslog.NewAccumulateConfig(
-			tag, logDir, 0, namespace, stateServerAddrs,
-		)
+		syslogConfig = syslog.NewAccumulateConfig(tag.String(), logDir, 0, namespace, stateServerAddrs)
 	} else {
-		syslogConfig = syslog.NewForwardConfig(
-			tag, logDir, 0, namespace, stateServerAddrs,
-		)
+		syslogConfig = syslog.NewForwardConfig(tag.String(), logDir, 0, namespace, stateServerAddrs)
 	}
 
 	// Historically only machine-0 includes the namespace in the log
 	// dir/file; for backwards compatibility we continue the tradition.
-	if tag != "machine-0" {
+	if tag != names.NewMachineTag("0") {
 		namespace = ""
 	}
-	kind, err := names.TagKind(tag)
-	if err != nil {
-		return nil, err
-	}
-	if kind == names.MachineTagKind {
+	switch tag := tag.(type) {
+	case names.MachineTag:
 		if namespace == "" {
 			syslogConfig.ConfigFileName = "25-juju.conf"
 		} else {
 			syslogConfig.ConfigFileName = fmt.Sprintf("25-juju-%s.conf", namespace)
 		}
-	} else {
+	default:
 		syslogConfig.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", tag)
 	}
 
@@ -126,7 +119,8 @@ func (h *RsyslogConfigHandler) SetUp() (watcher.NotifyWatcher, error) {
 			return nil, errors.Annotate(err, "failed to write rsyslog certificates")
 		}
 	}
-	return h.st.WatchForRsyslogChanges(h.tag)
+	// TODO(dfc)
+	return h.st.WatchForRsyslogChanges(h.tag.String())
 }
 
 var restartRsyslog = syslog.Restart
@@ -139,7 +133,8 @@ func (h *RsyslogConfigHandler) TearDown() error {
 }
 
 func (h *RsyslogConfigHandler) Handle() error {
-	cfg, err := h.st.GetRsyslogConfig(h.tag)
+	// TODO(dfc)
+	cfg, err := h.st.GetRsyslogConfig(h.tag.String())
 	if err != nil {
 		return errors.Annotate(err, "cannot get environ config")
 	}

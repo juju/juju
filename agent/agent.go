@@ -88,7 +88,7 @@ type Config interface {
 
 	// Tag returns the tag of the entity on whose behalf the state connection
 	// will be made.
-	Tag() string
+	Tag() names.Tag
 
 	// Dir returns the agent's directory.
 	Dir() string
@@ -555,8 +555,8 @@ func (c *configInternal) OldPassword() string {
 	return c.oldPassword
 }
 
-func (c *configInternal) Tag() string {
-	return c.tag.String()
+func (c *configInternal) Tag() names.Tag {
+	return c.tag
 }
 
 func (c *configInternal) Dir() string {

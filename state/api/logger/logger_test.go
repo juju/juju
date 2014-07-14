@@ -4,6 +4,7 @@
 package logger_test
 
 import (
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -38,13 +39,13 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *loggerSuite) TestLoggingConfigWrongMachine(c *gc.C) {
-	config, err := s.logger.LoggingConfig("42")
+	config, err := s.logger.LoggingConfig(names.NewMachineTag("42"))
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(config, gc.Equals, "")
 }
 
 func (s *loggerSuite) TestLoggingConfig(c *gc.C) {
-	config, err := s.logger.LoggingConfig(s.rawMachine.Tag().String())
+	config, err := s.logger.LoggingConfig(s.rawMachine.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(config, gc.Not(gc.Equals), "")
 }
@@ -55,7 +56,7 @@ func (s *loggerSuite) setLoggingConfig(c *gc.C, loggingConfig string) {
 }
 
 func (s *loggerSuite) TestWatchLoggingConfig(c *gc.C) {
-	watcher, err := s.logger.WatchLoggingConfig(s.rawMachine.Tag().String())
+	watcher, err := s.logger.WatchLoggingConfig(s.rawMachine.Tag())
 	c.Assert(err, gc.IsNil)
 	defer testing.AssertStop(c, watcher)
 	wc := testing.NewNotifyWatcherC(c, s.BackingState, watcher)
