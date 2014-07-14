@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	stdtesting "testing"
 	"time"
 
@@ -95,20 +96,27 @@ func (s *serverSuite) TestStop(c *gc.C) {
 
 func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	// Start our own instance of the server listening on
-	// both IPv4 and IPv6 localhost addresses and port 54321.
+	// both IPv4 and IPv6 localhost addresses and port 0,
+	// so that an available port is choosen.
 	srv, err := apiserver.NewServer(s.State, apiserver.ServerConfig{
-		Port: 54321,
+		Port: 0,
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
 	})
 	c.Assert(err, gc.IsNil)
 	defer srv.Stop()
 
-	// srv.Addr() always reports "localhost" as address.
-	// This way it can be used to construct URLs which
-	// will work for both IPv4 and IPv6-only networks,
-	// as localhost resolves as both 127.0.0.1 and ::1.
-	c.Assert(srv.Addr(), gc.Equals, "localhost:54321")
+	// srv.Addr() always reports "localhost" together
+	// with the port as address. This way it can be used
+	// as hostname to construct URLs which will work
+	// for both IPv4 and IPv6-only networks, as
+	// localhost resolves as both 127.0.0.1 and ::1.
+	// Retrieve the port as string and integer.
+	hostname, portString, err := net.SplitHostPort(srv.Addr())
+	c.Assert(err, gc.IsNil)
+	c.Assert(hostname, gc.Equals, "localhost")
+	port, err := strconv.Atoi(portString)
+	c.Assert(err, gc.IsNil)
 
 	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -124,27 +132,27 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 		Tag:      stm.Tag(),
 		Password: password,
 		Nonce:    "fake_nonce",
-		Addrs:    []string{net.JoinHostPort("127.0.0.1", "54321")},
+		Addrs:    []string{net.JoinHostPort("127.0.0.1", portString)},
 		CACert:   coretesting.CACert,
 	}
 	ipv4State, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer ipv4State.Close()
-	c.Assert(ipv4State.Addr(), gc.Equals, "127.0.0.1:54321")
+	c.Assert(ipv4State.Addr(), gc.Equals, net.JoinHostPort("127.0.0.1", portString))
 	c.Assert(ipv4State.APIHostPorts(), jc.DeepEquals, [][]network.HostPort{
-		[]network.HostPort{{network.NewAddress("127.0.0.1", network.ScopeMachineLocal), 54321}},
+		[]network.HostPort{{network.NewAddress("127.0.0.1", network.ScopeMachineLocal), port}},
 	})
 
 	_, err = ipv4State.Machiner().Machine(stm.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 
-	apiInfo.Addrs = []string{net.JoinHostPort("::1", "54321")}
+	apiInfo.Addrs = []string{net.JoinHostPort("::1", portString)}
 	ipv6State, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer ipv6State.Close()
-	c.Assert(ipv6State.Addr(), gc.Equals, "[::1]:54321")
+	c.Assert(ipv6State.Addr(), gc.Equals, net.JoinHostPort("::1", portString))
 	c.Assert(ipv6State.APIHostPorts(), jc.DeepEquals, [][]network.HostPort{
-		[]network.HostPort{{network.NewAddress("::1", network.ScopeMachineLocal), 54321}},
+		[]network.HostPort{{network.NewAddress("::1", network.ScopeMachineLocal), port}},
 	})
 
 	_, err = ipv6State.Machiner().Machine(stm.Tag().(names.MachineTag))
