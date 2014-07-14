@@ -149,15 +149,15 @@ func testEnsureEnvName(c *gc.C, expect string, args ...string) {
 	c.Assert(cmd.ConnectionName(), gc.Equals, expect)
 }
 
-type APIEndpointForEnvSuite struct {
+type ConnectionEndpointSuite struct {
 	coretesting.FakeJujuHomeSuite
 	store    configstore.Storage
 	endpoint configstore.APIEndpoint
 }
 
-var _ = gc.Suite(&APIEndpointForEnvSuite{})
+var _ = gc.Suite(&ConnectionEndpointSuite{})
 
-func (s *APIEndpointForEnvSuite) SetUpTest(c *gc.C) {
+func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 	s.FakeHomeSuite.SetUpTest(c)
 	s.store = configstore.NewMem()
 	s.PatchValue(envcmd.GetConfigStore, func() (configstore.Storage, error) {
@@ -179,7 +179,7 @@ func (s *APIEndpointForEnvSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *APIEndpointForEnvSuite) TestAPIEndpointInStoreCached(c *gc.C) {
+func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
 	cmd, err := initTestCommand(c, "-e", "env-name")
 	c.Assert(err, gc.IsNil)
 	endpoint, err := cmd.ConnectionEndpoint(false)
@@ -187,7 +187,7 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointInStoreCached(c *gc.C) {
 	c.Assert(endpoint, gc.DeepEquals, s.endpoint)
 }
 
-func (s *APIEndpointForEnvSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
+func (s *ConnectionEndpointSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
 	cmd, err := initTestCommand(c, "-e", "no-such-env")
 	c.Assert(err, gc.IsNil)
 	_, err = cmd.ConnectionEndpoint(false)
@@ -195,7 +195,7 @@ func (s *APIEndpointForEnvSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, `environment "no-such-env" not found`)
 }
 
-func (s *APIEndpointForEnvSuite) TestAPIEndpointRefresh(c *gc.C) {
+func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
 	newEndpoint := configstore.APIEndpoint{
 		Addresses:   []string{"foo.example.com"},
 		CACert:      "certificated",
