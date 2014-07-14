@@ -1514,19 +1514,20 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	s.baseEnvironSuite.SetUpTest(c)
 	s.env = s.setupEnvWithDummyMetadata(c)
 	s.env.ecfg.attrs["force-image-name"] = "my-image"
+	machineTag := names.NewMachineTag("1")
 	stateInfo := &authentication.ConnectionInfo{
 		Info: mongo.Info{
 			CACert: coretesting.CACert,
 			Addrs:  []string{"localhost:123"},
 		},
 		Password: "password",
-		Tag:      names.NewMachineTag("1"),
+		Tag:      machineTag,
 	}
 	apiInfo := &api.Info{
 		Addrs:    []string{"localhost:124"},
 		CACert:   coretesting.CACert,
 		Password: "admin",
-		Tag:      "machine-1",
+		Tag:      machineTag,
 	}
 	s.params = environs.StartInstanceParams{
 		Tools: envtesting.AssertUploadFakeToolsVersions(

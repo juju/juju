@@ -54,7 +54,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
 		StateInfo: &authentication.ConnectionInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: "not touched"},
+		APIInfo:   &api.Info{Tag: userTag},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -65,7 +65,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 			agent.ContainerType: "",
 		},
 		StateInfo: &authentication.ConnectionInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: "not touched"},
+		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: false,
 	})
 }
@@ -80,7 +80,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
 		StateInfo: &authentication.ConnectionInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: "not touched"},
+		APIInfo:   &api.Info{Tag: userTag},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -91,7 +91,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 			agent.ContainerType: "",
 		},
 		StateInfo: &authentication.ConnectionInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: "not touched"},
+		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: true,
 	})
 }
@@ -179,7 +179,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",
 			CACert:   "CA CERT\n" + testing.CACert,
-			Tag:      "machine-10",
+			Tag:      names.NewMachineTag("10"),
 		},
 		DataDir:                 environs.DataDir,
 		LogDir:                  agent.DefaultLogDir,
