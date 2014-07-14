@@ -6,11 +6,13 @@ package cloudsigma
 import (
 	"fmt"
 
-	"github.com/Altoros/gosigma"
+	"github.com/altoros/gosigma"
+
 	"github.com/juju/juju/constraints"
 )
 
 // This file contains implementation of CloudSigma instance constraints
+
 type sigmaConstraints struct {
 	driveTemplate string
 	driveSize     uint64
