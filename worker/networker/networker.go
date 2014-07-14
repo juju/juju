@@ -4,8 +4,6 @@
 package networker
 
 import (
-	"fmt"
-
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
@@ -24,6 +22,8 @@ var privateBridge string
 type networker struct {
 	st  *apinetworker.State
 	tag string
+	isVLANSupportInstalled bool
+
 }
 
 // NewNetworker returns a Worker that handles machine networking configuration.
@@ -36,40 +36,26 @@ func NewNetworker(st *apinetworker.State, agentConfig agent.Config) worker.Worke
 }
 
 func (nw *networker) SetUp() (watcher.NotifyWatcher, error) {
-	var err error
 	s := &configState{}
 
 	// Read network configuration files and revert modifications made by MAAS.
-	if err = s.configFiles.readAll(); err != nil {
+	if err := s.configFiles.readAll(); err != nil {
 		return nil, err
 	}
-	if err = s.configFiles.fixMAAS(); err != nil {
+	if err := s.configFiles.fixMAAS(); err != nil {
 		return nil, err
 	}
 
 	// Need to configure network interface for juju internal network.
 	privateInterface = "eth0"
-	if s.configFiles["br0"] != nil {
+	if s.configFiles[ifaceConfigFileName("br0")] != nil {
 		privateBridge = "br0"
 	} else {
 		privateBridge = privateInterface
 	}
 
-	// Verify that internal interface is properly configured and brought up.
-	if !InterfaceIsUp(privateInterface) {
-		logger.Errorf("interface %q has to be up", privateInterface)
-		return nil, fmt.Errorf("interface %q has to be up", privateInterface)
-	}
-	if !InterfaceIsUp(privateBridge) || !InterfaceHasAddress(privateBridge) {
-		logger.Errorf("interface %q has to be up", privateBridge)
-		return nil, fmt.Errorf("interface %q has to be up", privateBridge)
-	}
-
-	// Add commands to install VLAN module.
-	s.ensureVLANModule()
-
 	// Apply changes.
-	if err = s.apply(); err != nil {
+	if err := s.apply(); err != nil {
 		return nil, err
 	}
 	return nw.st.WatchInterfaces(nw.tag)
@@ -92,13 +78,22 @@ func (nw *networker) Handle() error {
 
 	// Down disabled interfaces.
 	s.bringDownInterfaces()
-	if err := s.apply(); err != nil {
+	if err = s.apply(); err != nil {
 		return err
+	}
+
+	// Reset the list of executed commands.
+	s.resetCommands()
+
+	// Add commands to install VLAN module, if required.
+	if (!nw.isVLANSupportInstalled) {
+		s.ensureVLANModule()
+		nw.isVLANSupportInstalled = true
 	}
 
 	// Up configured interfaces.
 	s.bringUpInterfaces()
-	if err := s.apply(); err != nil {
+	if err = s.apply(); err != nil {
 		return err
 	}
 

@@ -5,7 +5,7 @@ package networker_test
 
 import (
 	"fmt"
-	"io/ioutil"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -14,8 +14,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -27,11 +25,10 @@ import (
 
 type networkerSuite struct {
 	testing.JujuConnSuite
-	cfg *config.Config
 
-	networks      []state.NetworkInfo
-	machine       *state.Machine
-	machineIfaces []state.NetworkInterfaceInfo
+	networks []state.NetworkInfo
+	machine  *state.Machine
+	ifaces   []state.NetworkInterfaceInfo
 
 	st             *api.State
 	networkerState *apinetworker.State
@@ -80,8 +77,7 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	hwChars := instance.MustParseHardware("cpu-cores=123", "mem=4G")
-	s.machineIfaces = []state.NetworkInterfaceInfo{{
+	s.ifaces = []state.NetworkInterfaceInfo{{
 		MACAddress:    "aa:bb:cc:dd:ee:f0",
 		InterfaceName: "eth0",
 		NetworkName:   "net1",
@@ -107,7 +103,7 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 		NetworkName:   "net2",
 		IsVirtual:     false,
 	}}
-	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, s.networks, s.machineIfaces)
+	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", nil, s.networks, s.ifaces)
 	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag().String(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
@@ -174,9 +170,9 @@ iface lo inet loopback
 ` + networker.SourceCommentAndCommand
 
 type configState struct {
-	files    networker.ConfigFiles
-	commands []string
-	readyInterfaces []string
+	files                 networker.ConfigFiles
+	commands              []string
+	readyInterfaces       []string
 	interfacesWithAddress []string
 }
 
@@ -206,9 +202,9 @@ func executeCommandsHook(c *gc.C, s *networkerSuite, commands []string) error {
 func (s *networkerSuite) TestNetworker(c *gc.C) {
 	// Create a sample interfaces file (MAAS configuration)
 	interfacesFileContents := fmt.Sprintf(sampleInterfacesFile, networker.ConfigDirName)
-	err := ioutil.WriteFile(networker.ConfigFileName, []byte(interfacesFileContents), 0644)
+	err := utils.AtomicWriteFile(networker.ConfigFileName, []byte(interfacesFileContents), 0644)
 	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(networker.ConfigDirName+"/eth0.config", []byte(sampleEth0DotConfigFile), 0644)
+	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth0.config"), []byte(sampleEth0DotConfigFile), 0644)
 	c.Assert(err, gc.IsNil)
 
 	// Patch the network interface functions
@@ -221,9 +217,13 @@ func (s *networkerSuite) TestNetworker(c *gc.C) {
 			return interfacesWithAddress.Contains(name)
 		})
 
-	// Path the command executor
+	// Patch the command executor function
 	s.configStates = []*configState{}
-	s.PatchValue(&networker.ExecuteCommands, func(commands []string) error { return executeCommandsHook(c, s, commands) })
+	s.PatchValue(&networker.ExecuteCommands,
+		func(commands []string) error {
+			return executeCommandsHook(c, s, commands)
+		},
+	)
 
 	// Create and setup networker.
 	s.executed = make(chan bool)
@@ -240,37 +240,29 @@ loop:
 				break loop
 			}
 		case <-time.After(coretesting.ShortWait):
+			fmt.Printf("%#v\n", s.configStates)
 			c.Fatalf("command not executed")
 		}
 	}
 
 	// Verify the executed commands from SetUp()
 	expectedConfigFiles := networker.ConfigFiles{
-		"": {
-			FileName: networker.ConfigFileName,
+		networker.ConfigFileName: {
 			Data: fmt.Sprintf(expectedInterfacesFile, networker.ConfigSubDirName,
 				networker.ConfigSubDirName, networker.ConfigSubDirName, networker.ConfigSubDirName),
 		},
-		"br0": {
-			FileName: networker.IfaceConfigFileName("br0"),
-			Data: "auto br0\niface br0 inet dhcp\n  bridge_ports eth0\n",
+		networker.IfaceConfigFileName("br0"): {
+			Data:     "auto br0\niface br0 inet dhcp\n  bridge_ports eth0\n",
 		},
-		"eth0": {
-			FileName: networker.IfaceConfigFileName("eth0"),
-			Data: "auto eth0\niface eth0 inet manual\n",
+		networker.IfaceConfigFileName("eth0"): {
+			Data:     "auto eth0\niface eth0 inet manual\n",
 		},
-		"wlan0": {
-			FileName: networker.IfaceConfigFileName("wlan0"),
-			Data: "auto wlan0\niface wlan0 inet dhcp\n",
+		networker.IfaceConfigFileName("wlan0"): {
+			Data:     "auto wlan0\niface wlan0 inet dhcp\n",
 		},
 	}
 	c.Assert(s.configStates[0].files, gc.DeepEquals, expectedConfigFiles)
-	expectedCommands := []string{
-		"dpkg-query -s vlan || apt-get --option Dpkg::Options::=--force-confold --assume-yes install vlan",
-		"lsmod | grep -q 8021q || modprobe 8021q",
-		"grep -q 8021q /etc/modules || echo 8021q >> /etc/modules",
-		"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
-	}
+	expectedCommands := []string(nil)
 	c.Assert(s.configStates[0].commands, gc.DeepEquals, expectedCommands)
 	c.Assert(s.configStates[0].readyInterfaces, gc.DeepEquals, []string{"br0", "eth0", "wlan0"})
 	c.Assert(s.configStates[0].interfacesWithAddress, gc.DeepEquals, []string{"br0", "wlan0"})
@@ -283,27 +275,32 @@ loop:
 	c.Assert(s.configStates[1].interfacesWithAddress, gc.DeepEquals, []string{"br0", "wlan0"})
 
 	// Verify the executed commands from Handle()
-	expectedConfigFiles["eth0.69"] = &networker.ConfigFile{
-		FileName: networker.IfaceConfigFileName("eth0.69"),
-		Data: "# Managed by Networker, don't change\nauto eth0.69\niface eth0.69 inet dhcp\n\n",
+	expectedConfigFiles[networker.IfaceConfigFileName("eth0.69")] = &networker.ConfigFile{
+		Data:     "# Managed by Networker, don't change.\nauto eth0.69\niface eth0.69 inet dhcp\n\tvlan-raw-device eth0\n",
 	}
-	expectedConfigFiles["eth1"] = &networker.ConfigFile{
-		FileName: networker.IfaceConfigFileName("eth1"),
-		Data: "# Managed by Networker, don't change\nauto eth1\niface eth1 inet dhcp\n\n",
+	expectedConfigFiles[networker.IfaceConfigFileName("eth1")] = &networker.ConfigFile{
+		Data:     "# Managed by Networker, don't change.\nauto eth1\niface eth1 inet dhcp\n",
 	}
-	expectedConfigFiles["eth1.42"] = &networker.ConfigFile{
-		FileName: networker.IfaceConfigFileName("eth1.42"),
-		Data: "# Managed by Networker, don't change\nauto eth1.42\niface eth1.42 inet dhcp\n\n",
+	expectedConfigFiles[networker.IfaceConfigFileName("eth1.42")] = &networker.ConfigFile{
+		Data:     "# Managed by Networker, don't change.\nauto eth1.42\niface eth1.42 inet dhcp\n\tvlan-raw-device eth1\n",
 	}
-	expectedConfigFiles["eth2"] = &networker.ConfigFile{
-		FileName: networker.IfaceConfigFileName("eth2"),
-		Data: "# Managed by Networker, don't change\nauto eth2\niface eth2 inet dhcp\n\n",
+	expectedConfigFiles[networker.IfaceConfigFileName("eth2")] = &networker.ConfigFile{
+		Data:     "# Managed by Networker, don't change.\nauto eth2\niface eth2 inet dhcp\n",
 	}
 	for k, _ := range s.configStates[2].files {
 		c.Check(s.configStates[2].files[k], gc.DeepEquals, expectedConfigFiles[k])
 	}
 	c.Assert(s.configStates[2].files, gc.DeepEquals, expectedConfigFiles)
-	expectedCommands = []string{"ifup eth0.69", "ifup eth1", "ifup eth1.42", "ifup eth2"}
+	expectedCommands = []string{
+		"dpkg-query -s vlan || apt-get --option Dpkg::Options::=--force-confold --assume-yes install vlan",
+		"lsmod | grep -q 8021q || modprobe 8021q",
+		"grep -q 8021q /etc/modules || echo 8021q >> /etc/modules",
+		"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
+		"ifup eth0.69",
+		"ifup eth1",
+		"ifup eth1.42",
+		"ifup eth2",
+	}
 	c.Assert(s.configStates[2].commands, gc.DeepEquals, expectedCommands)
 	c.Assert(s.configStates[2].readyInterfaces, gc.DeepEquals,
 		[]string{"br0", "eth0", "eth0.69", "eth1", "eth1.42", "eth2", "wlan0"})

@@ -5,9 +5,10 @@ package networker_test
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
+	"path/filepath"
 
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"
@@ -74,33 +75,32 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 func (s *configSuite) TestConfigFileOperations(c *gc.C) {
 	// Create sample config files
 	interfacesContents := fmt.Sprintf(interfacesTemplate, networker.ConfigDirName, networker.ConfigDirName)
-	err := ioutil.WriteFile(networker.ConfigFileName, []byte(interfacesContents), 0644)
+	err := utils.AtomicWriteFile(networker.ConfigFileName, []byte(interfacesContents), 0644)
 	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(networker.ConfigDirName+"/eth0.config", []byte(eth0DotConfigContents), 0644)
+	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth0.config"), []byte(eth0DotConfigContents), 0644)
 	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(networker.ConfigDirName+"/eth1.config", []byte(eth1DotConfigContents), 0644)
+	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth1.config"), []byte(eth1DotConfigContents), 0644)
 	c.Assert(err, gc.IsNil)
 	err = os.Mkdir(networker.ConfigSubDirName, 0755)
 	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(networker.ConfigSubDirName+"/eth0.cfg", []byte(interfacesDSlashEth0DotCfgContents), 0644)
+	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigSubDirName, "eth0.cfg"),
+		[]byte(interfacesDSlashEth0DotCfgContents), 0644)
 	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(networker.ConfigSubDirName+"/eth4.cfg", []byte(interfacesDSlashEth4DotCfgContents), 0644)
+	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigSubDirName, "eth4.cfg"),
+		[]byte(interfacesDSlashEth4DotCfgContents), 0644)
 	c.Assert(err, gc.IsNil)
 
 	cf := networker.ConfigFiles{}
 	err = networker.ReadAll(&cf)
 	c.Assert(err, gc.IsNil)
 	expect := networker.ConfigFiles{
-		"": &networker.ConfigFile{
-			FileName: networker.ConfigFileName,
+		networker.ConfigFileName: {
 			Data:     interfacesContents,
 		},
-		"eth0": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/eth0.cfg",
+		networker.IfaceConfigFileName("eth0"): {
 			Data:     interfacesDSlashEth0DotCfgContents,
 		},
-		"eth4": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/eth4.cfg",
+		networker.IfaceConfigFileName("eth4"): {
 			Data:     interfacesDSlashEth4DotCfgContents,
 		},
 	}
@@ -108,56 +108,46 @@ func (s *configSuite) TestConfigFileOperations(c *gc.C) {
 	err = networker.FixMAAS(cf)
 	c.Assert(err, gc.IsNil)
 	expect = networker.ConfigFiles{
-		"": &networker.ConfigFile{
-			FileName: networker.ConfigFileName,
+		networker.ConfigFileName: {
 			Data: interfacesExpectedPrefix +
 				fmt.Sprintf(networker.SourceCommentAndCommand,
 					networker.ConfigSubDirName, networker.ConfigSubDirName,
 					networker.ConfigSubDirName, networker.ConfigSubDirName),
 			Op: networker.DoWrite,
 		},
-		"eth0": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/eth0.cfg",
+		networker.IfaceConfigFileName("eth0"): {
 			Data:     "auto eth0\niface eth0 inet manual\n",
 			Op:       networker.DoWrite,
 		},
-		"br0": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/br0.cfg",
+		networker.IfaceConfigFileName("br0"): {
 			Data:     "auto br0\niface br0 inet dhcp\n  bridge_ports eth0\n",
 			Op:       networker.DoWrite,
 		},
-		"eth1": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/eth1.cfg",
+		networker.IfaceConfigFileName("eth1"): {
 			Data:     "auto eth1\niface eth1 inet manual\n",
 			Op:       networker.DoWrite,
 		},
-		"br2": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/br2.cfg",
+		networker.IfaceConfigFileName("br2"): {
 			Data:     "auto br2\niface br2 inet dhcp\n  bridge_ports eth1\n",
 			Op:       networker.DoWrite,
 		},
-		"eth1.2": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/eth1.2.cfg",
+		networker.IfaceConfigFileName("eth1.2"): {
 			Data:     "auto eth1.2\niface eth1.2 inet dhcp\n",
 			Op:       networker.DoWrite,
 		},
-		"eth2": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/eth2.cfg",
+		networker.IfaceConfigFileName("eth2"): {
 			Data:     "auto eth2\niface eth2 inet dhcp\n",
 			Op:       networker.DoWrite,
 		},
-		"eth4": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/eth4.cfg",
+		networker.IfaceConfigFileName("eth4"): {
 			Data:     "",
 			Op:       networker.DoRemove,
 		},
-		fmt.Sprintf("#%s/eth0.config", networker.ConfigDirName): &networker.ConfigFile{
-			FileName: networker.ConfigDirName + "/eth0.config",
+		filepath.Join(networker.ConfigDirName, "eth0.config"): {
 			Data:     "",
 			Op:       networker.DoRemove,
 		},
-		fmt.Sprintf("#%s/eth1.config", networker.ConfigDirName): &networker.ConfigFile{
-			FileName: networker.ConfigDirName + "/eth1.config",
+		filepath.Join(networker.ConfigDirName, "eth1.config"): {
 			Data:     "",
 			Op:       networker.DoRemove,
 		},
@@ -166,42 +156,15 @@ func (s *configSuite) TestConfigFileOperations(c *gc.C) {
 	err = networker.WriteOrRemove(cf)
 	c.Assert(err, gc.IsNil)
 
-	// Do another ineration
+	// Do another ineration, some interfaces should disappear
 	cf = networker.ConfigFiles{}
 	err = networker.ReadAll(&cf)
 	c.Assert(err, gc.IsNil)
-	expect = networker.ConfigFiles{
-		"": &networker.ConfigFile{
-			FileName: networker.ConfigFileName,
-			Data: interfacesExpectedPrefix +
-				fmt.Sprintf(networker.SourceCommentAndCommand,
-					networker.ConfigSubDirName, networker.ConfigSubDirName,
-					networker.ConfigSubDirName, networker.ConfigSubDirName),
-		},
-		"eth0": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/eth0.cfg",
-			Data:     "auto eth0\niface eth0 inet manual\n",
-		},
-		"br0": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/br0.cfg",
-			Data:     "auto br0\niface br0 inet dhcp\n  bridge_ports eth0\n",
-		},
-		"eth1": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/eth1.cfg",
-			Data:     "auto eth1\niface eth1 inet manual\n",
-		},
-		"br2": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/br2.cfg",
-			Data:     "auto br2\niface br2 inet dhcp\n  bridge_ports eth1\n",
-		},
-		"eth1.2": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/eth1.2.cfg",
-			Data:     "auto eth1.2\niface eth1.2 inet dhcp\n",
-		},
-		"eth2": &networker.ConfigFile{
-			FileName: networker.ConfigSubDirName + "/eth2.cfg",
-			Data:     "auto eth2\niface eth2 inet dhcp\n",
-		},
+	delete(expect, networker.IfaceConfigFileName("eth4"))
+	delete(expect, filepath.Join(networker.ConfigDirName, "eth0.config"))
+	delete(expect, filepath.Join(networker.ConfigDirName, "eth1.config"))
+	for k, _ := range expect {
+		expect[k].Op = networker.DoNone
 	}
 	c.Assert(cf, gc.DeepEquals, expect)
 

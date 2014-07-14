@@ -8,20 +8,21 @@ import (
 )
 
 const (
-        DoNone = doNone
-        DoWrite = doWrite
-        DoRemove = doRemove
+	DoNone   = doNone
+	DoWrite  = doWrite
+	DoRemove = doRemove
 )
 
 var (
-	ConfigDirName = configDirName
-	ConfigFileName = configFileName
-	ConfigSubDirName = configSubDirName
-	ReadAll = (*ConfigFiles).readAll
-	WriteOrRemove = (ConfigFiles).writeOrRemove
-	FixMAAS = (ConfigFiles).fixMAAS
-	IfaceConfigFileName = ifaceConfigFileName
-	SplitByInterfaces = splitByInterfaces
+	ConfigDirName           = configDirName
+	ConfigFileName          = configFileName
+	ConfigSubDirName        = configSubDirName
+	ReadAll                 = (*ConfigFiles).readAll
+	WriteOrRemove           = (ConfigFiles).writeOrRemove
+	FixMAAS                 = (ConfigFiles).fixMAAS
+	IfaceConfigFileName     = ifaceConfigFileName
+	SplitByInterfaces       = splitByInterfaces
+	SourceCommentAndCommand = sourceCommentAndCommand
 )
 
 func ChangeConfigDirName(dirName string) {

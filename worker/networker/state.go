@@ -10,15 +10,16 @@ import (
 	"github.com/juju/juju/network"
 )
 
-// Internal struct to store information required to setup networks.
+// configState is a struct to store information required to setup networks,
+// both the content of configuration file and data from the state.
 type configState struct {
-	// The name and contents of '/etc/network/interfaces' file.
+	// configFiles contains the content of configuration files.
 	configFiles ConfigFiles
 
-	// The result of MachineNetworkInfo API call.
+	// networkInfo contains the result of MachineNetworkInfo API call.
 	networkInfo []network.Info
 
-	// Generated list of commands to execute.
+	// commands contains the generated list of commands to execute.
 	commands []string
 }
 
@@ -33,18 +34,14 @@ func (s *configState) apply() error {
 	return nil
 }
 
-func (s *configState) ifup(ifaceName string) {
-	command := fmt.Sprintf("ifup %s", ifaceName)
-	s.commands = append(s.commands, command)
+// resetCommands reset accumulated command slice.
+func (s *configState) resetCommands() {
+	s.commands = []string{}
 }
 
-func (s *configState) ifdown(ifaceName string) {
-	command := fmt.Sprintf("ifdown %s || :", ifaceName)
-	s.commands = append(s.commands, command)
-}
-
+// bringUpInterfaces generates a set of ifup commands to bring up required interfaces.
 func (s *configState) bringUpInterfaces() {
-	s.commands = nil
+	upIfaces := []string{}
 
 	// Iterate by state networks infos.
 	for _, info := range s.networkInfo {
@@ -56,16 +53,23 @@ func (s *configState) bringUpInterfaces() {
 				configText := s.configText(ifaceName, &info)
 				if s.configFiles.isChanged(ifaceName, configText) {
 					s.configFiles.addManaged(ifaceName, configText)
-					s.ifup(ifaceName)
+					upIfaces = append(upIfaces, ifaceName)
 				} else if !InterfaceIsUp(ifaceName) {
-					s.ifup(ifaceName)
+					upIfaces = append(upIfaces, ifaceName)
 				}
 			}
 		}
 	}
-	sort.Sort(sort.StringSlice(s.commands))
+
+	// Sort the interfaces to ensure that raw interface goes up before his virtual descendants.
+	// E.g. eth1 go up before eth1.42 and eth1:2.
+	sort.Sort(sort.StringSlice(upIfaces))
+	for _, ifaceName := range upIfaces {
+		s.commands = append(s.commands, "ifup " + ifaceName)
+	}
 }
 
+// lookupNetworkInfo lookups for in network.Info slice for interface by its actual name.
 func (s *configState) lookupNetworkInfo(ifaceName string) *network.Info {
 	for _, info := range s.networkInfo {
 		if ifaceName == info.ActualInterfaceName() {
@@ -75,10 +79,10 @@ func (s *configState) lookupNetworkInfo(ifaceName string) *network.Info {
 	return nil
 }
 
-// bringDownInterfaces generates command to down interfaces.
+// bringDownInterfaces generates a set of commands to down unneeded interfaces.
 // Changes to config files are done by bringUpInterfaces.
 func (s *configState) bringDownInterfaces() {
-	s.commands = nil
+	downIfaces := []string{}
 
 	// Iterate by existing config files.
 	for ifaceName, _ := range s.configFiles {
@@ -86,13 +90,17 @@ func (s *configState) bringDownInterfaces() {
 			// Interface goes down if it was disabled or its config was changed
 			info := s.lookupNetworkInfo(ifaceName)
 			if (info == nil || info.Disabled) && InterfaceIsUp(ifaceName) {
-				s.ifdown(ifaceName)
+				downIfaces = append(downIfaces, ifaceName)
 			} else if s.configFiles.isChanged(ifaceName, s.configText(ifaceName, info)) {
-				s.ifdown(ifaceName)
+				downIfaces = append(downIfaces, ifaceName)
 			}
 		}
 	}
-	sort.Sort(sort.Reverse(sort.StringSlice(s.commands)))
+	// Sort the interfaces to ensure that raw interface goes down only after his virtual descendants.
+	sort.Sort(sort.Reverse(sort.StringSlice(downIfaces)))
+	for _, ifaceName := range downIfaces {
+		s.commands = append(s.commands, "ifdown " + ifaceName)
+	}
 }
 
 func (s *configState) ensureVLANModule() {
@@ -105,7 +113,19 @@ func (s *configState) ensureVLANModule() {
 	s.commands = append(s.commands, commands...)
 }
 
-// configText generate configuration text for interface based on the state
+// configText generate configuration text for interface based on its configuration.
 func (s *configState) configText(interfaceName string, info *network.Info) string {
-	return fmt.Sprintf("inet dhcp\n")
+	if info == nil {
+		return ""
+	}
+	text := fmt.Sprintf("auto %s\niface %s inet dhcp\n", interfaceName, interfaceName)
+
+	// Add vlan-raw-device line for VLAN interfaces.
+	if (info.VLANTag != 0) {
+		suffix := fmt.Sprintf(".%d", info.VLANTag)
+		if len(interfaceName) > len(suffix) && interfaceName[len(interfaceName) - len(suffix):] == suffix {
+			text += fmt.Sprintf("\tvlan-raw-device %s\n", interfaceName[:len(interfaceName) - len(suffix)])
+		}
+	}
+	return text
 }

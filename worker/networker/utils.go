@@ -10,12 +10,11 @@ import (
 	"github.com/juju/utils/exec"
 )
 
-// Patches for testing.
+// Functions defined here for easier patching when testing.
 var (
 	ExecuteCommands     = executeCommands
 	InterfaceIsUp       = interfaceIsUp
 	InterfaceHasAddress = interfaceHasAddress
-
 )
 
 // executeCommands execute a batch of commands one by one.
