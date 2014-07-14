@@ -94,8 +94,8 @@ func (b *happyBackup) Backup(password string, username string, tempDir string, a
 }
 
 func (s *backupSuite) TestBackupCalledAndFileServedAndStored(c *gc.C) {
-	testGetMongoConnectionInfo := func(thisState *state.State) *authentication.ConnectionInfo {
-		info := &authentication.ConnectionInfo{
+	testGetMongoConnectionInfo := func(thisState *state.State) *authentication.MongoInfo {
+		info := &authentication.MongoInfo{
 			Password: "foobar",
 			Tag:      names.NewMachineTag("0"),
 		}

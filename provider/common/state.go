@@ -49,15 +49,15 @@ func composeAddresses(hostnames []string, port int) []string {
 	return addresses
 }
 
-// getStateInfo puts together the authentication.ConnectionInfo and api.Info for the given
+// getStateInfo puts together the authentication.MongoInfo and api.Info for the given
 // config, with the given state-server host names.
 // The given config absolutely must have a CACert.
-func getStateInfo(config *config.Config, hostnames []string) (*authentication.ConnectionInfo, *api.Info) {
+func getStateInfo(config *config.Config, hostnames []string) (*authentication.MongoInfo, *api.Info) {
 	cert, hasCert := config.CACert()
 	if !hasCert {
 		panic(errors.New("getStateInfo: config has no CACert"))
 	}
-	return &authentication.ConnectionInfo{
+	return &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  composeAddresses(hostnames, config.StatePort()),
 				CACert: cert,
@@ -70,7 +70,7 @@ func getStateInfo(config *config.Config, hostnames []string) (*authentication.Co
 
 // StateInfo is a reusable implementation of Environ.StateInfo, available to
 // providers that also use the other functionality from this file.
-func StateInfo(env environs.Environ) (*authentication.ConnectionInfo, *api.Info, error) {
+func StateInfo(env environs.Environ) (*authentication.MongoInfo, *api.Info, error) {
 	st, err := bootstrap.LoadState(env.Storage())
 	if err != nil {
 		return nil, nil, err

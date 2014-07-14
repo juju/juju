@@ -52,7 +52,7 @@ func (e *localStorageEnviron) StorageDir() string {
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.env = &localStorageEnviron{
-		Environ:    s.Conn.Environ,
+		Environ:    s.Environ,
 		storageDir: c.MkDir(),
 	}
 	storage, err := filestorage.NewFileStorageWriter(s.env.storageDir)
@@ -63,7 +63,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 func (s *bootstrapSuite) getArgs(c *gc.C) manual.BootstrapArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, gc.IsNil)
-	toolsList, err := tools.FindBootstrapTools(s.Conn.Environ, tools.BootstrapToolsParams{})
+	toolsList, err := tools.FindBootstrapTools(s.Environ, tools.BootstrapToolsParams{})
 	c.Assert(err, gc.IsNil)
 	arch := "amd64"
 	return manual.BootstrapArgs{

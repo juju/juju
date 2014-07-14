@@ -18,14 +18,11 @@ var (
 	ipv6UniqueLocal = mustParseCIDR("fc00::/7")
 )
 
-// PreferIPv6 determines whether IPv6 addresses will be preferred when
+// preferIPv6 determines whether IPv6 addresses will be preferred when
 // selecting a public or internal addresses, using the Select*()
-// methods below.
-//
-// TODO(dimitern): Expose prefer-ipv6 as an environment setting and/or
-// charm metadata config and use it as an argument to the Select*()
-// methods.
-var PreferIPv6 bool = false
+// methods below. InitializeFromConfig() needs to be called to
+// set this flag globally.
+var preferIPv6 bool = false
 
 func mustParseCIDR(s string) *net.IPNet {
 	_, net, err := net.ParseCIDR(s)
@@ -182,7 +179,7 @@ func NewAddress(value string, scope Scope) Address {
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable addresses, the empty string is returned.
 func SelectPublicAddress(addresses []Address) string {
-	index := bestAddressIndex(len(addresses), PreferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(addresses), preferIPv6, func(i int) Address {
 		return addresses[i]
 	}, publicMatch)
 	if index < 0 {
@@ -195,7 +192,7 @@ func SelectPublicAddress(addresses []Address) string {
 // appropriate to display as a publicly accessible endpoint. If there
 // are no suitable candidates, the empty string is returned.
 func SelectPublicHostPort(hps []HostPort) string {
-	index := bestAddressIndex(len(hps), PreferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(hps), preferIPv6, func(i int) Address {
 		return hps[i].Address
 	}, publicMatch)
 	if index < 0 {
@@ -208,7 +205,7 @@ func SelectPublicHostPort(hps []HostPort) string {
 // used as an endpoint for juju internal communication. If there are
 // no suitable addresses, the empty string is returned.
 func SelectInternalAddress(addresses []Address, machineLocal bool) string {
-	index := bestAddressIndex(len(addresses), PreferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(addresses), preferIPv6, func(i int) Address {
 		return addresses[i]
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {
@@ -222,7 +219,7 @@ func SelectInternalAddress(addresses []Address, machineLocal bool) string {
 // in its NetAddr form. If there are no suitable addresses, the empty
 // string is returned.
 func SelectInternalHostPort(hps []HostPort, machineLocal bool) string {
-	index := bestAddressIndex(len(hps), PreferIPv6, func(i int) Address {
+	index := bestAddressIndex(len(hps), preferIPv6, func(i int) Address {
 		return hps[i].Address
 	}, internalAddressMatcher(machineLocal))
 	if index < 0 {

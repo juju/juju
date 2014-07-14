@@ -84,7 +84,8 @@ func (s *suite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *suite) bootstrapTestEnviron(c *gc.C) environs.Environ {
+func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Environ {
+	s.TestConfig["prefer-ipv6"] = preferIPv6
 	cfg, err := config.New(config.NoDefaults, s.TestConfig)
 	c.Assert(err, gc.IsNil)
 	e, err := environs.Prepare(cfg, testing.Context(c), s.ConfigStore)
@@ -100,7 +101,7 @@ func (s *suite) bootstrapTestEnviron(c *gc.C) environs.Environ {
 }
 
 func (s *suite) TestAllocateAddress(c *gc.C) {
-	e := s.bootstrapTestEnviron(c)
+	e := s.bootstrapTestEnviron(c, false)
 
 	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
@@ -124,7 +125,7 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 }
 
 func (s *suite) TestListNetworks(c *gc.C) {
-	e := s.bootstrapTestEnviron(c)
+	e := s.bootstrapTestEnviron(c, false)
 
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
@@ -139,9 +140,8 @@ func (s *suite) TestListNetworks(c *gc.C) {
 	assertListNetworks(c, e, opc, expectInfo)
 }
 
-func (s *suite) TestSetPreferIPv6Addresses(c *gc.C) {
-	dummy.SetPreferIPv6Addresses(true)
-	e := s.bootstrapTestEnviron(c)
+func (s *suite) TestPreferIPv6On(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, true)
 	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	addrs, err := inst.Addresses()
@@ -152,16 +152,18 @@ func (s *suite) TestSetPreferIPv6Addresses(c *gc.C) {
 	toolsURL, err := url.Parse(storageURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(toolsURL.Host, gc.Matches, `\[::1\]:\d+`)
+}
 
-	dummy.SetPreferIPv6Addresses(false)
-	inst, _ = jujutesting.AssertStartInstance(c, e, "1")
+func (s *suite) TestPreferIPv6Off(c *gc.C) {
+	e := s.bootstrapTestEnviron(c, false)
+	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
-	addrs, err = inst.Addresses()
+	addrs, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, jc.DeepEquals, network.NewAddresses("only-1.dns", "127.0.0.1"))
-	storageURL, err = e.Storage().URL("tools/releases/juju-" + version.Current.String() + ".tgz")
+	c.Assert(addrs, jc.DeepEquals, network.NewAddresses("only-0.dns", "127.0.0.1"))
+	storageURL, err := e.Storage().URL("tools/releases/juju-" + version.Current.String() + ".tgz")
 	c.Assert(err, gc.IsNil)
-	toolsURL, err = url.Parse(storageURL)
+	toolsURL, err := url.Parse(storageURL)
 	c.Assert(err, gc.IsNil)
 	c.Assert(toolsURL.Host, gc.Matches, `127\.0\.0\.1:\d+`)
 }

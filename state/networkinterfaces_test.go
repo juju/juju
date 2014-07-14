@@ -73,6 +73,7 @@ func (s *NetworkInterfaceSuite) TestRemove(c *gc.C) {
 	err := s.iface.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.iface.Refresh()
-	c.Assert(err, gc.ErrorMatches, `network interface .* not found`)
+	errMatch := `network interface &state\.NetworkInterface\{.*\} not found`
+	c.Check(err, gc.ErrorMatches, errMatch)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

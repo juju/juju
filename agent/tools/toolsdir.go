@@ -16,10 +16,10 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils/symlink"
 
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/utils/symlink"
 )
 
 const toolsFile = "downloaded-tools.txt"

@@ -130,7 +130,7 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	rsyslogConf, err := ioutil.ReadFile(filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf"))
 	c.Assert(err, gc.IsNil)
 
-	syslogPort := s.Conn.Environ.Config().SyslogPort()
+	syslogPort := s.Environ.Config().SyslogPort()
 	syslogConfig := syslog.NewForwardConfig(m.Tag().String(), *rsyslog.LogDir, syslogPort, "", addrs)
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()
@@ -163,7 +163,7 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	rsyslogConf, err := ioutil.ReadFile(filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf"))
 	c.Assert(err, gc.IsNil)
 
-	syslogPort := s.Conn.Environ.Config().SyslogPort()
+	syslogPort := s.Environ.Config().SyslogPort()
 	syslogConfig := syslog.NewAccumulateConfig(m.Tag().String(), *rsyslog.LogDir, syslogPort, "", []string{})
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()

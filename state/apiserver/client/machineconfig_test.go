@@ -48,7 +48,7 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
-	c.Check(machineConfig.StateInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
+	c.Check(machineConfig.MongoInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
 	c.Check(machineConfig.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
 	c.Assert(machineConfig.Tools.URL, gc.Not(gc.Equals), "")
 }

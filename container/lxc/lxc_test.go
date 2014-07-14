@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
 	"launchpad.net/goyaml"
@@ -27,7 +28,6 @@ import (
 	containertesting "github.com/juju/juju/container/testing"
 	instancetest "github.com/juju/juju/instance/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/utils/symlink"
 )
 
 func Test(t *stdtesting.T) {
