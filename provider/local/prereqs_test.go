@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 
 	"github.com/juju/utils/apt"
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
-	"github.com/juju/utils/symlink"
 )
 
 type prereqsSuite struct {

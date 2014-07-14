@@ -272,7 +272,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	// be a problem issuing database commands.
 	var st *state.State
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(&authentication.ConnectionInfo{
+		st, err = state.Open(&authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
 				CACert: caCert,

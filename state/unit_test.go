@@ -16,8 +16,8 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/state/txn"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/txn"
 )
 
 type UnitSuite struct {
@@ -883,7 +883,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// as a side-effect of a principal entering relation scope.)
 	subUnit := s.addSubordinateUnit(c)
 
-	info := state.TestingStateInfo()
+	info := state.TestingMongoInfo()
 	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()

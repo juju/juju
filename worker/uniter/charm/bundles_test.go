@@ -62,7 +62,7 @@ func (s *BundlesDirSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 
-	s.st = s.OpenAPIAs(c, unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	c.Assert(s.st, gc.NotNil)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)

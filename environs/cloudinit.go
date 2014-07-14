@@ -42,7 +42,7 @@ var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 // the fixed entries and the ones that are always needed.
 func NewMachineConfig(
 	machineID, machineNonce string, networks []string,
-	stateInfo *authentication.ConnectionInfo, apiInfo *api.Info,
+	mongoInfo *authentication.MongoInfo, apiInfo *api.Info,
 ) *cloudinit.MachineConfig {
 	mcfg := &cloudinit.MachineConfig{
 		// Fixed entries.
@@ -56,7 +56,7 @@ func NewMachineConfig(
 		MachineId:    machineID,
 		MachineNonce: machineNonce,
 		Networks:     networks,
-		StateInfo:    stateInfo,
+		MongoInfo:    mongoInfo,
 		APIInfo:      apiInfo,
 	}
 	return mcfg
@@ -131,7 +131,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	if !mcfg.Bootstrap {
 		return nil
 	}
-	if mcfg.APIInfo != nil || mcfg.StateInfo != nil {
+	if mcfg.APIInfo != nil || mcfg.MongoInfo != nil {
 		return fmt.Errorf("machine configuration already has api/state info")
 	}
 	caCert, hasCACert := cfg.CACert()
@@ -144,7 +144,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	}
 	passwordHash := utils.UserPasswordHash(password, utils.CompatSalt)
 	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
-	mcfg.StateInfo = &authentication.ConnectionInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
+	mcfg.MongoInfo = &authentication.MongoInfo{Password: passwordHash, Info: mongo.Info{CACert: caCert}}
 
 	// These really are directly relevant to running a state server.
 	cert, key, err := cfg.GenerateStateServerCertAndKey()

@@ -133,7 +133,7 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	})
 }
 
-func (e *manualEnviron) StateInfo() (*authentication.ConnectionInfo, *api.Info, error) {
+func (e *manualEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
 	return common.StateInfo(e)
 }
 

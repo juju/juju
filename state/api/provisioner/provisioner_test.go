@@ -58,7 +58,7 @@ func (s *provisionerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetInstanceInfo("i-manager", "fake_nonce", nil, nil, nil)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machine.Tag().String(), password, "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 	err = s.machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)
@@ -548,7 +548,7 @@ func (s *provisionerSuite) TestContainerManagerConfigKVM(c *gc.C) {
 
 func (s *provisionerSuite) TestContainerManagerConfigLXC(c *gc.C) {
 	args := params.ContainerManagerConfigParams{Type: instance.LXC}
-	st, err := state.Open(s.StateInfo(c), mongo.DialOpts{}, state.Policy(nil))
+	st, err := state.Open(s.MongoInfo(c), mongo.DialOpts{}, state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 

@@ -6,13 +6,12 @@ package main
 import (
 	"fmt"
 
-	"launchpad.net/gnuflag"
-
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/readpass"
+	"launchpad.net/gnuflag"
 
-	"github.com/juju/cmd"
 	"github.com/juju/juju/environs/configstore"
 )
 

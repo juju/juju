@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/shell"
+	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
@@ -45,7 +46,6 @@ import (
 	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
-	"github.com/juju/utils/symlink"
 )
 
 // boostrapInstanceId is just the name we give to the bootstrap machine.
@@ -217,7 +217,7 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 }
 
 // StateInfo is specified in the Environ interface.
-func (env *localEnviron) StateInfo() (*authentication.ConnectionInfo, *api.Info, error) {
+func (env *localEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
 	return common.StateInfo(env)
 }
 

@@ -190,7 +190,7 @@ func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, 
 func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
-	info, ok := agentConfig.StateInfo()
+	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return fmt.Errorf("no state info available")
 	}

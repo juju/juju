@@ -13,11 +13,10 @@ import (
 	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	statetxn "github.com/juju/juju/state/txn"
 )
 
 // relationKey returns a string describing the relation defined by
@@ -122,7 +121,7 @@ func (r *Relation) Destroy() (err error) {
 		}
 		ops, _, err := rel.destroyOps("")
 		if err == errAlreadyDying {
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		} else if err != nil {
 			return nil, err
 		}

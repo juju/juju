@@ -53,8 +53,8 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
-		StateInfo: &authentication.ConnectionInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: "not touched"},
+		MongoInfo: &authentication.MongoInfo{Tag: userTag},
+		APIInfo:   &api.Info{Tag: userTag},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -64,8 +64,8 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		StateInfo: &authentication.ConnectionInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: "not touched"},
+		MongoInfo: &authentication.MongoInfo{Tag: userTag},
+		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: false,
 	})
 }
@@ -79,8 +79,8 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
-		StateInfo: &authentication.ConnectionInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: "not touched"},
+		MongoInfo: &authentication.MongoInfo{Tag: userTag},
+		APIInfo:   &api.Info{Tag: userTag},
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -90,8 +90,8 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 			agent.ProviderType:  "dummy",
 			agent.ContainerType: "",
 		},
-		StateInfo: &authentication.ConnectionInfo{Tag: userTag},
-		APIInfo:   &api.Info{Tag: "not touched"},
+		MongoInfo: &authentication.MongoInfo{Tag: userTag},
+		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: true,
 	})
 }
@@ -118,7 +118,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
 		Password: password, CACert: testing.CACert,
 	})
-	c.Check(mcfg.StateInfo, gc.DeepEquals, &authentication.ConnectionInfo{
+	c.Check(mcfg.MongoInfo, gc.DeepEquals, &authentication.MongoInfo{
 		Password: password, Info: mongo.Info{CACert: testing.CACert},
 	})
 	c.Check(mcfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
@@ -167,7 +167,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		MachineId:    "10",
 		MachineNonce: "5432",
 		Tools:        tools,
-		StateInfo: &authentication.ConnectionInfo{
+		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"127.0.0.1:1234"},
 				CACert: "CA CERT\n" + testing.CACert,
@@ -179,7 +179,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 			Addrs:    []string{"127.0.0.1:1234"},
 			Password: "pw2",
 			CACert:   "CA CERT\n" + testing.CACert,
-			Tag:      "machine-10",
+			Tag:      names.NewMachineTag("10"),
 		},
 		DataDir:                 environs.DataDir,
 		LogDir:                  agent.DefaultLogDir,

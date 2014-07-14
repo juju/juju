@@ -47,12 +47,12 @@ type MachineConfig struct {
 	// from another server)
 	StateServingInfo *params.StateServingInfo
 
-	// StateInfo holds the means for the new instance to communicate with the
-	// juju state. Unless the new machine is running a state server (StateServer is
-	// set), there must be at least one state server address supplied.
+	// MongoInfo holds the means for the new instance to communicate with the
+	// juju state database. Unless the new machine is running a state server
+	// (StateServer is set), there must be at least one state server address supplied.
 	// The entity name must match that of the machine being started,
 	// or be empty when starting a state server.
-	StateInfo *authentication.ConnectionInfo
+	MongoInfo *authentication.MongoInfo
 
 	// APIInfo holds the means for the new instance to communicate with the
 	// juju state API. Unless the new machine is running a state server (StateServer is
@@ -370,10 +370,10 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
 	// if the machine is a stateServer then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
 	var password string
-	if cfg.StateInfo == nil {
+	if cfg.MongoInfo == nil {
 		password = cfg.APIInfo.Password
 	} else {
-		password = cfg.StateInfo.Password
+		password = cfg.MongoInfo.Password
 	}
 	configParams := agent.AgentConfigParams{
 		DataDir:           cfg.DataDir,
@@ -385,7 +385,7 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
 		Nonce:             cfg.MachineNonce,
 		StateAddresses:    cfg.stateHostAddrs(),
 		APIAddresses:      cfg.apiHostAddrs(),
-		CACert:            cfg.StateInfo.CACert,
+		CACert:            cfg.MongoInfo.CACert,
 		Values:            cfg.AgentEnvironment,
 	}
 	if !cfg.Bootstrap {
@@ -447,8 +447,8 @@ func (cfg *MachineConfig) stateHostAddrs() []string {
 	if cfg.Bootstrap {
 		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.StateServingInfo.StatePort))
 	}
-	if cfg.StateInfo != nil {
-		hosts = append(hosts, cfg.StateInfo.Addrs...)
+	if cfg.MongoInfo != nil {
+		hosts = append(hosts, cfg.MongoInfo.Addrs...)
 	}
 	return hosts
 }
@@ -572,10 +572,10 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if cfg.Tools.URL == "" {
 		return fmt.Errorf("missing tools URL")
 	}
-	if cfg.StateInfo == nil {
+	if cfg.MongoInfo == nil {
 		return fmt.Errorf("missing state info")
 	}
-	if len(cfg.StateInfo.CACert) == 0 {
+	if len(cfg.MongoInfo.CACert) == 0 {
 		return fmt.Errorf("missing CA certificate")
 	}
 	if cfg.APIInfo == nil {
@@ -591,11 +591,11 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.Config == nil {
 			return fmt.Errorf("missing environment configuration")
 		}
-		if cfg.StateInfo.Tag != nil {
+		if cfg.MongoInfo.Tag != nil {
 			return fmt.Errorf("entity tag must be nil when starting a state server")
 		}
-		if cfg.APIInfo.Tag != "" {
-			return fmt.Errorf("entity tag must be blank when starting a state server")
+		if cfg.APIInfo.Tag != nil {
+			return fmt.Errorf("entity tag must be nil when starting a state server")
 		}
 		if cfg.StateServingInfo == nil {
 			return fmt.Errorf("missing state serving info")
@@ -619,16 +619,16 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 			return fmt.Errorf("missing instance-id")
 		}
 	} else {
-		if len(cfg.StateInfo.Addrs) == 0 {
+		if len(cfg.MongoInfo.Addrs) == 0 {
 			return fmt.Errorf("missing state hosts")
 		}
-		if cfg.StateInfo.Tag != names.NewMachineTag(cfg.MachineId) {
+		if cfg.MongoInfo.Tag != names.NewMachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity tag must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
 			return fmt.Errorf("missing API hosts")
 		}
-		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId).String() {
+		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity tag must match started machine")
 		}
 		if cfg.StateServingInfo != nil {

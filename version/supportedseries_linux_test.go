@@ -6,8 +6,9 @@ package version_test
 import (
 	"sort"
 
-	"github.com/juju/juju/version"
 	gc "launchpad.net/gocheck"
+
+	"github.com/juju/juju/version"
 )
 
 func (s *supportedSeriesSuite) TestSeriesVersion(c *gc.C) {

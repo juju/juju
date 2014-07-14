@@ -27,7 +27,7 @@ type backupHandler struct {
 	httpHandler
 }
 
-func getMongoConnectionInfo(state *state.State) (info *authentication.ConnectionInfo) {
+func getMongoConnectionInfo(state *state.State) (info *authentication.MongoInfo) {
 	return state.MongoConnectionInfo()
 }
 

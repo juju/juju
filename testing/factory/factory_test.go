@@ -40,7 +40,7 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	policy := statetesting.MockPolicy{}
 
-	info := &authentication.ConnectionInfo{
+	info := &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{jtesting.MgoServer.Addr()},
 			CACert: testing.CACert,

@@ -77,7 +77,7 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	}
 	// N.B. no users are set up when we're initializing the state,
 	// so don't use any tag or password when opening it.
-	info, ok := c.StateInfo()
+	info, ok := c.MongoInfo()
 	if !ok {
 		return nil, nil, fmt.Errorf("stateinfo not available")
 	}

@@ -159,7 +159,7 @@ func (s *workerSuite) setupScenario(c *gc.C) ([]*state.Machine, []instance.Insta
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		machines = append(machines, m)
-		inst, _ := testing.AssertStartInstance(c, s.Conn.Environ, m.Id())
+		inst, _ := testing.AssertStartInstance(c, s.Environ, m.Id())
 		insts = append(insts, inst)
 	}
 	// Associate the odd-numbered machines with an instance.
