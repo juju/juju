@@ -415,38 +415,3 @@ func addrsChanged(a, b []string) bool {
 	}
 	return false
 }
-
-// APIEndpointForEnv returns the endpoint information for a given environment
-// It tries to just return the information from the cached settings unless
-// there is nothing cached or refresh is True
-func APIEndpointForEnv(envName string, refresh bool) (configstore.APIEndpoint, error) {
-	store, err := configstore.Default()
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	return apiEndpointInStore(envName, refresh, store, defaultAPIOpen)
-}
-
-func apiEndpointInStore(envName string, refresh bool, store configstore.Storage, apiOpen apiOpenFunc) (configstore.APIEndpoint, error) {
-	info, err := store.ReadInfo(envName)
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	endpoint := info.APIEndpoint()
-	if !refresh && len(endpoint.Addresses) > 0 {
-		logger.Debugf("found cached addresses, not connecting to API server")
-		return endpoint, nil
-	}
-	// We need to connect to refresh our endpoint settings
-	apiState, err := newAPIFromStore(envName, store, apiOpen)
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	apiState.Close()
-	// The side effect of connecting is that we update the store with new API information
-	info, err = store.ReadInfo(envName)
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	return info.APIEndpoint(), nil
-}

@@ -24,7 +24,7 @@ import (
 	"github.com/juju/juju/state/api"
 )
 
-var logger = loggo.GetLogger("juju.envcmd")
+var logger = loggo.GetLogger("juju.cmd.envcmd")
 
 const CurrentEnvironmentFilename = "current-environment"
 
