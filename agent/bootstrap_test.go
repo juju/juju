@@ -58,7 +58,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
 		DataDir:           dataDir,
-		Tag:               "machine-0",
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		CACert:            testing.CACert,
@@ -164,7 +164,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
 	configParams := agent.AgentConfigParams{
 		DataDir:           c.MkDir(),
-		Tag:               "machine-0",
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		CACert:            testing.CACert,
@@ -187,7 +187,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
 		DataDir:           dataDir,
-		Tag:               "machine-0",
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		CACert:            testing.CACert,

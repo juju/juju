@@ -25,7 +25,7 @@ var _ = gc.Suite(&formatSuite{})
 // The agentParams are used by the specific formatter whitebox tests, and is
 // located here for easy reuse.
 var agentParams = AgentConfigParams{
-	Tag:               "user-omg",
+	Tag:               names.NewUserTag("omg"),
 	UpgradedToVersion: version.Current.Number,
 	Jobs:              []params.MachineJob{params.JobHostUnits},
 	Password:          "sekrit",

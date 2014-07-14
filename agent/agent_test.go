@@ -45,14 +45,14 @@ var agentConfigTests = []struct {
 	about: "missing upgraded to version",
 	params: agent.AgentConfigParams{
 		DataDir: "/data/dir",
-		Tag:     "user-omg", // a user calle omg
+		Tag:     names.NewUserTag("omg"), // a user called omg
 	},
 	checkErr: "upgradedToVersion not found in configuration",
 }, {
 	about: "missing password",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "omg",
+		Tag:               names.NewUserTag("omg"),
 		UpgradedToVersion: version.Current.Number,
 	},
 	checkErr: "password not found in configuration",
@@ -60,7 +60,7 @@ var agentConfigTests = []struct {
 	about: "missing CA cert",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewUserTag("omg"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 	},
@@ -69,7 +69,7 @@ var agentConfigTests = []struct {
 	about: "need either state or api addresses",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewUserTag("omg"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -79,7 +79,7 @@ var agentConfigTests = []struct {
 	about: "invalid state address",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewUserTag("omg"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -90,7 +90,7 @@ var agentConfigTests = []struct {
 	about: "invalid api address",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewUserTag("omg"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -101,7 +101,7 @@ var agentConfigTests = []struct {
 	about: "good state addresses",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewUserTag("omg"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -111,7 +111,7 @@ var agentConfigTests = []struct {
 	about: "good api addresses",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewUserTag("omg"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -121,7 +121,7 @@ var agentConfigTests = []struct {
 	about: "both state and api addresses",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewUserTag("omg"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -132,7 +132,7 @@ var agentConfigTests = []struct {
 	about: "everything...",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewUserTag("omg"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
 		CACert:            "ca cert",
@@ -144,7 +144,7 @@ var agentConfigTests = []struct {
 	about: "missing logDir sets default",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewUserTag("omg"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
 		CACert:            "ca cert",
@@ -174,7 +174,7 @@ func (*suite) TestMigrate(c *gc.C) {
 	initialParams := agent.AgentConfigParams{
 		DataDir:           c.MkDir(),
 		LogDir:            c.MkDir(),
-		Tag:               "user-omg",
+		Tag:               names.NewUserTag("omg"),
 		Nonce:             "nonce",
 		Password:          "secret",
 		UpgradedToVersion: version.MustParse("1.16.5"),
@@ -359,7 +359,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 
 var attributeParams = agent.AgentConfigParams{
 	DataDir:           "/data/dir",
-	Tag:               "user-omg", // the omg user
+	Tag:               names.NewUserTag("omg"),
 	UpgradedToVersion: version.Current.Number,
 	Password:          "sekrit",
 	CACert:            "ca cert",
@@ -488,26 +488,21 @@ func (*suite) TestSetPassword(c *gc.C) {
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 
-	tag, err := names.ParseTag(attrParams.Tag)
-	c.Assert(err, gc.IsNil)
-
 	expectAPIInfo := &api.Info{
 		Addrs:    attrParams.APIAddresses,
 		CACert:   attrParams.CACert,
-		Tag:      tag,
+		Tag:      attrParams.Tag,
 		Password: "",
 		Nonce:    attrParams.Nonce,
 	}
 	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
 	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)
-	userTag, err := names.ParseTag(attrParams.Tag)
-	c.Assert(err, gc.IsNil)
 	expectStateInfo := &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
 			CACert: attrParams.CACert,
 		},
-		Tag:      userTag,
+		Tag:      attrParams.Tag,
 		Password: "",
 	}
 	info, ok := conf.MongoInfo()

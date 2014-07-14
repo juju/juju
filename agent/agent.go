@@ -245,7 +245,7 @@ type AgentConfigParams struct {
 	LogDir            string
 	Jobs              []params.MachineJob
 	UpgradedToVersion version.Number
-	Tag               string
+	Tag               names.Tag
 	Password          string
 	Nonce             string
 	StateAddresses    []string
@@ -264,7 +264,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if configParams.LogDir != "" {
 		logDir = configParams.LogDir
 	}
-	if configParams.Tag == "" {
+	if configParams.Tag == nil {
 		return nil, errors.Trace(requiredError("entity tag"))
 	}
 	if configParams.UpgradedToVersion == version.Zero {
@@ -276,10 +276,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if len(configParams.CACert) == 0 {
 		return nil, errors.Trace(requiredError("CA certificate"))
 	}
-	tag, err := names.ParseTag(configParams.Tag)
-	if err != nil {
-		return nil, err
-	}
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
 	config := &configInternal{
@@ -287,7 +283,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		dataDir:           configParams.DataDir,
 		jobs:              configParams.Jobs,
 		upgradedToVersion: configParams.UpgradedToVersion,
-		tag:               tag,
+		tag:               configParams.Tag,
 		nonce:             configParams.Nonce,
 		caCert:            configParams.CACert,
 		oldPassword:       configParams.Password,

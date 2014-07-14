@@ -516,7 +516,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSe
 	config, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           s.DataDir(),
-			Tag:               tag.String(),
+			Tag:               tag,
 			UpgradedToVersion: version.Current.Number,
 			Password:          password,
 			Nonce:             "nonce",
