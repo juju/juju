@@ -6,10 +6,11 @@ package cloudsigma
 import (
 	"fmt"
 
-	"github.com/Altoros/gosigma"
-	"github.com/juju/juju/environs/config"
+	"github.com/altoros/gosigma"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
+	
+	"github.com/juju/juju/environs/config"
 )
 
 // boilerplateConfig will be shown in help output, so please keep it up to

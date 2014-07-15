@@ -4,10 +4,11 @@
 package cloudsigma
 
 import (
-	"github.com/Altoros/gosigma"
+	"github.com/altoros/gosigma"
+	gc "launchpad.net/gocheck"
+	
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/testing"
-	gc "launchpad.net/gocheck"
 )
 
 type constraintsSuite struct {

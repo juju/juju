@@ -6,7 +6,8 @@ package cloudsigma
 import (
 	"fmt"
 
-	"github.com/Altoros/gosigma"
+	"github.com/altoros/gosigma"
+	
 	"github.com/juju/juju/constraints"
 )
 

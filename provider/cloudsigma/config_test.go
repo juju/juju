@@ -7,11 +7,12 @@ import (
 	"crypto/rand"
 	"fmt"
 
+	gc "launchpad.net/gocheck"
+	"github.com/juju/schema"
+	
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/testing"
-	"github.com/juju/schema"
-	gc "launchpad.net/gocheck"
 )
 
 func newConfig(c *gc.C, attrs testing.Attrs) *config.Config {

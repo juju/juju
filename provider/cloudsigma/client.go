@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Altoros/gosigma"
-	"github.com/juju/juju/environs"
-	"github.com/juju/juju/instance"
+	"github.com/altoros/gosigma"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	
+	"github.com/juju/juju/environs"
+	"github.com/juju/juju/instance"
 )
 
 // This file contains implementation of CloudSigma client.

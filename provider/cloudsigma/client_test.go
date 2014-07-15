@@ -8,9 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Altoros/gosigma"
-	"github.com/Altoros/gosigma/data"
-	"github.com/Altoros/gosigma/mock"
+	"github.com/altoros/gosigma"
+	"github.com/altoros/gosigma/data"
+	"github.com/altoros/gosigma/mock"
+	gc "launchpad.net/gocheck"
+	"github.com/juju/loggo"
+	
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
@@ -18,8 +21,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-	"github.com/juju/loggo"
-	gc "launchpad.net/gocheck"
 )
 
 type clientSuite struct {
