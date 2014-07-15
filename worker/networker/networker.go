@@ -23,7 +23,6 @@ type networker struct {
 	st  *apinetworker.State
 	tag string
 	isVLANSupportInstalled bool
-
 }
 
 // NewNetworker returns a Worker that handles machine networking configuration.

@@ -49,7 +49,7 @@ func interfaceIsUp(ifaceName string) bool {
 	return (iface.Flags & net.FlagUp) != 0
 }
 
-// interfaceHasAddress verify that systemnetwork interface has at least one assigned address.
+// interfaceHasAddress verify that system network interface has at least one assigned address.
 func interfaceHasAddress(ifaceName string) bool {
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {

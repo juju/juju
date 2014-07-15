@@ -20,24 +20,25 @@ var (
 	configSubDirName = filepath.Join(configDirName, "interfaces.d")
 )
 
-// Indication what to do with file in writeOrRemove method.
+// Indication what to do with the interface config file in writeOrRemove method.
 const (
 	doNone = iota
 	doWrite
 	doRemove
 )
 
-// ConfigFile contains information about config file, its content and what to do to apply changes.
+// ConfigFile contains information about config file,
+// its content and what to do to apply changes.
 type ConfigFile struct {
 	Data string
 	Op   int
 }
 
 // ConfigFiles contains information about all configuration files.
-// Key for map is file either /etc/netwotk/interfaces or /etc/netwotk/interfaces.d/*.cfg.
+// Map key is file name either /etc/netwotk/interfaces or /etc/netwotk/interfaces.d/*.cfg.
 type ConfigFiles map[string]*ConfigFile
 
-// readOneFile reads one file and stores it in map cf with fileName as a key.
+// readOneFile reads one file and stores it in the map cf with fileName as a key.
 func (cf ConfigFiles) readOneFile(fileName string) error {
 	data, err := ioutil.ReadFile(fileName)
 	if err != nil {
@@ -64,7 +65,7 @@ func (cf *ConfigFiles) readAll() error {
 		// Read the content of /etc/network/interfaces.d/ directory.
 		files, err := ioutil.ReadDir(configSubDirName)
 		if err != nil {
-			logger.Errorf("failed to read directory %q: %v\n", configSubDirName, err)
+			logger.Errorf("failed to read directory %q: %v", configSubDirName, err)
 			return err
 		}
 		// Read all /etc/network/interfaces.d/*.cfg files.
@@ -80,13 +81,13 @@ func (cf *ConfigFiles) readAll() error {
 	return nil
 }
 
-// writeOrRemove writes the new content of file or remove it according to Op field.
+// writeOrRemove writes the new content of the file or removes it according to Op field.
 func (cf ConfigFiles) writeOrRemove() error {
 	// Create /etc/network/interfaces.d directory if absent.
 	if _, err := os.Stat(configSubDirName); err != nil {
 		err := os.Mkdir(configSubDirName, 0755)
 		if err != nil {
-			logger.Errorf("failed to create directory %q: %v\n", configSubDirName, err)
+			logger.Errorf("failed to create directory %q: %v", configSubDirName, err)
 			return err
 		}
 	}
@@ -115,9 +116,9 @@ func ifaceConfigFileName(ifaceName string) string {
 }
 
 // managedPrefix is the prefix that always presents in configuration file for interfaces managed by juju.
-const managedPrefix = "# Managed by Networker, don't change.\n"
+const managedPrefix = "# Managed by Juju, don't change.\n"
 
-// addManaged make ifaceName configureation to be written.
+// addManaged makes ifaceName configureation to be written.
 func (cf ConfigFiles) addManaged(ifaceName, configText string) {
 	cf[ifaceConfigFileName(ifaceName)] = &ConfigFile{
 		Data:     managedPrefix + configText,
@@ -125,7 +126,7 @@ func (cf ConfigFiles) addManaged(ifaceName, configText string) {
 	}
 }
 
-// removeManaged mark ifaceName configuration to be removed.
+// removeManaged marks ifaceName configuration to be removed.
 func (cf ConfigFiles) removeManaged(ifaceName string) {
 	if cf[ifaceConfigFileName(ifaceName)] != nil {
 		cf[ifaceName].Data = ""
@@ -133,7 +134,7 @@ func (cf ConfigFiles) removeManaged(ifaceName string) {
 	}
 }
 
-// isManaged checks whether the ifaceName is an interfaces managed by juju.
+// isManaged checks whether the ifaceName is an interface managed by juju.
 func (cf ConfigFiles) isManaged(ifaceName string) bool {
 	fileName := ifaceConfigFileName(ifaceName)
 	return ifaceName != privateInterface &&
@@ -150,7 +151,7 @@ func (cf ConfigFiles) isChanged(ifaceName, configText string) bool {
 		(cf[ifaceName] == nil || cf[ifaceName].Data != managedPrefix + configText)
 }
 
-// filterManaged filters out interfaces that are no managed by juju.
+// filterManaged filters out interfaces that are not managed by juju.
 func (cf ConfigFiles) filterManaged() {
 	for fileName, file := range cf {
 		if fileName == configFileName ||
@@ -163,7 +164,7 @@ func (cf ConfigFiles) filterManaged() {
 	}
 }
 
-// readManaged reads only configuration for interfaces managed by juju.
+// readManaged only reads the configuration for interfaces managed by juju.
 func (cf *ConfigFiles) readManaged() error {
 	if err := cf.readAll(); err != nil {
 		return err
@@ -172,7 +173,7 @@ func (cf *ConfigFiles) readManaged() error {
 	return nil
 }
 
-// splitRegExp is a regular expression used to split /etc/interfaces/network by stanzas
+// splitRegExp is used to split /etc/interfaces/network by stanzas
 // The below digits are indices of positions returned by regexp.FindAllStringSubmatchIndex.
 var splitRegExp = regexp.MustCompile(
 	`(^|\n)(#[^\n]*\n)*(auto|allow\-\w+|iface|mapping|source|source\-directory)\s+([^\s]+)`)
@@ -181,7 +182,7 @@ var splitRegExp = regexp.MustCompile(
 
 // splitByInterfaces splits /etc/network/interfaces content to separate configuration
 // for each interace.
-// Comment lines (started with '#') that directly precede a stanza are belonging to the stanza.
+// Comment lines (started with '#') that directly precede a stanza belongs to the stanza.
 func splitByInterfaces(data string) (map[string]string, error) {
 	result := map[string]string{}
 	pos := 0
@@ -217,9 +218,9 @@ const sourceCommentAndCommand = `# Source interfaces
 source %s/*.cfg
 `
 
-// fixMAAS brings /etc/network/interfaces file to original format.
-// This function is here becode MAAS and MAAS provider create network interface configuration files
-// in another way than Ubuntu server does. E.g. they remove 'source .../*.cfg' line.
+// fixMAAS restores /etc/network/interfaces file to the original format
+// Ubuntu 14.04+ uses (i.e. one master interfaces file and one .cfg
+// file per interface).
 // With time, this function will be dropped.
 func (cf ConfigFiles) fixMAAS() error {
 	// Remove "source eth0.config" lines, created by MAAS provider.
