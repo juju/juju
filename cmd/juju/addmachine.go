@@ -134,7 +134,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 			Stderr: ctx.Stderr,
 		}
 		_, err := manual.ProvisionMachine(args)
-		return errors.Trace(err)
+		return err
 	}
 
 	if c.Placement != nil && c.Placement.Scope == "env-uuid" {
