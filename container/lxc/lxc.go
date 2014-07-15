@@ -29,7 +29,7 @@ var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
 	defaultTemplate  = "ubuntu-cloud"
-	LxcContainerDir  = "/var/lib/lxc"
+	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
 	LxcRestartDir    = "/etc/lxc/auto"
 	LxcObjectFactory = golxc.Factory()
 )
