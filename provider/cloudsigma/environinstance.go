@@ -10,8 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Altoros/gosigma"
+	"github.com/altoros/gosigma"
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
+	"github.com/juju/utils"
+
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs"
@@ -20,9 +23,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/worker/localstorage"
-	"github.com/juju/loggo"
-	"github.com/juju/utils"
-
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/instance"
 )
@@ -38,7 +38,7 @@ import (
 // consequences of multiple instances being started with the same machine id.
 func (env environ) StartInstance(args environs.StartInstanceParams) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
-	logger.Infof("sigmaEnviron.StartInstance...")
+	logger.Debugf("EnvironInstance.StartInstance...")
 
 	if args.MachineConfig == nil {
 		return nil, nil, nil, fmt.Errorf("machine configuration is nil")
@@ -66,7 +66,7 @@ func (env environ) StartInstance(args environs.StartInstanceParams) (
 	inst := sigmaInstance{server: server}
 	addr := inst.findIPv4()
 	if addr == "" {
-		return nil, nil, nil, fmt.Errorf("failed obtain instance IP address")
+		return nil, nil, nil, fmt.Errorf("failed to obtain an IP address for instance")
 	}
 
 	// prepare new instance: wait up and running, populate nonce file, etc
@@ -77,7 +77,7 @@ func (env environ) StartInstance(args environs.StartInstanceParams) (
 	// provide additional agent config for localstorage, if any
 	if env.storage.tmp && args.MachineConfig.Bootstrap {
 		if err := env.prepareStorage(addr, args.MachineConfig); err != nil {
-			return nil, nil, nil, fmt.Errorf("failed prepare storage: %v", err)
+			return nil, nil, nil, fmt.Errorf("failed to prepare storage: %v", err)
 		}
 	}
 

@@ -6,7 +6,10 @@ package cloudsigma
 import (
 	"time"
 
-	"github.com/Altoros/gosigma/mock"
+	gc "launchpad.net/gocheck"
+	"github.com/altoros/gosigma/mock"
+	"github.com/juju/loggo"
+
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
@@ -15,8 +18,6 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/loggo"
-	gc "launchpad.net/gocheck"
 )
 
 type environInstanceSuite struct {
