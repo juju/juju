@@ -261,7 +261,6 @@ func (s *agentSuite) primeAgent(c *gc.C, tag names.Tag, password string, vers ve
 	agentTools := envtesting.PrimeTools(c, stor, s.DataDir(), vers)
 	err := envtools.MergeAndWriteMetadata(stor, coretools.List{agentTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
-	// TODO(dfc)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
@@ -344,7 +343,6 @@ func (s *agentSuite) primeStateAgent(
 	c *gc.C, tag names.Tag, password string, vers version.Binary) (agent.ConfigSetterWriter, *coretools.Tools) {
 
 	agentTools := envtesting.PrimeTools(c, s.Environ.Storage(), s.DataDir(), vers)
-	// TODO(dfc)
 	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag.String(), vers)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
