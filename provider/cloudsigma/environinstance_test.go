@@ -50,7 +50,7 @@ func (s *environInstanceSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	ll := logger.LogLevel()
-	logger.SetLogLevel(loggo.TRACE)
+	logger.SetLogLevel(loggo.INFO)
 	s.AddCleanup(func(*gc.C) { logger.SetLogLevel(ll) })
 
 	mock.Reset()
