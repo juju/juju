@@ -33,9 +33,11 @@ var _ = gc.Suite(&provisionerSuite{})
 func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, gc.IsNil)
+	client := s.APIState.Client()
+	s.AddCleanup(func(*gc.C) { client.Close() })
 	return manual.ProvisionMachineArgs{
 		Host:   hostname,
-		Client: s.APIState.Client(),
+		Client: client,
 	}
 }
 
