@@ -82,10 +82,10 @@ type Info struct {
 	CACert string
 
 	// Tag holds the name of the entity that is connecting.
-	// If this and the password are empty, no login attempt will be made
+	// If this is nil, and the password are empty, no login attempt will be made.
 	// (this is to allow tests to access the API to check that operations
 	// fail when not logged in).
-	Tag string
+	Tag names.Tag
 
 	// Password holds the password for the administrator or connecting entity.
 	Password string
@@ -181,12 +181,14 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		conn:       conn,
 		addr:       conn.Config().Location.Host,
 		serverRoot: "https://" + conn.Config().Location.Host,
-		tag:        info.Tag,
-		password:   info.Password,
-		certPool:   pool,
+		// why are the contents of the tag (username and password) written into the
+		// state structure BEFORE login ?!?
+		tag:      toString(info.Tag),
+		password: info.Password,
+		certPool: pool,
 	}
-	if info.Tag != "" || info.Password != "" {
-		if err := st.Login(info.Tag, info.Password, info.Nonce); err != nil {
+	if info.Tag != nil || info.Password != "" {
+		if err := st.Login(info.Tag.String(), info.Password, info.Nonce); err != nil {
 			conn.Close()
 			return nil, err
 		}
@@ -195,6 +197,14 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	st.closed = make(chan struct{})
 	go st.heartbeatMonitor()
 	return st, nil
+}
+
+// toString returns the value of a tag's String method, or "" if the tag is nil.
+func toString(tag names.Tag) string {
+	if tag == nil {
+		return ""
+	}
+	return tag.String()
 }
 
 func dialWebsocket(addr, environUUID string, opts DialOpts, rootCAs *x509.CertPool, try *parallel.Try) error {

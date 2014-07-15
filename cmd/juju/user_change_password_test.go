@@ -7,9 +7,9 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/juju/cmd"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/cmd"
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"

@@ -9,7 +9,7 @@ import (
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/state/txn"
+	"github.com/juju/txn"
 )
 
 type ActionSuite struct {

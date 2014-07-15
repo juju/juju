@@ -172,7 +172,11 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		fmt.Fprintln(ctx.Stderr, "Use of --series is deprecated. Please use --upload-series instead.")
 	}
 
-	environ, cleanup, err := environFromName(ctx, c.EnvName, &resultErr, "Bootstrap")
+	if c.ConnectionName() == "" {
+		return fmt.Errorf("the name of the environment must be specified")
+	}
+
+	environ, cleanup, err := environFromName(ctx, c.ConnectionName(), &resultErr, "Bootstrap")
 	if err != nil {
 		return err
 	}

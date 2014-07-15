@@ -15,7 +15,7 @@ func updateRsyslogPort(context Context) error {
 	agentConfig := context.AgentConfig()
 	info, ok := agentConfig.MongoInfo()
 	if !ok {
-		return fmt.Errorf("Failed to get StateInfo")
+		return fmt.Errorf("Failed to get MongoInfo")
 	}
 	// we need to re-open state with a nil policay so we can bypass
 	// validation, as the syslog-port is normally immutable

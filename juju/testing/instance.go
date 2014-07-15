@@ -41,7 +41,7 @@ func FakeStateInfo(machineId string) *authentication.MongoInfo {
 func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
 		Addrs:    []string{"0.1.2.3:1234"},
-		Tag:      names.NewMachineTag(machineId).String(),
+		Tag:      names.NewMachineTag(machineId),
 		Password: "unimportant",
 		CACert:   testing.CACert,
 	}

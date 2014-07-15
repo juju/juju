@@ -290,12 +290,15 @@ var selectPublicTests = []selectTest{{
 }}
 
 func (s *AddressSuite) TestSelectPublicAddress(c *gc.C) {
+	oldValue := network.GetPreferIPv6()
+	defer func() {
+		network.SetPreferIPv6(oldValue)
+	}()
 	for i, t := range selectPublicTests {
 		c.Logf("test %d: %s", i, t.about)
-		network.PreferIPv6 = t.preferIPv6
+		network.SetPreferIPv6(t.preferIPv6)
 		c.Check(network.SelectPublicAddress(t.addresses), gc.Equals, t.expected())
 	}
-	network.PreferIPv6 = false
 }
 
 var selectInternalTests = []selectTest{{
@@ -379,12 +382,15 @@ var selectInternalTests = []selectTest{{
 }}
 
 func (s *AddressSuite) TestSelectInternalAddress(c *gc.C) {
+	oldValue := network.GetPreferIPv6()
+	defer func() {
+		network.SetPreferIPv6(oldValue)
+	}()
 	for i, t := range selectInternalTests {
 		c.Logf("test %d: %s", i, t.about)
-		network.PreferIPv6 = t.preferIPv6
+		network.SetPreferIPv6(t.preferIPv6)
 		c.Check(network.SelectInternalAddress(t.addresses, false), gc.Equals, t.expected())
 	}
-	network.PreferIPv6 = false
 }
 
 var selectInternalMachineTests = []selectTest{{
@@ -445,12 +451,15 @@ var selectInternalMachineTests = []selectTest{{
 }}
 
 func (s *AddressSuite) TestSelectInternalMachineAddress(c *gc.C) {
+	oldValue := network.GetPreferIPv6()
+	defer func() {
+		network.SetPreferIPv6(oldValue)
+	}()
 	for i, t := range selectInternalMachineTests {
 		c.Logf("test %d: %s", i, t.about)
-		network.PreferIPv6 = t.preferIPv6
+		network.SetPreferIPv6(t.preferIPv6)
 		c.Check(network.SelectInternalAddress(t.addresses, true), gc.Equals, t.expected())
 	}
-	network.PreferIPv6 = false
 }
 
 var stringTests = []struct {

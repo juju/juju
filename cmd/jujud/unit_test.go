@@ -159,7 +159,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	agent := s.newAgent(c, unit)
 	newVers := version.Current
 	newVers.Patch++
-	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), newVers)
+	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), newVers)
 
 	// Set the machine agent version to trigger an upgrade.
 	err := machine.SetAgentVersion(newVers)

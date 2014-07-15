@@ -880,7 +880,7 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	curl, _ := addCharm(c, store, "dummy")
 
 	user := s.Factory.MakeUser(factory.UserParams{Password: "password"})
-	s.APIState = s.OpenAPIAs(c, user.Tag().String(), "password")
+	s.APIState = s.OpenAPIAs(c, user.Tag(), "password")
 
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
@@ -1650,7 +1650,7 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
-	toolstesting.UploadToStorage(c, s.Conn.Environ.Storage(), version.MustParseBinary("2.12.0-precise-amd64"))
+	toolstesting.UploadToStorage(c, s.Environ.Storage(), version.MustParseBinary("2.12.0-precise-amd64"))
 	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
@@ -2015,7 +2015,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	name := charm.Quote(sch.URL().String())
-	storage := s.Conn.Environ.Storage()
+	storage := s.Environ.Storage()
 	_, err = storage.Get(name)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 

@@ -1675,12 +1675,11 @@ type machineInterfacesWatcher struct {
 	machineId string
 	out       chan struct{}
 	in        chan watcher.Change
-	known     map[bson.ObjectId]bool
 }
 
 var _ NotifyWatcher = (*machineInterfacesWatcher)(nil)
 
-// WatchInterfaces returns a new StringsWatcher watching m's network interfaces.
+// WatchInterfaces returns a new NotifyWatcher watching m's network interfaces.
 func (m *Machine) WatchInterfaces() NotifyWatcher {
 	return newMachineInterfacesWatcher(m)
 }
@@ -1690,7 +1689,6 @@ func newMachineInterfacesWatcher(m *Machine) NotifyWatcher {
 		commonWatcher: commonWatcher{st: m.st},
 		machineId:     m.doc.Id,
 		out:           make(chan struct{}),
-		known:         make(map[bson.ObjectId]bool),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -1705,67 +1703,93 @@ func (w *machineInterfacesWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *machineInterfacesWatcher) initial() error {
-	var doc networkInterfaceDoc
+// initial retrieves the currently known interfaces and stores
+// them together with their activation.
+func (w *machineInterfacesWatcher) initial() (map[bson.ObjectId]bool, error) {
+	known := make(map[bson.ObjectId]bool)
+	doc := networkInterfaceDoc{}
 	query := bson.D{{"machineid", w.machineId}}
 	fields := bson.D{{"_id", 1}, {"isdisabled", 1}}
 	iter := w.st.networkInterfaces.Find(query).Select(fields).Iter()
 	for iter.Next(&doc) {
-		w.known[doc.Id] = doc.IsDisabled
+		known[doc.Id] = doc.IsDisabled
 	}
-	return iter.Close()
+	if err := iter.Close(); err != nil {
+		return nil, err
+	}
+	return known, nil
 }
 
-func (w *machineInterfacesWatcher) merge(notify bool, ifaceId bson.ObjectId) (bool, error) {
-	doc := networkInterfaceDoc{}
-	err := w.st.networkInterfaces.FindId(ifaceId).One(&doc)
-	if err != nil && err != mgo.ErrNotFound {
-		return notify, err
-	}
-	isDisabled, known := w.known[ifaceId]
-	if err == mgo.ErrNotFound && known {
-		// Network interface was removed from machine.
-		delete(w.known, ifaceId)
-		notify = true
-	} else if doc.MachineId == w.machineId {
-		if !known || isDisabled != doc.IsDisabled {
-			w.known[ifaceId] = doc.IsDisabled
-			notify = true
+// merge compares a number of updates to the known state
+// and modifies changes accordingly.
+func (w *machineInterfacesWatcher) merge(changes, initial map[bson.ObjectId]bool, updates map[interface{}]bool) error {
+	for id, exists := range updates {
+		switch id := id.(type) {
+		case bson.ObjectId:
+			isDisabled, known := initial[id]
+			if known && !exists {
+				// Well known interface has been removed.
+				delete(initial, id)
+				changes[id] = true
+				continue
+			}
+			doc := networkInterfaceDoc{}
+			err := w.st.networkInterfaces.FindId(id).One(&doc)
+			if err != nil && err != mgo.ErrNotFound {
+				return err
+			}
+			if doc.MachineId != w.machineId {
+				// Not our machine.
+				continue
+			}
+			if !known || isDisabled != doc.IsDisabled {
+				// New interface or activation change.
+				initial[id] = doc.IsDisabled
+				changes[id] = true
+			}
+		default:
+			return errors.Errorf("id is not of type object ID, got %T", id)
 		}
 	}
-	return notify, nil
+	return nil
 }
 
 func (w *machineInterfacesWatcher) loop() error {
+	changes := make(map[bson.ObjectId]bool)
 	in := make(chan watcher.Change)
+	out := w.out
 
 	w.st.watcher.WatchCollection(w.st.networkInterfaces.Name, in)
 	defer w.st.watcher.UnwatchCollection(w.st.networkInterfaces.Name, in)
 
-	err := w.initial()
+	initial, err := w.initial()
 	if err != nil {
 		return err
 	}
+	changes = initial
 
-	out := w.out
-	notify := false
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return stateWatcherDeadError(w.st.watcher.Err())
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case c := <-in:
-			notify, err := w.merge(notify, c.Id.(bson.ObjectId))
-			if err != nil {
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case ch := <-in:
+			updates, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if err := w.merge(changes, initial, updates); err != nil {
 				return err
 			}
-			if notify {
+			if len(changes) > 0 {
 				out = w.out
+			} else {
+				out = nil
 			}
 		case out <- struct{}{}:
+			changes = make(map[bson.ObjectId]bool)
 			out = nil
-			notify = false
 		}
 	}
 }

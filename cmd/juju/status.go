@@ -84,7 +84,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	}
 	apiclient, err := newApiClientForStatus(c)
 	if err != nil {
-		return fmt.Errorf(connectionError, c.EnvName, err)
+		return fmt.Errorf(connectionError, c.ConnectionName(), err)
 	}
 	defer apiclient.Close()
 

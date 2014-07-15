@@ -91,7 +91,7 @@ func (s *CommonProvisionerSuite) APILogin(c *gc.C, machine *state.Machine) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-fake", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, machine.Tag().String(), password, "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 	c.Logf("API: login as %q successful", machine.Tag())
 	s.provisioner = s.st.Provisioner()
@@ -150,7 +150,7 @@ func stop(c *gc.C, s stopper) {
 }
 
 func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instance.Instance {
-	instance, _ := testing.AssertStartInstance(c, s.Conn.Environ, id)
+	instance, _ := testing.AssertStartInstance(c, s.Environ, id)
 	select {
 	case o := <-s.op:
 		switch o := o.(type) {

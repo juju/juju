@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -19,7 +20,6 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
-	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -171,28 +171,28 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, info *authentication.MongoInfo, policy Policy) (*State, error) {
+func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
-	if info.Tag != nil {
-		if err := db.Login(info.Tag.String(), info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", info.Tag))
+	if mongoInfo.Tag != nil {
+		if err := db.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", mongoInfo.Tag))
 		}
-		if err := pdb.Login(info.Tag.String(), info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
+		if err := pdb.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", mongoInfo.Tag))
 		}
-		if err := admin.Login(info.Tag.String(), info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
+		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
-	} else if info.Password != "" {
-		if err := admin.Login(AdminUser, info.Password); err != nil {
+	} else if mongoInfo.Password != "" {
+		if err := admin.Login(AdminUser, mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}
 
 	st := &State{
-		info:              info,
+		mongoInfo:         mongoInfo,
 		policy:            policy,
 		db:                db,
 		environments:      db.C("environments"),
@@ -230,7 +230,7 @@ func newState(session *mgo.Session, info *authentication.MongoInfo, policy Polic
 	}
 	mgoRunner := txn.NewRunner(db.C("txns"))
 	mgoRunner.ChangeLog(db.C("txns.log"))
-	st.transactionRunner = statetxn.NewRunner(mgoRunner)
+	st.transactionRunner = jujutxn.NewRunner(mgoRunner)
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, item := range indexes {
@@ -308,7 +308,7 @@ func (st *State) createStateServersDoc() error {
 
 // MongoConnectionInfo returns information for connecting to mongo
 func (st *State) MongoConnectionInfo() *authentication.MongoInfo {
-	return st.info
+	return st.mongoInfo
 }
 
 // createAPIAddressesDoc creates the API addresses document
@@ -341,7 +341,7 @@ func (st *State) createStateServingInfoDoc() error {
 
 // CACert returns the certificate used to validate the state connection.
 func (st *State) CACert() string {
-	return st.info.CACert
+	return st.mongoInfo.CACert
 }
 
 func (st *State) Close() error {

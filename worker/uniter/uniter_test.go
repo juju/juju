@@ -123,7 +123,7 @@ func (s *UniterSuite) APILogin(c *gc.C, unit *state.Unit) {
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	c.Assert(s.st, gc.NotNil)
 	c.Logf("API: login as %q successful", unit.Tag())
 	s.uniter = s.st.Uniter()
@@ -204,6 +204,18 @@ juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
 exit 1
 `[1:]
 
+var actions = map[string]string{
+	"action-log": `
+#!/bin/bash --norc
+juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
+`[1:],
+	"action-log-fail": `
+#!/bin/bash --norc
+juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
+exit 1
+`[1:],
+}
+
 func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	hook := badHook
 	if good {
@@ -211,6 +223,14 @@ func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	}
 	content := fmt.Sprintf(hook, filepath.Base(path))
 	err := ioutil.WriteFile(path, []byte(content), 0755)
+	c.Assert(err, gc.IsNil)
+}
+
+func (ctx *context) writeAction(c *gc.C, path, name string) {
+	actionPath := filepath.Join(path, "actions", name)
+	hook := actions[name]
+	content := fmt.Sprintf(hook, filepath.Base(actionPath))
+	err := ioutil.WriteFile(actionPath, []byte(content), 0755)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1227,6 +1247,73 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 	s.runUniterTests(c, relationsErrorTests)
 }
 
+var actionEventTests = []uniterTest{
+	// Relations.
+	ut(
+		"simple action event",
+		createCharm{
+			revision: 0,
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeAction(c, path, "action-log")
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		addAction{"action-log", nil},
+		waitHooks{"action-log"},
+	), ut(
+		"pending actions get consumed",
+		createCharm{
+			revision: 0,
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeAction(c, path, "action-log")
+				ctx.writeAction(c, path, "action-log-fail")
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		addAction{"action-log", nil},
+		addAction{"action-log-fail", nil},
+		addAction{"action-log", nil},
+		addAction{"action-log-fail", nil},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		waitHooks{
+			"action-log",
+			"fail-action-log-fail",
+			"action-log",
+			"fail-action-log-fail",
+		},
+	), ut(
+		"actions not implemented are not errors, like hooks",
+		createCharm{},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		addAction{"action-log", nil},
+		waitNoHooks{"action-log", "fail-action-log"},
+	),
+}
+
+func (s *UniterSuite) TestActionEvents(c *gc.C) {
+	s.runUniterTests(c, actionEventTests)
+}
+
 var subordinatesTests = []uniterTest{
 	// Subordinates.
 	ut(
@@ -1759,6 +1846,35 @@ func (s waitHooks) step(c *gc.C, ctx *context) {
 	}
 }
 
+// make sure no hooks are run from the given slice
+type waitNoHooks []string
+
+func (s waitNoHooks) step(c *gc.C, ctx *context) {
+	if len(s) == 0 {
+		// Give unwanted hooks a moment to run...
+		ctx.s.BackingState.StartSync()
+		time.Sleep(coretesting.ShortWait)
+	}
+	ctx.hooks = append(ctx.hooks, s...)
+	c.Logf("waiting to make sure hooks don't run: %#v", ctx.hooks)
+	match, _ := ctx.matchHooks(c)
+	if match {
+		c.Fatalf("received unwanted hook")
+	}
+	timeout := time.After(worstCase)
+	for {
+		ctx.s.BackingState.StartSync()
+		select {
+		case <-time.After(coretesting.ShortWait):
+			if match, _ = ctx.matchHooks(c); match {
+				c.Fatalf("received unwanted hook")
+			}
+		case <-timeout:
+			return
+		}
+	}
+}
+
 type fixHook struct {
 	name string
 }
@@ -1772,6 +1888,16 @@ type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *gc.C, ctx *context) {
 	err := ctx.svc.UpdateConfigSettings(corecharm.Settings(s))
+	c.Assert(err, gc.IsNil)
+}
+
+type addAction struct {
+	name   string
+	params map[string]interface{}
+}
+
+func (s addAction) step(c *gc.C, ctx *context) {
+	_, err := ctx.unit.AddAction(s.name, s.params)
 	c.Assert(err, gc.IsNil)
 }
 

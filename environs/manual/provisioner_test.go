@@ -33,9 +33,11 @@ var _ = gc.Suite(&provisionerSuite{})
 func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, gc.IsNil)
+	client := s.APIState.Client()
+	s.AddCleanup(func(*gc.C) { client.Close() })
 	return manual.ProvisionMachineArgs{
-		Host:    hostname,
-		EnvName: "dummyenv",
+		Host:   hostname,
+		Client: client,
 	}
 }
 
@@ -47,7 +49,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	hostname := args.Host
 	args.Host = "ubuntu@" + args.Host
 
-	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
+	envtesting.RemoveTools(c, s.Environ.Storage())
 	defer fakeSSH{
 		Series:             series,
 		Arch:               arch,
@@ -59,11 +61,11 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(machineId, gc.Equals, "")
 
-	cfg := s.Conn.Environ.Config()
+	cfg := s.Environ.Config()
 	number, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
 	binVersion := version.Binary{number, series, arch}
-	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), binVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), binVersion)
 
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)

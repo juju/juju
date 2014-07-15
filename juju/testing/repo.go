@@ -8,10 +8,10 @@ import (
 
 	"github.com/juju/charm"
 	"github.com/juju/utils"
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/utils/symlink"
 )
 
 // RepoSuite acts as a JujuConnSuite but also sets up

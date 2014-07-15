@@ -69,7 +69,7 @@ func (s *GetEnvironmentSuite) TestAllValues(c *gc.C) {
 	// Make sure that all the environment keys are there. The admin
 	// secret and CA private key are never pushed into the
 	// environment.
-	for key := range s.Conn.Environ.Config().AllAttrs() {
+	for key := range s.Environ.Config().AllAttrs() {
 		c.Logf("test for key %q", key)
 		any := `(.|\n)*`
 		pattern := fmt.Sprintf(`(?m)^%s:`, key)

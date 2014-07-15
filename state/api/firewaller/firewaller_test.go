@@ -54,7 +54,7 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machines[0].SetProvisioned("i-manager", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machines[0].Tag().String(), password, "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, s.machines[0].Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 
 	// Note that the specific machine ids allocated are assumed

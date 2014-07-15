@@ -8,10 +8,10 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/txn"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/txn"
 )
 
 type notSupportedError struct {
