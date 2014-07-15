@@ -29,6 +29,9 @@ const manualInstancePrefix = "manual:"
 
 var logger = loggo.GetLogger("juju.environs.manual")
 
+// ProvisioningClientAPI defines the methods that are needed for the manual
+// provisioning of machines.  An interface is used here to decouple the API
+// consumer from the actual API implementation type.
 type ProvisioningClientAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	DestroyMachines(machines ...string) error
@@ -128,8 +131,7 @@ func splitUserHost(host string) (string, string) {
 	return "", host
 }
 
-func recordMachineInState(
-	client ProvisioningClientAPI, machineParams params.AddMachineParams) (machineId string, err error) {
+func recordMachineInState(client ProvisioningClientAPI, machineParams params.AddMachineParams) (machineId string, err error) {
 	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
 	if err != nil {
 		return "", err

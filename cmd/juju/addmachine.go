@@ -4,11 +4,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
@@ -106,7 +106,7 @@ func (c *AddMachineCommand) Init(args []string) error {
 	return nil
 }
 
-type AddMachineAPI interface {
+type addMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
 	Close() error
 	DestroyMachines(machines ...string) error
@@ -114,14 +114,14 @@ type AddMachineAPI interface {
 	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
-var getAddMachineAPI = func(c *AddMachineCommand) (AddMachineAPI, error) {
+var getAddMachineAPI = func(c *AddMachineCommand) (addMachineAPI, error) {
 	return c.NewAPIClient()
 }
 
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	client, err := getAddMachineAPI(c)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 	defer client.Close()
 
@@ -134,7 +134,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 			Stderr: ctx.Stderr,
 		}
 		_, err := manual.ProvisionMachine(args)
-		return err
+		return errors.Trace(err)
 	}
 
 	if c.Placement != nil && c.Placement.Scope == "env-uuid" {
@@ -159,7 +159,7 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 
 	results, err := client.AddMachines(machines)
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	errs := []error{}
