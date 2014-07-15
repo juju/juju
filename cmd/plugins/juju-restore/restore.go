@@ -227,13 +227,13 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("cannot re-bootstrap environment: %v", err)
 	}
 	progress("connecting to newly bootstrapped instance")
-	var conn *juju.APIConn
+	var client *juju.APIClient
 	// The state server backend may not be ready to accept logins so we retry.
 	// We'll do up to 8 retries over 2 minutes to give the server time to come up.
 	// Typically we expect only 1 retry will be needed.
 	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
 	for a := attempt.Start(); a.Next(); {
-		conn, err = juju.NewAPIConn(env, api.DefaultDialOpts())
+		conn, err = juju.NewAPIClientFromName(env)
 		if err == nil || errors.Cause(err).Error() != "EOF" {
 			break
 		}

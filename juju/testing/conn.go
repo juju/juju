@@ -62,7 +62,6 @@ type JujuConnSuite struct {
 	envtesting.ToolsFixture
 	State        *state.State
 	Environ      environs.Environ
-	APIConn      *juju.APIConn
 	APIState     *api.State
 	apiStates    []*api.State // additional api.States to close on teardown
 	ConfigStore  configstore.Storage
@@ -127,8 +126,7 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 // openAPIAs opens the API and ensures that the *api.State returned will be
 // closed during the test teardown by using a cleanup function.
 func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string) *api.State {
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+	apiInfo := s.APIInfo(c)
 	info.Tag = tag
 	info.Password = password
 	info.Nonce = nonce
@@ -232,8 +230,6 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, gc.IsNil)
-	//	s.Conn = conn
-	//	s.State = conn.State
 
 	apiConn, err := juju.NewAPIConn(environ, api.DialOpts{})
 	c.Assert(err, gc.IsNil)

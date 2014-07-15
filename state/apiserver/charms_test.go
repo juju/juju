@@ -55,7 +55,7 @@ func (s *authHttpSuite) sendRequest(c *gc.C, tag, password, method, uri, content
 }
 
 func (s *authHttpSuite) baseURL(c *gc.C) *url.URL {
-	_, info, err := s.APIConn.Environ.StateInfo()
+	info, err := s.APIInfo()
 	c.Assert(err, gc.IsNil)
 	return &url.URL{
 		Scheme: "https",
