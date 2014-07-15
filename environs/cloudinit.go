@@ -85,6 +85,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	providerType, authorizedKeys string,
 	sslHostnameVerification bool,
 	proxySettings, aptProxySettings proxy.Settings,
+	preferIPv6 bool,
 ) error {
 	if authorizedKeys == "" {
 		return fmt.Errorf("environment configuration has no authorized-keys")
@@ -98,6 +99,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 	mcfg.DisableSSLHostnameVerification = !sslHostnameVerification
 	mcfg.ProxySettings = proxySettings
 	mcfg.AptProxySettings = aptProxySettings
+	mcfg.PreferIPv6 = preferIPv6
 	return nil
 }
 
@@ -121,6 +123,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 		cfg.SSLHostnameVerification(),
 		cfg.ProxySettings(),
 		cfg.AptProxySettings(),
+		cfg.PreferIPv6(),
 	); err != nil {
 		return err
 	}

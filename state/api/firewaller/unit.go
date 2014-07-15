@@ -44,7 +44,7 @@ func (u *Unit) Refresh() error {
 
 // Watch returns a watcher for observing changes to the unit.
 func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(u.st.caller, firewallerFacade, u.tag.String())
+	return common.Watch(u.st.caller, firewallerFacade, u.tag)
 }
 
 // Service returns the service.

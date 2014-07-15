@@ -116,8 +116,13 @@ func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 	if err != nil && !errors.IsNotImplemented(err) {
 		return nil, err
 	}
+	tag := p.agentConfig.Tag()
+	machineTag, ok := tag.(names.MachineTag)
+	if !ok {
+		errors.Errorf("expacted names.MachineTag, got %T", tag)
+	}
 	task := NewProvisionerTask(
-		p.agentConfig.Tag(), safeMode, p.st,
+		machineTag, safeMode, p.st,
 		machineWatcher, retryWatcher, p.broker, auth)
 	return task, nil
 }
@@ -250,12 +255,14 @@ func (p *containerProvisioner) loop() error {
 
 func (p *containerProvisioner) getMachine() (*apiprovisioner.Machine, error) {
 	if p.machine == nil {
-		tag, err := names.ParseMachineTag(p.agentConfig.Tag())
-		if err != nil {
-			return nil, err
+		tag := p.agentConfig.Tag()
+		machineTag, ok := tag.(names.MachineTag)
+		if !ok {
+			return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 		}
-		if p.machine, err = p.st.Machine(tag); err != nil {
-			logger.Errorf("%s is not in state", p.agentConfig.Tag())
+		var err error
+		if p.machine, err = p.st.Machine(machineTag); err != nil {
+			logger.Errorf("%s is not in state", machineTag)
 			return nil, err
 		}
 	}

@@ -73,6 +73,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	agentConfig := c.CurrentConfig()
+	network.InitializeFromConfig(agentConfig)
 
 	// agent.Jobs is an optional field in the agent config, and was
 	// introduced after 1.17.2. We default to allowing units on

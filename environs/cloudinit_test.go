@@ -58,7 +58,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcfg, gc.DeepEquals, &cloudinit.MachineConfig{
+	c.Assert(mcfg, jc.DeepEquals, &cloudinit.MachineConfig{
 		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
@@ -67,6 +67,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		MongoInfo: &authentication.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: false,
+		PreferIPv6:                     true,
 	})
 }
 
@@ -84,7 +85,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 	}
 	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	c.Assert(mcfg, gc.DeepEquals, &cloudinit.MachineConfig{
+	c.Assert(mcfg, jc.DeepEquals, &cloudinit.MachineConfig{
 		AuthorizedKeys: "we-are-the-keys",
 		AgentEnvironment: map[string]string{
 			agent.ProviderType:  "dummy",
@@ -93,6 +94,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 		MongoInfo: &authentication.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: true,
+		PreferIPv6:                     true,
 	})
 }
 

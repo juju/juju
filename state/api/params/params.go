@@ -627,6 +627,7 @@ type ContainerConfig struct {
 	SSLHostnameVerification bool
 	Proxy                   proxy.Settings
 	AptProxy                proxy.Settings
+	PreferIPv6              bool
 }
 
 // ProvisioningScriptParams contains the parameters for the

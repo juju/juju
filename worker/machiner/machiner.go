@@ -22,7 +22,7 @@ var logger = loggo.GetLogger("juju.worker.machiner")
 // Machiner is responsible for a machine agent's lifecycle.
 type Machiner struct {
 	st      *machiner.State
-	tag     string
+	tag     names.MachineTag
 	machine *machiner.Machine
 }
 
@@ -30,17 +30,14 @@ type Machiner struct {
 // to become Dying and make it Dead; or until the machine becomes Dead by
 // other means.
 func NewMachiner(st *machiner.State, agentConfig agent.Config) worker.Worker {
-	mr := &Machiner{st: st, tag: agentConfig.Tag()}
+	// TODO(dfc) clearly agentConfig.Tag() can _only_ return a machine tag
+	mr := &Machiner{st: st, tag: agentConfig.Tag().(names.MachineTag)}
 	return worker.NewNotifyWorker(mr)
 }
 
 func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
-	tag, err := names.ParseMachineTag(mr.tag)
-	if err != nil {
-		return nil, err
-	}
-	m, err := mr.st.Machine(tag)
+	m, err := mr.st.Machine(mr.tag)
 	if params.IsCodeNotFoundOrCodeUnauthorized(err) {
 		return nil, worker.ErrTerminateAgent
 	} else if err != nil {
