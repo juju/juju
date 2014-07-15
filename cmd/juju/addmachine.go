@@ -107,10 +107,11 @@ func (c *AddMachineCommand) Init(args []string) error {
 }
 
 type AddMachineAPI interface {
-	Close() error
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	Close() error
+	DestroyMachines(machines ...string) error
 	EnvironmentUUID() string
+	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
 var getAddMachineAPI = func(c *AddMachineCommand) (AddMachineAPI, error) {
@@ -118,23 +119,24 @@ var getAddMachineAPI = func(c *AddMachineCommand) (AddMachineAPI, error) {
 }
 
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
-	if c.Placement != nil && c.Placement.Scope == "ssh" {
-		args := manual.ProvisionMachineArgs{
-			Host:    c.Placement.Directive,
-			EnvName: c.ConnectionName(), // TODO: fix this
-			Stdin:   ctx.Stdin,
-			Stdout:  ctx.Stdout,
-			Stderr:  ctx.Stderr,
-		}
-		_, err := manual.ProvisionMachine(args)
-		return err
-	}
-
 	client, err := getAddMachineAPI(c)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
+
+	if c.Placement != nil && c.Placement.Scope == "ssh" {
+		args := manual.ProvisionMachineArgs{
+			Host:   c.Placement.Directive,
+			Client: client,
+			Stdin:  ctx.Stdin,
+			Stdout: ctx.Stdout,
+			Stderr: ctx.Stderr,
+		}
+		_, err := manual.ProvisionMachine(args)
+		return err
+	}
+
 	if c.Placement != nil && c.Placement.Scope == "env-uuid" {
 		c.Placement.Scope = client.EnvironmentUUID()
 	}
@@ -156,24 +158,6 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	}
 
 	results, err := client.AddMachines(machines)
-	if params.IsCodeNotImplemented(err) {
-		if c.Placement != nil {
-			containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
-			if parseErr != nil {
-				// The user specified a non-container placement directive:
-				// return original API not implemented error.
-				return err
-			}
-			machineParams.ContainerType = containerType
-			machineParams.ParentId = c.Placement.Directive
-			machineParams.Placement = nil
-		}
-		logger.Infof(
-			"AddMachinesWithPlacement not supported by the API server, " +
-				"falling back to 1.18 compatibility mode",
-		)
-		results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
-	}
 	if err != nil {
 		return err
 	}

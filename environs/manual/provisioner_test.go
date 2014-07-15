@@ -34,8 +34,8 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, gc.IsNil)
 	return manual.ProvisionMachineArgs{
-		Host:    hostname,
-		EnvName: "dummyenv",
+		Host:   hostname,
+		Client: s.APIState.Client(),
 	}
 }
 

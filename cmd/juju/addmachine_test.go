@@ -209,6 +209,10 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 	}
 	return results, nil
 }
-func (f *fakeAddMachineAPI) AddMachines1dot18(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
-	return f.AddMachines(args)
+
+func (f *fakeAddMachineAPI) DestroyMachines(machines ...string) error {
+	return fmt.Errorf("not implemented")
+}
+func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) (script string, err error) {
+	return "", fmt.Errorf("not implemented")
 }
