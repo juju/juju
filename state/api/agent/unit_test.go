@@ -35,7 +35,7 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.unit.SetPassword(password)
 
-	s.st = s.OpenAPIAs(c, s.unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
 }
 
 func (s *unitSuite) TestUnitEntity(c *gc.C) {

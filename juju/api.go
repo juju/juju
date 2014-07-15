@@ -260,7 +260,7 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
 		CACert:     endpoint.CACert,
-		Tag:        names.NewUserTag(info.APICredentials().User).String(),
+		Tag:        names.NewUserTag(info.APICredentials().User),
 		Password:   info.APICredentials().Password,
 		EnvironTag: environTag,
 	}
@@ -322,7 +322,7 @@ func environAPIInfo(environ environs.Environ) (*api.Info, error) {
 	if err != nil {
 		return nil, err
 	}
-	info.Tag = "user-admin"
+	info.Tag = names.NewUserTag("admin")
 	password := environ.Config().AdminSecret()
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
@@ -338,22 +338,21 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	defer errors.Contextf(&err, "failed to cache API credentials")
 	var environUUID string
 	if apiInfo.EnvironTag != nil {
-		tag, err := names.ParseEnvironTag(apiInfo.Tag)
-		if err != nil {
-			return err
-		}
-		environUUID = tag.Id()
+		environUUID = apiInfo.EnvironTag.Id()
 	}
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:   apiInfo.Addrs,
 		CACert:      string(apiInfo.CACert),
 		EnvironUUID: environUUID,
 	})
-	tag, err := names.ParseUserTag(apiInfo.Tag)
-	if err != nil {
-		return err
+	tag, ok := apiInfo.Tag.(names.UserTag)
+	if !ok {
+		return errors.Errorf("apiInfo.Tag was of type %T, expecting names.UserTag", apiInfo.Tag)
 	}
 	info.SetAPICredentials(configstore.APICredentials{
+		// This looks questionable. We have a tag, say "user-admin", but then only
+		// the Id portion of the tag is recorded, "admin", so this is really a
+		// username, not a tag, and cannot be reconstructed accurately.
 		User:     tag.Id(),
 		Password: apiInfo.Password,
 	})

@@ -60,7 +60,7 @@ func (s *FilterSuite) APILogin(c *gc.C, unit *state.Unit) {
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 }

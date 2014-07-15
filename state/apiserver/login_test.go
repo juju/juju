@@ -67,7 +67,7 @@ func (s *loginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	info, cleanup := s.setupServer(c)
-	info.Tag = machine.Tag().String()
+	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
 	return info, cleanup
@@ -86,7 +86,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 		// are empty. This allows us to test operations on the connection
 		// before calling Login, which we could not do if Open
 		// always logged in.
-		info.Tag = ""
+		info.Tag = nil
 		info.Password = ""
 		func() {
 			st, err := api.Open(info, fastDialOpts)
@@ -111,7 +111,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
-	info.Tag = ""
+	info.Tag = nil
 	info.Password = ""
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
@@ -151,7 +151,7 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	defer loggo.RemoveWriter("login-tester")
 
 	// TODO(dfc) this should be a Tag
-	info.Tag = machineInState.Tag().String()
+	info.Tag = machineInState.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
 
@@ -392,7 +392,7 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 	}
 
 	userInfo := *info
-	userInfo.Tag = "user-admin"
+	userInfo.Tag = names.NewUserTag("admin")
 	userInfo.Password = "dummy-secret"
 	userResults, userWG := startNLogins(c, apiserver.LoginRateLimit+1, &userInfo)
 	// all of them should have started, and none of them in TryAgain state
@@ -425,7 +425,7 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 
 func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 	info, cleanup := s.setupServer(c)
-	info.Tag = "user-admin"
+	info.Tag = names.NewUserTag("admin")
 	info.Password = "dummy-secret"
 	defer cleanup()
 	delayChan, cleanup := apiserver.DelayLogins()
@@ -521,7 +521,7 @@ func (s *loginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginV
 	info, cleanup := s.setupServerWithValidator(c, validator)
 	defer cleanup()
 
-	info.Tag = ""
+	info.Tag = nil
 	info.Password = ""
 
 	st, err := api.Open(info, fastDialOpts)
@@ -552,7 +552,7 @@ func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.Login
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	info := &api.Info{
-		Tag:        "",
+		Tag:        nil,
 		Password:   "",
 		EnvironTag: env.Tag(),
 		Addrs:      []string{srv.Addr()},

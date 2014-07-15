@@ -124,7 +124,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 
 // openAs connects to the API state as the given entity
 // with the default password for that entity.
-func (s *baseSuite) openAs(c *gc.C, tag string) *api.State {
+func (s *baseSuite) openAs(c *gc.C, tag names.Tag) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	info.Tag = tag
@@ -324,9 +324,9 @@ var scenarioStatus = &api.Status{
 // just because machine 0 has traditionally been the
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
-func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
+func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	add := func(e state.Entity) {
-		entities = append(entities, e.Tag().String())
+		entities = append(entities, e.Tag())
 	}
 	u, err := s.State.User(state.AdminUser)
 	c.Assert(err, gc.IsNil)

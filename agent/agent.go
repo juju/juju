@@ -640,7 +640,7 @@ func (c *configInternal) APIInfo() *api.Info {
 		Addrs:    addrs,
 		Password: c.apiDetails.password,
 		CACert:   c.caCert,
-		Tag:      c.tag.String(),
+		Tag:      c.tag,
 		Nonce:    c.nonce,
 	}
 }

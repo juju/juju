@@ -28,9 +28,10 @@ var _ = gc.Suite(&customDataSuite{})
 
 // makeMachineConfig produces a valid cloudinit machine config.
 func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
-	machineID := "0"
+	machineId := "0"
+	machineTag := names.NewMachineTag(machineId)
 	return &cloudinit.MachineConfig{
-		MachineId:          machineID,
+		MachineId:          machineId,
 		MachineNonce:       "gxshasqlnng",
 		DataDir:            environs.DataDir,
 		LogDir:             agent.DefaultLogDir,
@@ -42,13 +43,13 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 				CACert: testing.CACert,
 				Addrs:  []string{"127.0.0.1:123"},
 			},
-			Tag:      names.NewMachineTag(machineID),
+			Tag:      machineTag,
 			Password: "password",
 		},
 		APIInfo: &api.Info{
 			CACert: testing.CACert,
 			Addrs:  []string{"127.0.0.1:123"},
-			Tag:    names.NewMachineTag(machineID).String(),
+			Tag:    machineTag,
 		},
 		MachineAgentServiceName: "jujud-machine-0",
 	}

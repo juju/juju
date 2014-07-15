@@ -1703,7 +1703,7 @@ func (w *machineInterfacesWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-// initial retrieves the currently know interfaces and stores
+// initial retrieves the currently known interfaces and stores
 // them together with their activation.
 func (w *machineInterfacesWatcher) initial() (map[bson.ObjectId]bool, error) {
 	known := make(map[bson.ObjectId]bool)
