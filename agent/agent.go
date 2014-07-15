@@ -267,6 +267,12 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if configParams.Tag == nil {
 		return nil, errors.Trace(requiredError("entity tag"))
 	}
+	switch configParams.Tag.(type) {
+	case names.MachineTag, names.UnitTag:
+		// these are the only two type of tags that can represent an agent
+	default:
+		return nil, errors.Errorf("entity tag must be MachineTag or UnitTag, got %T", configParams.Tag)
+	}
 	if configParams.UpgradedToVersion == version.Zero {
 		return nil, errors.Trace(requiredError("upgradedToVersion"))
 	}

@@ -135,7 +135,6 @@ func (s *commonMachineSuite) primeAgent(
 	c.Assert(err, gc.IsNil)
 	err = m.SetPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
-	// TODO(dfc)
 	tag := m.Tag()
 	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)

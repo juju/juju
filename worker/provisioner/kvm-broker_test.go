@@ -73,7 +73,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           "/not/used/here",
-			Tag:               names.NewUserTag("tag"), // a user called tag
+			Tag:               names.NewUnitTag("ubuntu/1"),
 			UpgradedToVersion: version.Current.Number,
 			Password:          "dummy-secret",
 			Nonce:             "nonce",
