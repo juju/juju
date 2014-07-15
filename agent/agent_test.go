@@ -155,6 +155,37 @@ var agentConfigTests = []struct {
 	inspectConfig: func(c *gc.C, cfg agent.Config) {
 		c.Check(cfg.LogDir(), gc.Equals, agent.DefaultLogDir)
 	},
+}, {
+	about: "prefer-ipv6 parsed when set",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		Tag:               "user-omg",
+		Password:          "sekrit",
+		UpgradedToVersion: version.Current.Number,
+		CACert:            "ca cert",
+		StateAddresses:    []string{"localhost:1234"},
+		APIAddresses:      []string{"localhost:1235"},
+		Nonce:             "a nonce",
+		PreferIPv6:        true,
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.PreferIPv6(), jc.IsTrue)
+	},
+}, {
+	about: "missing prefer-ipv6 defaults to false",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		Tag:               "user-omg",
+		Password:          "sekrit",
+		UpgradedToVersion: version.Current.Number,
+		CACert:            "ca cert",
+		StateAddresses:    []string{"localhost:1234"},
+		APIAddresses:      []string{"localhost:1235"},
+		Nonce:             "a nonce",
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.PreferIPv6(), jc.IsFalse)
+	},
 }}
 
 func (*suite) TestNewAgentConfig(c *gc.C) {
@@ -443,7 +474,7 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(reread, jc.DeepEquals, conf)
 }
 
-func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPesent(c *gc.C) {
+func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresent(c *gc.C) {
 	attrParams := attributeParams
 	servingInfo := params.StateServingInfo{
 		Cert:           "old cert",
@@ -467,8 +498,69 @@ func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPesent(c *gc.C) {
 	c.Assert(localhostAddressFound, jc.IsTrue)
 }
 
-func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfo(c *gc.C) {
+func (*suite) TestAPIInfoAddsLocalhostWhenServingInfoPresentAndPreferIPv6On(c *gc.C) {
 	attrParams := attributeParams
+	attrParams.PreferIPv6 = true
+	servingInfo := params.StateServingInfo{
+		Cert:           "old cert",
+		PrivateKey:     "old key",
+		StatePort:      69,
+		APIPort:        1492,
+		SharedSecret:   "shared",
+		SystemIdentity: "identity",
+	}
+	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
+	c.Assert(err, gc.IsNil)
+	apiinfo := conf.APIInfo()
+	c.Check(apiinfo.Addrs, gc.HasLen, len(attrParams.APIAddresses)+1)
+	localhostAddressFound := false
+	for _, eachApiAddress := range apiinfo.Addrs {
+		if eachApiAddress == "[::1]:1492" {
+			localhostAddressFound = true
+			break
+		}
+		c.Check(eachApiAddress, gc.Not(gc.Equals), "localhost:1492")
+	}
+	c.Assert(localhostAddressFound, jc.IsTrue)
+}
+
+func (*suite) TestMongoInfoHonorsPreferIPv6(c *gc.C) {
+	attrParams := attributeParams
+	attrParams.PreferIPv6 = true
+	servingInfo := params.StateServingInfo{
+		Cert:           "old cert",
+		PrivateKey:     "old key",
+		StatePort:      69,
+		APIPort:        1492,
+		SharedSecret:   "shared",
+		SystemIdentity: "identity",
+	}
+	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
+	c.Assert(err, gc.IsNil)
+	mongoInfo, ok := conf.MongoInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"[::1]:69"})
+
+	attrParams.PreferIPv6 = false
+	conf, err = agent.NewStateMachineConfig(attrParams, servingInfo)
+	c.Assert(err, gc.IsNil)
+	mongoInfo, ok = conf.MongoInfo()
+	c.Assert(ok, jc.IsTrue)
+	c.Check(mongoInfo.Info.Addrs, jc.DeepEquals, []string{"127.0.0.1:69"})
+}
+
+func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfoPreferIPv6Off(c *gc.C) {
+	attrParams := attributeParams
+	attrParams.PreferIPv6 = false
+	conf, err := agent.NewAgentConfig(attrParams)
+	c.Assert(err, gc.IsNil)
+	apiinfo := conf.APIInfo()
+	c.Assert(apiinfo.Addrs, gc.DeepEquals, attrParams.APIAddresses)
+}
+
+func (*suite) TestAPIInfoDoesntAddLocalhostWhenNoServingInfoPreferIPv6On(c *gc.C) {
+	attrParams := attributeParams
+	attrParams.PreferIPv6 = true
 	conf, err := agent.NewAgentConfig(attrParams)
 	c.Assert(err, gc.IsNil)
 	apiinfo := conf.APIInfo()

@@ -214,6 +214,7 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			MachineAgentServiceName: "jujud-machine-99",
+			PreferIPv6:              true,
 		},
 		expectScripts: `
 set -xe
