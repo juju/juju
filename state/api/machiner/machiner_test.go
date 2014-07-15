@@ -58,9 +58,10 @@ func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
 	c.Assert(machine, gc.IsNil)
 
-	machine, err = s.machiner.Machine(names.NewMachineTag("1"))
+	machine1 := names.NewMachineTag("1")
+	machine, err = s.machiner.Machine(machine1)
 	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Tag(), gc.Equals, "machine-1")
+	c.Assert(machine.Tag(), gc.Equals, machine1)
 }
 
 func (s *machinerSuite) TestSetStatus(c *gc.C) {

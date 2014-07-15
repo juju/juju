@@ -183,11 +183,11 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
 }
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
-	config := agentConfig("machine-tag", fix.dataDir, fix.logDir)
+	config := agentConfig(names.NewMachineTag("99"), fix.dataDir, fix.logDir)
 	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
 }
 
-func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag string) *deployer.SimpleContext {
+func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag names.Tag) *deployer.SimpleContext {
 	config := agentConfig(machineTag, fix.dataDir, fix.logDir)
 	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
 }
@@ -233,8 +233,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 
 	conf, err := agent.ReadConfig(agent.ConfigPath(fix.dataDir, tag))
 	c.Assert(err, gc.IsNil)
-	// TODO(dfc) conf.Tag should return a Tag
-	c.Assert(conf.Tag(), gc.Equals, tag.String())
+	c.Assert(conf.Tag(), gc.Equals, tag)
 	c.Assert(conf.DataDir(), gc.Equals, fix.dataDir)
 
 	jujudData, err := ioutil.ReadFile(jujudPath)
@@ -266,14 +265,14 @@ func (fix *SimpleToolsFixture) injectUnit(c *gc.C, upstartConf, unitTag string) 
 
 type mockConfig struct {
 	agent.Config
-	tag               string
+	tag               names.Tag
 	datadir           string
 	logdir            string
 	upgradedToVersion version.Number
 	jobs              []params.MachineJob
 }
 
-func (mock *mockConfig) Tag() string {
+func (mock *mockConfig) Tag() names.Tag {
 	return mock.tag
 }
 
@@ -306,6 +305,6 @@ func (mock *mockConfig) Value(_ string) string {
 	return ""
 }
 
-func agentConfig(tag, datadir, logdir string) agent.Config {
+func agentConfig(tag names.Tag, datadir, logdir string) agent.Config {
 	return &mockConfig{tag: tag, datadir: datadir, logdir: logdir}
 }
