@@ -99,7 +99,7 @@ func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 
 	if c.OutPath != "" {
 		outPath := NormaliseJenvPath(ctx, c.OutPath)
-		err = GenerateUserJenv(c.EnvName, c.User, c.Password, outPath)
+		err = GenerateUserJenv(c.ConnectionName(), c.User, c.Password, outPath)
 		if err == nil {
 			fmt.Fprintf(ctx.Stdout, "environment file written to %s\n", outPath)
 		}
