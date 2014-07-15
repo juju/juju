@@ -725,7 +725,7 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 	return result, nil
 }
 
-// getOneActionById retrieves a single Action by id.
+// getOneActionByTag retrieves a single Action by Tag.
 func (u *UniterAPI) getOneActionByTag(tag names.ActionTag) (params.ActionsQueryResult, error) {
 	result := params.ActionsQueryResult{}
 	action, err := u.st.ActionByTag(tag)
@@ -786,6 +786,57 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 	}
 
 	return results, nil
+}
+
+// ActionComplete saves the result of a completed Action
+func (u *UniterAPI) ActionComplete(args params.ActionResult) (params.BoolResult, error) {
+	action, err := u.actionIfPermitted(args.ActionTag)
+	if err == nil {
+		err = action.Complete(args.Output)
+	}
+	return params.BoolResult{Error: common.ServerError(err), Result: err == nil}, err
+}
+
+// ActionFail saves the result of a completed Action
+func (u *UniterAPI) ActionFail(args params.ActionResult) (params.BoolResult, error) {
+	action, err := u.actionIfPermitted(args.ActionTag)
+	if err == nil {
+		err = action.Fail(args.Output)
+	}
+	return params.BoolResult{Error: common.ServerError(err), Result: err == nil}, err
+}
+
+// actionIfPermitted returns an action, only if canAccess permits,
+// returns common.ErrPerm if not permitted
+func (u *UniterAPI) actionIfPermitted(tag string) (*state.Action, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return nil, err
+	}
+	// Use the currently authenticated unit to get the endpoint.
+	whichUnit, ok := u.auth.GetAuthEntity().(*state.Unit)
+	if !ok {
+		return nil, fmt.Errorf("entity is not a unit")
+	}
+
+	// this Unit must match the Action's prefix.
+	actionTag, err := names.ParseActionTag(tag)
+	if err != nil {
+		return nil, err
+	}
+	unitTag := actionTag.PrefixTag()
+
+	// The Unit is querying for another Unit's Action.
+	if unitTag.String() != whichUnit.Tag().String() {
+		return nil, common.ErrPerm
+	}
+
+	// The Unit does not have access.
+	if !canAccess(unitTag.String()) {
+		return nil, common.ErrPerm
+	}
+
+	return u.st.ActionByTag(actionTag)
 }
 
 // RelationById returns information about all given relations,
