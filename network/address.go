@@ -238,12 +238,20 @@ func publicMatch(addr Address, preferIPv6 bool) scopeMatch {
 	return invalidScope
 }
 
-// mayPreferIPv6 returns mismatchedTypeScope if addr's type is IPv4,
-// and preferIPv6 is true. When preferIPv6 is false, or addr's type is
-// IPv6 and preferIPv6 is true, returns the originalScope unchanged.
+// mayPreferIPv6 returns mismatchedTypeExactScope or
+// mismatchedTypeFallbackScope (depending on originalScope) if addr's
+// type is IPv4, and preferIPv6 is true. When preferIPv6 is false, or
+// addr's type is IPv6 and preferIPv6 is true, returns the
+// originalScope unchanged.
 func mayPreferIPv6(addr Address, originalScope scopeMatch, preferIPv6 bool) scopeMatch {
 	if preferIPv6 && addr.Type != IPv6Address {
-		return mismatchedTypeScope
+		switch originalScope {
+		case exactScope:
+			return mismatchedTypeExactScope
+		case fallbackScope:
+			return mismatchedTypeFallbackScope
+		}
+		return invalidScope
 	}
 	return originalScope
 }
@@ -278,7 +286,8 @@ const (
 	invalidScope scopeMatch = iota
 	exactScope
 	fallbackScope
-	mismatchedTypeScope
+	mismatchedTypeExactScope
+	mismatchedTypeFallbackScope
 )
 
 // bestAddressIndex returns the index of the first address
@@ -288,32 +297,51 @@ const (
 // If there are no suitable addresses, -1 is returned.
 func bestAddressIndex(numAddr int, preferIPv6 bool, getAddr func(i int) Address, match func(addr Address, preferIPv6 bool) scopeMatch) int {
 	fallbackAddressIndex := -1
-	mismatchedTypeIndex := -1
+	mismatchedTypeFallbackIndex := -1
+	mismatchedTypeExactIndex := -1
 	for i := 0; i < numAddr; i++ {
 		addr := getAddr(i)
 		switch match(addr, preferIPv6) {
 		case exactScope:
+			logger.Debugf("exactScope(preferIPv6:%v,fallbackIndex:%v,mismatchedExact:%v,mismatchedFallback:%v):%v", preferIPv6, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, i)
 			return i
 		case fallbackScope:
+			logger.Debugf("fallbackScope(preferIPv6:%v,fallbackIndex:%v,mismatchedExact:%v,mismatchedFallback:%v):%v", preferIPv6, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, i)
 			// Use the first fallback address if there are no exact matches.
 			if fallbackAddressIndex == -1 {
 				fallbackAddressIndex = i
 			}
-		case mismatchedTypeScope:
-			// We have an exact or fallback scope match, but the type
-			// does not match, so we save it in case this is the best
+		case mismatchedTypeExactScope:
+			logger.Debugf("mismatchedTypeExactScope(preferIPv6:%v,fallbackIndex:%v,mismatchedExact:%v,mismatchedFallback:%v):%v", preferIPv6, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, i)
+			// We have an exact scope match, but the type does not
+			// match, so save the first index as this is the best
 			// match so far.
-			if mismatchedTypeIndex == -1 {
-				mismatchedTypeIndex = i
+			if mismatchedTypeExactIndex == -1 {
+				mismatchedTypeExactIndex = i
+			}
+		case mismatchedTypeFallbackScope:
+			logger.Debugf("mismatchedTypeFallbackScope(preferIPv6:%v,fallbackIndex:%v,mismatchedExact:%v,mismatchedFallback:%v):%v", preferIPv6, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex, i)
+			// We have a fallback scope match, but the type does not
+			// match, so we save the first index in case this is the
+			// best match so far.
+			if mismatchedTypeFallbackIndex == -1 {
+				mismatchedTypeFallbackIndex = i
 			}
 		}
 	}
 	if preferIPv6 {
 		if fallbackAddressIndex != -1 {
+			logger.Debugf("fallback return(preferIPv6:%v,fallbackIndex:%v,mismatchedExact:%v,mismatchedFallback:%v)", preferIPv6, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex)
 			// Prefer an IPv6 fallback to a IPv4 mismatch.
 			return fallbackAddressIndex
 		}
-		return mismatchedTypeIndex
+		if mismatchedTypeExactIndex != -1 {
+			logger.Debugf("mismatched exact return(preferIPv6:%v,fallbackIndex:%v,mismatchedExact:%v,mismatchedFallback:%v)", preferIPv6, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex)
+			return mismatchedTypeExactIndex
+		}
+		logger.Debugf("mismatched fallback return(preferIPv6:%v,fallbackIndex:%v,mismatchedExact:%v,mismatchedFallback:%v)", preferIPv6, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex)
+		return mismatchedTypeFallbackIndex
 	}
+	logger.Debugf("final return(preferIPv6:%v,fallbackIndex:%v,mismatchedExact:%v,mismatchedFallback:%v)", preferIPv6, fallbackAddressIndex, mismatchedTypeExactIndex, mismatchedTypeFallbackIndex)
 	return fallbackAddressIndex
 }

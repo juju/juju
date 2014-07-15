@@ -88,5 +88,5 @@ type PreferIPv6Getter interface {
 // settings.
 func InitializeFromConfig(config PreferIPv6Getter) {
 	preferIPv6 = config.PreferIPv6()
-	logger.Debugf("network.preferIPv6 = %v", preferIPv6)
+	logger.Infof("setting prefer-ipv6 to %v", preferIPv6)
 }

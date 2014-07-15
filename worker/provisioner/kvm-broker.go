@@ -90,6 +90,7 @@ func (broker *kvmBroker) StartInstance(args environs.StartInstanceParams) (insta
 		config.SSLHostnameVerification,
 		config.Proxy,
 		config.AptProxy,
+		config.PreferIPv6,
 	); err != nil {
 		kvmLogger.Errorf("failed to populate machine config: %v", err)
 		return nil, nil, nil, err

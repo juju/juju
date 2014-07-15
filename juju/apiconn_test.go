@@ -736,7 +736,7 @@ func (s *CacheChangedAPISuite) TestAPIEndpointNotMachineLocalOrLinkLocal(c *gc.C
 			network.NewAddress("::1", network.ScopeUnknown),
 			network.NewAddress("fe80::1", network.ScopeUnknown),
 			network.NewAddress("fc00::1", network.ScopeUnknown),
-			network.NewAddress("2001:db1::1", network.ScopeUnknown),
+			network.NewAddress("2001:db8::1", network.ScopeUnknown),
 		}, 1234),
 		network.AddressesWithPort([]network.Address{
 			network.NewAddress("1.0.0.2", network.ScopeUnknown),
@@ -756,7 +756,7 @@ func (s *CacheChangedAPISuite) TestAPIEndpointNotMachineLocalOrLinkLocal(c *gc.C
 		"1.0.0.1:1234",
 		"192.0.0.1:1234",
 		"[fc00::1]:1234",
-		"[2001:db1::1]:1234",
+		"[2001:db8::1]:1234",
 		"1.0.0.2:1235",
 		"[2002:0:0:0:0:0:100:2]:1235",
 	})

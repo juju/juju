@@ -1198,6 +1198,11 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"lxc-clone-aufs": false},
 	new:   testing.Attrs{"lxc-clone-aufs": true},
 	err:   `cannot change lxc-clone-aufs from false to true`,
+}, {
+	about: "Cannot change prefer-ipv6",
+	old:   testing.Attrs{"prefer-ipv6": false},
+	new:   testing.Attrs{"prefer-ipv6": true},
+	err:   `cannot change prefer-ipv6 from false to true`,
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {

@@ -9,6 +9,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/version"
@@ -21,6 +22,7 @@ var logger = loggo.GetLogger("juju.environs.bootstrap")
 // environment.
 func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) error {
 	cfg := environ.Config()
+	network.InitializeFromConfig(cfg)
 	if secret := cfg.AdminSecret(); secret == "" {
 		return fmt.Errorf("environment configuration has no admin-secret")
 	}
