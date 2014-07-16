@@ -197,7 +197,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 		}
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	if localerr := cacheChangedAPIInfo(info, st); localerr != nil {
+	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), st.EnvironTag()); localerr != nil {
 		logger.Warningf("cannot failed to cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -344,9 +344,9 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 // cacheChangedAPIInfo updates the local environment settings (.jenv file)
 // with the provided API server addresses if they have changed. It will also
 // save the environment tag if it is available.
-func cacheChangedAPIInfo(info configstore.EnvironInfo, st apiState) error {
+func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, newEnvironTag string) error {
 	var addrs []string
-	for _, serverHostPorts := range st.APIHostPorts() {
+	for _, serverHostPorts := range hostPorts {
 		for _, hostPort := range serverHostPorts {
 			// Only cache addresses that are likely to be usable,
 			// exclude localhost style ones.
@@ -357,7 +357,6 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, st apiState) error {
 		}
 	}
 	endpoint := info.APIEndpoint()
-	newEnvironTag := st.EnvironTag()
 	changed := false
 	if newEnvironTag != "" {
 		tag, err := names.ParseEnvironTag(newEnvironTag)
@@ -396,39 +395,4 @@ func addrsChanged(a, b []string) bool {
 		}
 	}
 	return false
-}
-
-// APIEndpointForEnv returns the endpoint information for a given environment
-// It tries to just return the information from the cached settings unless
-// there is nothing cached or refresh is True
-func APIEndpointForEnv(envName string, refresh bool) (configstore.APIEndpoint, error) {
-	store, err := configstore.Default()
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	return apiEndpointInStore(envName, refresh, store, defaultAPIOpen)
-}
-
-func apiEndpointInStore(envName string, refresh bool, store configstore.Storage, apiOpen apiOpenFunc) (configstore.APIEndpoint, error) {
-	info, err := store.ReadInfo(envName)
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	endpoint := info.APIEndpoint()
-	if !refresh && len(endpoint.Addresses) > 0 {
-		logger.Debugf("found cached addresses, not connecting to API server")
-		return endpoint, nil
-	}
-	// We need to connect to refresh our endpoint settings
-	apiState, err := newAPIFromStore(envName, store, apiOpen)
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	apiState.Close()
-	// The side effect of connecting is that we update the store with new API information
-	info, err = store.ReadInfo(envName)
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	return info.APIEndpoint(), nil
 }

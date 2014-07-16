@@ -24,16 +24,16 @@ var logger = loggo.GetLogger("worker.uniter.jujuc")
 
 // newCommands maps Command names to initializers.
 var newCommands = map[string]func(Context) cmd.Command{
-	"close-port":    NewClosePortCommand,
-	"config-get":    NewConfigGetCommand,
-	"juju-log":      NewJujuLogCommand,
-	"open-port":     NewOpenPortCommand,
-	"relation-get":  NewRelationGetCommand,
-	"relation-ids":  NewRelationIdsCommand,
-	"relation-list": NewRelationListCommand,
-	"relation-set":  NewRelationSetCommand,
-	"unit-get":      NewUnitGetCommand,
-	"owner-get":     NewOwnerGetCommand,
+	"close-port" + cmdSuffix:    NewClosePortCommand,
+	"config-get" + cmdSuffix:    NewConfigGetCommand,
+	"juju-log" + cmdSuffix:      NewJujuLogCommand,
+	"open-port" + cmdSuffix:     NewOpenPortCommand,
+	"relation-get" + cmdSuffix:  NewRelationGetCommand,
+	"relation-ids" + cmdSuffix:  NewRelationIdsCommand,
+	"relation-list" + cmdSuffix: NewRelationListCommand,
+	"relation-set" + cmdSuffix:  NewRelationSetCommand,
+	"unit-get" + cmdSuffix:      NewUnitGetCommand,
+	"owner-get" + cmdSuffix:     NewOwnerGetCommand,
 }
 
 // CommandNames returns the names of all jujuc commands.

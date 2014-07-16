@@ -55,7 +55,7 @@ func (s *deployerSuite) TearDownTest(c *gc.C) {
 
 func (s *deployerSuite) makeDeployerAndContext(c *gc.C) (worker.Worker, deployer.Context) {
 	// Create a deployer acting on behalf of the machine.
-	ctx := s.getContextForMachine(c, s.machine.Tag().String())
+	ctx := s.getContextForMachine(c, s.machine.Tag())
 	return deployer.NewDeployer(s.deployerState, ctx), ctx
 }
 

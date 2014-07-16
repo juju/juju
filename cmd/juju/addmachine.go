@@ -4,11 +4,11 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
@@ -106,35 +106,42 @@ func (c *AddMachineCommand) Init(args []string) error {
 	return nil
 }
 
-type AddMachineAPI interface {
-	Close() error
+type addMachineAPI interface {
 	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
-	AddMachines1dot18([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	Close() error
+	DestroyMachines(machines ...string) error
 	EnvironmentUUID() string
+	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
 }
 
-var getAddMachineAPI = func(c *AddMachineCommand) (AddMachineAPI, error) {
+var getAddMachineAPI = func(c *AddMachineCommand) (addMachineAPI, error) {
 	return c.NewAPIClient()
 }
 
+var manualProvisioner = manual.ProvisionMachine
+
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
+	client, err := getAddMachineAPI(c)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	defer client.Close()
+
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
 		args := manual.ProvisionMachineArgs{
-			Host:    c.Placement.Directive,
-			EnvName: c.EnvName,
-			Stdin:   ctx.Stdin,
-			Stdout:  ctx.Stdout,
-			Stderr:  ctx.Stderr,
+			Host:   c.Placement.Directive,
+			Client: client,
+			Stdin:  ctx.Stdin,
+			Stdout: ctx.Stdout,
+			Stderr: ctx.Stderr,
 		}
-		_, err := manual.ProvisionMachine(args)
+		machineId, err := manualProvisioner(args)
+		if err == nil {
+			ctx.Infof("created machine %v", machineId)
+		}
 		return err
 	}
 
-	client, err := getAddMachineAPI(c)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
 	if c.Placement != nil && c.Placement.Scope == "env-uuid" {
 		c.Placement.Scope = client.EnvironmentUUID()
 	}
@@ -156,26 +163,8 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	}
 
 	results, err := client.AddMachines(machines)
-	if params.IsCodeNotImplemented(err) {
-		if c.Placement != nil {
-			containerType, parseErr := instance.ParseContainerType(c.Placement.Scope)
-			if parseErr != nil {
-				// The user specified a non-container placement directive:
-				// return original API not implemented error.
-				return err
-			}
-			machineParams.ContainerType = containerType
-			machineParams.ParentId = c.Placement.Directive
-			machineParams.Placement = nil
-		}
-		logger.Infof(
-			"AddMachinesWithPlacement not supported by the API server, " +
-				"falling back to 1.18 compatibility mode",
-		)
-		results, err = client.AddMachines1dot18([]params.AddMachineParams{machineParams})
-	}
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
 	errs := []error{}

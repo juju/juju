@@ -8,7 +8,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -717,11 +716,51 @@ func (info *infoWithWriteNotify) Write() error {
 	return info.EnvironInfo.Write()
 }
 
-type APIEndpointForEnvSuite struct {
-	coretesting.FakeJujuHomeSuite
+type CacheChangedAPISuite struct {
+	coretesting.BaseSuite
 }
 
-var _ = gc.Suite(&APIEndpointForEnvSuite{})
+var _ = gc.Suite(&CacheChangedAPISuite{})
+
+func (s *CacheChangedAPISuite) TestAPIEndpointNotMachineLocalOrLinkLocal(c *gc.C) {
+	store := configstore.NewMem()
+	info, err := store.CreateInfo("env-name")
+	c.Assert(err, gc.IsNil)
+
+	hostPorts := [][]network.HostPort{
+		network.AddressesWithPort([]network.Address{
+			network.NewAddress("1.0.0.1", network.ScopeUnknown),
+			network.NewAddress("192.0.0.1", network.ScopeUnknown),
+			network.NewAddress("127.0.0.1", network.ScopeUnknown),
+			network.NewAddress("localhost", network.ScopeMachineLocal),
+			network.NewAddress("::1", network.ScopeUnknown),
+			network.NewAddress("fe80::1", network.ScopeUnknown),
+			network.NewAddress("fc00::1", network.ScopeUnknown),
+			network.NewAddress("2001:db8::1", network.ScopeUnknown),
+		}, 1234),
+		network.AddressesWithPort([]network.Address{
+			network.NewAddress("1.0.0.2", network.ScopeUnknown),
+			network.NewAddress("2002:0:0:0:0:0:100:2", network.ScopeUnknown),
+			network.NewAddress("::1", network.ScopeUnknown),
+			network.NewAddress("127.0.0.1", network.ScopeUnknown),
+			network.NewAddress("localhost", network.ScopeMachineLocal),
+		}, 1235),
+	}
+
+	envTag := names.NewEnvironTag("fake-uuid")
+	err = juju.CacheChangedAPIInfo(info, hostPorts, envTag.String())
+	c.Assert(err, gc.IsNil)
+
+	endpoint := info.APIEndpoint()
+	c.Check(endpoint.Addresses, gc.DeepEquals, []string{
+		"1.0.0.1:1234",
+		"192.0.0.1:1234",
+		"[fc00::1]:1234",
+		"[2001:db8::1]:1234",
+		"1.0.0.2:1235",
+		"[2002:0:0:0:0:0:100:2]:1235",
+	})
+}
 
 var dummyStoreInfo = &environInfo{
 	creds: configstore.APICredentials{
@@ -733,123 +772,4 @@ var dummyStoreInfo = &environInfo{
 		CACert:      "certificated",
 		EnvironUUID: "fake-uuid",
 	},
-}
-
-func (s *APIEndpointForEnvSuite) TestAPIEndpointInStoreCached(c *gc.C) {
-	store := newConfigStore("env-name", dummyStoreInfo)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		return nil, nil
-	}
-	endpoint, err := juju.APIEndpointInStore("env-name", false, store, apiOpen)
-	c.Assert(err, gc.IsNil)
-	c.Check(endpoint, gc.DeepEquals, dummyStoreInfo.endpoint)
-}
-
-func (s *APIEndpointForEnvSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
-	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
-	_, err := juju.APIEndpointForEnv("no-such-env", false)
-	c.Check(err, jc.Satisfies, errors.IsNotFound)
-	c.Check(err, gc.ErrorMatches, `environment "no-such-env" not found`)
-}
-
-func (s *APIEndpointForEnvSuite) TestAPIEndpointNotCached(c *gc.C) {
-	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
-	store, err := configstore.Default()
-	c.Assert(err, gc.IsNil)
-	ctx := coretesting.Context(c)
-	env, err := environs.PrepareFromName("erewhemos", ctx, store)
-	c.Assert(err, gc.IsNil)
-	defer dummy.Reset()
-	envtesting.UploadFakeTools(c, env.Storage())
-	err = bootstrap.Bootstrap(ctx, env, environs.BootstrapParams{})
-	c.Assert(err, gc.IsNil)
-
-	// Note: if we get Bootstrap to start caching the API endpoint
-	// immediately, we'll still want to have this test for compatibility.
-	// We can just write blank info instead of reading and checking it is empty.
-	savedInfo, err := store.ReadInfo("erewhemos")
-	c.Assert(err, gc.IsNil)
-	// Ensure that the data isn't cached
-	c.Check(savedInfo.APIEndpoint().Addresses, gc.HasLen, 0)
-
-	called := 0
-	expectState := mockedAPIState(true, true)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin"))
-		c.Check(string(apiInfo.CACert), gc.Equals, coretesting.CACert)
-		c.Check(apiInfo.Password, gc.Equals, coretesting.DefaultMongoPassword)
-		c.Check(opts, gc.DeepEquals, api.DefaultDialOpts())
-		// we didn't know about it when connecting
-		c.Check(apiInfo.EnvironTag, gc.IsNil)
-		called++
-		return expectState, nil
-	}
-	endpoint, err := juju.APIEndpointInStore("erewhemos", false, store, apiOpen)
-	c.Assert(err, gc.IsNil)
-	c.Assert(called, gc.Equals, 1)
-	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
-	c.Check(endpoint.EnvironUUID, gc.Equals, "fake-uuid")
-}
-
-func (s *APIEndpointForEnvSuite) TestAPIEndpointRefresh(c *gc.C) {
-	store := newConfigStore("env-name", dummyStoreInfo)
-	called := 0
-	expectState := mockedAPIState(true, false)
-	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
-		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		called++
-		return expectState, nil
-	}
-	endpoint, err := juju.APIEndpointInStore("env-name", false, store, apiOpen)
-	c.Assert(err, gc.IsNil)
-	c.Assert(called, gc.Equals, 0)
-	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"foo.invalid"})
-	// However, if we ask to refresh them, we'll connect to the API and get
-	// the freshest set
-	endpoint, err = juju.APIEndpointInStore("env-name", true, store, apiOpen)
-	c.Assert(err, gc.IsNil)
-	c.Check(called, gc.Equals, 1)
-	// This refresh now gives us the values return by APIHostPorts
-	c.Check(endpoint.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
-}
-
-func (s *APIEndpointForEnvSuite) TestAPIEndpointNotMachineLocalOrLinkLocal(c *gc.C) {
-	store := newConfigStore("env-name", dummyStoreInfo)
-	called := 0
-	hostPorts := [][]network.HostPort{
-		network.AddressesWithPort([]network.Address{
-			network.NewAddress("1.0.0.1", network.ScopeUnknown),
-			network.NewAddress("192.0.0.1", network.ScopeUnknown),
-			network.NewAddress("127.0.0.1", network.ScopeUnknown),
-			network.NewAddress("localhost", network.ScopeMachineLocal),
-			network.NewAddress("::1", network.ScopeUnknown),
-			network.NewAddress("fe80::1", network.ScopeUnknown),
-			network.NewAddress("fc00::1", network.ScopeUnknown),
-			network.NewAddress("2001:db1::1", network.ScopeUnknown),
-		}, 1234),
-		network.AddressesWithPort([]network.Address{
-			network.NewAddress("1.0.0.2", network.ScopeUnknown),
-			network.NewAddress("2002:0:0:0:0:0:100:2", network.ScopeUnknown),
-			network.NewAddress("::1", network.ScopeUnknown),
-			network.NewAddress("127.0.0.1", network.ScopeUnknown),
-			network.NewAddress("localhost", network.ScopeMachineLocal),
-		}, 1235),
-	}
-
-	expectState := &mockAPIState{apiHostPorts: hostPorts}
-	apiOpen := func(_ *api.Info, _ api.DialOpts) (juju.APIState, error) {
-		called++
-		return expectState, nil
-	}
-	endpoint, err := juju.APIEndpointInStore("env-name", true, store, apiOpen)
-	c.Assert(err, gc.IsNil)
-	c.Check(called, gc.Equals, 1)
-	c.Check(endpoint.Addresses, gc.DeepEquals, []string{
-		"1.0.0.1:1234",
-		"192.0.0.1:1234",
-		"[fc00::1]:1234",
-		"[2001:db1::1]:1234",
-		"1.0.0.2:1235",
-		"[2002:0:0:0:0:0:100:2]:1235",
-	})
 }

@@ -81,19 +81,19 @@ var addressTests = []struct {
 	expected: "8.8.8.8",
 }, {
 	summary:  "public IPv6 only",
-	public:   []nova.IPAddress{{6, "2001:db1::1"}},
+	public:   []nova.IPAddress{{6, "2001:db8::1"}},
 	networks: []string{"", "public"},
-	expected: "2001:db1::1",
+	expected: "2001:db8::1",
 }, {
 	summary:  "public only, both IPv4 and IPv6",
-	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db1::1"}},
+	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db8::1"}},
 	networks: []string{"", "public"},
 	expected: "8.8.8.8",
 }, {
 	summary:  "public only, both IPv6 and IPv4",
-	public:   []nova.IPAddress{{6, "2001:db1::1"}, {4, "8.8.8.8"}},
+	public:   []nova.IPAddress{{6, "2001:db8::1"}, {4, "8.8.8.8"}},
 	networks: []string{"", "public"},
-	expected: "2001:db1::1",
+	expected: "2001:db8::1",
 }, {
 	summary:  "public and private both IPv4",
 	private:  []nova.IPAddress{{4, "10.0.0.4"}},
@@ -103,9 +103,9 @@ var addressTests = []struct {
 }, {
 	summary:  "public and private both IPv6",
 	private:  []nova.IPAddress{{6, "fc00::1"}},
-	public:   []nova.IPAddress{{6, "2001:db1::1"}},
+	public:   []nova.IPAddress{{6, "2001:db8::1"}},
 	networks: []string{"private", "public"},
-	expected: "2001:db1::1",
+	expected: "2001:db8::1",
 }, {
 	summary:  "public, private, and localhost IPv4",
 	private:  []nova.IPAddress{{4, "127.0.0.4"}, {4, "192.168.0.1"}},
@@ -115,21 +115,21 @@ var addressTests = []struct {
 }, {
 	summary:  "public, private, and localhost IPv6",
 	private:  []nova.IPAddress{{6, "::1"}, {6, "fc00::1"}},
-	public:   []nova.IPAddress{{6, "2001:db1::1"}},
+	public:   []nova.IPAddress{{6, "2001:db8::1"}},
 	networks: []string{"private", "public"},
-	expected: "2001:db1::1",
+	expected: "2001:db8::1",
 }, {
 	summary:  "public, private, and localhost - both IPv4 and IPv6",
 	private:  []nova.IPAddress{{4, "127.0.0.4"}, {4, "192.168.0.1"}, {6, "::1"}, {6, "fc00::1"}},
-	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db1::1"}},
+	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db8::1"}},
 	networks: []string{"private", "public"},
 	expected: "8.8.8.8",
 }, {
 	summary:  "public, private, and localhost - both IPv6 and IPv4",
 	private:  []nova.IPAddress{{6, "::1"}, {6, "fc00::1"}, {4, "127.0.0.4"}, {4, "192.168.0.1"}},
-	public:   []nova.IPAddress{{6, "2001:db1::1"}, {4, "8.8.8.8"}},
+	public:   []nova.IPAddress{{6, "2001:db8::1"}, {4, "8.8.8.8"}},
 	networks: []string{"private", "public"},
-	expected: "2001:db1::1",
+	expected: "2001:db8::1",
 }, {
 	summary:  "custom only IPv4",
 	private:  []nova.IPAddress{{4, "192.168.0.1"}},
@@ -159,21 +159,21 @@ var addressTests = []struct {
 }, {
 	summary:  "custom and public IPv6",
 	private:  []nova.IPAddress{{6, "fc00::1"}},
-	public:   []nova.IPAddress{{6, "2001:db1::1"}},
+	public:   []nova.IPAddress{{6, "2001:db8::1"}},
 	networks: []string{"special", "public"},
-	expected: "2001:db1::1",
+	expected: "2001:db8::1",
 }, {
 	summary:  "custom and public - both IPv4 and IPv6",
 	private:  []nova.IPAddress{{4, "172.16.0.1"}, {6, "fc00::1"}},
-	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db1::1"}},
+	public:   []nova.IPAddress{{4, "8.8.8.8"}, {6, "2001:db8::1"}},
 	networks: []string{"special", "public"},
 	expected: "8.8.8.8",
 }, {
 	summary:  "custom and public - both IPv6 and IPv4",
 	private:  []nova.IPAddress{{6, "fc00::1"}, {4, "172.16.0.1"}},
-	public:   []nova.IPAddress{{6, "2001:db1::1"}, {4, "8.8.8.8"}},
+	public:   []nova.IPAddress{{6, "2001:db8::1"}, {4, "8.8.8.8"}},
 	networks: []string{"special", "public"},
-	expected: "2001:db1::1",
+	expected: "2001:db8::1",
 }}
 
 func (t *localTests) TestGetServerAddresses(c *gc.C) {

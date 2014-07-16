@@ -7,7 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -144,6 +146,11 @@ type MachineConfig struct {
 	// AptProxySettings define the http, https and ftp proxy settings to use
 	// for apt, which may or may not be the same as the normal ProxySettings.
 	AptProxySettings proxy.Settings
+
+	// PreferIPv6 mirrors the value of prefer-ipv6 environment setting
+	// and when set IPv6 addresses for connecting to the API/state
+	// servers will be preferred over IPv4 ones.
+	PreferIPv6 bool
 }
 
 func base64yaml(m *config.Config) string {
@@ -320,7 +327,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// It would be cleaner to change bootstrap-state to
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
-	machineTag := names.NewMachineTag(cfg.MachineId).String()
+	machineTag := names.NewMachineTag(cfg.MachineId)
 	_, err = cfg.addAgentInfo(c, machineTag)
 	if err != nil {
 		return err
@@ -358,14 +365,14 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		)
 	}
 
-	return cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId)
+	return cfg.addMachineAgentToBoot(c, machineTag.String(), cfg.MachineId)
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
+func (cfg *MachineConfig) agentConfig(tag names.Tag) (agent.ConfigSetter, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
 	// if the machine is a stateServer then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
@@ -387,6 +394,7 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
 		APIAddresses:      cfg.apiHostAddrs(),
 		CACert:            cfg.MongoInfo.CACert,
 		Values:            cfg.AgentEnvironment,
+		PreferIPv6:        cfg.PreferIPv6,
 	}
 	if !cfg.Bootstrap {
 		return agent.NewAgentConfig(configParams)
@@ -396,7 +404,7 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.Config, error) {
+func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag names.Tag) (agent.Config, error) {
 	acfg, err := cfg.agentConfig(tag)
 	if err != nil {
 		return nil, err
@@ -445,7 +453,11 @@ func (cfg *MachineConfig) jujuTools() string {
 func (cfg *MachineConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap {
-		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.StateServingInfo.StatePort))
+		if cfg.PreferIPv6 {
+			hosts = append(hosts, net.JoinHostPort("::1", strconv.Itoa(cfg.StateServingInfo.StatePort)))
+		} else {
+			hosts = append(hosts, net.JoinHostPort("localhost", strconv.Itoa(cfg.StateServingInfo.StatePort)))
+		}
 	}
 	if cfg.MongoInfo != nil {
 		hosts = append(hosts, cfg.MongoInfo.Addrs...)
@@ -456,7 +468,11 @@ func (cfg *MachineConfig) stateHostAddrs() []string {
 func (cfg *MachineConfig) apiHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap {
-		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.StateServingInfo.APIPort))
+		if cfg.PreferIPv6 {
+			hosts = append(hosts, net.JoinHostPort("::1", strconv.Itoa(cfg.StateServingInfo.APIPort)))
+		} else {
+			hosts = append(hosts, net.JoinHostPort("localhost", strconv.Itoa(cfg.StateServingInfo.APIPort)))
+		}
 	}
 	if cfg.APIInfo != nil {
 		hosts = append(hosts, cfg.APIInfo.Addrs...)

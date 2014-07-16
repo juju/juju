@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -335,7 +336,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName string) (context *HookContext, err error) {
+func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName string, actionParams map[string]interface{}) (context *HookContext, err error) {
 
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
@@ -356,7 +357,8 @@ func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName st
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
 	return NewHookContext(u.unit, hctxId, u.uuid, u.envName, relationId,
-		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings)
+		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
+		actionParams)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -408,7 +410,7 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, -1, "")
+	hctx, err := u.getHookContext(hctxId, -1, "", map[string]interface{}(nil))
 	if err != nil {
 		return nil, err
 	}
@@ -457,12 +459,21 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 
 	hookName := string(hi.Kind)
+	actionParams := map[string]interface{}(nil)
+
 	relationId := -1
 	if hi.Kind.IsRelation() {
 		relationId = hi.RelationId
 		if hookName, err = u.relationers[relationId].PrepareHook(hi); err != nil {
 			return err
 		}
+	} else if hi.Kind == hooks.ActionRequested {
+		action, err := u.st.Action(names.NewActionTag(hi.ActionId))
+		if err != nil {
+			return err
+		}
+		actionParams = action.Params()
+		hookName = action.Name()
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
@@ -472,7 +483,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit)
+	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit, actionParams)
 	if err != nil {
 		return err
 	}
@@ -487,8 +498,18 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		return err
 	}
 	logger.Infof("running %q hook", hookName)
+
 	ranHook := true
-	err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
+	// The reason for the switch at this point is that once inside RunHook,
+	// we don't know whether we're running an Action or a regular Hook.
+	// RunAction simply calls the exact same method as RunHook, but with
+	// the location as "actions" instead of "hooks".
+	if hi.Kind == hooks.ActionRequested {
+		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
+	} else {
+		err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
+	}
+
 	if IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
@@ -538,6 +559,8 @@ func (u *Uniter) currentHookName() string {
 		relationer := u.relationers[hookInfo.RelationId]
 		name := relationer.ru.Endpoint().Name
 		hookName = fmt.Sprintf("%s-%s", name, hookInfo.Kind)
+	} else if hookInfo.Kind == hooks.ActionRequested {
+		hookName = fmt.Sprintf("%s-%s", hookName, hookInfo.ActionId)
 	}
 	return hookName
 }

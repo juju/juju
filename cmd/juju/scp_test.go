@@ -143,7 +143,11 @@ func (s *SCPSuite) TestSCPCommand(c *gc.C) {
 			c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Equals, "")
 			data, err := ioutil.ReadFile(filepath.Join(s.bin, "scp.args"))
 			c.Check(err, gc.IsNil)
-			c.Check(string(data), gc.Equals, t.result)
+			actual := string(data)
+			if t.proxy {
+				actual = strings.Replace(actual, ".dns", ".internal", 2)
+			}
+			c.Check(actual, gc.Equals, t.result)
 		}
 	}
 }

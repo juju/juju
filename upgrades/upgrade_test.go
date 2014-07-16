@@ -9,6 +9,7 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -104,14 +105,14 @@ type mockAgentConfig struct {
 	agent.ConfigSetter
 	dataDir      string
 	logDir       string
-	tag          string
+	tag          names.Tag
 	jobs         []params.MachineJob
 	apiAddresses []string
 	values       map[string]string
 	mongoInfo    *authentication.MongoInfo
 }
 
-func (mock *mockAgentConfig) Tag() string {
+func (mock *mockAgentConfig) Tag() names.Tag {
 	return mock.tag
 }
 
