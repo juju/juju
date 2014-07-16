@@ -40,8 +40,6 @@ var (
 	RestrictedAPIExposed exposedAPI = false
 )
 
-func fakeRestart() error { return nil }
-
 func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	s.commonMachineSuite.SetUpTest(c)
 
