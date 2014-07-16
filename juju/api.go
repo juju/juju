@@ -48,13 +48,13 @@ type apiStateCachedInfo struct {
 var errAborted = fmt.Errorf("aborted")
 
 // NewAPIState creates an api.State object from an Environ
-func NewAPIState(environ environs.Environ) (*api.State, error) {
+func NewAPIState(environ environs.Environ, dialOpts api.DialOpts) (*api.State, error) {
 	info, err := environAPIInfo(environ)
 	if err != nil {
 		return nil, err
 	}
 
-	st, err := api.Open(info, api.DefaultDialOpts())
+	st, err := api.Open(info, dialOpts)
 	if err != nil {
 		return nil, err
 	}

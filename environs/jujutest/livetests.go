@@ -394,7 +394,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	st := t.Env.(testing.GetStater).GetStateInAPIServer()
 
 	c.Logf("opening API connection")
-	apiState, err := juju.NewAPIState(t.Env)
+	apiState, err := juju.NewAPIState(t.Env, api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer apiState.Close()
 
@@ -545,7 +545,7 @@ func (t *LiveTests) TestCheckEnvironmentOnConnect(c *gc.C) {
 	}
 	t.BootstrapOnce(c)
 
-	apiState, err := juju.NewAPIState(t.Env)
+	apiState, err := juju.NewAPIState(t.Env, api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	apiState.Close()
 }

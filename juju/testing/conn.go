@@ -231,7 +231,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, gc.IsNil)
 
-	s.APIState, err = juju.NewAPIState(environ)
+	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
 	s.Environ = environ
 }
 

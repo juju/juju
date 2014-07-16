@@ -233,7 +233,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	// Typically we expect only 1 retry will be needed.
 	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
 	for a := attempt.Start(); a.Next(); {
-		apiState, err = juju.NewAPIState(env)
+		apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
 		if err == nil || errors.Cause(err).Error() != "EOF" {
 			break
 		}

@@ -62,7 +62,7 @@ func (*NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 	err = env.SetConfig(cfg)
 	c.Assert(err, gc.IsNil)
 
-	st, err := juju.NewAPIState(env)
+	st, err := juju.NewAPIState(env, api.DialOpts{})
 	c.Assert(st, gc.NotNil)
 
 	// the secrets will not be updated, as they already exist
