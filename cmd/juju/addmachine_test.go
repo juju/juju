@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -41,6 +42,24 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
+}
+
+func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
+	s.PatchValue(&manualProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
+		return "42", nil
+	})
+	context, err := runAddMachine(c, "ssh:10.1.2.3")
+	c.Assert(err, gc.IsNil)
+	c.Assert(testing.Stderr(context), gc.Equals, "created machine 42\n")
+}
+
+func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
+	s.PatchValue(&manualProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
+		return "", fmt.Errorf("failed to initialize warp core")
+	})
+	context, err := runAddMachine(c, "ssh:10.1.2.3")
+	c.Assert(err, gc.ErrorMatches, "failed to initialize warp core")
+	c.Assert(testing.Stderr(context), gc.Equals, "")
 }
 
 func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {
