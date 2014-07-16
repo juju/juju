@@ -58,7 +58,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
 		DataDir:           dataDir,
-		Tag:               "machine-0",
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		CACert:            testing.CACert,
@@ -149,9 +149,10 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the machine agent's config has been written
 	// and that we can use it to connect to the state.
-	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, names.NewMachineTag("0")))
+	machine0 := names.NewMachineTag("0")
+	newCfg, err := agent.ReadConfig(agent.ConfigPath(dataDir, machine0))
 	c.Assert(err, gc.IsNil)
-	c.Assert(newCfg.Tag(), gc.Equals, "machine-0")
+	c.Assert(newCfg.Tag(), gc.Equals, machine0)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), pwHash)
 	c.Assert(agent.Password(newCfg), gc.Not(gc.Equals), testing.DefaultMongoPassword)
 	info, ok := cfg.MongoInfo()
@@ -164,7 +165,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *gc.C) {
 	configParams := agent.AgentConfigParams{
 		DataDir:           c.MkDir(),
-		Tag:               "machine-0",
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		CACert:            testing.CACert,
@@ -187,7 +188,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	pwHash := utils.UserPasswordHash(testing.DefaultMongoPassword, utils.CompatSalt)
 	configParams := agent.AgentConfigParams{
 		DataDir:           dataDir,
-		Tag:               "machine-0",
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		CACert:            testing.CACert,

@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state/api/params"
@@ -23,7 +24,7 @@ type identitySuite struct {
 var _ = gc.Suite(&identitySuite{})
 
 var attributeParams = AgentConfigParams{
-	Tag:               "user-omg", // the omg user
+	Tag:               names.NewMachineTag("1"),
 	UpgradedToVersion: version.Current.Number,
 	Password:          "sekrit",
 	CACert:            "ca cert",

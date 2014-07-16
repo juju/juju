@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
@@ -63,11 +64,11 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 
 type mockConfig struct {
 	agent.Config
-	tag     string
+	tag     names.Tag
 	datadir string
 }
 
-func (mock *mockConfig) Tag() string {
+func (mock *mockConfig) Tag() names.Tag {
 	return mock.tag
 }
 
@@ -75,12 +76,12 @@ func (mock *mockConfig) DataDir() string {
 	return mock.datadir
 }
 
-func agentConfig(tag, datadir string) agent.Config {
+func agentConfig(tag names.Tag, datadir string) agent.Config {
 	return &mockConfig{tag: tag, datadir: datadir}
 }
 
 func (s *UpgraderSuite) makeUpgrader() *upgrader.Upgrader {
-	config := agentConfig(s.machine.Tag().String(), s.DataDir())
+	config := agentConfig(s.machine.Tag(), s.DataDir())
 	return upgrader.NewUpgrader(s.state.Upgrader(), config)
 }
 

@@ -327,7 +327,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// It would be cleaner to change bootstrap-state to
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
-	machineTag := names.NewMachineTag(cfg.MachineId).String()
+	machineTag := names.NewMachineTag(cfg.MachineId)
 	_, err = cfg.addAgentInfo(c, machineTag)
 	if err != nil {
 		return err
@@ -365,14 +365,14 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		)
 	}
 
-	return cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId)
+	return cfg.addMachineAgentToBoot(c, machineTag.String(), cfg.MachineId)
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
+func (cfg *MachineConfig) agentConfig(tag names.Tag) (agent.ConfigSetter, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
 	// if the machine is a stateServer then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
@@ -404,7 +404,7 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.Config, error) {
+func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag names.Tag) (agent.Config, error) {
 	acfg, err := cfg.agentConfig(tag)
 	if err != nil {
 		return nil, err

@@ -923,7 +923,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	auth, err := authentication.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewProvisionerTask(
-		"machine-0", safeMode, machineGetter,
+		names.NewMachineTag("0"), safeMode, machineGetter,
 		machineWatcher, retryWatcher, broker, auth)
 }
 

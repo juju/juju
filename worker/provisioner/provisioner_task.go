@@ -49,7 +49,7 @@ type MachineGetter interface {
 var _ MachineGetter = (*apiprovisioner.State)(nil)
 
 func NewProvisionerTask(
-	machineTag string,
+	machineTag names.MachineTag,
 	safeMode bool,
 	machineGetter MachineGetter,
 	machineWatcher apiwatcher.StringsWatcher,
@@ -76,7 +76,7 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
-	machineTag     string
+	machineTag     names.MachineTag
 	machineGetter  MachineGetter
 	machineWatcher apiwatcher.StringsWatcher
 	retryWatcher   apiwatcher.NotifyWatcher

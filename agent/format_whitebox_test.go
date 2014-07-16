@@ -25,7 +25,7 @@ var _ = gc.Suite(&formatSuite{})
 // The agentParams are used by the specific formatter whitebox tests, and is
 // located here for easy reuse.
 var agentParams = AgentConfigParams{
-	Tag:               "user-omg",
+	Tag:               names.NewMachineTag("1"),
 	UpgradedToVersion: version.Current.Number,
 	Jobs:              []params.MachineJob{params.JobHostUnits},
 	Password:          "sekrit",
@@ -50,9 +50,9 @@ func (*formatSuite) TestWriteCommands(c *gc.C) {
 	commands, err := config.WriteCommands()
 	c.Assert(err, gc.IsNil)
 	c.Assert(commands, gc.HasLen, 3)
-	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/user-omg'`)
-	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/user-omg/agent.conf'`)
-	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/user-omg/agent.conf'`)
+	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/machine-1'`)
+	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/machine-1/agent.conf'`)
+	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/machine-1/agent.conf'`)
 }
 
 func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
@@ -60,9 +60,7 @@ func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
 	err := config.Write()
 	c.Assert(err, gc.IsNil)
 
-	tag, err := names.ParseTag(config.Tag())
-	c.Assert(err, gc.IsNil)
-	configPath := ConfigPath(config.DataDir(), tag)
+	configPath := ConfigPath(config.DataDir(), config.Tag())
 	formatPath := filepath.Join(config.Dir(), legacyFormatFilename)
 	assertFileExists(c, configPath)
 	assertFileNotExist(c, formatPath)
@@ -94,9 +92,7 @@ func (*formatSuite) TestReadWriteStateConfig(c *gc.C) {
 func assertWriteAndRead(c *gc.C, config *configInternal) {
 	err := config.Write()
 	c.Assert(err, gc.IsNil)
-	tag, err := names.ParseTag(config.Tag())
-	c.Assert(err, gc.IsNil)
-	configPath := ConfigPath(config.DataDir(), tag)
+	configPath := ConfigPath(config.DataDir(), config.Tag())
 	readConfig, err := ReadConfig(configPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(readConfig, jc.DeepEquals, config)
