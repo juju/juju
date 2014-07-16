@@ -25,25 +25,25 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type NewAPIConnSuite struct {
+type NewAPIStateSuite struct {
 	coretesting.FakeJujuHomeSuite
 	envtesting.ToolsFixture
 }
 
-var _ = gc.Suite(&NewAPIConnSuite{})
+var _ = gc.Suite(&NewAPIStateSuite{})
 
-func (cs *NewAPIConnSuite) SetUpTest(c *gc.C) {
+func (cs *NewAPIStateSuite) SetUpTest(c *gc.C) {
 	cs.FakeJujuHomeSuite.SetUpTest(c)
 	cs.ToolsFixture.SetUpTest(c)
 }
 
-func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
+func (cs *NewAPIStateSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	cs.ToolsFixture.TearDownTest(c)
 	cs.FakeJujuHomeSuite.TearDownTest(c)
 }
 
-func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
+func (*NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)
 	ctx := coretesting.Context(c)
@@ -62,16 +62,14 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	err = env.SetConfig(cfg)
 	c.Assert(err, gc.IsNil)
 
-	conn, err := juju.NewAPIConn(env, api.DefaultDialOpts())
-	c.Assert(err, gc.IsNil)
-	c.Assert(conn.Environ, gc.Equals, env)
-	c.Assert(conn.State, gc.NotNil)
+	st, err := juju.NewAPIState(env)
+	c.Assert(st, gc.NotNil)
 
 	// the secrets will not be updated, as they already exist
-	attrs, err := conn.State.Client().EnvironmentGet()
+	attrs, err := st.Client().EnvironmentGet()
 	c.Assert(attrs["secret"], gc.Equals, "pork")
 
-	c.Assert(conn.Close(), gc.IsNil)
+	c.Assert(st.Close(), gc.IsNil)
 }
 
 type NewAPIClientSuite struct {
