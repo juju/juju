@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -28,7 +29,7 @@ type annotatorDoc struct {
 // for any entity that wishes to use it.
 type annotator struct {
 	globalKey string
-	tag       string
+	tag       names.Tag
 	st        *State
 }
 
@@ -77,22 +78,23 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 // insertOps returns the operations required to insert annotations in MongoDB.
 func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 	tag := a.tag
+	switch tag.(type) {
+	case names.EnvironTag:
+		return ops, nil
+	}
+	// If the entity is not the environment, add a DocExists check on the
+	// entity document, in order to avoid possible races between entity
+	// removal and annotation creation.
+	coll, id, err := a.st.parseTag(tag.String())
+	if err != nil {
+		return nil, err
+	}
 	ops := []txn.Op{{
 		C:      a.st.annotations.Name,
 		Id:     a.globalKey,
 		Assert: txn.DocMissing,
 		Insert: &annotatorDoc{a.globalKey, tag, toInsert},
 	}}
-	if strings.HasPrefix(tag, "environment-") {
-		return ops, nil
-	}
-	// If the entity is not the environment, add a DocExists check on the
-	// entity document, in order to avoid possible races between entity
-	// removal and annotation creation.
-	coll, id, err := a.st.parseTag(tag)
-	if err != nil {
-		return nil, err
-	}
 	return append(ops, txn.Op{
 		C:      coll,
 		Id:     id,
