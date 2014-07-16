@@ -57,6 +57,7 @@ do
         else
             $RELEASE_TOOLS/build-package-with-dsc.bash \
                 m1.medium ami-81dee0e8 $dsc
+        fi
         if [[ -n ${ARM_SSH_OPTIONS:-} ]]; then
             echo "Building trusty arm64"
             set +e
