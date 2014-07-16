@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -154,10 +155,10 @@ func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 	s.State.StartSync()
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(s.machine.Refresh(), gc.IsNil)
-	c.Assert(s.machine.MachineAddresses(), gc.DeepEquals, []network.Address{
+	c.Assert(s.machine.MachineAddresses(), jc.DeepEquals, []network.Address{
+		network.NewAddress("2001:db8::1", network.ScopeUnknown),
+		network.NewAddress("::1", network.ScopeMachineLocal),
 		network.NewAddress("10.0.0.1", network.ScopeCloudLocal),
 		network.NewAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewAddress("::1", network.ScopeMachineLocal),
-		network.NewAddress("2001:db8::1", network.ScopeUnknown),
 	})
 }

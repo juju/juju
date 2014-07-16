@@ -98,3 +98,48 @@ func (*PortSuite) TestAddressesWithPort(c *gc.C) {
 		Port:    999,
 	}})
 }
+
+func (*PortSuite) TestSortHostPorts(c *gc.C) {
+	hps := network.AddressesWithPort(
+		network.NewAddresses(
+			"127.0.0.1",
+			"localhost",
+			"example.com",
+			"::1",
+			"fc00::1",
+			"fe80::2",
+			"172.16.0.1",
+			"8.8.8.8",
+		),
+		1234,
+	)
+	network.SortHostPorts(hps, false)
+	c.Assert(hps, jc.DeepEquals, network.AddressesWithPort(
+		network.NewAddresses(
+			"example.com",
+			"localhost",
+			"127.0.0.1",
+			"172.16.0.1",
+			"8.8.8.8",
+			"::1",
+			"fe80::2",
+			"fc00::1",
+		),
+		1234,
+	))
+
+	network.SortHostPorts(hps, true)
+	c.Assert(hps, jc.DeepEquals, network.AddressesWithPort(
+		network.NewAddresses(
+			"example.com",
+			"localhost",
+			"fe80::2",
+			"::1",
+			"fc00::1",
+			"127.0.0.1",
+			"172.16.0.1",
+			"8.8.8.8",
+		),
+		1234,
+	))
+}
