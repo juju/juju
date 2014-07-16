@@ -227,13 +227,13 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("cannot re-bootstrap environment: %v", err)
 	}
 	progress("connecting to newly bootstrapped instance")
-	var state *juju.APIState
+	var apiState *api.State
 	// The state server backend may not be ready to accept logins so we retry.
 	// We'll do up to 8 retries over 2 minutes to give the server time to come up.
 	// Typically we expect only 1 retry will be needed.
 	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
 	for a := attempt.Start(); a.Next(); {
-		state, err = juju.NewAPIState(env)
+		apiState, err = juju.NewAPIState(env)
 		if err == nil || errors.Cause(err).Error() != "EOF" {
 			break
 		}
@@ -243,7 +243,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("cannot connect to bootstrap instance: %v", err)
 	}
 	progress("restoring bootstrap machine")
-	newInstId, machine0Addr, err := restoreBootstrapMachine(state, c.backupFile, agentConf)
+	newInstId, machine0Addr, err := restoreBootstrapMachine(apiState, c.backupFile, agentConf)
 	if err != nil {
 		return fmt.Errorf("cannot restore bootstrap machine: %v", err)
 	}
@@ -348,7 +348,7 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	return env, nil
 }
 
-func restoreBootstrapMachine(st *juju.APIState, backupFile string, agentConf agentConfig) (newInstId instance.Id, addr string, err error) {
+func restoreBootstrapMachine(st *api.State, backupFile string, agentConf agentConfig) (newInstId instance.Id, addr string, err error) {
 	client := st.Client()
 	addr, err = client.PublicAddress("0")
 	if err != nil {
