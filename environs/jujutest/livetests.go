@@ -395,9 +395,9 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	st := t.Env.(testing.GetStater).GetStateInAPIServer()
 
 	c.Logf("opening API connection")
-	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
+	apiState, err := juju.NewAPIState(t.Env, api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
-	defer apiConn.Close()
+	defer apiState.Close()
 
 	// Check that the agent version has made it through the
 	// bootstrap process (it's optional in the config.Config)
@@ -421,7 +421,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Check that the API connection is working.
-	status, err := apiConn.State.Client().Status(nil)
+	status, err := apiState.Client().Status(nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(status.Machines["0"].InstanceId, gc.Equals, string(instId0))
 
@@ -546,9 +546,9 @@ func (t *LiveTests) TestCheckEnvironmentOnConnect(c *gc.C) {
 	}
 	t.BootstrapOnce(c)
 
-	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
+	apiState, err := juju.NewAPIState(t.Env, api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
-	apiConn.Close()
+	apiState.Close()
 }
 
 type tooler interface {

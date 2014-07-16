@@ -62,7 +62,6 @@ type JujuConnSuite struct {
 	envtesting.ToolsFixture
 	State        *state.State
 	Environ      environs.Environ
-	APIConn      *juju.APIConn
 	APIState     *api.State
 	apiStates    []*api.State // additional api.States to close on teardown
 	ConfigStore  configstore.Storage
@@ -117,7 +116,7 @@ func (s *JujuConnSuite) MongoInfo(c *gc.C) *authentication.MongoInfo {
 }
 
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
-	_, apiInfo, err := s.APIConn.Environ.StateInfo()
+	_, apiInfo, err := s.Environ.StateInfo()
 	c.Assert(err, gc.IsNil)
 	apiInfo.Tag = names.NewUserTag("admin")
 	apiInfo.Password = "dummy-secret"
@@ -127,12 +126,11 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 // openAPIAs opens the API and ensures that the *api.State returned will be
 // closed during the test teardown by using a cleanup function.
 func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string) *api.State {
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
-	info.Tag = tag
-	info.Password = password
-	info.Nonce = nonce
-	apiState, err := api.Open(info, api.DialOpts{})
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = tag
+	apiInfo.Password = password
+	apiInfo.Nonce = nonce
+	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiState, gc.NotNil)
 	s.apiStates = append(s.apiStates, apiState)
@@ -232,13 +230,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, gc.IsNil)
-	//	s.Conn = conn
-	//	s.State = conn.State
 
-	apiConn, err := juju.NewAPIConn(environ, api.DialOpts{})
-	c.Assert(err, gc.IsNil)
-	s.APIConn = apiConn
-	s.APIState = apiConn.State
+	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
 	s.Environ = environ
 }
 
@@ -455,12 +448,12 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		}
 	}
 	s.apiStates = nil
-	if s.APIConn != nil {
-		err := s.APIConn.Close()
+	if s.APIState != nil {
+		err := s.APIState.Close()
+		s.APIState = nil
 		if serverAlive {
 			c.Assert(err, gc.IsNil)
 		}
-		s.APIConn = nil
 	}
 	dummy.Reset()
 	utils.SetHome(s.oldHome)

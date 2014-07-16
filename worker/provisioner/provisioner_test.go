@@ -830,7 +830,7 @@ func (*mockMachineGetter) MachinesWithTransientErrors() ([]*apiprovisioner.Machi
 }
 
 func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, false, s.APIConn.Environ, s.provisioner)
+	task := s.newProvisionerTask(c, false, s.Environ, s.provisioner)
 	defer stop(c, task)
 
 	// create a machine
@@ -842,7 +842,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	s.startUnknownInstance(c, "999")
 
 	// start the provisioner and ensure it doesn't kill any instances if there are error getting machines
-	task = s.newProvisionerTask(c, false, s.APIConn.Environ, &mockMachineGetter{})
+	task = s.newProvisionerTask(c, false, s.Environ, &mockMachineGetter{})
 	defer func() {
 		err := task.Stop()
 		c.Assert(err, gc.ErrorMatches, ".*failed to get machine 0.*")
@@ -928,7 +928,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 }
 
 func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, true, s.APIConn.Environ, s.provisioner)
+	task := s.newProvisionerTask(c, true, s.Environ, s.provisioner)
 	defer stop(c, task)
 
 	// Initially create a machine, and an unknown instance, with safe mode on.
@@ -951,7 +951,7 @@ func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) 
 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
-	var e environs.Environ = &mockBroker{Environ: s.APIConn.Environ, retryCount: make(map[string]int)}
+	var e environs.Environ = &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
 	task := s.newProvisionerTask(c, false, e, s.provisioner)
 	defer stop(c, task)
 

@@ -125,8 +125,7 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 // openAs connects to the API state as the given entity
 // with the default password for that entity.
 func (s *baseSuite) openAs(c *gc.C, tag names.Tag) *api.State {
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+	info := s.APIInfo(c)
 	info.Tag = tag
 	// Must match defaultPassword()
 	info.Password = fmt.Sprintf("%s password-1234567890", tag)
