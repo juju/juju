@@ -42,6 +42,8 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	var inst instance.Instance
 	defer func() { handleBootstrapError(err, ctx, inst, env) }()
 
+	network.InitializeFromConfig(env.Config())
+
 	// First thing, ensure we have tools otherwise there's no point.
 	selectedTools, err := EnsureBootstrapTools(ctx, env, config.PreferredSeries(env.Config()), args.Constraints.Arch)
 	if err != nil {

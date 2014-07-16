@@ -129,15 +129,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	store := newConfigStore("noconfig", dummyStoreInfo)
 
 	called := 0
-	expectState := &mockAPIState{
-		apiHostPorts: [][]network.HostPort{
-			network.AddressesWithPort(
-				[]network.Address{network.NewAddress("0.1.2.3", network.ScopeUnknown)},
-				1234,
-			),
-		},
-		environTag: "environment-fake-uuid",
-	}
+	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag("fake-uuid"))
@@ -156,7 +148,9 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	info, err := store.ReadInfo("noconfig")
 	c.Assert(err, gc.IsNil)
 	ep := info.APIEndpoint()
-	c.Assert(ep.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
+	c.Check(ep.Addresses, jc.DeepEquals, []string{
+		"0.1.2.3:1234", "[fc00::1]:1234",
+	})
 	c.Check(ep.EnvironUUID, gc.Equals, "fake-uuid")
 	mockStore.written = false
 
@@ -194,7 +188,7 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Assert(info.APICredentials(), jc.DeepEquals, configstore.APICredentials{})
 
 	called := 0
-	expectState := &mockAPIState{}
+	expectState := mockedAPIState(0)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		c.Check(apiInfo.Tag, gc.Equals, names.NewUserTag("admin"))
 		c.Check(string(apiInfo.CACert), gc.Not(gc.Equals), "")
@@ -257,12 +251,32 @@ var noTagStoreInfo = &environInfo{
 	},
 }
 
-func mockedAPIState(hasHostPort, hasEnvironTag bool) *mockAPIState {
+type mockedStateFlags int
+
+const (
+	noFlags          mockedStateFlags = 0x0000
+	mockedHostPort   mockedStateFlags = 0x0001
+	mockedEnvironTag mockedStateFlags = 0x0002
+	mockedPreferIPv6 mockedStateFlags = 0x0004
+)
+
+func mockedAPIState(flags mockedStateFlags) *mockAPIState {
+	hasHostPort := flags&mockedHostPort == mockedHostPort
+	hasEnvironTag := flags&mockedEnvironTag == mockedEnvironTag
+	preferIPv6 := flags&mockedPreferIPv6 == mockedPreferIPv6
+
 	apiHostPorts := [][]network.HostPort{}
 	if hasHostPort {
-		address := network.NewAddress("0.1.2.3", network.ScopeUnknown)
-		apiHostPorts = [][]network.HostPort{
-			network.AddressesWithPort([]network.Address{address}, 1234),
+		ipv4Address := network.NewAddress("0.1.2.3", network.ScopeUnknown)
+		ipv6Address := network.NewAddress("fc00::1", network.ScopeUnknown)
+		if preferIPv6 {
+			apiHostPorts = [][]network.HostPort{
+				network.AddressesWithPort([]network.Address{ipv6Address, ipv4Address}, 1234),
+			}
+		} else {
+			apiHostPorts = [][]network.HostPort{
+				network.AddressesWithPort([]network.Address{ipv4Address, ipv6Address}, 1234),
+			}
 		}
 	}
 	environTag := ""
@@ -286,7 +300,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	store := newConfigStore("noconfig", noTagStoreInfo)
 
 	called := 0
-	expectState := mockedAPIState(true, true)
+	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag, gc.IsNil)
@@ -304,7 +318,25 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	c.Assert(mockStore.written, jc.IsTrue)
 	info, err := store.ReadInfo("noconfig")
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
+	c.Check(info.APIEndpoint().Addresses, jc.DeepEquals, []string{
+		"0.1.2.3:1234", "[fc00::1]:1234",
+	})
+	c.Check(info.APIEndpoint().EnvironUUID, gc.Equals, "fake-uuid")
+
+	// Now simulate prefer-ipv6: true
+	store = newConfigStore("noconfig", noTagStoreInfo)
+	mockStore = &storageWithWriteNotify{store: store}
+	expectState = mockedAPIState(mockedHostPort | mockedEnvironTag | mockedPreferIPv6)
+	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
+	c.Assert(err, gc.IsNil)
+	c.Assert(st, gc.Equals, expectState)
+	c.Assert(called, gc.Equals, 2)
+	c.Assert(mockStore.written, jc.IsTrue)
+	info, err = store.ReadInfo("noconfig")
+	c.Assert(err, gc.IsNil)
+	c.Check(info.APIEndpoint().Addresses, jc.DeepEquals, []string{
+		"[fc00::1]:1234", "0.1.2.3:1234",
+	})
 	c.Check(info.APIEndpoint().EnvironUUID, gc.Equals, "fake-uuid")
 }
 
@@ -315,7 +347,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	store := newConfigStore("noconfig", noTagStoreInfo)
 
 	called := 0
-	expectState := mockedAPIState(false, true)
+	expectState := mockedAPIState(mockedEnvironTag | mockedPreferIPv6)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag, gc.IsNil)
@@ -344,7 +376,7 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	called := 0
 	// State returns a new set of APIHostPorts but not a new EnvironTag. We
 	// shouldn't override the cached value with environ tag of "".
-	expectState := mockedAPIState(true, false)
+	expectState := mockedAPIState(mockedHostPort)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
 		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag("fake-uuid"))
@@ -361,7 +393,24 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	info, err := store.ReadInfo("noconfig")
 	c.Assert(err, gc.IsNil)
 	ep := info.APIEndpoint()
-	c.Assert(ep.Addresses, gc.DeepEquals, []string{"0.1.2.3:1234"})
+	c.Check(ep.Addresses, gc.DeepEquals, []string{
+		"0.1.2.3:1234", "[fc00::1]:1234",
+	})
+	c.Check(ep.EnvironUUID, gc.Equals, "fake-uuid")
+
+	// Now simulate prefer-ipv6: true
+	expectState = mockedAPIState(mockedHostPort | mockedPreferIPv6)
+	st, err = juju.NewAPIFromStore("noconfig", mockStore, apiOpen)
+	c.Assert(err, gc.IsNil)
+	c.Assert(st, gc.Equals, expectState)
+	c.Assert(called, gc.Equals, 2)
+	c.Assert(mockStore.written, jc.IsTrue)
+	info, err = store.ReadInfo("noconfig")
+	c.Assert(err, gc.IsNil)
+	ep = info.APIEndpoint()
+	c.Check(ep.Addresses, gc.DeepEquals, []string{
+		"[fc00::1]:1234", "0.1.2.3:1234",
+	})
 	c.Check(ep.EnvironUUID, gc.Equals, "fake-uuid")
 }
 
@@ -387,9 +436,9 @@ func (s *NewAPIClientSuite) TestWithSlowInfoConnect(c *gc.C) {
 	bootstrapEnv(c, coretesting.SampleEnvName, store)
 	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.invalid")
 
-	infoOpenedState := &mockAPIState{}
+	infoOpenedState := mockedAPIState(noFlags)
 	infoEndpointOpened := make(chan struct{})
-	cfgOpenedState := &mockAPIState{}
+	cfgOpenedState := mockedAPIState(noFlags)
 	// On a sample run with no delay, the logic took 45ms to run, so
 	// we make the delay slightly more than that, so that if the
 	// logic doesn't delay at all, the test will fail reasonably consistently.
@@ -472,9 +521,9 @@ func (s *NewAPIClientSuite) TestWithSlowConfigConnect(c *gc.C) {
 	bootstrapEnv(c, coretesting.SampleEnvName, store)
 	setEndpointAddress(c, store, coretesting.SampleEnvName, "infoapi.invalid")
 
-	infoOpenedState := &mockAPIState{}
+	infoOpenedState := mockedAPIState(noFlags)
 	infoEndpointOpened := make(chan struct{})
-	cfgOpenedState := &mockAPIState{}
+	cfgOpenedState := mockedAPIState(noFlags)
 	cfgEndpointOpened := make(chan struct{})
 
 	s.PatchValue(juju.ProviderConnectDelay, 0*time.Second)
@@ -582,7 +631,7 @@ func (s *NewAPIClientSuite) TestWithBootstrapConfigAndNoEnvironmentsFile(c *gc.C
 	c.Assert(err, gc.IsNil)
 
 	apiOpen := func(*api.Info, api.DialOpts) (juju.APIState, error) {
-		return &mockAPIState{}, nil
+		return mockedAPIState(noFlags), nil
 	}
 	st, err := juju.NewAPIFromStore(coretesting.SampleEnvName, store, apiOpen)
 	c.Check(err, gc.IsNil)
@@ -613,7 +662,7 @@ func (*NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
 	// cause a connection to the originally bootstrapped
 	// state.
 	apiOpen := func(*api.Info, api.DialOpts) (juju.APIState, error) {
-		return &mockAPIState{}, nil
+		return mockedAPIState(noFlags), nil
 	}
 	st, err := juju.NewAPIFromStore(envName2, store, apiOpen)
 	c.Check(err, gc.IsNil)

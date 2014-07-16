@@ -956,6 +956,11 @@ func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) 
 // MachineAddresses, depending on the field argument).
 func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
 	var changed bool
+	envConfig, err := m.st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	network.SortAddresses(addresses, envConfig.PreferIPv6())
 	stateAddresses := instanceAddressesToAddresses(addresses)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		changed = false
