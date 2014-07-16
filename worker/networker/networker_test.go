@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
@@ -105,7 +106,7 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 	}}
 	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", nil, s.networks, s.ifaces)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machine.Tag().String(), password, "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 }
 
@@ -126,14 +127,14 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 
 type mockConfig struct {
 	agent.Config
-	tag string
+	tag names.Tag
 }
 
-func (mock *mockConfig) Tag() string {
+func (mock *mockConfig) Tag() names.Tag {
 	return mock.tag
 }
 
-func agentConfig(tag string) agent.Config {
+func agentConfig(tag names.Tag) agent.Config {
 	return &mockConfig{tag: tag}
 }
 
@@ -227,7 +228,7 @@ func (s *networkerSuite) TestNetworker(c *gc.C) {
 
 	// Create and setup networker.
 	s.executed = make(chan bool)
-	nw := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag().String()))
+	nw := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()))
 	defer func() { c.Assert(worker.Stop(nw), gc.IsNil) }()
 
 	executeCount := 0
@@ -252,13 +253,13 @@ loop:
 				networker.ConfigSubDirName, networker.ConfigSubDirName, networker.ConfigSubDirName),
 		},
 		networker.IfaceConfigFileName("br0"): {
-			Data:     "auto br0\niface br0 inet dhcp\n  bridge_ports eth0\n",
+			Data: "auto br0\niface br0 inet dhcp\n  bridge_ports eth0\n",
 		},
 		networker.IfaceConfigFileName("eth0"): {
-			Data:     "auto eth0\niface eth0 inet manual\n",
+			Data: "auto eth0\niface eth0 inet manual\n",
 		},
 		networker.IfaceConfigFileName("wlan0"): {
-			Data:     "auto wlan0\niface wlan0 inet dhcp\n",
+			Data: "auto wlan0\niface wlan0 inet dhcp\n",
 		},
 	}
 	c.Assert(s.configStates[0].files, gc.DeepEquals, expectedConfigFiles)
@@ -276,16 +277,16 @@ loop:
 
 	// Verify the executed commands from Handle()
 	expectedConfigFiles[networker.IfaceConfigFileName("eth0.69")] = &networker.ConfigFile{
-		Data:     "# Managed by Networker, don't change.\nauto eth0.69\niface eth0.69 inet dhcp\n\tvlan-raw-device eth0\n",
+		Data: "# Managed by Juju, don't change.\nauto eth0.69\niface eth0.69 inet dhcp\n\tvlan-raw-device eth0\n",
 	}
 	expectedConfigFiles[networker.IfaceConfigFileName("eth1")] = &networker.ConfigFile{
-		Data:     "# Managed by Networker, don't change.\nauto eth1\niface eth1 inet dhcp\n",
+		Data: "# Managed by Juju, don't change.\nauto eth1\niface eth1 inet dhcp\n",
 	}
 	expectedConfigFiles[networker.IfaceConfigFileName("eth1.42")] = &networker.ConfigFile{
-		Data:     "# Managed by Networker, don't change.\nauto eth1.42\niface eth1.42 inet dhcp\n\tvlan-raw-device eth1\n",
+		Data: "# Managed by Juju, don't change.\nauto eth1.42\niface eth1.42 inet dhcp\n\tvlan-raw-device eth1\n",
 	}
 	expectedConfigFiles[networker.IfaceConfigFileName("eth2")] = &networker.ConfigFile{
-		Data:     "# Managed by Networker, don't change.\nauto eth2\niface eth2 inet dhcp\n",
+		Data: "# Managed by Juju, don't change.\nauto eth2\niface eth2 inet dhcp\n",
 	}
 	for k, _ := range s.configStates[2].files {
 		c.Check(s.configStates[2].files[k], gc.DeepEquals, expectedConfigFiles[k])

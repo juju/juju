@@ -112,7 +112,7 @@ func (cf ConfigFiles) writeOrRemove() error {
 
 // ifaceConfigFileName returns the fileName that stores the configuration for ifaceName.
 func ifaceConfigFileName(ifaceName string) string {
-	return filepath.Join(configSubDirName, ifaceName + ".cfg")
+	return filepath.Join(configSubDirName, ifaceName+".cfg")
 }
 
 // managedPrefix is the prefix that always presents in configuration file for interfaces managed by juju.
@@ -121,8 +121,8 @@ const managedPrefix = "# Managed by Juju, don't change.\n"
 // addManaged makes ifaceName configureation to be written.
 func (cf ConfigFiles) addManaged(ifaceName, configText string) {
 	cf[ifaceConfigFileName(ifaceName)] = &ConfigFile{
-		Data:     managedPrefix + configText,
-		Op:       doWrite,
+		Data: managedPrefix + configText,
+		Op:   doWrite,
 	}
 }
 
@@ -148,7 +148,7 @@ func (cf ConfigFiles) isManaged(ifaceName string) bool {
 func (cf ConfigFiles) isChanged(ifaceName, configText string) bool {
 	return ifaceName != privateInterface &&
 		ifaceName != privateBridge &&
-		(cf[ifaceName] == nil || cf[ifaceName].Data != managedPrefix + configText)
+		(cf[ifaceName] == nil || cf[ifaceName].Data != managedPrefix+configText)
 }
 
 // filterManaged filters out interfaces that are not managed by juju.
@@ -177,6 +177,7 @@ func (cf *ConfigFiles) readManaged() error {
 // The below digits are indices of positions returned by regexp.FindAllStringSubmatchIndex.
 var splitRegExp = regexp.MustCompile(
 	`(^|\n)(#[^\n]*\n)*(auto|allow\-\w+|iface|mapping|source|source\-directory)\s+([^\s]+)`)
+
 //       0                                                                                   1
 //       2    34         5 6                                                      7   8      9
 
@@ -277,8 +278,8 @@ func (cf ConfigFiles) fixMAAS() error {
 				fileName = ifaceConfigFileName(ifaceName)
 			}
 			cf[fileName] = &ConfigFile{
-				Data:     part,
-				Op:       doWrite,
+				Data: part,
+				Op:   doWrite,
 			}
 		}
 	}

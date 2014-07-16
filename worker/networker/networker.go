@@ -20,8 +20,8 @@ var privateBridge string
 
 // networker configures network interfaces on the machine, as needed.
 type networker struct {
-	st  *apinetworker.State
-	tag string
+	st                     *apinetworker.State
+	tag                    string
 	isVLANSupportInstalled bool
 }
 
@@ -29,7 +29,7 @@ type networker struct {
 func NewNetworker(st *apinetworker.State, agentConfig agent.Config) worker.Worker {
 	nw := &networker{
 		st:  st,
-		tag: agentConfig.Tag(),
+		tag: agentConfig.Tag().String(),
 	}
 	return worker.NewNotifyWorker(nw)
 }
@@ -85,7 +85,7 @@ func (nw *networker) Handle() error {
 	s.resetCommands()
 
 	// Add commands to install VLAN module, if required.
-	if (!nw.isVLANSupportInstalled) {
+	if !nw.isVLANSupportInstalled {
 		s.ensureVLANModule()
 		nw.isVLANSupportInstalled = true
 	}

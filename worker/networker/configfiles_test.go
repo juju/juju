@@ -95,13 +95,13 @@ func (s *configSuite) TestConfigFileOperations(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	expect := networker.ConfigFiles{
 		networker.ConfigFileName: {
-			Data:     interfacesContents,
+			Data: interfacesContents,
 		},
 		networker.IfaceConfigFileName("eth0"): {
-			Data:     interfacesDSlashEth0DotCfgContents,
+			Data: interfacesDSlashEth0DotCfgContents,
 		},
 		networker.IfaceConfigFileName("eth4"): {
-			Data:     interfacesDSlashEth4DotCfgContents,
+			Data: interfacesDSlashEth4DotCfgContents,
 		},
 	}
 	c.Assert(cf, gc.DeepEquals, expect)
@@ -116,40 +116,40 @@ func (s *configSuite) TestConfigFileOperations(c *gc.C) {
 			Op: networker.DoWrite,
 		},
 		networker.IfaceConfigFileName("eth0"): {
-			Data:     "auto eth0\niface eth0 inet manual\n",
-			Op:       networker.DoWrite,
+			Data: "auto eth0\niface eth0 inet manual\n",
+			Op:   networker.DoWrite,
 		},
 		networker.IfaceConfigFileName("br0"): {
-			Data:     "auto br0\niface br0 inet dhcp\n  bridge_ports eth0\n",
-			Op:       networker.DoWrite,
+			Data: "auto br0\niface br0 inet dhcp\n  bridge_ports eth0\n",
+			Op:   networker.DoWrite,
 		},
 		networker.IfaceConfigFileName("eth1"): {
-			Data:     "auto eth1\niface eth1 inet manual\n",
-			Op:       networker.DoWrite,
+			Data: "auto eth1\niface eth1 inet manual\n",
+			Op:   networker.DoWrite,
 		},
 		networker.IfaceConfigFileName("br2"): {
-			Data:     "auto br2\niface br2 inet dhcp\n  bridge_ports eth1\n",
-			Op:       networker.DoWrite,
+			Data: "auto br2\niface br2 inet dhcp\n  bridge_ports eth1\n",
+			Op:   networker.DoWrite,
 		},
 		networker.IfaceConfigFileName("eth1.2"): {
-			Data:     "auto eth1.2\niface eth1.2 inet dhcp\n",
-			Op:       networker.DoWrite,
+			Data: "auto eth1.2\niface eth1.2 inet dhcp\n",
+			Op:   networker.DoWrite,
 		},
 		networker.IfaceConfigFileName("eth2"): {
-			Data:     "auto eth2\niface eth2 inet dhcp\n",
-			Op:       networker.DoWrite,
+			Data: "auto eth2\niface eth2 inet dhcp\n",
+			Op:   networker.DoWrite,
 		},
 		networker.IfaceConfigFileName("eth4"): {
-			Data:     "",
-			Op:       networker.DoRemove,
+			Data: "",
+			Op:   networker.DoRemove,
 		},
 		filepath.Join(networker.ConfigDirName, "eth0.config"): {
-			Data:     "",
-			Op:       networker.DoRemove,
+			Data: "",
+			Op:   networker.DoRemove,
 		},
 		filepath.Join(networker.ConfigDirName, "eth1.config"): {
-			Data:     "",
-			Op:       networker.DoRemove,
+			Data: "",
+			Op:   networker.DoRemove,
 		},
 	}
 	c.Assert(cf, gc.DeepEquals, expect)

@@ -65,7 +65,7 @@ func (s *configState) bringUpInterfaces() {
 	// E.g. eth1 go up before eth1.42 and eth1:2.
 	sort.Sort(sort.StringSlice(upIfaces))
 	for _, ifaceName := range upIfaces {
-		s.commands = append(s.commands, "ifup " + ifaceName)
+		s.commands = append(s.commands, "ifup "+ifaceName)
 	}
 }
 
@@ -99,7 +99,7 @@ func (s *configState) bringDownInterfaces() {
 	// Sort the interfaces to ensure that raw interface goes down only after his virtual descendants.
 	sort.Sort(sort.Reverse(sort.StringSlice(downIfaces)))
 	for _, ifaceName := range downIfaces {
-		s.commands = append(s.commands, "ifdown " + ifaceName)
+		s.commands = append(s.commands, "ifdown "+ifaceName)
 	}
 }
 
@@ -121,10 +121,10 @@ func (s *configState) configText(interfaceName string, info *network.Info) strin
 	text := fmt.Sprintf("auto %s\niface %s inet dhcp\n", interfaceName, interfaceName)
 
 	// Add vlan-raw-device line for VLAN interfaces.
-	if (info.VLANTag != 0) {
+	if info.VLANTag != 0 {
 		suffix := fmt.Sprintf(".%d", info.VLANTag)
-		if len(interfaceName) > len(suffix) && interfaceName[len(interfaceName) - len(suffix):] == suffix {
-			text += fmt.Sprintf("\tvlan-raw-device %s\n", interfaceName[:len(interfaceName) - len(suffix)])
+		if len(interfaceName) > len(suffix) && interfaceName[len(interfaceName)-len(suffix):] == suffix {
+			text += fmt.Sprintf("\tvlan-raw-device %s\n", interfaceName[:len(interfaceName)-len(suffix)])
 		}
 	}
 	return text
