@@ -64,7 +64,6 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Note we can't use openAs because we're not connecting to
-	// s.APIConn.
 	apiInfo := &api.Info{
 		Tag:      stm.Tag(),
 		Password: password,
@@ -176,7 +175,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 
 	// This does almost exactly the same as OpenAPIAsMachine but checks
 	// for failures instead.
-	_, info, err := s.APIConn.Environ.StateInfo()
+	info := s.APIInfo(c)
 	info.Tag = stm.Tag()
 	info.Password = password
 	info.Nonce = "invalid-nonce"

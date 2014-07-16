@@ -34,10 +34,9 @@ func (s *toolsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+	info := s.APIInfo(c)
 	uri := "http://" + info.Addrs[0] + "/tools"
-	_, err = s.sendRequest(c, "", "", "PUT", uri, "", nil)
+	_, err := s.sendRequest(c, "", "", "PUT", uri, "", nil)
 	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
 }
 

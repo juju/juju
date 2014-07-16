@@ -55,8 +55,7 @@ func (s *authHttpSuite) sendRequest(c *gc.C, tag, password, method, uri, content
 }
 
 func (s *authHttpSuite) baseURL(c *gc.C) *url.URL {
-	info, err := s.APIInfo()
-	c.Assert(err, gc.IsNil)
+	info := s.APIInfo(c)
 	return &url.URL{
 		Scheme: "https",
 		Host:   info.Addrs[0],
@@ -101,10 +100,9 @@ func (s *charmsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *charmsSuite) TestCharmsServedSecurely(c *gc.C) {
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+	info := s.APIInfo(c)
 	uri := "http://" + info.Addrs[0] + "/charms"
-	_, err = s.sendRequest(c, "", "", "GET", uri, "", nil)
+	_, err := s.sendRequest(c, "", "", "GET", uri, "", nil)
 	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
 }
 
