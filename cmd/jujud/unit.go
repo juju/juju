@@ -13,6 +13,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -74,6 +75,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 		return err
 	}
 	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
+	network.InitializeFromConfig(a.CurrentConfig())
 	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)

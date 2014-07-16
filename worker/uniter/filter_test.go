@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/charm"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
@@ -483,15 +484,20 @@ func getAssertNoActionChange(s *FilterSuite, f *filter, c *gc.C) func() {
 func getAssertActionChange(s *FilterSuite, f *filter, c *gc.C) func(ids []string) {
 	return func(ids []string) {
 		s.BackingState.StartSync()
+		expected := make(map[string]int)
+		seen := make(map[string]int)
 		for _, id := range ids {
+			expected[id] += 1
 			select {
 			case event, ok := <-f.ActionEvents():
 				c.Assert(ok, gc.Equals, true)
-				c.Assert(event.ActionId, gc.Equals, id)
+				seen[event.ActionId] += 1
 			case <-time.After(coretesting.LongWait):
 				c.Fatalf("timed out")
 			}
 		}
+		c.Assert(expected, jc.DeepEquals, seen)
+
 		getAssertNoActionChange(s, f, c)()
 	}
 }

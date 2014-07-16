@@ -184,6 +184,18 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 	}, nil
 }
 
+func (st *State) ActionComplete(tag names.ActionTag, output string) error {
+	var result params.BoolResult
+	args := params.ActionResult{ActionTag: tag.String(), Output: output}
+	return st.call("ActionComplete", args, &result)
+}
+
+func (st *State) ActionFail(tag names.ActionTag, errorMessage string) error {
+	var result params.BoolResult
+	args := params.ActionResult{ActionTag: tag.String(), Output: errorMessage}
+	return st.call("ActionFail", args, &result)
+}
+
 // RelationById returns the existing relation with the given id.
 func (st *State) RelationById(id int) (*Relation, error) {
 	var results params.RelationResults

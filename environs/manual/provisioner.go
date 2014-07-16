@@ -19,10 +19,8 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/tools"
 )
@@ -30,6 +28,15 @@ import (
 const manualInstancePrefix = "manual:"
 
 var logger = loggo.GetLogger("juju.environs.manual")
+
+// ProvisioningClientAPI defines the methods that are needed for the manual
+// provisioning of machines.  An interface is used here to decouple the API
+// consumer from the actual API implementation type.
+type ProvisioningClientAPI interface {
+	AddMachines([]params.AddMachineParams) ([]params.AddMachinesResult, error)
+	DestroyMachines(machines ...string) error
+	ProvisioningScript(params.ProvisioningScriptParams) (script string, err error)
+}
 
 type ProvisionMachineArgs struct {
 	// Host is the SSH host: [user@]host
@@ -39,8 +46,8 @@ type ProvisionMachineArgs struct {
 	// If left blank, the default location "/var/lib/juju" will be used.
 	DataDir string
 
-	// EnvName is the name of the environment for which the machine will be provisioned.
-	EnvName string
+	// Client provides the API needed to provision the machines.
+	Client ProvisioningClientAPI
 
 	// Tools to install on the machine. If nil, tools will be automatically
 	// chosen using environs/tools FindInstanceTools.
@@ -68,19 +75,14 @@ var ErrProvisioned = errors.New("machine is already provisioned")
 // On successful completion, this function will return the id of the state.Machine
 // that was entered into state.
 func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
-	client, err := juju.NewAPIClientFromName(args.EnvName)
-	if err != nil {
-		return "", err
-	}
 	defer func() {
 		if machineId != "" && err != nil {
 			logger.Errorf("provisioning failed, removing machine %v: %v", machineId, err)
-			if cleanupErr := client.DestroyMachines(machineId); cleanupErr != nil {
+			if cleanupErr := args.Client.DestroyMachines(machineId); cleanupErr != nil {
 				logger.Warningf("error cleaning up machine: %s", cleanupErr)
 			}
 			machineId = ""
 		}
-		client.Close()
 	}()
 
 	// Create the "ubuntu" user and initialise passwordless sudo. We populate
@@ -99,12 +101,12 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	}
 
 	// Inform Juju that the machine exists.
-	machineId, err = recordMachineInState(client, *machineParams)
+	machineId, err = recordMachineInState(args.Client, *machineParams)
 	if err != nil {
 		return "", err
 	}
 
-	provisioningScript, err := client.ProvisioningScript(params.ProvisioningScriptParams{
+	provisioningScript, err := args.Client.ProvisioningScript(params.ProvisioningScriptParams{
 		MachineId: machineId,
 		Nonce:     machineParams.Nonce,
 	})
@@ -129,12 +131,8 @@ func splitUserHost(host string) (string, string) {
 	return "", host
 }
 
-func recordMachineInState(
-	client *api.Client, machineParams params.AddMachineParams) (machineId string, err error) {
-	// Note: we explicitly use AddMachines1dot18 rather than AddMachines to preserve
-	// backwards compatibility; we do not require any of the new features of AddMachines
-	// here.
-	results, err := client.AddMachines1dot18([]params.AddMachineParams{machineParams})
+func recordMachineInState(client ProvisioningClientAPI, machineParams params.AddMachineParams) (machineId string, err error) {
+	results, err := client.AddMachines([]params.AddMachineParams{machineParams})
 	if err != nil {
 		return "", err
 	}

@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"strconv"
 	"syscall"
 
 	"github.com/juju/loggo"
@@ -152,7 +153,7 @@ func (p environProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Conf
 var checkLocalPort = func(port int, description string) error {
 	logger.Infof("checking %s", description)
 	// Try to connect the port on localhost.
-	address := fmt.Sprintf("localhost:%d", port)
+	address := net.JoinHostPort("localhost", strconv.Itoa(port))
 	// TODO(mue) Add a timeout?
 	conn, err := net.Dial("tcp", address)
 	if err != nil {

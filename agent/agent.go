@@ -132,6 +132,10 @@ type Config interface {
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
+
+	// PreferIPv6 returns whether to prefer using IPv6 addresses (if
+	// available) when connecting to the state or API server.
+	PreferIPv6() bool
 }
 
 type ConfigSetterOnly interface {
@@ -238,6 +242,7 @@ type configInternal struct {
 	oldPassword       string
 	servingInfo       *params.StateServingInfo
 	values            map[string]string
+	preferIPv6        bool
 }
 
 type AgentConfigParams struct {
@@ -252,6 +257,7 @@ type AgentConfigParams struct {
 	APIAddresses      []string
 	CACert            string
 	Values            map[string]string
+	PreferIPv6        bool
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -294,6 +300,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		caCert:            configParams.CACert,
 		oldPassword:       configParams.Password,
 		values:            configParams.Values,
+		preferIPv6:        configParams.PreferIPv6,
 	}
 	if len(configParams.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -539,6 +546,10 @@ func (c *configInternal) Value(key string) string {
 	return c.values[key]
 }
 
+func (c *configInternal) PreferIPv6() bool {
+	return c.preferIPv6
+}
+
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
 	if c.servingInfo == nil {
 		return params.StateServingInfo{}, false
@@ -626,16 +637,19 @@ func (c *configInternal) APIInfo() *api.Info {
 	addrs := c.apiDetails.addresses
 	if isStateServer {
 		port := servingInfo.APIPort
-		localApiAddr := fmt.Sprintf("localhost:%d", port)
+		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
+		if c.preferIPv6 {
+			localAPIAddr = net.JoinHostPort("::1", strconv.Itoa(port))
+		}
 		addrInAddrs := false
 		for _, addr := range addrs {
-			if addr == localApiAddr {
+			if addr == localAPIAddr {
 				addrInAddrs = true
 				break
 			}
 		}
 		if !addrInAddrs {
-			addrs = append(addrs, localApiAddr)
+			addrs = append(addrs, localAPIAddr)
 		}
 	}
 	return &api.Info{
@@ -653,6 +667,9 @@ func (c *configInternal) MongoInfo() (info *authentication.MongoInfo, ok bool) {
 		return nil, false
 	}
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
+	if c.preferIPv6 {
+		addr = net.JoinHostPort("::1", strconv.Itoa(ssi.StatePort))
+	}
 	return &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
