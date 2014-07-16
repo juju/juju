@@ -450,30 +450,23 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
 	}
 }
 
-// validate the given Action params against the spec defined for the charm.
-func (u *Uniter) validateParams(hookName string, actionParams map[string]interface{}) (bool, error) {
+// validateAction validates the given Action params against the spec defined
+// for the charm.
+func (u *Uniter) validateAction(name string, params map[string]interface{}) (bool, error) {
 	ch, err := corecharm.Read(u.charmPath)
 	if err != nil {
 		return false, err
 	}
 
+	// Note that ch.Actions() will never be nil, rather an empty struct.
 	actionSpecs := ch.Actions()
-	if actionSpecs == nil && actionParams != nil {
-		// actions.yaml was not defined, but params were passed.
-		return false, fmt.Errorf("charm did not have actions defined, but params were passed")
+
+	spec, ok := actionSpecs.ActionSpecs[name]
+	if !ok {
+		return false, fmt.Errorf("no spec was defined for action %q", name)
 	}
 
-	spec, ok := actionSpecs.ActionSpecs[hookName]
-	if !ok && actionParams != nil {
-		// There was no spec to validate the params, but params
-		// were passed.
-		return false, fmt.Errorf("no spec was defined for action %q but params were passed", hookName)
-	} else if !ok && actionParams == nil {
-		// An action not specified in actions.yaml simply has no params.
-		return true, nil
-	}
-
-	return spec.ValidateParams(actionParams)
+	return spec.ValidateParams(params)
 }
 
 // runHook executes the supplied hook.Info in an appropriate hook context. If
@@ -506,7 +499,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 		actionParams = action.Params()
 		hookName = action.Name()
-		_, actionParamsErr = u.validateParams(hookName, actionParams)
+		_, actionParamsErr = u.validateAction(hookName, actionParams)
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
@@ -534,10 +527,10 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	logger.Infof("running %q hook", hookName)
 
 	ranHook := true
-	// The reason for the switch at this point is that once inside RunHook,
-	// we don't know whether we're running an Action or a regular Hook.
-	// RunAction simply calls the exact same method as RunHook, but with
-	// the location as "actions" instead of "hooks".
+	// The reason for the conditional at this point is that once inside
+	// RunHook, we don't know whether we're running an Action or a regular
+	// Hook.  RunAction simply calls the exact same method as RunHook, but
+	// with the location as "actions" instead of "hooks".
 	if hi.Kind == hooks.ActionRequested {
 		if actionParamsErr != nil {
 			logger.Errorf("action %q param validation failed: %s", hookName, actionParamsErr.Error())

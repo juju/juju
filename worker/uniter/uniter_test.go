@@ -236,8 +236,14 @@ actions:
                type: string                                                   
          required: ["outfile"]
 `[1:],
-	"action-log-bad": `
-`,
+	"action-log": `
+   action-log:
+      params:
+`[1:],
+	"action-log-fail": `
+   action-log-fail:
+      params:
+`[1:],
 }
 
 func (ctx *context) writeHook(c *gc.C, path string, good bool) {
@@ -1295,10 +1301,11 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 var actionEventTests = []uniterTest{
 	// Relations.
 	ut(
-		"simple action event: no actions.yaml, no args",
+		"simple action event: defined in actions.yaml, no args",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "action-log")
+				ctx.writeActionsYaml(c, path, []string{"action-log"})
 			},
 		},
 		serveCharm{},
@@ -1311,45 +1318,6 @@ var actionEventTests = []uniterTest{
 		verifyCharm{},
 		addAction{"action-log", nil},
 		waitHooks{"action-log"},
-	), ut(
-		"pending actions get consumed",
-		createCharm{
-			customize: func(c *gc.C, ctx *context, path string) {
-				ctx.writeAction(c, path, "action-log")
-				ctx.writeAction(c, path, "action-log-fail")
-			},
-		},
-		serveCharm{},
-		ensureStateWorker{},
-		createServiceAndUnit{},
-		addAction{"action-log", nil},
-		addAction{"action-log-fail", nil},
-		addAction{"action-log", nil},
-		addAction{"action-log-fail", nil},
-		startUniter{},
-		waitAddresses{},
-		waitUnit{status: params.StatusStarted},
-		waitHooks{"install", "config-changed", "start"},
-		verifyCharm{},
-		waitHooks{
-			"action-log",
-			"fail-action-log-fail",
-			"action-log",
-			"fail-action-log-fail",
-		},
-	), ut(
-		"actions not implemented are not errors, similarly to hooks",
-		createCharm{},
-		serveCharm{},
-		ensureStateWorker{},
-		createServiceAndUnit{},
-		startUniter{},
-		waitAddresses{},
-		waitUnit{status: params.StatusStarted},
-		waitHooks{"install", "config-changed", "start"},
-		verifyCharm{},
-		addAction{"action-log", nil},
-		waitNoHooks{"action-log", "fail-action-log"},
 	), ut(
 		"actions with correct params passed are not an error",
 		createCharm{
@@ -1393,7 +1361,7 @@ var actionEventTests = []uniterTest{
 		},
 		waitHooks{"fail-snapshot"},
 	), ut(
-		"actions with params passed but no actions.yaml fail without an error",
+		"actions not defined in actions.yaml fail without an error",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "snapshot")
@@ -1410,14 +1378,38 @@ var actionEventTests = []uniterTest{
 		addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
 		waitHooks{"fail-snapshot"},
 	), ut(
-		"an action passed with params, but without a definition in the spec, fails",
+		"pending actions get consumed",
 		createCharm{
 			customize: func(c *gc.C, ctx *context, path string) {
-				ctx.writeAction(c, path, "snapshot")
 				ctx.writeAction(c, path, "action-log")
-				ctx.writeActionsYaml(c, path, []string{"snapshot"})
+				ctx.writeAction(c, path, "action-log-fail")
+				ctx.writeActionsYaml(c, path, []string{
+					"action-log",
+					"action-log-fail",
+				})
 			},
 		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		addAction{"action-log", nil},
+		addAction{"action-log-fail", nil},
+		addAction{"action-log", nil},
+		addAction{"action-log-fail", nil},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		waitHooks{
+			"action-log",
+			"fail-action-log-fail",
+			"action-log",
+			"fail-action-log-fail",
+		},
+	), ut(
+		"actions not implemented are not errors, similarly to hooks",
+		createCharm{},
 		serveCharm{},
 		ensureStateWorker{},
 		createServiceAndUnit{},
@@ -1426,8 +1418,8 @@ var actionEventTests = []uniterTest{
 		waitUnit{status: params.StatusStarted},
 		waitHooks{"install", "config-changed", "start"},
 		verifyCharm{},
-		addAction{"action-log", map[string]interface{}{"outfile": "foo.bar"}},
-		waitHooks{"fail-action-log"},
+		addAction{"action-log", nil},
+		waitNoHooks{"action-log", "fail-action-log"},
 	),
 }
 
