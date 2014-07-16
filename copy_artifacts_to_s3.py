@@ -2,12 +2,22 @@
 
 """Copy build artifacts to the S3 bucket 'juju-qa-data'.
 
+Intended to be used in the Jenkins job "revision-results".
+
 Required environment variables:
 
     BUILD_NUMBER - The build number of the revision-resulst job (set by
         Jenkins)
     S3CFG - Path to the config file for s3cmd. Default:
         ~/cloud-city/juju-qa.s3cfg
+    build_number - (a Jenkins build parameter) The main buld number
+    build_info - (a Jenkins build parameter) A build summary that is
+        stored in the S3 bucket.
+    job_builds - A YAML representation of a sequence
+        (job_name, build_number),... where job_name is the name of a
+        build or test job, and build_number is the "interesting" build
+        number of this job. All artifacts for these builds will be copied
+        to the S3 bucket.
 """
 
 from __future__ import print_function
@@ -21,13 +31,6 @@ import yaml
 
 ARCHIVE_BUCKET_URL = 's3://juju-qa-data'
 JENKINS_URL = 'http://juju-ci.vapour.ws:8080'
-# Associate a job key as used by ci-director with a Jenkins job name.
-JOBS = (
-    ('build', 'build-revision'),
-    ('build-windows-installer', 'win-client-build-installer'),
-    ('deploy-via-windows', 'win-client-deploy'),
-    ('publication', 'publish-revision'),
-    )
 
 
 def copy_to_s3(source_path, dest_url):
@@ -36,11 +39,9 @@ def copy_to_s3(source_path, dest_url):
         source_path, dest_url])
 
 
-def copy_job_artifacts(juju_ci, build_number, build_summary, job_name,
+def copy_job_artifacts(juju_ci, main_build_number, job_name, job_build_number,
                        work_dir):
-    if 'last_build' not in build_summary:
-        return
-    build_info = juju_ci.get_build_info(job_name, build_summary['last_build'])
+    build_info = juju_ci.get_build_info(job_name, job_build_number)
     for artifact in build_info['artifacts']:
         filename = artifact['fileName']
         if filename == 'empty':
@@ -49,15 +50,16 @@ def copy_job_artifacts(juju_ci, build_number, build_summary, job_name,
         source_url = '%s/artifact/%s' % (
             build_info['url'], relative_path)
         dest_url = '%s/juju-ci/products/build-%s/%s/%s' % (
-            ARCHIVE_BUCKET_URL, build_number, job_name, relative_path)
+            ARCHIVE_BUCKET_URL, main_build_number, job_name, relative_path)
         local_path = os.path.join(work_dir, filename)
         subprocess.check_call(['wget', '-q', '-O', local_path, source_url])
         copy_to_s3(local_path, dest_url)
 
 
-def save_build_status(build_status, build_number, work_dir):
+def save_build_status(build_number, work_dir):
     result_path = os.path.join(work_dir, 'result.yaml')
     with open(result_path, 'w') as results:
+        build_status = os.getenv('build_status')
         results.write(build_status)
     s3_url = '%s/juju-ci/products/build-%s/result.yaml' % (
         ARCHIVE_BUCKET_URL, build_number)
@@ -66,19 +68,11 @@ def save_build_status(build_status, build_number, work_dir):
 
 if __name__ == '__main__':
     juju_ci = Jenkins(JENKINS_URL)
-    build_number = int(os.getenv('build_number'))
+    main_build_number = int(os.getenv('build_number'))
 
     with temp_dir() as work_dir:
-        build_status = os.getenv('build_status')
-        save_build_status(build_status, build_number, work_dir)
-        build_status = yaml.load(StringIO(build_status))
-        for job_key, job_name in JOBS:
+        save_build_status(main_build_number, work_dir)
+        job_builds = yaml.load(StringIO(os.getenv('job_builds')))
+        for job_name, job_build_number in job_builds:
             copy_job_artifacts(
-                juju_ci, build_number, build_status[job_key], job_name,
-                work_dir)
-        for test_name, summary in build_status['functional-tests'].items():
-            copy_job_artifacts(
-                juju_ci, build_number, summary, test_name, work_dir)
-        for test_name, summary in build_status['tests'].items():
-            copy_job_artifacts(
-                juju_ci, build_number, summary, test_name, work_dir)
+                juju_ci, main_build_number, job_name, job_build_number, work_dir)
