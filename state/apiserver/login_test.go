@@ -158,10 +158,9 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	apiConn, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer apiConn.Close()
-	// TODO(dfc) why does this return a string
 	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag().String())
+	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag())
 
 	c.Assert(tw.Log(), jc.LogMatches, []string{
 		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login",` +

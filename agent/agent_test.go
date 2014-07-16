@@ -45,14 +45,14 @@ var agentConfigTests = []struct {
 	about: "missing upgraded to version",
 	params: agent.AgentConfigParams{
 		DataDir: "/data/dir",
-		Tag:     "user-omg", // a user calle omg
+		Tag:     names.NewMachineTag("1"),
 	},
 	checkErr: "upgradedToVersion not found in configuration",
 }, {
 	about: "missing password",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "omg",
+		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 	},
 	checkErr: "password not found in configuration",
@@ -60,7 +60,7 @@ var agentConfigTests = []struct {
 	about: "missing CA cert",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 	},
@@ -69,7 +69,7 @@ var agentConfigTests = []struct {
 	about: "need either state or api addresses",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -79,7 +79,7 @@ var agentConfigTests = []struct {
 	about: "invalid state address",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -90,7 +90,7 @@ var agentConfigTests = []struct {
 	about: "invalid api address",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -101,7 +101,7 @@ var agentConfigTests = []struct {
 	about: "good state addresses",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -111,7 +111,7 @@ var agentConfigTests = []struct {
 	about: "good api addresses",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -121,7 +121,7 @@ var agentConfigTests = []struct {
 	about: "both state and api addresses",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          "sekrit",
 		CACert:            "ca cert",
@@ -132,7 +132,7 @@ var agentConfigTests = []struct {
 	about: "everything...",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
 		CACert:            "ca cert",
@@ -144,7 +144,7 @@ var agentConfigTests = []struct {
 	about: "missing logDir sets default",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
 		CACert:            "ca cert",
@@ -156,10 +156,33 @@ var agentConfigTests = []struct {
 		c.Check(cfg.LogDir(), gc.Equals, agent.DefaultLogDir)
 	},
 }, {
+	about: "agentConfig must not be a User tag",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		Tag:               names.NewUserTag("admin"), // this is a joke, the admin user is nil.
+		UpgradedToVersion: version.Current.Number,
+		Password:          "sekrit",
+	},
+	checkErr: "entity tag must be MachineTag or UnitTag, got names.UserTag",
+}, {
+	about: "agentConfig accepts a Unit tag",
+	params: agent.AgentConfigParams{
+		DataDir:           "/data/dir",
+		Tag:               names.NewUnitTag("ubuntu/1"),
+		Password:          "sekrit",
+		UpgradedToVersion: version.Current.Number,
+		CACert:            "ca cert",
+		StateAddresses:    []string{"localhost:1234"},
+		APIAddresses:      []string{"localhost:1235"},
+	},
+	inspectConfig: func(c *gc.C, cfg agent.Config) {
+		c.Check(cfg.Dir(), gc.Equals, "/data/dir/agents/unit-ubuntu-1")
+	},
+}, {
 	about: "prefer-ipv6 parsed when set",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
 		CACert:            "ca cert",
@@ -175,7 +198,7 @@ var agentConfigTests = []struct {
 	about: "missing prefer-ipv6 defaults to false",
 	params: agent.AgentConfigParams{
 		DataDir:           "/data/dir",
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		Password:          "sekrit",
 		UpgradedToVersion: version.Current.Number,
 		CACert:            "ca cert",
@@ -189,12 +212,14 @@ var agentConfigTests = []struct {
 }}
 
 func (*suite) TestNewAgentConfig(c *gc.C) {
-
 	for i, test := range agentConfigTests {
 		c.Logf("%v: %s", i, test.about)
-		_, err := agent.NewAgentConfig(test.params)
+		config, err := agent.NewAgentConfig(test.params)
 		if test.checkErr == "" {
 			c.Assert(err, gc.IsNil)
+			if test.inspectConfig != nil {
+				test.inspectConfig(c, config)
+			}
 		} else {
 			c.Assert(err, gc.ErrorMatches, test.checkErr)
 		}
@@ -205,7 +230,7 @@ func (*suite) TestMigrate(c *gc.C) {
 	initialParams := agent.AgentConfigParams{
 		DataDir:           c.MkDir(),
 		LogDir:            c.MkDir(),
-		Tag:               "user-omg",
+		Tag:               names.NewMachineTag("1"),
 		Nonce:             "nonce",
 		Password:          "secret",
 		UpgradedToVersion: version.MustParse("1.16.5"),
@@ -295,9 +320,7 @@ func (*suite) TestMigrate(c *gc.C) {
 
 		// Make sure we can read it back successfully and it
 		// matches what we wrote.
-		tag, err := names.ParseTag(newConfig.Tag())
-		c.Assert(err, gc.IsNil)
-		configPath := agent.ConfigPath(newConfig.DataDir(), tag)
+		configPath := agent.ConfigPath(newConfig.DataDir(), newConfig.Tag())
 		readConfig, err := agent.ReadConfig(configPath)
 		c.Check(err, gc.IsNil)
 		c.Check(newConfig, jc.DeepEquals, readConfig)
@@ -390,7 +413,7 @@ func (*suite) TestNewStateMachineConfig(c *gc.C) {
 
 var attributeParams = agent.AgentConfigParams{
 	DataDir:           "/data/dir",
-	Tag:               "user-omg", // the omg user
+	Tag:               names.NewMachineTag("1"),
 	UpgradedToVersion: version.Current.Number,
 	Password:          "sekrit",
 	CACert:            "ca cert",
@@ -404,8 +427,8 @@ func (*suite) TestAttributes(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(conf.DataDir(), gc.Equals, "/data/dir")
 	c.Assert(conf.SystemIdentityPath(), gc.Equals, "/data/dir/system-identity")
-	c.Assert(conf.Tag(), gc.Equals, "user-omg")
-	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/user-omg")
+	c.Assert(conf.Tag(), gc.Equals, names.NewMachineTag("1"))
+	c.Assert(conf.Dir(), gc.Equals, "/data/dir/agents/machine-1")
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
 	c.Assert(conf.UpgradedToVersion(), jc.DeepEquals, version.Current.Number)
 }
@@ -467,9 +490,7 @@ func (*suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(conf.Write(), gc.IsNil)
-	tag, err := names.ParseTag(conf.Tag())
-	c.Assert(err, gc.IsNil)
-	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataDir(), tag))
+	reread, err := agent.ReadConfig(agent.ConfigPath(conf.DataDir(), conf.Tag()))
 	c.Assert(err, gc.IsNil)
 	c.Assert(reread, jc.DeepEquals, conf)
 }
@@ -580,26 +601,21 @@ func (*suite) TestSetPassword(c *gc.C) {
 	conf, err := agent.NewStateMachineConfig(attrParams, servingInfo)
 	c.Assert(err, gc.IsNil)
 
-	tag, err := names.ParseTag(attrParams.Tag)
-	c.Assert(err, gc.IsNil)
-
 	expectAPIInfo := &api.Info{
 		Addrs:    attrParams.APIAddresses,
 		CACert:   attrParams.CACert,
-		Tag:      tag,
+		Tag:      attrParams.Tag,
 		Password: "",
 		Nonce:    attrParams.Nonce,
 	}
 	c.Assert(conf.APIInfo(), jc.DeepEquals, expectAPIInfo)
 	addr := fmt.Sprintf("127.0.0.1:%d", servingInfo.StatePort)
-	userTag, err := names.ParseTag(attrParams.Tag)
-	c.Assert(err, gc.IsNil)
 	expectStateInfo := &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
 			CACert: attrParams.CACert,
 		},
-		Tag:      userTag,
+		Tag:      attrParams.Tag,
 		Password: "",
 	}
 	info, ok := conf.MongoInfo()

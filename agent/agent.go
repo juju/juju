@@ -88,7 +88,7 @@ type Config interface {
 
 	// Tag returns the tag of the entity on whose behalf the state connection
 	// will be made.
-	Tag() string
+	Tag() names.Tag
 
 	// Dir returns the agent's directory.
 	Dir() string
@@ -250,7 +250,7 @@ type AgentConfigParams struct {
 	LogDir            string
 	Jobs              []params.MachineJob
 	UpgradedToVersion version.Number
-	Tag               string
+	Tag               names.Tag
 	Password          string
 	Nonce             string
 	StateAddresses    []string
@@ -270,8 +270,14 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if configParams.LogDir != "" {
 		logDir = configParams.LogDir
 	}
-	if configParams.Tag == "" {
+	if configParams.Tag == nil {
 		return nil, errors.Trace(requiredError("entity tag"))
+	}
+	switch configParams.Tag.(type) {
+	case names.MachineTag, names.UnitTag:
+		// these are the only two type of tags that can represent an agent
+	default:
+		return nil, errors.Errorf("entity tag must be MachineTag or UnitTag, got %T", configParams.Tag)
 	}
 	if configParams.UpgradedToVersion == version.Zero {
 		return nil, errors.Trace(requiredError("upgradedToVersion"))
@@ -282,10 +288,6 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if len(configParams.CACert) == 0 {
 		return nil, errors.Trace(requiredError("CA certificate"))
 	}
-	tag, err := names.ParseTag(configParams.Tag)
-	if err != nil {
-		return nil, err
-	}
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
 	config := &configInternal{
@@ -293,7 +295,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		dataDir:           configParams.DataDir,
 		jobs:              configParams.Jobs,
 		upgradedToVersion: configParams.UpgradedToVersion,
-		tag:               tag,
+		tag:               configParams.Tag,
 		nonce:             configParams.Nonce,
 		caCert:            configParams.CACert,
 		oldPassword:       configParams.Password,
@@ -570,8 +572,8 @@ func (c *configInternal) OldPassword() string {
 	return c.oldPassword
 }
 
-func (c *configInternal) Tag() string {
-	return c.tag.String()
+func (c *configInternal) Tag() names.Tag {
+	return c.tag
 }
 
 func (c *configInternal) Dir() string {

@@ -54,10 +54,9 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 
 	// Get the machine through the facade.
 	var err error
-	// TODO(dfc) this should return a names.Tag
 	s.apiMachine, err = s.machinerState.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiMachine.Tag(), gc.Equals, s.machine.Tag().String())
+	c.Assert(s.apiMachine.Tag(), gc.Equals, s.machine.Tag())
 }
 
 func (s *MachinerSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatus params.Status) {
@@ -82,19 +81,19 @@ var _ worker.NotifyWatchHandler = (*machiner.Machiner)(nil)
 
 type mockConfig struct {
 	agent.Config
-	tag string
+	tag names.Tag
 }
 
-func (mock *mockConfig) Tag() string {
+func (mock *mockConfig) Tag() names.Tag {
 	return mock.tag
 }
 
-func agentConfig(tag string) agent.Config {
+func agentConfig(tag names.Tag) agent.Config {
 	return &mockConfig{tag: tag}
 }
 
 func (s *MachinerSuite) TestNotFoundOrUnauthorized(c *gc.C) {
-	mr := machiner.NewMachiner(s.machinerState, agentConfig("machine-99"))
+	mr := machiner.NewMachiner(s.machinerState, agentConfig(names.NewMachineTag("99")))
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
 

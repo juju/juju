@@ -124,7 +124,7 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
 		c.Assert(containerType, gc.Equals, ctype)
-		c.Assert(cfg.Tag(), gc.Equals, host.Tag().String())
+		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
 		provisionerStarted = true
 		return nil
 	}

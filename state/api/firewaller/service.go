@@ -27,7 +27,7 @@ func (s *Service) Name() string {
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Service) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.st.caller, firewallerFacade, s.tag.String())
+	return common.Watch(s.st.caller, firewallerFacade, s.tag)
 }
 
 // Life returns the service's current life state.
