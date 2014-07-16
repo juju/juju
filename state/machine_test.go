@@ -1502,29 +1502,58 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-		network.NewAddress("", network.ScopeUnknown),
-	}
-	addresses[0].NetworkName = "loopback"
+	addresses := network.NewAddresses(
+		"127.0.0.1", "8.8.8.8", "fc00::1", "::1", "", "example.org",
+	)
 	err = machine.SetAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
 
-	machineAddresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("192.168.0.1", network.ScopeUnknown),
-	}
+	machineAddresses := network.NewAddresses(
+		"127.0.0.1", "localhost", "192.168.0.1", "fe80::1", "::1", "fd00::1",
+	)
 	err = machine.SetMachineAddresses(machineAddresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(machine.Addresses(), gc.DeepEquals, []network.Address{
-		addresses[0],
-		addresses[1],
-		machineAddresses[1],
-	})
+	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
+		"example.org",
+		"8.8.8.8",
+		"127.0.0.1",
+		"fc00::1",
+		"::1",
+		"192.168.0.1",
+		"localhost",
+		"fe80::1",
+		"fd00::1",
+	))
+
+	// Now simulate prefer-ipv6: true
+	c.Assert(
+		s.State.UpdateEnvironConfig(
+			map[string]interface{}{"prefer-ipv6": true},
+			nil, nil,
+		),
+		gc.IsNil,
+	)
+
+	err = machine.SetAddresses(addresses...)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetMachineAddresses(machineAddresses...)
+	c.Assert(err, gc.IsNil)
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
+		"::1",
+		"fc00::1",
+		"example.org",
+		"8.8.8.8",
+		"127.0.0.1",
+		"fd00::1",
+		"fe80::1",
+		"localhost",
+		"192.168.0.1",
+	))
 }
 
 func (s *MachineSuite) TestSetAddressesConcurrentChangeDifferent(c *gc.C) {
