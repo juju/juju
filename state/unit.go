@@ -99,7 +99,7 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 	}
 	unit.annotator = annotator{
 		globalKey: unit.globalKey(),
-		tag:       unit.Tag().String(),
+		tag:       unit.Tag(),
 		st:        st,
 	}
 	return unit

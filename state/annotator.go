@@ -78,6 +78,12 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 // insertOps returns the operations required to insert annotations in MongoDB.
 func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 	tag := a.tag
+	ops := []txn.Op{{
+		C:      a.st.annotations.Name,
+		Id:     a.globalKey,
+		Assert: txn.DocMissing,
+		Insert: &annotatorDoc{a.globalKey, tag.String(), toInsert},
+	}}
 	switch tag.(type) {
 	case names.EnvironTag:
 		return ops, nil
@@ -89,12 +95,6 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
-	ops := []txn.Op{{
-		C:      a.st.annotations.Name,
-		Id:     a.globalKey,
-		Assert: txn.DocMissing,
-		Insert: &annotatorDoc{a.globalKey, tag, toInsert},
-	}}
 	return append(ops, txn.Op{
 		C:      coll,
 		Id:     id,
