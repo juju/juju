@@ -118,6 +118,8 @@ var getAddMachineAPI = func(c *AddMachineCommand) (addMachineAPI, error) {
 	return c.NewAPIClient()
 }
 
+var manualProvisioner = manual.ProvisionMachine
+
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	client, err := getAddMachineAPI(c)
 	if err != nil {
@@ -133,7 +135,10 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 			Stdout: ctx.Stdout,
 			Stderr: ctx.Stderr,
 		}
-		_, err := manual.ProvisionMachine(args)
+		machineId, err := manualProvisioner(args)
+		if err == nil {
+			ctx.Infof("created machine %v", machineId)
+		}
 		return err
 	}
 
