@@ -769,6 +769,7 @@ func (a *MachineAgent) upgradeWorker(
 		// of StateWorker, because we have no guarantees about when
 		// and how often StateWorker might run.
 		var st *state.State
+		var isMaster bool
 		if needsState {
 			if err := a.ensureMongoServer(agentConfig); err != nil {
 				return err
@@ -783,8 +784,23 @@ func (a *MachineAgent) upgradeWorker(
 				return err
 			}
 			defer st.Close()
+			// Not calling the agent openState method as it does other checks
+			// we really don't care about here.  All we need here is the machine
+			// so we can determine if we are the master or not.
+			machine, err := st.Machine(agentConfig.Tag().Id())
+			if err != nil {
+				// This shouldn't happen, and if it does, the state worker
+				// will have found out before us, and already errored, or is likely
+				// to error out very shortly.  All we do here is return the error.
+				// This error will cause the agent to be terminated.
+				return err
+			}
+			isMaster, err = mongo.IsMaster(st.MongoSession(), machine)
+			if err != nil {
+				return err
+			}
 		}
-		err := a.runUpgrades(st, apiState, jobs, agentConfig)
+		err := a.runUpgrades(st, apiState, jobs, agentConfig, isMaster)
 		if err != nil {
 			return err
 		}
@@ -803,6 +819,7 @@ func (a *MachineAgent) runUpgrades(
 	apiState *api.State,
 	jobs []params.MachineJob,
 	agentConfig agent.Config,
+	isMaster bool,
 ) error {
 	from := version.Current
 	from.Number = agentConfig.UpgradedToVersion()
@@ -814,7 +831,7 @@ func (a *MachineAgent) runUpgrades(
 	writeErr := a.ChangeConfig(func(agentConfig agent.ConfigSetter) {
 		context := upgrades.NewContext(agentConfig, apiState, st)
 		for _, job := range jobs {
-			target := upgradeTarget(job)
+			target := upgradeTarget(job, isMaster)
 			if target == "" {
 				continue
 			}
@@ -832,9 +849,12 @@ func (a *MachineAgent) runUpgrades(
 	return nil
 }
 
-func upgradeTarget(job params.MachineJob) upgrades.Target {
+func upgradeTarget(job params.MachineJob, isMaster bool) upgrades.Target {
 	switch job {
 	case params.JobManageEnviron:
+		if isMaster {
+			return upgrades.DatabaseMaster
+		}
 		return upgrades.StateServer
 	case params.JobHostUnits:
 		return upgrades.HostMachine
