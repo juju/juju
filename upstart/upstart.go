@@ -132,6 +132,7 @@ script
 {{if .Out}}
   # Ensure log files are properly protected
   touch {{.Out}}
+  chown syslog:syslog {{.Out}}
   chmod 0600 {{.Out}}
 {{end}}
   exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
