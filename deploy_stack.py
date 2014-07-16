@@ -152,17 +152,18 @@ def deploy_dummy_stack(env, charm_prefix):
         raise ValueError('Token is %r' % result)
 
 
-def scp_logs(log_names, directory):
+def scp_logs(log_names, directory, host=None):
+    if host is None:
+        command = ['sudo', 'chmod', 'go+r'] + log_names
+    else:
+        command = [
+            'timeout', '5m', 'ssh', '-o', 'UserKnownHostsFile /dev/null',
+            '-o', 'StrictHostKeyChecking no', 'ubuntu@%s' % host,
+            'sudo chmod go+r /var/log/juju/*']
+    subprocess.check_call(command)
     subprocess.check_call([
         'timeout', '5m', 'scp', '-o', 'UserKnownHostsFile /dev/null',
         '-o', 'StrictHostKeyChecking no'] + log_names + [directory])
-
-
-def copy_local_logs(log_names, directory):
-    # Some log files are owned by syslog and readable only by
-    # this user.
-    subprocess.check_call(['sudo', 'chmod', 'go+r'] + log_names)
-    scp_logs(log_names, directory)
 
 
 def dump_logs(env, host, directory, host_id=None):
@@ -173,7 +174,7 @@ def dump_logs(env, host, directory, host_id=None):
         log_dir = os.path.join(local, 'log')
         log_names.extend(os.path.join(log_dir, l) for l
                          in os.listdir(log_dir) if l.endswith('.log'))
-        copy_local_logs(log_names, directory)
+        scp_logs(log_names, directory)
     else:
         log_names = [
             'ubuntu@%s:/var/log/%s' % (host, n)
@@ -184,7 +185,7 @@ def dump_logs(env, host, directory, host_id=None):
             logging.warning("Could not dump logs because port 22 was closed.")
         for log_name in log_names:
             try:
-                scp_logs([log_name], directory)
+                scp_logs([log_name], directory, host)
             except subprocess.CalledProcessError:
                 pass
     if host_id is not None:
