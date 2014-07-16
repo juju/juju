@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
+	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	"labix.org/v2/mgo"
@@ -202,7 +203,7 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	return doc.Revno, nil
 }
 
-func ParseTag(st *State, tag string) (string, string, error) {
+func ParseTag(st *State, tag names.Tag) (string, string, error) {
 	return st.parseTag(tag)
 }
 

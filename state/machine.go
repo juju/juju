@@ -134,7 +134,7 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 	}
 	machine.annotator = annotator{
 		globalKey: machine.globalKey(),
-		tag:       machine.Tag().String(),
+		tag:       machine.Tag(),
 		st:        st,
 	}
 	return machine
