@@ -51,9 +51,12 @@ do
         echo "Building trusty amd64"
         $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-018c9568 $dsc
         echo "Building trusty i386"
-        #$RELEASE_TOOLS/build-package-with-dsc.bash m1.medium ami-81dee0e8 $dsc
-        $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@i386-slave \
-                "$I386_SSH_OPTIONS" $dsc
+        if [[ -n ${I386_SSH_OPTIONS:-} ]]; then
+            $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@i386-slave \
+                    "$I386_SSH_OPTIONS" $dsc
+        else
+            $RELEASE_TOOLS/build-package-with-dsc.bash \
+                m1.medium ami-81dee0e8 $dsc
         if [[ -n ${ARM_SSH_OPTIONS:-} ]]; then
             echo "Building trusty arm64"
             set +e
