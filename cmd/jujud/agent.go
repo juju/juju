@@ -217,6 +217,7 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		info := *info
 		info.Password = agentConfig.OldPassword()
 		usedOldPassword = true
+		time.Sleep(1 * time.Second)
 		st, err = apiOpen(&info, api.DialOpts{})
 	}
 	if err != nil {
