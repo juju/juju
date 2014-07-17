@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	TimestampFormat  = "%02d%02d%02d-%02d%02d%02d" // YYMMDD-hhmmss
+	TimestampFormat  = "%04d%02d%02d-%02d%02d%02d" // YYMMDD-hhmmss
 	FilenameTemplate = "jujubackup-%s.tar.gz"      // takes a timestamp
 	DigestAlgorithm  = "SHA"
 )
@@ -29,9 +29,9 @@ func defaultFilename(now *time.Time) string {
 		_now := time.Now().UTC()
 		now = &_now
 	}
-	Y, M, S := now.Date()
+	Y, M, D := now.Date()
 	h, m, s := now.Clock()
-	formattedDate := fmt.Sprintf(TimestampFormat, Y, M, S, h, m, s)
+	formattedDate := fmt.Sprintf(TimestampFormat, Y, M, D, h, m, s)
 	return fmt.Sprintf(FilenameTemplate, formattedDate)
 }
 

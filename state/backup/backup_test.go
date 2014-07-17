@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backup
+package backup_test
 
 import (
 	"archive/tar"
@@ -14,16 +14,12 @@ import (
 	"os"
 	"path"
 	"strings"
-	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/state/backup"
 	"github.com/juju/juju/testing"
 )
-
-func Test(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
-}
 
 var _ = gc.Suite(&BackupSuite{})
 
@@ -154,7 +150,7 @@ func (b *BackupSuite) TestTarFilesUncompressed(c *gc.C) {
 	b.createTestFiles(c)
 	outputTar := path.Join(b.cwd, "output_tar_file.tar")
 	trimPath := fmt.Sprintf("%s/", b.cwd)
-	shaSum, err := tarFiles(b.testFiles, outputTar, trimPath, false)
+	shaSum, err := backup.TarFiles(b.testFiles, outputTar, trimPath, false)
 	c.Check(err, gc.IsNil)
 	fileShaSum := shaSumFile(c, outputTar)
 	c.Assert(shaSum, gc.Equals, fileShaSum)
@@ -166,7 +162,7 @@ func (b *BackupSuite) TestTarFilesCompressed(c *gc.C) {
 	b.createTestFiles(c)
 	outputTarGz := path.Join(b.cwd, "output_tar_file.tgz")
 	trimPath := fmt.Sprintf("%s/", b.cwd)
-	shaSum, err := tarFiles(b.testFiles, outputTarGz, trimPath, true)
+	shaSum, err := backup.TarFiles(b.testFiles, outputTarGz, trimPath, true)
 	c.Check(err, gc.IsNil)
 
 	fileShaSum := shaSumFile(c, outputTarGz)
@@ -178,13 +174,18 @@ func (b *BackupSuite) TestTarFilesCompressed(c *gc.C) {
 func (b *BackupSuite) TestBackup(c *gc.C) {
 	b.createTestFiles(c)
 	ranCommand := false
-	getMongodumpPath = func() (string, error) { return "bogusmongodump", nil }
-	getFilesToBackup = func() ([]string, error) { return b.testFiles, nil }
-	runCommand = func(command string, args ...string) error {
+
+	b.PatchValue(backup.GetMongodumpPath, func() (string, error) {
+		return "bogusmongodump", nil
+	})
+	b.PatchValue(backup.GetFilesToBackup, func() ([]string, error) {
+		return b.testFiles, nil
+	})
+	b.PatchValue(backup.DoBackup, func(command string, args ...string) error {
 		ranCommand = true
 		return nil
-	}
-	bkpFile, shaSum, err := Backup("boguspassword", "bogus-user", b.cwd, "localhost:8080")
+	})
+	bkpFile, shaSum, err := backup.Backup("boguspassword", "bogus-user", b.cwd, "localhost:8080")
 	c.Check(err, gc.IsNil)
 	c.Assert(ranCommand, gc.Equals, true)
 
@@ -206,7 +207,7 @@ func (b *BackupSuite) TestBackup(c *gc.C) {
 }
 
 func (b *BackupSuite) TestStorageName(c *gc.C) {
-	c.Assert(StorageName("foo"), gc.Equals, "/backups/foo")
-	c.Assert(StorageName("/foo/bar"), gc.Equals, "/backups/bar")
-	c.Assert(StorageName("foo/bar"), gc.Equals, "/backups/bar")
+	c.Assert(backup.StorageName("foo"), gc.Equals, "/backups/foo")
+	c.Assert(backup.StorageName("/foo/bar"), gc.Equals, "/backups/bar")
+	c.Assert(backup.StorageName("foo/bar"), gc.Equals, "/backups/bar")
 }
