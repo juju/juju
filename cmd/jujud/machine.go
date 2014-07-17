@@ -302,9 +302,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-		return networker.NewNetworker(st.Networker(), agentConfig), nil
-	})
+	if networker.CanStart() {
+		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+			return networker.NewNetworker(st.Networker(), agentConfig)
+		})
+	} else {
+		logger.Infof("not starting networker - missing /etc/network/interfaces")
+	}
 
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.

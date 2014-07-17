@@ -4,6 +4,9 @@
 package networker
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/agent"
@@ -25,13 +28,21 @@ type networker struct {
 	isVLANSupportInstalled bool
 }
 
-// NewNetworker returns a Worker that handles machine networking configuration.
-func NewNetworker(st *apinetworker.State, agentConfig agent.Config) worker.Worker {
+// NewNetworker returns a Worker that handles machine networking
+// configuration. If there is no /etc/network/interfaces file, an
+// error is returned.
+func NewNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Worker, error) {
 	nw := &networker{
 		st:  st,
 		tag: agentConfig.Tag().String(),
 	}
-	return worker.NewNotifyWorker(nw)
+	// Verify we have /etc/network/interfaces first, otherwise bail out.
+	if !CanStart() {
+		err := fmt.Errorf("missing %q config file", configFileName)
+		logger.Infof("not starting worker: %v", err)
+		return nil, err
+	}
+	return worker.NewNotifyWorker(nw), nil
 }
 
 func (nw *networker) SetUp() (watcher.NotifyWatcher, error) {
@@ -102,4 +113,17 @@ func (nw *networker) Handle() error {
 func (nw *networker) TearDown() error {
 	// Nothing to do here.
 	return nil
+}
+
+// CanStart verifies whether /etc/network/interfaces exist,
+// because if it does not, there's no point in trying to
+// start the networker.
+func CanStart() bool {
+	_, err := os.Stat(configFileName)
+	if err != nil && os.IsNotExist(err) {
+		return false
+	} else if err != nil {
+		return false
+	}
+	return true
 }
