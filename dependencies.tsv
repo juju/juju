@@ -19,7 +19,7 @@ github.com/juju/schema	git	de545dbe6bec9a1586adfed8b47b99b616796c98
 github.com/juju/testing	git	f424d031cbe5b2cd99834ee398d551f72d9c8f27	
 github.com/juju/utils	git	cf90c5739741e9af857babd42a205918f87d638f	
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j	273
-launchpad.net/gnuflag	bzr	ian.booth@canonical.com-20140716051252-zdr23m1sfye6a8cb	13
+launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
 launchpad.net/goamz	bzr	ian.booth@canonical.com-20140604055617-b7qt909ir9qf4959	47
 launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20140225173054-xu9zlkf9kxhvow02	87
 launchpad.net/golxc	bzr	francesco.banconi@canonical.com-20140528132419-q1lubarf0uepk4a1	9
