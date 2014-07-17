@@ -505,6 +505,15 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	// RunAction simply calls the exact same method as RunHook, but with
 	// the location as "actions" instead of "hooks".
 	if hi.Kind == hooks.ActionRequested {
+		if actionParamsErr != nil {
+			logger.Errorf("action %q param validation failed: %s", hookName, actionParamsErr.Error())
+			u.notifyHookFailed(hookName, hctx)
+			err := u.actionFail(hi)
+			if err != nil {
+				return err
+			}
+			return u.commitHook(hi)
+		}
 		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
 	} else {
 		err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
@@ -515,18 +524,53 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	} else if err != nil {
 		logger.Errorf("hook failed: %s", err)
 		u.notifyHookFailed(hookName, hctx)
+		err := u.actionFail(hi)
+		if err != nil {
+			return err
+		}
 		return errHookFailed
 	}
 	if err := u.writeState(RunHook, Done, &hi, nil); err != nil {
-		return err
+		actionApiErr := u.actionFail(hi)
+		if actionApiErr != nil {
+			return fmt.Errorf("API actionFail failed during uniter writeState error: %s: %s", actionApiErr.Error(), err.Error())
+		}
 	}
 	if ranHook {
 		logger.Infof("ran %q hook", hookName)
 		u.notifyHookCompleted(hookName, hctx)
+		err := u.actionComplete(hi, "results")
+		if err != nil {
+			return err
+		}
 	} else {
 		logger.Infof("skipped %q hook (missing)", hookName)
+		err := u.actionFail(hi)
+		if err != nil {
+			return err
+		}
 	}
 	return u.commitHook(hi)
+}
+
+func (u *Uniter) actionComplete(hi hook.Info, result string) error {
+	if hi.Kind == ActionRequested {
+		err := u.st.ActionComplete(names.NewActionTag(hi.ActionId), result)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (u *Uniter) actionFail(hi hook.Info) error {
+	if hi.Kind == ActionRequested {
+		err := u.st.ActionFail(names.NewActionTag(hi.ActionId))
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // commitHook ensures that state is consistent with the supplied hook, and
