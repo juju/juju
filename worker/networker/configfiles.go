@@ -225,15 +225,11 @@ source %s/*.cfg
 // With time, this function will be dropped.
 func (cf ConfigFiles) fixMAAS() error {
 	// Remove "source eth0.config" lines, created by MAAS provider.
-	re, err := regexp.Compile(fmt.Sprintf("(^|\n)source\\s+(%s/[0-9A-Za-z_.:]+\\.config)\\s*\n",
-		regexp.QuoteMeta(configDirName)))
-	if err != nil {
-		return fmt.Errorf("should not be: %s", err)
-	}
+	re := regexp.MustCompile(fmt.Sprintf("(^|\n)source\\s+(%s/[0-9A-Za-z_.:]+\\.config)\\s*\n", regexp.QuoteMeta(configDirName)))
 	data := cf[configFileName].Data
 	for sl := re.FindStringSubmatchIndex(data); len(sl) != 0; sl = re.FindStringSubmatchIndex(data) {
 		fileName := data[sl[4]:sl[5]]
-		if err = cf.readOneFile(fileName); err != nil {
+		if err := cf.readOneFile(fileName); err != nil {
 			return err
 		}
 		// Update the main config file.
@@ -246,11 +242,11 @@ func (cf ConfigFiles) fixMAAS() error {
 	}
 
 	// Verify the presence of line 'source /etc/network/interfaces.d/*.cfg'
-	re, err = regexp.Compile(fmt.Sprintf("(^|\n)source\\s+%s\\s*\n",
-		regexp.QuoteMeta(filepath.Join(configSubDirName, "*.cfg"))))
-	if err != nil {
-		return fmt.Errorf("should not be: %s", err)
-	}
+	re = regexp.MustCompile(
+		fmt.Sprintf("(^|\n)source\\s+%s\\s*\n",
+			regexp.QuoteMeta(filepath.Join(configSubDirName, "*.cfg")),
+		),
+	)
 	if !re.MatchString(data) {
 		// Should add source line and delete from files from /etc/network/interfaces.d,
 		// because they were not intended to load
