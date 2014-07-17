@@ -792,7 +792,6 @@ func (a *MachineAgent) upgradeWorker(
 		if err != nil {
 			return err
 		}
-		logger.Infof("upgrade to %v completed.", version.Current)
 		close(a.upgradeComplete)
 		<-stop
 		return nil
@@ -824,6 +823,13 @@ func (a *MachineAgent) isMaster(st *state.State, agentConfig agent.Config) (bool
 	return isMaster, nil
 }
 
+var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
+	return utils.AttemptStrategy{
+		Delay: 2 * time.Minute,
+		Min:   5,
+	}
+}
+
 // runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
 func (a *MachineAgent) runUpgrades(
 	st *state.State,
@@ -849,13 +855,28 @@ func (a *MachineAgent) runUpgrades(
 				continue
 			}
 			logger.Infof("starting upgrade from %v to %v for %v %q", from, version.Current, target, a.Tag())
-			if err = upgradesPerformUpgrade(from.Number, target, context); err != nil {
-				err = fmt.Errorf("cannot perform upgrade from %v to %v for %v %q: %v", from, version.Current, target, a.Tag(), err)
-				return
+
+			attempts := getUpgradeRetryStrategy()
+			for attempt := attempts.Start(); attempt.Next(); {
+				if err = upgradesPerformUpgrade(from.Number, target, context); err == nil {
+					break
+				} else {
+					retryText := "will retry"
+					if !attempt.HasNext() {
+						retryText = "giving up"
+					}
+					logger.Errorf("upgrade from %v to %v for %v %q failed (%s): %v",
+						from, version.Current, target, a.Tag(), retryText, err)
+				}
 			}
 		}
 		agentConfig.SetUpgradedToVersion(version.Current.Number)
 	})
+	if err == nil {
+		logger.Infof("upgrade to %v completed successfully.", version.Current)
+	} else {
+		logger.Errorf("upgrade to %v failed.", version.Current)
+	}
 	if writeErr != nil {
 		return fmt.Errorf("cannot write updated agent configuration: %v", writeErr)
 	}
