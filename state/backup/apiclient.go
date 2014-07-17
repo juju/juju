@@ -37,12 +37,19 @@ func defaultFilename(now *time.Time) string {
 
 // CreateEmptyFile returns a new file (and its filename).  The file is
 // created fresh and is intended as the target for writing a new backup
-// archive.
-func CreateEmptyFile(filename string) (*os.File, string, error) {
+// archive.  If excl is true, a file cannot exist at the filename already.
+func CreateEmptyFile(filename string, excl bool) (*os.File, string, error) {
 	if filename == "" {
 		filename = defaultFilename(nil)
 	}
-	file, err := os.Create(filename)
+	var file *os.File
+	var err error
+	if excl {
+		flags := os.O_RDWR | os.O_CREATE | os.O_EXCL
+		file, err = os.OpenFile(filename, flags, 0666)
+	} else {
+		file, err = os.Create(filename)
+	}
 	if err != nil {
 		return nil, "", fmt.Errorf("could not create backup file: %v", err)
 	}
@@ -133,7 +140,7 @@ func WriteBackup(archive io.Writer, infile io.Reader) (string, error) {
 func ParseDigestHeader(header http.Header) (map[string]string, error) {
 	rawdigests := header.Get("digest")
 	if rawdigests == "" {
-		return nil, fmt.Errorf(`missing or blank "Digest" header`)
+		return nil, fmt.Errorf(`missing or blank "digest" header`)
 	}
 	digests := make(map[string]string)
 
@@ -141,11 +148,17 @@ func ParseDigestHeader(header http.Header) (map[string]string, error) {
 	for _, rawdigest := range strings.Split(rawdigests, ",") {
 		parts := strings.SplitN(rawdigest, "=", 2)
 		if len(parts) != 2 {
-			return digests, fmt.Errorf(`bad "Digest" header: %s`, rawdigest)
+			return digests, fmt.Errorf(`bad "digest" header: %s`, rawdigest)
 		}
 
 		// We do not take care of quoted digests.
 		algorithm, digest := parts[0], parts[1]
+		if algorithm == "" {
+			return digests, fmt.Errorf("missing digest algorithm: %s", rawdigest)
+		}
+		if digest == "" {
+			return digests, fmt.Errorf("missing digest value: %s", rawdigest)
+		}
 
 		_, exists := digests[algorithm]
 		if exists {
@@ -166,7 +179,7 @@ func ParseDigest(header http.Header) (string, error) {
 	}
 	digest, exists := digests[DigestAlgorithm]
 	if !exists {
-		return "", fmt.Errorf(`"%s" missing from "Digest" header`, DigestAlgorithm)
+		return "", fmt.Errorf(`"%s" missing from "digest" header`, DigestAlgorithm)
 	}
 	return digest, nil
 }
