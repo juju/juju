@@ -4,7 +4,9 @@
 package common
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -38,14 +40,18 @@ func (pc *PasswordChanger) SetPasswords(args params.EntityPasswords) (params.Err
 	}
 	canChange, err := pc.getCanChange()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, param := range args.Changes {
-		if !canChange(param.Tag) {
+		tag, err := names.ParseTag(param.Tag)
+		if err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
+		if !canChange(tag) {
 			result.Results[i].Error = ServerError(ErrPerm)
 			continue
 		}
-		if err := pc.setPassword(param.Tag, param.Password); err != nil {
+		if err := pc.setPassword(tag, param.Password); err != nil {
 			result.Results[i].Error = ServerError(err)
 		}
 	}
@@ -68,10 +74,10 @@ func (pc *PasswordChanger) setMongoPassword(entity state.Entity, password string
 		return nil
 	}
 	// TODO(dfc) fix
-	return NotSupportedError(entity.Tag().String(), "mongo access")
+	return NotSupportedError(entity.Tag(), "mongo access")
 }
 
-func (pc *PasswordChanger) setPassword(tag, password string) error {
+func (pc *PasswordChanger) setPassword(tag names.Tag, password string) error {
 	type jobsGetter interface {
 		Jobs() []state.MachineJob
 	}

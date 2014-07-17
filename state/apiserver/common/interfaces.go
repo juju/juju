@@ -10,7 +10,7 @@ import (
 )
 
 // AuthFunc returns whether the given entity is available to some operation.
-type AuthFunc func(tag string) bool
+type AuthFunc func(tag names.Tag) bool
 
 // GetAuthFunc returns an AuthFunc.
 type GetAuthFunc func() (AuthFunc, error)
@@ -60,7 +60,7 @@ func AuthEither(a, b GetAuthFunc) GetAuthFunc {
 		if err != nil {
 			return nil, err
 		}
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			return f1(tag) || f2(tag)
 		}, nil
 	}
@@ -70,7 +70,7 @@ func AuthEither(a, b GetAuthFunc) GetAuthFunc {
 // the given permission.
 func AuthAlways(ok bool) GetAuthFunc {
 	return func() (AuthFunc, error) {
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			return ok
 		}, nil
 	}

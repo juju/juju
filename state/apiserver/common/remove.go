@@ -6,8 +6,10 @@ package common
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/names"
 )
 
 // Remover implements a common Remove method for use by various facades.
@@ -29,7 +31,7 @@ func NewRemover(st state.EntityFinder, callEnsureDead bool, getCanModify GetAuth
 	}
 }
 
-func (r *Remover) removeEntity(tag string) error {
+func (r *Remover) removeEntity(tag names.Tag) error {
 	entity, err := r.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -57,6 +59,7 @@ func (r *Remover) removeEntity(tag string) error {
 // Remove removes every given entity from state, calling EnsureDead
 // first, then Remove. It will fail if the entity is not present.
 func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
+	// TODO(dfc)
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
@@ -65,12 +68,16 @@ func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
 	}
 	canModify, err := r.getCanModify()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		err := ErrPerm
-		if canModify(entity.Tag) {
-			err = r.removeEntity(entity.Tag)
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			return params.ErrorResults{}, errors.Trace(err)
+		}
+		err = ErrPerm
+		if canModify(tag) {
+			err = r.removeEntity(tag)
 		}
 		result.Results[i].Error = ServerError(err)
 	}
