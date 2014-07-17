@@ -197,6 +197,13 @@ func upgradeOperations() []upgrades.Operation {
 				&mockUpgradeStep{"step 3 - 1.20.0", targets(upgrades.StateServer)},
 			},
 		},
+		&mockUpgradeOperation{
+			targetVersion: version.MustParse("1.21-alpha2"),
+			steps: []upgrades.Step{
+				&mockUpgradeStep{"mongo fix - 1.21-alpha2", targets(upgrades.StateServer)},
+				&mockUpgradeStep{"db schema - 1.21-alpha2", targets(upgrades.DatabaseMaster)},
+			},
+		},
 	}
 	return steps
 }
@@ -250,6 +257,13 @@ var upgradeTests = []upgradeTest{
 		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0"},
 	},
 	{
+		about:         "the database master target is also a state server",
+		fromVersion:   "1.18.1",
+		toVersion:     "1.20.0",
+		target:        upgrades.DatabaseMaster,
+		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0"},
+	},
+	{
 		about:         "error aborts, subsequent steps not run",
 		fromVersion:   "1.10.0",
 		target:        upgrades.HostMachine,
@@ -261,6 +275,20 @@ var upgradeTests = []upgradeTest{
 		fromVersion:   "",
 		target:        upgrades.StateServer,
 		expectedSteps: []string{"step 2 - 1.17.1", "step 2 - 1.18.0"},
+	},
+	{
+		about:         "state servers don't get database master",
+		fromVersion:   "1.20.0",
+		toVersion:     "1.21.0",
+		target:        upgrades.StateServer,
+		expectedSteps: []string{"mongo fix - 1.21-alpha2"},
+	},
+	{
+		about:         "database masters are state servers",
+		fromVersion:   "1.20.0",
+		toVersion:     "1.21.0",
+		target:        upgrades.DatabaseMaster,
+		expectedSteps: []string{"mongo fix - 1.21-alpha2", "db schema - 1.21-alpha2"},
 	},
 }
 

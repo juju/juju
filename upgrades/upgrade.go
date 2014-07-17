@@ -54,6 +54,10 @@ const (
 
 	// StateServer is a machine participating in a Juju state server cluster.
 	StateServer = Target("stateServer")
+
+	// DatabaseMaster is a StateServer that has the master database, and as such
+	// is the only target that should run database schema upgrade steps.
+	DatabaseMaster = Target("databaseMaster")
 )
 
 // upgradeToVersion encapsulates the steps which need to be run to
@@ -159,7 +163,8 @@ func PerformUpgrade(from version.Number, target Target, context Context) error {
 // validTarget returns true if target is in step.Targets().
 func validTarget(target Target, step Step) bool {
 	for _, opTarget := range step.Targets() {
-		if opTarget == AllMachines || target == opTarget {
+		if opTarget == AllMachines || target == opTarget ||
+			(opTarget == StateServer && target == DatabaseMaster) {
 			return true
 		}
 	}

@@ -801,6 +801,29 @@ func (a *MachineAgent) upgradeWorker(
 
 var upgradesPerformUpgrade = upgrades.PerformUpgrade // Allow patching for tests
 
+func (a *MachineAgent) isMaster(st *state.State, agentConfig agent.Config) (bool, error) {
+	if st == nil {
+		// If there is no state, we aren't a master.
+		return false, nil
+	}
+	// Not calling the agent openState method as it does other checks
+	// we really don't care about here.  All we need here is the machine
+	// so we can determine if we are the master or not.
+	machine, err := st.Machine(agentConfig.Tag().Id())
+	if err != nil {
+		// This shouldn't happen, and if it does, the state worker will have
+		// found out before us, and already errored, or is likely to error out
+		// very shortly.  All we do here is return the error. The state worker
+		// returns an error that will cause the agent to be terminated.
+		return false, errors.Trace(err)
+	}
+	isMaster, err := mongo.IsMaster(st.MongoSession(), machine)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return isMaster, nil
+}
+
 // runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
 func (a *MachineAgent) runUpgrades(
 	st *state.State,
@@ -814,11 +837,14 @@ func (a *MachineAgent) runUpgrades(
 		logger.Infof("upgrade to %v already completed.", version.Current)
 		return nil
 	}
-	var err error
+	isMaster, err := a.isMaster(st, agentConfig)
+	if err != nil {
+		return errors.Trace(err)
+	}
 	writeErr := a.ChangeConfig(func(agentConfig agent.ConfigSetter) {
 		context := upgrades.NewContext(agentConfig, apiState, st)
 		for _, job := range jobs {
-			target := upgradeTarget(job)
+			target := upgradeTarget(job, isMaster)
 			if target == "" {
 				continue
 			}
@@ -836,9 +862,12 @@ func (a *MachineAgent) runUpgrades(
 	return nil
 }
 
-func upgradeTarget(job params.MachineJob) upgrades.Target {
+func upgradeTarget(job params.MachineJob, isMaster bool) upgrades.Target {
 	switch job {
 	case params.JobManageEnviron:
+		if isMaster {
+			return upgrades.DatabaseMaster
+		}
 		return upgrades.StateServer
 	case params.JobHostUnits:
 		return upgrades.HostMachine
