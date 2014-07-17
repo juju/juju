@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
@@ -141,24 +142,56 @@ func (s *UpgradeSuite) TestRetryStrategy(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeFailure(c *gc.C) {
+	stop := make(chan bool)
 	upgradeCh := make(chan bool)
 	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
-		upgradeCh <- true // signal that upgrade attempt has started
-		return errors.New("boom")
+		select {
+		case <-stop:
+			return nil
+		case upgradeCh <- true: // Signal that upgrade attempt has started.
+		}
+
+		// Wait for signal that upgrade can proceed.
+		select {
+		case <-stop:
+			return nil
+		case <-upgradeCh:
+			return errors.New("boom")
+		}
 	}
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
 	s.setInstantRetryStrategy()
 	s.captureLogs(c)
 
 	stopFunc := s.createAgentAndStartUpgrade(c, state.JobManageEnviron)
-	defer stopFunc()
+	defer func() {
+		close(stop) // abort any running upgrade attempts
+		stopFunc()
+	}()
 
 	// Expect configured number of retries and no more.
+	first := true
 	for i := 0; i < numTestUpgradeRetries; i++ {
 		c.Assert(longWaitForUpgradeToStart(upgradeCh), gc.Equals, true)
+		if first {
+			s.assertStatus(c, params.StatusStarted,
+				fmt.Sprintf("upgrading to %s", version.Current))
+			first = false
+		} else {
+			s.assertStatus(c, params.StatusError,
+				fmt.Sprintf("upgrade to %s failed (will retry): boom", version.Current))
+		}
+		upgradeCh <- true //signal that upgrade attempt can continue
 	}
 	c.Assert(shortWaitForUpgradeToStart(upgradeCh), gc.Equals, false)
+	s.assertStatus(c, params.StatusError,
+		fmt.Sprintf("upgrade to %s failed (giving up): boom", version.Current))
 
+	// Should still be reported as running the previous version
+	conf := s.getMachine0Config(c)
+	c.Check(conf.UpgradedToVersion(), gc.Equals, s.oldVersion.Number)
+
+	// Check log output.
 	expectedLogs := s.generateExpectedUpgradeLogs(numTestUpgradeRetries)
 	expectedLogs = append(expectedLogs,
 		jc.SimpleMessage{loggo.ERROR,
@@ -167,11 +200,17 @@ func (s *UpgradeSuite) TestUpgradeFailure(c *gc.C) {
 	c.Assert(s.logWriter.Log(), jc.LogMatches, expectedLogs)
 }
 
-func (s *UpgradeSuite) TestUpgradeFailThenSuccess(c *gc.C) {
+func (s *UpgradeSuite) TestUpgradeAttemptFailAndThenSuccess(c *gc.C) {
+	stop := make(chan bool)
 	upgradeCh := make(chan bool)
 	fail := true
 	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
-		upgradeCh <- true // signal that upgrade attempt has started
+		select {
+		case <-stop:
+			return nil
+		case upgradeCh <- true: // Signal that upgrade attempt has started.
+		}
+
 		// Fail the first attempt only.
 		if fail {
 			fail = false
@@ -185,12 +224,24 @@ func (s *UpgradeSuite) TestUpgradeFailThenSuccess(c *gc.C) {
 	s.captureLogs(c)
 
 	stopFunc := s.createAgentAndStartUpgrade(c, state.JobManageEnviron)
-	defer stopFunc()
+	defer func() {
+		close(stop) // abort any running upgrade attempts
+		stopFunc()
+	}()
 
 	// Expect 2 attempts and then no more because upgrade succeeded.
 	c.Assert(longWaitForUpgradeToStart(upgradeCh), gc.Equals, true)
+
 	c.Assert(longWaitForUpgradeToStart(upgradeCh), gc.Equals, true)
+	s.assertStatus(c, params.StatusError,
+		fmt.Sprintf("upgrade to %s failed (will retry): boom", version.Current))
+
 	c.Assert(shortWaitForUpgradeToStart(upgradeCh), gc.Equals, false)
+	s.assertStatus(c, params.StatusStarted, "")
+
+	// Reported agent version should now be the new one.
+	conf := s.getMachine0Config(c)
+	c.Check(conf.UpgradedToVersion(), gc.Equals, version.Current.Number)
 
 	// Check log output matches what we expect
 	expectedLogs := s.generateExpectedUpgradeLogs(1)
@@ -227,6 +278,13 @@ func waitForUpgradeToStart(upgradeCh chan bool, timeout time.Duration) bool {
 	case <-time.After(timeout):
 		return false
 	}
+}
+
+func (s *UpgradeSuite) assertStatus(c *gc.C, status params.Status, info string) {
+	actualStatus, actualInfo, _, err := s.machine0.Status()
+	c.Assert(err, gc.IsNil)
+	c.Check(actualStatus, gc.Equals, status)
+	c.Check(actualInfo, gc.Equals, info)
 }
 
 func (s *UpgradeSuite) generateExpectedUpgradeLogs(failCount int) []jc.SimpleMessage {
@@ -323,17 +381,22 @@ func (s *UpgradeSuite) createAgentAndStartUpgrade(c *gc.C, job state.MachineJob)
 func (s *UpgradeSuite) waitForUpgradeToFinish(c *gc.C) {
 	success := false
 	for attempt := coretesting.LongAttempt.Start(); attempt.Next(); {
-		conf, err := agent.ReadConfig(agent.ConfigPath(
-			s.machine0Config.DataDir(),
-			s.machine0.Tag(),
-		))
-		c.Assert(err, gc.IsNil)
+		conf := s.getMachine0Config(c)
 		success = conf.UpgradedToVersion() == s.upgradeToVersion.Number
 		if success {
 			break
 		}
 	}
 	c.Assert(success, jc.IsTrue)
+}
+
+func (s *UpgradeSuite) getMachine0Config(c *gc.C) agent.Config {
+	conf, err := agent.ReadConfig(agent.ConfigPath(
+		s.machine0Config.DataDir(),
+		s.machine0.Tag(),
+	))
+	c.Assert(err, gc.IsNil)
+	return conf
 }
 
 func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, expectFullApi exposedAPI) {
