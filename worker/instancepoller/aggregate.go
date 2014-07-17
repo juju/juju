@@ -64,7 +64,7 @@ func (a *aggregator) loop() error {
 	var reqs []instanceInfoReq
 	// We use a capacity of 1 so that sporadic requests will
 	// be serviced immediately without having to wait.
-	bucket := ratelimit.NewBucket(gatherTime, 2)
+	bucket := ratelimit.NewBucket(gatherTime, 1)
 	for {
 		select {
 		case <-a.tomb.Dying():
