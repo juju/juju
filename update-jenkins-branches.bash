@@ -38,8 +38,11 @@ if [[ -d ~/ci-director ]]; then
     cd ~/ci-director
     bzr pull
 fi
+
+sudo apt-get update || "! $host is not setup for sudo"
+sudo apt-get install s3cmd
+
 if [[ "$NEW_JUJU" == "true" ]]; then
-    sudo apt-get update || "! $host is not setup for sudo"
     sudo apt-get install -y juju-local juju \
         uvtool-libvirt uvtool python-novaclient euca2ools || echo \
             "! Could not update juju on $host"
