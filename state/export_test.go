@@ -21,6 +21,7 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/testing"
 )
 
@@ -227,6 +228,23 @@ func GetUserPasswordSaltAndHash(u *User) (string, string) {
 // Return the stored salt and hash for the identity's password.
 func GetIdentityPasswordSaltAndHash(i *Identity) (string, string) {
 	return i.doc.PasswordSalt, i.doc.PasswordHash
+}
+
+func TestingStateCollections(st *State) map[string]*mgo.Collection {
+	return map[string]*mgo.Collection{
+		"machines":    st.machines,
+		"units":       st.units,
+		"services":    st.services,
+		"relations":   st.relations,
+		"annotations": st.annotations,
+		"statuses":    st.statuses,
+		"constraints": st.constraints,
+		"settings":    st.settings,
+	}
+}
+
+func NewAllWatcherStateBacking(st *State) multiwatcher.Backing {
+	return newAllWatcherStateBacking(st)
 }
 
 var NewAddress = newAddress

@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package state_test
 
 import (
 	"errors"
@@ -13,12 +13,13 @@ import (
 	"github.com/juju/charm"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
-	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/watcher"
@@ -33,7 +34,13 @@ options:
 type storeManagerStateSuite struct {
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
-	State *State
+	State    *state.State
+	Deployer environmentserver.Deployer
+}
+
+func (s *storeManagerStateSuite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
@@ -44,12 +51,20 @@ func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.State = TestingInitialize(c, nil)
+
+	s.State = state.TestingInitialize(c, nil)
 	s.State.AddAdminUser("pass")
+
+	s.Deployer = environmentserver.NewDeployer(s.State)
+	s.State.SetEnvironment(s.Deployer, s.Deployer, s.Deployer, s.Deployer)
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
-	s.State.Close()
+	if s.State != nil {
+		s.State.Close()
+	} else {
+		c.Logf("skipping State.Close() due to previous error: %v", s.State)
+	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -68,7 +83,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	add := func(e params.EntityInfo) {
 		entities = append(entities, e)
 	}
-	m, err := s.State.EnvironmentDeployer.AddMachine("quantal", JobManageEnviron)
+	m, err := s.Deployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Tag(), gc.Equals, names.NewMachineTag("0"))
 	// TODO(dfc) instance.Id should take a TAG!
@@ -84,12 +99,12 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Status:                  params.StatusPending,
 		Life:                    params.Alive,
 		Series:                  "quantal",
-		Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
+		Jobs:                    []params.MachineJob{state.JobManageEnviron.ToParams()},
 		Addresses:               m.Addresses(),
 		HardwareCharacteristics: hc,
 	})
 
-	wordpress := AddTestingService(c, s.State, "wordpress", AddTestingCharm(c, s.State, "wordpress"))
+	wordpress := state.AddTestingService(c, s.State, "wordpress", state.AddTestingCharm(c, s.State, "wordpress"))
 	err = wordpress.SetExposed()
 	c.Assert(err, gc.IsNil)
 	err = wordpress.SetMinUnits(3)
@@ -115,7 +130,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		Annotations: pairs,
 	})
 
-	logging := AddTestingService(c, s.State, "logging", AddTestingCharm(c, s.State, "logging"))
+	logging := state.AddTestingService(c, s.State, "logging", state.AddTestingCharm(c, s.State, "logging"))
 	add(&params.ServiceInfo{
 		Name:     "logging",
 		CharmURL: serviceCharmURL(logging).String(),
@@ -141,7 +156,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 		c.Assert(err, gc.IsNil)
 		c.Assert(wu.Tag().String(), gc.Equals, fmt.Sprintf("unit-wordpress-%d", i))
 
-		m, err := s.State.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
+		m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.Tag().String(), gc.Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -174,7 +189,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 			StatusInfo:              m.Tag().String(),
 			Life:                    params.Alive,
 			Series:                  "quantal",
-			Jobs:                    []params.MachineJob{JobHostUnits.ToParams()},
+			Jobs:                    []params.MachineJob{state.JobHostUnits.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
 		})
@@ -210,7 +225,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *gc.C) (entities entityInfoSlic
 	return
 }
 
-func serviceCharmURL(svc *Service) *charm.URL {
+func serviceCharmURL(svc *state.Service) *charm.URL {
 	url, _ := svc.CharmURL()
 	return url
 }
@@ -239,7 +254,7 @@ func assertEntitiesEqual(c *gc.C, got, want []params.EntityInfo) {
 
 func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
 	expectEntities := s.setUpScenario(c)
-	b := newAllWatcherStateBacking(s.State)
+	b := state.NewAllWatcherStateBacking(s.State)
 	all := multiwatcher.NewStore()
 	err := b.GetAll(all)
 	c.Assert(err, gc.IsNil)
@@ -252,14 +267,14 @@ func (s *storeManagerStateSuite) TestStateBackingGetAll(c *gc.C) {
 var allWatcherChangedTests = []struct {
 	about          string
 	add            []params.EntityInfo
-	setUp          func(c *gc.C, st *State)
+	setUp          func(c *gc.C, st *state.State)
 	change         watcher.Change
 	expectContents []params.EntityInfo
 }{
 	// Machine changes
 	{
 		about: "no machine in state, no machine in store -> do nothing",
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "machines",
 			Id: "1",
@@ -267,15 +282,16 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "machine is removed if it's not in backing",
 		add:   []params.EntityInfo{&params.MachineInfo{Id: "1"}},
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "machines",
 			Id: "1",
 		},
 	}, {
 		about: "machine is added if it's in backing but not in Store",
-		setUp: func(c *gc.C, st *State) {
-			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
+		setUp: func(c *gc.C, st *state.State) {
+			println(st.EnvironmentDeployer)
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = m.SetStatus(params.StatusError, "failure", nil)
 			c.Assert(err, gc.IsNil)
@@ -291,7 +307,7 @@ var allWatcherChangedTests = []struct {
 				StatusInfo: "failure",
 				Life:       params.Alive,
 				Series:     "quantal",
-				Jobs:       []params.MachineJob{JobHostUnits.ToParams()},
+				Jobs:       []params.MachineJob{state.JobHostUnits.ToParams()},
 				Addresses:  []network.Address{},
 			},
 		},
@@ -306,8 +322,8 @@ var allWatcherChangedTests = []struct {
 				StatusInfo: "another failure",
 			},
 		},
-		setUp: func(c *gc.C, st *State) {
-			m, err := st.EnvironmentDeployer.AddMachine("trusty", JobManageEnviron)
+		setUp: func(c *gc.C, st *state.State) {
+			m, err := st.EnvironmentDeployer.AddMachine("trusty", state.JobManageEnviron)
 			c.Assert(err, gc.IsNil)
 			err = m.SetProvisioned("i-0", "bootstrap_nonce", nil)
 			c.Assert(err, gc.IsNil)
@@ -326,7 +342,7 @@ var allWatcherChangedTests = []struct {
 				StatusInfo:               "another failure",
 				Life:                     params.Alive,
 				Series:                   "trusty",
-				Jobs:                     []params.MachineJob{JobManageEnviron.ToParams()},
+				Jobs:                     []params.MachineJob{state.JobManageEnviron.ToParams()},
 				Addresses:                []network.Address{},
 				HardwareCharacteristics:  &instance.HardwareCharacteristics{},
 				SupportedContainers:      []instance.ContainerType{instance.LXC},
@@ -337,7 +353,7 @@ var allWatcherChangedTests = []struct {
 	// Unit changes
 	{
 		about: "no unit in state, no unit in store -> do nothing",
-		setUp: func(c *gc.C, st *State) {},
+		setUp: func(c *gc.C, st *state.State) {},
 		change: watcher.Change{
 			C:  "units",
 			Id: "1",
@@ -345,20 +361,20 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "unit is removed if it's not in backing",
 		add:   []params.EntityInfo{&params.UnitInfo{Name: "wordpress/1"}},
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "units",
 			Id: "wordpress/1",
 		},
 	}, {
 		about: "unit is added if it's in backing but not in Store",
-		setUp: func(c *gc.C, st *State) {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			wordpress := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, gc.IsNil)
-			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, gc.IsNil)
@@ -389,8 +405,8 @@ var allWatcherChangedTests = []struct {
 			Status:     params.StatusError,
 			StatusInfo: "another failure",
 		}},
-		setUp: func(c *gc.C, st *State) {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			wordpress := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
 			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
@@ -417,13 +433,13 @@ var allWatcherChangedTests = []struct {
 		},
 	}, {
 		about: "unit addresses are read from the assigned machine for recent Juju releases",
-		setUp: func(c *gc.C, st *State) {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			wordpress := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, gc.IsNil)
-			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, gc.IsNil)
@@ -457,7 +473,7 @@ var allWatcherChangedTests = []struct {
 	// Service changes
 	{
 		about: "no service in state, no service in store -> do nothing",
-		setUp: func(c *gc.C, st *State) {},
+		setUp: func(c *gc.C, st *state.State) {},
 		change: watcher.Change{
 			C:  "services",
 			Id: "wordpress",
@@ -465,15 +481,15 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "service is removed if it's not in backing",
 		add:   []params.EntityInfo{&params.ServiceInfo{Name: "wordpress"}},
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "services",
 			Id: "wordpress",
 		},
 	}, {
 		about: "service is added if it's in backing but not in Store",
-		setUp: func(c *gc.C, st *State) {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			wordpress := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			err := wordpress.SetExposed()
 			c.Assert(err, gc.IsNil)
 			err = wordpress.SetMinUnits(42)
@@ -504,8 +520,8 @@ var allWatcherChangedTests = []struct {
 			Constraints: constraints.MustParse("mem=99M"),
 			Config:      charm.Settings{"blog-title": "boring"},
 		}},
-		setUp: func(c *gc.C, st *State) {
-			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			svc := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			setServiceConfigAttr(c, svc, "blog-title", "boring")
 		},
 		change: watcher.Change{
@@ -531,8 +547,8 @@ var allWatcherChangedTests = []struct {
 			CharmURL: "local:quantal/quantal-wordpress-2",
 			Config:   charm.Settings{"foo": "bar"},
 		}},
-		setUp: func(c *gc.C, st *State) {
-			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			svc := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			setServiceConfigAttr(c, svc, "blog-title", "boring")
 		},
 		change: watcher.Change{
@@ -552,7 +568,7 @@ var allWatcherChangedTests = []struct {
 	// Relation changes
 	{
 		about: "no relation in state, no service in store -> do nothing",
-		setUp: func(c *gc.C, st *State) {},
+		setUp: func(c *gc.C, st *state.State) {},
 		change: watcher.Change{
 			C:  "relations",
 			Id: "logging:logging-directory wordpress:logging-dir",
@@ -560,17 +576,17 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "relation is removed if it's not in backing",
 		add:   []params.EntityInfo{&params.RelationInfo{Key: "logging:logging-directory wordpress:logging-dir"}},
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "relations",
 			Id: "logging:logging-directory wordpress:logging-dir",
 		},
 	}, {
 		about: "relation is added if it's in backing but not in Store",
-		setUp: func(c *gc.C, st *State) {
-			AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 
-			AddTestingService(c, st, "logging", AddTestingCharm(c, st, "logging"))
+			state.AddTestingService(c, st, "logging", state.AddTestingCharm(c, st, "logging"))
 			eps, err := st.InferEndpoints([]string{"logging", "wordpress"})
 			c.Assert(err, gc.IsNil)
 			_, err = st.AddRelation(eps...)
@@ -592,7 +608,7 @@ var allWatcherChangedTests = []struct {
 	// Annotation changes
 	{
 		about: "no annotation in state, no annotation in store -> do nothing",
-		setUp: func(c *gc.C, st *State) {},
+		setUp: func(c *gc.C, st *state.State) {},
 		change: watcher.Change{
 			C:  "relations",
 			Id: "m#0",
@@ -600,15 +616,15 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "annotation is removed if it's not in backing",
 		add:   []params.EntityInfo{&params.AnnotationInfo{Tag: "machine-0"}},
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "annotations",
 			Id: "m#0",
 		},
 	}, {
 		about: "annotation is added if it's in backing but not in Store",
-		setUp: func(c *gc.C, st *State) {
-			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
+		setUp: func(c *gc.C, st *state.State) {
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = m.SetAnnotations(map[string]string{"foo": "bar", "arble": "baz"})
 			c.Assert(err, gc.IsNil)
@@ -633,8 +649,8 @@ var allWatcherChangedTests = []struct {
 				"pretty": "polly",
 			},
 		}},
-		setUp: func(c *gc.C, st *State) {
-			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
+		setUp: func(c *gc.C, st *state.State) {
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = m.SetAnnotations(map[string]string{
 				"arble":  "khroomph",
@@ -660,7 +676,7 @@ var allWatcherChangedTests = []struct {
 	// Unit status changes
 	{
 		about: "no unit in state -> do nothing",
-		setUp: func(c *gc.C, st *State) {},
+		setUp: func(c *gc.C, st *state.State) {},
 		change: watcher.Change{
 			C:  "statuses",
 			Id: "u#wordpress/0",
@@ -672,7 +688,7 @@ var allWatcherChangedTests = []struct {
 			Status:     params.StatusError,
 			StatusInfo: "failure",
 		}},
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "statuses",
 			Id: "u#wordpress/0",
@@ -691,8 +707,8 @@ var allWatcherChangedTests = []struct {
 			Status:     params.StatusError,
 			StatusInfo: "failure",
 		}},
-		setUp: func(c *gc.C, st *State) {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			wordpress := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
 			err = u.SetStatus(params.StatusStarted, "", nil)
@@ -715,8 +731,8 @@ var allWatcherChangedTests = []struct {
 			Name:   "wordpress/0",
 			Status: params.StatusStarted,
 		}},
-		setUp: func(c *gc.C, st *State) {
-			wordpress := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			wordpress := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
 			err = u.SetStatus(params.StatusError, "hook error", params.StatusData{
@@ -746,7 +762,7 @@ var allWatcherChangedTests = []struct {
 	// Machine status changes
 	{
 		about: "no machine in state -> do nothing",
-		setUp: func(c *gc.C, st *State) {},
+		setUp: func(c *gc.C, st *state.State) {},
 		change: watcher.Change{
 			C:  "statuses",
 			Id: "m#0",
@@ -758,7 +774,7 @@ var allWatcherChangedTests = []struct {
 			Status:     params.StatusError,
 			StatusInfo: "failure",
 		}},
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "statuses",
 			Id: "m#0",
@@ -775,8 +791,8 @@ var allWatcherChangedTests = []struct {
 			Status:     params.StatusError,
 			StatusInfo: "failure",
 		}},
-		setUp: func(c *gc.C, st *State) {
-			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
+		setUp: func(c *gc.C, st *state.State) {
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = m.SetStatus(params.StatusStarted, "", nil)
 			c.Assert(err, gc.IsNil)
@@ -796,7 +812,7 @@ var allWatcherChangedTests = []struct {
 	// Service constraints changes
 	{
 		about: "no service in state -> do nothing",
-		setUp: func(c *gc.C, st *State) {},
+		setUp: func(c *gc.C, st *state.State) {},
 		change: watcher.Change{
 			C:  "constraints",
 			Id: "s#wordpress",
@@ -807,7 +823,7 @@ var allWatcherChangedTests = []struct {
 			Name:        "wordpress",
 			Constraints: constraints.MustParse("mem=99M"),
 		}},
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "constraints",
 			Id: "s#wordpress",
@@ -822,8 +838,8 @@ var allWatcherChangedTests = []struct {
 			Name:        "wordpress",
 			Constraints: constraints.MustParse("mem=99M cpu-cores=2 cpu-power=4"),
 		}},
-		setUp: func(c *gc.C, st *State) {
-			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			svc := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			err := svc.SetConstraints(constraints.MustParse("mem=4G cpu-cores= arch=amd64"))
 			c.Assert(err, gc.IsNil)
 		},
@@ -841,7 +857,7 @@ var allWatcherChangedTests = []struct {
 	// Service config changes.
 	{
 		about: "no service in state -> do nothing",
-		setUp: func(c *gc.C, st *State) {},
+		setUp: func(c *gc.C, st *state.State) {},
 		change: watcher.Change{
 			C:  "settings",
 			Id: "s#wordpress#local:quantal/quantal-wordpress-3",
@@ -852,7 +868,7 @@ var allWatcherChangedTests = []struct {
 			Name:     "wordpress",
 			CharmURL: "local:quantal/quantal-wordpress-3",
 		}},
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "settings",
 			Id: "s#wordpress#local:quantal/quantal-wordpress-3",
@@ -868,8 +884,8 @@ var allWatcherChangedTests = []struct {
 			CharmURL: "local:quantal/quantal-wordpress-3",
 			Config:   charm.Settings{"foo": "bar"},
 		}},
-		setUp: func(c *gc.C, st *State) {
-			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			svc := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			setServiceConfigAttr(c, svc, "blog-title", "foo")
 		},
 		change: watcher.Change{
@@ -890,12 +906,12 @@ var allWatcherChangedTests = []struct {
 			CharmURL: "local:quantal/quantal-wordpress-3",
 			Config:   charm.Settings{"key.dotted": "bar"},
 		}},
-		setUp: func(c *gc.C, st *State) {
-			testCharm := AddCustomCharm(
+		setUp: func(c *gc.C, st *state.State) {
+			testCharm := state.AddCustomCharm(
 				c, st, "wordpress",
 				"config.yaml", dottedConfig,
 				"quantal", 3)
-			svc := AddTestingService(c, st, "wordpress", testCharm)
+			svc := state.AddTestingService(c, st, "wordpress", testCharm)
 			setServiceConfigAttr(c, svc, "key.dotted", "foo")
 		},
 		change: watcher.Change{
@@ -916,8 +932,8 @@ var allWatcherChangedTests = []struct {
 			CharmURL: "local:quantal/quantal-wordpress-2", // Note different revno.
 			Config:   charm.Settings{"foo": "bar"},
 		}},
-		setUp: func(c *gc.C, st *State) {
-			svc := AddTestingService(c, st, "wordpress", AddTestingCharm(c, st, "wordpress"))
+		setUp: func(c *gc.C, st *state.State) {
+			svc := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			setServiceConfigAttr(c, svc, "blog-title", "foo")
 		},
 		change: watcher.Change{
@@ -933,14 +949,14 @@ var allWatcherChangedTests = []struct {
 		},
 	}, {
 		about: "non-service config change is ignored",
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "settings",
 			Id: "m#0",
 		},
 	}, {
 		about: "service config change with no charm url is ignored",
-		setUp: func(*gc.C, *State) {},
+		setUp: func(*gc.C, *state.State) {},
 		change: watcher.Change{
 			C:  "settings",
 			Id: "s#foo",
@@ -948,25 +964,16 @@ var allWatcherChangedTests = []struct {
 	},
 }
 
-func setServiceConfigAttr(c *gc.C, svc *Service, attr string, val interface{}) {
+func setServiceConfigAttr(c *gc.C, svc *state.Service, attr string, val interface{}) {
 	err := svc.UpdateConfigSettings(charm.Settings{attr: val})
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
-	collections := map[string]*mgo.Collection{
-		"machines":    s.State.machines,
-		"units":       s.State.units,
-		"services":    s.State.services,
-		"relations":   s.State.relations,
-		"annotations": s.State.annotations,
-		"statuses":    s.State.statuses,
-		"constraints": s.State.constraints,
-		"settings":    s.State.settings,
-	}
+	collections := state.TestingStateCollections(s.State)
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
-		b := newAllWatcherStateBacking(s.State)
+		b := state.NewAllWatcherStateBacking(s.State)
 		all := multiwatcher.NewStore()
 		for _, info := range test.add {
 			all.Update(info)
@@ -986,15 +993,15 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
-	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", JobManageEnviron)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m0.Id(), gc.Equals, "0")
 
-	m1, err := s.State.EnvironmentDeployer.AddMachine("saucy", JobHostUnits)
+	m1, err := s.State.EnvironmentDeployer.AddMachine("saucy", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m1.Id(), gc.Equals, "1")
 
-	b := newAllWatcherStateBacking(s.State)
+	b := state.NewAllWatcherStateBacking(s.State)
 	aw := multiwatcher.NewStoreManager(b)
 	defer aw.Stop()
 	w := multiwatcher.NewWatcher(aw)
@@ -1005,7 +1012,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    params.StatusPending,
 			Life:      params.Alive,
 			Series:    "quantal",
-			Jobs:      []params.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:      []params.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
@@ -1014,7 +1021,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    params.StatusPending,
 			Life:      params.Alive,
 			Series:    "saucy",
-			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []params.MachineJob{state.JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}}, "")
@@ -1034,7 +1041,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = m1.Remove()
 	c.Assert(err, gc.IsNil)
-	m2, err := s.State.EnvironmentDeployer.AddMachine("trusty", JobHostUnits)
+	m2, err := s.State.EnvironmentDeployer.AddMachine("trusty", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m2.Id(), gc.Equals, "2")
 	s.State.StartSync()
@@ -1057,7 +1064,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    params.StatusPending,
 			Life:      params.Alive,
 			Series:    "saucy",
-			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []params.MachineJob{state.JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
@@ -1066,7 +1073,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:    params.StatusPending,
 			Life:      params.Alive,
 			Series:    "trusty",
-			Jobs:      []params.MachineJob{JobHostUnits.ToParams()},
+			Jobs:      []params.MachineJob{state.JobHostUnits.ToParams()},
 			Addresses: []network.Address{},
 		},
 	}, {
@@ -1076,7 +1083,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *gc.C) {
 			Status:                  params.StatusPending,
 			Life:                    params.Alive,
 			Series:                  "quantal",
-			Jobs:                    []params.MachineJob{JobManageEnviron.ToParams()},
+			Jobs:                    []params.MachineJob{state.JobManageEnviron.ToParams()},
 			Addresses:               []network.Address{},
 			HardwareCharacteristics: hc,
 		},
