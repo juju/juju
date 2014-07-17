@@ -215,7 +215,6 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 			return
 		}
 	}
-	return
 }
 
 // checkNoOperations checks that the environ was not operated upon.
@@ -819,6 +818,37 @@ func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
 	s.waitRemoved(c, m0)
 }
 
+type mockMachineGetter struct{}
+
+func (*mockMachineGetter) Machine(tag string) (*apiprovisioner.Machine, error) {
+	return nil, fmt.Errorf("error")
+}
+
+func (*mockMachineGetter) MachinesWithTransientErrors() ([]*apiprovisioner.Machine, []params.StatusResult, error) {
+	return nil, nil, fmt.Errorf("error")
+}
+
+func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
+	task := s.newProvisionerTask(c, false, s.APIConn.Environ, s.provisioner)
+	defer stop(c, task)
+
+	// create a machine
+	m0, err := s.addMachine()
+	c.Assert(err, gc.IsNil)
+	s.checkStartInstance(c, m0)
+
+	// create an instance out of band
+	s.startUnknownInstance(c, "999")
+
+	// start the provisioner and ensure it doesn't kill any instances if there are error getting machines
+	task = s.newProvisionerTask(c, false, s.APIConn.Environ, &mockMachineGetter{})
+	defer func() {
+		err := task.Stop()
+		c.Assert(err, gc.ErrorMatches, ".*failed to get machine 0.*")
+	}()
+	s.checkNoOperations(c)
+}
+
 func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
@@ -881,7 +911,10 @@ func (s *ProvisionerSuite) TestProvisioningSafeModeChange(c *gc.C) {
 	s.waitRemoved(c, m3)
 }
 
-func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool, broker environs.InstanceBroker) provisioner.ProvisionerTask {
+func (s *ProvisionerSuite) newProvisionerTask(
+	c *gc.C, safeMode bool, broker environs.InstanceBroker, machineGetter provisioner.MachineGetter,
+) provisioner.ProvisionerTask {
+
 	machineWatcher, err := s.provisioner.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
 	retryWatcher, err := s.provisioner.WatchMachineErrorRetry()
@@ -889,12 +922,12 @@ func (s *ProvisionerSuite) newProvisionerTask(c *gc.C, safeMode bool, broker env
 	auth, err := environs.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
 	return provisioner.NewProvisionerTask(
-		"machine-0", safeMode, s.provisioner,
+		"machine-0", safeMode, machineGetter,
 		machineWatcher, retryWatcher, broker, auth)
 }
 
 func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, true, s.APIConn.Environ)
+	task := s.newProvisionerTask(c, true, s.APIConn.Environ, s.provisioner)
 	defer stop(c, task)
 
 	// Initially create a machine, and an unknown instance, with safe mode on.
@@ -918,7 +951,7 @@ func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
 	var e environs.Environ = &mockBroker{Environ: s.APIConn.Environ, retryCount: make(map[string]int)}
-	task := s.newProvisionerTask(c, false, e)
+	task := s.newProvisionerTask(c, false, e, s.provisioner)
 	defer stop(c, task)
 
 	// Provision some machines, some will be started first time,
