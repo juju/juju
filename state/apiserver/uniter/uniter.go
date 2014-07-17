@@ -51,8 +51,8 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		if !ok {
 			panic("authenticated entity is not a unit")
 		}
-		return func(tag string) bool {
-			return tag == names.NewServiceTag(unit.ServiceName()).String()
+		return func(tag names.Tag) bool {
+			return tag == names.NewServiceTag(unit.ServiceName())
 		}, nil
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)

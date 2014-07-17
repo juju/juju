@@ -4,9 +4,11 @@
 package common
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/names"
 )
 
 // AgentEntityWatcher implements a common Watch method for use by
@@ -28,7 +30,7 @@ func NewAgentEntityWatcher(st state.EntityFinder, resources *Resources, getCanWa
 	}
 }
 
-func (a *AgentEntityWatcher) watchEntity(tag string) (string, error) {
+func (a *AgentEntityWatcher) watchEntity(tag names.Tag) (string, error) {
 	entity0, err := a.st.FindEntity(tag)
 	if err != nil {
 		return "", err
@@ -58,13 +60,17 @@ func (a *AgentEntityWatcher) Watch(args params.Entities) (params.NotifyWatchResu
 	}
 	canWatch, err := a.getCanWatch()
 	if err != nil {
-		return params.NotifyWatchResults{}, err
+		return params.NotifyWatchResults{}, errors.Trace(err)
 	}
 	for i, entity := range args.Entities {
-		err := ErrPerm
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			return params.NotifyWatchResults{}, errors.Trace(err)
+		}
+		err = ErrPerm
 		watcherId := ""
-		if canWatch(entity.Tag) {
-			watcherId, err = a.watchEntity(entity.Tag)
+		if canWatch(tag) {
+			watcherId, err = a.watchEntity(tag)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
 		result.Results[i].Error = ServerError(err)

@@ -4,10 +4,9 @@
 package upgrader
 
 import (
-	"errors"
-
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
@@ -93,8 +92,12 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
 	for i, agent := range args.Entities {
-		err := common.ErrPerm
-		if u.authorizer.AuthOwner(agent.Tag) {
+		tag, err := names.ParseTag(agent.Tag)
+		if err != nil {
+			return params.NotifyWatchResults{}, errors.Trace(err)
+		}
+		err = common.ErrPerm
+		if u.authorizer.AuthOwner(tag) {
 			watch := u.st.WatchForEnvironConfigChanges()
 			// Consume the initial event. Technically, API
 			// calls to Watch 'transmit' the initial event
@@ -129,7 +132,7 @@ type hasIsManager interface {
 	IsManager() bool
 }
 
-func (u *UpgraderAPI) entityIsManager(tag string) bool {
+func (u *UpgraderAPI) entityIsManager(tag names.Tag) bool {
 	entity, err := u.st.FindEntity(tag)
 	if err != nil {
 		return false
@@ -154,8 +157,13 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 	// Is the desired version greater than the current API server version?
 	isNewerVersion := agentVersion.Compare(version.Current.Number) > 0
 	for i, entity := range args.Entities {
-		err := common.ErrPerm
-		if u.authorizer.AuthOwner(entity.Tag) {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = common.ErrPerm
+		if u.authorizer.AuthOwner(tag) {
 			// Only return the globally desired agent version if the
 			// asking entity is a machine agent with JobManageEnviron or
 			// if this API server is running the globally desired agent
@@ -166,7 +174,7 @@ func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResult
 			// first - once they have restarted and are running the
 			// new version other agents will start to see the new
 			// agent version.
-			if !isNewerVersion || u.entityIsManager(entity.Tag) {
+			if !isNewerVersion || u.entityIsManager(tag) {
 				results[i].Version = &agentVersion
 			} else {
 				logger.Debugf("desired version is %s, but current version is %s and agent is not a manager node", agentVersion, version.Current.Number)

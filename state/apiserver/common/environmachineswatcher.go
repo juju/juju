@@ -39,7 +39,8 @@ func (e *EnvironMachinesWatcher) WatchEnvironMachines() (params.StringsWatchResu
 	if err != nil {
 		return params.StringsWatchResult{}, err
 	}
-	if !canWatch("") {
+	// TODO(dfc) what the flock
+	if !canWatch(nil) {
 		return result, ErrPerm
 	}
 	watch := e.st.WatchEnvironMachines()

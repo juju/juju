@@ -765,18 +765,22 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 // GetAnnotations returns annotations about a given entity.
 func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
 	nothing := params.GetAnnotationsResults{}
-	entity, err := c.findEntity(args.Tag)
+	tag, err := names.ParseTag(args.Tag)
 	if err != nil {
-		return nothing, err
+		return nothing, errors.Trace(err)
+	}
+	entity, err := c.findEntity(tag)
+	if err != nil {
+		return nothing, errors.Trace(err)
 	}
 	ann, err := entity.Annotations()
 	if err != nil {
-		return nothing, err
+		return nothing, errors.Trace(err)
 	}
 	return params.GetAnnotationsResults{Annotations: ann}, nil
 }
 
-func (c *Client) findEntity(tag string) (state.Annotator, error) {
+func (c *Client) findEntity(tag names.Tag) (state.Annotator, error) {
 	entity0, err := c.api.state.FindEntity(tag)
 	if err != nil {
 		return nil, err
@@ -790,10 +794,10 @@ func (c *Client) findEntity(tag string) (state.Annotator, error) {
 
 // SetAnnotations stores annotations about a given entity.
 func (c *Client) SetAnnotations(args params.SetAnnotations) error {
-	entity, err := c.findEntity(args.Tag)
-	if err != nil {
-		return err
-	}
+	tag, err := names.ParseTag(args.Tag)
+	if err != nil { return errors.Trace(err) }
+	entity, err := c.findEntity(tag)
+	if err != nil { return errors.Trace(err) }
 	return entity.SetAnnotations(args.Pairs)
 }
 

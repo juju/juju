@@ -48,7 +48,8 @@ func (e *EnvironWatcher) WatchForEnvironConfigChanges() (params.NotifyWatchResul
 	}
 	// TODO(dimitern) If we have multiple environments in state, use a
 	// tag argument here and as a method argument.
-	if !canWatch("") {
+	// TODO(dfc) this is all kinds of wrong
+	if !canWatch(nil) {
 		return result, ErrPerm
 	}
 
@@ -82,7 +83,8 @@ func (e *EnvironWatcher) EnvironConfig() (params.EnvironConfigResult, error) {
 
 	// TODO(dimitern) If we have multiple environments in state, use a
 	// tag argument here and as a method argument.
-	if !canReadSecrets("") {
+	// TODO(dfc) this is all kinds of wrong.
+	if !canReadSecrets(nil) {
 		// Mask out any secrets in the environment configuration
 		// with values of the same type, so it'll pass validation.
 		//
