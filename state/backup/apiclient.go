@@ -24,7 +24,7 @@ const (
 	DigestAlgorithm  = "SHA"
 )
 
-func DefaultFilename(now *time.Time) string {
+func defaultFilename(now *time.Time) string {
 	if now == nil {
 		_now := time.Now().UTC()
 		now = &_now
@@ -35,9 +35,12 @@ func DefaultFilename(now *time.Time) string {
 	return fmt.Sprintf(FilenameTemplate, formattedDate)
 }
 
+// CreateEmptyFile returns a new file (and its filename).  The file is
+// created fresh and is intended as the target for writing a new backup
+// archive.
 func CreateEmptyFile(filename string) (*os.File, string, error) {
 	if filename == "" {
-		filename = DefaultFilename(nil)
+		filename = defaultFilename(nil)
 	}
 	file, err := os.Create(filename)
 	if err != nil {
@@ -46,6 +49,8 @@ func CreateEmptyFile(filename string) (*os.File, string, error) {
 	return file, filename, nil
 }
 
+// NewAPIRequest returns a new HTTP request that may be used to make the
+// backup API call.
 func NewAPIRequest(URL *url.URL, uuid, tag, pw string) (*http.Request, error) {
 	// XXX This needs to be env-based.
 	URL.Path += "/backup"
@@ -70,6 +75,11 @@ func parseJSONError(resp *http.Response) (string, error) {
 	return jsonResponse.Error, nil
 }
 
+// CheckAPIResponse checks the HTTP response for an API failure.  This
+// involves both the HTTP status code and the response body.  If the
+// status code indicates a failure (i.e. not StatusOK) then the response
+// body will be consumed and parsed as a JSON serialization of the
+// error type used by backup.
 func CheckAPIResponse(resp *http.Response) *params.Error {
 	var code string
 
@@ -94,12 +104,15 @@ func CheckAPIResponse(resp *http.Response) *params.Error {
 	return &params.Error{failure, code}
 }
 
+// WriteBackup writes an input stream into an archive file.  It returns
+// the SHA-1 hash of the data written to the archive.
+//
+// Note that the hash is of the compressed file rather than uncompressed
+// data since it is simpler.  Ultimately it doesn't matter as long as
+// the API server does the same thing (which it will if the juju version
+// is the same).
 func WriteBackup(archive io.Writer, infile io.Reader) (string, error) {
 	// Set up hashing the archive.
-	// We take the hash of the compressed file rather than uncompressed
-	// data since it is simpler.  Ultimately it doesn't matter as long
-	// as the API server does the same thing (which it will if the
-	// JUJU version is the same).
 	hasher := sha1.New()
 	target := io.MultiWriter(archive, hasher)
 
