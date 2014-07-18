@@ -59,12 +59,20 @@ func (b *BackupSuite) TestCreateEmptyFileFilenameExplicit(c *gc.C) {
 	c.Check(filename, gc.Equals, requested)
 }
 
-func (b *BackupSuite) TestCreateEmptyFileDefault(c *gc.C) {
+func (b *BackupSuite) TestCreateEmptyFileFilenameDefault(c *gc.C) {
 	file, filename, err := backup.CreateEmptyFile("", false)
 	defer os.Remove(filename)
 	c.Check(err, gc.IsNil)
 	c.Check(file, gc.NotNil)
 	c.Check(filename, gc.Matches, `jujubackup-\d{8}-\d{6}\.tar\.gz`)
+}
+
+func (b *BackupSuite) TestCreateEmptyFileFilenameDirDefault(c *gc.C) {
+	file, filename, err := backup.CreateEmptyFile("/tmp/", false)
+	defer os.Remove(filename)
+	c.Check(err, gc.IsNil)
+	c.Check(file, gc.NotNil)
+	c.Check(filename, gc.Matches, `/tmp/jujubackup-\d{8}-\d{6}\.tar\.gz`)
 }
 
 func (b *BackupSuite) TestCreateEmptyFile(c *gc.C) {

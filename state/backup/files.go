@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -30,10 +31,18 @@ func defaultFilename(now *time.Time) string {
 // CreateEmptyFile returns a new file (and its filename).  The file is
 // created fresh and is intended as the target for writing a new backup
 // archive.  If excl is true, a file cannot exist at the filename already.
+//
+// If the provided filename is an empty string, a default filename is
+// generated using the current UTC timestamp.  Likewise if the filename
+// ends with the path separator (e.g. "/"), the default filename is
+// generated and appended to the provided one.
 func CreateEmptyFile(filename string, excl bool) (*os.File, string, error) {
 	if filename == "" {
 		filename = defaultFilename(nil)
+	} else if strings.HasSuffix(filename, string(os.PathSeparator)) {
+		filename += defaultFilename(nil)
 	}
+
 	var file *os.File
 	var err error
 	if excl {
