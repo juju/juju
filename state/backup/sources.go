@@ -85,7 +85,7 @@ func _getMongodumpPath() (string, error) {
 	return path, nil
 }
 
-func dumpDatabase(dbinfo *dbConnInfo, dumpDir string) error {
+func dumpDatabase(dbinfo *DBConnInfo, dumpDir string) error {
 	mongodumpPath, err := getMongodumpPath()
 	if err != nil {
 		return fmt.Errorf("mongodump not available: %v", err)

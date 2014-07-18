@@ -25,7 +25,8 @@ func (b *BackupSuite) TestBackup(c *gc.C) {
 		ranCommand = true
 		return nil
 	})
-	bkpFile, shaSum, err := backup.Backup("boguspassword", "bogus-user", b.cwd, "localhost:8080")
+	dbinfo := backup.DBConnInfo{"localhost:8080", "bogus-user", "boguspassword"}
+	bkpFile, shaSum, err := backup.Backup(&dbinfo, b.cwd)
 	c.Check(err, gc.IsNil)
 	c.Assert(ranCommand, gc.Equals, true)
 

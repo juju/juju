@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver"
+	"github.com/juju/juju/state/backup"
 )
 
 var uploadBackupToStorage = *apiserver.UploadBackupToStorage
@@ -81,13 +82,13 @@ type happyBackup struct {
 	tempDir, mongoPassword, username, address string
 }
 
-func (b *happyBackup) Backup(password string, username string, tempDir string, address string) (
+func (b *happyBackup) Backup(info *backup.DBConnInfo, tempDir string) (
 	string, string, error,
 ) {
 	b.tempDir = tempDir
-	b.mongoPassword = password
-	b.username = username
-	b.address = address
+	b.mongoPassword = info.Password
+	b.username = info.Username
+	b.address = info.Hostname
 	backupFilePath := filepath.Join(tempDir, "testBackupFile")
 	if err := ioutil.WriteFile(backupFilePath, []byte("foobarbam"), 0644); err != nil {
 		return "", "", err
@@ -139,7 +140,7 @@ func (s *backupSuite) TestBackupCalledAndFileServedAndStored(c *gc.C) {
 
 func (s *backupSuite) TestBackupErrorWhenBackupFails(c *gc.C) {
 	var data struct{ tempDir string }
-	testBackup := func(password string, username string, tempDir string, address string) (string, string, error) {
+	testBackup := func(info *backup.DBConnInfo, tempDir string) (string, string, error) {
 		data.tempDir = tempDir
 		return "", "", fmt.Errorf("something bad")
 	}
@@ -158,7 +159,7 @@ func (s *backupSuite) TestBackupErrorWhenBackupFails(c *gc.C) {
 
 func (s *backupSuite) TestBackupErrorWhenBackupFileDoesNotExist(c *gc.C) {
 	var data struct{ tempDir string }
-	testBackup := func(password string, username string, tempDir string, address string) (string, string, error) {
+	testBackup := func(info *backup.DBConnInfo, tempDir string) (string, string, error) {
 		data.tempDir = tempDir
 		backupFilePath := filepath.Join(tempDir, "testBackupFile")
 		return backupFilePath, "some-sha", nil

@@ -20,24 +20,11 @@ var (
 )
 
 // This is effectively the "connection string".
-type dbConnInfo struct {
+// It probably doesn't belong here in the long term.
+type DBConnInfo struct {
 	Hostname string
 	Username string
 	Password string
-}
-
-// Backup creates a tar.gz file named juju-backup_<date YYYYMMDDHHMMSS>.tar.gz
-// in the specified outputFolder.
-// The backup contains a dump folder with the output of mongodump command
-// and a root.tar file which contains all the system files obtained from
-// the output of getFilesToBackup
-func Backup(password string, username string, outputFolder string, addr string) (string, string, error) {
-	dbinfo := dbConnInfo{
-		Hostname: addr,
-		Username: username,
-		Password: password,
-	}
-	return backup(&dbinfo, outputFolder)
 }
 
 func bundleStateFiles(targetDir string) error {
@@ -53,7 +40,12 @@ func bundleStateFiles(targetDir string) error {
 	return nil
 }
 
-func backup(dbinfo *dbConnInfo, outputFolder string) (string, string, error) {
+// Backup creates a tar.gz file named juju-backup-<date YYYYMMDD-HHMMSS>.tar.gz
+// in the specified outputFolder.
+// The backup contains a dump folder with the output of mongodump command
+// and a root.tar file which contains all the system files obtained from
+// the output of getFilesToBackup.
+func Backup(dbinfo *DBConnInfo, outputFolder string) (string, string, error) {
 	// YYYYMMDDHHMMSS
 	formattedDate := time.Now().Format("20060102150405")
 
