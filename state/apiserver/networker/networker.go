@@ -41,25 +41,21 @@ func NewNetworkerAPI(
 		return nil, common.ErrPerm
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
-		authEntityTag := authorizer.GetAuthTag().String()
+		authEntityTag := authorizer.GetAuthTag()
 
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			if tag == authEntityTag {
 				// A machine agent can always access its own machine.
 				return true
 			}
-			t, err := names.ParseMachineTag(tag)
-			if err != nil {
+			if _, ok := tag.(names.MachineTag); !ok {
 				// Only machine tags are allowed.
 				return false
 			}
-			id := t.Id()
+			id := tag.Id()
 			for parentId := state.ParentId(id); parentId != ""; parentId = state.ParentId(parentId) {
 				// Until a top-level machine is reached.
-				// TODO(dfc) comparing the two interfaces caused a compiler crash with
-				// gcc version 4.9.0 (Ubuntu 4.9.0-7ubuntu1). Work around the issue
-				// by comparing by string value.
-				if names.NewMachineTag(parentId).String() == authEntityTag {
+				if names.NewMachineTag(parentId) == authEntityTag {
 					// All containers with the authenticated machine as a
 					// parent are accessible by it.
 					return true
@@ -114,13 +110,18 @@ func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineN
 	if err != nil {
 		return result, err
 	}
-	var tag names.Tag
 	for i, entity := range args.Entities {
-		if !canAccess(entity.Tag) {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+
+		if !canAccess(tag) {
 			err = common.ErrPerm
 		} else {
-			tag, err = names.ParseMachineTag(entity.Tag)
-			if err == nil {
+			tag, ok := tag.(names.MachineTag)
+			if ok {
 				id := tag.Id()
 				result.Results[i].Info, err = n.oneMachineInfo(id)
 			}
@@ -153,13 +154,17 @@ func (n *NetworkerAPI) WatchInterfaces(args params.Entities) (params.NotifyWatch
 	if err != nil {
 		return result, err
 	}
-	var tag names.Tag
 	for i, entity := range args.Entities {
-		if !canAccess(entity.Tag) {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		if !canAccess(tag) {
 			err = common.ErrPerm
 		} else {
-			tag, err = names.ParseMachineTag(entity.Tag)
-			if err == nil {
+			tag, ok := tag.(names.MachineTag)
+			if ok {
 				id := tag.Id()
 				result.Results[i].NotifyWatcherId, err = n.watchOneMachineInterfaces(id)
 			}

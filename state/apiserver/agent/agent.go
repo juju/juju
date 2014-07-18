@@ -10,6 +10,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/names"
 )
 
 func init() {
@@ -46,14 +47,19 @@ func (api *API) GetEntities(args params.Entities) params.AgentGetEntitiesResults
 		Entities: make([]params.AgentGetEntitiesResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		result, err := api.getEntity(entity.Tag)
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results.Entities[i].Error = common.ServerError(err)
+			continue
+		}
+		result, err := api.getEntity(tag)
 		result.Error = common.ServerError(err)
 		results.Entities[i] = result
 	}
 	return results
 }
 
-func (api *API) getEntity(tag string) (result params.AgentGetEntitiesResult, err error) {
+func (api *API) getEntity(tag names.Tag) (result params.AgentGetEntitiesResult, err error) {
 	// Allow only for the owner agent.
 	// Note: having a bulk API call for this is utter madness, given that
 	// this check means we can only ever return a single object.

@@ -4,9 +4,9 @@
 package upgrader
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"github.com/juju/errors"
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"

@@ -78,7 +78,12 @@ func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResults
 		return result, fmt.Errorf("api connection is not through a user")
 	}
 	for i, arg := range args.Changes {
-		if !canWrite(arg.Tag) {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			result.Results[0].Error = common.ServerError(err)
+			continue
+		}
+		if !canWrite(tag) {
 			result.Results[0].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
@@ -86,7 +91,7 @@ func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResults
 		if username == "" {
 			username = arg.Tag
 		}
-		_, err := api.state.AddUser(username, arg.DisplayName, arg.Password, user.Name())
+		_, err = api.state.AddUser(username, arg.DisplayName, arg.Password, user.Name())
 		if err != nil {
 			err = errors.Annotate(err, "failed to create user")
 			result.Results[i].Error = common.ServerError(err)
@@ -108,7 +113,12 @@ func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults
 		return result, err
 	}
 	for i, arg := range args.Entities {
-		if !canWrite(arg.Tag) {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			result.Results[0].Error = common.ServerError(err)
+			continue
+		}
+		if !canWrite(tag) {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
@@ -137,13 +147,13 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (params.UserInfoResult
 		return results, err
 	}
 	for i, userArg := range args.Entities {
-		if !canRead(userArg.Tag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
 		tag, err := names.ParseUserTag(userArg.Tag)
 		if err != nil {
 			results.Results[0].Error = common.ServerError(err)
+			continue
+		}
+		if !canRead(tag) {
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		username := tag.Id()
@@ -184,7 +194,12 @@ func (api *UserManagerAPI) SetPassword(args params.ModifyUsers) (params.ErrorRes
 		return result, err
 	}
 	for i, arg := range args.Changes {
-		if !canWrite(arg.Tag) {
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			result.Results[0].Error = common.ServerError(err)
+			continue
+		}
+		if !canWrite(tag) {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}

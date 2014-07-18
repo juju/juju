@@ -795,9 +795,13 @@ func (c *Client) findEntity(tag names.Tag) (state.Annotator, error) {
 // SetAnnotations stores annotations about a given entity.
 func (c *Client) SetAnnotations(args params.SetAnnotations) error {
 	tag, err := names.ParseTag(args.Tag)
-	if err != nil { return errors.Trace(err) }
+	if err != nil {
+		return errors.Trace(err)
+	}
 	entity, err := c.findEntity(tag)
-	if err != nil { return errors.Trace(err) }
+	if err != nil {
+		return errors.Trace(err)
+	}
 	return entity.SetAnnotations(args.Pairs)
 }
 
@@ -1105,10 +1109,11 @@ func (c *Client) EnsureAvailability(args params.StateServersSpecs) (params.State
 func (c *Client) ensureAvailabilitySingle(spec params.StateServersSpec) (params.StateServersChanges, error) {
 	// Validate the environment tag if present.
 	if spec.EnvironTag != "" {
-		if _, err := names.ParseEnvironTag(spec.EnvironTag); err != nil {
-			return params.StateServersChanges{}, fmt.Errorf("invalid environment tag: %v", err)
+		tag, err := names.ParseEnvironTag(spec.EnvironTag)
+		if err != nil {
+			return params.StateServersChanges{}, errors.Errorf("invalid environment tag: %v", err)
 		}
-		if _, err := c.api.state.FindEntity(spec.EnvironTag); err != nil {
+		if _, err := c.api.state.FindEntity(tag); err != nil {
 			return params.StateServersChanges{}, err
 		}
 	}

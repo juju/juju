@@ -692,7 +692,7 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 			st.Close()
 		}
 	}()
-	m0, err := st.FindEntity(agentConfig.Tag().String())
+	m0, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = worker.ErrTerminateAgent

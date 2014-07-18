@@ -457,7 +457,7 @@ func (st *State) FindEntity(tag names.Tag) (Entity, error) {
 	case names.NetworkTag:
 		return st.Network(id)
 	case names.ActionTag:
-		return st.Action(actionIdFromTag(tag))
+		return st.ActionByTag(tag)
 	default:
 		return nil, errors.Errorf("unsupported tag %T", tag)
 	}
@@ -1374,6 +1374,11 @@ func (st *State) Action(id string) (*Action, error) {
 // matchingActions finds actions that match ActionReceiver
 func (st *State) matchingActions(ar ActionReceiver) ([]*Action, error) {
 	return st.matchingActionsByPrefix(ar.Name())
+}
+
+// ActionByTag returns an Action given an ActionTag
+func (st *State) ActionByTag(tag names.ActionTag) (*Action, error) {
+	return st.Action(actionIdFromTag(tag))
 }
 
 // matchingActionsByPrefix finds actions with a given prefix

@@ -138,8 +138,8 @@ func (t *ToolsSetter) SetTools(args params.EntitiesVersion) (params.ErrorResults
 	for i, agentTools := range args.AgentTools {
 		tag, err := names.ParseTag(agentTools.Tag)
 		if err != nil {
-		return results, errors.Trace(err)
-	}	
+			return results, errors.Trace(err)
+		}
 		err = t.setOneAgentVersion(tag, agentTools.Tools.Version, canWrite)
 		results.Results[i].Error = ServerError(err)
 	}

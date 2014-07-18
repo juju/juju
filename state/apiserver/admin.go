@@ -143,7 +143,11 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 var doCheckCreds = checkCreds
 
 func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
-	entity0, err := st.FindEntity(c.AuthTag)
+	tag, err := names.ParseTag(c.AuthTag)
+	if err != nil {
+		return nil, err
+	}
+	entity0, err := st.FindEntity(tag)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}

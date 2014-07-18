@@ -221,8 +221,8 @@ func (r *srvRoot) AuthUnitAgent() bool {
 
 // AuthOwner returns whether the authenticated user's tag matches the
 // given entity tag.
-func (r *srvRoot) AuthOwner(tag string) bool {
-	return r.entity.Tag().String() == tag
+func (r *srvRoot) AuthOwner(tag names.Tag) bool {
+	return r.entity.Tag() == tag
 }
 
 // AuthEnvironManager returns whether the authenticated user is a

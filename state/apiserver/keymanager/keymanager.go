@@ -61,7 +61,7 @@ func NewKeyManagerAPI(
 	// TODO(wallyworld) - replace stub with real canRead function
 	// For now, only admins can read authorised ssh keys.
 	getCanRead := func() (common.AuthFunc, error) {
-		return func(_ string) bool {
+		return func(_ names.Tag) bool {
 			return authorizer.GetAuthTag() == adminUser
 		}, nil
 	}
@@ -69,15 +69,14 @@ func NewKeyManagerAPI(
 	// For now, only admins can write authorised ssh keys for users.
 	// Machine agents can write the juju-system-key.
 	getCanWrite := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			// Are we a machine agent writing the Juju system key.
-			if tag == config.JujuSystemKey {
-				// TODO(dfc) this can never be false
-				_, err := names.ParseMachineTag(authorizer.GetAuthTag().String())
-				return err == nil
+			if tag.String() == config.JujuSystemKey {
+				_, ok := authorizer.GetAuthTag().(names.MachineTag)
+				return ok
 			}
 			// Are we writing the auth key for a user.
-			if _, err := st.User(tag); err != nil {
+			if _, err := st.User(tag.String()); err != nil {
 				return false
 			}
 			return authorizer.GetAuthTag() == adminUser
@@ -107,11 +106,16 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 		return params.StringsResults{}, err
 	}
 	for i, entity := range arg.Entities.Entities {
-		if !canRead(entity.Tag) {
+		tag, err := names.ParseUserTag(entity.Tag)
+		if err != nil {
 			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := api.state.User(entity.Tag); err != nil {
+		if !canRead(tag) {
+			results[i].Error = common.ServerError(common.ErrPerm)
+			continue
+		}
+		if _, err := api.state.User(tag.String()); err != nil {
 			if errors.IsNotFound(err) {
 				results[i].Error = common.ServerError(common.ErrPerm)
 			} else {
@@ -119,7 +123,6 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 			}
 			continue
 		}
-		var err error
 		if configErr == nil {
 			results[i].Result = keyInfo
 		} else {
@@ -196,7 +199,11 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(err)
 	}
-	if !canWrite(arg.User) {
+	tag, err := names.ParseUserTag(arg.User)
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
+	}
+	if !canWrite(tag) {
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
 
@@ -279,7 +286,11 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(err)
 	}
-	if !canWrite(arg.User) {
+	tag, err := names.ParseUserTag(arg.User)
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
+	}
+	if !canWrite(tag) {
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
 
@@ -349,12 +360,15 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 	if len(arg.Keys) == 0 {
 		return result, nil
 	}
-
 	canWrite, err := api.getCanWrite()
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(err)
 	}
-	if !canWrite(arg.User) {
+	tag, err := names.ParseUserTag(arg.User)
+	if err != nil {
+		return params.ErrorResults{}, common.ServerError(err)
+	}
+	if !canWrite(tag) {
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
 

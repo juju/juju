@@ -246,10 +246,10 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 		return result, err
 	}
 	for i, entity := range args.Entities {
-		tag, err := names.ParseMachineTag(entity.Tag) 
-		if err != nil {	
-		result.Results[i].Error = common.ServerError(err)
-		continue
+		tag, err := names.ParseMachineTag(entity.Tag)
+		if err != nil {
+			result.Results[i].Error = common.ServerError(err)
+			continue
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
@@ -313,8 +313,8 @@ func (p *ProvisionerAPI) Series(args params.Entities) (params.StringResults, err
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-		result.Results[i].Error = common.ServerError(err)
-		continue
+			result.Results[i].Error = common.ServerError(err)
+			continue
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
@@ -337,8 +337,8 @@ func (p *ProvisionerAPI) ProvisioningInfo(args params.Entities) (params.Provisio
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-		result.Results[i].Error = common.ServerError(err)
-		continue
+			result.Results[i].Error = common.ServerError(err)
+			continue
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
@@ -387,8 +387,8 @@ func (p *ProvisionerAPI) DistributionGroup(args params.Entities) (params.Distrib
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-		result.Results[i].Error = common.ServerError(err)
-		continue
+			result.Results[i].Error = common.ServerError(err)
+			continue
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
@@ -469,7 +469,7 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-		result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(err)
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
@@ -530,7 +530,7 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Request
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-		result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(err)
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
@@ -569,7 +569,7 @@ func (p *ProvisionerAPI) SetProvisioned(args params.SetProvisioned) (params.Erro
 	for i, arg := range args.Machines {
 		tag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-		result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(err)
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {
@@ -594,7 +594,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 	for i, arg := range args.Machines {
 		tag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-		result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(err)
 		}
 		machine, err := p.getMachine(canAccess, tag)
 		if err == nil {

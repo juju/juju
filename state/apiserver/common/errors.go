@@ -29,7 +29,7 @@ func NotSupportedError(tag names.Tag, operation string) error {
 }
 
 type noAddressSetError struct {
-	unitTag     string
+	unitTag     names.UnitTag
 	addressName string
 }
 
@@ -37,7 +37,7 @@ func (e *noAddressSetError) Error() string {
 	return fmt.Sprintf("%q has no %s address set", e.unitTag, e.addressName)
 }
 
-func NoAddressSetError(unitTag, addressName string) error {
+func NoAddressSetError(unitTag names.UnitTag, addressName string) error {
 	return &noAddressSetError{unitTag, addressName}
 }
 

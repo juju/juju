@@ -5,6 +5,7 @@ package logger
 
 import (
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -56,8 +57,13 @@ func NewLoggerAPI(
 func (api *LoggerAPI) WatchLoggingConfig(arg params.Entities) params.NotifyWatchResults {
 	result := make([]params.NotifyWatchResult, len(arg.Entities))
 	for i, entity := range arg.Entities {
-		err := common.ErrPerm
-		if api.authorizer.AuthOwner(entity.Tag) {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			result[i].Error = common.ServerError(err)
+			continue
+		}
+		err = common.ErrPerm
+		if api.authorizer.AuthOwner(tag) {
 			watch := api.state.WatchForEnvironConfigChanges()
 			// Consume the initial event. Technically, API calls to Watch
 			// 'transmit' the initial event in the Watch response. But
@@ -82,8 +88,13 @@ func (api *LoggerAPI) LoggingConfig(arg params.Entities) params.StringResults {
 	results := make([]params.StringResult, len(arg.Entities))
 	config, configErr := api.state.EnvironConfig()
 	for i, entity := range arg.Entities {
-		err := common.ErrPerm
-		if api.authorizer.AuthOwner(entity.Tag) {
+		tag, err := names.ParseTag(entity.Tag)
+		if err != nil {
+			results[i].Error = common.ServerError(err)
+			continue
+		}
+		err = common.ErrPerm
+		if api.authorizer.AuthOwner(tag) {
 			if configErr == nil {
 				results[i].Result = config.LoggingConfig()
 				err = nil
