@@ -12,29 +12,24 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/backup"
 )
 
-var Backup = backup.Backup
-var GetStorage = environs.GetStorage
+var (
+	runBackup  = backup.Backup
+	getStorage = environs.GetStorage
+)
 
 // backupHandler handles backup requests
 type backupHandler struct {
 	httpHandler
 }
 
-func getMongoConnectionInfo(state *state.State) (info *authentication.MongoInfo) {
-	return state.MongoConnectionInfo()
-}
-
-var GetMongoConnectionInfo = getMongoConnectionInfo
-
-func getDatabaseConnectionInfo(state *state.State) *backup.DBConnInfo {
-	raw := GetMongoConnectionInfo(state)
+var getDatabaseConnectionInfo = func(state *state.State) *backup.DBConnInfo {
+	raw := state.MongoConnectionInfo()
 	info := backup.DBConnInfo{
 		Hostname: raw.Addrs[0],
 		Password: raw.Password,
@@ -96,7 +91,7 @@ func (h *backupHandler) doBackup() (*os.File, string, error) {
 
 	// TODO(dfc) Backup should take a Tag
 	info := getDatabaseConnectionInfo(h.state)
-	filename, sha, err := Backup(info, tempDir)
+	filename, sha, err := runBackup(info, tempDir)
 	if err != nil {
 		return nil, "", fmt.Errorf("backup failed: %v", err)
 	}
@@ -126,7 +121,7 @@ var uploadBackupToStorage = func(st *state.State, file *os.File) error {
 	if err != nil {
 		return fmt.Errorf("failed to stat backup file: %v", err)
 	}
-	stor, err := GetStorage(st)
+	stor, err := getStorage(st)
 	if err != nil {
 		return fmt.Errorf("failed to open storage: %v", err)
 	}

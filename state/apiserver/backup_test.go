@@ -15,7 +15,6 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/provider/dummy"
@@ -97,18 +96,18 @@ func (b *happyBackup) Backup(info *backup.DBConnInfo, tempDir string) (
 }
 
 func (s *backupSuite) TestBackupCalledAndFileServedAndStored(c *gc.C) {
-	testGetMongoConnectionInfo := func(thisState *state.State) *authentication.MongoInfo {
-		info := &authentication.MongoInfo{
+	testGetDBConnInfo := func(thisState *state.State) *backup.DBConnInfo {
+		info := backup.DBConnInfo{
+			Hostname: "localhost:80",
+			Username: names.NewMachineTag("0").String(),
 			Password: "foobar",
-			Tag:      names.NewMachineTag("0"),
 		}
-		info.Addrs = append(info.Addrs, "localhost:80")
-		return info
+		return &info
 	}
 
 	var b happyBackup
-	s.PatchValue(&apiserver.Backup, b.Backup)
-	s.PatchValue(&apiserver.GetMongoConnectionInfo, testGetMongoConnectionInfo)
+	s.PatchValue(apiserver.Backup, b.Backup)
+	s.PatchValue(apiserver.GetDBConnInfo, testGetDBConnInfo)
 
 	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
@@ -144,7 +143,7 @@ func (s *backupSuite) TestBackupErrorWhenBackupFails(c *gc.C) {
 		data.tempDir = tempDir
 		return "", "", fmt.Errorf("something bad")
 	}
-	s.PatchValue(&apiserver.Backup, testBackup)
+	s.PatchValue(apiserver.Backup, testBackup)
 
 	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
@@ -164,7 +163,7 @@ func (s *backupSuite) TestBackupErrorWhenBackupFileDoesNotExist(c *gc.C) {
 		backupFilePath := filepath.Join(tempDir, "testBackupFile")
 		return backupFilePath, "some-sha", nil
 	}
-	s.PatchValue(&apiserver.Backup, testBackup)
+	s.PatchValue(apiserver.Backup, testBackup)
 
 	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
@@ -179,7 +178,7 @@ func (s *backupSuite) TestBackupErrorWhenBackupFileDoesNotExist(c *gc.C) {
 
 func (s *backupSuite) TestBackupErrorWhenBackupStorageFails(c *gc.C) {
 	var b happyBackup
-	s.PatchValue(&apiserver.Backup, b.Backup)
+	s.PatchValue(apiserver.Backup, b.Backup)
 	s.PatchValue(apiserver.UploadBackupToStorage,
 		func(*state.State, *os.File) error {
 			return fmt.Errorf("blam")
@@ -204,7 +203,7 @@ func (s *backupSuite) TestBackupErrorWhenStorageCantBeOpened(c *gc.C) {
 	f := s.makeTempFile(c)
 	defer f.Close()
 
-	s.PatchValue(&apiserver.GetStorage,
+	s.PatchValue(apiserver.GetStorage,
 		func(*state.State) (storage.Storage, error) {
 			return nil, fmt.Errorf("blam")
 		},

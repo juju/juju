@@ -17,6 +17,9 @@ var (
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval
 	UploadBackupToStorage = &uploadBackupToStorage
+	GetDBConnInfo         = &getDatabaseConnectionInfo
+	Backup                = &runBackup
+	GetStorage            = &getStorage
 )
 
 const LoginRateLimit = loginRateLimit
