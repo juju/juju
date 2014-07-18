@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -480,7 +481,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if !ok {
 					return nil, &fatalError{"StateServingInfo not available and we need it"}
 				}
-				port := info.APIPort
 				cert := []byte(info.Cert)
 				key := []byte(info.PrivateKey)
 
@@ -489,8 +489,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				}
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
-				return apiserver.NewServer(st, apiserver.ServerConfig{
-					Port:      port,
+
+				endpoint := net.JoinHostPort("", strconv.Itoa(info.APIPort))
+				listener, err := net.Listen("tcp", endpoint)
+				if err != nil {
+					return nil, err
+				}
+				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
 					Cert:      cert,
 					Key:       key,
 					DataDir:   dataDir,

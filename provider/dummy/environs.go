@@ -205,6 +205,7 @@ type environState struct {
 	bootstrapped bool
 	storageDelay time.Duration
 	storage      *storageServer
+	apiListener  net.Listener
 	httpListener net.Listener
 	apiServer    *apiserver.Server
 	apiState     *state.State
@@ -256,6 +257,9 @@ func Reset() {
 	providerInstance.ops = discardOperations
 	for _, s := range p.state {
 		s.httpListener.Close()
+		if s.apiListener != nil {
+			s.apiListener.Close()
+		}
 		s.destroy()
 	}
 	providerInstance.state = make(map[int]*environState)
@@ -317,13 +321,13 @@ func newState(name string, ops chan<- Operation, policy state.Policy) *environSt
 		globalPorts: make(map[network.Port]bool),
 	}
 	s.storage = newStorageServer(s, "/"+name+"/private")
-	s.listen()
+	s.listenStorage()
 	return s
 }
 
-// listen starts a network listener listening for http
+// listenStorage starts a network listener listening for http
 // requests to retrieve files in the state's storage.
-func (s *environState) listen() {
+func (s *environState) listenStorage() {
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		panic(fmt.Errorf("cannot start listener: %v", err))
@@ -332,6 +336,17 @@ func (s *environState) listen() {
 	mux := http.NewServeMux()
 	mux.Handle(s.storage.path+"/", http.StripPrefix(s.storage.path+"/", s.storage))
 	go http.Serve(l, mux)
+}
+
+// listenAPI starts a network listener listening for API
+// connections and proxies them to the API server port.
+func (s *environState) listenAPI() int {
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(fmt.Errorf("cannot start listener: %v", err))
+	}
+	s.apiListener = l
+	return l.Addr().(*net.TCPAddr).Port
 }
 
 // SetStatePolicy sets the state.Policy to use when a
@@ -499,22 +514,23 @@ func (p *environProvider) prepare(cfg *config.Config) (*config.Config, error) {
 	if ecfg.stateId() != noStateId {
 		return cfg, nil
 	}
-	// The environment has not been prepared,
-	// so create it and set its state identifier accordingly.
 	if ecfg.stateServer() && len(p.state) != 0 {
 		for _, old := range p.state {
 			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old.name, name))
 		}
 	}
+	// The environment has not been prepared,
+	// so create it and set its state identifier accordingly.
 	state := newState(name, p.ops, p.statePolicy)
 	p.maxStateId++
 	state.id = p.maxStateId
 	p.state[state.id] = state
-	// Add the state id to the configuration we use to
-	// in the returned environment.
-	return cfg.Apply(map[string]interface{}{
-		"state-id": fmt.Sprint(state.id),
-	})
+
+	attrs := map[string]interface{}{"state-id": fmt.Sprint(state.id)}
+	if ecfg.stateServer() {
+		attrs["api-port"] = state.listenAPI()
+	}
+	return cfg.Apply(attrs)
 }
 
 func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
@@ -628,6 +644,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	}
 	estate.preferIPv6 = e.Config().PreferIPv6()
 	instIds := []instance.Id{"localhost"}
+
 	// Write the bootstrap file just like a normal provider. However
 	// we need to release the mutex for the save state to work, so regain
 	// it after the call.
@@ -658,8 +675,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err != nil {
 			panic(err)
 		}
-		estate.apiServer, err = apiserver.NewServer(st, apiserver.ServerConfig{
-			Port:    0,
+		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
 			Cert:    []byte(testing.ServerCert),
 			Key:     []byte(testing.ServerKey),
 			DataDir: DataDir,
