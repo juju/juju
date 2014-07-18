@@ -1,17 +1,17 @@
 code.google.com/p/go.crypto	hg	5478be1963aafa9025e9bf0837aff6013eb92e5b	199
 code.google.com/p/go.net	hg	c17ad62118ea511e1051721b429779fa40bddc74	116
-github.com/binary132/gojsonpointer	git	57ab5e9c764219a3e0c4d7759797fefdcab22e9c	
-github.com/binary132/gojsonreference	git	d774f519af21e55b21eff9ec6fb4559b2672f260	
-github.com/binary132/gojsonschema	git	02df8b8c5ebaa15fd38697a667dd1a6587ac17eb	
 github.com/bmizerany/pat	git	48be7df2c27e1cec821a3284a683ce6ef90d9052	
 github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40	
 github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	
-github.com/juju/charm	git	caf1b98fd172142ea7ff731c65303231f4783762	
+github.com/juju/charm	git	270e2e0cde8af92c5960dd7894f0646c9aa87786	
 github.com/juju/cmd	git	e2d7df426d54b663f8616901b75d1ccfafcd9997	
 github.com/juju/errgo	git	2cf7b553faddc588f903020c33e71c527d5e0838	
 github.com/juju/errors	git	09734a904adc602da4334cbf29cb4515fbeb8feb	
+github.com/juju/gojsonpointer	git	0154bf5a168b672d8c97d8dd83a54cb60cd088e8	
+github.com/juju/gojsonreference	git	0673d58f64bacac2db34c7d1e87a599d58923981	
+github.com/juju/gojsonschema	git	33fa79718fa9b24e2a04122f91a75496c0f77098	
 github.com/juju/loggo	git	7e8c70b24b80b95b2284f09306aac0bd93588db8	
 github.com/juju/names	git	aca402daf8e87fe85fb908a7cd282e83f371865e	
 github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb	
