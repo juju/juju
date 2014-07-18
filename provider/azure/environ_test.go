@@ -517,49 +517,29 @@ func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
 	c.Check(env.storageAccountKey, gc.Equals, "")
 }
 
-func (s *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
+func (s *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-	_, _, err := env.StateInfo()
+	_, err := env.StateServerInstances()
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
-func (s *environSuite) TestStateInfo(c *gc.C) {
+func (s *environSuite) TestStateServerInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	prefix := env.getEnvPrefix()
 
 	service := makeDeployment(env, prefix+"myservice")
 	instId := instance.Id(service.ServiceName + "-" + service.Deployments[0].RoleList[0].RoleName)
-	patchInstancesResponses(c, prefix, service)
 	err := bootstrap.SaveState(
 		env.Storage(),
 		&bootstrap.BootstrapState{StateInstances: []instance.Id{instId}},
 	)
 	c.Assert(err, gc.IsNil)
 
-	responses := prepareInstancesResponses(c, prefix, service)
-	responses = append(responses, prepareDeploymentInfoResponse(c, gwacl.Deployment{
-		RoleInstanceList: []gwacl.RoleInstance{{
-			RoleName:  service.Deployments[0].RoleList[0].RoleName,
-			IPAddress: "1.2.3.4",
-		}},
-		VirtualNetworkName: env.getVirtualNetworkName(),
-	})...)
-	gwacl.PatchManagementAPIResponses(responses)
-
-	stateInfo, apiInfo, err := env.StateInfo()
+	instances, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
-	config := env.Config()
-	dnsName := prefix + "myservice." + AzureDomainName
-	c.Check(stateInfo.Addrs, jc.SameContents, []string{
-		fmt.Sprintf("1.2.3.4:%d", config.StatePort()),
-		fmt.Sprintf("%s:%d", dnsName, config.StatePort()),
-	})
-	c.Check(apiInfo.Addrs, jc.DeepEquals, []string{
-		fmt.Sprintf("1.2.3.4:%d", config.APIPort()),
-		fmt.Sprintf("%s:%d", dnsName, config.APIPort()),
-	})
+	c.Assert(instances, gc.DeepEquals, []instance.Id{instId})
 }
 
 // parseCreateServiceRequest reconstructs the original CreateHostedService

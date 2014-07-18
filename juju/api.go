@@ -299,15 +299,16 @@ func getConfig(info configstore.EnvironInfo, envs *environs.Environs, envName st
 }
 
 func environAPIInfo(environ environs.Environ) (*api.Info, error) {
-	_, info, err := environ.StateInfo()
+	config := environ.Config()
+	password := config.AdminSecret()
+	if password == "" {
+		return nil, fmt.Errorf("cannot connect without admin-secret")
+	}
+	info, err := environs.APIInfo(environ)
 	if err != nil {
 		return nil, err
 	}
 	info.Tag = names.NewUserTag("admin")
-	password := environ.Config().AdminSecret()
-	if password == "" {
-		return nil, fmt.Errorf("cannot connect without admin-secret")
-	}
 	info.Password = password
 	return info, nil
 }

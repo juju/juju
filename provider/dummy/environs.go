@@ -7,7 +7,7 @@
 // The configuration YAML for the testing environment
 // must specify a "state-server" property with a boolean
 // value. If this is true, a state server will be started
-// the first time StateInfo is called on a newly reset environment.
+// when the environment is bootstrapped.
 //
 // The configuration data also accepts a "broken" property
 // of type boolean. If this is non-empty, any operation
@@ -39,6 +39,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
@@ -61,6 +62,10 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
+
+const (
+	BootstrapInstanceId = instance.Id("localhost")
+)
 
 // SampleConfig() returns an environment configuration with all required
 // attributes set.
@@ -613,6 +618,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if err != nil {
 		return err
 	}
+	series := selectedTools.OneSeries()
 
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
@@ -643,18 +649,32 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		return fmt.Errorf("environment is already bootstrapped")
 	}
 	estate.preferIPv6 = e.Config().PreferIPv6()
-	instIds := []instance.Id{"localhost"}
 
 	// Write the bootstrap file just like a normal provider. However
 	// we need to release the mutex for the save state to work, so regain
 	// it after the call.
 	estate.mu.Unlock()
+	instIds := []instance.Id{BootstrapInstanceId}
 	if err := bootstrap.SaveState(e.Storage(), &bootstrap.BootstrapState{StateInstances: instIds}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		estate.mu.Lock() // otherwise defered unlock will fail
 		return err
 	}
 	estate.mu.Lock() // back at it
+
+	// Create an instance for the bootstrap node.
+	logger.Infof("creating bootstrap instance")
+	i := &dummyInstance{
+		id:           BootstrapInstanceId,
+		addresses:    network.NewAddresses("localhost"),
+		ports:        make(map[network.Port]bool),
+		machineId:    agent.BootstrapMachineId,
+		series:       series,
+		firewallMode: e.Config().FirewallMode(),
+		state:        estate,
+		stateServer:  true,
+	}
+	estate.insts[i.id] = i
 
 	if e.ecfg().stateServer() {
 		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
@@ -691,26 +711,29 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return nil
 }
 
-func (e *environ) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
+func (e *environ) StateServerInstances() ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	if err := e.checkBroken("StateInfo"); err != nil {
-		return nil, nil, err
+	if err := e.checkBroken("StateServerInstances"); err != nil {
+		return nil, err
 	}
 	if !e.ecfg().stateServer() {
-		return nil, nil, errors.New("dummy environment has no state configured")
+		return nil, errors.New("dummy environment has no state configured")
 	}
 	if !estate.bootstrapped {
-		return nil, nil, environs.ErrNotBootstrapped
+		return nil, environs.ErrNotBootstrapped
 	}
-	return stateInfo(estate.preferIPv6), &api.Info{
-		Addrs:  []string{estate.apiServer.Addr()},
-		CACert: testing.CACert,
-	}, nil
+	var stateServerInstances []instance.Id
+	for _, v := range estate.insts {
+		if v.stateServer {
+			stateServerInstances = append(stateServerInstances, v.Id())
+		}
+	}
+	return stateServerInstances, nil
 }
 
 func (e *environ) Config() *config.Config {
@@ -1066,6 +1089,7 @@ type dummyInstance struct {
 	machineId    string
 	series       string
 	firewallMode string
+	stateServer  bool
 
 	mu        sync.Mutex
 	addresses []network.Address

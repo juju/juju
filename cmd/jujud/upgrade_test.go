@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
@@ -338,9 +339,8 @@ func (s *UpgradeSuite) waitForUpgradeToFinish(c *gc.C) {
 
 func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, expectFullApi exposedAPI) {
 	info := s.machine0Config.APIInfo()
-	defaultInfo := s.APIInfo(c)
-	info.Tag = defaultInfo.Tag
-	info.Password = defaultInfo.Password
+	info.Tag = names.NewUserTag("admin")
+	info.Password = "dummy-secret"
 	info.Nonce = ""
 
 	apiState, err := api.Open(info, upgradeTestDialOpts)
