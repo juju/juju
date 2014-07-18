@@ -59,8 +59,7 @@ func CreateEmptyFile(filename string, excl bool) (*os.File, string, error) {
 // NewAPIRequest returns a new HTTP request that may be used to make the
 // backup API call.
 func NewAPIRequest(URL *url.URL, uuid, tag, pw string) (*http.Request, error) {
-	// XXX This needs to be env-based.
-	URL.Path += "/backup"
+	URL.Path = fmt.Sprintf("/environment/%s/backup", uuid)
 	req, err := http.NewRequest("POST", URL.String(), nil)
 	if err != nil {
 		return nil, err

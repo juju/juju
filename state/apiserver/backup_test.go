@@ -32,8 +32,10 @@ type backupSuite struct {
 var _ = gc.Suite(&backupSuite{})
 
 func (s *backupSuite) backupURL(c *gc.C) string {
+	environ, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
 	uri := s.baseURL(c)
-	uri.Path += "/backup"
+	uri.Path = fmt.Sprintf("/environment/%s/backup", environ.UUID())
 	return uri.String()
 }
 
