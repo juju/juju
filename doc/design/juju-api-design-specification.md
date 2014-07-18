@@ -1,5 +1,9 @@
 # Juju API Design Specification
 
+## Status
+
+*Work in Progress*
+
 ## Introduction
 
 ### Purpose
@@ -32,19 +36,17 @@ This document provides a detailed specification of
 
 ### Reference Material
 
-*TODO: Check if there are other documents or links to reference.*
+*TODO: Check if there are documents or links to reference.*
 
 ### Definitions and Acronyms
 
-Facade
-: A registered and versioned type which is addressed by API requests. It creates an
-instance providing a set of methods for one entity or a cohesive functionality.
-JSON
-: JavaScript Object Notation
-RPC
-: Remote Procedure Calls
-WebSocket
-: A full-duplex TCP communication protocol standardized by the W3C.
+- **Facade** A registered and versioned type which is addressed by API 
+  requests. It creates an instance providing a set of methods for one 
+  entity or a cohesive functionality.
+- **JSON** JavaScript Object Notation
+- **RPC** Remote Procedure Calls
+- **WebSocket** A full-duplex TCP communication protocol standardized by
+  the W3C ([see RfC 6455](http://tools.ietf.org/html/rfc6455)).
 
 ## System Overview
 
@@ -193,28 +195,69 @@ the method called with it.
 
 The API server is implemented in the package [apiserver](https://github.com/juju/juju/tree/master/state/apiserver)
 and its sub-packages. It is started inside the *machine agent* by calling `apiserver.NewServer()`.
+The returned `Server` instance holds the server side of the API. After starting
+the server several handlers are registered. One of them is the API server
+by registering `Server.apiHandler()` as handler function. It receives the
+HTTP request and starts the individual WebSockets connection. Inside of
+`Server.serveConn()` it uses the WebSocket to etablish the RPC using 
+the JSON codec. 
 
-- `server.apiHandler()` receives requests and start websocket
-- `server.serverConn()` rund´s the RPC on the websocket using the websocket JSON codec
+In case of a valid environment UUID a new server state server instance is
+created using `apiserver.initialRoot` with an `apiserver.srvAdmin` for the
+login process. If this is successful the root is changed to `apiserver.srvRoot`
+for the real API request handling. It implements `FindMethod()` which is needed
+by the RPC to dispatch request to the according methods like described above.
 
-### API
+#### Facade Registration
+
+The registry for facades is implemented in the package
+[apiserver/common](https://github.com/juju/juju/tree/master/state/apiserver/common). It provides
+a function for the registration of facade constructor functions together with
+their name and a version number. They are called in an `init()` function in
+their respective packages.
+
+```
+func init() {
+	common.RegisterStandardFacade("Machiner", 0, NewMachinerAPI)
+	common.RegisterStandardFacade("Machiner", 1, NewMachinerAPIv1)
+}
+```
+
+### API Client
 
 The according client logic used by the Juju CLI and the Juju daemon, which are also
 developed in Go, is located in [api](https://github.com/juju/juju/tree/master/state/api).
 
-- Connect with `api.Open()`
-- `api.State` as entry point
-- `api.Call()` to invoke a low level RPC call
-- `api.BestFacadeVersion()` to retrieve the best available version for a facade
+Clients connect with `api.Open()` which returns a `api.State` instance as entry point.
+This instance can perform low level RPC calls with the method `Call()`. It also provide
+the methods `AllFacadeVersion()` to retrieve a map of all facades with slices of all
+their versions. More useful is the method `BestFacadeVersion()` to retrieve the best
+available version for a named facade. So in case of no matching version a client can
+react with an error instead of performing an invalid call.
 
-## Human Interface Design
+*TODO: Describe how individual client calls are implemented.*
 
-### Overview of User Interface
+### Watching
 
-### Screen Images
+*TODO: Describe watching using the API.*
 
-### Screen Objects and Actions
+## Requirements
 
-## Requirements Matrix
+- As a user of Trusty, I want to be able to bootstrap an environment today, and be 
+  able to trust that in 2 years I will still be able to access/control/update that 
+  environment even when I’ve upgraded my juju client tools.
+- As a group with heterogeneous clients, we want to be able to bootstrap a new 
+  environment, and trust that all clients are still able to connect and manage the 
+  environment.
+- As a user with a new Juju client, I want to be able to bootstrap a new environment 
+  and have access to all the latest features for that environment. (HA, User accounts, 
+  etc.)
+- As an Agent, I want to be able to communicate with the API server to be able to perform 
+  my regular tasks, and be able to upgrade to stay in sync with the desired agent version. 
+  It is expected that we won’t always be able to stay in perfect synchronization, 
+  especially in an environment with heterogeneous architectures and platforms.
+- As a developer, I want to be able to make a change to an existing named API in such 
+  a fashion that new clients are able to make use of the new functionality, but older 
+  clients can still use the API in a compatible fashion.
 
 ## Apendencies
