@@ -729,6 +729,49 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
+	ports, err := NewPortRange(u.Name(), number, number, protocol)
+	if err != nil {
+		return err
+	}
+	defer errors.Maskf(&err, "cannot open ports %v for unit %q", ports, u)
+
+	machineId, err := u.AssignedMachineId()
+	if err != nil {
+		return err
+	}
+
+	machinePorts, err := getOrCreatePorts(u.st, machineId)
+
+	// Check if this unit is still storing ports in its own document,
+	// if so - attempt a migration.
+	// Migration is only performed if the openedPorts document contains
+	// no ports for the unit - this condition will be removed when
+	// the unit ports list will be cleared after migration.
+	// TODO(domas) 2014-07-04 bug #1337817: remove second condition
+	if len(u.doc.Ports) != 0 && len(machinePorts.PortsForUnit(u.Name())) == 0 {
+		err = machinePorts.migratePorts(u)
+		if err != nil {
+			unitLogger.Errorf("could not migrate ports collection for unit %v: %v", u, err)
+			return err
+		}
+		err = machinePorts.Refresh()
+		if err != nil {
+			return err
+		}
+	}
+
+	err = machinePorts.OpenPorts(ports)
+	if err != nil {
+		return err
+	}
+	// TODO(domas) 2014-07-04 bug #1337813: remove once firewaller is updated to watch openedPorts collection
+	return u.openUnitPort(protocol, number)
+}
+
+// openUnitPort is the old implementation of OpenPort that amends the list of ports on the unit document.
+// TODO(domas) 2014-07-04 bug #1337813
+// This is kept in place until the firewaller is updated to watch the OpenedPorts collection.
+func (u *Unit) openUnitPort(protocol string, number int) (err error) {
 	port := network.Port{Protocol: protocol, Number: number}
 	defer errors.Maskf(&err, "cannot open port %v for unit %q", port, u)
 	ops := []txn.Op{{
@@ -754,8 +797,10 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	return nil
 }
 
-// ClosePort sets the policy of the port with protocol and number to be closed.
-func (u *Unit) ClosePort(protocol string, number int) (err error) {
+// closeUnitPort is the old implementation of ClosePort that alters the list of ports on the unit document.
+// TODO(domas) 2014-07-04 bug #1337813
+// This is kept in place until the firewaller is updated to watch the OpenedPorts collection.
+func (u *Unit) closeUnitPort(protocol string, number int) (err error) {
 	port := network.Port{Protocol: protocol, Number: number}
 	defer errors.Maskf(&err, "cannot close port %v for unit %q", port, u)
 	ops := []txn.Op{{
@@ -778,11 +823,72 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	return nil
 }
 
+// ClosePort sets the policy of the port with protocol and number to be closed.
+func (u *Unit) ClosePort(protocol string, number int) (err error) {
+	ports, err := NewPortRange(u.Name(), number, number, protocol)
+	if err != nil {
+		return err
+	}
+	defer errors.Maskf(&err, "cannot close ports %v for unit %q", ports, u)
+
+	machineId, err := u.AssignedMachineId()
+	if err != nil {
+		return err
+	}
+
+	machinePorts, err := getOrCreatePorts(u.st, machineId)
+	if err != nil {
+		return err
+	}
+
+	// Check if this unit is still storing ports in its own document,
+	// if so - attempt a migration.
+	// TODO(domas) 2014-07-04 bug #1337817: remove second condition
+	if len(u.doc.Ports) != 0 && len(machinePorts.PortsForUnit(u.Name())) == 0 {
+		err = machinePorts.migratePorts(u)
+		if err != nil {
+			unitLogger.Errorf("could not migrate ports collection for unit %v: %v", u, err)
+			return err
+		}
+		err = machinePorts.Refresh()
+		if err != nil {
+			return err
+		}
+	}
+
+	err = machinePorts.ClosePorts(ports)
+	if err != nil {
+		return err
+	}
+	// TODO(domas) 2014-07-04 bug #1337813: remove once firewaller is updated to watch openedPorts collection
+	return u.closeUnitPort(protocol, number)
+}
+
 // OpenedPorts returns a slice containing the open ports of the unit.
+// TODO(domas) 2014-07-04 but #1337817: update this function to return port ranges.
 func (u *Unit) OpenedPorts() []network.Port {
-	ports := append([]network.Port{}, u.doc.Ports...)
-	network.SortPorts(ports)
-	return ports
+	machineId, err := u.AssignedMachineId()
+	if err != nil {
+		unitLogger.Errorf("Cannot retrieve opened ports list for unit %v: %v", u, err)
+		return nil
+	}
+
+	machinePorts, err := getPorts(u.st, machineId)
+	result := []network.Port{}
+	if err == nil {
+		ports := machinePorts.PortsForUnit(u.Name())
+		for _, port := range ports {
+			result = append(result, network.Port{
+				Protocol: port.Protocol,
+				Number:   port.FromPort})
+		}
+	} else {
+		// Read the port list in the unit document if the ports
+		// document does not exist.
+		result = append([]network.Port{}, u.doc.Ports...)
+	}
+	network.SortPorts(result)
+	return result
 }
 
 // CharmURL returns the charm URL this unit is currently using.

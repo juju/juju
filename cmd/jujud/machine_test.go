@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/utils/ssh"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
@@ -575,6 +576,35 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 		NewTools:  newTools.Version,
 		DataDir:   s.DataDir(),
 	})
+}
+
+func (s *MachineSuite) TestUpgradeTarget(c *gc.C) {
+	for i, test := range []struct {
+		job      params.MachineJob
+		master   bool
+		expected upgrades.Target
+	}{
+		{
+		// empty gives empty
+		}, {
+			job:      params.JobManageEnviron,
+			expected: upgrades.StateServer,
+		}, {
+			job:      params.JobManageEnviron,
+			master:   true,
+			expected: upgrades.DatabaseMaster,
+		}, {
+			job:      params.JobHostUnits,
+			expected: upgrades.HostMachine,
+		}, {
+			job:      params.JobHostUnits,
+			master:   true,
+			expected: upgrades.HostMachine,
+		},
+	} {
+		c.Logf("Test %v", i)
+		c.Assert(upgradeTarget(test.job, test.master), gc.Equals, test.expected)
+	}
 }
 
 func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {

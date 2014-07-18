@@ -5,11 +5,13 @@ package networker_test
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
@@ -200,6 +202,14 @@ func executeCommandsHook(c *gc.C, s *networkerSuite, commands []string) error {
 	return nil
 }
 
+func (s *networkerSuite) TestNewNetworkerReturnsErrorWithoutConfig(c *gc.C) {
+	_, err := os.Stat(networker.ConfigFileName)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+	nw, err := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()))
+	c.Assert(err, gc.ErrorMatches, `missing ".*" config file`)
+	c.Assert(nw, gc.IsNil)
+}
+
 func (s *networkerSuite) TestNetworker(c *gc.C) {
 	// Create a sample interfaces file (MAAS configuration)
 	interfacesFileContents := fmt.Sprintf(sampleInterfacesFile, networker.ConfigDirName)
@@ -228,7 +238,8 @@ func (s *networkerSuite) TestNetworker(c *gc.C) {
 
 	// Create and setup networker.
 	s.executed = make(chan bool)
-	nw := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()))
+	nw, err := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()))
+	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Stop(nw), gc.IsNil) }()
 
 	executeCount := 0

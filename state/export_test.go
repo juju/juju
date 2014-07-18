@@ -227,3 +227,8 @@ func EnsureActionMarker(prefix string) string {
 func GetActionResultId(actionId string) (string, bool) {
 	return convertActionIdToActionResultId(actionId)
 }
+
+var (
+	GetOrCreatePorts = getOrCreatePorts
+	GetPorts         = getPorts
+)

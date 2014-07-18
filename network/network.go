@@ -11,6 +11,12 @@ import (
 
 var logger = loggo.GetLogger("juju.network")
 
+// Id of the default public juju network
+const DefaultPublic = "juju-public"
+
+// Id of the default private juju network
+const DefaultPrivate = "juju-private"
+
 // Id defines a provider-specific network id.
 type Id string
 

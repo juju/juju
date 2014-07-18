@@ -103,13 +103,13 @@ func (s *unitSuite) TestOpenedPorts(c *gc.C) {
 	c.Assert(ports, jc.DeepEquals, []network.Port{})
 
 	// Open some ports and check again.
-	err = s.units[0].OpenPort("foo", 1234)
+	err = s.units[0].OpenPort("tcp", 1234)
 	c.Assert(err, gc.IsNil)
-	err = s.units[0].OpenPort("bar", 4321)
+	err = s.units[0].OpenPort("tcp", 4321)
 	c.Assert(err, gc.IsNil)
 	ports, err = s.apiUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, jc.DeepEquals, []network.Port{{"bar", 4321}, {"foo", 1234}})
+	c.Assert(ports, jc.DeepEquals, []network.Port{{"tcp", 1234}, {"tcp", 4321}})
 }
 
 func (s *unitSuite) TestService(c *gc.C) {

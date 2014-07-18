@@ -219,6 +219,7 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 		annotations:       db.C("annotations"),
 		statuses:          db.C("statuses"),
 		stateServers:      db.C("stateServers"),
+		openedPorts:       db.C("openedPorts"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
