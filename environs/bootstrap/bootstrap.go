@@ -118,7 +118,7 @@ func EnsureNotBootstrapped(env environs.Environ) error {
 	// If there is no error loading the bootstrap state, then we are
 	// bootstrapped.
 	if err == nil {
-		return fmt.Errorf("environment is already bootstrapped")
+		return environs.ErrAlreadyBootstrapped
 	}
 	if err == environs.ErrNotBootstrapped {
 		return nil
