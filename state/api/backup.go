@@ -22,6 +22,7 @@ var (
 	newHTTPRequest   = backupAPI.NewAPIRequest
 	checkAPIResponse = backupAPI.CheckAPIResponse
 	parseDigest      = backupAPI.ParseDigest
+	extractFilename  = backupAPI.ExtractFilename
 	sendHTTPRequest  = _sendHTTPRequest
 )
 
@@ -40,8 +41,6 @@ func _sendHTTPRequest(req *http.Request, client *http.Client) (*http.Response, e
 // Note that the backup can take a long time to prepare. The resulting
 // file can be quite large file, depending on the system being backed up.
 func (c *Client) Backup(backupFilePath string, excl bool) (string, string, string, *params.Error) {
-	// XXX Switch to using the Content-Disposition header for the filename.
-
 	// Get an empty backup file ready.
 	file, filename, err := createEmptyFile(backupFilePath, excl)
 	if err != nil {
@@ -86,12 +85,33 @@ func (c *Client) Backup(backupFilePath string, excl bool) (string, string, strin
 	}
 	cleanup = false
 
+	// Extract the SHA-1 hash.
 	expectedHash, err := parseDigest(resp.Header)
 	if err != nil {
 		// This is a non-fatal error.
 		logger.Infof("could not extract digest from HTTP response: %v", err)
 	}
 
+	// Handle the filename from the server.
+	serverFilename, err := extractFilename(resp.Header)
+	if err != nil {
+		logger.Infof("could not extract filename from HTTP response: %v", err)
+	} else if backupFilePath == "" && serverFilename != "" {
+		err := file.Sync()
+		if err != nil {
+			logger.Infof("could not flush tempfile: %v", err)
+		} else {
+			err := os.Rename(filename, serverFilename)
+			if err != nil {
+				logger.Infof("could not move tempfile to new location: %v", err)
+			} else {
+				filename = serverFilename
+			}
+		}
+	}
+
+	// Log and return the result.
+	logger.Infof("backup archive saved to %s", filename)
 	return filename, hash, expectedHash, nil
 }
 

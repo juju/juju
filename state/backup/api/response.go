@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"regexp"
 
 	"github.com/juju/juju/state/api/params"
 )
@@ -52,4 +53,20 @@ func CheckAPIResponse(resp *http.Response) *params.Error {
 	}
 
 	return &params.Error{failure, code}
+}
+
+// ExtractFilename returns the filename in the Content-Disposition
+// header of the HTTP response, if any.
+func ExtractFilename(header http.Header) (string, error) {
+	disp := header.Get("Content-Disposition")
+	regex, err := regexp.Compile(`attachment; filename="([^"]+)"`)
+	if err != nil {
+		return "", err
+	}
+	groups := regex.FindStringSubmatch(disp)
+	if groups == nil {
+		return "", nil
+	}
+	filename := groups[1]
+	return filename, nil
 }

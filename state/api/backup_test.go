@@ -195,3 +195,7 @@ func (s *backupSuite) TestBackupFailureParsingDigest(c *gc.C) {
 	c.Check(expected, gc.Equals, "")
 	s.checkArchive(c, filename, hash)
 }
+
+func (s *backupSuite) TestBackupFailureHandlingFilename(c *gc.C) {
+	c.Error("not finished")
+}

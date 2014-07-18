@@ -15,6 +15,7 @@ var (
 	CheckAPIResponse = &checkAPIResponse
 	WriteBackup      = &writeBackup
 	ParseDigest      = &parseDigest
+	ExtractFilename  = &extractFilename
 	SendHTTPRequest  = &sendHTTPRequest
 )
 
