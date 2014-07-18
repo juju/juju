@@ -20,6 +20,10 @@ import (
 	"github.com/juju/txn"
 )
 
+const (
+	contentionErr = ".*: state changing too quickly; try again soon"
+)
+
 type UnitSuite struct {
 	ConnSuite
 	charm   *state.Charm
@@ -1046,11 +1050,16 @@ func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+
 	// Verify no open ports before activity.
 	c.Assert(s.unit.OpenedPorts(), gc.HasLen, 0)
 
 	// Now open and close port.
-	err := s.unit.OpenPort("tcp", 80)
+	err = s.unit.OpenPort("tcp", 80)
 	c.Assert(err, gc.IsNil)
 	open := s.unit.OpenedPorts()
 	c.Assert(open, gc.DeepEquals, []network.Port{
@@ -1094,7 +1103,7 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 	})
 
 	err = s.unit.ClosePort("tcp", 80)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, ".* no match found for port range: .*")
 	open = s.unit.OpenedPorts()
 	c.Assert(open, gc.DeepEquals, []network.Port{
 		{"tcp", 53},
@@ -1104,10 +1113,21 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+
 	preventUnitDestroyRemove(c, s.unit)
-	testWhenDying(c, s.unit, noErr, deadErr, func() error {
-		return s.unit.OpenPort("tcp", 20)
-	}, func() error {
+	testWhenDying(c, s.unit, noErr, contentionErr, func() error {
+		err := s.unit.OpenPort("tcp", 20)
+		if err != nil {
+			return err
+		}
+		err = s.unit.Refresh()
+		if err != nil {
+			return err
+		}
 		return s.unit.ClosePort("tcp", 20)
 	})
 }

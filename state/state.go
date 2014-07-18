@@ -74,6 +74,7 @@ type State struct {
 	annotations       *mgo.Collection
 	statuses          *mgo.Collection
 	stateServers      *mgo.Collection
+	openedPorts       *mgo.Collection
 	watcher           *watcher.Watcher
 	pwatcher          *presence.Watcher
 	// mu guards allManager.
@@ -468,13 +469,13 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 
 // parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
-func (st *State) parseTag(tag string) (coll string, id string, err error) {
-	t, err := names.ParseTag(tag)
-	if err != nil {
-		return "", "", err
+func (st *State) parseTag(tag names.Tag) (string, string, error) {
+	if tag == nil {
+		return "", "", errors.Errorf("tag is nil")
 	}
-	tid := t.Id()
-	switch t.(type) {
+	coll := ""
+	id := tag.Id()
+	switch tag := tag.(type) {
 	case names.MachineTag:
 		coll = st.machines.Name
 	case names.ServiceTag:
@@ -491,11 +492,11 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.networks.Name
 	case names.ActionTag:
 		coll = st.actions.Name
-		tid = actionIdFromTag(t.(names.ActionTag))
+		id = actionIdFromTag(tag)
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
-	return coll, tid, nil
+	return coll, id, nil
 }
 
 // AddCharm adds the ch charm with curl to the state. bundleURL must

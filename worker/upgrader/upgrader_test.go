@@ -209,7 +209,8 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 	}
 	stor := s.Environ.Storage()
-	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
+	newToolsBinary := "5.4.3-precise-amd64"
+	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary(newToolsBinary))
 	s.PatchValue(&version.Current, newTools.Version)
 	err := envtools.MergeAndWriteMetadata(stor, coretools.List{newTools}, envtools.DoNotWriteMirrors)
 	c.Assert(err, gc.IsNil)
@@ -221,9 +222,10 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	}
 	err = ugErr.ChangeAgentTools()
 	c.Assert(err, gc.IsNil)
+	target := agenttools.ToolsDir(s.DataDir(), newToolsBinary)
 	link, err := symlink.Read(agenttools.ToolsDir(s.DataDir(), "anAgent"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(link, gc.Equals, newTools.Version.String())
+	c.Assert(link, gc.Equals, target)
 }
 
 func (s *UpgraderSuite) TestEnsureToolsChecksBeforeDownloading(c *gc.C) {

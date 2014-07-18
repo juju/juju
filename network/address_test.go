@@ -4,6 +4,7 @@
 package network_test
 
 import (
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/network"
@@ -572,4 +573,40 @@ func (*AddressSuite) TestNetAddr(c *gc.C) {
 		}
 		c.Assert(hp.NetAddr(), gc.Equals, test.expect)
 	}
+}
+
+func (*AddressSuite) TestSortAddresses(c *gc.C) {
+	addrs := network.NewAddresses(
+		"127.0.0.1",
+		"localhost",
+		"example.com",
+		"::1",
+		"fc00::1",
+		"fe80::2",
+		"172.16.0.1",
+		"8.8.8.8",
+	)
+	network.SortAddresses(addrs, false)
+	c.Assert(addrs, jc.DeepEquals, network.NewAddresses(
+		"example.com",
+		"localhost",
+		"127.0.0.1",
+		"172.16.0.1",
+		"8.8.8.8",
+		"::1",
+		"fe80::2",
+		"fc00::1",
+	))
+
+	network.SortAddresses(addrs, true)
+	c.Assert(addrs, jc.DeepEquals, network.NewAddresses(
+		"example.com",
+		"localhost",
+		"fe80::2",
+		"::1",
+		"fc00::1",
+		"127.0.0.1",
+		"172.16.0.1",
+		"8.8.8.8",
+	))
 }

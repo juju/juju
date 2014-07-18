@@ -14,7 +14,6 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -132,9 +131,9 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.Bootstrap(coretesting.Context(c), e, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	info, apiInfo, err := e.StateInfo()
-	c.Check(info.Addrs, gc.Not(gc.HasLen), 0)
-	c.Check(apiInfo.Addrs, gc.Not(gc.HasLen), 0)
+	stateServerInstances, err := e.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateServerInstances, gc.Not(gc.HasLen), 0)
 
 	err = bootstrap.EnsureNotBootstrapped(e)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
@@ -144,15 +143,10 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 	err = bootstrap.EnsureNotBootstrapped(e2)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
 
-	checkSameInfo := func(a, b *authentication.MongoInfo) {
-		c.Check(a.Addrs, jc.SameContents, b.Addrs)
-		c.Check(a.CACert, gc.DeepEquals, b.CACert)
-	}
-
-	info2, apiInfo2, err := e2.StateInfo()
-	checkSameInfo(info2, info)
-
-	c.Check(apiInfo2, gc.DeepEquals, apiInfo)
+	stateServerInstances2, err := e2.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateServerInstances2, gc.Not(gc.HasLen), 0)
+	c.Assert(stateServerInstances2, jc.SameContents, stateServerInstances)
 
 	err = environs.Destroy(e2, t.ConfigStore)
 	c.Assert(err, gc.IsNil)

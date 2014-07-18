@@ -131,8 +131,10 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	// Check that the API host ports are initialised correctly.
 	apiHostPorts, err := st.APIHostPorts()
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiHostPorts, gc.DeepEquals, [][]network.HostPort{
-		network.AddressesWithPort(mcfg.Addresses, 1234),
+	c.Assert(apiHostPorts, jc.DeepEquals, [][]network.HostPort{
+		network.AddressesWithPort(
+			network.NewAddresses("zeroonetwothree", "0.1.2.3"),
+			1234),
 	})
 
 	// Check that the state serving info is initialised correctly.

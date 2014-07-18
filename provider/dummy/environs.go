@@ -7,7 +7,7 @@
 // The configuration YAML for the testing environment
 // must specify a "state-server" property with a boolean
 // value. If this is true, a state server will be started
-// the first time StateInfo is called on a newly reset environment.
+// when the environment is bootstrapped.
 //
 // The configuration data also accepts a "broken" property
 // of type boolean. If this is non-empty, any operation
@@ -39,6 +39,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
@@ -61,6 +62,10 @@ import (
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
+
+const (
+	BootstrapInstanceId = instance.Id("localhost")
+)
 
 // SampleConfig() returns an environment configuration with all required
 // attributes set.
@@ -205,6 +210,7 @@ type environState struct {
 	bootstrapped bool
 	storageDelay time.Duration
 	storage      *storageServer
+	apiListener  net.Listener
 	httpListener net.Listener
 	apiServer    *apiserver.Server
 	apiState     *state.State
@@ -256,6 +262,9 @@ func Reset() {
 	providerInstance.ops = discardOperations
 	for _, s := range p.state {
 		s.httpListener.Close()
+		if s.apiListener != nil {
+			s.apiListener.Close()
+		}
 		s.destroy()
 	}
 	providerInstance.state = make(map[int]*environState)
@@ -317,13 +326,13 @@ func newState(name string, ops chan<- Operation, policy state.Policy) *environSt
 		globalPorts: make(map[network.Port]bool),
 	}
 	s.storage = newStorageServer(s, "/"+name+"/private")
-	s.listen()
+	s.listenStorage()
 	return s
 }
 
-// listen starts a network listener listening for http
+// listenStorage starts a network listener listening for http
 // requests to retrieve files in the state's storage.
-func (s *environState) listen() {
+func (s *environState) listenStorage() {
 	l, err := net.Listen("tcp", ":0")
 	if err != nil {
 		panic(fmt.Errorf("cannot start listener: %v", err))
@@ -332,6 +341,17 @@ func (s *environState) listen() {
 	mux := http.NewServeMux()
 	mux.Handle(s.storage.path+"/", http.StripPrefix(s.storage.path+"/", s.storage))
 	go http.Serve(l, mux)
+}
+
+// listenAPI starts a network listener listening for API
+// connections and proxies them to the API server port.
+func (s *environState) listenAPI() int {
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(fmt.Errorf("cannot start listener: %v", err))
+	}
+	s.apiListener = l
+	return l.Addr().(*net.TCPAddr).Port
 }
 
 // SetStatePolicy sets the state.Policy to use when a
@@ -499,22 +519,23 @@ func (p *environProvider) prepare(cfg *config.Config) (*config.Config, error) {
 	if ecfg.stateId() != noStateId {
 		return cfg, nil
 	}
-	// The environment has not been prepared,
-	// so create it and set its state identifier accordingly.
 	if ecfg.stateServer() && len(p.state) != 0 {
 		for _, old := range p.state {
 			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old.name, name))
 		}
 	}
+	// The environment has not been prepared,
+	// so create it and set its state identifier accordingly.
 	state := newState(name, p.ops, p.statePolicy)
 	p.maxStateId++
 	state.id = p.maxStateId
 	p.state[state.id] = state
-	// Add the state id to the configuration we use to
-	// in the returned environment.
-	return cfg.Apply(map[string]interface{}{
-		"state-id": fmt.Sprint(state.id),
-	})
+
+	attrs := map[string]interface{}{"state-id": fmt.Sprint(state.id)}
+	if ecfg.stateServer() {
+		attrs["api-port"] = state.listenAPI()
+	}
+	return cfg.Apply(attrs)
 }
 
 func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]string, error) {
@@ -597,6 +618,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	if err != nil {
 		return err
 	}
+	series := selectedTools.OneSeries()
 
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
@@ -627,17 +649,32 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		return fmt.Errorf("environment is already bootstrapped")
 	}
 	estate.preferIPv6 = e.Config().PreferIPv6()
-	instIds := []instance.Id{"localhost"}
+
 	// Write the bootstrap file just like a normal provider. However
 	// we need to release the mutex for the save state to work, so regain
 	// it after the call.
 	estate.mu.Unlock()
+	instIds := []instance.Id{BootstrapInstanceId}
 	if err := bootstrap.SaveState(e.Storage(), &bootstrap.BootstrapState{StateInstances: instIds}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		estate.mu.Lock() // otherwise defered unlock will fail
 		return err
 	}
 	estate.mu.Lock() // back at it
+
+	// Create an instance for the bootstrap node.
+	logger.Infof("creating bootstrap instance")
+	i := &dummyInstance{
+		id:           BootstrapInstanceId,
+		addresses:    network.NewAddresses("localhost"),
+		ports:        make(map[network.Port]bool),
+		machineId:    agent.BootstrapMachineId,
+		series:       series,
+		firewallMode: e.Config().FirewallMode(),
+		state:        estate,
+		stateServer:  true,
+	}
+	estate.insts[i.id] = i
 
 	if e.ecfg().stateServer() {
 		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
@@ -658,8 +695,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err != nil {
 			panic(err)
 		}
-		estate.apiServer, err = apiserver.NewServer(st, apiserver.ServerConfig{
-			Port:    0,
+		estate.apiServer, err = apiserver.NewServer(st, estate.apiListener, apiserver.ServerConfig{
 			Cert:    []byte(testing.ServerCert),
 			Key:     []byte(testing.ServerKey),
 			DataDir: DataDir,
@@ -675,26 +711,29 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return nil
 }
 
-func (e *environ) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
+func (e *environ) StateServerInstances() ([]instance.Id, error) {
 	estate, err := e.state()
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
-	if err := e.checkBroken("StateInfo"); err != nil {
-		return nil, nil, err
+	if err := e.checkBroken("StateServerInstances"); err != nil {
+		return nil, err
 	}
 	if !e.ecfg().stateServer() {
-		return nil, nil, errors.New("dummy environment has no state configured")
+		return nil, errors.New("dummy environment has no state configured")
 	}
 	if !estate.bootstrapped {
-		return nil, nil, environs.ErrNotBootstrapped
+		return nil, environs.ErrNotBootstrapped
 	}
-	return stateInfo(estate.preferIPv6), &api.Info{
-		Addrs:  []string{estate.apiServer.Addr()},
-		CACert: testing.CACert,
-	}, nil
+	var stateServerInstances []instance.Id
+	for _, v := range estate.insts {
+		if v.stateServer {
+			stateServerInstances = append(stateServerInstances, v.Id())
+		}
+	}
+	return stateServerInstances, nil
 }
 
 func (e *environ) Config() *config.Config {
@@ -1050,6 +1089,7 @@ type dummyInstance struct {
 	machineId    string
 	series       string
 	firewallMode string
+	stateServer  bool
 
 	mu        sync.Mutex
 	addresses []network.Address

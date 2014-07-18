@@ -15,6 +15,7 @@ import (
 	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
@@ -32,6 +33,7 @@ import (
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 	apiserverprovisioner "github.com/juju/juju/state/apiserver/provisioner"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
 
@@ -70,6 +72,7 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	dummy.SetStatePolicy(nil)
 
 	s.JujuConnSuite.SetUpTest(c)
+
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.
 	op := make(chan dummy.Operation, 500)
@@ -79,19 +82,32 @@ func (s *CommonProvisionerSuite) SetUpTest(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	s.cfg = cfg
-}
 
-func (s *CommonProvisionerSuite) APILogin(c *gc.C, machine *state.Machine) {
-	if s.st != nil {
-		c.Assert(s.st.Close(), gc.IsNil)
-	}
+	// Create a machine for the dummy bootstrap instance,
+	// so the provisioner doesn't destroy it.
+	insts, err := s.Environ.Instances([]instance.Id{dummy.BootstrapInstanceId})
+	c.Assert(err, gc.IsNil)
+	addrs, err := insts[0].Addresses()
+	c.Assert(err, gc.IsNil)
+	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+		Addresses:  addrs,
+		Series:     "quantal",
+		Nonce:      agent.BootstrapNonce,
+		InstanceId: dummy.BootstrapInstanceId,
+		Jobs:       []state.MachineJob{state.JobManageEnviron},
+	})
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Id(), gc.Equals, "0")
+
+	err = machine.SetAgentVersion(version.Current)
+	c.Assert(err, gc.IsNil)
+
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	err = machine.SetProvisioned("i-fake", "fake_nonce", nil)
-	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
+
+	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, agent.BootstrapNonce)
 	c.Assert(s.st, gc.NotNil)
 	c.Logf("API: login as %q successful", machine.Tag())
 	s.provisioner = s.st.Provisioner()
@@ -106,16 +122,6 @@ func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
 	err := st.UpdateEnvironConfig(attrs, nil, nil)
 	c.Assert(err, gc.IsNil)
 	return fmt.Sprintf("dummy.%s is broken", environMethod)
-}
-
-// setupEnvironmentManager adds an environment manager machine and login to the API.
-func (s *CommonProvisionerSuite) setupEnvironmentManager(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	c.Assert(machine.Id(), gc.Equals, "0")
-	err = machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
-	s.APILogin(c, machine)
 }
 
 // invalidateEnvironment alters the environment configuration
@@ -362,11 +368,6 @@ func (s *CommonProvisionerSuite) addMachineWithRequestedNetworks(networks []stri
 		Constraints:       cons,
 		RequestedNetworks: networks,
 	})
-}
-
-func (s *ProvisionerSuite) SetUpTest(c *gc.C) {
-	s.CommonProvisionerSuite.SetUpTest(c)
-	s.CommonProvisionerSuite.setupEnvironmentManager(c)
 }
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
@@ -830,7 +831,7 @@ func (*mockMachineGetter) MachinesWithTransientErrors() ([]*apiprovisioner.Machi
 }
 
 func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, false, s.APIConn.Environ, s.provisioner)
+	task := s.newProvisionerTask(c, false, s.Environ, s.provisioner)
 	defer stop(c, task)
 
 	// create a machine
@@ -842,7 +843,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	s.startUnknownInstance(c, "999")
 
 	// start the provisioner and ensure it doesn't kill any instances if there are error getting machines
-	task = s.newProvisionerTask(c, false, s.APIConn.Environ, &mockMachineGetter{})
+	task = s.newProvisionerTask(c, false, s.Environ, &mockMachineGetter{})
 	defer func() {
 		err := task.Stop()
 		c.Assert(err, gc.ErrorMatches, ".*failed to get machine 0.*")
@@ -928,7 +929,7 @@ func (s *ProvisionerSuite) newProvisionerTask(
 }
 
 func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {
-	task := s.newProvisionerTask(c, true, s.APIConn.Environ, s.provisioner)
+	task := s.newProvisionerTask(c, true, s.Environ, s.provisioner)
 	defer stop(c, task)
 
 	// Initially create a machine, and an unknown instance, with safe mode on.
@@ -951,7 +952,7 @@ func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) 
 
 func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
-	var e environs.Environ = &mockBroker{Environ: s.APIConn.Environ, retryCount: make(map[string]int)}
+	var e environs.Environ = &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
 	task := s.newProvisionerTask(c, false, e, s.provisioner)
 	defer stop(c, task)
 

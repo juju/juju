@@ -45,39 +45,20 @@ type apiStateCachedInfo struct {
 	cachedInfo *api.Info
 }
 
-// APIConn holds a connection to a juju environment and its
-// associated state through its API interface.
-type APIConn struct {
-	Environ environs.Environ
-	State   *api.State
-}
-
 var errAborted = fmt.Errorf("aborted")
 
-// NewAPIConn returns a new Conn that uses the
-// given environment. The environment must have already
-// been bootstrapped.
-func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, error) {
+// NewAPIState creates an api.State object from an Environ
+func NewAPIState(environ environs.Environ, dialOpts api.DialOpts) (*api.State, error) {
 	info, err := environAPIInfo(environ)
 	if err != nil {
 		return nil, err
 	}
 
 	st, err := api.Open(info, dialOpts)
-	// TODO(rog): handle errUnauthorized when the API handles passwords.
 	if err != nil {
 		return nil, err
 	}
-	return &APIConn{
-		Environ: environ,
-		State:   st,
-	}, nil
-}
-
-// Close terminates the connection to the environment and releases
-// any associated resources.
-func (c *APIConn) Close() error {
-	return c.State.Close()
+	return st, nil
 }
 
 // NewAPIClientFromName returns an api.Client connected to the API Server for
@@ -318,15 +299,16 @@ func getConfig(info configstore.EnvironInfo, envs *environs.Environs, envName st
 }
 
 func environAPIInfo(environ environs.Environ) (*api.Info, error) {
-	_, info, err := environ.StateInfo()
+	config := environ.Config()
+	password := config.AdminSecret()
+	if password == "" {
+		return nil, fmt.Errorf("cannot connect to API servers without admin-secret")
+	}
+	info, err := environs.APIInfo(environ)
 	if err != nil {
 		return nil, err
 	}
 	info.Tag = names.NewUserTag("admin")
-	password := environ.Config().AdminSecret()
-	if password == "" {
-		return nil, fmt.Errorf("cannot connect without admin-secret")
-	}
 	info.Password = password
 	return info, nil
 }

@@ -132,8 +132,8 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	c.Check(mcfg.APIInfo, gc.NotNil)
 	c.Check(mcfg.MongoInfo, gc.NotNil)
 
-	stateInfo, apiInfo, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+	stateInfo := s.MongoInfo(c)
+	apiInfo := s.APIInfo(c)
 	c.Check(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
 	c.Check(mcfg.MongoInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
 }

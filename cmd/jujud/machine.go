@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -53,6 +54,7 @@ import (
 	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/minunitsworker"
+	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/resumer"
@@ -301,6 +303,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
+	if networker.CanStart() {
+		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+			return networker.NewNetworker(st.Networker(), agentConfig)
+		})
+	} else {
+		logger.Infof("not starting networker - missing /etc/network/interfaces")
+	}
 
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
@@ -476,7 +485,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if !ok {
 					return nil, &fatalError{"StateServingInfo not available and we need it"}
 				}
-				port := info.APIPort
 				cert := []byte(info.Cert)
 				key := []byte(info.PrivateKey)
 
@@ -485,8 +493,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				}
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
-				return apiserver.NewServer(st, apiserver.ServerConfig{
-					Port:      port,
+
+				endpoint := net.JoinHostPort("", strconv.Itoa(info.APIPort))
+				listener, err := net.Listen("tcp", endpoint)
+				if err != nil {
+					return nil, err
+				}
+				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
 					Cert:      cert,
 					Key:       key,
 					DataDir:   dataDir,
@@ -785,17 +798,57 @@ func (a *MachineAgent) upgradeWorker(
 			defer st.Close()
 		}
 		err := a.runUpgrades(st, apiState, jobs, agentConfig)
-		if err != nil {
+		if err == nil {
+			// Only signal that the upgrade is complete if no error
+			// was returned.
+			close(a.upgradeComplete)
+		} else if !isFatal(err) {
+			// Only non-fatal errors are returned (this will trigger
+			// the worker to be restarted).
+			//
+			// Fatal upgrade errors are not returned because user
+			// intervention is required at that point. We don't want
+			// the upgrade worker or the agent to restart. Status
+			// output and the logs will report that the upgrade has
+			// failed.
 			return err
 		}
-		logger.Infof("upgrade to %v completed.", version.Current)
-		close(a.upgradeComplete)
 		<-stop
 		return nil
 	})
 }
 
 var upgradesPerformUpgrade = upgrades.PerformUpgrade // Allow patching for tests
+
+func (a *MachineAgent) isMaster(st *state.State, agentConfig agent.Config) (bool, error) {
+	if st == nil {
+		// If there is no state, we aren't a master.
+		return false, nil
+	}
+	// Not calling the agent openState method as it does other checks
+	// we really don't care about here.  All we need here is the machine
+	// so we can determine if we are the master or not.
+	machine, err := st.Machine(agentConfig.Tag().Id())
+	if err != nil {
+		// This shouldn't happen, and if it does, the state worker will have
+		// found out before us, and already errored, or is likely to error out
+		// very shortly.  All we do here is return the error. The state worker
+		// returns an error that will cause the agent to be terminated.
+		return false, errors.Trace(err)
+	}
+	isMaster, err := mongo.IsMaster(st.MongoSession(), machine)
+	if err != nil {
+		return false, errors.Trace(err)
+	}
+	return isMaster, nil
+}
+
+var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
+	return utils.AttemptStrategy{
+		Delay: 2 * time.Minute,
+		Min:   5,
+	}
+}
 
 // runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
 func (a *MachineAgent) runUpgrades(
@@ -810,36 +863,80 @@ func (a *MachineAgent) runUpgrades(
 		logger.Infof("upgrade to %v already completed.", version.Current)
 		return nil
 	}
-	var err error
+	isMaster, err := a.isMaster(st, agentConfig)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	var upgradeErr error
 	writeErr := a.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+		a.setMachineStatus(apiState, params.StatusStarted,
+			fmt.Sprintf("upgrading to %v", version.Current))
 		context := upgrades.NewContext(agentConfig, apiState, st)
 		for _, job := range jobs {
-			target := upgradeTarget(job)
+			target := upgradeTarget(job, isMaster)
 			if target == "" {
 				continue
 			}
 			logger.Infof("starting upgrade from %v to %v for %v %q", from, version.Current, target, a.Tag())
-			if err = upgradesPerformUpgrade(from.Number, target, context); err != nil {
-				err = fmt.Errorf("cannot perform upgrade from %v to %v for %v %q: %v", from, version.Current, target, a.Tag(), err)
-				return
+
+			attempts := getUpgradeRetryStrategy()
+			for attempt := attempts.Start(); attempt.Next(); {
+				upgradeErr = upgradesPerformUpgrade(from.Number, target, context)
+				if upgradeErr == nil {
+					break
+				} else {
+					retryText := "will retry"
+					if !attempt.HasNext() {
+						retryText = "giving up"
+					}
+					logger.Errorf("upgrade from %v to %v for %v %q failed (%s): %v",
+						from, version.Current, target, a.Tag(), retryText, upgradeErr)
+					a.setMachineStatus(apiState, params.StatusError,
+						fmt.Sprintf("upgrade to %v failed (%s): %v", version.Current, retryText, upgradeErr))
+				}
 			}
+		}
+		if upgradeErr != nil {
+			return
 		}
 		agentConfig.SetUpgradedToVersion(version.Current.Number)
 	})
+	if upgradeErr != nil {
+		logger.Errorf("upgrade to %v failed.", version.Current)
+		return &fatalError{upgradeErr.Error()}
+	}
 	if writeErr != nil {
 		return fmt.Errorf("cannot write updated agent configuration: %v", writeErr)
 	}
+
+	logger.Infof("upgrade to %v completed successfully.", version.Current)
+	a.setMachineStatus(apiState, params.StatusStarted, "")
 	return nil
 }
 
-func upgradeTarget(job params.MachineJob) upgrades.Target {
+func upgradeTarget(job params.MachineJob, isMaster bool) upgrades.Target {
 	switch job {
 	case params.JobManageEnviron:
+		if isMaster {
+			return upgrades.DatabaseMaster
+		}
 		return upgrades.StateServer
 	case params.JobHostUnits:
 		return upgrades.HostMachine
 	}
 	return ""
+}
+
+func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
+	tag := a.Tag().(names.MachineTag)
+	machine, err := apiState.Machiner().Machine(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := machine.SetStatus(status, info, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // WorkersStarted returns a channel that's closed once all top level workers

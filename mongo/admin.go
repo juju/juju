@@ -5,8 +5,10 @@ package mongo
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"syscall"
 
 	"labix.org/v2/mgo"
@@ -39,11 +41,22 @@ type EnsureAdminUserParams struct {
 // This function will stop the Mongo service if it needs to add
 // the admin user, as it must restart Mongo in --noauth mode.
 func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
+	portStr := strconv.Itoa(p.Port)
+	localIPv4Addr := net.JoinHostPort("127.0.0.1", portStr)
+	localIPv6Addr := net.JoinHostPort("::1", portStr)
 	if len(p.DialInfo.Addrs) > 1 {
-		logger.Infof("more than one state server; admin user must exist")
-		return false, nil
+		// Verify the addresses are for different servers.
+		for _, addr := range p.DialInfo.Addrs {
+			switch addr {
+			case localIPv4Addr, localIPv6Addr:
+				continue
+			default:
+				logger.Infof("more than one state server; admin user must exist")
+				return false, nil
+			}
+		}
 	}
-	p.DialInfo.Addrs = []string{fmt.Sprintf("127.0.0.1:%d", p.Port)}
+	p.DialInfo.Addrs = []string{localIPv4Addr, localIPv6Addr}
 	p.DialInfo.Direct = true
 
 	// Attempt to login to the admin database first.

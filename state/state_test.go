@@ -2480,32 +2480,17 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	}
 }
 
-func (s *StateSuite) TestParseTag(c *gc.C) {
-	bad := []string{
-		"",
-		"machine",
-		"-foo",
-		"foo-",
-		"---",
-		"foo-bar",
-		"unit-foo",
-		"network",
-		"network-",
-		"action-wordpress",
-	}
-	for _, name := range bad {
-		c.Logf(name)
-		coll, id, err := state.ParseTag(s.State, name)
-		c.Assert(err, gc.ErrorMatches, `".*" is not a valid( [a-z]+)? tag`)
-		c.Check(coll, gc.Equals, "")
-		c.Check(id, gc.Equals, "")
-	}
+func (s *StateSuite) TestParseNilTagReturnsAnError(c *gc.C) {
+	coll, id, err := state.ParseTag(s.State, nil)
+	c.Assert(err, gc.ErrorMatches, "tag is nil")
+	c.Assert(coll, gc.Equals, "")
+	c.Assert(id, gc.Equals, "")
 }
 
 func (s *StateSuite) TestParseMachineTag(c *gc.C) {
 	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, m.Tag().String())
+	coll, id, err := state.ParseTag(s.State, m.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "machines")
 	c.Assert(id, gc.Equals, m.Id())
@@ -2513,7 +2498,7 @@ func (s *StateSuite) TestParseMachineTag(c *gc.C) {
 
 func (s *StateSuite) TestParseServiceTag(c *gc.C) {
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "dummy"))
-	coll, id, err := state.ParseTag(s.State, svc.Tag().String())
+	coll, id, err := state.ParseTag(s.State, svc.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "services")
 	c.Assert(id, gc.Equals, svc.Name())
@@ -2523,7 +2508,7 @@ func (s *StateSuite) TestParseUnitTag(c *gc.C) {
 	svc := s.AddTestingService(c, "service2", s.AddTestingCharm(c, "dummy"))
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, u.Tag().String())
+	coll, id, err := state.ParseTag(s.State, u.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "units")
 	c.Assert(id, gc.Equals, u.Name())
@@ -2537,7 +2522,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	action, err := s.State.Action(f.Id())
 	c.Assert(action.Tag(), gc.Equals, names.JoinActionTag(u.Name(), 0))
-	coll, id, err := state.ParseTag(s.State, action.Tag().String())
+	coll, id, err := state.ParseTag(s.State, action.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "actions")
 	c.Assert(id, gc.Equals, action.Id())
@@ -2545,7 +2530,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 
 func (s *StateSuite) TestParseUserTag(c *gc.C) {
 	user := s.factory.MakeAnyUser()
-	coll, id, err := state.ParseTag(s.State, user.Tag().String())
+	coll, id, err := state.ParseTag(s.State, user.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
@@ -2554,7 +2539,7 @@ func (s *StateSuite) TestParseUserTag(c *gc.C) {
 func (s *StateSuite) TestParseEnvironmentTag(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, env.Tag().String())
+	coll, id, err := state.ParseTag(s.State, env.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "environments")
 	c.Assert(id, gc.Equals, env.UUID())
@@ -2568,7 +2553,7 @@ func (s *StateSuite) TestParseNetworkTag(c *gc.C) {
 		VLANTag:    0,
 	})
 	c.Assert(err, gc.IsNil)
-	coll, id, err := state.ParseTag(s.State, net1.Tag().String())
+	coll, id, err := state.ParseTag(s.State, net1.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "networks")
 	c.Assert(id, gc.Equals, net1.Name())
@@ -3487,6 +3472,79 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	gotHostPorts, err = s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
+}
+
+func (s *StateSuite) TestSetAPIHostPortsPreferIPv6(c *gc.C) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	s.changeEnviron(c, envConfig, "prefer-ipv6", true)
+
+	addrs, err := s.State.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.HasLen, 0)
+
+	newHostPorts := [][]network.HostPort{
+		network.AddressesWithPort(
+			network.NewAddresses(
+				"172.16.0.1",
+				"example.com",
+				"::1",
+				"127.0.0.1",
+				"8.8.8.8",
+				"fc00::1",
+				"localhost",
+				"fe80::2",
+			),
+			1234,
+		),
+		network.AddressesWithPort(
+			network.NewAddresses(
+				"127.0.0.1",
+				"localhost",
+				"example.org",
+				"::1",
+				"fc00::1",
+				"fe80::2",
+				"172.16.0.1",
+				"8.8.8.8",
+			),
+			1234,
+		),
+	}
+	err = s.State.SetAPIHostPorts(newHostPorts)
+	c.Assert(err, gc.IsNil)
+
+	expectHostPorts := [][]network.HostPort{
+		network.AddressesWithPort(
+			network.NewAddresses(
+				"fe80::2",
+				"::1",
+				"localhost",
+				"example.com",
+				"fc00::1",
+				"8.8.8.8",
+				"127.0.0.1",
+				"172.16.0.1",
+			),
+			1234,
+		),
+		network.AddressesWithPort(
+			network.NewAddresses(
+				"fc00::1",
+				"::1",
+				"localhost",
+				"example.org",
+				"fe80::2",
+				"127.0.0.1",
+				"172.16.0.1",
+				"8.8.8.8",
+			),
+			1234,
+		),
+	}
+	gotHostPorts, err := s.State.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotHostPorts, jc.DeepEquals, expectHostPorts)
 }
 
 func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {

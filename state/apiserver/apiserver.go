@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -54,7 +53,6 @@ type LoginValidator func(params.Creds) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Port      int
 	Cert      []byte
 	Key       []byte
 	DataDir   string
@@ -65,12 +63,7 @@ type ServerConfig struct {
 // NewServer serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
-func NewServer(s *state.State, cfg ServerConfig) (*Server, error) {
-	endpoint := net.JoinHostPort("", strconv.Itoa(cfg.Port))
-	lis, err := net.Listen("tcp", endpoint)
-	if err != nil {
-		return nil, err
-	}
+func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
 	logger.Infof("listening on %q", lis.Addr())
 	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
 	if err != nil {
