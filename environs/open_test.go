@@ -300,7 +300,7 @@ func (*OpenSuite) TestDestroy(c *gc.C) {
 
 	// Check that the environment has actually been destroyed
 	// and that the config info has been destroyed too.
-	_, _, err = e.StateInfo()
+	_, err = e.StateServerInstances()
 	c.Assert(err, gc.ErrorMatches, "environment has been destroyed")
 	_, err = store.ReadInfo(e.Name())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)

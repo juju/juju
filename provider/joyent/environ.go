@@ -8,15 +8,14 @@ import (
 	"sync"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	"github.com/juju/juju/environs/storage"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 )
 
 // This file contains the core of the Joyent Environ implementation.
@@ -155,8 +154,8 @@ func (env *joyentEnviron) Bootstrap(ctx environs.BootstrapContext, args environs
 	return common.Bootstrap(ctx, env, args)
 }
 
-func (env *joyentEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
-	return common.StateInfo(env)
+func (env *joyentEnviron) StateServerInstances() ([]instance.Id, error) {
+	return common.ProviderStateInstances(env, env.Storage())
 }
 
 func (env *joyentEnviron) Destroy() error {

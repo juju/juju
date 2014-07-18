@@ -18,7 +18,6 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -30,7 +29,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 )
 
@@ -308,9 +306,9 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	return common.Bootstrap(ctx, env, args)
 }
 
-// StateInfo is specified in the Environ interface.
-func (env *azureEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
-	return common.StateInfo(env)
+// StateServerInstances is specified in the Environ interface.
+func (e *azureEnviron) StateServerInstances() ([]instance.Id, error) {
+	return common.ProviderStateInstances(e, e.Storage())
 }
 
 // Config is specified in the Environ interface.

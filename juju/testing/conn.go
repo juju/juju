@@ -109,14 +109,13 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *authentication.MongoInfo {
-	info, _, err := s.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+	info := s.State.MongoConnectionInfo()
 	info.Password = "dummy-secret"
 	return info
 }
 
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
-	_, apiInfo, err := s.Environ.StateInfo()
+	apiInfo, err := environs.APIInfo(s.Environ)
 	c.Assert(err, gc.IsNil)
 	apiInfo.Tag = names.NewUserTag("admin")
 	apiInfo.Password = "dummy-secret"
