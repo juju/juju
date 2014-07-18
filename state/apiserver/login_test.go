@@ -538,10 +538,12 @@ func (s *loginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginV
 }
 
 func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, gc.IsNil)
 	srv, err := apiserver.NewServer(
 		s.State,
+		listener,
 		apiserver.ServerConfig{
-			Port:      0,
 			Cert:      []byte(coretesting.ServerCert),
 			Key:       []byte(coretesting.ServerKey),
 			Validator: validator,
