@@ -40,8 +40,7 @@ func Backup(password string, username string, outputFolder string, addr string) 
 	return backup(&dbinfo, outputFolder)
 }
 
-// We *could* bundle log files separately...
-func bundleConfigFiles(targetDir string) error {
+func bundleStateFiles(targetDir string) error {
 	tarFile := filepath.Join(targetDir, "root.tar")
 	backupFiles, err := getFilesToBackup()
 	if err != nil {
@@ -61,13 +60,17 @@ func backup(dbinfo *dbConnInfo, outputFolder string) (string, string, error) {
 	bkpFile := fmt.Sprintf("juju-backup_%s.tar.gz", formattedDate)
 
 	// Prepare the temp directories.
+	var bkpDir, dumpDir string
 	tempDir, err := ioutil.TempDir("", "jujuBackup")
-	defer os.RemoveAll(tempDir)
-	bkpDir := filepath.Join(tempDir, "juju-backup")
-	dumpDir := filepath.Join(bkpDir, "dump")
-	err = os.MkdirAll(dumpDir, os.FileMode(0755))
+	if err == nil {
+		defer os.RemoveAll(tempDir)
+		logger.Debugf("backup temp dir: %s", tempDir)
+		bkpDir = filepath.Join(tempDir, "juju-backup")
+		dumpDir = filepath.Join(bkpDir, "dump")
+		err = os.MkdirAll(dumpDir, os.FileMode(0755))
+	}
 	if err != nil {
-		return "", "", fmt.Errorf("cannot create backup temporary directory: %v", err)
+		return "", "", fmt.Errorf("could not create backup temporary directory: %v", err)
 	}
 
 	// Dump the database.
@@ -77,18 +80,21 @@ func backup(dbinfo *dbConnInfo, outputFolder string) (string, string, error) {
 	}
 
 	// Bundle the state config and log files.
-	err = bundleConfigFiles(bkpDir)
+	err = bundleStateFiles(bkpDir)
 	if err != nil {
 		return "", "", err
 	}
 
 	// Create a new tarball containing the previous tarfile and the DB dump.
 	target := filepath.Join(outputFolder, bkpFile)
+	logger.Infof("creating backup tarball: %s", target)
 	strip := tempDir + sep
 	shaSum, err := tarFiles([]string{bkpDir}, target, strip, true)
 	if err != nil {
-		return "", "", fmt.Errorf("cannot tar configuration files: %v", err)
+		return "", "", fmt.Errorf("could not write out complete backup file: %v", err)
 	}
+	logger.Infof("backup tarball created")
+	logger.Infof("backup tarball SHA-1 hash: %s", shaSum)
 
 	return bkpFile, shaSum, nil
 }
