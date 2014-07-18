@@ -11,15 +11,16 @@ import (
 
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/backup"
+	backupAPI "github.com/juju/juju/state/backup/api"
 	"github.com/juju/utils"
 )
 
 var (
 	createEmptyFile  = backup.CreateEmptyFile
-	newHTTPRequest   = backup.NewAPIRequest
-	checkAPIResponse = backup.CheckAPIResponse
 	writeBackup      = backup.WriteBackup
-	parseDigest      = backup.ParseDigest
+	newHTTPRequest   = backupAPI.NewAPIRequest
+	checkAPIResponse = backupAPI.CheckAPIResponse
+	parseDigest      = backupAPI.ParseDigest
 	sendHTTPRequest  = _sendHTTPRequest
 )
 

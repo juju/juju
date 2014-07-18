@@ -9,7 +9,5 @@ var (
 	GetFilesToBackup = &getFilesToBackup
 	DoBackup         = &runCommand
 
-	ParseJSONError = parseJSONError
-
 	DefaultFilename = defaultFilename
 )

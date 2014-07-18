@@ -1,14 +1,14 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backup_test
+package api_test
 
 import (
 	"net/http"
 
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/backup"
+	backup "github.com/juju/juju/state/backup/api"
 )
 
 //---------------------------
