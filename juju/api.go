@@ -302,7 +302,7 @@ func environAPIInfo(environ environs.Environ) (*api.Info, error) {
 	config := environ.Config()
 	password := config.AdminSecret()
 	if password == "" {
-		return nil, fmt.Errorf("cannot connect without admin-secret")
+		return nil, fmt.Errorf("cannot connect to API servers without admin-secret")
 	}
 	info, err := environs.APIInfo(environ)
 	if err != nil {
