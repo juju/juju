@@ -7,79 +7,23 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/juju/loggo"
 )
 
-var logger = loggo.GetLogger("juju.backup")
+var (
+	logger = loggo.GetLogger("juju.backup")
+	sep    = string(os.PathSeparator)
+)
 
-var getFilesToBackup = _getFilesToBackup
-
-func _getFilesToBackup() ([]string, error) {
-	const dataDir string = "/var/lib/juju"
-	initMachineConfs, err := filepath.Glob("/etc/init/jujud-machine-*.conf")
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch machine upstart files: %v", err)
-	}
-	agentConfs, err := filepath.Glob(filepath.Join(dataDir, "agents", "machine-*"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch agent configuration files: %v", err)
-	}
-	jujuLogConfs, err := filepath.Glob("/etc/rsyslog.d/*juju.conf")
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch juju log conf files: %v", err)
-	}
-
-	backupFiles := []string{
-		"/etc/init/juju-db.conf",
-		filepath.Join(dataDir, "tools"),
-		filepath.Join(dataDir, "server.pem"),
-		filepath.Join(dataDir, "system-identity"),
-		filepath.Join(dataDir, "nonce.txt"),
-		filepath.Join(dataDir, "shared-secret"),
-		"/home/ubuntu/.ssh/authorized_keys",
-		"/var/log/juju/all-machines.log",
-		"/var/log/juju/machine-0.log",
-	}
-	backupFiles = append(backupFiles, initMachineConfs...)
-	backupFiles = append(backupFiles, agentConfs...)
-	backupFiles = append(backupFiles, jujuLogConfs...)
-	return backupFiles, nil
-}
-
-var runCommand = _runCommand
-
-func _runCommand(cmd string, args ...string) error {
-	command := exec.Command(cmd, args...)
-	out, err := command.CombinedOutput()
-	if err == nil {
-		return nil
-	}
-	if _, ok := err.(*exec.ExitError); ok && len(out) > 0 {
-		return fmt.Errorf("error executing %q: %s", cmd, strings.Replace(string(out), "\n", "; ", -1))
-	}
-	return fmt.Errorf("cannot execute %q: %v", cmd, err)
-}
-
-var getMongodumpPath = _getMongodumpPath
-
-func _getMongodumpPath() (string, error) {
-	const mongoDumpPath string = "/usr/lib/juju/bin/mongodump"
-
-	if _, err := os.Stat(mongoDumpPath); err == nil {
-		return mongoDumpPath, nil
-	}
-
-	path, err := exec.LookPath("mongodump")
-	if err != nil {
-		return "", err
-	}
-	return path, nil
+// This is effectively the "connection string".
+type dbConnInfo struct {
+	Hostname string
+	Username string
+	Password string
 }
 
 // Backup creates a tar.gz file named juju-backup_<date YYYYMMDDHHMMSS>.tar.gz
@@ -88,8 +32,29 @@ func _getMongodumpPath() (string, error) {
 // and a root.tar file which contains all the system files obtained from
 // the output of getFilesToBackup
 func Backup(password string, username string, outputFolder string, addr string) (string, string, error) {
-	sep := string(os.PathSeparator)
+	dbinfo := dbConnInfo{
+		Hostname: addr,
+		Username: username,
+		Password: password,
+	}
+	return backup(&dbinfo, outputFolder)
+}
 
+// We *could* bundle log files separately...
+func bundleConfigFiles(targetDir string) error {
+	tarFile := filepath.Join(targetDir, "root.tar")
+	backupFiles, err := getFilesToBackup()
+	if err != nil {
+		return fmt.Errorf("could not determine files to backup: %v", err)
+	}
+	_, err = tarFiles(backupFiles, tarFile, sep, false)
+	if err != nil {
+		return fmt.Errorf("could not back up configuration files: %v", err)
+	}
+	return nil
+}
+
+func backup(dbinfo *dbConnInfo, outputFolder string) (string, string, error) {
 	// YYYYMMDDHHMMSS
 	formattedDate := time.Now().Format("20060102150405")
 
@@ -106,38 +71,21 @@ func Backup(password string, username string, outputFolder string, addr string) 
 	}
 
 	// Dump the database.
-	mongodumpPath, err := getMongodumpPath()
+	err = dumpDatabase(dbinfo, dumpDir)
 	if err != nil {
-		return "", "", fmt.Errorf("mongodump not available: %v", err)
-	}
-	err = runCommand(
-		mongodumpPath,
-		"--oplog",
-		"--ssl",
-		"--host", addr,
-		"--username", username,
-		"--password", password,
-		"--out", dumpDir)
-	if err != nil {
-		return "", "", fmt.Errorf("failed to dump database: %v", err)
+		return "", "", err
 	}
 
-	// Tar up the various state-related files (not including the DB dump).
-	tarFile := filepath.Join(bkpDir, "root.tar")
-	backupFiles, err := getFilesToBackup()
+	// Bundle the state config and log files.
+	err = bundleConfigFiles(bkpDir)
 	if err != nil {
-		return "", "", fmt.Errorf("cannot determine files to backup: %v", err)
-	}
-	_, err = tarFiles(backupFiles, tarFile, sep, false)
-	if err != nil {
-		return "", "", fmt.Errorf("cannot backup configuration files: %v", err)
+		return "", "", err
 	}
 
 	// Create a new tarball containing the previous tarfile and the DB dump.
-	shaSum, err := tarFiles([]string{bkpDir},
-		filepath.Join(outputFolder, bkpFile),
-		tempDir+sep,
-		true)
+	target := filepath.Join(outputFolder, bkpFile)
+	strip := tempDir + sep
+	shaSum, err := tarFiles([]string{bkpDir}, target, strip, true)
 	if err != nil {
 		return "", "", fmt.Errorf("cannot tar configuration files: %v", err)
 	}
