@@ -8,8 +8,6 @@ import (
 	"time"
 
 	"launchpad.net/tomb"
-
-	"github.com/juju/juju/version"
 )
 
 // RestartDelay holds the length of time that a worker
@@ -266,17 +264,4 @@ func (runner *runner) runWorker(delay time.Duration, id string, start func() (Wo
 		err = worker.Wait()
 	}
 	runner.donec <- doneInfo{id, err}
-}
-
-// SupportsOS loops through the list of operating systems
-// passed to it and returnd a boolean value if the OS is
-// supported. This is meant to be used in the worker instantiation
-// functions to know whether or not to return a no-op worker
-func SupportsOS(osList []version.OSType) bool {
-	for _, val := range osList {
-		if val == version.Current.OS {
-			return true
-		}
-	}
-	return false
 }

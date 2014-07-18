@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"time"
 
@@ -40,26 +39,6 @@ type MergeEnvSuite struct {
 	envtesting.IsolationSuite
 }
 
-type sortEnv []string
-
-func (s sortEnv) Less(i, j int) bool {
-	return s[i] < s[j]
-}
-
-func (s sortEnv) Swap(i, j int) {
-	s[i], s[j] = s[j], s[i]
-}
-
-func (s sortEnv) Len() int {
-	return len(s)
-}
-
-func sortString(s []string) []string {
-	r := []string(s)
-	sort.Sort(sortEnv(r))
-	return r
-}
-
 var _ = gc.Suite(&RunHookSuite{})
 var _ = gc.Suite(&MergeEnvSuite{})
 
@@ -77,7 +56,7 @@ func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
 	os.Setenv("DUMMYVAR", "foo")
 
 	newEnv := uniter.MergeEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"})
-	c.Assert(sortString(expectEnv), gc.DeepEquals, sortString(newEnv))
+	c.Assert(expectEnv, jc.SameContents, newEnv)
 }
 
 type hookSpec struct {

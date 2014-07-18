@@ -64,16 +64,12 @@ type RsyslogConfigHandler struct {
 
 var _ worker.NotifyWatchHandler = (*RsyslogConfigHandler)(nil)
 
-var supportedOS = []version.OSType{
-	version.Ubuntu,
-}
-
 // NewRsyslogConfigWorker returns a worker.Worker that uses
 // WatchForRsyslogChanges and updates rsyslog configuration based
 // on changes. The worker will remove the configuration file
 // on teardown.
 func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string) (worker.Worker, error) {
-	if !worker.SupportsOS(supportedOS) {
+	if version.Current.OS == version.Windows {
 		return worker.NewNoOpWorker(), nil
 	}
 	handler, err := newRsyslogConfigHandler(st, mode, tag, namespace, stateServerAddrs)

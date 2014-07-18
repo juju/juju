@@ -26,10 +26,6 @@ var SSHUser = "ubuntu"
 
 var logger = loggo.GetLogger("juju.worker.authenticationworker")
 
-var supportedOS = []version.OSType{
-	version.Ubuntu,
-}
-
 type keyupdaterWorker struct {
 	st   *keyupdater.State
 	tomb tomb.Tomb
@@ -47,7 +43,7 @@ var _ worker.NotifyWatchHandler = (*keyupdaterWorker)(nil)
 // the machine's authorised ssh keys and ensures the
 // ~/.ssh/authorized_keys file is up to date.
 func NewWorker(st *keyupdater.State, agentConfig agent.Config) worker.Worker {
-	if !worker.SupportsOS(supportedOS) {
+	if version.Current.OS == version.Windows {
 		return worker.NewNoOpWorker()
 	}
 	kw := &keyupdaterWorker{st: st, tag: agentConfig.Tag()}
