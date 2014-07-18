@@ -305,12 +305,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "machineenvironmentworker", func() (worker.Worker, error) {
 		return machineenvironmentworker.NewMachineEnvironmentWorker(st.Environment(), agentConfig), nil
 	})
-	// syslog is not supported on windows (yet)
-	if version.Current.OS != version.Windows {
-		a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
-			return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
-		})
-	}
+	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
+		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
+	})
 	if networker.CanStart() {
 		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
 			return networker.NewNetworker(st.Networker(), agentConfig)
@@ -323,12 +320,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// manage SSH keys.
 	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
-		// authenticationworker is not supported on windows (yet)
-		if version.Current.OS != version.Windows {
-			a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
-				return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
-			})
-		}
+		a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
+			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
+		})
 	}
 
 	// Perform the operations needed to set up hosting for containers.
