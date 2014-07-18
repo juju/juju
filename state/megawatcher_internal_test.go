@@ -409,7 +409,7 @@ var allWatcherChangedTests = []struct {
 			wordpress := state.AddTestingService(c, st, "wordpress", state.AddTestingCharm(c, st, "wordpress"))
 			u, err := wordpress.AddUnit()
 			c.Assert(err, gc.IsNil)
-			m, err := st.EnvironmentDeployer.AddMachine("quantal", JobHostUnits)
+			m, err := st.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 			c.Assert(err, gc.IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, gc.IsNil)

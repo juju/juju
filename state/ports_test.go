@@ -28,7 +28,7 @@ func (s *PortsDocSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine, err = s.Deployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.unit.AssignToMachine(s.machine)
 	c.Assert(err, gc.IsNil)

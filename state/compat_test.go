@@ -80,26 +80,28 @@ func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 
 // Check if ports stored on the unit are displayed.
 func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
+	_, err := s.State.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	charm := state.AddTestingCharm(c, s.State, "quantal")
+	service, err := s.State.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
+
+	collections := state.TestingStateCollections(s.State)
 
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      s.state.units.Name,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
+		C:      collections["units"].Name,
+		Id:     unit.Name(),
+		Assert: state.NotDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
 	}}
-	err = s.state.runTransaction(ops)
+	err = state.RunTransaction(s.State, ops)
 	c.Assert(err, gc.IsNil)
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -110,26 +112,28 @@ func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
 
 // Check if opening ports on a unit with ports stored in the unit doc works.
 func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
+	_, err := s.State.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	charm := state.AddTestingCharm(c, s.State, "quantal")
+	service, err := s.State.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
+
+	collections := state.TestingStateCollections(s.State)
 
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      s.state.units.Name,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
+		C:      collections["units"].Name,
+		Id:     unit.Name(),
+		Assert: state.NotDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
 	}}
-	err = s.state.runTransaction(ops)
+	err = state.RunTransaction(s.State, ops)
 	c.Assert(err, gc.IsNil)
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -147,26 +151,28 @@ func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
 
 // Check if closing ports on a unit with ports stored in the unit doc works.
 func (s *compatSuite) TestMigratePortsOnClose(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
+	_, err := s.State.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	charm := state.AddTestingCharm(c, s.State, "quantal")
+	service, err := s.State.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
+
+	collections := state.TestingStateCollections(s.State)
 
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      s.state.units.Name,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
+		C:      collections["units"].Name,
+		Id:     unit.Name(),
+		Assert: state.NotDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
 	}}
-	err = s.state.runTransaction(ops)
+	err = state.RunTransaction(s.State, ops)
 	c.Assert(err, gc.IsNil)
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)

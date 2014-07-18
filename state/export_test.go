@@ -248,6 +248,7 @@ func NewAllWatcherStateBacking(st *State) multiwatcher.Backing {
 }
 
 var NewAddress = newAddress
+var NotDeadDoc = notDeadDoc
 
 func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)
