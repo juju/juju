@@ -5,11 +5,12 @@ package backup
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
-	"time"
+	"strings"
 
 	"github.com/juju/loggo"
 )
@@ -33,11 +34,36 @@ func bundleStateFiles(targetDir string) error {
 	if err != nil {
 		return fmt.Errorf("could not determine files to backup: %v", err)
 	}
-	_, err = tarFiles(backupFiles, tarFile, sep, false)
+
+	ar := archive{backupFiles, sep}
+	err = ar.Create(tarFile)
 	if err != nil {
-		return fmt.Errorf("could not back up configuration files: %v", err)
+		return fmt.Errorf("could not back up state files: %v", err)
 	}
 	return nil
+}
+
+// Note that the returned hash is for the compressed data.
+func writeTarball(ar *archive, file io.WriteCloser) (hash string, err error) {
+	checkClose := func(w io.Closer) {
+		if closeErr := w.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("error closing backup file: %v", closeErr)
+		}
+	}
+	defer checkClose(file)
+
+	// Prepare the hasher.
+	proxy := newSHA1Proxy(file)
+
+	// Write the archive.
+	err = ar.WriteGzipped(proxy)
+	if err != nil {
+		return "", err
+	}
+
+	// Return the hash.
+	hash = proxy.Hash()
+	return hash, nil
 }
 
 // Backup creates a tar.gz file named juju-backup-<date YYYYMMDD-HHMMSS>.tar.gz
@@ -46,10 +72,16 @@ func bundleStateFiles(targetDir string) error {
 // and a root.tar file which contains all the system files obtained from
 // the output of getFilesToBackup.
 func Backup(dbinfo *DBConnInfo, outputFolder string) (string, string, error) {
-	// YYYYMMDDHHMMSS
-	formattedDate := time.Now().Format("20060102150405")
-
-	bkpFile := fmt.Sprintf("juju-backup_%s.tar.gz", formattedDate)
+	// Prepare an empty file into which to store the backup.
+	tail := sep
+	if strings.HasSuffix(outputFolder, sep) {
+		tail = ""
+	}
+	archivefile, filename, err := CreateEmptyFile(outputFolder+tail, false)
+	if err != nil {
+		return "", "", err
+	}
+	defer archivefile.Close() // just in case
 
 	// Prepare the temp directories.
 	var bkpDir, dumpDir string
@@ -77,18 +109,22 @@ func Backup(dbinfo *DBConnInfo, outputFolder string) (string, string, error) {
 		return "", "", err
 	}
 
-	// Create a new tarball containing the previous tarfile and the DB dump.
-	target := filepath.Join(outputFolder, bkpFile)
-	logger.Infof("creating backup tarball: %s", target)
-	strip := tempDir + sep
-	shaSum, err := tarFiles([]string{bkpDir}, target, strip, true)
+	// Set up the archiver and the hasher.
+	ar := archive{
+		Files:       []string{bkpDir},
+		StripPrefix: tempDir + sep,
+	}
+
+	// Write out the full backup tarball.
+	logger.Infof("writing backup tarball: %s", filename)
+	shaSum, err := writeTarball(&ar, archivefile)
 	if err != nil {
-		return "", "", fmt.Errorf("could not write out complete backup file: %v", err)
+		return "", "", fmt.Errorf("could not write out backup file: %v", err)
 	}
 	logger.Infof("backup tarball created")
 	logger.Infof("backup tarball SHA-1 hash: %s", shaSum)
 
-	return bkpFile, shaSum, nil
+	return filepath.Base(filename), shaSum, nil
 }
 
 // StorageName returns the path in environment storage where a backup

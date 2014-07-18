@@ -9,11 +9,44 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"hash"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
+
+//---------------------------
+// hashing support
+
+type hashingWriterProxy struct {
+	File   io.Writer
+	Hasher hash.Hash
+	multiw io.Writer
+}
+
+func newSHA1Proxy(file io.Writer) *hashingWriterProxy {
+	proxy := hashingWriterProxy{
+		File:   file,
+		Hasher: sha1.New(),
+	}
+	return &proxy
+}
+
+func (h *hashingWriterProxy) Write(data []byte) (int, error) {
+	if h.multiw == nil {
+		h.multiw = io.MultiWriter(h.File, h.Hasher)
+	}
+	return h.multiw.Write(data)
+}
+
+func (h *hashingWriterProxy) Hash() string {
+	raw := h.Hasher.Sum(nil)
+	return base64.StdEncoding.EncodeToString(raw)
+}
+
+//---------------------------
+// archives
 
 type archive struct {
 	Files       []string
@@ -37,7 +70,7 @@ func (a *archive) Write(w io.Writer) (err error) {
 		}
 	}
 
-	return
+	return nil
 }
 
 func (a *archive) WriteGzipped(w io.Writer) (err error) {
@@ -51,6 +84,24 @@ func (a *archive) WriteGzipped(w io.Writer) (err error) {
 	defer checkClose(gzw)
 
 	return a.Write(gzw)
+}
+
+func (a *archive) Create(filename string) (err error) {
+	checkClose := func(w io.Closer) {
+		if closeErr := w.Close(); closeErr != nil && err == nil {
+			err = fmt.Errorf("error closing archive file: %v", closeErr)
+		}
+	}
+
+	// Create the file.
+	f, err := os.Create(filename)
+	if err != nil {
+		return fmt.Errorf("could not create archive file %q", filename)
+	}
+	defer checkClose(f)
+
+	// Write out the archive.
+	return a.Write(f)
 }
 
 // writeTree creates an entry for the given file
@@ -110,44 +161,4 @@ func (a *archive) writeDir(dirname string, f *os.File, tarw *tar.Writer) error {
 		}
 	}
 	return nil
-}
-
-// tarFiles creates a tar archive at targetPath holding the files listed
-// in fileList. If compress is true, the archive will also be gzip
-// compressed.
-func tarFiles(fileList []string, targetPath, strip string, compress bool) (shaSum string, err error) {
-	shahash := sha1.New()
-	if err := tarAndHashFiles(fileList, targetPath, strip, compress, shahash); err != nil {
-		return "", err
-	}
-	// we use a base64 encoded sha1 hash, because this is the hash
-	// used by RFC 3230 Digest headers in http responses
-	encodedHash := base64.StdEncoding.EncodeToString(shahash.Sum(nil))
-	return encodedHash, nil
-}
-
-func tarAndHashFiles(fileList []string, targetPath, strip string, compress bool, hashw io.Writer) (err error) {
-	checkClose := func(w io.Closer) {
-		if closeErr := w.Close(); closeErr != nil && err == nil {
-			err = fmt.Errorf("error closing backup file: %v", closeErr)
-		}
-	}
-
-	// Create the file.
-	f, err := os.Create(targetPath)
-	if err != nil {
-		return fmt.Errorf("cannot create backup file %q", targetPath)
-	}
-	defer checkClose(f)
-
-	// Set it to hash the file.
-	w := io.MultiWriter(f, hashw)
-
-	// Write out the archive.
-	ar := archive{fileList, strip}
-	if compress {
-		return ar.WriteGzipped(w)
-	} else {
-		return ar.Write(w)
-	}
 }
