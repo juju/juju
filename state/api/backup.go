@@ -62,9 +62,9 @@ func (c *Client) Backup(backupFilePath string, excl bool) (string, string, strin
 	defer resp.Body.Close()
 
 	// Check the response.
-	err = checkAPIResponse(resp)
-	if err != nil {
-		failure := c.newFailure("backup request failed on server", err)
+	apiErr := checkAPIResponse(resp)
+	if apiErr != nil {
+		failure := c.newFailure("backup request failed on server", apiErr)
 		return "", "", "", failure
 	}
 
