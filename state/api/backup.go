@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/backup"
@@ -39,13 +40,21 @@ func _sendHTTPRequest(req *http.Request, client *http.Client) (*http.Response, e
 // Note that the backup can take a long time to prepare. The resulting
 // file can be quite large file, depending on the system being backed up.
 func (c *Client) Backup(backupFilePath string, excl bool) (string, string, string, *params.Error) {
+	// XXX Switch to using the Content-Disposition header for the filename.
+
 	// Get an empty backup file ready.
 	file, filename, err := createEmptyFile(backupFilePath, excl)
 	if err != nil {
 		failure := c.newFailure("error while preparing backup file", err)
 		return "", "", "", failure
 	}
-	defer file.Close()
+	cleanup := true
+	defer func() {
+		file.Close()
+		if cleanup {
+			os.Remove(filename)
+		}
+	}()
 
 	// Prepare the upload request.
 	req, err := c.newRawBackupRequest()
@@ -75,6 +84,7 @@ func (c *Client) Backup(backupFilePath string, excl bool) (string, string, strin
 		failure := c.newFailure("could not save the backup", err)
 		return "", "", "", failure
 	}
+	cleanup = false
 
 	expectedHash, err := parseDigest(resp.Header)
 	if err != nil {
