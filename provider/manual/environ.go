@@ -131,7 +131,29 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	})
 }
 
+// StateServerInstances is specified in the Environ interface.
 func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
+	// First verify that the environment is bootstrapped by checking
+	// if the agents directory exists. Note that we cannot test the
+	// root data directory, as that is created in the process of
+	// initialising sshstorage.
+	cmd := ssh.Command("ubuntu@"+e.cfg.bootstrapHost(), []string{"/bin/bash"}, nil)
+	agentsDir := path.Join(agent.DefaultDataDir, "agents")
+	cmd.Stdin = strings.NewReader(fmt.Sprintf(
+		"test -d %s || echo 1", utils.ShQuote(agentsDir),
+	))
+	out, err := cmd.CombinedOutput()
+	out = bytes.TrimSpace(out)
+	if err != nil {
+		if len(out) > 0 {
+			err = fmt.Errorf("%v (%v)", err, string(out))
+		}
+		return nil, err
+	}
+	if len(out) > 0 {
+		// If output is non-empty, /var/lib/juju/agents does not exist.
+		return nil, environs.ErrNotBootstrapped
+	}
 	return []instance.Id{manual.BootstrapInstanceId}, nil
 }
 

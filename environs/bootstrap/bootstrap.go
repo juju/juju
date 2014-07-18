@@ -114,7 +114,7 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 // bootstrapped, and an error if it is or if the function was not able
 // to tell.
 func EnsureNotBootstrapped(env environs.Environ) error {
-	_, err := LoadState(env.Storage())
+	_, err := env.StateServerInstances()
 	// If there is no error loading the bootstrap state, then we are
 	// bootstrapped.
 	if err == nil {
