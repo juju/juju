@@ -17,6 +17,9 @@ import (
 	"github.com/juju/juju/testing"
 )
 
+//---------------------------
+// defaultFileName()
+
 func (b *BackupSuite) TestDefaultFilename(c *gc.C) {
 	filename := backup.DefaultFilename(nil)
 
