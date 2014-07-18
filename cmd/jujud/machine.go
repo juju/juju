@@ -798,10 +798,21 @@ func (a *MachineAgent) upgradeWorker(
 			defer st.Close()
 		}
 		err := a.runUpgrades(st, apiState, jobs, agentConfig)
-		if err != nil {
+		if err == nil {
+			// Only signal that the upgrade is complete if no error
+			// was returned.
+			close(a.upgradeComplete)
+		} else if !isFatal(err) {
+			// Only non-fatal errors are returned (this will trigger
+			// the worker to be restarted).
+			//
+			// Fatal upgrade errors are not returned because user
+			// intervention is required at that point. We don't want
+			// the upgrade worker or the agent to restart. Status
+			// output and the logs will report that the upgrade has
+			// failed.
 			return err
 		}
-		close(a.upgradeComplete)
 		<-stop
 		return nil
 	})
@@ -856,7 +867,10 @@ func (a *MachineAgent) runUpgrades(
 	if err != nil {
 		return errors.Trace(err)
 	}
+	var upgradeErr error
 	writeErr := a.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+		a.setMachineStatus(apiState, params.StatusStarted,
+			fmt.Sprintf("upgrading to %v", version.Current))
 		context := upgrades.NewContext(agentConfig, apiState, st)
 		for _, job := range jobs {
 			target := upgradeTarget(job, isMaster)
@@ -867,7 +881,8 @@ func (a *MachineAgent) runUpgrades(
 
 			attempts := getUpgradeRetryStrategy()
 			for attempt := attempts.Start(); attempt.Next(); {
-				if err = upgradesPerformUpgrade(from.Number, target, context); err == nil {
+				upgradeErr = upgradesPerformUpgrade(from.Number, target, context)
+				if upgradeErr == nil {
 					break
 				} else {
 					retryText := "will retry"
@@ -875,20 +890,27 @@ func (a *MachineAgent) runUpgrades(
 						retryText = "giving up"
 					}
 					logger.Errorf("upgrade from %v to %v for %v %q failed (%s): %v",
-						from, version.Current, target, a.Tag(), retryText, err)
+						from, version.Current, target, a.Tag(), retryText, upgradeErr)
+					a.setMachineStatus(apiState, params.StatusError,
+						fmt.Sprintf("upgrade to %v failed (%s): %v", version.Current, retryText, upgradeErr))
 				}
 			}
 		}
+		if upgradeErr != nil {
+			return
+		}
 		agentConfig.SetUpgradedToVersion(version.Current.Number)
 	})
-	if err == nil {
-		logger.Infof("upgrade to %v completed successfully.", version.Current)
-	} else {
+	if upgradeErr != nil {
 		logger.Errorf("upgrade to %v failed.", version.Current)
+		return &fatalError{upgradeErr.Error()}
 	}
 	if writeErr != nil {
 		return fmt.Errorf("cannot write updated agent configuration: %v", writeErr)
 	}
+
+	logger.Infof("upgrade to %v completed successfully.", version.Current)
+	a.setMachineStatus(apiState, params.StatusStarted, "")
 	return nil
 }
 
@@ -903,6 +925,18 @@ func upgradeTarget(job params.MachineJob, isMaster bool) upgrades.Target {
 		return upgrades.HostMachine
 	}
 	return ""
+}
+
+func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
+	tag := a.Tag().(names.MachineTag)
+	machine, err := apiState.Machiner().Machine(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := machine.SetStatus(status, info, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // WorkersStarted returns a channel that's closed once all top level workers
