@@ -14,6 +14,20 @@ import (
 	"github.com/juju/utils"
 )
 
+var (
+	createEmptyFile  = backup.CreateEmptyFile
+	newHTTPRequest   = backup.NewAPIRequest
+	checkAPIResponse = backup.CheckAPIResponse
+	writeBackup      = backup.WriteBackup
+	parseDigest      = backup.ParseDigest
+	sendHTTPRequest  = _sendHTTPRequest
+)
+
+// for testing:
+func _sendHTTPRequest(req *http.Request, client *http.Client) (*http.Response, error) {
+	return client.Do(req)
+}
+
 // Backup requests a state-server backup file from the server and saves
 // it to the local filesystem. It returns the name of the file created,
 // along with the SHA-1 hash of the file and the expected hash (in that
@@ -23,9 +37,9 @@ import (
 //
 // Note that the backup can take a long time to prepare. The resulting
 // file can be quite large file, depending on the system being backed up.
-func (c *Client) Backup(backupFilePath string) (string, string, string, *params.Error) {
+func (c *Client) Backup(backupFilePath string, excl bool) (string, string, string, *params.Error) {
 	// Get an empty backup file ready.
-	file, filename, err := backup.CreateEmptyFile(backupFilePath)
+	file, filename, err := createEmptyFile(backupFilePath, excl)
 	if err != nil {
 		failure := c.newFailure("error while preparing backup file", err)
 		return "", "", "", failure
@@ -48,20 +62,20 @@ func (c *Client) Backup(backupFilePath string) (string, string, string, *params.
 	defer resp.Body.Close()
 
 	// Check the response.
-	err = backup.CheckAPIResponse(resp)
+	err = checkAPIResponse(resp)
 	if err != nil {
 		failure := c.newFailure("backup request failed on server", err)
 		return "", "", "", failure
 	}
 
 	// Save the backup.
-	hash, err := backup.WriteBackup(file, resp.Body)
+	hash, err := writeBackup(file, resp.Body)
 	if err != nil {
 		failure := c.newFailure("could not save the backup", err)
 		return "", "", "", failure
 	}
 
-	expectedHash, err := backup.ParseDigest(resp.Header)
+	expectedHash, err := parseDigest(resp.Header)
 	if err != nil {
 		// This is a non-fatal error.
 		logger.Infof("could not extract digest from HTTP response: %v", err)
@@ -79,19 +93,14 @@ func (c *Client) newRawBackupRequest() (*http.Request, error) {
 		return nil, fmt.Errorf("could not create base URL: %v", err)
 	}
 	uuid := c.EnvironmentUUID()
-	req, err := backup.NewAPIRequest(baseURL, uuid, c.st.tag, c.st.password)
+	req, err := newHTTPRequest(baseURL, uuid, c.st.tag, c.st.password)
 	if err != nil {
 		return nil, fmt.Errorf("could not create HTTP request: %v", err)
 	}
 	return req, nil
 }
 
-// for use in testing:
-type httpDoer interface {
-	Do(*http.Request) (*http.Response, error)
-}
-
-func (c *Client) getHTTPClient(secure bool) httpDoer {
+func (c *Client) getHTTPClient(secure bool) *http.Client {
 	var httpclient *http.Client
 	if secure {
 		httpclient = utils.GetValidatingHTTPClient()
@@ -105,10 +114,7 @@ func (c *Client) getHTTPClient(secure bool) httpDoer {
 
 func (c *Client) sendRawBackupRequest(req *http.Request) (*http.Response, error) {
 	httpclient := c.getHTTPClient(true)
-	//	if err != nil {
-	//		return nil, fmt.Errorf("could not create HTTP client: %v", err)
-	//    }
-	resp, err := httpclient.Do(req)
+	resp, err := sendHTTPRequest(req, httpclient)
 	if err != nil {
 		return nil, fmt.Errorf("error when sending HTTP request: %v", err)
 	}
