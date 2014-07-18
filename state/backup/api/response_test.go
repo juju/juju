@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/state/api/params"
 	backup "github.com/juju/juju/state/backup/api"
+	"github.com/juju/juju/testing"
 )
 
 //---------------------------
@@ -26,7 +27,9 @@ func (b *BackupSuite) TestParseJSONError(c *gc.C) {
 }
 
 func (b *BackupSuite) TestParseJSONErrorBadBody(c *gc.C) {
-	resp := http.Response{Body: &badReadWriter{}}
+	resp := http.Response{
+		Body: &testing.FakeFile{ReadError: "failed to read"},
+	}
 	_, err := backup.ParseJSONError(&resp)
 	c.Check(err, gc.ErrorMatches, "could not read HTTP response: failed to read")
 }
@@ -104,7 +107,7 @@ func (b *BackupSuite) TestCheckAPIResponseStatusUnauthorized(c *gc.C) {
 
 func (b *BackupSuite) TestCheckAPIResponseBadBody(c *gc.C) {
 	resp := http.Response{
-		Body:       &badReadWriter{},
+		Body:       &testing.FakeFile{ReadError: "failed to read"},
 		StatusCode: http.StatusInternalServerError,
 	}
 	err := backup.CheckAPIResponse(&resp)

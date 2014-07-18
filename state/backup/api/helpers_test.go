@@ -6,7 +6,6 @@ package api_test
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -14,21 +13,6 @@ import (
 
 	"github.com/juju/juju/state/api/params"
 )
-
-// XXX Move this to juju/juju/testing/files.go as FakeFile.
-type badReadWriter struct{}
-
-func (rw *badReadWriter) Read([]byte) (int, error) {
-	return 0, fmt.Errorf("failed to read")
-}
-
-func (rw *badReadWriter) Write([]byte) (int, error) {
-	return 0, fmt.Errorf("failed to write")
-}
-
-func (rw *badReadWriter) Close() error {
-	return nil
-}
 
 func (b *BackupSuite) newHTTPResponse(c *gc.C, statusCode int, data []byte) *http.Response {
 	body := bytes.NewBuffer(data)

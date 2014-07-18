@@ -14,6 +14,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state/backup"
+	"github.com/juju/juju/testing"
 )
 
 func (b *BackupSuite) TestDefaultFilename(c *gc.C) {
@@ -129,7 +130,7 @@ func (b *BackupSuite) TestWriteBackup(c *gc.C) {
 }
 
 func (b *BackupSuite) TestWriteBackupBadReader(c *gc.C) {
-	infile := badReadWriter{}
+	infile := testing.FakeFile{ReadError: "failed to read"}
 	archive := bytes.Buffer{}
 	_, err := backup.WriteBackup(&archive, &infile)
 	c.Check(err, gc.ErrorMatches, "could not write to the backup file: failed to read")
@@ -138,7 +139,7 @@ func (b *BackupSuite) TestWriteBackupBadReader(c *gc.C) {
 
 func (b *BackupSuite) TestWriteBackupBadWriter(c *gc.C) {
 	infile := bytes.NewBufferString("<compressed data>")
-	archive := badReadWriter{}
+	archive := testing.FakeFile{WriteError: "failed to write"}
 	_, err := backup.WriteBackup(&archive, infile)
 	c.Check(err, gc.ErrorMatches, "could not write to the backup file: failed to write")
 }
