@@ -92,9 +92,12 @@ if [[ ! -f $GODEPS ]]; then
     exit 1
 fi
 GOPATH=$WORK $GODEPS -u "$WORK/src/$PACKAGE/dependencies.tsv"
-# Remove godeps.
-rm -r $WORK/bin
 
+# Remove godeps, non-free data, and any binaries.
+rm -r $WORK/src/launchpad.net/godeps
+rm -r $WORK/src/code.google.com/p/go.net/html/charset/testdata/
+rm $WORK/src/code.google.com/p/go.net/html/charset/*test.go
+rm -r $WORK/bin
 if [[ -d $WORK/pkg ]]; then
     rm -r $WORK/pkg
 fi
