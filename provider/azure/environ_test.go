@@ -520,26 +520,80 @@ func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
 func (s *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
+	prefix := env.getEnvPrefix()
+	service := makeDeployment(env, prefix+"myservice")
+	patchInstancesResponses(c, prefix, service)
+
 	_, err := env.StateServerInstances()
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
-func (s *environSuite) TestStateServerInstances(c *gc.C) {
+func (s *environSuite) TestStateServerInstancesNoLegacy(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	prefix := env.getEnvPrefix()
 
-	service := makeDeployment(env, prefix+"myservice")
-	instId := instance.Id(service.ServiceName + "-" + service.Deployments[0].RoleList[0].RoleName)
+	service1 := makeDeployment(env, prefix+"myservice1")
+	service2 := makeDeployment(env, prefix+"myservice2")
+	service1.Label = base64.StdEncoding.EncodeToString([]byte(stateServerLabel))
+	service1Role1Name := service1.Deployments[0].RoleList[0].RoleName
+	service1Role2Name := service1.Deployments[0].RoleList[1].RoleName
+	instId1 := instance.Id(prefix + "myservice1-" + service1Role1Name)
+	instId2 := instance.Id(prefix + "myservice1-" + service1Role2Name)
+	patchInstancesResponses(c, prefix, service1, service2)
+
+	instances, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, jc.SameContents, []instance.Id{instId1, instId2})
+}
+
+func (s *environSuite) TestStateServerInstancesOnlyLegacy(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+	prefix := env.getEnvPrefix()
+
+	service1 := makeLegacyDeployment(env, prefix+"myservice1")
+	service2 := makeLegacyDeployment(env, prefix+"myservice2")
+	instId := instance.Id(service1.ServiceName)
 	err := bootstrap.SaveState(
 		env.Storage(),
 		&bootstrap.BootstrapState{StateInstances: []instance.Id{instId}},
 	)
 	c.Assert(err, gc.IsNil)
 
+	patchInstancesResponses(c, prefix, service1, service2)
+
 	instances, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
-	c.Assert(instances, gc.DeepEquals, []instance.Id{instId})
+	c.Assert(instances, jc.SameContents, []instance.Id{instId})
+}
+
+func (s *environSuite) TestStateServerInstancesSomeLegacy(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+	prefix := env.getEnvPrefix()
+
+	service1 := makeLegacyDeployment(env, prefix+"service1")
+	service2 := makeDeployment(env, prefix+"service2")
+	service3 := makeLegacyDeployment(env, prefix+"service3")
+	service4 := makeDeployment(env, prefix+"service4")
+	service2.Label = base64.StdEncoding.EncodeToString([]byte(stateServerLabel))
+	instId1 := instance.Id(service1.ServiceName)
+	service2Role1Name := service2.Deployments[0].RoleList[0].RoleName
+	service2Role2Name := service2.Deployments[0].RoleList[1].RoleName
+	instId2 := instance.Id(prefix + "service2-" + service2Role1Name)
+	instId3 := instance.Id(prefix + "service2-" + service2Role2Name)
+	err := bootstrap.SaveState(
+		env.Storage(),
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instId1}},
+	)
+	c.Assert(err, gc.IsNil)
+
+	patchInstancesResponses(c, prefix, service1, service2, service3, service4)
+
+	instances, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, jc.SameContents, []instance.Id{instId1, instId2, instId3})
 }
 
 // parseCreateServiceRequest reconstructs the original CreateHostedService
