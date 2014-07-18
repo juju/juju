@@ -5,7 +5,7 @@ github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40
 github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	
-github.com/juju/charm	git	caf1b98fd172142ea7ff731c65303231f4783762	
+github.com/juju/charm	git	270e2e0cde8af92c5960dd7894f0646c9aa87786	
 github.com/juju/cmd	git	e2d7df426d54b663f8616901b75d1ccfafcd9997	
 github.com/juju/errgo	git	2cf7b553faddc588f903020c33e71c527d5e0838	
 github.com/juju/errors	git	09734a904adc602da4334cbf29cb4515fbeb8feb	
