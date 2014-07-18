@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state/api"
 )
 
 // A EnvironProvider represents a computing and storage provider.

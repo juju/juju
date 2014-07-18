@@ -17,11 +17,7 @@ import (
 	"launchpad.net/goamz/s3"
 
 	"github.com/juju/juju/constraints"
-<<<<<<< HEAD
-=======
 	"github.com/juju/juju/environmentserver"
-	"github.com/juju/juju/environmentserver/authentication"
->>>>>>> Step 2 of many, unscrambling the state omlette.
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -33,11 +29,6 @@ import (
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-<<<<<<< HEAD
-	"github.com/juju/juju/state"
-=======
-	"github.com/juju/juju/state/api"
->>>>>>> Step 2 of many, unscrambling the state omlette.
 	"github.com/juju/juju/tools"
 )
 

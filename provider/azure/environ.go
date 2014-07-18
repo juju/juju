@@ -19,7 +19,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -30,7 +29,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 )
 
