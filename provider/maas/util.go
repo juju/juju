@@ -4,15 +4,17 @@
 package maas
 
 import (
-	"fmt"
 	"net/url"
+	"path"
 	"strings"
 
 	"github.com/juju/utils"
 	goyaml "gopkg.in/yaml.v1"
 
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/cloudinit"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/paths"
 )
 
 // extractSystemId extracts the 'system_id' part from an InstanceId.
@@ -45,18 +47,31 @@ type machineInfo struct {
 	Hostname string `yaml:,omitempty`
 }
 
-var _MAASInstanceFilename = environs.DataDir + "/MAASmachine.txt"
+var maasDataDir = paths.MustSucceed(paths.DataDir(config.LatestLtsSeries()))
+var _MAASInstanceFilename = path.Join(maasDataDir, "MAASmachine.txt")
 
 // cloudinitRunCmd returns the shell command that, when run, will create the
 // "machine info" file containing the hostname of a machine.
 // That command is destined to be used by cloudinit.
-func (info *machineInfo) cloudinitRunCmd() (string, error) {
+func (info *machineInfo) cloudinitRunCmd(series string) (string, error) {
+	dataDir, err := paths.DataDir(series)
+	if err != nil {
+		return "", err
+	}
+	renderer, err := cloudinit.NewRenderer(series)
+	if err != nil {
+		return "", err
+	}
+
 	yaml, err := goyaml.Marshal(info)
 	if err != nil {
 		return "", err
 	}
-	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, utils.ShQuote(environs.DataDir), utils.ShQuote(string(yaml)), utils.ShQuote(_MAASInstanceFilename))
-	return script, nil
+	fileName := renderer.PathJoin(dataDir, "MAASmachine.txt")
+	script := renderer.Mkdir(dataDir)
+	contents := utils.ShQuote(string(yaml))
+	script = append(script, renderer.WriteFile(fileName, contents, 0755)...)
+	return strings.Join(script, "\n"), nil
 }
 
 // load loads the "machine info" file and parse the content into the info

@@ -47,7 +47,7 @@ func newTestConfig(c *gc.C) *configInternal {
 
 func (*formatSuite) TestWriteCommands(c *gc.C) {
 	config := newTestConfig(c)
-	commands, err := config.WriteCommands()
+	commands, err := config.WriteCommands("quantal")
 	c.Assert(err, gc.IsNil)
 	c.Assert(commands, gc.HasLen, 3)
 	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/machine-1'`)

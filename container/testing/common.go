@@ -25,7 +25,8 @@ func MockMachineConfig(machineId string) *cloudinit.MachineConfig {
 
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
+	c.Assert(err, gc.IsNil)
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
@@ -50,7 +51,7 @@ func CreateContainerWithMachineConfig(
 ) instance.Instance {
 
 	network := container.BridgeNetworkConfig("nic42")
-	inst, hardware, err := manager.CreateContainer(machineConfig, "series", network)
+	inst, hardware, err := manager.CreateContainer(machineConfig, "quantal", network)
 	c.Assert(err, gc.IsNil)
 	c.Assert(hardware, gc.NotNil)
 	c.Assert(hardware.String(), gc.Not(gc.Equals), "")

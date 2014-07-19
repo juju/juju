@@ -412,6 +412,7 @@ func (task *provisionerTask) stopInstances(instances []instance.Instance) error 
 func (task *provisionerTask) constructMachineConfig(
 	machine *apiprovisioner.Machine,
 	auth authentication.AuthenticationProvider,
+	pInfo *params.ProvisioningInfo,
 ) (*cloudinit.MachineConfig, error) {
 
 	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
@@ -432,6 +433,7 @@ func (task *provisionerTask) constructMachineConfig(
 		machine.Id(),
 		nonce,
 		task.imageStream,
+		pInfo.Series,
 		nil,
 		stateInfo,
 		apiInfo,
@@ -461,7 +463,7 @@ func (task *provisionerTask) startMachines(machines []*apiprovisioner.Machine) e
 			return err
 		}
 
-		machineCfg, err := task.constructMachineConfig(m, task.auth)
+		machineCfg, err := task.constructMachineConfig(m, task.auth, pInfo)
 		if err != nil {
 			return err
 		}
