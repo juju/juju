@@ -178,7 +178,8 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 	defer environ.Storage().RemoveAll()
 	_, _, finalizer, err := environ.Bootstrap(ctx, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
-	mcfg := environs.NewBootstrapMachineConfig(constraints.Value{}, "system-key")
+	mcfg, err := environs.NewBootstrapMachineConfig(constraints.Value{}, "system-key", "quantal")
+	c.Assert(err, gc.IsNil)
 	mcfg.Tools = &coretools.Tools{
 		Version: version.Current, URL: "http://testing.invalid/tools.tar.gz",
 	}

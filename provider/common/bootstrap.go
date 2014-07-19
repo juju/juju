@@ -60,8 +60,10 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 		return "", "", nil, fmt.Errorf("no SSH client available")
 	}
 
-	machineConfig := environs.NewBootstrapMachineConfig(args.Constraints, "")
-
+	machineConfig, err := environs.NewBootstrapMachineConfig(args.Constraints, "", series)
+	if err != nil {
+		return "", "", nil, err
+	}
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, _, err := env.StartInstance(environs.StartInstanceParams{
 		Constraints:   args.Constraints,
@@ -174,7 +176,11 @@ func ConfigureMachine(ctx environs.BootstrapContext, client ssh.Client, host str
 	// point. For that reason, we do not call StopInterruptNotify
 	// until this function completes.
 	cloudcfg := coreCloudinit.New()
-	if err := cloudinit.ConfigureJuju(machineConfig, cloudcfg); err != nil {
+	udata, err := cloudinit.NewUserdataConfig(machineConfig, cloudcfg)
+	if err != nil {
+		return err
+	}
+	if err := udata.ConfigureJuju(); err != nil {
 		return err
 	}
 	configScript, err := sshinit.ConfigureScript(cloudcfg)

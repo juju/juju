@@ -177,7 +177,11 @@ func (env *localEnviron) finishBootstrap(ctx environs.BootstrapContext, mcfg *cl
 		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
 		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
 	)
-	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
+	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	if err != nil {
+		return err
+	}
+	if err := udata.ConfigureJuju(); err != nil {
 		return err
 	}
 	return executeCloudConfig(ctx, mcfg, cloudcfg)

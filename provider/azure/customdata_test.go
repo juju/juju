@@ -42,6 +42,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 			Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 			URL:     "file://" + c.MkDir(),
 		},
+		Series: "quantal",
 		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				CACert: testing.CACert,
@@ -63,7 +64,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 // will reject as invalid.
 func makeBadMachineConfig() *cloudinit.MachineConfig {
 	// As it happens, a default-initialized config is invalid.
-	return &cloudinit.MachineConfig{}
+	return &cloudinit.MachineConfig{Series: "quantal"}
 }
 
 func (*customDataSuite) TestMakeCustomDataPropagatesError(c *gc.C) {
