@@ -183,10 +183,13 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
-func (a *MachineAgent) ChangeConfig(mutate func(config agent.ConfigSetter)) error {
+func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 	err := a.AgentConf.ChangeConfig(mutate)
 	a.configChangedVal.Set(struct{}{})
-	return err
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // newStateStarterWorker wraps stateStarter in a simple worker for use in
@@ -250,8 +253,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			if err != nil {
 				return nil, fmt.Errorf("cannot get state serving info: %v", err)
 			}
-			err = a.ChangeConfig(func(config agent.ConfigSetter) {
+			err = a.ChangeConfig(func(config agent.ConfigSetter) error {
 				config.SetStateServingInfo(info)
+				return nil
 			})
 			if err != nil {
 				return nil, err
@@ -587,8 +591,9 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 			if err != nil {
 				return err
 			}
-			if err = a.ChangeConfig(func(config agent.ConfigSetter) {
+			if err = a.ChangeConfig(func(config agent.ConfigSetter) error {
 				config.SetStateServingInfo(servingInfo)
+				return nil
 			}); err != nil {
 				return err
 			}
@@ -862,8 +867,8 @@ func (a *MachineAgent) runUpgrades(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	var upgradeErr error
-	writeErr := a.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+	err = a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
+		var upgradeErr error
 		a.setMachineStatus(apiState, params.StatusStarted,
 			fmt.Sprintf("upgrading to %v", version.Current))
 		context := upgrades.NewContext(agentConfig, apiState, st)
@@ -892,16 +897,14 @@ func (a *MachineAgent) runUpgrades(
 			}
 		}
 		if upgradeErr != nil {
-			return
+			return upgradeErr
 		}
 		agentConfig.SetUpgradedToVersion(version.Current.Number)
+		return nil
 	})
-	if upgradeErr != nil {
-		logger.Errorf("upgrade to %v failed.", version.Current)
-		return &fatalError{upgradeErr.Error()}
-	}
-	if writeErr != nil {
-		return fmt.Errorf("cannot write updated agent configuration: %v", writeErr)
+	if err != nil {
+		logger.Errorf("upgrade to %v failed: %v", version.Current, err)
+		return &fatalError{err.Error()}
 	}
 
 	logger.Infof("upgrade to %v completed successfully.", version.Current)
