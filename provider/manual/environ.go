@@ -4,7 +4,6 @@
 package manual
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"path"
@@ -137,16 +136,13 @@ func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
 	// if the agents directory exists. Note that we cannot test the
 	// root data directory, as that is created in the process of
 	// initialising sshstorage.
-	cmd := ssh.Command("ubuntu@"+e.cfg.bootstrapHost(), []string{"/bin/bash"}, nil)
 	agentsDir := path.Join(agent.DefaultDataDir, "agents")
-	cmd.Stdin = strings.NewReader(fmt.Sprintf(
-		"test -d %s || echo 1", utils.ShQuote(agentsDir),
-	))
-	out, err := cmd.CombinedOutput()
-	out = bytes.TrimSpace(out)
+	stdin := fmt.Sprintf("test -d %s || echo 1", utils.ShQuote(agentsDir))
+	out, err := runSSHCommand("ubuntu@"+e.cfg.bootstrapHost(), []string{"/bin/bash"}, stdin)
+	out = strings.TrimSpace(out)
 	if err != nil {
 		if len(out) > 0 {
-			err = fmt.Errorf("%v (%v)", err, string(out))
+			err = errors.Annotate(err, out)
 		}
 		return nil, err
 	}
@@ -259,13 +255,11 @@ func (e *manualEnviron) Storage() storage.Storage {
 	return e.storage
 }
 
-var runSSHCommand = func(host string, command []string, stdin string) (stderr string, err error) {
+var runSSHCommand = func(host string, command []string, stdin string) (output string, err error) {
 	cmd := ssh.Command(host, command, nil)
-	var stderrBuf bytes.Buffer
 	cmd.Stdin = strings.NewReader(stdin)
-	cmd.Stderr = &stderrBuf
-	err = cmd.Run()
-	return stderrBuf.String(), err
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }
 
 func (e *manualEnviron) Destroy() error {
