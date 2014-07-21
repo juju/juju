@@ -1,24 +1,26 @@
 #!/usr/bin/env python
+from __future__ import print_function
+
 __metaclass__ = type
 
-
 from argparse import ArgumentParser
+import os
 import subprocess
 import sys
 
 from jujupy import (
     CannotConnectEnv,
     Environment,
-    until_timeout,
 )
 
 
-def deploy_stack(environment):
+def deploy_stack(environment, debug):
     """"Deploy a test stack in the specified environment.
 
     :param environment: The name of the desired environment.
     """
     env = Environment.from_config(environment)
+    env.client.debug = debug
     # Clean up any leftover junk
     env.destroy_environment()
     env.bootstrap()
@@ -28,7 +30,7 @@ def deploy_stack(environment):
             try:
                 env.get_status()
             except CannotConnectEnv:
-                print "Status got Unable to connect to env.  Retrying..."
+                print("Status got Unable to connect to env.  Retrying...")
                 env.get_status()
             env.wait_for_started()
         except subprocess.CalledProcessError as e:
@@ -43,10 +45,11 @@ def main():
     parser = ArgumentParser('Test a cloud')
     parser.add_argument('env', help='The juju environment to test')
     args = parser.parse_args()
+    debug = bool(os.environ.get('DEBUG') == 'true')
     try:
-        deploy_stack(args.env)
+        deploy_stack(args.env, debug)
     except Exception as e:
-        print '%s: %s' % (type(e), e)
+        print('%s: %s' % (type(e), e))
         sys.exit(1)
 
 
