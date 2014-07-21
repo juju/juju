@@ -114,3 +114,41 @@ func (b *BackupSuite) TestCheckAPIResponseBadBody(c *gc.C) {
 
 	c.Check(err, gc.ErrorMatches, `\(could not read HTTP response: failed to read\)`)
 }
+
+//---------------------------
+// ExtractFilename()
+
+func (b *BackupSuite) TestExtractFilename(c *gc.C) {
+	header := http.Header{}
+	header.Set("Content-Disposition", `attachment; filename="backup.tar.gz"`)
+	filename, err := backup.ExtractFilename(header)
+
+	c.Check(err, gc.IsNil)
+	c.Check(filename, gc.Equals, "backup.tar.gz")
+}
+
+func (b *BackupSuite) TestExtractFilenameHeaderMissing(c *gc.C) {
+	header := http.Header{}
+	filename, err := backup.ExtractFilename(header)
+
+	c.Check(err, gc.IsNil)
+	c.Check(filename, gc.Equals, "")
+}
+
+func (b *BackupSuite) TestExtractFilenameHeaderEmpty(c *gc.C) {
+	header := http.Header{}
+	header.Set("Content-Disposition", "")
+	filename, err := backup.ExtractFilename(header)
+
+	c.Check(err, gc.IsNil)
+	c.Check(filename, gc.Equals, "")
+}
+
+func (b *BackupSuite) TestExtractFilenameMalformed(c *gc.C) {
+	header := http.Header{}
+	header.Set("Content-Disposition", "something unexpected")
+	filename, err := backup.ExtractFilename(header)
+
+	c.Check(err, gc.IsNil)
+	c.Check(filename, gc.Equals, "")
+}
