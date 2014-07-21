@@ -15,6 +15,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/state/idprovider"
 	"github.com/juju/juju/state/presence"
 )
 
@@ -143,25 +144,29 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 var doCheckCreds = checkCreds
 
 func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
+	tag, err := names.ParseTag(c.AuthTag)
+	if err != nil {
+		return nil, err
+	}
+	provider, err := idprovider.LookupProvider(tag)
+	if err != nil {
+		return nil, err
+	}
+
+	if err = provider.Login(st, c.AuthTag, c.Password, c.Nonce); err != nil {
+		return nil, err
+	}
+
 	entity0, err := st.FindEntity(c.AuthTag)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
-	// We return the same error when an entity
-	// does not exist as for a bad password, so that
-	// we don't allow unauthenticated users to find information
-	// about existing entities.
+
 	entity, ok := entity0.(taggedAuthenticator)
 	if !ok {
 		return nil, common.ErrBadCreds
 	}
-	if err != nil || !entity.PasswordValid(c.Password) {
-		return nil, common.ErrBadCreds
-	}
-	// Check if a machine agent is logging in with the right Nonce
-	if err := checkForValidMachineAgent(entity, c); err != nil {
-		return nil, err
-	}
+
 	return entity, nil
 }
 
