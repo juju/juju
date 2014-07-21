@@ -899,7 +899,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 		return nil, fmt.Errorf("Invalid ownertag %s: %v", ownerTag, err)
 	}
 	// Sanity checks.
-	if !names.IsService(name) {
+	if !names.IsValidService(name) {
 		return nil, fmt.Errorf("invalid name")
 	}
 	if ch == nil {
@@ -1073,7 +1073,7 @@ func (st *State) AllNetworks() (networks []*Network, err error) {
 
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
-	if !names.IsService(name) {
+	if !names.IsValidService(name) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}

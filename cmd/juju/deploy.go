@@ -131,7 +131,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *DeployCommand) Init(args []string) error {
 	switch len(args) {
 	case 2:
-		if !names.IsService(args[1]) {
+		if !names.IsValidService(args[1]) {
 			return fmt.Errorf("invalid service name %q", args[1])
 		}
 		c.ServiceName = args[1]

@@ -105,7 +105,7 @@ func (c *RunCommand) Init(args []string) error {
 		}
 	}
 	for _, service := range c.services {
-		if !names.IsService(service) {
+		if !names.IsValidService(service) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid service name", service))
 		}
 	}
