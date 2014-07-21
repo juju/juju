@@ -1432,7 +1432,7 @@ func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, erro
 
 // Unit returns a unit by name.
 func (st *State) Unit(name string) (*Unit, error) {
-	if !names.IsUnit(name) {
+	if !names.IsValidUnit(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	doc := unitDoc{}

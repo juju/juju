@@ -110,7 +110,7 @@ func (c *RunCommand) Init(args []string) error {
 		}
 	}
 	for _, unit := range c.units {
-		if !names.IsUnit(unit) {
+		if !names.IsValidUnit(unit) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid unit name", unit))
 		}
 	}

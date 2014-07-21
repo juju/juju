@@ -161,7 +161,7 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 		}
 		return params.PublicAddressResults{PublicAddress: addr}, nil
 
-	case names.IsUnit(p.Target):
+	case names.IsValidUnit(p.Target):
 		unit, err := c.api.state.Unit(p.Target)
 		if err != nil {
 			return results, err
@@ -189,7 +189,7 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 		}
 		return params.PrivateAddressResults{PrivateAddress: addr}, nil
 
-	case names.IsUnit(p.Target):
+	case names.IsValidUnit(p.Target):
 		unit, err := c.api.state.Unit(p.Target)
 		if err != nil {
 			return results, err
