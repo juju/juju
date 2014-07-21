@@ -29,9 +29,10 @@ func (s *IdentitySuite) TestAddInvalidNames(c *gc.C) {
 		"a.",
 		"a-",
 	} {
+		c.Logf("check invalid name %q, name")
 		identity, err := s.State.AddIdentity(name, "ignored", "ignored", "ignored")
-		c.Assert(err, gc.ErrorMatches, `invalid identity name "`+regexp.QuoteMeta(name)+`"`)
-		c.Assert(identity, gc.IsNil)
+		c.Check(err, gc.ErrorMatches, `invalid identity name "`+regexp.QuoteMeta(name)+`"`)
+		c.Check(identity, gc.IsNil)
 	}
 }
 
@@ -56,7 +57,7 @@ func (s *IdentitySuite) TestAddIdentity(c *gc.C) {
 
 	identity, err = s.State.Identity(name)
 	c.Assert(err, gc.IsNil)
-	c.Check(identity, gc.NotNil)
+	c.Assert(identity, gc.NotNil)
 	c.Assert(identity.Name(), gc.Equals, name)
 	c.Assert(identity.DisplayName(), gc.Equals, displayName)
 	c.Assert(identity.PasswordValid(password), jc.IsTrue)
@@ -90,22 +91,22 @@ func (s *IdentitySuite) TestSetPassword(c *gc.C) {
 func (s *IdentitySuite) TestAddIdentitySetsSalt(c *gc.C) {
 	identity := s.factory.MakeIdentity(factory.IdentityParams{Password: "a-password"})
 	salt, hash := state.GetIdentityPasswordSaltAndHash(identity)
-	c.Check(hash, gc.Not(gc.Equals), "")
-	c.Check(salt, gc.Not(gc.Equals), "")
-	c.Check(utils.UserPasswordHash("a-password", salt), gc.Equals, hash)
-	c.Check(identity.PasswordValid("a-password"), jc.IsTrue)
+	c.Assert(hash, gc.Not(gc.Equals), "")
+	c.Assert(salt, gc.Not(gc.Equals), "")
+	c.Assert(utils.UserPasswordHash("a-password", salt), gc.Equals, hash)
+	c.Assert(identity.PasswordValid("a-password"), jc.IsTrue)
 }
 
 func (s *IdentitySuite) TestSetPasswordChangesSalt(c *gc.C) {
 	identity := s.factory.MakeAnyIdentity()
 	origSalt, origHash := state.GetIdentityPasswordSaltAndHash(identity)
-	c.Check(origSalt, gc.Not(gc.Equals), "")
+	c.Assert(origSalt, gc.Not(gc.Equals), "")
 	identity.SetPassword("a-password")
 	newSalt, newHash := state.GetIdentityPasswordSaltAndHash(identity)
-	c.Check(newSalt, gc.Not(gc.Equals), "")
-	c.Check(newSalt, gc.Not(gc.Equals), origSalt)
-	c.Check(newHash, gc.Not(gc.Equals), origHash)
-	c.Check(identity.PasswordValid("a-password"), jc.IsTrue)
+	c.Assert(newSalt, gc.Not(gc.Equals), "")
+	c.Assert(newSalt, gc.Not(gc.Equals), origSalt)
+	c.Assert(newHash, gc.Not(gc.Equals), origHash)
+	c.Assert(identity.PasswordValid("a-password"), jc.IsTrue)
 }
 
 func (s *IdentitySuite) TestDeactivate(c *gc.C) {

@@ -131,7 +131,7 @@ func (i *Identity) DateCreated() time.Time {
 }
 
 // LastLogin returns when this Identity last connected through the API in UTC.
-// The resulting time will be null if the identity has never logged in.  In the
+// The resulting time will be nil if the identity has never logged in.  In the
 // normal case, the LastLogin is the last time that the identity connected through
 // the API server.
 func (i *Identity) LastLogin() *time.Time {
@@ -155,6 +155,7 @@ func (i *Identity) UpdateLastLogin() error {
 	ops := []txn.Op{{
 		C:      identityCollectionName,
 		Id:     i.Name(),
+		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"lastlogin", timestamp}}}},
 	}}
 	if err := i.st.runTransaction(ops); err != nil {
@@ -179,6 +180,7 @@ func (i *Identity) setPasswordHash(pwHash string, pwSalt string) error {
 	ops := []txn.Op{{
 		C:      identityCollectionName,
 		Id:     i.Name(),
+		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
 	}}
 	if err := i.st.runTransaction(ops); err != nil {
@@ -199,7 +201,9 @@ func (i *Identity) PasswordValid(password string) bool {
 	if i.IsDeactivated() {
 		return false
 	}
-	return utils.UserPasswordHash(password, i.doc.PasswordSalt) == i.doc.PasswordHash
+
+	pwHash := utils.UserPasswordHash(password, i.doc.PasswordSalt)
+	return pwHash == i.doc.PasswordHash
 }
 
 // Refresh refreshes information about the Identity from the state.
@@ -229,8 +233,8 @@ func (i *Identity) setDeactivated(value bool) error {
 	ops := []txn.Op{{
 		C:      identityCollectionName,
 		Id:     i.Name(),
-		Update: bson.D{{"$set", bson.D{{"deactivated", value}}}},
 		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{{"deactivated", value}}}},
 	}}
 	if err := i.st.runTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
