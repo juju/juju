@@ -20,7 +20,9 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	}
 	var allAddresses []addressMachine
 	// TODO(rog) 2013/10/14 index machines on jobs.
-	err := st.machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&allAddresses)
+	machines, closer := st.getCollection(machinesC)
+	defer closer()
+	err := machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&allAddresses)
 	if err != nil {
 		return nil, err
 	}
@@ -105,7 +107,7 @@ func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
 	// exist to make this method work even on old environments
 	// where the document was not created by Initialize.
 	ops := []txn.Op{{
-		C:  st.stateServers.Name,
+		C:  stateServersC,
 		Id: apiHostPortsKey,
 		Update: bson.D{{"$set", bson.D{
 			{"apihostports", doc.APIHostPorts},
@@ -120,7 +122,9 @@ func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
 // APIHostPorts returns the API addresses as set by SetAPIHostPorts.
 func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 	var doc apiHostPortsDoc
-	err := st.stateServers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
+	stateServers, closer := st.getCollection(stateServersC)
+	defer closer()
+	err := stateServers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}

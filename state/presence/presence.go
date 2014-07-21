@@ -527,7 +527,10 @@ func (p *Pinger) killStarted() error {
 
 	slot := p.lastSlot
 	udoc := bson.D{{"$inc", bson.D{{"dead." + p.fieldKey, p.fieldBit}}}}
-	if _, err := p.pings.UpsertId(slot, udoc); err != nil {
+	session := p.pings.Database.Session.Copy()
+	defer session.Close()
+	pings := p.pings.With(session)
+	if _, err := pings.UpsertId(slot, udoc); err != nil {
 		return err
 	}
 	return killErr
@@ -545,7 +548,10 @@ func (p *Pinger) killStopped() error {
 		{"dead." + p.fieldKey, p.fieldBit},
 		{"alive." + p.fieldKey, p.fieldBit},
 	}}}
-	_, err := p.pings.UpsertId(slot, udoc)
+	session := p.pings.Database.Session.Copy()
+	defer session.Close()
+	pings := p.pings.With(session)
+	_, err := pings.UpsertId(slot, udoc)
 	return err
 }
 
@@ -572,7 +578,10 @@ func (p *Pinger) prepare() error {
 		Upsert:    true,
 		ReturnNew: true,
 	}
-	seqs := seqsC(p.base)
+	session := p.base.Database.Session.Copy()
+	defer session.Close()
+	base := p.base.With(session)
+	seqs := seqsC(base)
 	var seq struct{ Seq int64 }
 	if _, err := seqs.FindId("beings").Apply(change, &seq); err != nil {
 		return err
@@ -581,7 +590,7 @@ func (p *Pinger) prepare() error {
 	p.fieldKey = fmt.Sprintf("%x", p.beingSeq/63)
 	p.fieldBit = 1 << uint64(p.beingSeq%63)
 	p.lastSlot = 0
-	beings := beingsC(p.base)
+	beings := beingsC(base)
 	return beings.Insert(beingInfo{p.beingSeq, p.beingKey})
 }
 
@@ -589,8 +598,11 @@ func (p *Pinger) prepare() error {
 // sequence in use by the pinger.
 func (p *Pinger) ping() error {
 	logger.Tracef("pinging %q with seq=%d", p.beingKey, p.beingSeq)
+	session := p.pings.Database.Session.Copy()
+	defer session.Close()
 	if p.delta == 0 {
-		delta, err := clockDelta(p.base)
+		base := p.base.With(session)
+		delta, err := clockDelta(base)
 		if err != nil {
 			return err
 		}
@@ -603,7 +615,8 @@ func (p *Pinger) ping() error {
 		return nil
 	}
 	p.lastSlot = slot
-	if _, err := p.pings.UpsertId(slot, bson.D{{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}}}); err != nil {
+	pings := p.pings.With(session)
+	if _, err := pings.UpsertId(slot, bson.D{{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}}}); err != nil {
 		return err
 	}
 	return nil

@@ -176,15 +176,15 @@ func (p *Ports) OpenPorts(portRange PortRange) error {
 				portRange), nil
 		}
 		ops := []txn.Op{{
-			C:      ports.st.units.Name,
+			C:      unitsC,
 			Id:     portRange.UnitName,
 			Assert: notDeadDoc,
 		}, {
-			C:      ports.st.machines.Name,
+			C:      machinesC,
 			Id:     machineId,
 			Assert: notDeadDoc,
 		}, {
-			C:      ports.st.openedPorts.Name,
+			C:      openedPortsC,
 			Id:     ports.Id(),
 			Assert: bson.D{{"txn-revno", ports.doc.TxnRevno}},
 			Update: bson.D{{"$addToSet", bson.D{{"ports", portRange}}}},
@@ -229,11 +229,11 @@ func (p *Ports) ClosePorts(portRange PortRange) error {
 			return nil, fmt.Errorf("no match found for port range: %v", portRange)
 		}
 		ops := []txn.Op{{
-			C:      ports.st.units.Name,
+			C:      unitsC,
 			Id:     portRange.UnitName,
 			Assert: notDeadDoc,
 		}, {
-			C:      ports.st.openedPorts.Name,
+			C:      openedPortsC,
 			Id:     ports.Id(),
 			Assert: bson.D{{"txn-revno", ports.doc.TxnRevno}},
 			Update: bson.D{{"$set", bson.D{{"ports", newPorts}}}},
@@ -287,14 +287,14 @@ func (p *Ports) migratePorts(u *Unit) error {
 		var ops []txn.Op
 
 		ops = append(ops, txn.Op{
-			C:      ports.st.machines.Name,
+			C:      machinesC,
 			Id:     machineId,
 			Assert: isAliveDoc,
 		})
 
 		for _, portDef := range migratedPorts {
 			ops = append(ops, txn.Op{
-				C:      ports.st.openedPorts.Name,
+				C:      openedPortsC,
 				Id:     ports.Id(),
 				Update: bson.D{{"$addToSet", bson.D{{"ports", portDef}}}},
 			})
@@ -328,7 +328,10 @@ func (p *Ports) PortsForUnit(unit string) []PortRange {
 
 // Refresh refreshes the port document from state.
 func (p *Ports) Refresh() error {
-	err := p.st.openedPorts.FindId(p.Id()).One(&p.doc)
+	openedPorts, closer := p.st.getCollection(openedPortsC)
+	defer closer()
+
+	err := openedPorts.FindId(p.Id()).One(&p.doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("ports document %v", p.Id())
 	} else if err != nil {
@@ -358,7 +361,7 @@ func (p *Ports) Remove() error {
 // removeOps returns the ops for removing the ports document from mongo.
 func (p *Ports) removeOps() []txn.Op {
 	return []txn.Op{{
-		C:      p.st.openedPorts.Name,
+		C:      openedPortsC,
 		Id:     p.Id(),
 		Remove: true,
 	}}
@@ -366,9 +369,12 @@ func (p *Ports) removeOps() []txn.Op {
 
 // OpenedPorts returns ports documents associated with specified machine.
 func (m *Machine) OpenedPorts(st *State) ([]*Ports, error) {
+	openedPorts, closer := m.st.getCollection(openedPortsC)
+	defer closer()
+
 	idRegex := fmt.Sprintf("m#%s#n#.*", m.Id())
 	docs := []portsDoc{}
-	err := st.openedPorts.Find(bson.M{"_id": bson.M{"$regex": idRegex}}).All(&docs)
+	err := openedPorts.Find(bson.M{"_id": bson.M{"$regex": idRegex}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
@@ -393,11 +399,11 @@ func addPortsDocOps(st *State,
 	id := portsDocId(machineId, network.DefaultPublic)
 
 	ops := []txn.Op{{
-		C:      st.machines.Name,
+		C:      machinesC,
 		Id:     machineId,
 		Assert: notDeadDoc,
 	}, {
-		C:      st.openedPorts.Name,
+		C:      openedPortsC,
 		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: portsDoc{Id: id, Ports: ports},
@@ -411,9 +417,12 @@ func getPorts(st *State,
 	// TODO(domas) 2014-07-04 bug #1337804: network is hardcoded until multiple network support lands.
 	// networkName string,
 	machineId string) (*Ports, error) {
+	openedPorts, closer := st.getCollection(openedPortsC)
+	defer closer()
+
 	var doc portsDoc
 	id := portsDocId(machineId, network.DefaultPublic)
-	err := st.openedPorts.FindId(id).One(&doc)
+	err := openedPorts.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("ports document for machine %v", machineId)
 	}
