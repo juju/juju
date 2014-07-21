@@ -128,6 +128,7 @@ var indexes = []struct {
 	{"units", []string{"service"}, false},
 	{"units", []string{"principal"}, false},
 	{"units", []string{"machineid"}, false},
+	// TODO: schema change to remove this index.
 	{"users", []string{"name"}, false},
 	{"networks", []string{"providerid"}, true},
 	{"networkinterfaces", []string{"interfacename", "machineid"}, true},
