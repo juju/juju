@@ -89,6 +89,13 @@ type apiHostPortsDoc struct {
 // instances. Each server is represented by one element
 // in the top level slice.
 func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
+	existing, err := st.APIHostPorts()
+	if err != nil {
+		return err
+	}
+	if hostPortsEqual(hps, existing) {
+		return nil
+	}
 	doc := apiHostPortsDoc{
 		APIHostPorts: instanceHostPortsToHostPorts(hps),
 	}
@@ -249,6 +256,23 @@ func addressesEqual(a, b []network.Address) bool {
 	for i, addrA := range a {
 		if addrA != b[i] {
 			return false
+		}
+	}
+	return true
+}
+
+func hostPortsEqual(a, b [][]network.HostPort) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i, hpA := range a {
+		if len(hpA) != len(b[i]) {
+			return false
+		}
+		for j := range hpA {
+			if hpA[j] != b[i][j] {
+				return false
+			}
 		}
 	}
 	return true
