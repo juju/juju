@@ -44,6 +44,7 @@ func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	const series = "precise"
 	const arch = "amd64"
+	const operatingSystem = version.Ubuntu
 
 	args := s.getArgs(c)
 	hostname := args.Host
@@ -64,7 +65,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	cfg := s.Environ.Config()
 	number, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
-	binVersion := version.Binary{number, series, arch}
+	binVersion := version.Binary{number, series, arch, operatingSystem}
 	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), binVersion)
 
 	for i, errorCode := range []int{255, 0} {

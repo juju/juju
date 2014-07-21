@@ -33,13 +33,16 @@ var switchOverVersion = MustParse("1.19.9")
 // the release version of ubuntu.
 var lsbReleaseFile = "/etc/lsb-release"
 
+var osVers = mustOSVersion()
+
 // Current gives the current version of the system.  If the file
 // "FORCE-VERSION" is present in the same directory as the running
 // binary, it will override this.
 var Current = Binary{
 	Number: MustParse(version),
-	Series: mustOSVersion(),
+	Series: osVers,
 	Arch:   arch.HostArch(),
+	OS:     MustOSFromSeries(osVers),
 }
 
 var Compiler = runtime.Compiler
@@ -82,6 +85,7 @@ type Binary struct {
 	Number
 	Series string
 	Arch   string
+	OS     OSType
 }
 
 func (v Binary) String() string {
@@ -187,6 +191,11 @@ func ParseBinary(s string) (Binary, error) {
 	}
 	v.Series = m[7]
 	v.Arch = m[8]
+	operatingSystem, err := GetOSFromSeries(v.Series)
+	if err != nil {
+		return Binary{}, err
+	}
+	v.OS = operatingSystem
 	return v, nil
 }
 

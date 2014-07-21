@@ -806,7 +806,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, gc.IsNil)
-	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
+	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	newTools, _ := m0.AgentTools()
 
@@ -961,7 +961,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
+	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	err = machine.Destroy()
 	c.Assert(err, gc.IsNil)
