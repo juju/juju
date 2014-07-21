@@ -2,6 +2,7 @@ package idprovider
 
 import (
 	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver/common"
@@ -21,8 +22,8 @@ func NewAgentIdentityProvider() IdentityProvider {
 	return &AgentIdentityProvider{}
 }
 
-func (*AgentIdentityProvider) Login(st *state.State, tag, password, nonce string) error {
-	entity0, err := st.FindEntity(tag)
+func (*AgentIdentityProvider) Login(st *state.State, tag names.Tag, password, nonce string) error {
+	entity0, err := st.FindEntity(tag.String())
 	if err != nil && !errors.IsNotFound(err) {
 		return err
 	}

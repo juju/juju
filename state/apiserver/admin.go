@@ -153,7 +153,7 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 		return nil, err
 	}
 
-	if err = provider.Login(st, c.AuthTag, c.Password, c.Nonce); err != nil {
+	if err = provider.Login(st, tag, c.Password, c.Nonce); err != nil {
 		return nil, err
 	}
 
