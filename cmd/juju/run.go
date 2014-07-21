@@ -100,7 +100,7 @@ func (c *RunCommand) Init(args []string) error {
 
 	var nameErrors []string
 	for _, machineId := range c.machines {
-		if !names.IsMachine(machineId) {
+		if !names.IsValidMachine(machineId) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid machine id", machineId))
 		}
 	}

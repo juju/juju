@@ -150,7 +150,7 @@ func (c *Client) Resolved(p params.Resolved) error {
 // PublicAddress implements the server side of Client.PublicAddress.
 func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAddressResults, err error) {
 	switch {
-	case names.IsMachine(p.Target):
+	case names.IsValidMachine(p.Target):
 		machine, err := c.api.state.Machine(p.Target)
 		if err != nil {
 			return results, err
@@ -178,7 +178,7 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 // PrivateAddress implements the server side of Client.PrivateAddress.
 func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.PrivateAddressResults, err error) {
 	switch {
-	case names.IsMachine(p.Target):
+	case names.IsValidMachine(p.Target):
 		machine, err := c.api.state.Machine(p.Target)
 		if err != nil {
 			return results, err
@@ -250,7 +250,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		return fmt.Errorf("charm url must include revision")
 	}
 
-	if args.ToMachineSpec != "" && names.IsMachine(args.ToMachineSpec) {
+	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
 		_, err = c.api.state.Machine(args.ToMachineSpec)
 		if err != nil {
 			return fmt.Errorf(`cannot deploy "%v" to machine %v: %v`, args.ServiceName, args.ToMachineSpec, err)
