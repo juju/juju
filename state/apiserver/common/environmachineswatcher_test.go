@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -35,7 +36,7 @@ func (f *fakeEnvironMachinesWatcher) WatchEnvironMachines() state.StringsWatcher
 
 func (s *environMachinesWatcherSuite) TestWatchEnvironMachines(c *gc.C) {
 	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			return true
 		}, nil
 	}
@@ -70,7 +71,7 @@ func (s *environMachinesWatcherSuite) TestWatchGetAuthError(c *gc.C) {
 
 func (s *environMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
 	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			return false
 		}, nil
 	}

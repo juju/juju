@@ -621,7 +621,7 @@ func (u *UniterAPI) WatchServiceRelations(args params.Entities) (params.StringsW
 	for i, entity := range args.Entities {
 		tag, err := names.ParseServiceTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		err = common.ErrPerm
@@ -956,7 +956,7 @@ func (u *UniterAPI) JoinedRelations(args params.Entities) (params.StringsResults
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		err = common.ErrPerm
@@ -1144,7 +1144,7 @@ func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.Re
 	for i, arg := range args.RelationUnitPairs {
 		unit, err := names.ParseUnitTag(arg.LocalUnit)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
@@ -1179,7 +1179,7 @@ func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.Er
 	for i, arg := range args.RelationUnits {
 		unit, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
@@ -1228,7 +1228,7 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 	for i, arg := range args.RelationUnits {
 		unit, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
@@ -1295,7 +1295,7 @@ func (u *UniterAPI) WatchUnitAddresses(args params.Entities) (params.NotifyWatch
 	for i, entity := range args.Entities {
 		unit, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		err = common.ErrPerm

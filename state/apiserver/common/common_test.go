@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/state/apiserver/common"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/names"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -26,21 +27,21 @@ func errorAuth() (common.AuthFunc, error) {
 }
 
 func fooAuth() (common.AuthFunc, error) {
-	return func(tag string) bool {
-		return tag == "foo"
+	return func(tag names.Tag) bool {
+		return tag == names.NewUserTag("foo")
 	}, nil
 }
 
 func barAuth() (common.AuthFunc, error) {
-	return func(tag string) bool {
-		return tag == "bar"
+	return func(tag names.Tag) bool {
+		return tag == names.NewUserTag("bar")
 	}, nil
 }
 
 var authEitherTests = []struct {
 	about  string
 	a, b   func() (common.AuthFunc, error)
-	tag    string
+	tag    names.Tag
 	expect bool
 	err    string
 }{{
@@ -62,31 +63,37 @@ var authEitherTests = []struct {
 	about:  "tag foo - a returns true",
 	a:      fooAuth,
 	b:      barAuth,
-	tag:    "foo",
+	tag:    names.NewUserTag("foo"),
 	expect: true,
 }, {
 	about:  "tag foo - b returns true",
 	a:      barAuth,
 	b:      fooAuth,
-	tag:    "foo",
+	tag:    names.NewUserTag("foo"),
 	expect: true,
 }, {
 	about:  "tag bar - b returns true",
 	a:      fooAuth,
 	b:      barAuth,
-	tag:    "bar",
+	tag:    names.NewUserTag("bar"),
 	expect: true,
 }, {
 	about:  "tag foo - both return true",
 	a:      fooAuth,
 	b:      fooAuth,
-	tag:    "foo",
+	tag:    names.NewUserTag("foo"),
 	expect: true,
 }, {
 	about:  "tag baz - both return false",
 	a:      fooAuth,
 	b:      barAuth,
-	tag:    "baz",
+	tag:    names.NewUserTag("baz"),
+	expect: false,
+}, {
+	about:  "tag quxx - both return false",
+	a:      fooAuth,
+	b:      barAuth,
+	tag:    names.NewServiceTag("quxx"),
 	expect: false,
 }}
 
@@ -105,3 +112,6 @@ func (s *commonSuite) TestAuthEither(c *gc.C) {
 		}
 	}
 }
+
+func u(unit string) names.Tag { return names.NewUnitTag(unit) }
+func m(machine string) names.Tag { return names.NewMachineTag(machine) }

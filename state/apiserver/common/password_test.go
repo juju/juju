@@ -27,10 +27,10 @@ type entityWithError interface {
 }
 
 type fakeState struct {
-	entities map[string]entityWithError
+	entities map[names.Tag]entityWithError
 }
 
-func (st *fakeState) FindEntity(tag string) (state.Entity, error) {
+func (st *fakeState) FindEntity(tag names.Tag) (state.Entity, error) {
 	entity, ok := st.entities[tag]
 	if !ok {
 		return nil, errors.NotFoundf("entity %q", tag)
@@ -102,23 +102,23 @@ func (a *fakeMachineAuthenticator) Tag() names.Tag {
 
 func (*passwordSuite) TestSetPasswords(c *gc.C) {
 	st := &fakeState{
-		entities: map[string]entityWithError{
-			"x0": &fakeAuthenticator{},
-			"x1": &fakeAuthenticator{},
-			"x2": &fakeAuthenticator{
+		entities: map[names.Tag]entityWithError{
+			u("x/0"): &fakeAuthenticator{},
+			u("x/1"): &fakeAuthenticator{},
+			u("x/2"): &fakeAuthenticator{
 				err: fmt.Errorf("x2 error"),
 			},
-			"x3": &fakeAuthenticator{
+			u("x/3"): &fakeAuthenticator{
 				fetchError: "x3 error",
 			},
-			"x4": &fakeUnitAuthenticator{},
-			"x5": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobHostUnits}},
-			"x6": &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageEnviron}},
+			u("x/4"): &fakeUnitAuthenticator{},
+			u("x/5"): &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobHostUnits}},
+			u("x/6"): &fakeMachineAuthenticator{jobs: []state.MachineJob{state.JobManageEnviron}},
 		},
 	}
 	getCanChange := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return tag != "x0"
+		return func(tag names.Tag) bool {
+			return tag != names.NewUnitTag("x/0")
 		}, nil
 	}
 	pc := common.NewPasswordChanger(st, getCanChange)
@@ -145,15 +145,15 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 			{nil},
 		},
 	})
-	c.Check(st.entities["x0"].(*fakeAuthenticator).pass, gc.Equals, "")
-	c.Check(st.entities["x1"].(*fakeAuthenticator).pass, gc.Equals, "x1pass")
-	c.Check(st.entities["x2"].(*fakeAuthenticator).pass, gc.Equals, "")
-	c.Check(st.entities["x4"].(*fakeUnitAuthenticator).pass, gc.Equals, "x4pass")
-	c.Check(st.entities["x4"].(*fakeUnitAuthenticator).mongoPass, gc.Equals, "")
-	c.Check(st.entities["x5"].(*fakeMachineAuthenticator).pass, gc.Equals, "x5pass")
-	c.Check(st.entities["x5"].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "")
-	c.Check(st.entities["x6"].(*fakeMachineAuthenticator).pass, gc.Equals, "x6pass")
-	c.Check(st.entities["x6"].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "x6pass")
+	c.Check(st.entities[u("x/0")].(*fakeAuthenticator).pass, gc.Equals, "")
+	c.Check(st.entities[u("x/1")].(*fakeAuthenticator).pass, gc.Equals, "x1pass")
+	c.Check(st.entities[u("x/2")].(*fakeAuthenticator).pass, gc.Equals, "")
+	c.Check(st.entities[u("x/4")].(*fakeUnitAuthenticator).pass, gc.Equals, "x4pass")
+	c.Check(st.entities[u("x/4")].(*fakeUnitAuthenticator).mongoPass, gc.Equals, "")
+	c.Check(st.entities[u("x/5")].(*fakeMachineAuthenticator).pass, gc.Equals, "x5pass")
+	c.Check(st.entities[u("x/5")].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "")
+	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).pass, gc.Equals, "x6pass")
+	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "x6pass")
 }
 
 func (*passwordSuite) TestSetPasswordsError(c *gc.C) {

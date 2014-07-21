@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -53,7 +54,7 @@ func (s *environWatcherSuite) TearDownTest(c *gc.C) {
 
 func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
 	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			return true
 		}, nil
 	}
@@ -90,7 +91,7 @@ func (s *environWatcherSuite) TestWatchGetAuthError(c *gc.C) {
 
 func (s *environWatcherSuite) TestWatchAuthError(c *gc.C) {
 	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			return false
 		}, nil
 	}
@@ -110,7 +111,7 @@ func (s *environWatcherSuite) TestWatchAuthError(c *gc.C) {
 
 func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
 	getCanReadSecrets := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			return true
 		}, nil
 	}
@@ -131,7 +132,7 @@ func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
 
 func (*environWatcherSuite) TestEnvironConfigFetchError(c *gc.C) {
 	getCanReadSecrets := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			return true
 		}, nil
 	}
@@ -163,7 +164,7 @@ func (*environWatcherSuite) TestEnvironConfigGetAuthError(c *gc.C) {
 
 func (*environWatcherSuite) TestEnvironConfigReadSecretsFalse(c *gc.C) {
 	getCanReadSecrets := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
+		return func(tag names.Tag) bool {
 			return false
 		}, nil
 	}
