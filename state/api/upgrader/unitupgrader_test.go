@@ -42,7 +42,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.rawUnit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.stateAPI = s.OpenAPIAs(c, s.rawUnit.Tag().String(), password)
+	s.stateAPI = s.OpenAPIAs(c, s.rawUnit.Tag(), password)
 
 	// Create the upgrader facade.
 	s.st = s.stateAPI.Upgrader()

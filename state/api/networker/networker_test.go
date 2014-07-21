@@ -102,10 +102,11 @@ func (s *networkerSuite) setUpMachine(c *gc.C) {
 		InterfaceName: "eth2",
 		NetworkName:   "net2",
 		IsVirtual:     false,
+		Disabled:      true,
 	}}
 	err = s.machine.SetInstanceInfo("i-am", "fake_nonce", &hwChars, s.networks, s.machineIfaces)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machine.Tag().String(), password, "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 }
 
@@ -211,6 +212,7 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		ProviderId:    "net2",
 		VLANTag:       0,
 		InterfaceName: "eth2",
+		Disabled:      true,
 	}}
 	expectedContainerInfo := []network.Info{{
 		MACAddress:    "aa:bb:cc:dd:ee:e0",

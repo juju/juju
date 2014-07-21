@@ -72,8 +72,8 @@ func initBadDataTest(name string, mode os.FileMode, contents string, err string)
 
 var unpackToolsBadDataTests = []badDataTest{
 	initBadDataTest("bar", os.ModeDir, "", "bad file type.*"),
-	initBadDataTest("../../etc/passwd", 0755, "", "bad name.*"),
-	initBadDataTest(`\ini.sys`, 0755, "", "bad name.*"),
+	initBadDataTest("../../etc/passwd", agenttools.DirPerm, "", "bad name.*"),
+	initBadDataTest(`\ini.sys`, agenttools.DirPerm, "", "bad name.*"),
 	badDataTest{[]byte("x"), "2d711642b726b04401627ca9fbac32f5c8530fb1903cc4db02258717921a4881", "unexpected EOF"},
 	badDataTest{gzyesses, "8d900c68a1a847aae4e95edcb29fcecd142c9b88ca4fe63209c216edbed546e1", "archive/tar: invalid tar header"},
 }
@@ -94,7 +94,7 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 }
 
 func (t *ToolsSuite) TestUnpackToolsBadChecksum(c *gc.C) {
-	data, _ := testing.TarGz(testing.NewTarFile("tools", 0755, "some data"))
+	data, _ := testing.TarGz(testing.NewTarFile("tools", agenttools.DirPerm, "some data"))
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
@@ -113,8 +113,8 @@ func (t *ToolsSuite) toolsDir() string {
 
 func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	files := []*testing.TarFile{
-		testing.NewTarFile("bar", 0755, "bar contents"),
-		testing.NewTarFile("foo", 0755, "foo contents"),
+		testing.NewTarFile("bar", agenttools.DirPerm, "bar contents"),
+		testing.NewTarFile("foo", agenttools.DirPerm, "foo contents"),
 	}
 	data, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
@@ -132,8 +132,8 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	// Try to unpack the same version of tools again - it should succeed,
 	// leaving the original version around.
 	files2 := []*testing.TarFile{
-		testing.NewTarFile("bar", 0755, "bar2 contents"),
-		testing.NewTarFile("x", 0755, "x contents"),
+		testing.NewTarFile("bar", agenttools.DirPerm, "bar2 contents"),
+		testing.NewTarFile("x", agenttools.DirPerm, "x contents"),
 	}
 	data2, checksum2 := testing.TarGz(files2...)
 	tools2 := &coretest.Tools{
@@ -155,7 +155,7 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot read tools metadata in tools directory: .*")
 
 	dir := agenttools.SharedToolsDir(t.dataDir, vers)
-	err = os.MkdirAll(dir, 0755)
+	err = os.MkdirAll(dir, agenttools.DirPerm)
 	c.Assert(err, gc.IsNil)
 
 	err = ioutil.WriteFile(filepath.Join(dir, toolsFile), []byte(" \t\n"), 0644)
@@ -168,8 +168,8 @@ func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 
 func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	files := []*testing.TarFile{
-		testing.NewTarFile("jujuc", 0755, "juju executable"),
-		testing.NewTarFile("jujud", 0755, "jujuc executable"),
+		testing.NewTarFile("jujuc", agenttools.DirPerm, "juju executable"),
+		testing.NewTarFile("jujud", agenttools.DirPerm, "jujuc executable"),
 	}
 	data, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
@@ -190,8 +190,8 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 
 	// Upgrade again to check that the link replacement logic works ok.
 	files2 := []*testing.TarFile{
-		testing.NewTarFile("foo", 0755, "foo content"),
-		testing.NewTarFile("bar", 0755, "bar content"),
+		testing.NewTarFile("foo", agenttools.DirPerm, "foo content"),
+		testing.NewTarFile("bar", agenttools.DirPerm, "bar content"),
 	}
 	data2, checksum2 := testing.TarGz(files2...)
 	tools2 := &coretest.Tools{

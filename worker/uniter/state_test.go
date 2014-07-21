@@ -102,9 +102,8 @@ var stateTests = []struct {
 			Op:     uniter.RunHook,
 			OpStep: uniter.Pending,
 			Hook: &hook.Info{
-				Kind:         hooks.ActionRequested,
-				ActionName:   "snapshot",
-				ActionParams: map[string]interface{}{"outfile": "foo.txt"},
+				Kind:     hooks.ActionRequested,
+				ActionId: "wordpress/0_a_1",
 			},
 		},
 	}, {
@@ -112,11 +111,11 @@ var stateTests = []struct {
 			Op:     uniter.RunHook,
 			OpStep: uniter.Pending,
 			Hook: &hook.Info{
-				Kind:         hooks.ActionRequested,
-				ActionParams: map[string]interface{}{"outfile": "foo.txt"},
+				Kind:     hooks.ActionRequested,
+				ActionId: "foo",
 			},
 		},
-		err: `missing action name`,
+		err: `action id "foo" cannot be parsed as an action tag`,
 	},
 	// Upgrade operation.
 	{

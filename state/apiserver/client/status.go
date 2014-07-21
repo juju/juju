@@ -14,7 +14,6 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -24,7 +23,7 @@ import (
 
 // FullStatus gives the information needed for juju status over the api
 func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
-	conn, err := juju.NewConnFromState(c.api.state)
+	cfg, err := c.api.state.EnvironConfig()
 	if err != nil {
 		return api.Status{}, err
 	}
@@ -35,7 +34,7 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 		return noStatus, err
 	}
 	if context.services,
-		context.units, context.latestCharms, err = fetchAllServicesAndUnits(conn.State, unitMatcher); err != nil {
+		context.units, context.latestCharms, err = fetchAllServicesAndUnits(c.api.state, unitMatcher); err != nil {
 		return noStatus, err
 	}
 
@@ -47,18 +46,18 @@ func (c *Client) FullStatus(args params.StatusParams) (api.Status, error) {
 			return noStatus, err
 		}
 	}
-	if context.machines, err = fetchMachines(conn.State, machineIds); err != nil {
+	if context.machines, err = fetchMachines(c.api.state, machineIds); err != nil {
 		return noStatus, err
 	}
-	if context.relations, err = fetchRelations(conn.State); err != nil {
+	if context.relations, err = fetchRelations(c.api.state); err != nil {
 		return noStatus, err
 	}
-	if context.networks, err = fetchNetworks(conn.State); err != nil {
+	if context.networks, err = fetchNetworks(c.api.state); err != nil {
 		return noStatus, err
 	}
 
 	return api.Status{
-		EnvironmentName: conn.Environ.Name(),
+		EnvironmentName: cfg.Name(),
 		Machines:        context.processMachines(),
 		Services:        context.processServices(),
 		Networks:        context.processNetworks(),

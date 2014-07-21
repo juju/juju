@@ -966,6 +966,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		NetworkTag:    "network-vlan69",
 		InterfaceName: "eth0.69",
 		IsVirtual:     true,
+		Disabled:      true,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1", // duplicated mac+net; ignored
 		NetworkTag:    "network-vlan42",
@@ -1039,6 +1040,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		actual[i].NetworkTag = iface.NetworkTag()
 		actual[i].MACAddress = iface.MACAddress()
 		actual[i].IsVirtual = iface.IsVirtual()
+		actual[i].Disabled = iface.IsDisabled()
 		c.Check(iface.MachineId(), gc.Equals, s.machines[1].Id())
 		c.Check(iface.MachineTag(), gc.Equals, s.machines[1].Tag().String())
 	}
@@ -1165,6 +1167,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
+	c.Check(results.PreferIPv6, jc.IsTrue)
 }
 
 func (s *withoutStateServerSuite) TestToolsRefusesWrongAgent(c *gc.C) {

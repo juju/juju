@@ -39,6 +39,9 @@ type NetworkInterfaceInfo struct {
 	// IsVirtual is true when the interface is a virtual device, as
 	// opposed to a physical device (e.g. a VLAN or a network alias).
 	IsVirtual bool
+
+	// Disabled returns whether the interface is disabled.
+	Disabled bool
 }
 
 // networkInterfaceDoc represents a network interface for a machine on
@@ -64,6 +67,7 @@ func newNetworkInterfaceDoc(args NetworkInterfaceInfo) *networkInterfaceDoc {
 		InterfaceName: args.InterfaceName,
 		NetworkName:   args.NetworkName,
 		IsVirtual:     args.IsVirtual,
+		IsDisabled:    args.Disabled,
 	}
 }
 
@@ -173,7 +177,7 @@ func (ni *NetworkInterface) Refresh() error {
 	doc := networkInterfaceDoc{}
 	err := ni.st.networkInterfaces.FindId(ni.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
-		return errors.NotFoundf("network interface %v", ni)
+		return errors.NotFoundf("network interface %#v", ni)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh network interface %q on machine %q: %v",

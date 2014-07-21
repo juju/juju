@@ -31,8 +31,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
 )
 
@@ -95,9 +93,9 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	return common.Bootstrap(ctx, env, args)
 }
 
-// StateInfo is specified in the Environ interface.
-func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return common.StateInfo(env)
+// StateServerInstances is specified in the Environ interface.
+func (env *maasEnviron) StateServerInstances() ([]instance.Id, error) {
+	return common.ProviderStateInstances(env, env.Storage())
 }
 
 // ecfg returns the environment's maasEnvironConfig, and protects it with a
@@ -320,36 +318,36 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 
 // restoreInterfacesFiles returns a string representing the upstart command to
 // revert MAAS changes to interfaces file.
-func restoreInterfacesFiles() string {
-	return `mkdir -p etc/network/interfaces.d
-cat > /etc/network/interfaces.d/eth0.cfg << EOF
+func restoreInterfacesFiles(iface string) string {
+	return fmt.Sprintf(`mkdir -p etc/network/interfaces.d
+cat > /etc/network/interfaces.d/%s.cfg << EOF
 # The primary network interface
-auto eth0
-iface eth0 inet dhcp
+auto %s
+iface %s inet dhcp
 EOF
-sed -i '/auto eth0/{N;s/auto eth0\niface eth0 inet dhcp//}' /etc/network/interfaces
+sed -i '/auto %s/{N;s/auto %s\niface %s inet dhcp//}' /etc/network/interfaces
 cat >> /etc/network/interfaces << EOF
 # Source interfaces
 # Please check /etc/network/interfaces.d before changing this file
 # as interfaces may have been defined in /etc/network/interfaces.d
 # NOTE: the primary ethernet device is defined in
-# /etc/network/interfaces.d/eth0.cfg
+# /etc/network/interfaces.d/%s.cfg
 # See LP: #1262951
 source /etc/network/interfaces.d/*.cfg
 EOF
-`
+`, iface, iface, iface, iface, iface, iface, iface)
 }
 
 // createBridgeNetwork returns a string representing the upstart command to
-// create a bridged eth0.
-func createBridgeNetwork() string {
-	return `cat > /etc/network/interfaces.d/br0.cfg << EOF
+// create a bridged interface.
+func createBridgeNetwork(iface string) string {
+	return fmt.Sprintf(`cat > /etc/network/interfaces.d/br0.cfg << EOF
 auto br0
 iface br0 inet dhcp
-  bridge_ports eth0
+  bridge_ports %s
 EOF
-sed -i 's/iface eth0 inet dhcp/iface eth0 inet manual/' /etc/network/interfaces.d/eth0.cfg
-`
+sed -i 's/iface %s inet dhcp/iface %s inet manual/' /etc/network/interfaces.d/%s.cfg
+`, iface, iface, iface, iface)
 }
 
 var unsupportedConstraints = []string{
@@ -476,7 +474,9 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
 	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
-	cloudcfg, err := newCloudinitConfig(hostname, networkInfo)
+
+	iface := environ.ecfg().networkBridge()
+	cloudcfg, err := newCloudinitConfig(hostname, iface)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -498,73 +498,26 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
-func newCloudinitConfig(hostname string, networkInfo []network.Info) (*cloudinit.Config, error) {
+func newCloudinitConfig(hostname string, iface string) (*cloudinit.Config, error) {
 	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd()
+
 	if err != nil {
 		return nil, err
 	}
+
 	cloudcfg := cloudinit.New()
 	cloudcfg.SetAptUpdate(true)
 	cloudcfg.AddPackage("bridge-utils")
 	cloudcfg.AddScripts(
 		"set -xe",
 		runCmd,
-		"ifdown eth0",
-		restoreInterfacesFiles(),
-		createBridgeNetwork(),
+		fmt.Sprintf("ifdown %s", iface),
+		restoreInterfacesFiles(iface),
+		createBridgeNetwork(iface),
 		"ifup br0",
 	)
-	setupNetworksOnBoot(cloudcfg, networkInfo)
 	return cloudcfg, nil
-}
-
-// setupNetworksOnBoot prepares a script to enable and start all
-// enabled network interfaces on boot.
-func setupNetworksOnBoot(cloudcfg *cloudinit.Config, networkInfo []network.Info) {
-	const ifaceConfig = `cat > /etc/network/interfaces.d/%s.cfg << EOF
-auto %s
-iface %s inet dhcp
-EOF
-`
-	// We need the vlan package for the vconfig command.
-	cloudcfg.AddPackage("vlan")
-
-	script := func(line string, args ...interface{}) {
-		cloudcfg.AddScripts(fmt.Sprintf(line, args...))
-	}
-	// Because eth0 is already configured in the br0 bridge, we
-	// don't want to break that.
-	configured := set.NewStrings("eth0")
-
-	// In order to support VLANs, we need to include 8021q module
-	// configure vconfig's set_name_type, but due to bug #1316762,
-	// we need to first check if it's already loaded.
-	script("sh -c 'lsmod | grep -q 8021q || modprobe 8021q'")
-	script("sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'")
-	script("vconfig set_name_type DEV_PLUS_VID_NO_PAD")
-	// Now prepare each interface configuration
-	for _, info := range networkInfo {
-		if !configured.Contains(info.InterfaceName) {
-			// TODO(dimitern): We should respect user's choice
-			// and skip interfaces marked as Disabled, but we
-			// are postponing this until we have the networker
-			// in place.
-
-			// Register and bring up the physical interface.
-			script(ifaceConfig, info.InterfaceName, info.InterfaceName, info.InterfaceName)
-			script("ifup %s", info.InterfaceName)
-			configured.Add(info.InterfaceName)
-		}
-		if info.VLANTag > 0 {
-			// We have a VLAN and need to create and register it after
-			// its parent interface was brought up.
-			script("vconfig add %s %d", info.InterfaceName, info.VLANTag)
-			vlan := info.ActualInterfaceName()
-			script(ifaceConfig, vlan, vlan, vlan)
-			script("ifup %s", vlan)
-		}
-	}
 }
 
 // StopInstances is specified in the InstanceBroker interface.

@@ -25,7 +25,7 @@ var (
 	MaxOplogSizeMB = &maxOplogSizeMB
 	PreallocFile   = &preallocFile
 
-	OplogSize         = oplogSize
+	DefaultOplogSize  = defaultOplogSize
 	FsAvailSpace      = fsAvailSpace
 	PreallocFileSizes = preallocFileSizes
 	PreallocFiles     = preallocFiles

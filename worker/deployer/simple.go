@@ -73,11 +73,13 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	}
 
 	// Link the current tools for use by the new agent.
-	tag := names.NewUnitTag(unitName).String()
+	tag := names.NewUnitTag(unitName)
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
-	_, err = tools.ChangeAgentTools(dataDir, tag, version.Current)
-	toolsDir := tools.ToolsDir(dataDir, tag)
+	// TODO(dfc)
+	_, err = tools.ChangeAgentTools(dataDir, tag.String(), version.Current)
+	// TODO(dfc)
+	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	defer removeOnErr(&err, toolsDir)
 
 	result, err := ctx.api.ConnectionInfo()
@@ -114,7 +116,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, conf.Dir())
 
 	// Install an upstart job that runs the unit agent.
-	logPath := path.Join(logDir, tag+".log")
+	logPath := path.Join(logDir, tag.String()+".log")
 	cmd := strings.Join([]string{
 		path.Join(toolsDir, "jujud"), "unit",
 		"--data-dir", dataDir,
@@ -162,13 +164,14 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if err := svc.StopAndRemove(); err != nil {
 		return err
 	}
-	tag := names.NewUnitTag(unitName).String()
+	tag := names.NewUnitTag(unitName)
 	dataDir := ctx.agentConfig.DataDir()
 	agentDir := agent.Dir(dataDir, tag)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
-	toolsDir := tools.ToolsDir(dataDir, tag)
+	// TODO(dfc) should take a Tag
+	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	return os.Remove(toolsDir)
 }
 
@@ -183,7 +186,7 @@ func (ctx *SimpleContext) deployedUnitsUpstartJobs() (map[string]string, error) 
 	for _, fi := range fis {
 		if groups := deployedRe.FindStringSubmatch(fi.Name()); len(groups) == 4 {
 			unitName := groups[2] + "/" + groups[3]
-			if !names.IsUnit(unitName) {
+			if !names.IsValidUnit(unitName) {
 				continue
 			}
 			installed[unitName] = groups[1]

@@ -17,7 +17,6 @@ import (
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -132,7 +131,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *DeployCommand) Init(args []string) error {
 	switch len(args) {
 	case 2:
-		if !names.IsService(args[1]) {
+		if !names.IsValidService(args[1]) {
 			return fmt.Errorf("invalid service name %q", args[1])
 		}
 		c.ServiceName = args[1]
@@ -151,7 +150,7 @@ func (c *DeployCommand) Init(args []string) error {
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}
@@ -307,7 +306,7 @@ func parseNetworks(networksValue string) []string {
 func networkNamesToTags(networks []string) ([]string, error) {
 	var tags []string
 	for _, network := range networks {
-		if !names.IsNetwork(network) {
+		if !names.IsValidNetwork(network) {
 			return nil, fmt.Errorf("%q is not a valid network name", network)
 		}
 		tags = append(tags, names.NewNetworkTag(network).String())

@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // RemoveRelationCommand causes an existing service relation to be shut down.
@@ -36,7 +35,7 @@ func (c *RemoveRelationCommand) Init(args []string) error {
 }
 
 func (c *RemoveRelationCommand) Run(_ *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

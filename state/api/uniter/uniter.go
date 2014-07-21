@@ -36,8 +36,12 @@ func NewState(caller base.Caller, authTag names.UnitTag) *State {
 	}
 }
 
-func (st *State) call(method string, params, results interface{}) error {
-	return st.caller.Call(uniterFacade, "", method, params, results)
+var call = func(st *State, method string, args, results interface{}) error {
+	return st.caller.Call(uniterFacade, "", method, args, results)
+}
+
+func (st *State) call(method string, args, results interface{}) error {
+	return call(st, method, args, results)
 }
 
 // life requests the lifecycle of the given entity from the server.
@@ -178,6 +182,18 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 		name:   result.Action.Name,
 		params: result.Action.Params,
 	}, nil
+}
+
+func (st *State) ActionComplete(tag names.ActionTag, output string) error {
+	var result params.BoolResult
+	args := params.ActionResult{ActionTag: tag.String(), Output: output}
+	return st.call("ActionComplete", args, &result)
+}
+
+func (st *State) ActionFail(tag names.ActionTag, errorMessage string) error {
+	var result params.BoolResult
+	args := params.ActionResult{ActionTag: tag.String(), Output: errorMessage}
+	return st.call("ActionFail", args, &result)
 }
 
 // RelationById returns the existing relation with the given id.

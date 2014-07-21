@@ -34,10 +34,9 @@ func (s *toolsSuite) SetUpSuite(c *gc.C) {
 }
 
 func (s *toolsSuite) TestToolsUploadedSecurely(c *gc.C) {
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+	info := s.APIInfo(c)
 	uri := "http://" + info.Addrs[0] + "/tools"
-	_, err = s.sendRequest(c, "", "", "PUT", uri, "", nil)
+	_, err := s.sendRequest(c, "", "", "PUT", uri, "", nil)
 	c.Assert(err, gc.ErrorMatches, `.*malformed HTTP response.*`)
 }
 
@@ -120,7 +119,7 @@ func (s *toolsSuite) TestUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Check the response.
-	stor := s.Conn.Environ.Storage()
+	stor := s.Environ.Storage()
 	toolsURL, err := stor.URL(tools.StorageName(vers))
 	c.Assert(err, gc.IsNil)
 	expectedTools[0].URL = toolsURL
@@ -145,7 +144,7 @@ func (s *toolsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
 	c.Assert(err, gc.IsNil)
 	// Check the response.
-	stor := s.Conn.Environ.Storage()
+	stor := s.Environ.Storage()
 	toolsURL, err := stor.URL(tools.StorageName(vers))
 	c.Assert(err, gc.IsNil)
 	expectedTools[0].URL = toolsURL
@@ -162,7 +161,7 @@ func (s *toolsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	resp, err := s.uploadRequest(c, url.String(), true, toolPath)
 	c.Assert(err, gc.IsNil)
 	// Check the response.
-	stor := s.Conn.Environ.Storage()
+	stor := s.Environ.Storage()
 	toolsURL, err := stor.URL(tools.StorageName(vers))
 	c.Assert(err, gc.IsNil)
 	expectedTools[0].URL = toolsURL
@@ -187,7 +186,7 @@ func (s *toolsSuite) TestUploadFakeSeries(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Check the response.
-	stor := s.Conn.Environ.Storage()
+	stor := s.Environ.Storage()
 	toolsURL, err := stor.URL(tools.StorageName(vers))
 	c.Assert(err, gc.IsNil)
 	expectedTools[0].URL = toolsURL

@@ -12,11 +12,11 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upstart"
-	"github.com/juju/utils/symlink"
 )
 
 func Test(t *testing.T) { gc.TestingT(t) }
@@ -208,7 +208,7 @@ func (s *UpstartSuite) TestInstallSimple(c *gc.C) {
 func (s *UpstartSuite) TestInstallOutput(c *gc.C) {
 	conf := s.dummyConf(c)
 	conf.Out = "/some/output/path"
-	s.assertInstall(c, conf, "\n\nscript\n\n  # Ensure log files are properly protected\n  touch /some/output/path\n  chmod 0600 /some/output/path\n\n  exec do something >> /some/output/path 2>&1\nend script\n")
+	s.assertInstall(c, conf, "\n\nscript\n\n  # Ensure log files are properly protected\n  touch /some/output/path\n  chown syslog:syslog /some/output/path\n  chmod 0600 /some/output/path\n\n  exec do something >> /some/output/path 2>&1\nend script\n")
 }
 
 func (s *UpstartSuite) TestInstallEnv(c *gc.C) {

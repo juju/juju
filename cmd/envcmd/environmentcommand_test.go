@@ -4,18 +4,21 @@
 package envcmd_test
 
 import (
+	"io"
 	"io/ioutil"
 	"os"
 	"testing"
 
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
+	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"launchpad.net/gnuflag"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/juju/osenv"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -90,10 +93,7 @@ func (*EnvironmentCommandSuite) TestErrorWritingFile(c *gc.C) {
 
 func (s *EnvironmentCommandSuite) TestEnvironCommandInit(c *gc.C) {
 	// Take environment name from command line arg.
-	cmd, envName := prepareEnvCommand(c, "explicit")
-	err := cmd.Init(nil)
-	c.Assert(err, gc.IsNil)
-	c.Assert(*envName, gc.Equals, "explicit")
+	testEnsureEnvName(c, "explicit", "-e", "explicit")
 
 	// Take environment name from the default.
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
@@ -105,7 +105,8 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInit(c *gc.C) {
 	testEnsureEnvName(c, coretesting.SampleEnvName)
 
 	// If there is a current-environment file, use that.
-	err = envcmd.WriteCurrentEnvironment("fubar")
+	err := envcmd.WriteCurrentEnvironment("fubar")
+	c.Assert(err, gc.IsNil)
 	testEnsureEnvName(c, "fubar")
 }
 
@@ -113,15 +114,14 @@ func (s *EnvironmentCommandSuite) TestEnvironCommandInitErrors(c *gc.C) {
 	envPath := gitjujutesting.HomePath(".juju", "environments.yaml")
 	err := os.Remove(envPath)
 	c.Assert(err, gc.IsNil)
-	cmd, _ := prepareEnvCommand(c, "")
-	err = cmd.Init(nil)
+	cmd := envcmd.Wrap(new(testCommand))
+	err = cmdtesting.InitCommand(cmd, nil)
 	c.Assert(err, jc.Satisfies, environs.IsNoEnv)
 
 	// If there are multiple environments but no default,
 	// an error should be returned.
 	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfigNoDefault)
-	cmd, _ = prepareEnvCommand(c, "")
-	err = cmd.Init(nil)
+	err = cmdtesting.InitCommand(cmd, nil)
 	c.Assert(err, gc.Equals, envcmd.ErrNoEnvironmentSpecified)
 }
 
@@ -137,27 +137,87 @@ func (c *testCommand) Run(ctx *cmd.Context) error {
 	panic("should not be called")
 }
 
-// prepareEnvCommand prepares a Command for a call to Init,
-// returning the Command and a pointer to a string that will
-// contain the environment name after the Command's Init method
-// has been called.
-func prepareEnvCommand(c *gc.C, name string) (cmd.Command, *string) {
-	var flags gnuflag.FlagSet
-	var cmd testCommand
-	wrapped := envcmd.Wrap(&cmd)
-	wrapped.SetFlags(&flags)
-	var args []string
-	if name != "" {
-		args = []string{"-e", name}
-	}
-	err := flags.Parse(false, args)
-	c.Assert(err, gc.IsNil)
-	return wrapped, &cmd.EnvName
+func initTestCommand(c *gc.C, args ...string) (*testCommand, error) {
+	cmd := new(testCommand)
+	wrapped := envcmd.Wrap(cmd)
+	return cmd, cmdtesting.InitCommand(wrapped, args)
 }
 
-func testEnsureEnvName(c *gc.C, expect string) {
-	cmd, envName := prepareEnvCommand(c, "")
-	err := cmd.Init(nil)
+func testEnsureEnvName(c *gc.C, expect string, args ...string) {
+	cmd, err := initTestCommand(c, args...)
 	c.Assert(err, gc.IsNil)
-	c.Assert(*envName, gc.Equals, expect)
+	c.Assert(cmd.ConnectionName(), gc.Equals, expect)
+}
+
+type ConnectionEndpointSuite struct {
+	coretesting.FakeJujuHomeSuite
+	store    configstore.Storage
+	endpoint configstore.APIEndpoint
+}
+
+var _ = gc.Suite(&ConnectionEndpointSuite{})
+
+func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
+	s.FakeHomeSuite.SetUpTest(c)
+	s.store = configstore.NewMem()
+	s.PatchValue(envcmd.GetConfigStore, func() (configstore.Storage, error) {
+		return s.store, nil
+	})
+	newInfo, err := s.store.CreateInfo("env-name")
+	c.Assert(err, gc.IsNil)
+	newInfo.SetAPICredentials(configstore.APICredentials{
+		User:     "foo",
+		Password: "foopass",
+	})
+	s.endpoint = configstore.APIEndpoint{
+		Addresses:   []string{"foo.invalid"},
+		CACert:      "certificated",
+		EnvironUUID: "fake-uuid",
+	}
+	newInfo.SetAPIEndpoint(s.endpoint)
+	err = newInfo.Write()
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *ConnectionEndpointSuite) TestAPIEndpointInStoreCached(c *gc.C) {
+	cmd, err := initTestCommand(c, "-e", "env-name")
+	c.Assert(err, gc.IsNil)
+	endpoint, err := cmd.ConnectionEndpoint(false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(endpoint, gc.DeepEquals, s.endpoint)
+}
+
+func (s *ConnectionEndpointSuite) TestAPIEndpointForEnvSuchName(c *gc.C) {
+	cmd, err := initTestCommand(c, "-e", "no-such-env")
+	c.Assert(err, gc.IsNil)
+	_, err = cmd.ConnectionEndpoint(false)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	c.Assert(err, gc.ErrorMatches, `environment "no-such-env" not found`)
+}
+
+func (s *ConnectionEndpointSuite) TestAPIEndpointRefresh(c *gc.C) {
+	newEndpoint := configstore.APIEndpoint{
+		Addresses:   []string{"foo.example.com"},
+		CACert:      "certificated",
+		EnvironUUID: "fake-uuid",
+	}
+	s.PatchValue(envcmd.EndpointRefresher, func(_ *envcmd.EnvCommandBase) (io.Closer, error) {
+		info, err := s.store.ReadInfo("env-name")
+		info.SetAPIEndpoint(newEndpoint)
+		err = info.Write()
+		c.Assert(err, gc.IsNil)
+		return new(closer), nil
+	})
+
+	cmd, err := initTestCommand(c, "-e", "env-name")
+	c.Assert(err, gc.IsNil)
+	endpoint, err := cmd.ConnectionEndpoint(true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(endpoint, gc.DeepEquals, newEndpoint)
+}
+
+type closer struct{}
+
+func (*closer) Close() error {
+	return nil
 }

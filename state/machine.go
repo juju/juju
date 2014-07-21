@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	"labix.org/v2/mgo"
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
-	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
@@ -134,7 +134,7 @@ func newMachine(st *State, doc *machineDoc) *Machine {
 	}
 	machine.annotator = annotator{
 		globalKey: machine.globalKey(),
-		tag:       machine.Tag().String(),
+		tag:       machine.Tag(),
 		st:        st,
 	}
 	return machine
@@ -522,7 +522,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		// face of uncertainty.
 		if attempt != 0 {
 			if m, err = m.st.Machine(m.doc.Id); errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoOperations
+				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
@@ -532,12 +532,12 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		switch life {
 		case Dying:
 			if m.doc.Life != Alive {
-				return nil, statetxn.ErrNoOperations
+				return nil, jujutxn.ErrNoOperations
 			}
 			op.Assert = append(advanceAsserts, isAliveDoc...)
 		case Dead:
 			if m.doc.Life == Dead {
-				return nil, statetxn.ErrNoOperations
+				return nil, jujutxn.ErrNoOperations
 			}
 			op.Assert = append(advanceAsserts, notDeadDoc...)
 		default:
@@ -562,10 +562,25 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		}
 		return []txn.Op{op}, nil
 	}
-	if err = m.st.run(buildTxn); err == statetxn.ErrExcessiveContention {
+	if err = m.st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotatef(err, "machine %s cannot advance lifecycle", m)
 	}
 	return err
+}
+
+func (m *Machine) removePortsOps() ([]txn.Op, error) {
+	if m.doc.Life != Dead {
+		return nil, errors.Errorf("machine is not dead")
+	}
+	ports, err := m.OpenedPorts(m.st)
+	if err != nil {
+		return nil, err
+	}
+	var ops []txn.Op
+	for _, p := range ports {
+		ops = append(ops, p.removeOps()...)
+	}
+	return ops, nil
 }
 
 func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
@@ -623,7 +638,12 @@ func (m *Machine) Remove() (err error) {
 	if err != nil {
 		return err
 	}
+	portsOps, err := m.removePortsOps()
+	if err != nil {
+		return err
+	}
 	ops = append(ops, ifacesOps...)
+	ops = append(ops, portsOps...)
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
@@ -956,6 +976,11 @@ func (m *Machine) SetMachineAddresses(addresses ...network.Address) (err error) 
 // MachineAddresses, depending on the field argument).
 func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fieldName string) error {
 	var changed bool
+	envConfig, err := m.st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	network.SortAddresses(addresses, envConfig.PreferIPv6())
 	stateAddresses := instanceAddressesToAddresses(addresses)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		changed = false
@@ -980,7 +1005,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 	}
 	switch err := m.st.run(buildTxn); err {
 	case nil:
-	case statetxn.ErrExcessiveContention:
+	case jujutxn.ErrExcessiveContention:
 		return errors.Annotatef(err, "cannot set %s for machine %s", fieldName, m)
 	default:
 		return err

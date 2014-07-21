@@ -50,6 +50,14 @@ var testInfo = params.StateServingInfo{
 	SharedSecret: "foobar-sharedsecret",
 }
 
+func makeEnsureServerParams(dataDir, namespace string) mongo.EnsureServerParams {
+	return mongo.EnsureServerParams{
+		StateServingInfo: testInfo,
+		DataDir:          dataDir,
+		Namespace:        namespace,
+	}
+}
+
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	// Try to make sure we don't execute any commands accidentally.
@@ -131,7 +139,7 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 
-	err := mongo.EnsureServer(dataDir, namespace, testInfo)
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, gc.IsNil)
 
 	testJournalDirs(dbDir, c)
@@ -162,7 +170,7 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 
 	s.installed = nil
 	// now check we can call it multiple times without error
-	err = mongo.EnsureServer(dataDir, namespace, testInfo)
+	err = mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 	c.Assert(err, gc.IsNil)
 	assertInstalled()
 
@@ -198,7 +206,7 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 
 		s.PatchValue(&version.Current.Series, test.series)
 
-		err := mongo.EnsureServer(dataDir, namespace, testInfo)
+		err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
 		c.Assert(err, gc.IsNil)
 
 		cmds := getMockShellCalls(c, output)
@@ -219,7 +227,7 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 func (s *MongoSuite) TestUpstartServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234)
+	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234, 1024)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Cmd, "--replSet"), jc.IsTrue)
 }
@@ -227,7 +235,7 @@ func (s *MongoSuite) TestUpstartServiceWithReplSet(c *gc.C) {
 func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234)
+	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234, 1024)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Cmd, "--ipv6"), jc.IsTrue)
 }
@@ -235,7 +243,7 @@ func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
 func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234)
+	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234, 1024)
 	c.Assert(err, gc.IsNil)
 	journalPresent := strings.Contains(svc.Cmd, " --journal ") || strings.HasSuffix(svc.Cmd, " --journal")
 	c.Assert(journalPresent, jc.IsTrue)
@@ -273,11 +281,11 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	// test that we call add-apt-repository only for quantal (and that if it
 	// fails, we return the error)
 	s.PatchValue(&version.Current.Series, "quantal")
-	err := mongo.EnsureServer(dir, "", testInfo)
+	err := mongo.EnsureServer(makeEnsureServerParams(dir, ""))
 	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
 
 	s.PatchValue(&version.Current.Series, "trusty")
-	err = mongo.EnsureServer(dir, "", testInfo)
+	err = mongo.EnsureServer(makeEnsureServerParams(dir, ""))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -286,7 +294,7 @@ func (s *MongoSuite) TestNoMongoDir(c *gc.C) {
 	// created.
 	mockShellCommand(c, &s.CleanupSuite, "apt-get")
 	dataDir := filepath.Join(c.MkDir(), "dir", "data")
-	err := mongo.EnsureServer(dataDir, "", testInfo)
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, ""))
 	c.Check(err, gc.IsNil)
 
 	_, err = os.Stat(filepath.Join(dataDir, "db"))
@@ -352,7 +360,7 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 	s.PatchValue(&version.Current.Series, "quantal")
 
 	dataDir := c.MkDir()
-	err := mongo.EnsureServer(dataDir, "", testInfo)
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, ""))
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(getMockShellCalls(c, addAptRepoOut), gc.DeepEquals, [][]string{{

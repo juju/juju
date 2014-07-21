@@ -43,13 +43,13 @@ func (s *destroyEnvironmentSuite) setUpManual(c *gc.C) (m0, m1 *state.Machine) {
 func (s *destroyEnvironmentSuite) setUpInstances(c *gc.C) (m0, m1, m2 *state.Machine) {
 	m0, err := s.State.AddMachine("precise", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	inst, _ := testing.AssertStartInstance(c, s.APIConn.Environ, m0.Id())
+	inst, _ := testing.AssertStartInstance(c, s.Environ, m0.Id())
 	err = m0.SetProvisioned(inst.Id(), "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 
 	m1, err = s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	inst, _ = testing.AssertStartInstance(c, s.APIConn.Environ, m1.Id())
+	inst, _ = testing.AssertStartInstance(c, s.Environ, m1.Id())
 	err = m1.SetProvisioned(inst.Id(), "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
 
@@ -93,7 +93,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 	managerId, _ := manager.InstanceId()
 	nonManagerId, _ := nonManager.InstanceId()
 
-	instances, err := s.APIConn.Environ.Instances([]instance.Id{managerId, nonManagerId})
+	instances, err := s.Environ.Instances([]instance.Id{managerId, nonManagerId})
 	c.Assert(err, gc.IsNil)
 	for _, inst := range instances {
 		c.Assert(inst, gc.NotNil)
@@ -107,7 +107,7 @@ func (s *destroyEnvironmentSuite) TestDestroyEnvironment(c *gc.C) {
 
 	// After DestroyEnvironment returns, we should have:
 	//   - all non-manager instances stopped
-	instances, err = s.APIConn.Environ.Instances([]instance.Id{managerId, nonManagerId})
+	instances, err = s.Environ.Instances([]instance.Id{managerId, nonManagerId})
 	c.Assert(err, gc.Equals, environs.ErrPartialInstances)
 	c.Assert(instances[0], gc.NotNil)
 	c.Assert(instances[1], gc.IsNil)

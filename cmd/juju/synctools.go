@@ -81,11 +81,20 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
 	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")
-	environ, cleanup, err := environFromName(ctx, c.EnvName, &resultErr, "Sync-tools")
+	// This does seem to infer that there is bootstrap config assocated with the
+	// connection name.  We may want to reconsider this at some stage.
+	environ, cleanup, err := environFromName(ctx, c.ConnectionName(), "Sync-tools")
 	if err != nil {
 		return err
 	}
-	defer cleanup()
+
+	// If we error out for any reason, clean up the environment
+	defer func() {
+		if resultErr != nil {
+			cleanup()
+		}
+	}()
+
 	target := environ.Storage()
 	if c.localDir != "" {
 		target, err = filestorage.NewFileStorageWriter(c.localDir)

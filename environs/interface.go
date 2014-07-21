@@ -13,7 +13,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -108,10 +107,6 @@ type Environ interface {
 	// bootstrapping the environment.
 	Bootstrap(ctx BootstrapContext, params BootstrapParams) error
 
-	// StateInfo returns information on the state initialized
-	// by Bootstrap.
-	StateInfo() (*state.Info, *api.Info, error)
-
 	// InstanceBroker defines methods for starting and stopping
 	// instances.
 	InstanceBroker
@@ -148,6 +143,10 @@ type Environ interface {
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
 	Instances(ids []instance.Id) ([]instance.Instance, error)
+
+	// StateServerInstances returns the IDs of instances
+	// corresponding to Juju state servers.
+	StateServerInstances() ([]instance.Id, error)
 
 	EnvironStorage
 

@@ -19,8 +19,8 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -64,19 +64,19 @@ type stepper interface {
 
 type context struct {
 	st      *state.State
-	conn    *juju.Conn
+	env     environs.Environ
 	charms  map[string]*state.Charm
 	pingers map[string]*presence.Pinger
 }
 
 func (s *StatusSuite) newContext() *context {
-	st := s.Conn.Environ.(testing.GetStater).GetStateInAPIServer()
+	st := s.Environ.(testing.GetStater).GetStateInAPIServer()
 	// We make changes in the API server's state so that
 	// our changes to presence are immediately noticed
 	// in the status.
 	return &context{
 		st:      st,
-		conn:    s.Conn,
+		env:     s.Environ,
 		charms:  make(map[string]*state.Charm),
 		pingers: make(map[string]*presence.Pinger),
 	}
@@ -1761,7 +1761,7 @@ func (sm startMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, gc.IsNil)
 	cons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, gc.IsNil)
 }
@@ -1775,7 +1775,7 @@ func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	c.Assert(err, gc.IsNil)
 	cons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
+	_, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
 	c.Assert(err, gc.IsNil)
 	err = m.SetInstanceStatus("missing")
@@ -1792,7 +1792,7 @@ func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	pinger := ctx.setAgentPresence(c, m)
 	cons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
-	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
+	inst, hc := testing.AssertStartInstanceWithConstraints(c, ctx.env, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, gc.IsNil)
 	ctx.pingers[m.Id()] = pinger
@@ -2253,7 +2253,7 @@ func (s *StatusSuite) TestStatusWithPreRelationsServer(c *gc.C) {
 		Networks: map[string]api.NetworkStatus{},
 		// Relations field intentionally not set
 	})
-	s.PatchValue(&newApiClientForStatus, func(_ string) (statusAPI, error) {
+	s.PatchValue(&newApiClientForStatus, func(_ *StatusCommand) (statusAPI, error) {
 		return &client, nil
 	})
 

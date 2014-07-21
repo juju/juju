@@ -382,22 +382,6 @@ type ModifyUserSSHKeys struct {
 	Keys []string
 }
 
-// ModifyUsers holds the parameters for making a UserManager Add or Modify calls.
-type ModifyUsers struct {
-	Changes []ModifyUser
-}
-
-// ModifyUser stores the parameters used for a UserManager.Add|Remove call.
-type ModifyUser struct {
-	// Tag is here purely for backwards compatability. Older clients will
-	// attempt to use the EntityPassword structure, so we need a Tag here
-	// (which will be treated as Username)
-	Tag         string
-	Username    string
-	DisplayName string
-	Password    string
-}
-
 // MarshalJSON implements json.Marshaler.
 func (d *Delta) MarshalJSON() ([]byte, error) {
 	b, err := json.Marshal(d.Entity)
@@ -627,6 +611,7 @@ type ContainerConfig struct {
 	SSLHostnameVerification bool
 	Proxy                   proxy.Settings
 	AptProxy                proxy.Settings
+	PreferIPv6              bool
 }
 
 // ProvisioningScriptParams contains the parameters for the
@@ -782,22 +767,4 @@ type StateServersChanges struct {
 	Removed    []string `json:removed,omitempty`
 	Promoted   []string `json:promoted,omitempty`
 	Demoted    []string `json:demoted,omitempty`
-}
-
-type UserInfo struct {
-	Username       string     `json:username`
-	DisplayName    string     `json:display-name`
-	CreatedBy      string     `json:created-by`
-	DateCreated    time.Time  `json:date-created`
-	LastConnection *time.Time `json:last-connection`
-}
-
-// UserInfoResult holds the result of a UserInfo call.
-type UserInfoResult struct {
-	Result *UserInfo `json:result,omitempty`
-	Error  *Error    `json:error,omitempty`
-}
-
-type UserInfoResults struct {
-	Results []UserInfoResult
 }

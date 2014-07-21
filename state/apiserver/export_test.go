@@ -16,6 +16,7 @@ var (
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval
+	UploadBackupToStorage = &uploadBackupToStorage
 )
 
 const LoginRateLimit = loginRateLimit
@@ -52,5 +53,13 @@ func TestingSrvRoot(st *state.State) *srvRoot {
 		resources:   common.NewResources(),
 		entity:      nil,
 		objectCache: make(map[objectKey]reflect.Value),
+	}
+}
+
+// TestingUpgradingSrvRoot returns a limited upgradingSrvRoot
+// containing a srvRoot as returned by TestingSrvRoot.
+func TestingUpgradingRoot(st *state.State) *upgradingRoot {
+	return &upgradingRoot{
+		srvRoot: *TestingSrvRoot(st),
 	}
 }

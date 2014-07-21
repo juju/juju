@@ -20,35 +20,34 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 )
 
 var logger = loggo.GetLogger("juju.state")
 
-// BootstrapNonce is used as a nonce for the state server machine.
 const (
-	BootstrapNonce = "user-admin:bootstrap"
-	AdminUser      = "admin"
+	AdminUser = "admin"
 )
 
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	transactionRunner statetxn.Runner
-	info              *Info
+	transactionRunner jujutxn.Runner
+	mongoInfo         *authentication.MongoInfo
 	policy            Policy
 	db                *mgo.Database
 	environments      *mgo.Collection
@@ -75,6 +74,7 @@ type State struct {
 	annotations       *mgo.Collection
 	statuses          *mgo.Collection
 	stateServers      *mgo.Collection
+	openedPorts       *mgo.Collection
 	watcher           *watcher.Watcher
 	pwatcher          *presence.Watcher
 	// mu guards allManager.
@@ -102,7 +102,7 @@ func (st *State) runTransaction(ops []txn.Op) error {
 }
 
 // run is a convenience method delegating to transactionRunner.
-func (st *State) run(transactions statetxn.TransactionSource) error {
+func (st *State) run(transactions jujutxn.TransactionSource) error {
 	return st.transactionRunner.Run(transactions)
 }
 
@@ -220,7 +220,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		}
 		if newVersion.String() == currentVersion {
 			// Nothing to do.
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 
 		if err := st.checkCanUpgrade(currentVersion, newVersion.String()); err != nil {
@@ -235,7 +235,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		}}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == statetxn.ErrExcessiveContention {
+	if err = st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotate(err, "cannot set agent version")
 	}
 	return err
@@ -469,13 +469,13 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 
 // parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
-func (st *State) parseTag(tag string) (coll string, id string, err error) {
-	t, err := names.ParseTag(tag)
-	if err != nil {
-		return "", "", err
+func (st *State) parseTag(tag names.Tag) (string, string, error) {
+	if tag == nil {
+		return "", "", errors.Errorf("tag is nil")
 	}
-	tid := t.Id()
-	switch t.(type) {
+	coll := ""
+	id := tag.Id()
+	switch tag := tag.(type) {
 	case names.MachineTag:
 		coll = st.machines.Name
 	case names.ServiceTag:
@@ -492,11 +492,11 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.networks.Name
 	case names.ActionTag:
 		coll = st.actions.Name
-		tid = actionIdFromTag(t.(names.ActionTag))
+		id = actionIdFromTag(tag)
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
-	return coll, tid, nil
+	return coll, id, nil
 }
 
 // AddCharm adds the ch charm with curl to the state. bundleURL must
@@ -663,7 +663,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			// The charm exists and it's either uploaded or still
 			// pending, but it's not a placeholder. In any case,
 			// there's nothing to do.
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		} else if err == mgo.ErrNotFound {
 			// Prepare the pending charm document for insertion.
 			uploadedCharm = charmDoc{
@@ -736,7 +736,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 			return nil, err
 		}
 		if err == nil {
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 
 		// Delete all previous placeholders so we don't fill up the database with unused data.
@@ -899,7 +899,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 		return nil, fmt.Errorf("Invalid ownertag %s: %v", ownerTag, err)
 	}
 	// Sanity checks.
-	if !names.IsService(name) {
+	if !names.IsValidService(name) {
 		return nil, fmt.Errorf("invalid name")
 	}
 	if ch == nil {
@@ -1006,7 +1006,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	if args.Name == "" {
 		return nil, fmt.Errorf("name must be not empty")
 	}
-	if !names.IsNetwork(args.Name) {
+	if !names.IsValidNetwork(args.Name) {
 		return nil, fmt.Errorf("invalid name")
 	}
 	if args.ProviderId == "" {
@@ -1073,7 +1073,7 @@ func (st *State) AllNetworks() (networks []*Network, err error) {
 
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
-	if !names.IsService(name) {
+	if !names.IsValidService(name) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
@@ -1384,22 +1384,9 @@ func (st *State) ActionByTag(tag names.Tag) (*Action, error) {
 	return st.Action(actionIdFromTag(actionTag))
 }
 
-// actionIdFromTag converts an ActionTag to an actionId
-func actionIdFromTag(tag names.ActionTag) string {
-	prefix := actionPrefixFromUnitId(tag.UnitTag().Id())
-	return actionId(prefix, tag.Sequence())
-}
-
 // matchingActions finds actions that match ActionReceiver
 func (st *State) matchingActions(ar ActionReceiver) ([]*Action, error) {
-	prefix := actionPrefix(ar)
-	return st.matchingActionsByPrefix(prefix)
-}
-
-// matchingActionsByUnitId finds actions with a given unit prefix
-func (st *State) matchingActionsByUnitId(unitId string) ([]*Action, error) {
-	prefix := actionPrefixFromUnitId(unitId)
-	return st.matchingActionsByPrefix(prefix)
+	return st.matchingActionsByPrefix(ar.Name())
 }
 
 // matchingActionsByPrefix finds actions with a given prefix
@@ -1407,7 +1394,7 @@ func (st *State) matchingActionsByPrefix(prefix string) ([]*Action, error) {
 	var doc actionDoc
 	var actions []*Action
 
-	sel := bson.D{{"_id", bson.D{{"$regex", "^" + regexp.QuoteMeta(prefix)}}}}
+	sel := bson.D{{"_id", bson.D{{"$regex", "^" + regexp.QuoteMeta(ensureActionMarker(prefix))}}}}
 	iter := st.actions.Find(sel).Iter()
 
 	for iter.Next(&doc) {
@@ -1445,7 +1432,7 @@ func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, erro
 
 // Unit returns a unit by name.
 func (st *State) Unit(name string) (*Unit, error) {
-	if !names.IsUnit(name) {
+	if !names.IsValidUnit(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	doc := unitDoc{}

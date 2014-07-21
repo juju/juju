@@ -16,12 +16,14 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -33,7 +35,6 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiparams "github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
@@ -516,49 +517,83 @@ func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
 	c.Check(env.storageAccountKey, gc.Equals, "")
 }
 
-func (s *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
+func (s *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-	_, _, err := env.StateInfo()
+	prefix := env.getEnvPrefix()
+	service := makeDeployment(env, prefix+"myservice")
+	patchInstancesResponses(c, prefix, service)
+
+	_, err := env.StateServerInstances()
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
-func (s *environSuite) TestStateInfo(c *gc.C) {
+func (s *environSuite) TestStateServerInstancesNoLegacy(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	prefix := env.getEnvPrefix()
 
-	service := makeDeployment(env, prefix+"myservice")
-	instId := instance.Id(service.ServiceName + "-" + service.Deployments[0].RoleList[0].RoleName)
-	patchInstancesResponses(c, prefix, service)
+	service1 := makeDeployment(env, prefix+"myservice1")
+	service2 := makeDeployment(env, prefix+"myservice2")
+	service1.Label = base64.StdEncoding.EncodeToString([]byte(stateServerLabel))
+	service1Role1Name := service1.Deployments[0].RoleList[0].RoleName
+	service1Role2Name := service1.Deployments[0].RoleList[1].RoleName
+	instId1 := instance.Id(prefix + "myservice1-" + service1Role1Name)
+	instId2 := instance.Id(prefix + "myservice1-" + service1Role2Name)
+	patchInstancesResponses(c, prefix, service1, service2)
+
+	instances, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, jc.SameContents, []instance.Id{instId1, instId2})
+}
+
+func (s *environSuite) TestStateServerInstancesOnlyLegacy(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+	prefix := env.getEnvPrefix()
+
+	service1 := makeLegacyDeployment(env, prefix+"myservice1")
+	service2 := makeLegacyDeployment(env, prefix+"myservice2")
+	instId := instance.Id(service1.ServiceName)
 	err := bootstrap.SaveState(
 		env.Storage(),
 		&bootstrap.BootstrapState{StateInstances: []instance.Id{instId}},
 	)
 	c.Assert(err, gc.IsNil)
 
-	responses := prepareInstancesResponses(c, prefix, service)
-	responses = append(responses, prepareDeploymentInfoResponse(c, gwacl.Deployment{
-		RoleInstanceList: []gwacl.RoleInstance{{
-			RoleName:  service.Deployments[0].RoleList[0].RoleName,
-			IPAddress: "1.2.3.4",
-		}},
-		VirtualNetworkName: env.getVirtualNetworkName(),
-	})...)
-	gwacl.PatchManagementAPIResponses(responses)
+	patchInstancesResponses(c, prefix, service1, service2)
 
-	stateInfo, apiInfo, err := env.StateInfo()
+	instances, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
-	config := env.Config()
-	dnsName := prefix + "myservice." + AzureDomainName
-	c.Check(stateInfo.Addrs, jc.SameContents, []string{
-		fmt.Sprintf("1.2.3.4:%d", config.StatePort()),
-		fmt.Sprintf("%s:%d", dnsName, config.StatePort()),
-	})
-	c.Check(apiInfo.Addrs, jc.DeepEquals, []string{
-		fmt.Sprintf("1.2.3.4:%d", config.APIPort()),
-		fmt.Sprintf("%s:%d", dnsName, config.APIPort()),
-	})
+	c.Assert(instances, jc.SameContents, []instance.Id{instId})
+}
+
+func (s *environSuite) TestStateServerInstancesSomeLegacy(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+	prefix := env.getEnvPrefix()
+
+	service1 := makeLegacyDeployment(env, prefix+"service1")
+	service2 := makeDeployment(env, prefix+"service2")
+	service3 := makeLegacyDeployment(env, prefix+"service3")
+	service4 := makeDeployment(env, prefix+"service4")
+	service2.Label = base64.StdEncoding.EncodeToString([]byte(stateServerLabel))
+	instId1 := instance.Id(service1.ServiceName)
+	service2Role1Name := service2.Deployments[0].RoleList[0].RoleName
+	service2Role2Name := service2.Deployments[0].RoleList[1].RoleName
+	instId2 := instance.Id(prefix + "service2-" + service2Role1Name)
+	instId3 := instance.Id(prefix + "service2-" + service2Role2Name)
+	err := bootstrap.SaveState(
+		env.Storage(),
+		&bootstrap.BootstrapState{StateInstances: []instance.Id{instId1}},
+	)
+	c.Assert(err, gc.IsNil)
+
+	patchInstancesResponses(c, prefix, service1, service2, service3, service4)
+
+	instances, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, jc.SameContents, []instance.Id{instId1, instId2, instId3})
 }
 
 // parseCreateServiceRequest reconstructs the original CreateHostedService
@@ -1513,19 +1548,20 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 	s.baseEnvironSuite.SetUpTest(c)
 	s.env = s.setupEnvWithDummyMetadata(c)
 	s.env.ecfg.attrs["force-image-name"] = "my-image"
-	stateInfo := &state.Info{
+	machineTag := names.NewMachineTag("1")
+	stateInfo := &authentication.MongoInfo{
 		Info: mongo.Info{
 			CACert: coretesting.CACert,
 			Addrs:  []string{"localhost:123"},
 		},
 		Password: "password",
-		Tag:      "machine-1",
+		Tag:      machineTag,
 	}
 	apiInfo := &api.Info{
 		Addrs:    []string{"localhost:124"},
 		CACert:   coretesting.CACert,
 		Password: "admin",
-		Tag:      "machine-1",
+		Tag:      machineTag,
 	}
 	s.params = environs.StartInstanceParams{
 		Tools: envtesting.AssertUploadFakeToolsVersions(

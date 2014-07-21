@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent/tools"
+	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/jujuc"
-	"github.com/juju/utils/symlink"
 )
 
 type ToolsSuite struct {
@@ -34,14 +35,14 @@ func (s *ToolsSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *ToolsSuite) TestEnsureJujucSymlinks(c *gc.C) {
-	jujudPath := filepath.Join(s.toolsDir, "jujud")
+	jujudPath := filepath.Join(s.toolsDir, names.Jujud)
 	err := ioutil.WriteFile(jujudPath, []byte("assume sane"), 0755)
 	c.Assert(err, gc.IsNil)
 
 	assertLink := func(path string) time.Time {
 		target, err := symlink.Read(path)
 		c.Assert(err, gc.IsNil)
-		c.Assert(target, gc.Equals, "./jujud")
+		c.Assert(target, gc.Equals, jujudPath)
 		fi, err := os.Lstat(path)
 		c.Assert(err, gc.IsNil)
 		return fi.ModTime()

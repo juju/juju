@@ -258,9 +258,9 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 	charmtesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "--to", "42", "local:dummy", "portlandia")
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "portlandia/0" to machine: machine 42 not found`)
-	_, err = s.State.Service("dummy")
-	c.Assert(err, gc.ErrorMatches, `service "dummy" not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy "portlandia" to machine 42: machine 42 not found`)
+	_, err = s.State.Service("portlandia")
+	c.Assert(err, gc.ErrorMatches, `service "portlandia" not found`)
 }
 
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {

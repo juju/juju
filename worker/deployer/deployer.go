@@ -6,6 +6,7 @@ package deployer
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -62,12 +63,12 @@ func NewDeployer(st *apideployer.State, ctx Context) worker.Worker {
 }
 
 func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
-	machineTag := d.ctx.AgentConfig().Tag()
-	tag, err := names.ParseMachineTag(machineTag)
-	if err != nil {
-		return nil, err
+	tag := d.ctx.AgentConfig().Tag()
+	machineTag, ok := tag.(names.MachineTag)
+	if !ok {
+		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
-	machine, err := d.st.Machine(tag)
+	machine, err := d.st.Machine(machineTag)
 	if err != nil {
 		return nil, err
 	}

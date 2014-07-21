@@ -71,7 +71,7 @@ func (s *UnitSuite) primeAgent(c *gc.C) (*state.Machine, *state.Unit, agent.Conf
 	c.Assert(err, gc.IsNil)
 	machine, err := s.State.Machine(id)
 	c.Assert(err, gc.IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, unit.Tag().String(), initialUnitPassword, version.Current)
+	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword, version.Current)
 	return machine, unit, conf, tools
 }
 
@@ -159,7 +159,7 @@ func (s *UnitSuite) TestUpgrade(c *gc.C) {
 	agent := s.newAgent(c, unit)
 	newVers := version.Current
 	newVers.Patch++
-	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), newVers)
+	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), newVers)
 
 	// Set the machine agent version to trigger an upgrade.
 	err := machine.SetAgentVersion(newVers)
@@ -206,7 +206,7 @@ func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenAPIStateWithBadCredsTerminates(c *gc.C) {
-	conf, _ := s.agentSuite.primeAgent(c, "unit-missing-0", "no-password", version.Current)
+	conf, _ := s.agentSuite.primeAgent(c, names.NewUnitTag("missing/0"), "no-password", version.Current)
 	_, _, err := openAPIState(conf, nil)
 	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
 }
@@ -219,7 +219,7 @@ func (f *fakeUnitAgent) Tag() names.Tag {
 	return names.NewUnitTag(f.unitName)
 }
 
-func (f *fakeUnitAgent) ChangeConfig(func(agent.ConfigSetter)) error {
+func (f *fakeUnitAgent) ChangeConfig(AgentConfigMutator) error {
 	panic("fakeUnitAgent.ChangeConfig called unexpectedly")
 }
 

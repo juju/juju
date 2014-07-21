@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	envtools "github.com/juju/juju/environs/tools"
@@ -62,12 +63,14 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 		return nil, err
 	}
 
-	// Find the secrets and API endpoints.
-	auth, err := environs.NewEnvironAuthenticator(env)
+	// Find the API endpoints.
+	apiInfo, err := environs.APIInfo(env)
 	if err != nil {
 		return nil, err
 	}
-	stateInfo, apiInfo, err := auth.SetupAuthentication(machine)
+
+	auth := authentication.NewAuthenticator(st.MongoConnectionInfo(), apiInfo)
+	mongoInfo, apiInfo, err := auth.SetupAuthentication(machine)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +81,7 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 		return nil, err
 	}
 
-	mcfg := environs.NewMachineConfig(machineId, nonce, networks, stateInfo, apiInfo)
+	mcfg := environs.NewMachineConfig(machineId, nonce, networks, mongoInfo, apiInfo)
 	if dataDir != "" {
 		mcfg.DataDir = dataDir
 	}

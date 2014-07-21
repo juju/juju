@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	stderrors "errors"
 	"sync"
 	"time"
 
@@ -66,7 +65,8 @@ type srvAdmin struct {
 	reqNotifier *requestNotifier
 }
 
-var errAlreadyLoggedIn = stderrors.New("already logged in")
+var UpgradeInProgressError = errors.New("upgrade in progress")
+var errAlreadyLoggedIn = errors.New("already logged in")
 
 // Login logs in with the provided credentials.
 // All subsequent requests on the connection will
@@ -80,9 +80,14 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	}
 
 	// Use the login validation function, if one was specified.
+	inUpgrade := false
 	if a.validator != nil {
 		if err := a.validator(c); err != nil {
-			return params.LoginResult{}, errors.Trace(err)
+			if err == UpgradeInProgressError {
+				inUpgrade = true
+			} else {
+				return params.LoginResult{}, errors.Trace(err)
+			}
 		}
 	}
 
@@ -103,8 +108,12 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	}
 	// We have authenticated the user; now choose an appropriate API
 	// to serve to them.
-	// TODO: consider switching the new root based on who is logging in
-	newRoot := newSrvRoot(a.root, entity)
+	var newRoot apiRoot
+	if inUpgrade {
+		newRoot = newUpgradingRoot(a.root, entity)
+	} else {
+		newRoot = newSrvRoot(a.root, entity)
+	}
 	if err := a.startPingerIfAgent(newRoot, entity); err != nil {
 		return params.LoginResult{}, err
 	}
@@ -191,7 +200,7 @@ func (p *machinePinger) Stop() error {
 	return p.Pinger.Kill()
 }
 
-func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticator) error {
+func (a *srvAdmin) startPingerIfAgent(newRoot apiRoot, entity taggedAuthenticator) error {
 	// A machine or unit agent has connected, so start a pinger to
 	// announce it's now alive, and set up the API pinger
 	// so that the connection will be terminated if a sufficient
@@ -206,14 +215,14 @@ func (a *srvAdmin) startPingerIfAgent(newRoot *srvRoot, entity taggedAuthenticat
 		return err
 	}
 
-	newRoot.resources.Register(&machinePinger{pinger})
+	newRoot.getResources().Register(&machinePinger{pinger})
 	action := func() {
-		if err := newRoot.rpcConn.Close(); err != nil {
+		if err := newRoot.getRpcConn().Close(); err != nil {
 			logger.Errorf("error closing the RPC connection: %v", err)
 		}
 	}
 	pingTimeout := newPingTimeout(action, maxClientPingInterval)
-	newRoot.resources.RegisterNamed("pingTimeout", pingTimeout)
+	newRoot.getResources().RegisterNamed("pingTimeout", pingTimeout)
 
 	return nil
 }
