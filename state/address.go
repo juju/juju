@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
@@ -98,28 +99,30 @@ func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
 	for i, _ := range hps {
 		network.SortHostPorts(hps[i], envConfig.PreferIPv6())
 	}
-	existing, err := st.APIHostPorts()
-	if err != nil {
-		return err
-	}
-	if hostPortsEqual(hps, existing) {
-		return nil
-	}
 	doc := apiHostPortsDoc{
 		APIHostPorts: instanceHostPortsToHostPorts(hps),
 	}
-	// We need to insert the document if it does not already
-	// exist to make this method work even on old environments
-	// where the document was not created by Initialize.
-	ops := []txn.Op{{
-		C:  st.stateServers.Name,
-		Id: apiHostPortsKey,
-		Update: bson.D{{"$set", bson.D{
-			{"apihostports", doc.APIHostPorts},
-		}}},
-	}}
-	if err := st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set API addresses: %v", err)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		existing, err := st.APIHostPorts()
+		if err != nil {
+			return nil, err
+		}
+		op := txn.Op{
+			C:  st.stateServers.Name,
+			Id: apiHostPortsKey,
+			Assert: bson.D{{
+				"apihostports", instanceHostPortsToHostPorts(existing),
+			}},
+		}
+		if !hostPortsEqual(hps, existing) {
+			op.Update = bson.D{{
+				"$set", bson.D{{"apihostports", doc.APIHostPorts}},
+			}}
+		}
+		return []txn.Op{op}, nil
+	}
+	if err := st.run(buildTxn); err != nil {
+		return errors.Annotate(err, "cannot set API addresses")
 	}
 	return nil
 }
