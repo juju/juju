@@ -899,7 +899,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 		return nil, fmt.Errorf("Invalid ownertag %s: %v", ownerTag, err)
 	}
 	// Sanity checks.
-	if !names.IsService(name) {
+	if !names.IsValidService(name) {
 		return nil, fmt.Errorf("invalid name")
 	}
 	if ch == nil {
@@ -1006,7 +1006,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	if args.Name == "" {
 		return nil, fmt.Errorf("name must be not empty")
 	}
-	if !names.IsNetwork(args.Name) {
+	if !names.IsValidNetwork(args.Name) {
 		return nil, fmt.Errorf("invalid name")
 	}
 	if args.ProviderId == "" {
@@ -1073,7 +1073,7 @@ func (st *State) AllNetworks() (networks []*Network, err error) {
 
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
-	if !names.IsService(name) {
+	if !names.IsValidService(name) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
@@ -1432,7 +1432,7 @@ func (st *State) matchingActionResults(ar ActionReceiver) ([]*ActionResult, erro
 
 // Unit returns a unit by name.
 func (st *State) Unit(name string) (*Unit, error) {
-	if !names.IsUnit(name) {
+	if !names.IsValidUnit(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	doc := unitDoc{}

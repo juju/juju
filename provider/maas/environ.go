@@ -22,7 +22,6 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -32,7 +31,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
 )
 
@@ -95,9 +93,9 @@ func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	return common.Bootstrap(ctx, env, args)
 }
 
-// StateInfo is specified in the Environ interface.
-func (env *maasEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
-	return common.StateInfo(env)
+// StateServerInstances is specified in the Environ interface.
+func (env *maasEnviron) StateServerInstances() ([]instance.Id, error) {
+	return common.ProviderStateInstances(env, env.Storage())
 }
 
 // ecfg returns the environment's maasEnvironConfig, and protects it with a

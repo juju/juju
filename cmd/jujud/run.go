@@ -74,7 +74,7 @@ func (c *RunCommand) Init(args []string) error {
 		// If the command line param is a unit id (like service/2) we need to
 		// change it to the unit tag as that is the format of the agent directory
 		// on disk (unit-service-2).
-		if names.IsUnit(c.unit) {
+		if names.IsValidUnit(c.unit) {
 			c.unit = names.NewUnitTag(c.unit).String()
 		}
 	}

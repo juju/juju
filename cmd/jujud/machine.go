@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -125,7 +126,7 @@ func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (a *MachineAgent) Init(args []string) error {
-	if !names.IsMachine(a.MachineId) {
+	if !names.IsValidMachine(a.MachineId) {
 		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
 	if err := a.AgentConf.CheckArgs(args); err != nil {
@@ -183,10 +184,13 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
-func (a *MachineAgent) ChangeConfig(mutate func(config agent.ConfigSetter)) error {
+func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 	err := a.AgentConf.ChangeConfig(mutate)
 	a.configChangedVal.Set(struct{}{})
-	return err
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // newStateStarterWorker wraps stateStarter in a simple worker for use in
@@ -250,8 +254,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			if err != nil {
 				return nil, fmt.Errorf("cannot get state serving info: %v", err)
 			}
-			err = a.ChangeConfig(func(config agent.ConfigSetter) {
+			err = a.ChangeConfig(func(config agent.ConfigSetter) error {
 				config.SetStateServingInfo(info)
+				return nil
 			})
 			if err != nil {
 				return nil, err
@@ -484,7 +489,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if !ok {
 					return nil, &fatalError{"StateServingInfo not available and we need it"}
 				}
-				port := info.APIPort
 				cert := []byte(info.Cert)
 				key := []byte(info.PrivateKey)
 
@@ -493,8 +497,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				}
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
-				return apiserver.NewServer(st, apiserver.ServerConfig{
-					Port:      port,
+
+				endpoint := net.JoinHostPort("", strconv.Itoa(info.APIPort))
+				listener, err := net.Listen("tcp", endpoint)
+				if err != nil {
+					return nil, err
+				}
+				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
 					Cert:      cert,
 					Key:       key,
 					DataDir:   dataDir,
@@ -587,8 +596,9 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 			if err != nil {
 				return err
 			}
-			if err = a.ChangeConfig(func(config agent.ConfigSetter) {
+			if err = a.ChangeConfig(func(config agent.ConfigSetter) error {
 				config.SetStateServingInfo(servingInfo)
+				return nil
 			}); err != nil {
 				return err
 			}
@@ -793,10 +803,21 @@ func (a *MachineAgent) upgradeWorker(
 			defer st.Close()
 		}
 		err := a.runUpgrades(st, apiState, jobs, agentConfig)
-		if err != nil {
+		if err == nil {
+			// Only signal that the upgrade is complete if no error
+			// was returned.
+			close(a.upgradeComplete)
+		} else if !isFatal(err) {
+			// Only non-fatal errors are returned (this will trigger
+			// the worker to be restarted).
+			//
+			// Fatal upgrade errors are not returned because user
+			// intervention is required at that point. We don't want
+			// the upgrade worker or the agent to restart. Status
+			// output and the logs will report that the upgrade has
+			// failed.
 			return err
 		}
-		close(a.upgradeComplete)
 		<-stop
 		return nil
 	})
@@ -851,7 +872,10 @@ func (a *MachineAgent) runUpgrades(
 	if err != nil {
 		return errors.Trace(err)
 	}
-	writeErr := a.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+	err = a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
+		var upgradeErr error
+		a.setMachineStatus(apiState, params.StatusStarted,
+			fmt.Sprintf("upgrading to %v", version.Current))
 		context := upgrades.NewContext(agentConfig, apiState, st)
 		for _, job := range jobs {
 			target := upgradeTarget(job, isMaster)
@@ -862,7 +886,8 @@ func (a *MachineAgent) runUpgrades(
 
 			attempts := getUpgradeRetryStrategy()
 			for attempt := attempts.Start(); attempt.Next(); {
-				if err = upgradesPerformUpgrade(from.Number, target, context); err == nil {
+				upgradeErr = upgradesPerformUpgrade(from.Number, target, context)
+				if upgradeErr == nil {
 					break
 				} else {
 					retryText := "will retry"
@@ -870,20 +895,25 @@ func (a *MachineAgent) runUpgrades(
 						retryText = "giving up"
 					}
 					logger.Errorf("upgrade from %v to %v for %v %q failed (%s): %v",
-						from, version.Current, target, a.Tag(), retryText, err)
+						from, version.Current, target, a.Tag(), retryText, upgradeErr)
+					a.setMachineStatus(apiState, params.StatusError,
+						fmt.Sprintf("upgrade to %v failed (%s): %v", version.Current, retryText, upgradeErr))
 				}
 			}
 		}
+		if upgradeErr != nil {
+			return upgradeErr
+		}
 		agentConfig.SetUpgradedToVersion(version.Current.Number)
+		return nil
 	})
-	if err == nil {
-		logger.Infof("upgrade to %v completed successfully.", version.Current)
-	} else {
-		logger.Errorf("upgrade to %v failed.", version.Current)
+	if err != nil {
+		logger.Errorf("upgrade to %v failed: %v", version.Current, err)
+		return &fatalError{err.Error()}
 	}
-	if writeErr != nil {
-		return fmt.Errorf("cannot write updated agent configuration: %v", writeErr)
-	}
+
+	logger.Infof("upgrade to %v completed successfully.", version.Current)
+	a.setMachineStatus(apiState, params.StatusStarted, "")
 	return nil
 }
 
@@ -898,6 +928,18 @@ func upgradeTarget(job params.MachineJob, isMaster bool) upgrades.Target {
 		return upgrades.HostMachine
 	}
 	return ""
+}
+
+func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
+	tag := a.Tag().(names.MachineTag)
+	machine, err := apiState.Machiner().Machine(tag)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	if err := machine.SetStatus(status, info, nil); err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // WorkersStarted returns a channel that's closed once all top level workers

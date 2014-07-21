@@ -116,8 +116,8 @@ func (s *NewAPIClientSuite) TestNameDefault(c *gc.C) {
 }
 
 func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
-	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig)
 	envName := coretesting.SampleCertName + "-2"
+	coretesting.WriteEnvironments(c, coretesting.MultipleEnvConfig, envName)
 	bootstrapEnv(c, envName, defaultConfigStore(c))
 	apiclient, err := juju.NewAPIClientFromName(envName)
 	c.Assert(err, gc.IsNil)

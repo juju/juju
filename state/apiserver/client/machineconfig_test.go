@@ -5,10 +5,11 @@ package client_test
 
 import (
 	"fmt"
+	"net"
+	"strconv"
 
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -44,12 +45,11 @@ func (s *machineConfigSuite) TestMachineConfig(c *gc.C) {
 
 	envConfig, err := s.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
-	env, err := environs.New(envConfig)
-	c.Assert(err, gc.IsNil)
-	stateInfo, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-	c.Check(machineConfig.MongoInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
-	c.Check(machineConfig.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
+	mongoAddrs := s.State.MongoConnectionInfo().Addrs
+	apiAddrs := []string{net.JoinHostPort("localhost", strconv.Itoa(envConfig.APIPort()))}
+
+	c.Check(machineConfig.MongoInfo.Addrs, gc.DeepEquals, mongoAddrs)
+	c.Check(machineConfig.APIInfo.Addrs, gc.DeepEquals, apiAddrs)
 	c.Assert(machineConfig.Tools.URL, gc.Not(gc.Equals), "")
 }
 

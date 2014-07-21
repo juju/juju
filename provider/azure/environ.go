@@ -18,7 +18,6 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -30,7 +29,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 )
 
@@ -308,9 +306,66 @@ func (env *azureEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	return common.Bootstrap(ctx, env, args)
 }
 
-// StateInfo is specified in the Environ interface.
-func (env *azureEnviron) StateInfo() (*authentication.MongoInfo, *api.Info, error) {
-	return common.StateInfo(env)
+// isLegacyInstance reports whether the instance is a
+// legacy instance (i.e. one-to-one cloud service to instance).
+func isLegacyInstance(inst *azureInstance) (bool, error) {
+	context, err := inst.environ.getManagementAPI()
+	if err != nil {
+		return false, err
+	}
+	defer inst.environ.releaseManagementAPI(context)
+	serviceName := inst.hostedService.ServiceName
+	service, err := context.GetHostedServiceProperties(serviceName, true)
+	if err != nil {
+		return false, err
+	} else if len(service.Deployments) != 1 {
+		return false, nil
+	}
+	deploymentName := service.Deployments[0].Name
+	return deploymentName == deploymentNameV1(serviceName), nil
+}
+
+// StateServerInstances is specified in the Environ interface.
+func (env *azureEnviron) StateServerInstances() ([]instance.Id, error) {
+	// Locate the state-server cloud service, and get its addresses.
+	instances, err := env.AllInstances()
+	if err != nil {
+		return nil, err
+	}
+	var stateServerInstanceIds []instance.Id
+	var loadStateFile bool
+	for _, inst := range instances {
+		azureInstance := inst.(*azureInstance)
+		label := azureInstance.hostedService.Label
+		if decoded, err := base64.StdEncoding.DecodeString(label); err == nil {
+			if string(decoded) == stateServerLabel {
+				stateServerInstanceIds = append(stateServerInstanceIds, inst.Id())
+				continue
+			}
+		}
+		if !loadStateFile {
+			_, roleName := env.splitInstanceId(azureInstance.Id())
+			if roleName == "" {
+				loadStateFile = true
+			}
+		}
+	}
+	if loadStateFile {
+		// Some legacy instances were found, so we must load provider-state
+		// to find which instance was the original state server. If we find
+		// a legacy environment, then stateServerInstanceIds will not contain
+		// the original bootstrap instance, which is the only one that will
+		// be in provider-state.
+		instanceIds, err := common.ProviderStateInstances(env, env.Storage())
+		if err != nil {
+			return nil, err
+		}
+		stateServerInstanceIds = append(stateServerInstanceIds, instanceIds...)
+	}
+	if len(stateServerInstanceIds) == 0 {
+		return nil, environs.ErrNotBootstrapped
+	}
+	return stateServerInstanceIds, nil
 }
 
 // Config is specified in the Environ interface.

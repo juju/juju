@@ -449,32 +449,23 @@ func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	c.Assert(suite.testMAASObject.TestServer.OwnedNodes()["test2"], jc.IsFalse)
 }
 
-func (suite *environSuite) TestStateInfo(c *gc.C) {
+func (suite *environSuite) TestStateServerInstances(c *gc.C) {
 	env := suite.makeEnviron()
-	hostname := "test"
-	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
-	node := suite.testMAASObject.TestServer.NewNode(input)
-	testInstance := &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
-	err := bootstrap.SaveState(
-		env.Storage(),
-		&bootstrap.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
-	c.Assert(err, gc.IsNil)
-
-	stateInfo, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-
-	cfg := env.Config()
-	statePortSuffix := fmt.Sprintf(":%d", cfg.StatePort())
-	apiPortSuffix := fmt.Sprintf(":%d", cfg.APIPort())
-	c.Assert(stateInfo.Addrs, gc.DeepEquals, []string{hostname + statePortSuffix})
-	c.Assert(apiInfo.Addrs, gc.DeepEquals, []string{hostname + apiPortSuffix})
+	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
+	for _, expected := range tests {
+		err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
+			StateInstances: expected,
+		})
+		c.Assert(err, gc.IsNil)
+		stateServerInstances, err := env.StateServerInstances()
+		c.Assert(err, gc.IsNil)
+		c.Assert(stateServerInstances, jc.SameContents, expected)
+	}
 }
 
-func (suite *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
+func (suite *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := suite.makeEnviron()
-
-	_, _, err := env.StateInfo()
-
+	_, err := env.StateServerInstances()
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 

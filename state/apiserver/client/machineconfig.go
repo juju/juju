@@ -64,7 +64,7 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 	}
 
 	// Find the API endpoints.
-	_, apiInfo, err := env.StateInfo()
+	apiInfo, err := environs.APIInfo(env)
 	if err != nil {
 		return nil, err
 	}

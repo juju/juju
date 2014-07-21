@@ -56,7 +56,6 @@ func noImportance(err0, err1 error) bool {
 
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
-	s.CommonProvisionerSuite.setupEnvironmentManager(c)
 	aptCmdChan := s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
 

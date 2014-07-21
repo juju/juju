@@ -32,7 +32,7 @@ func (c *RemoveServiceCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no service specified")
 	}
-	if !names.IsService(args[0]) {
+	if !names.IsValidService(args[0]) {
 		return fmt.Errorf("invalid service name %q", args[0])
 	}
 	c.ServiceName, args = args[0], args[1:]
