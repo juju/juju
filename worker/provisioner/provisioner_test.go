@@ -846,7 +846,7 @@ func (s *ProvisionerSuite) TestMachineErrorsRetainInstances(c *gc.C) {
 	task = s.newProvisionerTask(c, false, s.Environ, &mockMachineGetter{})
 	defer func() {
 		err := task.Stop()
-		c.Assert(err, gc.ErrorMatches, ".*failed to get machine 0.*")
+		c.Assert(err, gc.ErrorMatches, ".*failed to get machine.*")
 	}()
 	s.checkNoOperations(c)
 }

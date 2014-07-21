@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	envtesting "github.com/juju/juju/environs/testing"
-	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/maas"
 	coretesting "github.com/juju/juju/testing"
 )
@@ -195,64 +194,40 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	c.Check(env.Name(), gc.Equals, "testenv")
 }
 
+var expectedCloudinitConfig = []interface{}{
+	"set -xe",
+	"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
+	"ifdown eth0",
+	`mkdir -p etc/network/interfaces.d
+cat > /etc/network/interfaces.d/eth0.cfg << EOF
+# The primary network interface
+auto eth0
+iface eth0 inet dhcp
+EOF
+sed -i '/auto eth0/{N;s/auto eth0\niface eth0 inet dhcp//}' /etc/network/interfaces
+cat >> /etc/network/interfaces << EOF
+# Source interfaces
+# Please check /etc/network/interfaces.d before changing this file
+# as interfaces may have been defined in /etc/network/interfaces.d
+# NOTE: the primary ethernet device is defined in
+# /etc/network/interfaces.d/eth0.cfg
+# See LP: #1262951
+source /etc/network/interfaces.d/*.cfg
+EOF
+`,
+	`cat > /etc/network/interfaces.d/br0.cfg << EOF
+auto br0
+iface br0 inet dhcp
+  bridge_ports eth0
+EOF
+sed -i 's/iface eth0 inet dhcp/iface eth0 inet manual/' /etc/network/interfaces.d/eth0.cfg
+`,
+	"ifup br0",
+}
+
 func (*environSuite) TestNewCloudinitConfig(c *gc.C) {
-	nwInfo := []network.Info{
-		// physical eth0 won't be touched, but it can have VLANs on it.
-		{InterfaceName: "eth0", VLANTag: 0, Disabled: false},
-		{InterfaceName: "eth0", VLANTag: 99, Disabled: false},
-		// physical NIC given explicitly, then a couple of virtual ones using it.
-		{InterfaceName: "eth1", VLANTag: 0, Disabled: false},
-		{InterfaceName: "eth1", VLANTag: 42, Disabled: false},
-		{InterfaceName: "eth1", VLANTag: 69, Disabled: false},
-		{InterfaceName: "eth2", VLANTag: 0, Disabled: false},
-		// physical NIC not given, ensure it gets brought up first, before the virtual one.
-		{InterfaceName: "eth3", VLANTag: 123, Disabled: false},
-		// disabled NICs should still be configured (for now)
-		{InterfaceName: "eth4", VLANTag: 0, Disabled: true},
-		{InterfaceName: "eth4", VLANTag: 12, Disabled: true},
-		{InterfaceName: "eth5", VLANTag: 66, Disabled: true},
-	}
-	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid", nwInfo, "eth0")
+	cloudcfg, err := maas.NewCloudinitConfig("testing.invalid", "eth0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(cloudcfg.AptUpdate(), jc.IsTrue)
-	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, []interface{}{
-		"set -xe",
-		"mkdir -p '/var/lib/juju'; echo -n 'hostname: testing.invalid\n' > '/var/lib/juju/MAASmachine.txt'",
-		"ifdown eth0",
-		"cat > /etc/network/eth0.config << EOF\niface eth0 inet manual\n\nauto br0\niface br0 inet dhcp\n  bridge_ports eth0\nEOF\n",
-		`sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`,
-		"ifup br0",
-		// Networking/VLAN stuff.
-		"sh -c 'lsmod | grep -q 8021q || modprobe 8021q'",
-		"sh -c 'grep -q 8021q /etc/modules || echo 8021q >> /etc/modules'",
-		"vconfig set_name_type DEV_PLUS_VID_NO_PAD",
-		"vconfig add eth0 99",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth0.99\niface eth0.99 inet dhcp\nEOF\n",
-		"ifup eth0.99",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth1\niface eth1 inet dhcp\nEOF\n",
-		"ifup eth1",
-		"vconfig add eth1 42",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth1.42\niface eth1.42 inet dhcp\nEOF\n",
-		"ifup eth1.42",
-		"vconfig add eth1 69",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth1.69\niface eth1.69 inet dhcp\nEOF\n",
-		"ifup eth1.69",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth2\niface eth2 inet dhcp\nEOF\n",
-		"ifup eth2",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth3\niface eth3 inet dhcp\nEOF\n",
-		"ifup eth3",
-		"vconfig add eth3 123",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth3.123\niface eth3.123 inet dhcp\nEOF\n",
-		"ifup eth3.123",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth4\niface eth4 inet dhcp\nEOF\n",
-		"ifup eth4",
-		"vconfig add eth4 12",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth4.12\niface eth4.12 inet dhcp\nEOF\n",
-		"ifup eth4.12",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth5\niface eth5 inet dhcp\nEOF\n",
-		"ifup eth5",
-		"vconfig add eth5 66",
-		"cat >> /etc/network/interfaces << EOF\n\nauto eth5.66\niface eth5.66 inet dhcp\nEOF\n",
-		"ifup eth5.66",
-	})
+	c.Assert(cloudcfg.RunCmds(), jc.DeepEquals, expectedCloudinitConfig)
 }

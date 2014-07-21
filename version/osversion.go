@@ -28,6 +28,16 @@ func mustOSVersion() string {
 	return version
 }
 
+// MustOSFromSeries will panic if the series represents an "unknown"
+// operating system
+func MustOSFromSeries(series string) OSType {
+	operatingSystem, err := GetOSFromSeries(series)
+	if err != nil {
+		panic("osVersion reported an error: " + err.Error())
+	}
+	return operatingSystem
+}
+
 func readSeries(releaseFile string) (string, error) {
 	f, err := os.Open(releaseFile)
 	if err != nil {

@@ -964,7 +964,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce", nil)
 		c.Assert(err, gc.IsNil)
-		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-foo-bar"))
+		err = m.SetAgentVersion(version.MustParseBinary("7.8.9-quantal-amd64"))
 		c.Assert(err, gc.IsNil)
 		err = m.Destroy()
 		c.Assert(err, gc.IsNil)
@@ -978,7 +978,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 		c.Assert(string(instId), gc.Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, gc.IsNil)
-		c.Check(tools.Version, gc.DeepEquals, version.MustParseBinary("7.8.9-foo-bar"))
+		c.Check(tools.Version, gc.DeepEquals, version.MustParseBinary("7.8.9-quantal-amd64"))
 		c.Assert(m.Life(), gc.Equals, state.Dying)
 	}
 }
@@ -1822,7 +1822,7 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Alter the machine: not reported.
-	vers := version.MustParseBinary("1.2.3-gutsy-ppc")
+	vers := version.MustParseBinary("1.2.3-quantal-ppc")
 	err = machine.SetAgentVersion(vers)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
@@ -2771,17 +2771,17 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// the new version.
 	machine0, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = machine0.SetAgentVersion(version.MustParseBinary("9.9.9-series-arch"))
+	err = machine0.SetAgentVersion(version.MustParseBinary("9.9.9-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	machine1, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	machine2, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = machine2.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
+	err = machine2.SetAgentVersion(version.MustParseBinary(stringVersion + "-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	machine3, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = machine3.SetAgentVersion(version.MustParseBinary("4.5.6-series-arch"))
+	err = machine3.SetAgentVersion(version.MustParseBinary("4.5.6-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 
 	// Verify machine0 and machine1 are reported as error.
@@ -2797,17 +2797,17 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	unit0, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit0.SetAgentVersion(version.MustParseBinary("6.6.6-series-arch"))
+	err = unit0.SetAgentVersion(version.MustParseBinary("6.6.6-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	_, err = service.AddUnit()
 	c.Assert(err, gc.IsNil)
 	unit2, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit2.SetAgentVersion(version.MustParseBinary(stringVersion + "-series-arch"))
+	err = unit2.SetAgentVersion(version.MustParseBinary(stringVersion + "-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	unit3, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit3.SetAgentVersion(version.MustParseBinary("4.5.6-series-arch"))
+	err = unit3.SetAgentVersion(version.MustParseBinary("4.5.6-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 
 	// Verify unit0 and unit1 are reported as error, along with the
@@ -2848,9 +2848,9 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) 
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-series-arch"))
+	err = machine.SetAgentVersion(version.MustParseBinary(currentVersion + "-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
-	err = unit.SetAgentVersion(version.MustParseBinary(currentVersion + "-series-arch"))
+	err = unit.SetAgentVersion(version.MustParseBinary(currentVersion + "-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 
 	return envConfig, currentVersion
@@ -3545,6 +3545,92 @@ func (s *StateSuite) TestSetAPIHostPortsPreferIPv6(c *gc.C) {
 	gotHostPorts, err := s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, expectHostPorts)
+}
+
+func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
+	hostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value:       "0.4.8.16",
+			Type:        network.IPv4Address,
+			NetworkName: "foo",
+			Scope:       network.ScopePublic,
+		},
+		Port: 2,
+	}}, {{
+		Address: network.Address{
+			Value:       "0.2.4.6",
+			Type:        network.IPv4Address,
+			NetworkName: "net",
+			Scope:       network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}}
+
+	// API host ports are concurrently changed to the same
+	// desired value; second arrival will fail its assertion,
+	// refresh finding nothing to do, and then issue a
+	// read-only assertion that suceeds.
+
+	var prevRevno int64
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.SetAPIHostPorts(hostPorts)
+		c.Assert(err, gc.IsNil)
+		revno, err := state.TxnRevno(s.State, "stateServers", "apiHostPorts")
+		c.Assert(err, gc.IsNil)
+		prevRevno = revno
+	}).Check()
+
+	err := s.State.SetAPIHostPorts(hostPorts)
+	c.Assert(err, gc.IsNil)
+	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
+	revno, err := state.TxnRevno(s.State, "stateServers", "apiHostPorts")
+	c.Assert(err, gc.IsNil)
+	c.Assert(revno, gc.Equals, prevRevno)
+}
+
+func (s *StateSuite) TestSetAPIHostPortsConcurrentDifferent(c *gc.C) {
+	hostPorts0 := []network.HostPort{{
+		Address: network.Address{
+			Value:       "0.4.8.16",
+			Type:        network.IPv4Address,
+			NetworkName: "foo",
+			Scope:       network.ScopePublic,
+		},
+		Port: 2,
+	}}
+	hostPorts1 := []network.HostPort{{
+		Address: network.Address{
+			Value:       "0.2.4.6",
+			Type:        network.IPv4Address,
+			NetworkName: "net",
+			Scope:       network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}
+
+	// API host ports are concurrently changed to different
+	// values; second arrival will fail its assertion, refresh
+	// finding and reattempt.
+
+	var prevRevno int64
+	defer state.SetBeforeHooks(c, s.State, func() {
+		err := s.State.SetAPIHostPorts([][]network.HostPort{hostPorts0})
+		c.Assert(err, gc.IsNil)
+		revno, err := state.TxnRevno(s.State, "stateServers", "apiHostPorts")
+		c.Assert(err, gc.IsNil)
+		prevRevno = revno
+	}).Check()
+
+	err := s.State.SetAPIHostPorts([][]network.HostPort{hostPorts1})
+	c.Assert(err, gc.IsNil)
+	c.Assert(prevRevno, gc.Not(gc.Equals), 0)
+	revno, err := state.TxnRevno(s.State, "stateServers", "apiHostPorts")
+	c.Assert(err, gc.IsNil)
+	c.Assert(revno, gc.Not(gc.Equals), prevRevno)
+
+	hostPorts, err := s.State.APIHostPorts()
+	c.Assert(err, gc.IsNil)
+	c.Assert(hostPorts, gc.DeepEquals, [][]network.HostPort{hostPorts1})
 }
 
 func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {

@@ -131,7 +131,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *DeployCommand) Init(args []string) error {
 	switch len(args) {
 	case 2:
-		if !names.IsService(args[1]) {
+		if !names.IsValidService(args[1]) {
 			return fmt.Errorf("invalid service name %q", args[1])
 		}
 		c.ServiceName = args[1]
@@ -306,7 +306,7 @@ func parseNetworks(networksValue string) []string {
 func networkNamesToTags(networks []string) ([]string, error) {
 	var tags []string
 	for _, network := range networks {
-		if !names.IsNetwork(network) {
+		if !names.IsValidNetwork(network) {
 			return nil, fmt.Errorf("%q is not a valid network name", network)
 		}
 		tags = append(tags, names.NewNetworkTag(network).String())

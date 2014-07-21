@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/api"
 	apiparams "github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
@@ -555,9 +555,9 @@ func (s *environSuite) TestStateServerInstancesOnlyLegacy(c *gc.C) {
 	service1 := makeLegacyDeployment(env, prefix+"myservice1")
 	service2 := makeLegacyDeployment(env, prefix+"myservice2")
 	instId := instance.Id(service1.ServiceName)
-	err := bootstrap.SaveState(
+	err := common.SaveState(
 		env.Storage(),
-		&bootstrap.BootstrapState{StateInstances: []instance.Id{instId}},
+		&common.BootstrapState{StateInstances: []instance.Id{instId}},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -583,9 +583,9 @@ func (s *environSuite) TestStateServerInstancesSomeLegacy(c *gc.C) {
 	service2Role2Name := service2.Deployments[0].RoleList[1].RoleName
 	instId2 := instance.Id(prefix + "service2-" + service2Role1Name)
 	instId3 := instance.Id(prefix + "service2-" + service2Role2Name)
-	err := bootstrap.SaveState(
+	err := common.SaveState(
 		env.Storage(),
-		&bootstrap.BootstrapState{StateInstances: []instance.Id{instId1}},
+		&common.BootstrapState{StateInstances: []instance.Id{instId1}},
 	)
 	c.Assert(err, gc.IsNil)
 
@@ -929,11 +929,11 @@ func getVnetCleanupResponse(c *gc.C) gwacl.DispatcherResponse {
 func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
+
 	// Populate storage.
-	err := bootstrap.SaveState(
-		env.Storage(),
-		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+	err := env.Storage().Put("anything", strings.NewReader(""), 0)
 	c.Assert(err, gc.IsNil)
+
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusBadRequest, nil),
 	}
@@ -944,16 +944,14 @@ func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 
 	files, err := storage.List(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
-	c.Check(files, gc.HasLen, 1)
+	c.Check(files, gc.DeepEquals, []string{"anything"})
 }
 
 func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := bootstrap.SaveState(
-		env.Storage(),
-		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+	err := env.Storage().Put("anything", strings.NewReader(""), 0)
 	c.Assert(err, gc.IsNil)
 	responses := getAzureServiceListResponse(c)
 	responses = append(responses, getVnetCleanupResponse(c))

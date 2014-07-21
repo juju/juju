@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package bootstrap_test
+package common_test
 
 import (
 	"io/ioutil"
@@ -15,10 +15,10 @@ import (
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/storage"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -54,16 +54,16 @@ func (suite *StateSuite) testingHTTPSServer(c *gc.C) (string, string) {
 func (suite *StateSuite) TestCreateStateFileWritesEmptyStateFile(c *gc.C) {
 	stor := suite.newStorage(c)
 
-	url, err := bootstrap.CreateStateFile(stor)
+	url, err := common.CreateStateFile(stor)
 	c.Assert(err, gc.IsNil)
 
-	reader, err := storage.Get(stor, bootstrap.StateFile)
+	reader, err := storage.Get(stor, common.StateFile)
 	c.Assert(err, gc.IsNil)
 	data, err := ioutil.ReadAll(reader)
 	c.Assert(err, gc.IsNil)
 	c.Check(string(data), gc.Equals, "")
 	c.Assert(url, gc.NotNil)
-	expectedURL, err := stor.URL(bootstrap.StateFile)
+	expectedURL, err := stor.URL(common.StateFile)
 	c.Assert(err, gc.IsNil)
 	c.Check(url, gc.Equals, expectedURL)
 }
@@ -72,45 +72,45 @@ func (suite *StateSuite) TestDeleteStateFile(c *gc.C) {
 	closer, stor, dataDir := envtesting.CreateLocalTestStorage(c)
 	defer closer.Close()
 
-	err := bootstrap.DeleteStateFile(stor)
+	err := common.DeleteStateFile(stor)
 	c.Assert(err, gc.IsNil) // doesn't exist, juju don't care
 
-	_, err = bootstrap.CreateStateFile(stor)
+	_, err = common.CreateStateFile(stor)
 	c.Assert(err, gc.IsNil)
-	_, err = os.Stat(filepath.Join(dataDir, bootstrap.StateFile))
+	_, err = os.Stat(filepath.Join(dataDir, common.StateFile))
 	c.Assert(err, gc.IsNil)
 
-	err = bootstrap.DeleteStateFile(stor)
+	err = common.DeleteStateFile(stor)
 	c.Assert(err, gc.IsNil)
-	_, err = os.Stat(filepath.Join(dataDir, bootstrap.StateFile))
+	_, err = os.Stat(filepath.Join(dataDir, common.StateFile))
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *gc.C) {
 	stor := suite.newStorage(c)
-	state := bootstrap.BootstrapState{
+	state := common.BootstrapState{
 		StateInstances: []instance.Id{instance.Id("an-instance-id")},
 	}
 	marshaledState, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
 
-	err = bootstrap.SaveState(stor, &state)
+	err = common.SaveState(stor, &state)
 	c.Assert(err, gc.IsNil)
 
-	loadedState, err := storage.Get(stor, bootstrap.StateFile)
+	loadedState, err := storage.Get(stor, common.StateFile)
 	c.Assert(err, gc.IsNil)
 	content, err := ioutil.ReadAll(loadedState)
 	c.Assert(err, gc.IsNil)
 	c.Check(content, gc.DeepEquals, marshaledState)
 }
 
-func (suite *StateSuite) setUpSavedState(c *gc.C, dataDir string) bootstrap.BootstrapState {
-	state := bootstrap.BootstrapState{
+func (suite *StateSuite) setUpSavedState(c *gc.C, dataDir string) common.BootstrapState {
+	state := common.BootstrapState{
 		StateInstances: []instance.Id{instance.Id("an-instance-id")},
 	}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
-	err = ioutil.WriteFile(filepath.Join(dataDir, bootstrap.StateFile), []byte(content), 0644)
+	err = ioutil.WriteFile(filepath.Join(dataDir, common.StateFile), []byte(content), 0644)
 	c.Assert(err, gc.IsNil)
 	return state
 }
@@ -118,25 +118,25 @@ func (suite *StateSuite) setUpSavedState(c *gc.C, dataDir string) bootstrap.Boot
 func (suite *StateSuite) TestLoadStateReadsStateFile(c *gc.C) {
 	storage, dataDir := suite.newStorageWithDataDir(c)
 	state := suite.setUpSavedState(c, dataDir)
-	storedState, err := bootstrap.LoadState(storage)
+	storedState, err := common.LoadState(storage)
 	c.Assert(err, gc.IsNil)
 	c.Check(*storedState, gc.DeepEquals, state)
 }
 
 func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
 	stor := suite.newStorage(c)
-	_, err := bootstrap.LoadState(stor)
+	_, err := common.LoadState(stor)
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {
 	storage := suite.newStorage(c)
-	state := bootstrap.BootstrapState{
+	state := common.BootstrapState{
 		StateInstances: []instance.Id{instance.Id("an-instance-id")},
 	}
-	err := bootstrap.SaveState(storage, &state)
+	err := common.SaveState(storage, &state)
 	c.Assert(err, gc.IsNil)
-	storedState, err := bootstrap.LoadState(storage)
+	storedState, err := common.LoadState(storage)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(*storedState, gc.DeepEquals, state)

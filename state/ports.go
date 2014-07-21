@@ -62,7 +62,7 @@ func (p PortRange) IsValid() bool {
 	if proto != "tcp" && proto != "udp" {
 		return false
 	}
-	if !names.IsUnit(p.UnitName) {
+	if !names.IsValidUnit(p.UnitName) {
 		return false
 	}
 	return p.FromPort <= p.ToPort

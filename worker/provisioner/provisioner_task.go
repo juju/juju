@@ -442,10 +442,11 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 			visitedNetworks.Add(networkTag)
 		}
 		ifaces = append(ifaces, params.NetworkInterface{
-			InterfaceName: info.InterfaceName,
+			InterfaceName: info.ActualInterfaceName(),
 			MACAddress:    info.MACAddress,
 			NetworkTag:    networkTag,
 			IsVirtual:     info.IsVirtual(),
+			Disabled:      info.Disabled,
 		})
 	}
 	return networks, ifaces

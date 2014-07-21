@@ -52,7 +52,7 @@ func (a *UnitAgent) Init(args []string) error {
 	if a.UnitName == "" {
 		return requiredError("unit-name")
 	}
-	if !names.IsUnit(a.UnitName) {
+	if !names.IsValidUnit(a.UnitName) {
 		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
 	if err := a.AgentConf.CheckArgs(args); err != nil {

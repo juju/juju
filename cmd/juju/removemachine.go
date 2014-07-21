@@ -53,7 +53,7 @@ func (c *RemoveMachineCommand) Init(args []string) error {
 		return fmt.Errorf("no machines specified")
 	}
 	for _, id := range args {
-		if !names.IsMachine(id) {
+		if !names.IsValidMachine(id) {
 			return fmt.Errorf("invalid machine id %q", id)
 		}
 	}

@@ -524,37 +524,37 @@ var addNetworkInterfaceErrorsTests = []struct {
 	beforeAdding func(*gc.C, *state.Machine)
 	expectErr    string
 }{{
-	state.NetworkInterfaceInfo{"", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"", "eth1", "net1", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": MAC address must be not empty`,
 }, {
-	state.NetworkInterfaceInfo{"invalid", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"invalid", "eth1", "net1", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": invalid MAC address: invalid`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f0", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f0", "eth1", "net1", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": MAC address "aa:bb:cc:dd:ee:f0" on network "net1" already exists`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "", "net1", false, false},
 	nil,
 	`cannot add network interface "" to machine "2": interface name must be not empty`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth0", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth0", "net1", false, false},
 	nil,
 	`cannot add network interface "eth0" to machine "2": "eth0" on machine "2" already exists`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth1", "missing", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth1", "missing", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": network "missing" not found`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false, false},
 	func(c *gc.C, m *state.Machine) {
 		c.Check(m.EnsureDead(), gc.IsNil)
 	},
 	`cannot add network interface "eth1" to machine "2": machine is not alive`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false, false},
 	func(c *gc.C, m *state.Machine) {
 		c.Check(m.Remove(), gc.IsNil)
 	},
@@ -806,7 +806,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, gc.IsNil)
-	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
+	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	newTools, _ := m0.AgentTools()
 
@@ -961,7 +961,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
+	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	err = machine.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -1824,6 +1824,7 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 		InterfaceName: "eth1",
 		NetworkName:   "net1",
 		IsVirtual:     false,
+		Disabled:      true,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		InterfaceName: "eth1.42",
@@ -1853,6 +1854,11 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 	err = ifaces[0].SetDisabled(true)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+
+	// Enable the second interface, should report, because it was initially disabled.
+	err = ifaces[1].SetDisabled(false)
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
 
 	// Disable two interfaces at once, check that both are reported.
 	err = ifaces[1].SetDisabled(true)
