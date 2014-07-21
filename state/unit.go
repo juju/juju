@@ -56,6 +56,7 @@ const (
 // are resolved.
 type ResolvedMode string
 
+// ResolvedNone, ResolvedRetryHooks, and ResolvedNoHooks are the three ResolvedMode options
 const (
 	ResolvedNone       ResolvedMode = ""
 	ResolvedRetryHooks ResolvedMode = "retry-hooks"
@@ -261,7 +262,7 @@ func (u *Unit) PasswordValid(password string) bool {
 	return false
 }
 
-// Destroy, when called on a Alive unit, advances its lifecycle as far as
+// Destroy when called on a Alive unit, advances its lifecycle as far as
 // possible; it otherwise has no effect. In most situations, the unit's
 // life is just set to Dying; but if a principal unit that is not assigned
 // to a provisioned machine is Destroyed, it will be removed from state
@@ -390,9 +391,8 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil
-		} else {
-			return nil, err
 		}
+		return nil, err
 	}
 
 	containerCheck := true // whether container conditions allow destroying the host machine
@@ -476,6 +476,7 @@ func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
 	return svc.removeUnitOps(u, asserts)
 }
 
+// ErrUnitHasSubordinates is the standard error for when a unit has subordinates
 var ErrUnitHasSubordinates = stderrors.New("unit has subordinates")
 
 var unitHasNoSubordinates = bson.D{{
@@ -643,16 +644,19 @@ func (u *Unit) PrincipalName() (string, bool) {
 
 // addressesOfMachine returns Addresses of the related machine if present.
 func (u *Unit) addressesOfMachine() []network.Address {
-	if id, err := u.AssignedMachineId(); err != nil {
+	var (
+		id  string
+		err error
+	)
+	if id, err = u.AssignedMachineId(); err != nil {
 		unitLogger.Errorf("unit %v cannot get assigned machine: %v", u, err)
 		return nil
-	} else {
-		m, err := u.st.Machine(id)
-		if err == nil {
-			return m.Addresses()
-		}
-		unitLogger.Errorf("unit %v misses machine id %v", u, id)
 	}
+	m, err := u.st.Machine(id)
+	if err == nil {
+		return m.Addresses()
+	}
+	unitLogger.Errorf("unit %v misses machine id %v", u, id)
 	return nil
 }
 
@@ -970,6 +974,7 @@ func (u *Unit) Tag() names.Tag {
 	return u.UnitTag()
 }
 
+// UnitTag returns a names.UnitTag representing this Unit
 func (u *Unit) UnitTag() names.UnitTag {
 	return names.NewUnitTag(u.Name())
 }
@@ -1698,4 +1703,9 @@ func (u *Unit) ClearResolved() error {
 // WatchActions starts and returns an ActionWatcher
 func (u *Unit) WatchActions() StringsWatcher {
 	return newActionWatcher(u.st, u)
+}
+
+// WatchActionResults starts and returns an ActionResultsWatcher
+func (u *Unit) WatchActionResults() StringsWatcher {
+	return newActionResultWatcher(u.st, u)
 }

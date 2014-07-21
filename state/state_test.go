@@ -1955,12 +1955,12 @@ func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 
 	// Multiple changes will only result in a single change notification
 	newVersion := cur
-	newVersion.Minor += 1
+	newVersion.Minor++
 	err = statetesting.SetAgentVersion(s.State, newVersion)
 	c.Assert(err, gc.IsNil)
 
 	newerVersion := newVersion
-	newerVersion.Minor += 1
+	newerVersion.Minor++
 	err = statetesting.SetAgentVersion(s.State, newerVersion)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
@@ -3730,6 +3730,15 @@ func (s *StateSuite) TestWatchActions(c *gc.C) {
 func expectActionIds(u *state.Unit, suffixes ...string) []string {
 	ids := make([]string, len(suffixes))
 	prefix := state.EnsureActionMarker(u.Name())
+	for i, suffix := range suffixes {
+		ids[i] = prefix + suffix
+	}
+	return ids
+}
+
+func expectActionResultIds(u *state.Unit, suffixes ...string) []string {
+	ids := make([]string, len(suffixes))
+	prefix := state.EnsureActionResultMarker(u.Name())
 	for i, suffix := range suffixes {
 		ids[i] = prefix + suffix
 	}

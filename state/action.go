@@ -26,6 +26,10 @@ type ActionReceiver interface {
 	// queued actions for this ActionReceiver
 	WatchActions() StringsWatcher
 
+	// WatchActionResults returns a StringsWatcher that will notify on changes to
+	// the action results for this ActionReceiver
+	WatchActionResults() StringsWatcher
+
 	// Actions returns the list of Actions queued for this ActionReceiver
 	Actions() ([]*Action, error)
 

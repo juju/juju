@@ -57,17 +57,17 @@ func (s *ActionSuite) TestAddAction(c *gc.C) {
 
 func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 	name := "fakeaction"
-	params_1 := map[string]interface{}{"outfile": "outfile.tar.bz2"}
-	params_2 := map[string]interface{}{"infile": "infile.zip"}
+	params1 := map[string]interface{}{"outfile": "outfile.tar.bz2"}
+	params2 := map[string]interface{}{"infile": "infile.zip"}
 
 	// verify can add two actions with same name
-	a_1, err := s.unit.AddAction(name, params_1)
+	a1, err := s.unit.AddAction(name, params1)
 	c.Assert(err, gc.IsNil)
 
-	a_2, err := s.unit.AddAction(name, params_2)
+	a2, err := s.unit.AddAction(name, params2)
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(a_1.Id(), gc.Not(gc.Equals), a_2.Id())
+	c.Assert(a1.Id(), gc.Not(gc.Equals), a2.Id())
 
 	// verify both actually got added
 	actions, err := s.unit.Actions()
@@ -75,20 +75,20 @@ func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 	c.Assert(len(actions), gc.Equals, 2)
 
 	// verify we can Fail one, retrieve the other, and they're not mixed up
-	action_1, err := s.State.Action(a_1.Id())
+	action1, err := s.State.Action(a1.Id())
 	c.Assert(err, gc.IsNil)
-	err = action_1.Fail("")
+	err = action1.Fail("")
 	c.Assert(err, gc.IsNil)
 
-	action_2, err := s.State.Action(a_2.Id())
+	action2, err := s.State.Action(a2.Id())
 	c.Assert(err, gc.IsNil)
-	c.Assert(action_2.Payload(), gc.DeepEquals, params_2)
+	c.Assert(action2.Payload(), gc.DeepEquals, params2)
 
 	// verify only one left, and it's the expected one
 	actions, err = s.unit.Actions()
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(actions), gc.Equals, 1)
-	c.Assert(actions[0].Id(), gc.Equals, a_2.Id())
+	c.Assert(actions[0].Id(), gc.Equals, a2.Id())
 }
 
 func (s *ActionSuite) TestAddActionLifecycle(c *gc.C) {
@@ -254,4 +254,47 @@ func (s *ActionSuite) TestUnitWatchActions(c *gc.C) {
 	expect = expectActionIds(unit1, "2", "3")
 	wc.AssertChange(expect...)
 	wc.AssertNoChange()
+}
+
+func (s *ActionSuite) TestUnitWatchActionResults(c *gc.C) {
+	unit1, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit1)
+
+	unit2, err := s.State.Unit(s.unit2.Name())
+	c.Assert(err, gc.IsNil)
+	preventUnitDestroyRemove(c, unit2)
+
+	action0, err := unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+	action1, err := unit2.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+	action2, err := unit1.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+
+	err = action2.Fail("oops")
+	c.Assert(err, gc.IsNil)
+	err = action1.Complete("yay")
+	c.Assert(err, gc.IsNil)
+
+	w1 := unit1.WatchActionResults()
+	defer statetesting.AssertStop(c, w1)
+	wc1 := statetesting.NewStringsWatcherC(c, s.State, w1)
+	expect := expectActionResultIds(unit1, "1")
+	wc1.AssertChange(expect...)
+	wc1.AssertNoChange()
+
+	w2 := unit2.WatchActionResults()
+	defer statetesting.AssertStop(c, w2)
+	wc2 := statetesting.NewStringsWatcherC(c, s.State, w2)
+	expect = expectActionResultIds(unit2, "0")
+	wc2.AssertChange(expect...)
+	wc2.AssertNoChange()
+
+	err = action0.Complete("good")
+	c.Assert(err, gc.IsNil)
+
+	expect = expectActionResultIds(unit1, "0")
+	wc1.AssertChange(expect...)
+	wc1.AssertNoChange()
 }

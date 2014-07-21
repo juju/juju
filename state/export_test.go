@@ -224,6 +224,10 @@ func EnsureActionMarker(prefix string) string {
 	return ensureActionMarker(prefix)
 }
 
+func EnsureActionResultMarker(prefix string) string {
+	return ensureActionResultMarker(prefix)
+}
+
 func GetActionResultId(actionId string) (string, bool) {
 	return convertActionIdToActionResultId(actionId)
 }

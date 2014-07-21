@@ -382,6 +382,7 @@ func newMinUnitsWatcher(st *State) StringsWatcher {
 	return w
 }
 
+// WatchMinUnits returns a StringsWatcher for the minUnits collection
 func (st *State) WatchMinUnits() StringsWatcher {
 	return newMinUnitsWatcher(st)
 }
@@ -1005,8 +1006,8 @@ var _ Watcher = (*EnvironConfigWatcher)(nil)
 
 // WatchEnvironConfig returns a watcher for observing changes
 // to the environment configuration.
-func (s *State) WatchEnvironConfig() *EnvironConfigWatcher {
-	return newEnvironConfigWatcher(s)
+func (st *State) WatchEnvironConfig() *EnvironConfigWatcher {
+	return newEnvironConfigWatcher(st)
 }
 
 func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
@@ -1065,8 +1066,8 @@ type settingsWatcher struct {
 var _ Watcher = (*settingsWatcher)(nil)
 
 // watchSettings creates a watcher for observing changes to settings.
-func (s *State) watchSettings(key string) *settingsWatcher {
-	return newSettingsWatcher(s, key)
+func (st *State) watchSettings(key string) *settingsWatcher {
+	return newSettingsWatcher(st, key)
 }
 
 func newSettingsWatcher(s *State, key string) *settingsWatcher {
@@ -1134,6 +1135,7 @@ func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 	return newEntityWatcher(m.st, m.st.instanceData, m.doc.Id)
 }
 
+// WatchStateServerInfo returns a NotifyWatcher for the stateServers collection
 func (st *State) WatchStateServerInfo() NotifyWatcher {
 	return newEntityWatcher(st, st.stateServers, environGlobalKey)
 }
@@ -1413,7 +1415,7 @@ type machineAddressesWatcher struct {
 
 var _ Watcher = (*machineAddressesWatcher)(nil)
 
-// WatchUnits returns a new NotifyWatcher watching m's addresses.
+// WatchAddresses returns a new NotifyWatcher watching m's addresses.
 func (m *Machine) WatchAddresses() NotifyWatcher {
 	return newMachineAddressesWatcher(m)
 }
@@ -1564,8 +1566,8 @@ func (w *actionWatcher) Changes() <-chan []string {
 func (w *actionWatcher) loop() error {
 	var (
 		changes set.Strings
-		in      <-chan watcher.Change = w.source
-		out     chan<- []string       = w.sink
+		in      = (<-chan watcher.Change)(w.source)
+		out     = (chan<- []string)(w.sink)
 	)
 
 	w.st.watcher.WatchCollectionWithFilter(w.st.actions.Name, w.source, w.filterFn)
@@ -1651,6 +1653,139 @@ func (w *actionWatcher) initial() (set.Strings, error) {
 // potential overlap between the inital actionIds pending before the watcher
 // starts, and actionId's the watcher detects
 func (w *actionWatcher) merge(changes, initial set.Strings, updates map[interface{}]bool) error {
+	for id, exists := range updates {
+		switch id := id.(type) {
+		case string:
+			if exists {
+				if !initial.Contains(id) {
+					changes.Add(id)
+				}
+			} else {
+				changes.Remove(id)
+			}
+		default:
+			return errors.Errorf("id is not of type string, got %T", id)
+		}
+	}
+	return nil
+}
+
+type actionResultWatcher struct {
+	commonWatcher
+	source   chan watcher.Change
+	sink     chan []string
+	filterFn func(interface{}) bool
+}
+
+var _ Watcher = (*actionResultWatcher)(nil)
+
+// WatchActionResults returns a StringsWatcher that notifies on changes to the
+// actionresults collection
+func (st *State) WatchActionResults() StringsWatcher {
+	return newActionResultWatcher(st)
+}
+
+func newActionResultWatcher(st *State, receivers ...ActionReceiver) StringsWatcher {
+	w := &actionResultWatcher{
+		commonWatcher: commonWatcher{st: st},
+		source:        make(chan watcher.Change),
+		sink:          make(chan []string),
+	}
+	w.filterFn = w.makeFilter(receivers...)
+
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.sink)
+		defer close(w.source)
+		w.tomb.Kill(w.loop())
+	}()
+
+	return w
+}
+
+func (w *actionResultWatcher) Changes() <-chan []string {
+	return w.sink
+}
+
+func (w *actionResultWatcher) loop() error {
+	var (
+		changes set.Strings
+		in      = (<-chan watcher.Change)(w.source)
+		out     = (chan<- []string)(w.sink)
+	)
+
+	w.st.watcher.WatchCollectionWithFilter(w.st.actionresults.Name, w.source, w.filterFn)
+	defer w.st.watcher.UnwatchCollection(w.st.actionresults.Name, w.source)
+
+	initial, err := w.initial()
+	if err != nil {
+		return err
+	}
+	changes = initial
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case ch := <-in:
+			updates, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if err := w.merge(changes, initial, updates); err != nil {
+				return err
+			}
+			if !changes.IsEmpty() {
+				out = w.sink
+			} else {
+				out = nil
+			}
+		case out <- changes.Values():
+			changes = set.NewStrings()
+			out = nil
+		}
+	}
+}
+
+func (w *actionResultWatcher) makeFilter(receivers ...ActionReceiver) func(interface{}) bool {
+	if len(receivers) == 0 {
+		return nil
+	}
+	prefixes := make([]string, len(receivers))
+	for ix, receiver := range receivers {
+		prefixes[ix] = ensureActionResultMarker(receiver.Name())
+	}
+
+	return func(key interface{}) bool {
+		switch key.(type) {
+		case string:
+			for _, prefix := range prefixes {
+				if strings.HasPrefix(key.(string), prefix) {
+					return true
+				}
+			}
+		default:
+			watchLogger.Errorf("key is not type string, got %T", key)
+		}
+		return false
+	}
+}
+
+func (w *actionResultWatcher) initial() (set.Strings, error) {
+	var results set.Strings
+	iter := w.st.actionresults.Find(nil).Iter()
+	var doc actionResultDoc
+	for iter.Next(&doc) {
+		if w.filterFn(doc.Id) {
+			results.Add(doc.Id)
+		}
+	}
+	return results, iter.Close()
+}
+
+func (w *actionResultWatcher) merge(changes, initial set.Strings, updates map[interface{}]bool) error {
 	for id, exists := range updates {
 		switch id := id.(type) {
 		case string:

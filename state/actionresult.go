@@ -88,6 +88,13 @@ func actionResultGlobalKey(name string) string {
 	return "ar#" + name
 }
 
+func ensureActionResultMarker(prefix string) string {
+	if prefix[len(prefix)-len(actionResultMarker):] != actionResultMarker {
+		prefix = prefix + actionResultMarker
+	}
+	return prefix
+}
+
 // newActionResult builds an ActionResult from the supplied state and
 // actionResultDoc.
 func newActionResult(st *State, adoc actionResultDoc) *ActionResult {
