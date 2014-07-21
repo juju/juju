@@ -4,11 +4,10 @@
 package main
 
 import (
-	"launchpad.net/gnuflag"
-
 	"github.com/juju/cmd"
-	"github.com/juju/juju/state/api/usermanager"
+	"github.com/juju/juju/state/apiserver/usermanager"
 	"github.com/juju/names"
+	"launchpad.net/gnuflag"
 )
 
 const userInfoCommandDoc = `

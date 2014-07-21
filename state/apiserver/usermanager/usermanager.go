@@ -5,6 +5,7 @@ package usermanager
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -12,7 +13,6 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/state/api/usermanager"
 	"github.com/juju/juju/state/apiserver/common"
 )
 
@@ -24,9 +24,45 @@ func init() {
 
 // UserManager defines the methods on the usermanager API end point.
 type UserManager interface {
-	AddUser(arg params.ModifyUsers) (params.ErrorResults, error)
+	AddUser(arg ModifyUsers) (params.ErrorResults, error)
 	RemoveUser(arg params.Entities) (params.ErrorResults, error)
-	SetPassword(args params.ModifyUsers) (params.ErrorResults, error)
+	SetPassword(args ModifyUsers) (params.ErrorResults, error)
+}
+
+// UserInfo holds information on a user.
+type UserInfo struct {
+	Username       string     `json:username`
+	DisplayName    string     `json:display-name`
+	CreatedBy      string     `json:created-by`
+	DateCreated    time.Time  `json:date-created`
+	LastConnection *time.Time `json:last-connection`
+}
+
+// UserInfoResult holds the result of a UserInfo call.
+type UserInfoResult struct {
+	Result *UserInfo     `json:result,omitempty`
+	Error  *params.Error `json:error,omitempty`
+}
+
+// UserInfoResults holds the result of a bulk UserInfo API call.
+type UserInfoResults struct {
+	Results []UserInfoResult
+}
+
+// ModifyUsers holds the parameters for making a UserManager Add or Modify calls.
+type ModifyUsers struct {
+	Changes []ModifyUser
+}
+
+// ModifyUser stores the parameters used for a UserManager.Add|Remove call.
+type ModifyUser struct {
+	// Tag is here purely for backwards compatability. Older clients will
+	// attempt to use the EntityPassword structure, so we need a Tag here
+	// (which will be treated as Username)
+	Tag         string
+	Username    string
+	DisplayName string
+	Password    string
 }
 
 // UserManagerAPI implements the user manager interface and is the concrete
@@ -62,7 +98,8 @@ func NewUserManagerAPI(
 		nil
 }
 
-func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResults, error) {
+// AddUser adds a user.
+func (api *UserManagerAPI) AddUser(args ModifyUsers) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}
@@ -97,6 +134,7 @@ func (api *UserManagerAPI) AddUser(args params.ModifyUsers) (params.ErrorResults
 	return result, nil
 }
 
+// RemoveUser removes a user.
 func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -128,9 +166,9 @@ func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults
 }
 
 // UserInfo returns information on a user.
-func (api *UserManagerAPI) UserInfo(args params.Entities) (usermanager.UserInfoResults, error) {
-	results := usermanager.UserInfoResults{
-		Results: make([]usermanager.UserInfoResult, len(args.Entities)),
+func (api *UserManagerAPI) UserInfo(args params.Entities) (UserInfoResults, error) {
+	results := UserInfoResults{
+		Results: make([]UserInfoResult, len(args.Entities)),
 	}
 
 	canRead, err := api.getCanRead()
@@ -150,7 +188,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (usermanager.UserInfoR
 		username := tag.Id()
 
 		user, err := api.state.User(username)
-		var result usermanager.UserInfoResult
+		var result UserInfoResult
 		if err != nil {
 			if errors.IsNotFound(err) {
 				result.Error = common.ServerError(common.ErrPerm)
@@ -158,7 +196,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (usermanager.UserInfoR
 				result.Error = common.ServerError(err)
 			}
 		} else {
-			info := usermanager.UserInfo{
+			info := UserInfo{
 				Username:       username,
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),
@@ -173,7 +211,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (usermanager.UserInfoR
 	return results, nil
 }
 
-func (api *UserManagerAPI) SetPassword(args params.ModifyUsers) (params.ErrorResults, error) {
+func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Changes)),
 	}

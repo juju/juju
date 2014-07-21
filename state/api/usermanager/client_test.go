@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/usermanager"
+	ums "github.com/juju/juju/state/apiserver/usermanager"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -83,8 +84,8 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 
 	obtained, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.IsNil)
-	expected := usermanager.UserInfoResult{
-		Result: &usermanager.UserInfo{
+	expected := ums.UserInfoResult{
+		Result: &ums.UserInfo{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
 			CreatedBy:   "admin",
@@ -106,8 +107,8 @@ func (s *usermanagerSuite) TestUserInfoNoResults(c *gc.C) {
 
 func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
 	s.PatchValue(usermanager.Call, func(st *api.State, method string, args, result interface{}) error {
-		if result, ok := result.(*usermanager.UserInfoResults); ok {
-			result.Results = make([]usermanager.UserInfoResult, 2)
+		if result, ok := result.(*ums.UserInfoResults); ok {
+			result.Results = make([]ums.UserInfoResult, 2)
 		}
 		return nil
 	})

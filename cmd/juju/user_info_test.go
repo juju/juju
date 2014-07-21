@@ -11,8 +11,8 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/api/usermanager"
 	"github.com/juju/juju/state/apiserver/common"
+	"github.com/juju/juju/state/apiserver/usermanager"
 	"github.com/juju/juju/testing"
 )
 
