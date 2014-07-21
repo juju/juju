@@ -19,6 +19,8 @@ type agentProviderSuite struct {
 	unitPassword    string
 }
 
+var _ = gc.Suite(&agentProviderSuite{})
+
 func (s *agentProviderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
@@ -48,10 +50,7 @@ func (s *agentProviderSuite) SetUpTest(c *gc.C) {
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	s.unitPassword = password
-
 }
-
-var _ = gc.Suite(&agentProviderSuite{})
 
 func (s *agentProviderSuite) TestValidLogins(c *gc.C) {
 	testCases := []struct {
@@ -76,5 +75,35 @@ func (s *agentProviderSuite) TestValidLogins(c *gc.C) {
 		c.Logf("test %d: %s", i, t.about)
 		err := provider.Login(s.State, t.tag, t.credentials, t.nonce)
 		c.Check(err, gc.IsNil)
+	}
+}
+
+func (s *agentProviderSuite) TestInvalidLogins(c *gc.C) {
+	testCases := []struct {
+		tag         names.Tag
+		credentials string
+		nonce       string
+		about       string
+		Error       string
+	}{{
+		names.NewRelationTag("wordpress:mysql"), "dummy-secret", "",
+		"relation login", "invalid entity name or password",
+	}, {
+		names.NewUserTag("bob"), "dummy-secret", "",
+		"user login for nonexistant user", "invalid entity name or password",
+	}, {
+		s.machineTag, s.machinePassword, "123",
+		"machine login", "machine 0 is not provisioned",
+	}, {
+		names.NewUserTag("admin"), "wrong-secret", "",
+		"user login for nonexistant user", "invalid entity name or password",
+	}}
+
+	provider := idprovider.NewAgentIdentityProvider()
+
+	for i, t := range testCases {
+		c.Logf("test %d: %s", i, t.about)
+		err := provider.Login(s.State, t.tag, t.credentials, t.nonce)
+		c.Check(err, gc.ErrorMatches, t.Error)
 	}
 }
