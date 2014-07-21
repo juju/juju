@@ -11,6 +11,7 @@ import (
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	umc "github.com/juju/juju/state/api/usermanager"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	"github.com/juju/juju/state/apiserver/usermanager"
 	"github.com/juju/juju/testing/factory"
@@ -136,10 +137,10 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 	}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
+	expected := umc.UserInfoResults{
+		Results: []umc.UserInfoResult{
 			{
-				Result: &params.UserInfo{
+				Result: &umc.UserInfo{
 					Username:       "foobar",
 					DisplayName:    "Foo Bar",
 					CreatedBy:      "admin",
@@ -147,7 +148,7 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 					LastConnection: userFoo.LastConnection(),
 				},
 			}, {
-				Result: &params.UserInfo{
+				Result: &umc.UserInfo{
 					Username:       "barfoo",
 					DisplayName:    "Bar Foo",
 					CreatedBy:      "admin",
@@ -170,10 +171,10 @@ func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
 	}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
+	expected := umc.UserInfoResults{
+		Results: []umc.UserInfoResult{
 			{
-				Result: &params.UserInfo{
+				Result: &umc.UserInfo{
 					Username:       "foobar",
 					DisplayName:    "Foo Bar",
 					CreatedBy:      "admin",
@@ -194,8 +195,8 @@ func (s *userManagerSuite) TestUserInfoUserDoesNotExist(c *gc.C) {
 	}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
+	expected := umc.UserInfoResults{
+		Results: []umc.UserInfoResult{
 			{
 				Result: nil,
 				Error: &params.Error{
@@ -215,8 +216,8 @@ func (s *userManagerSuite) TestUserInfoMachineTagFails(c *gc.C) {
 	}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
+	expected := umc.UserInfoResults{
+		Results: []umc.UserInfoResult{
 			{
 				Result: nil,
 				Error: &params.Error{
@@ -235,8 +236,8 @@ func (s *userManagerSuite) TestUserInfoNotATagFails(c *gc.C) {
 	}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
+	expected := umc.UserInfoResults{
+		Results: []umc.UserInfoResult{
 			{
 				Result: nil,
 				Error: &params.Error{

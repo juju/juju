@@ -12,6 +12,7 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/api/usermanager"
 	"github.com/juju/juju/state/apiserver/common"
 )
 
@@ -127,9 +128,9 @@ func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults
 }
 
 // UserInfo returns information on a user.
-func (api *UserManagerAPI) UserInfo(args params.Entities) (params.UserInfoResults, error) {
-	results := params.UserInfoResults{
-		Results: make([]params.UserInfoResult, len(args.Entities)),
+func (api *UserManagerAPI) UserInfo(args params.Entities) (usermanager.UserInfoResults, error) {
+	results := usermanager.UserInfoResults{
+		Results: make([]usermanager.UserInfoResult, len(args.Entities)),
 	}
 
 	canRead, err := api.getCanRead()
@@ -149,7 +150,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (params.UserInfoResult
 		username := tag.Id()
 
 		user, err := api.state.User(username)
-		var result params.UserInfoResult
+		var result usermanager.UserInfoResult
 		if err != nil {
 			if errors.IsNotFound(err) {
 				result.Error = common.ServerError(common.ErrPerm)
@@ -157,7 +158,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (params.UserInfoResult
 				result.Error = common.ServerError(err)
 			}
 		} else {
-			info := params.UserInfo{
+			info := usermanager.UserInfo{
 				Username:       username,
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),

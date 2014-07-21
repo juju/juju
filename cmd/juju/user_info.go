@@ -4,11 +4,11 @@
 package main
 
 import (
-	"github.com/juju/cmd"
-	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/cmd"
+	"github.com/juju/juju/state/api/usermanager"
+	"github.com/juju/names"
 )
 
 const userInfoCommandDoc = `
@@ -76,7 +76,7 @@ func (c *UserInfoCommand) Init(args []string) (err error) {
 }
 
 type UserInfoAPI interface {
-	UserInfo(username string) (params.UserInfoResult, error)
+	UserInfo(username string) (usermanager.UserInfoResult, error)
 	Close() error
 }
 

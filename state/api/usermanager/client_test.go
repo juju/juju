@@ -83,8 +83,8 @@ func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 
 	obtained, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResult{
-		Result: &params.UserInfo{
+	expected := usermanager.UserInfoResult{
+		Result: &usermanager.UserInfo{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
 			CreatedBy:   "admin",
@@ -106,8 +106,8 @@ func (s *usermanagerSuite) TestUserInfoNoResults(c *gc.C) {
 
 func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
 	s.PatchValue(usermanager.Call, func(st *api.State, method string, args, result interface{}) error {
-		if result, ok := result.(*params.UserInfoResults); ok {
-			result.Results = make([]params.UserInfoResult, 2)
+		if result, ok := result.(*usermanager.UserInfoResults); ok {
+			result.Results = make([]usermanager.UserInfoResult, 2)
 		}
 		return nil
 	})

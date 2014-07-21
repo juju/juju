@@ -5,6 +5,7 @@ package usermanager
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -57,20 +58,20 @@ func (c *Client) RemoveUser(tag string) error {
 	return results.OneError()
 }
 
-func (c *Client) UserInfo(username string) (params.UserInfoResult, error) {
+func (c *Client) UserInfo(username string) (UserInfoResult, error) {
 	u := params.Entity{Tag: username}
 	p := params.Entities{Entities: []params.Entity{u}}
-	results := new(params.UserInfoResults)
+	results := new(UserInfoResults)
 	err := call(c.st, "UserInfo", p, results)
 	if err != nil {
-		return params.UserInfoResult{}, errors.Trace(err)
+		return UserInfoResult{}, errors.Trace(err)
 	}
 	if len(results.Results) != 1 {
-		return params.UserInfoResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
+		return UserInfoResult{}, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
-		return params.UserInfoResult{}, errors.Trace(err)
+		return UserInfoResult{}, errors.Trace(err)
 	}
 	return result, nil
 }
@@ -87,4 +88,22 @@ func (c *Client) SetPassword(username, password string) error {
 		return err
 	}
 	return results.OneError()
+}
+
+type UserInfo struct {
+	Username       string     `json:username`
+	DisplayName    string     `json:display-name`
+	CreatedBy      string     `json:created-by`
+	DateCreated    time.Time  `json:date-created`
+	LastConnection *time.Time `json:last-connection`
+}
+
+// UserInfoResult holds the result of a UserInfo call.
+type UserInfoResult struct {
+	Result *UserInfo     `json:result,omitempty`
+	Error  *params.Error `json:error,omitempty`
+}
+
+type UserInfoResults struct {
+	Results []UserInfoResult
 }

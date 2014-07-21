@@ -784,21 +784,3 @@ type StateServersChanges struct {
 	Promoted   []string `json:promoted,omitempty`
 	Demoted    []string `json:demoted,omitempty`
 }
-
-type UserInfo struct {
-	Username       string     `json:username`
-	DisplayName    string     `json:display-name`
-	CreatedBy      string     `json:created-by`
-	DateCreated    time.Time  `json:date-created`
-	LastConnection *time.Time `json:last-connection`
-}
-
-// UserInfoResult holds the result of a UserInfo call.
-type UserInfoResult struct {
-	Result *UserInfo `json:result,omitempty`
-	Error  *Error    `json:error,omitempty`
-}
-
-type UserInfoResults struct {
-	Results []UserInfoResult
-}

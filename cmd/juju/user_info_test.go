@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/api/usermanager"
 	"github.com/juju/juju/state/apiserver/common"
 	"github.com/juju/juju/testing"
 )
@@ -49,8 +49,8 @@ func (*fakeUserInfoAPI) Close() error {
 	return nil
 }
 
-func (f *fakeUserInfoAPI) UserInfo(username string) (result params.UserInfoResult, err error) {
-	info := params.UserInfo{
+func (f *fakeUserInfoAPI) UserInfo(username string) (result usermanager.UserInfoResult, err error) {
+	info := usermanager.UserInfo{
 		DateCreated:    dateCreated,
 		LastConnection: &lastConnection,
 	}
@@ -61,7 +61,7 @@ func (f *fakeUserInfoAPI) UserInfo(username string) (result params.UserInfoResul
 		info.Username = "foobar"
 		info.DisplayName = "Foo Bar"
 	default:
-		return params.UserInfoResult{}, common.ErrPerm
+		return usermanager.UserInfoResult{}, common.ErrPerm
 	}
 	result.Result = &info
 	return result, nil
