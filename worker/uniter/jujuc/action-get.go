@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
@@ -15,11 +16,10 @@ import (
 // ActionGetCommand implements the relation-get command.
 type ActionGetCommand struct {
 	cmd.CommandBase
-	ctx        Context
-	RelationId int
-	Key        string
-	UnitName   string
-	out        cmd.Output
+	ctx    Context
+	Params map[string]interface{}
+	Keys   []string
+	out    cmd.Output
 }
 
 func NewActionGetCommand(ctx Context) cmd.Command {
@@ -35,38 +35,52 @@ map.  If the value is a map, the values will be printed recursively as YAML.
 	return &cmd.Info{
 		Name:    "action-get",
 		Args:    args,
-		Purpose: "get relation settings",
+		Purpose: "get action params",
 		Doc:     doc,
 	}
 }
 
 func (c *ActionGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
+	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "k", "specify a relation by id")
 }
 
 func (c *ActionGetCommand) Init(args []string) error {
-	if c.RelationId == -1 {
-		return fmt.Errorf("no relation id specified")
-	}
-	c.Key = ""
+	c.Keys = make([]string)
+	c.Params = c.ctx.ActionParams()
 	if len(args) > 0 {
-		if c.Key = args[0]; c.Key == "-" {
-			c.Key = ""
+		c.Keys = strings.Split(args[0], ".")
+		args = args[1:]
+		err := cmd.CheckEmpty(args)
+		if err != nil {
+			return err
 		}
-		args = args[1:]
+
+		k, ok := recurseMapOnKeys(c.Keys, c.Params)
+		if !ok {
+			return fmt.Errorf("key %q not found in params", k)
+		}
 	}
-	if name, found := c.ctx.RemoteUnitName(); found {
-		c.UnitName = name
+	return nil
+}
+
+func recurseMapOnKeys(keys []string, params map[string]interface{}) (interface{}, bool) {
+	key, rest := keys[0], keys[1:]
+	ans, ok := params[key]
+
+	if len(rest) == 0 {
+		if !ok {
+			return key, false
+		}
+		return ans, true
 	}
-	if len(args) > 0 {
-		c.UnitName = args[0]
-		args = args[1:]
+
+	switch typed := ans.(type) {
+	case map[string]interface{}:
+		return getActionParamAt(rest, typed)
+	default:
+		return rest[0], false
 	}
-	if c.UnitName == "" {
-		return fmt.Errorf("no unit id specified")
-	}
-	return cmd.CheckEmpty(args)
 }
 
 func (c *ActionGetCommand) Run(ctx *cmd.Context) error {
