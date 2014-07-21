@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	RootType              = reflect.TypeOf(&srvRoot{})
+	RootType              = reflect.TypeOf(&ApiHandler{})
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval
@@ -43,23 +43,25 @@ func NewErrRoot(err error) *errRoot {
 	return &errRoot{err}
 }
 
-// TestingSrvRoot gives you an srvRoot that is *barely* connected to anything.
-// Just enough to let you probe some of the interfaces of srvRoot, but not
+// TestingApiHandler gives you an ApiHandler that is *barely* connected to anything.
+// Just enough to let you probe some of the interfaces of ApiHandler, but not
 // enough to actually do any RPC calls
-func TestingSrvRoot(st *state.State) *srvRoot {
-	return &srvRoot{
-		state:       st,
-		rpcConn:     nil,
-		resources:   common.NewResources(),
-		entity:      nil,
-		objectCache: make(map[objectKey]reflect.Value),
+func TestingApiHandler(st *state.State) *ApiHandler {
+	srv := &Server{state: st}
+	h := &ApiHandler{
+		state:     st,
+		rpcConn:   nil,
+		resources: common.NewResources(),
+		entity:    nil,
 	}
+	h.MethodFinder = NewApiRoot(srv, h.resources, h)
+	return h
 }
 
-// TestingUpgradingSrvRoot returns a limited upgradingSrvRoot
-// containing a srvRoot as returned by TestingSrvRoot.
-func TestingUpgradingRoot(st *state.State) *upgradingRoot {
-	return &upgradingRoot{
-		srvRoot: *TestingSrvRoot(st),
-	}
+// TestingUpgradingApiHandler returns a limited srvRoot
+// in an upgrade scenario.
+func TestingUpgradingApiHandler(st *state.State) *ApiHandler {
+	r := TestingApiHandler(st)
+	r.MethodFinder = NewUpgradingRoot(r.MethodFinder)
+	return r
 }

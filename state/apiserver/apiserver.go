@@ -218,7 +218,7 @@ func (srv *Server) run(lis net.Listener) {
 	handleAll(mux, "/environment/:envuuid/tools",
 		&toolsHandler{httpHandler{state: srv.state}},
 	)
-	handleAll(mux, "/environment/:envuuid/api", http.HandlerFunc(srv.apiHandler))
+	handleAll(mux, "/environment/:envuuid/api", apiHandler{apiV1{}, srv})
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log",
 		&debugLogHandler{
@@ -236,29 +236,46 @@ func (srv *Server) run(lis net.Listener) {
 	handleAll(mux, "/backup",
 		&backupHandler{httpHandler{state: srv.state}},
 	)
-	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
+	handleAll(mux, "/", apiHandler{apiV1{}, srv})
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, mux)
 }
 
-func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
+type apiHandlerFactory interface {
+	newApiHandler(srv *Server, conn *rpc.Conn, reqNotifier *requestNotifier) *ApiHandler
+}
+
+type apiHandler struct {
+	apiHandlerFactory
+	*Server
+}
+
+type apiV1 struct{}
+
+func (apiV1) newApiHandler(srv *Server, conn *rpc.Conn, reqNotifier *requestNotifier) *ApiHandler {
+	root := NewApiHandler(srv, conn)
+	root.MethodFinder = NewAnonRoot(srv, newAdminApiV1(srv, root, reqNotifier))
+	return root
+}
+
+func (h apiHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	reqNotifier := newRequestNotifier()
 	reqNotifier.join(req)
 	defer reqNotifier.leave()
 	wsServer := websocket.Server{
 		Handler: func(conn *websocket.Conn) {
-			srv.wg.Add(1)
-			defer srv.wg.Done()
+			h.wg.Add(1)
+			defer h.wg.Done()
 			// If we've got to this stage and the tomb is still
 			// alive, we know that any tomb.Kill must occur after we
 			// have called wg.Add, so we avoid the possibility of a
 			// handler goroutine running after Stop has returned.
-			if srv.tomb.Err() != tomb.ErrStillAlive {
+			if h.tomb.Err() != tomb.ErrStillAlive {
 				return
 			}
 			envUUID := req.URL.Query().Get(":envuuid")
 			logger.Tracef("got a request for env %q", envUUID)
-			if err := srv.serveConn(conn, reqNotifier, envUUID); err != nil {
+			if err := h.serveConn(conn, reqNotifier, envUUID); err != nil {
 				logger.Errorf("error serving RPCs: %v", err)
 			}
 		},
@@ -315,7 +332,7 @@ func (srv *Server) setEnvironUUID(uuid string) {
 	srv.environUUID = uuid
 }
 
-func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, envUUID string) error {
+func (h apiHandler) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifier, envUUID string) error {
 	codec := jsoncodec.NewWebsocket(wsConn)
 	if loggo.GetLogger("juju.rpc.jsoncodec").EffectiveLogLevel() <= loggo.TRACE {
 		codec.SetLogging(true)
@@ -327,16 +344,21 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 		notifier = reqNotifier
 	}
 	conn := rpc.NewConn(codec, notifier)
-	err := srv.validateEnvironUUID(envUUID)
+	err := h.validateEnvironUUID(envUUID)
+	var root *ApiHandler
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)
 	} else {
-		conn.Serve(newStateServer(srv, conn, reqNotifier, srv.limiter), serverError)
+		root = h.newApiHandler(h.Server, conn, reqNotifier)
+		conn.Serve(root, serverError)
 	}
 	conn.Start()
+	if root != nil {
+		conn.ServeFinder(root, serverError)
+	}
 	select {
 	case <-conn.Dead():
-	case <-srv.tomb.Dying():
+	case <-h.tomb.Dying():
 	}
 	return conn.Close()
 }
