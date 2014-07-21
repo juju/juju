@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/symlink"
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/agent"
@@ -22,14 +23,13 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/version"
-	"github.com/juju/utils/symlink"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
 	defaultTemplate  = "ubuntu-cloud"
-	LxcContainerDir  = "/var/lib/lxc"
+	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
 	LxcRestartDir    = "/etc/lxc/auto"
 	LxcObjectFactory = golxc.Factory()
 )

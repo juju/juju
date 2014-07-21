@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/juju/charm"
+	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
@@ -60,7 +61,7 @@ func (s *FilterSuite) APILogin(c *gc.C, unit *state.Unit) {
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 }
@@ -466,6 +467,96 @@ func (s *FilterSuite) TestConfigAndAddressEventsDiscarded(c *gc.C) {
 		c.Fatalf("unexpected config event")
 	case <-time.After(coretesting.ShortWait):
 	}
+}
+
+// TestActionEvent helper functions
+func getAssertNoActionChange(s *FilterSuite, f *filter, c *gc.C) func() {
+	return func() {
+		s.BackingState.StartSync()
+		select {
+		case <-f.ActionEvents():
+			c.Fatalf("unexpected action event")
+		case <-time.After(coretesting.ShortWait):
+		}
+	}
+}
+
+func getAssertActionChange(s *FilterSuite, f *filter, c *gc.C) func(ids []string) {
+	return func(ids []string) {
+		s.BackingState.StartSync()
+		expected := make(map[string]int)
+		seen := make(map[string]int)
+		for _, id := range ids {
+			expected[id] += 1
+			select {
+			case event, ok := <-f.ActionEvents():
+				c.Assert(ok, gc.Equals, true)
+				seen[event.ActionId] += 1
+			case <-time.After(coretesting.LongWait):
+				c.Fatalf("timed out")
+			}
+		}
+		c.Assert(expected, jc.DeepEquals, seen)
+
+		getAssertNoActionChange(s, f, c)()
+	}
+}
+
+func getAddAction(s *FilterSuite, c *gc.C) func(name string) string {
+	return func(name string) string {
+		newAction, err := s.unit.AddAction(name, nil)
+		c.Assert(err, gc.IsNil)
+		newId := newAction.Id()
+		return newId
+	}
+}
+
+func (s *FilterSuite) TestActionEvents(c *gc.C) {
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, f)
+
+	// Get helper functions
+	assertNoChange := getAssertNoActionChange(s, f, c)
+	assertChange := getAssertActionChange(s, f, c)
+	addAction := getAddAction(s, c)
+
+	// Test no changes before Actions are added for the Unit.
+	assertNoChange()
+
+	// Add a new action; event occurs
+	testId := addAction("snapshot")
+	assertChange([]string{testId})
+
+	// Make sure bundled events arrive properly.
+	testIds := make([]string, 5)
+	for i := 0; i < 5; i++ {
+		testIds[i] = addAction("name" + string(i))
+	}
+
+	assertChange(testIds)
+}
+
+func (s *FilterSuite) TestPreexistingActions(c *gc.C) {
+	addAction := getAddAction(s, c)
+
+	// Add an Action before the Filter has been created and see if
+	// it arrives properly.
+
+	testId := addAction("snapshot")
+
+	// Now create the Filter and see whether the Action comes in as expected.
+	f, err := newFilter(s.uniter, s.unit.Tag().String())
+	c.Assert(err, gc.IsNil)
+	defer statetesting.AssertStop(c, f)
+
+	assertNoChange := getAssertNoActionChange(s, f, c)
+	assertChange := getAssertActionChange(s, f, c)
+
+	assertChange([]string{testId})
+
+	// Let's make sure there were no duplicates.
+	assertNoChange()
 }
 
 func (s *FilterSuite) TestCharmErrorEvents(c *gc.C) {

@@ -7,33 +7,21 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
-	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 )
-
-// Info encapsulates information about cluster of
-// servers holding juju state and can be used to make a
-// connection to that cluster.
-type Info struct {
-	mongo.Info
-	// Tag holds the name of the entity that is connecting.
-	// It should be empty when connecting as an administrator.
-	Tag string
-
-	// Password holds the password for the connecting entity.
-	Password string
-}
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
@@ -44,7 +32,7 @@ type Info struct {
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(info *Info, opts mongo.DialOpts, policy Policy) (*State, error) {
+func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	di, err := mongo.DialInfo(info.Info, opts)
 	if err != nil {
@@ -78,7 +66,7 @@ func Open(info *Info, opts mongo.DialOpts, policy Policy) (*State, error) {
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
+func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
 	st, err := Open(info, opts, policy)
 	if err != nil {
 		return nil, err
@@ -183,28 +171,28 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
+func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
-	if info.Tag != "" {
-		if err := db.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", info.Tag))
+	if mongoInfo.Tag != nil {
+		if err := db.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", mongoInfo.Tag))
 		}
-		if err := pdb.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
+		if err := pdb.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", mongoInfo.Tag))
 		}
-		if err := admin.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
+		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
-	} else if info.Password != "" {
-		if err := admin.Login(AdminUser, info.Password); err != nil {
+	} else if mongoInfo.Password != "" {
+		if err := admin.Login(AdminUser, mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
 	}
 
 	st := &State{
-		info:              info,
+		mongoInfo:         mongoInfo,
 		policy:            policy,
 		db:                db,
 		environments:      db.C("environments"),
@@ -231,6 +219,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		annotations:       db.C("annotations"),
 		statuses:          db.C("statuses"),
 		stateServers:      db.C("stateServers"),
+		openedPorts:       db.C("openedPorts"),
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
@@ -242,7 +231,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	}
 	mgoRunner := txn.NewRunner(db.C("txns"))
 	mgoRunner.ChangeLog(db.C("txns.log"))
-	st.transactionRunner = statetxn.NewRunner(mgoRunner)
+	st.transactionRunner = jujutxn.NewRunner(mgoRunner)
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, item := range indexes {
@@ -319,8 +308,8 @@ func (st *State) createStateServersDoc() error {
 }
 
 // MongoConnectionInfo returns information for connecting to mongo
-func (st *State) MongoConnectionInfo() *Info {
-	return st.info
+func (st *State) MongoConnectionInfo() *authentication.MongoInfo {
+	return st.mongoInfo
 }
 
 // createAPIAddressesDoc creates the API addresses document
@@ -353,7 +342,7 @@ func (st *State) createStateServingInfoDoc() error {
 
 // CACert returns the certificate used to validate the state connection.
 func (st *State) CACert() string {
-	return st.info.CACert
+	return st.mongoInfo.CACert
 }
 
 func (st *State) Close() error {

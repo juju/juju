@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"sort"
 	"strings"
@@ -143,7 +144,17 @@ func (s *storageServer) URL(name string) (string, error) {
 			}
 		}
 	}
-	return fmt.Sprintf("http://%v%s/%s", s.state.httpListener.Addr(), s.path, name), nil
+	_, port, err := net.SplitHostPort(s.state.httpListener.Addr().String())
+	if err != nil {
+		panic(err.Error())
+	}
+	hostPort := ""
+	if s.state.preferIPv6 {
+		hostPort = net.JoinHostPort("::1", port)
+	} else {
+		hostPort = net.JoinHostPort("127.0.0.1", port)
+	}
+	return fmt.Sprintf("http://%s%s/%s", hostPort, s.path, name), nil
 }
 
 func (s *storageServer) Remove(name string) error {

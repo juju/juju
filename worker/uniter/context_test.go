@@ -386,7 +386,7 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
@@ -669,7 +669,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	password, err := utils.RandomPassword()
 	err = s.unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, s.unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
@@ -728,7 +728,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	}
 	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
 		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
-		proxies)
+		proxies, map[string]interface{}(nil))
 	c.Assert(err, gc.IsNil)
 	return context
 }

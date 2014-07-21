@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -24,7 +25,7 @@ var _ = gc.Suite(&formatSuite{})
 // The agentParams are used by the specific formatter whitebox tests, and is
 // located here for easy reuse.
 var agentParams = AgentConfigParams{
-	Tag:               "omg",
+	Tag:               names.NewMachineTag("1"),
 	UpgradedToVersion: version.Current.Number,
 	Jobs:              []params.MachineJob{params.JobHostUnits},
 	Password:          "sekrit",
@@ -32,6 +33,7 @@ var agentParams = AgentConfigParams{
 	StateAddresses:    []string{"localhost:1234"},
 	APIAddresses:      []string{"localhost:1235"},
 	Nonce:             "a nonce",
+	PreferIPv6:        false,
 }
 
 func newTestConfig(c *gc.C) *configInternal {
@@ -48,9 +50,9 @@ func (*formatSuite) TestWriteCommands(c *gc.C) {
 	commands, err := config.WriteCommands()
 	c.Assert(err, gc.IsNil)
 	c.Assert(commands, gc.HasLen, 3)
-	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/omg'`)
-	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/omg/agent.conf'`)
-	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/agent.conf'`)
+	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/machine-1'`)
+	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/machine-1/agent.conf'`)
+	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/machine-1/agent.conf'`)
 }
 
 func (*formatSuite) TestWriteAgentConfig(c *gc.C) {

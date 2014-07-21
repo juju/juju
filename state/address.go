@@ -85,10 +85,19 @@ type apiHostPortsDoc struct {
 	APIHostPorts [][]hostPort
 }
 
-// SetAPIHostPorts sets the addresses of the API server
-// instances. Each server is represented by one element
-// in the top level slice.
+// SetAPIHostPorts sets the addresses of the API server instances.
+// Each server is represented by one element in the top level slice.
+// If prefer-ipv6 environment setting is true, the addresses will be
+// sorted before setting them to bring IPv6 addresses on top (if
+// available).
 func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
+	envConfig, err := st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	for i, _ := range hps {
+		network.SortHostPorts(hps[i], envConfig.PreferIPv6())
+	}
 	doc := apiHostPortsDoc{
 		APIHostPorts: instanceHostPortsToHostPorts(hps),
 	}

@@ -58,7 +58,9 @@ func RunConfigureScript(script string, params ConfigureParams) error {
 		client = ssh.DefaultClient
 	}
 	var options ssh.Options
-	options.SetIdentities(params.Key)
+	if params.Key != "" {
+		options.SetIdentities(params.Key)
+	}
 
 	cmd := client.Command(params.Host, []string{"sudo", "/bin/bash"}, &options)
 	cmd.Stdin = strings.NewReader(script)

@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/charm"
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -27,14 +28,14 @@ if the environment has already been bootstrapped).  Bootstrapping an environment
 will provision a new machine in the environment and run the juju state server on
 that machine.
 
-If constraints are specified in the bootstrap command, they will apply to the 
+If constraints are specified in the bootstrap command, they will apply to the
 machine provisioned for the juju state server.  They will also be set as default
 constraints on the environment for all future machines, exactly as if the
 constraints were set with juju set-constraints.
 
 Bootstrap initializes the cloud environment synchronously and displays information
-about the current installation steps.  The time for bootstrap to complete varies 
-across cloud providers from a few seconds to several minutes.  Once bootstrap has 
+about the current installation steps.  The time for bootstrap to complete varies
+across cloud providers from a few seconds to several minutes.  Once bootstrap has
 completed, you can run other juju commands against your environment. You can change
 the default timeout and retry delays used during the bootstrap by changing the
 following settings in your environments.yaml (all values represent number of seconds):
@@ -172,10 +173,22 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		fmt.Fprintln(ctx.Stderr, "Use of --series is deprecated. Please use --upload-series instead.")
 	}
 
-	environ, cleanup, err := environFromName(ctx, c.EnvName, &resultErr, "Bootstrap")
-	if err != nil {
-		return err
+	if c.ConnectionName() == "" {
+		return fmt.Errorf("the name of the environment must be specified")
 	}
+
+	environ, cleanup, err := environFromName(ctx, c.ConnectionName(), "Bootstrap")
+	if err != nil {
+		return errors.Annotatef(err, "there was an issue examining the environment")
+	}
+
+	// If we error out for any reason, clean up the environment.
+	defer func() {
+		if resultErr != nil {
+			cleanup()
+		}
+	}()
+
 	// We want to validate constraints early. However, if a custom image metadata
 	// source is specified, we can't validate the arch because that depends on what
 	// images metadata is to be uploaded. So we validate here if no custom metadata
@@ -186,9 +199,16 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 		}
 	}
 
-	defer cleanup()
-	if err := bootstrapFuncs.EnsureNotBootstrapped(environ); err != nil {
-		return err
+	// Check to see if this environment is already bootstrapped. If it
+	// is, we inform the user and exit early. If an error is returned
+	// but it is not that the environment is already bootstrapped,
+	// then we're in an unknown state.
+	if err := bootstrapFuncs.EnsureNotBootstrapped(environ); nil != err {
+		if environs.ErrAlreadyBootstrapped == err {
+			logger.Warningf("This juju environment is already bootstrapped. If you want to start a new Juju\nenvironment, first run juju destroy-environment to clean up, or switch to an\nalternative environment.")
+			return err
+		}
+		return errors.Annotatef(err, "cannot determine if environment is already bootstrapped.")
 	}
 
 	// Block interruption during bootstrap. Providers may also

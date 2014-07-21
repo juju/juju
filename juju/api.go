@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/parallel"
 
@@ -17,9 +18,9 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api"
-	"github.com/juju/juju/state/api/keymanager"
-	"github.com/juju/juju/state/api/usermanager"
 )
+
+var logger = loggo.GetLogger("juju.api")
 
 // The following are variables so that they can be
 // changed by tests.
@@ -44,39 +45,20 @@ type apiStateCachedInfo struct {
 	cachedInfo *api.Info
 }
 
-// APIConn holds a connection to a juju environment and its
-// associated state through its API interface.
-type APIConn struct {
-	Environ environs.Environ
-	State   *api.State
-}
-
 var errAborted = fmt.Errorf("aborted")
 
-// NewAPIConn returns a new Conn that uses the
-// given environment. The environment must have already
-// been bootstrapped.
-func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, error) {
+// NewAPIState creates an api.State object from an Environ
+func NewAPIState(environ environs.Environ, dialOpts api.DialOpts) (*api.State, error) {
 	info, err := environAPIInfo(environ)
 	if err != nil {
 		return nil, err
 	}
 
 	st, err := api.Open(info, dialOpts)
-	// TODO(rog): handle errUnauthorized when the API handles passwords.
 	if err != nil {
 		return nil, err
 	}
-	return &APIConn{
-		Environ: environ,
-		State:   st,
-	}, nil
-}
-
-// Close terminates the connection to the environment and releases
-// any associated resources.
-func (c *APIConn) Close() error {
-	return c.State.Close()
+	return st, nil
 }
 
 // NewAPIClientFromName returns an api.Client connected to the API Server for
@@ -88,24 +70,6 @@ func NewAPIClientFromName(envName string) (*api.Client, error) {
 		return nil, err
 	}
 	return st.Client(), nil
-}
-
-// NewKeyManagerClient returns an api.keymanager.Client connected to the API Server for
-// the named environment. If envName is "", the default environment will be used.
-func NewKeyManagerClient(envName string) (*keymanager.Client, error) {
-	st, err := newAPIClient(envName)
-	if err != nil {
-		return nil, err
-	}
-	return keymanager.NewClient(st), nil
-}
-
-func NewUserManagerClient(envName string) (*usermanager.Client, error) {
-	st, err := newAPIClient(envName)
-	if err != nil {
-		return nil, err
-	}
-	return usermanager.NewClient(st), nil
 }
 
 // NewAPIFromName returns an api.State connected to the API Server for
@@ -232,7 +196,7 @@ func newAPIFromStore(envName string, store configstore.Storage, apiOpen apiOpenF
 		}
 	}
 	// Update API addresses if they've changed. Error is non-fatal.
-	if localerr := cacheChangedAPIInfo(info, st); localerr != nil {
+	if localerr := cacheChangedAPIInfo(info, st.APIHostPorts(), st.EnvironTag()); localerr != nil {
 		logger.Warningf("cannot failed to cache API addresses: %v", localerr)
 	}
 	return st, nil
@@ -268,16 +232,16 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 		return nil, &infoConnectError{fmt.Errorf("no cached addresses")}
 	}
 	logger.Infof("connecting to API addresses: %v", endpoint.Addresses)
-	environTag := ""
+	var environTag names.Tag
 	if endpoint.EnvironUUID != "" {
 		// Note: we should be validating that EnvironUUID contains a
 		// valid UUID.
-		environTag = names.NewEnvironTag(endpoint.EnvironUUID).String()
+		environTag = names.NewEnvironTag(endpoint.EnvironUUID)
 	}
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
 		CACert:     endpoint.CACert,
-		Tag:        names.NewUserTag(info.APICredentials().User).String(),
+		Tag:        names.NewUserTag(info.APICredentials().User),
 		Password:   info.APICredentials().Password,
 		EnvironTag: environTag,
 	}
@@ -335,15 +299,16 @@ func getConfig(info configstore.EnvironInfo, envs *environs.Environs, envName st
 }
 
 func environAPIInfo(environ environs.Environ) (*api.Info, error) {
-	_, info, err := environ.StateInfo()
+	config := environ.Config()
+	password := config.AdminSecret()
+	if password == "" {
+		return nil, fmt.Errorf("cannot connect to API servers without admin-secret")
+	}
+	info, err := environs.APIInfo(environ)
 	if err != nil {
 		return nil, err
 	}
-	info.Tag = "user-admin"
-	password := environ.Config().AdminSecret()
-	if password == "" {
-		return nil, fmt.Errorf("cannot connect without admin-secret")
-	}
+	info.Tag = names.NewUserTag("admin")
 	info.Password = password
 	return info, nil
 }
@@ -353,24 +318,23 @@ func environAPIInfo(environ environs.Environ) (*api.Info, error) {
 // connected to the API server.
 func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 	defer errors.Contextf(&err, "failed to cache API credentials")
-	environUUID := ""
-	if apiInfo.EnvironTag != "" {
-		tag, err := names.ParseEnvironTag(apiInfo.Tag)
-		if err != nil {
-			return err
-		}
-		environUUID = tag.Id()
+	var environUUID string
+	if apiInfo.EnvironTag != nil {
+		environUUID = apiInfo.EnvironTag.Id()
 	}
 	info.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses:   apiInfo.Addrs,
 		CACert:      string(apiInfo.CACert),
 		EnvironUUID: environUUID,
 	})
-	tag, err := names.ParseUserTag(apiInfo.Tag)
-	if err != nil {
-		return err
+	tag, ok := apiInfo.Tag.(names.UserTag)
+	if !ok {
+		return errors.Errorf("apiInfo.Tag was of type %T, expecting names.UserTag", apiInfo.Tag)
 	}
 	info.SetAPICredentials(configstore.APICredentials{
+		// This looks questionable. We have a tag, say "user-admin", but then only
+		// the Id portion of the tag is recorded, "admin", so this is really a
+		// username, not a tag, and cannot be reconstructed accurately.
 		User:     tag.Id(),
 		Password: apiInfo.Password,
 	})
@@ -380,9 +344,9 @@ func cacheAPIInfo(info configstore.EnvironInfo, apiInfo *api.Info) (err error) {
 // cacheChangedAPIInfo updates the local environment settings (.jenv file)
 // with the provided API server addresses if they have changed. It will also
 // save the environment tag if it is available.
-func cacheChangedAPIInfo(info configstore.EnvironInfo, st apiState) error {
+func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.HostPort, newEnvironTag string) error {
 	var addrs []string
-	for _, serverHostPorts := range st.APIHostPorts() {
+	for _, serverHostPorts := range hostPorts {
 		for _, hostPort := range serverHostPorts {
 			// Only cache addresses that are likely to be usable,
 			// exclude localhost style ones.
@@ -393,7 +357,6 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, st apiState) error {
 		}
 	}
 	endpoint := info.APIEndpoint()
-	newEnvironTag := st.EnvironTag()
 	changed := false
 	if newEnvironTag != "" {
 		tag, err := names.ParseEnvironTag(newEnvironTag)
@@ -432,39 +395,4 @@ func addrsChanged(a, b []string) bool {
 		}
 	}
 	return false
-}
-
-// APIEndpointForEnv returns the endpoint information for a given environment
-// It tries to just return the information from the cached settings unless
-// there is nothing cached or refresh is True
-func APIEndpointForEnv(envName string, refresh bool) (configstore.APIEndpoint, error) {
-	store, err := configstore.Default()
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	return apiEndpointInStore(envName, refresh, store, defaultAPIOpen)
-}
-
-func apiEndpointInStore(envName string, refresh bool, store configstore.Storage, apiOpen apiOpenFunc) (configstore.APIEndpoint, error) {
-	info, err := store.ReadInfo(envName)
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	endpoint := info.APIEndpoint()
-	if !refresh && len(endpoint.Addresses) > 0 {
-		logger.Debugf("found cached addresses, not connecting to API server")
-		return endpoint, nil
-	}
-	// We need to connect to refresh our endpoint settings
-	apiState, err := newAPIFromStore(envName, store, apiOpen)
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	apiState.Close()
-	// The side effect of connecting is that we update the store with new API information
-	info, err = store.ReadInfo(envName)
-	if err != nil {
-		return configstore.APIEndpoint{}, err
-	}
-	return info.APIEndpoint(), nil
 }

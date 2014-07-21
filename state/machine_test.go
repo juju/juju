@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/state/txn"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
+	"github.com/juju/txn"
 )
 
 type MachineSuite struct {
@@ -184,6 +184,31 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	err = m.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Life(), gc.Equals, state.Dead)
+}
+
+func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, gc.IsNil)
+	err = unit.OpenPort("tcp", 8080)
+	c.Assert(err, gc.IsNil)
+	ports, err := state.GetPorts(s.State, s.machine.Id())
+	c.Assert(ports, gc.NotNil)
+	c.Assert(err, gc.IsNil)
+	err = unit.UnassignFromMachine()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.Destroy()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.Remove()
+	c.Assert(err, gc.IsNil)
+	// once the machine is destroyed, there should be no ports documents present for it
+	ports, err = state.GetPorts(s.State, s.machine.Id())
+	c.Assert(ports, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
@@ -1502,29 +1527,58 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-		network.NewAddress("", network.ScopeUnknown),
-	}
-	addresses[0].NetworkName = "loopback"
+	addresses := network.NewAddresses(
+		"127.0.0.1", "8.8.8.8", "fc00::1", "::1", "", "example.org",
+	)
 	err = machine.SetAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
 
-	machineAddresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("192.168.0.1", network.ScopeUnknown),
-	}
+	machineAddresses := network.NewAddresses(
+		"127.0.0.1", "localhost", "192.168.0.1", "fe80::1", "::1", "fd00::1",
+	)
 	err = machine.SetMachineAddresses(machineAddresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(machine.Addresses(), gc.DeepEquals, []network.Address{
-		addresses[0],
-		addresses[1],
-		machineAddresses[1],
-	})
+	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
+		"example.org",
+		"8.8.8.8",
+		"127.0.0.1",
+		"fc00::1",
+		"::1",
+		"192.168.0.1",
+		"localhost",
+		"fe80::1",
+		"fd00::1",
+	))
+
+	// Now simulate prefer-ipv6: true
+	c.Assert(
+		s.State.UpdateEnvironConfig(
+			map[string]interface{}{"prefer-ipv6": true},
+			nil, nil,
+		),
+		gc.IsNil,
+	)
+
+	err = machine.SetAddresses(addresses...)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetMachineAddresses(machineAddresses...)
+	c.Assert(err, gc.IsNil)
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
+		"::1",
+		"fc00::1",
+		"example.org",
+		"8.8.8.8",
+		"127.0.0.1",
+		"fd00::1",
+		"fe80::1",
+		"localhost",
+		"192.168.0.1",
+	))
 }
 
 func (s *MachineSuite) TestSetAddressesConcurrentChangeDifferent(c *gc.C) {

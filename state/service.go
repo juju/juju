@@ -13,13 +13,13 @@ import (
 	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state/api/params"
-	statetxn "github.com/juju/juju/state/txn"
 )
 
 // Service represents the state of a service.
@@ -54,7 +54,7 @@ func newService(st *State, doc *serviceDoc) *Service {
 	}
 	svc.annotator = annotator{
 		globalKey: svc.globalKey(),
-		tag:       svc.Tag().String(),
+		tag:       svc.Tag(),
 		st:        st,
 	}
 	return svc
@@ -115,7 +115,7 @@ func (s *Service) Destroy() (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := svc.Refresh(); errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoOperations
+				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
@@ -123,13 +123,13 @@ func (s *Service) Destroy() (err error) {
 		switch ops, err := svc.destroyOps(); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		case nil:
 			return ops, nil
 		default:
 			return nil, err
 		}
-		return nil, statetxn.ErrTransientFailure
+		return nil, jujutxn.ErrTransientFailure
 	}
 	return s.st.run(buildTxn)
 }
@@ -700,7 +700,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 
 // Unit returns the service's unit with name.
 func (s *Service) Unit(name string) (*Unit, error) {
-	if !names.IsUnit(name) {
+	if !names.IsValidUnit(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	udoc := &unitDoc{}

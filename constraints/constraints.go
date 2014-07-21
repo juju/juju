@@ -486,7 +486,7 @@ func (v *Value) validateNetworks(networks *[]string) error {
 		if strings.HasPrefix(netName, "^") {
 			netName = strings.TrimPrefix(netName, "^")
 		}
-		if !names.IsNetwork(netName) {
+		if !names.IsValidNetwork(netName) {
 			return fmt.Errorf("%q is not a valid network name", netName)
 		}
 	}

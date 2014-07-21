@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 
 	corecharm "github.com/juju/charm"
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter/charm"
-	"github.com/juju/utils/symlink"
 )
 
 type GitDeployerSuite struct {

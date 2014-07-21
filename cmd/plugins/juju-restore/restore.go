@@ -19,12 +19,14 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -216,7 +218,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	cfg, _, err := environs.ConfigForName(c.EnvName, store)
+	cfg, err := c.Config(store)
 	if err != nil {
 		return err
 	}
@@ -225,13 +227,13 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("cannot re-bootstrap environment: %v", err)
 	}
 	progress("connecting to newly bootstrapped instance")
-	var conn *juju.APIConn
+	var apiState *api.State
 	// The state server backend may not be ready to accept logins so we retry.
 	// We'll do up to 8 retries over 2 minutes to give the server time to come up.
 	// Typically we expect only 1 retry will be needed.
 	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
 	for a := attempt.Start(); a.Next(); {
-		conn, err = juju.NewAPIConn(env, api.DefaultDialOpts())
+		apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
 		if err == nil || errors.Cause(err).Error() != "EOF" {
 			break
 		}
@@ -241,7 +243,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("cannot connect to bootstrap instance: %v", err)
 	}
 	progress("restoring bootstrap machine")
-	newInstId, machine0Addr, err := restoreBootstrapMachine(conn, c.backupFile, agentConf)
+	newInstId, machine0Addr, err := restoreBootstrapMachine(apiState, c.backupFile, agentConf)
 	if err != nil {
 		return fmt.Errorf("cannot restore bootstrap machine: %v", err)
 	}
@@ -259,18 +261,23 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if !ok {
 		return fmt.Errorf("configuration has no CA certificate")
 	}
+	// TODO(dfc) agenConf.Credentials should supply a Tag
+	tag, err := names.ParseTag(agentConf.Credentials.Tag)
+	if err != nil {
+		return err
+	}
 	progress("opening state")
 	// We need to retry here to allow mongo to come up on the restored state server.
 	// The connection might succeed due to the mongo dial retries but there may still
 	// be a problem issuing database commands.
 	var st *state.State
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(&state.Info{
+		st, err = state.Open(&authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
 				CACert: caCert,
 			},
-			Tag:      agentConf.Credentials.Tag,
+			Tag:      tag,
 			Password: agentConf.Credentials.Password,
 		}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 		if err == nil {
@@ -341,8 +348,8 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	return env, nil
 }
 
-func restoreBootstrapMachine(conn *juju.APIConn, backupFile string, agentConf agentConfig) (newInstId instance.Id, addr string, err error) {
-	client := conn.State.Client()
+func restoreBootstrapMachine(st *api.State, backupFile string, agentConf agentConfig) (newInstId instance.Id, addr string, err error) {
+	client := st.Client()
 	addr, err = client.PublicAddress("0")
 	if err != nil {
 		return "", "", fmt.Errorf("cannot get public address of bootstrap machine: %v", err)

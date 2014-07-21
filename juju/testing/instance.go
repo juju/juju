@@ -10,13 +10,13 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/testing"
 )
@@ -24,13 +24,13 @@ import (
 // FakeStateInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
 // of the machine to be started.
-func FakeStateInfo(machineId string) *state.Info {
-	return &state.Info{
+func FakeStateInfo(machineId string) *authentication.MongoInfo {
+	return &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{"0.1.2.3:1234"},
 			CACert: testing.CACert,
 		},
-		Tag:      names.NewMachineTag(machineId).String(),
+		Tag:      names.NewMachineTag(machineId),
 		Password: "unimportant",
 	}
 }
@@ -41,7 +41,7 @@ func FakeStateInfo(machineId string) *state.Info {
 func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
 		Addrs:    []string{"0.1.2.3:1234"},
-		Tag:      names.NewMachineTag(machineId).String(),
+		Tag:      names.NewMachineTag(machineId),
 		Password: "unimportant",
 		CACert:   testing.CACert,
 	}

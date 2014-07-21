@@ -7,7 +7,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/juju/errors"
@@ -21,9 +23,9 @@ import (
 	agenttools "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	coretools "github.com/juju/juju/tools"
@@ -47,12 +49,12 @@ type MachineConfig struct {
 	// from another server)
 	StateServingInfo *params.StateServingInfo
 
-	// StateInfo holds the means for the new instance to communicate with the
-	// juju state. Unless the new machine is running a state server (StateServer is
-	// set), there must be at least one state server address supplied.
+	// MongoInfo holds the means for the new instance to communicate with the
+	// juju state database. Unless the new machine is running a state server
+	// (StateServer is set), there must be at least one state server address supplied.
 	// The entity name must match that of the machine being started,
 	// or be empty when starting a state server.
-	StateInfo *state.Info
+	MongoInfo *authentication.MongoInfo
 
 	// APIInfo holds the means for the new instance to communicate with the
 	// juju state API. Unless the new machine is running a state server (StateServer is
@@ -144,6 +146,11 @@ type MachineConfig struct {
 	// AptProxySettings define the http, https and ftp proxy settings to use
 	// for apt, which may or may not be the same as the normal ProxySettings.
 	AptProxySettings proxy.Settings
+
+	// PreferIPv6 mirrors the value of prefer-ipv6 environment setting
+	// and when set IPv6 addresses for connecting to the API/state
+	// servers will be preferred over IPv4 ones.
+	PreferIPv6 bool
 }
 
 func base64yaml(m *config.Config) string {
@@ -320,7 +327,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// It would be cleaner to change bootstrap-state to
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
-	machineTag := names.NewMachineTag(cfg.MachineId).String()
+	machineTag := names.NewMachineTag(cfg.MachineId)
 	_, err = cfg.addAgentInfo(c, machineTag)
 	if err != nil {
 		return err
@@ -358,22 +365,22 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		)
 	}
 
-	return cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId)
+	return cfg.addMachineAgentToBoot(c, machineTag.String(), cfg.MachineId)
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
+func (cfg *MachineConfig) agentConfig(tag names.Tag) (agent.ConfigSetter, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
 	// if the machine is a stateServer then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
 	var password string
-	if cfg.StateInfo == nil {
+	if cfg.MongoInfo == nil {
 		password = cfg.APIInfo.Password
 	} else {
-		password = cfg.StateInfo.Password
+		password = cfg.MongoInfo.Password
 	}
 	configParams := agent.AgentConfigParams{
 		DataDir:           cfg.DataDir,
@@ -385,8 +392,9 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
 		Nonce:             cfg.MachineNonce,
 		StateAddresses:    cfg.stateHostAddrs(),
 		APIAddresses:      cfg.apiHostAddrs(),
-		CACert:            cfg.StateInfo.CACert,
+		CACert:            cfg.MongoInfo.CACert,
 		Values:            cfg.AgentEnvironment,
+		PreferIPv6:        cfg.PreferIPv6,
 	}
 	if !cfg.Bootstrap {
 		return agent.NewAgentConfig(configParams)
@@ -396,7 +404,7 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.ConfigSetter, error) {
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.Config, error) {
+func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag names.Tag) (agent.Config, error) {
 	acfg, err := cfg.agentConfig(tag)
 	if err != nil {
 		return nil, err
@@ -445,10 +453,14 @@ func (cfg *MachineConfig) jujuTools() string {
 func (cfg *MachineConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap {
-		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.StateServingInfo.StatePort))
+		if cfg.PreferIPv6 {
+			hosts = append(hosts, net.JoinHostPort("::1", strconv.Itoa(cfg.StateServingInfo.StatePort)))
+		} else {
+			hosts = append(hosts, net.JoinHostPort("localhost", strconv.Itoa(cfg.StateServingInfo.StatePort)))
+		}
 	}
-	if cfg.StateInfo != nil {
-		hosts = append(hosts, cfg.StateInfo.Addrs...)
+	if cfg.MongoInfo != nil {
+		hosts = append(hosts, cfg.MongoInfo.Addrs...)
 	}
 	return hosts
 }
@@ -456,7 +468,11 @@ func (cfg *MachineConfig) stateHostAddrs() []string {
 func (cfg *MachineConfig) apiHostAddrs() []string {
 	var hosts []string
 	if cfg.Bootstrap {
-		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.StateServingInfo.APIPort))
+		if cfg.PreferIPv6 {
+			hosts = append(hosts, net.JoinHostPort("::1", strconv.Itoa(cfg.StateServingInfo.APIPort)))
+		} else {
+			hosts = append(hosts, net.JoinHostPort("localhost", strconv.Itoa(cfg.StateServingInfo.APIPort)))
+		}
 	}
 	if cfg.APIInfo != nil {
 		hosts = append(hosts, cfg.APIInfo.Addrs...)
@@ -551,7 +567,7 @@ func (e requiresError) Error() string {
 
 func verifyConfig(cfg *MachineConfig) (err error) {
 	defer errors.Maskf(&err, "invalid machine configuration")
-	if !names.IsMachine(cfg.MachineId) {
+	if !names.IsValidMachine(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}
 	if cfg.DataDir == "" {
@@ -572,10 +588,10 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	if cfg.Tools.URL == "" {
 		return fmt.Errorf("missing tools URL")
 	}
-	if cfg.StateInfo == nil {
+	if cfg.MongoInfo == nil {
 		return fmt.Errorf("missing state info")
 	}
-	if len(cfg.StateInfo.CACert) == 0 {
+	if len(cfg.MongoInfo.CACert) == 0 {
 		return fmt.Errorf("missing CA certificate")
 	}
 	if cfg.APIInfo == nil {
@@ -591,11 +607,11 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if cfg.Config == nil {
 			return fmt.Errorf("missing environment configuration")
 		}
-		if cfg.StateInfo.Tag != "" {
-			return fmt.Errorf("entity tag must be blank when starting a state server")
+		if cfg.MongoInfo.Tag != nil {
+			return fmt.Errorf("entity tag must be nil when starting a state server")
 		}
-		if cfg.APIInfo.Tag != "" {
-			return fmt.Errorf("entity tag must be blank when starting a state server")
+		if cfg.APIInfo.Tag != nil {
+			return fmt.Errorf("entity tag must be nil when starting a state server")
 		}
 		if cfg.StateServingInfo == nil {
 			return fmt.Errorf("missing state serving info")
@@ -619,16 +635,16 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 			return fmt.Errorf("missing instance-id")
 		}
 	} else {
-		if len(cfg.StateInfo.Addrs) == 0 {
+		if len(cfg.MongoInfo.Addrs) == 0 {
 			return fmt.Errorf("missing state hosts")
 		}
-		if cfg.StateInfo.Tag != names.NewMachineTag(cfg.MachineId).String() {
+		if cfg.MongoInfo.Tag != names.NewMachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity tag must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
 			return fmt.Errorf("missing API hosts")
 		}
-		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId).String() {
+		if cfg.APIInfo.Tag != names.NewMachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity tag must match started machine")
 		}
 		if cfg.StateServingInfo != nil {

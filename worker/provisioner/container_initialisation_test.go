@@ -56,12 +56,11 @@ func noImportance(err0, err1 error) bool {
 
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
-	s.CommonProvisionerSuite.setupEnvironmentManager(c)
 	aptCmdChan := s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
 
 	// Set up provisioner for the state machine.
-	s.agentConfig = s.AgentConfigForTag(c, "machine-0")
+	s.agentConfig = s.AgentConfigForTag(c, names.NewMachineTag("0"))
 	s.p = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig)
 
 	// Create a new container initialisation lock.
@@ -83,7 +82,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag
 	c.Assert(err, gc.IsNil)
 	err = machine.SetSupportedContainers(instance.ContainerTypes...)
 	c.Assert(err, gc.IsNil)
-	cfg := s.AgentConfigForTag(c, tag.String())
+	cfg := s.AgentConfigForTag(c, tag)
 
 	watcherName := fmt.Sprintf("%s-container-watcher", machine.Id())
 	handler := provisioner.NewContainerSetupHandler(runner, watcherName, instance.ContainerTypes, machine, pr, cfg, s.initLock)
@@ -124,7 +123,7 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
 		c.Assert(containerType, gc.Equals, ctype)
-		c.Assert(cfg.Tag(), gc.Equals, host.Tag().String())
+		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
 		provisionerStarted = true
 		return nil
 	}

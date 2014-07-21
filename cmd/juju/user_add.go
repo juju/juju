@@ -13,9 +13,7 @@ import (
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 )
 
 const userAddCommandDoc = `
@@ -33,7 +31,7 @@ Examples:
 `
 
 type UserAddCommand struct {
-	envcmd.EnvCommandBase
+	UserCommandBase
 	User        string
 	DisplayName string
 	Password    string
@@ -72,7 +70,7 @@ type addUserAPI interface {
 }
 
 var getAddUserAPI = func(c *UserAddCommand) (addUserAPI, error) {
-	return juju.NewUserManagerClient(c.EnvName)
+	return c.NewUserManagerClient()
 }
 
 func (c *UserAddCommand) Run(ctx *cmd.Context) error {
@@ -101,7 +99,7 @@ func (c *UserAddCommand) Run(ctx *cmd.Context) error {
 
 	if c.OutPath != "" {
 		outPath := NormaliseJenvPath(ctx, c.OutPath)
-		err = GenerateUserJenv(c.EnvName, c.User, c.Password, outPath)
+		err = GenerateUserJenv(c.ConnectionName(), c.User, c.Password, outPath)
 		if err == nil {
 			fmt.Fprintf(ctx.Stdout, "environment file written to %s\n", outPath)
 		}

@@ -57,32 +57,6 @@ func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 	return s.setupServerWithValidator(c, nil)
 }
 
-func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
-	srv, err := apiserver.NewServer(
-		s.State,
-		apiserver.ServerConfig{
-			Port:      0,
-			Cert:      []byte(coretesting.ServerCert),
-			Key:       []byte(coretesting.ServerKey),
-			Validator: validator,
-		},
-	)
-	c.Assert(err, gc.IsNil)
-	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
-	info := &api.Info{
-		Tag:        "",
-		Password:   "",
-		EnvironTag: env.Tag().String(),
-		Addrs:      []string{srv.Addr()},
-		CACert:     coretesting.CACert,
-	}
-	return info, func() {
-		err := srv.Stop()
-		c.Assert(err, gc.IsNil)
-	}
-}
-
 func (s *loginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -93,7 +67,7 @@ func (s *loginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	info, cleanup := s.setupServer(c)
-	info.Tag = machine.Tag().String()
+	info.Tag = machine.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
 	return info, cleanup
@@ -112,7 +86,7 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 		// are empty. This allows us to test operations on the connection
 		// before calling Login, which we could not do if Open
 		// always logged in.
-		info.Tag = ""
+		info.Tag = nil
 		info.Password = ""
 		func() {
 			st, err := api.Open(info, fastDialOpts)
@@ -137,7 +111,7 @@ func (s *loginSuite) TestLoginAsDeactivatedUser(c *gc.C) {
 	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
-	info.Tag = ""
+	info.Tag = nil
 	info.Password = ""
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
@@ -177,17 +151,16 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	defer loggo.RemoveWriter("login-tester")
 
 	// TODO(dfc) this should be a Tag
-	info.Tag = machineInState.Tag().String()
+	info.Tag = machineInState.Tag()
 	info.Password = password
 	info.Nonce = "fake_nonce"
 
 	apiConn, err := api.Open(info, fastDialOpts)
 	c.Assert(err, gc.IsNil)
 	defer apiConn.Close()
-	// TODO(dfc) why does this return a string
 	apiMachine, err := apiConn.Machiner().Machine(machineInState.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
-	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag().String())
+	c.Assert(apiMachine.Tag(), gc.Equals, machineInState.Tag())
 
 	c.Assert(tw.Log(), jc.LogMatches, []string{
 		`<- \[[0-9A-F]+\] <unknown> {"RequestId":1,"Type":"Admin","Request":"Login",` +
@@ -418,7 +391,7 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 	}
 
 	userInfo := *info
-	userInfo.Tag = "user-admin"
+	userInfo.Tag = names.NewUserTag("admin")
 	userInfo.Password = "dummy-secret"
 	userResults, userWG := startNLogins(c, apiserver.LoginRateLimit+1, &userInfo)
 	// all of them should have started, and none of them in TryAgain state
@@ -451,7 +424,7 @@ func (s *loginSuite) TestUsersLoginWhileRateLimited(c *gc.C) {
 
 func (s *loginSuite) TestUsersAreNotRateLimited(c *gc.C) {
 	info, cleanup := s.setupServer(c)
-	info.Tag = "user-admin"
+	info.Tag = names.NewUserTag("admin")
 	info.Password = "dummy-secret"
 	defer cleanup()
 	delayChan, cleanup := apiserver.DelayLogins()
@@ -500,26 +473,54 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 }
 
 func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
-	validator := func(_ params.Creds) error {
+	validator := func(params.Creds) error {
 		return nil
 	}
-	err := s.runLoginWithValidator(c, validator)
-	c.Assert(err, gc.IsNil)
+	checker := func(c *gc.C, loginErr error, st *api.State) {
+		c.Assert(loginErr, gc.IsNil)
+
+		// Ensure an API call that would be restricted during
+		// upgrades works after a normal login.
+		err := st.Call("Client", "", "DestroyEnvironment", nil, nil)
+		c.Assert(err, gc.IsNil)
+	}
+	s.checkLoginWithValidator(c, validator, checker)
 }
 
 func (s *loginSuite) TestLoginValidationFail(c *gc.C) {
-	validator := func(_ params.Creds) error {
+	validator := func(params.Creds) error {
 		return errors.New("Login not allowed")
 	}
-	err := s.runLoginWithValidator(c, validator)
-	c.Assert(err, gc.ErrorMatches, "Login not allowed")
+	checker := func(c *gc.C, loginErr error, _ *api.State) {
+		c.Assert(loginErr, gc.ErrorMatches, "Login not allowed")
+	}
+	s.checkLoginWithValidator(c, validator, checker)
 }
 
-func (s *loginSuite) runLoginWithValidator(c *gc.C, validator apiserver.LoginValidator) error {
+func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
+	validator := func(params.Creds) error {
+		return apiserver.UpgradeInProgressError
+	}
+	checker := func(c *gc.C, loginErr error, st *api.State) {
+		c.Assert(loginErr, gc.IsNil)
+
+		var statusResult api.Status
+		err := st.Call("Client", "", "FullStatus", params.StatusParams{}, &statusResult)
+		c.Assert(err, gc.IsNil)
+
+		err = st.Call("Client", "", "DestroyEnvironment", nil, nil)
+		c.Assert(err, gc.ErrorMatches, "upgrade in progress - Juju functionality is limited")
+	}
+	s.checkLoginWithValidator(c, validator, checker)
+}
+
+type validationChecker func(c *gc.C, err error, st *api.State)
+
+func (s *loginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginValidator, checker validationChecker) {
 	info, cleanup := s.setupServerWithValidator(c, validator)
 	defer cleanup()
 
-	info.Tag = ""
+	info.Tag = nil
 	info.Password = ""
 
 	st, err := api.Open(info, fastDialOpts)
@@ -531,7 +532,37 @@ func (s *loginSuite) runLoginWithValidator(c *gc.C, validator apiserver.LoginVal
 	c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 	// Since these are user login tests, the nonce is empty.
-	return st.Login("user-admin", "dummy-secret", "")
+	err = st.Login("user-admin", "dummy-secret", "")
+
+	checker(c, err, st)
+}
+
+func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, gc.IsNil)
+	srv, err := apiserver.NewServer(
+		s.State,
+		listener,
+		apiserver.ServerConfig{
+			Cert:      []byte(coretesting.ServerCert),
+			Key:       []byte(coretesting.ServerKey),
+			Validator: validator,
+		},
+	)
+	c.Assert(err, gc.IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	info := &api.Info{
+		Tag:        nil,
+		Password:   "",
+		EnvironTag: env.Tag(),
+		Addrs:      []string{srv.Addr()},
+		CACert:     coretesting.CACert,
+	}
+	return info, func() {
+		err := srv.Stop()
+		c.Assert(err, gc.IsNil)
+	}
 }
 
 func (s *loginSuite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {

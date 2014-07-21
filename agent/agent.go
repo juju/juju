@@ -17,12 +17,13 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
@@ -56,6 +57,7 @@ const (
 	StorageDir       = "STORAGE_DIR"
 	StorageAddr      = "STORAGE_ADDR"
 	AgentServiceName = "AGENT_SERVICE_NAME"
+	MongoOplogSize   = "MONGO_OPLOG_SIZE"
 )
 
 // The Config interface is the sole way that the agent gets access to the
@@ -86,7 +88,7 @@ type Config interface {
 
 	// Tag returns the tag of the entity on whose behalf the state connection
 	// will be made.
-	Tag() string
+	Tag() names.Tag
 
 	// Dir returns the agent's directory.
 	Dir() string
@@ -115,9 +117,9 @@ type Config interface {
 	// APIInfo returns details for connecting to the API server.
 	APIInfo() *api.Info
 
-	// StateInfo returns details for connecting to the state server and reports
-	// whether those details are available
-	StateInfo() (*state.Info, bool)
+	// MongoInfo returns details for connecting to the state server's mongo
+	// database and reports whether those details are available
+	MongoInfo() (*authentication.MongoInfo, bool)
 
 	// OldPassword returns the fallback password when connecting to the
 	// API server.
@@ -130,6 +132,10 @@ type Config interface {
 	// Value returns the value associated with the key, or an empty string if
 	// the key is not found.
 	Value(key string) string
+
+	// PreferIPv6 returns whether to prefer using IPv6 addresses (if
+	// available) when connecting to the state or API server.
+	PreferIPv6() bool
 }
 
 type ConfigSetterOnly interface {
@@ -226,7 +232,7 @@ type configInternal struct {
 	configFilePath    string
 	dataDir           string
 	logDir            string
-	tag               string
+	tag               names.Tag
 	nonce             string
 	jobs              []params.MachineJob
 	upgradedToVersion version.Number
@@ -236,6 +242,7 @@ type configInternal struct {
 	oldPassword       string
 	servingInfo       *params.StateServingInfo
 	values            map[string]string
+	preferIPv6        bool
 }
 
 type AgentConfigParams struct {
@@ -243,13 +250,14 @@ type AgentConfigParams struct {
 	LogDir            string
 	Jobs              []params.MachineJob
 	UpgradedToVersion version.Number
-	Tag               string
+	Tag               names.Tag
 	Password          string
 	Nonce             string
 	StateAddresses    []string
 	APIAddresses      []string
 	CACert            string
 	Values            map[string]string
+	PreferIPv6        bool
 }
 
 // NewAgentConfig returns a new config object suitable for use for a
@@ -262,8 +270,14 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 	if configParams.LogDir != "" {
 		logDir = configParams.LogDir
 	}
-	if configParams.Tag == "" {
+	if configParams.Tag == nil {
 		return nil, errors.Trace(requiredError("entity tag"))
+	}
+	switch configParams.Tag.(type) {
+	case names.MachineTag, names.UnitTag:
+		// these are the only two type of tags that can represent an agent
+	default:
+		return nil, errors.Errorf("entity tag must be MachineTag or UnitTag, got %T", configParams.Tag)
 	}
 	if configParams.UpgradedToVersion == version.Zero {
 		return nil, errors.Trace(requiredError("upgradedToVersion"))
@@ -286,6 +300,7 @@ func NewAgentConfig(configParams AgentConfigParams) (ConfigSetterWriter, error) 
 		caCert:            configParams.CACert,
 		oldPassword:       configParams.Password,
 		values:            configParams.Values,
+		preferIPv6:        configParams.PreferIPv6,
 	}
 	if len(configParams.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -331,17 +346,17 @@ func NewStateMachineConfig(configParams AgentConfigParams, serverInfo params.Sta
 }
 
 // Dir returns the agent-specific data directory.
-func Dir(dataDir, agentName string) string {
+func Dir(dataDir string, tag names.Tag) string {
 	// Note: must use path, not filepath, as this
 	// function is used by the client on Windows.
-	return path.Join(dataDir, "agents", agentName)
+	return path.Join(dataDir, "agents", tag.String())
 }
 
 // ConfigPath returns the full path to the agent config file.
 // NOTE: Delete this once all agents accept --config instead
 // of --data-dir - it won't be needed anymore.
-func ConfigPath(dataDir, agentName string) string {
-	return filepath.Join(Dir(dataDir, agentName), agentConfigFilename)
+func ConfigPath(dataDir string, tag names.Tag) string {
+	return filepath.Join(Dir(dataDir, tag), agentConfigFilename)
 }
 
 // ReadConfig reads configuration data from the given location.
@@ -531,6 +546,10 @@ func (c *configInternal) Value(key string) string {
 	return c.values[key]
 }
 
+func (c *configInternal) PreferIPv6() bool {
+	return c.preferIPv6
+}
+
 func (c *configInternal) StateServingInfo() (params.StateServingInfo, bool) {
 	if c.servingInfo == nil {
 		return params.StateServingInfo{}, false
@@ -553,7 +572,7 @@ func (c *configInternal) OldPassword() string {
 	return c.oldPassword
 }
 
-func (c *configInternal) Tag() string {
+func (c *configInternal) Tag() names.Tag {
 	return c.tag
 }
 
@@ -618,16 +637,19 @@ func (c *configInternal) APIInfo() *api.Info {
 	addrs := c.apiDetails.addresses
 	if isStateServer {
 		port := servingInfo.APIPort
-		localApiAddr := fmt.Sprintf("localhost:%d", port)
+		localAPIAddr := net.JoinHostPort("localhost", strconv.Itoa(port))
+		if c.preferIPv6 {
+			localAPIAddr = net.JoinHostPort("::1", strconv.Itoa(port))
+		}
 		addrInAddrs := false
 		for _, addr := range addrs {
-			if addr == localApiAddr {
+			if addr == localAPIAddr {
 				addrInAddrs = true
 				break
 			}
 		}
 		if !addrInAddrs {
-			addrs = append(addrs, localApiAddr)
+			addrs = append(addrs, localAPIAddr)
 		}
 	}
 	return &api.Info{
@@ -639,13 +661,16 @@ func (c *configInternal) APIInfo() *api.Info {
 	}
 }
 
-func (c *configInternal) StateInfo() (info *state.Info, ok bool) {
+func (c *configInternal) MongoInfo() (info *authentication.MongoInfo, ok bool) {
 	ssi, ok := c.StateServingInfo()
 	if !ok {
 		return nil, false
 	}
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(ssi.StatePort))
-	return &state.Info{
+	if c.preferIPv6 {
+		addr = net.JoinHostPort("::1", strconv.Itoa(ssi.StatePort))
+	}
+	return &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{addr},
 			CACert: c.caCert,

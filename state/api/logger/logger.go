@@ -6,6 +6,8 @@ package logger
 import (
 	"fmt"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
@@ -28,10 +30,10 @@ func NewState(caller base.Caller) *State {
 
 // LoggingConfig returns the loggo configuration string for the agent
 // specified by agentTag.
-func (st *State) LoggingConfig(agentTag string) (string, error) {
+func (st *State) LoggingConfig(agentTag names.Tag) (string, error) {
 	var results params.StringResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: agentTag}},
+		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
 	err := st.call("LoggingConfig", args, &results)
 	if err != nil {
@@ -51,10 +53,10 @@ func (st *State) LoggingConfig(agentTag string) (string, error) {
 
 // WatchLoggingConfig returns a notify watcher that looks for changes in the
 // logging-config for the agent specifed by agentTag.
-func (st *State) WatchLoggingConfig(agentTag string) (watcher.NotifyWatcher, error) {
+func (st *State) WatchLoggingConfig(agentTag names.Tag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: agentTag}},
+		Entities: []params.Entity{{Tag: agentTag.String()}},
 	}
 	err := st.call("WatchLoggingConfig", args, &results)
 	if err != nil {

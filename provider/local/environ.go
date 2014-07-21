@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/shell"
+	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
@@ -39,13 +40,10 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
-	"github.com/juju/utils/symlink"
 )
 
 // boostrapInstanceId is just the name we give to the bootstrap machine.
@@ -122,7 +120,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	}
 
 	// Before we write the agent config file, we need to make sure the
-	// instance is saved in the StateInfo.
+	// instance is saved in the provider-state file.
 	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
 		StateInstances: []instance.Id{bootstrapInstanceId},
 	}); err != nil {
@@ -161,6 +159,11 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		agent.Namespace:   env.config.namespace(),
 		agent.StorageDir:  env.config.storageDir(),
 		agent.StorageAddr: env.config.storageAddr(),
+
+		// The local provider only supports a single state server,
+		// so we make the oplog size to a small value. This makes
+		// the preallocation faster with no disadvantage.
+		agent.MongoOplogSize: "1", // 1MB
 	}
 	if err := environs.FinishMachineConfig(mcfg, cfg, args.Constraints); err != nil {
 		return err
@@ -211,9 +214,9 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 	return cmd.Run()
 }
 
-// StateInfo is specified in the Environ interface.
-func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return common.StateInfo(env)
+// StateServerInstances is specified in the Environ interface.
+func (env *localEnviron) StateServerInstances() ([]instance.Id, error) {
+	return []instance.Id{bootstrapInstanceId}, nil
 }
 
 // Config is specified in the Environ interface.

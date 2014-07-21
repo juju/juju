@@ -37,7 +37,7 @@ func (st *State) Environment() (*Environment, error) {
 	}
 	env.annotator = annotator{
 		globalKey: env.globalKey(),
-		tag:       env.Tag().String(),
+		tag:       env.Tag(),
 		st:        st,
 	}
 	return env, nil

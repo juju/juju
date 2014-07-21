@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
@@ -46,6 +48,7 @@ type BootstrapSuite struct {
 	instanceId      instance.Id
 	dataDir         string
 	logDir          string
+	mongoOplogSize  string
 	fakeEnsureMongo fakeEnsure
 	bootstrapName   string
 }
@@ -57,14 +60,15 @@ type fakeEnsure struct {
 	initiateCount  int
 	dataDir        string
 	namespace      string
+	oplogSize      int
 	info           params.StateServingInfo
 	initiateParams peergrouper.InitiateMongoParams
 	err            error
 }
 
-func (f *fakeEnsure) fakeEnsureMongo(dataDir, namespace string, info params.StateServingInfo) error {
+func (f *fakeEnsure) fakeEnsureMongo(args mongo.EnsureServerParams) error {
 	f.ensureCount++
-	f.dataDir, f.namespace, f.info = dataDir, namespace, info
+	f.dataDir, f.namespace, f.info, f.oplogSize = args.DataDir, args.Namespace, args.StateServingInfo, args.OplogSize
 	return f.err
 }
 
@@ -94,6 +98,7 @@ func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.dataDir = c.MkDir()
 	s.logDir = c.MkDir()
+	s.mongoOplogSize = "1234"
 	s.fakeEnsureMongo = fakeEnsure{}
 }
 
@@ -121,14 +126,17 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 		LogDir:            s.logDir,
 		DataDir:           s.dataDir,
 		Jobs:              jobs,
-		Tag:               "machine-0",
+		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
 		Password:          testPasswordHash(),
-		Nonce:             state.BootstrapNonce,
+		Nonce:             agent.BootstrapNonce,
 		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
 		APIAddresses:      []string{"0.1.2.3:1234"},
 		CACert:            testing.CACert,
-		Values:            map[string]string{agent.Namespace: "foobar"},
+		Values: map[string]string{
+			agent.Namespace:      "foobar",
+			agent.MongoOplogSize: s.mongoOplogSize,
+		},
 	}
 	servingInfo := params.StateServingInfo{
 		Cert:       "some cert",
@@ -159,6 +167,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.ensureCount, gc.Equals, 1)
 	c.Assert(s.fakeEnsureMongo.dataDir, gc.Equals, s.dataDir)
+	c.Assert(s.fakeEnsureMongo.oplogSize, gc.Equals, 1234)
 
 	expectInfo, exists := machConf.StateServingInfo()
 	c.Assert(exists, jc.IsTrue)
@@ -177,7 +186,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(s.fakeEnsureMongo.initiateParams.User, gc.Equals, "")
 	c.Assert(s.fakeEnsureMongo.initiateParams.Password, gc.Equals, "")
 
-	st, err := state.Open(&state.Info{
+	st, err := state.Open(&authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -204,6 +213,15 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	c.Assert(&cons, jc.Satisfies, constraints.IsEmpty)
 }
 
+func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
+	s.mongoOplogSize = "NaN"
+	hw := instance.MustParseHardware("arch=amd64 mem=8G")
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.ErrorMatches, `invalid oplog size: "NaN"`)
+}
+
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
@@ -215,7 +233,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&state.Info{
+	st, err := state.Open(&authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -249,7 +267,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&state.Info{
+	st, err := state.Open(&authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -270,7 +288,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(&state.Info{
+	st, err := state.Open(&authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -284,7 +302,7 @@ func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 }
 
-func testOpenState(c *gc.C, info *state.Info, expectErrType error) {
+func testOpenState(c *gc.C, info *authentication.MongoInfo, expectErrType error) {
 	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	if st != nil {
 		st.Close()
@@ -305,7 +323,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 
 	// Check that we cannot now connect to the state without a
 	// password.
-	info := &state.Info{
+	info := &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -314,7 +332,8 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	testOpenState(c, info, errors.Unauthorizedf(""))
 
 	// Check we can log in to mongo as admin.
-	info.Tag, info.Password = "", testPasswordHash()
+	// TODO(dfc) does passing nil for the admin user name make your skin crawl ? mine too.
+	info.Tag, info.Password = nil, testPasswordHash()
 	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	// Reset password so the tests can continue to use the same server.
@@ -330,10 +349,10 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// Check that the machine configuration has been given a new
 	// password and that we can connect to mongo as that machine
 	// and that the in-mongo password also verifies correctly.
-	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), "machine-0"))
+	machineConf1, err := agent.ReadConfig(agent.ConfigPath(machineConf.DataDir(), names.NewMachineTag("0")))
 	c.Assert(err, gc.IsNil)
 
-	stateinfo, ok := machineConf1.StateInfo()
+	stateinfo, ok := machineConf1.MongoInfo()
 	c.Assert(ok, jc.IsTrue)
 	st, err = state.Open(stateinfo, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)

@@ -1165,6 +1165,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)
+	c.Check(results.PreferIPv6, jc.IsTrue)
 }
 
 func (s *withoutStateServerSuite) TestToolsRefusesWrongAgent(c *gc.C) {

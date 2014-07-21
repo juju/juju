@@ -48,6 +48,8 @@ type AgentConf struct {
 	_config agent.ConfigSetterWriter
 }
 
+type AgentConfigMutator func(agent.ConfigSetter) error
+
 // AddFlags injects common agent flags into f.
 func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
 	// TODO(dimitern) 2014-02-19 bug 1282025
@@ -65,9 +67,13 @@ func (c *AgentConf) CheckArgs(args []string) error {
 }
 
 func (c *AgentConf) ReadConfig(tag string) error {
+	t, err := names.ParseTag(tag)
+	if err != nil {
+		return err
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	conf, err := agent.ReadConfig(agent.ConfigPath(c.dataDir, tag))
+	conf, err := agent.ReadConfig(agent.ConfigPath(c.dataDir, t))
 	if err != nil {
 		return err
 	}
@@ -75,11 +81,16 @@ func (c *AgentConf) ReadConfig(tag string) error {
 	return nil
 }
 
-func (ch *AgentConf) ChangeConfig(change func(c agent.ConfigSetter)) error {
+func (ch *AgentConf) ChangeConfig(change AgentConfigMutator) error {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	change(ch._config)
-	return ch._config.Write()
+	if err := change(ch._config); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ch._config.Write(); err != nil {
+		return errors.Annotate(err, "cannot write agent configuration")
+	}
+	return nil
 }
 
 func (ch *AgentConf) CurrentConfig() agent.Config {
@@ -90,8 +101,9 @@ func (ch *AgentConf) CurrentConfig() agent.Config {
 
 // SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
 func (a *AgentConf) SetAPIHostPorts(servers [][]network.HostPort) error {
-	return a.ChangeConfig(func(c agent.ConfigSetter) {
+	return a.ChangeConfig(func(c agent.ConfigSetter) error {
 		c.SetAPIHostPorts(servers)
+		return nil
 	})
 }
 
@@ -122,7 +134,7 @@ func isUpgraded(err error) bool {
 
 type Agent interface {
 	Tag() names.Tag
-	ChangeConfig(func(agent.ConfigSetter)) error
+	ChangeConfig(AgentConfigMutator) error
 }
 
 // The AgentState interface is implemented by state types
@@ -253,9 +265,10 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		// we might successfully change the entity's
 		// password but fail to write the configuration,
 		// thus locking us out completely.
-		if err := a.ChangeConfig(func(c agent.ConfigSetter) {
+		if err := a.ChangeConfig(func(c agent.ConfigSetter) error {
 			c.SetPassword(newPassword)
 			c.SetOldPassword(info.Password)
+			return nil
 		}); err != nil {
 			return nil, nil, err
 		}

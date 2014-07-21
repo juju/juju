@@ -11,6 +11,9 @@ import (
 
 	"github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
+	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
+	txntesting "github.com/juju/txn/testing"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -18,12 +21,10 @@ import (
 
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	statetxn "github.com/juju/juju/state/txn"
-	txntesting "github.com/juju/juju/state/txn/testing"
 	"github.com/juju/juju/testing"
 )
 
-func SetTestHooks(c *gc.C, st *State, hooks ...statetxn.TestHook) txntesting.TransactionChecker {
+func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	return txntesting.SetTestHooks(c, st.transactionRunner, hooks...)
 }
 
@@ -54,7 +55,7 @@ func TestingInitialize(c *gc.C, cfg *config.Config, policy Policy) *State {
 	if cfg == nil {
 		cfg = testing.EnvironConfig(c)
 	}
-	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts(), policy)
+	st, err := Initialize(TestingMongoInfo(), cfg, TestingDialOpts(), policy)
 	c.Assert(err, gc.IsNil)
 	return st
 }
@@ -202,7 +203,7 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	return doc.Revno, nil
 }
 
-func ParseTag(st *State, tag string) (string, string, error) {
+func ParseTag(st *State, tag names.Tag) (string, string, error) {
 	return st.parseTag(tag)
 }
 
@@ -219,10 +220,15 @@ func CheckUserExists(st *State, name string) (bool, error) {
 
 var StateServerAvailable = &stateServerAvailable
 
-func ActionPrefix(r ActionReceiver) string {
-	return actionPrefix(r)
+func EnsureActionMarker(prefix string) string {
+	return ensureActionMarker(prefix)
 }
 
 func GetActionResultId(actionId string) (string, bool) {
 	return convertActionIdToActionResultId(actionId)
 }
+
+var (
+	GetOrCreatePorts = getOrCreatePorts
+	GetPorts         = getPorts
+)

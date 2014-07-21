@@ -6,9 +6,10 @@ package main
 import (
 	"errors"
 	"fmt"
-	gc "launchpad.net/gocheck"
 
 	"github.com/juju/cmd"
+	gc "launchpad.net/gocheck"
+
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/testing"
@@ -29,8 +30,11 @@ func (s *UserChangePasswordCommandSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&getChangePasswordAPI, func(c *UserChangePasswordCommand) (ChangePasswordAPI, error) {
 		return s.mockAPI, nil
 	})
-	s.PatchValue(&getEnvironInfo, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
+	s.PatchValue(&getEnvironInfoWriter, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
 		return s.mockEnvironInfo, nil
+	})
+	s.PatchValue(&getConnectionCredentials, func(c *UserChangePasswordCommand) (configstore.APICredentials, error) {
+		return s.mockEnvironInfo.creds, nil
 	})
 }
 
@@ -49,7 +53,7 @@ func (s *UserChangePasswordCommandSuite) TestGenerateAndPassword(c *gc.C) {
 }
 
 func (s *UserChangePasswordCommandSuite) TestFailedToReadInfo(c *gc.C) {
-	s.PatchValue(&getEnvironInfo, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
+	s.PatchValue(&getEnvironInfoWriter, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
 		return s.mockEnvironInfo, errors.New("something failed")
 	})
 	_, err := testing.RunCommand(c, newUserChangePassword(), "--password", "new-password")
@@ -85,7 +89,7 @@ func (s *UserChangePasswordCommandSuite) TestChangePasswordFail(c *gc.C) {
 
 // The first write fails, so we try to revert the password which succeeds
 func (s *UserChangePasswordCommandSuite) TestRevertPasswordAfterFailedWrite(c *gc.C) {
-	s.PatchValue(&getEnvironInfo, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
+	s.PatchValue(&getEnvironInfoWriter, func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
 		return s.mockEnvironInfo, nil
 	})
 	// Set the password to something known

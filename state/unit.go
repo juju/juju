@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -24,8 +25,6 @@ import (
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
-
-	statetxn "github.com/juju/juju/state/txn"
 )
 
 var unitLogger = loggo.GetLogger("juju.state.unit")
@@ -100,7 +99,7 @@ func newUnit(st *State, udoc *unitDoc) *Unit {
 	}
 	unit.annotator = annotator{
 		globalKey: unit.globalKey(),
-		tag:       unit.Tag().String(),
+		tag:       unit.Tag(),
 		st:        st,
 	}
 	return unit
@@ -162,11 +161,6 @@ func unitGlobalKey(name string) string {
 // globalKey returns the global database key for the unit.
 func (u *Unit) globalKey() string {
 	return unitGlobalKey(u.doc.Name)
-}
-
-// ActionKey returns the globalKey to fulfill ActionReceiver
-func (u *Unit) ActionKey() string {
-	return u.globalKey()
 }
 
 // Life returns whether the unit is Alive, Dying or Dead.
@@ -283,7 +277,7 @@ func (u *Unit) Destroy() (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := unit.Refresh(); errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoOperations
+				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
@@ -291,13 +285,13 @@ func (u *Unit) Destroy() (err error) {
 		switch ops, err := unit.destroyOps(); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		case nil:
 			return ops, nil
 		default:
 			return nil, err
 		}
-		return nil, statetxn.ErrNoOperations
+		return nil, jujutxn.ErrNoOperations
 	}
 	if err = unit.st.run(buildTxn); err == nil {
 		if err = unit.Refresh(); errors.IsNotFound(err) {
@@ -554,7 +548,7 @@ func (u *Unit) Remove() (err error) {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := unit.Refresh(); errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoOperations
+				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
@@ -562,13 +556,13 @@ func (u *Unit) Remove() (err error) {
 		switch ops, err := unit.removeOps(isDeadDoc); err {
 		case errRefresh:
 		case errAlreadyDying:
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		case nil:
 			return ops, nil
 		default:
 			return nil, err
 		}
-		return nil, statetxn.ErrNoOperations
+		return nil, jujutxn.ErrNoOperations
 	}
 	return unit.st.run(buildTxn)
 }
@@ -735,6 +729,49 @@ func (u *Unit) SetStatus(status params.Status, info string, data params.StatusDa
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
+	ports, err := NewPortRange(u.Name(), number, number, protocol)
+	if err != nil {
+		return err
+	}
+	defer errors.Maskf(&err, "cannot open ports %v for unit %q", ports, u)
+
+	machineId, err := u.AssignedMachineId()
+	if err != nil {
+		return err
+	}
+
+	machinePorts, err := getOrCreatePorts(u.st, machineId)
+
+	// Check if this unit is still storing ports in its own document,
+	// if so - attempt a migration.
+	// Migration is only performed if the openedPorts document contains
+	// no ports for the unit - this condition will be removed when
+	// the unit ports list will be cleared after migration.
+	// TODO(domas) 2014-07-04 bug #1337817: remove second condition
+	if len(u.doc.Ports) != 0 && len(machinePorts.PortsForUnit(u.Name())) == 0 {
+		err = machinePorts.migratePorts(u)
+		if err != nil {
+			unitLogger.Errorf("could not migrate ports collection for unit %v: %v", u, err)
+			return err
+		}
+		err = machinePorts.Refresh()
+		if err != nil {
+			return err
+		}
+	}
+
+	err = machinePorts.OpenPorts(ports)
+	if err != nil {
+		return err
+	}
+	// TODO(domas) 2014-07-04 bug #1337813: remove once firewaller is updated to watch openedPorts collection
+	return u.openUnitPort(protocol, number)
+}
+
+// openUnitPort is the old implementation of OpenPort that amends the list of ports on the unit document.
+// TODO(domas) 2014-07-04 bug #1337813
+// This is kept in place until the firewaller is updated to watch the OpenedPorts collection.
+func (u *Unit) openUnitPort(protocol string, number int) (err error) {
 	port := network.Port{Protocol: protocol, Number: number}
 	defer errors.Maskf(&err, "cannot open port %v for unit %q", port, u)
 	ops := []txn.Op{{
@@ -760,8 +797,10 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	return nil
 }
 
-// ClosePort sets the policy of the port with protocol and number to be closed.
-func (u *Unit) ClosePort(protocol string, number int) (err error) {
+// closeUnitPort is the old implementation of ClosePort that alters the list of ports on the unit document.
+// TODO(domas) 2014-07-04 bug #1337813
+// This is kept in place until the firewaller is updated to watch the OpenedPorts collection.
+func (u *Unit) closeUnitPort(protocol string, number int) (err error) {
 	port := network.Port{Protocol: protocol, Number: number}
 	defer errors.Maskf(&err, "cannot close port %v for unit %q", port, u)
 	ops := []txn.Op{{
@@ -784,11 +823,72 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	return nil
 }
 
+// ClosePort sets the policy of the port with protocol and number to be closed.
+func (u *Unit) ClosePort(protocol string, number int) (err error) {
+	ports, err := NewPortRange(u.Name(), number, number, protocol)
+	if err != nil {
+		return err
+	}
+	defer errors.Maskf(&err, "cannot close ports %v for unit %q", ports, u)
+
+	machineId, err := u.AssignedMachineId()
+	if err != nil {
+		return err
+	}
+
+	machinePorts, err := getOrCreatePorts(u.st, machineId)
+	if err != nil {
+		return err
+	}
+
+	// Check if this unit is still storing ports in its own document,
+	// if so - attempt a migration.
+	// TODO(domas) 2014-07-04 bug #1337817: remove second condition
+	if len(u.doc.Ports) != 0 && len(machinePorts.PortsForUnit(u.Name())) == 0 {
+		err = machinePorts.migratePorts(u)
+		if err != nil {
+			unitLogger.Errorf("could not migrate ports collection for unit %v: %v", u, err)
+			return err
+		}
+		err = machinePorts.Refresh()
+		if err != nil {
+			return err
+		}
+	}
+
+	err = machinePorts.ClosePorts(ports)
+	if err != nil {
+		return err
+	}
+	// TODO(domas) 2014-07-04 bug #1337813: remove once firewaller is updated to watch openedPorts collection
+	return u.closeUnitPort(protocol, number)
+}
+
 // OpenedPorts returns a slice containing the open ports of the unit.
+// TODO(domas) 2014-07-04 but #1337817: update this function to return port ranges.
 func (u *Unit) OpenedPorts() []network.Port {
-	ports := append([]network.Port{}, u.doc.Ports...)
-	network.SortPorts(ports)
-	return ports
+	machineId, err := u.AssignedMachineId()
+	if err != nil {
+		unitLogger.Errorf("Cannot retrieve opened ports list for unit %v: %v", u, err)
+		return nil
+	}
+
+	machinePorts, err := getPorts(u.st, machineId)
+	result := []network.Port{}
+	if err == nil {
+		ports := machinePorts.PortsForUnit(u.Name())
+		for _, port := range ports {
+			result = append(result, network.Port{
+				Protocol: port.Protocol,
+				Number:   port.FromPort})
+		}
+	} else {
+		// Read the port list in the unit document if the ports
+		// document does not exist.
+		result = append([]network.Port{}, u.doc.Ports...)
+	}
+	network.SortPorts(result)
+	return result
 }
 
 // CharmURL returns the charm URL this unit is currently using.
@@ -821,7 +921,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			return nil, err
 		} else if count == 1 {
 			// Already set
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 		if count, err := u.st.charms.FindId(curl).Count(); err != nil {
 			return nil, err
@@ -1597,5 +1697,5 @@ func (u *Unit) ClearResolved() error {
 
 // WatchActions starts and returns an ActionWatcher
 func (u *Unit) WatchActions() StringsWatcher {
-	return newActionWatcher(u.st, actionPrefix(u))
+	return newActionWatcher(u.st, u)
 }

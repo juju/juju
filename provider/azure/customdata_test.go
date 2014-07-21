@@ -10,10 +10,10 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
@@ -28,27 +28,28 @@ var _ = gc.Suite(&customDataSuite{})
 
 // makeMachineConfig produces a valid cloudinit machine config.
 func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
-	machineID := "0"
+	machineId := "0"
+	machineTag := names.NewMachineTag(machineId)
 	return &cloudinit.MachineConfig{
-		MachineId:          machineID,
+		MachineId:          machineId,
 		MachineNonce:       "gxshasqlnng",
 		DataDir:            environs.DataDir,
 		LogDir:             agent.DefaultLogDir,
 		Jobs:               []params.MachineJob{params.JobManageEnviron, params.JobHostUnits},
 		CloudInitOutputLog: environs.CloudInitOutputLog,
 		Tools:              &tools.Tools{URL: "file://" + c.MkDir()},
-		StateInfo: &state.Info{
+		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				CACert: testing.CACert,
 				Addrs:  []string{"127.0.0.1:123"},
 			},
-			Tag:      names.NewMachineTag(machineID).String(),
+			Tag:      machineTag,
 			Password: "password",
 		},
 		APIInfo: &api.Info{
 			CACert: testing.CACert,
 			Addrs:  []string{"127.0.0.1:123"},
-			Tag:    names.NewMachineTag(machineID).String(),
+			Tag:    machineTag,
 		},
 		MachineAgentServiceName: "jujud-machine-0",
 	}

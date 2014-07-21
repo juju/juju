@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -41,7 +42,7 @@ func (s *migrateLocalProviderAgentConfigSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(upgrades.IsLocalEnviron, func(_ *config.Config) bool { return true })
 }
 
-func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, st *state.State, job state.MachineJob, tag string) {
+func (s *migrateLocalProviderAgentConfigSuite) primeConfig(c *gc.C, st *state.State, job state.MachineJob, tag names.Tag) {
 	rootDir := c.MkDir()
 	sharedStorageDir := filepath.Join(rootDir, "shared-storage")
 	c.Assert(os.MkdirAll(sharedStorageDir, 0755), gc.IsNil)
@@ -145,7 +146,7 @@ func (s *migrateLocalProviderAgentConfigSuite) assertConfigNotProcessed(c *gc.C)
 	c.Assert(agentConfig.Value(agent.ContainerType), gc.Equals, "")
 }
 func (s *migrateLocalProviderAgentConfigSuite) TestMigrateStateServer(c *gc.C) {
-	s.primeConfig(c, s.State, state.JobManageEnviron, "machine-0")
+	s.primeConfig(c, s.State, state.JobManageEnviron, names.NewMachineTag("0"))
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
 	c.Assert(err, gc.IsNil)
 	err = s.config.Write()
@@ -155,7 +156,7 @@ func (s *migrateLocalProviderAgentConfigSuite) TestMigrateStateServer(c *gc.C) {
 
 func (s *migrateLocalProviderAgentConfigSuite) TestMigrateNonLocalEnvNotDone(c *gc.C) {
 	s.PatchValue(upgrades.IsLocalEnviron, func(_ *config.Config) bool { return false })
-	s.primeConfig(c, s.State, state.JobManageEnviron, "machine-0")
+	s.primeConfig(c, s.State, state.JobManageEnviron, names.NewMachineTag("0"))
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
 	c.Assert(err, gc.IsNil)
 	err = s.config.Write()
@@ -164,7 +165,7 @@ func (s *migrateLocalProviderAgentConfigSuite) TestMigrateNonLocalEnvNotDone(c *
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) TestMigrateWithoutStateConnectionNotDone(c *gc.C) {
-	s.primeConfig(c, nil, state.JobManageEnviron, "machine-0")
+	s.primeConfig(c, nil, state.JobManageEnviron, names.NewMachineTag("0"))
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
 	c.Assert(err, gc.IsNil)
 	err = s.config.Write()
@@ -173,7 +174,7 @@ func (s *migrateLocalProviderAgentConfigSuite) TestMigrateWithoutStateConnection
 }
 
 func (s *migrateLocalProviderAgentConfigSuite) TestIdempotent(c *gc.C) {
-	s.primeConfig(c, s.State, state.JobManageEnviron, "machine-0")
+	s.primeConfig(c, s.State, state.JobManageEnviron, names.NewMachineTag("0"))
 	err := upgrades.MigrateLocalProviderAgentConfig(s.ctx)
 	c.Assert(err, gc.IsNil)
 	err = s.config.Write()

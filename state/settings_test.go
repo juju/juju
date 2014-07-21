@@ -10,6 +10,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/testing"
 )
@@ -23,10 +24,10 @@ type SettingsSuite struct {
 
 var _ = gc.Suite(&SettingsSuite{})
 
-// TestingStateInfo returns information suitable for
-// connecting to the testing state server.
-func TestingStateInfo() *Info {
-	return &Info{
+// TestingMongoInfo returns information suitable for
+// connecting to the testing state server's mongo database.
+func TestingMongoInfo() *authentication.MongoInfo {
+	return &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
@@ -56,7 +57,7 @@ func (s *SettingsSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	// TODO(dfc) this logic is duplicated with the metawatcher_test.
-	state, err := Open(TestingStateInfo(), TestingDialOpts(), Policy(nil))
+	state, err := Open(TestingMongoInfo(), TestingDialOpts(), Policy(nil))
 	c.Assert(err, gc.IsNil)
 
 	s.state = state

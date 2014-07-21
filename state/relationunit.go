@@ -11,11 +11,10 @@ import (
 	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	statetxn "github.com/juju/juju/state/txn"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -281,7 +280,7 @@ func (ru *RelationUnit) LeaveScope() error {
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		if attempt > 0 {
 			if err := ru.relation.Refresh(); errors.IsNotFound(err) {
-				return nil, statetxn.ErrNoOperations
+				return nil, jujutxn.ErrNoOperations
 			} else if err != nil {
 				return nil, err
 			}
@@ -290,7 +289,7 @@ func (ru *RelationUnit) LeaveScope() error {
 		if err != nil {
 			return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 		} else if count == 0 {
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 		ops := []txn.Op{{
 			C:      ru.st.relationScopes.Name,
@@ -380,7 +379,7 @@ func (ru *RelationUnit) Settings() (*Settings, error) {
 // of the lifetime of the unit.
 func (ru *RelationUnit) ReadSettings(uname string) (m map[string]interface{}, err error) {
 	defer errors.Maskf(&err, "cannot read settings for unit %q in relation %q", uname, ru.relation)
-	if !names.IsUnit(uname) {
+	if !names.IsValidUnit(uname) {
 		return nil, fmt.Errorf("%q is not a valid unit name", uname)
 	}
 	key, err := ru.key(uname)

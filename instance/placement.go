@@ -60,12 +60,12 @@ func ParsePlacement(directive string) (*Placement, error) {
 			return nil, ErrPlacementScopeMissing
 		}
 		// Sanity check: machine/container scopes require a machine ID as the value.
-		if (scope == MachineScope || isContainerType(scope)) && !names.IsMachine(directive) {
+		if (scope == MachineScope || isContainerType(scope)) && !names.IsValidMachine(directive) {
 			return nil, fmt.Errorf("invalid value %q for %q scope: expected machine-id", directive, scope)
 		}
 		return &Placement{Scope: scope, Directive: directive}, nil
 	}
-	if names.IsMachine(directive) {
+	if names.IsValidMachine(directive) {
 		return &Placement{Scope: MachineScope, Directive: directive}, nil
 	}
 	if isContainerType(directive) {

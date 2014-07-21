@@ -112,7 +112,7 @@ func (s *MachineEnvironmentWatcherSuite) makeWorker(c *gc.C, agentConfig agent.C
 }
 
 func (s *MachineEnvironmentWatcherSuite) TestRunStop(c *gc.C) {
-	agentConfig := agentConfig("0", "ec2")
+	agentConfig := agentConfig(names.NewMachineTag("0"), "ec2")
 	envWorker := s.makeWorker(c, agentConfig)
 	c.Assert(worker.Stop(envWorker), gc.IsNil)
 }
@@ -152,7 +152,7 @@ func (s *MachineEnvironmentWatcherSuite) updateConfig(c *gc.C) (proxy.Settings, 
 func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	agentConfig := agentConfig("0", "ec2")
+	agentConfig := agentConfig(names.NewMachineTag("0"), "ec2")
 	envWorker := s.makeWorker(c, agentConfig)
 	defer worker.Stop(envWorker)
 
@@ -162,7 +162,7 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
 }
 
 func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
-	agentConfig := agentConfig("0", "ec2")
+	agentConfig := agentConfig(names.NewMachineTag("0"), "ec2")
 	envWorker := s.makeWorker(c, agentConfig)
 	defer worker.Stop(envWorker)
 	s.waitForPostSetup(c)
@@ -177,7 +177,7 @@ func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
 func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine1(c *gc.C) {
 	proxySettings, aptProxySettings := s.updateConfig(c)
 
-	agentConfig := agentConfig("1", provider.Local)
+	agentConfig := agentConfig(names.NewMachineTag("1"), provider.Local)
 	envWorker := s.makeWorker(c, agentConfig)
 	defer worker.Stop(envWorker)
 
@@ -189,7 +189,7 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine1(c *gc.C) 
 func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine0(c *gc.C) {
 	proxySettings, _ := s.updateConfig(c)
 
-	agentConfig := agentConfig("0", provider.Local)
+	agentConfig := agentConfig(names.NewMachineTag("0"), provider.Local)
 	envWorker := s.makeWorker(c, agentConfig)
 	defer worker.Stop(envWorker)
 	s.waitForPostSetup(c)
@@ -202,11 +202,11 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialStateLocalMachine0(c *gc.C) 
 
 type mockConfig struct {
 	agent.Config
-	tag      string
+	tag      names.MachineTag
 	provider string
 }
 
-func (mock *mockConfig) Tag() string {
+func (mock *mockConfig) Tag() names.Tag {
 	return mock.tag
 }
 
@@ -217,6 +217,6 @@ func (mock *mockConfig) Value(key string) string {
 	return ""
 }
 
-func agentConfig(machineId, provider string) *mockConfig {
-	return &mockConfig{tag: names.NewMachineTag(machineId).String(), provider: provider}
+func agentConfig(machineTag names.MachineTag, provider string) *mockConfig {
+	return &mockConfig{tag: machineTag, provider: provider}
 }

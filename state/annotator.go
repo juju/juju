@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-
-	"github.com/juju/errors"
 )
 
 // annotatorDoc represents the internal state of annotations for an Entity in
@@ -29,7 +29,7 @@ type annotatorDoc struct {
 // for any entity that wishes to use it.
 type annotator struct {
 	globalKey string
-	tag       string
+	tag       names.Tag
 	st        *State
 }
 
@@ -82,9 +82,10 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 		C:      a.st.annotations.Name,
 		Id:     a.globalKey,
 		Assert: txn.DocMissing,
-		Insert: &annotatorDoc{a.globalKey, tag, toInsert},
+		Insert: &annotatorDoc{a.globalKey, tag.String(), toInsert},
 	}}
-	if strings.HasPrefix(tag, "environment-") {
+	switch tag.(type) {
+	case names.EnvironTag:
 		return ops, nil
 	}
 	// If the entity is not the environment, add a DocExists check on the

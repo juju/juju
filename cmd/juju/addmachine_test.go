@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -43,6 +44,24 @@ func (s *AddMachineSuite) TestAddMachine(c *gc.C) {
 	c.Assert(&mcons, jc.Satisfies, constraints.IsEmpty)
 }
 
+func (s *AddMachineSuite) TestSSHPlacement(c *gc.C) {
+	s.PatchValue(&manualProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
+		return "42", nil
+	})
+	context, err := runAddMachine(c, "ssh:10.1.2.3")
+	c.Assert(err, gc.IsNil)
+	c.Assert(testing.Stderr(context), gc.Equals, "created machine 42\n")
+}
+
+func (s *AddMachineSuite) TestSSHPlacementError(c *gc.C) {
+	s.PatchValue(&manualProvisioner, func(args manual.ProvisionMachineArgs) (string, error) {
+		return "", fmt.Errorf("failed to initialize warp core")
+	})
+	context, err := runAddMachine(c, "ssh:10.1.2.3")
+	c.Assert(err, gc.ErrorMatches, "failed to initialize warp core")
+	c.Assert(testing.Stderr(context), gc.Equals, "")
+}
+
 func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {
 	context, err := runAddMachine(c, "--series", "series")
 	c.Assert(err, gc.IsNil)
@@ -53,12 +72,12 @@ func (s *AddMachineSuite) TestAddMachineWithSeries(c *gc.C) {
 }
 
 func (s *AddMachineSuite) TestAddMachineWithCustomKeyFails(c *gc.C) {
-	_, err := runAddMachine(c, "-i", "~/mykeys/id_rsa.pub")
-	c.Assert(err, gc.ErrorMatches, "-i can only be used when manually provisioning a machine with ssh")
+	_, err := runAddMachine(c, "--ssh-key", "~/mykeys/id_rsa.pub")
+	c.Assert(err, gc.ErrorMatches, "--ssh-key can only be used when manually provisioning a machine with ssh")
 }
 
 func (s *AddMachineSuite) TestAddMachineWithCustomKey(c *gc.C) {
-	err := testing.InitCommand(envcmd.Wrap(&AddMachineCommand{}), []string{"ssh:user@10.10.0.3", "-i", "~/mykeys/id_rsa.pub"})
+	err := testing.InitCommand(envcmd.Wrap(&AddMachineCommand{}), []string{"ssh:user@10.10.0.3", "--ssh-key", "~/mykeys/id_rsa.pub"})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -176,7 +195,7 @@ func (s *AddMachineSuite) TestAddMachineErrors(c *gc.C) {
 
 func (s *AddMachineSuite) TestAddThreeMachinesWithTwoFailures(c *gc.C) {
 	fakeApi := fakeAddMachineAPI{}
-	s.PatchValue(&getAddMachineAPI, func(envName string) (AddMachineAPI, error) {
+	s.PatchValue(&getAddMachineAPI, func(c *AddMachineCommand) (addMachineAPI, error) {
 		return &fakeApi, nil
 	})
 	fakeApi.successOrder = []bool{true, false, false}
@@ -195,6 +214,10 @@ type fakeAddMachineAPI struct {
 
 func (f *fakeAddMachineAPI) Close() error {
 	return nil
+}
+
+func (f *fakeAddMachineAPI) EnvironmentUUID() string {
+	return "fake-uuid"
 }
 
 func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
@@ -216,6 +239,9 @@ func (f *fakeAddMachineAPI) AddMachines(args []params.AddMachineParams) ([]param
 	return results, nil
 }
 
-func (f *fakeAddMachineAPI) AddMachines1dot18(args []params.AddMachineParams) ([]params.AddMachinesResult, error) {
-	return f.AddMachines(args)
+func (f *fakeAddMachineAPI) DestroyMachines(machines ...string) error {
+	return fmt.Errorf("not implemented")
+}
+func (f *fakeAddMachineAPI) ProvisioningScript(params.ProvisioningScriptParams) (script string, err error) {
+	return "", fmt.Errorf("not implemented")
 }

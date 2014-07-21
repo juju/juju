@@ -11,7 +11,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // ResolvedCommand marks a unit in an error state as ready to continue.
@@ -37,7 +36,7 @@ func (c *ResolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *ResolvedCommand) Init(args []string) error {
 	if len(args) > 0 {
 		c.UnitName = args[0]
-		if !names.IsUnit(c.UnitName) {
+		if !names.IsValidUnit(c.UnitName) {
 			return fmt.Errorf("invalid unit name %q", c.UnitName)
 		}
 		args = args[1:]
@@ -48,7 +47,7 @@ func (c *ResolvedCommand) Init(args []string) error {
 }
 
 func (c *ResolvedCommand) Run(_ *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

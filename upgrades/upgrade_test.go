@@ -9,10 +9,12 @@ import (
 	"strings"
 	stdtesting "testing"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -103,14 +105,14 @@ type mockAgentConfig struct {
 	agent.ConfigSetter
 	dataDir      string
 	logDir       string
-	tag          string
+	tag          names.Tag
 	jobs         []params.MachineJob
 	apiAddresses []string
 	values       map[string]string
-	stateInfo    *state.Info
+	mongoInfo    *authentication.MongoInfo
 }
 
-func (mock *mockAgentConfig) Tag() string {
+func (mock *mockAgentConfig) Tag() names.Tag {
 	return mock.tag
 }
 
@@ -138,8 +140,8 @@ func (mock *mockAgentConfig) Value(name string) string {
 	return mock.values[name]
 }
 
-func (mock *mockAgentConfig) StateInfo() (*state.Info, bool) {
-	return mock.stateInfo, true
+func (mock *mockAgentConfig) MongoInfo() (*authentication.MongoInfo, bool) {
+	return mock.mongoInfo, true
 }
 
 func targets(targets ...upgrades.Target) (upgradeTargets []upgrades.Target) {
@@ -195,6 +197,13 @@ func upgradeOperations() []upgrades.Operation {
 				&mockUpgradeStep{"step 3 - 1.20.0", targets(upgrades.StateServer)},
 			},
 		},
+		&mockUpgradeOperation{
+			targetVersion: version.MustParse("1.21-alpha2"),
+			steps: []upgrades.Step{
+				&mockUpgradeStep{"mongo fix - 1.21-alpha2", targets(upgrades.StateServer)},
+				&mockUpgradeStep{"db schema - 1.21-alpha2", targets(upgrades.DatabaseMaster)},
+			},
+		},
 	}
 	return steps
 }
@@ -248,6 +257,13 @@ var upgradeTests = []upgradeTest{
 		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0"},
 	},
 	{
+		about:         "the database master target is also a state server",
+		fromVersion:   "1.18.1",
+		toVersion:     "1.20.0",
+		target:        upgrades.DatabaseMaster,
+		expectedSteps: []string{"step 1 - 1.20.0", "step 3 - 1.20.0"},
+	},
+	{
 		about:         "error aborts, subsequent steps not run",
 		fromVersion:   "1.10.0",
 		target:        upgrades.HostMachine,
@@ -259,6 +275,20 @@ var upgradeTests = []upgradeTest{
 		fromVersion:   "",
 		target:        upgrades.StateServer,
 		expectedSteps: []string{"step 2 - 1.17.1", "step 2 - 1.18.0"},
+	},
+	{
+		about:         "state servers don't get database master",
+		fromVersion:   "1.20.0",
+		toVersion:     "1.21.0",
+		target:        upgrades.StateServer,
+		expectedSteps: []string{"mongo fix - 1.21-alpha2"},
+	},
+	{
+		about:         "database masters are state servers",
+		fromVersion:   "1.20.0",
+		toVersion:     "1.21.0",
+		target:        upgrades.DatabaseMaster,
+		expectedSteps: []string{"mongo fix - 1.21-alpha2", "db schema - 1.21-alpha2"},
 	},
 }
 

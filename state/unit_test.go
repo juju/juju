@@ -16,8 +16,12 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/state/txn"
 	coretesting "github.com/juju/juju/testing"
+	"github.com/juju/txn"
+)
+
+const (
+	contentionErr = ".*: state changing too quickly; try again soon"
 )
 
 type UnitSuite struct {
@@ -883,7 +887,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	// as a side-effect of a principal entering relation scope.)
 	subUnit := s.addSubordinateUnit(c)
 
-	info := state.TestingStateInfo()
+	info := state.TestingMongoInfo()
 	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
@@ -906,13 +910,13 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Sanity check that we cannot connect with the wrong
 	// password
-	info.Tag = m.Tag().String()
+	info.Tag = m.Tag()
 	info.Password = "foo1"
 	err = tryOpenState(info)
 	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 
 	// Connect as the machine entity.
-	info.Tag = m.Tag().String()
+	info.Tag = m.Tag()
 	info.Password = "foo"
 	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
@@ -927,7 +931,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Now connect as the unit entity and, as that
 	// that entity, change the password for a new unit.
-	info.Tag = unit.Tag().String()
+	info.Tag = unit.Tag()
 	info.Password = "bar"
 	st2, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
@@ -1046,11 +1050,16 @@ func (s *UnitSuite) TestGetSetClearResolved(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+
 	// Verify no open ports before activity.
 	c.Assert(s.unit.OpenedPorts(), gc.HasLen, 0)
 
 	// Now open and close port.
-	err := s.unit.OpenPort("tcp", 80)
+	err = s.unit.OpenPort("tcp", 80)
 	c.Assert(err, gc.IsNil)
 	open := s.unit.OpenedPorts()
 	c.Assert(open, gc.DeepEquals, []network.Port{
@@ -1094,7 +1103,7 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 	})
 
 	err = s.unit.ClosePort("tcp", 80)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, ".* no match found for port range: .*")
 	open = s.unit.OpenedPorts()
 	c.Assert(open, gc.DeepEquals, []network.Port{
 		{"tcp", 53},
@@ -1104,10 +1113,21 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *gc.C) {
+	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, gc.IsNil)
+
 	preventUnitDestroyRemove(c, s.unit)
-	testWhenDying(c, s.unit, noErr, deadErr, func() error {
-		return s.unit.OpenPort("tcp", 20)
-	}, func() error {
+	testWhenDying(c, s.unit, noErr, contentionErr, func() error {
+		err := s.unit.OpenPort("tcp", 20)
+		if err != nil {
+			return err
+		}
+		err = s.unit.Refresh()
+		if err != nil {
+			return err
+		}
 		return s.unit.ClosePort("tcp", 20)
 	})
 }

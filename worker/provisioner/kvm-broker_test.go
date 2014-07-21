@@ -73,7 +73,7 @@ func (s *kvmBrokerSuite) SetUpTest(c *gc.C) {
 	s.agentConfig, err = agent.NewAgentConfig(
 		agent.AgentConfigParams{
 			DataDir:           "/not/used/here",
-			Tag:               "tag",
+			Tag:               names.NewUnitTag("ubuntu/1"),
 			UpgradedToVersion: version.Current.Number,
 			Password:          "dummy-secret",
 			Nonce:             "nonce",
@@ -146,8 +146,7 @@ func (s *kvmBrokerSuite) kvmRemovedContainerDir(inst instance.Instance) string {
 type kvmProvisionerSuite struct {
 	CommonProvisionerSuite
 	kvmSuite
-	machineId string
-	events    chan mock.Event
+	events chan mock.Event
 }
 
 var _ = gc.Suite(&kvmProvisionerSuite{})
@@ -166,23 +165,11 @@ func (s *kvmProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.kvmSuite.SetUpTest(c)
 
-	// The kvm provisioner actually needs the machine it is being created on
-	// to be in state, in order to get the watcher.
-	m, err := s.State.AddMachine(coretesting.FakeDefaultSeries, state.JobHostUnits, state.JobManageEnviron)
-	c.Assert(err, gc.IsNil)
-	err = m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
-	c.Assert(err, gc.IsNil)
-
 	hostPorts := [][]network.HostPort{{{
 		Address: network.NewAddress("0.1.2.3", network.ScopeUnknown),
 		Port:    1234,
 	}}}
-	err = s.State.SetAPIHostPorts(hostPorts)
-	c.Assert(err, gc.IsNil)
-
-	s.machineId = m.Id()
-	s.APILogin(c, m)
-	err = m.SetAgentVersion(version.Current)
+	err := s.State.SetAPIHostPorts(hostPorts)
 	c.Assert(err, gc.IsNil)
 
 	s.events = make(chan mock.Event, 25)
@@ -222,9 +209,9 @@ func (s *kvmProvisionerSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *kvmProvisionerSuite) newKvmProvisioner(c *gc.C) provisioner.Provisioner {
-	machineTag := names.NewMachineTag(s.machineId).String()
+	machineTag := names.NewMachineTag("0")
 	agentConfig := s.AgentConfigForTag(c, machineTag)
-	tools, err := s.provisioner.Tools(agentConfig.Tag())
+	tools, err := s.provisioner.Tools(agentConfig.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 	managerConfig := container.ManagerConfig{container.ConfigName: "juju"}
 	broker, err := provisioner.NewKvmBroker(s.provisioner, tools, agentConfig, managerConfig)
@@ -262,7 +249,7 @@ func (s *kvmProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 		Series: coretesting.FakeDefaultSeries,
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideMachine(template, s.machineId, instance.KVM)
+	container, err := s.State.AddMachineInsideMachine(template, "0", instance.KVM)
 	c.Assert(err, gc.IsNil)
 	return container
 }

@@ -30,8 +30,6 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/utils/ssh"
 	"github.com/juju/juju/worker/localstorage"
 	"github.com/juju/juju/worker/terminationworker"
@@ -133,8 +131,8 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	})
 }
 
-func (e *manualEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return common.StateInfo(e)
+func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
+	return []instance.Id{manual.BootstrapInstanceId}, nil
 }
 
 func (e *manualEnviron) SetConfig(cfg *config.Config) error {

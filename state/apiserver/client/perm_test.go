@@ -6,6 +6,7 @@ package client_test
 import (
 	"strings"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -28,125 +29,130 @@ var _ = gc.Suite(&permSuite{})
 // (usually due to "permission denied"). There are separate test cases
 // testing each individual API call data flow later on.
 
+var (
+	userAdmin = names.NewUserTag("admin")
+	userOther = names.NewUserTag("other")
+)
+
 var operationPermTests = []struct {
 	about string
 	// op performs the operation to be tested using the given state
 	// connection. It returns a function that should be used to
 	// undo any changes made by the operation.
 	op    func(c *gc.C, st *api.State, mst *state.State) (reset func(), err error)
-	allow []string
-	deny  []string
+	allow []names.Tag
+	deny  []names.Tag
 }{{
 	about: "Client.Status",
 	op:    opClientStatus,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.ServiceSet",
 	op:    opClientServiceSet,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.ServiceSetYAML",
 	op:    opClientServiceSetYAML,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.ServiceGet",
 	op:    opClientServiceGet,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.Resolved",
 	op:    opClientResolved,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.ServiceExpose",
 	op:    opClientServiceExpose,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.ServiceUnexpose",
 	op:    opClientServiceUnexpose,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.ServiceDeploy",
 	op:    opClientServiceDeploy,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.ServiceDeployWithNetworks",
 	op:    opClientServiceDeployWithNetworks,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.ServiceUpdate",
 	op:    opClientServiceUpdate,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.ServiceSetCharm",
 	op:    opClientServiceSetCharm,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.GetAnnotations",
 	op:    opClientGetAnnotations,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.SetAnnotations",
 	op:    opClientSetAnnotations,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.AddServiceUnits",
 	op:    opClientAddServiceUnits,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.DestroyServiceUnits",
 	op:    opClientDestroyServiceUnits,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.ServiceDestroy",
 	op:    opClientServiceDestroy,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.GetServiceConstraints",
 	op:    opClientGetServiceConstraints,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.SetServiceConstraints",
 	op:    opClientSetServiceConstraints,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.SetEnvironmentConstraints",
 	op:    opClientSetEnvironmentConstraints,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.EnvironmentGet",
 	op:    opClientEnvironmentGet,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.EnvironmentSet",
 	op:    opClientEnvironmentSet,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.SetEnvironAgentVersion",
 	op:    opClientSetEnvironAgentVersion,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.WatchAll",
 	op:    opClientWatchAll,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.CharmInfo",
 	op:    opClientCharmInfo,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.AddRelation",
 	op:    opClientAddRelation,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }, {
 	about: "Client.DestroyRelation",
 	op:    opClientDestroyRelation,
-	allow: []string{"user-admin", "user-other"},
+	allow: []names.Tag{userAdmin, userOther},
 }}
 
 // allowed returns the set of allowed entities given an allow list and a
 // deny list.  If an allow list is specified, only those entities are
 // allowed; otherwise those in deny are disallowed.
-func allowed(all, allow, deny []string) map[string]bool {
-	p := make(map[string]bool)
+func allowed(all, allow, deny []names.Tag) map[names.Tag]bool {
+	p := make(map[names.Tag]bool)
 	if allow != nil {
 		for _, e := range allow {
 			p[e] = true

@@ -29,7 +29,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/tools"
 )
 
@@ -316,8 +315,8 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	return common.Bootstrap(ctx, e, args)
 }
 
-func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	return common.StateInfo(e)
+func (e *environ) StateServerInstances() ([]instance.Id, error) {
+	return common.ProviderStateInstances(e, e.Storage())
 }
 
 // SupportedArchitectures is specified on the EnvironCapability interface.

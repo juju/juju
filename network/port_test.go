@@ -49,33 +49,42 @@ func (t hostPortTest) expected() string {
 }
 
 func (s *PortSuite) TestSelectPublicHostPort(c *gc.C) {
+	oldValue := network.GetPreferIPv6()
+	defer func() {
+		network.SetPreferIPv6(oldValue)
+	}()
 	for i, t0 := range selectPublicTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		network.PreferIPv6 = t.preferIPv6
+		network.SetPreferIPv6(t.preferIPv6)
 		c.Check(network.SelectPublicHostPort(t.hostPorts), jc.DeepEquals, t.expected())
 	}
-	network.PreferIPv6 = false
 }
 
 func (s *PortSuite) TestSelectInternalHostPort(c *gc.C) {
+	oldValue := network.GetPreferIPv6()
+	defer func() {
+		network.SetPreferIPv6(oldValue)
+	}()
 	for i, t0 := range selectInternalTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		network.PreferIPv6 = t.preferIPv6
+		network.SetPreferIPv6(t.preferIPv6)
 		c.Check(network.SelectInternalHostPort(t.hostPorts, false), jc.DeepEquals, t.expected())
 	}
-	network.PreferIPv6 = false
 }
 
 func (s *PortSuite) TestSelectInternalMachineHostPort(c *gc.C) {
+	oldValue := network.GetPreferIPv6()
+	defer func() {
+		network.SetPreferIPv6(oldValue)
+	}()
 	for i, t0 := range selectInternalMachineTests {
 		t := t0.hostPortTest()
 		c.Logf("test %d: %s", i, t.about)
-		network.PreferIPv6 = t.preferIPv6
+		network.SetPreferIPv6(t.preferIPv6)
 		c.Check(network.SelectInternalHostPort(t.hostPorts, true), gc.DeepEquals, t.expected())
 	}
-	network.PreferIPv6 = false
 }
 
 func (*PortSuite) TestAddressesWithPort(c *gc.C) {
@@ -88,4 +97,49 @@ func (*PortSuite) TestAddressesWithPort(c *gc.C) {
 		Address: network.NewAddress("0.2.4.6", network.ScopeUnknown),
 		Port:    999,
 	}})
+}
+
+func (*PortSuite) TestSortHostPorts(c *gc.C) {
+	hps := network.AddressesWithPort(
+		network.NewAddresses(
+			"127.0.0.1",
+			"localhost",
+			"example.com",
+			"::1",
+			"fc00::1",
+			"fe80::2",
+			"172.16.0.1",
+			"8.8.8.8",
+		),
+		1234,
+	)
+	network.SortHostPorts(hps, false)
+	c.Assert(hps, jc.DeepEquals, network.AddressesWithPort(
+		network.NewAddresses(
+			"example.com",
+			"localhost",
+			"127.0.0.1",
+			"172.16.0.1",
+			"8.8.8.8",
+			"::1",
+			"fe80::2",
+			"fc00::1",
+		),
+		1234,
+	))
+
+	network.SortHostPorts(hps, true)
+	c.Assert(hps, jc.DeepEquals, network.AddressesWithPort(
+		network.NewAddresses(
+			"example.com",
+			"localhost",
+			"fe80::2",
+			"::1",
+			"fc00::1",
+			"127.0.0.1",
+			"172.16.0.1",
+			"8.8.8.8",
+		),
+		1234,
+	))
 }
