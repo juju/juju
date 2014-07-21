@@ -9,7 +9,6 @@ import (
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/provider/common"
@@ -84,29 +83,11 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		return err
 	}
 
-	// Store the state file. If provisioning fails, we'll remove the file.
-	logger.Infof("Saving bootstrap state file to bootstrap storage")
-	bootstrapStorage := args.Environ.Storage()
-	err = bootstrap.SaveState(
-		bootstrapStorage,
-		&bootstrap.BootstrapState{
-			StateInstances: []instance.Id{BootstrapInstanceId},
-		},
-	)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if err != nil {
-			logger.Errorf("bootstrapping failed, removing state file: %v", err)
-			bootstrapStorage.Remove(bootstrap.StateFile)
-		}
-	}()
-
 	// If the tools are on the machine already, get a file:// scheme tools URL.
 	tools := *possibleTools[0]
 	storageDir := args.Environ.StorageDir()
 	toolsStorageName := envtools.StorageName(tools.Version)
+	bootstrapStorage := args.Environ.Storage()
 	if url, _ := bootstrapStorage.URL(toolsStorageName); url == tools.URL {
 		tools.URL = fmt.Sprintf("file://%s/%s", storageDir, toolsStorageName)
 	}

@@ -43,7 +43,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -650,18 +649,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	}
 	estate.preferIPv6 = e.Config().PreferIPv6()
 
-	// Write the bootstrap file just like a normal provider. However
-	// we need to release the mutex for the save state to work, so regain
-	// it after the call.
-	estate.mu.Unlock()
-	instIds := []instance.Id{BootstrapInstanceId}
-	if err := bootstrap.SaveState(e.Storage(), &bootstrap.BootstrapState{StateInstances: instIds}); err != nil {
-		logger.Errorf("failed to save state instances: %v", err)
-		estate.mu.Lock() // otherwise defered unlock will fail
-		return err
-	}
-	estate.mu.Lock() // back at it
-
 	// Create an instance for the bootstrap node.
 	logger.Infof("creating bootstrap instance")
 	i := &dummyInstance{
@@ -720,9 +707,6 @@ func (e *environ) StateServerInstances() ([]instance.Id, error) {
 	defer estate.mu.Unlock()
 	if err := e.checkBroken("StateServerInstances"); err != nil {
 		return nil, err
-	}
-	if !e.ecfg().stateServer() {
-		return nil, errors.New("dummy environment has no state configured")
 	}
 	if !estate.bootstrapped {
 		return nil, environs.ErrNotBootstrapped
