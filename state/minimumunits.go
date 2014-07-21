@@ -69,14 +69,14 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 	state := service.st
 	serviceName := service.Name()
 	ops := []txn.Op{{
-		C:      state.services.Name,
+		C:      servicesC,
 		Id:     serviceName,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$set", bson.D{{"minunits", minUnits}}}},
 	}}
 	if service.doc.MinUnits == 0 {
 		return append(ops, txn.Op{
-			C:      state.minUnits.Name,
+			C:      minUnitsC,
 			Id:     serviceName,
 			Assert: txn.DocMissing,
 			Insert: &minUnitsDoc{ServiceName: serviceName},
@@ -101,7 +101,7 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 // operation is a noop.
 func minUnitsTriggerOp(st *State, serviceName string) txn.Op {
 	return txn.Op{
-		C:      st.minUnits.Name,
+		C:      minUnitsC,
 		Id:     serviceName,
 		Update: bson.D{{"$inc", bson.D{{"revno", 1}}}},
 	}
@@ -111,7 +111,7 @@ func minUnitsTriggerOp(st *State, serviceName string) txn.Op {
 // units document from MongoDB.
 func minUnitsRemoveOp(st *State, serviceName string) txn.Op {
 	return txn.Op{
-		C:      st.minUnits.Name,
+		C:      minUnitsC,
 		Id:     serviceName,
 		Remove: true,
 	}
@@ -179,8 +179,11 @@ func (s *Service) EnsureMinUnits() (err error) {
 
 // aliveUnitsCount returns the number a alive units for the service.
 func aliveUnitsCount(service *Service) (int, error) {
+	units, closer := service.st.getCollection(unitsC)
+	defer closer()
+
 	query := bson.D{{"service", service.doc.Name}, {"life", Alive}}
-	return service.st.units.Find(query).Count()
+	return units.Find(query).Count()
 }
 
 // ensureMinUnitsOps returns the operations required to add a unit for the

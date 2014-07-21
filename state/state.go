@@ -21,6 +21,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	jujutxn "github.com/juju/txn"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -31,7 +32,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
 	"github.com/juju/juju/state/presence"
-	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 	"github.com/juju/juju/version"
 )
@@ -40,6 +40,32 @@ var logger = loggo.GetLogger("juju.state")
 
 // BootstrapNonce is used as a nonce for the state server machine.
 const (
+	environmentsC      = "environments"
+	charmsC            = "charms"
+	machinesC          = "machines"
+	containerRefsC     = "containerRefs"
+	instanceDataC      = "instanceData"
+	relationsC         = "relations"
+	relationScopesC    = "relationScopes"
+	servicesC          = "services"
+	requestedNetworksC = "requestedNetworks"
+	networksC          = "networks"
+	networkInterfacesC = "networkInterfaces"
+	minUnitsC          = "minUnits"
+	settingsC          = "settings"
+	settingsrefsC      = "settingsrefs"
+	constraintsC       = "constraints"
+	unitsC             = "units"
+	actionsC           = "actions"
+	actionresultsC     = "actionresults"
+	usersC             = "users"
+	presenceC          = "presence"
+	cleanupsC          = "cleanups"
+	annotationsC       = "annotations"
+	statusesC          = "statuses"
+	stateServersC      = "stateServers"
+	openedPortsC       = "openedPorts"
+
 	BootstrapNonce = "user-admin:bootstrap"
 	AdminUser      = "admin"
 )
@@ -47,39 +73,36 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	transactionRunner statetxn.Runner
+	transactionRunner jujutxn.Runner
 	info              *Info
 	policy            Policy
 	db                *mgo.Database
-	environments      *mgo.Collection
-	charms            *mgo.Collection
-	machines          *mgo.Collection
-	instanceData      *mgo.Collection
-	containerRefs     *mgo.Collection
-	relations         *mgo.Collection
-	relationScopes    *mgo.Collection
-	services          *mgo.Collection
-	requestedNetworks *mgo.Collection
-	networks          *mgo.Collection
-	networkInterfaces *mgo.Collection
-	minUnits          *mgo.Collection
-	settings          *mgo.Collection
-	settingsrefs      *mgo.Collection
-	constraints       *mgo.Collection
-	units             *mgo.Collection
-	actions           *mgo.Collection
-	actionresults     *mgo.Collection
-	users             *mgo.Collection
-	presence          *mgo.Collection
-	cleanups          *mgo.Collection
-	annotations       *mgo.Collection
-	statuses          *mgo.Collection
-	stateServers      *mgo.Collection
 	watcher           *watcher.Watcher
 	pwatcher          *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
+}
+
+// getCollection fetches a named collection using a new session.
+// It returns the collection and a closer function for the session.
+func (st *State) getCollection(coll string) (*mgo.Collection, func()) {
+	return mongo.CollectionFromName(st.db, coll)
+}
+
+// getPresence returns the presence collection.
+func (st *State) getPresence() *mgo.Collection {
+	return st.db.Session.DB("presence").C(presenceC)
+}
+
+// newDB returns a database connection using a new session, along with
+// a closer function for the session. This is useful where you need to work
+// with various collections in a single session, so don't want to call
+// getCollection multiple times.
+func (st *State) newDB() (*mgo.Database, func()) {
+	session := st.db.Session.Copy()
+	db := session.DB("juju")
+	return db, session.Close
 }
 
 // Ping probes the state's database connection to ensure
@@ -102,7 +125,7 @@ func (st *State) runTransaction(ops []txn.Op) error {
 }
 
 // run is a convenience method delegating to transactionRunner.
-func (st *State) run(transactions statetxn.TransactionSource) error {
+func (st *State) run(transactions jujutxn.TransactionSource) error {
 	return st.transactionRunner.Run(transactions)
 }
 
@@ -167,6 +190,9 @@ func IsVersionInconsistentError(e interface{}) bool {
 }
 
 func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
+	db, closer := st.newDB()
+	defer closer()
+
 	matchCurrent := "^" + regexp.QuoteMeta(currentVersion) + "-"
 	matchNew := "^" + regexp.QuoteMeta(newVersion) + "-"
 	// Get all machines and units with a different or empty version.
@@ -178,16 +204,18 @@ func (st *State) checkCanUpgrade(currentVersion, newVersion string) error {
 		}}},
 	}}}
 	var agentTags []string
-	for _, collection := range []*mgo.Collection{st.machines, st.units} {
+	for _, name := range []string{machinesC, unitsC} {
+		collection := db.C(name)
+
 		var doc struct {
 			Id string `bson:"_id"`
 		}
 		iter := collection.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 		for iter.Next(&doc) {
-			switch collection.Name {
-			case "machines":
+			switch name {
+			case machinesC:
 				agentTags = append(agentTags, names.NewMachineTag(doc.Id).String())
-			case "units":
+			case unitsC:
 				agentTags = append(agentTags, names.NewUnitTag(doc.Id).String())
 			}
 		}
@@ -220,7 +248,7 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		}
 		if newVersion.String() == currentVersion {
 			// Nothing to do.
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 
 		if err := st.checkCanUpgrade(currentVersion, newVersion.String()); err != nil {
@@ -228,14 +256,14 @@ func (st *State) SetEnvironAgentVersion(newVersion version.Number) (err error) {
 		}
 
 		ops := []txn.Op{{
-			C:      st.settings.Name,
+			C:      settingsC,
 			Id:     environGlobalKey,
 			Assert: bson.D{{"txn-revno", settings.txnRevno}},
 			Update: bson.D{{"$set", bson.D{{"agent-version", newVersion.String()}}}},
 		}}
 		return ops, nil
 	}
-	if err = st.run(buildTxn); err == statetxn.ErrExcessiveContention {
+	if err = st.run(buildTxn); err == jujutxn.ErrExcessiveContention {
 		err = errors.Annotate(err, "cannot set agent version")
 	}
 	return err
@@ -336,8 +364,11 @@ func onAbort(txnErr, err error) error {
 // AllMachines returns all machines in the environment
 // ordered by id.
 func (st *State) AllMachines() (machines []*Machine, err error) {
+	machinesCollection, closer := st.getCollection(machinesC)
+	defer closer()
+
 	mdocs := machineDocSlice{}
-	err = st.machines.Find(nil).All(&mdocs)
+	err = machinesCollection.Find(nil).All(&mdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all machines: %v", err)
 	}
@@ -400,9 +431,12 @@ func machineIdLessThan(id1, id2 string) bool {
 
 // Machine returns the machine with the given id.
 func (st *State) Machine(id string) (*Machine, error) {
+	machinesCollection, closer := st.getCollection(machinesC)
+	defer closer()
+
 	mdoc := &machineDoc{}
 	sel := bson.D{{"_id", id}}
-	err := st.machines.Find(sel).One(mdoc)
+	err := machinesCollection.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("machine %s", id)
 	}
@@ -476,21 +510,21 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 	}
 	switch t.(type) {
 	case names.MachineTag:
-		coll = st.machines.Name
+		coll = machinesC
 	case names.ServiceTag:
-		coll = st.services.Name
+		coll = servicesC
 	case names.UnitTag:
-		coll = st.units.Name
+		coll = unitsC
 	case names.UserTag:
-		coll = st.users.Name
+		coll = usersC
 	case names.RelationTag:
-		coll = st.relations.Name
+		coll = relationsC
 	case names.EnvironTag:
-		coll = st.environments.Name
+		coll = environmentsC
 	case names.NetworkTag:
-		coll = st.networks.Name
+		coll = networksC
 	case names.ActionTag:
-		coll = st.actions.Name
+		coll = actionsC
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
@@ -505,7 +539,10 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 	// check for that situation and update the existing charm record
 	// if necessary, otherwise add a new record.
 	var existing charmDoc
-	err = st.charms.Find(bson.D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
+	err = charms.Find(bson.D{{"_id", curl.String()}, {"placeholder", true}}).One(&existing)
 	if err == mgo.ErrNotFound {
 		cdoc := &charmDoc{
 			URL:          curl,
@@ -515,7 +552,7 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 			BundleURL:    bundleURL,
 			BundleSha256: bundleSha256,
 		}
-		err = st.charms.Insert(cdoc)
+		err = charms.Insert(cdoc)
 		if err != nil {
 			return nil, fmt.Errorf("cannot add charm %q: %v", curl, err)
 		}
@@ -529,13 +566,16 @@ func (st *State) AddCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, b
 // Charm returns the charm with the given URL. Charms pending upload
 // to storage and placeholders are never returned.
 func (st *State) Charm(curl *charm.URL) (*Charm, error) {
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
 	cdoc := &charmDoc{}
 	what := bson.D{
 		{"_id", curl},
 		{"placeholder", bson.D{{"$ne", true}}},
 		{"pendingupload", bson.D{{"$ne", true}}},
 	}
-	err := st.charms.Find(what).One(&cdoc)
+	err := charms.Find(what).One(&cdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -551,10 +591,13 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 // LatestPlaceholderCharm returns the latest charm described by the
 // given URL but which is not yet deployed.
 func (st *State) LatestPlaceholderCharm(curl *charm.URL) (*Charm, error) {
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
 	var docs []charmDoc
-	err := st.charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
+	err := charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
 	}
@@ -589,10 +632,13 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
 
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find the highest revision of that charm in state.
 		var docs []charmDoc
-		err = st.charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}).Select(bson.D{{"_id", 1}}).All(&docs)
+		err = charms.Find(bson.D{{"_id", bson.D{{"$regex", curlRegex}}}}).Select(bson.D{{"_id", 1}}).All(&docs)
 		if err != nil {
 			return nil, err
 		}
@@ -617,7 +663,7 @@ func (st *State) PrepareLocalCharmUpload(curl *charm.URL) (chosenUrl *charm.URL,
 			PendingUpload: true,
 		}
 		ops := []txn.Op{{
-			C:      st.charms.Name,
+			C:      charmsC,
 			Id:     uploadedCharm.URL,
 			Assert: txn.DocMissing,
 			Insert: uploadedCharm,
@@ -648,20 +694,23 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		return nil, fmt.Errorf("expected charm URL with revision, got %q", curl)
 	}
 
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
 	var (
 		uploadedCharm charmDoc
 		err           error
 	)
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Find an uploaded or pending charm with the given exact curl.
-		err := st.charms.FindId(curl).One(&uploadedCharm)
+		err := charms.FindId(curl).One(&uploadedCharm)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, err
 		} else if err == nil && !uploadedCharm.Placeholder {
 			// The charm exists and it's either uploaded or still
 			// pending, but it's not a placeholder. In any case,
 			// there's nothing to do.
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		} else if err == mgo.ErrNotFound {
 			// Prepare the pending charm document for insertion.
 			uploadedCharm = charmDoc{
@@ -677,7 +726,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 			// asserting the fields updated after an upload have not
 			// changed yet.
 			ops = []txn.Op{{
-				C:  st.charms.Name,
+				C:  charmsC,
 				Id: curl,
 				Assert: bson.D{
 					{"bundlesha256", ""},
@@ -695,7 +744,7 @@ func (st *State) PrepareStoreCharmUpload(curl *charm.URL) (*Charm, error) {
 		} else {
 			// No charm document with this curl yet, insert it.
 			ops = []txn.Op{{
-				C:      st.charms.Name,
+				C:      charmsC,
 				Id:     curl,
 				Assert: txn.DocMissing,
 				Insert: uploadedCharm,
@@ -725,16 +774,18 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 	if curl.Revision < 0 {
 		return fmt.Errorf("expected charm URL with revision, got %q", curl)
 	}
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
 
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// See if the charm already exists in state and exit early if that's the case.
 		var doc charmDoc
-		err := st.charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
+		err := charms.Find(bson.D{{"_id", curl.String()}}).Select(bson.D{{"_id", 1}}).One(&doc)
 		if err != nil && err != mgo.ErrNotFound {
 			return nil, err
 		}
 		if err == nil {
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 
 		// Delete all previous placeholders so we don't fill up the database with unused data.
@@ -748,7 +799,7 @@ func (st *State) AddStoreCharmPlaceholder(curl *charm.URL) (err error) {
 			Placeholder: true,
 		}
 		ops = append(ops, txn.Op{
-			C:      st.charms.Name,
+			C:      charmsC,
 			Id:     placeholderCharm.URL.String(),
 			Assert: txn.DocMissing,
 			Insert: placeholderCharm,
@@ -764,9 +815,13 @@ func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error
 	// Get a regex with the charm URL and no revision.
 	noRevURL := curl.WithRevision(-1)
 	curlRegex := "^" + regexp.QuoteMeta(noRevURL.String())
+
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
 	var docs []charmDoc
-	err := st.charms.Find(
-		bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).Select(bson.D{{"_id", 1}}).All(&docs)
+	err := charms.Find(
+	bson.D{{"_id", bson.D{{"$regex", curlRegex}}}, {"placeholder", true}}).Select(bson.D{{"_id", 1}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
@@ -776,7 +831,7 @@ func (st *State) deleteOldPlaceholderCharmsOps(curl *charm.URL) ([]txn.Op, error
 			continue
 		}
 		ops = append(ops, txn.Op{
-			C:      st.charms.Name,
+			C:      charmsC,
 			Id:     doc.URL.String(),
 			Assert: stillPlaceholder,
 			Remove: true,
@@ -814,8 +869,11 @@ var ErrCharmRevisionAlreadyModified = fmt.Errorf("charm revision already modifie
 // UpdateUploadedCharm marks the given charm URL as uploaded and
 // updates the rest of its data, returning it as *state.Charm.
 func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string) (*Charm, error) {
+	charms, closer := st.getCollection(charmsC)
+	defer closer()
+
 	doc := &charmDoc{}
-	err := st.charms.FindId(curl).One(&doc)
+	err := charms.FindId(curl).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("charm %q", curl)
 	}
@@ -834,7 +892,7 @@ func (st *State) UpdateUploadedCharm(ch charm.Charm, curl *charm.URL, bundleURL 
 // charm is no longer a placeholder or pending (depending on preReq),
 // it returns ErrCharmRevisionAlreadyModified.
 func (st *State) updateCharmDoc(
-	ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string, preReq interface{}) (*Charm, error) {
+ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSha256 string, preReq interface{}) (*Charm, error) {
 
 	updateFields := bson.D{{"$set", bson.D{
 		{"meta", ch.Meta()},
@@ -846,7 +904,7 @@ func (st *State) updateCharmDoc(
 		{"placeholder", false},
 	}}}
 	ops := []txn.Op{{
-		C:      st.charms.Name,
+		C:      charmsC,
 		Id:     curl,
 		Assert: preReq,
 		Update: updateFields,
@@ -878,7 +936,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 			Life:      Alive,
 		}
 		ops = append(ops, txn.Op{
-			C:      st.relations.Name,
+			C:      relationsC,
 			Id:     relKey,
 			Assert: txn.DocMissing,
 			Insert: relDoc,
@@ -903,7 +961,7 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 	if ch == nil {
 		return nil, fmt.Errorf("charm is nil")
 	}
-	if exists, err := isNotDead(st.services, name); err != nil {
+	if exists, err := isNotDead(st.db, servicesC, name); err != nil {
 		return nil, err
 	} else if exists {
 		return nil, fmt.Errorf("service already exists")
@@ -942,18 +1000,18 @@ func (st *State) AddService(name, ownerTag string, ch *Charm, networks []string)
 		createRequestedNetworksOp(st, svc.globalKey(), networks),
 		createSettingsOp(st, svc.settingsKey(), nil),
 		{
-			C:      st.users.Name,
+			C:      usersC,
 			Id:     ownerId,
 			Assert: txn.DocExists,
 		},
 		{
-			C:      st.settingsrefs.Name,
+			C:      settingsrefsC,
 			Id:     svc.settingsKey(),
 			Assert: txn.DocMissing,
 			Insert: settingsRefsDoc{1},
 		},
 		{
-			C:      st.services.Name,
+			C:      servicesC,
 			Id:     name,
 			Assert: txn.DocMissing,
 			Insert: svcDoc,
@@ -1015,7 +1073,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	}
 	doc := newNetworkDoc(args)
 	ops := []txn.Op{{
-		C:      st.networks.Name,
+		C:      networksC,
 		Id:     args.Name,
 		Assert: txn.DocMissing,
 		Insert: doc,
@@ -1045,8 +1103,11 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 
 // Network returns the network with the given name.
 func (st *State) Network(name string) (*Network, error) {
+	networks, closer := st.getCollection(networksC)
+	defer closer()
+
 	doc := &networkDoc{}
-	err := st.networks.FindId(name).One(doc)
+	err := networks.FindId(name).One(doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("network %q", name)
 	}
@@ -1058,8 +1119,11 @@ func (st *State) Network(name string) (*Network, error) {
 
 // AllNetworks returns all known networks in the environment.
 func (st *State) AllNetworks() (networks []*Network, err error) {
+	networksCollection, closer := st.getCollection(networksC)
+	defer closer()
+
 	docs := []networkDoc{}
-	err = st.networks.Find(nil).All(&docs)
+	err = networksCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all networks")
 	}
@@ -1071,12 +1135,15 @@ func (st *State) AllNetworks() (networks []*Network, err error) {
 
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
+	services, closer := st.getCollection(servicesC)
+	defer closer()
+
 	if !names.IsService(name) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
 	sel := bson.D{{"_id", name}}
-	err = st.services.Find(sel).One(sdoc)
+	err = services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("service %q", name)
 	}
@@ -1088,8 +1155,11 @@ func (st *State) Service(name string) (service *Service, err error) {
 
 // AllServices returns all deployed services in the environment.
 func (st *State) AllServices() (services []*Service, err error) {
+	servicesCollection, closer := st.getCollection(servicesC)
+	defer closer()
+
 	sdocs := []serviceDoc{}
-	err = st.services.Find(bson.D{}).All(&sdocs)
+	err = servicesCollection.Find(bson.D{}).All(&sdocs)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get all services")
 	}
@@ -1243,7 +1313,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	var doc *relationDoc
 	buildTxn := func(attempt int) ([]txn.Op, error) {
 		// Perform initial relation sanity check.
-		if exists, err := isNotDead(st.relations, key); err != nil {
+		if exists, err := isNotDead(st.db, relationsC, key); err != nil {
 			return nil, err
 		} else if exists {
 			return nil, fmt.Errorf("relation already exists")
@@ -1269,7 +1339,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 				return nil, fmt.Errorf("%q does not implement %q", ep.ServiceName, ep)
 			}
 			ops = append(ops, txn.Op{
-				C:      st.services.Name,
+				C:      servicesC,
 				Id:     ep.ServiceName,
 				Assert: bson.D{{"life", Alive}, {"charmurl", ch.URL()}},
 				Update: bson.D{{"$inc", bson.D{{"relationcount", 1}}}},
@@ -1293,7 +1363,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Life:      Alive,
 		}
 		ops = append(ops, txn.Op{
-			C:      st.relations.Name,
+			C:      relationsC,
 			Id:     doc.Key,
 			Assert: txn.DocMissing,
 			Insert: doc,
@@ -1314,8 +1384,11 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 // KeyRelation returns the existing relation with the given key (which can
 // be derived unambiguously from the relation's endpoints).
 func (st *State) KeyRelation(key string) (*Relation, error) {
+	relations, closer := st.getCollection(relationsC)
+	defer closer()
+
 	doc := relationDoc{}
-	err := st.relations.Find(bson.D{{"_id", key}}).One(&doc)
+	err := relations.Find(bson.D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %q", key)
 	}
@@ -1327,8 +1400,11 @@ func (st *State) KeyRelation(key string) (*Relation, error) {
 
 // Relation returns the existing relation with the given id.
 func (st *State) Relation(id int) (*Relation, error) {
+	relations, closer := st.getCollection(relationsC)
+	defer closer()
+
 	doc := relationDoc{}
-	err := st.relations.Find(bson.D{{"id", id}}).One(&doc)
+	err := relations.Find(bson.D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %d", id)
 	}
@@ -1340,8 +1416,11 @@ func (st *State) Relation(id int) (*Relation, error) {
 
 // AllRelations returns all relations in the environment ordered by id.
 func (st *State) AllRelations() (relations []*Relation, err error) {
+	relationsCollection, closer := st.getCollection(relationsC)
+	defer closer()
+
 	docs := relationDocSlice{}
-	err = st.relations.Find(nil).All(&docs)
+	err = relationsCollection.Find(nil).All(&docs)
 	if err != nil {
 		return nil, errors.Annotate(err, "cannot get all relations")
 	}
@@ -1362,8 +1441,11 @@ func (rdc relationDocSlice) Less(i, j int) bool {
 
 // Action returns an Action by Id.
 func (st *State) Action(id string) (*Action, error) {
+	actions, closer := st.getCollection(actionsC)
+	defer closer()
+
 	doc := actionDoc{}
-	err := st.actions.FindId(id).One(&doc)
+	err := actions.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("action %q", id)
 	}
@@ -1380,10 +1462,13 @@ func (st *State) UnitActions(name string) ([]*Action, error) {
 
 // Actions returns a list of pending actions for an Entity given its Tag()
 func (st *State) Actions(tag string) ([]*Action, error) {
+	actionsCollection, closer := st.getCollection(actionsC)
+	defer closer()
+
 	var actions []*Action
 	prefix := actionPrefix(tag)
 	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
-	iter := st.actions.Find(sel).Iter()
+	iter := actionsCollection.Find(sel).Iter()
 	var doc actionDoc
 	for iter.Next(&doc) {
 		actions = append(actions, newAction(st, doc))
@@ -1393,8 +1478,11 @@ func (st *State) Actions(tag string) ([]*Action, error) {
 
 // ActionResult returns an ActionResult by Id.
 func (st *State) ActionResult(id string) (*ActionResult, error) {
+	actionresults, closer := st.getCollection(actionresultsC)
+	defer closer()
+
 	doc := actionResultDoc{}
-	err := st.actionresults.FindId(id).One(&doc)
+	err := actionresults.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("action result %q", id)
 	}
@@ -1425,9 +1513,12 @@ func (st *State) ActionResultsForAction(actionId string) ([]*ActionResult, error
 // actionResults returns actionresults that match the given id prefix.
 // We assume the prefix has been scrubbed before calling this
 func (st *State) actionResults(prefix string) ([]*ActionResult, error) {
+	actionresults, closer := st.getCollection(actionresultsC)
+	defer closer()
+
 	var results []*ActionResult
 	sel := bson.D{{"_id", bson.RegEx{Pattern: "^" + regexp.QuoteMeta(prefix)}}}
-	iter := st.actionresults.Find(sel).Iter()
+	iter := actionresults.Find(sel).Iter()
 	var doc actionResultDoc
 	for iter.Next(&doc) {
 		results = append(results, newActionResult(st, doc))
@@ -1440,8 +1531,11 @@ func (st *State) Unit(name string) (*Unit, error) {
 	if !names.IsUnit(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
+	units, closer := st.getCollection(unitsC)
+	defer closer()
+
 	doc := unitDoc{}
-	err := st.units.FindId(name).One(&doc)
+	err := units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("unit %q", name)
 	}
@@ -1528,8 +1622,11 @@ type StateServerInfo struct {
 // StateServerInfo returns information about
 // the currently configured state server machines.
 func (st *State) StateServerInfo() (*StateServerInfo, error) {
+	stateServers, closer := st.getCollection(stateServersC)
+	defer closer()
+
 	var doc stateServersDoc
-	err := st.stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
+	err := stateServers.Find(bson.D{{"_id", environGlobalKey}}).One(&doc)
 	if err != nil {
 		return nil, fmt.Errorf("cannot get state servers document: %v", err)
 	}
@@ -1543,8 +1640,11 @@ const stateServingInfoKey = "stateServingInfo"
 
 // StateServingInfo returns information for running a state server machine
 func (st *State) StateServingInfo() (params.StateServingInfo, error) {
+	stateServers, closer := st.getCollection(stateServersC)
+	defer closer()
+
 	var info params.StateServingInfo
-	err := st.stateServers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
+	err := stateServers.Find(bson.D{{"_id", stateServingInfoKey}}).One(&info)
 	if err != nil {
 		return info, err
 	}
@@ -1561,7 +1661,7 @@ func (st *State) SetStateServingInfo(info params.StateServingInfo) error {
 		return fmt.Errorf("incomplete state serving info set in state")
 	}
 	ops := []txn.Op{{
-		C:      st.stateServers.Name,
+		C:      stateServersC,
 		Id:     stateServingInfoKey,
 		Update: bson.D{{"$set", info}},
 	}}

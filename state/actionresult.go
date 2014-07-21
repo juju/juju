@@ -92,7 +92,7 @@ func newActionResultDoc(action *Action, status ActionStatus, output string) (*ac
 // addActionResultOp builds the txn.Op used to add an actionresult
 func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 	return txn.Op{
-		C:      st.actionresults.Name,
+		C:      actionresultsC,
 		Id:     doc.Id,
 		Assert: txn.DocMissing,
 		Insert: doc,

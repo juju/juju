@@ -54,7 +54,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	// 1.17+ has a "Life" field in environment documents.
 	// We remove it here, to test 1.16 compatibility.
 	ops := []txn.Op{{
-		C:      s.state.environments.Name,
+		C:      environmentsC,
 		Id:     s.env.doc.UUID,
 		Update: bson.D{{"$unset", bson.D{{"life", nil}}}},
 	}}

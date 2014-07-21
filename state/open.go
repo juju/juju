@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -18,7 +19,6 @@ import (
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
-	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 )
 
@@ -109,11 +109,11 @@ func Initialize(info *Info, cfg *config.Config, opts mongo.DialOpts, policy Poli
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createEnvironmentOp(st, cfg.Name(), uuid.String()),
 		{
-			C:      st.stateServers.Name,
+			C:      stateServersC,
 			Id:     environGlobalKey,
 			Insert: &stateServersDoc{},
 		}, {
-			C:      st.stateServers.Name,
+			C:      stateServersC,
 			Id:     apiHostPortsKey,
 			Insert: &apiHostPortsDoc{},
 		},
@@ -204,33 +204,9 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	}
 
 	st := &State{
-		info:              info,
-		policy:            policy,
-		db:                db,
-		environments:      db.C("environments"),
-		charms:            db.C("charms"),
-		machines:          db.C("machines"),
-		containerRefs:     db.C("containerRefs"),
-		instanceData:      db.C("instanceData"),
-		relations:         db.C("relations"),
-		relationScopes:    db.C("relationscopes"),
-		services:          db.C("services"),
-		requestedNetworks: db.C("requestednetworks"),
-		networks:          db.C("networks"),
-		networkInterfaces: db.C("networkinterfaces"),
-		minUnits:          db.C("minunits"),
-		settings:          db.C("settings"),
-		settingsrefs:      db.C("settingsrefs"),
-		constraints:       db.C("constraints"),
-		units:             db.C("units"),
-		actions:           db.C("actions"),
-		actionresults:     db.C("actionresults"),
-		users:             db.C("users"),
-		presence:          pdb.C("presence"),
-		cleanups:          db.C("cleanups"),
-		annotations:       db.C("annotations"),
-		statuses:          db.C("statuses"),
-		stateServers:      db.C("stateServers"),
+		info:      info,
+		policy:    policy,
+		db:        db,
 	}
 	log := db.C("txns.log")
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
@@ -240,9 +216,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
-	mgoRunner := txn.NewRunner(db.C("txns"))
-	mgoRunner.ChangeLog(db.C("txns.log"))
-	st.transactionRunner = statetxn.NewRunner(mgoRunner)
+	st.transactionRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 	st.watcher = watcher.New(db.C("txns.log"))
 	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
 	for _, item := range indexes {
@@ -287,7 +261,7 @@ func (st *State) createStateServersDoc() error {
 	// we're concerned about, there is only ever one state connection
 	// (from the single bootstrap machine).
 	var machineDocs []machineDoc
-	err := st.machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
+	err := st.db.C(machinesC).Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
 	if err != nil {
 		return err
 	}
@@ -303,14 +277,14 @@ func (st *State) createStateServersDoc() error {
 	// ids or maintain the ids correctly. If that was the case,
 	// the insert will be a no-op.
 	ops := []txn.Op{{
-		C:  st.stateServers.Name,
+		C:  stateServersC,
 		Id: environGlobalKey,
 		Update: bson.D{{"$set", bson.D{
 			{"machineids", doc.MachineIds},
 			{"votingmachineids", doc.VotingMachineIds},
 		}}},
 	}, {
-		C:      st.stateServers.Name,
+		C:      stateServersC,
 		Id:     environGlobalKey,
 		Insert: &doc,
 	}}
@@ -330,7 +304,7 @@ func (st *State) MongoConnectionInfo() *Info {
 func (st *State) createAPIAddressesDoc() error {
 	var doc apiHostPortsDoc
 	ops := []txn.Op{{
-		C:      st.stateServers.Name,
+		C:      stateServersC,
 		Id:     apiHostPortsKey,
 		Assert: txn.DocMissing,
 		Insert: &doc,
@@ -343,7 +317,7 @@ func (st *State) createAPIAddressesDoc() error {
 func (st *State) createStateServingInfoDoc() error {
 	var info params.StateServingInfo
 	ops := []txn.Op{{
-		C:      st.stateServers.Name,
+		C:      stateServersC,
 		Id:     stateServingInfoKey,
 		Assert: txn.DocMissing,
 		Insert: &info,

@@ -73,9 +73,12 @@ func (doc *MachineDoc) String() string {
 }
 
 func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (int, error) {
+	settingsRefsCollection, closer := st.getCollection(settingsrefsC)
+	defer closer()
+
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	if err := st.settingsrefs.FindId(key).One(&doc); err == nil {
+	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
 		return doc.RefCount, nil
 	}
 	return 0, mgo.ErrNotFound
@@ -135,7 +138,7 @@ func SetMachineInstanceId(m *Machine, instanceId string) {
 func ClearInstanceDocId(c *gc.C, m *Machine) {
 	ops := []txn.Op{
 		{
-			C:      m.st.instanceData.Name,
+			C:      instanceDataC,
 			Id:     m.doc.Id,
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
@@ -195,8 +198,10 @@ func TxnRevno(st *State, coll string, id interface{}) (int64, error) {
 // MinUnitsRevno returns the Revno of the minUnits document
 // associated with the given service name.
 func MinUnitsRevno(st *State, serviceName string) (int, error) {
+	minUnitsCollection, closer := st.getCollection(minUnitsC)
+	defer closer()
 	var doc minUnitsDoc
-	if err := st.minUnits.FindId(serviceName).One(&doc); err != nil {
+	if err := minUnitsCollection.FindId(serviceName).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil
