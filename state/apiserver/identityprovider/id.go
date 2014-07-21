@@ -19,8 +19,10 @@ type IdentityProvider interface {
 // LookupProvider looks up the identity provider for the entity identified tag.
 func LookupProvider(tag names.Tag) (IdentityProvider, error) {
 	switch tag.Kind() {
-	case names.MachineTagKind, names.UnitTagKind, names.UserTagKind:
+	case names.MachineTagKind, names.UnitTagKind:
 		return &AgentIdentityProvider{}, nil
+	case names.UserTagKind:
+		return &UserIdentityProvider{}, nil
 	}
 	return nil, fmt.Errorf("Tag type '%s' does not have an identity provider", tag.Kind())
 }

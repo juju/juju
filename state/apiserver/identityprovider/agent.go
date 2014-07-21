@@ -11,7 +11,7 @@ import (
 	"github.com/juju/juju/state/apiserver/common"
 )
 
-// AgentIdentityProvider performs authentication for machine and unit agents as well as users.
+// AgentIdentityProvider performs authentication for machine and unit agents.
 type AgentIdentityProvider struct{}
 
 var _ IdentityProvider = (*AgentIdentityProvider)(nil)

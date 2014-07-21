@@ -14,7 +14,7 @@ import (
 	"github.com/juju/juju/state/apiserver/identityprovider"
 )
 
-type agentProviderSuite struct {
+type userProviderSuite struct {
 	jujutesting.JujuConnSuite
 	machineTag      names.Tag
 	machinePassword string
@@ -22,9 +22,9 @@ type agentProviderSuite struct {
 	unitPassword    string
 }
 
-var _ = gc.Suite(&agentProviderSuite{})
+var _ = gc.Suite(&userProviderSuite{})
 
-func (s *agentProviderSuite) SetUpTest(c *gc.C) {
+func (s *userProviderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// add machine for testing machine agent authentication
@@ -55,7 +55,7 @@ func (s *agentProviderSuite) SetUpTest(c *gc.C) {
 	s.unitPassword = password
 }
 
-func (s *agentProviderSuite) TestValidLogins(c *gc.C) {
+func (s *userProviderSuite) TestValidLogins(c *gc.C) {
 	testCases := []struct {
 		tag         names.Tag
 		credentials string
@@ -64,15 +64,9 @@ func (s *agentProviderSuite) TestValidLogins(c *gc.C) {
 	}{{
 		names.NewUserTag("admin"), "dummy-secret", "",
 		"user login",
-	}, {
-		s.machineTag, s.machinePassword, s.machineNonce,
-		"machine login",
-	}, {
-		names.NewUnitTag("wordpress/0"), s.unitPassword, "",
-		"unit login",
 	}}
 
-	provider := &identityprovider.AgentIdentityProvider{}
+	provider := &identityprovider.UserIdentityProvider{}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
@@ -81,7 +75,7 @@ func (s *agentProviderSuite) TestValidLogins(c *gc.C) {
 	}
 }
 
-func (s *agentProviderSuite) TestInvalidLogins(c *gc.C) {
+func (s *userProviderSuite) TestInvalidLogins(c *gc.C) {
 	testCases := []struct {
 		tag         names.Tag
 		credentials string
@@ -90,19 +84,22 @@ func (s *agentProviderSuite) TestInvalidLogins(c *gc.C) {
 		Error       string
 	}{{
 		names.NewRelationTag("wordpress:loadbalancer"), "dummy-secret", "",
-		"relation login", "invalid entity name or password",
+		"relation login", "relation tag cannot be authenticated with a user identity provider",
 	}, {
 		names.NewUserTag("bob"), "dummy-secret", "",
 		"user login for nonexistant user", "invalid entity name or password",
 	}, {
 		s.machineTag, s.machinePassword, "123",
-		"machine login", "machine 0 is not provisioned",
+		"machine login", "machine tag cannot be authenticated with a user identity provider",
 	}, {
 		names.NewUserTag("admin"), "wrong-secret", "",
 		"user login for nonexistant user", "invalid entity name or password",
+	}, {
+		names.NewUnitTag("wordpress/0"), s.unitPassword, "",
+		"unit login", "unit tag cannot be authenticated with a user identity provider",
 	}}
 
-	provider := &identityprovider.AgentIdentityProvider{}
+	provider := &identityprovider.UserIdentityProvider{}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
