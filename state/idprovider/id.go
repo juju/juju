@@ -8,7 +8,7 @@ import (
 )
 
 type IdentityProvider interface {
-	Login(st *state.State, tag, password, nonce string) error
+	Login(st *state.State, tag names.Tag, password, nonce string) error
 }
 
 func LookupProvider(tag names.Tag) (IdentityProvider, error) {
