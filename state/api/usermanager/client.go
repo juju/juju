@@ -32,7 +32,7 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) AddUser(username, displayName, password string) error {
-	if !names.IsUser(username) {
+	if !names.IsValidUser(username) {
 		return fmt.Errorf("invalid user name %q", username)
 	}
 	userArgs := params.ModifyUsers{
