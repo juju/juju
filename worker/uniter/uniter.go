@@ -450,6 +450,25 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
 	}
 }
 
+// validateAction validates the given Action params against the spec defined
+// for the charm.
+func (u *Uniter) validateAction(name string, params map[string]interface{}) (bool, error) {
+	ch, err := corecharm.Read(u.charmPath)
+	if err != nil {
+		return false, err
+	}
+
+	// Note that ch.Actions() will never be nil, rather an empty struct.
+	actionSpecs := ch.Actions()
+
+	spec, ok := actionSpecs.ActionSpecs[name]
+	if !ok {
+		return false, fmt.Errorf("no spec was defined for action %q", name)
+	}
+
+	return spec.ValidateParams(params)
+}
+
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
@@ -460,6 +479,12 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 
 	hookName := string(hi.Kind)
 	actionParams := map[string]interface{}(nil)
+
+	// This value is needed to pass results of Action param validation
+	// in case of error or invalidation.  This is probably bad form; it
+	// will be corrected in PR refactoring HookContext.
+	// TODO(binary132): handle errors before grabbing hook context.
+	var actionParamsErr error = nil
 
 	relationId := -1
 	if hi.Kind.IsRelation() {
@@ -474,6 +499,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 		actionParams = action.Params()
 		hookName = action.Name()
+		_, actionParamsErr = u.validateAction(hookName, actionParams)
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
@@ -487,6 +513,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if err != nil {
 		return err
 	}
+
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
 		return err
@@ -500,16 +527,23 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	logger.Infof("running %q hook", hookName)
 
 	ranHook := true
-	// The reason for the switch at this point is that once inside RunHook,
-	// we don't know whether we're running an Action or a regular Hook.
-	// RunAction simply calls the exact same method as RunHook, but with
-	// the location as "actions" instead of "hooks".
+	// The reason for the conditional at this point is that once inside
+	// RunHook, we don't know whether we're running an Action or a regular
+	// Hook.  RunAction simply calls the exact same method as RunHook, but
+	// with the location as "actions" instead of "hooks".
 	if hi.Kind == hooks.ActionRequested {
+		if actionParamsErr != nil {
+			logger.Errorf("action %q param validation failed: %s", hookName, actionParamsErr.Error())
+			u.notifyHookFailed(hookName, hctx)
+			return u.commitHook(hi)
+		}
 		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
 	} else {
 		err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
 	}
 
+	// Since the Action validation error was separated, regular error pathways
+	// will still occur correctly.
 	if IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
