@@ -85,11 +85,6 @@ func (s *backupSuite) setData(c *gc.C, data string) {
 //---------------------------
 // tests
 
-func (s *backupSuite) TestBackupFullFunctional(c *gc.C) {
-	c.Error("not finished")
-	//	backup.CheckArchive(c, filename, hash, rawData, filenames)
-}
-
 func (s *backupSuite) TestBackupExplicitFilename(c *gc.C) {
 	s.setData(c, "<compressed backup data>")
 	filename, hash, expected, err := s.client.Backup(s.filename, false)
