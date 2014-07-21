@@ -1,6 +1,11 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// NOTE: the identities that are being stored in the database here are only
+// the local identities, like "admin@local" or "bob@local".  In the  world
+// where we have external identity providers hooked up, there are no records
+// in the databse for identities that are authenticated elsewhere.
+
 package state
 
 import (
@@ -20,33 +25,37 @@ const (
 	// and associated with the admin user in the initial environment.
 	AdminIdentity = "admin"
 
-	identityCollectionName = "identities"
+	identityCollectionName    = "identities"
+	localIdentityProviderName = "local"
 )
 
 // AddIdentity adds an identity to the database.
-func (st *State) AddIdentity(username, displayName, password, creator string) (*Identity, error) {
-	if !names.IsValidUser(username) {
-		return nil, errors.Errorf("invalid identity name %q", username)
+func (st *State) AddIdentity(name, displayName, password, creator string) (*Identity, error) {
+	// The name of the identity happens to match the regex we use to confirm user names.
+	// Identities do not have tags, so there is no special function for identities. Given
+	// the relationships between users and identities it seems reasonable to use the same
+	// validation check.
+	if !names.IsValidUser(name) {
+		return nil, errors.Errorf("invalid identity name %q", name)
 	}
 	salt, err := utils.RandomSalt()
 	if err != nil {
 		return nil, err
 	}
-	timestamp := time.Now().Round(time.Second).UTC()
 	identity := &Identity{
 		st: st,
 		doc: identityDoc{
-			Name:         username,
+			Name:         name,
 			DisplayName:  displayName,
 			PasswordHash: utils.UserPasswordHash(password, salt),
 			PasswordSalt: salt,
 			CreatedBy:    creator,
-			DateCreated:  timestamp,
+			DateCreated:  nowToTheSecond(),
 		},
 	}
 	ops := []txn.Op{{
 		C:      identityCollectionName,
-		Id:     username,
+		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: &identity.doc,
 	}}
@@ -96,6 +105,11 @@ type identityDoc struct {
 	LastLogin    *time.Time `bson:"lastlogin"`
 }
 
+// String returns "<name>@local" where <name> is the Name of the identity.
+func (i *Identity) String() string {
+	return fmt.Sprintf("%s@%s", i.Name(), localIdentityProviderName)
+}
+
 // Name returns the Identity name.
 func (i *Identity) Name() string {
 	return i.doc.Name
@@ -117,6 +131,9 @@ func (i *Identity) DateCreated() time.Time {
 }
 
 // LastLogin returns when this Identity last connected through the API in UTC.
+// The resulting time will be null if the identity has never logged in.  In the
+// normal case, the LastLogin is the last time that the identity connected through
+// the API server.
 func (i *Identity) LastLogin() *time.Time {
 	when := i.doc.LastLogin
 	if when == nil {
@@ -126,16 +143,22 @@ func (i *Identity) LastLogin() *time.Time {
 	return &result
 }
 
-func (i *Identity) UpdateLastLogin() error {
-	timestamp := time.Now().Round(time.Second).UTC()
+// nowToTheSecond returns the current time in UTC to the nearest second.
+func nowToTheSecond() time.Time {
+	return time.Now().Round(time.Second).UTC()
+}
 
+// UpdateLastLogin sets the LastLogin time of the identity to be now (to the
+// nearest second).
+func (i *Identity) UpdateLastLogin() error {
+	timestamp := nowToTheSecond()
 	ops := []txn.Op{{
 		C:      identityCollectionName,
 		Id:     i.Name(),
 		Update: bson.D{{"$set", bson.D{{"lastlogin", timestamp}}}},
 	}}
 	if err := i.st.runTransaction(ops); err != nil {
-		return errors.Annotatef(err, "cannot update last login timestamp for Identity %q", i.Name())
+		return errors.Annotatef(err, "cannot update last login timestamp for identity %q", i.Name())
 	}
 
 	i.doc.LastLogin = &timestamp
@@ -151,7 +174,7 @@ func (i *Identity) SetPassword(password string) error {
 	return i.setPasswordHash(utils.UserPasswordHash(password, salt), salt)
 }
 
-// setPasswordHash just stores the hash and the salt of the password.
+// setPasswordHash stores the hash and the salt of the password.
 func (i *Identity) setPasswordHash(pwHash string, pwSalt string) error {
 	ops := []txn.Op{{
 		C:      identityCollectionName,
@@ -159,25 +182,27 @@ func (i *Identity) setPasswordHash(pwHash string, pwSalt string) error {
 		Update: bson.D{{"$set", bson.D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
 	}}
 	if err := i.st.runTransaction(ops); err != nil {
-		return fmt.Errorf("cannot set password of Identity %q: %v", i.Name(), err)
+		return errors.Annotatef(err, "cannot set password of identity %q", i.Name())
 	}
 	i.doc.PasswordHash = pwHash
 	i.doc.PasswordSalt = pwSalt
 	return nil
 }
 
-// PasswordValid returns whether the given password
-// is valid for the Identity.
+// PasswordValid returns whether the given password is valid for the Identity.
 func (i *Identity) PasswordValid(password string) bool {
-	// If the Identity is deactivated, no point in carrying on.
+	// If the Identity is deactivated, no point in carrying on. Since any
+	// authentication checks are done very soon after the identity is read
+	// from the database, there is a very small timeframe where an identity
+	// could be disabled after it has been read but prior to being checked,
+	// but in practice, this isn't a problem.
 	if i.IsDeactivated() {
 		return false
 	}
 	return utils.UserPasswordHash(password, i.doc.PasswordSalt) == i.doc.PasswordHash
 }
 
-// Refresh refreshes information about the Identity
-// from the state.
+// Refresh refreshes information about the Identity from the state.
 func (i *Identity) Refresh() error {
 	var udoc identityDoc
 	if err := i.st.getIdentity(i.Name(), &udoc); err != nil {
@@ -187,26 +212,39 @@ func (i *Identity) Refresh() error {
 	return nil
 }
 
+// Deactivate deactivates the identity.  Deactivated identities cannot log in.
 func (i *Identity) Deactivate() error {
 	if i.doc.Name == AdminIdentity {
-		return errors.Unauthorizedf("can't deactivate admin identity")
+		return errors.Unauthorizedf("cannot deactivate admin identity")
 	}
+	return errors.Annotatef(i.setDeactivated(true), "cannot deactivate identity %q", i.Name())
+}
+
+// Activate reactivates the identity, setting disabled to false.
+func (i *Identity) Activate() error {
+	return errors.Annotatef(i.setDeactivated(false), "cannot activate identity %q", i.Name())
+}
+
+func (i *Identity) setDeactivated(value bool) error {
 	ops := []txn.Op{{
 		C:      identityCollectionName,
 		Id:     i.Name(),
-		Update: bson.D{{"$set", bson.D{{"deactivated", true}}}},
+		Update: bson.D{{"$set", bson.D{{"deactivated", value}}}},
 		Assert: txn.DocExists,
 	}}
 	if err := i.st.runTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
-			err = fmt.Errorf("Identity no longer exists")
+			err = fmt.Errorf("identity no longer exists")
 		}
-		return fmt.Errorf("cannot deactivate Identity %q: %v", i.Name(), err)
+		return err
 	}
-	i.doc.Deactivated = true
+	i.doc.Deactivated = value
 	return nil
 }
 
+// IsDeactivated returns whether the identity is currently deactiviated.
 func (i *Identity) IsDeactivated() bool {
+	// Yes, this is a cached value, but in practice the identity object is
+	// never held around for a long time.
 	return i.doc.Deactivated
 }

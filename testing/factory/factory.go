@@ -30,7 +30,7 @@ type UserParams struct {
 
 // IdentityParams provides the optional valus for the Factory.MakeIdentity method.
 type IdentityParams struct {
-	Username    string
+	Name        string
 	DisplayName string
 	Password    string
 	Creator     string
@@ -84,8 +84,8 @@ func (factory *Factory) MakeAnyIdentity() *state.Identity {
 // For attributes of IdentityParams that are the default empty values,
 // some meaningful valid values are used instead.
 func (factory *Factory) MakeIdentity(params IdentityParams) *state.Identity {
-	if params.Username == "" {
-		params.Username = factory.UniqueString("username")
+	if params.Name == "" {
+		params.Name = factory.UniqueString("name")
 	}
 	if params.DisplayName == "" {
 		params.DisplayName = factory.UniqueString("display name")
@@ -97,7 +97,7 @@ func (factory *Factory) MakeIdentity(params IdentityParams) *state.Identity {
 		params.Creator = state.AdminIdentity
 	}
 	identity, err := factory.st.AddIdentity(
-		params.Username, params.DisplayName, params.Password, params.Creator)
+		params.Name, params.DisplayName, params.Password, params.Creator)
 	factory.c.Assert(err, gc.IsNil)
 	return identity
 }

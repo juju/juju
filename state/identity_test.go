@@ -66,6 +66,11 @@ func (s *IdentitySuite) TestAddIdentity(c *gc.C) {
 	c.Assert(identity.LastLogin(), gc.IsNil)
 }
 
+func (s *IdentitySuite) TestString(c *gc.C) {
+	identity := s.factory.MakeIdentity(factory.IdentityParams{Name: "foo"})
+	c.Assert(identity.String(), gc.Equals, "foo@local")
+}
+
 func (s *IdentitySuite) TestUpdateLastLogin(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
 	identity := s.factory.MakeAnyIdentity()
@@ -104,23 +109,28 @@ func (s *IdentitySuite) TestSetPasswordChangesSalt(c *gc.C) {
 }
 
 func (s *IdentitySuite) TestDeactivate(c *gc.C) {
-	identity := s.factory.MakeAnyIdentity()
-	c.Assert(identity.IsDeactivated(), gc.Equals, false)
+	identity := s.factory.MakeIdentity(factory.IdentityParams{Password: "a-password"})
+	c.Assert(identity.IsDeactivated(), jc.IsFalse)
 
 	err := identity.Deactivate()
 	c.Assert(err, gc.IsNil)
-	c.Assert(identity.IsDeactivated(), gc.Equals, true)
-	c.Assert(identity.PasswordValid(""), gc.Equals, false)
+	c.Assert(identity.IsDeactivated(), jc.IsTrue)
+	c.Assert(identity.PasswordValid("a-password"), jc.IsFalse)
+
+	err = identity.Activate()
+	c.Assert(err, gc.IsNil)
+	c.Assert(identity.IsDeactivated(), jc.IsFalse)
+	c.Assert(identity.PasswordValid("a-password"), jc.IsTrue)
 }
 
 func (s *IdentitySuite) TestCantDeactivateAdmin(c *gc.C) {
 	// TODO: when the ConnSuite is updated to create the admin identity for the
 	// admin user, we can remove the creation here (in fact it should cause this
 	// test to fail).
-	s.factory.MakeIdentity(factory.IdentityParams{Username: state.AdminIdentity})
+	s.factory.MakeIdentity(factory.IdentityParams{Name: state.AdminIdentity})
 
 	identity, err := s.State.Identity(state.AdminIdentity)
 	c.Assert(err, gc.IsNil)
 	err = identity.Deactivate()
-	c.Assert(err, gc.ErrorMatches, "can't deactivate admin identity")
+	c.Assert(err, gc.ErrorMatches, "cannot deactivate admin identity")
 }
