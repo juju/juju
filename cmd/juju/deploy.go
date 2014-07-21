@@ -306,7 +306,7 @@ func parseNetworks(networksValue string) []string {
 func networkNamesToTags(networks []string) ([]string, error) {
 	var tags []string
 	for _, network := range networks {
-		if !names.IsNetwork(network) {
+		if !names.IsValidNetwork(network) {
 			return nil, fmt.Errorf("%q is not a valid network name", network)
 		}
 		tags = append(tags, names.NewNetworkTag(network).String())

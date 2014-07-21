@@ -1006,7 +1006,7 @@ func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
 	if args.Name == "" {
 		return nil, fmt.Errorf("name must be not empty")
 	}
-	if !names.IsNetwork(args.Name) {
+	if !names.IsValidNetwork(args.Name) {
 		return nil, fmt.Errorf("invalid name")
 	}
 	if args.ProviderId == "" {
