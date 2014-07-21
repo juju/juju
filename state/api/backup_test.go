@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/backup"
 )
 
 var _ = gc.Suite(&backupSuite{})
@@ -81,20 +82,12 @@ func (s *backupSuite) setData(c *gc.C, data string) {
 	s.err = nil
 }
 
-func (s *backupSuite) checkArchive(c *gc.C, filename, hash string) {
-	// 1) the filename is created on disk
-	// 2) The content of the filename is not nil
-	// 3) It is a valid tarball
-	// 4) The hash matches expectations
-	// 5) some of the filenames in the tarball match expectations
-	c.Error("not finished")
-}
-
 //---------------------------
 // tests
 
 func (s *backupSuite) TestBackupFullFunctional(c *gc.C) {
 	c.Error("not finished")
+	//	backup.CheckArchive(c, filename, hash, rawData, filenames)
 }
 
 func (s *backupSuite) TestBackupExplicitFilename(c *gc.C) {
@@ -105,7 +98,7 @@ func (s *backupSuite) TestBackupExplicitFilename(c *gc.C) {
 	c.Check(filename, gc.Equals, s.filename)
 	c.Check(hash, gc.Equals, "cfbcc716a37b2507ff1201bdab8fea98fef64c4f")
 	c.Check(expected, gc.Equals, hash)
-	s.checkArchive(c, filename, hash)
+	backup.CheckArchive(c, filename, hash, s.data, nil)
 }
 
 func (s *backupSuite) TestBackupDefaultFilename(c *gc.C) {
@@ -114,10 +107,10 @@ func (s *backupSuite) TestBackupDefaultFilename(c *gc.C) {
 	defer os.Remove(filename)
 
 	c.Check(err, gc.IsNil)
-	c.Check(filename, gc.Matches, `jujubackup-\d+-\d+.tar.gz`)
+	c.Check(filepath.Base(filename), gc.Matches, `jujubackup-\d+-\d+.tar.gz`)
 	c.Check(hash, gc.Equals, "cfbcc716a37b2507ff1201bdab8fea98fef64c4f")
 	c.Check(expected, gc.Equals, hash)
-	s.checkArchive(c, filename, hash)
+	backup.CheckArchive(c, filename, hash, s.data, nil)
 }
 
 func (s *backupSuite) TestBackupFailureCreatingFile(c *gc.C) {
@@ -193,9 +186,37 @@ func (s *backupSuite) TestBackupFailureParsingDigest(c *gc.C) {
 	c.Check(filename, gc.Equals, s.filename)
 	c.Check(hash, gc.Equals, "cfbcc716a37b2507ff1201bdab8fea98fef64c4f")
 	c.Check(expected, gc.Equals, "")
-	s.checkArchive(c, filename, hash)
+	backup.CheckArchive(c, filename, hash, s.data, nil)
 }
 
 func (s *backupSuite) TestBackupFailureHandlingFilename(c *gc.C) {
-	c.Error("not finished")
+	s.setData(c, "<compressed backup data>")
+	extract := func(header http.Header) (string, error) {
+		return "", fmt.Errorf("failed!")
+	}
+	s.PatchValue(api.ExtractFilename, extract)
+	filename, hash, expected, err := s.client.Backup("", false)
+	defer os.Remove(filename)
+
+	c.Check(err, gc.IsNil)
+	c.Check(filepath.Base(filename), gc.Matches, `jujubackup-\d+-\d+.tar.gz`)
+	c.Check(hash, gc.Equals, "cfbcc716a37b2507ff1201bdab8fea98fef64c4f")
+	c.Check(expected, gc.Equals, hash)
+	backup.CheckArchive(c, filename, hash, s.data, nil)
+}
+
+func (s *backupSuite) TestBackupNoFilenameHeader(c *gc.C) {
+	s.setData(c, "<compressed backup data>")
+	extract := func(header http.Header) (string, error) {
+		return "", nil
+	}
+	s.PatchValue(api.ExtractFilename, extract)
+	filename, hash, expected, err := s.client.Backup("", false)
+	defer os.Remove(filename)
+
+	c.Check(err, gc.IsNil)
+	c.Check(filepath.Base(filename), gc.Matches, `jujubackup-\d+-\d+.tar.gz`)
+	c.Check(hash, gc.Equals, "cfbcc716a37b2507ff1201bdab8fea98fef64c4f")
+	c.Check(expected, gc.Equals, hash)
+	backup.CheckArchive(c, filename, hash, s.data, nil)
 }

@@ -54,6 +54,7 @@ func CreateEmptyFile(filename string, excl bool) (*os.File, string, error) {
 	if err != nil {
 		return nil, "", fmt.Errorf("could not create backup file: %v", err)
 	}
+	logger.Infof("created: %s", filename)
 	return file, filename, nil
 }
 

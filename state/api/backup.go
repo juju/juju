@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/backup"
@@ -41,19 +42,32 @@ func _sendHTTPRequest(req *http.Request, client *http.Client) (*http.Response, e
 // Note that the backup can take a long time to prepare. The resulting
 // file can be quite large file, depending on the system being backed up.
 func (c *Client) Backup(backupFilePath string, excl bool) (string, string, string, *params.Error) {
+	var file *os.File
+	var filename string
+	var err error
+	cleanup := true
+	closeAndCleanup := func() {
+		file.Close()
+		if cleanup {
+			logger.Debugf("cleaning up %s", filename)
+			os.Remove(filename)
+		}
+	}
+
 	// Get an empty backup file ready.
-	file, filename, err := createEmptyFile(backupFilePath, excl)
+	file, filename, err = createEmptyFile(backupFilePath, excl)
 	if err != nil {
 		failure := c.newFailure("error while preparing backup file", err)
 		return "", "", "", failure
 	}
-	cleanup := true
-	defer func() {
-		file.Close()
-		if cleanup {
-			os.Remove(filename)
-		}
-	}()
+	defer closeAndCleanup()
+	_filename, err := filepath.Abs(filename)
+	if err == nil {
+		filename = _filename
+	}
+	if backupFilePath == "" {
+		logger.Debugf("saving to temp file: %q", filename)
+	}
 
 	// Prepare the upload request.
 	req, err := c.newRawBackupRequest()
@@ -111,7 +125,7 @@ func (c *Client) Backup(backupFilePath string, excl bool) (string, string, strin
 	}
 
 	// Log and return the result.
-	logger.Infof("backup archive saved to %s", filename)
+	logger.Infof("backup archive saved to %q", filename)
 	return filename, hash, expectedHash, nil
 }
 
