@@ -231,6 +231,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+
 	s.Environ = environ
 }
 
