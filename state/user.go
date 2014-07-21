@@ -1,3 +1,6 @@
+// Copyright 2012-2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
@@ -27,7 +30,7 @@ func (st *State) AddAdminUser(password string) (*User, error) {
 
 // AddUser adds a user to the state.
 func (st *State) AddUser(username, displayName, password, creator string) (*User, error) {
-	if !names.IsUser(username) {
+	if !names.IsValidUser(username) {
 		return nil, errors.Errorf("invalid user name %q", username)
 	}
 	salt, err := utils.RandomSalt()
