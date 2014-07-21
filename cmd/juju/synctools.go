@@ -81,11 +81,18 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) (resultErr error) {
 	// Register writer for output on screen.
 	loggo.RegisterWriter("synctools", cmd.NewCommandLogWriter("juju.environs.sync", ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")
-	environ, cleanup, err := environFromName(ctx, c.EnvName, &resultErr, "Sync-tools")
+	environ, cleanup, err := environFromName(ctx, c.EnvName, "Sync-tools")
 	if err != nil {
 		return err
 	}
-	defer cleanup()
+
+	// If we error out for any reason, clean up the environment
+	defer func() {
+		if resultErr != nil {
+			cleanup()
+		}
+	}()
+
 	target := environ.Storage()
 	if c.localDir != "" {
 		target, err = filestorage.NewFileStorageWriter(c.localDir)
