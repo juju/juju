@@ -487,6 +487,7 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 			NetworkName:   tag.Id(),
 			InterfaceName: iface.InterfaceName,
 			IsVirtual:     iface.IsVirtual,
+			Disabled:      iface.Disabled,
 		}
 	}
 	return stateNetworks, stateInterfaces, nil
