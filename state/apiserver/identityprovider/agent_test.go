@@ -1,4 +1,7 @@
-package idprovider_test
+// Copyright 2014 Canonical Ltd. All rights reserved.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package identityprovider_test
 
 import (
 	gc "launchpad.net/gocheck"
@@ -8,7 +11,7 @@ import (
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/idprovider"
+	"github.com/juju/juju/state/apiserver/identityprovider"
 )
 
 type agentProviderSuite struct {
@@ -69,7 +72,7 @@ func (s *agentProviderSuite) TestValidLogins(c *gc.C) {
 		"unit login",
 	}}
 
-	provider := idprovider.NewAgentIdentityProvider()
+	provider := &identityprovider.AgentIdentityProvider{}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
@@ -99,7 +102,7 @@ func (s *agentProviderSuite) TestInvalidLogins(c *gc.C) {
 		"user login for nonexistant user", "invalid entity name or password",
 	}}
 
-	provider := idprovider.NewAgentIdentityProvider()
+	provider := &identityprovider.AgentIdentityProvider{}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)

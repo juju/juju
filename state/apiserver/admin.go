@@ -15,7 +15,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
-	"github.com/juju/juju/state/idprovider"
+	"github.com/juju/juju/state/apiserver/identityprovider"
 	"github.com/juju/juju/state/presence"
 )
 
@@ -148,7 +148,7 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 	if err != nil {
 		return nil, err
 	}
-	provider, err := idprovider.LookupProvider(tag)
+	provider, err := identityprovider.LookupProvider(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -157,7 +157,7 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 		return nil, err
 	}
 
-	entity0, err := st.FindEntity(c.AuthTag)
+	entity0, err := st.FindEntity(tag.String())
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}

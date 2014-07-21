@@ -1,4 +1,7 @@
-package idprovider_test
+// Copyright 2014 Canonical Ltd. All rights reserved.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package identityprovider_test
 
 import (
 	"testing"
@@ -7,7 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state/idprovider"
+	"github.com/juju/juju/state/apiserver/identityprovider"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -23,13 +26,13 @@ func TestAll(t *testing.T) {
 
 func (s *AgentProviderSuite) TestLookupProviderFails(c *gc.C) {
 	tag := names.NewRelationTag("wordpress:mysql")
-	_, err := idprovider.LookupProvider(tag)
+	_, err := identityprovider.LookupProvider(tag)
 	c.Assert(err, gc.ErrorMatches, "Tag type 'relation' does not have an identity provider")
 }
 
 func (s *AgentProviderSuite) TestLookupProvider(c *gc.C) {
 	tag := names.NewUserTag("bob")
-	provider, err := idprovider.LookupProvider(tag)
+	provider, err := identityprovider.LookupProvider(tag)
 	c.Assert(err, gc.IsNil)
 	c.Assert(provider, gc.NotNil)
 }

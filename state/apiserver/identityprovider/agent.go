@@ -1,4 +1,7 @@
-package idprovider
+// Copyright 2014 Canonical Ltd. All rights reserved.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package identityprovider
 
 import (
 	"github.com/juju/errors"
@@ -8,8 +11,8 @@ import (
 	"github.com/juju/juju/state/apiserver/common"
 )
 
-type AgentIdentityProvider struct {
-}
+// AgentIdentityProvider performs authentication for machine and unit agents as well as users.
+type AgentIdentityProvider struct{}
 
 var _ IdentityProvider = (*AgentIdentityProvider)(nil)
 
@@ -18,10 +21,7 @@ type taggedAuthenticator interface {
 	state.Authenticator
 }
 
-func NewAgentIdentityProvider() IdentityProvider {
-	return &AgentIdentityProvider{}
-}
-
+// Login authenticates the provided entity and returns an error on authentication failure.
 func (*AgentIdentityProvider) Login(st *state.State, tag names.Tag, password, nonce string) error {
 	entity0, err := st.FindEntity(tag.String())
 	if err != nil && !errors.IsNotFound(err) {
