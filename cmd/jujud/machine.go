@@ -605,9 +605,9 @@ func init() {
 // limitLoginsDuringUpgrade is called by the API server for each login
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
-func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
+func (a *MachineAgent) limitLoginsDuringUpgrade(req params.LoginRequest) error {
 	if a.upgradeWorkerContext.IsUpgradeRunning() {
-		authTag, err := names.ParseTag(creds.AuthTag)
+		authTag, err := names.ParseTag(req.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
 		}

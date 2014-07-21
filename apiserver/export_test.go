@@ -4,15 +4,17 @@
 package apiserver
 
 import (
+	"fmt"
 	"reflect"
 
 	"github.com/juju/juju/apiserver/common"
 	"github.com/juju/juju/apiserver/params"
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 )
 
 var (
-	RootType              = reflect.TypeOf(&srvRoot{})
+	RootType              = reflect.TypeOf(&apiHandler{})
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval
@@ -30,7 +32,7 @@ func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 	cleanup = func() {
 		doCheckCreds = checkCreds
 	}
-	delayedCheckCreds := func(st *state.State, c params.Creds) (state.Entity, error) {
+	delayedCheckCreds := func(st *state.State, c params.LoginRequest) (state.Entity, error) {
 		<-nextChan
 		return checkCreds(st, c)
 	}
@@ -42,23 +44,72 @@ func NewErrRoot(err error) *errRoot {
 	return &errRoot{err}
 }
 
-// TestingSrvRoot gives you an srvRoot that is *barely* connected to anything.
-// Just enough to let you probe some of the interfaces of srvRoot, but not
+// TestingApiHandler gives you an ApiHandler that is *barely* connected to anything.
+// Just enough to let you probe some of the interfaces of ApiHandler, but not
 // enough to actually do any RPC calls
-func TestingSrvRoot(st *state.State) *srvRoot {
-	return &srvRoot{
-		state:       st,
-		rpcConn:     nil,
-		resources:   common.NewResources(),
-		entity:      nil,
-		objectCache: make(map[objectKey]reflect.Value),
+func TestingApiRoot(st *state.State) rpc.MethodFinder {
+	srv := &Server{state: st}
+	h := newApiRoot(srv, common.NewResources(), nil)
+	return h
+}
+
+// TestingUpgradingApiHandler returns a limited srvRoot
+// in an upgrade scenario.
+func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
+	r := TestingApiRoot(st)
+	return newUpgradingRoot(r)
+}
+
+type preFacadeAdminApi struct{}
+
+func newPreFacadeAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+	return &preFacadeAdminApi{}
+}
+
+func (r *preFacadeAdminApi) Admin(id string) (*preFacadeAdminApi, error) {
+	return r, nil
+}
+
+func (r *preFacadeAdminApi) Login(c params.Creds) (params.LoginResult, error) {
+	return params.LoginResult{}, nil
+}
+
+type failAdminApi struct{}
+
+func newFailAdminApi(srv *Server, root *apiHandler, reqNotifier *requestNotifier) interface{} {
+	return &failAdminApi{}
+}
+
+func (r *failAdminApi) Admin(id string) (*failAdminApi, error) {
+	return r, nil
+}
+
+func (r *failAdminApi) Login(c params.Creds) (params.LoginResult, error) {
+	return params.LoginResult{}, fmt.Errorf("pre-facade degraded to v0")
+}
+
+// SetPreFacadeAdminApi is used to create a test scenario where the API server
+// does not know about API facade versioning. Login v0 errors with a special
+// defined error message which will be matched to ensure a v1 client will
+// degrade to v0 in this case.
+func SetPreFacadeAdminApi(srv *Server) {
+	srv.adminApiFactories = map[int]adminApiFactory{
+		0: newFailAdminApi,
+		1: newPreFacadeAdminApi,
 	}
 }
 
-// TestingUpgradingSrvRoot returns a limited upgradingSrvRoot
-// containing a srvRoot as returned by TestingSrvRoot.
-func TestingUpgradingRoot(st *state.State) *upgradingRoot {
-	return &upgradingRoot{
-		srvRoot: *TestingSrvRoot(st),
+func SetAdminApiVersions(srv *Server, versions ...int) {
+	factories := make(map[int]adminApiFactory)
+	for _, n := range versions {
+		switch n {
+		case 0:
+			factories[n] = newAdminApiV0
+		case 1:
+			factories[n] = newAdminApiV1
+		default:
+			panic(fmt.Errorf("unknown admin API version %d", n))
+		}
 	}
+	srv.adminApiFactories = factories
 }

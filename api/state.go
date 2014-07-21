@@ -7,6 +7,7 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/agent"
@@ -32,31 +33,80 @@ import (
 // method is usually called automatically by Open. The machine nonce
 // should be empty unless logging in as a machine agent.
 func (st *State) Login(tag, password, nonce string) error {
+	err := st.loginV1(tag, password, nonce)
+	if params.IsCodeNotImplemented(err) {
+		// TODO (cmars): remove fallback once we can drop v1 compatibility
+		return st.loginV0(tag, password, nonce)
+	}
+	return err
+}
+
+func (st *State) loginV1(tag, password, nonce string) error {
+	var result params.LoginResultV1
+	err := st.APICall("Admin", 1, "", "Login", &params.LoginRequest{
+		AuthTag:     tag,
+		Credentials: password,
+		Nonce:       nonce,
+	}, &result)
+	if err != nil {
+		return err
+	}
+	if len(result.Facades) == 0 {
+		return &params.Error{
+			Message: "server does not support API versioning",
+			Code:    params.CodeNotImplemented,
+		}
+	}
+	authtag, err := names.ParseTag(tag)
+	if err != nil {
+		return err
+	}
+	st.authTag = authtag
+	hostPorts, err := addAddress(result.Servers, st.addr)
+	if err != nil {
+		if clerr := st.Close(); clerr != nil {
+			err = errors.Annotatef(err, "error closing state: %v", clerr)
+		}
+		return err
+	}
+	st.hostPorts = hostPorts
+	st.environTag = result.EnvironTag
+	st.facadeVersions = make(map[string][]int, len(result.Facades))
+	for _, facade := range result.Facades {
+		st.facadeVersions[facade.Name] = facade.Versions
+	}
+	return nil
+}
+
+func (st *State) loginV0(tag, password, nonce string) error {
 	var result params.LoginResult
 	err := st.APICall("Admin", 0, "", "Login", &params.Creds{
 		AuthTag:  tag,
 		Password: password,
 		Nonce:    nonce,
 	}, &result)
-	if err == nil {
-		authtag, err := names.ParseTag(tag)
-		if err != nil {
-			return err
-		}
-		st.authTag = authtag
-		hostPorts, err := addAddress(result.Servers, st.addr)
-		if err != nil {
-			st.Close()
-			return err
-		}
-		st.hostPorts = hostPorts
-		st.environTag = result.EnvironTag
-		st.facadeVersions = make(map[string][]int, len(result.Facades))
-		for _, facade := range result.Facades {
-			st.facadeVersions[facade.Name] = facade.Versions
-		}
+	if err != nil {
+		return err
 	}
-	return err
+	authtag, err := names.ParseTag(tag)
+	if err != nil {
+		return err
+	}
+	st.authTag = authtag
+	hostPorts, err := addAddress(result.Servers, st.addr)
+	if err != nil {
+		if clerr := st.Close(); clerr != nil {
+			err = errors.Annotatef(err, "error closing state: %v", clerr)
+		}
+		return err
+	}
+	st.hostPorts = hostPorts
+	st.environTag = result.EnvironTag
+	st.facadeVersions = make(map[string][]int, len(result.Facades))
+	for _, facade := range result.Facades {
+		st.facadeVersions[facade.Name] = facade.Versions
+	}
+	return nil
 }
 
 // slideAddressToFront moves the address at the location (serverIndex, addrIndex) to be
