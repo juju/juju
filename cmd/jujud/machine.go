@@ -38,7 +38,6 @@ import (
 	apiagent "github.com/juju/juju/state/api/agent"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
-	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
@@ -100,12 +99,12 @@ type MachineAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
 	AgentConf
-	MachineId        string
-	runner           worker.Runner
-	configChangedVal voyeur.Value
-	upgradeComplete  chan struct{}
-	workersStarted   chan struct{}
-	st               *state.State
+	MachineId            string
+	runner               worker.Runner
+	configChangedVal     voyeur.Value
+	upgradeWorkerFactory *upgradeWorkerFactory
+	workersStarted       chan struct{}
+	st                   *state.State
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
@@ -133,8 +132,8 @@ func (a *MachineAgent) Init(args []string) error {
 		return err
 	}
 	a.runner = newRunner(isFatal, moreImportant)
-	a.upgradeComplete = make(chan struct{})
 	a.workersStarted = make(chan struct{})
+	a.upgradeWorkerFactory = NewUpgradeWorkerFactory(a)
 	return nil
 }
 
@@ -287,7 +286,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
 	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
-		return a.upgradeWorker(st, entity.Jobs(), agentConfig), nil
+		return a.upgradeWorkerFactory.Worker(st, entity.Jobs()), nil
 	})
 
 	// All other workers must wait for the upgrade steps to complete
@@ -537,7 +536,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 	select {
-	case <-a.upgradeComplete:
+	case <-a.upgradeWorkerFactory.UpgradeComplete():
 		return nil // upgrade done so allow all logins
 	default:
 		authTag, err := names.ParseTag(creds.AuthTag)
@@ -738,7 +737,7 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 		select {
 		case <-stop:
 			return nil
-		case <-a.upgradeComplete:
+		case <-a.upgradeWorkerFactory.UpgradeComplete():
 		}
 		// Upgrades are done, start the worker.
 		worker, err := start()
@@ -758,176 +757,6 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 		}
 		return <-waitCh // Ensure worker has stopped before returning.
 	})
-}
-
-// upgradeWorker runs the required upgrade operations to upgrade to the current Juju version.
-func (a *MachineAgent) upgradeWorker(
-	apiState *api.State,
-	jobs []params.MachineJob,
-	agentConfig agent.Config,
-) worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		select {
-		case <-a.upgradeComplete:
-			// Our work is already done (we're probably being restarted
-			// because the API connection has gone down), so do nothing.
-			<-stop
-			return nil
-		default:
-		}
-		// If the machine agent is a state server, flag that state
-		// needs to be opened before running upgrade steps
-		needsState := false
-		for _, job := range jobs {
-			if job == params.JobManageEnviron {
-				needsState = true
-			}
-		}
-		// We need a *state.State for upgrades. We open it independently
-		// of StateWorker, because we have no guarantees about when
-		// and how often StateWorker might run.
-		var st *state.State
-		if needsState {
-			if err := a.ensureMongoServer(agentConfig); err != nil {
-				return err
-			}
-			var err error
-			info, ok := agentConfig.MongoInfo()
-			if !ok {
-				return fmt.Errorf("no state info available")
-			}
-			st, err = state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
-			if err != nil {
-				return err
-			}
-			defer st.Close()
-		}
-		err := a.runUpgrades(st, apiState, jobs, agentConfig)
-		if err == nil {
-			// Only signal that the upgrade is complete if no error
-			// was returned.
-			close(a.upgradeComplete)
-		} else if !isFatal(err) {
-			// Only non-fatal errors are returned (this will trigger
-			// the worker to be restarted).
-			//
-			// Fatal upgrade errors are not returned because user
-			// intervention is required at that point. We don't want
-			// the upgrade worker or the agent to restart. Status
-			// output and the logs will report that the upgrade has
-			// failed.
-			return err
-		}
-		<-stop
-		return nil
-	})
-}
-
-var upgradesPerformUpgrade = upgrades.PerformUpgrade // Allow patching for tests
-
-func (a *MachineAgent) isMaster(st *state.State, agentConfig agent.Config) (bool, error) {
-	if st == nil {
-		// If there is no state, we aren't a master.
-		return false, nil
-	}
-	// Not calling the agent openState method as it does other checks
-	// we really don't care about here.  All we need here is the machine
-	// so we can determine if we are the master or not.
-	machine, err := st.Machine(agentConfig.Tag().Id())
-	if err != nil {
-		// This shouldn't happen, and if it does, the state worker will have
-		// found out before us, and already errored, or is likely to error out
-		// very shortly.  All we do here is return the error. The state worker
-		// returns an error that will cause the agent to be terminated.
-		return false, errors.Trace(err)
-	}
-	isMaster, err := mongo.IsMaster(st.MongoSession(), machine)
-	if err != nil {
-		return false, errors.Trace(err)
-	}
-	return isMaster, nil
-}
-
-var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
-	return utils.AttemptStrategy{
-		Delay: 2 * time.Minute,
-		Min:   5,
-	}
-}
-
-// runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
-func (a *MachineAgent) runUpgrades(
-	st *state.State,
-	apiState *api.State,
-	jobs []params.MachineJob,
-	agentConfig agent.Config,
-) error {
-	from := version.Current
-	from.Number = agentConfig.UpgradedToVersion()
-	if from == version.Current {
-		logger.Infof("upgrade to %v already completed.", version.Current)
-		return nil
-	}
-	isMaster, err := a.isMaster(st, agentConfig)
-	if err != nil {
-		return errors.Trace(err)
-	}
-	err = a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
-		var upgradeErr error
-		a.setMachineStatus(apiState, params.StatusStarted,
-			fmt.Sprintf("upgrading to %v", version.Current))
-		context := upgrades.NewContext(agentConfig, apiState, st)
-		for _, job := range jobs {
-			target := upgradeTarget(job, isMaster)
-			if target == "" {
-				continue
-			}
-			logger.Infof("starting upgrade from %v to %v for %v %q", from, version.Current, target, a.Tag())
-
-			attempts := getUpgradeRetryStrategy()
-			for attempt := attempts.Start(); attempt.Next(); {
-				upgradeErr = upgradesPerformUpgrade(from.Number, target, context)
-				if upgradeErr == nil {
-					break
-				} else {
-					retryText := "will retry"
-					if !attempt.HasNext() {
-						retryText = "giving up"
-					}
-					logger.Errorf("upgrade from %v to %v for %v %q failed (%s): %v",
-						from, version.Current, target, a.Tag(), retryText, upgradeErr)
-					a.setMachineStatus(apiState, params.StatusError,
-						fmt.Sprintf("upgrade to %v failed (%s): %v", version.Current, retryText, upgradeErr))
-				}
-			}
-		}
-		if upgradeErr != nil {
-			return upgradeErr
-		}
-		agentConfig.SetUpgradedToVersion(version.Current.Number)
-		return nil
-	})
-	if err != nil {
-		logger.Errorf("upgrade to %v failed: %v", version.Current, err)
-		return &fatalError{err.Error()}
-	}
-
-	logger.Infof("upgrade to %v completed successfully.", version.Current)
-	a.setMachineStatus(apiState, params.StatusStarted, "")
-	return nil
-}
-
-func upgradeTarget(job params.MachineJob, isMaster bool) upgrades.Target {
-	switch job {
-	case params.JobManageEnviron:
-		if isMaster {
-			return upgrades.DatabaseMaster
-		}
-		return upgrades.StateServer
-	case params.JobHostUnits:
-		return upgrades.HostMachine
-	}
-	return ""
 }
 
 func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
