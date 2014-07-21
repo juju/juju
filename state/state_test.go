@@ -3547,6 +3547,39 @@ func (s *StateSuite) TestSetAPIHostPortsPreferIPv6(c *gc.C) {
 	c.Assert(gotHostPorts, jc.DeepEquals, expectHostPorts)
 }
 
+func (s *StateSuite) TestSetAPIHostPortsSame(c *gc.C) {
+	hostPorts := [][]network.HostPort{{{
+		Address: network.Address{
+			Value:       "0.4.8.16",
+			Type:        network.IPv4Address,
+			NetworkName: "foo",
+			Scope:       network.ScopePublic,
+		},
+		Port: 2,
+	}}, {{
+		Address: network.Address{
+			Value:       "0.2.4.6",
+			Type:        network.IPv4Address,
+			NetworkName: "net",
+			Scope:       network.ScopeCloudLocal,
+		},
+		Port: 1,
+	}}}
+
+	// Second call should not update txn-revno.
+	var prevRevno int64
+	for i := 0; i < 2; i++ {
+		err := s.State.SetAPIHostPorts(hostPorts)
+		c.Assert(err, gc.IsNil)
+		revno, err := state.TxnRevno(s.State, "stateServers", "apiHostPorts")
+		c.Assert(err, gc.IsNil)
+		if i > 0 {
+			c.Assert(revno, gc.Equals, prevRevno)
+		}
+		prevRevno = revno
+	}
+}
+
 func (s *StateSuite) TestWatchAPIHostPorts(c *gc.C) {
 	w := s.State.WatchAPIHostPorts()
 	defer statetesting.AssertStop(c, w)
