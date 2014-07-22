@@ -35,9 +35,10 @@ type ConnSuite struct {
 	units        *mgo.Collection
 	stateServers *mgo.Collection
 	State        *state.State
-	policy       statetesting.MockPolicy
 	factory      *factory.Factory
-	Deployer     environmentserver.Deployer
+
+	Deployer              environmentserver.Deployer
+	EnvironmentValidation statetesting.MockEnvironmentValidator
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
@@ -53,9 +54,9 @@ func (cs *ConnSuite) TearDownSuite(c *gc.C) {
 func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.BaseSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
-	cs.policy = statetesting.MockPolicy{}
 
 	cs.State = state.TestingInitialize(c, nil)
+	cs.EnvironmentValidation = statetesting.MockEnvironmentValidator{}
 	cs.Deployer = environmentserver.NewDeployer(cs.State)
 
 	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
@@ -67,7 +68,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
 
 	cs.State.AddAdminUser("pass")
-	cs.State.SetEnvironment(cs.Deployer, cs.Deployer, cs.Deployer, cs.Deployer)
+	cs.State.SetEnvironment(cs.Deployer, &cs.EnvironmentValidation, cs.Deployer, cs.Deployer)
 	cs.factory = factory.NewFactory(cs.State, c)
 }
 

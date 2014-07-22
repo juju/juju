@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package environmentserver_test
 
 import (
 	"github.com/juju/errors"
@@ -52,7 +52,7 @@ func (p *mockConfigValidator) Validate(cfg, old *config.Config) (valid *config.C
 func (s *ConfigValidatorSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.configValidator = mockConfigValidator{}
-	s.policy.GetConfigValidator = func(string) (environmentserver.ConfigValidator, error) {
+	s.Deployer.GetConfigValidator = func(string) (environmentserver.ConfigValidator, error) {
 		return &s.configValidator, nil
 	}
 }
@@ -72,7 +72,7 @@ func (s *ConfigValidatorSuite) TestConfigValidate(c *gc.C) {
 
 func (s *ConfigValidatorSuite) TestUpdateEnvironConfigFailsOnConfigValidateError(c *gc.C) {
 	var configValidatorErr error
-	s.policy.GetConfigValidator = func(string) (environmentserver.ConfigValidator, error) {
+	s.Deployer.GetConfigValidator = func(string) (environmentserver.ConfigValidator, error) {
 		configValidatorErr = errors.NotFoundf("")
 		return &s.configValidator, configValidatorErr
 	}
@@ -92,19 +92,19 @@ func (s *ConfigValidatorSuite) TestUpdateEnvironConfigUpdatesState(c *gc.C) {
 
 func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
 	var configValidatorErr error
-	s.policy.GetConfigValidator = func(string) (environmentserver.ConfigValidator, error) {
+	s.Deployer.GetConfigValidator = func(string) (environmentserver.ConfigValidator, error) {
 		return nil, configValidatorErr
 	}
 
 	err := s.updateEnvironConfig(c)
-	c.Assert(err, gc.ErrorMatches, "policy returned nil configValidator without an error")
+	c.Assert(err, gc.ErrorMatches, "MockDeployer returned nil configValidator without an error")
 	configValidatorErr = errors.NotImplementedf("Validator")
 	err = s.updateEnvironConfig(c)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidateNoPolicy(c *gc.C) {
-	s.policy.GetConfigValidator = func(providerType string) (environmentserver.ConfigValidator, error) {
+	s.Deployer.GetConfigValidator = func(providerType string) (environmentserver.ConfigValidator, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}
