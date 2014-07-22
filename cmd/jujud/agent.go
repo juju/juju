@@ -32,7 +32,14 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
-var apiOpen = api.Open
+var (
+	apiOpen = api.Open
+
+	checkProvisionedStrategy = utils.AttemptStrategy{
+		Total: 1 * time.Minute,
+		Delay: 5 * time.Second,
+	}
+)
 
 // requiredError is useful when complaining about missing command-line options.
 func requiredError(name string) error {
@@ -208,10 +215,21 @@ func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Enti
 	if params.IsCodeUnauthorized(err) {
 		// We've perhaps used the wrong password, so
 		// try again with the fallback password.
-		info := *info
+		infoCopy := *info
+		info = &infoCopy
 		info.Password = agentConfig.OldPassword()
 		usedOldPassword = true
-		st, err = apiOpen(&info, api.DialOpts{})
+		st, err = apiOpen(info, api.DialOpts{})
+	}
+	// The provisioner may take some time to record the agent's
+	// machine instance ID, so wait until it does so.
+	if params.IsCodeNotProvisioned(err) {
+		for a := checkProvisionedStrategy.Start(); a.Next(); {
+			st, err = apiOpen(info, api.DialOpts{})
+			if !params.IsCodeNotProvisioned(err) {
+				break
+			}
+		}
 	}
 	if err != nil {
 		if params.IsCodeNotProvisioned(err) {

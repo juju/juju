@@ -13,6 +13,7 @@ import (
 	"github.com/juju/cmd"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -112,6 +113,10 @@ func (fakeAPIOpenConfig) Jobs() []params.MachineJob {
 
 var _ = gc.Suite(&apiOpenSuite{})
 
+func (s *apiOpenSuite) SetUpTest(c *gc.C) {
+	s.PatchValue(&checkProvisionedStrategy, utils.AttemptStrategy{})
+}
+
 func (s *apiOpenSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
 	type replaceErrors struct {
 		openErr    error
@@ -140,6 +145,35 @@ func (s *apiOpenSuite) TestOpenAPIStateReplaceErrors(c *gc.C) {
 			c.Check(err, gc.Equals, test.replaceErr)
 		}
 	}
+}
+
+func (s *apiOpenSuite) TestOpenAPIStateWaitsProvisioned(c *gc.C) {
+	s.PatchValue(&checkProvisionedStrategy.Min, 5)
+	var called int
+	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
+		called++
+		if called == checkProvisionedStrategy.Min-1 {
+			return nil, &params.Error{Code: params.CodeUnauthorized}
+		}
+		return nil, &params.Error{Code: params.CodeNotProvisioned}
+	})
+	_, _, err := openAPIState(fakeAPIOpenConfig{}, nil)
+	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
+	c.Assert(called, gc.Equals, checkProvisionedStrategy.Min-1)
+}
+
+func (s *apiOpenSuite) TestOpenAPIStateWaitsProvisionedGivesUp(c *gc.C) {
+	s.PatchValue(&checkProvisionedStrategy.Min, 5)
+	var called int
+	s.PatchValue(&apiOpen, func(info *api.Info, opts api.DialOpts) (*api.State, error) {
+		called++
+		return nil, &params.Error{Code: params.CodeNotProvisioned}
+	})
+	_, _, err := openAPIState(fakeAPIOpenConfig{}, nil)
+	c.Assert(err, gc.Equals, worker.ErrTerminateAgent)
+	// +1 because we always attempt at least once outside the attempt strategy
+	// (twice if the API server initially returns CodeUnauthorized.)
+	c.Assert(called, gc.Equals, checkProvisionedStrategy.Min+1)
 }
 
 type testPinger func() error
