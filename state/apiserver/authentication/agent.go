@@ -1,48 +1,50 @@
 // Copyright 2014 Canonical Ltd. All rights reserved.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package identityprovider
+package authentication
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/names"
-
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver/common"
 )
 
 // AgentIdentityProvider performs authentication for machine and unit agents.
-type AgentIdentityProvider struct{}
+type AgentAuthenticator struct {
+	state *state.State
+}
 
-var _ IdentityProvider = (*AgentIdentityProvider)(nil)
+var _ TagAuthenticator = (*AgentAuthenticator)(nil)
 
 type taggedAuthenticator interface {
 	state.Entity
 	state.Authenticator
 }
 
-// Login authenticates the provided entity and returns an error on authentication failure.
-func (*AgentIdentityProvider) Login(st *state.State, tag names.Tag, password, nonce string) error {
-	entity0, err := st.FindEntity(tag.String())
-	if err != nil && !errors.IsNotFound(err) {
-		return err
+// NewAgentAuthenticator returns an AgentAuthenticator initialized with a connection to state.
+func NewAgentAuthenticator(st *state.State) *AgentAuthenticator {
+	return &AgentAuthenticator{
+		state: st,
 	}
+}
+
+// Authenticate authenticates the provided entity and returns an error on authentication failure.
+func (a *AgentAuthenticator) Authenticate(entity state.Entity, password, nonce string) error {
 	// We return the same error when an entity
 	// does not exist as for a bad password, so that
 	// we don't allow unauthenticated users to find information
 	// about existing entities.
-	entity, ok := entity0.(taggedAuthenticator)
+	entityA, ok := entity.(taggedAuthenticator)
 	if !ok {
 		return common.ErrBadCreds
 	}
-	if err != nil || !entity.PasswordValid(password) {
+	if !entityA.PasswordValid(password) {
 		return common.ErrBadCreds
 	}
 
 	// If this is a machine agent connecting, we need to check the
 	// nonce matches, otherwise the wrong agent might be trying to
 	// connect.
-	if machine, ok := entity.(*state.Machine); ok {
+	if machine, ok := entityA.(*state.Machine); ok {
 		if !machine.CheckProvisioned(nonce) {
 			return state.NotProvisionedError(machine.Id())
 		}

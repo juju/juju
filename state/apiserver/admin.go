@@ -14,8 +14,8 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/authentication"
 	"github.com/juju/juju/state/apiserver/common"
-	"github.com/juju/juju/state/apiserver/identityprovider"
 	"github.com/juju/juju/state/presence"
 )
 
@@ -148,26 +148,22 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 	if err != nil {
 		return nil, err
 	}
-	provider, err := identityprovider.LookupProvider(tag)
-	if err != nil {
-		return nil, err
-	}
 
-	if err = provider.Login(st, tag, c.Password, c.Nonce); err != nil {
-		return nil, err
-	}
-
-	entity0, err := st.FindEntity(tag.String())
+	entity, err := st.FindEntity(tag.String())
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
 
-	entity, ok := entity0.(taggedAuthenticator)
-	if !ok {
-		return nil, common.ErrBadCreds
+	authenticator, err := authentication.FindEntityAuthenticator(entity)
+	if err != nil {
+		return nil, err
 	}
 
-	return entity, nil
+	if err = authenticator.Authenticate(entity, c.Password, c.Nonce); err != nil {
+		return nil, err
+	}
+
+	return entity.(taggedAuthenticator), nil
 }
 
 func getAndUpdateLastConnectionForEntity(entity taggedAuthenticator) *time.Time {

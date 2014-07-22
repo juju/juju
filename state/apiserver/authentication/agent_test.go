@@ -1,31 +1,41 @@
 // Copyright 2014 Canonical Ltd. All rights reserved.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package identityprovider_test
+package authentication_test
 
 import (
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/names"
 	"github.com/juju/utils"
 
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/apiserver/identityprovider"
+	"github.com/juju/juju/state/apiserver/authentication"
+	"github.com/juju/juju/testing/factory"
 )
 
-type userProviderSuite struct {
+type agentAuthenticatorSuite struct {
 	jujutesting.JujuConnSuite
-	machineTag      names.Tag
 	machinePassword string
 	machineNonce    string
 	unitPassword    string
+	machine         *state.Machine
+	user            *state.User
+	unit            *state.Unit
+	relation        *state.Relation
 }
 
-var _ = gc.Suite(&userProviderSuite{})
+var _ = gc.Suite(&agentAuthenticatorSuite{})
 
-func (s *userProviderSuite) SetUpTest(c *gc.C) {
+func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+
+	fact := factory.NewFactory(s.State, c)
+	s.user = fact.MakeUser(factory.UserParams{
+		Username:    "bobbrown",
+		DisplayName: "Bob Brown",
+		Password:    "password",
+	})
 
 	// add machine for testing machine agent authentication
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
@@ -38,7 +48,7 @@ func (s *userProviderSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.machineTag = machine.Tag()
+	s.machine = machine
 	s.machinePassword = password
 	s.machineNonce = nonce
 
@@ -48,62 +58,75 @@ func (s *userProviderSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
+	s.unit = unit
 	password, err = utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
 	s.unitPassword = password
+
+	// add relation
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpressEP, err := wordpress.Endpoint("db")
+	c.Assert(err, gc.IsNil)
+	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
+	mysqlEP, err := mysql.Endpoint("server")
+	c.Assert(err, gc.IsNil)
+	s.relation, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *userProviderSuite) TestValidLogins(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
 	testCases := []struct {
-		tag         names.Tag
+		entity      state.Entity
 		credentials string
 		nonce       string
 		about       string
 	}{{
-		names.NewUserTag("admin"), "dummy-secret", "",
-		"user login",
+		s.user, "password", "", "user login",
+	}, {
+		s.machine, s.machinePassword, s.machineNonce,
+		"machine login",
+	}, {
+		s.unit, s.unitPassword, "",
+		"unit login",
 	}}
 
-	provider := &identityprovider.UserIdentityProvider{}
+	authenticator := &authentication.AgentAuthenticator{}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		err := provider.Login(s.State, t.tag, t.credentials, t.nonce)
+		err := authenticator.Authenticate(t.entity, t.credentials, t.nonce)
 		c.Check(err, gc.IsNil)
 	}
 }
 
-func (s *userProviderSuite) TestInvalidLogins(c *gc.C) {
+func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
 	testCases := []struct {
-		tag         names.Tag
+		entity      state.Entity
 		credentials string
 		nonce       string
 		about       string
 		Error       string
 	}{{
-		names.NewRelationTag("wordpress:loadbalancer"), "dummy-secret", "",
-		"relation login", "relation tag cannot be authenticated with a user identity provider",
+		s.relation, "dummy-secret", "",
+		"relation login", "invalid entity name or password",
 	}, {
-		names.NewUserTag("bob"), "dummy-secret", "",
+		s.user, "wrongpassword", "",
 		"user login for nonexistant user", "invalid entity name or password",
 	}, {
-		s.machineTag, s.machinePassword, "123",
-		"machine login", "machine tag cannot be authenticated with a user identity provider",
+		s.machine, s.machinePassword, "123",
+		"machine login", "machine 0 is not provisioned",
 	}, {
-		names.NewUserTag("admin"), "wrong-secret", "",
+		s.user, "wrong-secret", "",
 		"user login for nonexistant user", "invalid entity name or password",
-	}, {
-		names.NewUnitTag("wordpress/0"), s.unitPassword, "",
-		"unit login", "unit tag cannot be authenticated with a user identity provider",
 	}}
 
-	provider := &identityprovider.UserIdentityProvider{}
+	authenticator := &authentication.AgentAuthenticator{}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		err := provider.Login(s.State, t.tag, t.credentials, t.nonce)
+		err := authenticator.Authenticate(t.entity, t.credentials, t.nonce)
 		c.Check(err, gc.ErrorMatches, t.Error)
 	}
 }
