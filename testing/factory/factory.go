@@ -204,7 +204,8 @@ func (factory *Factory) MakeService(params ServiceParams) *state.Service {
 		params.Charm = factory.MakeAnyCharm()
 	}
 	if params.Creator == "" {
-		params.Creator = "user-admin"
+		creator := factory.MakeAnyUser()
+		params.Creator = creator.Tag().String()
 	}
 	service, err := factory.st.AddService(params.Name, params.Creator, params.Charm, nil)
 	factory.c.Assert(err, gc.IsNil)
@@ -214,4 +215,25 @@ func (factory *Factory) MakeService(params ServiceParams) *state.Service {
 // MakeAnyService creates a service with an empty params struct.
 func (factory *Factory) MakeAnyService() *state.Service {
 	return factory.MakeService(ServiceParams{})
+}
+
+// UnitParams are used to create units.
+type UnitParams struct {
+	Service *state.Service
+}
+
+// MakeUnit creates a service unit with specified params, filling in
+// sane defaults for missing values.
+func (factory *Factory) MakeUnit(params UnitParams) *state.Unit {
+	if params.Service == nil {
+		params.Service = factory.MakeAnyService()
+	}
+	unit, err := params.Service.AddUnit()
+	factory.c.Assert(err, gc.IsNil)
+	return unit
+}
+
+// MakeAnyUnit creates a unit with empty params.
+func (factory *Factory) MakeAnyUnit() *state.Unit {
+	return factory.MakeUnit(UnitParams{})
 }

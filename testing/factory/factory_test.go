@@ -240,3 +240,34 @@ func (s *factorySuite) TestMakeService(c *gc.C) {
 	c.Assert(saved.Tag(), gc.Equals, service.Tag())
 	c.Assert(saved.Life(), gc.Equals, service.Life())
 }
+
+func (s *factorySuite) TestMakeUnitAny(c *gc.C) {
+	unit := s.Factory.MakeAnyUnit()
+	c.Assert(unit, gc.NotNil)
+
+	saved, err := s.State.Unit(unit.Name())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.Name(), gc.Equals, unit.Name())
+	c.Assert(saved.ServiceName(), gc.Equals, unit.ServiceName())
+	c.Assert(saved.Series(), gc.Equals, unit.Series())
+	c.Assert(saved.Life(), gc.Equals, unit.Life())
+}
+
+func (s *factorySuite) TestMakeUnit(c *gc.C) {
+	service := s.Factory.MakeAnyService()
+	unit := s.Factory.MakeUnit(factory.UnitParams{
+		Service: service,
+	})
+	c.Assert(unit, gc.NotNil)
+
+	c.Assert(unit.ServiceName(), gc.Equals, service.Name())
+
+	saved, err := s.State.Unit(unit.Name())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.Name(), gc.Equals, unit.Name())
+	c.Assert(saved.ServiceName(), gc.Equals, unit.ServiceName())
+	c.Assert(saved.Series(), gc.Equals, unit.Series())
+	c.Assert(saved.Life(), gc.Equals, unit.Life())
+}
