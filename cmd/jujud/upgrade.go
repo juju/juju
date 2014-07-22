@@ -28,92 +28,89 @@ type upgradingMachineAgent interface {
 
 var upgradesPerformUpgrade = upgrades.PerformUpgrade // Allow patching for tests
 
-func NewUpgradeWorkerFactory(agent upgradingMachineAgent) *upgradeWorkerFactory {
-	return &upgradeWorkerFactory{
-		agent:           agent,
-		upgradeComplete: make(chan struct{}),
+func NewUpgradeWorkerContext() *upgradeWorkerContext {
+	return &upgradeWorkerContext{
+		UpgradeComplete: make(chan struct{}),
 	}
 }
 
-type upgradeWorkerFactory struct {
+type upgradeWorkerContext struct {
+	UpgradeComplete chan struct{}
 	agent           upgradingMachineAgent
-	upgradeComplete chan struct{}
+	apiState        *api.State
+	jobs            []params.MachineJob
 }
 
-func (f *upgradeWorkerFactory) Worker(
+func (c *upgradeWorkerContext) Worker(
+	agent upgradingMachineAgent,
 	apiState *api.State,
 	jobs []params.MachineJob,
 ) worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		select {
-		case <-f.upgradeComplete:
-			// Our work is already done (we're probably being restarted
-			// because the API connection has gone down), so do nothing.
-			return nil
-		default:
-		}
-
-		agentConfig := f.agent.CurrentConfig()
-
-		// If the machine agent is a state server, flag that state
-		// needs to be opened before running upgrade steps
-		needsState := false
-		for _, job := range jobs {
-			if job == params.JobManageEnviron {
-				needsState = true
-			}
-		}
-		// We need a *state.State for upgrades. We open it independently
-		// of StateWorker, because we have no guarantees about when
-		// and how often StateWorker might run.
-		var st *state.State
-		if needsState {
-			if err := f.agent.ensureMongoServer(agentConfig); err != nil {
-				return err
-			}
-			var err error
-			info, ok := agentConfig.MongoInfo()
-			if !ok {
-				return fmt.Errorf("no state info available")
-			}
-			st, err = state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
-			if err != nil {
-				return err
-			}
-			defer st.Close()
-		}
-		if err := runUpgrades(f.agent, st, apiState, jobs, agentConfig); err == nil {
-			// Only signal that the upgrade is complete if no error
-			// was returned.
-			close(f.upgradeComplete)
-		} else if !isFatal(err) {
-			// Only non-fatal errors are returned (this will trigger
-			// the worker to be restarted).
-			//
-			// Fatal upgrade errors are not returned because user
-			// intervention is required at that point. We don't want
-			// the upgrade worker or the agent to restart. Status
-			// output and the logs will report that the upgrade has
-			// failed.
-			return err
-		}
-		return nil
-	})
+	c.agent = agent
+	c.apiState = apiState
+	c.jobs = jobs
+	return worker.NewSimpleWorker(c.run)
 }
 
-func (f *upgradeWorkerFactory) UpgradeComplete() chan struct{} {
-	return f.upgradeComplete
+func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
+	select {
+	case <-c.UpgradeComplete:
+		// Our work is already done (we're probably being restarted
+		// because the API connection has gone down), so do nothing.
+		return nil
+	default:
+	}
+
+	agentConfig := c.agent.CurrentConfig()
+
+	// If the machine agent is a state server, flag that state
+	// needs to be opened before running upgrade steps
+	needsState := false
+	for _, job := range c.jobs {
+		if job == params.JobManageEnviron {
+			needsState = true
+		}
+	}
+	// We need a *state.State for upgrades. We open it independently
+	// of StateWorker, because we have no guarantees about when
+	// and how often StateWorker might run.
+	var st *state.State
+	if needsState {
+		if err := c.agent.ensureMongoServer(agentConfig); err != nil {
+			return err
+		}
+		var err error
+		info, ok := agentConfig.MongoInfo()
+		if !ok {
+			return fmt.Errorf("no state info available")
+		}
+		st, err = state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
+		if err != nil {
+			return err
+		}
+		defer st.Close()
+	}
+	if err := c.runUpgrades(st, agentConfig); err == nil {
+		// Only signal that the upgrade is complete if no error
+		// was returned.
+		close(c.UpgradeComplete)
+	} else if !isFatal(err) {
+		// Only non-fatal errors are returned (this will trigger
+		// the worker to be restarted).
+		//
+		// Fatal upgrade errors are not returned because user
+		// intervention is required at that point. We don't want
+		// the upgrade worker or the agent to restart. Status
+		// output and the logs will report that the upgrade has
+		// failed.
+		return err
+	}
+	return nil
 }
 
 // runUpgrades runs the upgrade operations for each job type and
 // updates the updatedToVersion on success.
-func runUpgrades(
-	a upgradingMachineAgent,
-	st *state.State,
-	apiState *api.State,
-	jobs []params.MachineJob,
-	agentConfig agent.Config,
-) error {
+func (c *upgradeWorkerContext) runUpgrades(st *state.State, agentConfig agent.Config) error {
 	from := version.Current
 	from.Number = agentConfig.UpgradedToVersion()
 	if from == version.Current {
@@ -121,6 +118,7 @@ func runUpgrades(
 		return nil
 	}
 
+	a := c.agent
 	tag := agentConfig.Tag().(names.MachineTag)
 
 	isMaster, err := isMachineMaster(st, tag)
@@ -130,10 +128,10 @@ func runUpgrades(
 
 	err = a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		var upgradeErr error
-		a.setMachineStatus(apiState, params.StatusStarted,
+		a.setMachineStatus(c.apiState, params.StatusStarted,
 			fmt.Sprintf("upgrading to %v", version.Current))
-		context := upgrades.NewContext(agentConfig, apiState, st)
-		for _, job := range jobs {
+		context := upgrades.NewContext(agentConfig, c.apiState, st)
+		for _, job := range c.jobs {
 			target := upgradeTarget(job, isMaster)
 			if target == "" {
 				continue
@@ -153,7 +151,7 @@ func runUpgrades(
 					}
 					logger.Errorf("upgrade from %v to %v for %v %q failed (%s): %v",
 						from, version.Current, target, tag, retryText, upgradeErr)
-					a.setMachineStatus(apiState, params.StatusError,
+					a.setMachineStatus(c.apiState, params.StatusError,
 						fmt.Sprintf("upgrade to %v failed (%s): %v",
 							version.Current, retryText, upgradeErr))
 				}
@@ -171,7 +169,7 @@ func runUpgrades(
 	}
 
 	logger.Infof("upgrade to %v completed successfully.", version.Current)
-	a.setMachineStatus(apiState, params.StatusStarted, "")
+	a.setMachineStatus(c.apiState, params.StatusStarted, "")
 	return nil
 }
 

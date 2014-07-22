@@ -102,7 +102,7 @@ type MachineAgent struct {
 	MachineId            string
 	runner               worker.Runner
 	configChangedVal     voyeur.Value
-	upgradeWorkerFactory *upgradeWorkerFactory
+	upgradeWorkerContext *upgradeWorkerContext
 	workersStarted       chan struct{}
 	st                   *state.State
 
@@ -133,7 +133,7 @@ func (a *MachineAgent) Init(args []string) error {
 	}
 	a.runner = newRunner(isFatal, moreImportant)
 	a.workersStarted = make(chan struct{})
-	a.upgradeWorkerFactory = NewUpgradeWorkerFactory(a)
+	a.upgradeWorkerContext = NewUpgradeWorkerContext()
 	return nil
 }
 
@@ -286,7 +286,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
 	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
-		return a.upgradeWorkerFactory.Worker(st, entity.Jobs()), nil
+		return a.upgradeWorkerContext.Worker(a, st, entity.Jobs()), nil
 	})
 
 	// All other workers must wait for the upgrade steps to complete
@@ -536,7 +536,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 	select {
-	case <-a.upgradeWorkerFactory.UpgradeComplete():
+	case <-a.upgradeWorkerContext.UpgradeComplete:
 		return nil // upgrade done so allow all logins
 	default:
 		authTag, err := names.ParseTag(creds.AuthTag)
@@ -737,7 +737,7 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 		select {
 		case <-stop:
 			return nil
-		case <-a.upgradeWorkerFactory.UpgradeComplete():
+		case <-a.upgradeWorkerContext.UpgradeComplete:
 		}
 		// Upgrades are done, start the worker.
 		worker, err := start()

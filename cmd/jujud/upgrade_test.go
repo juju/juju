@@ -229,8 +229,8 @@ func (s *UpgradeSuite) runUpgradeWorker() (
 ) {
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), s.oldVersion.Number)
 	agent := NewFakeUpgradingMachineAgent(config)
-	factory := NewUpgradeWorkerFactory(agent)
-	worker := factory.Worker(nil, []params.MachineJob{params.JobHostUnits})
+	context := NewUpgradeWorkerContext()
+	worker := context.Worker(agent, nil, []params.MachineJob{params.JobHostUnits})
 	s.setInstantRetryStrategy()
 	return worker.Wait(), config, agent
 }
