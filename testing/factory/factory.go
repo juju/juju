@@ -52,15 +52,14 @@ func (factory *Factory) UniqueString(prefix string) string {
 	return fmt.Sprintf("%s-%d", prefix, factory.UniqueInteger())
 }
 
-// MakeAnyUser will create a user with no specified values.
-func (factory *Factory) MakeAnyUser() *state.User {
-	return factory.MakeUser(UserParams{})
-}
-
 // MakeUser will create a user with values defined by the params.
 // For attributes of UserParams that are the default empty values,
 // some meaningful valid values are used instead.
-func (factory *Factory) MakeUser(params UserParams) *state.User {
+func (factory *Factory) MakeUser(vParams ...UserParams) *state.User {
+	params := UserParams{}
+	if len(vParams) > 0 {
+		params = vParams[0]
+	}
 	if params.Username == "" {
 		params.Username = factory.UniqueString("username")
 	}
@@ -112,16 +111,20 @@ type MachineParams struct {
 	Jobs            []state.MachineJob
 	Password        string
 	Nonce           string
-	Id              instance.Id
+	InstanceId      instance.Id
 	Characteristics *instance.HardwareCharacteristics
 }
 
 // MakeMachine will add a machine with values defined in params. For some
 // values in params, if they are missing, some meaningful empty values will be
 // set.
-func (factory *Factory) MakeMachine(params MachineParams) *state.Machine {
+func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
+	params := MachineParams{}
+	if len(vParams) > 0 {
+		params = vParams[0]
+	}
 	if params.Series == "" {
-		params.Series = "precise"
+		params.Series = "trusty"
 	}
 	if params.Nonce == "" {
 		params.Nonce = "nonce"
@@ -129,21 +132,16 @@ func (factory *Factory) MakeMachine(params MachineParams) *state.Machine {
 	if len(params.Jobs) == 0 {
 		params.Jobs = []state.MachineJob{state.JobHostUnits}
 	}
-	if params.Id == "" {
-		params.Id = instance.Id(factory.UniqueString("id"))
+	if params.InstanceId == "" {
+		params.InstanceId = instance.Id(factory.UniqueString("id"))
 	}
 	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
 	factory.c.Assert(err, gc.IsNil)
-	err = machine.SetProvisioned(params.Id, params.Nonce, params.Characteristics)
+	err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
 	factory.c.Assert(err, gc.IsNil)
 	err = machine.SetPassword(params.Password)
 	factory.c.Assert(err, gc.IsNil)
 	return machine
-}
-
-// MakeAnyMachine will create a machine with no params specified.
-func (factory *Factory) MakeAnyMachine() *state.Machine {
-	return factory.MakeMachine(MachineParams{})
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -156,7 +154,11 @@ type CharmParams struct {
 
 // MakeCharm creates a charm with the values specified in params.
 // Sensible default values are substituted for missing ones.
-func (factory *Factory) MakeCharm(params CharmParams) *state.Charm {
+func (factory *Factory) MakeCharm(vParams ...CharmParams) *state.Charm {
+	params := CharmParams{}
+	if len(vParams) > 0 {
+		params = vParams[0]
+	}
 	if params.Name == "" {
 		params.Name = "mysql"
 	}
@@ -182,11 +184,6 @@ func (factory *Factory) MakeCharm(params CharmParams) *state.Charm {
 	return charm
 }
 
-// MakeAnyCharm will create a charm with no parameters specified.
-func (factory *Factory) MakeAnyCharm() *state.Charm {
-	return factory.MakeCharm(CharmParams{})
-}
-
 // ServiceParams is used when specifying parameters for a new service.
 type ServiceParams struct {
 	Name    string
@@ -196,15 +193,20 @@ type ServiceParams struct {
 
 // MakeService creates a service with the specified parameters, substituting
 // sane defaults for missing values.
-func (factory *Factory) MakeService(params ServiceParams) *state.Service {
+func (factory *Factory) MakeService(vParams ...ServiceParams) *state.Service {
+	params := ServiceParams{}
+	if len(vParams) > 0 {
+		params = vParams[0]
+	}
+
 	if params.Name == "" {
 		params.Name = factory.UniqueString("mysql")
 	}
 	if params.Charm == nil {
-		params.Charm = factory.MakeAnyCharm()
+		params.Charm = factory.MakeCharm()
 	}
 	if params.Creator == "" {
-		creator := factory.MakeAnyUser()
+		creator := factory.MakeUser()
 		params.Creator = creator.Tag().String()
 	}
 	service, err := factory.st.AddService(params.Name, params.Creator, params.Charm, nil)
@@ -212,28 +214,68 @@ func (factory *Factory) MakeService(params ServiceParams) *state.Service {
 	return service
 }
 
-// MakeAnyService creates a service with an empty params struct.
-func (factory *Factory) MakeAnyService() *state.Service {
-	return factory.MakeService(ServiceParams{})
-}
-
 // UnitParams are used to create units.
 type UnitParams struct {
 	Service *state.Service
+	Machine *state.Machine
 }
 
 // MakeUnit creates a service unit with specified params, filling in
 // sane defaults for missing values.
-func (factory *Factory) MakeUnit(params UnitParams) *state.Unit {
+func (factory *Factory) MakeUnit(vParams ...UnitParams) *state.Unit {
+	params := UnitParams{}
+	if len(vParams) > 0 {
+		params = vParams[0]
+	}
+
+	if params.Machine == nil {
+		params.Machine = factory.MakeMachine()
+	}
 	if params.Service == nil {
-		params.Service = factory.MakeAnyService()
+		params.Service = factory.MakeService()
 	}
 	unit, err := params.Service.AddUnit()
+	factory.c.Assert(err, gc.IsNil)
+	err = unit.AssignToMachine(params.Machine)
 	factory.c.Assert(err, gc.IsNil)
 	return unit
 }
 
-// MakeAnyUnit creates a unit with empty params.
-func (factory *Factory) MakeAnyUnit() *state.Unit {
-	return factory.MakeUnit(UnitParams{})
+// RelationParams are used to create relations.
+type RelationParams struct {
+	Endpoints []state.Endpoint
+}
+
+// MakeRelation create a relation with specified params, filling in sane
+// defaults for missing values.
+func (factory *Factory) MakeRelation(vParams ...RelationParams) *state.Relation {
+	params := RelationParams{}
+	if len(vParams) > 0 {
+		params = vParams[0]
+	}
+
+	if len(params.Endpoints) == 0 {
+		s1 := factory.MakeService(ServiceParams{
+			Charm: factory.MakeCharm(CharmParams{
+				Name: "mysql",
+			}),
+		})
+		e1, err := s1.Endpoint("db")
+		factory.c.Assert(err, gc.IsNil)
+
+		s2 := factory.MakeService(ServiceParams{
+			Charm: factory.MakeCharm(CharmParams{
+				Name: "wordpress",
+			}),
+		})
+		e2, err := s2.Endpoint("db")
+		factory.c.Assert(err, gc.IsNil)
+
+		params.Endpoints = []state.Endpoint{e1, e2}
+	}
+
+	relation, err := factory.st.AddRelation(params.Endpoints...)
+	factory.c.Assert(err, gc.IsNil)
+
+	return relation
 }

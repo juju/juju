@@ -69,7 +69,7 @@ func (s *factorySuite) TearDownTest(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUserAny(c *gc.C) {
-	user := s.Factory.MakeAnyUser()
+	user := s.Factory.MakeUser()
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 
 	saved, err := s.State.User(user.Name())
@@ -112,7 +112,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachineAny(c *gc.C) {
-	machine := s.Factory.MakeAnyMachine()
+	machine := s.Factory.MakeMachine()
 	c.Assert(machine, gc.NotNil)
 
 	saved, err := s.State.Machine(machine.Id())
@@ -133,18 +133,18 @@ func (s *factorySuite) TestMakeMachineAny(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachine(c *gc.C) {
-	series := "precise"
-	jobs := []state.MachineJob{state.JobHostUnits}
+	series := "quantal"
+	jobs := []state.MachineJob{state.JobManageEnviron}
 	password := "some-password"
 	nonce := "some-nonce"
 	id := instance.Id("some-id")
 
 	machine := s.Factory.MakeMachine(factory.MachineParams{
-		Series:   series,
-		Jobs:     jobs,
-		Password: password,
-		Nonce:    nonce,
-		Id:       id,
+		Series:     series,
+		Jobs:       jobs,
+		Password:   password,
+		Nonce:      nonce,
+		InstanceId: id,
 	})
 	c.Assert(machine, gc.NotNil)
 
@@ -171,7 +171,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeCharmAny(c *gc.C) {
-	charm := s.Factory.MakeAnyCharm()
+	charm := s.Factory.MakeCharm()
 	c.Assert(charm, gc.NotNil)
 
 	saved, err := s.State.Charm(charm.URL())
@@ -185,7 +185,7 @@ func (s *factorySuite) TestMakeCharmAny(c *gc.C) {
 
 func (s *factorySuite) TestMakeCharm(c *gc.C) {
 	series := "quantal"
-	name := "mysql"
+	name := "wordpress"
 	revision := 13
 	url := fmt.Sprintf("cs:%s/%s-%d", series, name, revision)
 	ch := s.Factory.MakeCharm(factory.CharmParams{
@@ -205,7 +205,7 @@ func (s *factorySuite) TestMakeCharm(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeServiceAny(c *gc.C) {
-	service := s.Factory.MakeAnyService()
+	service := s.Factory.MakeService()
 	c.Assert(service, gc.NotNil)
 
 	saved, err := s.State.Service(service.Name())
@@ -218,7 +218,7 @@ func (s *factorySuite) TestMakeServiceAny(c *gc.C) {
 
 func (s *factorySuite) TestMakeService(c *gc.C) {
 	name := "servicename"
-	charm := s.Factory.MakeAnyCharm()
+	charm := s.Factory.MakeCharm()
 	creator := "user-bill"
 
 	service := s.Factory.MakeService(factory.ServiceParams{
@@ -242,7 +242,7 @@ func (s *factorySuite) TestMakeService(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUnitAny(c *gc.C) {
-	unit := s.Factory.MakeAnyUnit()
+	unit := s.Factory.MakeUnit()
 	c.Assert(unit, gc.NotNil)
 
 	saved, err := s.State.Unit(unit.Name())
@@ -255,7 +255,7 @@ func (s *factorySuite) TestMakeUnitAny(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUnit(c *gc.C) {
-	service := s.Factory.MakeAnyService()
+	service := s.Factory.MakeService()
 	unit := s.Factory.MakeUnit(factory.UnitParams{
 		Service: service,
 	})
@@ -270,4 +270,50 @@ func (s *factorySuite) TestMakeUnit(c *gc.C) {
 	c.Assert(saved.ServiceName(), gc.Equals, unit.ServiceName())
 	c.Assert(saved.Series(), gc.Equals, unit.Series())
 	c.Assert(saved.Life(), gc.Equals, unit.Life())
+}
+
+func (s *factorySuite) TestMakeRelationAny(c *gc.C) {
+	relation := s.Factory.MakeRelation()
+	c.Assert(relation, gc.NotNil)
+
+	saved, err := s.State.Relation(relation.Id())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.Id(), gc.Equals, relation.Id())
+	c.Assert(saved.Tag(), gc.Equals, relation.Tag())
+	c.Assert(saved.Life(), gc.Equals, relation.Life())
+	c.Assert(saved.Endpoints(), gc.Equals, relation.Endpoints())
+}
+
+func (s *factorySuite) TestMakeRelation(c *gc.C) {
+	s1 := s.Factory.MakeService(factory.ServiceParams{
+		Name: "service1",
+		Charm: s.Factory.MakeCharm(factory.CharmParams{
+			Name: "wordpress",
+		}),
+	})
+	e1, err := s1.Endpoint("db")
+	c.Assert(err, gc.IsNil)
+
+	s2 := s.Factory.MakeService(factory.ServiceParams{
+		Name: "service2",
+		Charm: s.Factory.MakeCharm(factory.CharmParams{
+			Name: "mysql",
+		}),
+	})
+	e2, err := s2.Endpoint("server")
+	c.Assert(err, gc.IsNil)
+
+	relation := s.Factory.MakeRelation(factory.RelationParams{
+		Endpoints: []state.Endpoint{e1, e2},
+	})
+	c.Assert(relation, gc.NotNil)
+
+	saved, err := s.State.Relation(relation.Id())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.Id(), gc.Equals, relation.Id())
+	c.Assert(saved.Tag(), gc.Equals, relation.Tag())
+	c.Assert(saved.Life(), gc.Equals, relation.Life())
+	c.Assert(saved.Endpoints(), gc.DeepEquals, relation.Endpoints())
 }
