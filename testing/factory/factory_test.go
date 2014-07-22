@@ -68,7 +68,7 @@ func (s *factorySuite) TearDownTest(c *gc.C) {
 	s.BaseSuite.TearDownTest(c)
 }
 
-func (s *factorySuite) TestMakeUserAny(c *gc.C) {
+func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 	user := s.Factory.MakeUser()
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 
@@ -111,7 +111,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
 }
 
-func (s *factorySuite) TestMakeMachineAny(c *gc.C) {
+func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 	machine := s.Factory.MakeMachine()
 	c.Assert(machine, gc.NotNil)
 
@@ -170,7 +170,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(saved.Clean(), gc.Equals, machine.Clean())
 }
 
-func (s *factorySuite) TestMakeCharmAny(c *gc.C) {
+func (s *factorySuite) TestMakeCharmNil(c *gc.C) {
 	charm := s.Factory.MakeCharm()
 	c.Assert(charm, gc.NotNil)
 
@@ -204,7 +204,7 @@ func (s *factorySuite) TestMakeCharm(c *gc.C) {
 	c.Assert(saved.BundleSha256(), gc.Equals, ch.BundleSha256())
 }
 
-func (s *factorySuite) TestMakeServiceAny(c *gc.C) {
+func (s *factorySuite) TestMakeServiceNil(c *gc.C) {
 	service := s.Factory.MakeService()
 	c.Assert(service, gc.NotNil)
 
@@ -241,7 +241,7 @@ func (s *factorySuite) TestMakeService(c *gc.C) {
 	c.Assert(saved.Life(), gc.Equals, service.Life())
 }
 
-func (s *factorySuite) TestMakeUnitAny(c *gc.C) {
+func (s *factorySuite) TestMakeUnitNil(c *gc.C) {
 	unit := s.Factory.MakeUnit()
 	c.Assert(unit, gc.NotNil)
 
@@ -272,7 +272,7 @@ func (s *factorySuite) TestMakeUnit(c *gc.C) {
 	c.Assert(saved.Life(), gc.Equals, unit.Life())
 }
 
-func (s *factorySuite) TestMakeRelationAny(c *gc.C) {
+func (s *factorySuite) TestMakeRelationNil(c *gc.C) {
 	relation := s.Factory.MakeRelation()
 	c.Assert(relation, gc.NotNil)
 
