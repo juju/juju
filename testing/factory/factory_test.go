@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environmentserver/authentication"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
@@ -105,4 +106,63 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
 	c.Assert(saved.LastConnection(), gc.Equals, user.LastConnection())
 	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
+}
+
+func (s *factorySuite) TestMakeMachineAny(c *gc.C) {
+	machine := s.Factory.MakeAnyMachine()
+	c.Assert(machine, gc.NotNil)
+
+	saved, err := s.State.Machine(machine.Id())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.Series(), gc.Equals, machine.Series())
+	c.Assert(saved.Id(), gc.Equals, machine.Id())
+	c.Assert(saved.Series(), gc.Equals, machine.Series())
+	c.Assert(saved.Tag(), gc.Equals, machine.Tag())
+	c.Assert(saved.Life(), gc.Equals, machine.Life())
+	c.Assert(saved.Jobs(), gc.Equals, machine.Jobs())
+	savedInstanceId, err := saved.InstanceId()
+	c.Assert(err, gc.IsNil)
+	machineInstanceId, err := machine.InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(savedInstanceId, gc.Equals, machineInstanceId)
+	c.Assert(saved.Clean(), gc.Equals, machine.Clean())
+}
+
+func (s *factorySuite) TestMakeMachine(c *gc.C) {
+	series := "precise"
+	jobs := []state.MachineJob{state.JobHostUnits}
+	password := "some-password"
+	nonce := "some-nonce"
+	id := instance.Id("some-id")
+
+	machine := s.Factory.MakeMachine(factory.MachineParams{
+		Series:   series,
+		Jobs:     jobs,
+		Password: password,
+		Nonce:    nonce,
+		Id:       id,
+	})
+	c.Assert(machine, gc.NotNil)
+
+	c.Assert(machine.Series(), gc.Equals, series)
+	c.Assert(machine.Jobs, gc.Equals, jobs)
+	machineInstanceId, err := machine.InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineInstanceId, gc.Equals, id)
+	c.Assert(machine.CheckProvisioned(nonce), gc.Equals, true)
+	c.Assert(machine.PasswordValid(password), gc.Equals, true)
+
+	saved, err := s.State.Machine(machine.Id())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.Id(), gc.Equals, machine.Id())
+	c.Assert(saved.Series(), gc.Equals, machine.Series())
+	c.Assert(saved.Tag(), gc.Equals, machine.Tag())
+	c.Assert(saved.Life(), gc.Equals, machine.Life())
+	c.Assert(saved.Jobs(), gc.Equals, machine.Jobs())
+	savedInstanceId, err := saved.InstanceId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(savedInstanceId, gc.Equals, machineInstanceId)
+	c.Assert(saved.Clean(), gc.Equals, machine.Clean())
 }

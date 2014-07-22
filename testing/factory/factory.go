@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 )
 
@@ -100,4 +101,44 @@ func (factory *Factory) MakeIdentity(params IdentityParams) *state.Identity {
 		params.Name, params.DisplayName, params.Password, params.Creator)
 	factory.c.Assert(err, gc.IsNil)
 	return identity
+}
+
+// Params for creating a machine.
+type MachineParams struct {
+	Series          string
+	Jobs            []state.MachineJob
+	Password        string
+	Nonce           string
+	Id              instance.Id
+	Characteristics *instance.HardwareCharacteristics
+}
+
+// MakeMachine will add a machine with values defined in params. For some
+// values in params, if they are missing, some meaningful empty values will be
+// set.
+func (factory *Factory) MakeMachine(params MachineParams) *state.Machine {
+	if params.Series == "" {
+		params.Series = "precise"
+	}
+	if params.Nonce == "" {
+		params.Nonce = "nonce"
+	}
+	if len(params.Jobs) == 0 {
+		params.Jobs = []state.MachineJob{state.JobHostUnits}
+	}
+	if params.Id == "" {
+		params.Id = instance.Id(factory.UniqueString("id"))
+	}
+	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
+	factory.c.Assert(err, gc.IsNil)
+	err = machine.SetProvisioned(params.Id, params.Nonce, params.Characteristics)
+	factory.c.Assert(err, gc.IsNil)
+	err = machine.SetPassword(params.Password)
+	factory.c.Assert(err, gc.IsNil)
+	return machine
+}
+
+// MakeAnyMachine will create a machine with no params specified.
+func (factory *Factory) MakeAnyMachine() *state.Machine {
+	return factory.MakeMachine(MachineParams{})
 }
