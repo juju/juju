@@ -40,6 +40,42 @@ type IdentityParams struct {
 	Creator     string
 }
 
+// CharmParams defines the parameters for creating a charm.
+type CharmParams struct {
+	Name     string
+	Series   string
+	Revision string
+	URL      string
+}
+
+// Params for creating a machine.
+type MachineParams struct {
+	Series          string
+	Jobs            []state.MachineJob
+	Password        string
+	Nonce           string
+	InstanceId      instance.Id
+	Characteristics *instance.HardwareCharacteristics
+}
+
+// ServiceParams is used when specifying parameters for a new service.
+type ServiceParams struct {
+	Name    string
+	Charm   *state.Charm
+	Creator string
+}
+
+// UnitParams are used to create units.
+type UnitParams struct {
+	Service *state.Service
+	Machine *state.Machine
+}
+
+// RelationParams are used to create relations.
+type RelationParams struct {
+	Endpoints []state.Endpoint
+}
+
 func (factory *Factory) UniqueInteger() int {
 	factory.index++
 	return factory.index
@@ -55,10 +91,14 @@ func (factory *Factory) UniqueString(prefix string) string {
 // MakeUser will create a user with values defined by the params.
 // For attributes of UserParams that are the default empty values,
 // some meaningful valid values are used instead.
+// If params is not specified, defaults are used. If more than one
+// params struct is passed to the function, it panics.
 func (factory *Factory) MakeUser(vParams ...UserParams) *state.User {
 	params := UserParams{}
-	if len(vParams) > 0 {
+	if len(vParams) == 1 {
 		params = vParams[0]
+	} else if len(vParams) > 1 {
+		panic("expecting 1 parameter or none")
 	}
 	if params.Username == "" {
 		params.Username = factory.UniqueString("username")
@@ -78,15 +118,18 @@ func (factory *Factory) MakeUser(vParams ...UserParams) *state.User {
 	return user
 }
 
-// MakeAnyIdentity will create an identity with no specified values.
-func (factory *Factory) MakeAnyIdentity() *state.Identity {
-	return factory.MakeIdentity(IdentityParams{})
-}
-
 // MakeIdentity will create an identity with values defined by the params.
 // For attributes of IdentityParams that are the default empty values,
 // some meaningful valid values are used instead.
-func (factory *Factory) MakeIdentity(params IdentityParams) *state.Identity {
+// If params is not specified, defaults are used. If more than one
+// params struct is passed to the function, it panics.
+func (factory *Factory) MakeIdentity(vParams ...IdentityParams) *state.Identity {
+	params := IdentityParams{}
+	if len(vParams) == 1 {
+		params = vParams[0]
+	} else if len(vParams) > 1 {
+		panic("expecting 1 parameter or none")
+	}
 	if params.Name == "" {
 		params.Name = factory.UniqueString("name")
 	}
@@ -105,23 +148,17 @@ func (factory *Factory) MakeIdentity(params IdentityParams) *state.Identity {
 	return identity
 }
 
-// Params for creating a machine.
-type MachineParams struct {
-	Series          string
-	Jobs            []state.MachineJob
-	Password        string
-	Nonce           string
-	InstanceId      instance.Id
-	Characteristics *instance.HardwareCharacteristics
-}
-
 // MakeMachine will add a machine with values defined in params. For some
 // values in params, if they are missing, some meaningful empty values will be
 // set.
+// If params is not specified, defaults are used. If more than one
+// params struct is passed to the function, it panics.
 func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
 	params := MachineParams{}
-	if len(vParams) > 0 {
+	if len(vParams) == 1 {
 		params = vParams[0]
+	} else if len(vParams) > 1 {
+		panic("expecting 1 parameter or none")
 	}
 	if params.Series == "" {
 		params.Series = "trusty"
@@ -144,14 +181,6 @@ func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
 	return machine
 }
 
-// CharmParams defines the parameters for creating a charm.
-type CharmParams struct {
-	Name     string
-	Series   string
-	Revision string
-	URL      string
-}
-
 // MakeCharm creates a charm with the values specified in params.
 // Sensible default values are substituted for missing ones.
 // Supported charms depend on the github.com/juju/charm/testing package.
@@ -159,10 +188,14 @@ type CharmParams struct {
 //   all-hooks, category, dummy, format2, logging, monitoring, mysql,
 //   mysql-alternative, riak, terracotta, upgrade1, upgrade2, varnish,
 //   varnish-alternative, wordpress.
+// If params is not specified, defaults are used. If more than one
+// params struct is passed to the function, it panics.
 func (factory *Factory) MakeCharm(vParams ...CharmParams) *state.Charm {
 	params := CharmParams{}
-	if len(vParams) > 0 {
+	if len(vParams) == 1 {
 		params = vParams[0]
+	} else if len(vParams) > 1 {
+		panic("expecting 1 parameter or none")
 	}
 	if params.Name == "" {
 		params.Name = "mysql"
@@ -189,19 +222,16 @@ func (factory *Factory) MakeCharm(vParams ...CharmParams) *state.Charm {
 	return charm
 }
 
-// ServiceParams is used when specifying parameters for a new service.
-type ServiceParams struct {
-	Name    string
-	Charm   *state.Charm
-	Creator string
-}
-
 // MakeService creates a service with the specified parameters, substituting
 // sane defaults for missing values.
+// If params is not specified, defaults are used. If more than one
+// params struct is passed to the function, it panics.
 func (factory *Factory) MakeService(vParams ...ServiceParams) *state.Service {
 	params := ServiceParams{}
-	if len(vParams) > 0 {
+	if len(vParams) == 1 {
 		params = vParams[0]
+	} else if len(vParams) > 1 {
+		panic("expecting 1 parameter or none")
 	}
 
 	if params.Name == "" {
@@ -219,18 +249,16 @@ func (factory *Factory) MakeService(vParams ...ServiceParams) *state.Service {
 	return service
 }
 
-// UnitParams are used to create units.
-type UnitParams struct {
-	Service *state.Service
-	Machine *state.Machine
-}
-
 // MakeUnit creates a service unit with specified params, filling in
 // sane defaults for missing values.
+// If params is not specified, defaults are used. If more than one
+// params struct is passed to the function, it panics.
 func (factory *Factory) MakeUnit(vParams ...UnitParams) *state.Unit {
 	params := UnitParams{}
-	if len(vParams) > 0 {
+	if len(vParams) == 1 {
 		params = vParams[0]
+	} else if len(vParams) > 1 {
+		panic("expecting 1 parameter or none")
 	}
 
 	if params.Machine == nil {
@@ -246,17 +274,16 @@ func (factory *Factory) MakeUnit(vParams ...UnitParams) *state.Unit {
 	return unit
 }
 
-// RelationParams are used to create relations.
-type RelationParams struct {
-	Endpoints []state.Endpoint
-}
-
 // MakeRelation create a relation with specified params, filling in sane
 // defaults for missing values.
+// If params is not specified, defaults are used. If more than one
+// params struct is passed to the function, it panics.
 func (factory *Factory) MakeRelation(vParams ...RelationParams) *state.Relation {
 	params := RelationParams{}
-	if len(vParams) > 0 {
+	if len(vParams) == 1 {
 		params = vParams[0]
+	} else if len(vParams) > 1 {
+		panic("expecting 1 parameter or none")
 	}
 
 	if len(params.Endpoints) == 0 {

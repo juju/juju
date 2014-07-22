@@ -317,3 +317,20 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 	c.Assert(saved.Life(), gc.Equals, relation.Life())
 	c.Assert(saved.Endpoints(), gc.DeepEquals, relation.Endpoints())
 }
+
+func (s *factorySuite) TestMultileParamPanics(c *gc.C) {
+	c.Assert(func() { s.Factory.MakeUser(factory.UserParams{}, factory.UserParams{}) },
+		gc.PanicMatches, "expecting 1 parameter or none")
+	c.Assert(func() { s.Factory.MakeIdentity(factory.IdentityParams{}, factory.IdentityParams{}) },
+		gc.PanicMatches, "expecting 1 parameter or none")
+	c.Assert(func() { s.Factory.MakeMachine(factory.MachineParams{}, factory.MachineParams{}) },
+		gc.PanicMatches, "expecting 1 parameter or none")
+	c.Assert(func() { s.Factory.MakeService(factory.ServiceParams{}, factory.ServiceParams{}) },
+		gc.PanicMatches, "expecting 1 parameter or none")
+	c.Assert(func() { s.Factory.MakeCharm(factory.CharmParams{}, factory.CharmParams{}) },
+		gc.PanicMatches, "expecting 1 parameter or none")
+	c.Assert(func() { s.Factory.MakeUnit(factory.UnitParams{}, factory.UnitParams{}) },
+		gc.PanicMatches, "expecting 1 parameter or none")
+	c.Assert(func() { s.Factory.MakeRelation(factory.RelationParams{}, factory.RelationParams{}) },
+		gc.PanicMatches, "expecting 1 parameter or none")
+}

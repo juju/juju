@@ -74,7 +74,7 @@ func (s *IdentitySuite) TestString(c *gc.C) {
 
 func (s *IdentitySuite) TestUpdateLastLogin(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
-	identity := s.factory.MakeAnyIdentity()
+	identity := s.factory.MakeIdentity()
 	err := identity.UpdateLastLogin()
 	c.Assert(err, gc.IsNil)
 	c.Assert(identity.LastLogin().After(now) ||
@@ -82,7 +82,7 @@ func (s *IdentitySuite) TestUpdateLastLogin(c *gc.C) {
 }
 
 func (s *IdentitySuite) TestSetPassword(c *gc.C) {
-	identity := s.factory.MakeAnyIdentity()
+	identity := s.factory.MakeIdentity()
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Identity(identity.Name())
 	})
@@ -98,7 +98,7 @@ func (s *IdentitySuite) TestAddIdentitySetsSalt(c *gc.C) {
 }
 
 func (s *IdentitySuite) TestSetPasswordChangesSalt(c *gc.C) {
-	identity := s.factory.MakeAnyIdentity()
+	identity := s.factory.MakeIdentity()
 	origSalt, origHash := state.GetIdentityPasswordSaltAndHash(identity)
 	c.Assert(origSalt, gc.Not(gc.Equals), "")
 	identity.SetPassword("a-password")
