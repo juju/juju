@@ -89,7 +89,7 @@ func actionResultGlobalKey(name string) string {
 }
 
 func ensureActionResultMarker(prefix string) string {
-	if prefix[len(prefix)-len(actionResultMarker):] != actionResultMarker {
+	if !strings.HasPrefix(prefix, actionResultMarker) {
 		prefix = prefix + actionResultMarker
 	}
 	return prefix

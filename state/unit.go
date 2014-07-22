@@ -56,7 +56,7 @@ const (
 // are resolved.
 type ResolvedMode string
 
-// ResolvedNone, ResolvedRetryHooks, and ResolvedNoHooks are the three ResolvedMode options
+// These are available ResolvedMode values.
 const (
 	ResolvedNone       ResolvedMode = ""
 	ResolvedRetryHooks ResolvedMode = "retry-hooks"
@@ -262,7 +262,7 @@ func (u *Unit) PasswordValid(password string) bool {
 	return false
 }
 
-// Destroy when called on a Alive unit, advances its lifecycle as far as
+// Destroy, when called on a Alive unit, advances its lifecycle as far as
 // possible; it otherwise has no effect. In most situations, the unit's
 // life is just set to Dying; but if a principal unit that is not assigned
 // to a provisioned machine is Destroyed, it will be removed from state
