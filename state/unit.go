@@ -1700,12 +1700,14 @@ func (u *Unit) ClearResolved() error {
 	return nil
 }
 
-// WatchActions starts and returns an ActionWatcher
+// WatchActions starts and returns a StringsWatcher that notifies when
+// actions with Id prefixes matching this Unit are added
 func (u *Unit) WatchActions() StringsWatcher {
-	return newActionWatcher(u.st, u)
+	return u.st.WatchActionsFilteredBy(u)
 }
 
-// WatchActionResults starts and returns an ActionResultsWatcher
+// WatchActionResults starts and returns a StringsWatcher that notifies
+// when actionresults with Id prefixes matching this Unit are added
 func (u *Unit) WatchActionResults() StringsWatcher {
-	return newActionResultWatcher(u.st, u)
+	return u.st.WatchActionResultsFilteredBy(u)
 }

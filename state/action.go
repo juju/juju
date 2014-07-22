@@ -166,6 +166,8 @@ func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters ma
 	return actionDoc{Id: actionId, Name: actionName, Payload: parameters}, nil
 }
 
+var ensureActionMarker = ensureSuffixFn(actionMarker)
+
 // newActionId generates a new id for an action on the given ActionReceiver
 func newActionId(st *State, ar ActionReceiver) (string, error) {
 	prefix := ensureActionMarker(ar.Name())
@@ -188,13 +190,6 @@ func actionIdFromTag(tag names.ActionTag) string {
 // actionGlobalKey returns the global database key for the named action.
 func actionGlobalKey(name string) string {
 	return "a#" + name
-}
-
-func ensureActionMarker(prefix string) string {
-	if prefix[len(prefix)-len(actionMarker):] != actionMarker {
-		prefix = prefix + actionMarker
-	}
-	return prefix
 }
 
 func extractSequence(id string) (int, bool) {
