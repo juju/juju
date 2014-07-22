@@ -119,6 +119,14 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	c.Assert(err, gc.IsNil)
 	apiInfo.Tag = names.NewUserTag("admin")
 	apiInfo.Password = "dummy-secret"
+
+	// An environment should really know how to return its own UUID. For now, we'll just hulk smash it.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	uuid := env.UUID()
+	tag := names.NewEnvironTag(uuid)
+	apiInfo.EnvironTag = tag
+
 	return apiInfo
 }
 
@@ -223,7 +231,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// Upload tools for both preferred and fake default series
 	envtesting.MustUploadFakeToolsVersions(environ.Storage(), versions...)
-	c.Assert(bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{}), gc.IsNil)
+	err = bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
 
