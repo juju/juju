@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiserver
@@ -144,13 +144,15 @@ var doCheckCreds = checkCreds
 
 func checkCreds(st *state.State, c params.Creds) (state.Entity, error) {
 	entity, err := st.FindEntity(c.AuthTag)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
+	if errors.IsNotFound(err) {
+		// We return the same error when an entity does not exist as for a bad
+		// password, so that we don't allow unauthenticated users to find
+		// information about existing entities.
+		return nil, common.ErrBadCreds
 	}
-	// We return the same error when an entity
-	// does not exist as for a bad password, so that
-	// we don't allow unauthenticated users to find information
-	// about existing entities.
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
 	authenticator, ok := entity.(taggedAuthenticator)
 	if !ok {
 		return nil, common.ErrBadCreds

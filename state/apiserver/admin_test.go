@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiserver_test
@@ -32,27 +32,6 @@ type loginSuite struct {
 
 var _ = gc.Suite(&loginSuite{})
 
-var badLoginTests = []struct {
-	tag      string
-	password string
-	err      string
-	code     string
-}{{
-	tag:      "user-admin",
-	password: "wrong password",
-	err:      "invalid entity name or password",
-	code:     params.CodeUnauthorized,
-}, {
-	tag:      "user-foo",
-	password: "password",
-	err:      "invalid entity name or password",
-	code:     params.CodeUnauthorized,
-}, {
-	tag:      "bar",
-	password: "password",
-	err:      `"bar" is not a valid tag`,
-}}
-
 func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 	return s.setupServerWithValidator(c, nil)
 }
@@ -80,7 +59,26 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
-	for i, t := range badLoginTests {
+	for i, t := range []struct {
+		tag      string
+		password string
+		err      string
+		code     string
+	}{{
+		tag:      "user-admin",
+		password: "wrong password",
+		err:      "invalid entity name or password",
+		code:     params.CodeUnauthorized,
+	}, {
+		tag:      "user-unknown",
+		password: "password",
+		err:      "invalid entity name or password",
+		code:     params.CodeUnauthorized,
+	}, {
+		tag:      "bar",
+		password: "password",
+		err:      `"bar" is not a valid tag`,
+	}} {
 		c.Logf("test %d; entity %q; password %q", i, t.tag, t.password)
 		// Note that Open does not log in if the tag and password
 		// are empty. This allows us to test operations on the connection
