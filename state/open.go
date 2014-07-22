@@ -135,17 +135,17 @@ var indexes = []struct {
 	// After the first public release, do not remove entries from here
 	// without adding them to a list of indexes to drop, to ensure
 	// old databases are modified to have the correct indexes.
-	{"relations", []string{"endpoints.relationname"}, false},
-	{"relations", []string{"endpoints.servicename"}, false},
-	{"units", []string{"service"}, false},
-	{"units", []string{"principal"}, false},
-	{"units", []string{"machineid"}, false},
-	{"users", []string{"name"}, false},
-	{"networks", []string{"providerid"}, true},
-	{"networkinterfaces", []string{"interfacename", "machineid"}, true},
-	{"networkinterfaces", []string{"macaddress", "networkname"}, true},
-	{"networkinterfaces", []string{"networkname"}, false},
-	{"networkinterfaces", []string{"machineid"}, false},
+	{relationsC, []string{"endpoints.relationname"}, false},
+	{relationsC, []string{"endpoints.servicename"}, false},
+	{unitsC, []string{"service"}, false},
+	{unitsC, []string{"principal"}, false},
+	{unitsC, []string{"machineid"}, false},
+	{usersC, []string{"name"}, false},
+	{networksC, []string{"providerid"}, true},
+	{networkInterfacesC, []string{"interfacename", "machineid"}, true},
+	{networkInterfacesC, []string{"macaddress", "networkname"}, true},
+	{networkInterfacesC, []string{"networkname"}, false},
+	{networkInterfacesC, []string{"machineid"}, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -217,8 +217,8 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
 	st.transactionRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
-	st.watcher = watcher.New(db.C("txns.log"))
-	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
+	st.watcher = watcher.New(log)
+	st.pwatcher = presence.NewWatcher(pdb.C(presenceC))
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique}
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
