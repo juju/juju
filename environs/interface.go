@@ -144,8 +144,9 @@ type Environ interface {
 	// will be returned.
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 
-	// StateServerInstances returns the IDs of instances
-	// corresponding to Juju state servers.
+	// StateServerInstances returns the IDs of instances corresponding
+	// to Juju state servers. If there are no state server instances,
+	// ErrNotBootstrapped is returned.
 	StateServerInstances() ([]instance.Id, error)
 
 	EnvironStorage

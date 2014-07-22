@@ -154,6 +154,7 @@ func (t *ToolsMetadata) binary() version.Binary {
 		Number: version.MustParse(t.Version),
 		Series: t.Release,
 		Arch:   t.Arch,
+		OS:     version.MustOSFromSeries(t.Release),
 	}
 }
 

@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
@@ -342,4 +343,17 @@ func (s *localJujuTestSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	cons := constraints.MustParse(fmt.Sprintf("arch=%s", invalidArch))
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch="+invalidArch+"\nvalid values are:.*")
+}
+
+func (s *localJujuTestSuite) TestStateServerInstances(c *gc.C) {
+	env := s.testBootstrap(c, minimalConfig(c))
+
+	instances, err := env.StateServerInstances()
+	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
+	c.Assert(instances, gc.HasLen, 0)
+
+	s.makeAgentsDir(c, env)
+	instances, err = env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, gc.DeepEquals, []instance.Id{"localhost"})
 }

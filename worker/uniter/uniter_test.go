@@ -209,10 +209,40 @@ var actions = map[string]string{
 #!/bin/bash --norc
 juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
 `[1:],
+	"snapshot": `
+#!/bin/bash --norc
+juju-log $JUJU_ENV_UUID %s $JUJU_REMOTE_UNIT
+`[1:],
 	"action-log-fail": `
 #!/bin/bash --norc
 juju-log $JUJU_ENV_UUID fail-%s $JUJU_REMOTE_UNIT
 exit 1
+`[1:],
+}
+
+var actionsYaml = map[string]string{
+	"base": `
+actions:
+`[1:],
+	"snapshot": `
+   snapshot:
+      description: Take a snapshot of the database.                           
+      params:                                                                 
+         title: "Snapshot"                                                    
+         type: "object"                                                       
+         properties:                                                          
+            outfile:                                                          
+               description: "The file to write out to."                       
+               type: string                                                   
+         required: ["outfile"]
+`[1:],
+	"action-log": `
+   action-log:
+      params:
+`[1:],
+	"action-log-fail": `
+   action-log-fail:
+      params:
 `[1:],
 }
 
@@ -226,11 +256,32 @@ func (ctx *context) writeHook(c *gc.C, path string, good bool) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (ctx *context) writeActions(c *gc.C, path string, names []string) {
+	for _, name := range names {
+		ctx.writeAction(c, path, name)
+	}
+}
+
 func (ctx *context) writeAction(c *gc.C, path, name string) {
 	actionPath := filepath.Join(path, "actions", name)
-	hook := actions[name]
-	content := fmt.Sprintf(hook, filepath.Base(actionPath))
+	action := actions[name]
+	content := fmt.Sprintf(action, filepath.Base(actionPath))
 	err := ioutil.WriteFile(actionPath, []byte(content), 0755)
+	c.Assert(err, gc.IsNil)
+}
+
+func (ctx *context) writeActionsYaml(c *gc.C, path string, names []string) {
+	actionsYamlPath := filepath.Join(path, "actions.yaml")
+	var actionsYamlFull string
+	// Build an appropriate actions.yaml
+	if names[0] != "base" {
+		names = append([]string{"base"}, names...)
+	}
+	for _, name := range names {
+		actionsYamlFull = strings.Join(
+			[]string{actionsYamlFull, actionsYaml[name]}, "\n")
+	}
+	err := ioutil.WriteFile(actionsYamlPath, []byte(actionsYamlFull), 0755)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -1250,11 +1301,11 @@ func (s *UniterSuite) TestUniterRelationErrors(c *gc.C) {
 var actionEventTests = []uniterTest{
 	// Relations.
 	ut(
-		"simple action event",
+		"simple action event: defined in actions.yaml, no args",
 		createCharm{
-			revision: 0,
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "action-log")
+				ctx.writeActionsYaml(c, path, []string{"action-log"})
 			},
 		},
 		serveCharm{},
@@ -1268,12 +1319,74 @@ var actionEventTests = []uniterTest{
 		addAction{"action-log", nil},
 		waitHooks{"action-log"},
 	), ut(
+		"actions with correct params passed are not an error",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeAction(c, path, "snapshot")
+				ctx.writeActionsYaml(c, path, []string{"snapshot"})
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		addAction{
+			name:   "snapshot",
+			params: map[string]interface{}{"outfile": "foo.bar"},
+		},
+		waitHooks{"snapshot"},
+	), ut(
+		"actions with incorrect params passed are not an error but fail",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeAction(c, path, "snapshot")
+				ctx.writeActionsYaml(c, path, []string{"snapshot"})
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		addAction{
+			name:   "snapshot",
+			params: map[string]interface{}{"outfile": 2},
+		},
+		waitHooks{"fail-snapshot"},
+	), ut(
+		"actions not defined in actions.yaml fail without an error",
+		createCharm{
+			customize: func(c *gc.C, ctx *context, path string) {
+				ctx.writeAction(c, path, "snapshot")
+			},
+		},
+		serveCharm{},
+		ensureStateWorker{},
+		createServiceAndUnit{},
+		startUniter{},
+		waitAddresses{},
+		waitUnit{status: params.StatusStarted},
+		waitHooks{"install", "config-changed", "start"},
+		verifyCharm{},
+		addAction{"snapshot", map[string]interface{}{"outfile": "foo.bar"}},
+		waitHooks{"fail-snapshot"},
+	), ut(
 		"pending actions get consumed",
 		createCharm{
-			revision: 0,
 			customize: func(c *gc.C, ctx *context, path string) {
 				ctx.writeAction(c, path, "action-log")
 				ctx.writeAction(c, path, "action-log-fail")
+				ctx.writeActionsYaml(c, path, []string{
+					"action-log",
+					"action-log-fail",
+				})
 			},
 		},
 		serveCharm{},
@@ -1295,7 +1408,7 @@ var actionEventTests = []uniterTest{
 			"fail-action-log-fail",
 		},
 	), ut(
-		"actions not implemented are not errors, like hooks",
+		"actions not implemented are not errors, similarly to hooks",
 		createCharm{},
 		serveCharm{},
 		ensureStateWorker{},

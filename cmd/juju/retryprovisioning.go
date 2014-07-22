@@ -33,7 +33,7 @@ func (c *RetryProvisioningCommand) Init(args []string) error {
 	}
 	c.Machines = make([]string, len(args))
 	for i, arg := range args {
-		if !names.IsMachine(arg) {
+		if !names.IsValidMachine(arg) {
 			return fmt.Errorf("invalid machine %q", arg)
 		}
 		c.Machines[i] = names.NewMachineTag(arg).String()

@@ -26,7 +26,7 @@ func newTools(vers, url string) *tools.Tools {
 }
 
 func (s *marshalSuite) TestMarshalUnmarshal(c *gc.C) {
-	testTools := newTools("7.8.9-foo-bar", "http://arble.tgz")
+	testTools := newTools("7.8.9-quantal-amd64", "http://arble.tgz")
 	data, err := bson.Marshal(&testTools)
 	c.Assert(err, gc.IsNil)
 

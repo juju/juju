@@ -134,7 +134,7 @@ func AddUnits(st *state.State, svc *state.Service, n int, machineIdSpec string) 
 					mid = machineIdSpec
 				}
 			}
-			if !names.IsMachine(mid) {
+			if !names.IsValidMachine(mid) {
 				return nil, fmt.Errorf("invalid force machine id %q", mid)
 			}
 			var unitCons *constraints.Value

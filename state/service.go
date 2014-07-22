@@ -713,7 +713,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts bson.D) ([]txn.Op, error) {
 
 // Unit returns the service's unit with name.
 func (s *Service) Unit(name string) (*Unit, error) {
-	if !names.IsUnit(name) {
+	if !names.IsValidUnit(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 
