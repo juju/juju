@@ -120,12 +120,9 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	apiInfo.Tag = names.NewUserTag("admin")
 	apiInfo.Password = "dummy-secret"
 
-	// An environment should really know how to return its own UUID. For now, we'll just hulk smash it.
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-	uuid := env.UUID()
-	tag := names.NewEnvironTag(uuid)
-	apiInfo.EnvironTag = tag
+	apiInfo.EnvironTag = env.Tag()
 
 	return apiInfo
 }
