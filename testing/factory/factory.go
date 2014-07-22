@@ -28,7 +28,7 @@ type UserParams struct {
 	Creator     string
 }
 
-// IdentityParams provides the optional valus for the Factory.MakeIdentity method.
+// IdentityParams provides the optional values for the Factory.MakeIdentity method.
 type IdentityParams struct {
 	Name        string
 	DisplayName string
