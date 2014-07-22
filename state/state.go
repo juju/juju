@@ -40,6 +40,7 @@ import (
 var logger = loggo.GetLogger("juju.state")
 
 const (
+	// The following define the mongo collections used to record the Juju environment state.
 	environmentsC      = "environments"
 	charmsC            = "charms"
 	machinesC          = "machines"
@@ -65,6 +66,9 @@ const (
 	statusesC          = "statuses"
 	stateServersC      = "stateServers"
 	openedPortsC       = "openedPorts"
+	// These collections are used by the mgo transaction runner.
+	txnLogC = "txns.log"
+	txnsC   = "txns"
 
 	AdminUser = "admin"
 )
@@ -72,7 +76,12 @@ const (
 // State represents the state of an environment
 // managed by juju.
 type State struct {
+	// transactionRunner is normally nil, which means that a new one
+	// will be created for each operation, ensuring a fresh mgo.Session
+	// is used. However, for tests, a value may be assigned and this will
+	// be used instead of creating a new runnner each time.
 	transactionRunner jujutxn.Runner
+	authenticated     bool
 	mongoInfo         *authentication.MongoInfo
 	policy            Policy
 	db                *mgo.Database
@@ -83,10 +92,14 @@ type State struct {
 	allManager *multiwatcher.StoreManager
 }
 
-// getCollection fetches a named collection using a new session.
+// getCollection fetches a named collection using a new session if the
+// database has previously been logged in to.
 // It returns the collection and a closer function for the session.
 func (st *State) getCollection(coll string) (*mgo.Collection, func()) {
-	return mongo.CollectionFromName(st.db, coll)
+	if st.authenticated {
+		return mongo.CollectionFromName(st.db, coll)
+	}
+	return st.db.C(coll), func() {}
 }
 
 // getPresence returns the presence collection.
@@ -100,8 +113,7 @@ func (st *State) getPresence() *mgo.Collection {
 // getCollection multiple times.
 func (st *State) newDB() (*mgo.Database, func()) {
 	session := st.db.Session.Copy()
-	db := session.DB("juju")
-	return db, session.Close
+	return st.db.With(session), session.Close
 }
 
 // Ping probes the state's database connection to ensure
@@ -118,19 +130,45 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.db.Session
 }
 
+// txnRunner returns a jujutxn.Runner instance.
+// If a runner has been assigned to st, that instance is returned.
+// Otherwise a new instance is created.
+// If st has been authenticated by having it's database logged in,
+// a new mgo.Session is used.
+func (st *State) txnRunner() (_ jujutxn.Runner, closer func()) {
+	closer = func() {}
+	if st.transactionRunner != nil {
+		return st.transactionRunner, closer
+	}
+	// If not authenticated, just use the unaltered db and a no-op closer.
+	runnerDb := st.db
+	if st.authenticated {
+		session := runnerDb.Session.Copy()
+		runnerDb = runnerDb.With(session)
+		closer = session.Close
+	}
+	return jujutxn.NewRunner(jujutxn.RunnerParams{Database: runnerDb}), closer
+}
+
 // runTransaction is a convenience method delegating to transactionRunner.
 func (st *State) runTransaction(ops []txn.Op) error {
-	return st.transactionRunner.RunTransaction(ops)
+	runner, closer := st.txnRunner()
+	defer closer()
+	return runner.RunTransaction(ops)
 }
 
 // run is a convenience method delegating to transactionRunner.
 func (st *State) run(transactions jujutxn.TransactionSource) error {
-	return st.transactionRunner.Run(transactions)
+	runner, closer := st.txnRunner()
+	defer closer()
+	return runner.Run(transactions)
 }
 
 // ResumeTransactions resumes all pending transactions.
 func (st *State) ResumeTransactions() error {
-	return st.transactionRunner.ResumeTransactions()
+	runner, closer := st.txnRunner()
+	defer closer()
+	return runner.ResumeTransactions()
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {

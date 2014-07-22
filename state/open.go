@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -175,6 +174,7 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
+	authenticated := false
 	if mongoInfo.Tag != nil {
 		if err := db.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", mongoInfo.Tag))
@@ -185,18 +185,21 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
+		authenticated = true
 	} else if mongoInfo.Password != "" {
 		if err := admin.Login(AdminUser, mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
+		authenticated = true
 	}
 
 	st := &State{
-		mongoInfo: mongoInfo,
-		policy:    policy,
-		db:        db,
+		mongoInfo:     mongoInfo,
+		policy:        policy,
+		authenticated: authenticated,
+		db:            db,
 	}
-	log := db.C("txns.log")
+	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.klmongodb.org/browse/SERVER-6992
@@ -204,7 +207,6 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
-	st.transactionRunner = jujutxn.NewRunner(jujutxn.RunnerParams{Database: db})
 	st.watcher = watcher.New(log)
 	st.pwatcher = presence.NewWatcher(pdb.C(presenceC))
 	for _, item := range indexes {
