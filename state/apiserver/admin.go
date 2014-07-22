@@ -142,8 +142,8 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 
 var doCheckCreds = checkCreds
 
-func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
-	entity0, err := st.FindEntity(c.AuthTag)
+func checkCreds(st *state.State, c params.Creds) (state.Entity, error) {
+	entity, err := st.FindEntity(c.AuthTag)
 	if err != nil && !errors.IsNotFound(err) {
 		return nil, err
 	}
@@ -151,11 +151,11 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 	// does not exist as for a bad password, so that
 	// we don't allow unauthenticated users to find information
 	// about existing entities.
-	entity, ok := entity0.(taggedAuthenticator)
+	authenticator, ok := entity.(taggedAuthenticator)
 	if !ok {
 		return nil, common.ErrBadCreds
 	}
-	if err != nil || !entity.PasswordValid(c.Password) {
+	if err != nil || !authenticator.PasswordValid(c.Password) {
 		return nil, common.ErrBadCreds
 	}
 	// Check if a machine agent is logging in with the right Nonce
@@ -165,7 +165,7 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 	return entity, nil
 }
 
-func getAndUpdateLastConnectionForEntity(entity taggedAuthenticator) *time.Time {
+func getAndUpdateLastConnectionForEntity(entity state.Entity) *time.Time {
 	if user, ok := entity.(*state.User); ok {
 		result := user.LastConnection()
 		user.UpdateLastConnection()
@@ -174,7 +174,7 @@ func getAndUpdateLastConnectionForEntity(entity taggedAuthenticator) *time.Time 
 	return nil
 }
 
-func checkForValidMachineAgent(entity taggedAuthenticator, c params.Creds) error {
+func checkForValidMachineAgent(entity state.Entity, c params.Creds) error {
 	// If this is a machine agent connecting, we need to check the
 	// nonce matches, otherwise the wrong agent might be trying to
 	// connect.
@@ -200,7 +200,7 @@ func (p *machinePinger) Stop() error {
 	return p.Pinger.Kill()
 }
 
-func (a *srvAdmin) startPingerIfAgent(newRoot apiRoot, entity taggedAuthenticator) error {
+func (a *srvAdmin) startPingerIfAgent(newRoot apiRoot, entity state.Entity) error {
 	// A machine or unit agent has connected, so start a pinger to
 	// announce it's now alive, and set up the API pinger
 	// so that the connection will be terminated if a sufficient
