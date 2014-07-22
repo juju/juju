@@ -1590,7 +1590,7 @@ func (w *actionWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := w.merge(changes, initial, updates); err != nil {
+			if err := mergeIds(changes, initial, updates); err != nil {
 				return err
 			}
 			if !changes.IsEmpty() {
@@ -1646,28 +1646,6 @@ func (w *actionWatcher) initial() (set.Strings, error) {
 		}
 	}
 	return actions, iter.Close()
-}
-
-// merge cleans up the pending changes to account for actionId's being
-// removed before this watcher consumes them, and to account for the slight
-// potential overlap between the inital actionIds pending before the watcher
-// starts, and actionId's the watcher detects
-func (w *actionWatcher) merge(changes, initial set.Strings, updates map[interface{}]bool) error {
-	for id, exists := range updates {
-		switch id := id.(type) {
-		case string:
-			if exists {
-				if !initial.Contains(id) {
-					changes.Add(id)
-				}
-			} else {
-				changes.Remove(id)
-			}
-		default:
-			return errors.Errorf("id is not of type string, got %T", id)
-		}
-	}
-	return nil
 }
 
 type actionResultWatcher struct {
@@ -1734,7 +1712,7 @@ func (w *actionResultWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := w.merge(changes, initial, updates); err != nil {
+			if err := mergeIds(changes, initial, updates); err != nil {
 				return err
 			}
 			if !changes.IsEmpty() {
@@ -1785,7 +1763,12 @@ func (w *actionResultWatcher) initial() (set.Strings, error) {
 	return results, iter.Close()
 }
 
-func (w *actionResultWatcher) merge(changes, initial set.Strings, updates map[interface{}]bool) error {
+// mergeIds is used for merging actionId's and actionResultId's that
+// come in via the updates map. It cleans up the pending changes to
+// account for id's being removed before the watcher consumes them, and
+// to account for the slight potential overlap between the inital id's
+// pending before the watcher starts, and the id's the watcher detects
+func mergeIds(changes, initial set.Strings, updates map[interface{}]bool) error {
 	for id, exists := range updates {
 		switch id := id.(type) {
 		case string:
