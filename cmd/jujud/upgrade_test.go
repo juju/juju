@@ -37,6 +37,7 @@ type UpgradeSuite struct {
 	oldVersion       version.Binary
 	upgradeToVersion version.Binary
 	logWriter        loggo.TestWriter
+	connectionDead   bool
 }
 
 var _ = gc.Suite(&UpgradeSuite{})
@@ -67,6 +68,12 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 	// As Juju versions increase, update the version to which we are upgrading.
 	s.upgradeToVersion = version.Current
 	s.upgradeToVersion.Number.Minor++
+
+	// Allow tests to make the API connection appear to be dead.
+	s.connectionDead = false
+	s.PatchValue(&connectionIsDead, func(pinger) bool {
+		return s.connectionDead
+	})
 }
 
 func (s *UpgradeSuite) captureLogs(c *gc.C) {
@@ -92,9 +99,10 @@ func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 
 func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	// This test is a fairly heavyweight end-to-end functional test
-	// that spins up machine agents and attempts actual logins. Please
-	// keep it that way so that we have at least one test that ensure
-	// that everything hangs together.
+	// that spins up machine agents and attempts actual logins during
+	// and after the upgrade process. Please keep this as a functional
+	// test so that we have at least one check which ensures that
+	// everything hangs together.
 	//
 	// Other tests in this file are lightweight unit tests.
 
@@ -159,26 +167,42 @@ func (s *UpgradeSuite) TestRetryStrategy(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestUpgradeFailure(c *gc.C) {
+	// This test checks what happens when every upgrade attempt fails.
+	// A number of retries should be observed and the agent should end
+	// up in a state where it is is still running but is reporting an
+	// error and the upgrade is not flagged as having completed (which
+	// prevents most of the agent's workers from running and keeps the
+	// API in restricted mode).
+
 	attemptCount := 0
 	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
 		attemptCount++
 		return errors.New("boom")
 	}
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+
 	s.captureLogs(c)
 
-	workerErr, config, agent := s.runUpgradeWorker()
+	workerErr, config, agent, context := s.runUpgradeWorker()
 
+	// The worker shouldn't return an error so that the worker and
+	// agent keep running.
 	c.Check(workerErr, gc.IsNil)
+
 	c.Check(attemptCount, gc.Equals, numTestUpgradeRetries)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
 	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
 		s.generateExpectedStatusCalls(numTestUpgradeRetries))
 	c.Assert(s.logWriter.Log(), jc.LogMatches,
 		s.generateExpectedUpgradeLogs(numTestUpgradeRetries))
+	assertUpgradeNotComplete(c, context)
 }
 
 func (s *UpgradeSuite) TestUpgradeAttemptFailAndThenSuccess(c *gc.C) {
+	// This test checks what happens when the first upgrade attempt
+	// fails but the following on succeeds. The final state should be
+	// the same as a successful upgrade which worked first go.
+
 	attemptCount := 0
 	fail := true
 	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
@@ -193,7 +217,7 @@ func (s *UpgradeSuite) TestUpgradeAttemptFailAndThenSuccess(c *gc.C) {
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
 	s.captureLogs(c)
 
-	workerErr, config, agent := s.runUpgradeWorker()
+	workerErr, config, agent, context := s.runUpgradeWorker()
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(attemptCount, gc.Equals, 2)
@@ -202,9 +226,37 @@ func (s *UpgradeSuite) TestUpgradeAttemptFailAndThenSuccess(c *gc.C) {
 		s.generateExpectedStatusCalls(1))
 	c.Assert(s.logWriter.Log(), jc.LogMatches,
 		s.generateExpectedUpgradeLogs(1))
+	assertUpgradeComplete(c, context)
+}
+
+func (s *UpgradeSuite) TestUpgradeAndConnectionFails(c *gc.C) {
+	// This test checks what happens when an upgrade fails because the
+	// connection to mongo has gone away. This will happen when the
+	// mongo master changes. In this case we want the upgrade worker
+	// to return immediately without further retries. The error should
+	// be returned by the worker so that the agent will restart.
+
+	attemptCount := 0
+	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
+		attemptCount++
+		return errors.New("boom")
+	}
+	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	s.connectionDead = true // Make the connection to state appear to be dead
+	s.captureLogs(c)
+
+	workerErr, config, _, context := s.runUpgradeWorker()
+
+	c.Check(workerErr, gc.ErrorMatches, "API connection lost during upgrade: boom")
+	c.Check(attemptCount, gc.Equals, 1)
+	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
+	assertUpgradeNotComplete(c, context)
 }
 
 func (s *UpgradeSuite) TestUpgradeSuccess(c *gc.C) {
+	// This test checks what happens when an upgrade works on the
+	// first attempt.
+
 	attemptCount := 0
 	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
 		attemptCount++
@@ -213,7 +265,7 @@ func (s *UpgradeSuite) TestUpgradeSuccess(c *gc.C) {
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
 	s.captureLogs(c)
 
-	workerErr, config, agent := s.runUpgradeWorker()
+	workerErr, config, agent, context := s.runUpgradeWorker()
 
 	c.Check(workerErr, gc.IsNil)
 	c.Check(attemptCount, gc.Equals, 1)
@@ -222,17 +274,18 @@ func (s *UpgradeSuite) TestUpgradeSuccess(c *gc.C) {
 		s.generateExpectedStatusCalls(0))
 	c.Assert(s.logWriter.Log(), jc.LogMatches,
 		s.generateExpectedUpgradeLogs(0))
+	assertUpgradeComplete(c, context)
 }
 
 func (s *UpgradeSuite) runUpgradeWorker() (
-	error, *fakeConfigSetter, *fakeUpgradingMachineAgent,
+	error, *fakeConfigSetter, *fakeUpgradingMachineAgent, *upgradeWorkerContext,
 ) {
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), s.oldVersion.Number)
 	agent := NewFakeUpgradingMachineAgent(config)
 	context := NewUpgradeWorkerContext()
 	worker := context.Worker(agent, nil, []params.MachineJob{params.JobHostUnits})
 	s.setInstantRetryStrategy()
-	return worker.Wait(), config, agent
+	return worker.Wait(), config, agent, context
 }
 
 const numTestUpgradeRetries = 3
@@ -425,6 +478,22 @@ var upgradeTestDialOpts = api.DialOpts{
 	DialAddressInterval: 50 * time.Millisecond,
 	Timeout:             1 * time.Minute,
 	RetryDelay:          250 * time.Millisecond,
+}
+
+func assertUpgradeComplete(c *gc.C, context *upgradeWorkerContext) {
+	select {
+	case <-context.UpgradeComplete:
+	default:
+		c.Error("UpgradeComplete channel is open but shouldn't be")
+	}
+}
+
+func assertUpgradeNotComplete(c *gc.C, context *upgradeWorkerContext) {
+	select {
+	case <-context.UpgradeComplete:
+		c.Error("UpgradeComplete channel is closed but shouldn't be")
+	default:
+	}
 }
 
 // NewFakeConfigSetter returns a fakeConfigSetter which implements

@@ -52,6 +52,19 @@ func (c *upgradeWorkerContext) Worker(
 	return worker.NewSimpleWorker(c.run)
 }
 
+type apiLostDuringUpgrade struct {
+	err error
+}
+
+func (e *apiLostDuringUpgrade) Error() string {
+	return fmt.Sprintf("API connection lost during upgrade: %v", e.err)
+}
+
+func isAPILostDuringUpgrade(err error) bool {
+	_, ok := err.(*apiLostDuringUpgrade)
+	return ok
+}
+
 func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	select {
 	case <-c.UpgradeComplete:
@@ -90,20 +103,21 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		}
 		defer st.Close()
 	}
-	if err := c.runUpgrades(st, agentConfig); err == nil {
-		// Only signal that the upgrade is complete if no error
-		// was returned.
-		close(c.UpgradeComplete)
-	} else if !isFatal(err) {
-		// Only non-fatal errors are returned (this will trigger
-		// the worker to be restarted).
+	if err := c.runUpgrades(st, agentConfig); err != nil {
+		// Only return an error from the worker if the connection to
+		// state went away (possible mongo master change). Returning
+		// an error when the connection is lost will cause the agent
+		// to restart.
 		//
-		// Fatal upgrade errors are not returned because user
-		// intervention is required at that point. We don't want
-		// the upgrade worker or the agent to restart. Status
-		// output and the logs will report that the upgrade has
-		// failed.
-		return err
+		// For other errors, the error is not returned because we want
+		// the machine agent to stay running in an error state waiting
+		// for user intervention.
+		if isAPILostDuringUpgrade(err) {
+			return err
+		}
+	} else {
+		// Upgrade succeeded - signal that the upgrade is complete.
+		close(c.UpgradeComplete)
 	}
 	return nil
 }
@@ -144,17 +158,20 @@ func (c *upgradeWorkerContext) runUpgrades(st *state.State, agentConfig agent.Co
 				upgradeErr = upgradesPerformUpgrade(from.Number, target, context)
 				if upgradeErr == nil {
 					break
-				} else {
-					retryText := "will retry"
-					if !attempt.HasNext() {
-						retryText = "giving up"
-					}
-					logger.Errorf("upgrade from %v to %v for %v %q failed (%s): %v",
-						from, version.Current, target, tag, retryText, upgradeErr)
-					a.setMachineStatus(c.apiState, params.StatusError,
-						fmt.Sprintf("upgrade to %v failed (%s): %v",
-							version.Current, retryText, upgradeErr))
 				}
+				if connectionIsDead(c.apiState) {
+					// API connection has gone away - abort!
+					return &apiLostDuringUpgrade{upgradeErr}
+				}
+				retryText := "will retry"
+				if !attempt.HasNext() {
+					retryText = "giving up"
+				}
+				logger.Errorf("upgrade from %v to %v for %v %q failed (%s): %v",
+					from, version.Current, target, tag, retryText, upgradeErr)
+				a.setMachineStatus(c.apiState, params.StatusError,
+					fmt.Sprintf("upgrade to %v failed (%s): %v",
+						version.Current, retryText, upgradeErr))
 			}
 		}
 		if upgradeErr != nil {
@@ -165,7 +182,7 @@ func (c *upgradeWorkerContext) runUpgrades(st *state.State, agentConfig agent.Co
 	})
 	if err != nil {
 		logger.Errorf("upgrade to %v failed: %v", version.Current, err)
-		return &fatalError{err.Error()}
+		return err
 	}
 
 	logger.Infof("upgrade to %v completed successfully.", version.Current)
