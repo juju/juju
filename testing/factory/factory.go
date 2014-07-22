@@ -5,7 +5,10 @@ package factory
 
 import (
 	"fmt"
+	"net/url"
 
+	"github.com/juju/charm"
+	charmtesting "github.com/juju/charm/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
@@ -141,4 +144,74 @@ func (factory *Factory) MakeMachine(params MachineParams) *state.Machine {
 // MakeAnyMachine will create a machine with no params specified.
 func (factory *Factory) MakeAnyMachine() *state.Machine {
 	return factory.MakeMachine(MachineParams{})
+}
+
+// CharmParams defines the parameters for creating a charm.
+type CharmParams struct {
+	Name     string
+	Series   string
+	Revision string
+	URL      string
+}
+
+// MakeCharm creates a charm with the values specified in params.
+// Sensible default values are substituted for missing ones.
+func (factory *Factory) MakeCharm(params CharmParams) *state.Charm {
+	if params.Name == "" {
+		params.Name = "mysql"
+	}
+	if params.Series == "" {
+		params.Series = "quantal"
+	}
+	if params.Revision == "" {
+		params.Revision = fmt.Sprintf("%d", factory.UniqueInteger())
+	}
+	if params.URL == "" {
+		params.URL = fmt.Sprintf("cs:%s/%s-%s", params.Series, params.Name, params.Revision)
+	}
+
+	ch := charmtesting.Charms.Dir(params.Name)
+
+	curl := charm.MustParseURL(params.URL)
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
+	bundleSHA256 := factory.UniqueString("bundlesha")
+	factory.c.Assert(err, gc.IsNil)
+
+	charm, err := factory.st.AddCharm(ch, curl, bundleURL, bundleSHA256)
+	factory.c.Assert(err, gc.IsNil)
+	return charm
+}
+
+// MakeAnyCharm will create a charm with no parameters specified.
+func (factory *Factory) MakeAnyCharm() *state.Charm {
+	return factory.MakeCharm(CharmParams{})
+}
+
+// ServiceParams is used when specifying parameters for a new service.
+type ServiceParams struct {
+	Name    string
+	Charm   *state.Charm
+	Creator string
+}
+
+// MakeService creates a service with the specified parameters, substituting
+// sane defaults for missing values.
+func (factory *Factory) MakeService(params ServiceParams) *state.Service {
+	if params.Name == "" {
+		params.Name = factory.UniqueString("mysql")
+	}
+	if params.Charm == nil {
+		params.Charm = factory.MakeAnyCharm()
+	}
+	if params.Creator == "" {
+		params.Creator = "user-admin"
+	}
+	service, err := factory.st.AddService(params.Name, params.Creator, params.Charm, nil)
+	factory.c.Assert(err, gc.IsNil)
+	return service
+}
+
+// MakeAnyService creates a service with an empty params struct.
+func (factory *Factory) MakeAnyService() *state.Service {
+	return factory.MakeService(ServiceParams{})
 }

@@ -4,6 +4,9 @@
 package factory_test
 
 import (
+	"fmt"
+
+	"github.com/juju/charm"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -165,4 +168,75 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(savedInstanceId, gc.Equals, machineInstanceId)
 	c.Assert(saved.Clean(), gc.Equals, machine.Clean())
+}
+
+func (s *factorySuite) TestMakeCharmAny(c *gc.C) {
+	charm := s.Factory.MakeAnyCharm()
+	c.Assert(charm, gc.NotNil)
+
+	saved, err := s.State.Charm(charm.URL())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.URL(), gc.DeepEquals, charm.URL())
+	c.Assert(saved.Meta(), gc.DeepEquals, charm.Meta())
+	c.Assert(saved.BundleURL(), gc.DeepEquals, charm.BundleURL())
+	c.Assert(saved.BundleSha256(), gc.Equals, charm.BundleSha256())
+}
+
+func (s *factorySuite) TestMakeCharm(c *gc.C) {
+	series := "quantal"
+	name := "mysql"
+	revision := 13
+	url := fmt.Sprintf("cs:%s/%s-%d", series, name, revision)
+	ch := s.Factory.MakeCharm(factory.CharmParams{
+		URL: url,
+	})
+	c.Assert(ch, gc.NotNil)
+
+	c.Assert(ch.URL(), gc.DeepEquals, charm.MustParseURL(url))
+
+	saved, err := s.State.Charm(ch.URL())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.URL(), gc.DeepEquals, ch.URL())
+	c.Assert(saved.Meta(), gc.DeepEquals, ch.Meta())
+	c.Assert(saved.BundleURL(), gc.DeepEquals, ch.BundleURL())
+	c.Assert(saved.BundleSha256(), gc.Equals, ch.BundleSha256())
+}
+
+func (s *factorySuite) TestMakeServiceAny(c *gc.C) {
+	service := s.Factory.MakeAnyService()
+	c.Assert(service, gc.NotNil)
+
+	saved, err := s.State.Service(service.Name())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.Name(), gc.Equals, service.Name())
+	c.Assert(saved.Tag(), gc.Equals, service.Tag())
+	c.Assert(saved.Life(), gc.Equals, service.Life())
+}
+
+func (s *factorySuite) TestMakeService(c *gc.C) {
+	name := "servicename"
+	charm := s.Factory.MakeAnyCharm()
+	creator := "user-bill"
+
+	service := s.Factory.MakeService(factory.ServiceParams{
+		Name:    name,
+		Charm:   charm,
+		Creator: creator,
+	})
+	c.Assert(service, gc.NotNil)
+
+	c.Assert(service.Name(), gc.Equals, name)
+	c.Assert(service.GetOwnerTag(), gc.Equals, creator)
+	curl, _ := service.CharmURL()
+	c.Assert(curl, gc.Equals, charm.URL())
+
+	saved, err := s.State.Service(service.Name())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.Name(), gc.Equals, service.Name())
+	c.Assert(saved.Tag(), gc.Equals, service.Tag())
+	c.Assert(saved.Life(), gc.Equals, service.Life())
 }
