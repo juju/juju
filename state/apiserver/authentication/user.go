@@ -4,10 +4,8 @@
 package authentication
 
 import (
-	"github.com/juju/errors"
-	"github.com/juju/names"
-
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/apiserver/common"
 )
 
 // UserIdentityProvider performs authentication for users.
@@ -15,12 +13,13 @@ type UserAuthenticator struct {
 	AgentAuthenticator
 }
 
-var _ TagAuthenticator = (*UserAuthenticator)(nil)
+var _ EntityAuthenticator = (*UserAuthenticator)(nil)
 
 // Authenticate authenticates the provided entity and returns an error on authentication failure.
 func (u *UserAuthenticator) Authenticate(entity state.Entity, password, nonce string) error {
-	if kind := entity.Tag().Kind(); kind != names.UserTagKind {
-		return errors.Errorf("entity with tag '%s' cannot be authenticated as a user", kind)
+	if _, ok := entity.(*state.User); ok {
+		return u.AgentAuthenticator.Authenticate(entity, password, nonce)
 	}
-	return u.AgentAuthenticator.Authenticate(entity, password, nonce)
+
+	return common.ErrBadRequest
 }

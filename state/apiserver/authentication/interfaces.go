@@ -7,8 +7,9 @@ import (
 	"github.com/juju/juju/state"
 )
 
-// TagAuthenticator is the interface all tag authenticators need to implement
+// EntityAuthenticator is the interface all entity authenticators need to implement
 // to authenticate juju entities.
-type TagAuthenticator interface {
-	Authenticate(tag state.Entity, password, nonce string) error
+type EntityAuthenticator interface {
+	// Authenticate authenticates the given entity
+	Authenticate(entity state.Entity, password, nonce string) error
 }

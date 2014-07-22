@@ -9,42 +9,29 @@ import (
 )
 
 // AgentIdentityProvider performs authentication for machine and unit agents.
-type AgentAuthenticator struct {
-	state *state.State
-}
+type AgentAuthenticator struct{}
 
-var _ TagAuthenticator = (*AgentAuthenticator)(nil)
+var _ EntityAuthenticator = (*AgentAuthenticator)(nil)
 
 type taggedAuthenticator interface {
 	state.Entity
 	state.Authenticator
 }
 
-// NewAgentAuthenticator returns an AgentAuthenticator initialized with a connection to state.
-func NewAgentAuthenticator(st *state.State) *AgentAuthenticator {
-	return &AgentAuthenticator{
-		state: st,
-	}
-}
-
 // Authenticate authenticates the provided entity and returns an error on authentication failure.
-func (a *AgentAuthenticator) Authenticate(entity state.Entity, password, nonce string) error {
-	// We return the same error when an entity
-	// does not exist as for a bad password, so that
-	// we don't allow unauthenticated users to find information
-	// about existing entities.
-	entityA, ok := entity.(taggedAuthenticator)
+func (*AgentAuthenticator) Authenticate(entity state.Entity, password, nonce string) error {
+	authenticator, ok := entity.(taggedAuthenticator)
 	if !ok {
-		return common.ErrBadCreds
+		return common.ErrBadRequest
 	}
-	if !entityA.PasswordValid(password) {
+	if !authenticator.PasswordValid(password) {
 		return common.ErrBadCreds
 	}
 
 	// If this is a machine agent connecting, we need to check the
 	// nonce matches, otherwise the wrong agent might be trying to
 	// connect.
-	if machine, ok := entityA.(*state.Machine); ok {
+	if machine, ok := authenticator.(*state.Machine); ok {
 		if !machine.CheckProvisioned(nonce) {
 			return state.NotProvisionedError(machine.Id())
 		}

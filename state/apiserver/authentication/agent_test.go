@@ -8,14 +8,14 @@ import (
 
 	"github.com/juju/utils"
 
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver/authentication"
 	"github.com/juju/juju/testing/factory"
 )
 
 type agentAuthenticatorSuite struct {
-	jujutesting.JujuConnSuite
+	testing.JujuConnSuite
 	machinePassword string
 	machineNonce    string
 	unitPassword    string
@@ -30,8 +30,7 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	fact := factory.NewFactory(s.State, c)
-	s.user = fact.MakeUser(factory.UserParams{
+	s.user = s.Factory.MakeUser(factory.UserParams{
 		Username:    "bobbrown",
 		DisplayName: "Bob Brown",
 		Password:    "password",
@@ -53,10 +52,9 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.machineNonce = nonce
 
 	// add a unit for testing unit agent authentication
-	charm := s.AddTestingCharm(c, "dummy")
-	service, err := s.State.AddService("wordpress", "user-admin", charm, nil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
-	unit, err := service.AddUnit()
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	s.unit = unit
 	password, err = utils.RandomPassword()
@@ -66,7 +64,6 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.unitPassword = password
 
 	// add relation
-	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
 	c.Assert(err, gc.IsNil)
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
@@ -76,57 +73,67 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
-	testCases := []struct {
-		entity      state.Entity
-		credentials string
-		nonce       string
-		about       string
-	}{{
-		s.user, "password", "", "user login",
-	}, {
-		s.machine, s.machinePassword, s.machineNonce,
-		"machine login",
-	}, {
-		s.unit, s.unitPassword, "",
-		"unit login",
-	}}
+// testCase is used for structured table based tests
+type testCase struct {
+	entity       state.Entity
+	credentials  string
+	nonce        string
+	about        string
+	errorMessage string
+}
 
-	authenticator := &authentication.AgentAuthenticator{}
+func (s *agentAuthenticatorSuite) TestValidLogins(c *gc.C) {
+	testCases := []testCase{{
+		entity:      s.user,
+		credentials: "password",
+		about:       "user login",
+	}, {
+		entity:      s.machine,
+		credentials: s.machinePassword,
+		nonce:       s.machineNonce,
+		about:       "machine login",
+	}, {
+		entity:      s.unit,
+		credentials: s.unitPassword,
+		about:       "unit login",
+	}}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
+		var authenticator authentication.AgentAuthenticator
 		err := authenticator.Authenticate(t.entity, t.credentials, t.nonce)
 		c.Check(err, gc.IsNil)
 	}
 }
 
 func (s *agentAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
-	testCases := []struct {
-		entity      state.Entity
-		credentials string
-		nonce       string
-		about       string
-		Error       string
-	}{{
-		s.relation, "dummy-secret", "",
-		"relation login", "invalid entity name or password",
+	testCases := []testCase{{
+		entity:       s.relation,
+		credentials:  "dummy-secret",
+		about:        "relation login",
+		errorMessage: "invalid request",
 	}, {
-		s.user, "wrongpassword", "",
-		"user login for nonexistant user", "invalid entity name or password",
+		entity:       s.user,
+		credentials:  "wrongpassword",
+		about:        "user login for nonexistant user",
+		errorMessage: "invalid entity name or password",
 	}, {
-		s.machine, s.machinePassword, "123",
-		"machine login", "machine 0 is not provisioned",
+		entity:       s.machine,
+		credentials:  s.machinePassword,
+		nonce:        "123",
+		about:        "machine login",
+		errorMessage: "machine 0 is not provisioned",
 	}, {
-		s.user, "wrong-secret", "",
-		"user login for nonexistant user", "invalid entity name or password",
+		entity:       s.user,
+		credentials:  "wrong-secret",
+		about:        "user login for nonexistant user",
+		errorMessage: "invalid entity name or password",
 	}}
-
-	authenticator := &authentication.AgentAuthenticator{}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
+		var authenticator authentication.AgentAuthenticator
 		err := authenticator.Authenticate(t.entity, t.credentials, t.nonce)
-		c.Check(err, gc.ErrorMatches, t.Error)
+		c.Check(err, gc.ErrorMatches, t.errorMessage)
 	}
 }

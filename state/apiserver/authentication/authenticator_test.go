@@ -5,26 +5,17 @@ package authentication_test
 
 import (
 	gc "launchpad.net/gocheck"
-	"testing"
 
-	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state/apiserver/authentication"
-	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 )
 
 type AgentAuthenticatorSuite struct {
-	jujutesting.JujuConnSuite
-}
-
-var _ = gc.Suite(&AgentAuthenticatorSuite{})
-
-func TestAll(t *testing.T) {
-	coretesting.MgoTestPackage(t)
+	testing.JujuConnSuite
 }
 
 func (s *AgentAuthenticatorSuite) TestFindEntityAuthenticatorFails(c *gc.C) {
-
 	// add relation
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	wordpressEP, err := wordpress.Endpoint("db")
@@ -36,12 +27,16 @@ func (s *AgentAuthenticatorSuite) TestFindEntityAuthenticatorFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = authentication.FindEntityAuthenticator(relation)
-	c.Assert(err, gc.ErrorMatches, "entity with tag type 'relation' does not have an authenticator")
+	c.Assert(err, gc.ErrorMatches, "invalid request")
 }
 
 func (s *AgentAuthenticatorSuite) TestFindEntityAuthenticator(c *gc.C) {
 	fact := factory.NewFactory(s.State, c)
-	provider, err := authentication.FindEntityAuthenticator(fact.MakeAnyUser())
+	user := fact.MakeUser(factory.UserParams{Password: "password"})
+	authenticator, err := authentication.FindEntityAuthenticator(user)
 	c.Assert(err, gc.IsNil)
-	c.Assert(provider, gc.NotNil)
+	c.Assert(authenticator, gc.NotNil)
+
+	err = authenticator.Authenticate(user, "password", "nonce")
+	c.Assert(err, gc.IsNil)
 }

@@ -15,27 +15,11 @@ import (
 
 type userAuthenticatorSuite struct {
 	jujutesting.JujuConnSuite
-	machinePassword string
-	machineNonce    string
-	unitPassword    string
-	machine         *state.Machine
-	user            *state.User
-	unit            *state.Unit
-	relation        *state.Relation
 }
 
 var _ = gc.Suite(&userAuthenticatorSuite{})
 
-func (s *userAuthenticatorSuite) SetUpTest(c *gc.C) {
-	s.JujuConnSuite.SetUpTest(c)
-
-	fact := factory.NewFactory(s.State, c)
-	s.user = fact.MakeUser(factory.UserParams{
-		Username:    "bobbrown",
-		DisplayName: "Bob Brown",
-		Password:    "password",
-	})
-
+func (s *userAuthenticatorSuite) TestMachineLoginFails(c *gc.C) {
 	// add machine for testing machine agent authentication
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -47,22 +31,59 @@ func (s *userAuthenticatorSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.machine = machine
-	s.machinePassword = password
-	s.machineNonce = nonce
+	machinePassword := password
 
+	// attempt machine login
+	authenticator := &authentication.UserAuthenticator{}
+	err = authenticator.Authenticate(machine, machinePassword, nonce)
+	c.Assert(err, gc.ErrorMatches, "invalid request")
+}
+
+func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 	// add a unit for testing unit agent authentication
-	charm := s.AddTestingCharm(c, "dummy")
-	service, err := s.State.AddService("wordpress", "user-admin", charm, nil)
+	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
-	unit, err := service.AddUnit()
-	c.Assert(err, gc.IsNil)
-	s.unit = unit
-	password, err = utils.RandomPassword()
+	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.unitPassword = password
+	unitPassword := password
+
+	// Attempt unit login
+	authenticator := &authentication.UserAuthenticator{}
+	err = authenticator.Authenticate(unit, unitPassword, "")
+	c.Assert(err, gc.ErrorMatches, "invalid request")
+}
+
+func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
+	user := s.Factory.MakeUser(factory.UserParams{
+		Username:    "bobbrown",
+		DisplayName: "Bob Brown",
+		Password:    "password",
+	})
+
+	// User login
+	authenticator := &authentication.UserAuthenticator{}
+	err := authenticator.Authenticate(user, "password", "")
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
+	user := s.Factory.MakeUser(factory.UserParams{
+		Username:    "bobbrown",
+		DisplayName: "Bob Brown",
+		Password:    "password",
+	})
+
+	// User login
+	authenticator := &authentication.UserAuthenticator{}
+	err := authenticator.Authenticate(user, "wrongpassword", "")
+	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+
+}
+
+func (s *userAuthenticatorSuite) TestInvalidRelationLogin(c *gc.C) {
 
 	// add relation
 	wordpress := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -71,59 +92,12 @@ func (s *userAuthenticatorSuite) SetUpTest(c *gc.C) {
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	mysqlEP, err := mysql.Endpoint("server")
 	c.Assert(err, gc.IsNil)
-	s.relation, err = s.State.AddRelation(wordpressEP, mysqlEP)
+	relation, err := s.State.AddRelation(wordpressEP, mysqlEP)
 	c.Assert(err, gc.IsNil)
-}
 
-func (s *userAuthenticatorSuite) TestValidLogins(c *gc.C) {
-	testCases := []struct {
-		entity      state.Entity
-		credentials string
-		nonce       string
-		about       string
-	}{{
-		s.user, "password", "",
-		"user login",
-	}}
-
+	// Attempt relation login
 	authenticator := &authentication.UserAuthenticator{}
+	err = authenticator.Authenticate(relation, "dummy-secret", "")
+	c.Assert(err, gc.ErrorMatches, "invalid request")
 
-	for i, t := range testCases {
-		c.Logf("test %d: %s", i, t.about)
-		err := authenticator.Authenticate(t.entity, t.credentials, t.nonce)
-		c.Check(err, gc.IsNil)
-	}
-}
-
-func (s *userAuthenticatorSuite) TestInvalidLogins(c *gc.C) {
-	testCases := []struct {
-		entity      state.Entity
-		credentials string
-		nonce       string
-		about       string
-		Error       string
-	}{{
-		s.relation, "dummy-secret", "",
-		"relation login", "relation tag cannot be authenticated with a user identity authenticator",
-	}, /*{ How do we test for a non-existant user entity?
-			userEntity?, "dummy-secret", "",
-			"user login for nonexistant user", "invalid entity name or password",
-		},*/{
-			s.machine, s.machinePassword, "123",
-			"machine login", "entity with tag type 'machine' cannot be authenticated as a user",
-		}, {
-			s.user, "wrongpassword", "",
-			"user login for nonexistant user", "invalid entity name or password",
-		}, {
-			s.unit, s.unitPassword, "",
-			"unit login", "unit tag cannot be authenticated with a user identity authenticator",
-		}}
-
-	authenticator := &authentication.UserAuthenticator{}
-
-	for i, t := range testCases {
-		c.Logf("test %d: %s", i, t.about)
-		err := authenticator.Authenticate(t.entity, t.credentials, t.nonce)
-		c.Check(err, gc.ErrorMatches, t.Error)
-	}
 }
