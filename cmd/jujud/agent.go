@@ -241,7 +241,7 @@ func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Enti
 		return nil, nil, err
 	}
 	defer func() {
-		if err != nil {
+		if err != nil && st != nil {
 			st.Close()
 		}
 	}()

@@ -23,20 +23,28 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-func SetTestHooks(c *gc.C, st *State, hooks ...statetxn.TestHook) txntesting.TransactionChecker {
-	return txntesting.SetTestHooks(c, st.transactionRunner, hooks...)
+func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetTestHooks(c, runner, hooks...)
 }
 
 func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	return txntesting.SetBeforeHooks(c, st.transactionRunner, fs...)
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetBeforeHooks(c, runner, fs...)
 }
 
 func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	return txntesting.SetAfterHooks(c, st.transactionRunner, fs...)
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetAfterHooks(c, runner, fs...)
 }
 
 func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
-	return txntesting.SetRetryHooks(c, st.transactionRunner, block, check)
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetRetryHooks(c, runner, block, check)
 }
 
 // SetPolicy updates the State's policy field to the
