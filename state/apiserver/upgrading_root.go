@@ -8,6 +8,7 @@ import (
 	"github.com/juju/utils/set"
 
 	"github.com/juju/juju/rpc/rpcreflect"
+	"github.com/juju/juju/state"
 )
 
 var inUpgradeError = errors.New("upgrade in progress - Juju functionality is limited")
@@ -20,7 +21,7 @@ var _ apiRoot = (*upgradingRoot)(nil)
 
 // newUpgradingRoot creates a root where all but a few "safe" API
 // calls fail with inUpgradeError.
-func newUpgradingRoot(root *initialRoot, entity taggedAuthenticator) *upgradingRoot {
+func newUpgradingRoot(root *initialRoot, entity state.Entity) *upgradingRoot {
 	return &upgradingRoot{
 		srvRoot: *newSrvRoot(root, entity),
 	}

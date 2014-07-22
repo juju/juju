@@ -31,7 +31,7 @@ func DelayLogins() (nextChan chan struct{}, cleanup func()) {
 	cleanup = func() {
 		doCheckCreds = checkCreds
 	}
-	delayedCheckCreds := func(st *state.State, c params.Creds) (taggedAuthenticator, error) {
+	delayedCheckCreds := func(st *state.State, c params.Creds) (state.Entity, error) {
 		<-nextChan
 		return checkCreds(st, c)
 	}

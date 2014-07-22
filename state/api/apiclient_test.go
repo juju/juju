@@ -124,7 +124,7 @@ func (s *apiclientSuite) TestOpenMultipleError(c *gc.C) {
 	addr := listener.Addr().String()
 	info.Addrs = []string{addr, addr, addr}
 	_, err = api.Open(info, api.DialOpts{})
-	c.Assert(err, gc.ErrorMatches, `unable to connect to "wss://.*/"`)
+	c.Assert(err, gc.ErrorMatches, `unable to connect to "wss://.*/environment/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/api"`)
 }
 
 func (s *apiclientSuite) TestOpenPassesEnvironTag(c *gc.C) {

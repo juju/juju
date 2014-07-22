@@ -11,7 +11,7 @@ import (
 
 // isMachineWithJob returns whether the given entity is a machine that
 // is configured to run the given job.
-func isMachineWithJob(e state.Authenticator, j state.MachineJob) bool {
+func isMachineWithJob(e state.Entity, j state.MachineJob) bool {
 	m, ok := e.(*state.Machine)
 	if !ok {
 		return false
