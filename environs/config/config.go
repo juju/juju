@@ -460,6 +460,14 @@ func (c *Config) Name() string {
 	return c.mustString("name")
 }
 
+// Name returns the uuid for the environment.
+// For backwards compatability with 1.20 and earlier the value may be blank if
+// no uuid is present in this configuration. Once all enviroment configurations
+// have been upgraded, this relaxation will be dropped.
+func (c *Config) UUID() string {
+	return c.asString("uuid")
+}
+
 // DefaultSeries returns the configured default Ubuntu series for the environment,
 // and whether the default series was explicitly configured on the environment.
 func (c *Config) DefaultSeries() (string, bool) {
@@ -772,7 +780,7 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 var fields = schema.Fields{
 	"type":                      schema.String(),
 	"name":                      schema.String(),
-	"uuid":			     schema.UUID(),
+	"uuid":                      schema.UUID(),
 	"default-series":            schema.String(),
 	"tools-metadata-url":        schema.String(),
 	"image-metadata-url":        schema.String(),
@@ -871,7 +879,7 @@ var alwaysOptional = schema.Defaults{
 	"prefer-ipv6":    false,
 
 	// uuid may be missing for backwards compatability.
-	"uuid":		schema.Omit,
+	"uuid": schema.Omit,
 }
 
 func allowEmpty(attr string) bool {

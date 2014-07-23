@@ -670,6 +670,41 @@ var configTests = []configTest{
 			"name":      "my-name",
 			"test-mode": true,
 		},
+	}, {
+		about:       "valid uuid",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4",
+		},
+	}, {
+		about:       "invalid uuid 1",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "dcfbdb4abca249adaa7cf011424e0fe4",
+		},
+		err: "uuid: expected uuid, got string\\(\"dcfbdb4abca249adaa7cf011424e0fe4\"\\)",
+	}, {
+		about:       "invalid uuid 2",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "uuid",
+		},
+		err: "uuid: expected uuid, got string\\(\"uuid\"\\)",
+	}, {
+		about:       "blank uuid",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "",
+		},
+		err: "uuid: expected uuid, got string\\(\"\"\\)",
 	},
 	authTokenConfigTest("token=value, tokensecret=value", true),
 	authTokenConfigTest("token=value, ", true),
@@ -881,6 +916,9 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	}
 	if syslogPort, ok := test.attrs["syslog-port"]; ok {
 		c.Assert(cfg.SyslogPort(), gc.Equals, syslogPort)
+	}
+	if uuid, ok := test.attrs["uuid"]; ok {
+		c.Assert(cfg.UUID(), gc.Equals, uuid)
 	}
 
 	dev, _ := test.attrs["development"].(bool)
