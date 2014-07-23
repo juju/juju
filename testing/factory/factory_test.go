@@ -115,6 +115,18 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
 }
 
+func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
+	envUser := s.Factory.MakeEnvUser()
+
+	saved, err := s.State.EnvUser(envUser.EnvUUID(), envUser.UserName())
+	c.Assert(err, gc.IsNil)
+	c.Assert(saved.EnvUUID(), gc.Equals, envUser.EnvUUID())
+	c.Assert(saved.UserName(), gc.Equals, envUser.UserName())
+	c.Assert(saved.Alias(), gc.Equals, envUser.Alias())
+	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
+	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
+}
+
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 	s.Factory = factory.NewFactory(s.State, c)
 

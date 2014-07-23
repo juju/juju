@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+	"github.com/juju/utils"
 )
 
 const (
@@ -36,6 +37,14 @@ type UserParams struct {
 	DisplayName string
 	Password    string
 	Creator     string
+}
+
+type EnvUserParams struct {
+	EnvUUID     string
+	User        string
+	Alias       string
+	DisplayName string
+	CreatedBy   string
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -123,6 +132,40 @@ func (factory *Factory) MakeUser(vParams ...UserParams) *state.User {
 		params.Name, params.DisplayName, params.Password, params.Creator)
 	factory.c.Assert(err, gc.IsNil)
 	return user
+}
+
+// MakeEnvUser will create a envUser with values defined by the params.
+// For attributes of EnvUserParams that are the default empty values,
+// some meaningful valid values are used instead.
+// If params is not specified, defaults are used. If more than one
+// params struct is passed to the function, it panics.
+func (factory *Factory) MakeEnvUser(vParams ...EnvUserParams) *state.EnvUser {
+	params := EnvUserParams{}
+	if len(vParams) == 1 {
+		params = vParams[0]
+	} else if len(vParams) > 1 {
+		panic("expecting 1 parameter or none")
+	}
+	if params.EnvUUID == "" {
+		uuid := factory.NewUUID()
+		params.EnvUUID = uuid
+	}
+	if params.User == "" {
+		params.User = factory.UniqueString("user")
+	}
+	if params.Alias == "" {
+		params.Alias = "alias"
+	}
+	if params.DisplayName == "" {
+		params.DisplayName = factory.UniqueString("display name")
+	}
+	if params.CreatedBy == "" {
+		params.CreatedBy = "created-by"
+	}
+	envUser, err := factory.st.AddEnvUser(
+		params.EnvUUID, params.User, params.Alias, params.DisplayName, params.CreatedBy)
+	factory.c.Assert(err, gc.IsNil)
+	return envUser
 }
 
 // MakeMachine will add a machine with values defined in params. For some
@@ -292,4 +335,11 @@ func (factory *Factory) MakeRelation(vParams ...RelationParams) *state.Relation 
 	factory.c.Assert(err, gc.IsNil)
 
 	return relation
+}
+
+// Returns a new uuid
+func (factory *Factory) NewUUID() string {
+	uuid, err := utils.NewUUID()
+	factory.c.Assert(err, gc.IsNil)
+	return uuid.String()
 }

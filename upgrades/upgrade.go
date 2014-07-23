@@ -7,8 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/loggo"
-	"github.com/juju/txn"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
@@ -102,8 +100,6 @@ type upgradeContext struct {
 	api         *api.State
 	st          *state.State
 	agentConfig agent.ConfigSetter
-	db          *mgo.Database
-	runner      txn.Runner
 }
 
 // APIState is defined on the Context interface.
