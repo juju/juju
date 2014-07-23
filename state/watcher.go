@@ -1197,6 +1197,12 @@ func (e *Environment) Watch() NotifyWatcher {
 	return newEntityWatcher(e.st, environmentsC, e.doc.UUID)
 }
 
+// WatchUpgradeInfo returns a watcher for observing changes to upgrade
+// synchronisation state.
+func (st *State) WatchUpgradeInfo() NotifyWatcher {
+	return newEntityWatcher(st, upgradeInfoC, currentUpgradeId)
+}
+
 // WatchForEnvironConfigChanges returns a NotifyWatcher waiting for the Environ
 // Config to change. This differs from WatchEnvironConfig in that the watcher
 // is a NotifyWatcher that does not give content during Changes()
