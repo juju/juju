@@ -4,12 +4,16 @@
 package state_test
 
 import (
+	"fmt"
+	"strings"
+
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
 	"github.com/juju/txn"
+	"github.com/juju/utils/set"
 )
 
 type ActionSuite struct {
@@ -298,3 +302,139 @@ func (s *ActionSuite) TestUnitWatchActionResults(c *gc.C) {
 	wc1.AssertChange(expect...)
 	wc1.AssertNoChange()
 }
+
+func (s *ActionSuite) TestMergeIds(c *gc.C) {
+	var tests = []struct {
+		initial  string
+		changes  string
+		adds     string
+		removes  string
+		expected string
+	}{
+		{initial: "", changes: "", adds: "a0,a1", removes: "", expected: "a0,a1"},
+		{initial: "", changes: "a0,a1", adds: "", removes: "a0", expected: "a1"},
+		{initial: "", changes: "a0,a1", adds: "a2", removes: "a0", expected: "a1,a2"},
+
+		{initial: "a0", changes: "", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+		{initial: "a0", changes: "", adds: "a0,a1,a2", removes: "a0,a1,a2", expected: ""},
+
+		{initial: "a0", changes: "a0", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+		{initial: "a0", changes: "a1", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+		{initial: "a0", changes: "a2", adds: "a0,a1,a2", removes: "a0,a2", expected: "a1"},
+
+		{initial: "a0,a1,a2", changes: "a3,a4", adds: "a1,a4,a5", removes: "a1,a3", expected: "a4,a5"},
+		{initial: "a0,a1,a2", changes: "a0,a1,a2", adds: "a1,a4,a5", removes: "a1,a3", expected: "a0,a2,a4,a5"},
+	}
+
+	for ix, test := range tests {
+		updates := mapify(test.adds, test.removes)
+		changes := newSet(test.changes)
+		initial := newSet(test.initial)
+		expected := newSet(test.expected)
+
+		c.Log(fmt.Sprintf("test number %d %+v", ix, test))
+		err := state.WatcherMergeIds(changes, initial, updates)
+		c.Assert(err, gc.IsNil)
+		c.Assert(changes.SortedValues(), gc.DeepEquals, expected.SortedValues())
+	}
+}
+
+func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {}
+
+func (s *ActionSuite) TestEnsureSuffix(c *gc.C) {
+	marker := "-marker-"
+	fn := state.WatcherEnsureSuffixFn(marker)
+	c.Assert(fn, gc.Not(gc.IsNil))
+
+	var tests = []struct {
+		given  string
+		expect string
+	}{
+		{given: marker, expect: marker},
+		{given: "", expect: "" + marker},
+		{given: "asdf", expect: "asdf" + marker},
+		{given: "asdf" + marker, expect: "asdf" + marker},
+		{given: "asdf" + marker + "qwerty", expect: "asdf" + marker + "qwerty" + marker},
+	}
+
+	for _, test := range tests {
+		c.Assert(fn(test.given), gc.Equals, test.expect)
+	}
+}
+
+func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
+	marker := "-marker-"
+	badmarker := "-bad-"
+	fn := state.WatcherMakeIdFilter(marker)
+	c.Assert(fn, gc.IsNil)
+
+	ar1 := mockAR{id: "mock1"}
+	ar2 := mockAR{id: "mock2"}
+	fn = state.WatcherMakeIdFilter(marker, ar1, ar2)
+	c.Assert(fn, gc.Not(gc.IsNil))
+
+	var tests = []struct {
+		id    string
+		match bool
+	}{
+		{id: "mock1" + marker + "", match: true},
+		{id: "mock1" + marker + "asdf", match: true},
+		{id: "mock2" + marker + "", match: true},
+		{id: "mock2" + marker + "asdf", match: true},
+
+		{id: "mock1" + badmarker + "", match: false},
+		{id: "mock1" + badmarker + "asdf", match: false},
+		{id: "mock2" + badmarker + "", match: false},
+		{id: "mock2" + badmarker + "asdf", match: false},
+
+		{id: "mock1" + marker + "0", match: true},
+		{id: "mock10" + marker + "0", match: false},
+		{id: "mock2" + marker + "0", match: true},
+		{id: "mock20" + marker + "0", match: false},
+		{id: "mock" + marker + "0", match: false},
+
+		{id: "" + marker + "0", match: false},
+		{id: "mock1-0", match: false},
+		{id: "mock1-0", match: false},
+	}
+
+	for _, test := range tests {
+		c.Assert(fn(test.id), gc.Equals, test.match)
+	}
+}
+
+func newSet(vals string) set.Strings {
+	ret := set.NewStrings(strings.Split(vals, ",")...)
+	ret.Remove("")
+	return ret
+}
+
+func mapify(adds, removes string) map[interface{}]bool {
+	m := map[interface{}]bool{}
+	for _, v := range strings.Split(adds, ",") {
+		if v != "" {
+			m[v] = true
+		}
+	}
+	for _, v := range strings.Split(removes, ",") {
+		if v != "" {
+			m[v] = false
+		}
+	}
+	return m
+}
+
+type mockAR struct {
+	id string
+}
+
+var _ state.ActionReceiver = (*mockAR)(nil)
+
+func (r mockAR) AddAction(name string, payload map[string]interface{}) (*state.Action, error) {
+	return nil, nil
+}
+func (r mockAR) WatchActions() state.StringsWatcher            { return nil }
+func (r mockAR) WatchActionResults() state.StringsWatcher      { return nil }
+func (r mockAR) Actions() ([]*state.Action, error)             { return nil, nil }
+func (r mockAR) ActionResults() ([]*state.ActionResult, error) { return nil, nil }
+func (r mockAR) Name() string                                  { return r.id }
