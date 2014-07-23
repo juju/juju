@@ -6,6 +6,7 @@ package kvm
 import (
 	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/juju/errors"
@@ -40,15 +41,32 @@ var (
 	MinDisk   uint64 = 2 // GB
 )
 
+// Utilized to provide a hard-coded path to kvm-ok
+var kvmPath = "/usr/sbin"
+
 // IsKVMSupported calls into the kvm-ok executable from the cpu-checkers package.
 // It is a variable to allow us to overrid behaviour in the tests.
 var IsKVMSupported = func() (bool, error) {
-	command := exec.Command("kvm-ok")
-	output, err := command.CombinedOutput()
-	if err != nil {
-		return false, err
+
+	// Prefer the user's $PATH first, but check /usr/sbin if we can't
+	// find kvm-ok there
+	var foundPath string
+	const binName = "kvm-ok"
+	if path, err := exec.LookPath(binName); err == nil {
+		foundPath = path
+	} else if path, err := exec.LookPath(filepath.Join(kvmPath, binName)); err == nil {
+		foundPath = path
+	} else {
+		return false, errors.NotFoundf("%s executable", binName)
 	}
-	logger.Debugf("kvm-ok output:\n%s", output)
+
+	command := exec.Command(foundPath)
+	output, err := command.CombinedOutput()
+
+	if err != nil {
+		return false, errors.Annotate(err, string(output))
+	}
+	logger.Debugf("%s output:\n%s", binName, output)
 	return command.ProcessState.Success(), nil
 }
 
