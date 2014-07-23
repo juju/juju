@@ -476,36 +476,31 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 		collectionByName: make(map[string]allWatcherStateCollection),
 	}
 
-	// TODO: wallyworld  we shouldn't be storing these collections
-	// since their sessions (socket) may go stale.
-	collection := func(coll string) *mgo.Collection {
-		return st.db.C(coll)
-	}
 	collections := []allWatcherStateCollection{{
-		Collection: collection(machinesC),
+		Collection: st.db.C(machinesC),
 		infoType:   reflect.TypeOf(backingMachine{}),
 	}, {
-		Collection: collection(unitsC),
+		Collection: st.db.C(unitsC),
 		infoType:   reflect.TypeOf(backingUnit{}),
 	}, {
-		Collection: collection(servicesC),
+		Collection: st.db.C(servicesC),
 		infoType:   reflect.TypeOf(backingService{}),
 	}, {
-		Collection: collection(relationsC),
+		Collection: st.db.C(relationsC),
 		infoType:   reflect.TypeOf(backingRelation{}),
 	}, {
-		Collection: collection(annotationsC),
+		Collection: st.db.C(annotationsC),
 		infoType:   reflect.TypeOf(backingAnnotation{}),
 	}, {
-		Collection: collection(statusesC),
+		Collection: st.db.C(statusesC),
 		infoType:   reflect.TypeOf(backingStatus{}),
 		subsidiary: true,
 	}, {
-		Collection: collection(constraintsC),
+		Collection: st.db.C(constraintsC),
 		infoType:   reflect.TypeOf(backingConstraints{}),
 		subsidiary: true,
 	}, {
-		Collection: collection(settingsC),
+		Collection: st.db.C(settingsC),
 		infoType:   reflect.TypeOf(backingSettings{}),
 		subsidiary: true,
 	}}
@@ -565,14 +560,14 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcher.Store) error {
 // Changed updates the allWatcher's idea of the current state
 // in response to the given change.
 func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher.Change) error {
-	session := b.st.db.Session.Copy()
-	defer session.Close()
+	db, closer := b.st.newDB()
+	defer closer()
 
 	c, ok := b.collectionByName[change.C]
 	if !ok {
 		panic(fmt.Errorf("unknown collection %q in fetch request", change.C))
 	}
-	col := session.DB("juju").C(c.Name)
+	col := db.C(c.Name)
 	doc := reflect.New(c.infoType).Interface().(backingEntityDoc)
 	// TODO(rog) investigate ways that this can be made more efficient
 	// than simply fetching each entity in turn.
