@@ -218,7 +218,7 @@ func (srv *Server) run(lis net.Listener) {
 	handleAll(mux, "/environment/:envuuid/tools",
 		&toolsHandler{httpHandler{state: srv.state}},
 	)
-	handleAll(mux, "/environment/:envuuid/api", apiHandler{apiV1{}, srv})
+	handleAll(mux, "/environment/:envuuid/api", apiHandler{Server: srv, Factory: newApiV1})
 	// For backwards compatibility we register all the old paths
 	handleAll(mux, "/log",
 		&debugLogHandler{
@@ -236,23 +236,17 @@ func (srv *Server) run(lis net.Listener) {
 	handleAll(mux, "/backup",
 		&backupHandler{httpHandler{state: srv.state}},
 	)
-	handleAll(mux, "/", apiHandler{apiV1{}, srv})
+	handleAll(mux, "/", apiHandler{Server: srv, Factory: newApiV1})
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, mux)
 }
 
-type apiHandlerFactory interface {
-	newApiHandler(srv *Server, conn *rpc.Conn, reqNotifier *requestNotifier) *ApiHandler
-}
-
 type apiHandler struct {
-	apiHandlerFactory
 	*Server
+	Factory func(*Server, *rpc.Conn, *requestNotifier) *ApiHandler
 }
 
-type apiV1 struct{}
-
-func (apiV1) newApiHandler(srv *Server, conn *rpc.Conn, reqNotifier *requestNotifier) *ApiHandler {
+func newApiV1(srv *Server, conn *rpc.Conn, reqNotifier *requestNotifier) *ApiHandler {
 	root := NewApiHandler(srv, conn)
 	root.MethodFinder = NewAnonRoot(srv, newAdminApiV1(srv, root, reqNotifier))
 	return root
@@ -349,7 +343,7 @@ func (h apiHandler) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifi
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)
 	} else {
-		root = h.newApiHandler(h.Server, conn, reqNotifier)
+		root = h.Factory(h.Server, conn, reqNotifier)
 		conn.Serve(root, serverError)
 	}
 	conn.Start()
