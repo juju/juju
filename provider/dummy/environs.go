@@ -56,6 +56,7 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
 	"github.com/juju/juju/testing"
 )
@@ -150,6 +151,7 @@ type OpStartInstance struct {
 	Networks     []string
 	NetworkInfo  []network.Info
 	Info         *authentication.MongoInfo
+	Jobs         []params.MachineJob
 	APIInfo      *api.Info
 	Secret       string
 }
@@ -879,6 +881,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		Constraints:  args.Constraints,
 		Networks:     args.MachineConfig.Networks,
 		NetworkInfo:  networkInfo,
+		Jobs:         args.MachineConfig.Jobs,
 		Instance:     i,
 		Info:         args.MachineConfig.MongoInfo,
 		APIInfo:      args.MachineConfig.APIInfo,
