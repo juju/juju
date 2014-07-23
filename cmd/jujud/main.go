@@ -15,7 +15,9 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+	"gopkg.in/natefinch/lumberjack.v2"
 
+	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/worker/uniter/jujuc"
 	// Import the providers.
@@ -99,6 +101,7 @@ func jujuDMain(args []string, ctx *cmd.Context) (code int, err error) {
 		Name: "jujud",
 		Doc:  jujudDoc,
 	})
+
 	jujud.Log.Factory = &writerFactory{}
 	jujud.Register(&BootstrapCommand{})
 	jujud.Register(&MachineAgent{})
@@ -168,4 +171,18 @@ func (*simpleFormatter) Format(level loggo.Level, module string, timestamp time.
 	lastDot := strings.LastIndex(module, ".")
 	module = module[lastDot+1:]
 	return fmt.Sprintf("%s %s %s %s", ts, level, module, message)
+}
+
+func setupLogging(conf agent.Config) error {
+	filename := filepath.Join(conf.LogDir(), conf.Tag().String()+".log")
+
+	log := &lumberjack.Logger{
+		Filename:   filename,
+		MaxSize:    100, // megabytes
+		MaxBackups: 1,
+	}
+
+	writer := loggo.NewSimpleWriter(log, &loggo.DefaultFormatter{})
+	_, err := loggo.ReplaceDefaultWriter(writer)
+	return err
 }

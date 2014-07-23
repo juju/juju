@@ -74,6 +74,9 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return err
 	}
+	if err := setupLogging(a.CurrentConfig()); err != nil {
+		return err
+	}
 	agentLogger.Infof("unit agent %v start (%s [%s])", a.Tag().String(), version.Current, runtime.Compiler)
 	network.InitializeFromConfig(a.CurrentConfig())
 	a.runner.StartWorker("api", a.APIWorkers)

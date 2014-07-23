@@ -116,7 +116,6 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, conf.Dir())
 
 	// Install an upstart job that runs the unit agent.
-	logPath := path.Join(logDir, tag.String()+".log")
 	cmd := strings.Join([]string{
 		path.Join(toolsDir, "jujud"), "unit",
 		"--data-dir", dataDir,
@@ -131,7 +130,6 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Service: *svc,
 		Desc:    "juju unit agent for " + unitName,
 		Cmd:     cmd,
-		Out:     logPath,
 		Env: map[string]string{
 			osenv.JujuContainerTypeEnvKey: containerType,
 		},
