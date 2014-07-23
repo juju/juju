@@ -60,11 +60,13 @@ var errAlreadyLoggedIn = errors.New("already logged in")
 // Login logs in with the provided credentials.  All subsequent requests on the
 // connection will act as the authenticated user.
 func (a *adminV1) Login(c params.Creds) (params.LoginResult, error) {
+	var fail params.LoginResult
+
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	if a.loggedIn {
 		// This can only happen if Login is called concurrently.
-		return params.LoginResult{}, errAlreadyLoggedIn
+		return fail, errAlreadyLoggedIn
 	}
 
 	var authApi rpc.MethodFinder = NewApiRoot(a.srv, a.root.resources, a.root)
@@ -75,7 +77,7 @@ func (a *adminV1) Login(c params.Creds) (params.LoginResult, error) {
 			if err == UpgradeInProgressError {
 				authApi = NewUpgradingRoot(authApi)
 			} else {
-				return params.LoginResult{}, errors.Trace(err)
+				return fail, errors.Trace(err)
 			}
 		}
 	}
@@ -84,14 +86,14 @@ func (a *adminV1) Login(c params.Creds) (params.LoginResult, error) {
 	if kind, err := names.TagKind(c.AuthTag); err != nil || kind != names.UserTagKind {
 		if !a.srv.limiter.Acquire() {
 			logger.Debugf("rate limiting, try again later")
-			return params.LoginResult{}, common.ErrTryAgain
+			return fail, common.ErrTryAgain
 		}
 		defer a.srv.limiter.Release()
 	}
 
 	entity, err := doCheckCreds(a.srv.state, c)
 	if err != nil {
-		return params.LoginResult{}, err
+		return fail, err
 	}
 	a.root.entity = entity
 	if a.reqNotifier != nil {
@@ -104,19 +106,19 @@ func (a *adminV1) Login(c params.Creds) (params.LoginResult, error) {
 	a.root.MethodFinder = authApi
 
 	if err := a.startPingerIfAgent(entity); err != nil {
-		return params.LoginResult{}, err
+		return fail, err
 	}
 
 	// Fetch the API server addresses from state.
 	hostPorts, err := a.root.state.APIHostPorts()
 	if err != nil {
-		return params.LoginResult{}, err
+		return fail, err
 	}
 	logger.Debugf("hostPorts: %v", hostPorts)
 
 	environ, err := a.root.state.Environment()
 	if err != nil {
-		return params.LoginResult{}, err
+		return fail, err
 	}
 
 	lastConnection := getAndUpdateLastConnectionForEntity(entity)
