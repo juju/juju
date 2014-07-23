@@ -4,6 +4,7 @@
 package configstore_test
 
 import (
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -28,25 +29,36 @@ func (s *interfaceSuite) TestCreate(c *gc.C) {
 	c.Assert(info.APICredentials(), gc.DeepEquals, configstore.APICredentials{})
 	c.Assert(info.Initialized(), jc.IsFalse)
 
-	// Check that we can't create it twice.
-	info, err = store.CreateInfo("someenv")
-	c.Assert(err, gc.Equals, configstore.ErrEnvironInfoAlreadyExists)
-	c.Assert(info, gc.IsNil)
+	// The info isn't written until you call Write
+	_, err = store.ReadInfo("someenv")
+	c.Assert(err, gc.ErrorMatches, `environment "someenv" not found`)
+
+	err = info.Write()
+	c.Assert(err, gc.IsNil)
 
 	// Check that we can read it again.
 	info, err = store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
-	c.Assert(info.Initialized(), jc.IsFalse)
+
+	// Now that it exists, we cannot write a newly created info again.
+	info, err = store.CreateInfo("someenv")
+	c.Assert(err, gc.IsNil)
+	err = info.Write()
+	c.Assert(errors.Cause(err), gc.Equals, configstore.ErrEnvironInfoAlreadyExists)
+}
+
+func (s *interfaceSuite) createInitialisedEnvironment(c *gc.C, store configstore.Storage, envName string) {
+	info, err := store.CreateInfo(envName)
+	c.Assert(err, gc.IsNil)
+	err = info.Write()
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *interfaceSuite) TestList(c *gc.C) {
 	store := s.NewStore(c)
-	_, err := store.CreateInfo("enva")
-	c.Assert(err, gc.IsNil)
-	_, err = store.CreateInfo("envb")
-	c.Assert(err, gc.IsNil)
-	_, err = store.CreateInfo("envc")
-	c.Assert(err, gc.IsNil)
+	s.createInitialisedEnvironment(c, store, "enva")
+	s.createInitialisedEnvironment(c, store, "envb")
+	s.createInitialisedEnvironment(c, store, "envc")
 
 	environs, err := store.List()
 	c.Assert(err, gc.IsNil)
@@ -123,15 +135,18 @@ func (s *interfaceSuite) TestDestroy(c *gc.C) {
 
 	info, err := store.CreateInfo("someenv")
 	c.Assert(err, gc.IsNil)
+	// Destroying something that hasn't been written is fine.
+	err = info.Destroy()
+	c.Assert(err, gc.IsNil)
+
+	err = info.Write()
+	c.Assert(err, gc.IsNil)
 
 	err = info.Destroy()
 	c.Assert(err, gc.IsNil)
 
 	err = info.Destroy()
 	c.Assert(err, gc.ErrorMatches, "environment info has already been removed")
-
-	info, err = store.CreateInfo("someenv")
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *interfaceSuite) TestNoBleedThrough(c *gc.C) {
@@ -145,19 +160,12 @@ func (s *interfaceSuite) TestNoBleedThrough(c *gc.C) {
 	attrs := map[string]interface{}{"foo": "bar"}
 	info.SetBootstrapConfig(attrs)
 
-	info1, err := store.ReadInfo("someenv")
-	c.Assert(err, gc.IsNil)
-	c.Assert(info1.Initialized(), jc.IsFalse)
-	c.Assert(info1.APICredentials(), gc.DeepEquals, configstore.APICredentials{})
-	c.Assert(info1.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{})
-	c.Assert(info1.BootstrapConfig(), gc.HasLen, 0)
-
 	err = info.Write()
 	c.Assert(err, gc.IsNil)
 
 	attrs["foo"] = "different"
 
-	info1, err = store.ReadInfo("someenv")
+	info1, err := store.ReadInfo("someenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info1.Initialized(), jc.IsTrue)
 	c.Assert(info1.BootstrapConfig(), gc.DeepEquals, map[string]interface{}{"foo": "bar"})
