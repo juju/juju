@@ -2529,7 +2529,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseUserTag(c *gc.C) {
-	user := s.factory.MakeAnyUser()
+	user := s.factory.MakeUser()
 	coll, id, err := state.ParseTag(s.State, user.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "users")
