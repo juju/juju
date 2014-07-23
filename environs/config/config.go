@@ -772,6 +772,7 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 var fields = schema.Fields{
 	"type":                      schema.String(),
 	"name":                      schema.String(),
+	"uuid":			     schema.UUID(),
 	"default-series":            schema.String(),
 	"tools-metadata-url":        schema.String(),
 	"image-metadata-url":        schema.String(),
@@ -868,6 +869,9 @@ var alwaysOptional = schema.Defaults{
 	"proxy-ssh":      false,
 	"lxc-clone-aufs": false,
 	"prefer-ipv6":    false,
+
+	// uuid may be missing for backwards compatability.
+	"uuid":		schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
