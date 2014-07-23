@@ -86,8 +86,8 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 	for i, t := range actionGetTests {
 		for j, option := range []string{
 			"",
-			"--format=yaml",
-			"--format=json",
+			"--format yaml",
+			"--format json",
 		} {
 			args := t.args
 			if option != "" {
@@ -119,7 +119,7 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 				c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 
 				var result interface{}
-				if option == "--format=json" {
+				if option == "--format json" {
 					// if nil, don't worry about unmarshaling
 					if t.out == nil {
 						c.Check(bufferBytes(ctx.Stderr), jc.DeepEquals, []byte{})

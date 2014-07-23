@@ -85,11 +85,13 @@ func recurseMapOnKeys(keys []string, params map[string]interface{}) (interface{}
 func (c *ActionGetCommand) Run(ctx *cmd.Context) error {
 	params := c.ctx.ActionParams()
 
+	var answer interface{}
+
 	if len(c.keys) == 0 {
-		return c.out.Write(ctx, params)
+		answer = params
+	} else {
+		answer, _ = recurseMapOnKeys(c.keys, params)
 	}
 
-	result, _ := recurseMapOnKeys(c.keys, params)
-
-	return c.out.Write(ctx, result)
+	return c.out.Write(ctx, answer)
 }
