@@ -39,7 +39,7 @@ func (s *preallocSuite) TestOplogSize(c *gc.C) {
 		hostWordSize: 64,
 		runtimeGOOS:  "windows",
 		availSpace:   99999,
-		expected:     1024,
+		expected:     512,
 	}, {
 		hostWordSize: 32,
 		runtimeGOOS:  "linux",
@@ -49,17 +49,17 @@ func (s *preallocSuite) TestOplogSize(c *gc.C) {
 		hostWordSize: 64,
 		runtimeGOOS:  "linux",
 		availSpace:   1024,
-		expected:     1024,
+		expected:     512,
 	}, {
 		hostWordSize: 64,
 		runtimeGOOS:  "linux",
 		availSpace:   420 * 1024,
-		expected:     21504,
+		expected:     1024,
 	}, {
 		hostWordSize: 64,
 		runtimeGOOS:  "linux",
 		availSpace:   1024 * 1024,
-		expected:     50 * 1024,
+		expected:     1024,
 	}}
 	var availSpace int
 	getAvailSpace := func(dir string) (float64, error) {
