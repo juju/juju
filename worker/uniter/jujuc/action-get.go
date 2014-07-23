@@ -14,6 +14,7 @@ import (
 type ActionGetCommand struct {
 	cmd.CommandBase
 	ctx      Context
+	keys     []string
 	response interface{}
 	out      cmd.Output
 }
@@ -41,43 +42,54 @@ func (c *ActionGetCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *ActionGetCommand) Init(args []string) error {
-	params := c.ctx.ActionParams()
-
 	if len(args) > 0 {
-		keys := strings.Split(args[0], ".")
 		err := cmd.CheckEmpty(args[1:])
 		if err != nil {
 			return err
 		}
-
-		c.response, _ = recurseMapOnKeys(keys, params)
-	} else if params != nil {
-		c.response = params
+		c.keys = strings.Split(args[0], ".")
 	}
-
 	return nil
 }
 
 func recurseMapOnKeys(keys []string, params map[string]interface{}) (interface{}, bool) {
 	key, rest := keys[0], keys[1:]
-	ans, ok := params[key]
+	answer, ok := params[key]
 
 	if len(rest) == 0 {
-		return ans, ok
+		return answer, ok
+	} else if ok {
+		switch typed := answer.(type) {
+		case map[string]interface{}:
+			return recurseMapOnKeys(keys[1:], typed)
+		case map[interface{}]interface{}:
+			m := make(map[string]interface{})
+			for k, v := range typed {
+				if tK, ok := k.(string); ok {
+					m[tK] = v
+				} else {
+					return nil, false
+				}
+			}
+			return recurseMapOnKeys(keys[1:], m)
+		default:
+			return nil, false
+		}
+	} else {
+		return nil, false
 	}
 
-	if !ok {
-		return interface{}(nil), ok
-	}
-
-	switch typed := ans.(type) {
-	case map[string]interface{}:
-		return recurseMapOnKeys(rest, typed)
-	default:
-		return rest[0], false
-	}
+	return nil, false
 }
 
 func (c *ActionGetCommand) Run(ctx *cmd.Context) error {
-	return c.out.Write(ctx, c.response)
+	params := c.ctx.ActionParams()
+
+	if len(c.keys) == 0 {
+		return c.out.Write(ctx, params)
+	}
+
+	result, _ := recurseMapOnKeys(c.keys, params)
+
+	return c.out.Write(ctx, result)
 }
