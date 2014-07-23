@@ -475,32 +475,31 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 		st:               st,
 		collectionByName: make(map[string]allWatcherStateCollection),
 	}
-
 	collections := []allWatcherStateCollection{{
-		Collection: st.db.C(machinesC),
+		Collection: st.machines,
 		infoType:   reflect.TypeOf(backingMachine{}),
 	}, {
-		Collection: st.db.C(unitsC),
+		Collection: st.units,
 		infoType:   reflect.TypeOf(backingUnit{}),
 	}, {
-		Collection: st.db.C(servicesC),
+		Collection: st.services,
 		infoType:   reflect.TypeOf(backingService{}),
 	}, {
-		Collection: st.db.C(relationsC),
+		Collection: st.relations,
 		infoType:   reflect.TypeOf(backingRelation{}),
 	}, {
-		Collection: st.db.C(annotationsC),
+		Collection: st.annotations,
 		infoType:   reflect.TypeOf(backingAnnotation{}),
 	}, {
-		Collection: st.db.C(statusesC),
+		Collection: st.statuses,
 		infoType:   reflect.TypeOf(backingStatus{}),
 		subsidiary: true,
 	}, {
-		Collection: st.db.C(constraintsC),
+		Collection: st.constraints,
 		infoType:   reflect.TypeOf(backingConstraints{}),
 		subsidiary: true,
 	}, {
-		Collection: st.db.C(settingsC),
+		Collection: st.settings,
 		infoType:   reflect.TypeOf(backingSettings{}),
 		subsidiary: true,
 	}}
@@ -535,17 +534,13 @@ func (b *allWatcherStateBacking) Unwatch(in chan<- watcher.Change) {
 
 // GetAll fetches all items that we want to watch from the state.
 func (b *allWatcherStateBacking) GetAll(all *multiwatcher.Store) error {
-	db, closer := b.st.newDB()
-	defer closer()
-
 	// TODO(rog) fetch collections concurrently?
 	for _, c := range b.collectionByName {
 		if c.subsidiary {
 			continue
 		}
-		col := db.C(c.Name)
 		infoSlicePtr := reflect.New(reflect.SliceOf(c.infoType))
-		if err := col.Find(nil).All(infoSlicePtr.Interface()); err != nil {
+		if err := c.Find(nil).All(infoSlicePtr.Interface()); err != nil {
 			return fmt.Errorf("cannot get all %s: %v", c.Name, err)
 		}
 		infos := infoSlicePtr.Elem()
@@ -560,20 +555,16 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcher.Store) error {
 // Changed updates the allWatcher's idea of the current state
 // in response to the given change.
 func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher.Change) error {
-	db, closer := b.st.newDB()
-	defer closer()
-
 	c, ok := b.collectionByName[change.C]
 	if !ok {
 		panic(fmt.Errorf("unknown collection %q in fetch request", change.C))
 	}
-	col := db.C(c.Name)
 	doc := reflect.New(c.infoType).Interface().(backingEntityDoc)
 	// TODO(rog) investigate ways that this can be made more efficient
 	// than simply fetching each entity in turn.
 	// TODO(rog) avoid fetching documents that we have no interest
 	// in, such as settings changes to entities we don't care about.
-	err := col.FindId(change.Id).One(doc)
+	err := c.FindId(change.Id).One(doc)
 	if err == mgo.ErrNotFound {
 		return doc.removed(b.st, all, change.Id)
 	}

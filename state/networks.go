@@ -100,12 +100,9 @@ func (n *Network) IsVLAN() bool {
 
 // Interfaces returns all network interfaces on the network.
 func (n *Network) Interfaces() ([]*NetworkInterface, error) {
-	networkInterfaces, closer := n.st.getCollection(networkInterfacesC)
-	defer closer()
-
 	docs := []networkInterfaceDoc{}
 	sel := bson.D{{"networkname", n.doc.Name}}
-	err := networkInterfaces.Find(sel).All(&docs)
+	err := n.st.networkInterfaces.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err
 	}

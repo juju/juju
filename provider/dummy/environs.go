@@ -37,6 +37,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
@@ -674,7 +675,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.SetEnvironConstraints(args.Constraints); err != nil {
 			panic(err)
 		}
-		if err := st.SetAdminMongoPassword(password); err != nil {
+		if err := st.SetAdminMongoPassword(utils.UserPasswordHash(password, utils.CompatSalt)); err != nil {
 			panic(err)
 		}
 		_, err = st.AddAdminUser(password)

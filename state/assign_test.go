@@ -516,6 +516,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 
 	err = anotherUnit.AssignToNewMachineOrContainer()
 	c.Assert(err, gc.IsNil)
+
 	mid, err := unit.AssignedMachineId()
 	c.Assert(err, gc.IsNil)
 	c.Assert(mid, gc.Equals, "1")

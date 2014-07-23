@@ -181,15 +181,6 @@ func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstanc
 	// two copies of root in the replica set
 	members = append(members, Member{Address: getAddr(root), Tags: initialTags})
 
-	// We allow for up to 2 minutes  per operation, since Add, Set, etc. call
-	// replSetReconfig which may cause primary renegotiation. According
-	// to the Mongo docs, "typically this is 10-20 seconds, but could be
-	// as long as a minute or more."
-	//
-	// Note that the delay is set at 500ms to cater for relatively quick
-	// operations without thrashing on those that take longer.
-	strategy := utils.AttemptStrategy{Total: time.Minute * 2, Delay: time.Millisecond * 500}
-
 	instances := make([]*gitjujutesting.MgoInstance, 5)
 	instances[0] = root
 	for i := 1; i < len(instances); i++ {
@@ -197,9 +188,8 @@ func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstanc
 		instances[i] = inst
 		defer inst.Destroy()
 		defer func() {
-			attemptLoop(c, strategy, "Remove()", func() error {
-				return Remove(session, getAddr(inst))
-			})
+			err := Remove(session, getAddr(inst))
+			c.Assert(err, gc.IsNil)
 		}()
 		key := fmt.Sprintf("key%d", i)
 		val := fmt.Sprintf("val%d", i)
@@ -207,6 +197,14 @@ func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstanc
 		members = append(members, Member{Address: getAddr(inst), Tags: tags})
 	}
 
+	// We allow for up to 2m per operation, since Add, Set, etc. call
+	// replSetReconfig which may cause primary renegotiation. According
+	// to the Mongo docs, "typically this is 10-20 seconds, but could be
+	// as long as a minute or more."
+	//
+	// Note that the delay is set at 500ms to cater for relatively quick
+	// operations without thrashing on those that take longer.
+	strategy := utils.AttemptStrategy{Total: time.Minute * 2, Delay: time.Millisecond * 500}
 	attemptLoop(c, strategy, "Add()", func() error {
 		return Add(session, members...)
 	})

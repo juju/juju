@@ -52,11 +52,8 @@ func (doc statusDoc) validateSet(allowPending bool) error {
 // globalKey and copies it to outStatusDoc, which needs to be created
 // by the caller before.
 func getStatus(st *State, globalKey string) (statusDoc, error) {
-	statuses, closer := st.getCollection(statusesC)
-	defer closer()
-
 	var doc statusDoc
-	err := statuses.FindId(globalKey).One(&doc)
+	err := st.statuses.FindId(globalKey).One(&doc)
 	if err == mgo.ErrNotFound {
 		return statusDoc{}, errors.NotFoundf("status")
 	}
@@ -70,7 +67,7 @@ func getStatus(st *State, globalKey string) (statusDoc, error) {
 // status document associated with the given globalKey.
 func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 	return txn.Op{
-		C:      statusesC,
+		C:      st.statuses.Name,
 		Id:     globalKey,
 		Assert: txn.DocMissing,
 		Insert: doc,
@@ -81,7 +78,7 @@ func createStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 // status document associated with the given globalKey.
 func updateStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 	return txn.Op{
-		C:      statusesC,
+		C:      st.statuses.Name,
 		Id:     globalKey,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", doc}},
@@ -92,7 +89,7 @@ func updateStatusOp(st *State, globalKey string, doc statusDoc) txn.Op {
 // document associated with the given globalKey.
 func removeStatusOp(st *State, globalKey string) txn.Op {
 	return txn.Op{
-		C:      statusesC,
+		C:      st.statuses.Name,
 		Id:     globalKey,
 		Remove: true,
 	}

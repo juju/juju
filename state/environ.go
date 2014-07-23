@@ -31,11 +31,8 @@ type environmentDoc struct {
 
 // Environment returns the environment entity.
 func (st *State) Environment() (*Environment, error) {
-	environments, closer := st.getCollection(environmentsC)
-	defer closer()
-
 	env := &Environment{st: st}
-	if err := env.refresh(environments.Find(nil)); err != nil {
+	if err := env.refresh(st.environments.Find(nil)); err != nil {
 		return nil, err
 	}
 	env.annotator = annotator{
@@ -74,10 +71,7 @@ func (e *Environment) globalKey() string {
 }
 
 func (e *Environment) Refresh() error {
-	environments, closer := e.st.getCollection(environmentsC)
-	defer closer()
-
-	return e.refresh(environments.FindId(e.UUID()))
+	return e.refresh(e.st.environments.FindId(e.UUID()))
 }
 
 func (e *Environment) refresh(query *mgo.Query) error {
@@ -106,7 +100,7 @@ func (e *Environment) Destroy() error {
 	// destroy-environment from succeeding if any non-manager
 	// manual machines exist.
 	ops := []txn.Op{{
-		C:      environmentsC,
+		C:      e.st.environments.Name,
 		Id:     e.doc.UUID,
 		Update: bson.D{{"$set", bson.D{{"life", Dying}}}},
 		Assert: isEnvAliveDoc,
@@ -129,7 +123,7 @@ func (e *Environment) Destroy() error {
 func createEnvironmentOp(st *State, name, uuid string) txn.Op {
 	doc := &environmentDoc{uuid, name, Alive}
 	return txn.Op{
-		C:      environmentsC,
+		C:      st.environments.Name,
 		Id:     uuid,
 		Assert: txn.DocMissing,
 		Insert: doc,
@@ -139,7 +133,7 @@ func createEnvironmentOp(st *State, name, uuid string) txn.Op {
 // assertAliveOp returns a txn.Op that asserts the environment is alive.
 func (e *Environment) assertAliveOp() txn.Op {
 	return txn.Op{
-		C:      environmentsC,
+		C:      e.st.environments.Name,
 		Id:     e.UUID(),
 		Assert: isEnvAliveDoc,
 	}

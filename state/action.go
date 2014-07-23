@@ -133,7 +133,7 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, output string) error {
 	return a.st.runTransaction([]txn.Op{
 		addActionResultOp(a.st, &doc),
 		{
-			C:      actionsC,
+			C:      a.st.actions.Name,
 			Id:     a.doc.Id,
 			Remove: true,
 		},
