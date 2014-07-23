@@ -218,7 +218,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	environ, err := environs.PrepareFromName("dummyenv", ctx, s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Name(), gc.Equals, "dummyenv")
+	c.Assert(environ.Config().Name(), gc.Equals, "dummyenv")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)

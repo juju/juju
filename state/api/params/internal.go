@@ -650,6 +650,7 @@ type ProvisioningInfo struct {
 	Series      string
 	Placement   string
 	Networks    []string
+	Jobs        []MachineJob
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

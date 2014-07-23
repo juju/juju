@@ -188,12 +188,17 @@ func connectionIsFatal(conn pinger) func(err error) bool {
 		if isFatal(err) {
 			return true
 		}
-		if err := conn.Ping(); err != nil {
-			logger.Infof("error pinging %T: %v", conn, err)
-			return true
-		}
-		return false
+		return connectionIsDead(conn)
 	}
+}
+
+// connectionIsDead returns true if the given pinger fails to ping.
+var connectionIsDead = func(conn pinger) bool {
+	if err := conn.Ping(); err != nil {
+		logger.Infof("error pinging %T: %v", conn, err)
+		return true
+	}
+	return false
 }
 
 // isleep waits for the given duration or until it receives a value on

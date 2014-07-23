@@ -12,7 +12,7 @@ import (
 // environs.Environ; we strongly recommend that this implementation be
 // used when writing a new provider.
 func Destroy(env environs.Environ) error {
-	logger.Infof("destroying environment %q", env.Name())
+	logger.Infof("destroying environment %q", env.Config().Name())
 	instances, err := env.AllInstances()
 	switch err {
 	case nil:

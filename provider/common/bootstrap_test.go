@@ -60,10 +60,11 @@ func newStorage(suite cleaner, c *gc.C) storage.Storage {
 
 func minimalConfig(c *gc.C) *config.Config {
 	attrs := map[string]interface{}{
-		"name":           "whatever",
-		"type":           "anything, really",
-		"ca-cert":        coretesting.CACert,
-		"ca-private-key": coretesting.CAKey,
+		"name":            "whatever",
+		"type":            "anything, really",
+		"ca-cert":         coretesting.CACert,
+		"ca-private-key":  coretesting.CAKey,
+		"authorized-keys": coretesting.FakeAuthKeys,
 	}
 	cfg, err := config.New(config.UseDefaults, attrs)
 	c.Assert(err, gc.IsNil)

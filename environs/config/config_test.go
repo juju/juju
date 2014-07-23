@@ -1240,6 +1240,7 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 		"known":   "this",
 		"unknown": "that",
 	})
+	c.Assert(err, gc.IsNil)
 
 	// No fields: all attrs passed through.
 	attrs, err := cfg.ValidateUnknownAttrs(nil, nil)
