@@ -19,7 +19,7 @@ const (
 
 // Helper method to create a firewall rule string for the given machine Id and port
 func createFirewallRuleVm(env *joyentEnviron, machineId string, port network.Port) string {
-	return fmt.Sprintf(firewallRuleVm, env.Name(), machineId, strings.ToLower(port.Protocol), port.Number)
+	return fmt.Sprintf(firewallRuleVm, env.Config().Name(), machineId, strings.ToLower(port.Protocol), port.Number)
 }
 
 func (inst *joyentInstance) OpenPorts(machineId string, ports []network.Port) error {

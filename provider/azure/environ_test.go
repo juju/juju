@@ -99,7 +99,8 @@ func (*environSuite) TestGetEndpoint(c *gc.C) {
 }
 
 func (*environSuite) TestGetSnapshot(c *gc.C) {
-	original := azureEnviron{name: "this-env", ecfg: new(azureEnvironConfig)}
+	// original := azureEnviron{name: "this-env", ecfg: new(azureEnvironConfig)}
+	original := azureEnviron{ecfg: new(azureEnvironConfig)}
 	snapshot := original.getSnapshot()
 
 	// The snapshot is identical to the original.
@@ -121,11 +122,6 @@ func (*environSuite) TestGetSnapshotLocksEnviron(c *gc.C) {
 	coretesting.TestLockingFunction(&original.Mutex, func() { original.getSnapshot() })
 }
 
-func (*environSuite) TestName(c *gc.C) {
-	env := azureEnviron{name: "foo"}
-	c.Check(env.Name(), gc.Equals, env.name)
-}
-
 func (*environSuite) TestConfigReturnsConfig(c *gc.C) {
 	cfg := new(config.Config)
 	ecfg := azureEnvironConfig{Config: cfg}
@@ -134,7 +130,8 @@ func (*environSuite) TestConfigReturnsConfig(c *gc.C) {
 }
 
 func (*environSuite) TestConfigLocksEnviron(c *gc.C) {
-	env := azureEnviron{name: "env", ecfg: new(azureEnvironConfig)}
+	// env := azureEnviron{name: "env", ecfg: new(azureEnvironConfig)}
+	env := azureEnviron{ecfg: new(azureEnvironConfig)}
 	coretesting.TestLockingFunction(&env.Mutex, func() { env.Config() })
 }
 
@@ -227,7 +224,7 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), jc.IsTrue)
+	c.Check(strings.Contains(env.getEnvPrefix(), env.Config().Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetContainerName(c *gc.C) {
@@ -487,7 +484,7 @@ func (*environSuite) TestSetConfigWillNotUpdateName(c *gc.C) {
 	// Global validation rejects such a change.
 	// This matters because the attribute is not protected by a lock.
 	env := makeEnviron(c)
-	originalName := env.Name()
+	originalName := env.Config().Name()
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "new-name"
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -500,7 +497,7 @@ func (*environSuite) TestSetConfigWillNotUpdateName(c *gc.C) {
 		err,
 		gc.ErrorMatches,
 		`cannot change name from ".*" to "new-name"`)
-	c.Check(env.Name(), gc.Equals, originalName)
+	c.Check(env.Config().Name(), gc.Equals, originalName)
 }
 
 func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
@@ -1334,7 +1331,7 @@ func (*environSuite) TestDestroyVirtualNetwork(c *gc.C) {
 
 func (*environSuite) TestGetVirtualNetworkNameContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getVirtualNetworkName(), env.Name()), jc.IsTrue)
+	c.Check(strings.Contains(env.getVirtualNetworkName(), env.Config().Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetVirtualNetworkNameIsConstant(c *gc.C) {
@@ -1379,7 +1376,7 @@ func (*environSuite) TestDestroyAffinityGroup(c *gc.C) {
 
 func (*environSuite) TestGetAffinityGroupName(c *gc.C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getAffinityGroupName(), env.Name()), jc.IsTrue)
+	c.Check(strings.Contains(env.getAffinityGroupName(), env.Config().Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetAffinityGroupNameIsConstant(c *gc.C) {

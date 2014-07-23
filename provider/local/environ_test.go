@@ -70,7 +70,7 @@ func (s *environSuite) TestNameAndStorage(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
-	c.Assert(environ.Name(), gc.Equals, "test")
+	c.Assert(environ.Config().Name(), gc.Equals, "test")
 	c.Assert(environ.Storage(), gc.NotNil)
 }
 

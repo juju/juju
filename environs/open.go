@@ -255,7 +255,7 @@ func ensureCertificate(cfg *config.Config) (*config.Config, error) {
 // Destroy destroys the environment and, if successful,
 // its associated configuration data from the given store.
 func Destroy(env Environ, store configstore.Storage) error {
-	name := env.Name()
+	name := env.Config().Name()
 	if err := env.Destroy(); err != nil {
 		return err
 	}

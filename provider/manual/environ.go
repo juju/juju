@@ -85,10 +85,6 @@ func (e *manualEnviron) Config() *config.Config {
 	return e.envConfig().Config
 }
 
-func (e *manualEnviron) Name() string {
-	return e.envConfig().Name()
-}
-
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
