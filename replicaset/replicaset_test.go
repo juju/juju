@@ -181,7 +181,7 @@ func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstanc
 	// two copies of root in the replica set
 	members = append(members, Member{Address: getAddr(root), Tags: initialTags})
 
-	// We allow for up to 2m per operation, since Add, Set, etc. call
+	// We allow for up to 2 minutes  per operation, since Add, Set, etc. call
 	// replSetReconfig which may cause primary renegotiation. According
 	// to the Mongo docs, "typically this is 10-20 seconds, but could be
 	// as long as a minute or more."

@@ -66,6 +66,7 @@ const (
 	statusesC          = "statuses"
 	stateServersC      = "stateServers"
 	openedPortsC       = "openedPorts"
+
 	// These collections are used by the mgo transaction runner.
 	txnLogC = "txns.log"
 	txnsC   = "txns"
@@ -99,7 +100,7 @@ func (st *State) getCollection(coll string) (*mgo.Collection, func()) {
 	if st.authenticated {
 		return mongo.CollectionFromName(st.db, coll)
 	}
-	return st.db.C(coll), func() {}
+	return st.db.C(coll), emptycloser
 }
 
 // getPresence returns the presence collection.
@@ -130,13 +131,15 @@ func (st *State) MongoSession() *mgo.Session {
 	return st.db.Session
 }
 
+func emptycloser() {}
+
 // txnRunner returns a jujutxn.Runner instance.
 // If a runner has been assigned to st, that instance is returned.
 // Otherwise a new instance is created.
 // If st has been authenticated by having it's database logged in,
 // a new mgo.Session is used.
 func (st *State) txnRunner() (_ jujutxn.Runner, closer func()) {
-	closer = func() {}
+	closer = emptycloser
 	if st.transactionRunner != nil {
 		return st.transactionRunner, closer
 	}
