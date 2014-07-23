@@ -58,7 +58,7 @@ func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 
 func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 	return txn.Op{
-		C:      constraintsC,
+		C:      st.constraints.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: newConstraintsDoc(cons),
@@ -67,7 +67,7 @@ func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 
 func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 	return txn.Op{
-		C:      constraintsC,
+		C:      st.constraints.Name,
 		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", newConstraintsDoc(cons)}},
@@ -76,18 +76,15 @@ func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 
 func removeConstraintsOp(st *State, id string) txn.Op {
 	return txn.Op{
-		C:      constraintsC,
+		C:      st.constraints.Name,
 		Id:     id,
 		Remove: true,
 	}
 }
 
 func readConstraints(st *State, id string) (constraints.Value, error) {
-	constraintsCollection, closer := st.getCollection(constraintsC)
-	defer closer()
-
 	doc := constraintsDoc{}
-	if err := constraintsCollection.FindId(id).One(&doc); err == mgo.ErrNotFound {
+	if err := st.constraints.FindId(id).One(&doc); err == mgo.ErrNotFound {
 		return constraints.Value{}, errors.NotFoundf("constraints")
 	} else if err != nil {
 		return constraints.Value{}, err

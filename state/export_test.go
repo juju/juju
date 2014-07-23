@@ -25,27 +25,19 @@ import (
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
-	st.transactionRunner = runner
-	return txntesting.SetTestHooks(c, runner, hooks...)
+	return txntesting.SetTestHooks(c, st.transactionRunner, hooks...)
 }
 
 func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
-	st.transactionRunner = runner
-	return txntesting.SetBeforeHooks(c, runner, fs...)
+	return txntesting.SetBeforeHooks(c, st.transactionRunner, fs...)
 }
 
 func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
-	st.transactionRunner = runner
-	return txntesting.SetAfterHooks(c, runner, fs...)
+	return txntesting.SetAfterHooks(c, st.transactionRunner, fs...)
 }
 
 func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
-	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
-	st.transactionRunner = runner
-	return txntesting.SetRetryHooks(c, runner, block, check)
+	return txntesting.SetRetryHooks(c, st.transactionRunner, block, check)
 }
 
 // SetPolicy updates the State's policy field to the
@@ -82,12 +74,9 @@ func (doc *MachineDoc) String() string {
 }
 
 func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (int, error) {
-	settingsRefsCollection, closer := st.getCollection(settingsrefsC)
-	defer closer()
-
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
+	if err := st.settingsrefs.FindId(key).One(&doc); err == nil {
 		return doc.RefCount, nil
 	}
 	return 0, mgo.ErrNotFound
@@ -147,7 +136,7 @@ func SetMachineInstanceId(m *Machine, instanceId string) {
 func ClearInstanceDocId(c *gc.C, m *Machine) {
 	ops := []txn.Op{
 		{
-			C:      instanceDataC,
+			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
@@ -207,10 +196,8 @@ func TxnRevno(st *State, coll string, id interface{}) (int64, error) {
 // MinUnitsRevno returns the Revno of the minUnits document
 // associated with the given service name.
 func MinUnitsRevno(st *State, serviceName string) (int, error) {
-	minUnitsCollection, closer := st.getCollection(minUnitsC)
-	defer closer()
 	var doc minUnitsDoc
-	if err := minUnitsCollection.FindId(serviceName).One(&doc); err != nil {
+	if err := st.minUnits.FindId(serviceName).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil

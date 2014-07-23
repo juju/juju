@@ -133,7 +133,7 @@ func actionResultPrefix(ar ActionReceiver) string {
 // addActionResultOp builds the txn.Op used to add an actionresult
 func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 	return txn.Op{
-		C:      actionresultsC,
+		C:      st.actionresults.Name,
 		Id:     doc.Id,
 		Assert: txn.DocMissing,
 		Insert: doc,

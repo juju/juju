@@ -199,11 +199,8 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 }
 
 func getInstanceData(st *State, id string) (instanceData, error) {
-	instanceDataCollection, closer := st.getCollection(instanceDataC)
-	defer closer()
-
 	var instData instanceData
-	err := instanceDataCollection.FindId(id).One(&instData)
+	err := st.instanceData.FindId(id).One(&instData)
 	if err == mgo.ErrNotFound {
 		return instanceData{}, errors.NotFoundf("instance data for machine %v", id)
 	}
@@ -248,7 +245,7 @@ func (m *Machine) HasVote() bool {
 // from the worker that maintains the replica set.
 func (m *Machine) SetHasVote(hasVote bool) error {
 	ops := []txn.Op{{
-		C:      machinesC,
+		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"hasvote", hasVote}}}},
@@ -316,7 +313,7 @@ func (m *Machine) SetAgentVersion(v version.Binary) (err error) {
 	}
 	tools := &tools.Tools{Version: v}
 	ops := []txn.Op{{
-		C:      machinesC,
+		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"tools", tools}}}},
@@ -348,7 +345,7 @@ func (m *Machine) SetPassword(password string) error {
 // manipulation in tests (to check for backwards compatibility).
 func (m *Machine) setPasswordHash(passwordHash string) error {
 	ops := []txn.Op{{
-		C:      machinesC,
+		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$set", bson.D{{"passwordhash", passwordHash}}}},
@@ -402,7 +399,7 @@ func (m *Machine) Destroy() error {
 func (m *Machine) ForceDestroy() error {
 	if !m.IsManager() {
 		ops := []txn.Op{{
-			C:      machinesC,
+			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: bson.D{{"jobs", bson.D{{"$nin", []MachineJob{JobManageEnviron}}}}},
 		}, m.st.newCleanupOp(cleanupForceDestroyedMachine, m.doc.Id)}
@@ -439,11 +436,8 @@ func IsHasAssignedUnitsError(err error) bool {
 // Containers returns the container ids belonging to a parent machine.
 // TODO(wallyworld): move this method to a service
 func (m *Machine) Containers() ([]string, error) {
-	containerRefs, closer := m.st.getCollection(containerRefsC)
-	defer closer()
-
 	var mc machineContainers
-	err := containerRefs.FindId(m.Id()).One(&mc)
+	err := m.st.containerRefs.FindId(m.Id()).One(&mc)
 	if err == nil {
 		return mc.Children, nil
 	}
@@ -505,7 +499,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 	}()
 	// op and
 	op := txn.Op{
-		C:      machinesC,
+		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Update: bson.D{{"$set", bson.D{{"life", life}}}},
 	}
@@ -594,19 +588,16 @@ func (m *Machine) removeNetworkInterfacesOps() ([]txn.Op, error) {
 		return nil, errors.Errorf("machine is not dead")
 	}
 	ops := []txn.Op{{
-		C:      machinesC,
+		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: isDeadDoc,
 	}}
 	sel := bson.D{{"machineid", m.doc.Id}}
-	networkInterfaces, closer := m.st.getCollection(networkInterfacesC)
-	defer closer()
-
-	iter := networkInterfaces.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
+	iter := m.st.networkInterfaces.Find(sel).Select(bson.D{{"_id", 1}}).Iter()
 	var doc networkInterfaceDoc
 	for iter.Next(&doc) {
 		ops = append(ops, txn.Op{
-			C:      networkInterfacesC,
+			C:      m.st.networkInterfaces.Name,
 			Id:     doc.Id,
 			Remove: true,
 		})
@@ -623,18 +614,18 @@ func (m *Machine) Remove() (err error) {
 	}
 	ops := []txn.Op{
 		{
-			C:      machinesC,
+			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocExists,
 			Remove: true,
 		},
 		{
-			C:      machinesC,
+			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: isDeadDoc,
 		},
 		{
-			C:      instanceDataC,
+			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Remove: true,
 		},
@@ -663,11 +654,8 @@ func (m *Machine) Remove() (err error) {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // machine has been removed.
 func (m *Machine) Refresh() error {
-	machines, closer := m.st.getCollection(machinesC)
-	defer closer()
-
 	doc := machineDoc{}
-	err := machines.FindId(m.doc.Id).One(&doc)
+	err := m.st.machines.FindId(m.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("machine %v", m)
 	}
@@ -708,8 +696,7 @@ func (m *Machine) WaitAgentPresence(timeout time.Duration) (err error) {
 // SetAgentPresence signals that the agent for machine m is alive.
 // It returns the started pinger.
 func (m *Machine) SetAgentPresence() (*presence.Pinger, error) {
-	presenceCollection := m.st.getPresence()
-	p := presence.NewPinger(presenceCollection, m.globalKey())
+	p := presence.NewPinger(m.st.presence, m.globalKey())
 	err := p.Start()
 	if err != nil {
 		return nil, err
@@ -776,7 +763,7 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 	// provisioned := bson.D{{"instanceid", bson.D{{"$ne", ""}}}}
 	ops := []txn.Op{
 		{
-			C:      instanceDataC,
+			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"status", status}}}},
@@ -794,18 +781,15 @@ func (m *Machine) SetInstanceStatus(status string) (err error) {
 // Units returns all the units that have been assigned to the machine.
 func (m *Machine) Units() (units []*Unit, err error) {
 	defer errors.Maskf(&err, "cannot get units assigned to machine %v", m)
-	unitsCollection, closer := m.st.getCollection(unitsC)
-	defer closer()
-
 	pudocs := []unitDoc{}
-	err = unitsCollection.Find(bson.D{{"machineid", m.doc.Id}}).All(&pudocs)
+	err = m.st.units.Find(bson.D{{"machineid", m.doc.Id}}).All(&pudocs)
 	if err != nil {
 		return nil, err
 	}
 	for _, pudoc := range pudocs {
 		units = append(units, newUnit(m.st, &pudoc))
 		docs := []unitDoc{}
-		err = unitsCollection.Find(bson.D{{"principal", pudoc.Name}}).All(&docs)
+		err = m.st.units.Find(bson.D{{"principal", pudoc.Name}}).All(&docs)
 		if err != nil {
 			return nil, err
 		}
@@ -849,12 +833,12 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	notSetYet := bson.D{{"instanceid", ""}, {"nonce", ""}}
 	ops := []txn.Op{
 		{
-			C:      machinesC,
+			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: append(isAliveDoc, notSetYet...),
 			Update: bson.D{{"$set", bson.D{{"instanceid", id}, {"nonce", nonce}}}},
 		}, {
-			C:      instanceDataC,
+			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocMissing,
 			Insert: instData,
@@ -870,7 +854,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		return nil
 	} else if err != txn.ErrAborted {
 		return err
-	} else if alive, err := isAlive(m.st.db, machinesC, m.doc.Id); err != nil {
+	} else if alive, err := isAlive(m.st.machines, m.doc.Id); err != nil {
 		return err
 	} else if !alive {
 		return errNotAlive
@@ -1009,7 +993,7 @@ func (m *Machine) setAddresses(addresses []network.Address, field *[]address, fi
 			return nil, errDead
 		}
 		op := txn.Op{
-			C:      machinesC,
+			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: append(bson.D{{fieldName, *field}}, notDeadDoc...),
 		}
@@ -1048,12 +1032,8 @@ func (m *Machine) Networks() ([]*Network, error) {
 		return nil, err
 	}
 	docs := []networkDoc{}
-
-	networksCollection, closer := m.st.getCollection(networksC)
-	defer closer()
-
 	sel := bson.D{{"_id", bson.D{{"$in", requestedNetworks}}}}
-	err = networksCollection.Find(sel).All(&docs)
+	err = m.st.networks.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err
 	}
@@ -1067,11 +1047,8 @@ func (m *Machine) Networks() ([]*Network, error) {
 // NetworkInterfaces returns the list of configured network interfaces
 // of the machine.
 func (m *Machine) NetworkInterfaces() ([]*NetworkInterface, error) {
-	networkInterfaces, closer := m.st.getCollection(networkInterfacesC)
-	defer closer()
-
 	docs := []networkInterfaceDoc{}
-	err := networkInterfaces.Find(bson.D{{"machineid", m.doc.Id}}).All(&docs)
+	err := m.st.networkInterfaces.Find(bson.D{{"machineid", m.doc.Id}}).All(&docs)
 	if err != nil {
 		return nil, err
 	}
@@ -1104,15 +1081,15 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 	doc.MachineId = m.doc.Id
 	doc.Id = bson.NewObjectId()
 	ops := []txn.Op{{
-		C:      networksC,
+		C:      m.st.networks.Name,
 		Id:     args.NetworkName,
 		Assert: txn.DocExists,
 	}, {
-		C:      machinesC,
+		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: isAliveDoc,
 	}, {
-		C:      networkInterfacesC,
+		C:      m.st.networkInterfaces.Name,
 		Id:     doc.Id,
 		Assert: txn.DocMissing,
 		Insert: doc,
@@ -1140,18 +1117,15 @@ func (m *Machine) AddNetworkInterface(args NetworkInterfaceInfo) (iface *Network
 		// The txn logic does not report insertion errors, so we check
 		// that the record has actually been inserted correctly before
 		// reporting success.
-		networkInterfaces, closer := m.st.getCollection(networkInterfacesC)
-		defer closer()
-
-		if err = networkInterfaces.FindId(doc.Id).One(&doc); err == nil {
+		if err = m.st.networkInterfaces.FindId(doc.Id).One(&doc); err == nil {
 			return newNetworkInterface(m.st, doc), nil
 		}
 		sel := bson.D{{"interfacename", args.InterfaceName}, {"machineid", m.doc.Id}}
-		if err = networkInterfaces.Find(sel).One(nil); err == nil {
+		if err = m.st.networkInterfaces.Find(sel).One(nil); err == nil {
 			return nil, errors.AlreadyExistsf("%q on machine %q", args.InterfaceName, m.doc.Id)
 		}
 		sel = bson.D{{"macaddress", args.MACAddress}, {"networkname", args.NetworkName}}
-		if err = networkInterfaces.Find(sel).One(nil); err == nil {
+		if err = m.st.networkInterfaces.Find(sel).One(nil); err == nil {
 			return nil, errors.AlreadyExistsf("MAC address %q on network %q", args.MACAddress, args.NetworkName)
 		}
 		// Should never happen.
@@ -1197,7 +1171,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	notSetYet := bson.D{{"nonce", ""}}
 	ops := []txn.Op{
 		{
-			C:      machinesC,
+			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: append(isAliveDoc, notSetYet...),
 		},
@@ -1254,7 +1228,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 		return err
 	}
 	ops := []txn.Op{{
-		C:      machinesC,
+		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: notDeadDoc,
 	},
@@ -1314,7 +1288,7 @@ func isSupportedContainer(container instance.ContainerType, supportedContainers 
 func (m *Machine) updateSupportedContainers(supportedContainers []instance.ContainerType) (err error) {
 	ops := []txn.Op{
 		{
-			C:      machinesC,
+			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: notDeadDoc,
 			Update: bson.D{

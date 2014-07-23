@@ -251,7 +251,7 @@ func (st *State) addMachineOps(template MachineTemplate) (*machineDoc, []txn.Op,
 	ops = append(ops, st.insertNewContainerRefOp(mdoc.Id))
 	if template.InstanceId != "" {
 		ops = append(ops, txn.Op{
-			C:      instanceDataC,
+			C:      st.instanceData.Name,
 			Id:     mdoc.Id,
 			Assert: txn.DocMissing,
 			Insert: &instanceData{
@@ -416,7 +416,7 @@ func machineDocForTemplate(template MachineTemplate, id string) *machineDoc {
 func (st *State) insertNewMachineOps(mdoc *machineDoc, template MachineTemplate) []txn.Op {
 	return []txn.Op{
 		{
-			C:      machinesC,
+			C:      st.machines.Name,
 			Id:     mdoc.Id,
 			Assert: txn.DocMissing,
 			Insert: mdoc,
@@ -478,7 +478,7 @@ func (st *State) maintainStateServersOps(mdocs []*machineDoc, currentInfo *State
 		}
 	}
 	ops := []txn.Op{{
-		C:  stateServersC,
+		C:  st.stateServers.Name,
 		Id: environGlobalKey,
 		Assert: bson.D{{
 			"$and", []bson.D{
@@ -684,12 +684,12 @@ func (st *State) ensureAvailabilityIntentions(info *StateServerInfo) (*ensureAva
 
 func promoteStateServerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
-		C:      machinesC,
+		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: bson.D{{"novote", true}},
 		Update: bson.D{{"$set", bson.D{{"novote", false}}}},
 	}, {
-		C:      stateServersC,
+		C:      m.st.stateServers.Name,
 		Id:     environGlobalKey,
 		Update: bson.D{{"$addToSet", bson.D{{"votingmachineids", m.doc.Id}}}},
 	}}
@@ -697,12 +697,12 @@ func promoteStateServerOps(m *Machine) []txn.Op {
 
 func demoteStateServerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
-		C:      machinesC,
+		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: bson.D{{"novote", false}},
 		Update: bson.D{{"$set", bson.D{{"novote", true}}}},
 	}, {
-		C:      stateServersC,
+		C:      m.st.stateServers.Name,
 		Id:     environGlobalKey,
 		Update: bson.D{{"$pull", bson.D{{"votingmachineids", m.doc.Id}}}},
 	}}
@@ -710,7 +710,7 @@ func demoteStateServerOps(m *Machine) []txn.Op {
 
 func removeStateServerOps(m *Machine) []txn.Op {
 	return []txn.Op{{
-		C:      machinesC,
+		C:      m.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: bson.D{{"novote", true}, {"hasvote", false}},
 		Update: bson.D{
@@ -718,7 +718,7 @@ func removeStateServerOps(m *Machine) []txn.Op {
 			{"$set", bson.D{{"novote", false}}},
 		},
 	}, {
-		C:      stateServersC,
+		C:      m.st.stateServers.Name,
 		Id:     environGlobalKey,
 		Update: bson.D{{"$pull", bson.D{{"machineids", m.doc.Id}}}},
 	}}

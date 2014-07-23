@@ -22,7 +22,7 @@ func newRequestedNetworksDoc(networks []string) *requestedNetworksDoc {
 
 func createRequestedNetworksOp(st *State, id string, networks []string) txn.Op {
 	return txn.Op{
-		C:      requestedNetworksC,
+		C:      st.requestedNetworks.Name,
 		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: newRequestedNetworksDoc(networks),
@@ -33,18 +33,15 @@ func createRequestedNetworksOp(st *State, id string, networks []string) txn.Op {
 
 func removeRequestedNetworksOp(st *State, id string) txn.Op {
 	return txn.Op{
-		C:      requestedNetworksC,
+		C:      st.requestedNetworks.Name,
 		Id:     id,
 		Remove: true,
 	}
 }
 
 func readRequestedNetworks(st *State, id string) ([]string, error) {
-	requestedNetworks, closer := st.getCollection(requestedNetworksC)
-	defer closer()
-
 	doc := requestedNetworksDoc{}
-	err := requestedNetworks.FindId(id).One(&doc)
+	err := st.requestedNetworks.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
 		// In 1.17.7+ we always create a requestedNetworksDoc for each
 		// service or machine we create, but in legacy databases this

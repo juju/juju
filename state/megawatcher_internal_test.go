@@ -13,6 +13,7 @@ import (
 	"github.com/juju/charm"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
+	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -954,6 +955,16 @@ func setServiceConfigAttr(c *gc.C, svc *Service, attr string, val interface{}) {
 }
 
 func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
+	collections := map[string]*mgo.Collection{
+		"machines":    s.State.machines,
+		"units":       s.State.units,
+		"services":    s.State.services,
+		"relations":   s.State.relations,
+		"annotations": s.State.annotations,
+		"statuses":    s.State.statuses,
+		"constraints": s.State.constraints,
+		"settings":    s.State.settings,
+	}
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
 		b := newAllWatcherStateBacking(s.State)
@@ -964,9 +975,7 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		test.setUp(c, s.State)
 		c.Logf("done set up")
 		ch := test.change
-		col, closer := s.State.getCollection(ch.C)
-		closer()
-		ch.C = col.Name
+		ch.C = collections[ch.C].Name
 		err := b.Changed(all, test.change)
 		c.Assert(err, gc.IsNil)
 		assertEntitiesEqual(c, all.All(), test.expectContents)

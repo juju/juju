@@ -164,7 +164,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 	}
 	sort.Sort(itemChangeSlice(changes))
 	ops := []txn.Op{{
-		C:      settingsC,
+		C:      c.st.settings.Name,
 		Id:     c.key,
 		Assert: txn.DocExists,
 		Update: bson.D{
@@ -245,11 +245,8 @@ func (c *Settings) Read() error {
 // readSettingsDoc reads the settings with the given
 // key. It returns the settings and the current rxnRevno.
 func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, error) {
-	settings, closer := st.getCollection(settingsC)
-	defer closer()
-
 	config := map[string]interface{}{}
-	err := settings.FindId(key).One(config)
+	err := st.settings.FindId(key).One(config)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -272,7 +269,7 @@ var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
 	newValues := copyMap(values, escapeReplacer.Replace)
 	return txn.Op{
-		C:      settingsC,
+		C:      st.settings.Name,
 		Id:     key,
 		Assert: txn.DocMissing,
 		Insert: newValues,
@@ -296,10 +293,7 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 
 // removeSettings removes the Settings for key.
 func removeSettings(st *State, key string) error {
-	settings, closer := st.getCollection(settingsC)
-	defer closer()
-
-	err := settings.RemoveId(key)
+	err := st.settings.RemoveId(key)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("settings")
 	}
@@ -339,7 +333,7 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 
 func (s *Settings) assertUnchangedOp() txn.Op {
 	return txn.Op{
-		C:      settingsC,
+		C:      s.st.settings.Name,
 		Id:     s.key,
 		Assert: bson.D{{"txn-revno", s.txnRevno}},
 	}

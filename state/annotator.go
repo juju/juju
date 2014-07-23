@@ -61,9 +61,7 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 	// annotations in the meantime, we consider that worthy of an error
 	// (will be fixed when new entities can never share names with old ones).
 	buildTxn := func(attempt int) ([]txn.Op, error) {
-		annotations, closer := a.st.getCollection(annotationsC)
-		defer closer()
-		if count, err := annotations.FindId(a.globalKey).Count(); err != nil {
+		if count, err := a.st.annotations.FindId(a.globalKey).Count(); err != nil {
 			return nil, err
 		} else if count == 0 {
 			// Check that the annotator entity was not previously destroyed.
@@ -81,7 +79,7 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 	tag := a.tag
 	ops := []txn.Op{{
-		C:      annotationsC,
+		C:      a.st.annotations.Name,
 		Id:     a.globalKey,
 		Assert: txn.DocMissing,
 		Insert: &annotatorDoc{a.globalKey, tag.String(), toInsert},
@@ -107,7 +105,7 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 // updateOps returns the operations required to update or remove annotations in MongoDB.
 func (a *annotator) updateOps(toUpdate map[string]string, toRemove map[string]bool) []txn.Op {
 	return []txn.Op{{
-		C:      annotationsC,
+		C:      a.st.annotations.Name,
 		Id:     a.globalKey,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", toUpdate}, {"$unset", toRemove}},
@@ -117,9 +115,7 @@ func (a *annotator) updateOps(toUpdate map[string]string, toRemove map[string]bo
 // Annotations returns all the annotations corresponding to an entity.
 func (a *annotator) Annotations() (map[string]string, error) {
 	doc := new(annotatorDoc)
-	annotations, closer := a.st.getCollection(annotationsC)
-	defer closer()
-	err := annotations.FindId(a.globalKey).One(doc)
+	err := a.st.annotations.FindId(a.globalKey).One(doc)
 	if err == mgo.ErrNotFound {
 		// Returning an empty map if there are no annotations.
 		return make(map[string]string), nil
@@ -144,7 +140,7 @@ func (a *annotator) Annotation(key string) (string, error) {
 // document from MongoDB.
 func annotationRemoveOp(st *State, id string) txn.Op {
 	return txn.Op{
-		C:      annotationsC,
+		C:      st.annotations.Name,
 		Id:     id,
 		Remove: true,
 	}
