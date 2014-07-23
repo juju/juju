@@ -99,7 +99,6 @@ func (*environSuite) TestGetEndpoint(c *gc.C) {
 }
 
 func (*environSuite) TestGetSnapshot(c *gc.C) {
-	// original := azureEnviron{name: "this-env", ecfg: new(azureEnvironConfig)}
 	original := azureEnviron{ecfg: new(azureEnvironConfig)}
 	snapshot := original.getSnapshot()
 
@@ -130,7 +129,6 @@ func (*environSuite) TestConfigReturnsConfig(c *gc.C) {
 }
 
 func (*environSuite) TestConfigLocksEnviron(c *gc.C) {
-	// env := azureEnviron{name: "env", ecfg: new(azureEnvironConfig)}
 	env := azureEnviron{ecfg: new(azureEnvironConfig)}
 	coretesting.TestLockingFunction(&env.Mutex, func() { env.Config() })
 }

@@ -85,7 +85,7 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) (result error) {
 		return err
 	}
 	if !c.assumeYes {
-		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, environ.Config().Name(), environ.Config().Type())
+		fmt.Fprintf(ctx.Stdout, destroyEnvMsg, c.envName, environ.Config().Type())
 
 		scanner := bufio.NewScanner(ctx.Stdin)
 		scanner.Scan()
