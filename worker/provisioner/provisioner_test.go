@@ -196,6 +196,12 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 				c.Assert(o.Networks, jc.DeepEquals, networks)
 				c.Assert(o.NetworkInfo, jc.DeepEquals, networkInfo)
 
+				var jobs []params.MachineJob
+				for _, job := range m.Jobs() {
+					jobs = append(jobs, job.ToParams())
+				}
+				c.Assert(o.Jobs, jc.SameContents, jobs)
+
 				// All provisioned machines in this test suite have
 				// their hardware characteristics attributes set to
 				// the same values as the constraints due to the dummy
@@ -368,6 +374,18 @@ func (s *CommonProvisionerSuite) addMachineWithRequestedNetworks(networks []stri
 		Constraints:       cons,
 		RequestedNetworks: networks,
 	})
+}
+
+func (s *CommonProvisionerSuite) ensureAvailability(c *gc.C, n int) []*state.Machine {
+	changes, err := s.BackingState.EnsureAvailability(n, s.defaultConstraints, coretesting.FakeDefaultSeries)
+	c.Assert(err, gc.IsNil)
+	added := make([]*state.Machine, len(changes.Added))
+	for i, mid := range changes.Added {
+		m, err := s.BackingState.Machine(mid)
+		c.Assert(err, gc.IsNil)
+		added[i] = m
+	}
+	return added
 }
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
@@ -995,9 +1013,27 @@ func (s *ProvisionerSuite) TestProvisionerRetriesTransientErrors(c *gc.C) {
 	c.Assert(err, jc.Satisfies, state.IsNotProvisionedError)
 }
 
+func (s *ProvisionerSuite) TestProvisionerObservesMachineJobs(c *gc.C) {
+	s.PatchValue(&apiserverprovisioner.ErrorRetryWaitDelay, 5*time.Millisecond)
+	broker := &mockBroker{Environ: s.Environ, retryCount: make(map[string]int)}
+	task := s.newProvisionerTask(c, false, broker, s.provisioner)
+	defer stop(c, task)
+
+	added := s.ensureAvailability(c, 3)
+	c.Assert(added, gc.HasLen, 2)
+	byId := make(map[string]*state.Machine)
+	for _, m := range added {
+		byId[m.Id()] = m
+	}
+	for _, id := range broker.ids {
+		s.checkStartInstance(c, byId[id])
+	}
+}
+
 type mockBroker struct {
 	environs.Environ
 	retryCount map[string]int
+	ids        []string
 }
 
 func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, []network.Info, error) {
@@ -1005,6 +1041,8 @@ func (b *mockBroker) StartInstance(args environs.StartInstanceParams) (instance.
 	// Machines 3 is provisioned after some attempts have been made.
 	// Machine 4 is never provisioned.
 	id := args.MachineConfig.MachineId
+	// record ids so we can call checkStartInstance in the appropriate order.
+	b.ids = append(b.ids, id)
 	retries := b.retryCount[id]
 	if (id != "3" && id != "4") || retries > 2 {
 		return b.Environ.StartInstance(args)
