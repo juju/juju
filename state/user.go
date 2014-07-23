@@ -91,7 +91,7 @@ type User struct {
 }
 
 type userDoc struct {
-	Name           string `bson:"_id_"`
+	Name           string `bson:"_id"`
 	DisplayName    string
 	Deactivated    bool // Removing users means they still exist, but are marked deactivated
 	PasswordHash   string
