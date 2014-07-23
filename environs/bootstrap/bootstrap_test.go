@@ -455,7 +455,6 @@ func (s *bootstrapSuite) TestSetBootstrapTools(c *gc.C) {
 }
 
 type bootstrapEnviron struct {
-	name             string
 	cfg              *config.Config
 	environs.Environ // stub out all methods we don't care about.
 
@@ -483,13 +482,13 @@ func newEnviron(name string, defaultKeys bool, extraAttrs map[string]interface{}
 			"admin-secret",
 		)
 	}
+	m["name"] = name // overwrite name provided by dummy.SampleConfig
 	cfg, err := config.New(config.NoDefaults, m)
 	if err != nil {
 		panic(fmt.Errorf("cannot create config from %#v: %v", m, err))
 	}
 	return &bootstrapEnviron{
-		name: name,
-		cfg:  cfg,
+		cfg: cfg,
 	}
 }
 
@@ -501,10 +500,6 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 	env.storage = stor
 	envtesting.UploadFakeTools(c, env.storage)
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
-}
-
-func (e *bootstrapEnviron) Name() string {
-	return e.name
 }
 
 func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {

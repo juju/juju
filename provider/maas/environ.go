@@ -83,11 +83,6 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	return env, nil
 }
 
-// Name is specified in the Environ interface.
-func (env *maasEnviron) Name() string {
-	return env.name
-}
-
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
 	return common.Bootstrap(ctx, env, args)

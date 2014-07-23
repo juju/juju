@@ -36,10 +36,6 @@ type mockEnviron struct {
 	environs.Environ // stub out other methods with panics
 }
 
-func (*mockEnviron) Name() string {
-	return "mock environment"
-}
-
 func (*mockEnviron) SupportedArchitectures() ([]string, error) {
 	return []string{"amd64", "arm64"}, nil
 }

@@ -478,10 +478,6 @@ func (e *environ) nova() *nova.Client {
 	return nova
 }
 
-func (e *environ) Name() string {
-	return e.name
-}
-
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (e *environ) SupportedArchitectures() ([]string, error) {
 	e.archMutex.Lock()
@@ -1186,13 +1182,13 @@ func (e *environ) jujuGroupName() string {
 }
 
 func (e *environ) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", e.Name(), names.NewMachineTag(machineId))
+	return fmt.Sprintf("juju-%s-%s", e.Config().Name(), names.NewMachineTag(machineId))
 }
 
 // machinesFilter returns a nova.Filter matching all machines in the environment.
 func (e *environ) machinesFilter() *nova.Filter {
 	filter := nova.NewFilter()
-	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", e.Name()))
+	filter.Set(nova.FilterServer, fmt.Sprintf("juju-%s-machine-\\d*", e.Config().Name()))
 	return filter
 }
 

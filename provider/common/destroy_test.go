@@ -28,6 +28,7 @@ func (s *DestroySuite) TestCannotGetInstances(c *gc.C) {
 		allInstances: func() ([]instance.Instance, error) {
 			return nil, fmt.Errorf("nope")
 		},
+		config: configGetter(c),
 	}
 	err := common.Destroy(env)
 	c.Assert(err, gc.ErrorMatches, "nope")
@@ -47,6 +48,7 @@ func (s *DestroySuite) TestCannotStopInstances(c *gc.C) {
 			c.Assert(ids[1], gc.Equals, instance.Id("another"))
 			return fmt.Errorf("nah")
 		},
+		config: configGetter(c),
 	}
 	err := common.Destroy(env)
 	c.Assert(err, gc.ErrorMatches, "nah")
@@ -67,6 +69,7 @@ func (s *DestroySuite) TestCannotTrashStorage(c *gc.C) {
 			c.Assert(ids[1], gc.Equals, instance.Id("another"))
 			return nil
 		},
+		config: configGetter(c),
 	}
 	err := common.Destroy(env)
 	c.Assert(err, gc.ErrorMatches, "noes!")
@@ -89,6 +92,7 @@ func (s *DestroySuite) TestSuccess(c *gc.C) {
 			c.Assert(ids[0], gc.Equals, instance.Id("one"))
 			return nil
 		},
+		config: configGetter(c),
 	}
 	err = common.Destroy(env)
 	c.Assert(err, gc.IsNil)
@@ -102,6 +106,7 @@ func (s *DestroySuite) TestCannotTrashStorageWhenNoInstances(c *gc.C) {
 		allInstances: func() ([]instance.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
+		config: configGetter(c),
 	}
 	err := common.Destroy(env)
 	c.Assert(err, gc.ErrorMatches, "noes!")
@@ -117,6 +122,7 @@ func (s *DestroySuite) TestSuccessWhenNoInstances(c *gc.C) {
 		allInstances: func() ([]instance.Instance, error) {
 			return nil, environs.ErrNoInstances
 		},
+		config: configGetter(c),
 	}
 	err = common.Destroy(env)
 	c.Assert(err, gc.IsNil)
