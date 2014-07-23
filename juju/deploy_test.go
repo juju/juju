@@ -73,7 +73,7 @@ func (s *DeployLocalSuite) TestDeployMinimal(c *gc.C) {
 }
 
 func (s *DeployLocalSuite) TestDeployOwnerTag(c *gc.C) {
-	s.Factory.MakeUser(factory.UserParams{Username: "foobar"})
+	s.Factory.MakeUser(factory.UserParams{Name: "foobar"})
 	service, err := juju.DeployService(s.State,
 		juju.DeployServiceParams{
 			ServiceName:  "bobwithowner",

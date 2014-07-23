@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	jujutxn "github.com/juju/txn"
+	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -84,6 +86,8 @@ type mockContext struct {
 	realAgentConfig agent.ConfigSetter
 	apiState        *api.State
 	state           *state.State
+	db              *mgo.Database
+	runner          jujutxn.Runner
 }
 
 func (c *mockContext) APIState() *api.State {
@@ -332,7 +336,7 @@ func (s *upgradeSuite) TestUpgradeOperationsOrdered(c *gc.C) {
 	}
 }
 
-var expectedVersions = []string{"1.18.0"}
+var expectedVersions = []string{"1.18.0", "1.21-alpha1"}
 
 func (s *upgradeSuite) TestUpgradeOperationsVersions(c *gc.C) {
 	var versions []string

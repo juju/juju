@@ -2440,7 +2440,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = unit.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
-	s.factory.MakeUser(factory.UserParams{Username: "arble"})
+	s.factory.MakeUser(factory.UserParams{Name: "arble"})
 	c.Assert(err, gc.IsNil)
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "ser-vice2"})
