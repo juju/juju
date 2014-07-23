@@ -614,7 +614,6 @@ func (p *Pinger) ping() (err error) {
 				return
 			}
 			err = fmt.Errorf("%v", v)
-			return
 		}
 	}()
 	session := p.pings.Database.Session.Copy()
