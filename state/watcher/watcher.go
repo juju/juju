@@ -331,9 +331,7 @@ func (w *Watcher) initLastId() error {
 	var entry struct {
 		Id interface{} `bson:"_id"`
 	}
-	session := w.log.Database.Session.Copy()
-	defer session.Close()
-	err := w.log.With(session).Find(nil).Sort("-$natural").One(&entry)
+	err := w.log.Find(nil).Sort("-$natural").One(&entry)
 	if err != nil && err != mgo.ErrNotFound {
 		return err
 	}
@@ -346,9 +344,7 @@ func (w *Watcher) initLastId() error {
 func (w *Watcher) sync() error {
 	w.needSync = false
 	// Iterate through log events in reverse insertion order (newest first).
-	session := w.log.Database.Session.Copy()
-	defer session.Close()
-	iter := w.log.With(session).Find(nil).Batch(10).Sort("-$natural").Iter()
+	iter := w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 	seen := make(map[watchKey]bool)
 	first := true
 	lastId := w.lastId
