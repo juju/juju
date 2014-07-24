@@ -365,6 +365,8 @@ func cacheChangedAPIInfo(info configstore.EnvironInfo, hostPorts [][]network.Hos
 				changed = true
 				endpoint.EnvironUUID = environUUID
 			}
+		} else {
+			logger.Debugf("cannot parse environ tag: %v", err)
 		}
 	}
 	if len(addrs) != 0 && addrsChanged(endpoint.Addresses, addrs) {
