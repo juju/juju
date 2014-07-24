@@ -149,10 +149,11 @@ func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 			info, err = d.readJENVFile(envName)
 		}
 	}
-	if info != nil {
-		info.environmentDir = d.dir
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return info, errors.Trace(err)
+	info.environmentDir = d.dir
+	return info, nil
 }
 
 func (d *diskStore) readConnectionFile(envName string) (*environInfo, error) {
