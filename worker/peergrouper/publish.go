@@ -17,15 +17,17 @@ type apiHostPortsSetter interface {
 }
 
 type publisher struct {
-	st apiHostPortsSetter
+	st         apiHostPortsSetter
+	preferIPv6 bool
 
 	mu             sync.Mutex
 	lastAPIServers [][]network.HostPort
 }
 
-func newPublisher(st apiHostPortsSetter) *publisher {
+func newPublisher(st apiHostPortsSetter, preferIPv6 bool) *publisher {
 	return &publisher{
-		st: st,
+		st:         st,
+		preferIPv6: preferIPv6,
 	}
 }
 
@@ -35,19 +37,23 @@ func (pub *publisher) publishAPIServers(apiServers [][]network.HostPort, instanc
 	}
 	pub.mu.Lock()
 	defer pub.mu.Unlock()
-	if apiServersEqual(apiServers, pub.lastAPIServers) {
+
+	sortedAPIServers := make([][]network.HostPort, len(apiServers))
+	for i, hostPorts := range apiServers {
+		sortedAPIServers[i] = append([]network.HostPort{}, hostPorts...)
+		network.SortHostPorts(sortedAPIServers[i], pub.preferIPv6)
+	}
+	if apiServersEqual(sortedAPIServers, pub.lastAPIServers) {
 		logger.Debugf("API host ports have not changed")
 		return nil
 	}
+
 	// TODO(rog) publish instanceIds in environment storage.
-	err := pub.st.SetAPIHostPorts(apiServers)
+	err := pub.st.SetAPIHostPorts(sortedAPIServers)
 	if err != nil {
 		return err
 	}
-	pub.lastAPIServers = make([][]network.HostPort, len(apiServers))
-	for i, hostPorts := range apiServers {
-		pub.lastAPIServers[i] = append([]network.HostPort{}, hostPorts...)
-	}
+	pub.lastAPIServers = sortedAPIServers
 	return nil
 }
 
