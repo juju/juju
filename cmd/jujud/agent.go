@@ -261,7 +261,7 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		return nil, nil, err
 	}
 	defer func() {
-		if resultErr != nil {
+		if resultErr != nil && st != nil {
 			st.Close()
 		}
 	}()
@@ -297,6 +297,13 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 			return nil, nil, err
 		}
 		if err := entity.SetPassword(newPassword); err != nil {
+			return nil, nil, err
+		}
+
+		st.Close()
+		info.Password = newPassword
+		st, err = apiOpen(info, api.DialOpts{})
+		if err != nil {
 			return nil, nil, err
 		}
 	}

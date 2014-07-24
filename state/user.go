@@ -16,9 +16,12 @@ import (
 )
 
 func (st *State) checkUserExists(name string) (bool, error) {
+	users, closer := st.getCollection(usersC)
+	defer closer()
+
 	var count int
 	var err error
-	if count, err = st.users.FindId(name).Count(); err != nil {
+	if count, err = users.FindId(name).Count(); err != nil {
 		return false, err
 	}
 	return count > 0, nil
@@ -50,7 +53,7 @@ func (st *State) AddUser(username, displayName, password, creator string) (*User
 		},
 	}
 	ops := []txn.Op{{
-		C:      st.users.Name,
+		C:      usersC,
 		Id:     username,
 		Assert: txn.DocMissing,
 		Insert: &u.doc,
@@ -68,7 +71,10 @@ func (st *State) AddUser(username, displayName, password, creator string) (*User
 // getUser fetches information about the user with the
 // given name into the provided userDoc.
 func (st *State) getUser(name string, udoc *userDoc) error {
-	err := st.users.Find(bson.D{{"_id", name}}).One(udoc)
+	users, closer := st.getCollection(usersC)
+	defer closer()
+
+	err := users.Find(bson.D{{"_id", name}}).One(udoc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("user %q", name)
 	}
@@ -136,7 +142,7 @@ func (u *User) UpdateLastConnection() error {
 	timestamp := time.Now().Round(time.Second).UTC()
 
 	ops := []txn.Op{{
-		C:      u.st.users.Name,
+		C:      usersC,
 		Id:     u.Name(),
 		Update: bson.D{{"$set", bson.D{{"lastconnection", timestamp}}}},
 	}}
@@ -168,7 +174,7 @@ func (u *User) SetPassword(password string) error {
 // of the password, but not the clear text.
 func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 	ops := []txn.Op{{
-		C:      u.st.users.Name,
+		C:      usersC,
 		Id:     u.Name(),
 		Update: bson.D{{"$set", bson.D{{"passwordhash", pwHash}, {"passwordsalt", pwSalt}}}},
 	}}
@@ -227,7 +233,7 @@ func (u *User) Deactivate() error {
 		return errors.Unauthorizedf("Can't deactivate admin user")
 	}
 	ops := []txn.Op{{
-		C:      u.st.users.Name,
+		C:      usersC,
 		Id:     u.Name(),
 		Update: bson.D{{"$set", bson.D{{"deactivated", true}}}},
 		Assert: txn.DocExists,
