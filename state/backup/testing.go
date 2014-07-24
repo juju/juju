@@ -4,7 +4,8 @@
 package backup
 
 import (
-	"bufio"
+	"archive/tar"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"os"
@@ -40,51 +41,56 @@ func CheckFileHash(c *gc.C, filename, expected string) bool {
 	return c.Check(hash, gc.Equals, expected)
 }
 
+// TODO(ericsnow) Move to github.com/juju/utils/tar.
+func iterTarFile(tarfile io.Reader) (next func() (*tar.Header, error)) {
+	// Make a lua-style "iterator".
+	entries := tar.NewReader(tarfile)
+	done := false
+	next = func() (*tar.Header, error) {
+		if done {
+			return nil, nil
+		}
+		hdr, err := entries.Next()
+		if err == io.EOF {
+			// end of archive
+			done = true
+			return nil, nil
+		}
+		if err != nil {
+			// XXX Set done to true?
+			return nil, fmt.Errorf("error iterating over tarfile: %v", err)
+		}
+		return hdr, nil
+	}
+	return next
+}
+
 // CheckTarball verifies the file as a valid tarball and that it has the
 // expected files inside.  `expected` does not necessarily include every
 // filename expected to be in the tarball.
 func CheckTarball(c *gc.C, filename string, expected []string) bool {
-	// Not windows-compatible?
-	args := []string{
-		"--list",
-		"--file=" + filename,
-	}
-	cmd := exec.Command("tar", args...)
-	pipe, err := cmd.StdoutPipe()
-	c.Assert(err, gc.IsNil)
-	err = cmd.Start()
+	filenames := make([]string, len(expected))
+	copy(filenames, expected)
+
+	tarfile, err := os.Open(filename)
 	c.Assert(err, gc.IsNil)
 
-	lines := bufio.NewReader(pipe)
-	for {
-		nameBytes, _, err := lines.ReadLine()
-		if err == io.EOF {
+	nextEntry := iterTarFile(tarfile)
+	for len(filenames) != 0 {
+		header, err := nextEntry()
+		c.Assert(err, gc.IsNil)
+		if header == nil {
 			break
 		}
-		c.Assert(err, gc.IsNil)
-		name := string(nameBytes)
-		// Skip blank lines.
-		if name == "" {
-			continue
-		}
-		// Look for a match.
-		for i, expName := range expected {
-			if name == expName {
-				// Delete the element.
-				expected = append(expected[:i], expected[i+1:]...)
+		for i, name := range filenames {
+			if name == header.Name {
+				filenames[i] = filenames[0]
+				filenames = filenames[1:]
 				break
 			}
 		}
-		// Stop early.
-		if len(expected) == 0 {
-			break
-		}
 	}
-
-	err = cmd.Wait()
-	if c.Check(err, gc.IsNil) {
-		return c.Check(expected, gc.Equals, []string{})
-	}
+	c.Assert(filenames, gc.Equals, []string{})
 	return false
 }
 
