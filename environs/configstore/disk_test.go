@@ -131,8 +131,7 @@ func (*diskStoreSuite) TestWriteFails(c *gc.C) {
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, gc.IsNil)
 
-	info, err := store.CreateInfo("someenv")
-	c.Assert(err, gc.IsNil)
+	info := store.CreateInfo("someenv")
 
 	// Make the directory non-writable
 	err = os.Chmod(storePath(dir, ""), 0555)
@@ -156,8 +155,7 @@ func (*diskStoreSuite) TestRenameFails(c *gc.C) {
 	err = os.Mkdir(path, 0777)
 	c.Assert(err, gc.IsNil)
 
-	info, err := store.CreateInfo("someenv")
-	c.Assert(err, gc.IsNil)
+	info := store.CreateInfo("someenv")
 	err = info.Write()
 	c.Assert(err, gc.ErrorMatches, "environment info already exists")
 }
@@ -167,8 +165,7 @@ func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, gc.IsNil)
 
-	info, err := store.CreateInfo("someenv")
-	c.Assert(err, gc.IsNil)
+	info := store.CreateInfo("someenv")
 	err = info.Write()
 	c.Assert(err, gc.IsNil)
 

@@ -652,8 +652,7 @@ func (*NewAPIClientSuite) TestWithBootstrapConfigTakesPrecedence(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	envName2 := coretesting.SampleCertName + "-2"
-	info2, err := store.CreateInfo(envName2)
-	c.Assert(err, gc.IsNil)
+	info2 := store.CreateInfo(envName2)
 	info2.SetBootstrapConfig(info.BootstrapConfig())
 	err = info2.Write()
 	c.Assert(err, gc.IsNil)
@@ -715,14 +714,11 @@ type environInfo struct {
 // for the environment name.
 func newConfigStore(envName string, info *environInfo) configstore.Storage {
 	store := configstore.NewMem()
-	newInfo, err := store.CreateInfo(envName)
-	if err != nil {
-		panic(err)
-	}
+	newInfo := store.CreateInfo(envName)
 	newInfo.SetAPICredentials(info.creds)
 	newInfo.SetAPIEndpoint(info.endpoint)
 	newInfo.SetBootstrapConfig(info.bootstrapConfig)
-	err = newInfo.Write()
+	err := newInfo.Write()
 	if err != nil {
 		panic(err)
 	}
@@ -734,7 +730,7 @@ type storageWithWriteNotify struct {
 	store   configstore.Storage
 }
 
-func (*storageWithWriteNotify) CreateInfo(envName string) (configstore.EnvironInfo, error) {
+func (*storageWithWriteNotify) CreateInfo(envName string) configstore.EnvironInfo {
 	panic("CreateInfo not implemented")
 }
 
@@ -771,8 +767,7 @@ var _ = gc.Suite(&CacheChangedAPISuite{})
 
 func (s *CacheChangedAPISuite) TestAPIEndpointNotMachineLocalOrLinkLocal(c *gc.C) {
 	store := configstore.NewMem()
-	info, err := store.CreateInfo("env-name")
-	c.Assert(err, gc.IsNil)
+	info := store.CreateInfo("env-name")
 
 	hostPorts := [][]network.HostPort{
 		network.AddressesWithPort([]network.Address{
@@ -795,7 +790,7 @@ func (s *CacheChangedAPISuite) TestAPIEndpointNotMachineLocalOrLinkLocal(c *gc.C
 	}
 
 	envTag := names.NewEnvironTag("fake-uuid")
-	err = juju.CacheChangedAPIInfo(info, hostPorts, envTag.String())
+	err := juju.CacheChangedAPIInfo(info, hostPorts, envTag.String())
 	c.Assert(err, gc.IsNil)
 
 	endpoint := info.APIEndpoint()

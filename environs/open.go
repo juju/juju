@@ -173,10 +173,7 @@ func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage
 	}
 	info, err := store.ReadInfo(cfg.Name())
 	if errors.IsNotFound(errors.Cause(err)) {
-		info, err = store.CreateInfo(cfg.Name())
-		if err != nil {
-			return nil, errors.Annotatef(err, "cannot create new info for environment %q", cfg.Name())
-		}
+		info = store.CreateInfo(cfg.Name())
 		env, err := prepare(ctx, cfg, info, p)
 		if err != nil {
 			if err := info.Destroy(); err != nil {

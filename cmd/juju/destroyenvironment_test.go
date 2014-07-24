@@ -71,9 +71,8 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 }
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
-	info, err := s.ConfigStore.CreateInfo("emptyenv")
-	c.Assert(err, gc.IsNil)
-	err = info.Write()
+	info := s.ConfigStore.CreateInfo("emptyenv")
+	err := info.Write()
 	c.Assert(err, gc.IsNil)
 
 	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), "-e", "emptyenv")
@@ -90,8 +89,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandBroken(c *gc.C) {
 	apiCredentials := oldinfo.APICredentials()
 	err = oldinfo.Destroy()
 	c.Assert(err, gc.IsNil)
-	newinfo, err := s.ConfigStore.CreateInfo("dummyenv")
-	c.Assert(err, gc.IsNil)
+	newinfo := s.ConfigStore.CreateInfo("dummyenv")
 
 	bootstrapConfig["broken"] = "Destroy"
 	newinfo.SetBootstrapConfig(bootstrapConfig)

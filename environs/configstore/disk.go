@@ -46,32 +46,6 @@ type EnvironInfoData struct {
 	Config       map[string]interface{} `json:"bootstrap-config,omitempty" yaml:"bootstrap-config,omitempty"`
 }
 
-type identity struct {
-	name        string
-	credentials string
-}
-
-// connectionFile is a connection to a juju service, and most frequently, a
-// particualar environment running within that service.
-type connectionFile struct {
-	User            string                 `yaml:"user"`
-	EnvironUUID     string                 `yaml:"environ-uuid,omitempty"`
-	ServerUUID      string                 `yaml:"server-uuid"`
-	BootstrapConfig map[string]interface{} `yaml:"bootstrap-config,omitempty"`
-}
-
-type identityFile struct {
-	Credentials string `yaml:"credentials"`
-}
-
-type serverFile struct {
-	APIEndpoints []string `yaml:"api-endpoints"`
-	CACert       string   `yaml:"ca-cert,omitempty"`
-	// A mapping of user to their credentials for the local users defined in
-	// the juju service found at the api endpoints.
-	Identities map[string]string `yaml:"identities,omitempty"`
-}
-
 type environInfo struct {
 	mu sync.Mutex
 
@@ -92,15 +66,14 @@ type environInfo struct {
 	user            string
 	credentials     string
 	environmentUUID string
-	serverUUID      string
 	apiEndpoints    []string
 	caCert          string
 	bootstrapConfig map[string]interface{}
 }
 
-// NewDisk returns a ConfigStorage implementation that stores
-// configuration in the given directory. The parent of the directory
-// must already exist; the directory itself is created on demand.
+// NewDisk returns a ConfigStorage implementation that stores configuration in
+// the given directory. The parent of the directory must already exist; the
+// directory itself is created if it doesn't already exist.
 func NewDisk(dir string) (Storage, error) {
 	if _, err := os.Stat(dir); err != nil {
 		return nil, err
@@ -118,21 +91,21 @@ func NewDisk(dir string) (Storage, error) {
 }
 
 func (d *diskStore) mkEnvironmentsDir() error {
-	logger.Debugf("Making %v", d.dir)
 	err := os.Mkdir(d.dir, 0700)
 	if os.IsExist(err) {
 		return nil
 	}
+	logger.Debugf("Made dir %v", d.dir)
 	return err
 }
 
 // CreateInfo implements Storage.CreateInfo.
-func (d *diskStore) CreateInfo(envName string) (EnvironInfo, error) {
+func (d *diskStore) CreateInfo(envName string) EnvironInfo {
 	return &environInfo{
 		environmentDir: d.dir,
 		created:        true,
 		name:           envName,
-	}, nil
+	}
 }
 
 // List implements Storage.List
@@ -320,7 +293,6 @@ func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
 	info.user = values.User
 	info.credentials = values.Password
 	info.environmentUUID = values.EnvironUUID
-	info.serverUUID = values.EnvironUUID
 	info.caCert = values.CACert
 	info.apiEndpoints = values.StateServers
 	info.bootstrapConfig = values.Config

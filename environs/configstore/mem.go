@@ -45,7 +45,7 @@ func NewMem() Storage {
 }
 
 // CreateInfo implements Storage.CreateInfo.
-func (m *memStore) CreateInfo(envName string) (EnvironInfo, error) {
+func (m *memStore) CreateInfo(envName string) EnvironInfo {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	info := &memInfo{
@@ -53,7 +53,7 @@ func (m *memStore) CreateInfo(envName string) (EnvironInfo, error) {
 		name:  envName,
 	}
 	info.created = true
-	return info, nil
+	return info
 }
 
 // List implements Storage.List

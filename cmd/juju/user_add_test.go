@@ -133,8 +133,7 @@ func (s *UserAddCommandSuite) TestInit(c *gc.C) {
 func fakeBootstrapEnvironment(c *gc.C, envName string) {
 	store, err := configstore.Default()
 	c.Assert(err, gc.IsNil)
-	envInfo, err := store.CreateInfo(envName)
-	c.Assert(err, gc.IsNil)
+	envInfo := store.CreateInfo(envName)
 	envInfo.SetBootstrapConfig(map[string]interface{}{"random": "extra data"})
 	envInfo.SetAPIEndpoint(configstore.APIEndpoint{
 		Addresses: []string{"localhost:12345"},

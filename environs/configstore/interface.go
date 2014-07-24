@@ -45,9 +45,7 @@ type Storage interface {
 
 	// CreateInfo creates some uninitialized information associated
 	// with the environment with the given name.
-	// It return ErrAlreadyExists if the
-	// information has already been created.
-	CreateInfo(envName string) (EnvironInfo, error)
+	CreateInfo(envName string) EnvironInfo
 
 	// List returns a slice of existing environment names that the Storage
 	// knows about.
@@ -89,9 +87,11 @@ type EnvironInfo interface {
 	// information in a human readable format.
 	Location() string
 
-	// Write writes the current information to persistent storage.
-	// A subsequent call to ConfigStorage.ReadInfo
-	// can retrieve it. After this call succeeds, Initialized will return true.
+	// Write writes the current information to persistent storage. A
+	// subsequent call to ConfigStorage.ReadInfo can retrieve it. After this
+	// call succeeds, Initialized will return true.
+	// It return ErrAlreadyExists if the EnvironInfo is not yet Initialized
+	// and the EnvironInfo has been written before.
 	Write() error
 
 	// Destroy destroys the information associated with
