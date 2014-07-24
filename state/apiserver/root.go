@@ -44,22 +44,21 @@ type objectKey struct {
 	objId   string
 }
 
-// APIHandler represents a single client's connection to the state
+// apiHandler represents a single client's connection to the state
 // after it has logged in. It contains an rpc.MethodFinder which it
 // uses to dispatch Api calls appropriately.
-type APIHandler struct {
+type apiHandler struct {
 	state     *state.State
 	rpcConn   *rpc.Conn
 	resources *common.Resources
 	entity    state.Entity
-	mu        sync.Mutex
 }
 
-var _ = (*APIHandler)(nil)
+var _ = (*apiHandler)(nil)
 
-// NewAPIHandler returns a new APIHandler.
-func NewAPIHandler(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier) *APIHandler {
-	r := &APIHandler{
+// NewApiHandler returns a new apiHandler.
+func newApiHandler(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier) *apiHandler {
+	r := &apiHandler{
 		state:     srv.state,
 		resources: common.NewResources(),
 		rpcConn:   rpcConn,
@@ -68,17 +67,17 @@ func NewAPIHandler(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier)
 	return r
 }
 
-func (r *APIHandler) getResources() *common.Resources {
+func (r *apiHandler) getResources() *common.Resources {
 	return r.resources
 }
 
-func (r *APIHandler) getRpcConn() *rpc.Conn {
+func (r *apiHandler) getRpcConn() *rpc.Conn {
 	return r.rpcConn
 }
 
 // Kill implements rpc.Killer.  It cleans up any resources that need
 // cleaning up to ensure that all outstanding requests return.
-func (r *APIHandler) Kill() {
+func (r *apiHandler) Kill() {
 	r.resources.StopAll()
 }
 
@@ -317,43 +316,43 @@ func (r *UpgradingRoot) FindMethod(rootName string, version int, methodName stri
 }
 
 // AuthMachineAgent returns whether the current client is a machine agent.
-func (r *APIHandler) AuthMachineAgent() bool {
+func (r *apiHandler) AuthMachineAgent() bool {
 	_, ok := r.entity.(*state.Machine)
 	return ok
 }
 
 // AuthUnitAgent returns whether the current client is a unit agent.
-func (r *APIHandler) AuthUnitAgent() bool {
+func (r *apiHandler) AuthUnitAgent() bool {
 	_, ok := r.entity.(*state.Unit)
 	return ok
 }
 
 // AuthOwner returns whether the authenticated user's tag matches the
 // given entity tag.
-func (r *APIHandler) AuthOwner(tag string) bool {
+func (r *apiHandler) AuthOwner(tag string) bool {
 	return r.entity.Tag().String() == tag
 }
 
 // AuthEnvironManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *APIHandler) AuthEnvironManager() bool {
+func (r *apiHandler) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
 }
 
 // AuthClient returns whether the authenticated entity is a client
 // user.
-func (r *APIHandler) AuthClient() bool {
+func (r *apiHandler) AuthClient() bool {
 	_, isUser := r.entity.(*state.User)
 	return isUser
 }
 
 // GetAuthTag returns the tag of the authenticated entity.
-func (r *APIHandler) GetAuthTag() names.Tag {
+func (r *apiHandler) GetAuthTag() names.Tag {
 	return r.entity.Tag()
 }
 
 // GetAuthEntity returns the authenticated entity.
-func (r *APIHandler) GetAuthEntity() state.Entity {
+func (r *apiHandler) GetAuthEntity() state.Entity {
 	return r.entity
 }
 

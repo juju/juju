@@ -372,7 +372,6 @@ func (r *rootSuite) TestFindMethodHandlesInterfaceTypes(c *gc.C) {
 }
 
 func (r *rootSuite) TestDescribeFacades(c *gc.C) {
-	//srvRoot := apiserver.TestingApiRoot(nil)
 	facades := apiserver.DescribeFacades()
 	c.Check(facades, gc.Not(gc.HasLen), 0)
 	// As a sanity check, we should see that we have a Client v0 available

@@ -328,11 +328,11 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	}
 	conn := rpc.NewConn(codec, notifier)
 	err := srv.validateEnvironUUID(envUUID)
-	var root *APIHandler
+	var root *apiHandler
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)
 	} else {
-		root = NewAPIHandler(srv, conn, reqNotifier)
+		root = newApiHandler(srv, conn, reqNotifier)
 		conn.Serve(root, serverError)
 	}
 	conn.Start()

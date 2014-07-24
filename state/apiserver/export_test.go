@@ -13,7 +13,7 @@ import (
 )
 
 var (
-	RootType              = reflect.TypeOf(&APIHandler{})
+	RootType              = reflect.TypeOf(&apiHandler{})
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval

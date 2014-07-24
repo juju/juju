@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -27,12 +28,14 @@ type adminApiV1 struct {
 // methods that are needed to log in.
 type adminV1 struct {
 	srv         *Server
-	root        *APIHandler
+	root        *apiHandler
 	reqNotifier *requestNotifier
-	loggedIn    bool
+
+	mu       sync.Mutex
+	loggedIn bool
 }
 
-func newAdminApiV1(srv *Server, root *APIHandler, reqNotifier *requestNotifier) *adminApiV1 {
+func newAdminApiV1(srv *Server, root *apiHandler, reqNotifier *requestNotifier) *adminApiV1 {
 	return &adminApiV1{
 		admin: &adminV1{
 			srv:         srv,
@@ -60,8 +63,8 @@ var errAlreadyLoggedIn = errors.New("already logged in")
 func (a *adminV1) Login(c params.Creds) (params.LoginResult, error) {
 	var fail params.LoginResult
 
-	a.root.mu.Lock()
-	defer a.root.mu.Unlock()
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	if a.loggedIn {
 		// This can only happen if Login is called concurrently.
 		return fail, errAlreadyLoggedIn
