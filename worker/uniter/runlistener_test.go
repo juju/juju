@@ -4,12 +4,13 @@
 package uniter_test
 
 import (
-	"net/rpc"
 	"path/filepath"
+	"runtime"
 
 	"github.com/juju/utils/exec"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/uniter"
 )
@@ -21,9 +22,16 @@ type ListenerSuite struct {
 
 var _ = gc.Suite(&ListenerSuite{})
 
+func (s *ListenerSuite) sockPath(c *gc.C) string {
+	if runtime.GOOS == "windows" {
+		return `\\.\pipe\testpipe`
+	}
+	return filepath.Join(c.MkDir(), "test.listener")
+}
+
 // Mirror the params to uniter.NewRunListener, but add cleanup to close it.
 func (s *ListenerSuite) NewRunListener(c *gc.C) *uniter.RunListener {
-	s.socketPath = filepath.Join(c.MkDir(), "test.listener")
+	s.socketPath = s.sockPath(c)
 	listener, err := uniter.NewRunListener(&mockRunner{c}, s.socketPath)
 	c.Assert(err, gc.IsNil)
 	c.Assert(listener, gc.NotNil)
@@ -45,7 +53,7 @@ func (s *ListenerSuite) TestNewRunListenerOnExistingSocketRemovesItAndSucceeds(c
 func (s *ListenerSuite) TestClientCall(c *gc.C) {
 	s.NewRunListener(c)
 
-	client, err := rpc.Dial("unix", s.socketPath)
+	client, err := sockets.Dial(s.socketPath)
 	c.Assert(err, gc.IsNil)
 	defer client.Close()
 

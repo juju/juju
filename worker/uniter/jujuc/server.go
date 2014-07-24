@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/juju/cmd"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
 )
@@ -126,7 +127,7 @@ func NewServer(getCmd CmdGetter, socketPath string) (*Server, error) {
 	if err := server.Register(&Jujuc{getCmd: getCmd}); err != nil {
 		return nil, err
 	}
-	listener, err := net.Listen("unix", socketPath)
+	listener, err := sockets.Listen(socketPath)
 	if err != nil {
 		return nil, err
 	}
