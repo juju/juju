@@ -171,40 +171,39 @@ func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage
 	if err != nil {
 		return nil, err
 	}
-	info, err := store.CreateInfo(cfg.Name())
-	if err == configstore.ErrEnvironInfoAlreadyExists {
-		logger.Infof("environment info already exists; using New not Prepare")
-		info, err := store.ReadInfo(cfg.Name())
+	info, err := store.ReadInfo(cfg.Name())
+	if errors.IsNotFound(errors.Cause(err)) {
+		info, err = store.CreateInfo(cfg.Name())
 		if err != nil {
-			return nil, fmt.Errorf("error reading environment info %q: %v", cfg.Name(), err)
+			return nil, errors.Annotatef(err, "cannot create new info for environment %q", cfg.Name())
 		}
-		if !info.Initialized() {
-			return nil, fmt.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", cfg.Name())
-		}
-		if len(info.BootstrapConfig()) == 0 {
-			return nil, fmt.Errorf("found environment info but no bootstrap config")
-		}
-		cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
+		env, err := prepare(ctx, cfg, info, p)
 		if err != nil {
-			return nil, fmt.Errorf("cannot parse bootstrap config: %v", err)
+			if err := info.Destroy(); err != nil {
+				logger.Warningf("cannot destroy newly created environment info: %v", err)
+			}
+			return nil, err
 		}
-		return New(cfg)
+		info.SetBootstrapConfig(env.Config().AllAttrs())
+		if err := info.Write(); err != nil {
+			return nil, errors.Annotatef(err, "cannot create environment info %q", env.Config().Name())
+		}
+		return env, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot create new info for environment %q: %v", cfg.Name(), err)
+		return nil, errors.Annotatef(err, "error reading environment info %q", cfg.Name())
 	}
-	env, err := prepare(ctx, cfg, info, p)
+	if !info.Initialized() {
+		return nil, errors.Errorf("found uninitialized environment info for %q; environment preparation probably in progress or interrupted", cfg.Name())
+	}
+	if len(info.BootstrapConfig()) == 0 {
+		return nil, errors.New("found environment info but no bootstrap config")
+	}
+	cfg, err = config.New(config.NoDefaults, info.BootstrapConfig())
 	if err != nil {
-		if err := info.Destroy(); err != nil {
-			logger.Warningf("cannot destroy newly created environment info: %v", err)
-		}
-		return nil, err
+		return nil, errors.Annotate(err, "cannot parse bootstrap config")
 	}
-	info.SetBootstrapConfig(env.Config().AllAttrs())
-	if err := info.Write(); err != nil {
-		return nil, fmt.Errorf("cannot create environment info %q: %v", env.Config().Name(), err)
-	}
-	return env, nil
+	return New(cfg)
 }
 
 func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironInfo, p EnvironProvider) (Environ, error) {

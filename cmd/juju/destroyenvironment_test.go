@@ -71,7 +71,9 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEFlag(c *gc.C) {
 }
 
 func (s *destroyEnvSuite) TestDestroyEnvironmentCommandEmptyJenv(c *gc.C) {
-	_, err := s.ConfigStore.CreateInfo("emptyenv")
+	info, err := s.ConfigStore.CreateInfo("emptyenv")
+	c.Assert(err, gc.IsNil)
+	err = info.Write()
 	c.Assert(err, gc.IsNil)
 
 	context, err := coretesting.RunCommand(c, new(DestroyEnvironmentCommand), "-e", "emptyenv")
