@@ -127,8 +127,8 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(mcfg.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
 	c.Check(mcfg.Constraints, gc.DeepEquals, cons)
 
-	oldAttrs["ca-private-key"] = ""
-	oldAttrs["admin-secret"] = ""
+	delete(oldAttrs, "ca-private-key")
+	delete(oldAttrs, "admin-secret")
 	c.Check(mcfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
 	srvCertPEM := mcfg.StateServingInfo.Cert
 	srvKeyPEM := mcfg.StateServingInfo.PrivateKey
@@ -155,8 +155,8 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 	testJujuHome := c.MkDir()
 	defer osenv.SetJujuHome(osenv.SetJujuHome(testJujuHome))
 	tools := &tools.Tools{
-		URL:     "http://foo.com/tools/releases/juju1.2.3-linux-amd64.tgz",
-		Version: version.MustParseBinary("1.2.3-linux-amd64"),
+		URL:     "http://foo.com/tools/releases/juju1.2.3-quantal-amd64.tgz",
+		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 	}
 	envConfig, err := config.New(config.NoDefaults, dummySampleConfig())
 	c.Assert(err, gc.IsNil)

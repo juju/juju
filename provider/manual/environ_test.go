@@ -4,9 +4,9 @@
 package manual
 
 import (
-	"errors"
 	"strings"
 
+	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -159,4 +159,46 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags"})
+}
+
+func (s *environSuite) TestStateServerInstances(c *gc.C) {
+	var outputResult string
+	var errResult error
+	runSSHCommandTesting := func(host string, command []string, stdin string) (string, error) {
+		return outputResult, errResult
+	}
+	s.PatchValue(&runSSHCommand, runSSHCommandTesting)
+
+	type test struct {
+		output      string
+		err         error
+		expectedErr string
+	}
+	tests := []test{{
+		output: "",
+	}, {
+		output:      "woo",
+		expectedErr: "environment is not bootstrapped",
+	}, {
+		err:         errors.New("an error"),
+		expectedErr: "an error",
+	}, {
+		output:      "the cause of an error",
+		err:         errors.New("an error"),
+		expectedErr: "the cause of an error: an error",
+	}}
+
+	for i, test := range tests {
+		c.Logf("test %d", i)
+		outputResult = test.output
+		errResult = test.err
+		instances, err := s.env.StateServerInstances()
+		if test.expectedErr == "" {
+			c.Assert(err, gc.IsNil)
+			c.Assert(instances, gc.DeepEquals, []instance.Id{manual.BootstrapInstanceId})
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.expectedErr)
+			c.Assert(instances, gc.HasLen, 0)
+		}
+	}
 }

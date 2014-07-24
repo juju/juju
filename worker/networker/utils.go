@@ -34,6 +34,9 @@ func executeCommands(commands []string) error {
 				command, result.Code, result.Stdout, result.Stderr)
 			logger.Errorf("%s", err.Error())
 			return err
+		} else {
+			logger.Debugf("command %q (code: %d, stdout: %s, stderr: %s)",
+				command, result.Code, result.Stdout, result.Stderr)
 		}
 	}
 	return nil

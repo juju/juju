@@ -83,7 +83,7 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 		c.Logf("test %d", i)
 		testTools := &coretest.Tools{
 			URL:     "http://foo/bar",
-			Version: version.MustParseBinary("1.2.3-foo-bar"),
+			Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 			Size:    int64(len(test.data)),
 			SHA256:  test.checksum,
 		}
@@ -97,7 +97,7 @@ func (t *ToolsSuite) TestUnpackToolsBadChecksum(c *gc.C) {
 	data, _ := testing.TarGz(testing.NewTarFile("tools", agenttools.DirPerm, "some data"))
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
-		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 		Size:    int64(len(data)),
 		SHA256:  "1234",
 	}
@@ -119,14 +119,14 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	data, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
-		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 		Size:    int64(len(data)),
 		SHA256:  checksum,
 	}
 
 	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(data))
 	c.Assert(err, gc.IsNil)
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64"})
 	t.assertToolsContents(c, testTools, files)
 
 	// Try to unpack the same version of tools again - it should succeed,
@@ -138,13 +138,13 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	data2, checksum2 := testing.TarGz(files2...)
 	tools2 := &coretest.Tools{
 		URL:     "http://arble",
-		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 		Size:    int64(len(data2)),
 		SHA256:  checksum2,
 	}
 	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(data2))
 	c.Assert(err, gc.IsNil)
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64"})
 	t.assertToolsContents(c, testTools, files)
 }
 
@@ -174,7 +174,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	data, checksum := testing.TarGz(files...)
 	testTools := &coretest.Tools{
 		URL:     "http://foo/bar1",
-		Version: version.MustParseBinary("1.2.3-foo-bar"),
+		Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 		Size:    int64(len(data)),
 		SHA256:  checksum,
 	}
@@ -185,18 +185,18 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotTools, gc.Equals, *testTools)
 
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "testagent"})
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64", "testagent"})
 	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", toolsFile})
 
 	// Upgrade again to check that the link replacement logic works ok.
 	files2 := []*testing.TarFile{
-		testing.NewTarFile("foo", agenttools.DirPerm, "foo content"),
-		testing.NewTarFile("bar", agenttools.DirPerm, "bar content"),
+		testing.NewTarFile("quantal", agenttools.DirPerm, "foo content"),
+		testing.NewTarFile("amd64", agenttools.DirPerm, "bar content"),
 	}
 	data2, checksum2 := testing.TarGz(files2...)
 	tools2 := &coretest.Tools{
 		URL:     "http://foo/bar2",
-		Version: version.MustParseBinary("1.2.4-foo-bar"),
+		Version: version.MustParseBinary("1.2.4-quantal-amd64"),
 		Size:    int64(len(data2)),
 		SHA256:  checksum2,
 	}
@@ -207,8 +207,8 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotTools, gc.Equals, *tools2)
 
-	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "1.2.4-foo-bar", "testagent"})
-	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"foo", "bar", toolsFile})
+	assertDirNames(c, t.toolsDir(), []string{"1.2.3-quantal-amd64", "1.2.4-quantal-amd64", "testagent"})
+	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"quantal", "amd64", toolsFile})
 }
 
 func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {

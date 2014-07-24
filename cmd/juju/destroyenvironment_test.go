@@ -182,7 +182,7 @@ func (s *destroyEnvSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 }
 
 func assertEnvironDestroyed(c *gc.C, env environs.Environ, store configstore.Storage) {
-	_, err := store.ReadInfo(env.Name())
+	_, err := store.ReadInfo(env.Config().Name())
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 
 	_, err = env.Instances([]instance.Id{"invalid"})
@@ -190,10 +190,10 @@ func assertEnvironDestroyed(c *gc.C, env environs.Environ, store configstore.Sto
 }
 
 func assertEnvironNotDestroyed(c *gc.C, env environs.Environ, store configstore.Storage) {
-	info, err := store.ReadInfo(env.Name())
+	info, err := store.ReadInfo(env.Config().Name())
 	c.Assert(err, gc.IsNil)
 	c.Assert(info.Initialized(), jc.IsTrue)
 
-	_, err = environs.NewFromName(env.Name(), store)
+	_, err = environs.NewFromName(env.Config().Name(), store)
 	c.Assert(err, gc.IsNil)
 }

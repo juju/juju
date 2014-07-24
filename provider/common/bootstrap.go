@@ -79,11 +79,9 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	machineConfig.InstanceId = inst.Id()
 	machineConfig.HardwareCharacteristics = hw
 
-	err = bootstrap.SaveState(
-		env.Storage(),
-		&bootstrap.BootstrapState{
-			StateInstances: []instance.Id{inst.Id()},
-		})
+	err = SaveState(env.Storage(), &BootstrapState{
+		StateInstances: []instance.Id{inst.Id()},
+	})
 	if err != nil {
 		return fmt.Errorf("cannot save state: %v", err)
 	}
@@ -142,7 +140,7 @@ func handleBootstrapError(err error, ctx environs.BootstrapContext, inst instanc
 	// We only delete the bootstrap state file if either we didn't
 	// start an instance, or we managed to cleanly stop it.
 	if inst == nil {
-		if rmerr := bootstrap.DeleteStateFile(env.Storage()); rmerr != nil {
+		if rmerr := DeleteStateFile(env.Storage()); rmerr != nil {
 			logger.Errorf("cannot delete bootstrap state file: %v", rmerr)
 		}
 	}

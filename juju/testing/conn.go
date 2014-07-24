@@ -119,6 +119,11 @@ func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
 	c.Assert(err, gc.IsNil)
 	apiInfo.Tag = names.NewUserTag("admin")
 	apiInfo.Password = "dummy-secret"
+
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	apiInfo.EnvironTag = env.Tag()
+
 	return apiInfo
 }
 
@@ -213,7 +218,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	environ, err := environs.PrepareFromName("dummyenv", ctx, s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Name(), gc.Equals, "dummyenv")
+	c.Assert(environ.Config().Name(), gc.Equals, "dummyenv")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
@@ -223,7 +228,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// Upload tools for both preferred and fake default series
 	envtesting.MustUploadFakeToolsVersions(environ.Storage(), versions...)
-	c.Assert(bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{}), gc.IsNil)
+	err = bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
 
@@ -231,6 +237,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+
 	s.Environ = environ
 }
 

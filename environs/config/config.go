@@ -846,18 +846,12 @@ var alwaysOptional = schema.Defaults{
 	"lxc-clone":                 schema.Omit,
 
 	// Deprecated fields, retain for backwards compatibility.
-	"tools-url":     "",
-	"lxc-use-clone": schema.Omit,
-
-	// For backward compatibility reasons, the following
-	// attributes default to empty strings rather than being
-	// omitted.
-	// TODO(rog) remove this support when we can
-	// remove upgrade compatibility with versions prior to 1.14.
-	"admin-secret":       "", // TODO(rog) omit
-	"ca-private-key":     "", // TODO(rog) omit
-	"image-metadata-url": "", // TODO(rog) omit
-	"tools-metadata-url": "", // TODO(rog) omit
+	"tools-url":          "",
+	"lxc-use-clone":      schema.Omit,
+	"admin-secret":       schema.Omit,
+	"ca-private-key":     schema.Omit,
+	"image-metadata-url": schema.Omit,
+	"tools-metadata-url": schema.Omit,
 
 	"default-series": "",
 

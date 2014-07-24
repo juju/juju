@@ -42,9 +42,11 @@ type ProvisionMachineArgs struct {
 	// Host is the SSH host: [user@]host
 	Host string
 
-	// Key is a path to the public key added to the machine's allowed keys to
-	// ssh to the host. If left blank, the default key is looked for in ~/.ssh
-	Key string
+	// SSHKeyPath is a path to the public key added to the machine's allowed keys to
+	// ssh to the host. If unset, a key will be looked for in $JUJU_HOME/ssh
+	// and ~/.ssh. A key can also be specified in ssh_config, or added to the
+	// SSH agent.
+	SSHKeyPath string
 
 	// DataDir is the root directory for juju data.
 	// If left blank, the default location "/var/lib/juju" will be used.
@@ -95,7 +97,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	// The authenticationworker will later update the ubuntu user's
 	// authorized_keys.
 	user, hostname := splitUserHost(args.Host)
-	authorizedKeys, err := config.ReadAuthorizedKeys(args.Key)
+	authorizedKeys, err := config.ReadAuthorizedKeys(args.SSHKeyPath)
 	if err := InitUbuntuUser(hostname, user, authorizedKeys, args.Stdin, args.Stdout); err != nil {
 		return "", err
 	}
@@ -252,7 +254,7 @@ func runProvisionScript(script, host, key string, progressWriter io.Writer) erro
 	params := sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		ProgressWriter: progressWriter,
-		Key:            key,
+		SSHKeyPath:     key,
 	}
 	return sshinit.RunConfigureScript(script, params)
 }

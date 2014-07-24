@@ -25,9 +25,10 @@ type ConfigureParams struct {
 	// If Client is nil, ssh.DefaultClient will be used.
 	Client ssh.Client
 
-	// Key is the path to a ssh key used to connect. If unset, the default
-	// keys in ~/.ssh will be used.
-	Key string
+	// SSHKeyPath is the path to an ssh key used to connect. If unset, a key will
+	// be looked for in $JUJU_HOME/ssh and ~/.ssh. A key can also be specified in
+	// ssh_config, or added to the SSH agent.
+	SSHKeyPath string
 
 	// Config is the cloudinit config to carry out.
 	Config *cloudinit.Config
@@ -58,8 +59,8 @@ func RunConfigureScript(script string, params ConfigureParams) error {
 		client = ssh.DefaultClient
 	}
 	var options ssh.Options
-	if params.Key != "" {
-		options.SetIdentities(params.Key)
+	if params.SSHKeyPath != "" {
+		options.SetIdentities(params.SSHKeyPath)
 	}
 
 	cmd := client.Command(params.Host, []string{"sudo", "/bin/bash"}, &options)

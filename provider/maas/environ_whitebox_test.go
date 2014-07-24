@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -60,10 +61,6 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 		panic(err)
 	}
 	return ecfg.Config
-}
-
-func (suite *environSuite) setupFakeProviderStateFile(c *gc.C) {
-	suite.testMAASObject.TestServer.NewFile(bootstrap.StateFile, []byte("test file content"))
 }
 
 func (suite *environSuite) setupFakeTools(c *gc.C) {
@@ -214,14 +211,14 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Check(actions, gc.DeepEquals, []string{"acquire", "start"})
 
 	// Test the instance id is correctly recorded for the bootstrap node.
-	// Check that the state holds the id of the bootstrap machine.
-	stateData, err := bootstrap.LoadState(env.Storage())
+	// Check that StateServerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateData.StateInstances, gc.HasLen, 1)
+	c.Assert(instanceIds, gc.HasLen, 1)
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
-	c.Check(insts[0].Id(), gc.Equals, stateData.StateInstances[0])
+	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
 	// Create node 1: it will be used as instance number 1.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
@@ -451,9 +448,12 @@ func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 
 func (suite *environSuite) TestStateServerInstances(c *gc.C) {
 	env := suite.makeEnviron()
+	_, err := env.StateServerInstances()
+	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
+
 	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
 	for _, expected := range tests {
-		err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
+		err := common.SaveState(env.Storage(), &common.BootstrapState{
 			StateInstances: expected,
 		})
 		c.Assert(err, gc.IsNil)

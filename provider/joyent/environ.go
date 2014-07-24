@@ -67,10 +67,6 @@ func (env *joyentEnviron) SetName(envName string) {
 	env.name = envName
 }
 
-func (env *joyentEnviron) Name() string {
-	return env.name
-}
-
 func (*joyentEnviron) Provider() environs.EnvironProvider {
 	return providerInstance
 }

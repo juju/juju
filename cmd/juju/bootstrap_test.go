@@ -242,10 +242,6 @@ func (test bootstrapTest) run(c *gc.C) {
 	c.Check(opPutBootstrapVerifyFile.Env, gc.Equals, "peckham")
 	c.Check(opPutBootstrapVerifyFile.FileName, gc.Equals, environs.VerificationFilename)
 
-	opPutBootstrapInitFile := (<-opc).(dummy.OpPutFile)
-	c.Check(opPutBootstrapInitFile.Env, gc.Equals, "peckham")
-	c.Check(opPutBootstrapInitFile.FileName, gc.Equals, "provider-state")
-
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
 	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)

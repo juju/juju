@@ -4,7 +4,6 @@
 package manual
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"path"
@@ -86,10 +85,6 @@ func (e *manualEnviron) Config() *config.Config {
 	return e.envConfig().Config
 }
 
-func (e *manualEnviron) Name() string {
-	return e.envConfig().Name()
-}
-
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (e *manualEnviron) SupportedArchitectures() ([]string, error) {
 	return arch.AllSupportedArches, nil
@@ -131,7 +126,26 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	})
 }
 
+// StateServerInstances is specified in the Environ interface.
 func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
+	// First verify that the environment is bootstrapped by checking
+	// if the agents directory exists. Note that we cannot test the
+	// root data directory, as that is created in the process of
+	// initialising sshstorage.
+	agentsDir := path.Join(agent.DefaultDataDir, "agents")
+	stdin := fmt.Sprintf("test -d %s || echo 1", utils.ShQuote(agentsDir))
+	out, err := runSSHCommand("ubuntu@"+e.cfg.bootstrapHost(), []string{"/bin/bash"}, stdin)
+	out = strings.TrimSpace(out)
+	if err != nil {
+		if len(out) > 0 {
+			err = errors.Annotate(err, out)
+		}
+		return nil, err
+	}
+	if len(out) > 0 {
+		// If output is non-empty, /var/lib/juju/agents does not exist.
+		return nil, environs.ErrNotBootstrapped
+	}
 	return []instance.Id{manual.BootstrapInstanceId}, nil
 }
 
@@ -237,13 +251,11 @@ func (e *manualEnviron) Storage() storage.Storage {
 	return e.storage
 }
 
-var runSSHCommand = func(host string, command []string, stdin string) (stderr string, err error) {
+var runSSHCommand = func(host string, command []string, stdin string) (output string, err error) {
 	cmd := ssh.Command(host, command, nil)
-	var stderrBuf bytes.Buffer
 	cmd.Stdin = strings.NewReader(stdin)
-	cmd.Stderr = &stderrBuf
-	err = cmd.Run()
-	return stderrBuf.String(), err
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }
 
 func (e *manualEnviron) Destroy() error {

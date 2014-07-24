@@ -8,7 +8,7 @@ github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c
 github.com/juju/charm	git	a74bb347311d472975681ee5790fd043b06c3e9c	
 github.com/juju/cmd	git	e2d7df426d54b663f8616901b75d1ccfafcd9997	
 github.com/juju/errgo	git	2cf7b553faddc588f903020c33e71c527d5e0838	
-github.com/juju/errors	git	09734a904adc602da4334cbf29cb4515fbeb8feb	
+github.com/juju/errors	git	47afc1fe9e066212a601c072c034fceb873bf594	
 github.com/juju/gojsonpointer	git	0154bf5a168b672d8c97d8dd83a54cb60cd088e8	
 github.com/juju/gojsonreference	git	0673d58f64bacac2db34c7d1e87a599d58923981	
 github.com/juju/gojsonschema	git	33fa79718fa9b24e2a04122f91a75496c0f77098	

@@ -233,15 +233,15 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	// check that the state holds the id of the bootstrap machine.
-	bootstrapState, err := bootstrap.LoadState(env.Storage())
+	// check that StateServerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
-	c.Assert(bootstrapState.StateInstances, gc.HasLen, 1)
+	c.Assert(instanceIds, gc.HasLen, 1)
 
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
-	c.Check(insts[0].Id(), gc.Equals, bootstrapState.StateInstances[0])
+	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
 	// check that the user data is configured to start zookeeper
 	// and the machine and provisioning agents.
@@ -294,8 +294,8 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 
-	_, err = bootstrap.LoadState(env.Storage())
-	c.Assert(err, gc.NotNil)
+	_, err = env.StateServerInstances()
+	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 // splitAuthKeys splits the given authorized keys

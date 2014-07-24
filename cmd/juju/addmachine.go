@@ -63,7 +63,7 @@ type AddMachineCommand struct {
 	// If specified, use this series, else use the environment default-series
 	Series string
 	// If specified, use this public key, else use the public keys found in ~/.ssh
-	Key string
+	SSHKeyPath string
 	// If specified, these constraints are merged with those already in the environment.
 	Constraints constraints.Value
 	// Placement is passed verbatim to the API, to be parsed and evaluated server-side.
@@ -83,7 +83,7 @@ func (c *AddMachineCommand) Info() *cmd.Info {
 
 func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "series", "", "the charm series")
-	f.StringVar(&c.Key, "ssh-key", "", "an identity key to manually provision a machine with ssh")
+	f.StringVar(&c.SSHKeyPath, "ssh-key", "", "an identity key to manually provision a machine with ssh")
 	f.IntVar(&c.NumMachines, "n", 1, "the number of machines to add")
 	f.Var(constraints.ConstraintsValue{Target: &c.Constraints}, "constraints", "additional machine constraints")
 }
@@ -96,7 +96,7 @@ func (c *AddMachineCommand) Init(args []string) error {
 	if err != nil {
 		return err
 	}
-	if c.Key != "" && (len(args) == 0 || !strings.HasPrefix(args[0], "ssh")) {
+	if c.SSHKeyPath != "" && (len(args) == 0 || !strings.HasPrefix(args[0], "ssh")) {
 		return fmt.Errorf("--ssh-key can only be used when manually provisioning a machine with ssh")
 	}
 
@@ -137,11 +137,11 @@ func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 
 	if c.Placement != nil && c.Placement.Scope == "ssh" {
 		args := manual.ProvisionMachineArgs{
-			Host:   c.Placement.Directive,
-			Stdin:  ctx.Stdin,
-			Stdout: ctx.Stdout,
-			Stderr: ctx.Stderr,
-			Key:    c.Key,
+			Host:       c.Placement.Directive,
+			Stdin:      ctx.Stdin,
+			Stdout:     ctx.Stdout,
+			Stderr:     ctx.Stderr,
+			SSHKeyPath: c.SSHKeyPath,
 		}
 		machineId, err := manualProvisioner(args)
 		if err == nil {

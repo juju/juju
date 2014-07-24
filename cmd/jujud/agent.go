@@ -33,8 +33,16 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
-var apiOpen = api.Open
-var dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
+var (
+	apiOpen = api.Open
+
+	dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
+
+	checkProvisionedStrategy = utils.AttemptStrategy{
+		Total: 1 * time.Minute,
+		Delay: 5 * time.Second,
+	}
+)
 
 // requiredError is useful when complaining about missing command-line options.
 func requiredError(name string) error {
@@ -180,12 +188,17 @@ func connectionIsFatal(conn pinger) func(err error) bool {
 		if isFatal(err) {
 			return true
 		}
-		if err := conn.Ping(); err != nil {
-			logger.Infof("error pinging %T: %v", conn, err)
-			return true
-		}
-		return false
+		return connectionIsDead(conn)
 	}
+}
+
+// connectionIsDead returns true if the given pinger fails to ping.
+var connectionIsDead = func(conn pinger) bool {
+	if err := conn.Ping(); err != nil {
+		logger.Infof("error pinging %T: %v", conn, err)
+		return true
+	}
+	return false
 }
 
 // isleep waits for the given duration or until it receives a value on
@@ -222,10 +235,21 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 	if params.IsCodeUnauthorized(err) {
 		// We've perhaps used the wrong password, so
 		// try again with the fallback password.
-		info := *info
+		infoCopy := *info
+		info = &infoCopy
 		info.Password = agentConfig.OldPassword()
 		usedOldPassword = true
-		st, err = apiOpen(&info, api.DialOpts{})
+		st, err = apiOpen(info, api.DialOpts{})
+	}
+	// The provisioner may take some time to record the agent's
+	// machine instance ID, so wait until it does so.
+	if params.IsCodeNotProvisioned(err) {
+		for a := checkProvisionedStrategy.Start(); a.Next(); {
+			st, err = apiOpen(info, api.DialOpts{})
+			if !params.IsCodeNotProvisioned(err) {
+				break
+			}
+		}
 	}
 	if err != nil {
 		if params.IsCodeNotProvisioned(err) {
