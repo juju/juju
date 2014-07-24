@@ -134,9 +134,13 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 // authorizedKeys may be empty, in which case the file
 // will be created and left empty.
 //
+// identity is an optional private key/identity file
+// used when attempting to login. If unset, the default
+//key/identity file will be used.
+//
 // stdin and stdout will be used for remote sudo prompts,
 // if the ubuntu user must be created/updated.
-func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout io.Writer) error {
+func InitUbuntuUser(host, login, authorizedKeys string, identity string, stdin io.Reader, stdout io.Writer) error {
 	logger.Infof("initialising %q, user %q", host, login)
 
 	// To avoid unnecessary prompting for the specified login,
@@ -161,6 +165,9 @@ func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout 
 	var options ssh.Options
 	options.AllowPasswordAuthentication()
 	options.EnablePTY()
+	if identity != "" {
+		options.SetIdentities(identity)
+	}
 	cmd = ssh.Command(host, []string{"sudo", "/bin/bash -c " + utils.ShQuote(script)}, &options)
 	var stderr bytes.Buffer
 	cmd.Stdin = stdin

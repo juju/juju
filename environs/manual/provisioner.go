@@ -97,8 +97,11 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	// The authenticationworker will later update the ubuntu user's
 	// authorized_keys.
 	user, hostname := splitUserHost(args.Host)
-	authorizedKeys, err := config.ReadAuthorizedKeys(args.SSHKeyPath)
-	if err := InitUbuntuUser(hostname, user, authorizedKeys, args.Stdin, args.Stdout); err != nil {
+
+	// try adding the public key of a private key used to ssh in.
+	pubKey := args.SSHKeyPath + ".pub"
+	authorizedKeys, err := config.ReadAuthorizedKeys(pubKey)
+	if err := InitUbuntuUser(hostname, user, authorizedKeys, args.SSHKeyPath, args.Stdin, args.Stdout); err != nil {
 		return "", err
 	}
 
@@ -254,7 +257,6 @@ func runProvisionScript(script, host, key string, progressWriter io.Writer) erro
 	params := sshinit.ConfigureParams{
 		Host:           "ubuntu@" + host,
 		ProgressWriter: progressWriter,
-		SSHKeyPath:     key,
 	}
 	return sshinit.RunConfigureScript(script, params)
 }

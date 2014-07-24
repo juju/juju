@@ -132,7 +132,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	expectState := mockedAPIState(mockedHostPort | mockedEnvironTag)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag("fake-uuid"))
+		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag(fakeUUID))
 		called++
 		return expectState, nil
 	}
@@ -151,7 +151,7 @@ func (s *NewAPIClientSuite) TestWithInfoOnly(c *gc.C) {
 	c.Check(ep.Addresses, jc.DeepEquals, []string{
 		"0.1.2.3:1234", "[fc00::1]:1234",
 	})
-	c.Check(ep.EnvironUUID, gc.Equals, "fake-uuid")
+	c.Check(ep.EnvironUUID, gc.Equals, fakeUUID)
 	mockStore.written = false
 
 	// If APIHostPorts haven't changed, then the store won't be updated.
@@ -281,7 +281,7 @@ func mockedAPIState(flags mockedStateFlags) *mockAPIState {
 	}
 	environTag := ""
 	if hasEnvironTag {
-		environTag = "environment-fake-uuid"
+		environTag = "environment-df136476-12e9-11e4-8a70-b2227cce2b54"
 	}
 	return &mockAPIState{
 		apiHostPorts: apiHostPorts,
@@ -321,7 +321,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	c.Check(info.APIEndpoint().Addresses, jc.DeepEquals, []string{
 		"0.1.2.3:1234", "[fc00::1]:1234",
 	})
-	c.Check(info.APIEndpoint().EnvironUUID, gc.Equals, "fake-uuid")
+	c.Check(info.APIEndpoint().EnvironUUID, gc.Equals, fakeUUID)
 
 	// Now simulate prefer-ipv6: true
 	store = newConfigStore("noconfig", noTagStoreInfo)
@@ -337,7 +337,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoEnvironTag(c *gc.C) {
 	c.Check(info.APIEndpoint().Addresses, jc.DeepEquals, []string{
 		"[fc00::1]:1234", "0.1.2.3:1234",
 	})
-	c.Check(info.APIEndpoint().EnvironUUID, gc.Equals, "fake-uuid")
+	c.Check(info.APIEndpoint().EnvironUUID, gc.Equals, fakeUUID)
 }
 
 func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
@@ -368,7 +368,7 @@ func (s *NewAPIClientSuite) TestWithInfoNoAPIHostports(c *gc.C) {
 	// Addresses
 	c.Check(ep.Addresses, gc.HasLen, 1)
 	c.Check(ep.Addresses[0], gc.Matches, `foo\.invalid`)
-	c.Check(ep.EnvironUUID, gc.Equals, "fake-uuid")
+	c.Check(ep.EnvironUUID, gc.Equals, fakeUUID)
 }
 
 func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
@@ -379,7 +379,7 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	expectState := mockedAPIState(mockedHostPort)
 	apiOpen := func(apiInfo *api.Info, opts api.DialOpts) (juju.APIState, error) {
 		checkCommonAPIInfoAttrs(c, apiInfo, opts)
-		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag("fake-uuid"))
+		c.Check(apiInfo.EnvironTag, gc.Equals, names.NewEnvironTag(fakeUUID))
 		called++
 		return expectState, nil
 	}
@@ -396,7 +396,7 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	c.Check(ep.Addresses, gc.DeepEquals, []string{
 		"0.1.2.3:1234", "[fc00::1]:1234",
 	})
-	c.Check(ep.EnvironUUID, gc.Equals, "fake-uuid")
+	c.Check(ep.EnvironUUID, gc.Equals, fakeUUID)
 
 	// Now simulate prefer-ipv6: true
 	expectState = mockedAPIState(mockedHostPort | mockedPreferIPv6)
@@ -411,7 +411,7 @@ func (s *NewAPIClientSuite) TestNoEnvironTagDoesntOverwriteCached(c *gc.C) {
 	c.Check(ep.Addresses, gc.DeepEquals, []string{
 		"[fc00::1]:1234", "0.1.2.3:1234",
 	})
-	c.Check(ep.EnvironUUID, gc.Equals, "fake-uuid")
+	c.Check(ep.EnvironUUID, gc.Equals, fakeUUID)
 }
 
 func (s *NewAPIClientSuite) TestWithInfoAPIOpenError(c *gc.C) {
@@ -789,7 +789,7 @@ func (s *CacheChangedAPISuite) TestAPIEndpointNotMachineLocalOrLinkLocal(c *gc.C
 		}, 1235),
 	}
 
-	envTag := names.NewEnvironTag("fake-uuid")
+	envTag := names.NewEnvironTag(fakeUUID)
 	err := juju.CacheChangedAPIInfo(info, hostPorts, envTag.String())
 	c.Assert(err, gc.IsNil)
 
@@ -804,6 +804,8 @@ func (s *CacheChangedAPISuite) TestAPIEndpointNotMachineLocalOrLinkLocal(c *gc.C
 	})
 }
 
+var fakeUUID = "df136476-12e9-11e4-8a70-b2227cce2b54"
+
 var dummyStoreInfo = &environInfo{
 	creds: configstore.APICredentials{
 		User:     "foo",
@@ -812,6 +814,6 @@ var dummyStoreInfo = &environInfo{
 	endpoint: configstore.APIEndpoint{
 		Addresses:   []string{"foo.invalid"},
 		CACert:      "certificated",
-		EnvironUUID: "fake-uuid",
+		EnvironUUID: fakeUUID,
 	},
 }

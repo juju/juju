@@ -28,7 +28,7 @@ var lockTimeout = time.Second
 
 // Default returns disk-based environment config storage
 // rooted at JujuHome.
-func Default() (Storage, error) {
+var Default = func() (Storage, error) {
 	return NewDisk(osenv.JujuHome())
 }
 
@@ -149,10 +149,11 @@ func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
 			info, err = d.readJENVFile(envName)
 		}
 	}
-	if info != nil {
-		info.environmentDir = d.dir
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	return info, errors.Trace(err)
+	info.environmentDir = d.dir
+	return info, nil
 }
 
 func (d *diskStore) readConnectionFile(envName string) (*environInfo, error) {
@@ -232,7 +233,6 @@ func (info *environInfo) Location() string {
 func (info *environInfo) Write() error {
 	info.mu.Lock()
 	defer info.mu.Unlock()
-	logger.Warningf("before fslock: %s", info.environmentDir)
 	lock, err := fslock.NewLock(info.environmentDir, lockName)
 	if err != nil {
 		return errors.Trace(err)

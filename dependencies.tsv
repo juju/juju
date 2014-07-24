@@ -13,12 +13,13 @@ github.com/juju/gojsonpointer	git	0154bf5a168b672d8c97d8dd83a54cb60cd088e8
 github.com/juju/gojsonreference	git	0673d58f64bacac2db34c7d1e87a599d58923981	
 github.com/juju/gojsonschema	git	33fa79718fa9b24e2a04122f91a75496c0f77098	
 github.com/juju/loggo	git	158009fb40c4a52b3d2c23eb56e72859cfc5321a	
-github.com/juju/names	git	dcbff5554ce4e75cbce298a5283883eaca0b2444	
+github.com/juju/names	git	9ce15c41a071d278f91f144a1bea4e22555ea5c9	
 github.com/juju/ratelimit	git	f9f36d11773655c0485207f0ad30dc2655f69d56	
 github.com/juju/schema	git	de545dbe6bec9a1586adfed8b47b99b616796c98	
 github.com/juju/testing	git	748599d14ccb0f11b0d2b6d64141749116c9fcd5	
 github.com/juju/txn	git	1bc7d3e5e9cad446e5d1d659856b67f0f869d3d7	
 github.com/juju/utils	git	7f3110a0b4f01e5800e72b50cc92c8e9de4ea658	
+gopkg.in/natefinch/npipe.v2	git	86d100b9cc0fb2e0d27f2222801c16cd6fe9916a	
 labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j	273
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
 launchpad.net/goamz	bzr	ian.booth@canonical.com-20140708164959-72q70lo1du0e4qki	48
