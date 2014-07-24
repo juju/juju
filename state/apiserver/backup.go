@@ -56,7 +56,6 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		defer file.Close()
 
-		// XXX Allow backup to succeed even if storage fails?
 		if err := uploadBackupToStorage(h.state, file); err != nil {
 			h.sendError(w, http.StatusInternalServerError,
 				"backup storage failed: "+err.Error())
