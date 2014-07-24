@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiserver_test
@@ -32,27 +32,6 @@ type loginSuite struct {
 
 var _ = gc.Suite(&loginSuite{})
 
-var badLoginTests = []struct {
-	tag      string
-	password string
-	err      string
-	code     string
-}{{
-	tag:      "user-admin",
-	password: "wrong password",
-	err:      "invalid entity name or password",
-	code:     params.CodeUnauthorized,
-}, {
-	tag:      "user-foo",
-	password: "password",
-	err:      "invalid entity name or password",
-	code:     params.CodeUnauthorized,
-}, {
-	tag:      "bar",
-	password: "password",
-	err:      `"bar" is not a valid tag`,
-}}
-
 func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 	return s.setupServerWithValidator(c, nil)
 }
@@ -80,7 +59,26 @@ func (s *loginSuite) TestBadLogin(c *gc.C) {
 	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
-	for i, t := range badLoginTests {
+	for i, t := range []struct {
+		tag      string
+		password string
+		err      string
+		code     string
+	}{{
+		tag:      "user-admin",
+		password: "wrong password",
+		err:      "invalid entity name or password",
+		code:     params.CodeUnauthorized,
+	}, {
+		tag:      "user-unknown",
+		password: "password",
+		err:      "invalid entity name or password",
+		code:     params.CodeUnauthorized,
+	}, {
+		tag:      "bar",
+		password: "password",
+		err:      `"bar" is not a valid tag`,
+	}} {
 		c.Logf("test %d; entity %q; password %q", i, t.tag, t.password)
 		// Note that Open does not log in if the tag and password
 		// are empty. This allows us to test operations on the connection
@@ -323,20 +321,15 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 	defer cleanup()
 
 	// Start enough concurrent Login requests so that we max out our
-	// LoginRateLimit
-	errResults, wg := startNLogins(c, apiserver.LoginRateLimit, info)
-	// All of them should have started, none of them should have succeeded
-	// (or failed) yet
+	// LoginRateLimit. Do one extra so we know we are in overload
+	errResults, wg := startNLogins(c, apiserver.LoginRateLimit+1, info)
 	select {
 	case err := <-errResults:
-		c.Fatalf("we should not have gotten any logins yet: %v", err)
-	case <-time.After(coretesting.ShortWait):
+		c.Check(err, jc.Satisfies, params.IsCodeTryAgain)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for login to get rejected.")
 	}
-	// We now have a bunch of pending Login requests, the next login
-	// request should be immediately bounced
-	_, err := api.Open(info, fastDialOpts)
-	c.Check(err, gc.ErrorMatches, "try again")
-	c.Check(err, jc.Satisfies, params.IsCodeTryAgain)
+
 	// Let one request through, we should see that it succeeds without
 	// error, and then be able to start a new request, but it will block
 	delayChan <- struct{}{}
@@ -362,7 +355,7 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 	}
 	// Let all the logins finish. We started with LoginRateLimit, let one
-	// proceed, but the issued another one, so there should be
+	// proceed, but we issued another one, so there should be
 	// LoginRateLimit logins pending.
 	for i := 0; i < apiserver.LoginRateLimit; i++ {
 		delayChan <- struct{}{}
@@ -538,10 +531,12 @@ func (s *loginSuite) checkLoginWithValidator(c *gc.C, validator apiserver.LoginV
 }
 
 func (s *loginSuite) setupServerWithValidator(c *gc.C, validator apiserver.LoginValidator) (*api.Info, func()) {
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, gc.IsNil)
 	srv, err := apiserver.NewServer(
 		s.State,
+		listener,
 		apiserver.ServerConfig{
-			Port:      0,
 			Cert:      []byte(coretesting.ServerCert),
 			Key:       []byte(coretesting.ServerKey),
 			Validator: validator,

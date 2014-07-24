@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
+	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
@@ -60,10 +61,6 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 		panic(err)
 	}
 	return ecfg.Config
-}
-
-func (suite *environSuite) setupFakeProviderStateFile(c *gc.C) {
-	suite.testMAASObject.TestServer.NewFile(bootstrap.StateFile, []byte("test file content"))
 }
 
 func (suite *environSuite) setupFakeTools(c *gc.C) {
@@ -214,14 +211,14 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Check(actions, gc.DeepEquals, []string{"acquire", "start"})
 
 	// Test the instance id is correctly recorded for the bootstrap node.
-	// Check that the state holds the id of the bootstrap machine.
-	stateData, err := bootstrap.LoadState(env.Storage())
+	// Check that StateServerInstances returns the id of the bootstrap machine.
+	instanceIds, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateData.StateInstances, gc.HasLen, 1)
+	c.Assert(instanceIds, gc.HasLen, 1)
 	insts, err := env.AllInstances()
 	c.Assert(err, gc.IsNil)
 	c.Assert(insts, gc.HasLen, 1)
-	c.Check(insts[0].Id(), gc.Equals, stateData.StateInstances[0])
+	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
 	// Create node 1: it will be used as instance number 1.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
@@ -449,32 +446,26 @@ func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	c.Assert(suite.testMAASObject.TestServer.OwnedNodes()["test2"], jc.IsFalse)
 }
 
-func (suite *environSuite) TestStateInfo(c *gc.C) {
+func (suite *environSuite) TestStateServerInstances(c *gc.C) {
 	env := suite.makeEnviron()
-	hostname := "test"
-	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
-	node := suite.testMAASObject.TestServer.NewNode(input)
-	testInstance := &maasInstance{maasObject: &node, environ: suite.makeEnviron()}
-	err := bootstrap.SaveState(
-		env.Storage(),
-		&bootstrap.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
-	c.Assert(err, gc.IsNil)
+	_, err := env.StateServerInstances()
+	c.Assert(err, gc.Equals, environs.ErrNotBootstrapped)
 
-	stateInfo, apiInfo, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-
-	cfg := env.Config()
-	statePortSuffix := fmt.Sprintf(":%d", cfg.StatePort())
-	apiPortSuffix := fmt.Sprintf(":%d", cfg.APIPort())
-	c.Assert(stateInfo.Addrs, gc.DeepEquals, []string{hostname + statePortSuffix})
-	c.Assert(apiInfo.Addrs, gc.DeepEquals, []string{hostname + apiPortSuffix})
+	tests := [][]instance.Id{{}, {"inst-0"}, {"inst-0", "inst-1"}}
+	for _, expected := range tests {
+		err := common.SaveState(env.Storage(), &common.BootstrapState{
+			StateInstances: expected,
+		})
+		c.Assert(err, gc.IsNil)
+		stateServerInstances, err := env.StateServerInstances()
+		c.Assert(err, gc.IsNil)
+		c.Assert(stateServerInstances, jc.SameContents, expected)
+	}
 }
 
-func (suite *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
+func (suite *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := suite.makeEnviron()
-
-	_, _, err := env.StateInfo()
-
+	_, err := env.StateServerInstances()
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 

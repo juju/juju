@@ -481,8 +481,9 @@ func (s *MachineSuite) TestEnsureLocalEnvironDoesntRunPeergrouper(c *gc.C) {
 	})
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
-	err := a.ChangeConfig(func(config agent.ConfigSetter) {
+	err := a.ChangeConfig(func(config agent.ConfigSetter) error {
 		config.SetValue(agent.ProviderType, "local")
+		return nil
 	})
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()

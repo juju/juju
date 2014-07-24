@@ -6,7 +6,6 @@ package main
 import (
 	"fmt"
 	"io"
-	"net/rpc"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +18,8 @@ import (
 
 	"github.com/juju/juju/agent"
 	jujucmd "github.com/juju/juju/cmd"
+	"github.com/juju/juju/juju/names"
+	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/juju/worker/uniter/jujuc"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
@@ -79,7 +80,7 @@ func jujuCMain(commandName string, args []string) (code int, err error) {
 	if err != nil {
 		return
 	}
-	client, err := rpc.Dial("unix", socketPath)
+	client, err := sockets.Dial(socketPath)
 	if err != nil {
 		return
 	}
@@ -120,13 +121,13 @@ func Main(args []string) {
 		os.Exit(2)
 	}
 	commandName := filepath.Base(args[0])
-	if commandName == "jujud" {
+	if commandName == names.Jujud {
 		code, err = jujuDMain(args, ctx)
-	} else if commandName == "jujuc" {
+	} else if commandName == names.Jujuc {
 		fmt.Fprint(os.Stderr, jujudDoc)
 		code = 2
 		err = fmt.Errorf("jujuc should not be called directly")
-	} else if commandName == "juju-run" {
+	} else if commandName == names.JujuRun {
 		code = cmd.Main(&RunCommand{}, ctx, args[1:])
 	} else {
 		code, err = jujuCMain(commandName, args)

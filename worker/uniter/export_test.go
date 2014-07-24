@@ -16,3 +16,5 @@ func (u *Uniter) GetProxyValues() proxy.Settings {
 	defer u.proxyMutex.Unlock()
 	return u.proxy
 }
+
+var MergeEnvironment = mergeEnvironment

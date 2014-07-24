@@ -44,8 +44,8 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args env
 	if err := environs.VerifyStorage(environ.Storage()); err != nil {
 		return err
 	}
-	logger.Debugf("environment %q supports service/machine networks: %v", environ.Name(), environ.SupportNetworks())
-	logger.Infof("bootstrapping environment %q", environ.Name())
+	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), environ.SupportNetworks())
+	logger.Infof("bootstrapping environment %q", cfg.Name())
 	return environ.Bootstrap(ctx, args)
 }
 
@@ -114,11 +114,11 @@ func isCompatibleVersion(v1, v2 version.Number) bool {
 // bootstrapped, and an error if it is or if the function was not able
 // to tell.
 func EnsureNotBootstrapped(env environs.Environ) error {
-	_, err := LoadState(env.Storage())
-	// If there is no error loading the bootstrap state, then we are
-	// bootstrapped.
+	_, err := env.StateServerInstances()
+	// If there is no error determining state server instaces,
+	// then we are bootstrapped.
 	if err == nil {
-		return fmt.Errorf("environment is already bootstrapped")
+		return environs.ErrAlreadyBootstrapped
 	}
 	if err == environs.ErrNotBootstrapped {
 		return nil

@@ -13,6 +13,7 @@ import (
 
 	"github.com/juju/charm"
 	"github.com/juju/names"
+	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
@@ -34,7 +35,29 @@ type RunHookSuite struct {
 	HookContextSuite
 }
 
+type MergeEnvSuite struct {
+	envtesting.IsolationSuite
+}
+
 var _ = gc.Suite(&RunHookSuite{})
+var _ = gc.Suite(&MergeEnvSuite{})
+
+func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
+	// environment does not get fully cleared on Windows
+	// when using testing.IsolationSuite
+	origEnv := os.Environ()
+	extraExpected := []string{
+		"DUMMYVAR=foo",
+		"DUMMYVAR2=bar",
+		"NEWVAR=ImNew",
+	}
+	expectEnv := append(origEnv, extraExpected...)
+	os.Setenv("DUMMYVAR2", "ChangeMe")
+	os.Setenv("DUMMYVAR", "foo")
+
+	newEnv := uniter.MergeEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"})
+	c.Assert(expectEnv, jc.SameContents, newEnv)
+}
 
 type hookSpec struct {
 	// name is the name of the hook.

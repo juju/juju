@@ -44,7 +44,7 @@ func (hi Info) Validate() error {
 	case hooks.Install, hooks.Start, hooks.ConfigChanged, hooks.UpgradeCharm, hooks.Stop, hooks.RelationBroken:
 		return nil
 	case hooks.ActionRequested:
-		if !names.IsAction(hi.ActionId) {
+		if !names.IsValidAction(hi.ActionId) {
 			return fmt.Errorf("action id %q cannot be parsed as an action tag", hi.ActionId)
 		}
 		return nil

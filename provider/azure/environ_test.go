@@ -25,7 +25,6 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -35,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/api"
 	apiparams "github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
@@ -99,7 +99,7 @@ func (*environSuite) TestGetEndpoint(c *gc.C) {
 }
 
 func (*environSuite) TestGetSnapshot(c *gc.C) {
-	original := azureEnviron{name: "this-env", ecfg: new(azureEnvironConfig)}
+	original := azureEnviron{ecfg: new(azureEnvironConfig)}
 	snapshot := original.getSnapshot()
 
 	// The snapshot is identical to the original.
@@ -121,11 +121,6 @@ func (*environSuite) TestGetSnapshotLocksEnviron(c *gc.C) {
 	coretesting.TestLockingFunction(&original.Mutex, func() { original.getSnapshot() })
 }
 
-func (*environSuite) TestName(c *gc.C) {
-	env := azureEnviron{name: "foo"}
-	c.Check(env.Name(), gc.Equals, env.name)
-}
-
 func (*environSuite) TestConfigReturnsConfig(c *gc.C) {
 	cfg := new(config.Config)
 	ecfg := azureEnvironConfig{Config: cfg}
@@ -134,7 +129,7 @@ func (*environSuite) TestConfigReturnsConfig(c *gc.C) {
 }
 
 func (*environSuite) TestConfigLocksEnviron(c *gc.C) {
-	env := azureEnviron{name: "env", ecfg: new(azureEnvironConfig)}
+	env := azureEnviron{ecfg: new(azureEnvironConfig)}
 	coretesting.TestLockingFunction(&env.Mutex, func() { env.Config() })
 }
 
@@ -227,7 +222,7 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), jc.IsTrue)
+	c.Check(strings.Contains(env.getEnvPrefix(), env.Config().Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetContainerName(c *gc.C) {
@@ -487,7 +482,7 @@ func (*environSuite) TestSetConfigWillNotUpdateName(c *gc.C) {
 	// Global validation rejects such a change.
 	// This matters because the attribute is not protected by a lock.
 	env := makeEnviron(c)
-	originalName := env.Name()
+	originalName := env.Config().Name()
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "new-name"
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -500,7 +495,7 @@ func (*environSuite) TestSetConfigWillNotUpdateName(c *gc.C) {
 		err,
 		gc.ErrorMatches,
 		`cannot change name from ".*" to "new-name"`)
-	c.Check(env.Name(), gc.Equals, originalName)
+	c.Check(env.Config().Name(), gc.Equals, originalName)
 }
 
 func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
@@ -517,49 +512,83 @@ func (*environSuite) TestSetConfigClearsStorageAccountKey(c *gc.C) {
 	c.Check(env.storageAccountKey, gc.Equals, "")
 }
 
-func (s *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
+func (s *environSuite) TestStateServerInstancesFailsIfNoStateInstances(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
-	_, _, err := env.StateInfo()
+	prefix := env.getEnvPrefix()
+	service := makeDeployment(env, prefix+"myservice")
+	patchInstancesResponses(c, prefix, service)
+
+	_, err := env.StateServerInstances()
 	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
-func (s *environSuite) TestStateInfo(c *gc.C) {
+func (s *environSuite) TestStateServerInstancesNoLegacy(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	prefix := env.getEnvPrefix()
 
-	service := makeDeployment(env, prefix+"myservice")
-	instId := instance.Id(service.ServiceName + "-" + service.Deployments[0].RoleList[0].RoleName)
-	patchInstancesResponses(c, prefix, service)
-	err := bootstrap.SaveState(
+	service1 := makeDeployment(env, prefix+"myservice1")
+	service2 := makeDeployment(env, prefix+"myservice2")
+	service1.Label = base64.StdEncoding.EncodeToString([]byte(stateServerLabel))
+	service1Role1Name := service1.Deployments[0].RoleList[0].RoleName
+	service1Role2Name := service1.Deployments[0].RoleList[1].RoleName
+	instId1 := instance.Id(prefix + "myservice1-" + service1Role1Name)
+	instId2 := instance.Id(prefix + "myservice1-" + service1Role2Name)
+	patchInstancesResponses(c, prefix, service1, service2)
+
+	instances, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, jc.SameContents, []instance.Id{instId1, instId2})
+}
+
+func (s *environSuite) TestStateServerInstancesOnlyLegacy(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+	prefix := env.getEnvPrefix()
+
+	service1 := makeLegacyDeployment(env, prefix+"myservice1")
+	service2 := makeLegacyDeployment(env, prefix+"myservice2")
+	instId := instance.Id(service1.ServiceName)
+	err := common.SaveState(
 		env.Storage(),
-		&bootstrap.BootstrapState{StateInstances: []instance.Id{instId}},
+		&common.BootstrapState{StateInstances: []instance.Id{instId}},
 	)
 	c.Assert(err, gc.IsNil)
 
-	responses := prepareInstancesResponses(c, prefix, service)
-	responses = append(responses, prepareDeploymentInfoResponse(c, gwacl.Deployment{
-		RoleInstanceList: []gwacl.RoleInstance{{
-			RoleName:  service.Deployments[0].RoleList[0].RoleName,
-			IPAddress: "1.2.3.4",
-		}},
-		VirtualNetworkName: env.getVirtualNetworkName(),
-	})...)
-	gwacl.PatchManagementAPIResponses(responses)
+	patchInstancesResponses(c, prefix, service1, service2)
 
-	stateInfo, apiInfo, err := env.StateInfo()
+	instances, err := env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
-	config := env.Config()
-	dnsName := prefix + "myservice." + AzureDomainName
-	c.Check(stateInfo.Addrs, jc.SameContents, []string{
-		fmt.Sprintf("1.2.3.4:%d", config.StatePort()),
-		fmt.Sprintf("%s:%d", dnsName, config.StatePort()),
-	})
-	c.Check(apiInfo.Addrs, jc.DeepEquals, []string{
-		fmt.Sprintf("1.2.3.4:%d", config.APIPort()),
-		fmt.Sprintf("%s:%d", dnsName, config.APIPort()),
-	})
+	c.Assert(instances, jc.SameContents, []instance.Id{instId})
+}
+
+func (s *environSuite) TestStateServerInstancesSomeLegacy(c *gc.C) {
+	env := makeEnviron(c)
+	s.setDummyStorage(c, env)
+	prefix := env.getEnvPrefix()
+
+	service1 := makeLegacyDeployment(env, prefix+"service1")
+	service2 := makeDeployment(env, prefix+"service2")
+	service3 := makeLegacyDeployment(env, prefix+"service3")
+	service4 := makeDeployment(env, prefix+"service4")
+	service2.Label = base64.StdEncoding.EncodeToString([]byte(stateServerLabel))
+	instId1 := instance.Id(service1.ServiceName)
+	service2Role1Name := service2.Deployments[0].RoleList[0].RoleName
+	service2Role2Name := service2.Deployments[0].RoleList[1].RoleName
+	instId2 := instance.Id(prefix + "service2-" + service2Role1Name)
+	instId3 := instance.Id(prefix + "service2-" + service2Role2Name)
+	err := common.SaveState(
+		env.Storage(),
+		&common.BootstrapState{StateInstances: []instance.Id{instId1}},
+	)
+	c.Assert(err, gc.IsNil)
+
+	patchInstancesResponses(c, prefix, service1, service2, service3, service4)
+
+	instances, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, jc.SameContents, []instance.Id{instId1, instId2, instId3})
 }
 
 // parseCreateServiceRequest reconstructs the original CreateHostedService
@@ -895,11 +924,11 @@ func getVnetCleanupResponse(c *gc.C) gwacl.DispatcherResponse {
 func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
+
 	// Populate storage.
-	err := bootstrap.SaveState(
-		env.Storage(),
-		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+	err := env.Storage().Put("anything", strings.NewReader(""), 0)
 	c.Assert(err, gc.IsNil)
+
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusBadRequest, nil),
 	}
@@ -910,16 +939,14 @@ func (s *environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 
 	files, err := storage.List(env.Storage(), "")
 	c.Assert(err, gc.IsNil)
-	c.Check(files, gc.HasLen, 1)
+	c.Check(files, gc.DeepEquals, []string{"anything"})
 }
 
 func (s *environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	env := makeEnviron(c)
 	s.setDummyStorage(c, env)
 	// Populate storage.
-	err := bootstrap.SaveState(
-		env.Storage(),
-		&bootstrap.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+	err := env.Storage().Put("anything", strings.NewReader(""), 0)
 	c.Assert(err, gc.IsNil)
 	responses := getAzureServiceListResponse(c)
 	responses = append(responses, getVnetCleanupResponse(c))
@@ -1302,7 +1329,7 @@ func (*environSuite) TestDestroyVirtualNetwork(c *gc.C) {
 
 func (*environSuite) TestGetVirtualNetworkNameContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getVirtualNetworkName(), env.Name()), jc.IsTrue)
+	c.Check(strings.Contains(env.getVirtualNetworkName(), env.Config().Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetVirtualNetworkNameIsConstant(c *gc.C) {
@@ -1347,7 +1374,7 @@ func (*environSuite) TestDestroyAffinityGroup(c *gc.C) {
 
 func (*environSuite) TestGetAffinityGroupName(c *gc.C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getAffinityGroupName(), env.Name()), jc.IsTrue)
+	c.Check(strings.Contains(env.getAffinityGroupName(), env.Config().Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetAffinityGroupNameIsConstant(c *gc.C) {

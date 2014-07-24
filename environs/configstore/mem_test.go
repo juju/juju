@@ -16,14 +16,14 @@ type memInterfaceSuite struct {
 }
 
 func (s *memInterfaceSuite) SetUpSuite(c *gc.C) {
+	s.interfaceSuite.SetUpSuite(c)
 	s.NewStore = func(c *gc.C) configstore.Storage {
 		return configstore.NewMem()
 	}
-	s.interfaceSuite.SetUpSuite(c)
 }
 
 func (s *memInterfaceSuite) TestMemInfoLocation(c *gc.C) {
 	memStore := configstore.NewMem()
-	memInfo, _ := memStore.CreateInfo("foo")
+	memInfo := memStore.CreateInfo("foo")
 	c.Assert(memInfo.Location(), gc.Equals, "memory")
 }

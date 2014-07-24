@@ -55,7 +55,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	// 1.17+ has a "Life" field in environment documents.
 	// We remove it here, to test 1.16 compatibility.
 	ops := []txn.Op{{
-		C:      s.state.environments.Name,
+		C:      environmentsC,
 		Id:     s.env.doc.UUID,
 		Update: bson.D{{"$unset", bson.D{{"life", nil}}}},
 	}}
@@ -121,7 +121,7 @@ func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      s.state.units.Name,
+		C:      unitsC,
 		Id:     unit.doc.Name,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
@@ -151,7 +151,7 @@ func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      s.state.units.Name,
+		C:      unitsC,
 		Id:     unit.doc.Name,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
@@ -188,7 +188,7 @@ func (s *compatSuite) TestMigratePortsOnClose(c *gc.C) {
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      s.state.units.Name,
+		C:      unitsC,
 		Id:     unit.doc.Name,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},

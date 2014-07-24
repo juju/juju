@@ -567,7 +567,7 @@ func (e requiresError) Error() string {
 
 func verifyConfig(cfg *MachineConfig) (err error) {
 	defer errors.Maskf(&err, "invalid machine configuration")
-	if !names.IsMachine(cfg.MachineId) {
+	if !names.IsValidMachine(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}
 	if cfg.DataDir == "" {

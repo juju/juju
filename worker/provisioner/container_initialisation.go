@@ -156,6 +156,8 @@ func (cs *ContainerSetup) getContainerArtifacts(containerType instance.Container
 	if !ok {
 		return nil, nil, errors.Errorf("expected names.MachineTag, got %T", tag)
 	}
+	// TODO(fwereade): 2014-07-24 bug 1347984
+	// This may give us a subtly incorrect version. See bug for details.
 	tools, err := cs.provisioner.Tools(machineTag)
 	if err != nil {
 		logger.Errorf("cannot get tools from machine for %s container", containerType)

@@ -119,8 +119,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
 	info.SharedSecret = sharedSecret
-	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)
@@ -135,9 +136,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
 	var m *state.Machine
-	err = nil
-	writeErr := c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
-		st, m, err = agent.InitializeState(
+	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
+		var stateErr error
+		st, m, stateErr = agent.InitializeState(
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
@@ -151,10 +152,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			mongo.DefaultDialOpts(),
 			environs.NewStatePolicy(),
 		)
+		return stateErr
 	})
-	if writeErr != nil {
-		return fmt.Errorf("cannot write initial configuration: %v", err)
-	}
 	if err != nil {
 		return err
 	}

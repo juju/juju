@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"net/rpc"
 	"os"
 	"path/filepath"
 
@@ -15,6 +14,8 @@ import (
 	"github.com/juju/utils/fslock"
 	"launchpad.net/gnuflag"
 
+	"github.com/juju/juju/juju/sockets"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 )
 
@@ -74,7 +75,7 @@ func (c *RunCommand) Init(args []string) error {
 		// If the command line param is a unit id (like service/2) we need to
 		// change it to the unit tag as that is the format of the agent directory
 		// on disk (unit-service-2).
-		if names.IsUnit(c.unit) {
+		if names.IsValidUnit(c.unit) {
 			c.unit = names.NewUnitTag(c.unit).String()
 		}
 	}
@@ -106,6 +107,24 @@ func (c *RunCommand) Run(ctx *cmd.Context) error {
 	return cmd.NewRcPassthroughError(result.Code)
 }
 
+func (c *RunCommand) nixSockPath() string {
+	unitDir := filepath.Join(AgentDir, c.unit)
+	return filepath.Join(unitDir, uniter.RunListenerFile)
+}
+
+func (c *RunCommand) winSockPath() string {
+	return fmt.Sprintf(`\\.\pipe\%s-run`, c.unit)
+}
+
+func (c *RunCommand) sockPath() string {
+	switch version.Current.OS {
+	case version.Windows:
+		return c.winSockPath()
+	default:
+		return c.nixSockPath()
+	}
+}
+
 func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	unitDir := filepath.Join(AgentDir, c.unit)
 	logger.Debugf("looking for unit dir %s", unitDir)
@@ -116,10 +135,9 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 	} else if err != nil {
 		return nil, err
 	}
-
-	socketPath := filepath.Join(unitDir, uniter.RunListenerFile)
 	// make sure the socket exists
-	client, err := rpc.Dial("unix", socketPath)
+	socketPath := c.sockPath()
+	client, err := sockets.Dial(socketPath)
 	if err != nil {
 		return nil, err
 	}
@@ -132,6 +150,21 @@ func (c *RunCommand) executeInUnitContext() (*exec.ExecResponse, error) {
 
 func getLock() (*fslock.Lock, error) {
 	return fslock.NewLock(LockDir, "uniter-hook-execution")
+}
+
+// appendProxyToCommands activates proxy settings on platforms
+// that support this feature via the command line. Currently this
+// will work on most GNU/Linux systems, but has no use in Windows
+// where the proxy settings are taken from the registry or from
+// application specific settings (proxy settings in firefox ignore
+// registry values on Windows).
+func (c *RunCommand) appendProxyToCommands() string {
+	switch version.Current.OS {
+	case version.Ubuntu:
+		return `[ -f "/home/ubuntu/.juju-proxy" ] && . "/home/ubuntu/.juju-proxy"` + "\n" + c.commands
+	default:
+		return c.commands
+	}
 }
 
 func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
@@ -147,7 +180,7 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	}
 	defer lock.Unlock()
 
-	runCmd := `[ -f "/home/ubuntu/.juju-proxy" ] && . "/home/ubuntu/.juju-proxy"` + "\n" + c.commands
+	runCmd := c.appendProxyToCommands()
 
 	return exec.RunCommands(
 		exec.RunParams{
