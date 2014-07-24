@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 )
 
+// for testing:
 var (
 	createEmptyFile  = backup.CreateEmptyFile
 	writeBackup      = backup.WriteBackup
@@ -24,12 +25,115 @@ var (
 	checkAPIResponse = backupAPI.CheckAPIResponse
 	extractDigest    = backupAPI.ExtractSHAFromDigestHeader
 	extractFilename  = backupAPI.ExtractFilename
-	sendHTTPRequest  = _sendHTTPRequest
+	sendHTTPRequest  = func(r *http.Request, c *http.Client) (*http.Response, error) {
+		return c.Do(r)
+	}
 )
 
-// for testing:
-func _sendHTTPRequest(req *http.Request, client *http.Client) (*http.Response, error) {
-	return client.Do(req)
+//---------------------------
+// backup
+
+type backupResult struct {
+	filename string
+	isTemp   bool
+	header   *http.Header
+	hash     string
+	failure  *params.Error
+}
+
+func (r *backupResult) setFailure(msg string, cause error) {
+	failure := params.Error{Message: msg}
+	if cause != nil {
+		failure.Code = params.ErrCode(cause)
+		logger.Infof("backup client failure: %s (%v)", msg, cause)
+	} else {
+		logger.Infof("backup client failure: %s", msg)
+	}
+	r.failure = &failure
+}
+
+func (r *backupResult) fail(msg string, cause error) *backupResult {
+	r.setFailure(msg, cause)
+	return r
+}
+
+func (r *backupResult) checkFilenameHeader() error {
+	_, err := extractFilename(r.header)
+	if err != nil {
+		return fmt.Errorf("could not extract filename from HTTP response: %v", err)
+	}
+	return nil
+}
+
+func (r *backupResult) syncBackupFilename() error {
+	serverFilename, err := extractFilename(r.header)
+	if err != nil {
+		return fmt.Errorf("could not extract filename from HTTP response: %v", err)
+	}
+
+	target := filepath.Join(filepath.Base(r.filename), serverFilename)
+	err = os.Rename(r.filename, target)
+	if err != nil {
+		return fmt.Errorf("could not move tempfile to new location: %v", err)
+	}
+	r.filename = target
+
+	return nil
+}
+
+func (r *backupResult) cleanUp() {
+	// Clean up any empty temp files.
+	err := os.Remove(r.filename)
+	if err != nil {
+		logger.Infof("unable to clean up temp backup file: %v", err)
+	}
+}
+
+func (c *Client) runBackup(filename string, excl bool) *backupResult {
+	var file *os.File
+	var err error
+	result := backupResult{filename: filename}
+
+	// Get an empty backup file ready *before* sending the request.
+	file, result.filename, err = createEmptyFile(filename, 0600, excl)
+	if err != nil {
+		return result.fail("error while preparing backup file", err)
+	}
+	defer file.Close()
+	result.isTemp = (filename != result.filename)
+	absfilename, err := filepath.Abs(result.filename)
+	if err == nil { // Otherwise we stick with the old filename.
+		result.filename = absfilename
+	}
+	logger.Debugf("prepared empty backup file: %q", result.filename)
+
+	// Prepare the upload request.
+	req, err := c.newRawBackupRequest()
+	if err != nil {
+		return result.fail("error while preparing backup request", err)
+	}
+
+	// Send the request.
+	resp, err := c.sendRawBackupRequest(req)
+	if err != nil {
+		return result.fail("failure sending backup request", err)
+	}
+	defer resp.Body.Close()
+	result.header = &resp.Header
+
+	// Check the response.
+	apiErr := checkAPIResponse(resp)
+	if apiErr != nil {
+		return result.fail("backup request failed on server", apiErr)
+	}
+
+	// Save the backup.
+	result.hash, err = writeBackup(file, resp.Body)
+	if err != nil {
+		return result.fail("could not save the backup", err)
+	}
+
+	return &result
 }
 
 // Backup requests a state-server backup file from the server and saves
@@ -51,122 +155,40 @@ func _sendHTTPRequest(req *http.Request, client *http.Client) (*http.Response, e
 func (c *Client) Backup(backupFilePath string, excl bool) (
 	filename string, hash string, expectedHash string, failure *params.Error,
 ) {
-	var file *os.File
 	var err error
-	closeAndCleanup := func() {
-		file.Close()
-		if failure != nil {
-			// Make sure we clean up any empty temp files.
-			logger.Debugf("cleaning up %s", filename)
-			os.Remove(filename)
-		}
-	}
 
-	// Get an empty backup file ready.
-	file, rawFilename, err := createEmptyFile(backupFilePath, 0600, excl)
-	if err != nil {
-		failure = c.newFailure("error while preparing backup file", err)
-		return
+	// Run backups!
+	res := c.runBackup(backupFilePath, excl)
+	if res.failure != nil {
+		res.cleanUp()
+		return "", "", "", res.failure
 	}
-	defer closeAndCleanup()
-	filename, err = filepath.Abs(rawFilename)
-	if err != nil {
-		failure = c.newFailure("could not resolve filename", err)
-		return
-	}
-	if backupFilePath == "" {
-		logger.Debugf("saving to temp file: %q", filename)
-	}
-
-	// Prepare the upload request.
-	req, err := c.newRawBackupRequest()
-	if err != nil {
-		failure = c.newFailure("error while preparing backup request", err)
-		return
-	}
-
-	// Send the request.
-	resp, err := c.sendRawBackupRequest(req)
-	if err != nil {
-		failure = c.newFailure("failure sending backup request", err)
-		return
-	}
-	defer resp.Body.Close()
-
-	// Check the response.
-	apiErr := checkAPIResponse(resp)
-	if apiErr != nil {
-		failure = c.newFailure("backup request failed on server", apiErr)
-		return
-	}
-
-	// Save the backup.
-	hash, err = writeBackup(file, resp.Body)
-	if err != nil {
-		failure = c.newFailure("could not save the backup", err)
-		return
-	}
+	// We treat any error past this point as non-fatal.
 
 	// Extract the SHA-1 hash.
-	expectedHash, err = extractDigest(resp.Header)
+	expectedHash, err = extractDigest(res.header)
 	if err != nil {
-		// This is a non-fatal error.
 		logger.Infof("could not extract digest from HTTP response: %v", err)
 	}
 
 	// Handle the filename from the server.
-	if rawFilename != backupFilePath {
-		filename, err = c.syncBackupFilename(resp.Header, filename, file)
+	if res.isTemp {
+		err = res.syncBackupFilename()
 	} else {
 		// We always check the header, even if we aren't going to use it.
-		err = c.checkFilenameHeader(resp.Header)
+		err = res.checkFilenameHeader()
 	}
 	if err != nil {
-		// This is a non-fatal error.
 		logger.Infof(err.Error())
 	}
 
 	// Log and return the result.
-	logger.Infof("backup archive saved to %q", filename)
-	return filename, hash, expectedHash, nil
+	logger.Infof("backup archive saved to %q", res.filename)
+	return res.filename, res.hash, expectedHash, nil
 }
 
 //---------------------------
 // helpers
-
-func (c *Client) checkFilenameHeader(header http.Header) error {
-	_, err := extractFilename(header)
-	if err != nil {
-		return fmt.Errorf("could not extract filename from HTTP response: %v", err)
-	}
-	return nil
-}
-
-func (c *Client) syncBackupFilename(
-	header http.Header, filename string, file *os.File,
-) (string, error) {
-	// We always return the correct filename, even if there is an error.
-	serverFilename, err := extractFilename(header)
-	if err != nil {
-		err = fmt.Errorf("could not extract filename from HTTP response: %v", err)
-		return filename, err
-	}
-
-	err = file.Sync()
-	if err != nil {
-		err = fmt.Errorf("could not flush tempfile: %v", err)
-		return filename, err
-	}
-
-	target := filepath.Join(filepath.Base(filename), serverFilename)
-	err = os.Rename(filename, target)
-	if err != nil {
-		err = fmt.Errorf("could not move tempfile to new location: %v", err)
-		return filename, err
-	}
-
-	return target, nil
-}
 
 func (c *Client) newRawBackupRequest() (*http.Request, error) {
 	baseURL, err := url.Parse(c.st.serverRoot)
@@ -200,19 +222,4 @@ func (c *Client) sendRawBackupRequest(req *http.Request) (*http.Response, error)
 		return nil, fmt.Errorf("error when sending HTTP request: %v", err)
 	}
 	return resp, nil
-}
-
-func (c *Client) newFailure(msg string, cause error) *params.Error {
-	var failure *params.Error
-	if cause != nil {
-		failure = &params.Error{
-			Code: params.ErrCode(cause),
-		}
-		logger.Infof("backup client failure: %s (%v)", msg, cause)
-	} else {
-		failure = &params.Error{}
-		logger.Infof("backup client failure: %s", msg)
-	}
-	failure.Message = msg
-	return failure
 }

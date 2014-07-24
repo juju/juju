@@ -171,7 +171,7 @@ func (s *backupSuite) TestBackupFailureWritingArchive(c *gc.C) {
 
 func (s *backupSuite) TestBackupFailureParsingDigest(c *gc.C) {
 	s.setData(c, "<compressed backup data>")
-	parse := func(header http.Header) (string, error) {
+	parse := func(header *http.Header) (string, error) {
 		return "", fmt.Errorf("failed!")
 	}
 	s.PatchValue(api.ExtractDigest, parse)
@@ -186,7 +186,7 @@ func (s *backupSuite) TestBackupFailureParsingDigest(c *gc.C) {
 
 func (s *backupSuite) TestBackupFailureHandlingFilename(c *gc.C) {
 	s.setData(c, "<compressed backup data>")
-	extract := func(header http.Header) (string, error) {
+	extract := func(header *http.Header) (string, error) {
 		return "", fmt.Errorf("failed!")
 	}
 	s.PatchValue(api.ExtractFilename, extract)
@@ -202,7 +202,7 @@ func (s *backupSuite) TestBackupFailureHandlingFilename(c *gc.C) {
 
 func (s *backupSuite) TestBackupNoFilenameHeader(c *gc.C) {
 	s.setData(c, "<compressed backup data>")
-	extract := func(header http.Header) (string, error) {
+	extract := func(header *http.Header) (string, error) {
 		return "", nil
 	}
 	s.PatchValue(api.ExtractFilename, extract)

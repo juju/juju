@@ -15,7 +15,7 @@ const (
 
 // ParseDigestHeader returns a map of (algorithm, digest) for all the
 // digests found in the "Digest" header.  See RFC 3230.
-func ParseDigestHeader(header http.Header) (map[string]string, error) {
+func ParseDigestHeader(header *http.Header) (map[string]string, error) {
 	rawdigests := header.Get("digest")
 	if rawdigests == "" {
 		return nil, fmt.Errorf(`missing or blank "digest" header`)
@@ -50,7 +50,7 @@ func ParseDigestHeader(header http.Header) (map[string]string, error) {
 
 // ExtractSHAFromDigestHeader is a light wrapper around ParseDigestHeader
 // which returns just the SHA digest.
-func ExtractSHAFromDigestHeader(header http.Header) (string, error) {
+func ExtractSHAFromDigestHeader(header *http.Header) (string, error) {
 	digests, err := ParseDigestHeader(header)
 	if err != nil {
 		return "", err

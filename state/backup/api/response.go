@@ -59,7 +59,7 @@ func CheckAPIResponse(resp *http.Response) *params.Error {
 
 // ExtractFilename returns the filename in the Content-Disposition
 // header of the HTTP response, if any.
-func ExtractFilename(header http.Header) (string, error) {
+func ExtractFilename(header *http.Header) (string, error) {
 	disp := header.Get("Content-Disposition")
 	groups := filenameRegex.FindStringSubmatch(disp)
 	if groups == nil {
