@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	"github.com/juju/juju/version"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
@@ -134,6 +135,21 @@ func getLock() (*fslock.Lock, error) {
 	return fslock.NewLock(LockDir, "uniter-hook-execution")
 }
 
+// appendProxyToCommands activates proxy settings on platforms
+// that support this feature via the command line. Currently this
+// will work on most GNU/Linux systems, but has no use in Windows
+// where the proxy settings are taken from the registry or from
+// application specific settings (proxy settings in firefox ignore
+// registry values on Windows).
+func (c *RunCommand) appendProxyToCommands() string {
+	switch version.Current.OS {
+	case version.Ubuntu:
+		return `[ -f "/home/ubuntu/.juju-proxy" ] && . "/home/ubuntu/.juju-proxy"` + "\n" + c.commands
+	default:
+		return c.commands
+	}
+}
+
 func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	// Acquire the uniter hook execution lock to make sure we don't
 	// stomp on each other.
@@ -147,7 +163,7 @@ func (c *RunCommand) executeNoContext() (*exec.ExecResponse, error) {
 	}
 	defer lock.Unlock()
 
-	runCmd := `[ -f "/home/ubuntu/.juju-proxy" ] && . "/home/ubuntu/.juju-proxy"` + "\n" + c.commands
+	runCmd := c.appendProxyToCommands()
 
 	return exec.RunCommands(
 		exec.RunParams{
