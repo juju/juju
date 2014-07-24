@@ -39,6 +39,13 @@ func _sendHTTPRequest(req *http.Request, client *http.Client) (*http.Response, e
 // header of the HTTP response.  If desired the two hashes can be
 // compared to verify that the file is correct.
 //
+// If no filename is passed in, one is generated relative to the current
+// directory with a format like "juju-backup-20140606-050109.tar.gz".
+// The timestamp will closely match when the backup request was issued.
+// If a filename ending with the path separator (e.g. /) is passed in,
+// the generated filename will be relative to that dirname rather than
+// to the current directory.
+//
 // Note that the backup can take a long time to prepare. The resulting
 // file can be quite large file, depending on the system being backed up.
 func (c *Client) Backup(backupFilePath string, excl bool) (
@@ -56,13 +63,13 @@ func (c *Client) Backup(backupFilePath string, excl bool) (
 	}
 
 	// Get an empty backup file ready.
-	file, filename, err = createEmptyFile(backupFilePath, 0600, excl)
+	file, rawFilename, err := createEmptyFile(backupFilePath, 0600, excl)
 	if err != nil {
 		failure = c.newFailure("error while preparing backup file", err)
 		return
 	}
 	defer closeAndCleanup()
-	filename, err = filepath.Abs(filename)
+	filename, err = filepath.Abs(rawFilename)
 	if err != nil {
 		failure = c.newFailure("could not resolve filename", err)
 		return
@@ -108,7 +115,7 @@ func (c *Client) Backup(backupFilePath string, excl bool) (
 	}
 
 	// Handle the filename from the server.
-	if backupFilePath == "" {
+	if rawFilename != backupFilePath {
 		filename, err = c.syncBackupFilename(resp.Header, filename, file)
 	} else {
 		// We always check the header, even if we aren't going to use it.
@@ -151,13 +158,14 @@ func (c *Client) syncBackupFilename(
 		return filename, err
 	}
 
-	err = os.Rename(filename, serverFilename)
+	target := filepath.Join(filepath.Base(filename), serverFilename)
+	err = os.Rename(filename, target)
 	if err != nil {
 		err = fmt.Errorf("could not move tempfile to new location: %v", err)
 		return filename, err
 	}
 
-	return serverFilename, nil
+	return target, nil
 }
 
 func (c *Client) newRawBackupRequest() (*http.Request, error) {
