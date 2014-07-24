@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
-	statetxn "github.com/juju/juju/state/txn"
 )
 
 // MachineTemplate holds attributes that are to be associated
@@ -532,7 +532,7 @@ func (st *State) EnsureAvailability(numStateServers int, cons constraints.Value,
 			}
 		}
 		if voteCount == desiredStateServerCount && len(intent.remove) == 0 {
-			return nil, statetxn.ErrNoOperations
+			return nil, jujutxn.ErrNoOperations
 		}
 		// Promote as many machines as we can to fulfil the shortfall.
 		if n := desiredStateServerCount - voteCount; n < len(intent.promote) {

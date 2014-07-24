@@ -186,6 +186,7 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
+	authenticated := false
 	if info.Tag != "" {
 		if err := db.Login(info.Tag, info.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", info.Tag))
@@ -205,10 +206,10 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	}
 
 	st := &State{
-		info:      info,
-		policy:    policy,
+		info:          info,
+		policy:        policy,
 		authenticated: authenticated,
-		db:        db,
+		db:            db,
 	}
 	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
