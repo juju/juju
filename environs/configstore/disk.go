@@ -28,7 +28,7 @@ var lockTimeout = time.Second
 
 // Default returns disk-based environment config storage
 // rooted at JujuHome.
-func Default() (Storage, error) {
+var Default = func() (Storage, error) {
 	return NewDisk(osenv.JujuHome())
 }
 
