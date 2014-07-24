@@ -113,37 +113,6 @@ func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error)
 	return s.objMethod.Call(objVal, arg)
 }
 
-// ApiFilter restricts API calls to an underlying rpc.MethodFinder
-// to those which match a collection of root names.
-type ApiFilter struct {
-	rpc.MethodFinder
-	filter map[string]bool
-}
-
-// NewApiFilter returns a new ApiFilter that only allows the given root names
-// through to the underlying MethodFinder.
-func NewApiFilter(finder rpc.MethodFinder, rootNames ...string) *ApiFilter {
-	r := &ApiFilter{
-		MethodFinder: finder,
-		filter:       make(map[string]bool),
-	}
-	for _, rootName := range rootNames {
-		r.filter[rootName] = true
-	}
-	return r
-}
-
-func (r *ApiFilter) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	if !r.filter[rootName] {
-		return nil, &rpcreflect.CallNotImplementedError{
-			RootMethod: rootName,
-			Version:    version,
-			Method:     methodName,
-		}
-	}
-	return r.MethodFinder.FindMethod(rootName, version, methodName)
-}
-
 // ApiRoot implements basic method dispatching to the facade registry.
 type ApiRoot struct {
 	state       *state.State
@@ -257,7 +226,6 @@ func (r *ApiRoot) lookupMethod(rootName string, version int, methodName string) 
 // AnonRoot dispatches API calls to those available to an anonymous connection
 // which has not logged in.
 type AnonRoot struct {
-	rpc.MethodFinder
 	srv         *Server
 	adminApis   map[int]interface{}
 	reqNotifier *requestNotifier
@@ -269,7 +237,6 @@ func NewAnonRoot(srv *Server, adminApis map[int]interface{}) *AnonRoot {
 		srv:       srv,
 		adminApis: adminApis,
 	}
-	r.MethodFinder = NewApiFilter(r, "Admin")
 	return r
 }
 
