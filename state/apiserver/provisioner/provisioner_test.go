@@ -754,12 +754,14 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
 				Networks: []string{},
+				Jobs:     []params.MachineJob{params.JobHostUnits},
 			}},
 			{Result: &params.ProvisioningInfo{
 				Series:      "quantal",
 				Constraints: template.Constraints,
 				Placement:   template.Placement,
 				Networks:    template.RequestedNetworks,
+				Jobs:        []params.MachineJob{params.JobHostUnits},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -793,6 +795,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
 				Networks: []string{},
+				Jobs:     []params.MachineJob{params.JobHostUnits},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},
 			{Error: apiservertesting.ErrUnauthorized},
