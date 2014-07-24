@@ -6,13 +6,14 @@ package apiserver
 import (
 	"reflect"
 
+	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 )
 
 var (
-	RootType              = reflect.TypeOf(&srvRoot{})
+	RootType              = reflect.TypeOf(&apiHandler{})
 	NewPingTimeout        = newPingTimeout
 	MaxClientPingInterval = &maxClientPingInterval
 	MongoPingInterval     = &mongoPingInterval
@@ -43,23 +44,18 @@ func NewErrRoot(err error) *errRoot {
 	return &errRoot{err}
 }
 
-// TestingSrvRoot gives you an srvRoot that is *barely* connected to anything.
-// Just enough to let you probe some of the interfaces of srvRoot, but not
+// TestingApiHandler gives you an ApiHandler that is *barely* connected to anything.
+// Just enough to let you probe some of the interfaces of ApiHandler, but not
 // enough to actually do any RPC calls
-func TestingSrvRoot(st *state.State) *srvRoot {
-	return &srvRoot{
-		state:       st,
-		rpcConn:     nil,
-		resources:   common.NewResources(),
-		entity:      nil,
-		objectCache: make(map[objectKey]reflect.Value),
-	}
+func TestingApiRoot(st *state.State) rpc.MethodFinder {
+	srv := &Server{state: st}
+	h := newApiRoot(srv, common.NewResources(), nil)
+	return h
 }
 
-// TestingUpgradingSrvRoot returns a limited upgradingSrvRoot
-// containing a srvRoot as returned by TestingSrvRoot.
-func TestingUpgradingRoot(st *state.State) *upgradingRoot {
-	return &upgradingRoot{
-		srvRoot: *TestingSrvRoot(st),
-	}
+// TestingUpgradingApiHandler returns a limited srvRoot
+// in an upgrade scenario.
+func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
+	r := TestingApiRoot(st)
+	return newUpgradingRoot(r)
 }

@@ -331,7 +331,10 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)
 	} else {
-		conn.Serve(newStateServer(srv, conn, reqNotifier, srv.limiter), serverError)
+		h := newApiHandler(srv, conn, reqNotifier)
+		conn.ServeFinder(newAnonRoot(h, map[int]interface{}{
+			0: newAdminApiV1(srv, h, reqNotifier),
+		}), serverError)
 	}
 	conn.Start()
 	select {
