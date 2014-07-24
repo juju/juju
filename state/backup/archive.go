@@ -20,28 +20,28 @@ import (
 // hashing support
 
 type hashingWriterProxy struct {
-	File   io.Writer
-	Hasher hash.Hash
+	file   io.Writer
+	hasher hash.Hash
 	multiw io.Writer
 }
 
 func newSHA1Proxy(file io.Writer) *hashingWriterProxy {
 	proxy := hashingWriterProxy{
-		File:   file,
-		Hasher: sha1.New(),
+		file:   file,
+		hasher: sha1.New(),
 	}
 	return &proxy
 }
 
 func (h *hashingWriterProxy) Write(data []byte) (int, error) {
 	if h.multiw == nil {
-		h.multiw = io.MultiWriter(h.File, h.Hasher)
+		h.multiw = io.MultiWriter(h.file, h.hasher)
 	}
 	return h.multiw.Write(data)
 }
 
 func (h *hashingWriterProxy) Hash() string {
-	raw := h.Hasher.Sum(nil)
+	raw := h.hasher.Sum(nil)
 	return base64.StdEncoding.EncodeToString(raw)
 }
 
