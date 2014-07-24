@@ -21,11 +21,7 @@ import (
 )
 
 const (
-	// AdminUser is the name of the user that is created during bootstrap time.
-	AdminUser             = "admin"
 	localUserProviderName = "local"
-
-	userCollectionName = "users"
 )
 
 func (st *State) checkUserExists(name string) (bool, error) {
@@ -66,7 +62,7 @@ func (st *State) AddUser(name, displayName, password, creator string) (*User, er
 	}
 	ops := []txn.Op{{
 		C:      usersC,
-		Id:     username,
+		Id:     name,
 		Assert: txn.DocMissing,
 		Insert: &user.doc,
 	}}

@@ -23,7 +23,9 @@ func MigrateUserLastConnectionToLastLogin(st *State) error {
 		return err
 	}
 
-	err = st.users.Find(bson.D{{
+	users, closer := st.getCollection(usersC)
+	defer closer()
+	err = users.Find(bson.D{{
 		"lastconnection", bson.D{{"$exists", true}}}}).All(&oldDocs)
 	if err != nil {
 		return err
@@ -40,7 +42,7 @@ func MigrateUserLastConnectionToLastLogin(st *State) error {
 
 		ops = append(ops,
 			txn.Op{
-				C:      userCollectionName,
+				C:      usersC,
 				Id:     oldDoc.Name,
 				Assert: txn.DocExists,
 				Update: bson.D{
