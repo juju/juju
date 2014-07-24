@@ -11,8 +11,6 @@ import (
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	jujutxn "github.com/juju/txn"
-	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -86,8 +84,6 @@ type mockContext struct {
 	realAgentConfig agent.ConfigSetter
 	apiState        *api.State
 	state           *state.State
-	db              *mgo.Database
-	runner          jujutxn.Runner
 }
 
 func (c *mockContext) APIState() *api.State {

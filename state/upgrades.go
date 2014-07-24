@@ -6,9 +6,12 @@ package state
 import (
 	"time"
 
+	"github.com/juju/loggo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 )
+
+var upgradesLogger = loggo.GetLogger("juju.state.upgrade")
 
 type userDocBefore struct {
 	Name           string    `bson:"_id"`
@@ -35,11 +38,11 @@ func MigrateUserLastConnectionToLastLogin(st *State) error {
 
 	ops := []txn.Op{}
 	for _, oldDoc := range oldDocs {
+		upgradesLogger.Debugf("updating user %q", oldDoc.Name)
 		var lastLogin *time.Time
 		if oldDoc.LastConnection != zeroTime {
 			lastLogin = &oldDoc.LastConnection
 		}
-
 		ops = append(ops,
 			txn.Op{
 				C:      usersC,
@@ -48,6 +51,7 @@ func MigrateUserLastConnectionToLastLogin(st *State) error {
 				Update: bson.D{
 					{"$set", bson.D{{"lastlogin", lastLogin}}},
 					{"$unset", bson.D{{"lastconnection", nil}}},
+					{"$unset", bson.D{{"_id_", nil}}},
 				},
 			})
 	}
