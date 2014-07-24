@@ -2404,13 +2404,11 @@ var findEntityTests = []findEntityTest{{
 }, {
 	tag: "action-ser-vice2/0_a_0",
 }, {
-	// TODO(axw) 2013-12-04 #1257587
-	// remove backwards compatibility for environment-tag; see state.go
 	tag: "environment-notauuid",
-	//err: `"environment-notauuid" is not a valid environment tag`,
+	err: `"environment-notauuid" is not a valid environment tag`,
 }, {
 	tag: "environment-testenv",
-	//err: `"environment-testenv" is not a valid environment tag`,
+	err: `"environment-testenv" is not a valid environment tag`,
 }}
 
 var entityTypes = map[string]interface{}{

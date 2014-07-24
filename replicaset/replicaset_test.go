@@ -50,7 +50,7 @@ var _ = gc.Suite(&MongoSuite{})
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.root = newServer(c)
-	s.dialAndTestInitiate(c, s.root, s.root.Addr())
+	dialAndTestInitiate(c, s.root, s.root.Addr())
 }
 
 func (s *MongoSuite) TearDownTest(c *gc.C) {
@@ -60,7 +60,7 @@ func (s *MongoSuite) TearDownTest(c *gc.C) {
 
 var initialTags = map[string]string{"foo": "bar"}
 
-func (s *MongoSuite) dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string) {
+func dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string) {
 	session := inst.MustDialDirect()
 	defer session.Close()
 
@@ -152,7 +152,13 @@ func attemptLoop(c *gc.C, strategy utils.AttemptStrategy, desc string, f func() 
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *MongoSuite) TestAddRemoveSetIPv6(c *gc.C) {
+type MongoIPV6Suite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&MongoIPV6Suite{})
+
+func (s *MongoIPV6Suite) TestAddRemoveSetIPv6(c *gc.C) {
 	root := newServer(c)
 	defer root.Destroy()
 	// Note: we use the ::1:port format because mongo doesn't understand
@@ -160,18 +166,18 @@ func (s *MongoSuite) TestAddRemoveSetIPv6(c *gc.C) {
 	getAddr := func(inst *gitjujutesting.MgoInstance) string {
 		return fmt.Sprintf("::1:%v", inst.Port())
 	}
-	s.dialAndTestInitiate(c, root, getAddr(root))
-	s.assertAddRemoveSet(c, root, getAddr)
+	dialAndTestInitiate(c, root, getAddr(root))
+	assertAddRemoveSet(c, root, getAddr)
 }
 
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	getAddr := func(inst *gitjujutesting.MgoInstance) string {
 		return inst.Addr()
 	}
-	s.assertAddRemoveSet(c, s.root, getAddr)
+	assertAddRemoveSet(c, s.root, getAddr)
 }
 
-func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(*gitjujutesting.MgoInstance) string) {
+func assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(*gitjujutesting.MgoInstance) string) {
 	session := root.MustDial()
 	defer session.Close()
 
