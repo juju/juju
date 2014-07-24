@@ -346,8 +346,22 @@ func Validate(cfg, old *Config) error {
 	// Check the immutable config values.  These can't change
 	if old != nil {
 		for _, attr := range immutableAttributes {
-			if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
-				return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
+			switch attr {
+			case "uuid":
+				// uuid is special cased because currently (24/July/2014) there exist no juju
+				// environments whose environment configuration's contain a uuid key so we must
+				// treat uuid as field that can be updated from non existant to a valid uuid.
+				// We do not need to deal with the case of the uuid key being blank as the schema
+				// only permits valid uuids in that field.
+				oldv, oldexists := old.defined[attr]
+				if oldexists {
+					newv := cfg.defined[attr]
+					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
+				}
+			default:
+				if newv, oldv := cfg.defined[attr], old.defined[attr]; newv != oldv {
+					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
+				}
 			}
 		}
 		if _, oldFound := old.AgentVersion(); oldFound {
@@ -458,6 +472,16 @@ func (c *Config) Type() string {
 // Name returns the environment name.
 func (c *Config) Name() string {
 	return c.mustString("name")
+}
+
+// UUID returns the uuid for the environment.
+// For backwards compatability with 1.20 and earlier the value may be blank if
+// no uuid is present in this configuration. Once all enviroment configurations
+// have been upgraded, this relaxation will be dropped. The absence of a uuid
+// is indicated by a result of "", false.
+func (c *Config) UUID() (string, bool) {
+	value, exists := c.defined["uuid"].(string)
+	return value, exists
 }
 
 // DefaultSeries returns the configured default Ubuntu series for the environment,
@@ -772,6 +796,7 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 var fields = schema.Fields{
 	"type":                      schema.String(),
 	"name":                      schema.String(),
+	"uuid":                      schema.UUID(),
 	"default-series":            schema.String(),
 	"tools-metadata-url":        schema.String(),
 	"image-metadata-url":        schema.String(),
@@ -874,6 +899,9 @@ var alwaysOptional = schema.Defaults{
 	"proxy-ssh":      false,
 	"lxc-clone-aufs": false,
 	"prefer-ipv6":    false,
+
+	// uuid may be missing for backwards compatability.
+	"uuid": schema.Omit,
 }
 
 func allowEmpty(attr string) bool {
@@ -929,6 +957,7 @@ var mandatoryWithoutDefaults = []string{
 var immutableAttributes = []string{
 	"name",
 	"type",
+	"uuid",
 	"firewall-mode",
 	"state-port",
 	"api-port",
