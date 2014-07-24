@@ -4,8 +4,10 @@
 package kvm_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
+	"strings"
 
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
@@ -16,9 +18,12 @@ import (
 	"github.com/juju/juju/container/kvm"
 	kvmtesting "github.com/juju/juju/container/kvm/testing"
 	containertesting "github.com/juju/juju/container/testing"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
+	"github.com/juju/testing"
 )
 
 type KVMSuite struct {
@@ -107,6 +112,76 @@ func (s *KVMSuite) TestDestroyContainer(c *gc.C) {
 	c.Assert(filepath.Join(s.ContainerDir, name), jc.DoesNotExist)
 	// but instead, in the removed container dir
 	c.Assert(filepath.Join(s.RemovedDir, name), jc.IsDirectory)
+}
+
+// Test that CreateContainer creates proper startParams.
+func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
+
+	envCfg, err := config.New(
+		config.NoDefaults,
+		dummy.SampleConfig().Merge(
+			coretesting.Attrs{"image-stream": "released"},
+		),
+	)
+	c.Assert(err, gc.IsNil)
+
+	// Mock machineConfig with a mocked simple stream URL.
+	machineConfig := containertesting.MockMachineConfig("1/kvm/0")
+	machineConfig.Config = envCfg
+
+	// CreateContainer sets TestStartParams internally; we call this
+	// purely for the side-effect.
+	containertesting.CreateContainerWithMachineConfig(c, s.manager, machineConfig)
+
+	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "")
+}
+
+// Test that CreateContainer creates proper startParams.
+func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
+
+	envCfg, err := config.New(
+		config.NoDefaults,
+		dummy.SampleConfig().Merge(
+			coretesting.Attrs{"image-stream": "daily"},
+		),
+	)
+	c.Assert(err, gc.IsNil)
+
+	// Mock machineConfig with a mocked simple stream URL.
+	machineConfig := containertesting.MockMachineConfig("1/kvm/0")
+	machineConfig.Config = envCfg
+
+	// CreateContainer sets TestStartParams internally; we call this
+	// purely for the side-effect.
+	containertesting.CreateContainerWithMachineConfig(c, s.manager, machineConfig)
+
+	c.Assert(kvm.TestStartParams.ImageDownloadUrl, gc.Equals, "http://cloud-images.ubuntu.com/daily")
+}
+
+func (s *KVMSuite) TestStartContainerUtilizesSimpleStream(c *gc.C) {
+
+	const libvirtBinName = "uvt-simplestreams-libvirt"
+	testing.PatchExecutableAsEchoArgs(c, s, libvirtBinName)
+
+	startParams := kvm.StartParams{
+		Series:           "mocked-series",
+		Arch:             "mocked-arch",
+		ImageDownloadUrl: "mocked-url",
+	}
+	mockedContainer := kvm.NewEmptyKvmContainer()
+	mockedContainer.Start(startParams)
+
+	expectedArgs := strings.Split(
+		fmt.Sprintf(
+			"sync arch=%s release=%s --source=%s",
+			startParams.Arch,
+			startParams.Series,
+			startParams.ImageDownloadUrl,
+		),
+		" ",
+	)
+
+	testing.AssertEchoArgs(c, libvirtBinName, expectedArgs...)
 }
 
 type ConstraintsSuite struct {

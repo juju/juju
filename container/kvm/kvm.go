@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/version"
 )
@@ -96,10 +97,14 @@ type containerManager struct {
 
 var _ container.Manager = (*containerManager)(nil)
 
+// Exposed so tests can observe our side-effects
+var startParams StartParams
+
 func (manager *containerManager) CreateContainer(
 	machineConfig *cloudinit.MachineConfig,
 	series string,
-	network *container.NetworkConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	network *container.NetworkConfig,
+) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	name := names.NewMachineTag(machineConfig.MachineId).String()
 	if manager.name != "" {
@@ -121,11 +126,17 @@ func (manager *containerManager) CreateContainer(
 		return nil, nil, errors.LoggedErrorf(logger, "failed to write user data: %v", err)
 	}
 	// Create the container.
-	startParams := ParseConstraintsToStartParams(machineConfig.Constraints)
+	startParams = ParseConstraintsToStartParams(machineConfig.Constraints)
 	startParams.Arch = version.Current.Arch
 	startParams.Series = series
 	startParams.Network = network
 	startParams.UserDataFile = userDataFilename
+
+	// If the Simplestream requested is anything but released, update
+	// our StartParams to request it.
+	if machineConfig.Config.ImageStream() != imagemetadata.ReleasedStream {
+		startParams.ImageDownloadUrl = imagemetadata.UbuntuCloudImagesURL + "/" + machineConfig.Config.ImageStream()
+	}
 
 	var hardware instance.HardwareCharacteristics
 	hardware, err = instance.ParseHardware(
