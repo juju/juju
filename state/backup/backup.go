@@ -77,7 +77,7 @@ func Backup(dbinfo *DBConnInfo, outputFolder string) (string, string, error) {
 	if strings.HasSuffix(outputFolder, sep) {
 		tail = ""
 	}
-	archivefile, filename, err := CreateEmptyFile(outputFolder+tail, false)
+	archivefile, filename, err := CreateEmptyFile(outputFolder+tail, 0600, false)
 	if err != nil {
 		return "", "", err
 	}

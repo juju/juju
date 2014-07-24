@@ -56,7 +56,7 @@ func (c *Client) Backup(backupFilePath string, excl bool) (
 	}
 
 	// Get an empty backup file ready.
-	file, filename, err = createEmptyFile(backupFilePath, excl)
+	file, filename, err = createEmptyFile(backupFilePath, 0600, excl)
 	if err != nil {
 		failure = c.newFailure("error while preparing backup file", err)
 		return

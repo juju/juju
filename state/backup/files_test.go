@@ -56,14 +56,14 @@ func (b *BackupSuite) TestDefaultFilenameUnique(c *gc.C) {
 
 func (b *BackupSuite) TestCreateEmptyFileFilenameExplicit(c *gc.C) {
 	requested := filepath.Join(c.MkDir(), "backup.tar.gz")
-	_, filename, err := backup.CreateEmptyFile(requested, false)
+	_, filename, err := backup.CreateEmptyFile(requested, 0666, false)
 	c.Check(err, gc.IsNil)
 
 	c.Check(filename, gc.Equals, requested)
 }
 
 func (b *BackupSuite) TestCreateEmptyFileFilenameDefault(c *gc.C) {
-	file, filename, err := backup.CreateEmptyFile("", false)
+	file, filename, err := backup.CreateEmptyFile("", 0666, false)
 	defer os.Remove(filename)
 	c.Check(err, gc.IsNil)
 	c.Check(file, gc.NotNil)
@@ -71,7 +71,7 @@ func (b *BackupSuite) TestCreateEmptyFileFilenameDefault(c *gc.C) {
 }
 
 func (b *BackupSuite) TestCreateEmptyFileFilenameDirDefault(c *gc.C) {
-	file, filename, err := backup.CreateEmptyFile("/tmp/", false)
+	file, filename, err := backup.CreateEmptyFile("/tmp/", 0666, false)
 	defer os.Remove(filename)
 	c.Check(err, gc.IsNil)
 	c.Check(file, gc.NotNil)
@@ -80,7 +80,7 @@ func (b *BackupSuite) TestCreateEmptyFileFilenameDirDefault(c *gc.C) {
 
 func (b *BackupSuite) TestCreateEmptyFile(c *gc.C) {
 	requested := filepath.Join(c.MkDir(), "backup.tar.gz")
-	file, filename, err := backup.CreateEmptyFile(requested, false)
+	file, filename, err := backup.CreateEmptyFile(requested, 0666, false)
 	c.Check(err, gc.IsNil)
 	err = file.Close()
 	c.Assert(err, gc.IsNil)
@@ -96,7 +96,7 @@ func (b *BackupSuite) TestCreateEmptyFile(c *gc.C) {
 
 func (b *BackupSuite) TestCreateEmptyFileReallyEmpty(c *gc.C) {
 	requested := filepath.Join(c.MkDir(), "backup.tar.gz")
-	file, _, err := backup.CreateEmptyFile(requested, false)
+	file, _, err := backup.CreateEmptyFile(requested, 0666, false)
 	c.Check(err, gc.IsNil)
 
 	buffer := make([]byte, 10)
@@ -112,7 +112,7 @@ func (b *BackupSuite) TestCreateEmptyFileAlreadyExists(c *gc.C) {
 	err = file.Close()
 	c.Assert(err, gc.IsNil)
 
-	_, _, err = backup.CreateEmptyFile(requested, false)
+	_, _, err = backup.CreateEmptyFile(requested, 0666, false)
 	c.Check(err, gc.IsNil)
 }
 
@@ -123,7 +123,7 @@ func (b *BackupSuite) TestCreateEmptyFileAlreadyExistsExclusive(c *gc.C) {
 	err = file.Close()
 	c.Assert(err, gc.IsNil)
 
-	_, _, err = backup.CreateEmptyFile(requested, true)
+	_, _, err = backup.CreateEmptyFile(requested, 0666, true)
 	c.Check(err, gc.ErrorMatches, "could not create backup file: .*")
 }
 

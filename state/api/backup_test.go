@@ -109,7 +109,7 @@ func (s *backupSuite) TestBackupDefaultFilename(c *gc.C) {
 }
 
 func (s *backupSuite) TestBackupFailureCreatingFile(c *gc.C) {
-	create := func(filename string, excl bool) (*os.File, string, error) {
+	create := func(filename string, mode os.FileMode, excl bool) (*os.File, string, error) {
 		return nil, "", fmt.Errorf("failed!")
 	}
 	s.PatchValue(api.CreateEmptyFile, create)

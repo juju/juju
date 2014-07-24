@@ -36,7 +36,7 @@ func defaultFilename(now *time.Time) string {
 // generated using the current UTC timestamp.  Likewise if the filename
 // ends with the path separator (e.g. "/"), the default filename is
 // generated and appended to the provided one.
-func CreateEmptyFile(filename string, excl bool) (*os.File, string, error) {
+func CreateEmptyFile(filename string, mode os.FileMode, excl bool) (*os.File, string, error) {
 	if filename == "" {
 		filename = defaultFilename(nil)
 	} else if strings.HasSuffix(filename, string(os.PathSeparator)) {
@@ -47,7 +47,7 @@ func CreateEmptyFile(filename string, excl bool) (*os.File, string, error) {
 	var err error
 	if excl {
 		flags := os.O_RDWR | os.O_CREATE | os.O_EXCL
-		file, err = os.OpenFile(filename, flags, 0666)
+		file, err = os.OpenFile(filename, flags, mode)
 	} else {
 		file, err = os.Create(filename)
 	}
