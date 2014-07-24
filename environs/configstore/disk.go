@@ -232,7 +232,6 @@ func (info *environInfo) Location() string {
 func (info *environInfo) Write() error {
 	info.mu.Lock()
 	defer info.mu.Unlock()
-	logger.Warningf("before fslock: %s", info.environmentDir)
 	lock, err := fslock.NewLock(info.environmentDir, lockName)
 	if err != nil {
 		return errors.Trace(err)
