@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"sync"
 	"time"
 
 	"github.com/juju/errors"
@@ -28,13 +27,12 @@ type adminApiV1 struct {
 // methods that are needed to log in.
 type adminV1 struct {
 	srv         *Server
-	root        *ApiHandler
+	root        *APIHandler
 	reqNotifier *requestNotifier
-	mu          sync.Mutex
 	loggedIn    bool
 }
 
-func newAdminApiV1(srv *Server, root *ApiHandler, reqNotifier *requestNotifier) *adminApiV1 {
+func newAdminApiV1(srv *Server, root *APIHandler, reqNotifier *requestNotifier) *adminApiV1 {
 	return &adminApiV1{
 		admin: &adminV1{
 			srv:         srv,
@@ -62,20 +60,21 @@ var errAlreadyLoggedIn = errors.New("already logged in")
 func (a *adminV1) Login(c params.Creds) (params.LoginResult, error) {
 	var fail params.LoginResult
 
-	a.mu.Lock()
-	defer a.mu.Unlock()
+	a.root.mu.Lock()
+	defer a.root.mu.Unlock()
 	if a.loggedIn {
 		// This can only happen if Login is called concurrently.
 		return fail, errAlreadyLoggedIn
 	}
 
-	var authApi rpc.MethodFinder = NewApiRoot(a.srv, a.root.resources, a.root)
+	// authedApi is the API method finder we'll use after getting logged in.
+	var authedApi rpc.MethodFinder = NewApiRoot(a.srv, a.root.resources, a.root)
 
 	// Use the login validation function, if one was specified.
 	if a.srv.validator != nil {
 		if err := a.srv.validator(c); err != nil {
 			if err == UpgradeInProgressError {
-				authApi = NewUpgradingRoot(authApi)
+				authedApi = NewUpgradingRoot(authedApi)
 			} else {
 				return fail, errors.Trace(err)
 			}
@@ -96,6 +95,7 @@ func (a *adminV1) Login(c params.Creds) (params.LoginResult, error) {
 		return fail, err
 	}
 	a.root.entity = entity
+
 	if a.reqNotifier != nil {
 		a.reqNotifier.login(entity.Tag().String())
 	}
@@ -103,7 +103,6 @@ func (a *adminV1) Login(c params.Creds) (params.LoginResult, error) {
 	// We have authenticated the user; enable the appropriate API
 	// to serve to them.
 	a.loggedIn = true
-	a.root.MethodFinder = authApi
 
 	if err := a.startPingerIfAgent(entity); err != nil {
 		return fail, err
@@ -121,12 +120,14 @@ func (a *adminV1) Login(c params.Creds) (params.LoginResult, error) {
 		return fail, err
 	}
 
+	a.root.rpcConn.ServeFinder(authedApi, serverError)
 	lastConnection := getAndUpdateLastConnectionForEntity(entity)
+
 	return params.LoginResult{
 		Servers:        hostPorts,
 		EnvironTag:     environ.Tag().String(),
 		LastConnection: lastConnection,
-		Facades:        a.root.DescribeFacades(),
+		Facades:        DescribeFacades(),
 	}, nil
 }
 

@@ -17,7 +17,7 @@ type upgradingRootSuite struct {
 var _ = gc.Suite(&upgradingRootSuite{})
 
 func (r *upgradingRootSuite) TestFindAllowedMethod(c *gc.C) {
-	root := apiserver.TestingUpgradingApiHandler(nil)
+	root := apiserver.TestingUpgradingRoot(nil)
 
 	caller, err := root.FindMethod("Client", 0, "FullStatus")
 
@@ -26,7 +26,7 @@ func (r *upgradingRootSuite) TestFindAllowedMethod(c *gc.C) {
 }
 
 func (r *upgradingRootSuite) TestFindDisallowedMethod(c *gc.C) {
-	root := apiserver.TestingUpgradingApiHandler(nil)
+	root := apiserver.TestingUpgradingRoot(nil)
 
 	caller, err := root.FindMethod("Client", 0, "ServiceDeploy")
 
@@ -35,7 +35,7 @@ func (r *upgradingRootSuite) TestFindDisallowedMethod(c *gc.C) {
 }
 
 func (r *upgradingRootSuite) TestFindNonExistentMethod(c *gc.C) {
-	root := apiserver.TestingUpgradingApiHandler(nil)
+	root := apiserver.TestingUpgradingRoot(nil)
 
 	caller, err := root.FindMethod("Foo", 0, "Bar")
 
@@ -44,7 +44,7 @@ func (r *upgradingRootSuite) TestFindNonExistentMethod(c *gc.C) {
 }
 
 func (r *upgradingRootSuite) TestFindMethodNonExistentVersion(c *gc.C) {
-	root := apiserver.TestingUpgradingApiHandler(nil)
+	root := apiserver.TestingUpgradingRoot(nil)
 
 	caller, err := root.FindMethod("Client", 99999999, "Status")
 

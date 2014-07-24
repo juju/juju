@@ -44,22 +44,22 @@ type objectKey struct {
 	objId   string
 }
 
-// ApiHandler represents a single client's connection to the state
+// APIHandler represents a single client's connection to the state
 // after it has logged in. It contains an rpc.MethodFinder which it
 // uses to dispatch Api calls appropriately.
-type ApiHandler struct {
-	rpc.MethodFinder
+type APIHandler struct {
 	state     *state.State
 	rpcConn   *rpc.Conn
 	resources *common.Resources
 	entity    state.Entity
+	mu        sync.Mutex
 }
 
-var _ = (*ApiHandler)(nil)
+var _ = (*APIHandler)(nil)
 
-// NewApiHandler returns a new ApiHandler.
-func NewApiHandler(srv *Server, rpcConn *rpc.Conn) *ApiHandler {
-	r := &ApiHandler{
+// NewAPIHandler returns a new APIHandler.
+func NewAPIHandler(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier) *APIHandler {
+	r := &APIHandler{
 		state:     srv.state,
 		resources: common.NewResources(),
 		rpcConn:   rpcConn,
@@ -68,17 +68,17 @@ func NewApiHandler(srv *Server, rpcConn *rpc.Conn) *ApiHandler {
 	return r
 }
 
-func (r *ApiHandler) getResources() *common.Resources {
+func (r *APIHandler) getResources() *common.Resources {
 	return r.resources
 }
 
-func (r *ApiHandler) getRpcConn() *rpc.Conn {
+func (r *APIHandler) getRpcConn() *rpc.Conn {
 	return r.rpcConn
 }
 
 // Kill implements rpc.Killer.  It cleans up any resources that need
 // cleaning up to ensure that all outstanding requests return.
-func (r *ApiHandler) Kill() {
+func (r *APIHandler) Kill() {
 	r.resources.StopAll()
 }
 
@@ -260,22 +260,29 @@ func (r *ApiRoot) lookupMethod(rootName string, version int, methodName string) 
 type AnonRoot struct {
 	rpc.MethodFinder
 	srv         *Server
-	adminApi    interface{}
+	adminApis   map[int]interface{}
 	reqNotifier *requestNotifier
 }
 
 // NewAnonRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
-func NewAnonRoot(srv *Server, adminApi interface{}) *AnonRoot {
+func NewAnonRoot(srv *Server, adminApis map[int]interface{}) *AnonRoot {
 	r := &AnonRoot{
-		srv:      srv,
-		adminApi: adminApi,
+		srv:       srv,
+		adminApis: adminApis,
 	}
 	r.MethodFinder = NewApiFilter(r, "Admin")
 	return r
 }
 
 func (r *AnonRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	return rpcreflect.ValueOf(reflect.ValueOf(r.adminApi)).FindMethod(rootName, version, methodName)
+	if api, ok := r.adminApis[version]; ok {
+		return rpcreflect.ValueOf(reflect.ValueOf(api)).FindMethod(rootName, version, methodName)
+	}
+	return nil, &rpcreflect.CallNotImplementedError{
+		RootMethod: rootName,
+		Version:    version,
+		Method:     methodName,
+	}
 }
 
 // UpgradingRoot restricts API calls to those supported during an upgrade.
@@ -310,48 +317,48 @@ func (r *UpgradingRoot) FindMethod(rootName string, version int, methodName stri
 }
 
 // AuthMachineAgent returns whether the current client is a machine agent.
-func (r *ApiHandler) AuthMachineAgent() bool {
+func (r *APIHandler) AuthMachineAgent() bool {
 	_, ok := r.entity.(*state.Machine)
 	return ok
 }
 
 // AuthUnitAgent returns whether the current client is a unit agent.
-func (r *ApiHandler) AuthUnitAgent() bool {
+func (r *APIHandler) AuthUnitAgent() bool {
 	_, ok := r.entity.(*state.Unit)
 	return ok
 }
 
 // AuthOwner returns whether the authenticated user's tag matches the
 // given entity tag.
-func (r *ApiHandler) AuthOwner(tag string) bool {
+func (r *APIHandler) AuthOwner(tag string) bool {
 	return r.entity.Tag().String() == tag
 }
 
 // AuthEnvironManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *ApiHandler) AuthEnvironManager() bool {
+func (r *APIHandler) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
 }
 
 // AuthClient returns whether the authenticated entity is a client
 // user.
-func (r *ApiHandler) AuthClient() bool {
+func (r *APIHandler) AuthClient() bool {
 	_, isUser := r.entity.(*state.User)
 	return isUser
 }
 
 // GetAuthTag returns the tag of the authenticated entity.
-func (r *ApiHandler) GetAuthTag() names.Tag {
+func (r *APIHandler) GetAuthTag() names.Tag {
 	return r.entity.Tag()
 }
 
 // GetAuthEntity returns the authenticated entity.
-func (r *ApiHandler) GetAuthEntity() state.Entity {
+func (r *APIHandler) GetAuthEntity() state.Entity {
 	return r.entity
 }
 
 // DescribeFacades returns the list of available Facades and their Versions
-func (r *ApiHandler) DescribeFacades() []params.FacadeVersions {
+func DescribeFacades() []params.FacadeVersions {
 	facades := common.Facades.List()
 	result := make([]params.FacadeVersions, len(facades))
 	for i, facade := range facades {
