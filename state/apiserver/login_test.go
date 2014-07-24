@@ -348,20 +348,15 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 	defer cleanup()
 
 	// Start enough concurrent Login requests so that we max out our
-	// LoginRateLimit
-	errResults, wg := startNLogins(c, apiserver.LoginRateLimit, info)
-	// All of them should have started, none of them should have succeeded
-	// (or failed) yet
+	// LoginRateLimit. Do one extra so we know we are in overload
+	errResults, wg := startNLogins(c, apiserver.LoginRateLimit+1, info)
 	select {
 	case err := <-errResults:
-		c.Fatalf("we should not have gotten any logins yet: %v", err)
-	case <-time.After(coretesting.ShortWait):
+		c.Check(err, jc.Satisfies, params.IsCodeTryAgain)
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("timed out waiting for login to get rejected.")
 	}
-	// We now have a bunch of pending Login requests, the next login
-	// request should be immediately bounced
-	_, err := api.Open(info, fastDialOpts)
-	c.Check(err, gc.ErrorMatches, "try again")
-	c.Check(err, jc.Satisfies, params.IsCodeTryAgain)
+
 	// Let one request through, we should see that it succeeds without
 	// error, and then be able to start a new request, but it will block
 	delayChan <- struct{}{}
@@ -387,7 +382,7 @@ func (s *loginSuite) TestLoginRateLimited(c *gc.C) {
 	case <-time.After(coretesting.ShortWait):
 	}
 	// Let all the logins finish. We started with LoginRateLimit, let one
-	// proceed, but the issued another one, so there should be
+	// proceed, but we issued another one, so there should be
 	// LoginRateLimit logins pending.
 	for i := 0; i < apiserver.LoginRateLimit; i++ {
 		delayChan <- struct{}{}
