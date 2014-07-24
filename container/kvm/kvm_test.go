@@ -4,6 +4,7 @@
 package kvm_test
 
 import (
+	"io/ioutil"
 	"path/filepath"
 
 	"github.com/juju/loggo"
@@ -230,4 +231,64 @@ func (s *ConstraintsSuite) TestDefaults(c *gc.C) {
 		c.Check(tw.Log, jc.LogMatches, test.infoLog)
 		loggo.RemoveWriter("constraint-tester")
 	}
+}
+
+// Test the output when no binary can be found.
+func (s *KVMSuite) TestIsKVMSupportedKvmOkNotFound(c *gc.C) {
+	// With no path, and no backup directory, we should fail.
+	s.PatchEnvironment("PATH", "")
+	s.PatchValue(kvm.KVMPath, "")
+
+	supported, err := kvm.IsKVMSupported()
+	c.Check(supported, gc.Equals, false)
+	c.Assert(err, gc.ErrorMatches, "kvm-ok executable not found")
+}
+
+// Test the output when the binary is found, but errors out.
+func (s *KVMSuite) TestIsKVMSupportedBinaryErrorsOut(c *gc.C) {
+	// Clear path so real binary is not found.
+	s.PatchEnvironment("PATH", "")
+
+	// Create mocked binary which returns an error and give the test access.
+	tmpDir := c.MkDir()
+	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash\nexit 127"), 0777)
+	c.Assert(err, gc.IsNil)
+	s.PatchValue(kvm.KVMPath, tmpDir)
+
+	supported, err := kvm.IsKVMSupported()
+	c.Check(supported, gc.Equals, false)
+	c.Assert(err, gc.ErrorMatches, "exit status 127")
+}
+
+// Test the case where kvm-ok is not in the path, but is in the
+// specified directory.
+func (s *KVMSuite) TestIsKVMSupportedNoPath(c *gc.C) {
+	// Create a mocked binary so that this test does not fail for
+	// developers without kvm-ok.
+	s.PatchEnvironment("PATH", "")
+	tmpDir := c.MkDir()
+	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash"), 0777)
+	c.Assert(err, gc.IsNil)
+	s.PatchValue(kvm.KVMPath, tmpDir)
+
+	supported, err := kvm.IsKVMSupported()
+	c.Check(supported, gc.Equals, true)
+	c.Assert(err, gc.IsNil)
+}
+
+// Test the case that kvm-ok is found in the path.
+func (s *KVMSuite) TestIsKVMSupportedOnlyPath(c *gc.C) {
+	// Create a mocked binary so that this test does not fail for
+	// developers without kvm-ok.
+	tmpDir := c.MkDir()
+	err := ioutil.WriteFile(filepath.Join(tmpDir, "kvm-ok"), []byte("#!/bin/bash"), 0777)
+	s.PatchEnvironment("PATH", tmpDir)
+
+	supported, err := kvm.IsKVMSupported()
+	c.Check(supported, gc.Equals, true)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *KVMSuite) TestKVMPathIsCorrect(c *gc.C) {
+	c.Assert(*kvm.KVMPath, gc.Equals, "/usr/sbin")
 }
