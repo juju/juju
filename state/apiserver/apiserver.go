@@ -328,19 +328,15 @@ func (srv *Server) serveConn(wsConn *websocket.Conn, reqNotifier *requestNotifie
 	}
 	conn := rpc.NewConn(codec, notifier)
 	err := srv.validateEnvironUUID(envUUID)
-	var root *apiHandler
 	if err != nil {
 		conn.Serve(&errRoot{err}, serverError)
 	} else {
-		root = newApiHandler(srv, conn, reqNotifier)
-		conn.Serve(root, serverError)
-	}
-	conn.Start()
-	if root != nil {
-		conn.ServeFinder(NewAnonRoot(srv, map[int]interface{}{
-			0: newAdminApiV1(srv, root, reqNotifier),
+		h := newApiHandler(srv, conn, reqNotifier)
+		conn.ServeFinder(newAnonRoot(h, map[int]interface{}{
+			0: newAdminApiV1(srv, h, reqNotifier),
 		}), serverError)
 	}
+	conn.Start()
 	select {
 	case <-conn.Dead():
 	case <-srv.tomb.Dying():

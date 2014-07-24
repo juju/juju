@@ -34,7 +34,7 @@ var (
 	// will ping the mongo session to make sure that it's still
 	// alive. When the ping returns an error, the server will be
 	// terminated.
-	mongoPingInterval = 10 * time.Second
+	mongoPingInterval = 1 * time.Millisecond
 )
 
 type objectKey struct {
@@ -55,7 +55,7 @@ type apiHandler struct {
 
 var _ = (*apiHandler)(nil)
 
-// NewApiHandler returns a new apiHandler.
+// newApiHandler returns a new apiHandler.
 func newApiHandler(srv *Server, rpcConn *rpc.Conn, reqNotifier *requestNotifier) *apiHandler {
 	r := &apiHandler{
 		state:     srv.state,
@@ -112,8 +112,8 @@ func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error)
 	return s.objMethod.Call(objVal, arg)
 }
 
-// ApiRoot implements basic method dispatching to the facade registry.
-type ApiRoot struct {
+// apiRoot implements basic method dispatching to the facade registry.
+type apiRoot struct {
 	state       *state.State
 	resources   *common.Resources
 	authorizer  common.Authorizer
@@ -121,9 +121,9 @@ type ApiRoot struct {
 	objectCache map[objectKey]reflect.Value
 }
 
-// NewApiRoot returns a new ApiRoot.
-func NewApiRoot(srv *Server, resources *common.Resources, authorizer common.Authorizer) *ApiRoot {
-	r := &ApiRoot{
+// newApiRoot returns a new apiRoot.
+func newApiRoot(srv *Server, resources *common.Resources, authorizer common.Authorizer) *apiRoot {
+	r := &apiRoot{
 		state:       srv.state,
 		resources:   resources,
 		authorizer:  authorizer,
@@ -132,13 +132,17 @@ func NewApiRoot(srv *Server, resources *common.Resources, authorizer common.Auth
 	return r
 }
 
+func (r *apiRoot) Kill() {
+	r.resources.StopAll()
+}
+
 // FindMethod looks up the given rootName and version in our facade registry
 // and returns a MethodCaller that will be used by the RPC code to place calls on
 // that facade.
 // FindMethod uses the global registry state/apiserver/common.Facades.
 // For more information about how FindMethod should work, see rpc/server.go and
 // rpc/rpcreflect/value.go
-func (r *ApiRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+func (r *apiRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	goType, objMethod, err := r.lookupMethod(rootName, version, methodName)
 	if err != nil {
 		return nil, err
@@ -195,7 +199,7 @@ func (r *ApiRoot) FindMethod(rootName string, version int, methodName string) (r
 	}, nil
 }
 
-func (r *ApiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
+func (r *apiRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
 	noMethod := rpcreflect.ObjMethod{}
 	goType, err := common.Facades.GetType(rootName, version)
 	if err != nil {
@@ -224,22 +228,21 @@ func (r *ApiRoot) lookupMethod(rootName string, version int, methodName string) 
 
 // AnonRoot dispatches API calls to those available to an anonymous connection
 // which has not logged in.
-type AnonRoot struct {
-	srv         *Server
-	adminApis   map[int]interface{}
-	reqNotifier *requestNotifier
+type anonRoot struct {
+	*apiHandler
+	adminApis map[int]interface{}
 }
 
 // NewAnonRoot creates a new AnonRoot which dispatches to the given Admin API implementation.
-func NewAnonRoot(srv *Server, adminApis map[int]interface{}) *AnonRoot {
-	r := &AnonRoot{
-		srv:       srv,
-		adminApis: adminApis,
+func newAnonRoot(h *apiHandler, adminApis map[int]interface{}) *anonRoot {
+	r := &anonRoot{
+		apiHandler: h,
+		adminApis:  adminApis,
 	}
 	return r
 }
 
-func (r *AnonRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
+func (r *anonRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
 	if api, ok := r.adminApis[version]; ok {
 		return rpcreflect.ValueOf(reflect.ValueOf(api)).FindMethod(rootName, version, methodName)
 	}

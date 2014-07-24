@@ -18,7 +18,7 @@ type UpgradingRoot struct {
 }
 
 // NewUpgradingRoot returns a new UpgradingRoot.
-func NewUpgradingRoot(finder rpc.MethodFinder) *UpgradingRoot {
+func newUpgradingRoot(finder rpc.MethodFinder) *UpgradingRoot {
 	return &UpgradingRoot{finder}
 }
 

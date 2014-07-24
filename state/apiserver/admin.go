@@ -71,13 +71,13 @@ func (a *adminV1) Login(c params.Creds) (params.LoginResult, error) {
 	}
 
 	// authedApi is the API method finder we'll use after getting logged in.
-	var authedApi rpc.MethodFinder = NewApiRoot(a.srv, a.root.resources, a.root)
+	var authedApi rpc.MethodFinder = newApiRoot(a.srv, a.root.resources, a.root)
 
 	// Use the login validation function, if one was specified.
 	if a.srv.validator != nil {
 		if err := a.srv.validator(c); err != nil {
 			if err == UpgradeInProgressError {
-				authedApi = NewUpgradingRoot(authedApi)
+				authedApi = newUpgradingRoot(authedApi)
 			} else {
 				return fail, errors.Trace(err)
 			}

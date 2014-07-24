@@ -49,7 +49,7 @@ func NewErrRoot(err error) *errRoot {
 // enough to actually do any RPC calls
 func TestingApiRoot(st *state.State) rpc.MethodFinder {
 	srv := &Server{state: st}
-	h := NewApiRoot(srv, common.NewResources(), nil)
+	h := newApiRoot(srv, common.NewResources(), nil)
 	return h
 }
 
@@ -57,5 +57,5 @@ func TestingApiRoot(st *state.State) rpc.MethodFinder {
 // in an upgrade scenario.
 func TestingUpgradingRoot(st *state.State) rpc.MethodFinder {
 	r := TestingApiRoot(st)
-	return NewUpgradingRoot(r)
+	return newUpgradingRoot(r)
 }
