@@ -34,6 +34,7 @@ var getDatabaseConnectionInfo = func(state *state.State) *backup.DBConnInfo {
 		Hostname: raw.Addrs[0],
 		Password: raw.Password,
 	}
+	// TODO(dfc) Backup should take a Tag
 	if raw.Tag != nil {
 		info.Username = raw.Tag.String()
 	}
@@ -89,7 +90,6 @@ func (h *backupHandler) doBackup() (*os.File, string, error) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	// TODO(dfc) Backup should take a Tag
 	info := getDatabaseConnectionInfo(h.state)
 	filename, sha, err := runBackup(info, tempDir)
 	if err != nil {
