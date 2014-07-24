@@ -41,14 +41,15 @@ func _sendHTTPRequest(req *http.Request, client *http.Client) (*http.Response, e
 //
 // Note that the backup can take a long time to prepare. The resulting
 // file can be quite large file, depending on the system being backed up.
-func (c *Client) Backup(backupFilePath string, excl bool) (string, string, string, *params.Error) {
+func (c *Client) Backup(backupFilePath string, excl bool) (
+	filename string, hash string, expectedHash string, failure *params.Error,
+) {
 	var file *os.File
-	var filename string
 	var err error
-	cleanup := true
 	closeAndCleanup := func() {
 		file.Close()
-		if cleanup {
+		if failure != nil {
+			// Make sure we clean up any empty temp files.
 			logger.Debugf("cleaning up %s", filename)
 			os.Remove(filename)
 		}
@@ -57,13 +58,14 @@ func (c *Client) Backup(backupFilePath string, excl bool) (string, string, strin
 	// Get an empty backup file ready.
 	file, filename, err = createEmptyFile(backupFilePath, excl)
 	if err != nil {
-		failure := c.newFailure("error while preparing backup file", err)
-		return "", "", "", failure
+		failure = c.newFailure("error while preparing backup file", err)
+		return
 	}
 	defer closeAndCleanup()
-	_filename, err := filepath.Abs(filename)
-	if err == nil {
-		filename = _filename
+	filename, err = filepath.Abs(filename)
+	if err != nil {
+		failure = c.newFailure("could not resolve filename", err)
+		return
 	}
 	if backupFilePath == "" {
 		logger.Debugf("saving to temp file: %q", filename)
@@ -72,35 +74,34 @@ func (c *Client) Backup(backupFilePath string, excl bool) (string, string, strin
 	// Prepare the upload request.
 	req, err := c.newRawBackupRequest()
 	if err != nil {
-		failure := c.newFailure("error while preparing backup request", err)
-		return "", "", "", failure
+		failure = c.newFailure("error while preparing backup request", err)
+		return
 	}
 
 	// Send the request.
 	resp, err := c.sendRawBackupRequest(req)
 	if err != nil {
-		failure := c.newFailure("failure sending backup request", err)
-		return "", "", "", failure
+		failure = c.newFailure("failure sending backup request", err)
+		return
 	}
 	defer resp.Body.Close()
 
 	// Check the response.
 	apiErr := checkAPIResponse(resp)
 	if apiErr != nil {
-		failure := c.newFailure("backup request failed on server", apiErr)
-		return "", "", "", failure
+		failure = c.newFailure("backup request failed on server", apiErr)
+		return
 	}
 
 	// Save the backup.
-	hash, err := writeBackup(file, resp.Body)
+	hash, err = writeBackup(file, resp.Body)
 	if err != nil {
-		failure := c.newFailure("could not save the backup", err)
-		return "", "", "", failure
+		failure = c.newFailure("could not save the backup", err)
+		return
 	}
-	cleanup = false
 
 	// Extract the SHA-1 hash.
-	expectedHash, err := parseDigest(resp.Header)
+	expectedHash, err = parseDigest(resp.Header)
 	if err != nil {
 		// This is a non-fatal error.
 		logger.Infof("could not extract digest from HTTP response: %v", err)
