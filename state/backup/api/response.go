@@ -13,6 +13,8 @@ import (
 	"github.com/juju/juju/state/api/params"
 )
 
+var filenameRegex = regexp.MustCompile(`attachment; filename="([^"]+)"`)
+
 func parseJSONError(resp *http.Response) (string, error) {
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
@@ -59,11 +61,7 @@ func CheckAPIResponse(resp *http.Response) *params.Error {
 // header of the HTTP response, if any.
 func ExtractFilename(header http.Header) (string, error) {
 	disp := header.Get("Content-Disposition")
-	regex, err := regexp.Compile(`attachment; filename="([^"]+)"`)
-	if err != nil {
-		return "", err
-	}
-	groups := regex.FindStringSubmatch(disp)
+	groups := filenameRegex.FindStringSubmatch(disp)
 	if groups == nil {
 		return "", fmt.Errorf("no valid header found")
 	}
