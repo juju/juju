@@ -174,7 +174,7 @@ func (s *backupSuite) TestBackupFailureParsingDigest(c *gc.C) {
 	parse := func(header http.Header) (string, error) {
 		return "", fmt.Errorf("failed!")
 	}
-	s.PatchValue(api.ParseDigest, parse)
+	s.PatchValue(api.ExtractDigest, parse)
 	filename, hash, expected, err := s.client.Backup(s.filename, false)
 
 	c.Check(err, gc.IsNil)

@@ -77,35 +77,35 @@ func (b *BackupSuite) TestParseDigestHeaderDuplicate(c *gc.C) {
 }
 
 //---------------------------
-// ParseDigest()
+// ExtractSHAFromDigestHeader()
 
-func (b *BackupSuite) TestParseDigest(c *gc.C) {
+func (b *BackupSuite) TestExtractSHAFromDigestHeader(c *gc.C) {
 	header := http.Header{}
 	header.Add("digest", "SHA=<some SHA-1 digest>")
-	digest, err := backup.ParseDigest(header)
+	digest, err := backup.ExtractSHAFromDigestHeader(header)
 	c.Check(err, gc.IsNil)
 
 	c.Check(digest, gc.Equals, "<some SHA-1 digest>")
 }
 
-func (b *BackupSuite) TestParseDigestMultiple(c *gc.C) {
+func (b *BackupSuite) TestExtractSHAFromDigestHeaderMultiple(c *gc.C) {
 	header := http.Header{}
 	header.Add("digest", "SHA=<some SHA-1 digest>,MD5=<some MD5 digest>")
-	digest, err := backup.ParseDigest(header)
+	digest, err := backup.ExtractSHAFromDigestHeader(header)
 	c.Check(err, gc.IsNil)
 
 	c.Check(digest, gc.Equals, "<some SHA-1 digest>")
 }
 
-func (b *BackupSuite) TestParseDigestMissing(c *gc.C) {
+func (b *BackupSuite) TestExtractSHAFromDigestHeaderMissing(c *gc.C) {
 	header := http.Header{}
-	_, err := backup.ParseDigest(header)
+	_, err := backup.ExtractSHAFromDigestHeader(header)
 	c.Check(err, gc.ErrorMatches, `missing or blank "digest" header`)
 }
 
-func (b *BackupSuite) TestParseDigestNoSHA(c *gc.C) {
+func (b *BackupSuite) TestExtractSHAFromDigestHeaderNoSHA(c *gc.C) {
 	header := http.Header{}
 	header.Add("digest", "MD5=<some MD5 digest>")
-	_, err := backup.ParseDigest(header)
+	_, err := backup.ExtractSHAFromDigestHeader(header)
 	c.Check(err, gc.ErrorMatches, `"SHA" missing from "digest" header`)
 }

@@ -22,7 +22,7 @@ var (
 	writeBackup      = backup.WriteBackup
 	newHTTPRequest   = backupAPI.NewAPIRequest
 	checkAPIResponse = backupAPI.CheckAPIResponse
-	parseDigest      = backupAPI.ParseDigest
+	extractDigest    = backupAPI.ExtractSHAFromDigestHeader
 	extractFilename  = backupAPI.ExtractFilename
 	sendHTTPRequest  = _sendHTTPRequest
 )
@@ -101,7 +101,7 @@ func (c *Client) Backup(backupFilePath string, excl bool) (
 	}
 
 	// Extract the SHA-1 hash.
-	expectedHash, err = parseDigest(resp.Header)
+	expectedHash, err = extractDigest(resp.Header)
 	if err != nil {
 		// This is a non-fatal error.
 		logger.Infof("could not extract digest from HTTP response: %v", err)

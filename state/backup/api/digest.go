@@ -48,9 +48,9 @@ func ParseDigestHeader(header http.Header) (map[string]string, error) {
 	return digests, nil
 }
 
-// ParseDigest is a light wrapper around ParseDigestHeader which returns
-// just the SHA digest.
-func ParseDigest(header http.Header) (string, error) {
+// ExtractSHAFromDigestHeader is a light wrapper around ParseDigestHeader
+// which returns just the SHA digest.
+func ExtractSHAFromDigestHeader(header http.Header) (string, error) {
 	digests, err := ParseDigestHeader(header)
 	if err != nil {
 		return "", err

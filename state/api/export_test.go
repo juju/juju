@@ -14,7 +14,7 @@ var (
 	NewHTTPRequest   = &newHTTPRequest
 	CheckAPIResponse = &checkAPIResponse
 	WriteBackup      = &writeBackup
-	ParseDigest      = &parseDigest
+	ExtractDigest    = &extractDigest
 	ExtractFilename  = &extractFilename
 	SendHTTPRequest  = &sendHTTPRequest
 )
