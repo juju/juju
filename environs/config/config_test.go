@@ -939,8 +939,10 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	if syslogPort, ok := test.attrs["syslog-port"]; ok {
 		c.Assert(cfg.SyslogPort(), gc.Equals, syslogPort)
 	}
-	if uuid, ok := test.attrs["uuid"]; ok {
-		c.Assert(cfg.UUID(), gc.Equals, uuid)
+	if expected, ok := test.attrs["uuid"]; ok {
+		got, exists := cfg.UUID()
+		c.Assert(exists, gc.Equals, ok)
+		c.Assert(got, gc.Equals, expected)
 	}
 
 	dev, _ := test.attrs["development"].(bool)

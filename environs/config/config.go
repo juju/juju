@@ -477,9 +477,11 @@ func (c *Config) Name() string {
 // UUID returns the uuid for the environment.
 // For backwards compatability with 1.20 and earlier the value may be blank if
 // no uuid is present in this configuration. Once all enviroment configurations
-// have been upgraded, this relaxation will be dropped.
-func (c *Config) UUID() string {
-	return c.asString("uuid")
+// have been upgraded, this relaxation will be dropped. The absence of a uuid
+// is indicated by a result of "", false.
+func (c *Config) UUID() (string, bool) {
+	value, exists := c.defined["uuid"].(string)
+	return value, exists
 }
 
 // DefaultSeries returns the configured default Ubuntu series for the environment,
