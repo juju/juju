@@ -17,7 +17,6 @@ import (
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
@@ -139,11 +138,12 @@ func (*NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	envtesting.UploadFakeTools(c, env.Storage())
 	err = bootstrap.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
+
+	// Check that the password is the original admin password.
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
-	info.Password = utils.UserPasswordHash("side-effect secret", utils.CompatSalt)
-	// Use a state without a nil policy, which will allow us to set an invalid config.
-	st, err := state.Open(info, mongo.DefaultDialOpts(), state.Policy(nil))
+	info.Password = "side-effect secret"
+	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
 	defer assertClose(c, st)
 
@@ -221,26 +221,18 @@ func (*NewConnSuite) TestConnWithPassword(c *gc.C) {
 	err = bootstrap.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
-	// Check that Bootstrap has correctly used a hash
-	// of the admin password.
-	info, _, err := env.StateInfo()
-	c.Assert(err, gc.IsNil)
-	info.Password = utils.UserPasswordHash("nutkin", utils.CompatSalt)
-	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
-	c.Assert(err, gc.IsNil)
-	assertClose(c, st)
-
 	// Check that we can connect with the original environment.
 	conn, err := juju.NewConn(env)
 	c.Assert(err, gc.IsNil)
 	assertClose(c, conn)
 
-	// Check that the password has now been changed to the original
-	// admin password.
-	info.Password = "nutkin"
-	st1, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	// Check that the password is the original admin password.
+	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
-	assertClose(c, st1)
+	info.Password = "nutkin"
+	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	c.Assert(err, gc.IsNil)
+	assertClose(c, st)
 
 	// Check that we can still connect with the original
 	// environment.

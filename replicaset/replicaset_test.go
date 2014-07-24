@@ -162,23 +162,7 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	// two copies of root in the replica set
 	members = append(members, Member{Address: s.root.Addr(), Tags: initialTags})
 
-	instances := make([]*gitjujutesting.MgoInstance, 5)
-	instances[0] = s.root
-	for i := 1; i < len(instances); i++ {
-		inst := newServer(c)
-		instances[i] = inst
-		defer inst.Destroy()
-		defer func() {
-			err := Remove(session, inst.Addr())
-			c.Assert(err, gc.IsNil)
-		}()
-		key := fmt.Sprintf("key%d", i)
-		val := fmt.Sprintf("val%d", i)
-		tags := map[string]string{key: val}
-		members = append(members, Member{Address: inst.Addr(), Tags: tags})
-	}
-
-	// We allow for up to 2m per operation, since Add, Set, etc. call
+	// We allow for up to 2 minutes  per operation, since Add, Set, etc. call
 	// replSetReconfig which may cause primary renegotiation. According
 	// to the Mongo docs, "typically this is 10-20 seconds, but could be
 	// as long as a minute or more."
@@ -186,6 +170,24 @@ func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	// Note that the delay is set at 500ms to cater for relatively quick
 	// operations without thrashing on those that take longer.
 	strategy := utils.AttemptStrategy{Total: time.Minute * 2, Delay: time.Millisecond * 500}
+
+	instances := make([]*gitjujutesting.MgoInstance, 5)
+	instances[0] = s.root
+	for i := 1; i < len(instances); i++ {
+		inst := newServer(c)
+		instances[i] = inst
+		defer inst.Destroy()
+		defer func() {
+			attemptLoop(c, strategy, "Remove()", func() error {
+				return Remove(session, inst.Addr())
+			})
+		}()
+		key := fmt.Sprintf("key%d", i)
+		val := fmt.Sprintf("val%d", i)
+		tags := map[string]string{key: val}
+		members = append(members, Member{Address: inst.Addr(), Tags: tags})
+	}
+
 	attemptLoop(c, strategy, "Add()", func() error {
 		return Add(session, members...)
 	})

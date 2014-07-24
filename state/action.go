@@ -117,7 +117,7 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, output string) error {
 	return a.st.runTransaction([]txn.Op{
 		addActionResultOp(a.st, result),
 		{
-			C:      a.st.actions.Name,
+			C:      actionsC,
 			Id:     a.doc.Id,
 			Remove: true,
 		},

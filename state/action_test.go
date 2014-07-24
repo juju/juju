@@ -6,11 +6,11 @@ package state_test
 import (
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/state/txn"
 )
 
 type ActionSuite struct {
