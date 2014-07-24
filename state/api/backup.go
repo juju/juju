@@ -108,21 +108,15 @@ func (c *Client) Backup(backupFilePath string, excl bool) (
 	}
 
 	// Handle the filename from the server.
-	serverFilename, err := extractFilename(resp.Header)
+	if backupFilePath == "" {
+		filename, err = c.syncBackupFilename(resp.Header, filename, file)
+	} else {
+		// We always check the header, even if we aren't going to use it.
+		err = c.checkFilenameHeader(resp.Header)
+	}
 	if err != nil {
-		logger.Infof("could not extract filename from HTTP response: %v", err)
-	} else if backupFilePath == "" && serverFilename != "" {
-		err := file.Sync()
-		if err != nil {
-			logger.Infof("could not flush tempfile: %v", err)
-		} else {
-			err := os.Rename(filename, serverFilename)
-			if err != nil {
-				logger.Infof("could not move tempfile to new location: %v", err)
-			} else {
-				filename = serverFilename
-			}
-		}
+		// This is a non-fatal error.
+		logger.Infof(err.Error())
 	}
 
 	// Log and return the result.
@@ -132,6 +126,39 @@ func (c *Client) Backup(backupFilePath string, excl bool) (
 
 //---------------------------
 // helpers
+
+func (c *Client) checkFilenameHeader(header http.Header) error {
+	_, err := extractFilename(header)
+	if err != nil {
+		return fmt.Errorf("could not extract filename from HTTP response: %v", err)
+	}
+	return nil
+}
+
+func (c *Client) syncBackupFilename(
+	header http.Header, filename string, file *os.File,
+) (string, error) {
+	// We always return the correct filename, even if there is an error.
+	serverFilename, err := extractFilename(header)
+	if err != nil {
+		err = fmt.Errorf("could not extract filename from HTTP response: %v", err)
+		return filename, err
+	}
+
+	err = file.Sync()
+	if err != nil {
+		err = fmt.Errorf("could not flush tempfile: %v", err)
+		return filename, err
+	}
+
+	err = os.Rename(filename, serverFilename)
+	if err != nil {
+		err = fmt.Errorf("could not move tempfile to new location: %v", err)
+		return filename, err
+	}
+
+	return serverFilename, nil
+}
 
 func (c *Client) newRawBackupRequest() (*http.Request, error) {
 	baseURL, err := url.Parse(c.st.serverRoot)
