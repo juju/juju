@@ -21,7 +21,9 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	}
 	var allAddresses []addressMachine
 	// TODO(rog) 2013/10/14 index machines on jobs.
-	err := st.machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&allAddresses)
+	machines, closer := st.getCollection(machinesC)
+	defer closer()
+	err := machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&allAddresses)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +110,7 @@ func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
 			return nil, err
 		}
 		op := txn.Op{
-			C:  st.stateServers.Name,
+			C:  stateServersC,
 			Id: apiHostPortsKey,
 			Assert: bson.D{{
 				"apihostports", instanceHostPortsToHostPorts(existing),
@@ -130,7 +132,9 @@ func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
 // APIHostPorts returns the API addresses as set by SetAPIHostPorts.
 func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 	var doc apiHostPortsDoc
-	err := st.stateServers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
+	stateServers, closer := st.getCollection(stateServersC)
+	defer closer()
+	err := stateServers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}
