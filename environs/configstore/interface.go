@@ -23,9 +23,6 @@ type APIEndpoint struct {
 	// EnvironUUID holds the UUID for the environment we are connecting to.
 	// This may be empty if the environment has not been bootstrapped.
 	EnvironUUID string
-
-	// ServerUUID holds the UUID for the juju server.
-	ServerUUID string
 }
 
 // APICredentials hold credentials for connecting to an API endpoint.
