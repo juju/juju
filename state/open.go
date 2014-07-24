@@ -88,6 +88,7 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 		return nil, err
 	}
 	uuid, err := utils.NewUUID()
+	st.envUUID = uuid.String()
 	if err != nil {
 		return nil, fmt.Errorf("environment UUID cannot be created: %v", err)
 	}

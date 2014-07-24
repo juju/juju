@@ -91,6 +91,13 @@ type State struct {
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
+	envUUID    string
+}
+
+// EnvUUID() returns the uuid for the environment controlled by
+// this state instance.
+func (st *State) EnvUUID() string {
+	return st.envUUID
 }
 
 // getCollection fetches a named collection using a new session if the

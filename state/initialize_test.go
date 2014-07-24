@@ -70,6 +70,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
+	c.Assert(st.EnvUUID(), gc.Equals, env.UUID())
 	entity, err := s.State.FindEntity("environment-" + env.UUID())
 	c.Assert(err, gc.IsNil)
 	annotator := entity.(state.Annotator)
