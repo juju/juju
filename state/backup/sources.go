@@ -55,7 +55,6 @@ func _getFilesToBackup() ([]string, error) {
 
 var runCommand = _runCommand
 
-// We could move this to juju/utils/command.go as "RunCommandCheck".
 func _runCommand(cmd string, args ...string) error {
 	out, err := utils.RunCommand(cmd, args...)
 	if err == nil {
