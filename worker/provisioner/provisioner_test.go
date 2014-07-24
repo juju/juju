@@ -21,6 +21,7 @@ import (
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/simplestreams"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -33,6 +34,7 @@ import (
 	apiprovisioner "github.com/juju/juju/state/api/provisioner"
 	apiserverprovisioner "github.com/juju/juju/state/apiserver/provisioner"
 	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/provisioner"
 )
@@ -171,10 +173,18 @@ func (s *CommonProvisionerSuite) startUnknownInstance(c *gc.C, id string) instan
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *gc.C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, true)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints, nil, nil, nil, true)
 }
 
-func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Machine, secret string, cons constraints.Value, networks []string, networkInfo []network.Info, waitInstanceId bool) (inst instance.Instance) {
+func (s *CommonProvisionerSuite) checkStartInstanceCustom(
+	c *gc.C, m *state.Machine,
+	secret string, cons constraints.Value,
+	networks []string, networkInfo []network.Info,
+	checkPossibleTools coretools.List,
+	waitInstanceId bool,
+) (
+	inst instance.Instance,
+) {
 	s.BackingState.StartSync()
 	for {
 		select {
@@ -201,6 +211,10 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *gc.C, m *state.Mach
 					jobs = append(jobs, job.ToParams())
 				}
 				c.Assert(o.Jobs, jc.SameContents, jobs)
+
+				if checkPossibleTools != nil {
+					c.Assert(o.PossibleTools, gc.DeepEquals, checkPossibleTools)
+				}
 
 				// All provisioned machines in this test suite have
 				// their hardware characteristics attributes set to
@@ -419,7 +433,44 @@ func (s *ProvisionerSuite) TestConstraints(c *gc.C) {
 	// Start a provisioner and check those constraints are used.
 	p := s.newEnvironProvisioner(c)
 	defer stop(c, p)
-	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, true)
+	s.checkStartInstanceCustom(c, m, "pork", cons, nil, nil, nil, true)
+}
+
+func (s *ProvisionerSuite) TestPossibleTools(c *gc.C) {
+
+	// Clear out all tools, and set a current version that does not match the
+	// agent-version in the environ config.
+	envStorage := s.Environ.Storage()
+	envtesting.RemoveFakeTools(c, envStorage)
+	currentVersion := version.MustParseBinary("1.2.3-quantal-arm64")
+	s.PatchValue(&version.Current, currentVersion)
+
+	// Upload some plausible matches, and some that should be filtered out.
+	compatibleVersion := version.MustParseBinary("1.2.3-quantal-amd64")
+	ignoreVersion1 := version.MustParseBinary("1.2.4-quantal-arm64")
+	ignoreVersion2 := version.MustParseBinary("1.2.3-precise-arm64")
+	availableVersions := []version.Binary{
+		currentVersion, compatibleVersion, ignoreVersion1, ignoreVersion2,
+	}
+	envtesting.AssertUploadFakeToolsVersions(c, envStorage, availableVersions...)
+
+	// Extract the tools that we expect to actually match.
+	expectedList, err := tools.FindInstanceTools(s.Environ, currentVersion.Number, currentVersion.Series, nil)
+	c.Assert(err, gc.IsNil)
+
+	// Create the machine and check the tools that get passed into StartInstance.
+	machine, err := s.BackingState.AddOneMachine(state.MachineTemplate{
+		Series: "quantal",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	})
+	c.Assert(err, gc.IsNil)
+
+	provisioner := s.newEnvironProvisioner(c)
+	defer stop(c, provisioner)
+	s.checkStartInstanceCustom(
+		c, machine, "pork", constraints.Value{},
+		nil, nil, expectedList, true,
+	)
 }
 
 func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenNoToolsAreAvailable(c *gc.C) {
@@ -546,8 +597,9 @@ func (s *ProvisionerSuite) TestProvisioningMachinesWithRequestedNetworks(c *gc.C
 	c.Assert(err, gc.IsNil)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", cons,
-		requestedNetworks,
-		expectNetworkInfo, true)
+		requestedNetworks, expectNetworkInfo,
+		nil, true,
+	)
 
 	_, err = s.State.Network("net1")
 	c.Assert(err, gc.IsNil)
@@ -582,7 +634,9 @@ func (s *ProvisionerSuite) TestSetInstanceInfoFailureSetsErrorStatusAndStopsInst
 	c.Assert(err, gc.IsNil)
 	inst := s.checkStartInstanceCustom(
 		c, m, "pork", constraints.Value{},
-		networks, expectNetworkInfo, false)
+		networks, expectNetworkInfo,
+		nil, false,
+	)
 
 	// Ensure machine error status was set.
 	t0 := time.Now()
@@ -801,7 +855,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, gc.IsNil)
 
 	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, true)
+	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints, nil, nil, nil, true)
 }
 
 func (s *ProvisionerSuite) TestProvisioningSafeMode(c *gc.C) {
