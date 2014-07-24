@@ -656,6 +656,28 @@ var configTests = []configTest{
 		attrs:       sampleConfig.Delete("authorized-keys"),
 		err:         `authorized-keys missing from environment configuration`,
 	}, {
+		about:       "Config settings from juju 1.13.3 actual installation",
+		useDefaults: config.NoDefaults,
+		attrs: map[string]interface{}{
+			"name":                      "sample",
+			"development":               false,
+			"admin-secret":              "",
+			"ssl-hostname-verification": true,
+			"authorized-keys":           "ssh-rsa mykeys rog@rog-x220\n",
+			"control-bucket":            "rog-some-control-bucket",
+			"region":                    "us-east-1",
+			"image-metadata-url":        "",
+			"ca-private-key":            "",
+			"default-series":            "precise",
+			"tools-metadata-url":        "",
+			"secret-key":                "a-secret-key",
+			"access-key":                "an-access-key",
+			"agent-version":             "1.13.2",
+			"ca-cert":                   caCert,
+			"firewall-mode":             "instance",
+			"type":                      "ec2",
+		},
+	}, {
 		about:       "Provider type null is replaced with manual",
 		useDefaults: config.UseDefaults,
 		attrs: testing.Attrs{
@@ -1111,6 +1133,9 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["logging-config"] = "<root>=WARNING;unit=DEBUG"
+	attrs["ca-private-key"] = ""
+	attrs["image-metadata-url"] = ""
+	attrs["tools-metadata-url"] = ""
 	attrs["tools-url"] = ""
 	attrs["image-stream"] = ""
 	attrs["proxy-ssh"] = false

@@ -66,19 +66,14 @@ func (s *GetEnvironmentSuite) TestAllValues(c *gc.C) {
 	context, _ := testing.RunCommand(c, envcmd.Wrap(&GetEnvironmentCommand{}))
 	output := strings.TrimSpace(testing.Stdout(context))
 
-	// Make sure that all the environment keys are there.
+	// Make sure that all the environment keys are there. The admin
+	// secret and CA private key are never pushed into the
+	// environment.
 	for key := range s.Environ.Config().AllAttrs() {
 		c.Logf("test for key %q", key)
 		any := `(.|\n)*`
 		pattern := fmt.Sprintf(`(?m)^%s:`, key)
-		switch key {
-		case "admin-secret", "ca-private-key":
-			// The admin secret and CA private key are never pushed into the
-			// environment.
-			c.Check(output, gc.Not(gc.Matches), any+pattern+any)
-		default:
-			c.Check(output, gc.Matches, any+pattern+any)
-		}
+		c.Check(output, gc.Matches, any+pattern+any)
 	}
 }
 
