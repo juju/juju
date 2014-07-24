@@ -129,26 +129,23 @@ func (b *BackupSuite) TestExtractFilename(c *gc.C) {
 
 func (b *BackupSuite) TestExtractFilenameHeaderMissing(c *gc.C) {
 	header := http.Header{}
-	filename, err := backup.ExtractFilename(header)
+	_, err := backup.ExtractFilename(header)
 
-	c.Check(err, gc.IsNil)
-	c.Check(filename, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, "no valid header found")
 }
 
 func (b *BackupSuite) TestExtractFilenameHeaderEmpty(c *gc.C) {
 	header := http.Header{}
 	header.Set("Content-Disposition", "")
-	filename, err := backup.ExtractFilename(header)
+	_, err := backup.ExtractFilename(header)
 
-	c.Check(err, gc.IsNil)
-	c.Check(filename, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, "no valid header found")
 }
 
 func (b *BackupSuite) TestExtractFilenameMalformed(c *gc.C) {
 	header := http.Header{}
 	header.Set("Content-Disposition", "something unexpected")
-	filename, err := backup.ExtractFilename(header)
+	_, err := backup.ExtractFilename(header)
 
-	c.Check(err, gc.IsNil)
-	c.Check(filename, gc.Equals, "")
+	c.Check(err, gc.ErrorMatches, "no valid header found")
 }

@@ -65,7 +65,7 @@ func ExtractFilename(header http.Header) (string, error) {
 	}
 	groups := regex.FindStringSubmatch(disp)
 	if groups == nil {
-		return "", nil
+		return "", fmt.Errorf("no valid header found")
 	}
 	filename := groups[1]
 	return filename, nil
