@@ -271,7 +271,6 @@ func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 	<-time.After(coretesting.ShortWait)
 	s.State.StartSync()
 
-	//time.Sleep(3600e9)
 	s.assertAlive(c, unit, false)
 }
 
