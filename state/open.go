@@ -208,6 +208,12 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
+	txns := db.C(txnsC)
+	err = txns.Create(&mgo.CollectionInfo{})
+	if err != nil && err.Error() != "collection already exists" {
+		return nil, maybeUnauthorized(err, "cannot create transaction collection")
+	}
+
 	st.watcher = watcher.New(log)
 	st.pwatcher = presence.NewWatcher(pdb.C(presenceC))
 	for _, item := range indexes {
