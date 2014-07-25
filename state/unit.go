@@ -985,7 +985,8 @@ func (u *Unit) Tag() names.Tag {
 	return u.UnitTag()
 }
 
-// UnitTag returns a names.UnitTag representing this Unit
+// UnitTag returns a names.UnitTag representing this Unit, unless the
+// unit Name is invalid, in which case it will panic
 func (u *Unit) UnitTag() names.UnitTag {
 	return names.NewUnitTag(u.Name())
 }
