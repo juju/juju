@@ -10,7 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-// ActionGetCommand implements the relation-get command.
+// ActionGetCommand implements the action-get command.
 type ActionGetCommand struct {
 	cmd.CommandBase
 	ctx      Context
