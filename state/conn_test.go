@@ -52,7 +52,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.BaseSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.policy = statetesting.MockPolicy{}
-	cs.State = TestingInitialize(c, nil, &cs.policy)
+	cs.State = state.TestingInitialize(c, nil, &cs.policy)
 	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
 	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")

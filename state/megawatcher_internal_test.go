@@ -48,16 +48,12 @@ func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
-	c.Assert(err, gc.IsNil)
-	s.State = st
+	s.State = TestingInitialize(c, nil, Policy(nil))
 	s.State.AddAdminUser("pass")
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
-	if s.State != nil {
-		s.State.Close()
-	}
+	s.State.Close()
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }

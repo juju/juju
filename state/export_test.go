@@ -19,7 +19,9 @@ import (
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/testing"
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
@@ -52,6 +54,18 @@ func SetPolicy(st *State, p Policy) Policy {
 	old := st.policy
 	st.policy = p
 	return old
+}
+
+// TestingInitialize initializes the state and returns it. If state was not
+// already initialized, and cfg is nil, the minimal default environment
+// configuration will be used.
+func TestingInitialize(c *gc.C, cfg *config.Config, policy Policy) *State {
+	if cfg == nil {
+		cfg = testing.EnvironConfig(c)
+	}
+	st, err := Initialize(TestingMongoInfo(), cfg, TestingDialOpts(), policy)
+	c.Assert(err, gc.IsNil)
+	return st
 }
 
 type (
