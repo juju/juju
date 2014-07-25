@@ -429,12 +429,18 @@ func (s *ActionSuite) TestMakeIdFilter(c *gc.C) {
 	}
 }
 
+// newSet is a convenience method to make reading the tests easier. It
+// turns a comma delimited string into a set.Strings
 func newSet(vals string) set.Strings {
 	ret := set.NewStrings(strings.Split(vals, ",")...)
 	ret.Remove("")
 	return ret
 }
 
+// mapify is a convenience method, also to make reading the tests
+// easier. It combines two comma delimited strings representing
+// additions and removals and turns it into the map[interface{}]bool
+// format needed
 func mapify(adds, removes string) map[interface{}]bool {
 	m := map[interface{}]bool{}
 	for _, v := range strings.Split(adds, ",") {
@@ -450,6 +456,8 @@ func mapify(adds, removes string) map[interface{}]bool {
 	return m
 }
 
+// mockAR is an implementation of ActionReceiver that can be used for
+// testing that requires the ActionReceiver.Name() call to return an id
 type mockAR struct {
 	id string
 }
@@ -459,6 +467,7 @@ var _ state.ActionReceiver = (*mockAR)(nil)
 func (r mockAR) AddAction(name string, payload map[string]interface{}) (*state.Action, error) {
 	return nil, nil
 }
+
 func (r mockAR) WatchActions() state.StringsWatcher            { return nil }
 func (r mockAR) WatchActionResults() state.StringsWatcher      { return nil }
 func (r mockAR) Actions() ([]*state.Action, error)             { return nil, nil }

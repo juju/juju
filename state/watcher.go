@@ -1661,10 +1661,10 @@ func makeIdFilter(marker string, receivers ...ActionReceiver) func(interface{}) 
 	if len(receivers) == 0 {
 		return nil
 	}
-	ensureFn := ensureSuffixFn(marker)
+	ensureMarkerFn := ensureSuffixFn(marker)
 	prefixes := make([]string, len(receivers))
 	for ix, receiver := range receivers {
-		prefixes[ix] = ensureFn(receiver.Name())
+		prefixes[ix] = ensureMarkerFn(receiver.Name())
 	}
 
 	return func(key interface{}) bool {
