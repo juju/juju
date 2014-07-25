@@ -41,6 +41,29 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 				},
 			},
 		},
+
+		// A map with a non-string key is not usable.
+		map[string]interface{}{
+			"outfile": map[interface{}]interface{}{
+				5: map[string]interface{}{
+					"1": "raw",
+					"2": "gzip",
+					"3": "bzip",
+				},
+			},
+		},
+
+		// A map with an inner map[interface{}]interface{} is OK if
+		// the keys are strings.
+		map[string]interface{}{
+			"outfile": map[interface{}]interface{}{
+				"type": map[string]interface{}{
+					"1": "raw",
+					"2": "gzip",
+					"3": "bzip",
+				},
+			},
+		},
 	}
 
 	var actionGetTests = []struct {
@@ -99,6 +122,19 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		actionParams: actionGetTestMaps[1],
 		out:          "null\n",
 	}, {
+		summary:      "a map with a non-string key",
+		args:         []string{"outfile.type"},
+		actionParams: actionGetTestMaps[3],
+	}, {
+		summary:      "a map with a non-string key",
+		args:         []string{"--format", "yaml", "outfile.type"},
+		actionParams: actionGetTestMaps[3],
+	}, {
+		summary:      "a map with a non-string key",
+		args:         []string{"--format", "json", "outfile.type"},
+		actionParams: actionGetTestMaps[3],
+		out:          "null\n",
+	}, {
 		summary:      "a simple map of one value to one key",
 		args:         []string{},
 		actionParams: actionGetTestMaps[0],
@@ -155,6 +191,30 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 		args:         []string{"--format", "json", "outfile.type"},
 		actionParams: actionGetTestMaps[2],
 		out:          `{"1":"raw","2":"gzip","3":"bzip"}` + "\n",
+	}, {
+		summary:      "a map with an inner map keyed by interface{}",
+		args:         []string{"outfile.type"},
+		actionParams: actionGetTestMaps[4],
+		out: "\"1\": raw\n" +
+			"\"2\": gzip\n" +
+			"\"3\": bzip\n",
+	}, {
+		summary:      "a map with an inner map keyed by interface{}",
+		args:         []string{"--format", "yaml", "outfile.type"},
+		actionParams: actionGetTestMaps[4],
+		out: "\"1\": raw\n" +
+			"\"2\": gzip\n" +
+			"\"3\": bzip\n",
+	}, {
+		summary:      "a map with an inner map keyed by interface{}",
+		args:         []string{"--format", "json", "outfile.type"},
+		actionParams: actionGetTestMaps[4],
+		out:          `{"1":"raw","2":"gzip","3":"bzip"}` + "\n",
+	}, {
+		summary: "too many arguments",
+		args:    []string{"multiple", "keys"},
+		code:    2,
+		errMsg:  `unrecognized args: \["keys"\]`,
 	}}
 
 	for i, t := range actionGetTests {
@@ -178,18 +238,6 @@ func (s *ActionGetSuite) TestActionGet(c *gc.C) {
 	}
 }
 
-func coerceKeysToStrings(in map[interface{}]interface{}) (map[string]interface{}, error) {
-	ans := make(map[string]interface{})
-	for k, v := range in {
-		if tK, ok := k.(string); ok {
-			ans[tK] = v
-		} else {
-			return nil, fmt.Errorf("Key was not a string")
-		}
-	}
-	return ans, nil
-}
-
 func (s *ActionGetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "action-get")
@@ -211,11 +259,4 @@ as YAML.  If multiple keys are passed, action-get will recurse into the param
 map as needed.
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
-}
-
-func (s *ActionGetSuite) TestUnknownArg(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
-	com, err := jujuc.NewCommand(hctx, "action-get")
-	c.Assert(err, gc.IsNil)
-	testing.TestInit(c, com, []string{"multiple", "keys"}, `unrecognized args: \["keys"\]`)
 }
