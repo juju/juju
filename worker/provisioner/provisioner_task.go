@@ -437,7 +437,7 @@ func (task *provisionerTask) constructMachineConfig(
 		nil,
 		stateInfo,
 		apiInfo,
-	), nil
+	)
 }
 
 func constructStartInstanceParams(

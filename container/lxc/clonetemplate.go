@@ -67,7 +67,7 @@ func templateUserData(
 			templateShutdownUpstartFilename,
 		))
 
-renderer, err := corecloudinit.NewRenderer(series)
+	renderer, err := corecloudinit.NewRenderer(series)
 	if err != nil {
 		return nil, err
 	}

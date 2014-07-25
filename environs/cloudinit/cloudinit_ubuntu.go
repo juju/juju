@@ -16,7 +16,6 @@ import (
 
 	agenttool "github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/cloudinit"
-	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/service/upstart"
 )
 
@@ -139,6 +138,7 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(w.mcfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
 		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
+		curlCommand += " --retry 10"
 		if w.mcfg.DisableSSLHostnameVerification {
 			curlCommand += " --insecure"
 		}

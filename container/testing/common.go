@@ -21,22 +21,25 @@ import (
 	"github.com/juju/juju/version"
 )
 
-func MockMachineConfig(machineId string) *cloudinit.MachineConfig {
+func MockMachineConfig(machineId string) (*cloudinit.MachineConfig, error) {
 
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig, err := environs.NewMachineConfig(machineId, "fake-nonce", imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
-	c.Assert(err, gc.IsNil)
+	if err != nil {
+		return nil, err
+	}
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}
 
-	return machineConfig
+	return machineConfig, nil
 }
 
 func CreateContainer(c *gc.C, manager container.Manager, machineId string) instance.Instance {
-	machineConfig := MockMachineConfig(machineId)
+	machineConfig, err := MockMachineConfig(machineId)
+	c.Assert(err, gc.IsNil)
 
 	envConfig, err := config.New(config.NoDefaults, dummy.SampleConfig())
 	c.Assert(err, gc.IsNil)

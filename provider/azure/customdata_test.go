@@ -42,7 +42,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 			Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 			URL:     "file://" + c.MkDir(),
 		},
-		Series:             "quantal",
+		Series: "quantal",
 		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				CACert: testing.CACert,

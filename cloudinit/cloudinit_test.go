@@ -478,7 +478,7 @@ func (S) TestWindowsPathJoin(c *gc.C) {
 
 	render, err := cloudinit.NewRenderer("win8")
 	c.Assert(err, gc.IsNil)
-	output := render.PathJoin(dirPath, "fakeFile")
+	output := render.PathJoin(render.FromSlash(dirPath), "fakeFile")
 	c.Assert(err, gc.IsNil)
 	c.Assert(output, gc.NotNil)
 	c.Assert(output, gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows writefile"))

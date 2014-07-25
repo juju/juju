@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/juju/utils"
-	yaml "launchpad.net/goyaml"
+	"gopkg.in/yaml.v1"
 )
 
 // UbuntuRenderer represents an Ubuntu specific script render
@@ -32,7 +32,7 @@ func (w *UbuntuRenderer) FromSlash(filepath string) string {
 }
 
 func (w *UbuntuRenderer) PathJoin(filepath ...string) string {
-	return w.FromSlash(path.Join(filepath...))
+	return path.Join(filepath...)
 }
 
 func (w *UbuntuRenderer) Render(conf *Config) ([]byte, error) {
@@ -59,7 +59,7 @@ func (w *WindowsRenderer) WriteFile(filename string, contents string, permission
 }
 
 func (w *WindowsRenderer) PathJoin(filepath ...string) string {
-	return w.FromSlash(path.Join(filepath...))
+	return strings.Join(filepath, `\`)
 }
 
 func (w *WindowsRenderer) FromSlash(path string) string {

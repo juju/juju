@@ -67,7 +67,7 @@ func (info *machineInfo) cloudinitRunCmd(series string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fileName := renderer.PathJoin(dataDir, "MAASmachine.txt")
+	fileName := renderer.PathJoin(renderer.FromSlash(dataDir), "MAASmachine.txt")
 	script := renderer.Mkdir(dataDir)
 	contents := utils.ShQuote(string(yaml))
 	script = append(script, renderer.WriteFile(fileName, contents, 0755)...)

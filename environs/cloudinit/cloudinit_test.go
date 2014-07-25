@@ -942,14 +942,14 @@ JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 var windowsCloudinitTests = []cloudinitTest{
 	{
 		cfg: cloudinit.MachineConfig{
-			MachineId: "10",
-			// AuthorizedKeys:   "sshkey1",
-			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-			Tools:            newSimpleTools("1.2.3-win8-amd64"),
-			Series:           "win8",
-			Bootstrap:        false,
-			// StateServingInfo: stateServingInfo,
-			MachineNonce: "FAKE_NONCE",
+			MachineId:          "10",
+			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
+			Tools:              newSimpleTools("1.2.3-win8-amd64"),
+			Series:             "win8",
+			Bootstrap:          false,
+			Jobs:               normalMachineJobs,
+			MachineNonce:       "FAKE_NONCE",
+			CloudInitOutputLog: environs.CloudInitOutputLog,
 			MongoInfo: &authentication.MongoInfo{
 				Tag:      names.NewMachineTag("10"),
 				Password: "arble",
@@ -964,15 +964,10 @@ var windowsCloudinitTests = []cloudinitTest{
 				CACert:   "CA CERT\n" + string(serverCert),
 				Tag:      names.NewMachineTag("10"),
 			},
-			Constraints:        envConstraints,
-			Jobs:               allMachineJobs,
-			CloudInitOutputLog: environs.CloudInitOutputLog,
-			InstanceId:         "i-bootstrap",
-			// SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
 		},
 		setEnvConfig:  false,
-		expectScripts: cloudinit.WindowsUserdata,
+		expectScripts: WindowsUserdata,
 	},
 }
 

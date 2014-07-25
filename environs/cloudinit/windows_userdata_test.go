@@ -1,4 +1,4 @@
-package cloudinit
+package cloudinit_test
 
 var WindowsUserdata = `#ps1_sysnative
 
@@ -833,9 +833,8 @@ datadir: C:/Juju/lib/juju
 logdir: C:/Juju/log/juju
 nonce: FAKE_NONCE
 jobs:
-- JobManageEnviron
 - JobHostUnits
-upgradedToVersion: 1.21-alpha1
+upgradedToVersion: 1.2.3
 cacert: 'CA CERT
 
   SERVER CERT
@@ -871,7 +870,7 @@ values:
   PROVIDER_TYPE: dummy
 
 "@
-cmd.exe /C mklink C:\Juju\lib\juju\tools\machine-10 1.2.3-win8-amd64
-New-Service -Credential $jujuCreds -Name 'jujud-machine-0' -DisplayName 'Jujud machine agent' '"C:\Juju\lib\juju\tools\machine-10\jujud" machine --data-dir "C:\Juju\lib\juju" --machine-id "10" --debug'
+cmd.exe /C mklink /D C:\Juju\lib\juju\tools\machine-10 1.2.3-win8-amd64
+New-Service -Credential $jujuCreds -Name 'jujud-machine-0' -DisplayName 'Jujud machine agent' '"C:\Juju\lib\juju\tools\machine-10\jujud.exe" machine --data-dir "C:\Juju\lib\juju" --machine-id "10" --debug'
 cmd.exe /C sc config jujud-machine-0 start=delayed-auto
 Start-Service jujud-machine-0`

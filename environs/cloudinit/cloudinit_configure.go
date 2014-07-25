@@ -37,7 +37,7 @@ func addAgentInfo(
 	tag names.Tag,
 	toolsVersion version.Number,
 ) (agent.Config, error) {
-	acfg, err := cfg.agentConfig(tag, toolsVersion, w.mcfg.Tools.Version.Number)
+	acfg, err := cfg.agentConfig(tag, toolsVersion)
 	if err != nil {
 		return nil, err
 	}
