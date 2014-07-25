@@ -6,7 +6,9 @@ package bootstrap
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/network"
@@ -22,9 +24,29 @@ var logger = loggo.GetLogger("juju.environs.bootstrap")
 // environment.
 func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) error {
 	cfg := environ.Config()
+
+	// if uuid is not present in this config, assign a random uuid
+	if _, exists := cfg.UUID(); !exists {
+		uuid, err := utils.NewUUID()
+		if err != nil {
+			return errors.Trace(err)
+		}
+		cfg, err = cfg.Apply(map[string]interface{}{"uuid": uuid.String()})
+		if err != nil {
+			return errors.Trace(err)
+		}
+		if err = environ.SetConfig(cfg); err != nil {
+			return errors.Trace(err)
+		}
+	}
+	
+	if _, exists := cfg.UUID(); !exists {
+		panic("still no uuid")
+	}
+
 	network.InitializeFromConfig(cfg)
 	if secret := cfg.AdminSecret(); secret == "" {
-		return fmt.Errorf("environment configuration has no admin-secret")
+		return errors.Errorf("environment configuration has no admin-secret")
 	}
 	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
 		// Apparently this can never happen, so it's not tested. But, one day,
@@ -32,13 +54,13 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args env
 		// authorized-keys are optional config settings... but it's impossible
 		// to actually *create* a config without them)... and when it does,
 		// we'll be here to catch this problem early.
-		return fmt.Errorf("environment configuration has no authorized-keys")
+		return errors.Errorf("environment configuration has no authorized-keys")
 	}
 	if _, hasCACert := cfg.CACert(); !hasCACert {
-		return fmt.Errorf("environment configuration has no ca-cert")
+		return errors.Errorf("environment configuration has no ca-cert")
 	}
 	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
-		return fmt.Errorf("environment configuration has no ca-private-key")
+		return errors.Errorf("environment configuration has no ca-private-key")
 	}
 	// Write out the bootstrap-init file, and confirm storage is writeable.
 	if err := environs.VerifyStorage(environ.Storage()); err != nil {

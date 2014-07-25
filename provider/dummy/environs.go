@@ -73,7 +73,7 @@ func SampleConfig() testing.Attrs {
 	return testing.Attrs{
 		"type":                      "dummy",
 		"name":                      "only",
-		"uuid":			     "90168e4c-2f10-4e9c-83c2-feedfacee5a9",
+		"uuid":                      "90168e4c-2f10-4e9c-83c2-feedfacee5a9",
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              testing.DefaultMongoPassword,
