@@ -163,8 +163,7 @@ func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(envcmd.GetConfigStore, func() (configstore.Storage, error) {
 		return s.store, nil
 	})
-	newInfo, err := s.store.CreateInfo("env-name")
-	c.Assert(err, gc.IsNil)
+	newInfo := s.store.CreateInfo("env-name")
 	newInfo.SetAPICredentials(configstore.APICredentials{
 		User:     "foo",
 		Password: "foopass",
@@ -175,7 +174,7 @@ func (s *ConnectionEndpointSuite) SetUpTest(c *gc.C) {
 		EnvironUUID: "fake-uuid",
 	}
 	newInfo.SetAPIEndpoint(s.endpoint)
-	err = newInfo.Write()
+	err := newInfo.Write()
 	c.Assert(err, gc.IsNil)
 }
 

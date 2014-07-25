@@ -25,6 +25,7 @@ import (
 	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
 	coretools "github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
@@ -442,10 +443,11 @@ func (task *provisionerTask) prepareNetworkAndInterfaces(networkInfo []network.I
 			visitedNetworks.Add(networkTag)
 		}
 		ifaces = append(ifaces, params.NetworkInterface{
-			InterfaceName: info.InterfaceName,
+			InterfaceName: info.ActualInterfaceName(),
 			MACAddress:    info.MACAddress,
 			NetworkTag:    networkTag,
 			IsVirtual:     info.IsVirtual(),
+			Disabled:      info.Disabled,
 		})
 	}
 	return networks, ifaces
@@ -494,11 +496,7 @@ func (task *provisionerTask) startMachine(machine *apiprovisioner.Machine) error
 
 func (task *provisionerTask) possibleTools(series string, cons constraints.Value) (coretools.List, error) {
 	if env, ok := task.broker.(environs.Environ); ok {
-		agentVersion, ok := env.Config().AgentVersion()
-		if !ok {
-			return nil, fmt.Errorf("no agent version set in environment configuration")
-		}
-		return tools.FindInstanceTools(env, agentVersion, series, cons.Arch)
+		return tools.FindInstanceTools(env, version.Current.Number, series, cons.Arch)
 	}
 	if hasTools, ok := task.broker.(coretools.HasTools); ok {
 		return hasTools.Tools(series), nil
@@ -543,8 +541,11 @@ func (task *provisionerTask) provisioningInfo(machine *apiprovisioner.Machine) (
 		}
 		return nil, err
 	}
-	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid.String())
+	nonce := fmt.Sprintf("%s:%s", task.machineTag, uuid)
 	machineConfig := environs.NewMachineConfig(machine.Id(), nonce, pInfo.Networks, stateInfo, apiInfo)
+	if len(pInfo.Jobs) > 0 {
+		machineConfig.Jobs = pInfo.Jobs
+	}
 	return &provisioningInfo{
 		Constraints:   pInfo.Constraints,
 		Series:        pInfo.Series,

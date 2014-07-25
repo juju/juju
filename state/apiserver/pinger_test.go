@@ -18,15 +18,15 @@ import (
 	coretesting "github.com/juju/juju/testing"
 )
 
-type stateSuite struct {
+type pingerSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = gc.Suite(&stateSuite{})
+var _ = gc.Suite(&pingerSuite{})
 
 var testPingPeriod = 100 * time.Millisecond
 
-func (s *stateSuite) TestConnectionBrokenDetection(c *gc.C) {
+func (s *pingerSuite) TestConnectionBrokenDetection(c *gc.C) {
 	s.PatchValue(&api.PingPeriod, testPingPeriod)
 
 	st, _ := s.OpenAPIAsNewMachine(c)
@@ -50,7 +50,7 @@ func (s *stateSuite) TestConnectionBrokenDetection(c *gc.C) {
 	}
 }
 
-func (s *stateSuite) TestPing(c *gc.C) {
+func (s *pingerSuite) TestPing(c *gc.C) {
 	tw := &loggo.TestWriter{}
 	c.Assert(loggo.RegisterWriter("ping-tester", tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("ping-tester")
@@ -70,7 +70,7 @@ func (s *stateSuite) TestPing(c *gc.C) {
 	}
 }
 
-func (s *stateSuite) TestClientNoNeedToPing(c *gc.C) {
+func (s *pingerSuite) TestClientNoNeedToPing(c *gc.C) {
 	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(0))
 	st, err := api.Open(s.APIInfo(c), api.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
@@ -80,7 +80,7 @@ func (s *stateSuite) TestClientNoNeedToPing(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *stateSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
+func (s *pingerSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 	s.PatchValue(apiserver.MaxClientPingInterval, time.Duration(0))
 	st, _ := s.OpenAPIAsNewMachine(c)
 	time.Sleep(coretesting.ShortWait)
@@ -88,7 +88,7 @@ func (s *stateSuite) TestAgentConnectionShutsDownWithNoPing(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "connection is shut down")
 }
 
-func (s *stateSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
+func (s *pingerSuite) TestAgentConnectionDelaysShutdownWithPing(c *gc.C) {
 	// We have to be careful, because Login can take 25ms, so we ping
 	// immediately after connecting.
 	s.PatchValue(apiserver.MaxClientPingInterval, 50*time.Millisecond)

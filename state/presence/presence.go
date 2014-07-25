@@ -320,7 +320,11 @@ type pingInfo struct {
 
 func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
 	beings := make([]beingInfo, 0)
-	err := w.beings.Find(bson.D{{}}).All(&beings)
+	session := w.beings.Database.Session.Copy()
+	defer session.Close()
+	beingsC := w.beings.With(session)
+
+	err := beingsC.Find(bson.D{{}}).All(&beings)
 	if err != nil {
 		return nil, err
 	}
@@ -345,8 +349,11 @@ func (w *Watcher) sync() error {
 		}
 	}
 	slot := timeSlot(time.Now(), w.delta)
+	session := w.pings.Database.Session.Copy()
+	defer session.Close()
+	pings := w.pings.With(session)
 	var ping []pingInfo
-	err := w.pings.Find(bson.D{{"$or", []pingInfo{{Slot: slot}, {Slot: slot - period}}}}).All(&ping)
+	err := pings.Find(bson.D{{"$or", []pingInfo{{Slot: slot}, {Slot: slot - period}}}}).All(&ping)
 	if err != nil && err == mgo.ErrNotFound {
 		return err
 	}
@@ -376,6 +383,7 @@ func (w *Watcher) sync() error {
 	// Learn about all the pingers that reported and queue
 	// events for those that weren't known to be alive and
 	// are not reportedly dead either.
+	beingsC := w.beings.With(session)
 	alive := make(map[int64]bool)
 	being := beingInfo{}
 	for i := range ping {
@@ -400,7 +408,7 @@ func (w *Watcher) sync() error {
 				// otherwise do a single lookup in mongo
 				var ok bool
 				if being, ok = allBeings[seq]; !ok {
-					err := w.beings.Find(bson.D{{"_id", seq}}).One(&being)
+					err := beingsC.Find(bson.D{{"_id", seq}}).One(&being)
 					if err == mgo.ErrNotFound {
 						logger.Tracef("found seq=%d unowned", seq)
 						continue
@@ -527,7 +535,10 @@ func (p *Pinger) killStarted() error {
 
 	slot := p.lastSlot
 	udoc := bson.D{{"$inc", bson.D{{"dead." + p.fieldKey, p.fieldBit}}}}
-	if _, err := p.pings.UpsertId(slot, udoc); err != nil {
+	session := p.pings.Database.Session.Copy()
+	defer session.Close()
+	pings := p.pings.With(session)
+	if _, err := pings.UpsertId(slot, udoc); err != nil {
 		return err
 	}
 	return killErr
@@ -545,7 +556,10 @@ func (p *Pinger) killStopped() error {
 		{"dead." + p.fieldKey, p.fieldBit},
 		{"alive." + p.fieldKey, p.fieldBit},
 	}}}
-	_, err := p.pings.UpsertId(slot, udoc)
+	session := p.pings.Database.Session.Copy()
+	defer session.Close()
+	pings := p.pings.With(session)
+	_, err := pings.UpsertId(slot, udoc)
 	return err
 }
 
@@ -572,7 +586,10 @@ func (p *Pinger) prepare() error {
 		Upsert:    true,
 		ReturnNew: true,
 	}
-	seqs := seqsC(p.base)
+	session := p.base.Database.Session.Copy()
+	defer session.Close()
+	base := p.base.With(session)
+	seqs := seqsC(base)
 	var seq struct{ Seq int64 }
 	if _, err := seqs.FindId("beings").Apply(change, &seq); err != nil {
 		return err
@@ -581,16 +598,29 @@ func (p *Pinger) prepare() error {
 	p.fieldKey = fmt.Sprintf("%x", p.beingSeq/63)
 	p.fieldBit = 1 << uint64(p.beingSeq%63)
 	p.lastSlot = 0
-	beings := beingsC(p.base)
+	beings := beingsC(base)
 	return beings.Insert(beingInfo{p.beingSeq, p.beingKey})
 }
 
 // ping records updates the current time slot with the
 // sequence in use by the pinger.
-func (p *Pinger) ping() error {
+func (p *Pinger) ping() (err error) {
 	logger.Tracef("pinging %q with seq=%d", p.beingKey, p.beingSeq)
+	defer func() {
+		// If the session is killed from underneath us, it panics when we
+		// try to copy it, so deal with that here.
+		if v := recover(); v != nil {
+			if v == "Session already closed" {
+				return
+			}
+			err = fmt.Errorf("%v", v)
+		}
+	}()
+	session := p.pings.Database.Session.Copy()
+	defer session.Close()
 	if p.delta == 0 {
-		delta, err := clockDelta(p.base)
+		base := p.base.With(session)
+		delta, err := clockDelta(base)
 		if err != nil {
 			return err
 		}
@@ -603,7 +633,8 @@ func (p *Pinger) ping() error {
 		return nil
 	}
 	p.lastSlot = slot
-	if _, err := p.pings.UpsertId(slot, bson.D{{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}}}); err != nil {
+	pings := p.pings.With(session)
+	if _, err = pings.UpsertId(slot, bson.D{{"$inc", bson.D{{"alive." + p.fieldKey, p.fieldBit}}}}); err != nil {
 		return err
 	}
 	return nil
@@ -622,12 +653,15 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 	var before time.Time
 	var serverDelay time.Duration
 	supportsMasterLocalTime := true
+	session := c.Database.Session.Copy()
+	defer session.Close()
+	db := c.Database.With(session)
 	for i := 0; i < 10; i++ {
 		if supportsMasterLocalTime {
 			// Try isMaster.localTime, which is present since MongoDB 2.2
 			// and does not require admin privileges.
 			before = time.Now()
-			err := c.Database.Run("isMaster", &isMaster)
+			err := db.Run("isMaster", &isMaster)
 			after = time.Now()
 			if err != nil {
 				return 0, err
@@ -653,7 +687,7 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 			// the lock and thus cause a retry on the callDelay
 			// check below on a busy server.
 			before = time.Now()
-			err := c.Database.Run(bson.D{{"$eval", "function() { return new Date(); }"}}, &server)
+			err := db.Run(bson.D{{"$eval", "function() { return new Date(); }"}}, &server)
 			after = time.Now()
 			if err != nil {
 				return 0, err

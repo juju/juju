@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -56,7 +57,7 @@ func (s *InitializeSuite) TearDownTest(c *gc.C) {
 func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
-	st, err := state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts(), nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.NotNil)
 	err = st.Close()
@@ -70,6 +71,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
+	c.Assert(st.EnvironTag(), gc.Equals, names.NewEnvironTag(env.UUID()))
 	entity, err := s.State.FindEntity("environment-" + env.UUID())
 	c.Assert(err, gc.IsNil)
 	annotator := entity.(state.Annotator)
@@ -92,7 +94,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
-	st := state.TestingInitialize(c, cfg, state.Policy(nil))
+	st := TestingInitialize(c, cfg, nil)
 	st.Close()
 
 	// A second initialize returns an open *State, but ignores its params.
@@ -121,7 +123,7 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks UpdateEnvironConfig.
-	st := state.TestingInitialize(c, good, state.Policy(nil))
+	st := TestingInitialize(c, good, nil)
 	st.Close()
 
 	s.openState(c)
@@ -145,7 +147,8 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	_, err = state.Initialize(state.TestingMongoInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
-	st := state.TestingInitialize(c, good, state.Policy(nil))
+	st := TestingInitialize(c, good, nil)
+	// yay side effects
 	st.Close()
 
 	s.openState(c)

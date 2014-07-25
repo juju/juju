@@ -11,7 +11,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/filestorage"
 	"github.com/juju/juju/environs/manual"
@@ -87,22 +86,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	err := manual.Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 
-	bootstrapState, err := bootstrap.LoadState(s.env.Storage())
-	c.Assert(err, gc.IsNil)
-	c.Assert(
-		bootstrapState.StateInstances,
-		gc.DeepEquals,
-		[]instance.Id{manual.BootstrapInstanceId},
-	)
-
-	// Do it all again; this should work, despite the fact that
-	// there's a bootstrap state file. Existence for that is
-	// checked in general bootstrap code (environs/bootstrap).
-	defer fakeSSH{SkipDetection: true}.install(c).Restore()
-	err = manual.Bootstrap(args)
-	c.Assert(err, gc.IsNil)
-
-	// We *do* check that the machine has no juju* upstart jobs, though.
+	// If the machine has no juju* upstart jobs, then bootstrap
+	// should fail with "machine is already provisioned".
 	defer fakeSSH{
 		Provisioned:        true,
 		SkipDetection:      true,
@@ -118,11 +103,6 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 	defer fakeSSH{SkipDetection: true, ProvisionAgentExitCode: 1}.install(c).Restore()
 	err := manual.Bootstrap(args)
 	c.Assert(err, gc.NotNil)
-
-	// Since the script failed, the state file should have been
-	// removed from storage.
-	_, err = bootstrap.LoadState(s.env.Storage())
-	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyDataDir(c *gc.C) {

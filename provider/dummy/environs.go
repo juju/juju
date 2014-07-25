@@ -37,13 +37,11 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -57,8 +55,10 @@ import (
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
 	"github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
@@ -73,6 +73,7 @@ func SampleConfig() testing.Attrs {
 	return testing.Attrs{
 		"type":                      "dummy",
 		"name":                      "only",
+		"uuid":                      "90168e4c-2f10-4e9c-83c2-feedfacee5a9",
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              testing.DefaultMongoPassword,
@@ -143,16 +144,18 @@ type OpListNetworks struct {
 }
 
 type OpStartInstance struct {
-	Env          string
-	MachineId    string
-	MachineNonce string
-	Instance     instance.Instance
-	Constraints  constraints.Value
-	Networks     []string
-	NetworkInfo  []network.Info
-	Info         *authentication.MongoInfo
-	APIInfo      *api.Info
-	Secret       string
+	Env           string
+	MachineId     string
+	MachineNonce  string
+	PossibleTools coretools.List
+	Instance      instance.Instance
+	Constraints   constraints.Value
+	Networks      []string
+	NetworkInfo   []network.Info
+	Info          *authentication.MongoInfo
+	Jobs          []params.MachineJob
+	APIInfo       *api.Info
+	Secret        string
 }
 
 type OpStopInstances struct {
@@ -579,10 +582,6 @@ func (e *environ) checkBroken(method string) error {
 	return nil
 }
 
-func (e *environ) Name() string {
-	return e.name
-}
-
 // SupportedArchitectures is specified on the EnvironCapability interface.
 func (*environ) SupportedArchitectures() ([]string, error) {
 	return []string{arch.AMD64, arch.I386, arch.PPC64}, nil
@@ -650,18 +649,6 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	}
 	estate.preferIPv6 = e.Config().PreferIPv6()
 
-	// Write the bootstrap file just like a normal provider. However
-	// we need to release the mutex for the save state to work, so regain
-	// it after the call.
-	estate.mu.Unlock()
-	instIds := []instance.Id{BootstrapInstanceId}
-	if err := bootstrap.SaveState(e.Storage(), &bootstrap.BootstrapState{StateInstances: instIds}); err != nil {
-		logger.Errorf("failed to save state instances: %v", err)
-		estate.mu.Lock() // otherwise defered unlock will fail
-		return err
-	}
-	estate.mu.Lock() // back at it
-
 	// Create an instance for the bootstrap node.
 	logger.Infof("creating bootstrap instance")
 	i := &dummyInstance{
@@ -688,7 +675,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.SetEnvironConstraints(args.Constraints); err != nil {
 			panic(err)
 		}
-		if err := st.SetAdminMongoPassword(utils.UserPasswordHash(password, utils.CompatSalt)); err != nil {
+		if err := st.SetAdminMongoPassword(password); err != nil {
 			panic(err)
 		}
 		_, err = st.AddAdminUser(password)
@@ -720,9 +707,6 @@ func (e *environ) StateServerInstances() ([]instance.Id, error) {
 	defer estate.mu.Unlock()
 	if err := e.checkBroken("StateServerInstances"); err != nil {
 		return nil, err
-	}
-	if !e.ecfg().stateServer() {
-		return nil, errors.New("dummy environment has no state configured")
 	}
 	if !estate.bootstrapped {
 		return nil, environs.ErrNotBootstrapped
@@ -889,16 +873,18 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:          e.name,
-		MachineId:    machineId,
-		MachineNonce: args.MachineConfig.MachineNonce,
-		Constraints:  args.Constraints,
-		Networks:     args.MachineConfig.Networks,
-		NetworkInfo:  networkInfo,
-		Instance:     i,
-		Info:         args.MachineConfig.MongoInfo,
-		APIInfo:      args.MachineConfig.APIInfo,
-		Secret:       e.ecfg().secret(),
+		Env:           e.name,
+		MachineId:     machineId,
+		MachineNonce:  args.MachineConfig.MachineNonce,
+		PossibleTools: args.Tools,
+		Constraints:   args.Constraints,
+		Networks:      args.MachineConfig.Networks,
+		NetworkInfo:   networkInfo,
+		Instance:      i,
+		Jobs:          args.MachineConfig.Jobs,
+		Info:          args.MachineConfig.MongoInfo,
+		APIInfo:       args.MachineConfig.APIInfo,
+		Secret:        e.ecfg().secret(),
 	}
 	return i, hc, networkInfo, nil
 }

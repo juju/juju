@@ -26,7 +26,6 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
@@ -93,11 +92,6 @@ func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, pla
 	return nil
 }
 
-// Name is specified in the Environ interface.
-func (env *localEnviron) Name() string {
-	return env.name
-}
-
 func (env *localEnviron) machineAgentServiceName() string {
 	return "juju-agent-" + env.config.namespace()
 }
@@ -116,15 +110,6 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	}
 	privateKey, err := common.GenerateSystemSSHKey(env)
 	if err != nil {
-		return err
-	}
-
-	// Before we write the agent config file, we need to make sure the
-	// instance is saved in the provider-state file.
-	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
-		StateInstances: []instance.Id{bootstrapInstanceId},
-	}); err != nil {
-		logger.Errorf("failed to save state instances: %v", err)
 		return err
 	}
 
@@ -216,6 +201,14 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 
 // StateServerInstances is specified in the Environ interface.
 func (env *localEnviron) StateServerInstances() ([]instance.Id, error) {
+	agentsDir := filepath.Join(env.config.rootDir(), "agents")
+	_, err := os.Stat(agentsDir)
+	if os.IsNotExist(err) {
+		return nil, environs.ErrNotBootstrapped
+	}
+	if err != nil {
+		return nil, err
+	}
 	return []instance.Id{bootstrapInstanceId}, nil
 }
 
@@ -463,7 +456,7 @@ func (env *localEnviron) Destroy() error {
 		}
 		args := []string{
 			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
-			juju, "destroy-environment", "-y", "--force", env.Name(),
+			juju, "destroy-environment", "-y", "--force", env.Config().Name(),
 		}
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout

@@ -219,7 +219,7 @@ func (f *fakeUnitAgent) Tag() names.Tag {
 	return names.NewUnitTag(f.unitName)
 }
 
-func (f *fakeUnitAgent) ChangeConfig(func(agent.ConfigSetter)) error {
+func (f *fakeUnitAgent) ChangeConfig(AgentConfigMutator) error {
 	panic("fakeUnitAgent.ChangeConfig called unexpectedly")
 }
 

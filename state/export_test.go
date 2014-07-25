@@ -19,25 +19,31 @@ import (
 	"labix.org/v2/mgo/txn"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/testing"
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
-	return txntesting.SetTestHooks(c, st.transactionRunner, hooks...)
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetTestHooks(c, runner, hooks...)
 }
 
 func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	return txntesting.SetBeforeHooks(c, st.transactionRunner, fs...)
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetBeforeHooks(c, runner, fs...)
 }
 
 func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	return txntesting.SetAfterHooks(c, st.transactionRunner, fs...)
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetAfterHooks(c, runner, fs...)
 }
 
 func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
-	return txntesting.SetRetryHooks(c, st.transactionRunner, block, check)
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetRetryHooks(c, runner, block, check)
 }
 
 // SetPolicy updates the State's policy field to the
@@ -46,18 +52,6 @@ func SetPolicy(st *State, p Policy) Policy {
 	old := st.policy
 	st.policy = p
 	return old
-}
-
-// TestingInitialize initializes the state and returns it. If state was not
-// already initialized, and cfg is nil, the minimal default environment
-// configuration will be used.
-func TestingInitialize(c *gc.C, cfg *config.Config, policy Policy) *State {
-	if cfg == nil {
-		cfg = testing.EnvironConfig(c)
-	}
-	st, err := Initialize(TestingMongoInfo(), cfg, TestingDialOpts(), policy)
-	c.Assert(err, gc.IsNil)
-	return st
 }
 
 type (
@@ -74,9 +68,12 @@ func (doc *MachineDoc) String() string {
 }
 
 func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (int, error) {
+	settingsRefsCollection, closer := st.getCollection(settingsrefsC)
+	defer closer()
+
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	if err := st.settingsrefs.FindId(key).One(&doc); err == nil {
+	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
 		return doc.RefCount, nil
 	}
 	return 0, mgo.ErrNotFound
@@ -136,7 +133,7 @@ func SetMachineInstanceId(m *Machine, instanceId string) {
 func ClearInstanceDocId(c *gc.C, m *Machine) {
 	ops := []txn.Op{
 		{
-			C:      m.st.instanceData.Name,
+			C:      instanceDataC,
 			Id:     m.doc.Id,
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
@@ -196,8 +193,10 @@ func TxnRevno(st *State, coll string, id interface{}) (int64, error) {
 // MinUnitsRevno returns the Revno of the minUnits document
 // associated with the given service name.
 func MinUnitsRevno(st *State, serviceName string) (int, error) {
+	minUnitsCollection, closer := st.getCollection(minUnitsC)
+	defer closer()
 	var doc minUnitsDoc
-	if err := st.minUnits.FindId(serviceName).One(&doc); err != nil {
+	if err := minUnitsCollection.FindId(serviceName).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil
@@ -210,6 +209,11 @@ func ParseTag(st *State, tag names.Tag) (string, string, error) {
 // Return the PasswordSalt that goes along with the PasswordHash
 func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
+}
+
+// Return the stored salt and hash for the identity's password.
+func GetIdentityPasswordSaltAndHash(i *Identity) (string, string) {
+	return i.doc.PasswordSalt, i.doc.PasswordHash
 }
 
 var NewAddress = newAddress

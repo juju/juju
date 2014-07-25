@@ -68,8 +68,8 @@ func (s *lxcSuite) TearDownTest(c *gc.C) {
 func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	s.lxcSuite.SetUpTest(c)
 	tools := &coretools.Tools{
-		Version: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}
 	var err error
 	s.agentConfig, err = agent.NewAgentConfig(

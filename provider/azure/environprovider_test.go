@@ -25,7 +25,7 @@ func (*environProviderSuite) TestOpen(c *gc.C) {
 	env, err := prov.Open(cfg)
 	c.Assert(err, gc.IsNil)
 
-	c.Check(env.Name(), gc.Equals, attrs["name"])
+	c.Check(env.Config().Name(), gc.Equals, attrs["name"])
 }
 
 func (environProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {

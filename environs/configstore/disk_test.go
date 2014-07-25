@@ -7,10 +7,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
@@ -28,6 +26,7 @@ type diskInterfaceSuite struct {
 }
 
 func (s *diskInterfaceSuite) SetUpTest(c *gc.C) {
+	s.interfaceSuite.SetUpTest(c)
 	s.dir = c.MkDir()
 	s.NewStore = func(c *gc.C) configstore.Storage {
 		store, err := configstore.NewDisk(s.dir)
@@ -58,6 +57,7 @@ func (s *diskInterfaceSuite) TearDownTest(c *gc.C) {
 			c.Errorf("found possible stray temp file %q", entry.Name())
 		}
 	}
+	s.interfaceSuite.TearDownTest(c)
 }
 
 var _ = gc.Suite(&diskStoreSuite{})
@@ -126,71 +126,19 @@ func (*diskStoreSuite) TestReadNotFound(c *gc.C) {
 	c.Assert(info, gc.IsNil)
 }
 
-func (*diskStoreSuite) TestCreate(c *gc.C) {
+func (*diskStoreSuite) TestWriteFails(c *gc.C) {
 	dir := c.MkDir()
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, gc.IsNil)
 
-	// Create some new environment info.
-	info, err := store.CreateInfo("someenv")
-	c.Assert(err, gc.IsNil)
-	c.Assert(info.APIEndpoint(), gc.DeepEquals, configstore.APIEndpoint{})
-	c.Assert(info.APICredentials(), gc.DeepEquals, configstore.APICredentials{})
-	c.Assert(info.Initialized(), jc.IsFalse)
-	data, err := ioutil.ReadFile(storePath(dir, "someenv"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(data, gc.HasLen, 0)
-
-	// Check that we can't create it twice.
-	info, err = store.CreateInfo("someenv")
-	c.Assert(err, gc.Equals, configstore.ErrEnvironInfoAlreadyExists)
-	c.Assert(info, gc.IsNil)
-
-	// Check that we can read it again.
-	info, err = store.ReadInfo("someenv")
-	c.Assert(err, gc.IsNil)
-	c.Assert(info.Initialized(), jc.IsFalse)
-}
-
-func (s *diskStoreSuite) TestCreatePermissions(c *gc.C) {
-	// Even though it doesn't test the actual chown, it does test the code path.
-	user, err := user.Current()
-	c.Assert(err, gc.IsNil)
-	s.PatchEnvironment("SUDO_UID", user.Uid)
-	s.PatchEnvironment("SUDO_GID", user.Gid)
-
-	dir := c.MkDir()
-	store, err := configstore.NewDisk(dir)
-	c.Assert(err, gc.IsNil)
-
-	// Create some new environment info.
-	_, err = store.CreateInfo("someenv")
-	c.Assert(err, gc.IsNil)
-
-	checkPath := func(path string) {
-		stat, err := os.Stat(path)
-		c.Assert(err, gc.IsNil)
-		c.Assert(fmt.Sprint(stat.Sys().(*syscall.Stat_t).Uid), gc.Equals, user.Uid)
-		c.Assert(fmt.Sprint(stat.Sys().(*syscall.Stat_t).Gid), gc.Equals, user.Gid)
-	}
-	checkPath(storePath(dir, ""))
-	checkPath(storePath(dir, "someenv"))
-}
-
-func (*diskStoreSuite) TestWriteTempFileFails(c *gc.C) {
-	dir := c.MkDir()
-	store, err := configstore.NewDisk(dir)
-	c.Assert(err, gc.IsNil)
-
-	info, err := store.CreateInfo("someenv")
-	c.Assert(err, gc.IsNil)
+	info := store.CreateInfo("someenv")
 
 	// Make the directory non-writable
 	err = os.Chmod(storePath(dir, ""), 0555)
 	c.Assert(err, gc.IsNil)
 
 	err = info.Write()
-	c.Assert(err, gc.ErrorMatches, "cannot create temporary file: .*")
+	c.Assert(err, gc.ErrorMatches, ".* permission denied")
 
 	// Make the directory writable again so that gocheck can clean it up.
 	err = os.Chmod(storePath(dir, ""), 0777)
@@ -202,18 +150,14 @@ func (*diskStoreSuite) TestRenameFails(c *gc.C) {
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, gc.IsNil)
 
-	info, err := store.CreateInfo("someenv")
-	c.Assert(err, gc.IsNil)
-
 	// Replace the file by an directory which can't be renamed over.
 	path := storePath(dir, "someenv")
-	err = os.Remove(path)
-	c.Assert(err, gc.IsNil)
 	err = os.Mkdir(path, 0777)
 	c.Assert(err, gc.IsNil)
 
+	info := store.CreateInfo("someenv")
 	err = info.Write()
-	c.Assert(err, gc.ErrorMatches, "cannot rename new environment info file: .*")
+	c.Assert(err, gc.ErrorMatches, "environment info already exists")
 }
 
 func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
@@ -221,7 +165,8 @@ func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
 	store, err := configstore.NewDisk(dir)
 	c.Assert(err, gc.IsNil)
 
-	info, err := store.CreateInfo("someenv")
+	info := store.CreateInfo("someenv")
+	err = info.Write()
 	c.Assert(err, gc.IsNil)
 
 	_, err = os.Stat(storePath(dir, "someenv"))
@@ -235,4 +180,31 @@ func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
 
 	err = info.Destroy()
 	c.Assert(err, gc.ErrorMatches, "environment info has already been removed")
+}
+
+func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
+	dir := c.MkDir()
+	store, err := configstore.NewDisk(dir)
+	c.Assert(err, gc.IsNil)
+	info := store.CreateInfo("someenv")
+	endpoint := configstore.APIEndpoint{
+		Addresses:   []string{"this", "is", "never", "validated", "here"},
+		EnvironUUID: "90168e4c-2f10-4e9c-83c2-feedfacee5a9",
+	}
+	info.SetAPIEndpoint(endpoint)
+	err = info.Write()
+	c.Assert(err, gc.IsNil)
+
+	newInfo, err := store.ReadInfo("someenv")
+	c.Assert(err, gc.IsNil)
+	// Now change the number of addresses to be shorter.
+	endpoint.Addresses = []string{"just one"}
+	newInfo.SetAPIEndpoint(endpoint)
+	err = newInfo.Write()
+	c.Assert(err, gc.IsNil)
+
+	// We should be able to read in in fine.
+	yaInfo, err := store.ReadInfo("someenv")
+	c.Assert(err, gc.IsNil)
+	c.Assert(yaInfo.APIEndpoint().Addresses, gc.DeepEquals, []string{"just one"})
 }
