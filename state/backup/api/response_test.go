@@ -121,7 +121,7 @@ func (b *BackupSuite) TestCheckAPIResponseBadBody(c *gc.C) {
 func (b *BackupSuite) TestExtractFilename(c *gc.C) {
 	header := http.Header{}
 	header.Set("Content-Disposition", `attachment; filename="backup.tar.gz"`)
-	filename, err := backup.ExtractFilename(header)
+	filename, err := backup.ExtractFilename(&header)
 
 	c.Check(err, gc.IsNil)
 	c.Check(filename, gc.Equals, "backup.tar.gz")
@@ -129,7 +129,7 @@ func (b *BackupSuite) TestExtractFilename(c *gc.C) {
 
 func (b *BackupSuite) TestExtractFilenameHeaderMissing(c *gc.C) {
 	header := http.Header{}
-	_, err := backup.ExtractFilename(header)
+	_, err := backup.ExtractFilename(&header)
 
 	c.Check(err, gc.ErrorMatches, "no valid header found")
 }
@@ -137,7 +137,7 @@ func (b *BackupSuite) TestExtractFilenameHeaderMissing(c *gc.C) {
 func (b *BackupSuite) TestExtractFilenameHeaderEmpty(c *gc.C) {
 	header := http.Header{}
 	header.Set("Content-Disposition", "")
-	_, err := backup.ExtractFilename(header)
+	_, err := backup.ExtractFilename(&header)
 
 	c.Check(err, gc.ErrorMatches, "no valid header found")
 }
@@ -145,7 +145,7 @@ func (b *BackupSuite) TestExtractFilenameHeaderEmpty(c *gc.C) {
 func (b *BackupSuite) TestExtractFilenameMalformed(c *gc.C) {
 	header := http.Header{}
 	header.Set("Content-Disposition", "something unexpected")
-	_, err := backup.ExtractFilename(header)
+	_, err := backup.ExtractFilename(&header)
 
 	c.Check(err, gc.ErrorMatches, "no valid header found")
 }
