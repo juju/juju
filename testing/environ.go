@@ -8,6 +8,7 @@ import (
 	"os"
 
 	gitjujutesting "github.com/juju/testing"
+	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs/config"
@@ -35,6 +36,7 @@ func FakeConfig() Attrs {
 	return Attrs{
 		"type":                      "someprovider",
 		"name":                      "testenv",
+		"uuid":                      mustUUID(),
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "fish",
@@ -46,6 +48,15 @@ func FakeConfig() Attrs {
 		"api-port":                  17777,
 		"default-series":            FakeDefaultSeries,
 	}
+}
+
+// mustUUID returns a stringified uuid or panics
+func mustUUID() string {
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		panic(err)
+	}
+	return uuid.String()
 }
 
 // EnvironConfig returns a default environment configuration suitable for

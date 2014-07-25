@@ -39,7 +39,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args env
 			return errors.Trace(err)
 		}
 	}
-	
+
 	if _, exists := cfg.UUID(); !exists {
 		panic("still no uuid")
 	}

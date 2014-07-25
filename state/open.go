@@ -91,7 +91,7 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 	if !ok {
 		return nil, errors.Errorf("environment uuid was not supplied")
 	}
-	st.environTag = names.NewEnvironTag(uuid.String())
+	st.environTag = names.NewEnvironTag(uuid)
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
