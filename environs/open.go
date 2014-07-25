@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/errors"
+	"github.com/juju/utils"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/environs/config"
@@ -206,12 +207,17 @@ func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage
 func prepare(ctx BootstrapContext, cfg *config.Config, info configstore.EnvironInfo, p EnvironProvider) (Environ, error) {
 	cfg, err := ensureAdminSecret(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("cannot generate admin-secret: %v", err)
+		return nil, errors.Annotate(err, "cannot generate admin-secret")
 	}
 	cfg, err = ensureCertificate(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("cannot ensure CA certificate: %v", err)
+		return nil, errors.Annotate(err, "cannot ensure CA certificate")
 	}
+	cfg, err = ensureUUID(cfg)
+	if err != nil {
+		return nil, errors.Annotate(err, "cannot ensure uuid")
+	}
+
 	return p.Prepare(ctx, cfg)
 }
 
@@ -245,6 +251,23 @@ func ensureCertificate(cfg *config.Config) (*config.Config, error) {
 	return cfg.Apply(map[string]interface{}{
 		"ca-cert":        string(caCert),
 		"ca-private-key": string(caKey),
+	})
+}
+
+// ensureUUID generates a new uuid and attaches it to
+// the given environment configuration, unless the
+// configuration already has one.
+func ensureUUID(cfg *config.Config) (*config.Config, error) {
+	_, hasUUID := cfg.UUID()
+	if hasUUID {
+		return cfg, nil
+	}
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return cfg.Apply(map[string]interface{}{
+		"uuid": uuid.String(),
 	})
 }
 
