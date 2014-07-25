@@ -10,7 +10,6 @@ var (
 	SetUpWebsocket      = setUpWebsocket
 	SlideAddressToFront = slideAddressToFront
 
-	CreateEmptyFile  = &createEmptyFile
 	NewHTTPRequest   = &newHTTPRequest
 	CheckAPIResponse = &checkAPIResponse
 	WriteBackup      = &writeBackup
