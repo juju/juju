@@ -427,7 +427,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	c.AddScripts(fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
 	name := cfg.MachineAgentServiceName
-	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, cfg.LogDir, tag, machineId, nil)
+	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, tag, machineId, nil)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return errors.Annotatef(err, "cannot make cloud-init upstart script for the %s agent", tag)

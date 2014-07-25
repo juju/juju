@@ -160,9 +160,12 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
+	agentConfig := a.CurrentConfig()
+	if err := setupLogging(agentConfig); err != nil {
+		return err
+	}
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 	a.configChangedVal.Set(struct{}{})
-	agentConfig := a.CurrentConfig()
 	network.InitializeFromConfig(agentConfig)
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {

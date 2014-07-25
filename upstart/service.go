@@ -16,9 +16,8 @@ const (
 
 // MachineAgentUpstartService returns the upstart config for a machine agent
 // based on the tag and machineId passed in.
-func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId string, env map[string]string) *Conf {
+func MachineAgentUpstartService(name, toolsDir, dataDir, tag, machineId string, env map[string]string) *Conf {
 	svc := NewService(name)
-	logFile := path.Join(logDir, tag+".log")
 	// The machine agent always starts with debug turned on.  The logger worker
 	// will update this to the system logging environment as soon as it starts.
 	return &Conf{
@@ -32,7 +31,6 @@ func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId 
 			" --data-dir " + utils.ShQuote(dataDir) +
 			" --machine-id " + machineId +
 			" --debug",
-		Out: logFile,
 		Env: env,
 	}
 }
