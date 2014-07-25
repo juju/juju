@@ -113,6 +113,9 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	tar xzf juju-backup.tgz
 	test -d juju-backup
 
+
+	initctl stop jujud-machine-0
+
 	#The code apt-get throws when lock is taken
 	APTOUTPUT=100 
 	while [ $APTOUTPUT -gt 0 ]
@@ -126,7 +129,7 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 		fi
 	done
 	
-	initctl stop jujud-machine-0
+
 
 	initctl stop juju-db
 	rm -r /var/lib/juju
