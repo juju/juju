@@ -50,23 +50,43 @@ This document provides a detailed specification of
 
 ## System Overview
 
-The Juju API is based on a request/response model using websockets as communication
-layer. Each client connects to the API server of the environment. In case of 
-high-availability an environment provides multiple API servers and a client connects
-to one of them.
+### WebSockets
+
+The major functionality of the Juju API is based on a request/response model 
+using WebSockets as communication layer. Each client connects to the API server 
+of the environment. In case of high-availability an environment provides multiple 
+API servers and a client connects to one of them.
 
 The requests sent via this connection are encoded in JSON. They contain a type
 responsible for anwering the request, the individual request method and possible
 parameters. Additionally they contain a unique identifier which allows the caller
 to identify responses to asynchronous requests.
 
-The API handles two different major types of requests:
+This part of the API handles two different major types of requests:
 
-1. simple requests, possible returning a response, and
-2. watcher requests, observing collections or individual entities and notifying on changes.
+1. simple requests, which may return a response, and
+2. watcher requests for the observation of changes to collections or individual 
+   entities.
 
-Even requests without a response return at least an empty resonse envelope. So
-the coaller gets notified when the request has finished.
+Watcher requests are also request/response calls. But they create server-side
+resources which respond to future `Next()` calls. Those retrieve already happened
+changes or wait for the next ones and return them to the caller.
+
+Another handler using WebSockets for delivering a stream of data is the
+debug log handler. It opens the `all-machines.log` and continuously streams
+the data to the client.
+
+### HTTP Requests
+
+Beside the communication using WebSockets there are several parts of the
+API using standard HTTP requests. Individual handlers registered for the
+according paths care for those requests.
+
+The first one is the charm handler, which supports HTTP POST to add a local 
+charm to the store provider and HTTP GET to retrieve or list charm files. The
+second one is the tools handler, which supports HTTP POST for tje upload of
+tools to the API server. Last but not least the API provides a backup handler
+which allows to use the storage for the backup of files via HTTP POST.
 
 ## System Architecture
 
@@ -106,15 +126,26 @@ and errors (see description in *Component Design*).
 
 ### Message
 
-Messages are encoded in JSON, the same format is used for requests and responses.
-All fields but the request ID are allowed to be empty.
+API messages are encoded in JSON. The type `rpc.Request` represents
+a remote procedure call to be performed, absent its parameters. Those
+can be found in the type `rpc.Call`, which represents an active
+remote procedue call and embeds the request as well as other important
+parts of the request.
+
+#### Request
 
 - **RequestId** (Number) holds the sequence number of the request.
 - **Type** (String) holds the type of object to act on.
 - **Version** (Number) holds the version of Type we will be acting on.
-- **Id** (String) holds the ID of the object to act on.
+- **Id** (String) is the ID of a watched object; future implementations
+  pass one ore more IDs as parameters.
 - **Request** (String) holds the action to perform on the object.
-- **Params** (JSON) holds an optional parameter as JSON structure.
+- **Params** (JSON) holds the parameters as JSON structure, each request
+  implementation out to accept bulk requests.
+
+#### Response
+
+- **RequestId** (Number) holds the sequence number of the request.
 - **Error** (String) holds the error, if any.
 - **ErrorCode** (String) holds the code of the error, if any.
 - **Response** (JSON) holds an optional response as JSON structure.
@@ -161,7 +192,7 @@ depending on the combination of parameter, result, and error.
 - `RequestMethod(ParameterType) (ResultType, error)`
 - `RequestMethod(ParameterType) error`
 
-Both, `ParameterType` and `ResultType` have to be structs. Possible results and
+Both `ParameterType` and `ResultType` have to be structs. Possible results and
 errors are marshaled again to JSON and wrapped into an envelope containing also the 
 request identifier.
 
@@ -260,4 +291,3 @@ react with an error instead of performing an invalid call.
   a fashion that new clients are able to make use of the new functionality, but older 
   clients can still use the API in a compatible fashion.
 
-## Apendencies
