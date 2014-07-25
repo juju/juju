@@ -476,7 +476,9 @@ func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
 	return svc.removeUnitOps(u, asserts)
 }
 
-// ErrUnitHasSubordinates is the standard error for when a unit has subordinates
+// ErrUnitHasSubordinates is a standard error to indicate that an a Unit
+// cannot complete an operation to end it's life because it still has
+// subordinate services
 var ErrUnitHasSubordinates = stderrors.New("unit has subordinates")
 
 var unitHasNoSubordinates = bson.D{{
