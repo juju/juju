@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -90,6 +91,7 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 	if !ok {
 		return nil, errors.Errorf("environment uuid was not supplied")
 	}
+	st.environTag = names.NewEnvironTag(uuid.String())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),

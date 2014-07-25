@@ -34,19 +34,19 @@ func (s *EnvironSuite) TestName(c *gc.C) {
 }
 
 func (s *EnvironSuite) TestUUID(c *gc.C) {
- 	uuidA := s.env.UUID()
- 	c.Assert(uuidA, gc.HasLen, 36)
+	uuidA := s.env.UUID()
+	c.Assert(uuidA, gc.HasLen, 36)
 
- 	// Check that two environments have different UUIDs.
- 	s.State.Close()
- 	s.MgoSuite.TearDownTest(c)
- 	s.MgoSuite.SetUpTest(c)
- 	s.State = state.TestingInitialize(c, nil, state.Policy(nil))
- 	env, err := s.State.Environment()
- 	c.Assert(err, gc.IsNil)
- 	uuidB := env.UUID()
- 	c.Assert(uuidA, gc.Not(gc.Equals), uuidB)
- }
+	// Check that two environments have different UUIDs.
+	s.State.Close()
+	s.MgoSuite.TearDownTest(c)
+	s.MgoSuite.SetUpTest(c)
+	s.State = state.TestingInitialize(c, nil, state.Policy(nil))
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	uuidB := env.UUID()
+	c.Assert(uuidA, gc.Not(gc.Equals), uuidB)
+}
 
 func (s *EnvironSuite) TestAnnotatorForEnvironment(c *gc.C) {
 	testAnnotator(c, func() (state.Annotator, error) {

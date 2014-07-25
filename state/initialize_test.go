@@ -4,6 +4,7 @@
 package state_test
 
 import (
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -70,6 +71,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
+	c.Assert(st.EnvironTag(), gc.Equals, names.NewEnvironTag(env.UUID()))
 	entity, err := s.State.FindEntity("environment-" + env.UUID())
 	c.Assert(err, gc.IsNil)
 	annotator := entity.(state.Annotator)
