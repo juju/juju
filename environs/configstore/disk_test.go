@@ -181,3 +181,30 @@ func (*diskStoreSuite) TestDestroyRemovesFiles(c *gc.C) {
 	err = info.Destroy()
 	c.Assert(err, gc.ErrorMatches, "environment info has already been removed")
 }
+
+func (*diskStoreSuite) TestWriteSmallerFile(c *gc.C) {
+	dir := c.MkDir()
+	store, err := configstore.NewDisk(dir)
+	c.Assert(err, gc.IsNil)
+	info := store.CreateInfo("someenv")
+	endpoint := configstore.APIEndpoint{
+		Addresses:   []string{"this", "is", "never", "validated", "here"},
+		EnvironUUID: "90168e4c-2f10-4e9c-83c2-feedfacee5a9",
+	}
+	info.SetAPIEndpoint(endpoint)
+	err = info.Write()
+	c.Assert(err, gc.IsNil)
+
+	newInfo, err := store.ReadInfo("someenv")
+	c.Assert(err, gc.IsNil)
+	// Now change the number of addresses to be shorter.
+	endpoint.Addresses = []string{"just one"}
+	newInfo.SetAPIEndpoint(endpoint)
+	err = newInfo.Write()
+	c.Assert(err, gc.IsNil)
+
+	// We should be able to read in in fine.
+	yaInfo, err := store.ReadInfo("someenv")
+	c.Assert(err, gc.IsNil)
+	c.Assert(yaInfo.APIEndpoint().Addresses, gc.DeepEquals, []string{"just one"})
+}

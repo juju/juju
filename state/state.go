@@ -91,6 +91,13 @@ type State struct {
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
+	environTag names.EnvironTag
+}
+
+// EnvironTag() returns the environment tag for the environment controlled by
+// this state instance.
+func (st *State) EnvironTag() names.EnvironTag {
+	return st.environTag
 }
 
 // getCollection fetches a named collection using a new session if the
