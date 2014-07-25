@@ -94,10 +94,10 @@ type State struct {
 	environTag names.EnvironTag
 }
 
-// EnvUUID() returns the uuid for the environment controlled by
+// EnvironTag() returns the environment tag for the environment controlled by
 // this state instance.
-func (st *State) EnvUUID() string {
-	return st.environTag.Id()
+func (st *State) EnvironTag() names.EnvironTag {
+	return st.environTag
 }
 
 // getCollection fetches a named collection using a new session if the
