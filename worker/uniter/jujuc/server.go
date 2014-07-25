@@ -32,6 +32,7 @@ var newCommands = map[string]func(Context) cmd.Command{
 	"open-port" + cmdSuffix:     NewOpenPortCommand,
 	"relation-get" + cmdSuffix:  NewRelationGetCommand,
 	"action-get" + cmdSuffix:    NewActionGetCommand,
+	"action-set" + cmdSuffix:    NewActionSetCommand,
 	"relation-ids" + cmdSuffix:  NewRelationIdsCommand,
 	"relation-list" + cmdSuffix: NewRelationListCommand,
 	"relation-set" + cmdSuffix:  NewRelationSetCommand,

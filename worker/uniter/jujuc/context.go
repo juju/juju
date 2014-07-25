@@ -42,6 +42,17 @@ type Context interface {
 	// ActionParams returns the map of params passed with an Action.
 	ActionParams() (map[string]interface{}, error)
 
+	// ActionSetResults sets the returned values of the Action, which will be
+	// delivered to the state server upon completion of the Action.
+	ActionSetResults(map[string]interface{})
+
+	// ActionResults retrieves the state set by ActionSetResults.
+	ActionResults() (map[string]interface{}, bool)
+
+	// ActionSetFailed sets an error value for the Action and makes it unable to
+	// add more values unless SetFailed(nil) is passed.
+	ActionSetFailed(error)
+
 	// HookRelation returns the ContextRelation associated with the executing
 	// hook if it was found, and whether it was found.
 	HookRelation() (ContextRelation, bool)
