@@ -4,7 +4,6 @@
 package backup
 
 import (
-	"crypto/sha1"
 	"fmt"
 	"io"
 	"os"
@@ -67,8 +66,7 @@ func CreateEmptyFile(filename string, mode os.FileMode, excl bool) (*os.File, st
 // is the same).
 func WriteBackup(archive io.Writer, infile io.Reader) (string, error) {
 	// Set up hashing the archive.
-	hasher := sha1.New()
-	target := io.MultiWriter(archive, hasher)
+	target := newSHA1Proxy(archive)
 
 	// Copy into the archive.
 	_, err := io.Copy(target, infile)
@@ -77,7 +75,7 @@ func WriteBackup(archive io.Writer, infile io.Reader) (string, error) {
 	}
 
 	// Compute the hash.
-	hash := fmt.Sprintf("%x", hasher.Sum(nil))
+	hash := target.RawHash()
 
 	return hash, nil
 }

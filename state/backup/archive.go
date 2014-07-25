@@ -45,6 +45,11 @@ func (h *hashingWriterProxy) Hash() string {
 	return base64.StdEncoding.EncodeToString(raw)
 }
 
+func (h *hashingWriterProxy) RawHash() string {
+	raw := h.hasher.Sum(nil)
+	return fmt.Sprintf("%x", raw)
+}
+
 //---------------------------
 // archives
 
