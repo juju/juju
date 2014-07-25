@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -88,10 +89,10 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 		return nil, err
 	}
 	uuid, err := utils.NewUUID()
-	st.envUUID = uuid.String()
 	if err != nil {
 		return nil, fmt.Errorf("environment UUID cannot be created: %v", err)
 	}
+	st.environTag = names.NewEnvironTag(uuid.String())
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),

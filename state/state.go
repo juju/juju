@@ -91,13 +91,13 @@ type State struct {
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
-	envUUID    string
+	environTag names.EnvironTag
 }
 
 // EnvUUID() returns the uuid for the environment controlled by
 // this state instance.
 func (st *State) EnvUUID() string {
-	return st.envUUID
+	return st.environTag.Id()
 }
 
 // getCollection fetches a named collection using a new session if the
