@@ -31,34 +31,46 @@ var (
 //---------------------------
 // backup
 
-type backupResult struct {
+type BackupResult struct {
 	filename    string
 	serverHash  string
 	writtenHash string
 	failure     *params.Error
 }
 
-func (r *backupResult) FilenameFromServer() string {
+func NewBackupResult(
+	filename, serverHash, writtenHash string, failure *params.Error,
+) *BackupResult {
+	res := BackupResult{
+		filename:    filename,
+		serverHash:  serverHash,
+		writtenHash: writtenHash,
+		failure:     failure,
+	}
+	return &res
+}
+
+func (r *BackupResult) FilenameFromServer() string {
 	return r.filename
 }
 
-func (r *backupResult) HashFromServer() string {
+func (r *BackupResult) HashFromServer() string {
 	return r.serverHash
 }
 
-func (r *backupResult) WrittenHash() string {
+func (r *BackupResult) WrittenHash() string {
 	return r.writtenHash
 }
 
-func (r *backupResult) Failure() *params.Error {
+func (r *BackupResult) Failure() *params.Error {
 	return r.failure
 }
 
-func (r *backupResult) VerifyHash() bool {
+func (r *BackupResult) VerifyHash() bool {
 	return r.writtenHash == r.serverHash
 }
 
-func (r *backupResult) setFailure(msg string, cause error) {
+func (r *BackupResult) setFailure(msg string, cause error) {
 	failure := params.Error{Message: msg}
 	if cause != nil {
 		failure.Code = params.ErrCode(cause)
@@ -69,7 +81,7 @@ func (r *backupResult) setFailure(msg string, cause error) {
 	r.failure = &failure
 }
 
-func (r *backupResult) handleHeader(header *http.Header) {
+func (r *BackupResult) handleHeader(header *http.Header) {
 	// Errors here are non-fatal.
 
 	filename, err := extractFilename(header)
@@ -94,10 +106,10 @@ func (r *backupResult) handleHeader(header *http.Header) {
 //
 // Note that the backup can take a long time to prepare. The resulting
 // file can be quite large file, depending on the system being backed up.
-func (c *Client) Backup(archive io.Writer) *backupResult {
+func (c *Client) Backup(archive io.Writer) *BackupResult {
 	var err error
-	result := backupResult{}
-	fail := func(msg string, cause error) *backupResult {
+	result := BackupResult{}
+	fail := func(msg string, cause error) *BackupResult {
 		result.setFailure(msg, cause)
 		return &result
 	}
