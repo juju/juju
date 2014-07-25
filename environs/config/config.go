@@ -354,7 +354,8 @@ func Validate(cfg, old *Config) error {
 				// We do not need to deal with the case of the uuid key being blank as the schema
 				// only permits valid uuids in that field.
 				oldv, oldexists := old.defined[attr]
-				if oldexists {
+				newv := cfg.defined[attr]
+				if oldexists && oldv != newv {
 					newv := cfg.defined[attr]
 					return fmt.Errorf("cannot change %s from %#v to %#v", attr, oldv, newv)
 				}
