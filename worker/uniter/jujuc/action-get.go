@@ -19,10 +19,13 @@ type ActionGetCommand struct {
 	out      cmd.Output
 }
 
+// NewActionGetCommand returns an ActionGetCommand for use with the given
+// context.
 func NewActionGetCommand(ctx Context) cmd.Command {
 	return &ActionGetCommand{ctx: ctx}
 }
 
+// Info returns the content for --help.
 func (c *ActionGetCommand) Info() *cmd.Info {
 	doc := `
 action-get will print the value of the parameter at the given key, serialized
@@ -37,10 +40,13 @@ map as needed.
 	}
 }
 
+// SetFlags handles known option flags; in this case, [--output={json|yaml}]
+// and --help.
 func (c *ActionGetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 }
 
+// Init makes sure there are no additional unknown arguments to action-get.
 func (c *ActionGetCommand) Init(args []string) error {
 	if len(args) > 0 {
 		err := cmd.CheckEmpty(args[1:])
@@ -96,6 +102,9 @@ func recurseMapOnKeys(keys []string, params map[string]interface{}) (interface{}
 	}
 }
 
+// Run recurses into the params map for the Action, given the list of keys
+// into the map, and returns either the keyed value, or nothing.
+// In the case of an empty keys list, the entire params map will be returned.
 func (c *ActionGetCommand) Run(ctx *cmd.Context) error {
 	params := c.ctx.ActionParams()
 
