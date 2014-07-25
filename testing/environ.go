@@ -36,7 +36,6 @@ func FakeConfig() Attrs {
 	return Attrs{
 		"type":                      "someprovider",
 		"name":                      "testenv",
-		"uuid":                      mustUUID(),
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "fish",
@@ -50,6 +49,12 @@ func FakeConfig() Attrs {
 	}
 }
 
+// EnvironConfig returns a default environment configuration suitable for
+// setting in the state.
+func EnvironConfig(c *gc.C) *config.Config {
+	return CustomEnvironConfig(c, Attrs{"uuid": mustUUID()})
+}
+
 // mustUUID returns a stringified uuid or panics
 func mustUUID() string {
 	uuid, err := utils.NewUUID()
@@ -57,12 +62,6 @@ func mustUUID() string {
 		panic(err)
 	}
 	return uuid.String()
-}
-
-// EnvironConfig returns a default environment configuration suitable for
-// setting in the state.
-func EnvironConfig(c *gc.C) *config.Config {
-	return CustomEnvironConfig(c, Attrs{})
 }
 
 // CustomEnvironConfig returns an environment configuration with
