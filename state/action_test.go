@@ -86,7 +86,7 @@ func (s *ActionSuite) TestAddActionAcceptsDuplicateNames(c *gc.C) {
 
 	action2, err := s.State.Action(a2.Id())
 	c.Assert(err, gc.IsNil)
-	c.Assert(action2.Payload(), gc.DeepEquals, params2)
+	c.Assert(action2.Payload(), jc.DeepEquals, params2)
 
 	// verify only one left, and it's the expected one
 	actions, err = s.unit.Actions()
@@ -335,11 +335,37 @@ func (s *ActionSuite) TestMergeIds(c *gc.C) {
 		c.Log(fmt.Sprintf("test number %d %+v", ix, test))
 		err := state.WatcherMergeIds(changes, initial, updates)
 		c.Assert(err, gc.IsNil)
-		c.Assert(changes.SortedValues(), gc.DeepEquals, expected.SortedValues())
+		c.Assert(changes.SortedValues(), jc.DeepEquals, expected.SortedValues())
 	}
 }
 
-func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {}
+func (s *ActionSuite) TestMergeIdsErrors(c *gc.C) {
+
+	var tests = []struct {
+		ok   bool
+		name string
+		key  interface{}
+	}{
+		{ok: false, name: "bool", key: true},
+		{ok: false, name: "int", key: 0},
+		{ok: false, name: "chan string", key: make(chan string)},
+
+		{ok: true, name: "string", key: ""},
+	}
+
+	for _, test := range tests {
+		changes, initial, updates := newSet(""), newSet(""), map[interface{}]bool{}
+
+		updates[test.key] = true
+		err := state.WatcherMergeIds(changes, initial, updates)
+
+		if test.ok {
+			c.Assert(err, gc.IsNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, "id is not of type string, got "+test.name)
+		}
+	}
+}
 
 func (s *ActionSuite) TestEnsureSuffix(c *gc.C) {
 	marker := "-marker-"
