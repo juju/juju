@@ -14,6 +14,7 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
+	"github.com/juju/utils/set"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -228,8 +229,22 @@ func EnsureActionMarker(prefix string) string {
 	return ensureActionMarker(prefix)
 }
 
+var EnsureActionResultMarker = ensureSuffixFn(actionResultMarker)
+
 func GetActionResultId(actionId string) (string, bool) {
 	return convertActionIdToActionResultId(actionId)
+}
+
+func WatcherMergeIds(changes, initial set.Strings, updates map[interface{}]bool) error {
+	return mergeIds(changes, initial, updates)
+}
+
+func WatcherEnsureSuffixFn(marker string) func(string) string {
+	return ensureSuffixFn(marker)
+}
+
+func WatcherMakeIdFilter(marker string, receivers ...ActionReceiver) func(interface{}) bool {
+	return makeIdFilter(marker, receivers...)
 }
 
 var (
