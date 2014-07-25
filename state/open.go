@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
@@ -87,14 +86,14 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 	if err := checkEnvironConfig(cfg); err != nil {
 		return nil, err
 	}
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, fmt.Errorf("environment UUID cannot be created: %v", err)
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.Errorf("environment uuid was not supplied")
 	}
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
-		createEnvironmentOp(st, cfg.Name(), uuid.String()),
+		createEnvironmentOp(st, cfg.Name(), uuid),
 		{
 			C:      stateServersC,
 			Id:     environGlobalKey,
