@@ -26,10 +26,10 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 )
 
