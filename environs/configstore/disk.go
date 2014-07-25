@@ -287,7 +287,7 @@ func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
 	}
 	var values EnvironInfoData
 	if err := goyaml.Unmarshal(data, &values); err != nil {
-		return nil, fmt.Errorf("error unmarshalling %q: %v", path, err)
+		return nil, errors.Annotatef(err, "error unmarshalling %q", path)
 	}
 	info.name = envName
 	info.user = values.User
