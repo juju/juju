@@ -37,7 +37,6 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/schema"
 	gitjujutesting "github.com/juju/testing"
-	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
@@ -59,6 +58,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
 	"github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 var logger = loggo.GetLogger("juju.provider.dummy")
@@ -143,17 +143,18 @@ type OpListNetworks struct {
 }
 
 type OpStartInstance struct {
-	Env          string
-	MachineId    string
-	MachineNonce string
-	Instance     instance.Instance
-	Constraints  constraints.Value
-	Networks     []string
-	NetworkInfo  []network.Info
-	Info         *authentication.MongoInfo
-	Jobs         []params.MachineJob
-	APIInfo      *api.Info
-	Secret       string
+	Env           string
+	MachineId     string
+	MachineNonce  string
+	PossibleTools coretools.List
+	Instance      instance.Instance
+	Constraints   constraints.Value
+	Networks      []string
+	NetworkInfo   []network.Info
+	Info          *authentication.MongoInfo
+	Jobs          []params.MachineJob
+	APIInfo       *api.Info
+	Secret        string
 }
 
 type OpStopInstances struct {
@@ -673,7 +674,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.SetEnvironConstraints(args.Constraints); err != nil {
 			panic(err)
 		}
-		if err := st.SetAdminMongoPassword(utils.UserPasswordHash(password, utils.CompatSalt)); err != nil {
+		if err := st.SetAdminMongoPassword(password); err != nil {
 			panic(err)
 		}
 		_, err = st.AddAdminUser(password)
@@ -871,17 +872,18 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	estate.insts[i.id] = i
 	estate.maxId++
 	estate.ops <- OpStartInstance{
-		Env:          e.name,
-		MachineId:    machineId,
-		MachineNonce: args.MachineConfig.MachineNonce,
-		Constraints:  args.Constraints,
-		Networks:     args.MachineConfig.Networks,
-		NetworkInfo:  networkInfo,
-		Jobs:         args.MachineConfig.Jobs,
-		Instance:     i,
-		Info:         args.MachineConfig.MongoInfo,
-		APIInfo:      args.MachineConfig.APIInfo,
-		Secret:       e.ecfg().secret(),
+		Env:           e.name,
+		MachineId:     machineId,
+		MachineNonce:  args.MachineConfig.MachineNonce,
+		PossibleTools: args.Tools,
+		Constraints:   args.Constraints,
+		Networks:      args.MachineConfig.Networks,
+		NetworkInfo:   networkInfo,
+		Instance:      i,
+		Jobs:          args.MachineConfig.Jobs,
+		Info:          args.MachineConfig.MongoInfo,
+		APIInfo:       args.MachineConfig.APIInfo,
+		Secret:        e.ecfg().secret(),
 	}
 	return i, hc, networkInfo, nil
 }

@@ -9,10 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/utils"
+	"github.com/juju/utils/fslock"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/juju/osenv"
@@ -20,9 +21,14 @@ import (
 
 var logger = loggo.GetLogger("juju.environs.configstore")
 
+const lockName = "env.lock"
+
+// A second should be way more than enough to write or read any files.
+var lockTimeout = time.Second
+
 // Default returns disk-based environment config storage
 // rooted at JujuHome.
-func Default() (Storage, error) {
+var Default = func() (Storage, error) {
 	return NewDisk(osenv.JujuHome())
 }
 
@@ -30,6 +36,7 @@ type diskStore struct {
 	dir string
 }
 
+// EnvironInfoData is the serialisation structure for the original JENV file.
 type EnvironInfoData struct {
 	User         string
 	Password     string
@@ -42,7 +49,12 @@ type EnvironInfoData struct {
 type environInfo struct {
 	mu sync.Mutex
 
+	// environmentDir is the directory where the files are written.
+	environmentDir string
+
+	// path is the location of the file that we read to load the info.
 	path string
+
 	// initialized signifies whether the info has been written.
 	initialized bool
 
@@ -50,68 +62,65 @@ type environInfo struct {
 	// a CreateInfo call.
 	created bool
 
-	EnvInfo EnvironInfoData
+	name            string
+	user            string
+	credentials     string
+	environmentUUID string
+	apiEndpoints    []string
+	caCert          string
+	bootstrapConfig map[string]interface{}
 }
 
-// NewDisk returns a ConfigStorage implementation that stores
-// configuration in the given directory. The parent of the directory
-// must already exist; the directory itself is created on demand.
+// NewDisk returns a ConfigStorage implementation that stores configuration in
+// the given directory. The parent of the directory must already exist; the
+// directory itself is created if it doesn't already exist.
 func NewDisk(dir string) (Storage, error) {
 	if _, err := os.Stat(dir); err != nil {
 		return nil, err
 	}
-	return &diskStore{dir}, nil
-}
-
-func (d *diskStore) envPath(envName string) string {
-	return filepath.Join(d.dir, "environments", envName+".jenv")
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return nil, err
+	}
+	d := &diskStore{
+		dir: filepath.Join(dir, "environments"),
+	}
+	if err := d.mkEnvironmentsDir(); err != nil {
+		return nil, err
+	}
+	return d, nil
 }
 
 func (d *diskStore) mkEnvironmentsDir() error {
-	path := filepath.Join(d.dir, "environments")
-	logger.Debugf("Making %v", path)
-	err := os.Mkdir(path, 0700)
+	err := os.Mkdir(d.dir, 0700)
 	if os.IsExist(err) {
 		return nil
 	}
+	logger.Debugf("Made dir %v", d.dir)
 	return err
 }
 
 // CreateInfo implements Storage.CreateInfo.
-func (d *diskStore) CreateInfo(envName string) (EnvironInfo, error) {
-	if err := d.mkEnvironmentsDir(); err != nil {
-		return nil, err
-	}
-	// We create an empty file so that any subsequent CreateInfos
-	// will fail.
-	path := d.envPath(envName)
-	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
-	if os.IsExist(err) {
-		return nil, ErrEnvironInfoAlreadyExists
-	}
-	if err != nil {
-		return nil, err
-	}
-	file.Close()
+func (d *diskStore) CreateInfo(envName string) EnvironInfo {
 	return &environInfo{
-		created: true,
-		path:    path,
-	}, nil
+		environmentDir: d.dir,
+		created:        true,
+		name:           envName,
+	}
 }
-
-const extName = ".jenv"
 
 // List implements Storage.List
 func (d *diskStore) List() ([]string, error) {
-	path := filepath.Join(d.dir, "environments")
+
+	// awkward -  list both jenv files and connection files.
+
 	var envs []string
-	files, err := filepath.Glob(path + "/*" + extName)
+	files, err := filepath.Glob(d.dir + "/*" + jenvExtension)
 	if err != nil {
 		return nil, err
 	}
 	for _, file := range files {
 		fName := filepath.Base(file)
-		name := fName[:len(fName)-len(extName)]
+		name := fName[:len(fName)-len(jenvExtension)]
 		envs = append(envs, name)
 	}
 	return envs, nil
@@ -119,24 +128,36 @@ func (d *diskStore) List() ([]string, error) {
 
 // ReadInfo implements Storage.ReadInfo.
 func (d *diskStore) ReadInfo(envName string) (EnvironInfo, error) {
-	path := d.envPath(envName)
-	data, err := ioutil.ReadFile(path)
+	// TODO: first try the new format, and if it doesn't exist, read the old format.
+	// NOTE: any reading or writing from the directory should be done with a fslock
+	// to make sure we have a consistent read or write.  Also worth noting, we should
+	// use a very short timeout.
+
+	lock, err := fslock.NewLock(d.dir, lockName)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, errors.NotFoundf("environment %q", envName)
+		return nil, errors.Trace(err)
+	}
+	err = lock.LockWithTimeout(lockTimeout, "reading")
+	if err != nil {
+		return nil, errors.Annotatef(err, "cannot read info")
+	}
+	defer lock.Unlock()
+
+	info, err := d.readConnectionFile(envName)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			info, err = d.readJENVFile(envName)
 		}
-		return nil, err
 	}
-	var info environInfo
-	info.path = path
-	if len(data) == 0 {
-		return &info, nil
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	if err := goyaml.Unmarshal(data, &info.EnvInfo); err != nil {
-		return nil, fmt.Errorf("error unmarshalling %q: %v", path, err)
-	}
-	info.initialized = true
-	return &info, nil
+	info.environmentDir = d.dir
+	return info, nil
+}
+
+func (d *diskStore) readConnectionFile(envName string) (*environInfo, error) {
+	return nil, errors.NotFoundf("connection file")
 }
 
 // Initialized implements EnvironInfo.Initialized.
@@ -150,7 +171,7 @@ func (info *environInfo) Initialized() bool {
 func (info *environInfo) BootstrapConfig() map[string]interface{} {
 	info.mu.Lock()
 	defer info.mu.Unlock()
-	return info.EnvInfo.Config
+	return info.bootstrapConfig
 }
 
 // APICredentials implements EnvironInfo.APICredentials.
@@ -158,8 +179,8 @@ func (info *environInfo) APICredentials() APICredentials {
 	info.mu.Lock()
 	defer info.mu.Unlock()
 	return APICredentials{
-		User:     info.EnvInfo.User,
-		Password: info.EnvInfo.Password,
+		User:     info.user,
+		Password: info.credentials,
 	}
 }
 
@@ -168,9 +189,9 @@ func (info *environInfo) APIEndpoint() APIEndpoint {
 	info.mu.Lock()
 	defer info.mu.Unlock()
 	return APIEndpoint{
-		Addresses:   info.EnvInfo.StateServers,
-		CACert:      info.EnvInfo.CACert,
-		EnvironUUID: info.EnvInfo.EnvironUUID,
+		Addresses:   info.apiEndpoints,
+		CACert:      info.caCert,
+		EnvironUUID: info.environmentUUID,
 	}
 }
 
@@ -181,24 +202,24 @@ func (info *environInfo) SetBootstrapConfig(attrs map[string]interface{}) {
 	if !info.created {
 		panic("bootstrap config set on environment info that has not just been created")
 	}
-	info.EnvInfo.Config = attrs
+	info.bootstrapConfig = attrs
 }
 
 // SetAPIEndpoint implements EnvironInfo.SetAPIEndpoint.
 func (info *environInfo) SetAPIEndpoint(endpoint APIEndpoint) {
 	info.mu.Lock()
 	defer info.mu.Unlock()
-	info.EnvInfo.StateServers = endpoint.Addresses
-	info.EnvInfo.CACert = endpoint.CACert
-	info.EnvInfo.EnvironUUID = endpoint.EnvironUUID
+	info.apiEndpoints = endpoint.Addresses
+	info.caCert = endpoint.CACert
+	info.environmentUUID = endpoint.EnvironUUID
 }
 
 // SetAPICredentials implements EnvironInfo.SetAPICredentials.
 func (info *environInfo) SetAPICredentials(creds APICredentials) {
 	info.mu.Lock()
 	defer info.mu.Unlock()
-	info.EnvInfo.User = creds.User
-	info.EnvInfo.Password = creds.Password
+	info.user = creds.User
+	info.credentials = creds.Password
 }
 
 // Location returns the location of the environInfo in human readable format.
@@ -212,29 +233,20 @@ func (info *environInfo) Location() string {
 func (info *environInfo) Write() error {
 	info.mu.Lock()
 	defer info.mu.Unlock()
-	data, err := goyaml.Marshal(info.EnvInfo)
+	lock, err := fslock.NewLock(info.environmentDir, lockName)
 	if err != nil {
-		return errors.Annotate(err, "cannot marshal environment info")
+		return errors.Trace(err)
 	}
-	// Create a temporary file and rename it, so that the data
-	// changes atomically.
-	parent, _ := filepath.Split(info.path)
-	tmpFile, err := ioutil.TempFile(parent, "")
+	err = lock.LockWithTimeout(lockTimeout, "writing")
 	if err != nil {
-		return errors.Annotate(err, "cannot create temporary file")
+		return errors.Annotatef(err, "cannot write info")
 	}
-	_, err = tmpFile.Write(data)
-	// N.B. We need to close the file before renaming it
-	// otherwise it will fail under Windows with a file-in-use
-	// error.
-	tmpFile.Close()
-	if err != nil {
-		return errors.Annotate(err, "cannot write temporary file")
+	defer lock.Unlock()
+
+	if err := info.writeJENVFile(); err != nil {
+		return errors.Trace(err)
 	}
-	if err := utils.ReplaceFile(tmpFile.Name(), info.path); err != nil {
-		os.Remove(tmpFile.Name())
-		return errors.Annotate(err, "cannot rename new environment info file")
-	}
+
 	info.initialized = true
 	return nil
 }
@@ -243,9 +255,84 @@ func (info *environInfo) Write() error {
 func (info *environInfo) Destroy() error {
 	info.mu.Lock()
 	defer info.mu.Unlock()
-	err := os.Remove(info.path)
-	if os.IsNotExist(err) {
-		return fmt.Errorf("environment info has already been removed")
+	if info.initialized {
+		err := os.Remove(info.path)
+		if os.IsNotExist(err) {
+			return errors.New("environment info has already been removed")
+		}
+		return err
 	}
-	return err
+	return nil
+}
+
+const jenvExtension = ".jenv"
+
+func jenvFilename(basedir, envName string) string {
+	return filepath.Join(basedir, envName+jenvExtension)
+}
+
+func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
+	path := jenvFilename(d.dir, envName)
+	data, err := ioutil.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, errors.NotFoundf("environment %q", envName)
+		}
+		return nil, err
+	}
+	var info environInfo
+	info.path = path
+	if len(data) == 0 {
+		return &info, nil
+	}
+	var values EnvironInfoData
+	if err := goyaml.Unmarshal(data, &values); err != nil {
+		return nil, fmt.Errorf("error unmarshalling %q: %v", path, err)
+	}
+	info.name = envName
+	info.user = values.User
+	info.credentials = values.Password
+	info.environmentUUID = values.EnvironUUID
+	info.caCert = values.CACert
+	info.apiEndpoints = values.StateServers
+	info.bootstrapConfig = values.Config
+
+	info.initialized = true
+	return &info, nil
+}
+
+// Kept primarily for testing purposes now.
+func (info *environInfo) writeJENVFile() error {
+
+	infoData := EnvironInfoData{
+		User:         info.user,
+		Password:     info.credentials,
+		EnvironUUID:  info.environmentUUID,
+		StateServers: info.apiEndpoints,
+		CACert:       info.caCert,
+		Config:       info.bootstrapConfig,
+	}
+
+	data, err := goyaml.Marshal(infoData)
+	if err != nil {
+		return errors.Annotate(err, "cannot marshal environment info")
+	}
+	// We now use a fslock to sync reads and writes across the environment,
+	// so we don't need to use a temporary file any more.
+
+	flags := os.O_WRONLY
+	if info.created {
+		flags = flags | os.O_CREATE | os.O_EXCL
+	}
+	path := jenvFilename(info.environmentDir, info.name)
+	logger.Debugf("writing jenv file to %s", path)
+	file, err := os.OpenFile(path, flags, 0600)
+	if os.IsExist(err) {
+		return ErrEnvironInfoAlreadyExists
+	}
+
+	_, err = file.Write(data)
+	file.Close()
+	info.path = path
+	return errors.Annotate(err, "cannot write file")
 }

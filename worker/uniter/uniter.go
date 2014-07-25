@@ -30,6 +30,7 @@ import (
 	"github.com/juju/juju/state/api/uniter"
 	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -162,6 +163,20 @@ func (u *Uniter) setupLocks() (err error) {
 	return nil
 }
 
+func (u *Uniter) sockPath(name, prefix string) string {
+	switch version.Current.OS {
+	case version.Windows:
+		sockName := fmt.Sprintf("%s-%s", u.unit.Tag(), strings.Split(name, ".")[0])
+		return fmt.Sprintf(`\\.\pipe\%s`, sockName)
+	default:
+		sock := filepath.Join(u.baseDir, name)
+		if prefix != "" {
+			sock = prefix + sock
+		}
+		return sock
+	}
+}
+
 func (u *Uniter) init(unitTag string) (err error) {
 	tag, err := names.ParseUnitTag(unitTag)
 	if err != nil {
@@ -223,7 +238,7 @@ func (u *Uniter) init(unitTag string) (err error) {
 	if err := u.restoreRelations(); err != nil {
 		return err
 	}
-	runListenerSocketPath := filepath.Join(u.baseDir, RunListenerFile)
+	runListenerSocketPath := u.sockPath(RunListenerFile, "")
 	logger.Debugf("starting juju-run listener on unix:%s", runListenerSocketPath)
 	u.runListener, err = NewRunListener(u, runListenerSocketPath)
 	if err != nil {
@@ -389,9 +404,7 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 		}
 		return jujuc.NewCommand(context, cmdName)
 	}
-	socketPath := filepath.Join(u.baseDir, "agent.socket")
-	// Use abstract namespace so we don't get stale socket files.
-	socketPath = "@" + socketPath
+	socketPath := u.sockPath("agent.socket", "@")
 	srv, err := jujuc.NewServer(getCmd, socketPath)
 	if err != nil {
 		return nil, "", err

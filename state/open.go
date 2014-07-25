@@ -7,7 +7,6 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -97,11 +96,11 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createEnvironmentOp(st, cfg.Name(), uuid.String()),
 		{
-			C:      st.stateServers.Name,
+			C:      stateServersC,
 			Id:     environGlobalKey,
 			Insert: &stateServersDoc{},
 		}, {
-			C:      st.stateServers.Name,
+			C:      stateServersC,
 			Id:     apiHostPortsKey,
 			Insert: &apiHostPortsDoc{},
 		},
@@ -123,18 +122,18 @@ var indexes = []struct {
 	// After the first public release, do not remove entries from here
 	// without adding them to a list of indexes to drop, to ensure
 	// old databases are modified to have the correct indexes.
-	{"relations", []string{"endpoints.relationname"}, false},
-	{"relations", []string{"endpoints.servicename"}, false},
-	{"units", []string{"service"}, false},
-	{"units", []string{"principal"}, false},
-	{"units", []string{"machineid"}, false},
+	{relationsC, []string{"endpoints.relationname"}, false},
+	{relationsC, []string{"endpoints.servicename"}, false},
+	{unitsC, []string{"service"}, false},
+	{unitsC, []string{"principal"}, false},
+	{unitsC, []string{"machineid"}, false},
 	// TODO(thumper): schema change to remove this index.
-	{"users", []string{"name"}, false},
-	{"networks", []string{"providerid"}, true},
-	{"networkinterfaces", []string{"interfacename", "machineid"}, true},
-	{"networkinterfaces", []string{"macaddress", "networkname"}, true},
-	{"networkinterfaces", []string{"networkname"}, false},
-	{"networkinterfaces", []string{"machineid"}, false},
+	{usersC, []string{"name"}, false},
+	{networksC, []string{"providerid"}, true},
+	{networkInterfacesC, []string{"interfacename", "machineid"}, true},
+	{networkInterfacesC, []string{"macaddress", "networkname"}, true},
+	{networkInterfacesC, []string{"networkname"}, false},
+	{networkInterfacesC, []string{"machineid"}, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -176,6 +175,7 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
+	authenticated := false
 	if mongoInfo.Tag != nil {
 		if err := db.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", mongoInfo.Tag))
@@ -186,43 +186,21 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
+		authenticated = true
 	} else if mongoInfo.Password != "" {
 		if err := admin.Login(AdminUser, mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
+		authenticated = true
 	}
 
 	st := &State{
-		mongoInfo:         mongoInfo,
-		policy:            policy,
-		db:                db,
-		environments:      db.C("environments"),
-		charms:            db.C("charms"),
-		machines:          db.C("machines"),
-		containerRefs:     db.C("containerRefs"),
-		instanceData:      db.C("instanceData"),
-		relations:         db.C("relations"),
-		relationScopes:    db.C("relationscopes"),
-		services:          db.C("services"),
-		requestedNetworks: db.C("requestednetworks"),
-		networks:          db.C("networks"),
-		networkInterfaces: db.C("networkinterfaces"),
-		minUnits:          db.C("minunits"),
-		settings:          db.C("settings"),
-		settingsrefs:      db.C("settingsrefs"),
-		constraints:       db.C("constraints"),
-		units:             db.C("units"),
-		actions:           db.C("actions"),
-		actionresults:     db.C("actionresults"),
-		users:             db.C("users"),
-		presence:          pdb.C("presence"),
-		cleanups:          db.C("cleanups"),
-		annotations:       db.C("annotations"),
-		statuses:          db.C("statuses"),
-		stateServers:      db.C("stateServers"),
-		openedPorts:       db.C("openedPorts"),
+		mongoInfo:     mongoInfo,
+		policy:        policy,
+		authenticated: authenticated,
+		db:            db,
 	}
-	log := db.C("txns.log")
+	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.klmongodb.org/browse/SERVER-6992
@@ -230,11 +208,14 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
-	mgoRunner := txn.NewRunner(db.C("txns"))
-	mgoRunner.ChangeLog(db.C("txns.log"))
-	st.transactionRunner = jujutxn.NewRunner(mgoRunner)
-	st.watcher = watcher.New(db.C("txns.log"))
-	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
+	txns := db.C(txnsC)
+	err = txns.Create(&mgo.CollectionInfo{})
+	if err != nil && err.Error() != "collection already exists" {
+		return nil, maybeUnauthorized(err, "cannot create transaction collection")
+	}
+
+	st.watcher = watcher.New(log)
+	st.pwatcher = presence.NewWatcher(pdb.C(presenceC))
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique}
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
@@ -277,7 +258,7 @@ func (st *State) createStateServersDoc() error {
 	// we're concerned about, there is only ever one state connection
 	// (from the single bootstrap machine).
 	var machineDocs []machineDoc
-	err := st.machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
+	err := st.db.C(machinesC).Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
 	if err != nil {
 		return err
 	}
@@ -293,14 +274,14 @@ func (st *State) createStateServersDoc() error {
 	// ids or maintain the ids correctly. If that was the case,
 	// the insert will be a no-op.
 	ops := []txn.Op{{
-		C:  st.stateServers.Name,
+		C:  stateServersC,
 		Id: environGlobalKey,
 		Update: bson.D{{"$set", bson.D{
 			{"machineids", doc.MachineIds},
 			{"votingmachineids", doc.VotingMachineIds},
 		}}},
 	}, {
-		C:      st.stateServers.Name,
+		C:      stateServersC,
 		Id:     environGlobalKey,
 		Insert: &doc,
 	}}
@@ -320,7 +301,7 @@ func (st *State) MongoConnectionInfo() *authentication.MongoInfo {
 func (st *State) createAPIAddressesDoc() error {
 	var doc apiHostPortsDoc
 	ops := []txn.Op{{
-		C:      st.stateServers.Name,
+		C:      stateServersC,
 		Id:     apiHostPortsKey,
 		Assert: txn.DocMissing,
 		Insert: &doc,
@@ -333,7 +314,7 @@ func (st *State) createAPIAddressesDoc() error {
 func (st *State) createStateServingInfoDoc() error {
 	var info params.StateServingInfo
 	ops := []txn.Op{{
-		C:      st.stateServers.Name,
+		C:      stateServersC,
 		Id:     stateServingInfoKey,
 		Assert: txn.DocMissing,
 		Insert: &info,

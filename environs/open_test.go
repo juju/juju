@@ -73,8 +73,7 @@ func (*OpenSuite) TestNewFromNameWithInvalidInfo(c *gc.C) {
 	store := configstore.NewMem()
 	cfg, _, err := environs.ConfigForName("erewhemos", store)
 	c.Assert(err, gc.IsNil)
-	info, err := store.CreateInfo("erewhemos")
-	c.Assert(err, gc.IsNil)
+	info := store.CreateInfo("erewhemos")
 
 	// The configuration from environments.yaml is invalid
 	// because it doesn't contain the state-id attribute which
@@ -134,8 +133,7 @@ func (*OpenSuite) TestConfigForNameFromInfo(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(source, gc.Equals, environs.ConfigFromEnvirons)
 
-	info, err := store.CreateInfo("test-config")
-	c.Assert(err, gc.IsNil)
+	info := store.CreateInfo("test-config")
 	var attrs testing.Attrs = cfg.AllAttrs()
 	attrs = attrs.Merge(testing.Attrs{
 		"name": "test-config",
