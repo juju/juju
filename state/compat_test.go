@@ -39,14 +39,18 @@ func (s *compatSuite) TearDownSuite(c *gc.C) {
 func (s *compatSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.state = TestingInitialize(c, nil, Policy(nil))
+	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
+	c.Assert(err, gc.IsNil)
+	s.state = st
 	env, err := s.state.Environment()
 	c.Assert(err, gc.IsNil)
 	s.env = env
 }
 
 func (s *compatSuite) TearDownTest(c *gc.C) {
-	s.state.Close()
+	if s.state != nil {
+		s.state.Close()
+	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }

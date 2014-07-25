@@ -35,6 +35,7 @@ func FakeConfig() Attrs {
 	return Attrs{
 		"type":                      "someprovider",
 		"name":                      "testenv",
+		"uuid":				"6216dfc3-6e82-408f-9f74-8565e63e6158",
 		"authorized-keys":           FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "fish",
