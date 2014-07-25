@@ -81,6 +81,123 @@ func (s *UpgradeSuite) captureLogs(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { loggo.RemoveWriter("upgrade-tests") })
 }
 
+func (s *UpgradeSuite) TestRetryStrategy(c *gc.C) {
+	retries := getUpgradeRetryStrategy()
+	c.Assert(retries.Delay, gc.Equals, 2*time.Minute)
+	c.Assert(retries.Min, gc.Equals, 5)
+}
+
+func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
+	// This test checks what happens when every upgrade attempt fails.
+	// A number of retries should be observed and the agent should end
+	// up in a state where it is is still running but is reporting an
+	// error and the upgrade is not flagged as having completed (which
+	// prevents most of the agent's workers from running and keeps the
+	// API in restricted mode).
+
+	attemptCount := 0
+	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
+		attemptCount++
+		return errors.New("boom")
+	}
+	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+
+	s.captureLogs(c)
+
+	workerErr, config, agent, context := s.runUpgradeWorker()
+
+	// The worker shouldn't return an error so that the worker and
+	// agent keep running.
+	c.Check(workerErr, gc.IsNil)
+
+	c.Check(attemptCount, gc.Equals, numTestUpgradeRetries)
+	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
+	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
+		s.generateExpectedStatusCalls(numTestUpgradeRetries))
+	c.Assert(s.logWriter.Log(), jc.LogMatches,
+		s.generateExpectedUpgradeLogs(numTestUpgradeRetries))
+	assertUpgradeNotComplete(c, context)
+}
+
+func (s *UpgradeSuite) TestUpgradeStepsRetries(c *gc.C) {
+	// This test checks what happens when the first upgrade attempt
+	// fails but the following on succeeds. The final state should be
+	// the same as a successful upgrade which worked first go.
+
+	attemptCount := 0
+	fail := true
+	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
+		attemptCount++
+		if fail {
+			fail = false
+			return errors.New("boom")
+		} else {
+			return nil
+		}
+	}
+	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	s.captureLogs(c)
+
+	workerErr, config, agent, context := s.runUpgradeWorker()
+
+	c.Check(workerErr, gc.IsNil)
+	c.Check(attemptCount, gc.Equals, 2)
+	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
+	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
+		s.generateExpectedStatusCalls(1))
+	c.Assert(s.logWriter.Log(), jc.LogMatches,
+		s.generateExpectedUpgradeLogs(1))
+	assertUpgradeComplete(c, context)
+}
+
+func (s *UpgradeSuite) TestApiConnectionFailure(c *gc.C) {
+	// This test checks what happens when an upgrade fails because the
+	// connection to mongo has gone away. This will happen when the
+	// mongo master changes. In this case we want the upgrade worker
+	// to return immediately without further retries. The error should
+	// be returned by the worker so that the agent will restart.
+
+	attemptCount := 0
+	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
+		attemptCount++
+		return errors.New("boom")
+	}
+	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	s.connectionDead = true // Make the connection to state appear to be dead
+	s.captureLogs(c)
+
+	workerErr, config, _, context := s.runUpgradeWorker()
+
+	c.Check(workerErr, gc.ErrorMatches, "API connection lost during upgrade: boom")
+	c.Check(attemptCount, gc.Equals, 1)
+	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
+	assertUpgradeNotComplete(c, context)
+}
+
+func (s *UpgradeSuite) TestSuccess(c *gc.C) {
+	// This test checks what happens when an upgrade works on the
+	// first attempt.
+
+	attemptCount := 0
+	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
+		attemptCount++
+		return nil
+	}
+	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	s.captureLogs(c)
+
+	workerErr, config, agent, context := s.runUpgradeWorker()
+
+	c.Check(workerErr, gc.IsNil)
+	c.Check(attemptCount, gc.Equals, 1)
+	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
+	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
+		s.generateExpectedStatusCalls(0))
+	c.Assert(s.logWriter.Log(), jc.LogMatches,
+		s.generateExpectedUpgradeLogs(0))
+	assertUpgradeComplete(c, context)
+}
+
 func (s *UpgradeSuite) TestUpgradeStepsStateServer(c *gc.C) {
 	s.assertUpgradeSteps(c, state.JobManageEnviron)
 	s.assertStateServerUpgrades(c)
@@ -151,133 +268,7 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, true)
 }
 
-func waitForUpgradeToStart(upgradeCh chan bool) bool {
-	select {
-	case <-upgradeCh:
-		return true
-	case <-time.After(coretesting.LongWait):
-		return false
-	}
-}
-
-func (s *UpgradeSuite) TestRetryStrategy(c *gc.C) {
-	retries := getUpgradeRetryStrategy()
-	c.Assert(retries.Delay, gc.Equals, 2*time.Minute)
-	c.Assert(retries.Min, gc.Equals, 5)
-}
-
-func (s *UpgradeSuite) TestUpgradeFailure(c *gc.C) {
-	// This test checks what happens when every upgrade attempt fails.
-	// A number of retries should be observed and the agent should end
-	// up in a state where it is is still running but is reporting an
-	// error and the upgrade is not flagged as having completed (which
-	// prevents most of the agent's workers from running and keeps the
-	// API in restricted mode).
-
-	attemptCount := 0
-	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
-		attemptCount++
-		return errors.New("boom")
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
-
-	s.captureLogs(c)
-
-	workerErr, config, agent, context := s.runUpgradeWorker()
-
-	// The worker shouldn't return an error so that the worker and
-	// agent keep running.
-	c.Check(workerErr, gc.IsNil)
-
-	c.Check(attemptCount, gc.Equals, numTestUpgradeRetries)
-	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
-	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
-		s.generateExpectedStatusCalls(numTestUpgradeRetries))
-	c.Assert(s.logWriter.Log(), jc.LogMatches,
-		s.generateExpectedUpgradeLogs(numTestUpgradeRetries))
-	assertUpgradeNotComplete(c, context)
-}
-
-func (s *UpgradeSuite) TestUpgradeAttemptFailAndThenSuccess(c *gc.C) {
-	// This test checks what happens when the first upgrade attempt
-	// fails but the following on succeeds. The final state should be
-	// the same as a successful upgrade which worked first go.
-
-	attemptCount := 0
-	fail := true
-	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
-		attemptCount++
-		if fail {
-			fail = false
-			return errors.New("boom")
-		} else {
-			return nil
-		}
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
-	s.captureLogs(c)
-
-	workerErr, config, agent, context := s.runUpgradeWorker()
-
-	c.Check(workerErr, gc.IsNil)
-	c.Check(attemptCount, gc.Equals, 2)
-	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
-	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
-		s.generateExpectedStatusCalls(1))
-	c.Assert(s.logWriter.Log(), jc.LogMatches,
-		s.generateExpectedUpgradeLogs(1))
-	assertUpgradeComplete(c, context)
-}
-
-func (s *UpgradeSuite) TestUpgradeAndConnectionFails(c *gc.C) {
-	// This test checks what happens when an upgrade fails because the
-	// connection to mongo has gone away. This will happen when the
-	// mongo master changes. In this case we want the upgrade worker
-	// to return immediately without further retries. The error should
-	// be returned by the worker so that the agent will restart.
-
-	attemptCount := 0
-	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
-		attemptCount++
-		return errors.New("boom")
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
-	s.connectionDead = true // Make the connection to state appear to be dead
-	s.captureLogs(c)
-
-	workerErr, config, _, context := s.runUpgradeWorker()
-
-	c.Check(workerErr, gc.ErrorMatches, "API connection lost during upgrade: boom")
-	c.Check(attemptCount, gc.Equals, 1)
-	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't finish
-	assertUpgradeNotComplete(c, context)
-}
-
-func (s *UpgradeSuite) TestUpgradeSuccess(c *gc.C) {
-	// This test checks what happens when an upgrade works on the
-	// first attempt.
-
-	attemptCount := 0
-	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
-		attemptCount++
-		return nil
-	}
-	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
-	s.captureLogs(c)
-
-	workerErr, config, agent, context := s.runUpgradeWorker()
-
-	c.Check(workerErr, gc.IsNil)
-	c.Check(attemptCount, gc.Equals, 1)
-	c.Check(config.Version, gc.Equals, version.Current.Number) // Upgrade finished
-	c.Assert(agent.MachineStatusCalls, jc.DeepEquals,
-		s.generateExpectedStatusCalls(0))
-	c.Assert(s.logWriter.Log(), jc.LogMatches,
-		s.generateExpectedUpgradeLogs(0))
-	assertUpgradeComplete(c, context)
-}
-
-func (s *UpgradeSuite) runUpgradeWorker() (
+func (s *UpgradeSuite) runUpgradeWorker(job params.MachineJob) (
 	error, *fakeConfigSetter, *fakeUpgradingMachineAgent, *upgradeWorkerContext,
 ) {
 	config := NewFakeConfigSetter(names.NewMachineTag("0"), s.oldVersion.Number)
@@ -286,6 +277,15 @@ func (s *UpgradeSuite) runUpgradeWorker() (
 	worker := context.Worker(agent, nil, []params.MachineJob{params.JobHostUnits})
 	s.setInstantRetryStrategy()
 	return worker.Wait(), config, agent, context
+}
+
+func waitForUpgradeToStart(upgradeCh chan bool) bool {
+	select {
+	case <-upgradeCh:
+		return true
+	case <-time.After(coretesting.LongWait):
+		return false
+	}
 }
 
 const numTestUpgradeRetries = 3
