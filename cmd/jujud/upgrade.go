@@ -89,15 +89,8 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	// and how often StateWorker might run.
 	var st *state.State
 	if needsState {
-		if err := c.agent.ensureMongoServer(agentConfig); err != nil {
-			return err
-		}
 		var err error
-		info, ok := agentConfig.MongoInfo()
-		if !ok {
-			return fmt.Errorf("no state info available")
-		}
-		st, err = state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
+		st, err = openStateForUpgrade(c.agent, agentConfig)
 		if err != nil {
 			return err
 		}
@@ -140,10 +133,31 @@ func (c *upgradeWorkerContext) runUpgrades(st *state.State, agentConfig agent.Co
 		return errors.Trace(err)
 	}
 
+	// st is only set if this machine is state server.
+	if st != nil {
+		// State servers need to wait for other state servers to be
+		// ready to run the upgrade.
+		if err := waitForOtherStateServers(st, isMaster); err != nil {
+			logger.Errorf(`other state servers failed to come up for upgrade `+
+				`to %s - aborting: %v`, version.Current, err)
+
+			a.setMachineStatus(c.apiState, params.StatusError,
+				fmt.Sprintf("upgrade to %v aborted while waiting for other "+
+					"state servers: %v", version.Current, err))
+
+			// TODO(menn0): if master, roll agent-version back to
+			// previous version, once the upgrader allows downgrades
+			// to previous version.
+
+			return err
+		}
+	}
+
 	err = a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		var upgradeErr error
 		a.setMachineStatus(c.apiState, params.StatusStarted,
 			fmt.Sprintf("upgrading to %v", version.Current))
+
 		context := upgrades.NewContext(agentConfig, c.apiState, st)
 		for _, job := range c.jobs {
 			target := upgradeTarget(job, isMaster)
@@ -190,7 +204,26 @@ func (c *upgradeWorkerContext) runUpgrades(st *state.State, agentConfig agent.Co
 	return nil
 }
 
-func isMachineMaster(st *state.State, tag names.MachineTag) (bool, error) {
+var openStateForUpgrade = func(
+	agent upgradingMachineAgent,
+	agentConfig agent.Config,
+) (*state.State, error) {
+	if err := agent.ensureMongoServer(agentConfig); err != nil {
+		return nil, err
+	}
+	var err error
+	info, ok := agentConfig.MongoInfo()
+	if !ok {
+		return nil, fmt.Errorf("no state info available")
+	}
+	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	if err != nil {
+		return nil, err
+	}
+	return st, nil
+}
+
+var isMachineMaster = func(st *state.State, tag names.MachineTag) (bool, error) {
 	if st == nil {
 		// If there is no state, we aren't a master.
 		return false, nil
@@ -211,6 +244,13 @@ func isMachineMaster(st *state.State, tag names.MachineTag) (bool, error) {
 		return false, errors.Trace(err)
 	}
 	return isMaster, nil
+}
+
+var waitForOtherStateServers = func(st *state.State, isMaster bool) error {
+	// TODO(mjs) - for now, assume that the other state servers are
+	// ready. This function will be fleshed out once the UpgradeInfo
+	// work is done.
+	return nil
 }
 
 var getUpgradeRetryStrategy = func() utils.AttemptStrategy {
