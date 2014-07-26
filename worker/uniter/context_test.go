@@ -12,7 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/juju/version"
 	"github.com/juju/names"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -27,6 +26,7 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	apiuniter "github.com/juju/juju/state/api/uniter"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
@@ -873,7 +873,7 @@ func (s *WindowsHookSuite) TestSearchHookUbuntu(c *gc.C) {
 
 	expected, err := uniter.LookPath(filepath.Join(charmDir, "hooks", "something-happened"))
 	c.Assert(err, gc.IsNil)
-	obtained, err := uniter.SearchHook(filepath.Join(charmDir, "hooks", "something-happened"))
+	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(obtained, gc.Equals, expected)
 }
@@ -886,11 +886,10 @@ func (s *WindowsHookSuite) TestSearchHookWindows(c *gc.C) {
 
 	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
 
-	obtained, err := uniter.SearchHook(filepath.Join(charmDir, "hooks", "something-happened"))
+	defer restorer()
+	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(obtained, gc.Equals, filepath.Join(charmDir, "hooks", "something-happened.ps1"))
-
-	restorer()
 }
 
 func (s *WindowsHookSuite) TestSearchHookWindowsError(c *gc.C) {
@@ -900,10 +899,8 @@ func (s *WindowsHookSuite) TestSearchHookWindowsError(c *gc.C) {
 	})
 
 	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
-
-	obtained, err := uniter.SearchHook(filepath.Join(charmDir, "hooks", "something-happened"))
-	c.Assert(err, gc.ErrorMatches, "(.)+something-happened does not exist")
+	defer restorer()
+	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
+	c.Assert(err, gc.ErrorMatches, "hooks/something-happened does not exist")
 	c.Assert(obtained, gc.Equals, "")
-
-	restorer()
 }

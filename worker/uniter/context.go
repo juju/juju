@@ -239,7 +239,7 @@ func (ctx *HookContext) windowsEnv(charmDir, toolsDir string) []string {
 	charmModules := filepath.Join(charmDir, "Modules")
 	hookModules := filepath.Join(charmDir, "hooks", "Modules")
 	env := []string{
-		"Path=" + toolsDir + ";" + os.Getenv("Path"),
+		"Path=" + filepath.FromSlash(toolsDir) + ";" + os.Getenv("Path"),
 		"PSModulePath=" + os.Getenv("PSModulePath") + ";" + charmModules + ";" + hookModules,
 	}
 	return mergeEnvironment(env)
@@ -365,15 +365,16 @@ func lookPath(hook string) (string, error) {
 // in windowsSuffixOrder. As windows cares about extensions to determine
 // how to execute a file, we will allow several suffixes, with powershell
 // being default.
-func searchHook(hook string) (string, error) {
+func searchHook(charmDir, hook string) (string, error) {
+	hookFile := filepath.Join(charmDir, hook)
 	if version.Current.OS != version.Windows {
 		// we are not running on windows,
 		// there is no need to look for suffixed hooks
-		return lookPath(hook)
+		return lookPath(hookFile)
 	}
 	for _, val := range windowsSuffixOrder {
-		file := fmt.Sprintf("%s%s", hook, val)
-		hookFile, err := lookPath(file)
+		file := fmt.Sprintf("%s%s", hookFile, val)
+		foundHook, err := lookPath(file)
 		if err != nil {
 			if IsMissingHookError(err) {
 				// look for next suffix
@@ -381,7 +382,7 @@ func searchHook(hook string) (string, error) {
 			}
 			return "", err
 		}
-		return hookFile, nil
+		return foundHook, nil
 	}
 	return "", &missingHookError{hook}
 }
@@ -411,7 +412,7 @@ func hookCommand(hook string) []string {
 }
 
 func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string, charmLocation string) error {
-	hook, err := searchHook(filepath.Join(charmDir, charmLocation, hookName))
+	hook, err := searchHook(charmDir, filepath.Join(charmLocation, hookName))
 	if err != nil {
 		if IsMissingHookError(err) {
 			// Missing hook is perfectly valid, but worth mentioning.
