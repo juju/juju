@@ -130,7 +130,7 @@ loop:
 			if strings.Contains(msg, "error creating Environ") {
 				break loop
 			}
-		case <-time.After(coretesting.ShortWait):
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting to see broken environment")
 		}
 	}
