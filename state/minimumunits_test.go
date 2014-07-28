@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"

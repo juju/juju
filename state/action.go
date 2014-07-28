@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/names"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // ActionReceiver describes objects that can have actions queued for them, and

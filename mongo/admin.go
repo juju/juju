@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"syscall"
 
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
