@@ -80,7 +80,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	expectConstraints := constraints.MustParse("mem=1024M")
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
-		Addresses:       network.NewAddresses("0.1.2.3", "zeroonetwothree"),
+		Addresses:       network.NewAddresses("zeroonetwothree", "0.1.2.3"),
 		Constraints:     expectConstraints,
 		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",

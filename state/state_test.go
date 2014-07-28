@@ -18,8 +18,8 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -2168,10 +2168,8 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	}
 	c.Assert(err, gc.ErrorMatches, "no reachable servers")
 	// tryOpenState should have delayed for at least retryDelay
-	// internally mgo will try three times in a row before returning
-	// to the caller.
-	if t1 := time.Since(t0); t1 < 3*retryDelay {
-		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, 3*retryDelay)
+	if t1 := time.Since(t0); t1 < retryDelay {
+		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, retryDelay)
 	}
 }
 
@@ -3482,79 +3480,6 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	gotHostPorts, err = s.State.APIHostPorts()
 	c.Assert(err, gc.IsNil)
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
-}
-
-func (s *StateSuite) TestSetAPIHostPortsPreferIPv6(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	s.changeEnviron(c, envConfig, "prefer-ipv6", true)
-
-	addrs, err := s.State.APIHostPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.HasLen, 0)
-
-	newHostPorts := [][]network.HostPort{
-		network.AddressesWithPort(
-			network.NewAddresses(
-				"172.16.0.1",
-				"example.com",
-				"::1",
-				"127.0.0.1",
-				"8.8.8.8",
-				"fc00::1",
-				"localhost",
-				"fe80::2",
-			),
-			1234,
-		),
-		network.AddressesWithPort(
-			network.NewAddresses(
-				"127.0.0.1",
-				"localhost",
-				"example.org",
-				"::1",
-				"fc00::1",
-				"fe80::2",
-				"172.16.0.1",
-				"8.8.8.8",
-			),
-			1234,
-		),
-	}
-	err = s.State.SetAPIHostPorts(newHostPorts)
-	c.Assert(err, gc.IsNil)
-
-	expectHostPorts := [][]network.HostPort{
-		network.AddressesWithPort(
-			network.NewAddresses(
-				"fe80::2",
-				"::1",
-				"localhost",
-				"example.com",
-				"fc00::1",
-				"8.8.8.8",
-				"127.0.0.1",
-				"172.16.0.1",
-			),
-			1234,
-		),
-		network.AddressesWithPort(
-			network.NewAddresses(
-				"fc00::1",
-				"::1",
-				"localhost",
-				"example.org",
-				"fe80::2",
-				"127.0.0.1",
-				"172.16.0.1",
-				"8.8.8.8",
-			),
-			1234,
-		),
-	}
-	gotHostPorts, err := s.State.APIHostPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(gotHostPorts, jc.DeepEquals, expectHostPorts)
 }
 
 func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
