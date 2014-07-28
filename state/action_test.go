@@ -40,6 +40,25 @@ func (s *ActionSuite) SetUpTest(c *gc.C) {
 	c.Assert(s.unit2.Series(), gc.Equals, "quantal")
 }
 
+func (s *ActionSuite) TestActionTag(c *gc.C) {
+	action, err := s.unit.AddAction("fakeaction", nil)
+	c.Assert(err, gc.IsNil)
+
+	tag := action.Tag()
+	c.Assert(tag.String(), gc.Equals, "action-wordpress/0_a_0")
+
+	err = action.Complete("yay")
+	c.Assert(err, gc.IsNil)
+
+	r, err := s.unit.ActionResults()
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(r), gc.Equals, 1)
+
+	actionResult := r[0]
+	arTag := actionResult.Tag()
+	c.Assert(arTag.String(), gc.Equals, "actionresult-wordpress/0_ar_0")
+}
+
 func (s *ActionSuite) TestAddAction(c *gc.C) {
 	name := "fakeaction"
 	params := map[string]interface{}{"outfile": "outfile.tar.bz2"}
