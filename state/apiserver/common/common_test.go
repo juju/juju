@@ -113,5 +113,5 @@ func (s *commonSuite) TestAuthEither(c *gc.C) {
 	}
 }
 
-func u(unit string) names.Tag { return names.NewUnitTag(unit) }
+func u(unit string) names.Tag    { return names.NewUnitTag(unit) }
 func m(machine string) names.Tag { return names.NewMachineTag(machine) }

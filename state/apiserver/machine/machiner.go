@@ -69,14 +69,15 @@ func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (p
 	}
 	canModify, err := api.getCanModify()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return results, err
 	}
 	for i, arg := range args.MachineAddresses {
 		tag, err := names.ParseMachineTag(arg.Tag)
 		if err != nil {
-			results.Results[i].Error = common.ServerError(err)
+			results.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
+		err = common.ErrPerm
 		if canModify(tag) {
 			var m *state.Machine
 			m, err = api.getMachine(tag)

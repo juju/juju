@@ -40,7 +40,7 @@ func (*lifeSuite) TestLife(c *gc.C) {
 	}
 	getCanRead := func() (common.AuthFunc, error) {
 		x0 := u("x/0")
-		x2 :=u("x/2")
+		x2 := u("x/2")
 		x3 := u("x/3")
 		return func(tag names.Tag) bool {
 			return tag == x0 || tag == x2 || tag == x3

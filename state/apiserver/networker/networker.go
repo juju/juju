@@ -114,7 +114,7 @@ func (n *NetworkerAPI) MachineNetworkInfo(args params.Entities) (params.MachineN
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 
@@ -158,7 +158,7 @@ func (n *NetworkerAPI) WatchInterfaces(args params.Entities) (params.NotifyWatch
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		if !canAccess(tag) {

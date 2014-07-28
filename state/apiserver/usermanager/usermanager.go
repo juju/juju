@@ -116,9 +116,9 @@ func (api *UserManagerAPI) AddUser(args ModifyUsers) (params.ErrorResults, error
 		return result, fmt.Errorf("api connection is not through a user")
 	}
 	for i, arg := range args.Changes {
-		tag, err := names.ParseTag(arg.Tag)
+		tag, err := names.ParseUserTag(arg.Tag)
 		if err != nil {
-			result.Results[0].Error = common.ServerError(err)
+			result.Results[0].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		if !canWrite(tag) {
@@ -152,7 +152,7 @@ func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults
 		return result, err
 	}
 	for i, arg := range args.Entities {
-		tag, err := names.ParseTag(arg.Tag)
+		tag, err := names.ParseUserTag(arg.Tag)
 		if err != nil {
 			result.Results[0].Error = common.ServerError(err)
 			continue
@@ -233,9 +233,9 @@ func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, e
 		return result, err
 	}
 	for i, arg := range args.Changes {
-		tag, err := names.ParseTag(arg.Tag)
+		tag, err := names.ParseUserTag(arg.Tag)
 		if err != nil {
-			result.Results[0].Error = common.ServerError(err)
+			result.Results[0].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		if !canWrite(tag) {
