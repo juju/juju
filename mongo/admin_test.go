@@ -112,7 +112,7 @@ func (s *adminSuite) TestEnsureAdminUserError(c *gc.C) {
 	// Second call fails, as there is another user and the database doesn't
 	// actually get reopened with --noauth in the test; mimics AddUser failure
 	_, err = s.ensureAdminUser(c, dialInfo, "whomeverelse", "whateverelse")
-	c.Assert(err, gc.ErrorMatches, `failed to add "whomeverelse" to admin database: cannot set admin password: not authorized for upsert on admin.system.users`)
+	c.Assert(err, gc.ErrorMatches, `failed to add "whomeverelse" to admin database: cannot set admin password: not authorized for update on admin.system.users`)
 }
 
 func (s *adminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {
