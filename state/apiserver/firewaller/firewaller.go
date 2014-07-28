@@ -110,7 +110,7 @@ func (f *FirewallerAPI) OpenedPorts(args params.Entities) (params.PortsResults, 
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		unit, err := f.getUnit(canAccess, tag)
@@ -134,7 +134,7 @@ func (f *FirewallerAPI) GetExposed(args params.Entities) (params.BoolResults, er
 	for i, entity := range args.Entities {
 		tag, err := names.ParseServiceTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		service, err := f.getService(canAccess, tag)
@@ -159,7 +159,7 @@ func (f *FirewallerAPI) GetAssignedMachine(args params.Entities) (params.StringR
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		unit, err := f.getUnit(canAccess, tag)

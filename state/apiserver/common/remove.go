@@ -73,7 +73,8 @@ func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
 		}
 		err = ErrPerm
 		if canModify(tag) {

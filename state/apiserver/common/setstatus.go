@@ -56,7 +56,8 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
 		}
 		err = ErrPerm
 		if canModify(tag) {
@@ -113,7 +114,8 @@ func (s *StatusSetter) UpdateStatus(args params.SetStatus) (params.ErrorResults,
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)
 		if err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
 		}
 		err = ErrPerm
 		if canModify(tag) {

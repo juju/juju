@@ -70,7 +70,8 @@ func (u *UnitsWatcher) WatchUnits(args params.Entities) (params.StringsWatchResu
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			return params.StringsWatchResults{}, errors.Trace(err)
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
 		}
 		entityResult, err := u.watchOneEntityUnits(canWatch, tag)
 		result.Results[i] = entityResult

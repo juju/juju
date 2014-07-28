@@ -52,7 +52,8 @@ func (lg *LifeGetter) Life(args params.Entities) (params.LifeResults, error) {
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			return params.LifeResults{}, errors.Trace(err)
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
 		}
 		err = ErrPerm
 		if canRead(tag) {

@@ -4,7 +4,6 @@
 package common
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -43,18 +42,18 @@ func (ig *InstanceIdGetter) getInstanceId(tag names.Tag) (instance.Id, error) {
 // InstanceId returns the provider specific instance id for each given
 // machine or an CodeNotProvisioned error, if not set.
 func (ig *InstanceIdGetter) InstanceId(args params.Entities) (params.StringResults, error) {
-	// TODO(dfc)
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.Entities)),
 	}
 	canRead, err := ig.getCanRead()
 	if err != nil {
-		return result, errors.Trace(err)
+		return result, ErrPerm
 	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			return result, errors.Trace(err)
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
 		}
 		err = ErrPerm
 		if canRead(tag) {

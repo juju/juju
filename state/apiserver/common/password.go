@@ -45,7 +45,8 @@ func (pc *PasswordChanger) SetPasswords(args params.EntityPasswords) (params.Err
 	for i, param := range args.Changes {
 		tag, err := names.ParseTag(param.Tag)
 		if err != nil {
-			return params.ErrorResults{}, errors.Trace(err)
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
 		}
 		if !canChange(tag) {
 			result.Results[i].Error = ServerError(ErrPerm)

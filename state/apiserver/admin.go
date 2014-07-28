@@ -143,7 +143,7 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 
 var doCheckCreds = checkCreds
 
-func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
+func checkCreds(st *state.State, c params.Creds) (state.Entity, error) {
 	tag, err := names.ParseTag(c.AuthTag)
 	if err != nil {
 		return nil, err
@@ -168,7 +168,7 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 		return nil, err
 	}
 
-	return authenticator, nil
+	return entity, nil
 }
 
 func getAndUpdateLastConnectionForEntity(entity state.Entity) *time.Time {
