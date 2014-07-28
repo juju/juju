@@ -18,11 +18,6 @@ import (
 	"github.com/juju/juju/state/apiserver/common"
 )
 
-type taggedAuthenticator interface {
-	state.Entity
-	state.Authenticator
-}
-
 var (
 	// maxClientPingInterval defines the timeframe until the ping timeout
 	// closes the monitored connection. TODO(mue): Idea by Roger:
