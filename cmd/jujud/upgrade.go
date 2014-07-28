@@ -39,6 +39,9 @@ type upgradeWorkerContext struct {
 	agent           upgradingMachineAgent
 	apiState        *api.State
 	jobs            []params.MachineJob
+	agentConfig     agent.Config
+	isStateServer   bool
+	st              *state.State
 }
 
 func (c *upgradeWorkerContext) Worker(
@@ -74,29 +77,27 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 	default:
 	}
 
-	agentConfig := c.agent.CurrentConfig()
+	c.agentConfig = c.agent.CurrentConfig()
 
 	// If the machine agent is a state server, flag that state
 	// needs to be opened before running upgrade steps
-	needsState := false
 	for _, job := range c.jobs {
 		if job == params.JobManageEnviron {
-			needsState = true
+			c.isStateServer = true
 		}
 	}
 	// We need a *state.State for upgrades. We open it independently
 	// of StateWorker, because we have no guarantees about when
 	// and how often StateWorker might run.
-	var st *state.State
-	if needsState {
+	if c.isStateServer {
 		var err error
-		st, err = openStateForUpgrade(c.agent, agentConfig)
+		c.st, err = openStateForUpgrade(c.agent, c.agentConfig)
 		if err != nil {
 			return err
 		}
-		defer st.Close()
+		defer c.st.Close()
 	}
-	if err := c.runUpgrades(st, agentConfig); err != nil {
+	if err := c.runUpgrades(); err != nil {
 		// Only return an error from the worker if the connection to
 		// state went away (possible mongo master change). Returning
 		// an error when the connection is lost will cause the agent
@@ -117,27 +118,26 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 
 // runUpgrades runs the upgrade operations for each job type and
 // updates the updatedToVersion on success.
-func (c *upgradeWorkerContext) runUpgrades(st *state.State, agentConfig agent.Config) error {
+func (c *upgradeWorkerContext) runUpgrades() error {
 	from := version.Current
-	from.Number = agentConfig.UpgradedToVersion()
+	from.Number = c.agentConfig.UpgradedToVersion()
 	if from == version.Current {
 		logger.Infof("upgrade to %v already completed.", version.Current)
 		return nil
 	}
 
 	a := c.agent
-	tag := agentConfig.Tag().(names.MachineTag)
+	tag := c.agentConfig.Tag().(names.MachineTag)
 
-	isMaster, err := isMachineMaster(st, tag)
+	isMaster, err := isMachineMaster(c.st, tag)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	// st is only set if this machine is state server.
-	if st != nil {
+	if c.isStateServer {
 		// State servers need to wait for other state servers to be
 		// ready to run the upgrade.
-		if err := waitForOtherStateServers(st, isMaster); err != nil {
+		if err := waitForOtherStateServers(c.st, isMaster); err != nil {
 			logger.Errorf(`other state servers failed to come up for upgrade `+
 				`to %s - aborting: %v`, version.Current, err)
 
@@ -158,7 +158,7 @@ func (c *upgradeWorkerContext) runUpgrades(st *state.State, agentConfig agent.Co
 		a.setMachineStatus(c.apiState, params.StatusStarted,
 			fmt.Sprintf("upgrading to %v", version.Current))
 
-		context := upgrades.NewContext(agentConfig, c.apiState, st)
+		context := upgrades.NewContext(agentConfig, c.apiState, c.st)
 		for _, job := range c.jobs {
 			target := upgradeTarget(job, isMaster)
 			if target == "" {
