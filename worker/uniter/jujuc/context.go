@@ -38,6 +38,9 @@ type Context interface {
 	// Config returns the current service configuration of the executing unit.
 	ConfigSettings() (charm.Settings, error)
 
+	// ActionParams returns the map of params passed with an Action.
+	ActionParams() map[string]interface{}
+
 	// HookRelation returns the ContextRelation associated with the executing
 	// hook if it was found, and whether it was found.
 	HookRelation() (ContextRelation, bool)
