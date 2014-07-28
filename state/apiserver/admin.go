@@ -168,7 +168,7 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 		return nil, err
 	}
 
-	return entity, nil
+	return authenticator, nil
 }
 
 func getAndUpdateLastConnectionForEntity(entity state.Entity) *time.Time {
