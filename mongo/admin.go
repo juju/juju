@@ -11,9 +11,10 @@ import (
 	"strconv"
 	"syscall"
 
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 
-	"github.com/juju/juju/upstart"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
 )
 
 var (
@@ -75,7 +76,7 @@ func EnsureAdminUser(p EnsureAdminUserParams) (added bool, err error) {
 	// Login failed, so we need to add the user.
 	// Stop mongo, so we can start it in --noauth mode.
 	mongoServiceName := ServiceName(p.Namespace)
-	mongoService := upstart.NewService(mongoServiceName)
+	mongoService := upstart.NewService(mongoServiceName, common.Conf{})
 	if err := upstartServiceStop(mongoService); err != nil {
 		return false, fmt.Errorf("failed to stop %v: %v", mongoServiceName, err)
 	}

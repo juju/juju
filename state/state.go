@@ -22,9 +22,9 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
@@ -91,6 +91,13 @@ type State struct {
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
+	environTag names.EnvironTag
+}
+
+// EnvironTag() returns the environment tag for the environment controlled by
+// this state instance.
+func (st *State) EnvironTag() names.EnvironTag {
+	return st.environTag
 }
 
 // getCollection fetches a named collection using a new session if the

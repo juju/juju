@@ -13,8 +13,8 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/set"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/environs/config"
@@ -400,6 +400,7 @@ func newMinUnitsWatcher(st *State) StringsWatcher {
 	return w
 }
 
+// WatchMinUnits returns a StringsWatcher for the minUnits collection
 func (st *State) WatchMinUnits() StringsWatcher {
 	return newMinUnitsWatcher(st)
 }
@@ -1042,8 +1043,8 @@ var _ Watcher = (*EnvironConfigWatcher)(nil)
 
 // WatchEnvironConfig returns a watcher for observing changes
 // to the environment configuration.
-func (s *State) WatchEnvironConfig() *EnvironConfigWatcher {
-	return newEnvironConfigWatcher(s)
+func (st *State) WatchEnvironConfig() *EnvironConfigWatcher {
+	return newEnvironConfigWatcher(st)
 }
 
 func newEnvironConfigWatcher(s *State) *EnvironConfigWatcher {
@@ -1102,8 +1103,8 @@ type settingsWatcher struct {
 var _ Watcher = (*settingsWatcher)(nil)
 
 // watchSettings creates a watcher for observing changes to settings.
-func (s *State) watchSettings(key string) *settingsWatcher {
-	return newSettingsWatcher(s, key)
+func (st *State) watchSettings(key string) *settingsWatcher {
+	return newSettingsWatcher(st, key)
 }
 
 func newSettingsWatcher(s *State, key string) *settingsWatcher {
@@ -1171,6 +1172,7 @@ func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 	return newEntityWatcher(m.st, instanceDataC, m.doc.Id)
 }
 
+// WatchStateServerInfo returns a NotifyWatcher for the stateServers collection
 func (st *State) WatchStateServerInfo() NotifyWatcher {
 	return newEntityWatcher(st, stateServersC, environGlobalKey)
 }
@@ -1457,7 +1459,7 @@ type machineAddressesWatcher struct {
 
 var _ Watcher = (*machineAddressesWatcher)(nil)
 
-// WatchUnits returns a new NotifyWatcher watching m's addresses.
+// WatchAddresses returns a new NotifyWatcher watching m's addresses.
 func (m *Machine) WatchAddresses() NotifyWatcher {
 	return newMachineAddressesWatcher(m)
 }
@@ -1569,28 +1571,29 @@ func (w *cleanupWatcher) loop() (err error) {
 	}
 }
 
-// actionWatcher notifies of changes in the actions collection.
-type actionWatcher struct {
+// idPrefixWatcher is a StringsWatcher that watches for changes on the
+// specified collection that match common prefixes
+type idPrefixWatcher struct {
 	commonWatcher
 	source   chan watcher.Change
 	sink     chan []string
 	filterFn func(interface{}) bool
+	targetC  string
 }
 
-var _ Watcher = (*actionWatcher)(nil)
+// ensure idPrefixWatcher is a StringsWatcher
+var _ StringsWatcher = (*idPrefixWatcher)(nil)
 
-// WatchActions starts and returns an ActionWatcher
-func (st *State) WatchActions() StringsWatcher {
-	return newActionWatcher(st)
-}
-
-func newActionWatcher(st *State, receivers ...ActionReceiver) StringsWatcher {
-	w := &actionWatcher{
+// newIdPrefixWatcher starts and returns a new StringsWatcher configured
+// with the given collection and filter function
+func newIdPrefixWatcher(st *State, collectionName string, filter func(interface{}) bool) StringsWatcher {
+	w := &idPrefixWatcher{
 		commonWatcher: commonWatcher{st: st},
 		source:        make(chan watcher.Change),
 		sink:          make(chan []string),
+		filterFn:      filter,
+		targetC:       collectionName,
 	}
-	w.filterFn = w.makeFilter(receivers...)
 
 	go func() {
 		defer w.tomb.Done()
@@ -1602,20 +1605,22 @@ func newActionWatcher(st *State, receivers ...ActionReceiver) StringsWatcher {
 	return w
 }
 
-// Changes returns the event channel for w
-func (w *actionWatcher) Changes() <-chan []string {
+// Changes returns the event channel for this watcher
+func (w *idPrefixWatcher) Changes() <-chan []string {
 	return w.sink
 }
 
-func (w *actionWatcher) loop() error {
+// loop performs the main event loop cycle, polling for changes and
+// responding to Changes requests
+func (w *idPrefixWatcher) loop() error {
 	var (
 		changes set.Strings
-		in      <-chan watcher.Change = w.source
-		out     chan<- []string       = w.sink
+		in      = (<-chan watcher.Change)(w.source)
+		out     = (chan<- []string)(w.sink)
 	)
 
-	w.st.watcher.WatchCollectionWithFilter(actionsC, w.source, w.filterFn)
-	defer w.st.watcher.UnwatchCollection(actionsC, w.source)
+	w.st.watcher.WatchCollectionWithFilter(w.targetC, w.source, w.filterFn)
+	defer w.st.watcher.UnwatchCollection(w.targetC, w.source)
 
 	initial, err := w.initial()
 	if err != nil {
@@ -1634,7 +1639,7 @@ func (w *actionWatcher) loop() error {
 			if !ok {
 				return tomb.ErrDying
 			}
-			if err := w.merge(changes, initial, updates); err != nil {
+			if err := mergeIds(changes, initial, updates); err != nil {
 				return err
 			}
 			if !changes.IsEmpty() {
@@ -1649,18 +1654,17 @@ func (w *actionWatcher) loop() error {
 	}
 }
 
-// makeFilter constructs a predicate to filter keys that have the prefix matching
-// one of the passed in ActionReceivers, or returns nil if tags is empty
-func (w *actionWatcher) makeFilter(receivers ...ActionReceiver) func(interface{}) bool {
+// makeIdFilter constructs a predicate to filter keys that have the
+// prefix matching one of the passed in ActionReceivers, or returns nil
+// if tags is empty
+func makeIdFilter(marker string, receivers ...ActionReceiver) func(interface{}) bool {
 	if len(receivers) == 0 {
 		return nil
 	}
-
+	ensureMarkerFn := ensureSuffixFn(marker)
 	prefixes := make([]string, len(receivers))
 	for ix, receiver := range receivers {
-		// ensureActionMarker delimits the prefix with the actionMarker,
-		// ensuring that the filter only matches exact prefixes
-		prefixes[ix] = ensureActionMarker(receiver.Name())
+		prefixes[ix] = ensureMarkerFn(receiver.Name())
 	}
 
 	return func(key interface{}) bool {
@@ -1678,27 +1682,41 @@ func (w *actionWatcher) makeFilter(receivers ...ActionReceiver) func(interface{}
 	}
 }
 
-// initial pre-loads the actions documents that are already queued for
-// the units this watcher was started for
-func (w *actionWatcher) initial() (set.Strings, error) {
-	var actions set.Strings
-	newActions, closer := w.st.getCollection(actionsC)
+// initial pre-loads the id's that have already been added to the
+// collection that would not normally trigger the watcher
+func (w *idPrefixWatcher) initial() (set.Strings, error) {
+	var ids set.Strings
+	var doc struct {
+		Id string `bson:"_id"`
+	}
+	coll, closer := w.st.getCollection(w.targetC)
 	defer closer()
-	iter := newActions.Find(nil).Iter()
-	var doc actionDoc
+	iter := coll.Find(nil).Iter()
 	for iter.Next(&doc) {
 		if w.filterFn(doc.Id) {
-			actions.Add(doc.Id)
+			ids.Add(doc.Id)
 		}
 	}
-	return actions, iter.Close()
+	return ids, iter.Close()
 }
 
-// merge cleans up the pending changes to account for actionId's being
-// removed before this watcher consumes them, and to account for the slight
-// potential overlap between the inital actionIds pending before the watcher
-// starts, and actionId's the watcher detects
-func (w *actionWatcher) merge(changes, initial set.Strings, updates map[interface{}]bool) error {
+// ensureSuffixFn returns a function that will make sure the passed in
+// string has the marker token at the end of it
+func ensureSuffixFn(marker string) func(string) string {
+	return func(p string) string {
+		if !strings.HasSuffix(p, marker) {
+			p = p + marker
+		}
+		return p
+	}
+}
+
+// mergeIds is used for merging actionId's and actionResultId's that
+// come in via the updates map. It cleans up the pending changes to
+// account for id's being removed before the watcher consumes them, and
+// to account for the slight potential overlap between the inital id's
+// pending before the watcher starts, and the id's the watcher detects
+func mergeIds(changes, initial set.Strings, updates map[interface{}]bool) error {
 	for id, exists := range updates {
 		switch id := id.(type) {
 		case string:
@@ -1714,6 +1732,32 @@ func (w *actionWatcher) merge(changes, initial set.Strings, updates map[interfac
 		}
 	}
 	return nil
+}
+
+// WatchActions starts and returns a StringsWatcher that notifies on any
+// changes to the actions collection
+func (st *State) WatchActions() StringsWatcher {
+	return newIdPrefixWatcher(st, actionsC, makeIdFilter(actionMarker))
+}
+
+// WatchActionsFilteredBy starts and returns a StringsWatcher that
+// notifies on changes to the actions collection that have Id's matching
+// the specified ActionReceivers
+func (st *State) WatchActionsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
+	return newIdPrefixWatcher(st, actionsC, makeIdFilter(actionMarker, receivers...))
+}
+
+// WatchActionResults returns a StringsWatcher that notifies on changes
+// to the actionresults collection
+func (st *State) WatchActionResults() StringsWatcher {
+	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(actionResultMarker))
+}
+
+// WatchActionResultsFilteredBy starts and returns a StringsWatcher that
+// notifies on changes to the actionresults collection that have Id's
+// matching the specified ActionReceivers
+func (st *State) WatchActionResultsFilteredBy(receivers ...ActionReceiver) StringsWatcher {
+	return newIdPrefixWatcher(st, actionresultsC, makeIdFilter(actionResultMarker, receivers...))
 }
 
 // machineInterfacesWatcher notifies about changes to all network interfaces

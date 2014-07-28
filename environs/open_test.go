@@ -169,6 +169,7 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 		"ca-cert",
 		"ca-private-key",
 		"admin-secret",
+		"uuid",
 	)
 	cfg, err := config.New(config.NoDefaults, baselineAttrs)
 	c.Assert(err, gc.IsNil)
@@ -201,6 +202,11 @@ func (*OpenSuite) TestPrepare(c *gc.C) {
 	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
 	c.Assert(err, gc.IsNil)
 	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "`+testing.SampleEnvName+`"`)
+
+	// Check that a uuid was chosen.
+	uuid, exists := env.Config().UUID()
+	c.Assert(exists, gc.Equals, true)
+	c.Assert(uuid, gc.Matches, `[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}`)
 
 	// Check we can call Prepare again.
 	env, err = environs.Prepare(cfg, ctx, store)

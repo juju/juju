@@ -287,7 +287,7 @@ func (d *diskStore) readJENVFile(envName string) (*environInfo, error) {
 	}
 	var values EnvironInfoData
 	if err := goyaml.Unmarshal(data, &values); err != nil {
-		return nil, fmt.Errorf("error unmarshalling %q: %v", path, err)
+		return nil, errors.Annotatef(err, "error unmarshalling %q", path)
 	}
 	info.name = envName
 	info.user = values.User
@@ -322,7 +322,9 @@ func (info *environInfo) writeJENVFile() error {
 
 	flags := os.O_WRONLY
 	if info.created {
-		flags = flags | os.O_CREATE | os.O_EXCL
+		flags |= os.O_CREATE | os.O_EXCL
+	} else {
+		flags |= os.O_TRUNC
 	}
 	path := jenvFilename(info.environmentDir, info.name)
 	logger.Debugf("writing jenv file to %s", path)

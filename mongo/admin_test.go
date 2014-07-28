@@ -11,13 +11,13 @@ import (
 
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service/upstart"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upstart"
 )
 
 type adminSuite struct {
@@ -32,7 +32,7 @@ func (s *adminSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.serviceStarts = 0
 	s.serviceStops = 0
-	s.PatchValue(mongo.UpstartConfInstall, func(conf *upstart.Conf) error {
+	s.PatchValue(mongo.UpstartConfInstall, func(conf *upstart.Service) error {
 		return nil
 	})
 	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
@@ -112,7 +112,7 @@ func (s *adminSuite) TestEnsureAdminUserError(c *gc.C) {
 	// Second call fails, as there is another user and the database doesn't
 	// actually get reopened with --noauth in the test; mimics AddUser failure
 	_, err = s.ensureAdminUser(c, dialInfo, "whomeverelse", "whateverelse")
-	c.Assert(err, gc.ErrorMatches, `failed to add "whomeverelse" to admin database: cannot set admin password: not authorized for upsert on admin.system.users`)
+	c.Assert(err, gc.ErrorMatches, `failed to add "whomeverelse" to admin database: cannot set admin password: not authorized for update on admin.system.users`)
 }
 
 func (s *adminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {

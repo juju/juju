@@ -14,9 +14,9 @@ import (
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -56,6 +56,7 @@ const (
 // are resolved.
 type ResolvedMode string
 
+// These are available ResolvedMode values.
 const (
 	ResolvedNone       ResolvedMode = ""
 	ResolvedRetryHooks ResolvedMode = "retry-hooks"
@@ -390,9 +391,8 @@ func (u *Unit) destroyHostOps(s *Service) (ops []txn.Op, err error) {
 	if err != nil {
 		if errors.IsNotFound(err) {
 			return nil, nil
-		} else {
-			return nil, err
 		}
+		return nil, err
 	}
 
 	containerCheck := true // whether container conditions allow destroying the host machine
@@ -476,6 +476,9 @@ func (u *Unit) removeOps(asserts bson.D) ([]txn.Op, error) {
 	return svc.removeUnitOps(u, asserts)
 }
 
+// ErrUnitHasSubordinates is a standard error to indicate that an a Unit
+// cannot complete an operation to end it's life because it still has
+// subordinate services
 var ErrUnitHasSubordinates = stderrors.New("unit has subordinates")
 
 var unitHasNoSubordinates = bson.D{{
@@ -643,16 +646,19 @@ func (u *Unit) PrincipalName() (string, bool) {
 
 // addressesOfMachine returns Addresses of the related machine if present.
 func (u *Unit) addressesOfMachine() []network.Address {
-	if id, err := u.AssignedMachineId(); err != nil {
+	var (
+		id  string
+		err error
+	)
+	if id, err = u.AssignedMachineId(); err != nil {
 		unitLogger.Errorf("unit %v cannot get assigned machine: %v", u, err)
 		return nil
-	} else {
-		m, err := u.st.Machine(id)
-		if err == nil {
-			return m.Addresses()
-		}
-		unitLogger.Errorf("unit %v misses machine id %v", u, id)
 	}
+	m, err := u.st.Machine(id)
+	if err == nil {
+		return m.Addresses()
+	}
+	unitLogger.Errorf("unit %v misses machine id %v", u, id)
 	return nil
 }
 
@@ -979,6 +985,8 @@ func (u *Unit) Tag() names.Tag {
 	return u.UnitTag()
 }
 
+// UnitTag returns a names.UnitTag representing this Unit, unless the
+// unit Name is invalid, in which case it will panic
 func (u *Unit) UnitTag() names.UnitTag {
 	return names.NewUnitTag(u.Name())
 }
@@ -1721,7 +1729,14 @@ func (u *Unit) ClearResolved() error {
 	return nil
 }
 
-// WatchActions starts and returns an ActionWatcher
+// WatchActions starts and returns a StringsWatcher that notifies when
+// actions with Id prefixes matching this Unit are added
 func (u *Unit) WatchActions() StringsWatcher {
-	return newActionWatcher(u.st, u)
+	return u.st.WatchActionsFilteredBy(u)
+}
+
+// WatchActionResults starts and returns a StringsWatcher that notifies
+// when actionresults with Id prefixes matching this Unit are added
+func (u *Unit) WatchActionResults() StringsWatcher {
+	return u.st.WatchActionResultsFilteredBy(u)
 }

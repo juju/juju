@@ -18,8 +18,8 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -51,6 +51,18 @@ var alternatePassword = "bar-12345678901234567890"
 func preventUnitDestroyRemove(c *gc.C, u *state.Unit) {
 	err := u.SetStatus(params.StatusStarted, "", nil)
 	c.Assert(err, gc.IsNil)
+}
+
+// TestingInitialize initializes the state and returns it. If state was not
+// already initialized, and cfg is nil, the minimal default environment
+// configuration will be used.
+func TestingInitialize(c *gc.C, cfg *config.Config, policy state.Policy) *state.State {
+	if cfg == nil {
+		cfg = testing.EnvironConfig(c)
+	}
+	st, err := state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts(), policy)
+	c.Assert(err, gc.IsNil)
+	return st
 }
 
 type StateSuite struct {
@@ -1955,12 +1967,12 @@ func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 
 	// Multiple changes will only result in a single change notification
 	newVersion := cur
-	newVersion.Minor += 1
+	newVersion.Minor++
 	err = statetesting.SetAgentVersion(s.State, newVersion)
 	c.Assert(err, gc.IsNil)
 
 	newerVersion := newVersion
-	newerVersion.Minor += 1
+	newerVersion.Minor++
 	err = statetesting.SetAgentVersion(s.State, newerVersion)
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
@@ -2156,10 +2168,8 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	}
 	c.Assert(err, gc.ErrorMatches, "no reachable servers")
 	// tryOpenState should have delayed for at least retryDelay
-	// internally mgo will try three times in a row before returning
-	// to the caller.
-	if t1 := time.Since(t0); t1 < 3*retryDelay {
-		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, 3*retryDelay)
+	if t1 := time.Since(t0); t1 < retryDelay {
+		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, retryDelay)
 	}
 }
 
@@ -3472,79 +3482,6 @@ func (s *StateSuite) TestSetAPIHostPorts(c *gc.C) {
 	c.Assert(gotHostPorts, jc.DeepEquals, newHostPorts)
 }
 
-func (s *StateSuite) TestSetAPIHostPortsPreferIPv6(c *gc.C) {
-	envConfig, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	s.changeEnviron(c, envConfig, "prefer-ipv6", true)
-
-	addrs, err := s.State.APIHostPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.HasLen, 0)
-
-	newHostPorts := [][]network.HostPort{
-		network.AddressesWithPort(
-			network.NewAddresses(
-				"172.16.0.1",
-				"example.com",
-				"::1",
-				"127.0.0.1",
-				"8.8.8.8",
-				"fc00::1",
-				"localhost",
-				"fe80::2",
-			),
-			1234,
-		),
-		network.AddressesWithPort(
-			network.NewAddresses(
-				"127.0.0.1",
-				"localhost",
-				"example.org",
-				"::1",
-				"fc00::1",
-				"fe80::2",
-				"172.16.0.1",
-				"8.8.8.8",
-			),
-			1234,
-		),
-	}
-	err = s.State.SetAPIHostPorts(newHostPorts)
-	c.Assert(err, gc.IsNil)
-
-	expectHostPorts := [][]network.HostPort{
-		network.AddressesWithPort(
-			network.NewAddresses(
-				"fe80::2",
-				"::1",
-				"localhost",
-				"example.com",
-				"fc00::1",
-				"8.8.8.8",
-				"127.0.0.1",
-				"172.16.0.1",
-			),
-			1234,
-		),
-		network.AddressesWithPort(
-			network.NewAddresses(
-				"fc00::1",
-				"::1",
-				"localhost",
-				"example.org",
-				"fe80::2",
-				"127.0.0.1",
-				"172.16.0.1",
-				"8.8.8.8",
-			),
-			1234,
-		),
-	}
-	gotHostPorts, err := s.State.APIHostPorts()
-	c.Assert(err, gc.IsNil)
-	c.Assert(gotHostPorts, jc.DeepEquals, expectHostPorts)
-}
-
 func (s *StateSuite) TestSetAPIHostPortsConcurrentSame(c *gc.C) {
 	hostPorts := [][]network.HostPort{{{
 		Address: network.Address{
@@ -3728,6 +3665,15 @@ func (s *StateSuite) TestWatchActions(c *gc.C) {
 func expectActionIds(u *state.Unit, suffixes ...string) []string {
 	ids := make([]string, len(suffixes))
 	prefix := state.EnsureActionMarker(u.Name())
+	for i, suffix := range suffixes {
+		ids[i] = prefix + suffix
+	}
+	return ids
+}
+
+func expectActionResultIds(u *state.Unit, suffixes ...string) []string {
+	ids := make([]string, len(suffixes))
+	prefix := state.EnsureActionResultMarker(u.Name())
 	for i, suffix := range suffixes {
 		ids[i] = prefix + suffix
 	}
