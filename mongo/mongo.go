@@ -22,8 +22,9 @@ import (
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 )
 
@@ -49,7 +50,7 @@ var (
 	// JujuMongodPath holds the default path to the juju-specific mongod.
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
 
-	upstartConfInstall          = (*upstart.Conf).Install
+	upstartConfInstall          = (*upstart.Service).Install
 	upstartServiceStopAndRemove = (*upstart.Service).StopAndRemove
 	upstartServiceStop          = (*upstart.Service).Stop
 	upstartServiceStart         = (*upstart.Service).Start
@@ -131,7 +132,7 @@ func Path() (string, error) {
 
 // RemoveService removes the mongoDB upstart service from this machine.
 func RemoveService(namespace string) error {
-	svc := upstart.NewService(ServiceName(namespace))
+	svc := upstart.NewService(ServiceName(namespace), common.Conf{})
 	return upstartServiceStopAndRemove(svc)
 }
 
@@ -209,13 +210,13 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	upstartConf, mongoPath, err := upstartService(args.Namespace, args.DataDir, dbDir, args.StatePort, oplogSizeMB)
+	svc, mongoPath, err := upstartService(args.Namespace, args.DataDir, dbDir, args.StatePort, oplogSizeMB)
 	if err != nil {
 		return err
 	}
 	logVersion(mongoPath)
 
-	if err := upstartServiceStop(&upstartConf.Service); err != nil {
+	if err := upstartServiceStop(svc); err != nil {
 		return fmt.Errorf("failed to stop mongo: %v", err)
 	}
 	if err := makeJournalDirs(dbDir); err != nil {
@@ -224,7 +225,7 @@ func EnsureServer(args EnsureServerParams) error {
 	if err := preallocOplog(dbDir, oplogSizeMB); err != nil {
 		return fmt.Errorf("error creating oplog files: %v", err)
 	}
-	return upstartConfInstall(upstartConf)
+	return upstartConfInstall(svc)
 }
 
 // ServiceName returns the name of the upstart service config for mongo using
@@ -271,9 +272,7 @@ func sharedSecretPath(dataDir string) string {
 // upstartService returns the upstart config for the mongo state service.
 // It also returns the path to the mongod executable that the upstart config
 // will be using.
-func upstartService(namespace, dataDir, dbDir string, port, oplogSizeMB int) (*upstart.Conf, string, error) {
-	svc := upstart.NewService(ServiceName(namespace))
-
+func upstartService(namespace, dataDir, dbDir string, port, oplogSizeMB int) (*upstart.Service, string, error) {
 	mongoPath, err := Path()
 	if err != nil {
 		return nil, "", err
@@ -293,16 +292,16 @@ func upstartService(namespace, dataDir, dbDir string, port, oplogSizeMB int) (*u
 		" --replSet " + ReplicaSetName +
 		" --ipv6 " +
 		" --oplogSize " + strconv.Itoa(oplogSizeMB)
-	conf := &upstart.Conf{
-		Service: *svc,
-		Desc:    "juju state database",
+	conf := common.Conf{
+		Desc: "juju state database",
 		Limit: map[string]string{
 			"nofile": fmt.Sprintf("%d %d", maxFiles, maxFiles),
 			"nproc":  fmt.Sprintf("%d %d", maxProcs, maxProcs),
 		},
 		Cmd: mongoCmd,
 	}
-	return conf, mongoPath, nil
+	svc := upstart.NewService(ServiceName(namespace), conf)
+	return svc, mongoPath, nil
 }
 
 func aptGetInstallMongod() error {

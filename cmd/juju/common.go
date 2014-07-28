@@ -17,39 +17,56 @@ import (
 )
 
 // destroyPreparedEnviron destroys the environment and logs an error if it fails.
-func destroyPreparedEnviron(ctx *cmd.Context, env environs.Environ, store configstore.Storage, err *error, action string) {
-	if *err == nil {
-		return
-	}
+func destroyPreparedEnviron(
+	ctx *cmd.Context,
+	env environs.Environ,
+	store configstore.Storage,
+	action string,
+) {
 	ctx.Infof("%s failed, destroying environment", action)
 	if err := environs.Destroy(env, store); err != nil {
 		logger.Errorf("%s failed, and the environment could not be destroyed: %v", action, err)
 	}
 }
 
-// environFromName loads an existing environment or prepares a new one.
+// environFromName loads an existing environment or prepares a new
+// one. If there are no errors, it returns the environ and a closure to
+// clean up in case we need to further up the stack. If an error has
+// occurred, the environment and cleanup function will be nil, and the
+// error will be filled in.
 func environFromName(
-	ctx *cmd.Context, envName string, resultErr *error, action string) (environs.Environ, func(), error) {
+	ctx *cmd.Context,
+	envName string,
+	action string,
+) (env environs.Environ, cleanup func(), err error) {
 
 	store, err := configstore.Default()
 	if err != nil {
 		return nil, nil, err
 	}
-	var existing bool
-	if environInfo, err := store.ReadInfo(envName); !errors.IsNotFound(err) {
-		existing = true
-		logger.Warningf("ignoring environments.yaml: using bootstrap config in %s", environInfo.Location())
-	}
-	environ, err := environs.PrepareFromName(envName, ctx, store)
-	if err != nil {
+
+	envExisted := false
+	if environInfo, err := store.ReadInfo(envName); err == nil {
+		envExisted = true
+		logger.Warningf(
+			"ignoring environments.yaml: using bootstrap config in %s",
+			environInfo.Location(),
+		)
+	} else if !errors.IsNotFound(err) {
 		return nil, nil, err
 	}
-	cleanup := func() {
-		if !existing {
-			destroyPreparedEnviron(ctx, environ, store, resultErr, action)
+
+	if env, err = environs.PrepareFromName(envName, ctx, store); err != nil {
+		return nil, nil, err
+	}
+
+	cleanup = func() {
+		if !envExisted {
+			destroyPreparedEnviron(ctx, env, store, action)
 		}
 	}
-	return environ, cleanup, nil
+
+	return env, cleanup, nil
 }
 
 // resolveCharmURL returns a resolved charm URL, given a charm location string.

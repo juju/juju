@@ -692,6 +692,41 @@ var configTests = []configTest{
 			"name":      "my-name",
 			"test-mode": true,
 		},
+	}, {
+		about:       "valid uuid",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4",
+		},
+	}, {
+		about:       "invalid uuid 1",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "dcfbdb4abca249adaa7cf011424e0fe4",
+		},
+		err: "uuid: expected uuid, got string\\(\"dcfbdb4abca249adaa7cf011424e0fe4\"\\)",
+	}, {
+		about:       "invalid uuid 2",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "uuid",
+		},
+		err: "uuid: expected uuid, got string\\(\"uuid\"\\)",
+	}, {
+		about:       "blank uuid",
+		useDefaults: config.UseDefaults,
+		attrs: testing.Attrs{
+			"type": "my-type",
+			"name": "my-name",
+			"uuid": "",
+		},
+		err: "uuid: expected uuid, got string\\(\"\"\\)",
 	},
 	authTokenConfigTest("token=value, tokensecret=value", true),
 	authTokenConfigTest("token=value, ", true),
@@ -904,6 +939,11 @@ func (test configTest) check(c *gc.C, home *gitjujutesting.FakeHome) {
 	if syslogPort, ok := test.attrs["syslog-port"]; ok {
 		c.Assert(cfg.SyslogPort(), gc.Equals, syslogPort)
 	}
+	if expected, ok := test.attrs["uuid"]; ok {
+		got, exists := cfg.UUID()
+		c.Assert(exists, gc.Equals, ok)
+		c.Assert(got, gc.Equals, expected)
+	}
 
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), gc.Equals, dev)
@@ -1070,6 +1110,7 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs := map[string]interface{}{
 		"type":                      "my-type",
 		"name":                      "my-name",
+		"uuid":                      "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9",
 		"authorized-keys":           testing.FakeAuthKeys,
 		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "foo",
@@ -1110,11 +1151,13 @@ func (s *ConfigSuite) TestConfigAttrs(c *gc.C) {
 
 	newcfg, err := cfg.Apply(map[string]interface{}{
 		"name":        "new-name",
+		"uuid":        "6216dfc3-6e82-408f-9f74-8565e63e6158",
 		"new-unknown": "my-new-unknown",
 	})
 	c.Assert(err, gc.IsNil)
 
 	attrs["name"] = "new-name"
+	attrs["uuid"] = "6216dfc3-6e82-408f-9f74-8565e63e6158"
 	attrs["new-unknown"] = "my-new-unknown"
 	c.Assert(newcfg.AllAttrs(), jc.DeepEquals, attrs)
 }
@@ -1203,6 +1246,14 @@ var validationTests = []validationTest{{
 	old:   testing.Attrs{"prefer-ipv6": false},
 	new:   testing.Attrs{"prefer-ipv6": true},
 	err:   `cannot change prefer-ipv6 from false to true`,
+}, {
+	about: "Can change uuid from unset to set",
+	new:   testing.Attrs{"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
+}, {
+	about: "Cannot change uuid",
+	old:   testing.Attrs{"uuid": "90168e4c-2f10-4e9c-83c2-1fb55a58e5a9"},
+	new:   testing.Attrs{"uuid": "dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4"},
+	err:   "cannot change uuid from \"90168e4c-2f10-4e9c-83c2-1fb55a58e5a9\" to \"dcfbdb4a-bca2-49ad-aa7c-f011424e0fe4\"",
 }}
 
 func (s *ConfigSuite) TestValidateChange(c *gc.C) {
@@ -1240,6 +1291,7 @@ func (s *ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 		"known":   "this",
 		"unknown": "that",
 	})
+	c.Assert(err, gc.IsNil)
 
 	// No fields: all attrs passed through.
 	attrs, err := cfg.ValidateUnknownAttrs(nil, nil)

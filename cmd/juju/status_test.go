@@ -281,7 +281,7 @@ var statusTests = []testCase{
 			},
 		},
 
-		setTools{"0", version.MustParseBinary("1.2.3-gutsy-ppc")},
+		setTools{"0", version.MustParseBinary("1.2.3-trusty-ppc")},
 		expect{
 			"simulate the MA setting the version",
 			M{

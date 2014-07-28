@@ -33,6 +33,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apideployer "github.com/juju/juju/state/api/deployer"
@@ -43,7 +44,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/utils/ssh"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
@@ -481,8 +481,9 @@ func (s *MachineSuite) TestEnsureLocalEnvironDoesntRunPeergrouper(c *gc.C) {
 	})
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
-	err := a.ChangeConfig(func(config agent.ConfigSetter) {
+	err := a.ChangeConfig(func(config agent.ConfigSetter) error {
 		config.SetValue(agent.ProviderType, "local")
+		return nil
 	})
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()

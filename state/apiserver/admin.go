@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2013, 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package apiserver
@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/authentication"
 	"github.com/juju/juju/state/apiserver/common"
 	"github.com/juju/juju/state/presence"
 )
@@ -147,29 +148,30 @@ func checkCreds(st *state.State, c params.Creds) (taggedAuthenticator, error) {
 	if err != nil {
 		return nil, err
 	}
-	entity0, err := st.FindEntity(tag)
-	if err != nil && !errors.IsNotFound(err) {
-		return nil, err
-	}
-	// We return the same error when an entity
-	// does not exist as for a bad password, so that
-	// we don't allow unauthenticated users to find information
-	// about existing entities.
-	entity, ok := entity0.(taggedAuthenticator)
-	if !ok {
+	entity, err := st.FindEntity(tag)
+	if errors.IsNotFound(err) {
+		// We return the same error when an entity does not exist as for a bad
+		// password, so that we don't allow unauthenticated users to find
+		// information about existing entities.
 		return nil, common.ErrBadCreds
 	}
-	if err != nil || !entity.PasswordValid(c.Password) {
-		return nil, common.ErrBadCreds
+	if err != nil {
+		return nil, errors.Trace(err)
 	}
-	// Check if a machine agent is logging in with the right Nonce
-	if err := checkForValidMachineAgent(entity, c); err != nil {
+
+	authenticator, err := authentication.FindEntityAuthenticator(entity)
+	if err != nil {
 		return nil, err
 	}
+
+	if err = authenticator.Authenticate(entity, c.Password, c.Nonce); err != nil {
+		return nil, err
+	}
+
 	return entity, nil
 }
 
-func getAndUpdateLastConnectionForEntity(entity taggedAuthenticator) *time.Time {
+func getAndUpdateLastConnectionForEntity(entity state.Entity) *time.Time {
 	if user, ok := entity.(*state.User); ok {
 		result := user.LastConnection()
 		user.UpdateLastConnection()
@@ -178,7 +180,7 @@ func getAndUpdateLastConnectionForEntity(entity taggedAuthenticator) *time.Time 
 	return nil
 }
 
-func checkForValidMachineAgent(entity taggedAuthenticator, c params.Creds) error {
+func checkForValidMachineAgent(entity state.Entity, c params.Creds) error {
 	// If this is a machine agent connecting, we need to check the
 	// nonce matches, otherwise the wrong agent might be trying to
 	// connect.
@@ -204,7 +206,7 @@ func (p *machinePinger) Stop() error {
 	return p.Pinger.Kill()
 }
 
-func (a *srvAdmin) startPingerIfAgent(newRoot apiRoot, entity taggedAuthenticator) error {
+func (a *srvAdmin) startPingerIfAgent(newRoot apiRoot, entity state.Entity) error {
 	// A machine or unit agent has connected, so start a pinger to
 	// announce it's now alive, and set up the API pinger
 	// so that the connection will be terminated if a sufficient

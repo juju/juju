@@ -96,6 +96,7 @@ func (n *NetworkerAPI) oneMachineInfo(id string) ([]network.Info, error) {
 			ProviderId:    nw.ProviderId(),
 			VLANTag:       nw.VLANTag(),
 			InterfaceName: iface.RawInterfaceName(),
+			Disabled:      iface.IsDisabled(),
 		}
 	}
 	return info, nil

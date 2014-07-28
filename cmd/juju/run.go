@@ -100,17 +100,17 @@ func (c *RunCommand) Init(args []string) error {
 
 	var nameErrors []string
 	for _, machineId := range c.machines {
-		if !names.IsMachine(machineId) {
+		if !names.IsValidMachine(machineId) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid machine id", machineId))
 		}
 	}
 	for _, service := range c.services {
-		if !names.IsService(service) {
+		if !names.IsValidService(service) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid service name", service))
 		}
 	}
 	for _, unit := range c.units {
-		if !names.IsUnit(unit) {
+		if !names.IsValidUnit(unit) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid unit name", unit))
 		}
 	}

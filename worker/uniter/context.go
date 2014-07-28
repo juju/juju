@@ -22,9 +22,17 @@ import (
 
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/uniter"
+	"github.com/juju/juju/version"
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
+
+var windowsSuffixOrder = []string{
+	".ps1",
+	".cmd",
+	".bat",
+	".exe",
+}
 
 type missingHookError struct {
 	hookName string
@@ -195,14 +203,71 @@ func (ctx *HookContext) RelationIds() []int {
 	return ids
 }
 
+// mergeEnvironment takes in a string array representing the desired environment
+// and merges it with the current environment. On Windows, clearing the environment,
+// or having missing environment variables, may lead to standard go packages not working
+// (os.TempDir relies on $env:TEMP), and powershell erroring out
+// Currently this function is only used for windows
+func mergeEnvironment(env []string) []string {
+	if env == nil {
+		return nil
+	}
+	m := map[string]string{}
+	var tmpEnv []string
+	for _, val := range os.Environ() {
+		varSplit := strings.SplitN(val, "=", 2)
+		m[varSplit[0]] = varSplit[1]
+	}
+
+	for _, val := range env {
+		varSplit := strings.SplitN(val, "=", 2)
+		m[varSplit[0]] = varSplit[1]
+	}
+
+	for key, val := range m {
+		tmpEnv = append(tmpEnv, key+"="+val)
+	}
+
+	return tmpEnv
+}
+
+// windowsEnv adds windows specific environment variables. PSModulePath
+// helps hooks use normal imports instead of dot sourcing modules
+// its a convenience variable. The PATH variable delimiter is
+// a semicolon instead of a colon
+func (ctx *HookContext) windowsEnv(charmDir, toolsDir string) []string {
+	charmModules := filepath.Join(charmDir, "Modules")
+	hookModules := filepath.Join(charmDir, "hooks", "Modules")
+	env := []string{
+		"Path=" + toolsDir + ";" + os.Getenv("Path"),
+		"PSModulePath=" + os.Getenv("PSModulePath") + ";" + charmModules + ";" + hookModules,
+	}
+	return mergeEnvironment(env)
+}
+
+func (ctx *HookContext) ubuntuEnv(toolsDir string) []string {
+	env := []string{
+		"APT_LISTCHANGES_FRONTEND=none",
+		"DEBIAN_FRONTEND=noninteractive",
+		"PATH=" + toolsDir + ":" + os.Getenv("PATH"),
+	}
+	return env
+}
+
+func (ctx *HookContext) osDependentEnvVars(charmDir, toolsDir string) []string {
+	switch version.Current.OS {
+	case version.Windows:
+		return ctx.windowsEnv(charmDir, toolsDir)
+	default:
+		return ctx.ubuntuEnv(toolsDir)
+	}
+}
+
 // hookVars returns an os.Environ-style list of strings necessary to run a hook
 // such that it can know what environment it's operating in, and can call back
 // into ctx.
 func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string {
 	vars := []string{
-		"APT_LISTCHANGES_FRONTEND=none",
-		"DEBIAN_FRONTEND=noninteractive",
-		"PATH=" + toolsDir + ":" + os.Getenv("PATH"),
 		"CHARM_DIR=" + charmDir,
 		"JUJU_CONTEXT_ID=" + ctx.id,
 		"JUJU_AGENT_SOCKET=" + socketPath,
@@ -211,6 +276,9 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_ENV_NAME=" + ctx.envName,
 		"JUJU_API_ADDRESSES=" + strings.Join(ctx.apiAddrs, " "),
 	}
+	osVars := ctx.osDependentEnvVars(charmDir, toolsDir)
+	vars = append(vars, osVars...)
+
 	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())
 		vars = append(vars, "JUJU_RELATION_ID="+r.FakeId())
@@ -282,17 +350,77 @@ func (ctx *HookContext) runCharmHookWithLocation(hookName, charmLocation, charmD
 	return ctx.finalizeContext(hookName, err)
 }
 
-func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string, charmLocation string) error {
-	hook, err := exec.LookPath(filepath.Join(charmDir, charmLocation, hookName))
+func lookPath(hook string) (string, error) {
+	hookFile, err := exec.LookPath(hook)
 	if err != nil {
 		if ee, ok := err.(*exec.Error); ok && os.IsNotExist(ee.Err) {
+			return "", &missingHookError{hook}
+		}
+		return "", err
+	}
+	return hookFile, nil
+}
+
+// searchHook will search, in order, hooks suffixed with extensions
+// in windowsSuffixOrder. As windows cares about extensions to determine
+// how to execute a file, we will allow several suffixes, with powershell
+// being default.
+func searchHook(hook string) (string, error) {
+	if version.Current.OS != version.Windows {
+		// we are not running on windows,
+		// there is no need to look for suffixed hooks
+		return lookPath(hook)
+	}
+	for _, val := range windowsSuffixOrder {
+		file := fmt.Sprintf("%s.%s", hook, val)
+		hookFile, err := lookPath(file)
+		if err != nil {
+			if IsMissingHookError(err) {
+				// look for next suffix
+				continue
+			}
+			return "", err
+		}
+		return hookFile, nil
+	}
+	return "", &missingHookError{hook}
+}
+
+// hookCommand constructs an appropriate command to be passed to
+// exec.Command(). The exec package uses cmd.exe as default on windows
+// cmd.exe does not know how to execute ps1 files by default, and
+// powershell needs a few flags to allow execution (-ExecutionPolicy)
+// and propagate error levels (-File). .cmd and .bat files can be run directly
+func hookCommand(hook string) []string {
+	if version.Current.OS != version.Windows {
+		// we are not running on windows,
+		// just return the hook name
+		return []string{hook}
+	}
+	if strings.HasSuffix(hook, ".ps1") {
+		return []string{
+			"powershell.exe",
+			"-NonInteractive",
+			"-ExecutionPolicy",
+			"RemoteSigned",
+			"-File",
+			hook,
+		}
+	}
+	return []string{hook}
+}
+
+func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string, charmLocation string) error {
+	hook, err := searchHook(filepath.Join(charmDir, charmLocation, hookName))
+	if err != nil {
+		if IsMissingHookError(err) {
 			// Missing hook is perfectly valid, but worth mentioning.
 			logger.Infof("skipped %q hook (not implemented)", hookName)
-			return &missingHookError{hookName}
 		}
 		return err
 	}
-	ps := exec.Command(hook)
+	hookCmd := hookCommand(hook)
+	ps := exec.Command(hookCmd[0], hookCmd[1:]...)
 	ps.Env = env
 	ps.Dir = charmDir
 	outReader, outWriter, err := os.Pipe()

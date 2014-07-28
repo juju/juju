@@ -33,8 +33,16 @@ import (
 	"github.com/juju/juju/worker/upgrader"
 )
 
-var apiOpen = api.Open
-var dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
+var (
+	apiOpen = api.Open
+
+	dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
+
+	checkProvisionedStrategy = utils.AttemptStrategy{
+		Total: 1 * time.Minute,
+		Delay: 5 * time.Second,
+	}
+)
 
 // requiredError is useful when complaining about missing command-line options.
 func requiredError(name string) error {
@@ -47,6 +55,8 @@ type AgentConf struct {
 	mu      sync.Mutex
 	_config agent.ConfigSetterWriter
 }
+
+type AgentConfigMutator func(agent.ConfigSetter) error
 
 // AddFlags injects common agent flags into f.
 func (c *AgentConf) AddFlags(f *gnuflag.FlagSet) {
@@ -79,11 +89,16 @@ func (c *AgentConf) ReadConfig(tag string) error {
 	return nil
 }
 
-func (ch *AgentConf) ChangeConfig(change func(c agent.ConfigSetter)) error {
+func (ch *AgentConf) ChangeConfig(change AgentConfigMutator) error {
 	ch.mu.Lock()
 	defer ch.mu.Unlock()
-	change(ch._config)
-	return ch._config.Write()
+	if err := change(ch._config); err != nil {
+		return errors.Trace(err)
+	}
+	if err := ch._config.Write(); err != nil {
+		return errors.Annotate(err, "cannot write agent configuration")
+	}
+	return nil
 }
 
 func (ch *AgentConf) CurrentConfig() agent.Config {
@@ -94,8 +109,9 @@ func (ch *AgentConf) CurrentConfig() agent.Config {
 
 // SetAPIHostPorts satisfies worker/apiaddressupdater/APIAddressSetter.
 func (a *AgentConf) SetAPIHostPorts(servers [][]network.HostPort) error {
-	return a.ChangeConfig(func(c agent.ConfigSetter) {
+	return a.ChangeConfig(func(c agent.ConfigSetter) error {
 		c.SetAPIHostPorts(servers)
+		return nil
 	})
 }
 
@@ -126,7 +142,7 @@ func isUpgraded(err error) bool {
 
 type Agent interface {
 	Tag() names.Tag
-	ChangeConfig(func(agent.ConfigSetter)) error
+	ChangeConfig(AgentConfigMutator) error
 }
 
 // The AgentState interface is implemented by state types
@@ -172,12 +188,17 @@ func connectionIsFatal(conn pinger) func(err error) bool {
 		if isFatal(err) {
 			return true
 		}
-		if err := conn.Ping(); err != nil {
-			logger.Infof("error pinging %T: %v", conn, err)
-			return true
-		}
-		return false
+		return connectionIsDead(conn)
 	}
+}
+
+// connectionIsDead returns true if the given pinger fails to ping.
+var connectionIsDead = func(conn pinger) bool {
+	if err := conn.Ping(); err != nil {
+		logger.Infof("error pinging %T: %v", conn, err)
+		return true
+	}
+	return false
 }
 
 // isleep waits for the given duration or until it receives a value on
@@ -214,10 +235,21 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 	if params.IsCodeUnauthorized(err) {
 		// We've perhaps used the wrong password, so
 		// try again with the fallback password.
-		info := *info
+		infoCopy := *info
+		info = &infoCopy
 		info.Password = agentConfig.OldPassword()
 		usedOldPassword = true
-		st, err = apiOpen(&info, api.DialOpts{})
+		st, err = apiOpen(info, api.DialOpts{})
+	}
+	// The provisioner may take some time to record the agent's
+	// machine instance ID, so wait until it does so.
+	if params.IsCodeNotProvisioned(err) {
+		for a := checkProvisionedStrategy.Start(); a.Next(); {
+			st, err = apiOpen(info, api.DialOpts{})
+			if !params.IsCodeNotProvisioned(err) {
+				break
+			}
+		}
 	}
 	if err != nil {
 		if params.IsCodeNotProvisioned(err) {
@@ -229,7 +261,7 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		return nil, nil, err
 	}
 	defer func() {
-		if resultErr != nil {
+		if resultErr != nil && st != nil {
 			st.Close()
 		}
 	}()
@@ -257,13 +289,21 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		// we might successfully change the entity's
 		// password but fail to write the configuration,
 		// thus locking us out completely.
-		if err := a.ChangeConfig(func(c agent.ConfigSetter) {
+		if err := a.ChangeConfig(func(c agent.ConfigSetter) error {
 			c.SetPassword(newPassword)
 			c.SetOldPassword(info.Password)
+			return nil
 		}); err != nil {
 			return nil, nil, err
 		}
 		if err := entity.SetPassword(newPassword); err != nil {
+			return nil, nil, err
+		}
+
+		st.Close()
+		info.Password = newPassword
+		st, err = apiOpen(info, api.DialOpts{})
+		if err != nil {
 			return nil, nil, err
 		}
 	}

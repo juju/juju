@@ -371,6 +371,9 @@ type NetworkInterface struct {
 	// IsVirtual is true when the interface is a virtual device, as
 	// opposed to a physical device.
 	IsVirtual bool
+
+	// Disabled returns whether the interface is disabled.
+	Disabled bool
 }
 
 // InstanceInfo holds a machine tag, provider-specific instance id, a
@@ -647,6 +650,7 @@ type ProvisioningInfo struct {
 	Series      string
 	Placement   string
 	Networks    []string
+	Jobs        []MachineJob
 }
 
 // ProvisioningInfoResult holds machine provisioning info or an error.

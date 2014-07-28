@@ -50,6 +50,20 @@ func (*runnerSuite) TestOneWorkerStart(c *gc.C) {
 	starter.assertStarted(c, false)
 }
 
+func (*runnerSuite) TestOneWorkerFinish(c *gc.C) {
+	runner := worker.NewRunner(noneFatal, noImportance)
+	starter := newTestWorkerStarter()
+	err := runner.StartWorker("id", testWorkerStart(starter))
+	c.Assert(err, gc.IsNil)
+	starter.assertStarted(c, true)
+
+	starter.die <- nil
+	starter.assertStarted(c, false)
+	starter.assertNeverStarted(c)
+
+	c.Assert(worker.Stop(runner), gc.IsNil)
+}
+
 func (*runnerSuite) TestOneWorkerRestart(c *gc.C) {
 	runner := worker.NewRunner(noneFatal, noImportance)
 	starter := newTestWorkerStarter()
@@ -340,6 +354,14 @@ func (starter *testWorkerStarter) assertStarted(c *gc.C, started bool) {
 		c.Assert(isStarted, gc.Equals, started)
 	case <-time.After(1 * time.Second):
 		c.Fatalf("timed out waiting for start notification")
+	}
+}
+
+func (starter *testWorkerStarter) assertNeverStarted(c *gc.C) {
+	select {
+	case isStarted := <-starter.startNotify:
+		c.Fatalf("got unexpected start notification: %v", isStarted)
+	case <-time.After(worker.RestartDelay + testing.ShortWait):
 	}
 }
 

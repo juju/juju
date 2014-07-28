@@ -13,7 +13,6 @@ import (
 	"github.com/juju/charm"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
-	"labix.org/v2/mgo"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -49,12 +48,16 @@ func (s *storeManagerStateSuite) TearDownSuite(c *gc.C) {
 func (s *storeManagerStateSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.State = TestingInitialize(c, nil, Policy(nil))
+	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
+	c.Assert(err, gc.IsNil)
+	s.State = st
 	s.State.AddAdminUser("pass")
 }
 
 func (s *storeManagerStateSuite) TearDownTest(c *gc.C) {
-	s.State.Close()
+	if s.State != nil {
+		s.State.Close()
+	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -955,16 +958,6 @@ func setServiceConfigAttr(c *gc.C, svc *Service, attr string, val interface{}) {
 }
 
 func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
-	collections := map[string]*mgo.Collection{
-		"machines":    s.State.machines,
-		"units":       s.State.units,
-		"services":    s.State.services,
-		"relations":   s.State.relations,
-		"annotations": s.State.annotations,
-		"statuses":    s.State.statuses,
-		"constraints": s.State.constraints,
-		"settings":    s.State.settings,
-	}
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
 		b := newAllWatcherStateBacking(s.State)
@@ -975,7 +968,9 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		test.setUp(c, s.State)
 		c.Logf("done set up")
 		ch := test.change
-		ch.C = collections[ch.C].Name
+		col, closer := s.State.getCollection(ch.C)
+		closer()
+		ch.C = col.Name
 		err := b.Changed(all, test.change)
 		c.Assert(err, gc.IsNil)
 		assertEntitiesEqual(c, all.All(), test.expectContents)

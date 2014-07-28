@@ -39,14 +39,18 @@ func (s *compatSuite) TearDownSuite(c *gc.C) {
 func (s *compatSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.state = TestingInitialize(c, nil, Policy(nil))
+	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
+	c.Assert(err, gc.IsNil)
+	s.state = st
 	env, err := s.state.Environment()
 	c.Assert(err, gc.IsNil)
 	s.env = env
 }
 
 func (s *compatSuite) TearDownTest(c *gc.C) {
-	s.state.Close()
+	if s.state != nil {
+		s.state.Close()
+	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -55,7 +59,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	// 1.17+ has a "Life" field in environment documents.
 	// We remove it here, to test 1.16 compatibility.
 	ops := []txn.Op{{
-		C:      s.state.environments.Name,
+		C:      environmentsC,
 		Id:     s.env.doc.UUID,
 		Update: bson.D{{"$unset", bson.D{{"life", nil}}}},
 	}}
@@ -121,7 +125,7 @@ func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      s.state.units.Name,
+		C:      unitsC,
 		Id:     unit.doc.Name,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
@@ -151,7 +155,7 @@ func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      s.state.units.Name,
+		C:      unitsC,
 		Id:     unit.doc.Name,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
@@ -188,7 +192,7 @@ func (s *compatSuite) TestMigratePortsOnClose(c *gc.C) {
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      s.state.units.Name,
+		C:      unitsC,
 		Id:     unit.doc.Name,
 		Assert: notDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},

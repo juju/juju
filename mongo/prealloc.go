@@ -29,8 +29,8 @@ var (
 	// preallocated Mongo data files.
 	zeroes = make([]byte, 64*1024)
 
-	minOplogSizeMB = 1024
-	maxOplogSizeMB = 50 * 1024
+	minOplogSizeMB = 512
+	maxOplogSizeMB = 1024
 
 	availSpace   = fsAvailSpace
 	preallocFile = doPreallocFile
@@ -51,6 +51,10 @@ func preallocOplog(dir string, oplogSizeMB int) error {
 // The size of the oplog is calculated according to the
 // formula used by Mongo:
 //     http://docs.mongodb.org/manual/core/replica-set-oplog/
+//
+// NOTE: we deviate from the specified minimum and maximum
+//       sizes. Mongo suggests a minimum of 1GB and maximum
+//       of 50GB; we set these to 512MB and 1GB respectively.
 func defaultOplogSize(dir string) (int, error) {
 	if hostWordSize == 32 {
 		// "For 32-bit systems, MongoDB allocates about 48 megabytes

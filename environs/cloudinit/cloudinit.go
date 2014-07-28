@@ -26,10 +26,10 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	coretools "github.com/juju/juju/tools"
-	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 )
 
@@ -567,7 +567,7 @@ func (e requiresError) Error() string {
 
 func verifyConfig(cfg *MachineConfig) (err error) {
 	defer errors.Maskf(&err, "invalid machine configuration")
-	if !names.IsMachine(cfg.MachineId) {
+	if !names.IsValidMachine(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}
 	if cfg.DataDir == "" {

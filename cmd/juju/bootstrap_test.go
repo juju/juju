@@ -242,10 +242,6 @@ func (test bootstrapTest) run(c *gc.C) {
 	c.Check(opPutBootstrapVerifyFile.Env, gc.Equals, "peckham")
 	c.Check(opPutBootstrapVerifyFile.FileName, gc.Equals, environs.VerificationFilename)
 
-	opPutBootstrapInitFile := (<-opc).(dummy.OpPutFile)
-	c.Check(opPutBootstrapInitFile.Env, gc.Equals, "peckham")
-	c.Check(opPutBootstrapInitFile.FileName, gc.Equals, "provider-state")
-
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, gc.Equals, "peckham")
 	c.Check(opBootstrap.Args.Constraints, gc.DeepEquals, test.constraints)
@@ -408,6 +404,34 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 	c.Assert(err, gc.IsNil)
 	c.Check(_bootstrap.uploadToolsSeries, gc.DeepEquals, []string{"foo", "bar"})
 	return ctx
+}
+
+// In the case where we cannot examine an environment, we want the
+// error to propagate back up to the user.
+func (s *BootstrapSuite) TestBootstrapPropagatesEnvErrors(c *gc.C) {
+
+	env := resetJujuHome(c)
+	defaultSeriesVersion := version.Current
+	defaultSeriesVersion.Series = config.PreferredSeries(env.Config())
+	// Force a dev version by having a non zero build number.
+	// This is because we have not uploaded any tools and auto
+	// upload is only enabled for dev versions.
+	defaultSeriesVersion.Build = 1234
+	s.PatchValue(&version.Current, defaultSeriesVersion)
+
+	const envName = "peckham"
+	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", envName)
+	c.Assert(err, gc.IsNil)
+
+	// Change permissions on the jenv file to simulate some kind of
+	// unexpected error when trying to read info from the environment
+	jenvFile := gitjujutesting.HomePath(".juju", "environments", envName+".jenv")
+	err = os.Chmod(jenvFile, os.FileMode(0200))
+	c.Assert(err, gc.IsNil)
+
+	// The second bootstrap should fail b/c of the propogated error
+	_, err = coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "-e", envName)
+	c.Assert(err, gc.ErrorMatches, "there was an issue examining the environment: .*")
 }
 
 func (s *BootstrapSuite) TestBootstrapJenvWarning(c *gc.C) {

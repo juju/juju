@@ -16,8 +16,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/service/upstart"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upstart"
 )
 
 type adminSuite struct {
@@ -32,7 +32,7 @@ func (s *adminSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.serviceStarts = 0
 	s.serviceStops = 0
-	s.PatchValue(mongo.UpstartConfInstall, func(conf *upstart.Conf) error {
+	s.PatchValue(mongo.UpstartConfInstall, func(conf *upstart.Service) error {
 		return nil
 	})
 	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {

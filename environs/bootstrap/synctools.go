@@ -145,8 +145,7 @@ func validateUploadAllowed(env environs.Environ, toolsArch *string, forceVersion
 	}
 	if !archSupported {
 		envType := env.Config().Type()
-		return fmt.Errorf(
-			"environment %q of type %s does not support instances running on %q", env.Name(), envType, hostArch)
+		return errors.Errorf("environment %q of type %s does not support instances running on %q", env.Config().Name(), envType, hostArch)
 	}
 	return nil
 }

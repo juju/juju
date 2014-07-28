@@ -754,12 +754,14 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
 				Networks: []string{},
+				Jobs:     []params.MachineJob{params.JobHostUnits},
 			}},
 			{Result: &params.ProvisioningInfo{
 				Series:      "quantal",
 				Constraints: template.Constraints,
 				Placement:   template.Placement,
 				Networks:    template.RequestedNetworks,
+				Jobs:        []params.MachineJob{params.JobHostUnits},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 42")},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -793,6 +795,7 @@ func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 			{Result: &params.ProvisioningInfo{
 				Series:   "quantal",
 				Networks: []string{},
+				Jobs:     []params.MachineJob{params.JobHostUnits},
 			}},
 			{Error: apiservertesting.NotFoundError("machine 0/lxc/0")},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -966,6 +969,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		NetworkTag:    "network-vlan69",
 		InterfaceName: "eth0.69",
 		IsVirtual:     true,
+		Disabled:      true,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1", // duplicated mac+net; ignored
 		NetworkTag:    "network-vlan42",
@@ -1039,6 +1043,7 @@ func (s *withoutStateServerSuite) TestSetInstanceInfo(c *gc.C) {
 		actual[i].NetworkTag = iface.NetworkTag()
 		actual[i].MACAddress = iface.MACAddress()
 		actual[i].IsVirtual = iface.IsVirtual()
+		actual[i].Disabled = iface.IsDisabled()
 		c.Check(iface.MachineId(), gc.Equals, s.machines[1].Id())
 		c.Check(iface.MachineTag(), gc.Equals, s.machines[1].Tag().String())
 	}

@@ -109,17 +109,21 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 }
 
 func (s *JujuConnSuite) MongoInfo(c *gc.C) *authentication.MongoInfo {
-	info, _, err := s.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+	info := s.State.MongoConnectionInfo()
 	info.Password = "dummy-secret"
 	return info
 }
 
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
-	_, apiInfo, err := s.Environ.StateInfo()
+	apiInfo, err := environs.APIInfo(s.Environ)
 	c.Assert(err, gc.IsNil)
 	apiInfo.Tag = names.NewUserTag("admin")
 	apiInfo.Password = "dummy-secret"
+
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	apiInfo.EnvironTag = env.Tag()
+
 	return apiInfo
 }
 
@@ -214,7 +218,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	environ, err := environs.PrepareFromName("dummyenv", ctx, s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Name(), gc.Equals, "dummyenv")
+	c.Assert(environ.Config().Name(), gc.Equals, "dummyenv")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
@@ -224,7 +228,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// Upload tools for both preferred and fake default series
 	envtesting.MustUploadFakeToolsVersions(environ.Storage(), versions...)
-	c.Assert(bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{}), gc.IsNil)
+	err = bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
 
@@ -232,6 +237,8 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+
 	s.Environ = environ
 }
 
@@ -255,11 +262,6 @@ func newState(environ environs.Environ, mongoInfo *authentication.MongoInfo) (*s
 	opts := mongo.DefaultDialOpts()
 	st, err := state.Open(mongoInfo, opts, environs.NewStatePolicy())
 	if errors.IsUnauthorized(err) {
-		// We can't connect with the administrator password,;
-		// perhaps this was the first connection and the
-		// password has not been changed yet.
-		mongoInfo.Password = utils.UserPasswordHash(password, utils.CompatSalt)
-
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
@@ -270,9 +272,6 @@ func newState(environ environs.Environ, mongoInfo *authentication.MongoInfo) (*s
 			}
 		}
 		if err != nil {
-			return nil, err
-		}
-		if err := st.SetAdminMongoPassword(password); err != nil {
 			return nil, err
 		}
 	} else if err != nil {

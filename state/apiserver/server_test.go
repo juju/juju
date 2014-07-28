@@ -46,8 +46,9 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv, err := apiserver.NewServer(s.State, apiserver.ServerConfig{
-		Port: 0,
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, gc.IsNil)
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
 	})
@@ -95,10 +96,10 @@ func (s *serverSuite) TestStop(c *gc.C) {
 
 func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	// Start our own instance of the server listening on
-	// both IPv4 and IPv6 localhost addresses and port 0,
-	// so that an available port is choosen.
-	srv, err := apiserver.NewServer(s.State, apiserver.ServerConfig{
-		Port: 0,
+	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, gc.IsNil)
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
 	})
@@ -296,8 +297,9 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
 	// for the correct location, but other Paths should fail.
-	srv, err := apiserver.NewServer(s.State, apiserver.ServerConfig{
-		Port: 0,
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, gc.IsNil)
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
 	})

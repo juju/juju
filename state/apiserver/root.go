@@ -49,7 +49,7 @@ type srvRoot struct {
 	state       *state.State
 	rpcConn     *rpc.Conn
 	resources   *common.Resources
-	entity      taggedAuthenticator
+	entity      state.Entity
 	objectMutex sync.RWMutex
 	objectCache map[objectKey]reflect.Value
 }
@@ -59,7 +59,7 @@ var _ apiRoot = (*srvRoot)(nil)
 // newSrvRoot creates the client's connection representation
 // and starts a ping timeout for the monitoring of this
 // connection.
-func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
+func newSrvRoot(root *initialRoot, entity state.Entity) *srvRoot {
 	r := &srvRoot{
 		state:       root.srv.state,
 		rpcConn:     root.rpcConn,
