@@ -11,11 +11,12 @@ import (
 
 	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
 
 type EnvironCapabilitySuite struct {
-	ConnSuite
+	testing.JujuConnSuite
 	capability mockEnvironCapability
 }
 

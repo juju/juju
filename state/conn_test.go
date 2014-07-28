@@ -11,22 +11,23 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environmentserver"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
+
 	"github.com/juju/juju/testing/factory"
 )
 
 // TestPackage integrates the tests into gotest.
 func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 // ConnSuite provides the infrastructure for all other
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	gitjujutesting.MgoSuite
-	testing.BaseSuite
+	coretesting.BaseSuite
 	annotations  *mgo.Collection
 	charms       *mgo.Collection
 	machines     *mgo.Collection
@@ -38,7 +39,7 @@ type ConnSuite struct {
 	factory      *factory.Factory
 
 	Deployer              environmentserver.Deployer
-	EnvironmentValidation statetesting.MockEnvironmentValidator
+	EnvironmentValidation testing.MockEnvironmentValidator
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
@@ -56,7 +57,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.MgoSuite.SetUpTest(c)
 
 	cs.State = state.TestingInitialize(c, nil)
-	cs.EnvironmentValidation = statetesting.MockEnvironmentValidator{}
+	cs.EnvironmentValidation = testing.MockEnvironmentValidator{}
 	cs.Deployer = environmentserver.NewDeployer(cs.State)
 
 	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")

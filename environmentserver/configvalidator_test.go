@@ -7,13 +7,13 @@ import (
 	"github.com/juju/errors"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
 )
 
 type ConfigValidatorSuite struct {
-	ConnSuite
+	testing.JujuConnSuite
 	configValidator mockConfigValidator
 }
 
@@ -50,11 +50,7 @@ func (p *mockConfigValidator) Validate(cfg, old *config.Config) (valid *config.C
 }
 
 func (s *ConfigValidatorSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
-	s.configValidator = mockConfigValidator{}
-	s.Deployer.GetConfigValidator = func(string) (environmentserver.ConfigValidator, error) {
-		return &s.configValidator, nil
-	}
+	s.JujuConnSuite.SetUpTest(c)
 }
 
 func (s *ConfigValidatorSuite) updateEnvironConfig(c *gc.C) error {
@@ -72,11 +68,6 @@ func (s *ConfigValidatorSuite) TestConfigValidate(c *gc.C) {
 
 func (s *ConfigValidatorSuite) TestUpdateEnvironConfigFailsOnConfigValidateError(c *gc.C) {
 	var configValidatorErr error
-	s.Deployer.GetConfigValidator = func(string) (environmentserver.ConfigValidator, error) {
-		configValidatorErr = errors.NotFoundf("")
-		return &s.configValidator, configValidatorErr
-	}
-
 	err := s.updateEnvironConfig(c)
 	c.Assert(err, gc.ErrorMatches, " not found")
 }
@@ -92,10 +83,6 @@ func (s *ConfigValidatorSuite) TestUpdateEnvironConfigUpdatesState(c *gc.C) {
 
 func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
 	var configValidatorErr error
-	s.Deployer.GetConfigValidator = func(string) (environmentserver.ConfigValidator, error) {
-		return nil, configValidatorErr
-	}
-
 	err := s.updateEnvironConfig(c)
 	c.Assert(err, gc.ErrorMatches, "MockDeployer returned nil configValidator without an error")
 	configValidatorErr = errors.NotImplementedf("Validator")
@@ -104,11 +91,6 @@ func (s *ConfigValidatorSuite) TestConfigValidateUnimplemented(c *gc.C) {
 }
 
 func (s *ConfigValidatorSuite) TestConfigValidateNoPolicy(c *gc.C) {
-	s.Deployer.GetConfigValidator = func(providerType string) (environmentserver.ConfigValidator, error) {
-		c.Errorf("should not have been invoked")
-		return nil, nil
-	}
-
 	err := s.updateEnvironConfig(c)
 	c.Assert(err, gc.IsNil)
 }

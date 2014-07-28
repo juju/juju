@@ -11,14 +11,15 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
 
+const eligibleMachinesInUse = "all eligible machines in use"
+
 type InstanceDistributorSuite struct {
-	ConnSuite
+	testing.JujuConnSuite
 	distributor mockInstanceDistributor
 	wordpress   *state.Service
 	machines    []*state.Machine
@@ -33,6 +34,14 @@ type mockInstanceDistributor struct {
 	err               error
 }
 
+func (p mockInstanceDistributor) ServiceInstances(string) ([]instance.Id, error) {
+	return nil, nil
+}
+
+func (p mockInstanceDistributor) DistributeUnit(u *state.Unit, candidates []instance.Id) ([]instance.Id, error) {
+	return nil, nil
+}
+
 func (p *mockInstanceDistributor) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
 	p.candidates = candidates
 	p.distributionGroup = distributionGroup
@@ -44,11 +53,9 @@ func (p *mockInstanceDistributor) DistributeInstances(candidates, distributionGr
 }
 
 func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	s.distributor = mockInstanceDistributor{}
-	s.Deployer.GetInstanceDistributor = func(*config.Config) (environmentserver.InstanceDistributor, error) {
-		return &s.distributor, nil
-	}
+	s.State.EnvironmentDistribution = mockInstanceDistributor{}
 	s.wordpress = s.AddTestingServiceWithNetworks(
 		c,
 		"wordpress",
@@ -134,10 +141,6 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*no assignment for you")
 	_, err = unit.AssignToCleanEmptyMachine()
 	c.Assert(err, gc.ErrorMatches, ".*no assignment for you")
-	// If the MockDeployer's InstanceDistributor method fails, that will be returned first.
-	s.Deployer.GetInstanceDistributor = func() (environmentserver.InstanceDistributor, error) {
-		return nil, fmt.Errorf("incapable of InstanceDistributor")
-	}
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, gc.ErrorMatches, ".*incapable of InstanceDistributor")
 }
@@ -162,9 +165,6 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroup
 func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C) {
 	s.setupScenario(c)
 	var distributorErr error
-	s.Deployer.GetInstanceDistributor = func() (environmentserver.InstanceDistributor, error) {
-		return nil, distributorErr
-	}
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	_, err = unit.AssignToCleanMachine()
@@ -175,10 +175,6 @@ func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C)
 }
 
 func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
-	s.Deployer.GetInstanceDistributor = func() (environmentserver.InstanceDistributor, error) {
-		c.Errorf("should not have been invoked")
-		return nil, nil
-	}
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	_, err = unit.AssignToCleanMachine()

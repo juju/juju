@@ -14,11 +14,12 @@ import (
 	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
 
 type PrecheckerSuite struct {
-	ConnSuite
+	testing.JujuConnSuite
 	prechecker mockPrechecker
 }
 

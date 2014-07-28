@@ -7,9 +7,8 @@ import (
 	"github.com/juju/errors"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/instance"
-	"github.com/juju/juju/state"
 )
 
 type MockEnvironmentValidator struct {
@@ -18,11 +17,6 @@ type MockEnvironmentValidator struct {
 	GetSupportsUnitPlacement func() error
 	GetResolveConstraints    func(constraints.Value) (constraints.Value, error)
 	GetConstraintsValidator  func() (constraints.Validator, error)
-}
-
-type MockEnvironmentDistributor struct {
-	GetDistributeUnit   func(*state.Unit, []instance.Id) ([]instance.Id, error)
-	GetServiceInstances func(string) ([]instance.Id, error)
 }
 
 func (p *MockEnvironmentValidator) ValidateConstraints(cons constraints.Value) ([]string, error) {
@@ -57,5 +51,16 @@ func (p *MockEnvironmentValidator) ConstraintsValidator() (constraints.Validator
 	if p.GetConstraintsValidator != nil {
 		return p.GetConstraintsValidator()
 	}
-	return nil, errors.NewNotImplemented(nil, "ConstraintsValidator")
+	return nil, errors.NotImplementedf("ConstraintsValidator")
+}
+
+type MockInstanceDistributor struct {
+	GetInstanceDistributor func(*config.Config) (environmentserver.InstanceDistributor, error)
+}
+
+func (p *MockInstanceDistributor) InstanceDistributor(cfg *config.Config) (environmentserver.InstanceDistributor, error) {
+	if p.GetInstanceDistributor != nil {
+		return p.GetInstanceDistributor(cfg)
+	}
+	return nil, errors.NotImplementedf("InstanceDistributor")
 }
