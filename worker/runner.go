@@ -200,7 +200,8 @@ func (runner *runner) run() error {
 		case info := <-runner.donec:
 			workerInfo := workers[info.id]
 			if !workerInfo.stopping && info.err == nil {
-				info.err = errors.New("unexpected quit")
+				delete(workers, info.id)
+				break
 			}
 			if info.err != nil {
 				if runner.isFatal(info.err) {

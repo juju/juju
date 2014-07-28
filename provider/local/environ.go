@@ -39,8 +39,9 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
+	servicecommon "github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
 )
@@ -90,11 +91,6 @@ func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, pla
 		return fmt.Errorf("unknown placement directive: %s", placement)
 	}
 	return nil
-}
-
-// Name is specified in the Environ interface.
-func (env *localEnviron) Name() string {
-	return env.name
 }
 
 func (env *localEnviron) machineAgentServiceName() string {
@@ -461,7 +457,7 @@ func (env *localEnviron) Destroy() error {
 		}
 		args := []string{
 			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
-			juju, "destroy-environment", "-y", "--force", env.Name(),
+			juju, "destroy-environment", "-y", "--force", env.Config().Name(),
 		}
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout
@@ -496,7 +492,7 @@ func (env *localEnviron) Destroy() error {
 	// Stop the mongo database and machine agent. It's possible that the
 	// service doesn't exist or is not running, so don't check the error.
 	mongo.RemoveService(env.config.namespace())
-	upstart.NewService(env.machineAgentServiceName()).StopAndRemove()
+	upstart.NewService(env.machineAgentServiceName(), servicecommon.Conf{}).StopAndRemove()
 
 	// Finally, remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {

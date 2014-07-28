@@ -9,9 +9,9 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // NetworkInterface represents the state of a machine network
@@ -144,7 +144,7 @@ func (ni *NetworkInterface) Remove() (err error) {
 	defer errors.Maskf(&err, "cannot remove network interface %q", ni)
 
 	ops := []txn.Op{{
-		C:      ni.st.networkInterfaces.Name,
+		C:      networkInterfacesC,
 		Id:     ni.doc.Id,
 		Remove: true,
 	}}
@@ -156,7 +156,7 @@ func (ni *NetworkInterface) Remove() (err error) {
 // SetDisabled changes disabled state of the network interface.
 func (ni *NetworkInterface) SetDisabled(isDisabled bool) (err error) {
 	ops := []txn.Op{{
-		C:      ni.st.networkInterfaces.Name,
+		C:      networkInterfacesC,
 		Id:     ni.doc.Id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{{"isdisabled", isDisabled}}}},
@@ -174,8 +174,11 @@ func (ni *NetworkInterface) SetDisabled(isDisabled bool) (err error) {
 // state. It returns an error that satisfies errors.IsNotFound if the
 // machine has been removed.
 func (ni *NetworkInterface) Refresh() error {
+	networkInterfaces, closer := ni.st.getCollection(networkInterfacesC)
+	defer closer()
+
 	doc := networkInterfaceDoc{}
-	err := ni.st.networkInterfaces.FindId(ni.doc.Id).One(&doc)
+	err := networkInterfaces.FindId(ni.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("network interface %#v", ni)
 	}

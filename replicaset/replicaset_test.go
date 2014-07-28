@@ -8,7 +8,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
 	coretesting "github.com/juju/juju/testing"
@@ -50,7 +50,7 @@ var _ = gc.Suite(&MongoSuite{})
 func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.root = newServer(c)
-	s.dialAndTestInitiate(c, s.root, s.root.Addr())
+	dialAndTestInitiate(c, s.root, s.root.Addr())
 }
 
 func (s *MongoSuite) TearDownTest(c *gc.C) {
@@ -60,7 +60,7 @@ func (s *MongoSuite) TearDownTest(c *gc.C) {
 
 var initialTags = map[string]string{"foo": "bar"}
 
-func (s *MongoSuite) dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string) {
+func dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string) {
 	session := inst.MustDialDirect()
 	defer session.Close()
 
@@ -152,7 +152,13 @@ func attemptLoop(c *gc.C, strategy utils.AttemptStrategy, desc string, f func() 
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *MongoSuite) TestAddRemoveSetIPv6(c *gc.C) {
+type MongoIPV6Suite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&MongoIPV6Suite{})
+
+func (s *MongoIPV6Suite) TestAddRemoveSetIPv6(c *gc.C) {
 	root := newServer(c)
 	defer root.Destroy()
 	// Note: we use the ::1:port format because mongo doesn't understand
@@ -160,18 +166,18 @@ func (s *MongoSuite) TestAddRemoveSetIPv6(c *gc.C) {
 	getAddr := func(inst *gitjujutesting.MgoInstance) string {
 		return fmt.Sprintf("::1:%v", inst.Port())
 	}
-	s.dialAndTestInitiate(c, root, getAddr(root))
-	s.assertAddRemoveSet(c, root, getAddr)
+	dialAndTestInitiate(c, root, getAddr(root))
+	assertAddRemoveSet(c, root, getAddr)
 }
 
 func (s *MongoSuite) TestAddRemoveSet(c *gc.C) {
 	getAddr := func(inst *gitjujutesting.MgoInstance) string {
 		return inst.Addr()
 	}
-	s.assertAddRemoveSet(c, s.root, getAddr)
+	assertAddRemoveSet(c, s.root, getAddr)
 }
 
-func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(*gitjujutesting.MgoInstance) string) {
+func assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(*gitjujutesting.MgoInstance) string) {
 	session := root.MustDial()
 	defer session.Close()
 
@@ -181,23 +187,7 @@ func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstanc
 	// two copies of root in the replica set
 	members = append(members, Member{Address: getAddr(root), Tags: initialTags})
 
-	instances := make([]*gitjujutesting.MgoInstance, 5)
-	instances[0] = root
-	for i := 1; i < len(instances); i++ {
-		inst := newServer(c)
-		instances[i] = inst
-		defer inst.Destroy()
-		defer func() {
-			err := Remove(session, getAddr(inst))
-			c.Assert(err, gc.IsNil)
-		}()
-		key := fmt.Sprintf("key%d", i)
-		val := fmt.Sprintf("val%d", i)
-		tags := map[string]string{key: val}
-		members = append(members, Member{Address: getAddr(inst), Tags: tags})
-	}
-
-	// We allow for up to 2m per operation, since Add, Set, etc. call
+	// We allow for up to 2 minutes  per operation, since Add, Set, etc. call
 	// replSetReconfig which may cause primary renegotiation. According
 	// to the Mongo docs, "typically this is 10-20 seconds, but could be
 	// as long as a minute or more."
@@ -205,6 +195,24 @@ func (s *MongoSuite) assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstanc
 	// Note that the delay is set at 500ms to cater for relatively quick
 	// operations without thrashing on those that take longer.
 	strategy := utils.AttemptStrategy{Total: time.Minute * 2, Delay: time.Millisecond * 500}
+
+	instances := make([]*gitjujutesting.MgoInstance, 5)
+	instances[0] = root
+	for i := 1; i < len(instances); i++ {
+		inst := newServer(c)
+		instances[i] = inst
+		defer inst.Destroy()
+		defer func() {
+			attemptLoop(c, strategy, "Remove()", func() error {
+				return Remove(session, getAddr(inst))
+			})
+		}()
+		key := fmt.Sprintf("key%d", i)
+		val := fmt.Sprintf("val%d", i)
+		tags := map[string]string{key: val}
+		members = append(members, Member{Address: getAddr(inst), Tags: tags})
+	}
+
 	attemptLoop(c, strategy, "Add()", func() error {
 		return Add(session, members...)
 	})

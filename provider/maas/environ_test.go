@@ -84,7 +84,7 @@ func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*cannot change name.*")
 
 	// The old config is still in place.  The new config never took effect.
-	c.Check(env.Name(), gc.Equals, "old-name")
+	c.Check(env.Config().Name(), gc.Equals, "old-name")
 }
 
 func (*environSuite) TestSetConfigRefusesChangingAgentName(c *gc.C) {
@@ -165,7 +165,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	cfg := getSimpleTestConfig(c, origAttrs)
 	env, err := maas.NewEnviron(cfg)
 	c.Check(err, gc.IsNil)
-	c.Check(env.Name(), gc.Equals, "testenv")
+	c.Check(env.Config().Name(), gc.Equals, "testenv")
 
 	anotherServer := "http://maas.testing.invalid"
 	anotherOauth := "c:d:e"
@@ -178,7 +178,7 @@ func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	cfg2 := getSimpleTestConfig(c, newAttrs)
 	errSetConfig := env.SetConfig(cfg2)
 	c.Check(errSetConfig, gc.IsNil)
-	c.Check(env.Name(), gc.Equals, "testenv")
+	c.Check(env.Config().Name(), gc.Equals, "testenv")
 	authClient, _ := gomaasapi.NewAuthenticatedClient(anotherServer, anotherOauth, maas.APIVersion)
 	maasClient := gomaasapi.NewMAAS(*authClient)
 	MAASServer := maas.GetMAASClient(env)
@@ -191,7 +191,7 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	env, err := maas.NewEnviron(cfg)
 
 	c.Check(err, gc.IsNil)
-	c.Check(env.Name(), gc.Equals, "testenv")
+	c.Check(env.Config().Name(), gc.Equals, "testenv")
 }
 
 var expectedCloudinitConfig = []interface{}{

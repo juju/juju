@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
 )
@@ -21,7 +21,9 @@ func (st *State) stateServerAddresses() ([]string, error) {
 	}
 	var allAddresses []addressMachine
 	// TODO(rog) 2013/10/14 index machines on jobs.
-	err := st.machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&allAddresses)
+	machines, closer := st.getCollection(machinesC)
+	defer closer()
+	err := machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&allAddresses)
 	if err != nil {
 		return nil, err
 	}
@@ -88,17 +90,7 @@ type apiHostPortsDoc struct {
 
 // SetAPIHostPorts sets the addresses of the API server instances.
 // Each server is represented by one element in the top level slice.
-// If prefer-ipv6 environment setting is true, the addresses will be
-// sorted before setting them to bring IPv6 addresses on top (if
-// available).
 func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
-	envConfig, err := st.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	for i, _ := range hps {
-		network.SortHostPorts(hps[i], envConfig.PreferIPv6())
-	}
 	doc := apiHostPortsDoc{
 		APIHostPorts: instanceHostPortsToHostPorts(hps),
 	}
@@ -108,7 +100,7 @@ func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
 			return nil, err
 		}
 		op := txn.Op{
-			C:  st.stateServers.Name,
+			C:  stateServersC,
 			Id: apiHostPortsKey,
 			Assert: bson.D{{
 				"apihostports", instanceHostPortsToHostPorts(existing),
@@ -130,7 +122,9 @@ func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
 // APIHostPorts returns the API addresses as set by SetAPIHostPorts.
 func (st *State) APIHostPorts() ([][]network.HostPort, error) {
 	var doc apiHostPortsDoc
-	err := st.stateServers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
+	stateServers, closer := st.getCollection(stateServersC)
+	defer closer()
+	err := stateServers.Find(bson.D{{"_id", apiHostPortsKey}}).One(&doc)
 	if err != nil {
 		return nil, err
 	}

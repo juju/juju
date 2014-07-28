@@ -21,7 +21,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -29,16 +29,18 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/instance"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiagent "github.com/juju/juju/state/api/agent"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
-	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -791,7 +793,7 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), "jujud")
+	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), jujunames.Jujud)
 	return symlink.New(jujud, jujuRun)
 }
 
@@ -803,7 +805,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
 	if agentServiceName != "" {
-		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
+		if err := service.NewService(agentServiceName, common.Conf{}).Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}

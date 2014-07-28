@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/apiserver/authentication"
 	"github.com/juju/juju/state/apiserver/common"
 	"github.com/juju/juju/state/presence"
 )
@@ -153,17 +154,16 @@ func checkCreds(st *state.State, c params.Creds) (state.Entity, error) {
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	authenticator, ok := entity.(taggedAuthenticator)
-	if !ok {
-		return nil, common.ErrBadCreds
-	}
-	if err != nil || !authenticator.PasswordValid(c.Password) {
-		return nil, common.ErrBadCreds
-	}
-	// Check if a machine agent is logging in with the right Nonce
-	if err := checkForValidMachineAgent(entity, c); err != nil {
+
+	authenticator, err := authentication.FindEntityAuthenticator(entity)
+	if err != nil {
 		return nil, err
 	}
+
+	if err = authenticator.Authenticate(entity, c.Password, c.Nonce); err != nil {
+		return nil, err
+	}
+
 	return entity, nil
 }
 

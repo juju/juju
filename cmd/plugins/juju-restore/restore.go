@@ -112,9 +112,24 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	export LC_ALL=C
 	tar xzf juju-backup.tgz
 	test -d juju-backup
-	apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet install mongodb-clients
-	
+
+
 	initctl stop jujud-machine-0
+
+	#The code apt-get throws when lock is taken
+	APTOUTPUT=100 
+	while [ $APTOUTPUT -gt 0 ]
+	do
+		# We will try to run apt-get and it can fail if other dpkg is in use
+		# the subshell call is not reached by -e so we can have apt-get fail
+		APTOUTPUT=$(apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet install mongodb-clients &> /dev/null; echo $?)
+		if [ $APTOUTPUT -gt 0 ] && [ $APTOUTPUT -ne 100 ]; then
+			echo "apt-get failed with an irrecoverable error $APTOUTPUT";
+			exit 1
+		fi
+	done
+	
+
 
 	initctl stop juju-db
 	rm -r /var/lib/juju

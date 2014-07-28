@@ -7,7 +7,7 @@ import (
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environmentserver/authentication"

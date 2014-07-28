@@ -8,8 +8,8 @@ import (
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 

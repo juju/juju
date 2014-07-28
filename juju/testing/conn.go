@@ -227,7 +227,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	environ, err := environs.PrepareFromName("dummyenv", ctx, s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Name(), gc.Equals, "dummyenv")
+	c.Assert(environ.Config().Name(), gc.Equals, "dummyenv")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
@@ -274,11 +274,6 @@ func newState(environ environs.Environ, mongoInfo *authentication.MongoInfo) (*s
 	opts := mongo.DefaultDialOpts()
 	st, err := state.Open(mongoInfo, opts)
 	if errors.IsUnauthorized(err) {
-		// We can't connect with the administrator password,;
-		// perhaps this was the first connection and the
-		// password has not been changed yet.
-		mongoInfo.Password = utils.UserPasswordHash(password, utils.CompatSalt)
-
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
@@ -289,9 +284,6 @@ func newState(environ environs.Environ, mongoInfo *authentication.MongoInfo) (*s
 			}
 		}
 		if err != nil {
-			return nil, err
-		}
-		if err := st.SetAdminMongoPassword(password); err != nil {
 			return nil, err
 		}
 	} else if err != nil {

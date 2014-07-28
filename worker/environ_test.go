@@ -72,7 +72,6 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 		c.Check(err, gc.IsNil)
 		done <- env
 	}()
-	// Wait for the loop to process the invalid configuratrion
 	<-worker.LoadedInvalid
 
 	st2.UpdateEnvironConfig(map[string]interface{}{
@@ -80,6 +79,7 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 		"secret": "environ_test",
 	}, nil, nil)
 
+	st2.StartSync()
 	env := <-done
 	c.Assert(env, gc.NotNil)
 	c.Assert(env.Config().AllAttrs()["secret"], gc.Equals, "environ_test")
@@ -121,10 +121,9 @@ func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
 	// Change to an invalid configuration and check
 	// that the observer's environment remains the same.
 	st2.UpdateEnvironConfig(map[string]interface{}{"type": "invalid"}, nil, nil)
-	st2.StartSync()
+	s.State.StartSync()
 
 	// Wait for the observer to register the invalid environment
-	timeout := time.After(coretesting.LongWait)
 loop:
 	for {
 		select {
@@ -132,7 +131,7 @@ loop:
 			if strings.Contains(msg, "error creating Environ") {
 				break loop
 			}
-		case <-timeout:
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting to see broken environment")
 		}
 	}
@@ -143,7 +142,7 @@ loop:
 	// Change the environment back to a valid configuration
 	// with a different name and check that we see it.
 	st2.UpdateEnvironConfig(map[string]interface{}{"type": oldType, "name": "a-new-name"}, nil, nil)
-	st2.StartSync()
+	s.State.StartSync()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		env := obs.Environ()

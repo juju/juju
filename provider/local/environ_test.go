@@ -30,9 +30,10 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/local"
+	"github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/upstart"
 )
 
 const echoCommandScript = "#!/bin/sh\necho $0 \"$@\" >> $0.args"
@@ -70,7 +71,7 @@ func (s *environSuite) TestNameAndStorage(c *gc.C) {
 	testConfig := minimalConfig(c)
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
-	c.Assert(environ.Name(), gc.Equals, "test")
+	c.Assert(environ.Config().Name(), gc.Equals, "test")
 	c.Assert(environ.Storage(), gc.NotNil)
 }
 
@@ -235,23 +236,22 @@ func (s *localJujuTestSuite) makeFakeUpstartScripts(c *gc.C, env environs.Enviro
 	s.MakeTool(c, "start", `echo "some-service start/running, process 123"`)
 
 	namespace := env.Config().AllAttrs()["namespace"].(string)
-	mongoService = upstart.NewService(mongo.ServiceName(namespace))
-	mongoConf := upstart.Conf{
-		Service: *mongoService,
-		Desc:    "fake mongo",
-		Cmd:     "echo FAKE",
+	mongoConf := common.Conf{
+		Desc: "fake mongo",
+		Cmd:  "echo FAKE",
 	}
-	err := mongoConf.Install()
+	mongoService = upstart.NewService(mongo.ServiceName(namespace), mongoConf)
+	err := mongoService.Install()
 	c.Assert(err, gc.IsNil)
 	c.Assert(mongoService.Installed(), jc.IsTrue)
 
-	machineAgent = upstart.NewService(fmt.Sprintf("juju-agent-%s", namespace))
-	agentConf := upstart.Conf{
-		Service: *machineAgent,
-		Desc:    "fake agent",
-		Cmd:     "echo FAKE",
+	agentConf := common.Conf{
+		Desc: "fake agent",
+		Cmd:  "echo FAKE",
 	}
-	err = agentConf.Install()
+	machineAgent = upstart.NewService(fmt.Sprintf("juju-agent-%s", namespace), agentConf)
+
+	err = machineAgent.Install()
 	c.Assert(err, gc.IsNil)
 	c.Assert(machineAgent.Installed(), jc.IsTrue)
 

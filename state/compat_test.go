@@ -4,8 +4,8 @@
 package state_test
 
 import (
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/network"
@@ -26,9 +26,6 @@ var _ = gc.Suite(&compatSuite{})
 func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
-
-	// 1.17+ has a "Life" field in environment documents.
-	// We remove it here, to test 1.16 compatibility.
 	ops := []txn.Op{{
 		C:      env.Name(),
 		Id:     env.UUID(),

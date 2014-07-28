@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/juju/utils"
+
+	"github.com/juju/juju/service/common"
 )
 
 var startedRE = regexp.MustCompile(`^.* start/running, process (\d+)\n$`)
@@ -30,17 +32,53 @@ var InstallStartRetryAttempts = utils.AttemptStrategy{
 
 // Service provides visibility into and control over an upstart service.
 type Service struct {
-	Name    string
-	InitDir string // defaults to "/etc/init"
+	Name string
+	Conf common.Conf
 }
 
-func NewService(name string) *Service {
-	return &Service{Name: name, InitDir: InitDir}
+func NewService(name string, conf common.Conf) *Service {
+	if conf.InitDir == "" {
+		conf.InitDir = InitDir
+	}
+	return &Service{Name: name, Conf: conf}
 }
 
 // confPath returns the path to the service's configuration file.
 func (s *Service) confPath() string {
-	return path.Join(s.InitDir, s.Name+".conf")
+	return path.Join(s.Conf.InitDir, s.Name+".conf")
+}
+
+func (s *Service) UpdateConfig(conf common.Conf) {
+	s.Conf = conf
+}
+
+// validate returns an error if the service is not adequately defined.
+func (s *Service) validate() error {
+	if s.Name == "" {
+		return errors.New("missing Name")
+	}
+	if s.Conf.InitDir == "" {
+		return errors.New("missing InitDir")
+	}
+	if s.Conf.Desc == "" {
+		return errors.New("missing Desc")
+	}
+	if s.Conf.Cmd == "" {
+		return errors.New("missing Cmd")
+	}
+	return nil
+}
+
+// render returns the upstart configuration for the service as a slice of bytes.
+func (s *Service) render() ([]byte, error) {
+	if err := s.validate(); err != nil {
+		return nil, err
+	}
+	var buf bytes.Buffer
+	if err := confT.Execute(&buf, s.Conf); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 // Installed returns whether the service configuration exists in the
@@ -115,6 +153,65 @@ func (s *Service) Remove() error {
 	return os.Remove(s.confPath())
 }
 
+// Install installs and starts the service.
+func (s *Service) Install() error {
+	conf, err := s.render()
+	if err != nil {
+		return err
+	}
+
+	exists, err := s.removeOld(conf)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		if err := ioutil.WriteFile(s.confPath(), conf, 0644); err != nil {
+			return err
+		}
+	}
+
+	// On slower disks, upstart may take a short time to realise
+	// that there is a service there.
+	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
+		if err = s.Start(); err == nil {
+			break
+		}
+	}
+	return err
+}
+
+func (s *Service) removeOld(expected []byte) (exists bool, err error) {
+	current, err := ioutil.ReadFile(s.confPath())
+	if os.IsNotExist(err) {
+		// no existing config
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("upstart: could not read existing service config: %v", err)
+	}
+
+	// if we have a current config on disk, check to see if it's different
+	if bytes.Equal(current, expected) {
+		return true, nil
+	}
+	if err := s.StopAndRemove(); err != nil {
+		return false, fmt.Errorf("upstart: could not remove installed service: %s", err)
+	}
+	return false, nil
+}
+
+// InstallCommands returns shell commands to install and start the service.
+func (s *Service) InstallCommands() ([]string, error) {
+	conf, err := s.render()
+	if err != nil {
+		return nil, err
+	}
+	return []string{
+		fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", s.confPath(), conf),
+		"start " + s.Name,
+	}, nil
+}
+
 // BUG: %q quoting does not necessarily match libnih quoting rules
 // (as used by upstart); this may become an issue in the future.
 var confT = template.Must(template.New("").Parse(`
@@ -138,108 +235,3 @@ script
   exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
 end script
 `[1:]))
-
-// Conf is responsible for defining and installing upstart services. Its fields
-// represent elements of an upstart service configuration file.
-type Conf struct {
-	Service
-	// Desc is the upstart service's description.
-	Desc string
-	// Env holds the environment variables that will be set when the command runs.
-	Env map[string]string
-	// Limit holds the ulimit values that will be set when the command runs.
-	Limit map[string]string
-	// Cmd is the command (with arguments) that will be run.
-	// The command will be restarted if it exits with a non-zero exit code.
-	Cmd string
-	// Out, if set, will redirect output to that path.
-	Out string
-}
-
-// validate returns an error if the service is not adequately defined.
-func (c *Conf) validate() error {
-	if c.Name == "" {
-		return errors.New("missing Name")
-	}
-	if c.InitDir == "" {
-		return errors.New("missing InitDir")
-	}
-	if c.Desc == "" {
-		return errors.New("missing Desc")
-	}
-	if c.Cmd == "" {
-		return errors.New("missing Cmd")
-	}
-	return nil
-}
-
-// render returns the upstart configuration for the service as a slice of bytes.
-func (c *Conf) render() ([]byte, error) {
-	if err := c.validate(); err != nil {
-		return nil, err
-	}
-	var buf bytes.Buffer
-	if err := confT.Execute(&buf, c); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
-}
-
-// Install installs and starts the service.
-func (c *Conf) Install() error {
-	conf, err := c.render()
-	if err != nil {
-		return err
-	}
-
-	exists, err := c.removeOld(conf)
-	if err != nil {
-		return err
-	}
-	if !exists {
-		if err := ioutil.WriteFile(c.confPath(), conf, 0644); err != nil {
-			return err
-		}
-	}
-
-	// On slower disks, upstart may take a short time to realise
-	// that there is a service there.
-	for attempt := InstallStartRetryAttempts.Start(); attempt.Next(); {
-		if err = c.Start(); err == nil {
-			break
-		}
-	}
-	return err
-}
-
-func (c *Conf) removeOld(expected []byte) (exists bool, err error) {
-	current, err := ioutil.ReadFile(c.confPath())
-	if os.IsNotExist(err) {
-		// no existing config
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("upstart: could not read existing service config: %v", err)
-	}
-
-	// if we have a current config on disk, check to see if it's different
-	if bytes.Equal(current, expected) {
-		return true, nil
-	}
-	if err := c.StopAndRemove(); err != nil {
-		return false, fmt.Errorf("upstart: could not remove installed service: %s", err)
-	}
-	return false, nil
-}
-
-// InstallCommands returns shell commands to install and start the service.
-func (c *Conf) InstallCommands() ([]string, error) {
-	conf, err := c.render()
-	if err != nil {
-		return nil, err
-	}
-	return []string{
-		fmt.Sprintf("cat >> %s << 'EOF'\n%sEOF\n", c.confPath(), conf),
-		"start " + c.Name,
-	}, nil
-}

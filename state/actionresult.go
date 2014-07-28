@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"strings"
 
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // ActionStatus represents the possible end states for an action.
@@ -133,7 +133,7 @@ func actionResultPrefix(ar ActionReceiver) string {
 // addActionResultOp builds the txn.Op used to add an actionresult
 func addActionResultOp(st *State, doc *actionResultDoc) txn.Op {
 	return txn.Op{
-		C:      st.actionresults.Name,
+		C:      actionresultsC,
 		Id:     doc.Id,
 		Assert: txn.DocMissing,
 		Insert: doc,

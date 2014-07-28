@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/names"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // ActionReceiver describes objects that can have actions queued for them, and
@@ -25,6 +25,10 @@ type ActionReceiver interface {
 	// WatchActions returns a StringsWatcher that will notify on changes to the
 	// queued actions for this ActionReceiver
 	WatchActions() StringsWatcher
+
+	// WatchActionResults returns a StringsWatcher that will notify on changes to
+	// the action results for this ActionReceiver
+	WatchActionResults() StringsWatcher
 
 	// Actions returns the list of Actions queued for this ActionReceiver
 	Actions() ([]*Action, error)
@@ -133,7 +137,7 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, output string) error {
 	return a.st.runTransaction([]txn.Op{
 		addActionResultOp(a.st, &doc),
 		{
-			C:      a.st.actions.Name,
+			C:      actionsC,
 			Id:     a.doc.Id,
 			Remove: true,
 		},
@@ -162,6 +166,8 @@ func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters ma
 	return actionDoc{Id: actionId, Name: actionName, Payload: parameters}, nil
 }
 
+var ensureActionMarker = ensureSuffixFn(actionMarker)
+
 // newActionId generates a new id for an action on the given ActionReceiver
 func newActionId(st *State, ar ActionReceiver) (string, error) {
 	prefix := ensureActionMarker(ar.Name())
@@ -184,13 +190,6 @@ func actionIdFromTag(tag names.ActionTag) string {
 // actionGlobalKey returns the global database key for the named action.
 func actionGlobalKey(name string) string {
 	return "a#" + name
-}
-
-func ensureActionMarker(prefix string) string {
-	if prefix[len(prefix)-len(actionMarker):] != actionMarker {
-		prefix = prefix + actionMarker
-	}
-	return prefix
 }
 
 func extractSequence(id string) (int, bool) {

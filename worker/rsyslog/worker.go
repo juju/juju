@@ -20,6 +20,7 @@ import (
 	apirsyslog "github.com/juju/juju/state/api/rsyslog"
 	"github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/utils/syslog"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 )
 
@@ -68,6 +69,9 @@ var _ worker.NotifyWatchHandler = (*RsyslogConfigHandler)(nil)
 // on changes. The worker will remove the configuration file
 // on teardown.
 func NewRsyslogConfigWorker(st *apirsyslog.State, mode RsyslogMode, tag names.Tag, namespace string, stateServerAddrs []string) (worker.Worker, error) {
+	if version.Current.OS == version.Windows {
+		return worker.NewNoOpWorker(), nil
+	}
 	handler, err := newRsyslogConfigHandler(st, mode, tag, namespace, stateServerAddrs)
 	if err != nil {
 		return nil, err

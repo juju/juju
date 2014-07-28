@@ -90,9 +90,6 @@ type BootstrapParams struct {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
-	// Name returns the Environ's name.
-	Name() string
-
 	// Bootstrap initializes the state for the environment, possibly
 	// starting one or more instances.  If the configuration's
 	// AdminSecret is non-empty, the administrator password on the

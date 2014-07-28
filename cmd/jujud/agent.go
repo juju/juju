@@ -188,12 +188,17 @@ func connectionIsFatal(conn pinger) func(err error) bool {
 		if isFatal(err) {
 			return true
 		}
-		if err := conn.Ping(); err != nil {
-			logger.Infof("error pinging %T: %v", conn, err)
-			return true
-		}
-		return false
+		return connectionIsDead(conn)
 	}
+}
+
+// connectionIsDead returns true if the given pinger fails to ping.
+var connectionIsDead = func(conn pinger) bool {
+	if err := conn.Ping(); err != nil {
+		logger.Infof("error pinging %T: %v", conn, err)
+		return true
+	}
+	return false
 }
 
 // isleep waits for the given duration or until it receives a value on
@@ -256,7 +261,7 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 		return nil, nil, err
 	}
 	defer func() {
-		if resultErr != nil {
+		if resultErr != nil && st != nil {
 			st.Close()
 		}
 	}()
@@ -292,6 +297,13 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 			return nil, nil, err
 		}
 		if err := entity.SetPassword(newPassword); err != nil {
+			return nil, nil, err
+		}
+
+		st.Close()
+		info.Password = newPassword
+		st, err = apiOpen(info, api.DialOpts{})
+		if err != nil {
 			return nil, nil, err
 		}
 	}

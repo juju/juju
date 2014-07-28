@@ -64,9 +64,6 @@ type azureEnviron struct {
 	// only be accessed using a lock or a snapshot.
 	sync.Mutex
 
-	// name is immutable; it does not need locking.
-	name string
-
 	// archMutex gates access to supportedArchitectures
 	archMutex sync.Mutex
 	// supportedArchitectures caches the architectures
@@ -94,7 +91,7 @@ var _ environmentserver.Prechecker = (*azureEnviron)(nil)
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
-	env := azureEnviron{name: cfg.Name()}
+	var env azureEnviron
 	err := env.SetConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -136,11 +133,6 @@ func (env *azureEnviron) queryStorageAccountKey() (string, error) {
 	}
 
 	return key, nil
-}
-
-// Name is specified in the Environ interface.
-func (env *azureEnviron) Name() string {
-	return env.name
 }
 
 // getSnapshot produces an atomic shallow copy of the environment object.
@@ -1087,7 +1079,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 // getEnvPrefix returns the prefix used to name the objects specific to this
 // environment.
 func (env *azureEnviron) getEnvPrefix() string {
-	return fmt.Sprintf("juju-%s-", env.Name())
+	return fmt.Sprintf("juju-%s-", env.Config().Name())
 }
 
 // Storage is specified in the Environ interface.
@@ -1097,7 +1089,7 @@ func (env *azureEnviron) Storage() storage.Storage {
 
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy() error {
-	logger.Debugf("destroying environment %q", env.name)
+	logger.Debugf("destroying environment %q", env.Config().Name())
 
 	// Stop all instances.
 	if err := env.destroyAllServices(); err != nil {

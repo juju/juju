@@ -12,9 +12,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // RelationUnit holds information about a single unit in a relation, and
@@ -69,13 +69,17 @@ var ErrCannotEnterScopeYet = stderrors.New("cannot enter scope yet: non-alive su
 // intervention; the relation will not be able to become Dead until all units
 // have departed its scopes.
 func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
+	db, closer := ru.st.newDB()
+	defer closer()
+	relationScopes := db.C(relationScopesC)
+
 	// Verify that the unit is not already in scope, and abort without error
 	// if it is.
 	ruKey, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
 	}
-	if count, err := ru.st.relationScopes.FindId(ruKey).Count(); err != nil {
+	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count != 0 {
 		return nil
@@ -88,11 +92,11 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	//   being saved for a followup).
 	unitName, relationKey := ru.unit.doc.Name, ru.relation.doc.Key
 	ops := []txn.Op{{
-		C:      ru.st.units.Name,
+		C:      unitsC,
 		Id:     unitName,
 		Assert: isAliveDoc,
 	}, {
-		C:      ru.st.relations.Name,
+		C:      relationsC,
 		Id:     relationKey,
 		Assert: isAliveDoc,
 		Update: bson.D{{"$inc", bson.D{{"unitcount", 1}}}},
@@ -103,7 +107,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	//   before we create the scope doc, because the existence of a scope doc
 	//   is considered to be a guarantee of the existence of a settings doc.
 	settingsChanged := func() (bool, error) { return false, nil }
-	if count, err := ru.st.settings.FindId(ruKey).Count(); err != nil {
+	if count, err := db.C(settingsC).FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count == 0 {
 		ops = append(ops, createSettingsOp(ru.st, ruKey, settings))
@@ -118,7 +122,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 
 	// * Create the scope doc.
 	ops = append(ops, txn.Op{
-		C:      ru.st.relationScopes.Name,
+		C:      relationScopesC,
 		Id:     ruKey,
 		Assert: txn.DocMissing,
 		Insert: relationScopeDoc{Key: ruKey},
@@ -137,7 +141,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	if err := ru.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
-	if count, err := ru.st.relationScopes.FindId(ruKey).Count(); err != nil {
+	if count, err := relationScopes.FindId(ruKey).Count(); err != nil {
 		return err
 	} else if count != 0 {
 		// The scope document exists, so we're actually already in scope.
@@ -149,12 +153,12 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// unit: this could fail due to the subordinate service's not being Alive,
 	// but this case will always be caught by the check for the relation's
 	// life (because a relation cannot be Alive if its services are not).)
-	if alive, err := isAlive(ru.st.units, unitName); err != nil {
+	if alive, err := isAliveWithSession(db.C(unitsC), unitName); err != nil {
 		return err
 	} else if !alive {
 		return ErrCannotEnterScope
 	}
-	if alive, err := isAlive(ru.st.relations, relationKey); err != nil {
+	if alive, err := isAliveWithSession(db.C(relationsC), relationKey); err != nil {
 		return err
 	} else if !alive {
 		return ErrCannotEnterScope
@@ -163,7 +167,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	// Maybe a subordinate used to exist, but is no longer alive. If that is
 	// case, we will be unable to enter scope until that unit is gone.
 	if existingSubName != "" {
-		if alive, err := isAlive(ru.st.units, existingSubName); err != nil {
+		if alive, err := isAliveWithSession(db.C(unitsC), existingSubName); err != nil {
 			return err
 		} else if !alive {
 			return ErrCannotEnterScopeYet
@@ -191,6 +195,9 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 // exists and is Alive, its name will be returned as well; if one exists
 // but is not Alive, ErrCannotEnterScopeYet is returned.
 func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
+	units, closer := ru.st.getCollection(unitsC)
+	defer closer()
+
 	if !ru.unit.IsPrincipal() || ru.endpoint.Scope != charm.ScopeContainer {
 		return nil, "", nil
 	}
@@ -204,7 +211,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 	serviceName, unitName := related[0].ServiceName, ru.unit.doc.Name
 	selSubordinate := bson.D{{"service", serviceName}, {"principal", unitName}}
 	var lDoc lifeDoc
-	if err := ru.st.units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
+	if err := units.Find(selSubordinate).One(&lDoc); err == mgo.ErrNotFound {
 		service, err := ru.st.Service(serviceName)
 		if err != nil {
 			return nil, "", err
@@ -217,7 +224,7 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		return nil, "", ErrCannotEnterScopeYet
 	}
 	return []txn.Op{{
-		C:      ru.st.units.Name,
+		C:      unitsC,
 		Id:     lDoc.Id,
 		Assert: isAliveDoc,
 	}}, lDoc.Id, nil
@@ -227,17 +234,20 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 // but does not *actually* leave the scope, to avoid triggering relation
 // cleanup.
 func (ru *RelationUnit) PrepareLeaveScope() error {
+	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	defer closer()
+
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
 	}
-	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+	if count, err := relationScopes.FindId(key).Count(); err != nil {
 		return err
 	} else if count == 0 {
 		return nil
 	}
 	ops := []txn.Op{{
-		C:      ru.st.relationScopes.Name,
+		C:      relationScopesC,
 		Id:     key,
 		Update: bson.D{{"$set", bson.D{{"departing", true}}}},
 	}}
@@ -250,6 +260,9 @@ func (ru *RelationUnit) PrepareLeaveScope() error {
 // leaves, it is removed immediately. It is not an error to leave a scope
 // that the unit is not, or never was, a member of.
 func (ru *RelationUnit) LeaveScope() error {
+	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	defer closer()
+
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return err
@@ -285,28 +298,28 @@ func (ru *RelationUnit) LeaveScope() error {
 				return nil, err
 			}
 		}
-		count, err := ru.st.relationScopes.FindId(key).Count()
+		count, err := relationScopes.FindId(key).Count()
 		if err != nil {
 			return nil, fmt.Errorf("cannot examine scope for %s: %v", desc, err)
 		} else if count == 0 {
 			return nil, jujutxn.ErrNoOperations
 		}
 		ops := []txn.Op{{
-			C:      ru.st.relationScopes.Name,
+			C:      relationScopesC,
 			Id:     key,
 			Assert: txn.DocExists,
 			Remove: true,
 		}}
 		if ru.relation.doc.Life == Alive {
 			ops = append(ops, txn.Op{
-				C:      ru.st.relations.Name,
+				C:      relationsC,
 				Id:     ru.relation.doc.Key,
 				Assert: bson.D{{"life", Alive}},
 				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
 			})
 		} else if ru.relation.doc.UnitCount > 1 {
 			ops = append(ops, txn.Op{
-				C:      ru.st.relations.Name,
+				C:      relationsC,
 				Id:     ru.relation.doc.Key,
 				Assert: bson.D{{"unitcount", bson.D{{"$gt", 1}}}},
 				Update: bson.D{{"$inc", bson.D{{"unitcount", -1}}}},
@@ -340,12 +353,15 @@ func (ru *RelationUnit) Joined() (bool, error) {
 // inScope returns whether a scope document exists satisfying the supplied
 // selector.
 func (ru *RelationUnit) inScope(sel bson.D) (bool, error) {
+	relationScopes, closer := ru.st.getCollection(relationScopesC)
+	defer closer()
+
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
 		return false, err
 	}
 	sel = append(sel, bson.D{{"_id", key}}...)
-	count, err := ru.st.relationScopes.Find(sel).Count()
+	count, err := relationScopes.Find(sel).Count()
 	if err != nil {
 		return false, err
 	}

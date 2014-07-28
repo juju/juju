@@ -981,7 +981,9 @@ func (s *storeManagerStateSuite) TestChanged(c *gc.C) {
 		test.setUp(c, s.State)
 		c.Logf("done set up")
 		ch := test.change
-		ch.C = collections[ch.C].Name
+		col, closer := s.State.getCollection(ch.C)
+		closer()
+		ch.C = col.Name
 		err := b.Changed(all, test.change)
 		c.Assert(err, gc.IsNil)
 		assertEntitiesEqual(c, all.All(), test.expectContents)

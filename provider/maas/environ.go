@@ -16,7 +16,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2/bson"
 	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/agent"
@@ -81,11 +81,6 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env.name = cfg.Name()
 	env.storageUnlocked = NewStorage(env)
 	return env, nil
-}
-
-// Name is specified in the Environ interface.
-func (env *maasEnviron) Name() string {
-	return env.name
 }
 
 // Bootstrap is specified in the Environ interface.
