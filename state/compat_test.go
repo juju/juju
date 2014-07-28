@@ -6,8 +6,8 @@ package state
 import (
 	charmtesting "github.com/juju/charm/testing"
 	gitjujutesting "github.com/juju/testing"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/network"
