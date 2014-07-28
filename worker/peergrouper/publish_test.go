@@ -29,7 +29,7 @@ func (s *mockAPIHostPortsSetter) SetAPIHostPorts(apiHostPorts [][]network.HostPo
 
 func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	var mock mockAPIHostPortsSetter
-	statePublish := newPublisher(&mock)
+	statePublish := newPublisher(&mock, false)
 
 	hostPorts1 := network.AddressesWithPort(network.NewAddresses("testing1.invalid", "127.0.0.1"), 1234)
 	hostPorts2 := network.AddressesWithPort(network.NewAddresses("testing2.invalid", "127.0.0.2"), 1234)
@@ -51,4 +51,25 @@ func (s *publishSuite) TestPublisherSetsAPIHostPortsOnce(c *gc.C) {
 	}
 	c.Assert(mock.calls, gc.Equals, 2)
 	c.Assert(mock.apiHostPorts, gc.DeepEquals, apiServers)
+}
+
+func (s *publishSuite) TestPublisherSortsHostPorts(c *gc.C) {
+	ipV4First := network.AddressesWithPort(network.NewAddresses("testing1.invalid", "127.0.0.1", "::1"), 1234)
+	ipV6First := network.AddressesWithPort(network.NewAddresses("testing1.invalid", "::1", "127.0.0.1"), 1234)
+
+	check := func(preferIPv6 bool, publish, expect []network.HostPort) {
+		var mock mockAPIHostPortsSetter
+		statePublish := newPublisher(&mock, preferIPv6)
+		for i := 0; i < 2; i++ {
+			err := statePublish.publishAPIServers([][]network.HostPort{publish}, nil)
+			c.Assert(err, gc.IsNil)
+		}
+		c.Assert(mock.calls, gc.Equals, 1)
+		c.Assert(mock.apiHostPorts, gc.DeepEquals, [][]network.HostPort{expect})
+	}
+
+	check(false, ipV6First, ipV4First)
+	check(false, ipV4First, ipV4First)
+	check(true, ipV4First, ipV6First)
+	check(true, ipV6First, ipV6First)
 }

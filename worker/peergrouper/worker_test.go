@@ -82,7 +82,7 @@ func (s *workerJujuConnSuite) TestPublisherSetsAPIHostPorts(c *gc.C) {
 		cwatch := statetesting.NewNotifyWatcherC(c, s.State, watcher)
 		cwatch.AssertOneChange()
 
-		statePublish := newPublisher(s.State)
+		statePublish := newPublisher(s.State, false)
 
 		// Wrap the publisher so that we can call StartSync immediately
 		// after the publishAPIServers method is called.
@@ -108,7 +108,7 @@ func (s *workerJujuConnSuite) TestPublisherRejectsNoServers(c *gc.C) {
 	testForIPv4AndIPv6(func(ipVersion testIPVersion) {
 		st := newFakeState()
 		initState(c, st, 3, ipVersion)
-		statePublish := newPublisher(s.State)
+		statePublish := newPublisher(s.State, false)
 		err := statePublish.publishAPIServers(nil, nil)
 		c.Assert(err, gc.ErrorMatches, "no api servers specified")
 	})

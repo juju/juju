@@ -116,14 +116,14 @@ func (*PortSuite) TestSortHostPorts(c *gc.C) {
 	network.SortHostPorts(hps, false)
 	c.Assert(hps, jc.DeepEquals, network.AddressesWithPort(
 		network.NewAddresses(
-			"example.com",
 			"localhost",
+			"example.com",
 			"127.0.0.1",
 			"172.16.0.1",
 			"8.8.8.8",
 			"::1",
-			"fe80::2",
 			"fc00::1",
+			"fe80::2",
 		),
 		1234,
 	))
@@ -131,11 +131,11 @@ func (*PortSuite) TestSortHostPorts(c *gc.C) {
 	network.SortHostPorts(hps, true)
 	c.Assert(hps, jc.DeepEquals, network.AddressesWithPort(
 		network.NewAddresses(
-			"example.com",
 			"localhost",
-			"fe80::2",
+			"example.com",
 			"::1",
 			"fc00::1",
+			"fe80::2",
 			"127.0.0.1",
 			"172.16.0.1",
 			"8.8.8.8",
