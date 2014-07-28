@@ -693,7 +693,13 @@ func (c *Client) ProvisioningScript(args params.ProvisioningScriptParams) (param
 	if err != nil {
 		return result, err
 	}
-	mcfg.DisablePackageCommands = args.DisablePackageCommands
+
+	// Until DisablePackageCommands is retired, for backwards
+	// compatibility, we must respect the client's request and
+	// override any environment settings the user may have specified.
+	mcfg.EnableOSRefreshUpdate = !args.DisablePackageCommands
+	mcfg.EnableOSUpgrade = !args.DisablePackageCommands
+
 	result.Script, err = manual.ProvisioningScript(mcfg)
 	return result, err
 }

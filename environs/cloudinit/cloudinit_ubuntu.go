@@ -96,9 +96,12 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 		w.conf.AddBootCmd(cloudinit.LogProgressCmd("Logging to %s on remote host", w.mcfg.CloudInitOutputLog))
 	}
 
-	if !w.mcfg.DisablePackageCommands {
-		AddAptCommands(w.mcfg.AptProxySettings, w.conf)
-	}
+	AddAptCommands(
+		w.mcfg.AptProxySettings,
+		w.conf,
+		w.mcfg.EnableOSRefreshUpdate,
+		w.mcfg.EnableOSUpgrade,
+	)
 
 	// Write out the normal proxy settings so that the settings are
 	// sourced by bash, and ssh through that.
@@ -176,9 +179,8 @@ func (w *ubuntuConfigure) ConfigureJuju() error {
 	// Add the cloud archive cloud-tools pocket to apt sources
 	// for series that need it. This gives us up-to-date LXC,
 	// MongoDB, and other infrastructure.
-	if !w.mcfg.DisablePackageCommands {
-		series := w.mcfg.Series
-		MaybeAddCloudArchiveCloudTools(w.conf, series)
+	if w.conf.AptUpdate() {
+		MaybeAddCloudArchiveCloudTools(w.conf, w.mcfg.Tools.Version.Series)
 	}
 
 	if w.mcfg.Bootstrap {

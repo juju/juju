@@ -144,18 +144,22 @@ func assertScriptMatches(c *gc.C, cfg *cloudinit.Config, pattern string, match b
 }
 
 func (s *configureSuite) TestAptUpdate(c *gc.C) {
-	// apt-get update is run if either AptUpdate is set,
-	// or apt sources are defined.
+	// apt-get update is run only if AptUpdate is set.
 	aptGetUpdatePattern := aptgetRegexp + "update(.|\n)*"
 	cfg := cloudinit.New()
+
 	c.Assert(cfg.AptUpdate(), gc.Equals, false)
 	c.Assert(cfg.AptSources(), gc.HasLen, 0)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, false)
+
 	cfg.SetAptUpdate(true)
 	assertScriptMatches(c, cfg, aptGetUpdatePattern, true)
+
+	// If we add sources, but disable updates, display an error.
 	cfg.SetAptUpdate(false)
 	cfg.AddAptSource("source", "key", nil)
-	assertScriptMatches(c, cfg, aptGetUpdatePattern, true)
+	_, err := sshinit.ConfigureScript(cfg)
+	c.Check(err, gc.ErrorMatches, "update sources were specified, but OS updates have been disabled.")
 }
 
 func (s *configureSuite) TestAptUpgrade(c *gc.C) {

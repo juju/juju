@@ -189,15 +189,19 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) environs
 }
 
 func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
-	s.PatchValue(local.ExecuteCloudConfig, func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
+
+	mockFinish := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config) error {
 		c.Assert(cloudcfg.AptUpdate(), jc.IsFalse)
 		c.Assert(cloudcfg.AptUpgrade(), jc.IsFalse)
-		c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
+		if !mcfg.EnableOSRefreshUpdate {
+			c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
+		}
 		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
 		// local does not allow machine-0 to host units
 		c.Assert(mcfg.Jobs, gc.DeepEquals, []params.MachineJob{params.JobManageEnviron})
 		return nil
-	})
+	}
+	s.PatchValue(local.ExecuteCloudConfig, mockFinish)
 	s.testBootstrap(c, minimalConfig(c))
 }
 

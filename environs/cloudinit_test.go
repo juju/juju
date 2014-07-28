@@ -79,6 +79,8 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: false,
 		PreferIPv6:                     true,
+		EnableOSRefreshUpdate:          true,
+		EnableOSUpgrade:                true,
 	})
 }
 
@@ -106,6 +108,8 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 		APIInfo:   &api.Info{Tag: userTag},
 		DisableSSLHostnameVerification: true,
 		PreferIPv6:                     true,
+		EnableOSRefreshUpdate:          true,
+		EnableOSUpgrade:                true,
 	})
 }
 
@@ -201,6 +205,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",
 		MachineAgentServiceName: "jujud-machine-10",
+		EnableOSUpgrade:         true,
 	}
 	if bootstrap {
 		cfg.Bootstrap = true

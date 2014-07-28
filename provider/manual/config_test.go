@@ -163,3 +163,32 @@ func (s *configSuite) TestConfigWithFloatStoragePort(c *gc.C) {
 	// really, we're asserting that this doesn't panic :)
 	c.Assert(env.(*manualEnviron).cfg.storagePort(), gc.Equals, int(8040))
 }
+
+func (s *configSuite) TestManualDisablesUpgradesByDefault(c *gc.C) {
+
+	// Default config files set these to true.
+	testConfig, err := config.New(config.UseDefaults, MinimalConfigValues())
+	c.Assert(err, gc.IsNil)
+	c.Check(testConfig.EnableOSRefreshUpdate(), gc.Equals, true)
+	c.Check(testConfig.EnableOSUpgrade(), gc.Equals, true)
+
+	// Unless specified, manual providers default to false.
+	validConfig, err := ProviderInstance.Validate(testConfig, nil)
+	c.Assert(err, gc.IsNil)
+	c.Check(validConfig.EnableOSRefreshUpdate(), gc.Equals, false)
+	c.Check(validConfig.EnableOSUpgrade(), gc.Equals, false)
+}
+
+// If settings are provided, don't overwrite with defaults.
+func (s *configSuite) TestManualRespectsUpgradeSettings(c *gc.C) {
+
+	minAttrs := coretesting.FakeConfig()
+	minAttrs = minAttrs.Merge(coretesting.Attrs{
+		"enable-os-upgrades": true,
+		"enable-os-updates":  true,
+	})
+	testConfig, err := config.New(config.NoDefaults, minAttrs)
+	c.Assert(err, gc.IsNil)
+	c.Check(testConfig.EnableOSRefreshUpdate(), gc.Equals, true)
+	c.Check(testConfig.EnableOSUpgrade(), gc.Equals, true)
+}

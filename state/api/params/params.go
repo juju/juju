@@ -603,6 +603,13 @@ type ContainerManagerConfig struct {
 	ManagerConfig map[string]string
 }
 
+// These settings are duplicated in several places. Let's just embed
+// this instead.
+type UpdateBehavior struct {
+	EnableOSRefreshUpdate bool
+	EnableOSUpgrade       bool
+}
+
 // ContainerConfig contains information from the environment config that is
 // needed for container cloud-init.
 type ContainerConfig struct {
@@ -612,6 +619,7 @@ type ContainerConfig struct {
 	Proxy                   proxy.Settings
 	AptProxy                proxy.Settings
 	PreferIPv6              bool
+	*UpdateBehavior
 }
 
 // ProvisioningScriptParams contains the parameters for the
@@ -622,10 +630,11 @@ type ProvisioningScriptParams struct {
 
 	// DataDir may be "", in which case the default will be used.
 	DataDir string
+	*UpdateBehavior
 
-	// DisablePackageCommands may be set to disable all package-related
-	// commands. It is then the responsibility of the provisioner to
-	// ensure that all the packages required by Juju are available.
+	// TODO(katco-): Deprecated as of 1.20.6. Utilize the UpdateBehavior struct instead.
+	// DisablePackageCommands is a flag that specifies whether to suppress
+	// the addition of package management commands.
 	DisablePackageCommands bool
 }
 

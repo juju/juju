@@ -1905,8 +1905,9 @@ func (s *clientSuite) TestProvisioningScript(c *gc.C) {
 	// MachineConfig are mutually exclusive; both of them will
 	// allocate a state/api password for the machine agent.
 	script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
-		MachineId: machineId,
-		Nonce:     apiParams.Nonce,
+		MachineId:      machineId,
+		Nonce:          apiParams.Nonce,
+		UpdateBehavior: &params.UpdateBehavior{true, true},
 	})
 	c.Assert(err, gc.IsNil)
 	mcfg, err := client.MachineConfig(s.State, machineId, apiParams.Nonce, "")
@@ -1939,20 +1940,36 @@ func (s *clientSuite) TestProvisioningScriptDisablePackageCommands(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(machines), gc.Equals, 1)
 	machineId := machines[0].Machine
-	for _, disable := range []bool{false, true} {
-		script, err := s.APIState.Client().ProvisioningScript(params.ProvisioningScriptParams{
-			MachineId: machineId,
-			Nonce:     apiParams.Nonce,
-			DisablePackageCommands: disable,
-		})
-		c.Assert(err, gc.IsNil)
-		var checker gc.Checker = jc.Contains
-		if disable {
-			// We disabled package commands: there should be no "apt" commands in the script.
-			checker = gc.Not(checker)
-		}
-		c.Assert(script, checker, "apt-get")
+
+	provParams := params.ProvisioningScriptParams{
+		MachineId: machineId,
+		Nonce:     apiParams.Nonce,
 	}
+
+	// Test enabling package commands
+	provParams.DisablePackageCommands = false
+	provParams.UpdateBehavior = &params.UpdateBehavior{true, true}
+	script, err := s.APIState.Client().ProvisioningScript(provParams)
+	c.Assert(err, gc.IsNil)
+	c.Check(script, jc.Contains, "apt-get update")
+	c.Check(script, jc.Contains, "apt-get upgrade")
+
+	// Test disabling package commands
+	provParams.DisablePackageCommands = true
+	provParams.UpdateBehavior = &params.UpdateBehavior{false, false}
+	script, err = s.APIState.Client().ProvisioningScript(provParams)
+	c.Assert(err, gc.IsNil)
+	c.Check(script, gc.Not(jc.Contains), "apt-get update")
+	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
+
+	// Test client-specified DisablePackageCommands trumps environment
+	// config variables.
+	provParams.DisablePackageCommands = true
+	provParams.UpdateBehavior = &params.UpdateBehavior{true, true}
+	script, err = s.APIState.Client().ProvisioningScript(provParams)
+	c.Assert(err, gc.IsNil)
+	c.Check(script, gc.Not(jc.Contains), "apt-get update")
+	c.Check(script, gc.Not(jc.Contains), "apt-get upgrade")
 }
 
 func (s *clientSuite) TestClientSpecializeStoreOnDeployServiceSetCharmAndAddCharm(c *gc.C) {

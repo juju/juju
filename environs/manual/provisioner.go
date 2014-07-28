@@ -62,6 +62,8 @@ type ProvisionMachineArgs struct {
 
 	// Stderr is required to present machine provisioning progress to the user.
 	Stderr io.Writer
+
+	*params.UpdateBehavior
 }
 
 // ErrProvisioned is returned by ProvisionMachine if the target
@@ -109,7 +111,10 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	provisioningScript, err := args.Client.ProvisioningScript(params.ProvisioningScriptParams{
 		MachineId: machineId,
 		Nonce:     machineParams.Nonce,
+		DisablePackageCommands: !args.EnableOSRefreshUpdate && !args.EnableOSUpgrade,
+		UpdateBehavior:         args.UpdateBehavior,
 	})
+
 	if err != nil {
 		logger.Errorf("cannot obtain provisioning script")
 		return "", err
@@ -223,7 +228,11 @@ var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, pro
 // executed on a remote host to carry out the cloud-init
 // configuration.
 func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
+
 	cloudcfg := coreCloudinit.New()
+	cloudcfg.SetAptUpdate(mcfg.EnableOSRefreshUpdate)
+	cloudcfg.SetAptUpgrade(mcfg.EnableOSUpgrade)
+
 	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
 	if err != nil {
 		return "", errors.Annotate(err, "error generating cloud-config")
@@ -231,9 +240,7 @@ func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	if err := udata.ConfigureJuju(); err != nil {
 		return "", errors.Annotate(err, "error generating cloud-config")
 	}
-	// Explicitly disabling apt_upgrade so as not to trample
-	// the target machine's existing configuration.
-	cloudcfg.SetAptUpgrade(false)
+
 	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
 		return "", errors.Annotate(err, "error converting cloud-config to script")

@@ -699,6 +699,26 @@ func (c *Config) PreferIPv6() bool {
 	return v
 }
 
+// EnableOSRefreshUpdate returns whether or not newly provisioned
+// instances should run their respective OS's update capability.
+func (c *Config) EnableOSRefreshUpdate() bool {
+	if val, set := c.defined["enable-os-refresh-update"].(bool); !set {
+		return true
+	} else {
+		return val
+	}
+}
+
+// EnableOSUpgrade returns whether or not newly provisioned instances
+// should run their respective OS's upgrade capability.
+func (c *Config) EnableOSUpgrade() bool {
+	if val, set := c.defined["enable-os-upgrade"].(bool); !set {
+		return true
+	} else {
+		return val
+	}
+}
+
 // SSLHostnameVerification returns weather the environment has requested
 // SSL hostname verification to be enabled.
 func (c *Config) SSLHostnameVerification() bool {
@@ -835,6 +855,8 @@ var fields = schema.Fields{
 	"lxc-clone":                 schema.Bool(),
 	"lxc-clone-aufs":            schema.Bool(),
 	"prefer-ipv6":               schema.Bool(),
+	"enable-os-refresh-update":  schema.Bool(),
+	"enable-os-upgrade":         schema.Bool(),
 
 	// Deprecated fields, retain for backwards compatibility.
 	"tools-url":     schema.String(),
@@ -895,11 +917,13 @@ var alwaysOptional = schema.Defaults{
 	// Authentication string sent with requests to the charm store
 	"charm-store-auth": "",
 	// Previously image-stream could be set to an empty value
-	"image-stream":   "",
-	"test-mode":      false,
-	"proxy-ssh":      false,
-	"lxc-clone-aufs": false,
-	"prefer-ipv6":    false,
+	"image-stream":             "",
+	"test-mode":                false,
+	"proxy-ssh":                false,
+	"lxc-clone-aufs":           false,
+	"prefer-ipv6":              false,
+	"enable-os-refresh-update": schema.Omit,
+	"enable-os-upgrade":        schema.Omit,
 
 	// uuid may be missing for backwards compatability.
 	"uuid": schema.Omit,

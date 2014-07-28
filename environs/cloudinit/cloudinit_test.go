@@ -118,6 +118,7 @@ var cloudinitTests = []cloudinitTest{
 			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
+			EnableOSRefreshUpdate:   true,
 		},
 		setEnvConfig: true,
 		expectScripts: `
@@ -181,6 +182,7 @@ start jujud-machine-0
 			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
+			EnableOSRefreshUpdate:   true,
 		},
 		setEnvConfig: true,
 		inexactMatch: true,
@@ -224,6 +226,7 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			},
 			MachineAgentServiceName: "jujud-machine-99",
 			PreferIPv6:              true,
+			EnableOSRefreshUpdate:   true,
 		},
 		expectScripts: `
 set -xe
@@ -282,6 +285,7 @@ start jujud-machine-99
 				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			MachineAgentServiceName: "jujud-machine-2-lxc-1",
+			EnableOSRefreshUpdate:   true,
 		},
 		inexactMatch: true,
 		expectScripts: `
@@ -322,6 +326,7 @@ start jujud-machine-2-lxc-1
 			},
 			DisableSSLHostnameVerification: true,
 			MachineAgentServiceName:        "jujud-machine-99",
+			EnableOSRefreshUpdate:          true,
 		},
 		inexactMatch: true,
 		expectScripts: `
@@ -356,6 +361,7 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
+			EnableOSRefreshUpdate:   true,
 		},
 		setEnvConfig: true,
 		inexactMatch: true,
@@ -415,6 +421,9 @@ func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, 
 	c.Assert(found, gc.Equals, true)
 }
 
+func (*cloudinitSuite) TestCloudInitRespectsUpdateBehavior(c *gc.C) {
+}
+
 // TestCloudInit checks that the output from the various tests
 // in cloudinitTests is well formed.
 func (*cloudinitSuite) TestCloudInit(c *gc.C) {
@@ -445,7 +454,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			"command": "eatmydata",
 			"enabled": "auto",
 		})
-		c.Check(configKeyValues["apt_upgrade"], gc.Equals, true)
+		c.Check(configKeyValues["apt_upgrade"], gc.IsNil)
 		c.Check(configKeyValues["apt_update"], gc.Equals, true)
 
 		scripts := getScripts(configKeyValues)

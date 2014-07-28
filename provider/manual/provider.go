@@ -16,6 +16,9 @@ import (
 
 type manualProvider struct{}
 
+// Verify that we conform to the interface.
+var _ environs.EnvironProvider = (*manualProvider)(nil)
+
 func init() {
 	p := manualProvider{}
 	environs.RegisterProvider("manual", p, "null")
@@ -149,23 +152,36 @@ manual:
     # bootstrap-host holds the host name of the machine where the
     # bootstrap machine agent will be started.
     bootstrap-host: somehost.example.com
-    
+
     # bootstrap-user specifies the user to authenticate as when
     # connecting to the bootstrap machine. It defaults to
     # the current user.
     # bootstrap-user: joebloggs
-    
+
     # storage-listen-ip specifies the IP address that the
     # bootstrap machine's Juju storage server will listen
     # on. By default, storage will be served on all
     # network interfaces.
     # storage-listen-ip:
-    
+
     # storage-port specifes the TCP port that the
     # bootstrap machine's Juju storage server will listen
     # on. It defaults to ` + fmt.Sprint(defaultStoragePort) + `
     # storage-port: ` + fmt.Sprint(defaultStoragePort) + `
 
+    # Whether or not to refresh the list of available updates for an
+    # OS. The default option of true is recommended for use in
+    # production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-refresh-update: true
+
+    # Whether or not to perform OS upgrades when machines are
+    # provisioned. The default option of true is recommended for use
+    # in production systems, but disabling this can speed up local
+    # deployments for development or testing.
+    #
+    # enable-os-upgrade: true
 
 `[1:]
 }
