@@ -26,6 +26,13 @@ def get_json(uri):
     return None
 
 
+def parse_args(args=None):
+    parser = ArgumentParser('Check if a branch is blocked from landing')
+    parser.add_argument('branch', help='The branch to merge into.')
+    parser.add_argument('pull_request', help='The pull request to be merged')
+    return parser.parse_args(args)
+
+
 def get_lp_bugs(args):
     bugs = {}
     if args.branch == 'master':
@@ -59,10 +66,7 @@ def get_reason(bugs, args):
 
 
 def main():
-    parser = ArgumentParser('Check if a branch is blocked from landing')
-    parser.add_argument('branch', help='The branch to merge into.')
-    parser.add_argument('pull_request', help='The pull request to be merged')
-    args = parser.parse_args()
+    args = parse_args()
     bugs = get_lp_bugs(args)
     code, reason = get_reason(bugs, args)
     if reason:
