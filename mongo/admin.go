@@ -143,19 +143,3 @@ func SetAdminMongoPassword(session *mgo.Session, user, password string) error {
 	}
 	return nil
 }
-
-// SetMongoPassword sets the mongo password in the specified databases for the given user name.
-// Previous passwords are invalidated.
-func SetMongoPassword(name, password string, dbs ...*mgo.Database) error {
-	user := &mgo.User{
-		Username: name,
-		Password: password,
-		Roles:    []mgo.Role{mgo.RoleReadWriteAny, mgo.RoleUserAdmin, mgo.RoleClusterAdmin},
-	}
-	for _, db := range dbs {
-		if err := db.UpsertUser(user); err != nil {
-			return fmt.Errorf("cannot set password in juju db %q for %q: %v", db.Name, name, err)
-		}
-	}
-	return nil
-}
