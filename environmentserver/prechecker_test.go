@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package environmentserver_test
 
 import (
 	"fmt"
@@ -11,13 +11,15 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
 
 type PrecheckerSuite struct {
-	ConnSuite
+	testing.JujuConnSuite
 	prechecker mockPrechecker
 }
 
@@ -40,7 +42,7 @@ func (p *mockPrechecker) PrecheckInstance(series string, cons constraints.Value,
 func (s *PrecheckerSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.prechecker = mockPrechecker{}
-	s.policy.GetPrechecker = func(*config.Config) (state.Prechecker, error) {
+	s.policy.GetPrechecker = func(*config.Config) (environmentserver.Prechecker, error) {
 		return &s.prechecker, nil
 	}
 }
@@ -69,7 +71,7 @@ func (s *PrecheckerSuite) TestPrecheckErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*no instance for you")
 
 	// If the policy's Prechecker method fails, that will be returned first.
-	s.policy.GetPrechecker = func(*config.Config) (state.Prechecker, error) {
+	s.policy.GetPrechecker = func(*config.Config) (environmentserver.Prechecker, error) {
 		return nil, fmt.Errorf("no prechecker for you")
 	}
 	_, err = s.addOneMachine(c, constraints.Value{}, "placement")
@@ -78,7 +80,7 @@ func (s *PrecheckerSuite) TestPrecheckErrors(c *gc.C) {
 
 func (s *PrecheckerSuite) TestPrecheckPrecheckerUnimplemented(c *gc.C) {
 	var precheckerErr error
-	s.policy.GetPrechecker = func(*config.Config) (state.Prechecker, error) {
+	s.policy.GetPrechecker = func(*config.Config) (environmentserver.Prechecker, error) {
 		return nil, precheckerErr
 	}
 	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
@@ -89,11 +91,10 @@ func (s *PrecheckerSuite) TestPrecheckPrecheckerUnimplemented(c *gc.C) {
 }
 
 func (s *PrecheckerSuite) TestPrecheckNoPolicy(c *gc.C) {
-	s.policy.GetPrechecker = func(*config.Config) (state.Prechecker, error) {
+	s.policy.GetPrechecker = func(*config.Config) (environmentserver.Prechecker, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}
-	state.SetPolicy(s.State, nil)
 	_, err := s.addOneMachine(c, constraints.Value{}, "placement")
 	c.Assert(err, gc.IsNil)
 }
@@ -109,7 +110,7 @@ func (s *PrecheckerSuite) addOneMachine(c *gc.C, envCons constraints.Value, plac
 		Jobs:        oneJob,
 		Placement:   placement,
 	}
-	_, err = s.State.AddOneMachine(template)
+	_, err = s.State.EnvironmentDeployer.AddOneMachine(template)
 	return template, err
 }
 
@@ -121,7 +122,7 @@ func (s *PrecheckerSuite) TestPrecheckInstanceInjectMachine(c *gc.C) {
 		Jobs:       []state.MachineJob{state.JobManageEnviron},
 		Placement:  "anyoldthing",
 	}
-	_, err := s.State.AddOneMachine(template)
+	_, err := s.State.EnvironmentDeployer.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 	// PrecheckInstance should not have been called, as we've
 	// injected a machine with an existing instance.

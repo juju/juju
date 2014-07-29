@@ -1,90 +1,56 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state
+package state_test
 
 import (
-	charmtesting "github.com/juju/charm/testing"
-	gitjujutesting "github.com/juju/testing"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/testing"
+	"github.com/juju/juju/state"
+
+	jujutesting "github.com/juju/juju/juju/testing"
 )
 
 // compatSuite contains backwards compatibility tests,
 // for ensuring state operations behave correctly across
 // schema changes.
 type compatSuite struct {
-	testing.BaseSuite
-	gitjujutesting.MgoSuite
-	state *State
-	env   *Environment
+	jujutesting.RepoSuite
 }
 
 var _ = gc.Suite(&compatSuite{})
 
-func (s *compatSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
-}
-
-func (s *compatSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
-}
-
-func (s *compatSuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
-	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
-	c.Assert(err, gc.IsNil)
-	s.state = st
-	env, err := s.state.Environment()
-	c.Assert(err, gc.IsNil)
-	s.env = env
-}
-
-func (s *compatSuite) TearDownTest(c *gc.C) {
-	if s.state != nil {
-		s.state.Close()
-	}
-	s.MgoSuite.TearDownTest(c)
-	s.BaseSuite.TearDownTest(c)
-}
-
 func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
-	// 1.17+ has a "Life" field in environment documents.
-	// We remove it here, to test 1.16 compatibility.
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
 	ops := []txn.Op{{
-		C:      environmentsC,
-		Id:     s.env.doc.UUID,
+		C:      env.Name(),
+		Id:     env.UUID(),
 		Update: bson.D{{"$unset", bson.D{{"life", nil}}}},
 	}}
-	err := s.state.runTransaction(ops)
+	err = state.RunTransaction(s.State, ops)
 	c.Assert(err, gc.IsNil)
 
 	// Now check the assertAliveOp and Destroy work as if
 	// the environment is Alive.
-	err = s.state.runTransaction([]txn.Op{s.env.assertAliveOp()})
+	err = state.RunTransaction(s.State, []txn.Op{state.AssertAliveOp(env)})
 	c.Assert(err, gc.IsNil)
-	err = s.env.Destroy()
+	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
-	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	charm := state.AddTestingCharm(c, s.State, "mysql")
+	service, err := s.State.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all services have associated document in the
 	// requested networks collection. We remove it here to test
 	// backwards compatibility.
-	ops := []txn.Op{removeRequestedNetworksOp(s.state, service.globalKey())}
-	err = s.state.runTransaction(ops)
+	ops := []txn.Op{state.RemoveRequestedNetworksOp(s.State, state.GlobalKey(service))}
+	err = state.RunTransaction(s.State, ops)
 	c.Assert(err, gc.IsNil)
 
 	// Now check the trying to fetch service's networks is OK.
@@ -94,13 +60,13 @@ func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 }
 
 func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all machines have associated document in the
 	// requested networks collection. We remove it here to test
 	// backwards compatibility.
-	ops := []txn.Op{removeRequestedNetworksOp(s.state, machine.globalKey())}
-	err = s.state.runTransaction(ops)
+	ops := []txn.Op{state.RemoveRequestedNetworksOp(s.State, state.GlobalKey(machine))}
+	err = state.RunTransaction(s.State, ops)
 	c.Assert(err, gc.IsNil)
 
 	// Now check the trying to fetch machine's networks is OK.
@@ -111,26 +77,28 @@ func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 
 // Check if ports stored on the unit are displayed.
 func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
+	_, err := s.State.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	charm := state.AddTestingCharm(c, s.State, "quantal")
+	service, err := s.State.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
+
+	collections := state.TestingStateCollections(s.State)
 
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
+		C:      collections["units"].Name,
+		Id:     unit.Name(),
+		Assert: state.NotDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
 	}}
-	err = s.state.runTransaction(ops)
+	err = state.RunTransaction(s.State, ops)
 	c.Assert(err, gc.IsNil)
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -141,26 +109,28 @@ func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
 
 // Check if opening ports on a unit with ports stored in the unit doc works.
 func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
+	_, err := s.State.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	charm := state.AddTestingCharm(c, s.State, "quantal")
+	service, err := s.State.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
+
+	collections := state.TestingStateCollections(s.State)
 
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
+		C:      collections["units"].Name,
+		Id:     unit.Name(),
+		Assert: state.NotDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
 	}}
-	err = s.state.runTransaction(ops)
+	err = state.RunTransaction(s.State, ops)
 	c.Assert(err, gc.IsNil)
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -178,26 +148,28 @@ func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
 
 // Check if closing ports on a unit with ports stored in the unit doc works.
 func (s *compatSuite) TestMigratePortsOnClose(c *gc.C) {
-	_, err := s.state.AddAdminUser("pass")
+	_, err := s.State.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
-	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	charm := state.AddTestingCharm(c, s.State, "quantal")
+	service, err := s.State.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
+
+	collections := state.TestingStateCollections(s.State)
 
 	// Add old-style ports to unit.
 	port := network.Port{Protocol: "tcp", Number: 80}
 	ops := []txn.Op{{
-		C:      unitsC,
-		Id:     unit.doc.Name,
-		Assert: notDeadDoc,
+		C:      collections["units"].Name,
+		Id:     unit.Name(),
+		Assert: state.NotDeadDoc,
 		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
 	}}
-	err = s.state.runTransaction(ops)
+	err = state.RunTransaction(s.State, ops)
 	c.Assert(err, gc.IsNil)
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)

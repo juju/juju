@@ -47,14 +47,14 @@ var resolvedMachineTests = []struct {
 }
 
 func (s *retryProvisioningSuite) TestResolved(c *gc.C) {
-	m, err := s.State.AddOneMachine(state.MachineTemplate{
+	m, err := s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobManageEnviron},
 	})
 	c.Assert(err, gc.IsNil)
 	err = m.SetStatus(params.StatusError, "broken", nil)
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddOneMachine(state.MachineTemplate{
+	_, err = s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})

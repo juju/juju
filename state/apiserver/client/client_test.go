@@ -332,7 +332,7 @@ func (s *clientSuite) TestClientAnnotations(c *gc.C) {
 	service := s.AddTestingService(c, "dummy", s.AddTestingCharm(c, "dummy"))
 	unit, err := service.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	environment, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
@@ -545,11 +545,11 @@ func assertKill(c *gc.C, killer Killer) {
 }
 
 func (s *clientSuite) setupDestroyMachinesTest(c *gc.C) (*state.Machine, *state.Machine, *state.Machine, *state.Unit) {
-	m0, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m1, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	m2, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m2, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	sch := s.AddTestingCharm(c, "wordpress")
@@ -840,7 +840,7 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	defer restore()
 	curl, bundle := addCharm(c, store, "dummy")
 
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.APIState.Client().ServiceDeploy(
 		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{}, machine.Id(),
@@ -1361,7 +1361,7 @@ func (s *clientSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
 func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
-	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
 	c.Assert(err, gc.IsNil)
@@ -1703,7 +1703,7 @@ func (s *clientSuite) TestClientAddMachinesWithSeries(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientAddMachineInsideMachine(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	machines, err := s.APIState.Client().AddMachines([]params.AddMachineParams{{
@@ -1796,7 +1796,7 @@ func (s *clientSuite) TestClientAddMachinesSomeErrors(c *gc.C) {
 	// Remaining machines will fail due to different reasons.
 
 	// Create a machine to host the requested containers.
-	host, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	host, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	// The host only supports lxc containers.
 	err = host.SetSupportedContainers([]instance.ContainerType{instance.LXC})
@@ -2207,7 +2207,7 @@ func getArchiveName(bundleURL *url.URL) string {
 }
 
 func (s *clientSuite) TestRetryProvisioning(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetStatus(params.StatusError, "error", nil)
 	c.Assert(err, gc.IsNil)
@@ -2238,7 +2238,7 @@ var (
 )
 
 func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	// We have to ensure the agents are alive, or EnsureAvailability will
 	// create more to replace them.
@@ -2285,7 +2285,7 @@ func (s *clientSuite) TestClientEnsureAvailabilitySeries(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	pinger := s.setAgentPresence(c, "0")
@@ -2314,7 +2314,7 @@ func (s *clientSuite) TestClientEnsureAvailabilityConstraints(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientEnsureAvailability0Preserves(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	pingerA := s.setAgentPresence(c, "0")
 	defer assertKill(c, pingerA)
@@ -2346,7 +2346,7 @@ func (s *clientSuite) TestClientEnsureAvailability0Preserves(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientEnsureAvailability0Preserves5(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	pingerA := s.setAgentPresence(c, "0")
 	defer assertKill(c, pingerA)
@@ -2382,7 +2382,7 @@ func (s *clientSuite) TestClientEnsureAvailability0Preserves5(c *gc.C) {
 }
 
 func (s *clientSuite) TestClientEnsureAvailabilityErrors(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	pinger := s.setAgentPresence(c, "0")

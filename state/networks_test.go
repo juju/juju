@@ -22,7 +22,7 @@ var _ = gc.Suite(&NetworkSuite{})
 func (s *NetworkSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	s.network, err = s.State.AddNetwork(state.NetworkInfo{"net1", "net1", "0.1.2.3/24", 0})
 	c.Assert(err, gc.IsNil)

@@ -15,7 +15,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/testing"
 )
@@ -30,7 +29,7 @@ var _ = gc.Suite(&ServiceSuite{})
 
 func (s *ServiceSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.EnvironmentValidation.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -781,7 +780,7 @@ func (s *ServiceSuite) TestAddUnit(c *gc.C) {
 	c.Assert(unitOne.SubordinateNames(), gc.HasLen, 0)
 
 	// Assign the principal unit to a machine.
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = unitZero.AssignToMachine(m)
 	c.Assert(err, gc.IsNil)
@@ -1118,7 +1117,7 @@ func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *gc.C) {
 func (s *ServiceSuite) TestRemoveServiceMachine(c *gc.C) {
 	unit, err := s.mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
 

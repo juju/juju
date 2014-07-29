@@ -18,6 +18,7 @@ import (
 	"launchpad.net/gwacl"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
@@ -28,7 +29,6 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 )
 
@@ -87,7 +87,7 @@ var _ environs.Environ = (*azureEnviron)(nil)
 var _ simplestreams.HasRegion = (*azureEnviron)(nil)
 var _ imagemetadata.SupportsCustomSources = (*azureEnviron)(nil)
 var _ envtools.SupportsCustomSources = (*azureEnviron)(nil)
-var _ state.Prechecker = (*azureEnviron)(nil)
+var _ environmentserver.Prechecker = (*azureEnviron)(nil)
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {

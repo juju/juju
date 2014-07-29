@@ -9,7 +9,7 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/agent"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -95,6 +95,7 @@ func (c *upgradeWorkerContext) run(stop <-chan struct{}) error {
 		if err != nil {
 			return err
 		}
+
 		defer c.st.Close()
 	}
 	if err := c.runUpgrades(); err != nil {
@@ -216,10 +217,14 @@ var openStateForUpgrade = func(
 	if !ok {
 		return nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+	st, err := state.Open(info, mongo.DefaultDialOpts())
 	if err != nil {
 		return nil, err
 	}
+
+	deployer := environmentserver.NewDeployer(st)
+	st.SetEnvironment(deployer, deployer, deployer, deployer)
+
 	return st, nil
 }
 

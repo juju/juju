@@ -70,7 +70,7 @@ func (s *networkerSuite) setUpNetworks(c *gc.C) {
 // Create a machine and login to it.
 func (s *networkerSuite) setUpMachine(c *gc.C) {
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)

@@ -21,6 +21,8 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/state/multiwatcher"
+	"github.com/juju/juju/testing"
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
@@ -47,12 +49,16 @@ func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.Transacti
 	return txntesting.SetRetryHooks(c, runner, block, check)
 }
 
-// SetPolicy updates the State's policy field to the
-// given Policy, and returns the old value.
-func SetPolicy(st *State, p Policy) Policy {
-	old := st.policy
-	st.policy = p
-	return old
+// TestingInitialize initializes the state and returns it. If state was not
+// already initialized, and cfg is nil, the minimal default environment
+// configuration will be used.
+func TestingInitialize(c *gc.C, cfg *config.Config) *State {
+	if cfg == nil {
+		cfg = testing.EnvironConfig(c)
+	}
+	st, err := Initialize(TestingMongoInfo(), cfg, TestingDialOpts())
+	c.Assert(err, gc.IsNil)
+	return st
 }
 
 type (
@@ -178,6 +184,26 @@ func init() {
 	logSize = logSizeTests
 }
 
+func AssertAliveOp(e *Environment) txn.Op {
+	return e.assertAliveOp()
+}
+
+func RemoveRequestedNetworksOp(st *State, id string) txn.Op {
+	return removeRequestedNetworksOp(st, id)
+}
+
+func RunTransaction(st *State, ops []txn.Op) error {
+	return st.runTransaction(ops)
+}
+
+type globalKeyProvider interface {
+	globalKey() string
+}
+
+func GlobalKey(g globalKeyProvider) string {
+	return g.globalKey()
+}
+
 // TxnRevno returns the txn-revno field of the document
 // associated with the given Id in the given collection.
 func TxnRevno(st *State, coll string, id interface{}) (int64, error) {
@@ -217,7 +243,25 @@ func GetIdentityPasswordSaltAndHash(i *Identity) (string, string) {
 	return i.doc.PasswordSalt, i.doc.PasswordHash
 }
 
+func TestingStateCollections(st *State) map[string]*mgo.Collection {
+	return map[string]*mgo.Collection{
+		"machines":    st.machines,
+		"units":       st.units,
+		"services":    st.services,
+		"relations":   st.relations,
+		"annotations": st.annotations,
+		"statuses":    st.statuses,
+		"constraints": st.constraints,
+		"settings":    st.settings,
+	}
+}
+
+func NewAllWatcherStateBacking(st *State) multiwatcher.Backing {
+	return newAllWatcherStateBacking(st)
+}
+
 var NewAddress = newAddress
+var NotDeadDoc = notDeadDoc
 
 func CheckUserExists(st *State, name string) (bool, error) {
 	return st.checkUserExists(name)

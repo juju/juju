@@ -6,6 +6,7 @@ package testing
 import (
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
@@ -18,7 +19,8 @@ import (
 // and State.APIAddresses methods, which will not bear any relation to
 // the be the addresses used by the state servers.
 func AddStateServerMachine(c *gc.C, st *state.State) *state.Machine {
-	machine, err := st.AddMachine("quantal", state.JobManageEnviron)
+	deployer := environmentserver.NewDeployer(st)
+	machine, err := deployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)

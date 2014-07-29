@@ -40,6 +40,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -187,7 +188,8 @@ type OpPutFile struct {
 type environProvider struct {
 	mu          sync.Mutex
 	ops         chan<- Operation
-	statePolicy state.Policy
+	statePolicy environmentserver.Deployer
+	preferIPv6  bool
 	// We have one state for each environment name
 	state      map[int]*environState
 	maxStateId int
@@ -204,7 +206,7 @@ type environState struct {
 	id           int
 	name         string
 	ops          chan<- Operation
-	statePolicy  state.Policy
+	statePolicy  environmentserver.Deployer
 	mu           sync.Mutex
 	maxId        int // maximum instance id allocated so far.
 	maxAddr      int // maximum allocated address last byte
@@ -274,7 +276,6 @@ func Reset() {
 	if mongoAlive() {
 		gitjujutesting.MgoServer.Reset()
 	}
-	providerInstance.statePolicy = environs.NewStatePolicy()
 }
 
 func (state *environState) destroy() {
@@ -320,7 +321,7 @@ func (e *environ) GetStateInAPIServer() *state.State {
 // newState creates the state for a new environment with the
 // given name and starts an http server listening for
 // storage requests.
-func newState(name string, ops chan<- Operation, policy state.Policy) *environState {
+func newState(name string, ops chan<- Operation, policy environmentserver.Deployer) *environState {
 	s := &environState{
 		name:        name,
 		ops:         ops,
@@ -359,7 +360,7 @@ func (s *environState) listenAPI() int {
 
 // SetStatePolicy sets the state.Policy to use when a
 // state server is initialised by dummy.
-func SetStatePolicy(policy state.Policy) {
+func SetStatePolicy(policy environmentserver.Deployer) {
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -668,7 +669,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		// so that we can call it here.
 
 		info := stateInfo(estate.preferIPv6)
-		st, err := state.Initialize(info, cfg, mongo.DefaultDialOpts(), estate.statePolicy)
+		st, err := state.Initialize(info, cfg, mongo.DefaultDialOpts())
+
+		deployer := environmentserver.NewDeployer(st)
+		st.SetEnvironment(deployer, deployer, deployer, deployer)
+
 		if err != nil {
 			panic(err)
 		}

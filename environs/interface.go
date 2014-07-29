@@ -12,7 +12,6 @@ import (
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/state"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -120,9 +119,6 @@ type Environ interface {
 	// ConfigGetter allows the retrieval of the configuration data.
 	ConfigGetter
 
-	// EnvironCapability allows access to this environment's capabilities.
-	state.EnvironCapability
-
 	// ConstraintsValidator returns a Validator instance which
 	// is used to validate and merge constraints.
 	ConstraintsValidator() (constraints.Validator, error)
@@ -175,7 +171,11 @@ type Environ interface {
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 
-	state.Prechecker
+	PrecheckInstance(series string, cons constraints.Value, placement string) error
+
+	SupportNetworks() bool
+
+	SupportedArchitectures() ([]string, error)
 }
 
 // BootstrapContext is an interface that is passed to

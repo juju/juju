@@ -10,22 +10,24 @@ import (
 	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environmentserver"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
-	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/juju/testing"
+	coretesting "github.com/juju/juju/testing"
+
 	"github.com/juju/juju/testing/factory"
 )
 
 // TestPackage integrates the tests into gotest.
 func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+	coretesting.MgoTestPackage(t)
 }
 
 // ConnSuite provides the infrastructure for all other
 // test suites (StateSuite, CharmSuite, MachineSuite, etc).
 type ConnSuite struct {
 	gitjujutesting.MgoSuite
-	testing.BaseSuite
+	coretesting.BaseSuite
 	annotations  *mgo.Collection
 	charms       *mgo.Collection
 	machines     *mgo.Collection
@@ -34,8 +36,10 @@ type ConnSuite struct {
 	units        *mgo.Collection
 	stateServers *mgo.Collection
 	State        *state.State
-	policy       statetesting.MockPolicy
 	factory      *factory.Factory
+
+	Deployer              environmentserver.Deployer
+	EnvironmentValidation testing.MockEnvironmentValidator
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
@@ -51,8 +55,11 @@ func (cs *ConnSuite) TearDownSuite(c *gc.C) {
 func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.BaseSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
-	cs.policy = statetesting.MockPolicy{}
-	cs.State = TestingInitialize(c, nil, &cs.policy)
+
+	cs.State = state.TestingInitialize(c, nil)
+	cs.EnvironmentValidation = testing.MockEnvironmentValidator{}
+	cs.Deployer = environmentserver.NewDeployer(cs.State)
+
 	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
 	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")
@@ -60,7 +67,9 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.services = cs.MgoSuite.Session.DB("juju").C("services")
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
+
 	cs.State.AddAdminUser("pass")
+	cs.State.SetEnvironment(cs.Deployer, &cs.EnvironmentValidation, cs.Deployer, cs.Deployer)
 	cs.factory = factory.NewFactory(cs.State, c)
 }
 

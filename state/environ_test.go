@@ -41,7 +41,7 @@ func (s *EnvironSuite) TestUUID(c *gc.C) {
 	s.State.Close()
 	s.MgoSuite.TearDownTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.State = TestingInitialize(c, nil, nil)
+	s.State = state.TestingInitialize(c, nil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	uuidB := env.UUID()

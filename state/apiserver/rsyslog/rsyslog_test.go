@@ -87,7 +87,7 @@ func (s *rsyslogSuite) TestSetRsyslogCertInvalid(c *gc.C) {
 
 func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 	// create a machine-0 so we have an addresss to log to
-	m, err := s.State.AddMachine("trusty", state.JobManageEnviron)
+	m, err := s.State.EnvironmentDeployer.AddMachine("trusty", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	err = m.SetAddresses(network.NewAddress("0.1.2.3", network.ScopeUnknown))
 	c.Assert(err, gc.IsNil)

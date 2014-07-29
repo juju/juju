@@ -147,7 +147,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				SharedSecret:    sharedSecret,
 			},
 			mongo.DefaultDialOpts(),
-			environs.NewStatePolicy(),
 		)
 		return stateErr
 	})

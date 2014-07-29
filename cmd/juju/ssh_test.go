@@ -205,7 +205,7 @@ func (s *SSHCommonSuite) setAddresses(m *state.Machine, c *gc.C) {
 func (s *SSHCommonSuite) makeMachines(n int, c *gc.C, setAddresses bool) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
-		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		if setAddresses {
 			s.setAddresses(m, c)

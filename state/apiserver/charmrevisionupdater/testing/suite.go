@@ -11,6 +11,7 @@ import (
 	charmtesting "github.com/juju/charm/testing"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/environmentserver"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
@@ -60,7 +61,8 @@ func (s *CharmSuite) UpdateStoreRevision(ch string, rev int) {
 
 // AddMachine adds a new machine to state.
 func (s *CharmSuite) AddMachine(c *gc.C, machineId string, job state.MachineJob) {
-	m, err := s.jcSuite.State.AddOneMachine(state.MachineTemplate{
+	deployer := environmentserver.NewDeployer(s.jcSuite.State)
+	m, err := deployer.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{job},
 	})

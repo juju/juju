@@ -50,7 +50,7 @@ func (s *machineSuite) TestMachine(c *gc.C) {
 func (s *machineSuite) TestInstanceId(c *gc.C) {
 	// Add another, not provisioned machine to test
 	// CodeNotProvisioned.
-	newMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	newMachine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	apiNewMachine, err := s.firewaller.Machine(newMachine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)

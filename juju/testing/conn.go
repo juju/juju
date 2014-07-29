@@ -21,6 +21,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
@@ -60,18 +61,20 @@ type JujuConnSuite struct {
 	testing.FakeJujuHomeSuite
 	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
-	State        *state.State
-	Environ      environs.Environ
-	APIState     *api.State
-	apiStates    []*api.State // additional api.States to close on teardown
-	ConfigStore  configstore.Storage
-	BackingState *state.State // The State being used by the API server
-	RootDir      string       // The faked-up root directory.
-	LogDir       string
-	oldHome      string
-	oldJujuHome  string
-	DummyConfig  testing.Attrs
-	Factory      *factory.Factory
+	State                 *state.State
+	Environ               environs.Environ
+	Deployer              environmentserver.Deployer
+	EnvironmentValidation MockEnvironmentValidator
+	APIState              *api.State
+	apiStates             []*api.State // additional api.States to close on teardown
+	ConfigStore           configstore.Storage
+	BackingState          *state.State // The State being used by the API server
+	RootDir               string       // The faked-up root directory.
+	LogDir                string
+	oldHome               string
+	oldJujuHome           string
+	DummyConfig           testing.Attrs
+	Factory               *factory.Factory
 }
 
 const AdminSecret = "dummy-secret"
@@ -163,7 +166,13 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	if len(jobs) == 0 {
 		jobs = []state.MachineJob{state.JobHostUnits}
 	}
-	machine, err := s.State.AddMachine("quantal", jobs...)
+
+	s.Deployer = environmentserver.NewDeployer(s.State)
+	s.EnvironmentValidation = MockEnvironmentValidator{}
+
+	s.State.SetEnvironment(s.Deployer, &s.EnvironmentValidation, s.Deployer, s.Deployer)
+
+	machine, err := s.Deployer.AddMachine("quantal", jobs...)
 	c.Assert(err, gc.IsNil)
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
@@ -239,6 +248,9 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 
+	deployer := environmentserver.NewDeployer(s.State)
+	s.Deployer = deployer
+
 	s.Environ = environ
 }
 
@@ -260,13 +272,13 @@ func newState(environ environs.Environ, mongoInfo *authentication.MongoInfo) (*s
 
 	mongoInfo.Password = password
 	opts := mongo.DefaultDialOpts()
-	st, err := state.Open(mongoInfo, opts, environs.NewStatePolicy())
+	st, err := state.Open(mongoInfo, opts)
 	if errors.IsUnauthorized(err) {
 		// We try for a while because we might succeed in
 		// connecting to mongo before the state has been
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
-			st, err = state.Open(mongoInfo, opts, environs.NewStatePolicy())
+			st, err = state.Open(mongoInfo, opts)
 			if !errors.IsUnauthorized(err) {
 				break
 			}

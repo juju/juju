@@ -251,7 +251,7 @@ func (s *userManagerSuite) TestUserInfoNotATagFails(c *gc.C) {
 
 func (s *userManagerSuite) TestAgentUnauthorized(c *gc.C) {
 
-	machine1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	machine1, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,

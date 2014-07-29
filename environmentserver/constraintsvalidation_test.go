@@ -1,26 +1,26 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package environmentserver_test
 
 import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
 
 type constraintsValidationSuite struct {
-	ConnSuite
+	testing.JujuConnSuite
 }
 
 var _ = gc.Suite(&constraintsValidationSuite{})
 
 func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.JujuConnSuite.SetUpTest(c)
+	s.EnvironmentValidation.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem, constraints.Arch})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -29,7 +29,7 @@ func (s *constraintsValidationSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *constraintsValidationSuite) addOneMachine(c *gc.C, cons constraints.Value) (*state.Machine, error) {
-	return s.State.AddOneMachine(state.MachineTemplate{
+	return s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series:      "quantal",
 		Jobs:        []state.MachineJob{state.JobHostUnits},
 		Constraints: cons,

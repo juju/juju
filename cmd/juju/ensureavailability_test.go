@@ -32,7 +32,7 @@ func (s *EnsureAvailabilitySuite) SetUpTest(c *gc.C) {
 	s.RepoSuite.SetUpTest(c)
 	// Add a state server to the environment, and ensure that it is
 	// considered 'alive' so that calls don't spawn new instances
-	_, err := s.State.AddMachine("precise", state.JobManageEnviron)
+	_, err := s.State.EnvironmentDeployer.AddMachine("precise", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	m, err := s.BackingState.Machine("0")
 	c.Assert(err, gc.IsNil)

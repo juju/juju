@@ -27,7 +27,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/container/kvm"
-	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/instance"
 	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
@@ -694,10 +694,14 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
-	st, err := state.Open(info, dialOpts, environs.NewStatePolicy())
+	st, err := state.Open(info, dialOpts)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	deployer := environmentserver.NewDeployer(st)
+	st.SetEnvironment(deployer, deployer, deployer, deployer)
+
 	defer func() {
 		if err != nil {
 			st.Close()

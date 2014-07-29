@@ -19,6 +19,7 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
@@ -63,10 +64,10 @@ type stepper interface {
 }
 
 type context struct {
-	st      *state.State
-	env     environs.Environ
-	charms  map[string]*state.Charm
-	pingers map[string]*presence.Pinger
+	st       *state.State
+	deployer environmentserver.Deployer
+	charms   map[string]*state.Charm
+	pingers  map[string]*presence.Pinger
 }
 
 func (s *StatusSuite) newContext() *context {
@@ -75,10 +76,10 @@ func (s *StatusSuite) newContext() *context {
 	// our changes to presence are immediately noticed
 	// in the status.
 	return &context{
-		st:      st,
-		env:     s.Environ,
-		charms:  make(map[string]*state.Charm),
-		pingers: make(map[string]*presence.Pinger),
+		st:       st,
+		deployer: environmentserver.NewDeployer(st),
+		charms:   make(map[string]*state.Charm),
+		pingers:  make(map[string]*presence.Pinger),
 	}
 }
 
@@ -1709,7 +1710,7 @@ type addMachine struct {
 }
 
 func (am addMachine) step(c *gc.C, ctx *context) {
-	m, err := ctx.st.AddOneMachine(state.MachineTemplate{
+	m, err := ctx.deployer.AddOneMachine(state.MachineTemplate{
 		Series:      "quantal",
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},

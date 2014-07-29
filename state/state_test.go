@@ -73,7 +73,7 @@ var _ = gc.Suite(&StateSuite{})
 
 func (s *StateSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
-	s.policy.GetConstraintsValidator = func(*config.Config) (constraints.Validator, error) {
+	s.EnvironmentValidation.GetConstraintsValidator = func() (constraints.Validator, error) {
 		validator := constraints.NewValidator()
 		validator.RegisterConflicts([]string{constraints.InstanceType}, []string{constraints.Mem})
 		validator.RegisterUnsupported([]string{constraints.CpuPower})
@@ -84,7 +84,7 @@ func (s *StateSuite) SetUpTest(c *gc.C) {
 func (s *StateSuite) TestDialAgain(c *gc.C) {
 	// Ensure idempotent operations on Dial are working fine.
 	for i := 0; i < 2; i++ {
-		st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+		st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts())
 		c.Assert(err, gc.IsNil)
 		c.Assert(st.Close(), gc.IsNil)
 	}
@@ -98,9 +98,9 @@ func (s *StateSuite) TestMongoSession(c *gc.C) {
 func (s *StateSuite) TestAddresses(c *gc.C) {
 	var err error
 	machines := make([]*state.Machine, 4)
-	machines[0], err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
+	machines[0], err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machines[1], err = s.State.AddMachine("quantal", state.JobHostUnits)
+	machines[1], err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	changes, err := s.State.EnsureAvailability(3, constraints.Value{}, "quantal")
 	c.Assert(err, gc.IsNil)
@@ -512,11 +512,11 @@ func (s *StateSuite) TestJobString(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachineErrors(c *gc.C) {
-	_, err := s.State.AddMachine("")
+	_, err := s.State.EnvironmentDeployer.AddMachine("")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.AddMachine("quantal")
+	_, err = s.State.EnvironmentDeployer.AddMachine("quantal")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no jobs specified")
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits, state.JobHostUnits)
+	_, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: duplicate job: .*")
 }
 
@@ -525,7 +525,7 @@ func (s *StateSuite) TestAddMachine(c *gc.C) {
 		state.JobHostUnits,
 		state.JobManageEnviron,
 	}
-	m0, err := s.State.AddMachine("quantal", allJobs...)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", allJobs...)
 	c.Assert(err, gc.IsNil)
 	check := func(m *state.Machine, id, series string, jobs []state.MachineJob) {
 		c.Assert(m.Id(), gc.Equals, id)
@@ -539,7 +539,7 @@ func (s *StateSuite) TestAddMachine(c *gc.C) {
 	check(m0, "0", "quantal", allJobs)
 
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	m1, err := s.State.AddMachine("blahblah", oneJob...)
+	m1, err := s.State.EnvironmentDeployer.AddMachine("blahblah", oneJob...)
 	c.Assert(err, gc.IsNil)
 	check(m1, "1", "blahblah", oneJob)
 
@@ -591,19 +591,19 @@ func (s *StateSuite) TestAddMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDying(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	err = env.Destroy()
 	c.Assert(err, gc.IsNil)
 	// Check that machines cannot be added if the environment is initially Dying.
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
 }
 
 func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
@@ -613,7 +613,7 @@ func (s *StateSuite) TestAddMachinesEnvironmentDyingAfterInitial(c *gc.C) {
 		c.Assert(env.Life(), gc.Equals, state.Alive)
 		c.Assert(env.Destroy(), gc.IsNil)
 	}).Check()
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: environment is no longer alive")
 }
 
@@ -622,7 +622,7 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cpu-cores=4")
-	m, err := s.State.AddOneMachine(state.MachineTemplate{
+	m, err := s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series:      "quantal",
 		Constraints: extraCons,
 		Jobs:        oneJob,
@@ -677,9 +677,9 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *gc.C) {
 
 func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	m0, err := s.State.AddMachine("quantal", oneJob...)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", oneJob...)
 	c.Assert(err, gc.IsNil)
-	m1, err := s.State.AddMachine("quantal", oneJob...)
+	m1, err := s.State.EnvironmentDeployer.AddMachine("quantal", oneJob...)
 	c.Assert(err, gc.IsNil)
 
 	// Add first container.
@@ -718,7 +718,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *gc.C) {
 
 func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	host, err := s.State.AddMachine("quantal", oneJob...)
+	host, err := s.State.EnvironmentDeployer.AddMachine("quantal", oneJob...)
 	c.Assert(err, gc.IsNil)
 	err = host.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	c.Assert(err, gc.IsNil)
@@ -734,7 +734,7 @@ func (s *StateSuite) TestAddContainerToMachineWithKnownSupportedContainers(c *gc
 
 func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainers(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	host, err := s.State.AddMachine("quantal", oneJob...)
+	host, err := s.State.EnvironmentDeployer.AddMachine("quantal", oneJob...)
 	c.Assert(err, gc.IsNil)
 	err = host.SetSupportedContainers([]instance.ContainerType{instance.KVM})
 	c.Assert(err, gc.IsNil)
@@ -749,7 +749,7 @@ func (s *StateSuite) TestAddInvalidContainerToMachineWithKnownSupportedContainer
 
 func (s *StateSuite) TestAddContainerToMachineSupportingNoContainers(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	host, err := s.State.AddMachine("quantal", oneJob...)
+	host, err := s.State.EnvironmentDeployer.AddMachine("quantal", oneJob...)
 	c.Assert(err, gc.IsNil)
 	err = host.SupportsNoContainers()
 	c.Assert(err, gc.IsNil)
@@ -781,10 +781,10 @@ func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 	_, err = s.State.AddMachineInsideNewMachine(normalTemplate, instIdTemplate, instance.LXC)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot specify instance id for a new container")
 
-	_, err = s.State.AddOneMachine(instIdTemplate)
+	_, err = s.State.EnvironmentDeployer.AddOneMachine(instIdTemplate)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: cannot add a machine with an instance id and no nonce")
 
-	_, err = s.State.AddOneMachine(state.MachineTemplate{
+	_, err = s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
 		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobHostUnits},
 		InstanceId: "i-foo",
@@ -795,7 +795,7 @@ func (s *StateSuite) TestInvalidAddMachineParams(c *gc.C) {
 	noSeriesTemplate := state.MachineTemplate{
 		Jobs: []state.MachineJob{state.JobHostUnits, state.JobHostUnits},
 	}
-	_, err = s.State.AddOneMachine(noSeriesTemplate)
+	_, err = s.State.EnvironmentDeployer.AddOneMachine(noSeriesTemplate)
 	c.Check(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
 
 	_, err = s.State.AddMachineInsideNewMachine(noSeriesTemplate, normalTemplate, instance.LXC)
@@ -821,7 +821,7 @@ func (s *StateSuite) TestAddContainerErrors(c *gc.C) {
 
 func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
 	injectMachine := func(series string, instanceId instance.Id, nonce string, jobs ...state.MachineJob) error {
-		_, err := s.State.AddOneMachine(state.MachineTemplate{
+		_, err := s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 			Series:     series,
 			Jobs:       jobs,
 			InstanceId: instanceId,
@@ -858,7 +858,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 			Tags:     &tags,
 		},
 	}
-	m, err := s.State.AddOneMachine(template)
+	m, err := s.State.EnvironmentDeployer.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Jobs(), gc.DeepEquals, template.Jobs)
 	instanceId, err := m.InstanceId()
@@ -883,7 +883,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 		Nonce:      agent.BootstrapNonce,
 		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 	}
-	m0, err := s.State.AddOneMachine(template)
+	m0, err := s.State.EnvironmentDeployer.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
 	// Add first container.
@@ -918,7 +918,7 @@ func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
 		Jobs:   []state.MachineJob{state.JobManageEnviron},
 	}
 	// Check that we can add the bootstrap machine.
-	m, err := s.State.AddOneMachine(template)
+	m, err := s.State.EnvironmentDeployer.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
 	c.Assert(m.WantsVote(), jc.IsTrue)
@@ -931,7 +931,7 @@ func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
 	c.Assert(info.VotingMachineIds, gc.DeepEquals, []string{"0"})
 
 	const errCannotAdd = "cannot add a new machine: state server jobs specified without calling EnsureAvailability"
-	m, err = s.State.AddOneMachine(template)
+	m, err = s.State.EnvironmentDeployer.AddOneMachine(template)
 	c.Assert(err, gc.ErrorMatches, errCannotAdd)
 
 	m, err = s.State.AddMachineInsideMachine(template, "0", instance.LXC)
@@ -942,7 +942,7 @@ func (s *StateSuite) TestAddMachineCanOnlyAddStateServerForMachine0(c *gc.C) {
 }
 
 func (s *StateSuite) TestReadMachine(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	expectedId := machine.Id()
 	machine, err = s.State.Machine(expectedId)
@@ -972,7 +972,7 @@ func (s *StateSuite) TestMachineIdLessThan(c *gc.C) {
 func (s *StateSuite) TestAllMachines(c *gc.C) {
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
-		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce", nil)
 		c.Assert(err, gc.IsNil)
@@ -997,7 +997,7 @@ func (s *StateSuite) TestAllMachines(c *gc.C) {
 
 func (s *StateSuite) TestAllRelations(c *gc.C) {
 	const numRelations = 32
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	mysql := s.AddTestingService(c, "mysql", s.AddTestingCharm(c, "mysql"))
 	_, err = mysql.AddUnit()
@@ -1054,7 +1054,7 @@ var addNetworkErrorsTests = []struct {
 
 func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
 	includeNetworks := []string{"net1", "net2", "net3", "net4"}
-	machine, err := s.State.AddOneMachine(state.MachineTemplate{
+	machine, err := s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series:            "quantal",
 		Jobs:              []state.MachineJob{state.JobHostUnits},
 		Constraints:       constraints.MustParse("networks=net3,net4,^net5,^net6"),
@@ -1089,14 +1089,14 @@ func (s *StateSuite) TestAddNetworkErrors(c *gc.C) {
 }
 
 func (s *StateSuite) TestAllNetworks(c *gc.C) {
-	machine1, err := s.State.AddOneMachine(state.MachineTemplate{
+	machine1, err := s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series:            "quantal",
 		Jobs:              []state.MachineJob{state.JobHostUnits},
 		Constraints:       constraints.MustParse("networks=^net3,^net4"),
 		RequestedNetworks: []string{"net1", "net2"},
 	})
 	c.Assert(err, gc.IsNil)
-	machine2, err := s.State.AddOneMachine(state.MachineTemplate{
+	machine2, err := s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series:            "quantal",
 		Jobs:              []state.MachineJob{state.JobHostUnits},
 		Constraints:       constraints.MustParse("networks=^net1,^net2"),
@@ -1557,11 +1557,11 @@ func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
 
 func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	// Alive machine...
-	alive, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	alive, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// Dying machine...
-	dying, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	dying, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -1569,13 +1569,13 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Dead machine...
-	dead, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	dead, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = dead.EnsureDead()
 	c.Assert(err, gc.IsNil)
 
 	// Gone machine.
-	gone, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	gone, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = gone.EnsureDead()
 	c.Assert(err, gc.IsNil)
@@ -1611,7 +1611,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 
 	// Add a machine: reported.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("0")
 	wc.AssertNoChange()
@@ -1642,7 +1642,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *gc.C) {
 func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *gc.C) {
 	// Older versions of juju do not write the "containertype" field.
 	// This has caused machines to not be detected in the initial event.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = s.machines.Update(
 		bson.D{{"_id", machine.Id()}},
@@ -1704,10 +1704,10 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	machine, err := s.State.AddOneMachine(template)
+	machine, err := s.State.EnvironmentDeployer.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
-	otherMachine, err := s.State.AddOneMachine(template)
+	otherMachine, err := s.State.EnvironmentDeployer.AddOneMachine(template)
 	c.Assert(err, gc.IsNil)
 
 	// Initial event is empty when no containers.
@@ -1819,7 +1819,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 
 func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 	// Add a machine: reported.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	w := machine.WatchHardwareCharacteristics()
 	defer statetesting.AssertStop(c, w)
@@ -1841,7 +1841,7 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 }
 
 func (s *StateSuite) TestWatchStateServerInfo(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	w := s.State.WatchStateServerInfo()
@@ -2046,7 +2046,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 	// before, so this testing at least ensures we're conscious
 	// about such changes.
 
-	m1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m1, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	m2, err := s.State.Machine(m1.Id())
 	c.Assert(m1, jc.DeepEquals, m2)
@@ -2080,7 +2080,7 @@ func (s *StateSuite) TestAddAndGetEquivalence(c *gc.C) {
 }
 
 func tryOpenState(info *authentication.MongoInfo) error {
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, state.TestingDialOpts())
 	if err == nil {
 		st.Close()
 	}
@@ -2104,7 +2104,7 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 
 func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
 	info := state.TestingMongoInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -2131,7 +2131,7 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 
 	stateInfo := &authentication.MongoInfo{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
 	dialOpts := mongo.DialOpts{Timeout: time.Second * 30}
-	st, err := state.Open(stateInfo, dialOpts, state.Policy(nil))
+	st, err := state.Open(stateInfo, dialOpts)
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -2146,7 +2146,7 @@ func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
-	}, state.Policy(nil))
+	})
 	if err == nil {
 		st.Close()
 	}
@@ -2162,7 +2162,7 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	t0 := time.Now()
 	st, err := state.Open(info, mongo.DialOpts{
 		Timeout: 1 * time.Millisecond,
-	}, state.Policy(nil))
+	})
 	if err == nil {
 		st.Close()
 	}
@@ -2256,7 +2256,7 @@ type entity interface {
 
 func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, error)) {
 	info := state.TestingMongoInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	// Turn on fully-authenticated mode.
@@ -2277,7 +2277,7 @@ func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, erro
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	st1, err := state.Open(info, state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st1.Close()
 
@@ -2433,7 +2433,7 @@ var entityTypes = map[string]interface{}{
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	svc := s.AddTestingService(c, "ser-vice2", s.AddTestingCharm(c, "mysql"))
 	unit, err := svc.AddUnit()
@@ -2496,7 +2496,7 @@ func (s *StateSuite) TestParseNilTagReturnsAnError(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseMachineTag(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	coll, id, err := state.ParseTag(s.State, m.Tag())
 	c.Assert(err, gc.IsNil)
@@ -2777,17 +2777,17 @@ func (s *StateSuite) TestSetEnvironAgentVersionErrors(c *gc.C) {
 	// Add 4 machines: one with a different version, one with an
 	// empty version, one with the current version, and one with
 	// the new version.
-	machine0, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine0, err := s.State.EnvironmentDeployer.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine0.SetAgentVersion(version.MustParseBinary("9.9.9-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
-	machine1, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine1, err := s.State.EnvironmentDeployer.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machine2, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine2, err := s.State.EnvironmentDeployer.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine2.SetAgentVersion(version.MustParseBinary(stringVersion + "-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
-	machine3, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine3, err := s.State.EnvironmentDeployer.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine3.SetAgentVersion(version.MustParseBinary("4.5.6-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
@@ -2849,7 +2849,7 @@ func (s *StateSuite) prepareAgentVersionTests(c *gc.C) (*config.Config, string) 
 	currentVersion := agentVersion.String()
 
 	// Add a machine and a unit with the current version.
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	service, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"), nil)
 	c.Assert(err, gc.IsNil)
@@ -2938,7 +2938,7 @@ type waiter interface {
 // interact with the closed state, causing it to return an
 // unexpected error (often "Closed explictly").
 func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *state.State) waiter) {
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	watcher := startWatcher(c, st)
 	err = st.Close()
@@ -2966,7 +2966,7 @@ func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	// Delete the stateServers collection to pretend this
@@ -2980,7 +2980,7 @@ func (s *StateSuite) TestOpenCreatesStateServersDoc(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(info, gc.IsNil)
 
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -3006,7 +3006,7 @@ func (s *StateSuite) TestOpenCreatesAPIHostPortsDoc(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(addrs, gc.IsNil)
 
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -3020,7 +3020,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, jc.DeepEquals, &state.StateServerInfo{})
 
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -3030,7 +3030,7 @@ func (s *StateSuite) TestReopenWithNoMachines(c *gc.C) {
 }
 
 func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	// Clear the voting machine ids from the stateServers collection
@@ -3051,7 +3051,7 @@ func (s *StateSuite) TestOpenReplacesOldStateServersDoc(c *gc.C) {
 	c.Assert(info.MachineIds, gc.HasLen, 0)
 	c.Assert(info.VotingMachineIds, gc.HasLen, 0)
 
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -3081,12 +3081,12 @@ func (s *StateSuite) TestEnsureAvailabilityAddsNewMachines(c *gc.C) {
 	})
 
 	ids := make([]string, 3)
-	m0, err := s.State.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
+	m0, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	ids[0] = m0.Id()
 
 	// Add a non-state-server machine just to make sure.
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	s.assertStateServerInfo(c, []string{"0"}, []string{"0"})
@@ -3419,7 +3419,7 @@ func (s *StateSuite) TestOpenCreatesStateServingInfoDoc(c *gc.C) {
 	err := s.stateServers.DropCollection()
 	c.Assert(err, gc.IsNil)
 
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
@@ -3682,7 +3682,7 @@ func expectActionResultIds(u *state.Unit, suffixes ...string) []string {
 
 func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 	// Add a machine: reported.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	w := machine.WatchAddresses()

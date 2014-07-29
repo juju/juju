@@ -27,7 +27,7 @@ var _ = gc.Suite(&toolsSuite{})
 func (s *toolsSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	var err error
-	s.machine0, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine0, err = s.State.EnvironmentDeployer.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 }
 

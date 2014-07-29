@@ -172,7 +172,7 @@ func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
 	if params.InstanceId == "" {
 		params.InstanceId = instance.Id(factory.UniqueString("id"))
 	}
-	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
+	machine, err := factory.st.EnvironmentDeployer.AddMachine(params.Series, params.Jobs...)
 	factory.c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
 	factory.c.Assert(err, gc.IsNil)

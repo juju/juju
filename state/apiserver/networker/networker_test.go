@@ -70,7 +70,7 @@ func (s *networkerSuite) setUpNetworks(c *gc.C) {
 // Create a machine to use.
 func (s *networkerSuite) setUpMachine(c *gc.C) {
 	var err error
-	s.machine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	s.machine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	hwChars := instance.MustParseHardware("arch=i386", "mem=4G")
 	s.machineIfaces = []state.NetworkInterfaceInfo{{

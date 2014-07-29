@@ -55,7 +55,7 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer srv.Stop()
 
-	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	stm, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -118,7 +118,7 @@ func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
 	port, err := strconv.Atoi(portString)
 	c.Assert(err, gc.IsNil)
 
-	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	stm, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -165,7 +165,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 		c.Assert(err, jc.Satisfies, params.IsCodeNotProvisioned)
 		c.Assert(err, gc.ErrorMatches, `machine \d+ is not provisioned`)
 	}
-	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	stm, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -198,7 +198,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	st.Close()
 
 	// Now add another machine, intentionally unprovisioned.
-	stm1, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	stm1, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = stm1.SetPassword(password)
 	c.Assert(err, gc.IsNil)
@@ -215,7 +215,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	// This is the same steps as OpenAPIAsNewMachine but we need to assert
 	// the agent is not alive before we actually open the API.
 	// Create a new machine to verify "agent alive" behavior.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)

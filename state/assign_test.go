@@ -78,9 +78,9 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *gc.C) {
 	// Check that assigning an already assigned unit to
 	// a machine fails if it isn't precisely the same
 	// machine.
-	machineOne, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machineOne, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	machineTwo, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machineTwo, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	err = unit.AssignToMachine(machineOne)
@@ -102,7 +102,7 @@ func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *gc.C) {
 func (s *AssignSuite) TestAssignedMachineIdWhenNotAlive(c *gc.C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	err = unit.AssignToMachine(machine)
@@ -118,7 +118,7 @@ func (s *AssignSuite) TestAssignedMachineIdWhenNotAlive(c *gc.C) {
 func (s *AssignSuite) TestAssignedMachineIdWhenPrincipalNotAlive(c *gc.C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = unit.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
@@ -161,7 +161,7 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *gc.C) {
 	subUnit := s.addSubordinate(c, unit)
 
 	// None of the direct unit assign methods work on subordinates.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = subUnit.AssignToMachine(machine)
 	c.Assert(err, gc.ErrorMatches, `cannot assign unit "logging/0" to machine 0: unit is a subordinate`)
@@ -187,7 +187,7 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *gc.C) {
 }
 
 func (s *AssignSuite) TestDeployerTag(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	principal, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -228,7 +228,7 @@ func (s *AssignSuite) TestDirectAssignIgnoresConstraints(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Machine will take environment constraints on creation.
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	// Unit will take combined service/environ constraints on creation.
@@ -244,7 +244,7 @@ func (s *AssignSuite) TestDirectAssignIgnoresConstraints(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignBadSeries(c *gc.C) {
-	machine, err := s.State.AddMachine("burble", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("burble", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -253,7 +253,7 @@ func (s *AssignSuite) TestAssignBadSeries(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignMachineWhenDying(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	unit, err := s.wordpress.AddUnit()
@@ -281,7 +281,7 @@ func (s *AssignSuite) TestAssignMachineWhenDying(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *gc.C) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -436,7 +436,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineCleanAvailable(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Add a clean machine.
-	clean, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	clean, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	err = unit.AssignToNewMachine()
@@ -493,7 +493,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineUnitRemoved(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
 	c.Assert(err, gc.IsNil)
 
 	// Set up constraints to specify we want to install into a container.
@@ -506,7 +506,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	anotherUnit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	makeDirty := txn.TestHook{
@@ -526,7 +526,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
 	c.Assert(err, gc.IsNil)
 
 	// Set up constraints to specify we want to install into a container.
@@ -537,7 +537,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *gc.C) {
 	// Create a unit and a clean machine.
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	addContainer := txn.TestHook{
@@ -571,7 +571,7 @@ func (s *AssignSuite) TestAssignUnitBadPolicy(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignUnitLocalPolicy(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits) // bootstrap machine
+	m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits) // bootstrap machine
 	c.Assert(err, gc.IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -587,7 +587,7 @@ func (s *AssignSuite) TestAssignUnitLocalPolicy(c *gc.C) {
 }
 
 func (s *AssignSuite) assertAssignUnitNewPolicyNoContainer(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits) // available machine
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits) // available machine
 	c.Assert(err, gc.IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -623,7 +623,7 @@ func (s *AssignSuite) assertAssignUnitNewPolicyWithContainerConstraint(c *gc.C) 
 }
 
 func (s *AssignSuite) TestAssignUnitNewPolicyWithContainerConstraint(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	// Set up service constraints.
 	scons := constraints.MustParse("container=lxc")
@@ -633,7 +633,7 @@ func (s *AssignSuite) TestAssignUnitNewPolicyWithContainerConstraint(c *gc.C) {
 }
 
 func (s *AssignSuite) TestAssignUnitNewPolicyWithDefaultContainerConstraint(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	// Set up env constraints.
 	econs := constraints.MustParse("container=lxc")
@@ -643,7 +643,7 @@ func (s *AssignSuite) TestAssignUnitNewPolicyWithDefaultContainerConstraint(c *g
 }
 
 func (s *AssignSuite) TestAssignUnitWithSubordinate(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
 	c.Assert(err, gc.IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -707,7 +707,7 @@ func (s *assignCleanSuite) assertMachineNotEmpty(c *gc.C, machine *state.Machine
 
 // setupMachines creates a combination of machines with which to test.
 func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, container *state.Machine, cleanEmptyMachine *state.Machine) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
 	c.Assert(err, gc.IsNil)
 
 	// Add some units to another service and allocate them to machines
@@ -716,7 +716,7 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 	for i := range units {
 		u, err := service1.AddUnit()
 		c.Assert(err, gc.IsNil)
-		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		err = u.AssignToMachine(m)
 		c.Assert(err, gc.IsNil)
@@ -724,7 +724,7 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 	}
 
 	// Create a new, clean machine but add containers so it is not empty.
-	hostMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	hostMachine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	container, err = s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
@@ -734,7 +734,7 @@ func (s *assignCleanSuite) setupMachines(c *gc.C) (hostMachine *state.Machine, c
 	s.assertMachineNotEmpty(c, hostMachine)
 
 	// Create a new, clean, empty machine.
-	cleanEmptyMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	cleanEmptyMachine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(cleanEmptyMachine.Clean(), jc.IsTrue)
 	s.assertMachineEmpty(c, cleanEmptyMachine)
@@ -772,7 +772,7 @@ func (s *assignCleanSuite) TestAssignUnitTwiceFails(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Check that it fails when called again, even when there's an available machine
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	_, err = s.assignUnit(unit)
 	c.Assert(err, gc.ErrorMatches, s.errorMessage(`cannot assign unit "wordpress/0" to %s machine: unit is already assigned to a machine`))
@@ -794,14 +794,14 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	// Add a state management machine which can host units and check it is not chosen.
 	// Note that this must the first machine added, as AddMachine can only
 	// be used to add state-manager machines for the bootstrap machine.
-	m, err = s.State.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
+	m, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
 	// Add a dying machine and check that it is not chosen.
-	m, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = m.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -819,7 +819,7 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, eligibleMachinesInUse)
 
 	// Add a machine with the wrong series and check it is not chosen.
-	m, err = s.State.AddMachine("anotherseries", state.JobHostUnits)
+	m, err = s.State.EnvironmentDeployer.AddMachine("anotherseries", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, gc.IsNil)
@@ -924,7 +924,7 @@ func (s *assignCleanSuite) TestAssignUsingConstraintsToMachine(c *gc.C) {
 		unit, err := s.wordpress.AddUnit()
 		c.Assert(err, gc.IsNil)
 
-		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		if t.hardwareCharacteristics != "none" {
 			hc := instance.MustParseHardware(t.hardwareCharacteristics)
@@ -947,7 +947,7 @@ func (s *assignCleanSuite) TestAssignUsingConstraintsToMachine(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitWithRemovedService(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
 	c.Assert(err, gc.IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -956,14 +956,14 @@ func (s *assignCleanSuite) TestAssignUnitWithRemovedService(c *gc.C) {
 	removeAllUnits(c, s.wordpress)
 	err = s.wordpress.Destroy()
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	_, err = s.assignUnit(unit)
 	c.Assert(err, gc.ErrorMatches, s.errorMessage(`cannot assign unit "wordpress/0" to %s machine.*: unit not found`))
 }
 
 func (s *assignCleanSuite) TestAssignUnitToMachineWithRemovedUnit(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
 	c.Assert(err, gc.IsNil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -972,7 +972,7 @@ func (s *assignCleanSuite) TestAssignUnitToMachineWithRemovedUnit(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = unit.Remove()
 	c.Assert(err, gc.IsNil)
-	_, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	_, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	_, err = s.assignUnit(unit)
@@ -980,7 +980,7 @@ func (s *assignCleanSuite) TestAssignUnitToMachineWithRemovedUnit(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitToMachineWorksWithMachine0(c *gc.C) {
-	m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0")
 	unit, err := s.wordpress.AddUnit()
@@ -991,7 +991,7 @@ func (s *assignCleanSuite) TestAssignUnitToMachineWorksWithMachine0(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
 	c.Assert(err, gc.IsNil)
 
 	// Check unassigned placements with no clean and/or empty machines.
@@ -1034,7 +1034,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 
 	var expectedMachines []string
 	// Create a new, clean machine but add containers so it is not empty.
-	hostMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	hostMachine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
@@ -1049,7 +1049,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 
 	// Add some more clean machines
 	for i := 0; i < 4; i++ {
-		m, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		m, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Assert(err, gc.IsNil)
 		expectedMachines = append(expectedMachines, m.Id())
 	}
@@ -1071,11 +1071,11 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
 	c.Assert(err, gc.IsNil)
 
 	// Create a machine and add a new container.
-	hostMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	hostMachine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	container, err := s.State.AddMachineInsideMachine(state.MachineTemplate{
 		Series: "quantal",
@@ -1126,7 +1126,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 	assertContainerPlacement(2)
 
 	// Create a new, clean instance and check that the next container creation uses it.
-	hostMachine, err = s.State.AddMachine("quantal", state.JobHostUnits)
+	hostMachine, err = s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	unit, err = s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -1138,7 +1138,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *gc.C) {
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicyConcurrently(c *gc.C) {
-	_, err := s.State.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
+	_, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobManageEnviron) // bootstrap machine
 	c.Assert(err, gc.IsNil)
 	us := make([]*state.Unit, 50)
 	for i := range us {

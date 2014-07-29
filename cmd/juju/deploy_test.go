@@ -220,7 +220,7 @@ func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 
 func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	charmtesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", machine.Id(), "local:dummy", "portlandia")
 	c.Assert(err, gc.IsNil)
@@ -233,7 +233,7 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 		Series: "precise",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	}
-	container, err := s.State.AddMachineInsideNewMachine(template, template, instance.LXC)
+	container, err := s.Deployer.AddMachineInsideNewMachine(template, template, instance.LXC)
 	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", container.Id(), "local:dummy", "portlandia")
 	c.Assert(err, gc.IsNil)
@@ -245,7 +245,7 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	charmtesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", "lxc:"+machine.Id(), "local:dummy", "portlandia")
 	c.Assert(err, gc.IsNil)
@@ -264,7 +264,7 @@ func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 }
 
 func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	charmtesting.Charms.BundlePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "--to", machine.Id(), "local:logging")

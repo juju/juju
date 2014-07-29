@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/multiwatcher"
@@ -74,6 +75,27 @@ const (
 	AdminUser = "admin"
 )
 
+type EnvironmentValidator interface {
+	ConstraintsValidator() (constraints.Validator, error)
+	ResolveConstraints(constraints.Value) (constraints.Value, error)
+	Validate(newConfig, oldConfig *config.Config) (*config.Config, error)
+	ValidateConstraints(constraints.Value) ([]string, error)
+	SupportsUnitPlacement() error
+}
+
+type EnvironmentDistributor interface {
+	DistributeUnit(*Unit, []instance.Id) ([]instance.Id, error)
+	ServiceInstances(string) ([]instance.Id, error)
+}
+
+type EnvironmentProvider interface {
+}
+
+type EnvironmentDeployment interface {
+	AddMachine(series string, jobs ...MachineJob) (*Machine, error)
+	AddOneMachine(MachineTemplate) (*Machine, error)
+}
+
 // State represents the state of an environment
 // managed by juju.
 type State struct {
@@ -84,10 +106,15 @@ type State struct {
 	transactionRunner jujutxn.Runner
 	authenticated     bool
 	mongoInfo         *authentication.MongoInfo
-	policy            Policy
+	info              *authentication.MongoInfo
 	db                *mgo.Database
 	watcher           *watcher.Watcher
 	pwatcher          *presence.Watcher
+
+	EnvironmentDeployer     EnvironmentDeployment
+	environmentValidation   EnvironmentValidator
+	EnvironmentDistribution EnvironmentDistributor
+	environmentImpl         EnvironmentProvider
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
@@ -122,6 +149,13 @@ func (st *State) getPresence() *mgo.Collection {
 func (st *State) newDB() (*mgo.Database, func()) {
 	session := st.db.Session.Copy()
 	return st.db.With(session), session.Close
+}
+
+func (st *State) SetEnvironment(deployer EnvironmentDeployment, validation EnvironmentValidator, distribution EnvironmentDistributor, impl EnvironmentProvider) {
+	st.EnvironmentDeployer = deployer
+	st.environmentValidation = validation
+	st.EnvironmentDistribution = distribution
+	st.environmentImpl = impl
 }
 
 // Ping probes the state's database connection to ensure
@@ -330,7 +364,7 @@ func (st *State) buildAndValidateEnvironConfig(updateAttrs map[string]interface{
 	if err := checkEnvironConfig(newConfig); err != nil {
 		return nil, err
 	}
-	return st.validate(newConfig, oldConfig)
+	return st.environmentValidation.Validate(newConfig, oldConfig)
 }
 
 type ValidateConfigFunc func(updateAttrs map[string]interface{}, removeAttrs []string, oldConfig *config.Config) error
@@ -388,7 +422,7 @@ func (st *State) EnvironConstraints() (constraints.Value, error) {
 
 // SetEnvironConstraints replaces the current environment constraints.
 func (st *State) SetEnvironConstraints(cons constraints.Value) error {
-	unsupported, err := st.validateConstraints(cons)
+	unsupported, err := st.environmentValidation.ValidateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
 			"setting environment constraints: unsupported constraints: %v", strings.Join(unsupported, ","))

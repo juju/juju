@@ -17,6 +17,7 @@ import (
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -130,7 +131,7 @@ func breakDummyProvider(c *gc.C, st *state.State, environMethod string) string {
 // so the Settings returned from the watcher will not pass
 // validation.
 func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
-	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	attrs := map[string]interface{}{"type": "unknown"}
@@ -140,7 +141,7 @@ func (s *CommonProvisionerSuite) invalidateEnvironment(c *gc.C) {
 
 // fixEnvironment undoes the work of invalidateEnvironment.
 func (s *CommonProvisionerSuite) fixEnvironment(c *gc.C) error {
-	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	attrs := map[string]interface{}{"type": s.cfg.AllAttrs()["type"]}

@@ -12,6 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
@@ -57,7 +58,7 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 	// tweaking the provider type.
 	info := s.MongoInfo(c)
 	opts := mongo.DefaultDialOpts()
-	st2, err := state.Open(info, opts, state.Policy(nil))
+	st2, err := state.Open(info, opts, environmentserver.Deployer(nil))
 	c.Assert(err, gc.IsNil)
 	defer st2.Close()
 	err = st2.UpdateEnvironConfig(map[string]interface{}{"type": "unknown"}, nil, nil)
@@ -86,7 +87,7 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 
 func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
 	// reopen the state so that we can wangle a dodgy environ config in there.
-	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts())
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	err = st.UpdateEnvironConfig(map[string]interface{}{"secret": 999}, nil, nil)
@@ -114,7 +115,7 @@ func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
 
 	info := s.MongoInfo(c)
 	opts := mongo.DefaultDialOpts()
-	st2, err := state.Open(info, opts, state.Policy(nil))
+	st2, err := state.Open(info, opts, environmentserver.Deployer(nil))
 	defer st2.Close()
 
 	// Change to an invalid configuration and check

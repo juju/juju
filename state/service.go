@@ -609,7 +609,7 @@ func (s *Service) addUnitOps(principalName string, asserts bson.D) (string, []tx
 		if err != nil {
 			return "", nil, err
 		}
-		cons, err := s.st.resolveConstraints(scons)
+		cons, err := s.st.environmentValidation.ResolveConstraints(scons)
 		if err != nil {
 			return "", nil, err
 		}
@@ -821,7 +821,7 @@ func (s *Service) Constraints() (constraints.Value, error) {
 
 // SetConstraints replaces the current service constraints.
 func (s *Service) SetConstraints(cons constraints.Value) (err error) {
-	unsupported, err := s.st.validateConstraints(cons)
+	unsupported, err := s.st.environmentValidation.ValidateConstraints(cons)
 	if len(unsupported) > 0 {
 		logger.Warningf(
 			"setting constraints on service %q: unsupported constraints: %v", s.Name(), strings.Join(unsupported, ","))

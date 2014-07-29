@@ -37,7 +37,7 @@ func (s *loginSuite) setupServer(c *gc.C) (*api.Info, func()) {
 }
 
 func (s *loginSuite) setupMachineAndServer(c *gc.C) (*api.Info, func()) {
-	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
@@ -134,7 +134,7 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 	info, cleanup := s.setupServer(c)
 	defer cleanup()
 
-	machineInState, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	machineInState, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = machineInState.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)

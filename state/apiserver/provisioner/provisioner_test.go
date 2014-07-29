@@ -61,7 +61,7 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 		s.machines = append(s.machines, testing.AddStateServerMachine(c, s.State))
 	}
 	for i := 0; i < 5; i++ {
-		machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+		machine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 		c.Check(err, gc.IsNil)
 		s.machines = append(s.machines, machine)
 	}
@@ -576,7 +576,7 @@ func (s *withoutStateServerSuite) TestStatus(c *gc.C) {
 
 func (s *withoutStateServerSuite) TestSeries(c *gc.C) {
 	// Add a machine with different series.
-	foobarMachine, err := s.State.AddMachine("foobar", state.JobHostUnits)
+	foobarMachine, err := s.State.EnvironmentDeployer.AddMachine("foobar", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{

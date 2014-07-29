@@ -38,7 +38,7 @@ func (s *stateSuite) TestWatchEnvironMachines(c *gc.C) {
 	wc.AssertChange(s.machines[0].Id(), s.machines[1].Id(), s.machines[2].Id())
 
 	// Add another machine make sure they are detected.
-	otherMachine, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	otherMachine, err := s.State.EnvironmentDeployer.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange(otherMachine.Id())
 

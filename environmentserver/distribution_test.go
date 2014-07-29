@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package environmentserver_test
 
 import (
 	"fmt"
@@ -11,13 +11,15 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
 
+const eligibleMachinesInUse = "all eligible machines in use"
+
 type InstanceDistributorSuite struct {
-	ConnSuite
+	testing.JujuConnSuite
 	distributor mockInstanceDistributor
 	wordpress   *state.Service
 	machines    []*state.Machine
@@ -32,6 +34,14 @@ type mockInstanceDistributor struct {
 	err               error
 }
 
+func (p mockInstanceDistributor) ServiceInstances(string) ([]instance.Id, error) {
+	return nil, nil
+}
+
+func (p mockInstanceDistributor) DistributeUnit(u *state.Unit, candidates []instance.Id) ([]instance.Id, error) {
+	return nil, nil
+}
+
 func (p *mockInstanceDistributor) DistributeInstances(candidates, distributionGroup []instance.Id) ([]instance.Id, error) {
 	p.candidates = candidates
 	p.distributionGroup = distributionGroup
@@ -43,11 +53,9 @@ func (p *mockInstanceDistributor) DistributeInstances(candidates, distributionGr
 }
 
 func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
-	s.ConnSuite.SetUpTest(c)
+	s.JujuConnSuite.SetUpTest(c)
 	s.distributor = mockInstanceDistributor{}
-	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
-		return &s.distributor, nil
-	}
+	s.State.EnvironmentDistribution = mockInstanceDistributor{}
 	s.wordpress = s.AddTestingServiceWithNetworks(
 		c,
 		"wordpress",
@@ -58,7 +66,7 @@ func (s *InstanceDistributorSuite) SetUpTest(c *gc.C) {
 	s.machines = make([]*state.Machine, 3)
 	for i := range s.machines {
 		var err error
-		s.machines[i], err = s.State.AddOneMachine(state.MachineTemplate{
+		s.machines[i], err = s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 			Series: "quantal",
 			Jobs:   []state.MachineJob{state.JobHostUnits},
 		})
@@ -133,10 +141,6 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesErrors(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*no assignment for you")
 	_, err = unit.AssignToCleanEmptyMachine()
 	c.Assert(err, gc.ErrorMatches, ".*no assignment for you")
-	// If the policy's InstanceDistributor method fails, that will be returned first.
-	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
-		return nil, fmt.Errorf("incapable of InstanceDistributor")
-	}
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, gc.ErrorMatches, ".*incapable of InstanceDistributor")
 }
@@ -161,24 +165,16 @@ func (s *InstanceDistributorSuite) TestDistributeInstancesEmptyDistributionGroup
 func (s *InstanceDistributorSuite) TestInstanceDistributorUnimplemented(c *gc.C) {
 	s.setupScenario(c)
 	var distributorErr error
-	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
-		return nil, distributorErr
-	}
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	_, err = unit.AssignToCleanMachine()
-	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/1" to clean machine: policy returned nil instance distributor without an error`)
+	c.Assert(err, gc.ErrorMatches, `cannot assign unit "wordpress/1" to clean machine: MockDeployer returned nil instance distributor without an error`)
 	distributorErr = errors.NotImplementedf("InstanceDistributor")
 	_, err = unit.AssignToCleanMachine()
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *InstanceDistributorSuite) TestDistributeInstancesNoPolicy(c *gc.C) {
-	s.policy.GetInstanceDistributor = func(*config.Config) (state.InstanceDistributor, error) {
-		c.Errorf("should not have been invoked")
-		return nil, nil
-	}
-	state.SetPolicy(s.State, nil)
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 	_, err = unit.AssignToCleanMachine()

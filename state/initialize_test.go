@@ -10,6 +10,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing"
@@ -39,9 +40,12 @@ func (s *InitializeSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *InitializeSuite) openState(c *gc.C) {
-	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts(), state.Policy(nil))
+	st, err := state.Open(state.TestingMongoInfo(), state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	s.State = st
+
+	deployer := environmentserver.NewDeployer(s.State)
+	s.State.SetEnvironment(deployer, deployer, deployer, deployer)
 }
 
 func (s *InitializeSuite) TearDownTest(c *gc.C) {
@@ -57,7 +61,7 @@ func (s *InitializeSuite) TearDownTest(c *gc.C) {
 func (s *InitializeSuite) TestInitialize(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
-	st, err := state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts(), nil)
+	st, err := state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.NotNil)
 	err = st.Close()
@@ -94,7 +98,7 @@ func (s *InitializeSuite) TestInitialize(c *gc.C) {
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
-	st := TestingInitialize(c, cfg, nil)
+	st := state.TestingInitialize(c, cfg)
 	st.Close()
 
 	// A second initialize returns an open *State, but ignores its params.
@@ -102,7 +106,7 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *gc.C) {
 	// for originally...
 	cfg, err := cfg.Apply(map[string]interface{}{"authorized-keys": "something-else"})
 	c.Assert(err, gc.IsNil)
-	st, err = state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts(), state.Policy(nil))
+	st, err = state.Initialize(state.TestingMongoInfo(), cfg, state.TestingDialOpts())
 	c.Assert(err, gc.IsNil)
 	c.Assert(st, gc.NotNil)
 	st.Close()
@@ -119,11 +123,11 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *gc.C) {
 	badUpdateAttrs := map[string]interface{}{"admin-secret": "foo"}
 	bad, err := good.Apply(badUpdateAttrs)
 
-	_, err = state.Initialize(state.TestingMongoInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
+	_, err = state.Initialize(state.TestingMongoInfo(), bad, state.TestingDialOpts())
 	c.Assert(err, gc.ErrorMatches, "admin-secret should never be written to the state")
 
 	// admin-secret blocks UpdateEnvironConfig.
-	st := TestingInitialize(c, good, nil)
+	st := state.TestingInitialize(c, good)
 	st.Close()
 
 	s.openState(c)
@@ -144,11 +148,10 @@ func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *gc.C) {
 	bad, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
-	_, err = state.Initialize(state.TestingMongoInfo(), bad, state.TestingDialOpts(), state.Policy(nil))
+	_, err = state.Initialize(state.TestingMongoInfo(), bad, state.TestingDialOpts())
 	c.Assert(err, gc.ErrorMatches, "agent-version must always be set in state")
 
-	st := TestingInitialize(c, good, nil)
-	// yay side effects
+	st := state.TestingInitialize(c, good)
 	st.Close()
 
 	s.openState(c)

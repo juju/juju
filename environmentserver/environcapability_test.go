@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package environmentserver_test
 
 import (
 	"fmt"
@@ -9,13 +9,14 @@ import (
 	"github.com/juju/errors"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environmentserver"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 )
 
 type EnvironCapabilitySuite struct {
-	ConnSuite
+	testing.JujuConnSuite
 	capability mockEnvironCapability
 }
 
@@ -40,20 +41,20 @@ func (p *mockEnvironCapability) SupportsUnitPlacement() error {
 func (s *EnvironCapabilitySuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	s.capability = mockEnvironCapability{}
-	s.policy.GetEnvironCapability = func(*config.Config) (state.EnvironCapability, error) {
+	s.Deployer.GetEnvironCapability = func() (environmentserver.EnvironCapability, error) {
 		return &s.capability, nil
 	}
 }
 
 func (s *EnvironCapabilitySuite) addOneMachine(c *gc.C) (*state.Machine, error) {
-	return s.State.AddOneMachine(state.MachineTemplate{
+	return s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series: "quantal",
 		Jobs:   []state.MachineJob{state.JobHostUnits},
 	})
 }
 
 func (s *EnvironCapabilitySuite) addOneMachineWithInstanceId(c *gc.C) (*state.Machine, error) {
-	return s.State.AddOneMachine(state.MachineTemplate{
+	return s.State.EnvironmentDeployer.AddOneMachine(state.MachineTemplate{
 		Series:     "quantal",
 		Jobs:       []state.MachineJob{state.JobHostUnits},
 		InstanceId: "i-rate",
@@ -77,8 +78,8 @@ func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementAddMachine(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".*no add-machine for you")
 	err = s.addMachineInsideNewMachine(c)
 	c.Assert(err, gc.ErrorMatches, ".*no add-machine for you")
-	// If the policy's EnvironCapability method fails, that will be returned first.
-	s.policy.GetEnvironCapability = func(*config.Config) (state.EnvironCapability, error) {
+	// If the MockDeployer's EnvironCapability method fails, that will be returned first.
+	s.Deployer.GetEnvironCapability = func() (environmentserver.EnvironCapability, error) {
 		return nil, fmt.Errorf("incapable of EnvironCapability")
 	}
 	_, err = s.addOneMachine(c)
@@ -111,22 +112,21 @@ func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementUnitAssignment(c *gc.C
 
 func (s *EnvironCapabilitySuite) TestEnvironCapabilityUnimplemented(c *gc.C) {
 	var capabilityErr error
-	s.policy.GetEnvironCapability = func(*config.Config) (state.EnvironCapability, error) {
+	s.Deployer.GetEnvironCapability = func() (environmentserver.EnvironCapability, error) {
 		return nil, capabilityErr
 	}
 	_, err := s.addOneMachine(c)
-	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: policy returned nil EnvironCapability without an error")
+	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: MockDeployer returned nil EnvironCapability without an error")
 	capabilityErr = errors.NotImplementedf("EnvironCapability")
 	_, err = s.addOneMachine(c)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *EnvironCapabilitySuite) TestSupportsUnitPlacementNoPolicy(c *gc.C) {
-	s.policy.GetEnvironCapability = func(*config.Config) (state.EnvironCapability, error) {
+	s.Deployer.GetEnvironCapability = func() (environmentserver.EnvironCapability, error) {
 		c.Errorf("should not have been invoked")
 		return nil, nil
 	}
-	state.SetPolicy(s.State, nil)
 	_, err := s.addOneMachine(c)
 	c.Assert(err, gc.IsNil)
 }

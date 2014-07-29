@@ -289,7 +289,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 			},
 			Tag:      tag,
 			Password: agentConf.Credentials.Password,
-		}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
+		}, mongo.DefaultDialOpts())
 		if err == nil {
 			break
 		}
