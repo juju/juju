@@ -47,8 +47,8 @@ func (c *EndpointCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	// We rely on the fact that the returned API endpoint always
-	// has the wanted address as first address.
+	// We rely on the fact that the returned API endoint always
+	// has the last address we connected to as the first address.
 	address := apiendpoint.Addresses[0]
 	return c.out.Write(ctx, address)
 }
