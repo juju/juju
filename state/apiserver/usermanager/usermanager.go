@@ -68,8 +68,8 @@ type ModifyUser struct {
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
-	state       *state.State
-	authorizer  common.Authorizer
+	state      *state.State
+	authorizer common.Authorizer
 }
 
 var _ UserManager = (*UserManagerAPI)(nil)
@@ -84,9 +84,9 @@ func NewUserManagerAPI(
 	}
 
 	return &UserManagerAPI{
-			state:       st,
-			authorizer:  authorizer,
-		}, nil
+		state:      st,
+		authorizer: authorizer,
+	}, nil
 }
 
 // AddUser adds a user.
