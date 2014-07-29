@@ -293,7 +293,11 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// Run the upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
+		return upgrader.NewUpgrader(
+			st.Upgrader(),
+			agentConfig,
+			func() bool { return false },
+		), nil
 	})
 	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
 		return a.upgradeWorkerContext.Worker(a, st, entity.Jobs()), nil

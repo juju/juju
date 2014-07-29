@@ -32,10 +32,12 @@ var logger = loggo.GetLogger("juju.worker.upgrader")
 // Upgrader represents a worker that watches the state for upgrade
 // requests.
 type Upgrader struct {
-	tomb    tomb.Tomb
-	st      *upgrader.State
-	dataDir string
-	tag     names.Tag
+	tomb             tomb.Tomb
+	st               *upgrader.State
+	dataDir          string
+	tag              names.Tag
+	origAgentVersion version.Number
+	isUpgradeRunning func() bool
 }
 
 // NewUpgrader returns a new upgrader worker. It watches changes to the
@@ -44,11 +46,13 @@ type Upgrader struct {
 // an upgrade is needed, the worker will exit with an UpgradeReadyError
 // holding details of the requested upgrade. The tools will have been
 // downloaded and unpacked.
-func NewUpgrader(st *upgrader.State, agentConfig agent.Config) *Upgrader {
+func NewUpgrader(st *upgrader.State, agentConfig agent.Config, isUpgradeRunning func() bool) *Upgrader {
 	u := &Upgrader{
-		st:      st,
-		dataDir: agentConfig.DataDir(),
-		tag:     agentConfig.Tag(),
+		st:               st,
+		dataDir:          agentConfig.DataDir(),
+		tag:              agentConfig.Tag(),
+		origAgentVersion: agentConfig.UpgradedToVersion(),
+		isUpgradeRunning: isUpgradeRunning,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -76,7 +80,15 @@ func (u *Upgrader) Stop() error {
 
 // allowedTargetVersion checks if targetVersion is too different from
 // curVersion to allow a downgrade.
-func allowedTargetVersion(curVersion, targetVersion version.Number) bool {
+func allowedTargetVersion(
+	origAgentVersion version.Number,
+	curVersion version.Number,
+	upgradeRunning bool,
+	targetVersion version.Number,
+) bool {
+	if upgradeRunning && targetVersion == origAgentVersion {
+		return true
+	}
 	if targetVersion.Major < curVersion.Major {
 		return false
 	}
@@ -127,7 +139,8 @@ func (u *Upgrader) loop() error {
 		}
 		if wantVersion == currentTools.Version.Number {
 			continue
-		} else if !allowedTargetVersion(version.Current.Number, wantVersion) {
+		} else if !allowedTargetVersion(u.origAgentVersion, version.Current.Number,
+			u.isUpgradeRunning(), wantVersion) {
 			// See also bug #1299802 where when upgrading from
 			// 1.16 to 1.18 there is a race condition that can
 			// cause the unit agent to upgrade, and then want to
