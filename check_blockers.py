@@ -17,6 +17,7 @@ LP_BUGS = (
     '&importance%3Alist=Critical'
     '&tags%3Alist=regression&tags%3Alist=ci&tags_combinator=All'
     )
+GH_COMMENTS = 'https://api.github.com/repos/juju/juju/issues/{}/comments'
 
 
 def get_json(uri):
@@ -52,8 +53,7 @@ def get_reason(bugs, args):
     if not bugs:
         return 0, 'No blocking bugs'
     fixes_ids = ['$$fixes-{}$$'.format(bug_id) for bug_id in bugs]
-    uri = 'https://api.github.com/repos/juju/juju/issues/{}/comments'.format(
-        args.pull_request)
+    uri = GH_COMMENTS.format(args.pull_request)
     comments = get_json(uri)
     if comments:
         for comment in comments:
