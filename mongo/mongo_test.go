@@ -370,6 +370,27 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 	}})
 }
 
+func (s *MongoSuite) TestJournalEnabledDetected(c *gc.C) {
+	s.testJournalEnabled(c, true)
+}
+
+func (s *MongoSuite) TestJournalDisabledDetected(c *gc.C) {
+	s.testJournalEnabled(c, false)
+}
+
+func (s *MongoSuite) testJournalEnabled(c *gc.C, enabled bool) {
+	inst := &testing.MgoInstance{EnableJournal: enabled}
+	err := inst.Start(coretesting.Certs)
+	c.Assert(err, gc.IsNil)
+	defer inst.DestroyWithLog()
+	session, err := inst.Dial()
+	c.Assert(err, gc.IsNil)
+	defer session.Close()
+	isEnabled, err := mongo.JournalEnabled(session)
+	c.Assert(err, gc.IsNil)
+	c.Assert(isEnabled, gc.Equals, enabled)
+}
+
 // mockShellCommand creates a new command with the given
 // name and contents, and patches $PATH so that it will be
 // executed by preference. It returns the name of a file
