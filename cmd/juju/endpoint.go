@@ -49,6 +49,6 @@ func (c *EndpointCommand) Run(ctx *cmd.Context) error {
 	}
 	// We rely on the fact that the returned API endoint always
 	// has the last address we connected to as the first address.
-	address := apiendpoint.Addresses[0]
+	address := apiendpoint.Addresses[0:1]
 	return c.out.Write(ctx, address)
 }
