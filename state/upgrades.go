@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 )
 
 var upgradesLogger = loggo.GetLogger("juju.state.upgrade")

@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/loggo"
-	jujutxn "github.com/juju/txn"
+	"github.com/juju/txn"
 	"labix.org/v2/mgo"
 
 	"github.com/juju/juju/agent"
@@ -103,7 +103,7 @@ type upgradeContext struct {
 	st          *state.State
 	agentConfig agent.ConfigSetter
 	db          *mgo.Database
-	runner      jujutxn.Runner
+	runner      txn.Runner
 }
 
 // APIState is defined on the Context interface.

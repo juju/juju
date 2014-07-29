@@ -191,7 +191,7 @@ func (u *User) SetPassword(password string) error {
 	return u.SetPasswordHash(utils.UserPasswordHash(password, salt), salt)
 }
 
-// setPasswordHash stores the hash and the salt of the password.
+// SetPasswordHash stores the hash and the salt of the password.
 func (u *User) SetPasswordHash(pwHash string, pwSalt string) error {
 	ops := []txn.Op{{
 		C:      usersC,

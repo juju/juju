@@ -7,8 +7,9 @@ import (
 	"time"
 
 	gitjujutesting "github.com/juju/testing"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	jc "github.com/juju/testing/checkers"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"
@@ -33,7 +34,9 @@ func (s *upgradesSuite) TearDownSuite(c *gc.C) {
 func (s *upgradesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.state = TestingInitialize(c, nil, Policy(nil))
+	var err error
+	s.state, err = Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), Policy(nil))
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *upgradesSuite) TearDownTest(c *gc.C) {
@@ -48,6 +51,7 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	now := time.Now().UTC().Round(time.Second)
 	userId := "foobar"
 	oldDoc := bson.M{
+		"_id_":           userId,
 		"_id":            userId,
 		"displayname":    "foo bar",
 		"deactivated":    false,
@@ -74,4 +78,13 @@ func (s *upgradesSuite) TestLastLoginMigrate(c *gc.C) {
 	user, err := s.state.User(userId)
 	c.Assert(err, gc.IsNil)
 	c.Assert(*user.LastLogin(), gc.Equals, now)
+
+	// check to see if _id_ field is removed
+	userMap := map[string]interface{}{}
+	users, closer := s.state.getCollection("users")
+	defer closer()
+	err = users.Find(bson.D{{"_id", userId}}).One(&userMap)
+	c.Assert(err, gc.IsNil)
+	_, keyExists := userMap["_id_"]
+	c.Assert(keyExists, jc.IsFalse)
 }
