@@ -578,10 +578,7 @@ func init() {
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
-	select {
-	case <-a.upgradeWorkerContext.UpgradeComplete:
-		return nil // upgrade done so allow all logins
-	default:
+	if a.upgradeWorkerContext.IsUpgradeRunning() {
 		authTag, err := names.ParseTag(creds.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
@@ -597,6 +594,8 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 			}
 		}
 		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
+	} else {
+		return nil // allow all logins
 	}
 }
 

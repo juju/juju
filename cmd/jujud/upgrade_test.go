@@ -152,6 +152,14 @@ func (s *UpgradeSuite) TestRetryStrategy(c *gc.C) {
 	c.Assert(retries.Min, gc.Equals, 5)
 }
 
+func (s *UpgradeSuite) TestIsUpgradeRunning(c *gc.C) {
+	context := NewUpgradeWorkerContext()
+	c.Assert(context.IsUpgradeRunning(), jc.IsTrue)
+
+	close(context.UpgradeComplete)
+	c.Assert(context.IsUpgradeRunning(), jc.IsFalse)
+}
+
 func (s *UpgradeSuite) TestUpgradeStepsFailure(c *gc.C) {
 	// This test checks what happens when every upgrade attempt fails.
 	// A number of retries should be observed and the agent should end

@@ -72,6 +72,15 @@ func (c *upgradeWorkerContext) Worker(
 	return worker.NewSimpleWorker(c.run)
 }
 
+func (c *upgradeWorkerContext) IsUpgradeRunning() bool {
+	select {
+	case <-c.UpgradeComplete:
+		return false
+	default:
+		return true
+	}
+}
+
 type apiLostDuringUpgrade struct {
 	err error
 }
