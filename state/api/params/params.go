@@ -768,3 +768,31 @@ type StateServersChanges struct {
 	Promoted   []string `json:promoted,omitempty`
 	Demoted    []string `json:demoted,omitempty`
 }
+
+// Actions contains the arguments for the Actions API call
+type Actions struct {
+	UnitName string
+}
+
+// ActionInfo describes available actions
+type ActionInfo map[string]string
+
+// ActionsResult contains the results of the Actions API call
+type ActionsResult struct {
+	Actions ActionInfo `json:actions,omitempty`
+}
+
+// Do contains the arguments for the Do API call
+type Do struct {
+	UnitName string
+	Action   string
+	Async    bool
+}
+
+// DoResult contains the reuslts of the Do API call
+type DoResult struct {
+	Id       string
+	Output   string
+	Complete bool
+	Status   string
+}

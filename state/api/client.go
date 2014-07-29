@@ -926,3 +926,19 @@ func (c *Client) WatchDebugLog(args DebugLogParams) (io.ReadCloser, error) {
 	}
 	return connection, nil
 }
+
+// Actions returns the available actions
+func (c *Client) Actions(unit string) (*params.ActionsResult, error) {
+	var results params.ActionsResult
+	params := params.Actions{UnitName: unit}
+	err := c.facade.FacadeCall("Actions", params, &results)
+	return &results, err
+}
+
+// Do sends a message to execute the named action
+func (c *Client) Do(unit, action string) (*params.DoResult, error) {
+	var results params.DoResult
+	params := params.Do{UnitName: unit, Action: action, Async: false}
+	err := c.facade.FacadeCall("Do", params, &results)
+	return &results, err
+}
