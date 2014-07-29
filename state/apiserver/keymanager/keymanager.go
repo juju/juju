@@ -199,7 +199,8 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(err)
 	}
-	tag, err := names.ParseUserTag(arg.User)
+	// TODO(dfc) urgh, is this an API break
+	tag, err := names.ParseUserTag("user-"+arg.User)
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(err)
 	}

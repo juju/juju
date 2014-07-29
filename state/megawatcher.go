@@ -150,6 +150,9 @@ func (m *backingUnit) mongoId() interface{} {
 type backingService serviceDoc
 
 func (svc *backingService) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+	if svc.CharmURL == nil {
+		return errors.Errorf("charm url is nil")
+	}
 
 	info := &params.ServiceInfo{
 		Name:     svc.Name,

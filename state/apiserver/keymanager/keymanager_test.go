@@ -265,7 +265,7 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	args := params.ModifyUserSSHKeys{
-		User: state.AdminUser,
+		User: names.NewUserTag(state.AdminUser).String(),
 		Keys: []string{"lp:existing", "lp:validuser", "invalid-key"},
 	}
 	results, err := s.keymanager.ImportKeys(args)
