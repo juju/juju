@@ -124,7 +124,7 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 	pc := common.NewPasswordChanger(st, getCanChange)
 	var changes []params.EntityPassword
 	for i := 0; i < len(st.entities); i++ {
-		tag := fmt.Sprintf("x%d", i)
+		tag := fmt.Sprintf("unit-x-%d", i)
 		changes = append(changes, params.EntityPassword{
 			Tag:      tag,
 			Password: fmt.Sprintf("%spass", tag),
@@ -146,14 +146,14 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 		},
 	})
 	c.Check(st.entities[u("x/0")].(*fakeAuthenticator).pass, gc.Equals, "")
-	c.Check(st.entities[u("x/1")].(*fakeAuthenticator).pass, gc.Equals, "x1pass")
+	c.Check(st.entities[u("x/1")].(*fakeAuthenticator).pass, gc.Equals, "unit-x-1pass")
 	c.Check(st.entities[u("x/2")].(*fakeAuthenticator).pass, gc.Equals, "")
-	c.Check(st.entities[u("x/4")].(*fakeUnitAuthenticator).pass, gc.Equals, "x4pass")
+	c.Check(st.entities[u("x/4")].(*fakeUnitAuthenticator).pass, gc.Equals, "unit-x-4pass")
 	c.Check(st.entities[u("x/4")].(*fakeUnitAuthenticator).mongoPass, gc.Equals, "")
-	c.Check(st.entities[u("x/5")].(*fakeMachineAuthenticator).pass, gc.Equals, "x5pass")
+	c.Check(st.entities[u("x/5")].(*fakeMachineAuthenticator).pass, gc.Equals, "unit-x-5pass")
 	c.Check(st.entities[u("x/5")].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "")
-	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).pass, gc.Equals, "x6pass")
-	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "x6pass")
+	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).pass, gc.Equals, "unit-x-6pass")
+	c.Check(st.entities[u("x/6")].(*fakeMachineAuthenticator).mongoPass, gc.Equals, "unit-x-6pass")
 }
 
 func (*passwordSuite) TestSetPasswordsError(c *gc.C) {

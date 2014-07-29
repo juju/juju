@@ -145,7 +145,7 @@ func (s *unitUpgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	results, err := anUpgrader.Tools(args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, gc.IsNil)
-	c.Check(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results, gc.HasLen, 1)
 	toolResult := results.Results[0]
 	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }

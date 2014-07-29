@@ -64,49 +64,59 @@ func SortPorts(ports []Port) {
 	sort.Sort(portSlice(ports))
 }
 
-type hostPortPreferringIPv4Slice []HostPort
-
-func (h hostPortPreferringIPv4Slice) Len() int      { return len(h) }
-func (h hostPortPreferringIPv4Slice) Swap(i, j int) { h[i], h[j] = h[j], h[i] }
-func (h hostPortPreferringIPv4Slice) Less(i, j int) bool {
-	addr1 := h[i].Address
-	addr2 := h[j].Address
-	if addr1.Type == HostName {
-		// Prefer hostnames on top, if possible.
-		return addr2.Type != HostName
-	}
-	if addr1.Type == IPv4Address || addr2.Type == IPv4Address {
-		// Prefer IPv4 addresses to IPv6 ones.
-		return addr1.Type == IPv4Address
-	}
-	return addr1.Value == addr2.Value
+type hostPortsByPreference struct {
+	hostPorts  []HostPort
+	order      []int
+	preference AddressType
 }
 
-type hostPortPreferringIPv6Slice struct {
-	hostPortPreferringIPv4Slice
+func (h hostPortsByPreference) Len() int {
+	return len(h.hostPorts)
 }
 
-func (h hostPortPreferringIPv6Slice) Less(i, j int) bool {
-	addr1 := h.hostPortPreferringIPv4Slice[i].Address
-	addr2 := h.hostPortPreferringIPv4Slice[j].Address
-	if addr1.Type == HostName {
-		// Prefer hostnames on top, if possible.
-		return addr2.Type != HostName
+func (h hostPortsByPreference) Swap(i, j int) {
+	h.hostPorts[i], h.hostPorts[j] = h.hostPorts[j], h.hostPorts[i]
+	h.order[i], h.order[j] = h.order[j], h.order[i]
+}
+
+func alternateIPAddressType(t AddressType) AddressType {
+	if t == IPv4Address {
+		return IPv6Address
 	}
-	if addr1.Type == IPv6Address || addr2.Type == IPv6Address {
-		// Prefer IPv6 addresses to IPv4 ones.
-		return addr1.Type == IPv6Address
+	return IPv4Address
+}
+
+func (h hostPortsByPreference) Less(i, j int) bool {
+	addr1 := h.hostPorts[i].Address
+	addr2 := h.hostPorts[j].Address
+	switch addr1.Type {
+	case addr2.Type:
+		// Same-type addresses are kept in original order.
+		return h.order[i] < h.order[j]
+	case HostName:
+		// Hostnames come before non-hostnames.
+		return true
+	case h.preference:
+		return addr2.Type == alternateIPAddressType(h.preference)
 	}
-	return addr1.Value == addr2.Value
+	return false
 }
 
 // SortHostPorts sorts the given HostPort slice, putting hostnames on
 // top and depending on the preferIPv6 flag either IPv6 or IPv4
-// addresses after that.
+// addresses after that. Order of same-type addresses are kept stable.
 func SortHostPorts(hps []HostPort, preferIPv6 bool) {
-	if preferIPv6 {
-		sort.Sort(hostPortPreferringIPv6Slice{hostPortPreferringIPv4Slice(hps)})
-	} else {
-		sort.Sort(hostPortPreferringIPv4Slice(hps))
+	h := hostPortsByPreference{
+		hostPorts: hps,
+		order:     make([]int, len(hps)),
 	}
+	for i := range h.order {
+		h.order[i] = i
+	}
+	if preferIPv6 {
+		h.preference = IPv6Address
+	} else {
+		h.preference = IPv4Address
+	}
+	sort.Sort(h)
 }

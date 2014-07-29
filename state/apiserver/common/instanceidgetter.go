@@ -47,7 +47,7 @@ func (ig *InstanceIdGetter) InstanceId(args params.Entities) (params.StringResul
 	}
 	canRead, err := ig.getCanRead()
 	if err != nil {
-		return result, ErrPerm
+		return result, err
 	}
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)

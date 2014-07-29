@@ -62,7 +62,8 @@ func (t *ToolsGetter) Tools(args params.Entities) (params.ToolsResults, error) {
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			return result, errors.Trace(err)
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
 		}
 		agentTools, err := t.oneAgentTools(canRead, tag, agentVersion, env)
 		if err == nil {
@@ -138,7 +139,8 @@ func (t *ToolsSetter) SetTools(args params.EntitiesVersion) (params.ErrorResults
 	for i, agentTools := range args.AgentTools {
 		tag, err := names.ParseTag(agentTools.Tag)
 		if err != nil {
-			return results, errors.Trace(err)
+			results.Results[i].Error = ServerError(ErrPerm)
+			continue
 		}
 		err = t.setOneAgentVersion(tag, agentTools.Tools.Version, canWrite)
 		results.Results[i].Error = ServerError(err)

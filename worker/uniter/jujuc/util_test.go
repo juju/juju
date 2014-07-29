@@ -79,10 +79,11 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 }
 
 type Context struct {
-	ports  set.Strings
-	relid  int
-	remote string
-	rels   map[int]*ContextRelation
+	actionParams map[string]interface{}
+	ports        set.Strings
+	relid        int
+	remote       string
+	rels         map[int]*ContextRelation
 }
 
 func (c *Context) UnitName() string {
@@ -115,6 +116,10 @@ func (c *Context) ConfigSettings() (charm.Settings, error) {
 		"title":               "My Title",
 		"username":            "admin001",
 	}, nil
+}
+
+func (c *Context) ActionParams() map[string]interface{} {
+	return c.actionParams
 }
 
 func (c *Context) HookRelation() (jujuc.ContextRelation, bool) {

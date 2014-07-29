@@ -46,7 +46,7 @@ func (r *Remover) removeEntity(tag names.Tag) error {
 	}
 	// Only remove entites that are not Alive.
 	if life := remover.Life(); life == state.Alive {
-		return fmt.Errorf("cannot remove entity %q: still alive", tag)
+		return fmt.Errorf("cannot remove entity %q: still alive", tag.String())
 	}
 	if r.callEnsureDead {
 		if err := remover.EnsureDead(); err != nil {
@@ -59,7 +59,6 @@ func (r *Remover) removeEntity(tag names.Tag) error {
 // Remove removes every given entity from state, calling EnsureDead
 // first, then Remove. It will fail if the entity is not present.
 func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
-	// TODO(dfc)
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}

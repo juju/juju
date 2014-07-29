@@ -5,7 +5,7 @@ github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40
 github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	
-github.com/juju/charm	git	a74bb347311d472975681ee5790fd043b06c3e9c	
+github.com/juju/charm	git	55d308eeac5ab7e608d0fe8b306c509680641cf8	
 github.com/juju/cmd	git	e2d7df426d54b663f8616901b75d1ccfafcd9997	
 github.com/juju/errgo	git	2cf7b553faddc588f903020c33e71c527d5e0838	
 github.com/juju/errors	git	47afc1fe9e066212a601c072c034fceb873bf594	
@@ -13,19 +13,19 @@ github.com/juju/gojsonpointer	git	0154bf5a168b672d8c97d8dd83a54cb60cd088e8
 github.com/juju/gojsonreference	git	0673d58f64bacac2db34c7d1e87a599d58923981	
 github.com/juju/gojsonschema	git	33fa79718fa9b24e2a04122f91a75496c0f77098	
 github.com/juju/loggo	git	158009fb40c4a52b3d2c23eb56e72859cfc5321a	
-github.com/juju/names	git	9ce15c41a071d278f91f144a1bea4e22555ea5c9	
+github.com/juju/names	git	93fc8cbf8111c11d4ff47e603f668a0e29fb7cec	
 github.com/juju/ratelimit	git	f9f36d11773655c0485207f0ad30dc2655f69d56	
 github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d	
-github.com/juju/testing	git	748599d14ccb0f11b0d2b6d64141749116c9fcd5	
-github.com/juju/txn	git	1bc7d3e5e9cad446e5d1d659856b67f0f869d3d7	
+github.com/juju/testing	git	8bdbb45d87dd9724c254eb6afeacd84b127d7e76	
+github.com/juju/txn	git	ee0346875f2ae9a21442f3ff64409f750f37afbc	
 github.com/juju/utils	git	7f3110a0b4f01e5800e72b50cc92c8e9de4ea658	
 gopkg.in/natefinch/npipe.v2	git	86d100b9cc0fb2e0d27f2222801c16cd6fe9916a	
-labix.org/v2/mgo	bzr	gustavo@niemeyer.net-20140331185009-fhnh3xzfdpicup0j	273
+gopkg.in/mgo.v2	git	3116f72d0fe0216b75201cb3a1ae61c82c2a4d63	
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
 launchpad.net/goamz	bzr	ian.booth@canonical.com-20140708164959-72q70lo1du0e4qki	48
 launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20140225173054-xu9zlkf9kxhvow02	87
 launchpad.net/golxc	bzr	frank.mueller@canonical.com-20140709124547-dvc1bzcl986zcm5f	10
-launchpad.net/gomaasapi	bzr	ian.booth@canonical.com-20140716050440-8uf0y4vm7s6de4op	51
+launchpad.net/gomaasapi	bzr	andrew.wilkins@canonical.com-20140728022143-mth8hx6p0i546y0w	52
 launchpad.net/goose	bzr	tarmac-20140702055133-xpuj6gm4pa0f3a0e	127
 launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50
 launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20140624093241-rlqsuf7pqxnrztgw	236

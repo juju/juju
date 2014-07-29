@@ -122,20 +122,20 @@ func (*statusSetterSuite) TestSetStatusNoArgsNoError(c *gc.C) {
 func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 	st := &fakeState{
 		entities: map[names.Tag]entityWithError{
-			m("x0"): &fakeStatusSetter{status: params.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
-			m("x1"): &fakeStatusSetter{status: params.StatusError, info: "foo", data: params.StatusData{"foo": "blah"}},
-			m("x2"): &fakeStatusSetter{status: params.StatusError, info: "some info"},
-			m("x3"): &fakeStatusSetter{fetchError: "x3 error"},
-			m("x4"): &fakeStatusSetter{status: params.StatusStarted},
-			m("x5"): &fakeStatusSetter{status: params.StatusStopped, info: ""},
+			m("0"): &fakeStatusSetter{status: params.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
+			m("1"): &fakeStatusSetter{status: params.StatusError, info: "foo", data: params.StatusData{"foo": "blah"}},
+			m("2"): &fakeStatusSetter{status: params.StatusError, info: "some info"},
+			m("3"): &fakeStatusSetter{fetchError: "x3 error"},
+			m("4"): &fakeStatusSetter{status: params.StatusStarted},
+			m("5"): &fakeStatusSetter{status: params.StatusStopped, info: ""},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
-		x0 := m("x0")
-		x1 := m("x1")
-		x2 := m("x2")
-		x3 := m("x3")
-		x4 := m("x4")
+		x0 := m("0")
+		x1 := m("1")
+		x2 := m("2")
+		x3 := m("3")
+		x4 := m("4")
 		return func(tag names.Tag) bool {
 			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4
 		}, nil
@@ -160,7 +160,7 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 			{nil},
 			{nil},
 			{&params.Error{Message: "x3 error"}},
-			{&params.Error{Message: `machine "x4" is not in an error state`}},
+			{&params.Error{Message: `"machine-4" is not in an error state`}},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},
@@ -168,10 +168,10 @@ func (*statusSetterSuite) TestUpdateStatus(c *gc.C) {
 	get := func(tag names.Tag) *fakeStatusSetter {
 		return st.entities[tag].(*fakeStatusSetter)
 	}
-	c.Assert(get(m("x1")).status, gc.Equals, params.StatusError)
-	c.Assert(get(m("x1")).info, gc.Equals, "foo")
-	c.Assert(get(m("x1")).data, gc.DeepEquals, params.StatusData{"foo": "blah"})
-	c.Assert(get(m("x2")).status, gc.Equals, params.StatusError)
-	c.Assert(get(m("x2")).info, gc.Equals, "some info")
-	c.Assert(get(m("x2")).data, gc.DeepEquals, params.StatusData{"foo": "bar"})
+	c.Assert(get(m("1")).status, gc.Equals, params.StatusError)
+	c.Assert(get(m("1")).info, gc.Equals, "foo")
+	c.Assert(get(m("1")).data, gc.DeepEquals, params.StatusData{"foo": "blah"})
+	c.Assert(get(m("2")).status, gc.Equals, params.StatusError)
+	c.Assert(get(m("2")).info, gc.Equals, "some info")
+	c.Assert(get(m("2")).data, gc.DeepEquals, params.StatusData{"foo": "bar"})
 }

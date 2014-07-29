@@ -54,7 +54,7 @@ func (*instanceIdGetterSuite) TestInstanceId(c *gc.C) {
 	}
 	ig := common.NewInstanceIdGetter(st, getCanRead)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"},
+		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"},
 	}}
 	results, err := ig.InstanceId(entities)
 	c.Assert(err, gc.IsNil)
@@ -74,6 +74,6 @@ func (*instanceIdGetterSuite) TestInstanceIdError(c *gc.C) {
 		return nil, fmt.Errorf("pow")
 	}
 	ig := common.NewInstanceIdGetter(&fakeState{}, getCanRead)
-	_, err := ig.InstanceId(params.Entities{[]params.Entity{{"x0"}}})
+	_, err := ig.InstanceId(params.Entities{[]params.Entity{{"unit-x-0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }

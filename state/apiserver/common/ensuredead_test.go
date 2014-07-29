@@ -48,10 +48,9 @@ func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 		x0 := u("x/0")
 		x1 := u("x/1")
 		x2 := u("x/2")
-		x3 := u("x/3")
 		x4 := u("x/4")
 		return func(tag names.Tag) bool {
-			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4
+			return tag == x0 || tag == x1 || tag == x2 || tag == x4
 		}, nil
 	}
 

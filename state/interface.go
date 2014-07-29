@@ -34,6 +34,7 @@ var (
 	_ Entity = (*Environment)(nil)
 	_ Entity = (*User)(nil)
 	_ Entity = (*Action)(nil)
+	_ Entity = (*ActionResult)(nil)
 )
 
 type StatusSetter interface {
@@ -194,3 +195,16 @@ type InstanceIdGetter interface {
 }
 
 var _ InstanceIdGetter = (*Machine)(nil)
+
+// ActionsWatcher defines the methods an entity exposes to watch Actions
+// and ActionResults queued up for itself
+type ActionsWatcher interface {
+	Entity
+	WatchActions() StringsWatcher
+	WatchActionResults() StringsWatcher
+}
+
+var _ ActionsWatcher = (*Unit)(nil)
+
+// TODO(jcw4): when we implement service level Actions
+// var _ ActionsWatcher = (*Service)(nil)

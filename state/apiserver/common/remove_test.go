@@ -51,14 +51,13 @@ func (*removeSuite) TestRemove(c *gc.C) {
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
-		x0 := u("x/0")
-		x1 := u("x/1")
-		x2 := u("x/2")
-		x3 := u("x/3")
-		x4 := u("x/4")
-		x5 := u("x/5")
+		u0 := u("x/0")
+		u1 := u("x/1")
+		u2 := u("x/2")
+		u3 := u("x/3")
+		u5 := u("x/5")
 		return func(tag names.Tag) bool {
-			return tag == x0 || tag == x1 || tag == x2 || tag == x3 || tag == x4 || tag == x5
+			return tag == u0 || tag == u1 || tag == u2 || tag == u3 || tag == u5
 		}, nil
 	}
 
@@ -72,7 +71,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 EnsureDead fails"}},
 			{&params.Error{Message: "x1 Remove fails"}},
-			{&params.Error{Message: `cannot remove entity "x2": still alive`}},
+			{&params.Error{Message: `cannot remove entity "unit-x-2": still alive`}},
 			{nil},
 			{apiservertesting.ErrUnauthorized},
 			{&params.Error{Message: "x5 error"}},
@@ -83,7 +82,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 	// Make sure when callEnsureDead is false EnsureDead() doesn't
 	// get called.
 	r = common.NewRemover(st, false, getCanModify)
-	entities = params.Entities{[]params.Entity{{"x0"}, {"x1"}}}
+	entities = params.Entities{[]params.Entity{{"unit-x-0"}, {"unit-x-1"}}}
 	result, err = r.Remove(entities)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{

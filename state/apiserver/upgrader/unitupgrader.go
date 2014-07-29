@@ -4,7 +4,6 @@
 package upgrader
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/environs"
@@ -72,7 +71,8 @@ func (u *UnitUpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWa
 	for i, agent := range args.Entities {
 		tag, err := names.ParseTag(agent.Tag)
 		if err != nil {
-			return result, errors.Trace(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
 		err = common.ErrPerm
 		if u.authorizer.AuthOwner(tag) {
@@ -90,11 +90,12 @@ func (u *UnitUpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWa
 // DesiredVersion reports the Agent Version that we want that unit to be running.
 // The desired version is what the unit's assigned machine is running.
 func (u *UnitUpgraderAPI) DesiredVersion(args params.Entities) (params.VersionResults, error) {
-	result := make([]params.VersionResult, 0, len(args.Entities))
+	result := make([]params.VersionResult, len(args.Entities))
 	for i, entity := range args.Entities {
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			return params.VersionResults{}, errors.Trace(err)
+			result[i].Error = common.ServerError(common.ErrPerm)
+			continue
 		}
 		err = common.ErrPerm
 		if u.authorizer.AuthOwner(tag) {

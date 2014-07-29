@@ -7,7 +7,8 @@ import (
 	"fmt"
 	"strings"
 
-	"labix.org/v2/mgo/txn"
+	"github.com/juju/names"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // ActionStatus represents the possible end states for an action.
@@ -55,6 +56,18 @@ type ActionResult struct {
 // Id returns the id of the ActionResult.
 func (a *ActionResult) Id() string {
 	return a.doc.Id
+}
+
+// Tag implements the Entity interface and returns a names.Tag that
+// is a names.ActionResultTag
+func (a *ActionResult) Tag() names.Tag {
+	return a.ActionResultTag()
+}
+
+// ActionResultTag returns an ActionResultTag constructed from this
+// actionResult's Prefix and Sequence
+func (a *ActionResult) ActionResultTag() names.ActionResultTag {
+	return names.NewActionResultTag(a.Id())
 }
 
 // ActionName returns the name of the Action.

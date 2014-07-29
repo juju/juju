@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/network"
 )
@@ -90,17 +90,7 @@ type apiHostPortsDoc struct {
 
 // SetAPIHostPorts sets the addresses of the API server instances.
 // Each server is represented by one element in the top level slice.
-// If prefer-ipv6 environment setting is true, the addresses will be
-// sorted before setting them to bring IPv6 addresses on top (if
-// available).
 func (st *State) SetAPIHostPorts(hps [][]network.HostPort) error {
-	envConfig, err := st.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	for i, _ := range hps {
-		network.SortHostPorts(hps[i], envConfig.PreferIPv6())
-	}
 	doc := apiHostPortsDoc{
 		APIHostPorts: instanceHostPortsToHostPorts(hps),
 	}
