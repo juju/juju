@@ -12,26 +12,34 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/backup"
 )
 
-var Backup = backup.Backup
-var GetStorage = environs.GetStorage
+var (
+	runBackup  = backup.Backup
+	getStorage = environs.GetStorage
+)
 
 // backupHandler handles backup requests
 type backupHandler struct {
 	httpHandler
 }
 
-func getMongoConnectionInfo(state *state.State) (info *authentication.MongoInfo) {
-	return state.MongoConnectionInfo()
+var getDatabaseConnectionInfo = func(state *state.State) *backup.DBConnInfo {
+	raw := state.MongoConnectionInfo()
+	info := backup.DBConnInfo{
+		Hostname: raw.Addrs[0],
+		Password: raw.Password,
+	}
+	// TODO(dfc) Backup should take a Tag
+	if raw.Tag != nil {
+		info.Username = raw.Tag.String()
+	}
+	return &info
 }
-
-var GetMongoConnectionInfo = getMongoConnectionInfo
 
 func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
@@ -57,6 +65,7 @@ func (h *backupHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		// move it back to the start.
 		file.Seek(0, 0)
 
+		// Success! Respond with the backup file.
 		w.Header().Set("Content-Type", "application/octet-stream")
 		filename := filepath.Base(file.Name())
 		w.Header().Set("Content-Disposition",
@@ -80,13 +89,8 @@ func (h *backupHandler) doBackup() (*os.File, string, error) {
 	}
 	defer os.RemoveAll(tempDir)
 
-	info := GetMongoConnectionInfo(h.state)
-	// TODO(dfc) Backup should take a Tag
-	var tag string
-	if info.Tag != nil {
-		tag = info.Tag.String()
-	}
-	filename, sha, err := Backup(info.Password, tag, tempDir, info.Addrs[0])
+	info := getDatabaseConnectionInfo(h.state)
+	filename, sha, err := runBackup(info, tempDir)
 	if err != nil {
 		return nil, "", fmt.Errorf("backup failed: %v", err)
 	}
@@ -116,7 +120,7 @@ var uploadBackupToStorage = func(st *state.State, file *os.File) error {
 	if err != nil {
 		return fmt.Errorf("failed to stat backup file: %v", err)
 	}
-	stor, err := GetStorage(st)
+	stor, err := getStorage(st)
 	if err != nil {
 		return fmt.Errorf("failed to open storage: %v", err)
 	}

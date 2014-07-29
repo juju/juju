@@ -15,12 +15,12 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/apiserver"
+	"github.com/juju/juju/state/backup"
 )
 
 var uploadBackupToStorage = *apiserver.UploadBackupToStorage
@@ -32,18 +32,20 @@ type backupSuite struct {
 var _ = gc.Suite(&backupSuite{})
 
 func (s *backupSuite) backupURL(c *gc.C) string {
+	environ, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
 	uri := s.baseURL(c)
-	uri.Path += "/backup"
+	uri.Path = fmt.Sprintf("/environment/%s/backup", environ.UUID())
 	return uri.String()
 }
 
-func (s *backupSuite) TestRequiresAuth(c *gc.C) {
+func (s *backupSuite) TestBackupRequiresAuth(c *gc.C) {
 	resp, err := s.sendRequest(c, "", "", "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusUnauthorized, "unauthorized")
 }
 
-func (s *backupSuite) TestRequiresPOST(c *gc.C) {
+func (s *backupSuite) TestBackupRequiresPOST(c *gc.C) {
 	resp, err := s.authRequest(c, "PUT", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "PUT"`)
@@ -53,7 +55,7 @@ func (s *backupSuite) TestRequiresPOST(c *gc.C) {
 	s.assertErrorResponse(c, resp, http.StatusMethodNotAllowed, `unsupported method: "GET"`)
 }
 
-func (s *backupSuite) TestAuthRequiresClientNotMachine(c *gc.C) {
+func (s *backupSuite) TestBackupAuthRequiresClientNotMachine(c *gc.C) {
 	// Add a machine and try to login.
 	machine, err := s.State.AddMachine("quantal", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -79,13 +81,13 @@ type happyBackup struct {
 	tempDir, mongoPassword, username, address string
 }
 
-func (b *happyBackup) Backup(password string, username string, tempDir string, address string) (
+func (b *happyBackup) Backup(info *backup.DBConnInfo, tempDir string) (
 	string, string, error,
 ) {
 	b.tempDir = tempDir
-	b.mongoPassword = password
-	b.username = username
-	b.address = address
+	b.mongoPassword = info.Password
+	b.username = info.Username
+	b.address = info.Hostname
 	backupFilePath := filepath.Join(tempDir, "testBackupFile")
 	if err := ioutil.WriteFile(backupFilePath, []byte("foobarbam"), 0644); err != nil {
 		return "", "", err
@@ -94,18 +96,18 @@ func (b *happyBackup) Backup(password string, username string, tempDir string, a
 }
 
 func (s *backupSuite) TestBackupCalledAndFileServedAndStored(c *gc.C) {
-	testGetMongoConnectionInfo := func(thisState *state.State) *authentication.MongoInfo {
-		info := &authentication.MongoInfo{
+	testGetDBConnInfo := func(thisState *state.State) *backup.DBConnInfo {
+		info := backup.DBConnInfo{
+			Hostname: "localhost:80",
+			Username: names.NewMachineTag("0").String(),
 			Password: "foobar",
-			Tag:      names.NewMachineTag("0"),
 		}
-		info.Addrs = append(info.Addrs, "localhost:80")
-		return info
+		return &info
 	}
 
 	var b happyBackup
-	s.PatchValue(&apiserver.Backup, b.Backup)
-	s.PatchValue(&apiserver.GetMongoConnectionInfo, testGetMongoConnectionInfo)
+	s.PatchValue(apiserver.Backup, b.Backup)
+	s.PatchValue(apiserver.GetDBConnInfo, testGetDBConnInfo)
 
 	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
@@ -135,13 +137,13 @@ func (s *backupSuite) TestBackupCalledAndFileServedAndStored(c *gc.C) {
 	c.Check(bodyFromStorage, jc.DeepEquals, []byte("foobarbam"))
 }
 
-func (s *backupSuite) TestErrorWhenBackupFails(c *gc.C) {
+func (s *backupSuite) TestBackupErrorWhenBackupFails(c *gc.C) {
 	var data struct{ tempDir string }
-	testBackup := func(password string, username string, tempDir string, address string) (string, string, error) {
+	testBackup := func(info *backup.DBConnInfo, tempDir string) (string, string, error) {
 		data.tempDir = tempDir
 		return "", "", fmt.Errorf("something bad")
 	}
-	s.PatchValue(&apiserver.Backup, testBackup)
+	s.PatchValue(apiserver.Backup, testBackup)
 
 	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
@@ -154,14 +156,14 @@ func (s *backupSuite) TestErrorWhenBackupFails(c *gc.C) {
 	s.assertErrorResponse(c, resp, 500, "backup failed: something bad")
 }
 
-func (s *backupSuite) TestErrorWhenBackupFileDoesNotExist(c *gc.C) {
+func (s *backupSuite) TestBackupErrorWhenBackupFileDoesNotExist(c *gc.C) {
 	var data struct{ tempDir string }
-	testBackup := func(password string, username string, tempDir string, address string) (string, string, error) {
+	testBackup := func(info *backup.DBConnInfo, tempDir string) (string, string, error) {
 		data.tempDir = tempDir
 		backupFilePath := filepath.Join(tempDir, "testBackupFile")
 		return backupFilePath, "some-sha", nil
 	}
-	s.PatchValue(&apiserver.Backup, testBackup)
+	s.PatchValue(apiserver.Backup, testBackup)
 
 	resp, err := s.authRequest(c, "POST", s.backupURL(c), "", nil)
 	c.Assert(err, gc.IsNil)
@@ -174,9 +176,9 @@ func (s *backupSuite) TestErrorWhenBackupFileDoesNotExist(c *gc.C) {
 	s.assertErrorResponse(c, resp, 500, `backup failed: .+`)
 }
 
-func (s *backupSuite) TestErrorWhenBackupStorageFails(c *gc.C) {
+func (s *backupSuite) TestBackupErrorWhenBackupStorageFails(c *gc.C) {
 	var b happyBackup
-	s.PatchValue(&apiserver.Backup, b.Backup)
+	s.PatchValue(apiserver.Backup, b.Backup)
 	s.PatchValue(apiserver.UploadBackupToStorage,
 		func(*state.State, *os.File) error {
 			return fmt.Errorf("blam")
@@ -190,18 +192,18 @@ func (s *backupSuite) TestErrorWhenBackupStorageFails(c *gc.C) {
 	s.assertErrorResponse(c, resp, 500, "backup storage failed: blam")
 }
 
-func (s *backupSuite) TestErrorWhenBackupFileStatFails(c *gc.C) {
+func (s *backupSuite) TestBackupErrorWhenBackupFileStatFails(c *gc.C) {
 	f := s.makeTempFile(c)
 	f.Close() // Close the file so that the Stat call fails.
 	err := uploadBackupToStorage(s.State, f)
 	c.Assert(err, gc.ErrorMatches, "failed to stat backup file: .+")
 }
 
-func (s *backupSuite) TestErrorWhenStorageCantBeOpened(c *gc.C) {
+func (s *backupSuite) TestBackupErrorWhenStorageCantBeOpened(c *gc.C) {
 	f := s.makeTempFile(c)
 	defer f.Close()
 
-	s.PatchValue(&apiserver.GetStorage,
+	s.PatchValue(apiserver.GetStorage,
 		func(*state.State) (storage.Storage, error) {
 			return nil, fmt.Errorf("blam")
 		},
@@ -211,7 +213,7 @@ func (s *backupSuite) TestErrorWhenStorageCantBeOpened(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "failed to open storage: blam")
 }
 
-func (s *backupSuite) TestErrorWhenStoragePutFails(c *gc.C) {
+func (s *backupSuite) TestBackupErrorWhenStoragePutFails(c *gc.C) {
 	f := s.makeTempFile(c)
 	defer f.Close()
 
