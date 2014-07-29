@@ -21,17 +21,31 @@ class CheckBlockers(TestCase):
 
     def test_get_lp_bugs_with_devel(self):
         args = check_blockers.parse_args(['1.20', '17'])
-        with patch('check_blockers.get_json') as gj:
-            data = {'entries': []}
-            gj.return_value = data
-            check_blockers.get_lp_bugs(args)
-            gj.assert_called_with(
-                (check_blockers.LP_BUGS.format('juju-core/1.20')))
+        with patch('check_blockers.DEVEL') as devel:
+            devel.return_value = '1.20'
+            with patch('check_blockers.get_json') as gj:
+                data = {'entries': []}
+                gj.return_value = data
+                check_blockers.get_lp_bugs(args)
+                gj.assert_called_with(
+                    (check_blockers.LP_BUGS.format('juju-core/1.20')))
 
-    def test_get_lp_bugs_no_blocking_bugs(self):
+    def test_get_lp_bugs_without_blocking_bugs(self):
         args = check_blockers.parse_args(['master', '17'])
         with patch('check_blockers.get_json') as gj:
             empty_bug_list = {'entries': []}
             gj.return_value = empty_bug_list
             bugs = check_blockers.get_lp_bugs(args)
             self.assertEqual({}, bugs)
+
+    def test_get_lp_bugs_with_blocking_bugs(self):
+        args = check_blockers.parse_args(['master', '17'])
+        with patch('check_blockers.get_json') as gj:
+            bug_list = {
+                'entries': [
+                    {'self_link': 'https://lp/j/98765'},
+                    {'self_link': 'https://lp/j/54321'},
+                    ]}
+            gj.return_value = bug_list
+            bugs = check_blockers.get_lp_bugs(args)
+            self.assertEqual(['54321', '98765'], sorted(bugs.keys()))
