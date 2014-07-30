@@ -139,17 +139,9 @@ func (s *KVMSuite) TestCreateContainerUtilizesReleaseSimpleStream(c *gc.C) {
 // Test that CreateContainer creates proper startParams.
 func (s *KVMSuite) TestCreateContainerUtilizesDailySimpleStream(c *gc.C) {
 
-	envCfg, err := config.New(
-		config.NoDefaults,
-		dummy.SampleConfig().Merge(
-			coretesting.Attrs{"image-stream": "daily"},
-		),
-	)
-	c.Assert(err, gc.IsNil)
-
 	// Mock machineConfig with a mocked simple stream URL.
 	machineConfig := containertesting.MockMachineConfig("1/kvm/0")
-	machineConfig.Config = envCfg
+	machineConfig.ImageStream = "daily"
 
 	// CreateContainer sets TestStartParams internally; we call this
 	// purely for the side-effect.
