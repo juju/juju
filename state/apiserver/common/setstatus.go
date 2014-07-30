@@ -51,7 +51,7 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 	}
 	canModify, err := s.getCanModify()
 	if err != nil {
-		return params.ErrorResults{}, errors.Trace(err)
+		return params.ErrorResults{}, err
 	}
 	for i, arg := range args.Entities {
 		tag, err := names.ParseTag(arg.Tag)

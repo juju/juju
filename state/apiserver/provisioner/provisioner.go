@@ -96,7 +96,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 	}, nil
 }
 
-func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.Tag) (*state.Machine, error) {
+func (p *ProvisionerAPI) getMachine(canAccess common.AuthFunc, tag names.MachineTag) (*state.Machine, error) {
 	if !canAccess(tag) {
 		return nil, common.ErrPerm
 	}
@@ -471,7 +471,7 @@ func (p *ProvisionerAPI) Constraints(args params.Entities) (params.ConstraintsRe
 		return result, err
 	}
 	for i, entity := range args.Entities {
-		tag, err := names.ParseTag(entity.Tag)
+		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
@@ -534,7 +534,7 @@ func (p *ProvisionerAPI) RequestedNetworks(args params.Entities) (params.Request
 		return result, err
 	}
 	for i, entity := range args.Entities {
-		tag, err := names.ParseTag(entity.Tag)
+		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue

@@ -126,19 +126,20 @@ func (u *UnitUpgraderAPI) Tools(args params.Entities) (params.ToolsResults, erro
 
 func (u *UnitUpgraderAPI) getAssignedMachine(tag names.Tag) (*state.Machine, error) {
 	// Check that we really have a unit tag.
-	unitTag, ok := tag.(names.UnitTag)
-	if !ok {
+	switch tag := tag.(type) {
+	case names.UnitTag:
+		unit, err := u.st.Unit(tag.Id())
+		if err != nil {
+			return nil, common.ErrPerm
+		}
+		id, err := unit.AssignedMachineId()
+		if err != nil {
+			return nil, err
+		}
+		return u.st.Machine(id)
+	default:
 		return nil, common.ErrPerm
 	}
-	unit, err := u.st.Unit(unitTag.Id())
-	if err != nil {
-		return nil, common.ErrPerm
-	}
-	id, err := unit.AssignedMachineId()
-	if err != nil {
-		return nil, err
-	}
-	return u.st.Machine(id)
 }
 
 func (u *UnitUpgraderAPI) getMachineTools(tag names.Tag) params.ToolsResult {
