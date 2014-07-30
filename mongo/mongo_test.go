@@ -169,12 +169,6 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(contents), gc.Equals, testInfo.SharedSecret)
 
-	s.installed = nil
-	// now check we can call it multiple times without error
-	err = mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
-	c.Assert(err, gc.IsNil)
-	assertInstalled()
-
 	// make sure that we log the version of mongodb as we get ready to
 	// start it
 	tlog := c.GetTestLog()
@@ -182,6 +176,72 @@ func (s *MongoSuite) TestEnsureServer(c *gc.C) {
 	start := "^" + any
 	tail := any + "$"
 	c.Assert(tlog, gc.Matches, start+`using mongod: .*/mongod --version: "db version v2\.4\.9`+tail)
+}
+
+func (s *MongoSuite) TestEnsureServerServerExistsAndRunning(c *gc.C) {
+	dataDir := c.MkDir()
+	namespace := "namespace"
+
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
+
+	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
+		return fmt.Errorf("shouldn't be called")
+	})
+
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.installed, gc.HasLen, 0)
+}
+
+func (s *MongoSuite) TestEnsureServerServerExistsNotRunningIsStarted(c *gc.C) {
+	dataDir := c.MkDir()
+	namespace := "namespace"
+
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
+
+	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
+		return false
+	})
+	var started bool
+	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
+		started = true
+		return nil
+	})
+
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.installed, gc.HasLen, 0)
+	c.Assert(started, jc.IsTrue)
+}
+
+func (s *MongoSuite) TestEnsureServerServerExistsNotRunningStartError(c *gc.C) {
+	dataDir := c.MkDir()
+	namespace := "namespace"
+
+	mockShellCommand(c, &s.CleanupSuite, "apt-get")
+
+	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
+		return false
+	})
+	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
+		return fmt.Errorf("won't start")
+	})
+
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	c.Assert(err, gc.ErrorMatches, `.*won't start`)
+	c.Assert(s.installed, gc.HasLen, 0)
 }
 
 func (s *MongoSuite) TestInstallMongod(c *gc.C) {
