@@ -1057,10 +1057,9 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 	// Action doesn't match unit.
 	fakeBadAuth := apiservertesting.FakeAuthorizer{
-		Tag:       s.mysqlUnit.Tag(),
 		LoggedIn:  true,
 		UnitAgent: true,
-		Entity:    s.wordpressUnit,
+		Entity:    s.mysqlUnit,
 	}
 	fakeBadAPI, err := uniter.NewUniterAPI(
 		s.State,
