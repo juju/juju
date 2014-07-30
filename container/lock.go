@@ -45,8 +45,7 @@ func NewLock(dir, name string) (*Lock, error) {
 }
 
 // Lock blocks until it is able to acquire the lock. It is good behaviour to
-// provide a message that is saved with the lock.
-// This is output in debugging information.
+// provide a message that is output in debugging information.
 func (lock *Lock) Lock(message string) (err error) {
 	logger.Infof("acquire lock %q, %s", lock.name, message)
 	lock.lockFile, err = os.Open(lock.lockDir)
@@ -54,7 +53,12 @@ func (lock *Lock) Lock(message string) (err error) {
 		return err
 	}
 	fd := int(lock.lockFile.Fd())
-	return flockLock(fd)
+	err = flockLock(fd)
+	if err != nil {
+		lock.lockFile.Close()
+		lock.lockFile = nil
+	}
+	return err
 }
 
 // Unlock releases a held lock.
@@ -63,10 +67,11 @@ func (lock *Lock) Unlock() error {
 	if lock.lockFile == nil {
 		return nil
 	}
-	defer func() {
+	fd := int(lock.lockFile.Fd())
+	err := flockUnlock(fd)
+	if err == nil {
 		lock.lockFile.Close()
 		lock.lockFile = nil
-	}()
-	fd := int(lock.lockFile.Fd())
-	return flockUnlock(fd)
+	}
+	return err
 }
