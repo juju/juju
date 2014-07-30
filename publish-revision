@@ -49,7 +49,7 @@ do
             echo "Skipping trusty ppc64"
         fi
         echo "Building trusty amd64"
-        $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-018c9568 $dsc
+        $RELEASE_TOOLS/build-package-with-dsc.bash m1.large ami-b027efd8 $dsc
         echo "Building trusty i386"
         if [[ -n ${I386_SSH_OPTIONS:-} ]]; then
             $RELEASE_TOOLS/build-package-with-dsc.bash ubuntu@i386-slave \

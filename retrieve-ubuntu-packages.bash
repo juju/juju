@@ -1,6 +1,6 @@
 #!/bin/bash
 # Download Ubuntu juju packages that match the version under test.
-set -eu
+set -eux
 
 : ${LOCAL_JENKINS_URL=http://juju-ci.vapour.ws:8080}
 ARTIFACTS_PATH=$WORKSPACE/artifacts
@@ -18,8 +18,6 @@ TRUSTY_PPC64="certify-trusty-ppc64"
 TRUSTY_I386="certify-trusty-i386"
 
 setup_workspace() {
-
-    set -x
     rm $WORKSPACE/* -rf
     mkdir -p $ARTIFACTS_PATH
     touch $ARTIFACTS_PATH/empty
@@ -66,7 +64,7 @@ retrieve_packages() {
 
 start_series_arch_tests() {
     [[ $START_OTHER_TESTS == "false" ]] && return 0
-    for job in $TRUSTY_AMD64 $TRUSTY_PPC64 $TRUSTY_I386 do
+    for job in $TRUSTY_AMD64 $TRUSTY_PPC64 $TRUSTY_I386; do
         curl -o /dev/null $LOCAL_JENKINS_URL/jobs/$job/build?token=$TOKEN
     done
 }
@@ -74,15 +72,14 @@ start_series_arch_tests() {
 
 START_OTHER_TESTS="false"
 while [[ "${1-}" != "" ]]; do
-    if [[ $1 =~ ^-.* ]] then
-        break
+    if [[ $1 =~ ^-.* ]]; then
+        case $1 in
+            --start-other-tests)
+                START_OTHER_TESTS="true"
+                ;;
+        esac
+        shift
     fi
-    case $1 in
-        --start-other-tests)
-            START_OTHER_TESTS="true"
-            ;;
-    esac
-    shift
 done
 
 test $# -eq 1 || usage
