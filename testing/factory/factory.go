@@ -26,14 +26,6 @@ func NewFactory(st *state.State, c *gc.C) *Factory {
 }
 
 type UserParams struct {
-	Username    string
-	DisplayName string
-	Password    string
-	Creator     string
-}
-
-// IdentityParams provides the optional values for the Factory.MakeIdentity method.
-type IdentityParams struct {
 	Name        string
 	DisplayName string
 	Password    string
@@ -100,8 +92,8 @@ func (factory *Factory) MakeUser(vParams ...UserParams) *state.User {
 	} else if len(vParams) > 1 {
 		panic("expecting 1 parameter or none")
 	}
-	if params.Username == "" {
-		params.Username = factory.UniqueString("username")
+	if params.Name == "" {
+		params.Name = factory.UniqueString("username")
 	}
 	if params.DisplayName == "" {
 		params.DisplayName = factory.UniqueString("display name")
@@ -113,39 +105,9 @@ func (factory *Factory) MakeUser(vParams ...UserParams) *state.User {
 		params.Creator = "admin"
 	}
 	user, err := factory.st.AddUser(
-		params.Username, params.DisplayName, params.Password, params.Creator)
-	factory.c.Assert(err, gc.IsNil)
-	return user
-}
-
-// MakeIdentity will create an identity with values defined by the params.
-// For attributes of IdentityParams that are the default empty values,
-// some meaningful valid values are used instead.
-// If params is not specified, defaults are used. If more than one
-// params struct is passed to the function, it panics.
-func (factory *Factory) MakeIdentity(vParams ...IdentityParams) *state.Identity {
-	params := IdentityParams{}
-	if len(vParams) == 1 {
-		params = vParams[0]
-	} else if len(vParams) > 1 {
-		panic("expecting 1 parameter or none")
-	}
-	if params.Name == "" {
-		params.Name = factory.UniqueString("name")
-	}
-	if params.DisplayName == "" {
-		params.DisplayName = factory.UniqueString("display name")
-	}
-	if params.Password == "" {
-		params.Password = "password"
-	}
-	if params.Creator == "" {
-		params.Creator = state.AdminIdentity
-	}
-	identity, err := factory.st.AddIdentity(
 		params.Name, params.DisplayName, params.Password, params.Creator)
 	factory.c.Assert(err, gc.IsNil)
-	return identity
+	return user
 }
 
 // MakeMachine will add a machine with values defined in params. For some

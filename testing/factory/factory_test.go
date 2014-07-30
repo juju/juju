@@ -79,7 +79,7 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 	c.Assert(saved.DisplayName(), gc.Equals, user.DisplayName())
 	c.Assert(saved.CreatedBy(), gc.Equals, user.CreatedBy())
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
-	c.Assert(saved.LastConnection(), gc.Equals, user.LastConnection())
+	c.Assert(saved.LastLogin(), gc.Equals, user.LastLogin())
 	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
 }
 
@@ -89,7 +89,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	creator := "eric"
 	password := "sekrit"
 	user := s.Factory.MakeUser(factory.UserParams{
-		Username:    username,
+		Name:        username,
 		DisplayName: displayName,
 		Creator:     creator,
 		Password:    password,
@@ -107,7 +107,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.DisplayName(), gc.Equals, user.DisplayName())
 	c.Assert(saved.CreatedBy(), gc.Equals, user.CreatedBy())
 	c.Assert(saved.DateCreated(), gc.Equals, user.DateCreated())
-	c.Assert(saved.LastConnection(), gc.Equals, user.LastConnection())
+	c.Assert(saved.LastLogin(), gc.Equals, user.LastLogin())
 	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
 }
 
@@ -320,8 +320,6 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 
 func (s *factorySuite) TestMultileParamPanics(c *gc.C) {
 	c.Assert(func() { s.Factory.MakeUser(factory.UserParams{}, factory.UserParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
-	c.Assert(func() { s.Factory.MakeIdentity(factory.IdentityParams{}, factory.IdentityParams{}) },
 		gc.PanicMatches, "expecting 1 parameter or none")
 	c.Assert(func() { s.Factory.MakeMachine(factory.MachineParams{}, factory.MachineParams{}) },
 		gc.PanicMatches, "expecting 1 parameter or none")

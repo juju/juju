@@ -62,6 +62,19 @@ func (s *providerSuite) TestPrepareUseSSHStorage(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "initialising SSH storage failed: newSSHStorage failed")
 }
 
+func (s *providerSuite) TestValidateSetsUseSSHStorage(c *gc.C) {
+	attrs := manual.MinimalConfigValues()
+	delete(attrs, "use-sshstorage")
+	testConfig, err := config.New(config.UseDefaults, attrs)
+	c.Assert(err, gc.IsNil)
+
+	env, err := manual.ProviderInstance.Prepare(coretesting.Context(c), testConfig)
+	c.Assert(err, gc.IsNil)
+	cfg := env.Config()
+	value := cfg.AllAttrs()["use-sshstorage"]
+	c.Assert(value, gc.Equals, true)
+}
+
 func (s *providerSuite) TestNullAlias(c *gc.C) {
 	p, err := environs.Provider("manual")
 	c.Assert(p, gc.NotNil)
