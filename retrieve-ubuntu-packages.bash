@@ -66,7 +66,8 @@ retrieve_packages() {
 
 start_series_arch_tests() {
     [[ $START_OTHER_TESTS == "false" ]] && return 0
-    query="token=$TOKEN&VERSION=$VERSION"
+    encoded_version=$(echo "$VERSION" | sed 's,[+],%2B,')
+    query="token=$TOKEN&VERSION=$encoded_version"
     for job in $TRUSTY_AMD64 $TRUSTY_PPC64 $TRUSTY_I386; do
         curl -o /dev/null \
             "$LOCAL_JENKINS_URL/job/$job/buildWithParameters?$query"
