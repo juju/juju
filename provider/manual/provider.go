@@ -55,6 +55,11 @@ func (p manualProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Confi
 	if err != nil {
 		return nil, err
 	}
+	cfg, err = cfg.Apply(envConfig.attrs)
+	if err != nil {
+		return nil, err
+	}
+	envConfig = newEnvironConfig(cfg, envConfig.attrs)
 	if err := ensureBootstrapUbuntuUser(ctx, envConfig); err != nil {
 		return nil, err
 	}
@@ -94,10 +99,6 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 	if err != nil {
 		return nil, err
 	}
-	cfg, err = cfg.Apply(validated)
-	if err != nil {
-		return nil, err
-	}
 	envConfig := newEnvironConfig(cfg, validated)
 	if envConfig.bootstrapHost() == "" {
 		return nil, errNoBootstrapHost
@@ -134,7 +135,7 @@ func (p manualProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 	if err != nil {
 		return nil, err
 	}
-	return envConfig.Config, nil
+	return cfg.Apply(envConfig.attrs)
 }
 
 func (_ manualProvider) BoilerplateConfig() string {
