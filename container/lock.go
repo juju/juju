@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"syscall"
 )
 
 const (
@@ -55,7 +54,7 @@ func (lock *Lock) Lock(message string) (err error) {
 		return err
 	}
 	fd := int(lock.lockFile.Fd())
-	return syscall.Flock(fd, syscall.LOCK_EX)
+	return flockLock(fd)
 }
 
 // Unlock releases a held lock.
@@ -69,5 +68,5 @@ func (lock *Lock) Unlock() error {
 		lock.lockFile = nil
 	}()
 	fd := int(lock.lockFile.Fd())
-	return syscall.Flock(fd, syscall.LOCK_UN)
+	return flockUnlock(fd)
 }

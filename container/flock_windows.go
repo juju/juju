@@ -1,14 +1,16 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// +build !windows
+// +build windows
 
 package container
 
-import (
-	"syscall"
-)
+import "fmt"
 
-func flock(fd int, how int) (err error) {
-	return syscall.Flock(fd, how)
+func flockLock(fd int) (err error) {
+	return fmt.Errorf("not implemented")
+}
+
+func flockUnlock(fd int) (err error) {
+	return fmt.Errorf("not implemented")
 }
