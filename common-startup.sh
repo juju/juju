@@ -33,9 +33,8 @@ if [[ -n ${revision_build:-} ]]; then
     echo "Testing $BRANCH $rev on $ENV"
 elif [[ -n ${VERSION:-} ]]; then
     PACKAGES_JOB="certify-ubuntu-packages"
-    ENCODED_VERSION=$(echo "$VERSION" | sed 's,[+],%2B,')
-    JUJU_LOCAL_DEB="juju-local_$ENCODED_VERSION.$RELEASE.1_all.deb"
-    JUJU_CORE_DEB="juju-core_$ENCODED_VERSION.$RELEASE.1_$ARCH.deb"
+    JUJU_LOCAL_DEB="juju-local_$VERSION.$RELEASE.1_all.deb"
+    JUJU_CORE_DEB="juju-core_$VERSION.$RELEASE.1_$ARCH.deb"
     echo "Testing $VERSION on $ENV"
 else
     echo "Job didn't define revision_build or VERSION"
@@ -43,8 +42,10 @@ else
 fi
 
 # Provide the juju-core and juju-local packages to the test
-wget -q $LOCAL_JENKINS_URL/job/$PACKAGES_JOB/$afact/$JUJU_LOCAL_DEB
-wget -q $LOCAL_JENKINS_URL/job/$PACKAGES_JOB/$afact/$JUJU_CORE_DEB
+ENCODED_LOCAL_DEB=$(echo "$JUJU_LOCAL_DEB" | sed 's,[+],%2B,')
+ENCODED_CORE_DEB=$(echo "$JUJU_CORE_DEB" | sed 's,[+],%2B,')
+wget -q $LOCAL_JENKINS_URL/job/$PACKAGES_JOB/$afact/$ENCODED_LOCAL_DEB
+wget -q $LOCAL_JENKINS_URL/job/$PACKAGES_JOB/$afact/$ENCODED_CORE_DEB
 dpkg-deb -x $WORKSPACE/$JUJU_CORE_DEB extracted-bin
 export NEW_JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
 
