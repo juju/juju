@@ -167,7 +167,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (UserInfoResults, erro
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),
 				DateCreated:    user.DateCreated(),
-				LastConnection: user.LastConnection(),
+				LastConnection: user.LastLogin(),
 			}
 			result.Result = &info
 		}

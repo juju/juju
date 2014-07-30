@@ -31,7 +31,7 @@ func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	s.user = s.Factory.MakeUser(factory.UserParams{
-		Username:    "bobbrown",
+		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		Password:    "password",
 	})

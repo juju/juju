@@ -332,7 +332,7 @@ func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	setDefaultPassword(c, u)
 	add(u)
 
-	u = s.Factory.MakeUser(factory.UserParams{Username: "other"})
+	u = s.Factory.MakeUser(factory.UserParams{Name: "other"})
 	setDefaultPassword(c, u)
 	add(u)
 

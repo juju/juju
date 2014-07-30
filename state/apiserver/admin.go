@@ -132,7 +132,7 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 	}
 
 	a.root.rpcConn.ServeFinder(newRoot, serverError)
-	lastConnection := getAndUpdateLastConnectionForEntity(entity)
+	lastConnection := getAndUpdateLastLoginForEntity(entity)
 	return params.LoginResult{
 		Servers:        hostPorts,
 		EnvironTag:     environ.Tag().String(),
@@ -167,10 +167,10 @@ func checkCreds(st *state.State, c params.Creds) (state.Entity, error) {
 	return entity, nil
 }
 
-func getAndUpdateLastConnectionForEntity(entity state.Entity) *time.Time {
+func getAndUpdateLastLoginForEntity(entity state.Entity) *time.Time {
 	if user, ok := entity.(*state.User); ok {
-		result := user.LastConnection()
-		user.UpdateLastConnection()
+		result := user.LastLogin()
+		user.UpdateLastLogin()
 		return result
 	}
 	return nil

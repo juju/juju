@@ -212,11 +212,6 @@ func GetUserPasswordSaltAndHash(u *User) (string, string) {
 	return u.doc.PasswordSalt, u.doc.PasswordHash
 }
 
-// Return the stored salt and hash for the identity's password.
-func GetIdentityPasswordSaltAndHash(i *Identity) (string, string) {
-	return i.doc.PasswordSalt, i.doc.PasswordHash
-}
-
 var NewAddress = newAddress
 
 func CheckUserExists(st *State, name string) (bool, error) {
