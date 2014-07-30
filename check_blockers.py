@@ -57,6 +57,9 @@ def get_reason(bugs, args):
     comments = get_json(uri)
     if comments:
         for comment in comments:
+            user = comment['user']
+            if user['login'] == 'jujubot' or user['id'] == 7779494:
+                continue
             for fid in fixes_ids:
                 if fid in comment['body']:
                     return 0, 'Matches {}'.format(fid)
