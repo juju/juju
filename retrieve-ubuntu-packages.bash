@@ -48,18 +48,18 @@ retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
     echo "Phase 1: Retrieving juju-core packages from archives"
-    cd $ARTIFACTS_PATH
+    cd $WORKSPACE
     for archive in $ALL_ARCHIVES; do
         safe_archive=$(echo "$archive" | sed -e 's,//.*@,//,')
         echo "checking $safe_archive for $VERSION."
         lftp -c mirror -I "juju*${VERSION}*.deb" $archive;
     done
-    if [ -d $ARTIFACTS_PATH/juju-core ]; then
-        found=$(find $ARTIFACTS_PATH/juju-core/ -name "*deb")
+    if [ -d $WORKSPACE/juju-core ]; then
+        found=$(find $WORKSPACE/juju-core/ -name "*deb")
         if [[ $found != "" ]]; then
-            mv $ARTIFACTS_PATH/juju-core/*deb ./
+            mv $WORKSPACE/juju-core/*deb ./
         fi
-        rm -r $ARTIFACTS_PATH/juju-core
+        rm -r $WORKSPACE/juju-core
     fi
 }
 
