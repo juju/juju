@@ -84,6 +84,15 @@ func (s *Service) Installed() bool {
 	return false
 }
 
+// Exists returns whether the service configuration exists in the
+// init directory with the same content that this Service would have
+// if installed.
+func (s *Service) Exists() bool {
+	// TODO (thumper): 2014-07-30 bug 1350171
+	// No idea how to check, so for now, the answer is no, they are not the same.
+	return false
+}
+
 // Start starts the service.
 func (s *Service) Start() error {
 	cmd := fmt.Sprintf(`Start-Service  "%s"`, s.Name)
