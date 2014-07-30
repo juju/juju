@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -82,14 +83,7 @@ func expandArgs(args []string, hostFromTarget func(string) (string, error)) ([]s
 		if err != nil {
 			return nil, err
 		}
-		// To ensure this works with IPv6 addresses, we need to
-		// wrap the host with \[..\], so the colons inside will be
-		// interpreted as part of the address and the last one as
-		// separator between host and remote path.
-		if strings.Contains(host, ":") {
-			host = fmt.Sprintf(`\[%s\]`, host)
-		}
-		outArgs[i] = "ubuntu@" + host + ":" + v[1]
+		outArgs[i] = "ubuntu@" + net.JoinHostPort(host, v[1])
 	}
 	return outArgs, nil
 }

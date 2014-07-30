@@ -7,9 +7,9 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -58,7 +58,7 @@ func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 
 func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 	return txn.Op{
-		C:      st.constraints.Name,
+		C:      constraintsC,
 		Id:     id,
 		Assert: txn.DocMissing,
 		Insert: newConstraintsDoc(cons),
@@ -67,7 +67,7 @@ func createConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 
 func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 	return txn.Op{
-		C:      st.constraints.Name,
+		C:      constraintsC,
 		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", newConstraintsDoc(cons)}},
@@ -76,15 +76,18 @@ func setConstraintsOp(st *State, id string, cons constraints.Value) txn.Op {
 
 func removeConstraintsOp(st *State, id string) txn.Op {
 	return txn.Op{
-		C:      st.constraints.Name,
+		C:      constraintsC,
 		Id:     id,
 		Remove: true,
 	}
 }
 
 func readConstraints(st *State, id string) (constraints.Value, error) {
+	constraintsCollection, closer := st.getCollection(constraintsC)
+	defer closer()
+
 	doc := constraintsDoc{}
-	if err := st.constraints.FindId(id).One(&doc); err == mgo.ErrNotFound {
+	if err := constraintsCollection.FindId(id).One(&doc); err == mgo.ErrNotFound {
 		return constraints.Value{}, errors.NotFoundf("constraints")
 	} else if err != nil {
 		return constraints.Value{}, err

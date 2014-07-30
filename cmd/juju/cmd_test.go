@@ -7,7 +7,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"reflect"
 
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
@@ -67,15 +66,19 @@ func testInit(c *gc.C, com cmd.Command, args []string, errPat string) {
 	}
 }
 
+type HasConnectionName interface {
+	ConnectionName() string
+}
+
 // assertEnvName asserts that the Command is using
 // the given environment name.
 // Since every command has a different type,
 // we use reflection to look at the value of the
 // Conn field in the value.
 func assertEnvName(c *gc.C, com cmd.Command, name string) {
-	v := reflect.ValueOf(com).Elem().FieldByName("EnvName")
-	c.Assert(v, jc.Satisfies, reflect.Value.IsValid)
-	c.Assert(v.Interface(), gc.Equals, name)
+	i, ok := com.(HasConnectionName)
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(i.ConnectionName(), gc.Equals, name)
 }
 
 // All members of EnvironmentInitTests are tested for the -environment and -e
@@ -186,7 +189,7 @@ func initExpectations(com *DeployCommand) {
 	if com.RepoPath == "" {
 		com.RepoPath = "/path/to/repo"
 	}
-	com.EnvCommandBase.EnvName = "peckham"
+	com.SetEnvName("peckham")
 }
 
 func initDeployCommand(args ...string) (*DeployCommand, error) {

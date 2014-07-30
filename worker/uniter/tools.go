@@ -8,7 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/worker/uniter/jujuc"
+	"github.com/juju/utils/symlink"
 )
 
 // EnsureJujucSymlinks creates a symbolic link to jujuc within dir for each
@@ -18,7 +20,8 @@ func EnsureJujucSymlinks(dir string) (err error) {
 		// The link operation fails when the target already exists,
 		// so this is a no-op when the command names already
 		// exist.
-		err := os.Symlink("./jujud", filepath.Join(dir, name))
+		jujudPath := filepath.Join(dir, names.Jujud)
+		err := symlink.New(jujudPath, filepath.Join(dir, name))
 		if err == nil {
 			continue
 		}

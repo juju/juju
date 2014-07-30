@@ -11,7 +11,7 @@ import (
 	"net"
 	"time"
 
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cert"
 )
@@ -92,7 +92,7 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 			logger.Debugf("TLS handshake failed: %v", err)
 			return nil, err
 		}
-		logger.Infof("dialled mongo successfully")
+		logger.Infof("dialled mongo successfully on address %q", addr)
 		return cc, nil
 	}
 

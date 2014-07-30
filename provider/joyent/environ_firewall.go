@@ -20,7 +20,7 @@ const (
 
 // Helper method to create a firewall rule string for the given port
 func createFirewallRuleAll(env *joyentEnviron, port network.Port) string {
-	return fmt.Sprintf(firewallRuleAll, env.Name(), strings.ToLower(port.Protocol), port.Number)
+	return fmt.Sprintf(firewallRuleAll, env.Config().Name(), strings.ToLower(port.Protocol), port.Number)
 }
 
 // Helper method to check if a firewall rule string already exist
@@ -39,7 +39,7 @@ func getPorts(env *joyentEnviron, rules []cloudapi.FirewallRule) []network.Port 
 	ports := []network.Port{}
 	for _, r := range rules {
 		rule := r.Rule
-		if r.Enabled && strings.HasPrefix(rule, "FROM tag "+env.Name()) && strings.Contains(rule, "PORT") {
+		if r.Enabled && strings.HasPrefix(rule, "FROM tag "+env.Config().Name()) && strings.Contains(rule, "PORT") {
 			p := rule[strings.Index(rule, "ALLOW")+6 : strings.Index(rule, "PORT")-1]
 			n, _ := strconv.Atoi(rule[strings.LastIndex(rule, " ")+1:])
 			port := network.Port{Protocol: p, Number: n}

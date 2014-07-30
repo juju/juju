@@ -8,7 +8,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // EndpointCommand returns the API endpoints
@@ -43,12 +42,12 @@ func (c *EndpointCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Print out the addresses of the API server endpoints.
 func (c *EndpointCommand) Run(ctx *cmd.Context) error {
-	apiendpoint, err := juju.APIEndpointForEnv(c.EnvName, c.refresh)
+	apiendpoint, err := c.ConnectionEndpoint(c.refresh)
 	if err != nil {
 		return err
 	}
 	// We rely on the fact that the returned API endoint always
 	// has the last address we connected to as the first address.
-	address := apiendpoint.Addresses[0]
+	address := apiendpoint.Addresses[0:1]
 	return c.out.Write(ctx, address)
 }

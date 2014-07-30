@@ -18,11 +18,6 @@ import (
 	"github.com/juju/juju/state/apiserver/common"
 )
 
-type taggedAuthenticator interface {
-	state.Entity
-	state.Authenticator
-}
-
 var (
 	// maxClientPingInterval defines the timeframe until the ping timeout
 	// closes the monitored connection. TODO(mue): Idea by Roger:
@@ -44,20 +39,22 @@ type objectKey struct {
 }
 
 // srvRoot represents a single client's connection to the state
-// after it has logged in.
+// after it has logged in. It implements apiRoot.
 type srvRoot struct {
 	state       *state.State
 	rpcConn     *rpc.Conn
 	resources   *common.Resources
-	entity      taggedAuthenticator
+	entity      state.Entity
 	objectMutex sync.RWMutex
 	objectCache map[objectKey]reflect.Value
 }
 
+var _ apiRoot = (*srvRoot)(nil)
+
 // newSrvRoot creates the client's connection representation
 // and starts a ping timeout for the monitoring of this
 // connection.
-func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
+func newSrvRoot(root *initialRoot, entity state.Entity) *srvRoot {
 	r := &srvRoot{
 		state:       root.srv.state,
 		rpcConn:     root.rpcConn,
@@ -67,6 +64,14 @@ func newSrvRoot(root *initialRoot, entity taggedAuthenticator) *srvRoot {
 	}
 	r.resources.RegisterNamed("dataDir", common.StringResource(root.srv.dataDir))
 	return r
+}
+
+func (r *srvRoot) getResources() *common.Resources {
+	return r.resources
+}
+
+func (r *srvRoot) getRpcConn() *rpc.Conn {
+	return r.rpcConn
 }
 
 // Kill implements rpc.Killer.  It cleans up any resources that need
@@ -114,28 +119,11 @@ func (s *srvCaller) Call(objId string, arg reflect.Value) (reflect.Value, error)
 // For more information about how FindMethod should work, see rpc/server.go and
 // rpc/rpcreflect/value.go
 func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (rpcreflect.MethodCaller, error) {
-	goType, err := common.Facades.GetType(rootName, version)
+	goType, objMethod, err := r.lookupMethod(rootName, version, methodName)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return nil, &rpcreflect.CallNotImplementedError{
-				RootMethod: rootName,
-				Version:    version,
-			}
-		}
 		return nil, err
 	}
-	rpcType := rpcreflect.ObjTypeOf(goType)
-	objMethod, err := rpcType.Method(methodName)
-	if err != nil {
-		if err == rpcreflect.ErrMethodNotFound {
-			return nil, &rpcreflect.CallNotImplementedError{
-				RootMethod: rootName,
-				Version:    version,
-				Method:     methodName,
-			}
-		}
-		return nil, err
-	}
+
 	creator := func(id string) (reflect.Value, error) {
 		objKey := objectKey{name: rootName, version: version, objId: id}
 		r.objectMutex.RLock()
@@ -185,6 +173,33 @@ func (r *srvRoot) FindMethod(rootName string, version int, methodName string) (r
 		creator:   creator,
 		objMethod: objMethod,
 	}, nil
+}
+
+func (r *srvRoot) lookupMethod(rootName string, version int, methodName string) (reflect.Type, rpcreflect.ObjMethod, error) {
+	noMethod := rpcreflect.ObjMethod{}
+	goType, err := common.Facades.GetType(rootName, version)
+	if err != nil {
+		if errors.IsNotFound(err) {
+			return nil, noMethod, &rpcreflect.CallNotImplementedError{
+				RootMethod: rootName,
+				Version:    version,
+			}
+		}
+		return nil, noMethod, err
+	}
+	rpcType := rpcreflect.ObjTypeOf(goType)
+	objMethod, err := rpcType.Method(methodName)
+	if err != nil {
+		if err == rpcreflect.ErrMethodNotFound {
+			return nil, noMethod, &rpcreflect.CallNotImplementedError{
+				RootMethod: rootName,
+				Version:    version,
+				Method:     methodName,
+			}
+		}
+		return nil, noMethod, err
+	}
+	return goType, objMethod, nil
 }
 
 // AuthMachineAgent returns whether the current client is a machine agent.

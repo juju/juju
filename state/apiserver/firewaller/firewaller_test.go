@@ -327,11 +327,11 @@ func (s *firewallerSuite) TestGetExposed(c *gc.C) {
 
 func (s *firewallerSuite) TestOpenedPorts(c *gc.C) {
 	// Open some ports on two of the units.
-	err := s.units[0].OpenPort("foo", 1234)
+	err := s.units[0].OpenPort("tcp", 1234)
 	c.Assert(err, gc.IsNil)
-	err = s.units[0].OpenPort("bar", 4321)
+	err = s.units[0].OpenPort("tcp", 4321)
 	c.Assert(err, gc.IsNil)
-	err = s.units[2].OpenPort("baz", 1111)
+	err = s.units[2].OpenPort("tcp", 1111)
 	c.Assert(err, gc.IsNil)
 
 	args := addFakeEntities(params.Entities{Entities: []params.Entity{
@@ -343,9 +343,9 @@ func (s *firewallerSuite) TestOpenedPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, jc.DeepEquals, params.PortsResults{
 		Results: []params.PortsResult{
-			{Ports: []network.Port{{"bar", 4321}, {"foo", 1234}}},
+			{Ports: []network.Port{{"tcp", 1234}, {"tcp", 4321}}},
 			{Ports: []network.Port{}},
-			{Ports: []network.Port{{"baz", 1111}}},
+			{Ports: []network.Port{{"tcp", 1111}}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.NotFoundError(`unit "foo/0"`)},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -356,7 +356,7 @@ func (s *firewallerSuite) TestOpenedPorts(c *gc.C) {
 	})
 
 	// Now close unit 2's port and check again.
-	err = s.units[2].ClosePort("baz", 1111)
+	err = s.units[2].ClosePort("tcp", 1111)
 	c.Assert(err, gc.IsNil)
 
 	args = params.Entities{Entities: []params.Entity{

@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/juju"
 )
 
 const getConstraintsDoc = `
@@ -79,7 +78,7 @@ func (c *GetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *GetConstraintsCommand) Init(args []string) error {
 	if len(args) > 0 {
-		if !names.IsService(args[0]) {
+		if !names.IsValidService(args[0]) {
 			return fmt.Errorf("invalid service name %q", args[0])
 		}
 		c.ServiceName, args = args[0], args[1:]
@@ -88,7 +87,7 @@ func (c *GetConstraintsCommand) Init(args []string) error {
 }
 
 func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
-	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
+	apiclient, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}
@@ -128,7 +127,7 @@ func (c *SetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SetConstraintsCommand) Init(args []string) (err error) {
-	if c.ServiceName != "" && !names.IsService(c.ServiceName) {
+	if c.ServiceName != "" && !names.IsValidService(c.ServiceName) {
 		return fmt.Errorf("invalid service name %q", c.ServiceName)
 	}
 	c.Constraints, err = constraints.Parse(args...)
@@ -136,7 +135,7 @@ func (c *SetConstraintsCommand) Init(args []string) (err error) {
 }
 
 func (c *SetConstraintsCommand) Run(_ *cmd.Context) (err error) {
-	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
+	apiclient, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

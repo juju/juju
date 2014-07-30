@@ -1,4 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
+
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -17,6 +18,7 @@ import (
 	"github.com/juju/charm/hooks"
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	proxyutils "github.com/juju/utils/proxy"
@@ -28,6 +30,7 @@ import (
 	"github.com/juju/juju/state/api/uniter"
 	apiwatcher "github.com/juju/juju/state/api/watcher"
 	"github.com/juju/juju/state/watcher"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/uniter/charm"
 	"github.com/juju/juju/worker/uniter/hook"
@@ -160,8 +163,26 @@ func (u *Uniter) setupLocks() (err error) {
 	return nil
 }
 
+func (u *Uniter) sockPath(name, prefix string) string {
+	switch version.Current.OS {
+	case version.Windows:
+		sockName := fmt.Sprintf("%s-%s", u.unit.Tag(), strings.Split(name, ".")[0])
+		return fmt.Sprintf(`\\.\pipe\%s`, sockName)
+	default:
+		sock := filepath.Join(u.baseDir, name)
+		if prefix != "" {
+			sock = prefix + sock
+		}
+		return sock
+	}
+}
+
 func (u *Uniter) init(unitTag string) (err error) {
-	u.unit, err = u.st.Unit(unitTag)
+	tag, err := names.ParseUnitTag(unitTag)
+	if err != nil {
+		return err
+	}
+	u.unit, err = u.st.Unit(tag)
 	if err != nil {
 		return err
 	}
@@ -184,7 +205,11 @@ func (u *Uniter) init(unitTag string) (err error) {
 	if err := os.MkdirAll(u.relationsDir, 0755); err != nil {
 		return err
 	}
-	u.service, err = u.st.Service(u.unit.ServiceTag())
+	serviceTag, err := names.ParseServiceTag(u.unit.ServiceTag())
+	if err != nil {
+		return err
+	}
+	u.service, err = u.st.Service(serviceTag)
 	if err != nil {
 		return err
 	}
@@ -213,7 +238,7 @@ func (u *Uniter) init(unitTag string) (err error) {
 	if err := u.restoreRelations(); err != nil {
 		return err
 	}
-	runListenerSocketPath := filepath.Join(u.baseDir, RunListenerFile)
+	runListenerSocketPath := u.sockPath(RunListenerFile, "")
 	logger.Debugf("starting juju-run listener on unix:%s", runListenerSocketPath)
 	u.runListener, err = NewRunListener(u, runListenerSocketPath)
 	if err != nil {
@@ -326,7 +351,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 // operation is not affected by the error.
 var errHookFailed = stderrors.New("hook execution failed")
 
-func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName string) (context *HookContext, err error) {
+func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName string, actionParams map[string]interface{}) (context *HookContext, err error) {
 
 	apiAddrs, err := u.st.APIAddresses()
 	if err != nil {
@@ -347,7 +372,8 @@ func (u *Uniter) getHookContext(hctxId string, relationId int, remoteUnitName st
 	// Make a copy of the proxy settings.
 	proxySettings := u.proxy
 	return NewHookContext(u.unit, hctxId, u.uuid, u.envName, relationId,
-		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings)
+		remoteUnitName, ctxRelations, apiAddrs, ownerTag, proxySettings,
+		actionParams)
 }
 
 func (u *Uniter) acquireHookLock(message string) (err error) {
@@ -378,9 +404,7 @@ func (u *Uniter) startJujucServer(context *HookContext) (*jujuc.Server, string, 
 		}
 		return jujuc.NewCommand(context, cmdName)
 	}
-	socketPath := filepath.Join(u.baseDir, "agent.socket")
-	// Use abstract namespace so we don't get stale socket files.
-	socketPath = "@" + socketPath
+	socketPath := u.sockPath("agent.socket", "@")
 	srv, err := jujuc.NewServer(getCmd, socketPath)
 	if err != nil {
 		return nil, "", err
@@ -399,7 +423,7 @@ func (u *Uniter) RunCommands(commands string) (results *exec.ExecResponse, err e
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, -1, "")
+	hctx, err := u.getHookContext(hctxId, -1, "", map[string]interface{}(nil))
 	if err != nil {
 		return nil, err
 	}
@@ -439,6 +463,25 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
 	}
 }
 
+// validateAction validates the given Action params against the spec defined
+// for the charm.
+func (u *Uniter) validateAction(name string, params map[string]interface{}) (bool, error) {
+	ch, err := corecharm.Read(u.charmPath)
+	if err != nil {
+		return false, err
+	}
+
+	// Note that ch.Actions() will never be nil, rather an empty struct.
+	actionSpecs := ch.Actions()
+
+	spec, ok := actionSpecs.ActionSpecs[name]
+	if !ok {
+		return false, fmt.Errorf("no spec was defined for action %q", name)
+	}
+
+	return spec.ValidateParams(params)
+}
+
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
 func (u *Uniter) runHook(hi hook.Info) (err error) {
@@ -448,12 +491,28 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 
 	hookName := string(hi.Kind)
+	actionParams := map[string]interface{}(nil)
+
+	// This value is needed to pass results of Action param validation
+	// in case of error or invalidation.  This is probably bad form; it
+	// will be corrected in PR refactoring HookContext.
+	// TODO(binary132): handle errors before grabbing hook context.
+	var actionParamsErr error = nil
+
 	relationId := -1
 	if hi.Kind.IsRelation() {
 		relationId = hi.RelationId
 		if hookName, err = u.relationers[relationId].PrepareHook(hi); err != nil {
 			return err
 		}
+	} else if hi.Kind == hooks.ActionRequested {
+		action, err := u.st.Action(names.NewActionTag(hi.ActionId))
+		if err != nil {
+			return err
+		}
+		actionParams = action.Params()
+		hookName = action.Name()
+		_, actionParamsErr = u.validateAction(hookName, actionParams)
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
 
@@ -463,10 +522,11 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	}
 	defer u.hookLock.Unlock()
 
-	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit)
+	hctx, err := u.getHookContext(hctxId, relationId, hi.RemoteUnit, actionParams)
 	if err != nil {
 		return err
 	}
+
 	srv, socketPath, err := u.startJujucServer(hctx)
 	if err != nil {
 		return err
@@ -478,8 +538,25 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		return err
 	}
 	logger.Infof("running %q hook", hookName)
+
 	ranHook := true
-	err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
+	// The reason for the conditional at this point is that once inside
+	// RunHook, we don't know whether we're running an Action or a regular
+	// Hook.  RunAction simply calls the exact same method as RunHook, but
+	// with the location as "actions" instead of "hooks".
+	if hi.Kind == hooks.ActionRequested {
+		if actionParamsErr != nil {
+			logger.Errorf("action %q param validation failed: %s", hookName, actionParamsErr.Error())
+			u.notifyHookFailed(hookName, hctx)
+			return u.commitHook(hi)
+		}
+		err = hctx.RunAction(hookName, u.charmPath, u.toolsDir, socketPath)
+	} else {
+		err = hctx.RunHook(hookName, u.charmPath, u.toolsDir, socketPath)
+	}
+
+	// Since the Action validation error was separated, regular error pathways
+	// will still occur correctly.
 	if IsMissingHookError(err) {
 		ranHook = false
 	} else if err != nil {
@@ -529,6 +606,8 @@ func (u *Uniter) currentHookName() string {
 		relationer := u.relationers[hookInfo.RelationId]
 		name := relationer.ru.Endpoint().Name
 		hookName = fmt.Sprintf("%s-%s", name, hookInfo.Kind)
+	} else if hookInfo.Kind == hooks.ActionRequested {
+		hookName = fmt.Sprintf("%s-%s", hookName, hookInfo.ActionId)
 	}
 	return hookName
 }

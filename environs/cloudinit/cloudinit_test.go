@@ -16,12 +16,12 @@ import (
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
@@ -93,7 +93,7 @@ var cloudinitTests = []cloudinitTest{
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &state.Info{
+			MongoInfo: &authentication.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -141,7 +141,7 @@ echo 'Bootstrapping Juju machine agent'.*
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --instance-id 'i-bootstrap' --constraints 'mem=2048M' --debug
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 echo 'Starting Juju machine agent \(jujud-machine-0\)'.*
-cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
+cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-0\.log\\n  chown syslog:syslog /var/log/juju/machine-0\.log\\n  chmod 0600 /var/log/juju/machine-0\.log\\n\\n  exec /var/lib/juju/tools/machine-0/jujud machine --data-dir '/var/lib/juju' --machine-id 0 --debug >> /var/log/juju/machine-0\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-0
 `,
 	}, {
@@ -155,7 +155,7 @@ start jujud-machine-0
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &state.Info{
+			MongoInfo: &authentication.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -197,10 +197,10 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: environs.CloudInitOutputLog,
 			Bootstrap:          false,
-			Tools:              newSimpleTools("1.2.3-linux-amd64"),
+			Tools:              newSimpleTools("1.2.3-quantal-amd64"),
 			MachineNonce:       "FAKE_NONCE",
-			StateInfo: &state.Info{
-				Tag:      "machine-99",
+			MongoInfo: &authentication.MongoInfo{
+				Tag:      names.NewMachineTag("99"),
 				Password: "arble",
 				Info: mongo.Info{
 					Addrs:  []string{"state-addr.testing.invalid:12345"},
@@ -209,11 +209,12 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			},
 			APIInfo: &api.Info{
 				Addrs:    []string{"state-addr.testing.invalid:54321"},
-				Tag:      "machine-99",
+				Tag:      names.NewMachineTag("99"),
 				Password: "bletch",
 				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			MachineAgentServiceName: "jujud-machine-99",
+			PreferIPv6:              true,
 		},
 		expectScripts: `
 set -xe
@@ -226,20 +227,20 @@ mkdir -p /var/lib/juju/locks
 mkdir -p /var/log/juju
 chown syslog:adm /var/log/juju
 echo 'Fetching tools.*
-bin='/var/lib/juju/tools/1\.2\.3-linux-amd64'
+bin='/var/lib/juju/tools/1\.2\.3-quantal-amd64'
 mkdir -p \$bin
-curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s ' -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz'
-sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-linux-amd64\.sha256
-grep '1234' \$bin/juju1\.2\.3-linux-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
+curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s ' -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-quantal-amd64\.tgz'
+sha256sum \$bin/tools\.tar\.gz > \$bin/juju1\.2\.3-quantal-amd64\.sha256
+grep '1234' \$bin/juju1\.2\.3-quantal-amd64.sha256 \|\| \(echo "Tools checksum mismatch"; exit 1\)
 tar zxf \$bin/tools.tar.gz -C \$bin
-rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-linux-amd64\.sha256
-printf %s '{"version":"1\.2\.3-linux-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
+rm \$bin/tools\.tar\.gz && rm \$bin/juju1\.2\.3-quantal-amd64\.sha256
+printf %s '{"version":"1\.2\.3-quantal-amd64","url":"http://foo\.com/tools/releases/juju1\.2\.3-quantal-amd64\.tgz","sha256":"1234","size":10}' > \$bin/downloaded-tools\.txt
 mkdir -p '/var/lib/juju/agents/machine-99'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-99/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-99/agent\.conf'
-ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
+ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-99'
 echo 'Starting Juju machine agent \(jujud-machine-99\)'.*
-cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-99/jujud machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nEOF\\n
+cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-99\.log\\n  chown syslog:syslog /var/log/juju/machine-99\.log\\n  chmod 0600 /var/log/juju/machine-99\.log\\n\\n  exec /var/lib/juju/tools/machine-99/jujud machine --data-dir '/var/lib/juju' --machine-id 99 --debug >> /var/log/juju/machine-99\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-99
 `,
 	}, {
@@ -254,10 +255,10 @@ start jujud-machine-99
 			Jobs:                 normalMachineJobs,
 			CloudInitOutputLog:   environs.CloudInitOutputLog,
 			Bootstrap:            false,
-			Tools:                newSimpleTools("1.2.3-linux-amd64"),
+			Tools:                newSimpleTools("1.2.3-quantal-amd64"),
 			MachineNonce:         "FAKE_NONCE",
-			StateInfo: &state.Info{
-				Tag:      "machine-2-lxc-1",
+			MongoInfo: &authentication.MongoInfo{
+				Tag:      names.NewMachineTag("2/lxc/1"),
 				Password: "arble",
 				Info: mongo.Info{
 					Addrs:  []string{"state-addr.testing.invalid:12345"},
@@ -266,7 +267,7 @@ start jujud-machine-99
 			},
 			APIInfo: &api.Info{
 				Addrs:    []string{"state-addr.testing.invalid:54321"},
-				Tag:      "machine-2-lxc-1",
+				Tag:      names.NewMachineTag("2/lxc/1"),
 				Password: "bletch",
 				CACert:   "CA CERT\n" + testing.CACert,
 			},
@@ -277,8 +278,8 @@ start jujud-machine-99
 mkdir -p '/var/lib/juju/agents/machine-2-lxc-1'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
 printf '%s\\n' '.*' > '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
-ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-2-lxc-1'
-cat >> /etc/init/jujud-machine-2-lxc-1\.conf << 'EOF'\\ndescription "juju machine-2-lxc-1 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-2-lxc-1/jujud machine --data-dir '/var/lib/juju' --machine-id 2/lxc/1 --debug >> /var/log/juju/machine-2-lxc-1\.log 2>&1\\nEOF\\n
+ln -s 1\.2\.3-quantal-amd64 '/var/lib/juju/tools/machine-2-lxc-1'
+cat >> /etc/init/jujud-machine-2-lxc-1\.conf << 'EOF'\\ndescription "juju machine-2-lxc-1 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nscript\\n\\n  # Ensure log files are properly protected\\n  touch /var/log/juju/machine-2-lxc-1\.log\\n  chown syslog:syslog /var/log/juju/machine-2-lxc-1\.log\\n  chmod 0600 /var/log/juju/machine-2-lxc-1\.log\\n\\n  exec /var/lib/juju/tools/machine-2-lxc-1/jujud machine --data-dir '/var/lib/juju' --machine-id 2/lxc/1 --debug >> /var/log/juju/machine-2-lxc-1\.log 2>&1\\nend script\\nEOF\\n
 start jujud-machine-2-lxc-1
 `,
 	}, {
@@ -292,10 +293,10 @@ start jujud-machine-2-lxc-1
 			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: environs.CloudInitOutputLog,
 			Bootstrap:          false,
-			Tools:              newSimpleTools("1.2.3-linux-amd64"),
+			Tools:              newSimpleTools("1.2.3-quantal-amd64"),
 			MachineNonce:       "FAKE_NONCE",
-			StateInfo: &state.Info{
-				Tag:      "machine-99",
+			MongoInfo: &authentication.MongoInfo{
+				Tag:      names.NewMachineTag("99"),
 				Password: "arble",
 				Info: mongo.Info{
 					Addrs:  []string{"state-addr.testing.invalid:12345"},
@@ -304,7 +305,7 @@ start jujud-machine-2-lxc-1
 			},
 			APIInfo: &api.Info{
 				Addrs:    []string{"state-addr.testing.invalid:54321"},
-				Tag:      "machine-99",
+				Tag:      names.NewMachineTag("99"),
 				Password: "bletch",
 				CACert:   "CA CERT\n" + testing.CACert,
 			},
@@ -313,7 +314,7 @@ start jujud-machine-2-lxc-1
 		},
 		inexactMatch: true,
 		expectScripts: `
-curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s ' --insecure -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-linux-amd64\.tgz'
+curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s ' --insecure -o \$bin/tools\.tar\.gz 'http://foo\.com/tools/releases/juju1\.2\.3-quantal-amd64\.tgz'
 `,
 	}, {
 		// empty contraints.
@@ -326,7 +327,7 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
-			StateInfo: &state.Info{
+			MongoInfo: &authentication.MongoInfo{
 				Password: "arble",
 				Info: mongo.Info{
 					CACert: "CA CERT\n" + testing.CACert,
@@ -421,25 +422,30 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		data, err := ci.Render()
 		c.Assert(err, gc.IsNil)
 
-		x := make(map[interface{}]interface{})
-		err = goyaml.Unmarshal(data, &x)
+		configKeyValues := make(map[interface{}]interface{})
+		err = goyaml.Unmarshal(data, &configKeyValues)
 		c.Assert(err, gc.IsNil)
 
-		c.Check(x["apt_upgrade"], gc.Equals, true)
-		c.Check(x["apt_update"], gc.Equals, true)
+		c.Check(configKeyValues["apt_get_wrapper"], gc.DeepEquals, map[interface{}]interface{}{
+			"command": "eatmydata",
+			"enabled": "auto",
+		})
+		c.Check(configKeyValues["apt_upgrade"], gc.Equals, true)
+		c.Check(configKeyValues["apt_update"], gc.Equals, true)
 
-		scripts := getScripts(x)
+		scripts := getScripts(configKeyValues)
 		assertScriptMatch(c, scripts, test.expectScripts, !test.inexactMatch)
 		if test.cfg.Config != nil {
-			checkEnvConfig(c, test.cfg.Config, x, scripts)
+			checkEnvConfig(c, test.cfg.Config, configKeyValues, scripts)
 		}
-		checkPackage(c, x, "git", true)
+		checkPackage(c, configKeyValues, "curl", true)
+
 		tag := names.NewMachineTag(test.cfg.MachineId).String()
 		acfg := getAgentConfig(c, tag, scripts)
 		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
 		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
 		needCloudArchive := test.cfg.Tools.Version.Series == "precise"
-		checkAptSource(c, x, source, cloudinit.CanonicalCloudArchiveSigningKey, needCloudArchive)
+		checkAptSource(c, configKeyValues, source, cloudinit.CanonicalCloudArchiveSigningKey, needCloudArchive)
 	}
 }
 
@@ -473,14 +479,14 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	c.Check(runCmd[0], gc.Equals, script)
 }
 
-func getScripts(x map[interface{}]interface{}) []string {
+func getScripts(configKeyValue map[interface{}]interface{}) []string {
 	var scripts []string
-	if bootcmds, ok := x["bootcmd"]; ok {
+	if bootcmds, ok := configKeyValue["bootcmd"]; ok {
 		for _, s := range bootcmds.([]interface{}) {
 			scripts = append(scripts, s.(string))
 		}
 	}
-	for _, s := range x["runcmd"].([]interface{}) {
+	for _, s := range configKeyValue["runcmd"].([]interface{}) {
 		scripts = append(scripts, s.(string))
 	}
 	return scripts
@@ -492,23 +498,28 @@ type line struct {
 }
 
 func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
-	for _, s := range got {
-		c.Logf("script: %s", regexp.QuoteMeta(strings.Replace(s, "\n", "\\n", -1)))
+
+	// Convert string slice into line struct slice
+	assembleLines := func(lines []string, lineProcessor func(string) string) []line {
+		var assembledLines []line
+		for lineIdx, currLine := range lines {
+			if nil != lineProcessor {
+				currLine = lineProcessor(currLine)
+			}
+			assembledLines = append(assembledLines, line{
+				index: lineIdx,
+				line:  currLine,
+			})
+		}
+		return assembledLines
 	}
-	var pats []line
-	for i, pat := range strings.Split(strings.Trim(expect, "\n"), "\n") {
-		pats = append(pats, line{
-			index: i,
-			line:  pat,
-		})
-	}
-	var scripts []line
-	for i := range got {
-		scripts = append(scripts, line{
-			index: i,
-			line:  strings.Replace(got[i], "\n", "\\n", -1), // make .* work
-		})
-	}
+
+	pats := assembleLines(strings.Split(strings.Trim(expect, "\n"), "\n"), nil)
+	scripts := assembleLines(got, func(line string) string {
+		return strings.Replace(line, "\n", "\\n", -1) // make .* work
+	})
+
+	// Pop patterns and scripts off the head as we find pairs
 	for {
 		switch {
 		case len(pats) == 0 && len(scripts) == 0:
@@ -531,7 +542,6 @@ func assertScriptMatch(c *gc.C, got []string, expect string, exact bool) {
 				scripts = scripts[1:]
 			} else if exact {
 				c.Assert(scripts[0].line, gc.Matches, pats[0].line, gc.Commentf("line %d", scripts[0].index))
-				panic("unreachable")
 			} else {
 				scripts = scripts[1:]
 			}
@@ -611,46 +621,46 @@ var verifyTests = []struct {
 		cfg.Config = nil
 	}},
 	{"missing state info", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateInfo = nil
+		cfg.MongoInfo = nil
 	}},
 	{"missing API info", func(cfg *cloudinit.MachineConfig) {
 		cfg.APIInfo = nil
 	}},
 	{"missing state hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &state.Info{
-			Tag: "machine-99",
+		cfg.MongoInfo = &authentication.MongoInfo{
+			Tag: names.NewMachineTag("99"),
 			Info: mongo.Info{
 				CACert: testing.CACert,
 			},
 		}
 		cfg.APIInfo = &api.Info{
 			Addrs:  []string{"foo:35"},
-			Tag:    "machine-99",
+			Tag:    names.NewMachineTag("99"),
 			CACert: testing.CACert,
 		}
 	}},
 	{"missing API hosts", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &state.Info{
+		cfg.MongoInfo = &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"foo:35"},
 				CACert: testing.CACert,
 			},
-			Tag: "machine-99",
+			Tag: names.NewMachineTag("99"),
 		}
 		cfg.APIInfo = &api.Info{
-			Tag:    "machine-99",
+			Tag:    names.NewMachineTag("99"),
 			CACert: testing.CACert,
 		}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
-		cfg.StateInfo = &state.Info{Info: mongo.Info{Addrs: []string{"host:98765"}}}
+		cfg.MongoInfo = &authentication.MongoInfo{Info: mongo.Info{Addrs: []string{"host:98765"}}}
 	}},
 	{"missing CA certificate", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		cfg.StateInfo = &state.Info{
-			Tag: "machine-99",
+		cfg.MongoInfo = &authentication.MongoInfo{
+			Tag: names.NewMachineTag("99"),
 			Info: mongo.Info{
 				Addrs: []string{"host:98765"},
 			},
@@ -693,36 +703,36 @@ var verifyTests = []struct {
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		info := *cfg.StateInfo
-		info.Tag = "machine-0"
-		cfg.StateInfo = &info
+		info := *cfg.MongoInfo
+		info.Tag = names.NewMachineTag("0")
+		cfg.MongoInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
-		info := *cfg.StateInfo
-		info.Tag = ""
-		cfg.StateInfo = &info
+		info := *cfg.MongoInfo
+		info.Tag = nil // admin user
+		cfg.MongoInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.APIInfo
-		info.Tag = "machine-0"
+		info.Tag = names.NewMachineTag("0")
 		cfg.APIInfo = &info
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
 		info := *cfg.APIInfo
-		info.Tag = ""
+		info.Tag = nil
 		cfg.APIInfo = &info
 	}},
-	{"entity tag must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
-		info := *cfg.StateInfo
-		info.Tag = "machine-0"
-		cfg.StateInfo = &info
+	{"entity tag must be nil when starting a state server", func(cfg *cloudinit.MachineConfig) {
+		info := *cfg.MongoInfo
+		info.Tag = names.NewMachineTag("0")
+		cfg.MongoInfo = &info
 	}},
-	{"entity tag must be blank when starting a state server", func(cfg *cloudinit.MachineConfig) {
+	{"entity tag must be nil when starting a state server", func(cfg *cloudinit.MachineConfig) {
 		info := *cfg.APIInfo
-		info.Tag = "machine-0"
+		info.Tag = names.NewMachineTag("0")
 		cfg.APIInfo = &info
 	}},
 	{"missing machine nonce", func(cfg *cloudinit.MachineConfig) {
@@ -737,11 +747,11 @@ var verifyTests = []struct {
 	{"state serving info unexpectedly present", func(cfg *cloudinit.MachineConfig) {
 		cfg.Bootstrap = false
 		apiInfo := *cfg.APIInfo
-		apiInfo.Tag = "machine-99"
+		apiInfo.Tag = names.NewMachineTag("99")
 		cfg.APIInfo = &apiInfo
-		stateInfo := *cfg.StateInfo
-		stateInfo.Tag = "machine-99"
-		cfg.StateInfo = &stateInfo
+		stateInfo := *cfg.MongoInfo
+		stateInfo.Tag = names.NewMachineTag("99")
+		cfg.MongoInfo = &stateInfo
 	}},
 }
 
@@ -752,10 +762,10 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		Bootstrap:        true,
 		StateServingInfo: stateServingInfo,
 		MachineId:        "99",
-		Tools:            newSimpleTools("9.9.9-linux-arble"),
+		Tools:            newSimpleTools("9.9.9-quantal-arble"),
 		AuthorizedKeys:   "sshkey1",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
-		StateInfo: &state.Info{
+		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"host:98765"},
 				CACert: testing.CACert,
@@ -791,7 +801,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		test.mutate(&cfg1)
 
 		err = cloudinit.Configure(&cfg1, ci)
-		c.Assert(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
+		c.Check(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
 
 	}
 }
@@ -803,8 +813,8 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, stateInfo, apiInfo)
 	machineConfig.Tools = &tools.Tools{
-		Version: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
+		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
+		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}
 	err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{})
 	c.Assert(err, gc.IsNil)

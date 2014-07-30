@@ -23,11 +23,11 @@ type State struct {
 
 	facade base.FacadeCaller
 	// unitTag contains the authenticated unit's tag.
-	unitTag string
+	unitTag names.UnitTag
 }
 
 // NewState creates a new client-side Uniter facade.
-func NewState(caller base.APICaller, authTag string) *State {
+func NewState(caller base.APICaller, authTag names.UnitTag) *State {
 	facadeCaller := base.NewFacadeCaller(caller, uniterFacade)
 	return &State{
 		EnvironWatcher: common.NewEnvironWatcher(facadeCaller),
@@ -43,12 +43,12 @@ func (st *State) life(tag names.Tag) (params.Life, error) {
 }
 
 // relation requests relation information from the server.
-func (st *State) relation(relationTag, unitTag string) (params.RelationResult, error) {
+func (st *State) relation(relationTag, unitTag names.Tag) (params.RelationResult, error) {
 	nothing := params.RelationResult{}
 	var result params.RelationResults
 	args := params.RelationUnits{
 		RelationUnits: []params.RelationUnit{
-			{Relation: relationTag, Unit: unitTag},
+			{Relation: relationTag.String(), Unit: unitTag.String()},
 		},
 	}
 	err := st.facade.FacadeCall("Relation", args, &result)
@@ -94,11 +94,7 @@ func (st *State) getOneAction(tag *names.ActionTag) (params.ActionsQueryResult, 
 }
 
 // Unit provides access to methods of a state.Unit through the facade.
-func (st *State) Unit(unitTag string) (*Unit, error) {
-	tag, err := names.ParseUnitTag(unitTag)
-	if err != nil {
-		return nil, err
-	}
+func (st *State) Unit(tag names.UnitTag) (*Unit, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
@@ -111,11 +107,7 @@ func (st *State) Unit(unitTag string) (*Unit, error) {
 }
 
 // Service returns a service state by tag.
-func (st *State) Service(serviceTag string) (*Service, error) {
-	tag, err := names.ParseServiceTag(serviceTag)
-	if err != nil {
-		return nil, err
-	}
+func (st *State) Service(tag names.ServiceTag) (*Service, error) {
 	life, err := st.life(tag)
 	if err != nil {
 		return nil, err
@@ -157,17 +149,17 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 
 // Relation returns the existing relation with the given tag.
 func (st *State) Relation(relationTag string) (*Relation, error) {
-	result, err := st.relation(relationTag, st.unitTag)
+	rtag, err := names.ParseRelationTag(relationTag)
 	if err != nil {
 		return nil, err
 	}
-	tag, err := names.ParseRelationTag(relationTag)
+	result, err := st.relation(rtag, st.unitTag)
 	if err != nil {
 		return nil, err
 	}
 	return &Relation{
 		id:   result.Id,
-		tag:  tag,
+		tag:  rtag,
 		life: result.Life,
 		st:   st,
 	}, nil
@@ -183,6 +175,18 @@ func (st *State) Action(tag names.ActionTag) (*Action, error) {
 		name:   result.Action.Name,
 		params: result.Action.Params,
 	}, nil
+}
+
+func (st *State) ActionComplete(tag names.ActionTag, output string) error {
+	var result params.BoolResult
+	args := params.ActionResult{ActionTag: tag.String(), Output: output}
+	return st.facade.FacadeCall("ActionComplete", args, &result)
+}
+
+func (st *State) ActionFail(tag names.ActionTag, errorMessage string) error {
+	var result params.BoolResult
+	args := params.ActionResult{ActionTag: tag.String(), Output: errorMessage}
+	return st.facade.FacadeCall("ActionFail", args, &result)
 }
 
 // RelationById returns the existing relation with the given id.

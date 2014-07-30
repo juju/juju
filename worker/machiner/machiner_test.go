@@ -8,6 +8,8 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/names"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -53,9 +55,9 @@ func (s *MachinerSuite) SetUpTest(c *gc.C) {
 
 	// Get the machine through the facade.
 	var err error
-	s.apiMachine, err = s.machinerState.Machine(s.machine.Tag().String())
+	s.apiMachine, err = s.machinerState.Machine(s.machine.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.apiMachine.Tag(), gc.Equals, s.machine.Tag().String())
+	c.Assert(s.apiMachine.Tag(), gc.Equals, s.machine.Tag())
 }
 
 func (s *MachinerSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatus params.Status) {
@@ -80,19 +82,19 @@ var _ worker.NotifyWatchHandler = (*machiner.Machiner)(nil)
 
 type mockConfig struct {
 	agent.Config
-	tag string
+	tag names.Tag
 }
 
-func (mock *mockConfig) Tag() string {
+func (mock *mockConfig) Tag() names.Tag {
 	return mock.tag
 }
 
-func agentConfig(tag string) agent.Config {
+func agentConfig(tag names.Tag) agent.Config {
 	return &mockConfig{tag: tag}
 }
 
 func (s *MachinerSuite) TestNotFoundOrUnauthorized(c *gc.C) {
-	mr := machiner.NewMachiner(s.machinerState, agentConfig("machine-99"))
+	mr := machiner.NewMachiner(s.machinerState, agentConfig(names.NewMachineTag("99")))
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
 
@@ -153,10 +155,10 @@ func (s *MachinerSuite) TestMachineAddresses(c *gc.C) {
 	s.State.StartSync()
 	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 	c.Assert(s.machine.Refresh(), gc.IsNil)
-	c.Assert(s.machine.MachineAddresses(), gc.DeepEquals, []network.Address{
+	c.Assert(s.machine.MachineAddresses(), jc.DeepEquals, []network.Address{
+		network.NewAddress("2001:db8::1", network.ScopeUnknown),
+		network.NewAddress("::1", network.ScopeMachineLocal),
 		network.NewAddress("10.0.0.1", network.ScopeCloudLocal),
 		network.NewAddress("127.0.0.1", network.ScopeMachineLocal),
-		network.NewAddress("::1", network.ScopeMachineLocal),
-		network.NewAddress("2001:db8::1", network.ScopeUnknown),
 	})
 }

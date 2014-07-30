@@ -20,6 +20,7 @@ import (
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -32,6 +33,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apideployer "github.com/juju/juju/state/api/deployer"
@@ -41,7 +43,7 @@ import (
 	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
-	"github.com/juju/juju/upstart"
+	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/utils/ssh"
 	sshtesting "github.com/juju/juju/utils/ssh/testing"
 	"github.com/juju/juju/version"
@@ -117,13 +119,13 @@ func (s *commonMachineSuite) TearDownTest(c *gc.C) {
 // agent's configuration and the tools currently running.
 func (s *commonMachineSuite) primeAgent(
 	c *gc.C, vers version.Binary,
-	jobs ...state.MachineJob) (m *state.Machine, config agent.ConfigSetterWriter, tools *tools.Tools) {
+	jobs ...state.MachineJob) (m *state.Machine, agentConfig agent.ConfigSetterWriter, tools *tools.Tools) {
 
 	// Add a machine and ensure it is provisioned.
 	m, err := s.State.AddMachine("quantal", jobs...)
 	c.Assert(err, gc.IsNil)
-	inst, md := jujutesting.AssertStartInstance(c, s.Conn.Environ, m.Id())
-	c.Assert(m.SetProvisioned(inst.Id(), state.BootstrapNonce, md), gc.IsNil)
+	inst, md := jujutesting.AssertStartInstance(c, s.Environ, m.Id())
+	c.Assert(m.SetProvisioned(inst.Id(), agent.BootstrapNonce, md), gc.IsNil)
 
 	// Add an address for the tests in case the maybeInitiateMongoServer
 	// codepath is exercised.
@@ -134,21 +136,21 @@ func (s *commonMachineSuite) primeAgent(
 	c.Assert(err, gc.IsNil)
 	err = m.SetPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
-	tag := names.NewMachineTag(m.Id()).String()
+	tag := m.Tag()
 	if m.IsManager() {
 		err = m.SetMongoPassword(initialMachinePassword)
 		c.Assert(err, gc.IsNil)
-		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword, vers)
-		info, ok := config.StateServingInfo()
+		agentConfig, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword, vers)
+		info, ok := agentConfig.StateServingInfo()
 		c.Assert(ok, jc.IsTrue)
 		err = s.State.SetStateServingInfo(info)
 		c.Assert(err, gc.IsNil)
 	} else {
-		config, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword, vers)
+		agentConfig, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword, vers)
 	}
-	err = config.Write()
+	err = agentConfig.Write()
 	c.Assert(err, gc.IsNil)
-	return m, config, tools
+	return m, agentConfig, tools
 }
 
 // newAgent returns a new MachineAgent instance
@@ -343,7 +345,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 	// runs it won't overwrite them.
 	instId, err := machine.InstanceId()
 	c.Assert(err, gc.IsNil)
-	insts, err := s.Conn.Environ.Instances([]instance.Id{instId})
+	insts, err := s.Environ.Instances([]instance.Id{instId})
 	c.Assert(err, gc.IsNil)
 	dummy.SetInstanceAddresses(insts[0], addrs)
 }
@@ -351,7 +353,7 @@ func (s *commonMachineSuite) setFakeMachineAddresses(c *gc.C, machine *state.Mac
 func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
-	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	op := make(chan dummy.Operation, 200)
 	dummy.Listen(op)
@@ -408,7 +410,7 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	s.agentSuite.PatchValue(&instancepoller.ShortPoll, 500*time.Millisecond)
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal" // to match the charm created below
-	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
 	defer a.Stop()
@@ -423,7 +425,7 @@ func (s *MachineSuite) TestManageEnvironRunsInstancePoller(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	m, instId := s.waitProvisioned(c, units[0])
-	insts, err := s.Conn.Environ.Instances([]instance.Id{instId})
+	insts, err := s.Environ.Instances([]instance.Id{instId})
 	c.Assert(err, gc.IsNil)
 	addrs := []network.Address{network.NewAddress("1.2.3.4", network.ScopeUnknown)}
 	dummy.SetInstanceAddresses(insts[0], addrs)
@@ -479,8 +481,9 @@ func (s *MachineSuite) TestEnsureLocalEnvironDoesntRunPeergrouper(c *gc.C) {
 	})
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	a := s.newAgent(c, m)
-	err := a.ChangeConfig(func(config agent.ConfigSetter) {
+	err := a.ChangeConfig(func(config agent.ConfigSetter) error {
 		config.SetValue(agent.ProviderType, "local")
+		return nil
 	})
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
@@ -498,7 +501,7 @@ func (s *MachineSuite) TestManageEnvironCallsUseMultipleCPUs(c *gc.C) {
 	// If it has been enabled, the JobManageEnviron agent should call utils.UseMultipleCPUs
 	usefulVersion := version.Current
 	usefulVersion.Series = "quantal"
-	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), usefulVersion)
+	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), usefulVersion)
 	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
 	calledChan := make(chan struct{}, 1)
 	s.agentSuite.PatchValue(&useMultipleCPUs, func() { calledChan <- struct{}{} })
@@ -559,13 +562,12 @@ func (s *MachineSuite) waitProvisioned(c *gc.C, unit *state.Unit) (*state.Machin
 			}
 		}
 	}
-	panic("watcher died")
 }
 
 func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, currentTools *tools.Tools) {
 	newVers := version.Current
 	newVers.Patch++
-	newTools := envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), newVers)[0]
+	newTools := envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), newVers)[0]
 	err := s.State.SetEnvironAgentVersion(newVers.Number)
 	c.Assert(err, gc.IsNil)
 	err = runWithTimeout(agent)
@@ -575,6 +577,35 @@ func (s *MachineSuite) testUpgradeRequest(c *gc.C, agent runner, tag string, cur
 		NewTools:  newTools.Version,
 		DataDir:   s.DataDir(),
 	})
+}
+
+func (s *MachineSuite) TestUpgradeTarget(c *gc.C) {
+	for i, test := range []struct {
+		job      params.MachineJob
+		master   bool
+		expected upgrades.Target
+	}{
+		{
+		// empty gives empty
+		}, {
+			job:      params.JobManageEnviron,
+			expected: upgrades.StateServer,
+		}, {
+			job:      params.JobManageEnviron,
+			master:   true,
+			expected: upgrades.DatabaseMaster,
+		}, {
+			job:      params.JobHostUnits,
+			expected: upgrades.HostMachine,
+		}, {
+			job:      params.JobHostUnits,
+			master:   true,
+			expected: upgrades.HostMachine,
+		},
+	} {
+		c.Logf("Test %v", i)
+		c.Assert(upgradeTarget(test.job, test.master), gc.Equals, test.expected)
+	}
 }
 
 func (s *MachineSuite) TestUpgradeRequest(c *gc.C) {
@@ -682,7 +713,7 @@ func (s *MachineSuite) TestManageEnvironServesAPI(c *gc.C) {
 		st, err := api.Open(conf.APIInfo(), fastDialOpts)
 		c.Assert(err, gc.IsNil)
 		defer st.Close()
-		m, err := st.Machiner().Machine(conf.Tag())
+		m, err := st.Machiner().Machine(conf.Tag().(names.MachineTag))
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})
@@ -833,7 +864,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRun(c *gc.C) {
 }
 
 func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
-	err := os.Symlink("/nowhere/special", jujuRun)
+	err := symlink.New("/nowhere/special", jujuRun)
 	c.Assert(err, gc.IsNil)
 	_, err = os.Stat(jujuRun)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
@@ -841,7 +872,7 @@ func (s *MachineSuite) TestMachineAgentSymlinkJujuRunExists(c *gc.C) {
 		// juju-run should have been recreated
 		_, err := os.Stat(jujuRun)
 		c.Assert(err, gc.IsNil)
-		link, err := os.Readlink(jujuRun)
+		link, err := symlink.Read(jujuRun)
 		c.Assert(err, gc.IsNil)
 		c.Assert(link, gc.Not(gc.Equals), "/nowhere/special")
 	})

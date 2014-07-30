@@ -36,7 +36,7 @@ type Server struct {
 	tomb      tomb.Tomb
 	wg        sync.WaitGroup
 	state     *state.State
-	addr      net.Addr
+	addr      string
 	dataDir   string
 	logDir    string
 	limiter   utils.Limiter
@@ -53,7 +53,6 @@ type LoginValidator func(params.Creds) error
 
 // ServerConfig holds parameters required to set up an API server.
 type ServerConfig struct {
-	Addr      string
 	Cert      []byte
 	Key       []byte
 	DataDir   string
@@ -64,19 +63,19 @@ type ServerConfig struct {
 // NewServer serves the given state by accepting requests on the given
 // listener, using the given certificate and key (in PEM format) for
 // authentication.
-func NewServer(s *state.State, cfg ServerConfig) (*Server, error) {
-	lis, err := net.Listen("tcp", cfg.Addr)
-	if err != nil {
-		return nil, err
-	}
+func NewServer(s *state.State, lis net.Listener, cfg ServerConfig) (*Server, error) {
 	logger.Infof("listening on %q", lis.Addr())
 	tlsCert, err := tls.X509KeyPair(cfg.Cert, cfg.Key)
 	if err != nil {
 		return nil, err
 	}
+	_, listeningPort, err := net.SplitHostPort(lis.Addr().String())
+	if err != nil {
+		return nil, err
+	}
 	srv := &Server{
 		state:     s,
-		addr:      lis.Addr(),
+		addr:      net.JoinHostPort("localhost", listeningPort),
 		dataDir:   cfg.DataDir,
 		logDir:    cfg.LogDir,
 		limiter:   utils.NewLimiter(loginRateLimit),
@@ -167,10 +166,10 @@ func (n *requestNotifier) leave() {
 	logger.Infof("[%X] %s API connection terminated after %v", n.id, n.tag(), time.Since(n.start))
 }
 
-func (n requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
+func (n *requestNotifier) ClientRequest(hdr *rpc.Header, body interface{}) {
 }
 
-func (n requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
+func (n *requestNotifier) ClientReply(req rpc.Request, hdr *rpc.Header, body interface{}) {
 }
 
 func handleAll(mux *pat.PatternServeMux, pattern string, handler http.Handler) {
@@ -269,7 +268,7 @@ func (srv *Server) apiHandler(w http.ResponseWriter, req *http.Request) {
 
 // Addr returns the address that the server is listening on.
 func (srv *Server) Addr() string {
-	return srv.addr.String()
+	return srv.addr
 }
 
 func (srv *Server) validateEnvironUUID(envUUID string) error {

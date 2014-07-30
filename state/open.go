@@ -7,33 +7,20 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"github.com/juju/names"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
-	statetxn "github.com/juju/juju/state/txn"
 	"github.com/juju/juju/state/watcher"
 )
-
-// Info encapsulates information about cluster of
-// servers holding juju state and can be used to make a
-// connection to that cluster.
-type Info struct {
-	mongo.Info
-	// Tag holds the name of the entity that is connecting.
-	// It should be empty when connecting as an administrator.
-	Tag string
-
-	// Password holds the password for the connecting entity.
-	Password string
-}
 
 // Open connects to the server described by the given
 // info, waits for it to be initialized, and returns a new State
@@ -44,7 +31,7 @@ type Info struct {
 // may be provided.
 //
 // Open returns unauthorizedError if access is unauthorized.
-func Open(info *Info, opts mongo.DialOpts, policy Policy) (*State, error) {
+func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	di, err := mongo.DialInfo(info.Info, opts)
 	if err != nil {
@@ -78,7 +65,7 @@ func Open(info *Info, opts mongo.DialOpts, policy Policy) (*State, error) {
 // Initialize sets up an initial empty state and returns it.
 // This needs to be performed only once for a given environment.
 // It returns unauthorizedError if access is unauthorized.
-func Initialize(info *Info, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
+func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.DialOpts, policy Policy) (rst *State, err error) {
 	st, err := Open(info, opts, policy)
 	if err != nil {
 		return nil, err
@@ -100,20 +87,21 @@ func Initialize(info *Info, cfg *config.Config, opts mongo.DialOpts, policy Poli
 	if err := checkEnvironConfig(cfg); err != nil {
 		return nil, err
 	}
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, fmt.Errorf("environment UUID cannot be created: %v", err)
+	uuid, ok := cfg.UUID()
+	if !ok {
+		return nil, errors.Errorf("environment uuid was not supplied")
 	}
+	st.environTag = names.NewEnvironTag(uuid)
 	ops := []txn.Op{
 		createConstraintsOp(st, environGlobalKey, constraints.Value{}),
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
-		createEnvironmentOp(st, cfg.Name(), uuid.String()),
+		createEnvironmentOp(st, cfg.Name(), uuid),
 		{
-			C:      st.stateServers.Name,
+			C:      stateServersC,
 			Id:     environGlobalKey,
 			Insert: &stateServersDoc{},
 		}, {
-			C:      st.stateServers.Name,
+			C:      stateServersC,
 			Id:     apiHostPortsKey,
 			Insert: &apiHostPortsDoc{},
 		},
@@ -135,17 +123,18 @@ var indexes = []struct {
 	// After the first public release, do not remove entries from here
 	// without adding them to a list of indexes to drop, to ensure
 	// old databases are modified to have the correct indexes.
-	{"relations", []string{"endpoints.relationname"}, false},
-	{"relations", []string{"endpoints.servicename"}, false},
-	{"units", []string{"service"}, false},
-	{"units", []string{"principal"}, false},
-	{"units", []string{"machineid"}, false},
-	{"users", []string{"name"}, false},
-	{"networks", []string{"providerid"}, true},
-	{"networkinterfaces", []string{"interfacename", "machineid"}, true},
-	{"networkinterfaces", []string{"macaddress", "networkname"}, true},
-	{"networkinterfaces", []string{"networkname"}, false},
-	{"networkinterfaces", []string{"machineid"}, false},
+	{relationsC, []string{"endpoints.relationname"}, false},
+	{relationsC, []string{"endpoints.servicename"}, false},
+	{unitsC, []string{"service"}, false},
+	{unitsC, []string{"principal"}, false},
+	{unitsC, []string{"machineid"}, false},
+	// TODO(thumper): schema change to remove this index.
+	{usersC, []string{"name"}, false},
+	{networksC, []string{"providerid"}, true},
+	{networkInterfacesC, []string{"interfacename", "machineid"}, true},
+	{networkInterfacesC, []string{"macaddress", "networkname"}, true},
+	{networkInterfacesC, []string{"networkname"}, false},
+	{networkInterfacesC, []string{"machineid"}, false},
 }
 
 // The capped collection used for transaction logs defaults to 10MB.
@@ -183,56 +172,36 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
+func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (*State, error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
-	if info.Tag != "" {
-		if err := db.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", info.Tag))
+	authenticated := false
+	if mongoInfo.Tag != nil {
+		if err := db.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", mongoInfo.Tag))
 		}
-		if err := pdb.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
+		if err := pdb.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", mongoInfo.Tag))
 		}
-		if err := admin.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", info.Tag))
+		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
-	} else if info.Password != "" {
-		if err := admin.Login(AdminUser, info.Password); err != nil {
+		authenticated = true
+	} else if mongoInfo.Password != "" {
+		if err := admin.Login(AdminUser, mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, "cannot log in to admin database")
 		}
+		authenticated = true
 	}
 
 	st := &State{
-		info:              info,
-		policy:            policy,
-		db:                db,
-		environments:      db.C("environments"),
-		charms:            db.C("charms"),
-		machines:          db.C("machines"),
-		containerRefs:     db.C("containerRefs"),
-		instanceData:      db.C("instanceData"),
-		relations:         db.C("relations"),
-		relationScopes:    db.C("relationscopes"),
-		services:          db.C("services"),
-		requestedNetworks: db.C("requestednetworks"),
-		networks:          db.C("networks"),
-		networkInterfaces: db.C("networkinterfaces"),
-		minUnits:          db.C("minunits"),
-		settings:          db.C("settings"),
-		settingsrefs:      db.C("settingsrefs"),
-		constraints:       db.C("constraints"),
-		units:             db.C("units"),
-		actions:           db.C("actions"),
-		actionresults:     db.C("actionresults"),
-		users:             db.C("users"),
-		presence:          pdb.C("presence"),
-		cleanups:          db.C("cleanups"),
-		annotations:       db.C("annotations"),
-		statuses:          db.C("statuses"),
-		stateServers:      db.C("stateServers"),
+		mongoInfo:     mongoInfo,
+		policy:        policy,
+		authenticated: authenticated,
+		db:            db,
 	}
-	log := db.C("txns.log")
+	log := db.C(txnLogC)
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.klmongodb.org/browse/SERVER-6992
@@ -240,11 +209,14 @@ func newState(session *mgo.Session, info *Info, policy Policy) (*State, error) {
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
-	mgoRunner := txn.NewRunner(db.C("txns"))
-	mgoRunner.ChangeLog(db.C("txns.log"))
-	st.transactionRunner = statetxn.NewRunner(mgoRunner)
-	st.watcher = watcher.New(db.C("txns.log"))
-	st.pwatcher = presence.NewWatcher(pdb.C("presence"))
+	txns := db.C(txnsC)
+	err = txns.Create(&mgo.CollectionInfo{})
+	if err != nil && err.Error() != "collection already exists" {
+		return nil, maybeUnauthorized(err, "cannot create transaction collection")
+	}
+
+	st.watcher = watcher.New(log)
+	st.pwatcher = presence.NewWatcher(pdb.C(presenceC))
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique}
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
@@ -287,7 +259,7 @@ func (st *State) createStateServersDoc() error {
 	// we're concerned about, there is only ever one state connection
 	// (from the single bootstrap machine).
 	var machineDocs []machineDoc
-	err := st.machines.Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
+	err := st.db.C(machinesC).Find(bson.D{{"jobs", JobManageEnviron}}).All(&machineDocs)
 	if err != nil {
 		return err
 	}
@@ -303,14 +275,14 @@ func (st *State) createStateServersDoc() error {
 	// ids or maintain the ids correctly. If that was the case,
 	// the insert will be a no-op.
 	ops := []txn.Op{{
-		C:  st.stateServers.Name,
+		C:  stateServersC,
 		Id: environGlobalKey,
 		Update: bson.D{{"$set", bson.D{
 			{"machineids", doc.MachineIds},
 			{"votingmachineids", doc.VotingMachineIds},
 		}}},
 	}, {
-		C:      st.stateServers.Name,
+		C:      stateServersC,
 		Id:     environGlobalKey,
 		Insert: &doc,
 	}}
@@ -319,8 +291,8 @@ func (st *State) createStateServersDoc() error {
 }
 
 // MongoConnectionInfo returns information for connecting to mongo
-func (st *State) MongoConnectionInfo() *Info {
-	return st.info
+func (st *State) MongoConnectionInfo() *authentication.MongoInfo {
+	return st.mongoInfo
 }
 
 // createAPIAddressesDoc creates the API addresses document
@@ -330,7 +302,7 @@ func (st *State) MongoConnectionInfo() *Info {
 func (st *State) createAPIAddressesDoc() error {
 	var doc apiHostPortsDoc
 	ops := []txn.Op{{
-		C:      st.stateServers.Name,
+		C:      stateServersC,
 		Id:     apiHostPortsKey,
 		Assert: txn.DocMissing,
 		Insert: &doc,
@@ -343,7 +315,7 @@ func (st *State) createAPIAddressesDoc() error {
 func (st *State) createStateServingInfoDoc() error {
 	var info params.StateServingInfo
 	ops := []txn.Op{{
-		C:      st.stateServers.Name,
+		C:      stateServersC,
 		Id:     stateServingInfoKey,
 		Assert: txn.DocMissing,
 		Insert: &info,
@@ -353,7 +325,7 @@ func (st *State) createStateServingInfoDoc() error {
 
 // CACert returns the certificate used to validate the state connection.
 func (st *State) CACert() string {
-	return st.info.CACert
+	return st.mongoInfo.CACert
 }
 
 func (st *State) Close() error {

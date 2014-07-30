@@ -15,7 +15,7 @@ import (
 
 // Machine represents a juju machine as seen by the provisioner worker.
 type Machine struct {
-	tag  names.Tag
+	tag  names.MachineTag
 	life params.Life
 	st   *State
 }

@@ -11,7 +11,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
-	"strings"
 
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -184,50 +183,51 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
 }
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
-	config := agentConfig("machine-tag", fix.dataDir, fix.logDir)
+	config := agentConfig(names.NewMachineTag("99"), fix.dataDir, fix.logDir)
 	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
 }
 
-func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag string) *deployer.SimpleContext {
+func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag names.Tag) *deployer.SimpleContext {
 	config := agentConfig(machineTag, fix.dataDir, fix.logDir)
 	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir)
 }
 
-func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir string) {
+func (fix *SimpleToolsFixture) paths(tag names.Tag) (confPath, agentDir, toolsDir string) {
 	confName := fmt.Sprintf("jujud-%s.conf", tag)
 	confPath = filepath.Join(fix.initDir, confName)
 	agentDir = agent.Dir(fix.dataDir, tag)
-	toolsDir = tools.ToolsDir(fix.dataDir, tag)
+	toolsDir = tools.ToolsDir(fix.dataDir, tag.String())
 	return
 }
 
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string) {
-	tag := names.NewUnitTag(name).String()
+	tag := names.NewUnitTag(name)
 	uconfPath, _, toolsDir := fix.paths(tag)
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, gc.IsNil)
 	uconf := string(uconfData)
-	var execLine string
-	for _, line := range strings.Split(uconf, "\n") {
-		if strings.HasPrefix(line, "exec ") {
-			execLine = line
-			break
-		}
-	}
-	if execLine == "" {
+
+	regex := regexp.MustCompile("(?m)(?:^\\s)*exec\\s.+$")
+	execs := regex.FindAllString(uconf, -1)
+
+	if nil == execs {
 		c.Fatalf("no command found in %s:\n%s", uconfPath, uconf)
+	} else if 1 > len(execs) {
+		c.Fatalf("Test is not built to handle more than one exec line.")
 	}
-	logPath := filepath.Join(fix.logDir, tag+".log")
+
+	logPath := filepath.Join(fix.logDir, tag.String()+".log")
 	jujudPath := filepath.Join(toolsDir, "jujud")
+
 	for _, pat := range []string{
 		"^exec " + jujudPath + " unit ",
 		" --unit-name " + name + " ",
 		" >> " + logPath + " 2>&1$",
 	} {
-		match, err := regexp.MatchString(pat, execLine)
+		match, err := regexp.MatchString(pat, execs[0])
 		c.Assert(err, gc.IsNil)
 		if !match {
-			c.Fatalf("failed to match:\n%s\nin:\n%s", pat, execLine)
+			c.Fatalf("failed to match:\n%s\nin:\n%s", pat, execs[0])
 		}
 	}
 
@@ -242,7 +242,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *gc.C, name string) {
-	tag := names.NewUnitTag(name).String()
+	tag := names.NewUnitTag(name)
 	confPath, agentDir, toolsDir := fix.paths(tag)
 	for _, path := range []string{confPath, agentDir, toolsDir} {
 		_, err := ioutil.ReadFile(path)
@@ -265,14 +265,14 @@ func (fix *SimpleToolsFixture) injectUnit(c *gc.C, upstartConf, unitTag string) 
 
 type mockConfig struct {
 	agent.Config
-	tag               string
+	tag               names.Tag
 	datadir           string
 	logdir            string
 	upgradedToVersion version.Number
 	jobs              []params.MachineJob
 }
 
-func (mock *mockConfig) Tag() string {
+func (mock *mockConfig) Tag() names.Tag {
 	return mock.tag
 }
 
@@ -305,6 +305,6 @@ func (mock *mockConfig) Value(_ string) string {
 	return ""
 }
 
-func agentConfig(tag, datadir, logdir string) agent.Config {
+func agentConfig(tag names.Tag, datadir, logdir string) agent.Config {
 	return &mockConfig{tag: tag, datadir: datadir, logdir: logdir}
 }

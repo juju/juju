@@ -19,6 +19,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
+const (
+	// BootstrapNonce is used as a nonce for the state server machine.
+	BootstrapNonce = "user-admin:bootstrap"
+)
+
 // InitializeState should be called on the bootstrap machine's agent
 // configuration. It uses that information to create the state server, dial the
 // state server, and initialize it. It also generates a new password for the
@@ -63,7 +68,7 @@ type BootstrapMachineConfig struct {
 const BootstrapMachineId = "0"
 
 func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
-	if c.Tag() != names.NewMachineTag(BootstrapMachineId).String() {
+	if c.Tag() != names.NewMachineTag(BootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
 	servingInfo, ok := c.StateServingInfo()
@@ -72,11 +77,11 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	}
 	// N.B. no users are set up when we're initializing the state,
 	// so don't use any tag or password when opening it.
-	info, ok := c.StateInfo()
+	info, ok := c.MongoInfo()
 	if !ok {
 		return nil, nil, fmt.Errorf("stateinfo not available")
 	}
-	info.Tag = ""
+	info.Tag = nil
 	info.Password = ""
 
 	logger.Debugf("initializing address %v", info.Addrs)
@@ -164,7 +169,7 @@ func initBootstrapMachine(c ConfigSetter, st *state.State, cfg BootstrapMachineC
 	m, err := st.AddOneMachine(state.MachineTemplate{
 		Addresses:               cfg.Addresses,
 		Series:                  version.Current.Series,
-		Nonce:                   state.BootstrapNonce,
+		Nonce:                   BootstrapNonce,
 		Constraints:             cfg.Constraints,
 		InstanceId:              cfg.InstanceId,
 		HardwareCharacteristics: cfg.Characteristics,

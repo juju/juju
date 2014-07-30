@@ -10,7 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -20,9 +20,9 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
-	"github.com/juju/juju/state/txn"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
+	"github.com/juju/txn"
 )
 
 type MachineSuite struct {
@@ -184,6 +184,31 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *gc.C) {
 	err = m.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Life(), gc.Equals, state.Dead)
+}
+
+func (s *MachineSuite) TestDestroyRemovePorts(c *gc.C) {
+	svc := s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
+	unit, err := svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = unit.AssignToMachine(s.machine)
+	c.Assert(err, gc.IsNil)
+	err = unit.OpenPort("tcp", 8080)
+	c.Assert(err, gc.IsNil)
+	ports, err := state.GetPorts(s.State, s.machine.Id())
+	c.Assert(ports, gc.NotNil)
+	c.Assert(err, gc.IsNil)
+	err = unit.UnassignFromMachine()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.Destroy()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.machine.Remove()
+	c.Assert(err, gc.IsNil)
+	// once the machine is destroyed, there should be no ports documents present for it
+	ports, err = state.GetPorts(s.State, s.machine.Id())
+	c.Assert(ports, gc.IsNil)
+	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }
 
 func (s *MachineSuite) TestDestroyAbort(c *gc.C) {
@@ -499,37 +524,37 @@ var addNetworkInterfaceErrorsTests = []struct {
 	beforeAdding func(*gc.C, *state.Machine)
 	expectErr    string
 }{{
-	state.NetworkInterfaceInfo{"", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"", "eth1", "net1", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": MAC address must be not empty`,
 }, {
-	state.NetworkInterfaceInfo{"invalid", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"invalid", "eth1", "net1", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": invalid MAC address: invalid`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f0", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f0", "eth1", "net1", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": MAC address "aa:bb:cc:dd:ee:f0" on network "net1" already exists`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "", "net1", false, false},
 	nil,
 	`cannot add network interface "" to machine "2": interface name must be not empty`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth0", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth0", "net1", false, false},
 	nil,
 	`cannot add network interface "eth0" to machine "2": "eth0" on machine "2" already exists`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth1", "missing", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:ff", "eth1", "missing", false, false},
 	nil,
 	`cannot add network interface "eth1" to machine "2": network "missing" not found`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false, false},
 	func(c *gc.C, m *state.Machine) {
 		c.Check(m.EnsureDead(), gc.IsNil)
 	},
 	`cannot add network interface "eth1" to machine "2": machine is not alive`,
 }, {
-	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false},
+	state.NetworkInterfaceInfo{"aa:bb:cc:dd:ee:f1", "eth1", "net1", false, false},
 	func(c *gc.C, m *state.Machine) {
 		c.Check(m.Remove(), gc.IsNil)
 	},
@@ -781,7 +806,7 @@ func (s *MachineSuite) TestMachineRefresh(c *gc.C) {
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, gc.IsNil)
-	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
+	err = m0.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	newTools, _ := m0.AgentTools()
 
@@ -936,7 +961,7 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-series-arch"))
+	err = machine.SetAgentVersion(version.MustParseBinary("0.0.3-quantal-amd64"))
 	c.Assert(err, gc.IsNil)
 	err = machine.Destroy()
 	c.Assert(err, gc.IsNil)
@@ -1502,29 +1527,58 @@ func (s *MachineSuite) TestMergedAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(machine.Addresses(), gc.HasLen, 0)
 
-	addresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("8.8.8.8", network.ScopeUnknown),
-		network.NewAddress("", network.ScopeUnknown),
-	}
-	addresses[0].NetworkName = "loopback"
+	addresses := network.NewAddresses(
+		"127.0.0.1", "8.8.8.8", "fc00::1", "::1", "", "example.org",
+	)
 	err = machine.SetAddresses(addresses...)
 	c.Assert(err, gc.IsNil)
 
-	machineAddresses := []network.Address{
-		network.NewAddress("127.0.0.1", network.ScopeUnknown),
-		network.NewAddress("192.168.0.1", network.ScopeUnknown),
-	}
+	machineAddresses := network.NewAddresses(
+		"127.0.0.1", "localhost", "192.168.0.1", "fe80::1", "::1", "fd00::1",
+	)
 	err = machine.SetMachineAddresses(machineAddresses...)
 	c.Assert(err, gc.IsNil)
 	err = machine.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	c.Assert(machine.Addresses(), gc.DeepEquals, []network.Address{
-		addresses[0],
-		addresses[1],
-		machineAddresses[1],
-	})
+	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
+		"example.org",
+		"8.8.8.8",
+		"127.0.0.1",
+		"fc00::1",
+		"::1",
+		"192.168.0.1",
+		"localhost",
+		"fe80::1",
+		"fd00::1",
+	))
+
+	// Now simulate prefer-ipv6: true
+	c.Assert(
+		s.State.UpdateEnvironConfig(
+			map[string]interface{}{"prefer-ipv6": true},
+			nil, nil,
+		),
+		gc.IsNil,
+	)
+
+	err = machine.SetAddresses(addresses...)
+	c.Assert(err, gc.IsNil)
+	err = machine.SetMachineAddresses(machineAddresses...)
+	c.Assert(err, gc.IsNil)
+	err = machine.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machine.Addresses(), jc.DeepEquals, network.NewAddresses(
+		"::1",
+		"fc00::1",
+		"example.org",
+		"8.8.8.8",
+		"127.0.0.1",
+		"fd00::1",
+		"fe80::1",
+		"localhost",
+		"192.168.0.1",
+	))
 }
 
 func (s *MachineSuite) TestSetAddressesConcurrentChangeDifferent(c *gc.C) {
@@ -1770,6 +1824,7 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 		InterfaceName: "eth1",
 		NetworkName:   "net1",
 		IsVirtual:     false,
+		Disabled:      true,
 	}, {
 		MACAddress:    "aa:bb:cc:dd:ee:f1",
 		InterfaceName: "eth1.42",
@@ -1799,6 +1854,11 @@ func (s *MachineSuite) TestWatchInterfaces(c *gc.C) {
 	err = ifaces[0].SetDisabled(true)
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
+
+	// Enable the second interface, should report, because it was initially disabled.
+	err = ifaces[1].SetDisabled(false)
+	c.Assert(err, gc.IsNil)
+	wc.AssertOneChange()
 
 	// Disable two interfaces at once, check that both are reported.
 	err = ifaces[1].SetDisabled(true)

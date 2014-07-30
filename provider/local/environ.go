@@ -17,6 +17,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/shell"
+	"github.com/juju/utils/symlink"
 
 	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
@@ -25,7 +26,6 @@ import (
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
 	"github.com/juju/juju/environs"
-	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/filestorage"
@@ -39,10 +39,9 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/api"
+	servicecommon "github.com/juju/juju/service/common"
+	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/terminationworker"
 )
@@ -94,11 +93,6 @@ func (*localEnviron) PrecheckInstance(series string, cons constraints.Value, pla
 	return nil
 }
 
-// Name is specified in the Environ interface.
-func (env *localEnviron) Name() string {
-	return env.name
-}
-
 func (env *localEnviron) machineAgentServiceName() string {
 	return "juju-agent-" + env.config.namespace()
 }
@@ -117,15 +111,6 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	}
 	privateKey, err := common.GenerateSystemSSHKey(env)
 	if err != nil {
-		return err
-	}
-
-	// Before we write the agent config file, we need to make sure the
-	// instance is saved in the StateInfo.
-	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
-		StateInstances: []instance.Id{bootstrapInstanceId},
-	}); err != nil {
-		logger.Errorf("failed to save state instances: %v", err)
 		return err
 	}
 
@@ -160,6 +145,11 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		agent.Namespace:   env.config.namespace(),
 		agent.StorageDir:  env.config.storageDir(),
 		agent.StorageAddr: env.config.storageAddr(),
+
+		// The local provider only supports a single state server,
+		// so we make the oplog size to a small value. This makes
+		// the preallocation faster with no disadvantage.
+		agent.MongoOplogSize: "1", // 1MB
 	}
 	if err := environs.FinishMachineConfig(mcfg, cfg, args.Constraints); err != nil {
 		return err
@@ -177,7 +167,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	if err := os.RemoveAll(localLogDir); err != nil {
 		return err
 	}
-	if err := os.Symlink(mcfg.LogDir, localLogDir); err != nil {
+	if err := symlink.New(mcfg.LogDir, localLogDir); err != nil {
 		return err
 	}
 	if err := os.Remove(mcfg.CloudInitOutputLog); err != nil && !os.IsNotExist(err) {
@@ -210,9 +200,17 @@ var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudini
 	return cmd.Run()
 }
 
-// StateInfo is specified in the Environ interface.
-func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return common.StateInfo(env)
+// StateServerInstances is specified in the Environ interface.
+func (env *localEnviron) StateServerInstances() ([]instance.Id, error) {
+	agentsDir := filepath.Join(env.config.rootDir(), "agents")
+	_, err := os.Stat(agentsDir)
+	if os.IsNotExist(err) {
+		return nil, environs.ErrNotBootstrapped
+	}
+	if err != nil {
+		return nil, err
+	}
+	return []instance.Id{bootstrapInstanceId}, nil
 }
 
 // Config is specified in the Environ interface.
@@ -459,7 +457,7 @@ func (env *localEnviron) Destroy() error {
 		}
 		args := []string{
 			"env", osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
-			juju, "destroy-environment", "-y", "--force", env.Name(),
+			juju, "destroy-environment", "-y", "--force", env.Config().Name(),
 		}
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout
@@ -494,7 +492,7 @@ func (env *localEnviron) Destroy() error {
 	// Stop the mongo database and machine agent. It's possible that the
 	// service doesn't exist or is not running, so don't check the error.
 	mongo.RemoveService(env.config.namespace())
-	upstart.NewService(env.machineAgentServiceName()).StopAndRemove()
+	upstart.NewService(env.machineAgentServiceName(), servicecommon.Conf{}).StopAndRemove()
 
 	// Finally, remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {

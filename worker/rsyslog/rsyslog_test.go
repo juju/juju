@@ -11,6 +11,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	"github.com/juju/names"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -88,7 +89,7 @@ func waitForRestart(c *gc.C, restarted chan struct{}) {
 
 func (s *RsyslogSuite) TestStartStop(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag().String(), "", []string{"0.1.2.3"})
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "", []string{"0.1.2.3"})
 	c.Assert(err, gc.IsNil)
 	worker.Kill()
 	c.Assert(worker.Wait(), gc.IsNil)
@@ -96,7 +97,7 @@ func (s *RsyslogSuite) TestStartStop(c *gc.C) {
 
 func (s *RsyslogSuite) TestTearDown(c *gc.C) {
 	st, m := s.st, s.machine
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag().String(), "", []string{"0.1.2.3"})
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", []string{"0.1.2.3"})
 	c.Assert(err, gc.IsNil)
 	confFile := filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf")
 	// On worker teardown, the rsyslog config file should be removed.
@@ -114,7 +115,7 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	addrs := []string{"0.1.2.3", "0.2.4.6"}
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag().String(), "", addrs)
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "", addrs)
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -130,7 +131,7 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	rsyslogConf, err := ioutil.ReadFile(filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf"))
 	c.Assert(err, gc.IsNil)
 
-	syslogPort := s.Conn.Environ.Config().SyslogPort()
+	syslogPort := s.Environ.Config().SyslogPort()
 	syslogConfig := syslog.NewForwardConfig(m.Tag().String(), *rsyslog.LogDir, syslogPort, "", addrs)
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()
@@ -140,7 +141,7 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 
 func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	st, m := s.st, s.machine
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag().String(), "", nil)
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, m.Tag(), "", nil)
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()
@@ -163,7 +164,7 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	rsyslogConf, err := ioutil.ReadFile(filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf"))
 	c.Assert(err, gc.IsNil)
 
-	syslogPort := s.Conn.Environ.Config().SyslogPort()
+	syslogPort := s.Environ.Config().SyslogPort()
 	syslogConfig := syslog.NewAccumulateConfig(m.Tag().String(), *rsyslog.LogDir, syslogPort, "", []string{})
 	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
 	rendered, err := syslogConfig.Render()
@@ -193,18 +194,18 @@ func (s *RsyslogSuite) TestNamespace(c *gc.C) {
 
 	// namespace only takes effect in filenames
 	// for machine-0; all others assume isolation.
-	s.testNamespace(c, st, "machine-0", "", "25-juju.conf", *rsyslog.LogDir)
-	s.testNamespace(c, st, "machine-0", "mynamespace", "25-juju-mynamespace.conf", *rsyslog.LogDir+"-mynamespace")
-	s.testNamespace(c, st, "machine-1", "", "25-juju.conf", *rsyslog.LogDir)
-	s.testNamespace(c, st, "machine-1", "mynamespace", "25-juju.conf", *rsyslog.LogDir)
-	s.testNamespace(c, st, "unit-myservice-0", "", "26-juju-unit-myservice-0.conf", *rsyslog.LogDir)
-	s.testNamespace(c, st, "unit-myservice-0", "mynamespace", "26-juju-unit-myservice-0.conf", *rsyslog.LogDir)
+	s.testNamespace(c, st, names.NewMachineTag("0"), "", "25-juju.conf", *rsyslog.LogDir)
+	s.testNamespace(c, st, names.NewMachineTag("0"), "mynamespace", "25-juju-mynamespace.conf", *rsyslog.LogDir+"-mynamespace")
+	s.testNamespace(c, st, names.NewMachineTag("1"), "", "25-juju.conf", *rsyslog.LogDir)
+	s.testNamespace(c, st, names.NewMachineTag("1"), "mynamespace", "25-juju.conf", *rsyslog.LogDir)
+	s.testNamespace(c, st, names.NewUnitTag("myservice/0"), "", "26-juju-unit-myservice-0.conf", *rsyslog.LogDir)
+	s.testNamespace(c, st, names.NewUnitTag("myservice/0"), "mynamespace", "26-juju-unit-myservice-0.conf", *rsyslog.LogDir)
 }
 
 // testNamespace starts a worker and ensures that
 // the rsyslog config file has the expected filename,
 // and the appropriate log dir is used.
-func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag, namespace, expectedFilename, expectedLogDir string) {
+func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag names.Tag, namespace, expectedFilename, expectedLogDir string) {
 	restarted := make(chan struct{}, 2) // once for create, once for teardown
 	s.PatchValue(rsyslog.RestartRsyslog, func() error {
 		restarted <- struct{}{}

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net"
+	"strconv"
 	"time"
 
 	"github.com/juju/cmd"
@@ -72,6 +73,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	agentConfig := c.CurrentConfig()
+	network.InitializeFromConfig(agentConfig)
 
 	// agent.Jobs is an optional field in the agent config, and was
 	// introduced after 1.17.2. We default to allowing units on
@@ -114,8 +116,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("bootstrap machine config has no state serving info")
 	}
 	info.SharedSecret = sharedSecret
-	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
 		agentConfig.SetStateServingInfo(info)
+		return nil
 	})
 	if err != nil {
 		return fmt.Errorf("cannot write agent config: %v", err)
@@ -130,9 +133,9 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// Initialise state, and store any agent config (e.g. password) changes.
 	var st *state.State
 	var m *state.Machine
-	err = nil
-	writeErr := c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
-		st, m, err = agent.InitializeState(
+	err = c.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
+		var stateErr error
+		st, m, stateErr = agent.InitializeState(
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
@@ -146,10 +149,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 			mongo.DefaultDialOpts(),
 			environs.NewStatePolicy(),
 		)
+		return stateErr
 	})
-	if writeErr != nil {
-		return fmt.Errorf("cannot write initial configuration: %v", err)
-	}
 	if err != nil {
 		return err
 	}
@@ -159,10 +160,37 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	return m.SetHasVote(true)
 }
 
+// newEnsureServerParams creates an EnsureServerParams from an agent configuration.
+func newEnsureServerParams(agentConfig agent.Config) (mongo.EnsureServerParams, error) {
+	// If oplog size is specified in the agent configuration, use that.
+	// Otherwise leave the default zero value to indicate to EnsureServer
+	// that it should calculate the size.
+	var oplogSize int
+	if oplogSizeString := agentConfig.Value(agent.MongoOplogSize); oplogSizeString != "" {
+		var err error
+		if oplogSize, err = strconv.Atoi(oplogSizeString); err != nil {
+			return mongo.EnsureServerParams{}, fmt.Errorf("invalid oplog size: %q", oplogSizeString)
+		}
+	}
+
+	servingInfo, ok := agentConfig.StateServingInfo()
+	if !ok {
+		return mongo.EnsureServerParams{}, fmt.Errorf("agent config has no state serving info")
+	}
+
+	params := mongo.EnsureServerParams{
+		StateServingInfo: servingInfo,
+		DataDir:          agentConfig.DataDir(),
+		Namespace:        agentConfig.Value(agent.Namespace),
+		OplogSize:        oplogSize,
+	}
+	return params, nil
+}
+
 func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent.Config) error {
 	logger.Debugf("starting mongo")
 
-	info, ok := agentConfig.StateInfo()
+	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return fmt.Errorf("no state info available")
 	}
@@ -186,11 +214,11 @@ func (c *BootstrapCommand) startMongo(addrs []network.Address, agentConfig agent
 	}
 
 	logger.Debugf("calling ensureMongoServer")
-	err = ensureMongoServer(
-		agentConfig.DataDir(),
-		agentConfig.Value(agent.Namespace),
-		servingInfo,
-	)
+	ensureServerParams, err := newEnsureServerParams(agentConfig)
+	if err != nil {
+		return err
+	}
+	err = ensureMongoServer(ensureServerParams)
 	if err != nil {
 		return err
 	}

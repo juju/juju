@@ -6,17 +6,22 @@ package testing
 import (
 	"fmt"
 	"io/ioutil"
+	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
+	"github.com/juju/errors"
+	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -24,6 +29,7 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/juju"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -54,9 +60,8 @@ type JujuConnSuite struct {
 	testing.FakeJujuHomeSuite
 	gitjujutesting.MgoSuite
 	envtesting.ToolsFixture
-	Conn         *juju.Conn
 	State        *state.State
-	APIConn      *juju.APIConn
+	Environ      environs.Environ
 	APIState     *api.State
 	apiStates    []*api.State // additional api.States to close on teardown
 	ConfigStore  configstore.Storage
@@ -65,7 +70,6 @@ type JujuConnSuite struct {
 	LogDir       string
 	oldHome      string
 	oldJujuHome  string
-	environ      environs.Environ
 	DummyConfig  testing.Attrs
 	Factory      *factory.Factory
 }
@@ -104,30 +108,33 @@ func (s *JujuConnSuite) Reset(c *gc.C) {
 	s.setUpConn(c)
 }
 
-func (s *JujuConnSuite) StateInfo(c *gc.C) *state.Info {
-	info, _, err := s.Conn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+func (s *JujuConnSuite) MongoInfo(c *gc.C) *authentication.MongoInfo {
+	info := s.State.MongoConnectionInfo()
 	info.Password = "dummy-secret"
 	return info
 }
 
 func (s *JujuConnSuite) APIInfo(c *gc.C) *api.Info {
-	_, apiInfo, err := s.APIConn.Environ.StateInfo()
+	apiInfo, err := environs.APIInfo(s.Environ)
 	c.Assert(err, gc.IsNil)
-	apiInfo.Tag = "user-admin"
+	apiInfo.Tag = names.NewUserTag("admin")
 	apiInfo.Password = "dummy-secret"
+
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+	apiInfo.EnvironTag = env.Tag()
+
 	return apiInfo
 }
 
 // openAPIAs opens the API and ensures that the *api.State returned will be
 // closed during the test teardown by using a cleanup function.
-func (s *JujuConnSuite) openAPIAs(c *gc.C, tag, password, nonce string) *api.State {
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
-	info.Tag = tag
-	info.Password = password
-	info.Nonce = nonce
-	apiState, err := api.Open(info, api.DialOpts{})
+func (s *JujuConnSuite) openAPIAs(c *gc.C, tag names.Tag, password, nonce string) *api.State {
+	apiInfo := s.APIInfo(c)
+	apiInfo.Tag = tag
+	apiInfo.Password = password
+	apiInfo.Nonce = nonce
+	apiState, err := api.Open(apiInfo, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiState, gc.NotNil)
 	s.apiStates = append(s.apiStates, apiState)
@@ -137,14 +144,14 @@ func (s *JujuConnSuite) openAPIAs(c *gc.C, tag, password, nonce string) *api.Sta
 // OpenAPIAs opens the API using the given identity tag and password for
 // authentication.  The returned *api.State should not be closed by the caller
 // as a cleanup function has been registered to do that.
-func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag, password string) *api.State {
+func (s *JujuConnSuite) OpenAPIAs(c *gc.C, tag names.Tag, password string) *api.State {
 	return s.openAPIAs(c, tag, password, "")
 }
 
 // OpenAPIAsMachine opens the API using the given machine tag, password and
 // nonce for authentication. The returned *api.State should not be closed by
 // the caller as a cleanup function has been registered to do that.
-func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag, password, nonce string) *api.State {
+func (s *JujuConnSuite) OpenAPIAsMachine(c *gc.C, tag names.Tag, password, nonce string) *api.State {
 	return s.openAPIAs(c, tag, password, nonce)
 }
 
@@ -164,7 +171,7 @@ func (s *JujuConnSuite) OpenAPIAsNewMachine(c *gc.C, jobs ...state.MachineJob) (
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	return s.openAPIAs(c, machine.Tag().String(), password, "fake_nonce"), machine
+	return s.openAPIAs(c, machine.Tag(), password, "fake_nonce"), machine
 }
 
 func PreferredDefaultVersions(conf *config.Config, template version.Binary) []version.Binary {
@@ -211,7 +218,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 	environ, err := environs.PrepareFromName("dummyenv", ctx, s.ConfigStore)
 	c.Assert(err, gc.IsNil)
 	// sanity check we've got the correct environment.
-	c.Assert(environ.Name(), gc.Equals, "dummyenv")
+	c.Assert(environ.Config().Name(), gc.Equals, "dummyenv")
 	s.PatchValue(&dummy.DataDir, s.DataDir())
 	s.LogDir = c.MkDir()
 	s.PatchValue(&dummy.LogDir, s.LogDir)
@@ -221,20 +228,176 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// Upload tools for both preferred and fake default series
 	envtesting.MustUploadFakeToolsVersions(environ.Storage(), versions...)
-	c.Assert(bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{}), gc.IsNil)
+	err = bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
 
-	conn, err := juju.NewConn(environ)
+	s.State, err = newState(environ, s.BackingState.MongoConnectionInfo())
 	c.Assert(err, gc.IsNil)
-	s.Conn = conn
-	s.State = conn.State
 
-	apiConn, err := juju.NewAPIConn(environ, api.DialOpts{})
+	s.APIState, err = juju.NewAPIState(environ, api.DialOpts{})
 	c.Assert(err, gc.IsNil)
-	s.APIConn = apiConn
-	s.APIState = apiConn.State
-	s.environ = environ
+
+	s.Environ = environ
+}
+
+var redialStrategy = utils.AttemptStrategy{
+	Total: 60 * time.Second,
+	Delay: 250 * time.Millisecond,
+}
+
+// newState returns a new State that uses the given environment.
+// The environment must have already been bootstrapped.
+func newState(environ environs.Environ, mongoInfo *authentication.MongoInfo) (*state.State, error) {
+	password := environ.Config().AdminSecret()
+	if password == "" {
+		return nil, fmt.Errorf("cannot connect without admin-secret")
+	}
+	if err := environs.CheckEnvironment(environ); err != nil {
+		return nil, err
+	}
+
+	mongoInfo.Password = password
+	opts := mongo.DefaultDialOpts()
+	st, err := state.Open(mongoInfo, opts, environs.NewStatePolicy())
+	if errors.IsUnauthorized(err) {
+		// We try for a while because we might succeed in
+		// connecting to mongo before the state has been
+		// initialized and the initial password set.
+		for a := redialStrategy.Start(); a.Next(); {
+			st, err = state.Open(mongoInfo, opts, environs.NewStatePolicy())
+			if !errors.IsUnauthorized(err) {
+				break
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		return nil, err
+	}
+	if err := updateSecrets(environ, st); err != nil {
+		st.Close()
+		return nil, fmt.Errorf("unable to push secrets: %v", err)
+	}
+	return st, nil
+}
+
+func updateSecrets(env environs.Environ, st *state.State) error {
+	secrets, err := env.Provider().SecretAttrs(env.Config())
+	if err != nil {
+		return err
+	}
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	secretAttrs := make(map[string]interface{})
+	attrs := cfg.AllAttrs()
+	for k, v := range secrets {
+		if _, exists := attrs[k]; exists {
+			// Environment already has secrets. Won't send again.
+			return nil
+		} else {
+			secretAttrs[k] = v
+		}
+	}
+	return st.UpdateEnvironConfig(secretAttrs, nil, nil)
+}
+
+// PutCharm uploads the given charm to provider storage, and adds a
+// state.Charm to the state.  The charm is not uploaded if a charm with
+// the same URL already exists in the state.
+// If bumpRevision is true, the charm must be a local directory,
+// and the revision number will be incremented before pushing.
+func PutCharm(st *state.State, curl *charm.URL, repo charm.Repository, bumpRevision bool) (*state.Charm, error) {
+	if curl.Revision == -1 {
+		rev, err := charm.Latest(repo, curl)
+		if err != nil {
+			return nil, fmt.Errorf("cannot get latest charm revision: %v", err)
+		}
+		curl = curl.WithRevision(rev)
+	}
+	ch, err := repo.Get(curl)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get charm: %v", err)
+	}
+	if bumpRevision {
+		chd, ok := ch.(*charm.Dir)
+		if !ok {
+			return nil, fmt.Errorf("cannot increment revision of charm %q: not a directory", curl)
+		}
+		if err = chd.SetDiskRevision(chd.Revision() + 1); err != nil {
+			return nil, fmt.Errorf("cannot increment revision of charm %q: %v", curl, err)
+		}
+		curl = curl.WithRevision(chd.Revision())
+	}
+	if sch, err := st.Charm(curl); err == nil {
+		return sch, nil
+	}
+	return addCharm(st, curl, ch)
+}
+
+func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, error) {
+	var f *os.File
+	name := charm.Quote(curl.String())
+	switch ch := ch.(type) {
+	case *charm.Dir:
+		var err error
+		if f, err = ioutil.TempFile("", name); err != nil {
+			return nil, err
+		}
+		defer os.Remove(f.Name())
+		defer f.Close()
+		err = ch.BundleTo(f)
+		if err != nil {
+			return nil, fmt.Errorf("cannot bundle charm: %v", err)
+		}
+		if _, err := f.Seek(0, 0); err != nil {
+			return nil, err
+		}
+	case *charm.Bundle:
+		var err error
+		if f, err = os.Open(ch.Path); err != nil {
+			return nil, fmt.Errorf("cannot read charm bundle: %v", err)
+		}
+		defer f.Close()
+	default:
+		return nil, fmt.Errorf("unknown charm type %T", ch)
+	}
+	digest, size, err := utils.ReadSHA256(f)
+	if err != nil {
+		return nil, err
+	}
+	if _, err := f.Seek(0, 0); err != nil {
+		return nil, err
+	}
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	stor := env.Storage()
+	if err := stor.Put(name, f, size); err != nil {
+		return nil, fmt.Errorf("cannot put charm: %v", err)
+	}
+	ustr, err := stor.URL(name)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get storage URL for charm: %v", err)
+	}
+	u, err := url.Parse(ustr)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse storage URL: %v", err)
+	}
+	sch, err := st.AddCharm(ch, curl, u, digest)
+	if err != nil {
+		return nil, fmt.Errorf("cannot add charm: %v", err)
+	}
+	return sch, nil
 }
 
 func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
@@ -267,8 +430,15 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 	// the password so that the MgoSuite soft-resetting works. If that fails,
 	// it will still work, but it will take a while since it has to kill the
 	// whole database and start over.
-	if err := s.State.SetAdminMongoPassword(""); err != nil && serverAlive {
-		c.Logf("cannot reset admin password: %v", err)
+	if s.State != nil {
+		if err := s.State.SetAdminMongoPassword(""); err != nil && serverAlive {
+			c.Logf("cannot reset admin password: %v", err)
+		}
+		err := s.State.Close()
+		if serverAlive {
+			c.Assert(err, gc.IsNil)
+		}
+		s.State = nil
 	}
 	for _, st := range s.apiStates {
 		err := st.Close()
@@ -276,18 +446,15 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 		}
 	}
-	err := s.Conn.Close()
-	if serverAlive {
-		c.Assert(err, gc.IsNil)
-	}
-	err = s.APIConn.Close()
-	if serverAlive {
-		c.Assert(err, gc.IsNil)
+	s.apiStates = nil
+	if s.APIState != nil {
+		err := s.APIState.Close()
+		s.APIState = nil
+		if serverAlive {
+			c.Assert(err, gc.IsNil)
+		}
 	}
 	dummy.Reset()
-	s.apiStates = nil
-	s.Conn = nil
-	s.State = nil
 	utils.SetHome(s.oldHome)
 	osenv.SetJujuHome(s.oldJujuHome)
 	s.oldHome = ""
@@ -319,7 +486,7 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	curl := charm.MustParseURL("local:quantal/" + ident)
 	repo, err := charm.InferRepository(curl.Reference, charmtesting.Charms.Path())
 	c.Assert(err, gc.IsNil)
-	sch, err := s.Conn.PutCharm(curl, repo, false)
+	sch, err := PutCharm(s.State, curl, repo, false)
 	c.Assert(err, gc.IsNil)
 	return sch
 }
@@ -335,7 +502,7 @@ func (s *JujuConnSuite) AddTestingServiceWithNetworks(c *gc.C, name string, ch *
 	return service
 }
 
-func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.ConfigSetter {
+func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag names.Tag) agent.ConfigSetter {
 	password, err := utils.RandomPassword()
 	c.Assert(err, gc.IsNil)
 	config, err := agent.NewAgentConfig(
@@ -345,7 +512,7 @@ func (s *JujuConnSuite) AgentConfigForTag(c *gc.C, tag string) agent.ConfigSette
 			UpgradedToVersion: version.Current.Number,
 			Password:          password,
 			Nonce:             "nonce",
-			StateAddresses:    s.StateInfo(c).Addrs,
+			StateAddresses:    s.MongoInfo(c).Addrs,
 			APIAddresses:      s.APIInfo(c).Addrs,
 			CACert:            testing.CACert,
 		})

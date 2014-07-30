@@ -14,14 +14,14 @@ import (
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	tag  names.Tag
+	tag  names.MachineTag
 	life params.Life
 	st   *State
 }
 
 // Tag returns the machine's tag.
-func (m *Machine) Tag() string {
-	return m.tag.String()
+func (m *Machine) Tag() names.Tag {
+	return m.tag
 }
 
 // Life returns the machine's lifecycle value.
@@ -59,7 +59,7 @@ func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
 	var result params.ErrorResults
 	args := params.SetMachinesAddresses{
 		MachineAddresses: []params.MachineAddresses{
-			{Tag: m.Tag(), Addresses: addresses},
+			{Tag: m.Tag().String(), Addresses: addresses},
 		},
 	}
 	err := m.st.facade.FacadeCall("SetMachineAddresses", args, &result)
@@ -85,5 +85,5 @@ func (m *Machine) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the machine.
 func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(m.st.facade, m.tag.String())
+	return common.Watch(m.st.facade, m.tag)
 }

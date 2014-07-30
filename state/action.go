@@ -5,24 +5,56 @@ package state
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/juju/names"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/txn"
 )
+
+// ActionReceiver describes objects that can have actions queued for them, and
+// that can get ActionRelated information about those actions.
+// TODO(jcw4) consider implementing separate Actor classes for this interface;
+// for example UnitActor that implements this interface, and takes a Unit and
+// performs all these actions.
+type ActionReceiver interface {
+	// AddAction queues an action with the given name and payload for this
+	// ActionReciever
+	AddAction(name string, payload map[string]interface{}) (*Action, error)
+
+	// WatchActions returns a StringsWatcher that will notify on changes to the
+	// queued actions for this ActionReceiver
+	WatchActions() StringsWatcher
+
+	// WatchActionResults returns a StringsWatcher that will notify on changes to
+	// the action results for this ActionReceiver
+	WatchActionResults() StringsWatcher
+
+	// Actions returns the list of Actions queued for this ActionReceiver
+	Actions() ([]*Action, error)
+
+	// ActionResults returns the list of completed ActionResults that were
+	// queued on this ActionReciever
+	ActionResults() ([]*ActionResult, error)
+
+	// Name returns the name that will be used to filter actions
+	// that are queued for this ActionReceiver
+	Name() string
+}
+
+var (
+	_ ActionReceiver = (*Unit)(nil)
+	// TODO(jcw4) - use when Actions can be queued for Services
+	//_ ActionReceiver = (*Service)(nil)
+)
+
+const actionMarker string = "_a_"
 
 type actionDoc struct {
 	// Id is the key for this document. The structure of the key is
-	// a composite of UnitName and a unique Sequence, to facilitate
-	// indexing and prefix filtering
+	// a composite of ActionReciever.ActionKey() and a unique sequence,
+	// to facilitate indexing and prefix filtering
 	Id string `bson:"_id"`
-
-	// UnitName is the name of the unit for which this action is
-	// queued.
-	UnitName string
-
-	// Sequence is the unique segment in the composite key, and is
-	// used to disambiguate multiple queued actions on the same unit
-	Sequence int
 
 	// Name identifies the action that should be run; it should
 	// match an action defined by the unit's charm.
@@ -40,37 +72,26 @@ type Action struct {
 	doc actionDoc
 }
 
-// newAction builds an Action for the given State and actionDoc
-func newAction(st *State, adoc actionDoc) *Action {
-	return &Action{
-		st:  st,
-		doc: adoc,
-	}
-}
-
-// newActionDoc builds the actionDoc with the given name and parameters
-func newActionDoc(u *Unit, actionName string, parameters map[string]interface{}) (actionDoc, error) {
-	prefix := actionPrefix(u.Name())
-	seq, err := u.st.sequence(prefix)
-	if err != nil {
-		return actionDoc{}, err
-	}
-	return actionDoc{Id: actionId(prefix, seq), UnitName: u.Name(), Sequence: seq, Name: actionName, Payload: parameters}, nil
-}
-
-// actionPrefix returns the expected action prefix for a given unit name
-func actionPrefix(unitName string) string {
-	return "a#" + unitName + "#a#"
-}
-
-// actionId builds the id from the prefix and suffix
-func actionId(prefix string, suffix int) string {
-	return fmt.Sprintf("%s%d", prefix, suffix)
-}
-
 // Id returns the id of the Action
 func (a *Action) Id() string {
 	return a.doc.Id
+}
+
+// Prefix extracts the name of the unit or service from the encoded _id
+func (a *Action) Prefix() string {
+	if prefix, ok := extractPrefixName(a.doc.Id); ok {
+		return prefix
+	}
+	return ""
+}
+
+// Sequence extracts the unique sequence part of an action _id
+func (a *Action) Sequence() int {
+	sequence, ok := extractSequence(a.doc.Id)
+	if !ok {
+		panic(fmt.Sprintf("cannot extract sequence from _id %v", a.doc.Id))
+	}
+	return sequence
 }
 
 // Tag implements the Entity interface and returns a names.Tag that
@@ -80,11 +101,9 @@ func (a *Action) Tag() names.Tag {
 }
 
 // ActionTag returns an ActionTag constructed from this action's
-// UnitName and Sequence
+// Prefix and Sequence
 func (a *Action) ActionTag() names.ActionTag {
-	unitTag := names.NewUnitTag(a.doc.UnitName)
-	actionTag := names.NewActionTag(unitTag, a.doc.Sequence)
-	return actionTag
+	return names.JoinActionTag(a.Prefix(), a.Sequence())
 }
 
 // Name returns the name of the action, as defined in the charm
@@ -118,9 +137,83 @@ func (a *Action) removeAndLog(finalStatus ActionStatus, output string) error {
 	return a.st.runTransaction([]txn.Op{
 		addActionResultOp(a.st, &doc),
 		{
-			C:      a.st.actions.Name,
+			C:      actionsC,
 			Id:     a.doc.Id,
 			Remove: true,
 		},
 	})
+}
+
+// globalKey returns the global database key for the action.
+func (a *Action) globalKey() string {
+	return actionGlobalKey(a.doc.Id)
+}
+
+// newAction builds an Action for the given State and actionDoc
+func newAction(st *State, adoc actionDoc) *Action {
+	return &Action{
+		st:  st,
+		doc: adoc,
+	}
+}
+
+// newActionDoc builds the actionDoc with the given name and parameters
+func newActionDoc(st *State, ar ActionReceiver, actionName string, parameters map[string]interface{}) (actionDoc, error) {
+	actionId, err := newActionId(st, ar)
+	if err != nil {
+		return actionDoc{}, err
+	}
+	return actionDoc{Id: actionId, Name: actionName, Payload: parameters}, nil
+}
+
+var ensureActionMarker = ensureSuffixFn(actionMarker)
+
+// newActionId generates a new id for an action on the given ActionReceiver
+func newActionId(st *State, ar ActionReceiver) (string, error) {
+	prefix := ensureActionMarker(ar.Name())
+	sequence, err := st.sequence(prefix)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s%d", prefix, sequence), nil
+}
+
+// actionIdFromTag converts an ActionTag to an actionId
+func actionIdFromTag(tag names.ActionTag) string {
+	ptag := tag.PrefixTag()
+	if ptag == nil {
+		return ""
+	}
+	return fmt.Sprintf("%s%d", ensureActionMarker(ptag.Id()), tag.Sequence())
+}
+
+// actionGlobalKey returns the global database key for the named action.
+func actionGlobalKey(name string) string {
+	return "a#" + name
+}
+
+func extractSequence(id string) (int, bool) {
+	parts := strings.SplitN(id, actionMarker, 2)
+	if len(parts) != 2 {
+		return -1, false
+	}
+	parsed, err := strconv.ParseInt(parts[1], 10, 0)
+	if err != nil {
+		return -1, false
+	}
+	return int(parsed), true
+}
+
+func extractPrefixName(id string) (string, bool) {
+	mlen := len(actionMarker)
+	// id must contain the actionMarker plus
+	// two more characters at the very minimum
+	if len(id) <= mlen+2 {
+		return "", false
+	}
+	parts := strings.Split(id, actionMarker)
+	if len(parts) != 2 {
+		return "", false
+	}
+	return parts[0], true
 }

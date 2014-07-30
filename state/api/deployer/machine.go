@@ -14,7 +14,7 @@ import (
 
 // Machine represents a juju machine as seen by the deployer worker.
 type Machine struct {
-	tag names.Tag
+	tag names.MachineTag
 	st  *State
 }
 

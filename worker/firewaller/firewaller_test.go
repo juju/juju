@@ -75,7 +75,7 @@ func (s *FirewallerSuite) assertEnvironPorts(c *gc.C, expected []network.Port) {
 	s.BackingState.StartSync()
 	start := time.Now()
 	for {
-		got, err := s.Conn.Environ.Ports()
+		got, err := s.Environ.Ports()
 		if err != nil {
 			c.Fatal(err)
 			return
@@ -116,7 +116,7 @@ func (s *FirewallerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-manager", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAsMachine(c, machine.Tag().String(), password, "fake_nonce")
+	s.st = s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 	c.Assert(s.st, gc.NotNil)
 
 	// Create the firewaller API facade.
@@ -143,7 +143,7 @@ func (s *FirewallerSuite) addUnit(c *gc.C, svc *state.Service) (*state.Unit, *st
 
 // startInstance starts a new instance for the given machine.
 func (s *FirewallerSuite) startInstance(c *gc.C, m *state.Machine) instance.Instance {
-	inst, hc := testing.AssertStartInstance(c, s.Conn.Environ, m.Id())
+	inst, hc := testing.AssertStartInstance(c, s.Environ, m.Id())
 	err := m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, gc.IsNil)
 	return inst

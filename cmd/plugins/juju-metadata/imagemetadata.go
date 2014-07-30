@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -22,9 +23,21 @@ import (
 	"github.com/juju/juju/juju/arch"
 )
 
+type ImageMetadataCommandBase struct {
+	envcmd.EnvCommandBase
+}
+
+func (c *ImageMetadataCommandBase) prepare(context *cmd.Context, store configstore.Storage) (environs.Environ, error) {
+	cfg, err := c.Config(store)
+	if err != nil {
+		return nil, errors.Annotate(err, "could not get config from store")
+	}
+	return environs.Prepare(cfg, context, store)
+}
+
 // ImageMetadataCommand is used to write out simplestreams image metadata information.
 type ImageMetadataCommand struct {
-	envcmd.EnvCommandBase
+	ImageMetadataCommandBase
 	Dir            string
 	Series         string
 	Arch           string
@@ -67,8 +80,8 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 	c.privateStorage = "<private storage name>"
 	var environ environs.Environ
 	if store, err := configstore.Default(); err == nil {
-		if environ, err = environs.PrepareFromName(c.EnvName, context, store); err == nil {
-			logger.Infof("creating image metadata for environment %q", environ.Name())
+		if environ, err = c.prepare(context, store); err == nil {
+			logger.Infof("creating image metadata for environment %q", environ.Config().Name())
 			// If the user has not specified region and endpoint, try and get it from the environment.
 			if c.Region == "" || c.Endpoint == "" {
 				var cloudSpec simplestreams.CloudSpec
@@ -77,11 +90,11 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 						return err
 					}
 				} else {
-					return fmt.Errorf("environment %q cannot provide region and endpoint", environ.Name())
+					return errors.Errorf("environment %q cannot provide region and endpoint", environ.Config().Name())
 				}
 				// If only one of region or endpoint is provided, that is a problem.
 				if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
-					return fmt.Errorf("cannot generate metadata without a complete cloud configuration")
+					return errors.Errorf("cannot generate metadata without a complete cloud configuration")
 				}
 				if c.Region == "" {
 					c.Region = cloudSpec.Region
@@ -98,7 +111,7 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 				c.privateStorage = v.(string)
 			}
 		} else {
-			logger.Warningf("environment %q could not be opened: %v", c.EnvName, err)
+			logger.Warningf("environment could not be opened: %v", err)
 		}
 	}
 	if environ == nil {
@@ -108,13 +121,13 @@ func (c *ImageMetadataCommand) setParams(context *cmd.Context) error {
 		c.Series = config.LatestLtsSeries()
 	}
 	if c.ImageId == "" {
-		return fmt.Errorf("image id must be specified")
+		return errors.Errorf("image id must be specified")
 	}
 	if c.Region == "" {
-		return fmt.Errorf("image region must be specified")
+		return errors.Errorf("image region must be specified")
 	}
 	if c.Endpoint == "" {
-		return fmt.Errorf("cloud endpoint URL must be specified")
+		return errors.Errorf("cloud endpoint URL must be specified")
 	}
 	if c.Dir == "" {
 		logger.Infof("no destination directory specified, using current directory")

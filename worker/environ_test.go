@@ -51,11 +51,11 @@ func stopWatcher(c *gc.C, w state.NotifyWatcher) {
 
 func (s *environSuite) TestInvalidConfig(c *gc.C) {
 	var oldType string
-	oldType = s.Conn.Environ.Config().AllAttrs()["type"].(string)
+	oldType = s.Environ.Config().AllAttrs()["type"].(string)
 
 	// Create an invalid config by taking the current config and
 	// tweaking the provider type.
-	info := s.StateInfo(c)
+	info := s.MongoInfo(c)
 	opts := mongo.DefaultDialOpts()
 	st2, err := state.Open(info, opts, state.Policy(nil))
 	c.Assert(err, gc.IsNil)
@@ -71,7 +71,6 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 		c.Check(err, gc.IsNil)
 		done <- env
 	}()
-	// Wait for the loop to process the invalid configuratrion
 	<-worker.LoadedInvalid
 
 	st2.UpdateEnvironConfig(map[string]interface{}{
@@ -79,6 +78,7 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 		"secret": "environ_test",
 	}, nil, nil)
 
+	st2.StartSync()
 	env := <-done
 	c.Assert(env, gc.NotNil)
 	c.Assert(env.Config().AllAttrs()["secret"], gc.Equals, "environ_test")
@@ -86,7 +86,7 @@ func (s *environSuite) TestInvalidConfig(c *gc.C) {
 
 func (s *environSuite) TestErrorWhenEnvironIsInvalid(c *gc.C) {
 	// reopen the state so that we can wangle a dodgy environ config in there.
-	st, err := state.Open(s.StateInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
+	st, err := state.Open(s.MongoInfo(c), mongo.DefaultDialOpts(), state.Policy(nil))
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 	err = st.UpdateEnvironConfig(map[string]interface{}{"secret": 999}, nil, nil)
@@ -112,7 +112,7 @@ func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
 	var oldType string
 	oldType = env.Config().AllAttrs()["type"].(string)
 
-	info := s.StateInfo(c)
+	info := s.MongoInfo(c)
 	opts := mongo.DefaultDialOpts()
 	st2, err := state.Open(info, opts, state.Policy(nil))
 	defer st2.Close()
@@ -120,10 +120,9 @@ func (s *environSuite) TestEnvironmentChanges(c *gc.C) {
 	// Change to an invalid configuration and check
 	// that the observer's environment remains the same.
 	st2.UpdateEnvironConfig(map[string]interface{}{"type": "invalid"}, nil, nil)
-	st2.StartSync()
+	s.State.StartSync()
 
 	// Wait for the observer to register the invalid environment
-	timeout := time.After(coretesting.LongWait)
 loop:
 	for {
 		select {
@@ -131,7 +130,7 @@ loop:
 			if strings.Contains(msg, "error creating Environ") {
 				break loop
 			}
-		case <-timeout:
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting to see broken environment")
 		}
 	}
@@ -142,7 +141,7 @@ loop:
 	// Change the environment back to a valid configuration
 	// with a different name and check that we see it.
 	st2.UpdateEnvironConfig(map[string]interface{}{"type": oldType, "name": "a-new-name"}, nil, nil)
-	st2.StartSync()
+	s.State.StartSync()
 
 	for a := coretesting.LongAttempt.Start(); a.Next(); {
 		env := obs.Environ()

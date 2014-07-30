@@ -7,6 +7,7 @@ import (
 	"net"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/network"
@@ -21,7 +22,7 @@ var logger = loggo.GetLogger("juju.worker.machiner")
 // Machiner is responsible for a machine agent's lifecycle.
 type Machiner struct {
 	st      *machiner.State
-	tag     string
+	tag     names.MachineTag
 	machine *machiner.Machine
 }
 
@@ -29,7 +30,8 @@ type Machiner struct {
 // to become Dying and make it Dead; or until the machine becomes Dead by
 // other means.
 func NewMachiner(st *machiner.State, agentConfig agent.Config) worker.Worker {
-	mr := &Machiner{st: st, tag: agentConfig.Tag()}
+	// TODO(dfc) clearly agentConfig.Tag() can _only_ return a machine tag
+	mr := &Machiner{st: st, tag: agentConfig.Tag().(names.MachineTag)}
 	return worker.NewNotifyWorker(mr)
 }
 

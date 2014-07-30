@@ -110,8 +110,8 @@ func setDefaultStatus(c *gc.C, entity setStatuser) {
 }
 
 func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) error {
-	stateInfo := s.StateInfo(c)
-	stateInfo.Tag = e.Tag().String()
+	stateInfo := s.MongoInfo(c)
+	stateInfo.Tag = e.Tag()
 	stateInfo.Password = password
 	st, err := state.Open(stateInfo, mongo.DialOpts{
 		Timeout: 25 * time.Millisecond,
@@ -124,9 +124,8 @@ func (s *baseSuite) tryOpenState(c *gc.C, e apiAuthenticator, password string) e
 
 // openAs connects to the API state as the given entity
 // with the default password for that entity.
-func (s *baseSuite) openAs(c *gc.C, tag string) *api.State {
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+func (s *baseSuite) openAs(c *gc.C, tag names.Tag) *api.State {
+	info := s.APIInfo(c)
 	info.Tag = tag
 	// Must match defaultPassword()
 	info.Password = fmt.Sprintf("%s password-1234567890", tag)
@@ -324,16 +323,16 @@ var scenarioStatus = &api.Status{
 // just because machine 0 has traditionally been the
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
-func (s *baseSuite) setUpScenario(c *gc.C) (entities []string) {
+func (s *baseSuite) setUpScenario(c *gc.C) (entities []names.Tag) {
 	add := func(e state.Entity) {
-		entities = append(entities, e.Tag().String())
+		entities = append(entities, e.Tag())
 	}
 	u, err := s.State.User(state.AdminUser)
 	c.Assert(err, gc.IsNil)
 	setDefaultPassword(c, u)
 	add(u)
 
-	u = s.Factory.MakeUser(factory.UserParams{Username: "other"})
+	u = s.Factory.MakeUser(factory.UserParams{Name: "other"})
 	setDefaultPassword(c, u)
 	add(u)
 

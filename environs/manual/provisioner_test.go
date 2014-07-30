@@ -11,6 +11,7 @@ import (
 	"github.com/juju/utils/shell"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/agent"
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/cloudinit/sshinit"
 	"github.com/juju/juju/environs/cloudinit"
@@ -18,7 +19,6 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/client"
 	"github.com/juju/juju/version"
@@ -33,21 +33,24 @@ var _ = gc.Suite(&provisionerSuite{})
 func (s *provisionerSuite) getArgs(c *gc.C) manual.ProvisionMachineArgs {
 	hostname, err := os.Hostname()
 	c.Assert(err, gc.IsNil)
+	client := s.APIState.Client()
+	s.AddCleanup(func(*gc.C) { client.Close() })
 	return manual.ProvisionMachineArgs{
-		Host:    hostname,
-		EnvName: "dummyenv",
+		Host:   hostname,
+		Client: client,
 	}
 }
 
 func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	const series = "precise"
 	const arch = "amd64"
+	const operatingSystem = version.Ubuntu
 
 	args := s.getArgs(c)
 	hostname := args.Host
 	args.Host = "ubuntu@" + args.Host
 
-	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
+	envtesting.RemoveTools(c, s.Environ.Storage())
 	defer fakeSSH{
 		Series:             series,
 		Arch:               arch,
@@ -59,11 +62,11 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(machineId, gc.Equals, "")
 
-	cfg := s.Conn.Environ.Config()
+	cfg := s.Environ.Config()
 	number, ok := cfg.AgentVersion()
 	c.Assert(ok, jc.IsTrue)
-	binVersion := version.Binary{number, series, arch}
-	envtesting.AssertUploadFakeToolsVersions(c, s.Conn.Environ.Storage(), binVersion)
+	binVersion := version.Binary{number, series, arch, operatingSystem}
+	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), binVersion)
 
 	for i, errorCode := range []int{255, 0} {
 		c.Logf("test %d: code %d", i, errorCode)
@@ -124,16 +127,16 @@ func (s *provisionerSuite) TestFinishMachineConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Now check what we would've configured it with.
-	mcfg, err := client.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
+	mcfg, err := client.MachineConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg, gc.NotNil)
 	c.Check(mcfg.APIInfo, gc.NotNil)
-	c.Check(mcfg.StateInfo, gc.NotNil)
+	c.Check(mcfg.MongoInfo, gc.NotNil)
 
-	stateInfo, apiInfo, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, gc.IsNil)
+	stateInfo := s.MongoInfo(c)
+	apiInfo := s.APIInfo(c)
 	c.Check(mcfg.APIInfo.Addrs, gc.DeepEquals, apiInfo.Addrs)
-	c.Check(mcfg.StateInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
+	c.Check(mcfg.MongoInfo.Addrs, gc.DeepEquals, stateInfo.Addrs)
 }
 
 func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
@@ -147,7 +150,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	machineId, err := manual.ProvisionMachine(s.getArgs(c))
 	c.Assert(err, gc.IsNil)
 
-	mcfg, err := client.MachineConfig(s.State, machineId, state.BootstrapNonce, "/var/lib/juju")
+	mcfg, err := client.MachineConfig(s.State, machineId, agent.BootstrapNonce, "/var/lib/juju")
 	c.Assert(err, gc.IsNil)
 	script, err := manual.ProvisioningScript(mcfg)
 	c.Assert(err, gc.IsNil)

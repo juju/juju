@@ -311,7 +311,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			versions[i] = version.MustParseBinary(v)
 		}
 		if len(versions) > 0 {
-			envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
+			envtesting.MustUploadFakeToolsVersions(s.Environ.Storage(), versions...)
 			stor, err := filestorage.NewFileStorageWriter(toolsDir)
 			c.Assert(err, gc.IsNil)
 			envtesting.MustUploadFakeToolsVersions(stor, versions...)
@@ -337,7 +337,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 			uploaded = strings.Replace(uploaded, "%LTS%", config.LatestLtsSeries(), 1)
 
 			vers := version.MustParseBinary(uploaded)
-			r, err := storage.Get(s.Conn.Environ.Storage(), envtools.StorageName(vers))
+			r, err := storage.Get(s.Environ.Storage(), envtools.StorageName(vers))
 			if !c.Check(err, gc.IsNil) {
 				continue
 			}
@@ -383,7 +383,7 @@ func checkToolsContent(c *gc.C, data []byte, uploaded string) {
 // in the environment state.
 func (s *UpgradeJujuSuite) Reset(c *gc.C) {
 	s.JujuConnSuite.Reset(c)
-	envtesting.RemoveTools(c, s.Conn.Environ.Storage())
+	envtesting.RemoveTools(c, s.Environ.Storage())
 	updateAttrs := map[string]interface{}{
 		"default-series": "raring",
 		"agent-version":  "1.2.3",
@@ -399,7 +399,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1
-	tools, err := envtools.FindInstanceTools(s.Conn.Environ, vers.Number, vers.Series, &vers.Arch)
+	tools, err := envtools.FindInstanceTools(s.Environ, vers.Number, vers.Series, &vers.Arch)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(tools), gc.Equals, 1)
 }
@@ -468,7 +468,7 @@ upgrade to this version by running
 			versions[i] = version.MustParseBinary(v)
 		}
 		if len(versions) > 0 {
-			envtesting.MustUploadFakeToolsVersions(s.Conn.Environ.Storage(), versions...)
+			envtesting.MustUploadFakeToolsVersions(s.Environ.Storage(), versions...)
 			stor, err := filestorage.NewFileStorageWriter(toolsDir)
 			c.Assert(err, gc.IsNil)
 			envtesting.MustUploadFakeToolsVersions(stor, versions...)

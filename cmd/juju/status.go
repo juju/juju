@@ -12,7 +12,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/instance"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -73,8 +72,8 @@ type statusAPI interface {
 	Close() error
 }
 
-var newApiClientForStatus = func(envName string) (statusAPI, error) {
-	return juju.NewAPIClientFromName(envName)
+var newApiClientForStatus = func(c *StatusCommand) (statusAPI, error) {
+	return c.NewAPIClient()
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
@@ -83,9 +82,9 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	apiclient, err := newApiClientForStatus(c.EnvName)
+	apiclient, err := newApiClientForStatus(c)
 	if err != nil {
-		return fmt.Errorf(connectionError, c.EnvName, err)
+		return fmt.Errorf(connectionError, c.ConnectionName(), err)
 	}
 	defer apiclient.Close()
 

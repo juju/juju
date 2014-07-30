@@ -19,12 +19,14 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
@@ -34,6 +36,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/utils/ssh"
@@ -109,9 +112,24 @@ var updateBootstrapMachineTemplate = mustParseTemplate(`
 	export LC_ALL=C
 	tar xzf juju-backup.tgz
 	test -d juju-backup
-	apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet install mongodb-clients
-	
+
+
 	initctl stop jujud-machine-0
+
+	#The code apt-get throws when lock is taken
+	APTOUTPUT=100 
+	while [ $APTOUTPUT -gt 0 ]
+	do
+		# We will try to run apt-get and it can fail if other dpkg is in use
+		# the subshell call is not reached by -e so we can have apt-get fail
+		APTOUTPUT=$(apt-get --option=Dpkg::Options::=--force-confold --option=Dpkg::options::=--force-unsafe-io --assume-yes --quiet install mongodb-clients &> /dev/null; echo $?)
+		if [ $APTOUTPUT -gt 0 ] && [ $APTOUTPUT -ne 100 ]; then
+			echo "apt-get failed with an irrecoverable error $APTOUTPUT";
+			exit 1
+		fi
+	done
+	
+
 
 	initctl stop juju-db
 	rm -r /var/lib/juju
@@ -216,7 +234,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	cfg, _, err := environs.ConfigForName(c.EnvName, store)
+	cfg, err := c.Config(store)
 	if err != nil {
 		return err
 	}
@@ -225,13 +243,13 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("cannot re-bootstrap environment: %v", err)
 	}
 	progress("connecting to newly bootstrapped instance")
-	var conn *juju.APIConn
+	var apiState *api.State
 	// The state server backend may not be ready to accept logins so we retry.
 	// We'll do up to 8 retries over 2 minutes to give the server time to come up.
 	// Typically we expect only 1 retry will be needed.
 	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
 	for a := attempt.Start(); a.Next(); {
-		conn, err = juju.NewAPIConn(env, api.DefaultDialOpts())
+		apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
 		if err == nil || errors.Cause(err).Error() != "EOF" {
 			break
 		}
@@ -241,17 +259,11 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("cannot connect to bootstrap instance: %v", err)
 	}
 	progress("restoring bootstrap machine")
-	newInstId, machine0Addr, err := restoreBootstrapMachine(conn, c.backupFile, agentConf)
+	machine0Addr, err := restoreBootstrapMachine(apiState, c.backupFile, agentConf)
 	if err != nil {
 		return fmt.Errorf("cannot restore bootstrap machine: %v", err)
 	}
 	progress("restored bootstrap machine")
-	// Update the environ state to point to the new instance.
-	if err := bootstrap.SaveState(env.Storage(), &bootstrap.BootstrapState{
-		StateInstances: []instance.Id{newInstId},
-	}); err != nil {
-		return fmt.Errorf("cannot update environ bootstrap state storage: %v", err)
-	}
 	// Construct our own state info rather than using juju.NewConn so
 	// that we can avoid storage eventual-consistency issues
 	// (and it's faster too).
@@ -259,18 +271,23 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if !ok {
 		return fmt.Errorf("configuration has no CA certificate")
 	}
+	// TODO(dfc) agenConf.Credentials should supply a Tag
+	tag, err := names.ParseTag(agentConf.Credentials.Tag)
+	if err != nil {
+		return err
+	}
 	progress("opening state")
 	// We need to retry here to allow mongo to come up on the restored state server.
 	// The connection might succeed due to the mongo dial retries but there may still
 	// be a problem issuing database commands.
 	var st *state.State
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(&state.Info{
+		st, err = state.Open(&authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
 				CACert: caCert,
 			},
-			Tag:      agentConf.Credentials.Tag,
+			Tag:      tag,
 			Password: agentConf.Credentials.Password,
 		}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 		if err == nil {
@@ -306,17 +323,17 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	if err != nil {
 		return nil, err
 	}
-	st, err := bootstrap.LoadState(env.Storage())
+	instanceIds, err := env.StateServerInstances()
 	if err != nil {
-		return nil, fmt.Errorf("cannot retrieve environment storage; perhaps the environment was not bootstrapped: %v", err)
+		return nil, fmt.Errorf("cannot determine state server instances: %v", err)
 	}
-	if len(st.StateInstances) == 0 {
-		return nil, fmt.Errorf("no instances found on bootstrap state; perhaps the environment was not bootstrapped")
+	if len(instanceIds) == 0 {
+		return nil, fmt.Errorf("no instances found; perhaps the environment was not bootstrapped")
 	}
-	if len(st.StateInstances) > 1 {
+	if len(instanceIds) > 1 {
 		return nil, fmt.Errorf("restore does not support HA juju configurations yet")
 	}
-	inst, err := env.Instances(st.StateInstances)
+	inst, err := env.Instances(instanceIds)
 	if err == nil {
 		return nil, fmt.Errorf("old bootstrap instance %q still seems to exist; will not replace", inst)
 	}
@@ -324,8 +341,8 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 		return nil, fmt.Errorf("cannot detect whether old instance is still running: %v", err)
 	}
 	// Remove the storage so that we can bootstrap without the provider complaining.
-	if err := env.Storage().Remove(bootstrap.StateFile); err != nil {
-		return nil, fmt.Errorf("cannot remove %q from storage: %v", bootstrap.StateFile, err)
+	if err := env.Storage().Remove(common.StateFile); err != nil {
+		return nil, fmt.Errorf("cannot remove %q from storage: %v", common.StateFile, err)
 	}
 
 	// TODO If we fail beyond here, then we won't have a state file and
@@ -341,35 +358,35 @@ func rebootstrap(cfg *config.Config, ctx *cmd.Context, cons constraints.Value) (
 	return env, nil
 }
 
-func restoreBootstrapMachine(conn *juju.APIConn, backupFile string, agentConf agentConfig) (newInstId instance.Id, addr string, err error) {
-	client := conn.State.Client()
+func restoreBootstrapMachine(st *api.State, backupFile string, agentConf agentConfig) (addr string, err error) {
+	client := st.Client()
 	addr, err = client.PublicAddress("0")
 	if err != nil {
-		return "", "", fmt.Errorf("cannot get public address of bootstrap machine: %v", err)
+		return "", fmt.Errorf("cannot get public address of bootstrap machine: %v", err)
 	}
 	paddr, err := client.PrivateAddress("0")
 	if err != nil {
-		return "", "", fmt.Errorf("cannot get private address of bootstrap machine: %v", err)
+		return "", fmt.Errorf("cannot get private address of bootstrap machine: %v", err)
 	}
 	status, err := client.Status(nil)
 	if err != nil {
-		return "", "", fmt.Errorf("cannot get environment status: %v", err)
+		return "", fmt.Errorf("cannot get environment status: %v", err)
 	}
 	info, ok := status.Machines["0"]
 	if !ok {
-		return "", "", fmt.Errorf("cannot find bootstrap machine in status")
+		return "", fmt.Errorf("cannot find bootstrap machine in status")
 	}
-	newInstId = instance.Id(info.InstanceId)
+	newInstId := instance.Id(info.InstanceId)
 
 	progress("copying backup file to bootstrap host")
 	if err := sendViaScp(backupFile, addr, "~/juju-backup.tgz"); err != nil {
-		return "", "", fmt.Errorf("cannot copy backup file to bootstrap instance: %v", err)
+		return "", fmt.Errorf("cannot copy backup file to bootstrap instance: %v", err)
 	}
 	progress("updating bootstrap machine")
 	if err := runViaSsh(addr, updateBootstrapMachineScript(newInstId, agentConf, addr, paddr)); err != nil {
-		return "", "", fmt.Errorf("update script failed: %v", err)
+		return "", fmt.Errorf("update script failed: %v", err)
 	}
-	return newInstId, addr, nil
+	return addr, nil
 }
 
 type credentials struct {

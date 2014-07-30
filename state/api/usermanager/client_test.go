@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/usermanager"
+	ums "github.com/juju/juju/state/apiserver/usermanager"
 	"github.com/juju/juju/testing/factory"
 )
 
@@ -73,17 +74,17 @@ func (s *usermanagerSuite) TestAddExistingUser(c *gc.C) {
 
 func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
 	err := s.usermanager.RemoveUser(state.AdminUser)
-	c.Assert(err, gc.ErrorMatches, "Failed to remove user: Can't deactivate admin user")
+	c.Assert(err, gc.ErrorMatches, "Failed to remove user: cannot deactivate admin user")
 }
 
 func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 	tag := names.NewUserTag("foobar")
-	user := s.Factory.MakeUser(factory.UserParams{Username: tag.Id(), DisplayName: "Foo Bar"})
+	user := s.Factory.MakeUser(factory.UserParams{Name: tag.Id(), DisplayName: "Foo Bar"})
 
 	obtained, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResult{
-		Result: &params.UserInfo{
+	expected := ums.UserInfoResult{
+		Result: &ums.UserInfo{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
 			CreatedBy:   "admin",
@@ -110,8 +111,8 @@ func (s *usermanagerSuite) TestUserInfoNoResults(c *gc.C) {
 func (s *usermanagerSuite) TestUserInfoMoreThanOneResult(c *gc.C) {
 	cleanup := usermanager.PatchResponses(s.usermanager,
 		func(result interface{}) error {
-			if result, ok := result.(*params.UserInfoResults); ok {
-				result.Results = make([]params.UserInfoResult, 2)
+			if result, ok := result.(*ums.UserInfoResults); ok {
+				result.Results = make([]ums.UserInfoResult, 2)
 			}
 			return nil
 		},

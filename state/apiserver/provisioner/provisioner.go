@@ -232,6 +232,7 @@ func (p *ProvisionerAPI) ContainerConfig() (params.ContainerConfig, error) {
 	result.SSLHostnameVerification = config.SSLHostnameVerification()
 	result.Proxy = config.ProxySettings()
 	result.AptProxy = config.AptProxySettings()
+	result.PreferIPv6 = config.PreferIPv6()
 	return result, nil
 }
 
@@ -348,11 +349,16 @@ func getProvisioningInfo(m *state.Machine) (*params.ProvisioningInfo, error) {
 	if err != nil {
 		return nil, err
 	}
+	var jobs []params.MachineJob
+	for _, job := range m.Jobs() {
+		jobs = append(jobs, job.ToParams())
+	}
 	return &params.ProvisioningInfo{
 		Constraints: cons,
 		Series:      m.Series(),
 		Placement:   m.Placement(),
 		Networks:    networks,
+		Jobs:        jobs,
 	}, nil
 }
 
@@ -486,6 +492,7 @@ func networkParamsToStateParams(networks []params.Network, ifaces []params.Netwo
 			NetworkName:   tag.Id(),
 			InterfaceName: iface.InterfaceName,
 			IsVirtual:     iface.IsVirtual,
+			Disabled:      iface.Disabled,
 		}
 	}
 	return stateNetworks, stateInterfaces, nil

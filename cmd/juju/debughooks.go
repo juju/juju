@@ -39,7 +39,7 @@ func (c *DebugHooksCommand) Init(args []string) error {
 		return fmt.Errorf("no unit name specified")
 	}
 	c.Target = args[0]
-	if !names.IsUnit(c.Target) {
+	if !names.IsValidUnit(c.Target) {
 		return fmt.Errorf("%q is not a valid unit name", c.Target)
 	}
 

@@ -6,10 +6,11 @@ package state
 import (
 	charmtesting "github.com/juju/charm/testing"
 	gitjujutesting "github.com/juju/testing"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/testing"
 )
 
@@ -38,14 +39,18 @@ func (s *compatSuite) TearDownSuite(c *gc.C) {
 func (s *compatSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	s.state = TestingInitialize(c, nil, Policy(nil))
+	st, err := Initialize(TestingMongoInfo(), testing.EnvironConfig(c), TestingDialOpts(), nil)
+	c.Assert(err, gc.IsNil)
+	s.state = st
 	env, err := s.state.Environment()
 	c.Assert(err, gc.IsNil)
 	s.env = env
 }
 
 func (s *compatSuite) TearDownTest(c *gc.C) {
-	s.state.Close()
+	if s.state != nil {
+		s.state.Close()
+	}
 	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
@@ -54,7 +59,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 	// 1.17+ has a "Life" field in environment documents.
 	// We remove it here, to test 1.16 compatibility.
 	ops := []txn.Op{{
-		C:      s.state.environments.Name,
+		C:      environmentsC,
 		Id:     s.env.doc.UUID,
 		Update: bson.D{{"$unset", bson.D{{"life", nil}}}},
 	}}
@@ -102,4 +107,108 @@ func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 	networks, err := machine.RequestedNetworks()
 	c.Assert(err, gc.IsNil)
 	c.Assert(networks, gc.HasLen, 0)
+}
+
+// Check if ports stored on the unit are displayed.
+func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
+	_, err := s.state.AddAdminUser("pass")
+	c.Assert(err, gc.IsNil)
+	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
+	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	c.Assert(err, gc.IsNil)
+	unit, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
+
+	// Add old-style ports to unit.
+	port := network.Port{Protocol: "tcp", Number: 80}
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     unit.doc.Name,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
+	}}
+	err = s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+	err = unit.Refresh()
+	c.Assert(err, gc.IsNil)
+
+	ports := unit.OpenedPorts()
+	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 80}})
+}
+
+// Check if opening ports on a unit with ports stored in the unit doc works.
+func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
+	_, err := s.state.AddAdminUser("pass")
+	c.Assert(err, gc.IsNil)
+	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
+	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	c.Assert(err, gc.IsNil)
+	unit, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
+
+	// Add old-style ports to unit.
+	port := network.Port{Protocol: "tcp", Number: 80}
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     unit.doc.Name,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
+	}}
+	err = s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+	err = unit.Refresh()
+	c.Assert(err, gc.IsNil)
+
+	// Check if port conflicts are detected.
+	err = unit.OpenPort("tcp", 80)
+	c.Assert(err, gc.ErrorMatches, "cannot open ports 80-80/tcp for unit \"mysql/0\": cannot open ports 80-80/tcp on machine 0 due to conflict")
+
+	err = unit.OpenPort("tcp", 8080)
+	c.Assert(err, gc.IsNil)
+
+	ports := unit.OpenedPorts()
+	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 80}, {"tcp", 8080}})
+}
+
+// Check if closing ports on a unit with ports stored in the unit doc works.
+func (s *compatSuite) TestMigratePortsOnClose(c *gc.C) {
+	_, err := s.state.AddAdminUser("pass")
+	c.Assert(err, gc.IsNil)
+	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
+	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
+	c.Assert(err, gc.IsNil)
+	unit, err := service.AddUnit()
+	c.Assert(err, gc.IsNil)
+	machine, err := s.state.AddMachine("quantal", JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	c.Assert(unit.AssignToMachine(machine), gc.IsNil)
+
+	// Add old-style ports to unit.
+	port := network.Port{Protocol: "tcp", Number: 80}
+	ops := []txn.Op{{
+		C:      unitsC,
+		Id:     unit.doc.Name,
+		Assert: notDeadDoc,
+		Update: bson.D{{"$addToSet", bson.D{{"ports", port}}}},
+	}}
+	err = s.state.runTransaction(ops)
+	c.Assert(err, gc.IsNil)
+	err = unit.Refresh()
+	c.Assert(err, gc.IsNil)
+
+	// Check if closing an unopened port causes error
+	err = unit.ClosePort("tcp", 8080)
+	c.Assert(err, gc.ErrorMatches, "cannot close ports 8080-8080/tcp for unit \"mysql/0\": no match found for port range: 8080-8080/tcp")
+
+	err = unit.ClosePort("tcp", 80)
+	c.Assert(err, gc.IsNil)
+
+	ports := unit.OpenedPorts()
+	c.Assert(ports, gc.DeepEquals, []network.Port{})
 }

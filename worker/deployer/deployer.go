@@ -6,6 +6,7 @@ package deployer
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
@@ -62,7 +63,11 @@ func NewDeployer(st *apideployer.State, ctx Context) worker.Worker {
 }
 
 func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
-	machineTag := d.ctx.AgentConfig().Tag()
+	tag := d.ctx.AgentConfig().Tag()
+	machineTag, ok := tag.(names.MachineTag)
+	if !ok {
+		return nil, errors.Errorf("expected names.MachineTag, got %T", tag)
+	}
 	machine, err := d.st.Machine(machineTag)
 	if err != nil {
 		return nil, err
@@ -97,7 +102,7 @@ func (d *Deployer) Handle(unitNames []string) error {
 // changed ensures that the named unit is deployed, recalled, or removed, as
 // indicated by its state.
 func (d *Deployer) changed(unitName string) error {
-	unitTag := names.NewUnitTag(unitName).String()
+	unitTag := names.NewUnitTag(unitName)
 	// Determine unit life state, and whether we're responsible for it.
 	logger.Infof("checking unit %q", unitName)
 	var life params.Life

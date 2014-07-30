@@ -5,10 +5,10 @@ package charm_test
 
 import (
 	"io/ioutil"
-	"os"
 	"path/filepath"
 
 	corecharm "github.com/juju/charm"
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"
@@ -73,7 +73,7 @@ func (s *GitDeployerSuite) TestUpgrade(c *gc.C) {
 	info1 := s.bundles.AddCustomBundle(c, corecharm.MustParseURL("cs:s/c-1"), func(path string) {
 		err := ioutil.WriteFile(filepath.Join(path, "some-file"), []byte("hello"), 0644)
 		c.Assert(err, gc.IsNil)
-		err = os.Symlink("./some-file", filepath.Join(path, "a-symlink"))
+		err = symlink.New("./some-file", filepath.Join(path, "a-symlink"))
 		c.Assert(err, gc.IsNil)
 	})
 	err := s.deployer.Stage(info1, nil)
@@ -206,7 +206,7 @@ func checkCleanup(c *gc.C, d charm.Deployer) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(updateDirs, gc.HasLen, 1)
 	deployerCurrent := charm.GitDeployerCurrent(d)
-	current, err := os.Readlink(deployerCurrent.Path())
+	current, err := symlink.Read(deployerCurrent.Path())
 	c.Assert(err, gc.IsNil)
 	c.Assert(updateDirs[0], gc.Equals, current)
 

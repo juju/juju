@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/network"
 )
@@ -100,9 +100,12 @@ func (n *Network) IsVLAN() bool {
 
 // Interfaces returns all network interfaces on the network.
 func (n *Network) Interfaces() ([]*NetworkInterface, error) {
+	networkInterfaces, closer := n.st.getCollection(networkInterfacesC)
+	defer closer()
+
 	docs := []networkInterfaceDoc{}
 	sel := bson.D{{"networkname", n.doc.Name}}
-	err := n.st.networkInterfaces.Find(sel).All(&docs)
+	err := networkInterfaces.Find(sel).All(&docs)
 	if err != nil {
 		return nil, err
 	}

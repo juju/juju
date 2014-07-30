@@ -15,6 +15,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"github.com/juju/utils/symlink"
 	"launchpad.net/golxc"
 
 	"github.com/juju/juju/agent"
@@ -28,7 +29,7 @@ var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
 	defaultTemplate  = "ubuntu-cloud"
-	LxcContainerDir  = "/var/lib/lxc"
+	LxcContainerDir  = golxc.GetDefaultLXCContainerDir()
 	LxcRestartDir    = "/etc/lxc/auto"
 	LxcObjectFactory = golxc.Factory()
 )
@@ -268,7 +269,7 @@ func autostartContainer(name string) error {
 	// option should be set in the LXC config file, this is done in the networkConfigTemplate
 	// function below.
 	if useRestartDir() {
-		if err := os.Symlink(
+		if err := symlink.New(
 			containerConfigFilename(name),
 			restartSymlink(name),
 		); err != nil {

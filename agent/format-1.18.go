@@ -8,6 +8,7 @@ import (
 	"net"
 	"strconv"
 
+	"github.com/juju/names"
 	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/state/api/params"
@@ -42,6 +43,8 @@ type format_1_18Serialization struct {
 	OldPassword string
 	Values      map[string]string
 
+	PreferIPv6 bool `yaml:"prefer-ipv6,omitempty"`
+
 	// Only state server machines have these next three items
 	StateServerCert string `yaml:",omitempty"`
 	StateServerKey  string `yaml:",omitempty"`
@@ -71,8 +74,12 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		upgradedToVersion := version.MustParse("1.16.0")
 		format.UpgradedToVersion = &upgradedToVersion
 	}
+	tag, err := names.ParseTag(format.Tag)
+	if err != nil {
+		return nil, err
+	}
 	config := &configInternal{
-		tag:               format.Tag,
+		tag:               tag,
 		dataDir:           format.DataDir,
 		logDir:            format.LogDir,
 		jobs:              format.Jobs,
@@ -81,6 +88,7 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 		caCert:            format.CACert,
 		oldPassword:       format.OldPassword,
 		values:            format.Values,
+		preferIPv6:        format.PreferIPv6,
 	}
 	if config.logDir == "" {
 		config.logDir = DefaultLogDir
@@ -134,7 +142,7 @@ func (formatter_1_18) unmarshal(data []byte) (*configInternal, error) {
 
 func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 	format := &format_1_18Serialization{
-		Tag:               config.tag,
+		Tag:               config.tag.String(),
 		DataDir:           config.dataDir,
 		LogDir:            config.logDir,
 		Jobs:              config.jobs,
@@ -143,6 +151,7 @@ func (formatter_1_18) marshal(config *configInternal) ([]byte, error) {
 		CACert:            string(config.caCert),
 		OldPassword:       config.oldPassword,
 		Values:            config.values,
+		PreferIPv6:        config.preferIPv6,
 	}
 	if config.servingInfo != nil {
 		format.StateServerCert = config.servingInfo.Cert

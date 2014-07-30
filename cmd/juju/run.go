@@ -15,7 +15,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 	"github.com/juju/juju/state/api/params"
 )
 
@@ -101,17 +100,17 @@ func (c *RunCommand) Init(args []string) error {
 
 	var nameErrors []string
 	for _, machineId := range c.machines {
-		if !names.IsMachine(machineId) {
+		if !names.IsValidMachine(machineId) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid machine id", machineId))
 		}
 	}
 	for _, service := range c.services {
-		if !names.IsService(service) {
+		if !names.IsValidService(service) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid service name", service))
 		}
 	}
 	for _, unit := range c.units {
-		if !names.IsUnit(unit) {
+		if !names.IsValidUnit(unit) {
 			nameErrors = append(nameErrors, fmt.Sprintf("  %q is not a valid unit name", unit))
 		}
 	}
@@ -173,7 +172,7 @@ func ConvertRunResults(runResults []params.RunResult) interface{} {
 }
 
 func (c *RunCommand) Run(ctx *cmd.Context) error {
-	client, err := getAPIClient(c.EnvName)
+	client, err := getRunAPIClient(c)
 	if err != nil {
 		return err
 	}
@@ -227,6 +226,6 @@ type RunClient interface {
 }
 
 // Here we need the signature to be correct for the interface.
-var getAPIClient = func(name string) (RunClient, error) {
-	return juju.NewAPIClientFromName(name)
+var getRunAPIClient = func(c *RunCommand) (RunClient, error) {
+	return c.NewAPIClient()
 }

@@ -150,7 +150,7 @@ func (c *Client) Resolved(p params.Resolved) error {
 // PublicAddress implements the server side of Client.PublicAddress.
 func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAddressResults, err error) {
 	switch {
-	case names.IsMachine(p.Target):
+	case names.IsValidMachine(p.Target):
 		machine, err := c.api.state.Machine(p.Target)
 		if err != nil {
 			return results, err
@@ -161,7 +161,7 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 		}
 		return params.PublicAddressResults{PublicAddress: addr}, nil
 
-	case names.IsUnit(p.Target):
+	case names.IsValidUnit(p.Target):
 		unit, err := c.api.state.Unit(p.Target)
 		if err != nil {
 			return results, err
@@ -178,7 +178,7 @@ func (c *Client) PublicAddress(p params.PublicAddress) (results params.PublicAdd
 // PrivateAddress implements the server side of Client.PrivateAddress.
 func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.PrivateAddressResults, err error) {
 	switch {
-	case names.IsMachine(p.Target):
+	case names.IsValidMachine(p.Target):
 		machine, err := c.api.state.Machine(p.Target)
 		if err != nil {
 			return results, err
@@ -189,7 +189,7 @@ func (c *Client) PrivateAddress(p params.PrivateAddress) (results params.Private
 		}
 		return params.PrivateAddressResults{PrivateAddress: addr}, nil
 
-	case names.IsUnit(p.Target):
+	case names.IsValidUnit(p.Target):
 		unit, err := c.api.state.Unit(p.Target)
 		if err != nil {
 			return results, err
@@ -248,6 +248,13 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	}
 	if curl.Revision < 0 {
 		return fmt.Errorf("charm url must include revision")
+	}
+
+	if args.ToMachineSpec != "" && names.IsValidMachine(args.ToMachineSpec) {
+		_, err = c.api.state.Machine(args.ToMachineSpec)
+		if err != nil {
+			return fmt.Errorf(`cannot deploy "%v" to machine %v: %v`, args.ServiceName, args.ToMachineSpec, err)
+		}
 	}
 
 	// Try to find the charm URL in state first.
@@ -635,7 +642,9 @@ func (c *Client) addOneMachine(p params.AddMachineParams) (*state.Machine, error
 		if err != nil {
 			return nil, err
 		}
-		if p.Placement.Scope != env.Name() {
+		// For 1.21 we should support both UUID and name, and with 1.22
+		// just support UUID
+		if p.Placement.Scope != env.Name() && p.Placement.Scope != env.UUID() {
 			return nil, fmt.Errorf("invalid environment name %q", p.Placement.Scope)
 		}
 		placementDirective = p.Placement.Directive

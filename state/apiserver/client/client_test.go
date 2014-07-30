@@ -18,6 +18,7 @@ import (
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -863,13 +864,23 @@ func (s *clientSuite) TestClientServiceDeployToMachine(c *gc.C) {
 	c.Assert(mid, gc.Equals, machine.Id())
 }
 
+func (s *clientSuite) TestClientServiceDeployToMachineNotFound(c *gc.C) {
+	err := s.APIState.Client().ServiceDeploy(
+		"cs:precise/service-name-1", "service-name", 1, "", constraints.Value{}, "42",
+	)
+	c.Assert(err, gc.ErrorMatches, `cannot deploy "service-name" to machine 42: machine 42 not found`)
+
+	_, err = s.State.Service("service-name")
+	c.Assert(err, gc.ErrorMatches, `service "service-name" not found`)
+}
+
 func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 
 	user := s.Factory.MakeUser(factory.UserParams{Password: "password"})
-	s.APIState = s.OpenAPIAs(c, user.Tag().String(), "password")
+	s.APIState = s.OpenAPIAs(c, user.Tag(), "password")
 
 	err := s.APIState.Client().ServiceDeploy(
 		curl.String(), "service", 3, "", constraints.Value{}, "",
@@ -1352,7 +1363,7 @@ func (s *clientSuite) TestClientWatchAll(c *gc.C) {
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	err = m.SetProvisioned("i-0", state.BootstrapNonce, nil)
+	err = m.SetProvisioned("i-0", agent.BootstrapNonce, nil)
 	c.Assert(err, gc.IsNil)
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, gc.IsNil)
@@ -1639,7 +1650,7 @@ func (s *clientSuite) TestClientFindTools(c *gc.C) {
 	result, err := s.APIState.Client().FindTools(2, -1, "", "")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, jc.Satisfies, params.IsCodeNotFound)
-	toolstesting.UploadToStorage(c, s.Conn.Environ.Storage(), version.MustParseBinary("2.12.0-precise-amd64"))
+	toolstesting.UploadToStorage(c, s.Environ.Storage(), version.MustParseBinary("2.12.0-precise-amd64"))
 	result, err = s.APIState.Client().FindTools(2, 12, "precise", "amd64")
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Error, gc.IsNil)
@@ -2004,7 +2015,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	name := charm.Quote(sch.URL().String())
-	storage := s.Conn.Environ.Storage()
+	storage := s.Environ.Storage()
 	_, err = storage.Get(name)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 

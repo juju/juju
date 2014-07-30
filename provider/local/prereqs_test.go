@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/utils/apt"
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
@@ -57,7 +58,7 @@ func (s *prereqsSuite) SetUpTest(c *gc.C) {
 
 	// symlink $temp/dpkg-query to /bin/true, to
 	// simulate package installation query responses.
-	err = os.Symlink("/bin/true", filepath.Join(s.tmpdir, "dpkg-query"))
+	err = symlink.New("/bin/true", filepath.Join(s.tmpdir, "dpkg-query"))
 	c.Assert(err, gc.IsNil)
 	s.PatchValue(&isPackageInstalled, apt.IsPackageInstalled)
 }
@@ -97,7 +98,7 @@ func (s *prereqsSuite) TestLxcPrereq(c *gc.C) {
 func (s *prereqsSuite) TestJujuLocalPrereq(c *gc.C) {
 	err := os.Remove(filepath.Join(s.tmpdir, "dpkg-query"))
 	c.Assert(err, gc.IsNil)
-	err = os.Symlink("/bin/false", filepath.Join(s.tmpdir, "dpkg-query"))
+	err = symlink.New("/bin/false", filepath.Join(s.tmpdir, "dpkg-query"))
 	c.Assert(err, gc.IsNil)
 
 	err = VerifyPrerequisites(instance.LXC)

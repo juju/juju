@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"launchpad.net/tomb"
 
@@ -34,7 +35,7 @@ type Upgrader struct {
 	tomb    tomb.Tomb
 	st      *upgrader.State
 	dataDir string
-	tag     string
+	tag     names.Tag
 }
 
 // NewUpgrader returns a new upgrader worker. It watches changes to the
@@ -87,11 +88,11 @@ func allowedTargetVersion(curVersion, targetVersion version.Number) bool {
 
 func (u *Upgrader) loop() error {
 	currentTools := &coretools.Tools{Version: version.Current}
-	err := u.st.SetVersion(u.tag, currentTools.Version)
+	err := u.st.SetVersion(u.tag.String(), currentTools.Version)
 	if err != nil {
 		return err
 	}
-	versionWatcher, err := u.st.WatchAPIVersion(u.tag)
+	versionWatcher, err := u.st.WatchAPIVersion(u.tag.String())
 	if err != nil {
 		return err
 	}
@@ -114,7 +115,7 @@ func (u *Upgrader) loop() error {
 			if !ok {
 				return watcher.MustErr(versionWatcher)
 			}
-			wantVersion, err = u.st.DesiredVersion(u.tag)
+			wantVersion, err = u.st.DesiredVersion(u.tag.String())
 			if err != nil {
 				return err
 			}
@@ -140,7 +141,7 @@ func (u *Upgrader) loop() error {
 		// TODO(dimitern) 2013-10-03 bug #1234715
 		// Add a testing HTTPS storage to verify the
 		// disableSSLHostnameVerification behavior here.
-		wantTools, hostnameVerification, err = u.st.Tools(u.tag)
+		wantTools, hostnameVerification, err = u.st.Tools(u.tag.String())
 		if err != nil {
 			// Not being able to lookup Tools is considered fatal
 			return err
@@ -155,7 +156,7 @@ func (u *Upgrader) loop() error {
 			return &UpgradeReadyError{
 				OldTools:  version.Current,
 				NewTools:  wantTools.Version,
-				AgentName: u.tag,
+				AgentName: u.tag.String(),
 				DataDir:   u.dataDir,
 			}
 		}

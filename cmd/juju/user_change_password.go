@@ -6,16 +6,13 @@ package main
 import (
 	"fmt"
 
-	"launchpad.net/gnuflag"
-
+	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/readpass"
+	"launchpad.net/gnuflag"
 
-	"github.com/juju/cmd"
-	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
 )
 
 const userChangePasswordDoc = `
@@ -28,7 +25,7 @@ juju change-password --generate         (Generate a random strong password)
 `
 
 type UserChangePasswordCommand struct {
-	envcmd.EnvCommandBase
+	UserCommandBase
 	Password string
 	Generate bool
 }
@@ -59,20 +56,19 @@ type ChangePasswordAPI interface {
 type EnvironInfoCredsWriter interface {
 	Write() error
 	SetAPICredentials(creds configstore.APICredentials)
-	APICredentials() configstore.APICredentials
 	Location() string
 }
 
 var getChangePasswordAPI = func(c *UserChangePasswordCommand) (ChangePasswordAPI, error) {
-	return juju.NewUserManagerClient(c.EnvName)
+	return c.NewUserManagerClient()
 }
 
-var getEnvironInfo = func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
-	store, err := configstore.Default()
-	if err != nil {
-		return nil, err
-	}
-	return store.ReadInfo(c.EnvName)
+var getEnvironInfoWriter = func(c *UserChangePasswordCommand) (EnvironInfoCredsWriter, error) {
+	return c.ConnectionWriter()
+}
+
+var getConnectionCredentials = func(c *UserChangePasswordCommand) (configstore.APICredentials, error) {
+	return c.ConnectionCredentials()
 }
 
 func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
@@ -105,11 +101,15 @@ func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
 		c.Password = newPass1
 	}
 
-	info, err := getEnvironInfo(c)
+	info, err := getEnvironInfoWriter(c)
 	if err != nil {
 		return errors.Trace(err)
 	}
-	user := info.APICredentials().User
+
+	creds, err := getConnectionCredentials(c)
+	if err != nil {
+		return errors.Trace(err)
+	}
 
 	client, err := getChangePasswordAPI(c)
 	if err != nil {
@@ -117,23 +117,21 @@ func (c *UserChangePasswordCommand) Run(ctx *cmd.Context) error {
 	}
 	defer client.Close()
 
-	oldPassword := info.APICredentials().Password
+	oldPassword := creds.Password
+	creds.Password = c.Password
 
-	err = client.SetPassword(user, c.Password)
+	err = client.SetPassword(creds.User, c.Password)
 	if err != nil {
 		return errors.Trace(err)
 	}
 
-	info.SetAPICredentials(configstore.APICredentials{
-		User:     user,
-		Password: c.Password,
-	})
+	info.SetAPICredentials(creds)
 
 	// TODO (matty) This recovery is not good, will fix in a follow up branch
 	err = info.Write()
 	if err != nil {
 		fmt.Fprintf(ctx.Stderr, "Updating the jenv file failed, reverting to original password\n")
-		err = client.SetPassword(user, oldPassword)
+		err = client.SetPassword(creds.User, oldPassword)
 		if err != nil {
 			fmt.Fprintf(ctx.Stderr, "Updating the jenv file failed, reverting failed, you will need to edit your environments file by hand (%s)\n", info.Location())
 			if c.Generate {

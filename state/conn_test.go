@@ -7,7 +7,7 @@ import (
 	stdtesting "testing"
 
 	gitjujutesting "github.com/juju/testing"
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
@@ -52,7 +52,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.BaseSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.policy = statetesting.MockPolicy{}
-	cs.State = state.TestingInitialize(c, nil, &cs.policy)
+	cs.State = TestingInitialize(c, nil, &cs.policy)
 	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
 	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")

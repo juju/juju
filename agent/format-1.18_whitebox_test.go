@@ -37,6 +37,7 @@ func (s *format_1_18Suite) TestMissingAttributes(c *gc.C) {
 	c.Assert(readConfig.UpgradedToVersion(), gc.Equals, version.MustParse("1.16.0"))
 	c.Assert(readConfig.LogDir(), gc.Equals, "/var/log/juju")
 	c.Assert(readConfig.DataDir(), gc.Equals, "/var/lib/juju")
+	c.Assert(readConfig.PreferIPv6(), jc.IsFalse)
 }
 
 func (s *format_1_18Suite) TestStatePortNotParsedWithoutSecret(c *gc.C) {
@@ -60,6 +61,7 @@ func (*format_1_18Suite) TestReadConfWithExisting1_18ConfigFileContents(c *gc.C)
 	c.Assert(err, gc.IsNil)
 	c.Assert(config.UpgradedToVersion(), jc.DeepEquals, version.MustParse("1.17.5.1"))
 	c.Assert(config.Jobs(), jc.DeepEquals, []params.MachineJob{params.JobManageEnviron})
+	c.Assert(config.PreferIPv6(), jc.IsTrue)
 }
 
 var agentConfig1_18Contents = `
@@ -177,6 +179,7 @@ stateserverkey: '-----BEGIN RSA PRIVATE KEY-----
 
 '
 apiport: 17070
+prefer-ipv6: true
 `[1:]
 
 var agentConfig1_18NotStateMachine = `
@@ -235,4 +238,5 @@ values:
   STORAGE_ADDR: 10.0.3.1:8040
   STORAGE_DIR: /home/user/.juju/local/storage
 apiport: 17070
+prefer-ipv6: true
 `[1:]

@@ -4,14 +4,12 @@
 package main
 
 import (
-	"github.com/juju/cmd"
-	"github.com/juju/names"
 	"launchpad.net/gnuflag"
 
-	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/environs/configstore"
-	"github.com/juju/juju/juju"
-	"github.com/juju/juju/state/api/params"
+	"github.com/juju/cmd"
+	"github.com/juju/names"
+
+	"github.com/juju/juju/state/apiserver/usermanager"
 )
 
 const userInfoCommandDoc = `
@@ -48,7 +46,7 @@ Examples:
 `
 
 type UserInfoCommand struct {
-	envcmd.EnvCommandBase
+	UserCommandBase
 	Username string
 	out      cmd.Output
 }
@@ -79,12 +77,12 @@ func (c *UserInfoCommand) Init(args []string) (err error) {
 }
 
 type UserInfoAPI interface {
-	UserInfo(username string) (params.UserInfoResult, error)
+	UserInfo(username string) (usermanager.UserInfoResult, error)
 	Close() error
 }
 
 var getUserInfoAPI = func(c *UserInfoCommand) (UserInfoAPI, error) {
-	return juju.NewUserManagerClient(c.EnvName)
+	return c.NewUserManagerClient()
 }
 
 func (c *UserInfoCommand) Run(ctx *cmd.Context) (err error) {
@@ -95,16 +93,11 @@ func (c *UserInfoCommand) Run(ctx *cmd.Context) (err error) {
 	defer client.Close()
 	username := c.Username
 	if username == "" {
-		// No username given, get current user
-		store, err := configstore.Default()
+		info, err := c.ConnectionCredentials()
 		if err != nil {
 			return err
 		}
-		info, err := store.ReadInfo(c.EnvName)
-		if err != nil {
-			return err
-		}
-		username = info.APICredentials().User
+		username = info.User
 	}
 	userTag := names.NewUserTag(username)
 	result, err := client.UserInfo(userTag.Id())

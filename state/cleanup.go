@@ -7,8 +7,8 @@ import (
 	"fmt"
 
 	"github.com/juju/errors"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 )
 
 type cleanupKind string
@@ -40,7 +40,7 @@ func (st *State) newCleanupOp(kind cleanupKind, prefix string) txn.Op {
 		Prefix: prefix,
 	}
 	return txn.Op{
-		C:      st.cleanups.Name,
+		C:      cleanupsC,
 		Id:     doc.Id,
 		Insert: doc,
 	}
@@ -48,7 +48,9 @@ func (st *State) newCleanupOp(kind cleanupKind, prefix string) txn.Op {
 
 // NeedsCleanup returns true if documents previously marked for removal exist.
 func (st *State) NeedsCleanup() (bool, error) {
-	count, err := st.cleanups.Count()
+	cleanups, closer := st.getCollection(cleanupsC)
+	defer closer()
+	count, err := cleanups.Count()
 	if err != nil {
 		return false, err
 	}
@@ -60,7 +62,9 @@ func (st *State) NeedsCleanup() (bool, error) {
 // of the system.
 func (st *State) Cleanup() error {
 	var doc cleanupDoc
-	iter := st.cleanups.Find(nil).Iter()
+	cleanups, closer := st.getCollection(cleanupsC)
+	defer closer()
+	iter := cleanups.Find(nil).Iter()
 	for iter.Next(&doc) {
 		var err error
 		logger.Debugf("running %q cleanup: %q", doc.Kind, doc.Prefix)
@@ -85,7 +89,7 @@ func (st *State) Cleanup() error {
 			continue
 		}
 		ops := []txn.Op{{
-			C:      st.cleanups.Name,
+			C:      cleanupsC,
 			Id:     doc.Id,
 			Remove: true,
 		}}
@@ -103,11 +107,13 @@ func (st *State) cleanupRelationSettings(prefix string) error {
 	// Documents marked for cleanup are not otherwise referenced in the
 	// system, and will not be under watch, and are therefore safe to
 	// delete directly.
+	settings, closer := st.getCollection(settingsC)
+	defer closer()
 	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}}
-	if count, err := st.settings.Find(sel).Count(); err != nil {
+	if count, err := settings.Find(sel).Count(); err != nil {
 		return fmt.Errorf("cannot detect cleanup targets: %v", err)
 	} else if count != 0 {
-		if _, err := st.settings.RemoveAll(sel); err != nil {
+		if _, err := settings.RemoveAll(sel); err != nil {
 			return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
 		}
 	}
@@ -121,9 +127,11 @@ func (st *State) cleanupServicesForDyingEnvironment() error {
 	// This won't miss services, because a Dying environment cannot have
 	// services added to it. But we do have to remove the services themselves
 	// via individual transactions, because they could be in any state at all.
+	services, closer := st.getCollection(servicesC)
+	defer closer()
 	service := Service{st: st}
 	sel := bson.D{{"life", Alive}}
-	iter := st.services.Find(sel).Iter()
+	iter := services.Find(sel).Iter()
 	for iter.Next(&service.doc) {
 		if err := service.Destroy(); err != nil {
 			return err
@@ -142,9 +150,11 @@ func (st *State) cleanupUnitsForDyingService(prefix string) error {
 	// This won't miss units, because a Dying service cannot have units added
 	// to it. But we do have to remove the units themselves via individual
 	// transactions, because they could be in any state at all.
+	units, closer := st.getCollection(unitsC)
+	defer closer()
 	unit := Unit{st: st}
 	sel := bson.D{{"_id", bson.D{{"$regex", "^" + prefix}}}, {"life", Alive}}
-	iter := st.units.Find(sel).Iter()
+	iter := units.Find(sel).Iter()
 	for iter.Next(&unit.doc) {
 		if err := unit.Destroy(); err != nil {
 			return err
@@ -186,8 +196,8 @@ func (st *State) cleanupDyingUnit(name string) error {
 
 // cleanupRemovedUnit takes care of all the final cleanup required when
 // a unit is removed.
-func (st *State) cleanupRemovedUnit(name string) error {
-	actions, err := st.matchingActions(name)
+func (st *State) cleanupRemovedUnit(unitId string) error {
+	actions, err := st.matchingActionsByPrefix(unitId)
 	if err != nil {
 		return err
 	}

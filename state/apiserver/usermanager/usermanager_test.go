@@ -50,8 +50,8 @@ func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestAddUser(c *gc.C) {
-	args := params.ModifyUsers{
-		Changes: []params.ModifyUser{{
+	args := usermanager.ModifyUsers{
+		Changes: []usermanager.ModifyUser{{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
 			Password:    "password",
@@ -71,8 +71,8 @@ func (s *userManagerSuite) TestAddUser(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestRemoveUser(c *gc.C) {
-	args := params.ModifyUsers{
-		Changes: []params.ModifyUser{{
+	args := usermanager.ModifyUsers{
+		Changes: []usermanager.ModifyUser{{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
 			Password:    "password",
@@ -103,8 +103,8 @@ func (s *userManagerSuite) TestCannotAddRemoveAdd(c *gc.C) {
 	removeArg := params.Entity{
 		Tag: "foobar",
 	}
-	args := params.ModifyUsers{
-		Changes: []params.ModifyUser{{
+	args := usermanager.ModifyUsers{
+		Changes: []usermanager.ModifyUser{{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
 			Password:    "password",
@@ -128,31 +128,31 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 	barfoo := "barfoo"
 	fooTag := names.NewUserTag(foobar)
 	barTag := names.NewUserTag(barfoo)
-	userFoo := s.Factory.MakeUser(factory.UserParams{Username: foobar, DisplayName: "Foo Bar"})
-	userBar := s.Factory.MakeUser(factory.UserParams{Username: barfoo, DisplayName: "Bar Foo"})
+	userFoo := s.Factory.MakeUser(factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
+	userBar := s.Factory.MakeUser(factory.UserParams{Name: barfoo, DisplayName: "Bar Foo"})
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: fooTag.String()}, {Tag: barTag.String()}},
 	}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
+	expected := usermanager.UserInfoResults{
+		Results: []usermanager.UserInfoResult{
 			{
-				Result: &params.UserInfo{
+				Result: &usermanager.UserInfo{
 					Username:       "foobar",
 					DisplayName:    "Foo Bar",
 					CreatedBy:      "admin",
 					DateCreated:    userFoo.DateCreated(),
-					LastConnection: userFoo.LastConnection(),
+					LastConnection: userFoo.LastLogin(),
 				},
 			}, {
-				Result: &params.UserInfo{
+				Result: &usermanager.UserInfo{
 					Username:       "barfoo",
 					DisplayName:    "Bar Foo",
 					CreatedBy:      "admin",
 					DateCreated:    userBar.DateCreated(),
-					LastConnection: userBar.LastConnection(),
+					LastConnection: userBar.LastLogin(),
 				},
 			}},
 	}
@@ -163,22 +163,22 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
 	foobar := "foobar"
 	fooTag := names.NewUserTag(foobar)
-	user := s.Factory.MakeUser(factory.UserParams{Username: foobar, DisplayName: "Foo Bar"})
+	user := s.Factory.MakeUser(factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: fooTag.String()}},
 	}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
+	expected := usermanager.UserInfoResults{
+		Results: []usermanager.UserInfoResult{
 			{
-				Result: &params.UserInfo{
+				Result: &usermanager.UserInfo{
 					Username:       "foobar",
 					DisplayName:    "Foo Bar",
 					CreatedBy:      "admin",
 					DateCreated:    user.DateCreated(),
-					LastConnection: user.LastConnection(),
+					LastConnection: user.LastLogin(),
 				},
 			},
 		},
@@ -194,8 +194,8 @@ func (s *userManagerSuite) TestUserInfoUserDoesNotExist(c *gc.C) {
 	}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
+	expected := usermanager.UserInfoResults{
+		Results: []usermanager.UserInfoResult{
 			{
 				Result: nil,
 				Error: &params.Error{
@@ -215,8 +215,8 @@ func (s *userManagerSuite) TestUserInfoMachineTagFails(c *gc.C) {
 	}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
+	expected := usermanager.UserInfoResults{
+		Results: []usermanager.UserInfoResult{
 			{
 				Result: nil,
 				Error: &params.Error{
@@ -235,8 +235,8 @@ func (s *userManagerSuite) TestUserInfoNotATagFails(c *gc.C) {
 	}
 	results, err := s.usermanager.UserInfo(args)
 	c.Assert(err, gc.IsNil)
-	expected := params.UserInfoResults{
-		Results: []params.UserInfoResult{
+	expected := usermanager.UserInfoResults{
+		Results: []usermanager.UserInfoResult{
 			{
 				Result: nil,
 				Error: &params.Error{
@@ -267,8 +267,8 @@ func (s *userManagerSuite) TestAgentUnauthorized(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestSetPassword(c *gc.C) {
-	args := params.ModifyUsers{
-		Changes: []params.ModifyUser{{
+	args := usermanager.ModifyUsers{
+		Changes: []usermanager.ModifyUser{{
 			Username: "admin",
 			Password: "new-password",
 		}}}
@@ -284,8 +284,8 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
-	args := params.ModifyUsers{
-		Changes: []params.ModifyUser{
+	args := usermanager.ModifyUsers{
+		Changes: []usermanager.ModifyUser{
 			{
 				Username: "admin",
 				Password: "new-password1",
@@ -310,9 +310,9 @@ func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
 // users to change other users passwords. For the time being we only allow
 // the password of the current user to be changed
 func (s *userManagerSuite) TestSetPasswordOnDifferentUser(c *gc.C) {
-	s.Factory.MakeUser(factory.UserParams{Username: "foobar"})
-	args := params.ModifyUsers{
-		Changes: []params.ModifyUser{{
+	s.Factory.MakeUser(factory.UserParams{Name: "foobar"})
+	args := usermanager.ModifyUsers{
+		Changes: []usermanager.ModifyUser{{
 			Username:    "foobar",
 			DisplayName: "Foo Bar",
 			Password:    "password",

@@ -10,7 +10,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // GetCommand retrieves the configuration of a service.
@@ -47,7 +46,7 @@ func (c *GetCommand) Init(args []string) error {
 // Run fetches the configuration of the service and formats
 // the result as a YAML string.
 func (c *GetCommand) Run(ctx *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

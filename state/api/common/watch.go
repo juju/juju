@@ -6,17 +6,18 @@ package common
 import (
 	"fmt"
 
+	"github.com/juju/names"
+
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/watcher"
 )
 
 // Watch starts a NotifyWatcher for the entity with the specified tag.
-// TODO: Watch should tag a names.Tag instead of a tag string
-func Watch(facade base.FacadeCaller, tag string) (watcher.NotifyWatcher, error) {
+func Watch(facade base.FacadeCaller, tag names.Tag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: tag}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	err := facade.FacadeCall("Watch", args, &results)
 	if err != nil {

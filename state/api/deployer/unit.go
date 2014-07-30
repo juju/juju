@@ -12,7 +12,7 @@ import (
 
 // Unit represents a juju unit as seen by the deployer worker.
 type Unit struct {
-	tag  names.Tag
+	tag  names.UnitTag
 	life params.Life
 	st   *State
 }

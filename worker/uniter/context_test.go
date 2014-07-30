@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"github.com/juju/charm"
+	"github.com/juju/names"
+	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
@@ -33,7 +35,29 @@ type RunHookSuite struct {
 	HookContextSuite
 }
 
+type MergeEnvSuite struct {
+	envtesting.IsolationSuite
+}
+
 var _ = gc.Suite(&RunHookSuite{})
+var _ = gc.Suite(&MergeEnvSuite{})
+
+func (e *MergeEnvSuite) TestMergeEnviron(c *gc.C) {
+	// environment does not get fully cleared on Windows
+	// when using testing.IsolationSuite
+	origEnv := os.Environ()
+	extraExpected := []string{
+		"DUMMYVAR=foo",
+		"DUMMYVAR2=bar",
+		"NEWVAR=ImNew",
+	}
+	expectEnv := append(origEnv, extraExpected...)
+	os.Setenv("DUMMYVAR2", "ChangeMe")
+	os.Setenv("DUMMYVAR", "foo")
+
+	newEnv := uniter.MergeEnvironment([]string{"DUMMYVAR2=bar", "NEWVAR=ImNew"})
+	c.Assert(expectEnv, jc.SameContents, newEnv)
+}
 
 type hookSpec struct {
 	// name is the name of the hook.
@@ -385,13 +409,13 @@ func (s *ContextRelationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
 	apiRel, err := s.uniter.Relation(s.rel.Tag().String())
 	c.Assert(err, gc.IsNil)
-	apiUnit, err := s.uniter.Unit(unit.Tag().String())
+	apiUnit, err := s.uniter.Unit(unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	s.apiRelUnit, err = apiRel.Unit(apiUnit)
 	c.Assert(err, gc.IsNil)
@@ -668,7 +692,7 @@ func (s *HookContextSuite) SetUpTest(c *gc.C) {
 	password, err := utils.RandomPassword()
 	err = s.unit.SetPassword(password)
 	c.Assert(err, gc.IsNil)
-	s.st = s.OpenAPIAs(c, s.unit.Tag().String(), password)
+	s.st = s.OpenAPIAs(c, s.unit.Tag(), password)
 	s.uniter = s.st.Uniter()
 	c.Assert(s.uniter, gc.NotNil)
 
@@ -709,8 +733,9 @@ func (s *HookContextSuite) AddContextRelation(c *gc.C, name string) {
 	s.relunits[rel.Id()] = ru
 	err = ru.EnterScope(map[string]interface{}{"relation-name": name})
 	c.Assert(err, gc.IsNil)
-	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().String())
+	s.apiUnit, err = s.uniter.Unit(s.unit.Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
+	// TODO(dfc) uniter.Relation should take a names.RelationTag
 	apiRel, err := s.uniter.Relation(rel.Tag().String())
 	c.Assert(err, gc.IsNil)
 	apiRelUnit, err := apiRel.Unit(s.apiUnit)
@@ -726,7 +751,7 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 	}
 	context, err := uniter.NewHookContext(s.apiUnit, "TestCtx", uuid,
 		"test-env-name", relid, remote, s.relctxs, apiAddrs, "test-owner",
-		proxies)
+		proxies, map[string]interface{}(nil))
 	c.Assert(err, gc.IsNil)
 	return context
 }

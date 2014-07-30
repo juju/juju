@@ -173,7 +173,6 @@ func (w *notifyWatcher) loop() error {
 			return nil
 		}
 	}
-	return nil
 }
 
 // Changes returns a channel that receives a value when a given entity
@@ -228,7 +227,6 @@ func (w *stringsWatcher) loop(initialChanges []string) error {
 		}
 		changes = data.(*params.StringsWatchResult).Changes
 	}
-	return nil
 }
 
 // Changes returns a channel that receives a list of strings of watched
@@ -284,7 +282,6 @@ func (w *relationUnitsWatcher) loop(initialChanges params.RelationUnitsChange) e
 		}
 		changes = data.(*params.RelationUnitsWatchResult).Changes
 	}
-	return nil
 }
 
 // Changes returns a channel that will receive the changes to

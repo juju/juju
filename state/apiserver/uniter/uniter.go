@@ -432,6 +432,22 @@ func (u *UniterAPI) watchOneUnitConfigSettings(tag string) (string, error) {
 	}
 	return "", watcher.MustErr(watch)
 }
+func (u *UniterAPI) watchOneUnitActions(tag string) (params.StringsWatchResult, error) {
+	nothing := params.StringsWatchResult{}
+	unit, err := u.getUnit(tag)
+	if err != nil {
+		return nothing, err
+	}
+	watch := unit.WatchActions()
+
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: u.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return nothing, watcher.MustErr(watch)
+}
 
 // WatchConfigSettings returns a NotifyWatcher for observing changes
 // to each unit's service configuration settings. See also
@@ -451,6 +467,34 @@ func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatc
 			watcherId, err = u.watchOneUnitConfigSettings(entity.Tag)
 		}
 		result.Results[i].NotifyWatcherId = watcherId
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// WatchActions returns an ActionWatcher for observing incoming action calls
+// to a unit.  See also state/watcher.go Unit.WatchActions().  This method
+// is called from state/api/uniter/uniter.go WatchActions().
+func (u *UniterAPI) WatchActions(args params.Entities) (params.StringsWatchResults, error) {
+	nothing := params.StringsWatchResults{}
+
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return nothing, err
+	}
+	for i, entity := range args.Entities {
+		_, err := names.ParseUnitTag(entity.Tag)
+		if err != nil {
+			return nothing, err
+		}
+
+		err = common.ErrPerm
+		if canAccess(entity.Tag) {
+			result.Results[i], err = u.watchOneUnitActions(entity.Tag)
+		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -681,7 +725,7 @@ func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults,
 	return result, nil
 }
 
-// getOneActionById retrieves a single Action by id.
+// getOneActionByTag retrieves a single Action by Tag.
 func (u *UniterAPI) getOneActionByTag(tag names.ActionTag) (params.ActionsQueryResult, error) {
 	result := params.ActionsQueryResult{}
 	action, err := u.st.ActionByTag(tag)
@@ -696,6 +740,8 @@ func (u *UniterAPI) getOneActionByTag(tag names.ActionTag) (params.ActionsQueryR
 	return result, nil
 }
 
+// Actions returns the Actions by Tags passed and ensures that the Unit asking
+// for them is the same Unit that has the Actions.
 func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, error) {
 	nothing := params.ActionsQueryResults{}
 
@@ -720,7 +766,7 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 		if err != nil {
 			return nothing, err
 		}
-		unitTag := actionTag.UnitTag()
+		unitTag := actionTag.PrefixTag()
 
 		// The Unit is querying for another Unit's Action.
 		if unitTag.String() != whichUnit.Tag().String() {
@@ -740,6 +786,57 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 	}
 
 	return results, nil
+}
+
+// ActionComplete saves the result of a completed Action
+func (u *UniterAPI) ActionComplete(args params.ActionResult) (params.BoolResult, error) {
+	action, err := u.actionIfPermitted(args.ActionTag)
+	if err == nil {
+		err = action.Complete(args.Output)
+	}
+	return params.BoolResult{Error: common.ServerError(err), Result: err == nil}, err
+}
+
+// ActionFail saves the result of a completed Action
+func (u *UniterAPI) ActionFail(args params.ActionResult) (params.BoolResult, error) {
+	action, err := u.actionIfPermitted(args.ActionTag)
+	if err == nil {
+		err = action.Fail(args.Output)
+	}
+	return params.BoolResult{Error: common.ServerError(err), Result: err == nil}, err
+}
+
+// actionIfPermitted returns an action, only if canAccess permits,
+// returns common.ErrPerm if not permitted
+func (u *UniterAPI) actionIfPermitted(tag string) (*state.Action, error) {
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return nil, err
+	}
+	// Use the currently authenticated unit to get the endpoint.
+	whichUnit, ok := u.auth.GetAuthEntity().(*state.Unit)
+	if !ok {
+		return nil, fmt.Errorf("entity is not a unit")
+	}
+
+	// this Unit must match the Action's prefix.
+	actionTag, err := names.ParseActionTag(tag)
+	if err != nil {
+		return nil, err
+	}
+	unitTag := actionTag.PrefixTag()
+
+	// The Unit is querying for another Unit's Action.
+	if unitTag.String() != whichUnit.Tag().String() {
+		return nil, common.ErrPerm
+	}
+
+	// The Unit does not have access.
+	if !canAccess(unitTag.String()) {
+		return nil, common.ErrPerm
+	}
+
+	return u.st.ActionByTag(actionTag)
 }
 
 // RelationById returns information about all given relations,

@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"sync"
 	"time"
 
@@ -18,8 +19,9 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
@@ -27,17 +29,18 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
+	jujunames "github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	apiagent "github.com/juju/juju/state/api/agent"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver"
-	"github.com/juju/juju/upgrades"
-	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
 	"github.com/juju/juju/worker/apiaddressupdater"
@@ -52,6 +55,7 @@ import (
 	"github.com/juju/juju/worker/machineenvironmentworker"
 	"github.com/juju/juju/worker/machiner"
 	"github.com/juju/juju/worker/minunitsworker"
+	"github.com/juju/juju/worker/networker"
 	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/provisioner"
 	"github.com/juju/juju/worker/resumer"
@@ -97,12 +101,12 @@ type MachineAgent struct {
 	cmd.CommandBase
 	tomb tomb.Tomb
 	AgentConf
-	MachineId        string
-	runner           worker.Runner
-	configChangedVal voyeur.Value
-	upgradeComplete  chan struct{}
-	workersStarted   chan struct{}
-	st               *state.State
+	MachineId            string
+	runner               worker.Runner
+	configChangedVal     voyeur.Value
+	upgradeWorkerContext *upgradeWorkerContext
+	workersStarted       chan struct{}
+	st                   *state.State
 
 	mongoInitMutex   sync.Mutex
 	mongoInitialized bool
@@ -123,15 +127,15 @@ func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (a *MachineAgent) Init(args []string) error {
-	if !names.IsMachine(a.MachineId) {
+	if !names.IsValidMachine(a.MachineId) {
 		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
 	if err := a.AgentConf.CheckArgs(args); err != nil {
 		return err
 	}
 	a.runner = newRunner(isFatal, moreImportant)
-	a.upgradeComplete = make(chan struct{})
 	a.workersStarted = make(chan struct{})
+	a.upgradeWorkerContext = NewUpgradeWorkerContext()
 	return nil
 }
 
@@ -154,12 +158,13 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// lines of all logging in the log file.
 	loggo.RemoveWriter("logfile")
 	defer a.tomb.Done()
-	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 	if err := a.ReadConfig(a.Tag().String()); err != nil {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
+	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
 	a.configChangedVal.Set(struct{}{})
 	agentConfig := a.CurrentConfig()
+	network.InitializeFromConfig(agentConfig)
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
@@ -180,10 +185,13 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	return err
 }
 
-func (a *MachineAgent) ChangeConfig(mutate func(config agent.ConfigSetter)) error {
+func (a *MachineAgent) ChangeConfig(mutate AgentConfigMutator) error {
 	err := a.AgentConf.ChangeConfig(mutate)
 	a.configChangedVal.Set(struct{}{})
-	return err
+	if err != nil {
+		return errors.Trace(err)
+	}
+	return nil
 }
 
 // newStateStarterWorker wraps stateStarter in a simple worker for use in
@@ -247,8 +255,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			if err != nil {
 				return nil, fmt.Errorf("cannot get state serving info: %v", err)
 			}
-			err = a.ChangeConfig(func(config agent.ConfigSetter) {
+			err = a.ChangeConfig(func(config agent.ConfigSetter) error {
 				config.SetStateServingInfo(info)
+				return nil
 			})
 			if err != nil {
 				return nil, err
@@ -279,7 +288,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
 	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
-		return a.upgradeWorker(st, entity.Jobs(), agentConfig), nil
+		return a.upgradeWorkerContext.Worker(a, st, entity.Jobs()), nil
 	})
 
 	// All other workers must wait for the upgrade steps to complete
@@ -299,6 +308,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
+	if networker.CanStart() {
+		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+			return networker.NewNetworker(st.Networker(), agentConfig)
+		})
+	} else {
+		logger.Infof("not starting networker - missing /etc/network/interfaces")
+	}
 
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
@@ -370,11 +386,15 @@ func (a *MachineAgent) setupContainerSupport(runner worker.Runner, st *api.State
 func (a *MachineAgent) updateSupportedContainers(
 	runner worker.Runner,
 	st *api.State,
-	tag string,
+	machineTag string,
 	containers []instance.ContainerType,
 	agentConfig agent.Config,
 ) error {
 	pr := st.Provisioner()
+	tag, err := names.ParseMachineTag(machineTag)
+	if err != nil {
+		return err
+	}
 	machine, err := pr.Machine(tag)
 	if err != nil {
 		return fmt.Errorf("%s is not in state: %v", tag, err)
@@ -470,7 +490,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if !ok {
 					return nil, &fatalError{"StateServingInfo not available and we need it"}
 				}
-				port := info.APIPort
 				cert := []byte(info.Cert)
 				key := []byte(info.PrivateKey)
 
@@ -479,8 +498,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				}
 				dataDir := agentConfig.DataDir()
 				logDir := agentConfig.LogDir()
-				return apiserver.NewServer(st, apiserver.ServerConfig{
-					Addr:      fmt.Sprintf(":%d", port),
+
+				endpoint := net.JoinHostPort("", strconv.Itoa(info.APIPort))
+				listener, err := net.Listen("tcp", endpoint)
+				if err != nil {
+					return nil, err
+				}
+				return apiserver.NewServer(st, listener, apiserver.ServerConfig{
 					Cert:      cert,
 					Key:       key,
 					DataDir:   dataDir,
@@ -514,7 +538,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 	select {
-	case <-a.upgradeComplete:
+	case <-a.upgradeWorkerContext.UpgradeComplete:
 		return nil // upgrade done so allow all logins
 	default:
 		authTag, err := names.ParseTag(creds.AuthTag)
@@ -523,10 +547,12 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 		}
 		switch authTag := authTag.(type) {
 		case names.UserTag:
-			return nil // user logins always allowed
+			// use a restricted API mode
+			return apiserver.UpgradeInProgressError
 		case names.MachineTag:
 			if authTag == a.Tag() {
-				return nil // allow logins from the local machine
+				// allow logins from the local machine
+				return nil
 			}
 		}
 		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
@@ -535,19 +561,23 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 
 // ensureMongoServer ensures that mongo is installed and running,
 // and ready for opening a state connection.
-func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
+func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	a.mongoInitMutex.Lock()
 	defer a.mongoInitMutex.Unlock()
 	if a.mongoInitialized {
 		logger.Debugf("mongo is already initialized")
 		return nil
 	}
+	defer func() {
+		if err == nil {
+			a.mongoInitialized = true
+		}
+	}()
 
 	servingInfo, ok := agentConfig.StateServingInfo()
 	if !ok {
 		return fmt.Errorf("state worker was started with no state serving info")
 	}
-	namespace := agentConfig.Value(agent.Namespace)
 
 	// When upgrading from a pre-HA-capable environment,
 	// we must add machine-0 to the admin database and
@@ -567,8 +597,9 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 			if err != nil {
 				return err
 			}
-			if err = a.ChangeConfig(func(config agent.ConfigSetter) {
+			if err = a.ChangeConfig(func(config agent.ConfigSetter) error {
 				config.SetStateServingInfo(servingInfo)
+				return nil
 			}); err != nil {
 				return err
 			}
@@ -591,11 +622,11 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	}
 
 	// ensureMongoServer installs/upgrades the upstart config as necessary.
-	if err := ensureMongoServer(
-		agentConfig.DataDir(),
-		namespace,
-		servingInfo,
-	); err != nil {
+	ensureServerParams, err := newEnsureServerParams(agentConfig)
+	if err != nil {
+		return err
+	}
+	if err := ensureMongoServer(ensureServerParams); err != nil {
 		return err
 	}
 	if !shouldInitiateMongoServer {
@@ -606,7 +637,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	//
 	// TODO(axw) remove this when we no longer need
 	// to upgrade from pre-HA-capable environments.
-	stateInfo, ok := agentConfig.StateInfo()
+	stateInfo, ok := agentConfig.MongoInfo()
 	if !ok {
 		return fmt.Errorf("state worker was started with no state serving info")
 	}
@@ -621,17 +652,17 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) error {
 	if err := maybeInitiateMongoServer(peergrouper.InitiateMongoParams{
 		DialInfo:       dialInfo,
 		MemberHostPort: net.JoinHostPort(peerAddr, fmt.Sprint(servingInfo.StatePort)),
-		User:           stateInfo.Tag,
-		Password:       stateInfo.Password,
+		// TODO(dfc) InitiateMongoParams should take a Tag
+		User:     stateInfo.Tag.String(),
+		Password: stateInfo.Password,
 	}); err != nil {
 		return err
 	}
-	a.mongoInitialized = true
 	return nil
 }
 
 func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added bool, err error) {
-	stateInfo, ok1 := agentConfig.StateInfo()
+	stateInfo, ok1 := agentConfig.MongoInfo()
 	servingInfo, ok2 := agentConfig.StateServingInfo()
 	if !ok1 || !ok2 {
 		return false, fmt.Errorf("no state serving info configuration")
@@ -649,7 +680,7 @@ func (a *MachineAgent) ensureMongoAdminUser(agentConfig agent.Config) (added boo
 		Namespace: agentConfig.Value(agent.Namespace),
 		DataDir:   agentConfig.DataDir(),
 		Port:      servingInfo.StatePort,
-		User:      stateInfo.Tag,
+		User:      stateInfo.Tag.String(),
 		Password:  stateInfo.Password,
 	})
 }
@@ -659,7 +690,7 @@ func isPreHAVersion(v version.Number) bool {
 }
 
 func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.State, _ *state.Machine, err error) {
-	info, ok := agentConfig.StateInfo()
+	info, ok := agentConfig.MongoInfo()
 	if !ok {
 		return nil, nil, fmt.Errorf("no state info available")
 	}
@@ -672,7 +703,7 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 			st.Close()
 		}
 	}()
-	m0, err := st.FindEntity(agentConfig.Tag())
+	m0, err := st.FindEntity(agentConfig.Tag().String())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = worker.ErrTerminateAgent
@@ -708,7 +739,7 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 		select {
 		case <-stop:
 			return nil
-		case <-a.upgradeComplete:
+		case <-a.upgradeWorkerContext.UpgradeComplete:
 		}
 		// Upgrades are done, start the worker.
 		worker, err := start()
@@ -730,104 +761,16 @@ func (a *MachineAgent) upgradeWaiterWorker(start func() (worker.Worker, error)) 
 	})
 }
 
-// upgradeWorker runs the required upgrade operations to upgrade to the current Juju version.
-func (a *MachineAgent) upgradeWorker(
-	apiState *api.State,
-	jobs []params.MachineJob,
-	agentConfig agent.Config,
-) worker.Worker {
-	return worker.NewSimpleWorker(func(stop <-chan struct{}) error {
-		select {
-		case <-a.upgradeComplete:
-			// Our work is already done (we're probably being restarted
-			// because the API connection has gone down), so do nothing.
-			<-stop
-			return nil
-		default:
-		}
-		// If the machine agent is a state server, flag that state
-		// needs to be opened before running upgrade steps
-		needsState := false
-		for _, job := range jobs {
-			if job == params.JobManageEnviron {
-				needsState = true
-			}
-		}
-		// We need a *state.State for upgrades. We open it independently
-		// of StateWorker, because we have no guarantees about when
-		// and how often StateWorker might run.
-		var st *state.State
-		if needsState {
-			if err := a.ensureMongoServer(agentConfig); err != nil {
-				return err
-			}
-			var err error
-			info, ok := agentConfig.StateInfo()
-			if !ok {
-				return fmt.Errorf("no state info available")
-			}
-			st, err = state.Open(info, mongo.DialOpts{}, environs.NewStatePolicy())
-			if err != nil {
-				return err
-			}
-			defer st.Close()
-		}
-		err := a.runUpgrades(st, apiState, jobs, agentConfig)
-		if err != nil {
-			return err
-		}
-		logger.Infof("upgrade to %v completed.", version.Current)
-		close(a.upgradeComplete)
-		<-stop
-		return nil
-	})
-}
-
-var upgradesPerformUpgrade = upgrades.PerformUpgrade // Allow patching for tests
-
-// runUpgrades runs the upgrade operations for each job type and updates the updatedToVersion on success.
-func (a *MachineAgent) runUpgrades(
-	st *state.State,
-	apiState *api.State,
-	jobs []params.MachineJob,
-	agentConfig agent.Config,
-) error {
-	from := version.Current
-	from.Number = agentConfig.UpgradedToVersion()
-	if from == version.Current {
-		logger.Infof("upgrade to %v already completed.", version.Current)
-		return nil
+func (a *MachineAgent) setMachineStatus(apiState *api.State, status params.Status, info string) error {
+	tag := a.Tag().(names.MachineTag)
+	machine, err := apiState.Machiner().Machine(tag)
+	if err != nil {
+		return errors.Trace(err)
 	}
-	var err error
-	writeErr := a.ChangeConfig(func(agentConfig agent.ConfigSetter) {
-		context := upgrades.NewContext(agentConfig, apiState, st)
-		for _, job := range jobs {
-			target := upgradeTarget(job)
-			if target == "" {
-				continue
-			}
-			logger.Infof("starting upgrade from %v to %v for %v %q", from, version.Current, target, a.Tag())
-			if err = upgradesPerformUpgrade(from.Number, target, context); err != nil {
-				err = fmt.Errorf("cannot perform upgrade from %v to %v for %v %q: %v", from, version.Current, target, a.Tag(), err)
-				return
-			}
-		}
-		agentConfig.SetUpgradedToVersion(version.Current.Number)
-	})
-	if writeErr != nil {
-		return fmt.Errorf("cannot write updated agent configuration: %v", writeErr)
+	if err := machine.SetStatus(status, info, nil); err != nil {
+		return errors.Trace(err)
 	}
 	return nil
-}
-
-func upgradeTarget(job params.MachineJob) upgrades.Target {
-	switch job {
-	case params.JobManageEnviron:
-		return upgrades.StateServer
-	case params.JobHostUnits:
-		return upgrades.HostMachine
-	}
-	return ""
 }
 
 // WorkersStarted returns a channel that's closed once all top level workers
@@ -846,8 +789,8 @@ func (a *MachineAgent) createJujuRun(dataDir string) error {
 	if err := os.Remove(jujuRun); err != nil && !os.IsNotExist(err) {
 		return err
 	}
-	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), "jujud")
-	return os.Symlink(jujud, jujuRun)
+	jujud := filepath.Join(dataDir, "tools", a.Tag().String(), jujunames.Jujud)
+	return symlink.New(jujud, jujuRun)
 }
 
 func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
@@ -858,7 +801,7 @@ func (a *MachineAgent) uninstallAgent(agentConfig agent.Config) error {
 		agentServiceName = os.Getenv("UPSTART_JOB")
 	}
 	if agentServiceName != "" {
-		if err := upstart.NewService(agentServiceName).Remove(); err != nil {
+		if err := service.NewService(agentServiceName, common.Conf{}).Remove(); err != nil {
 			errors = append(errors, fmt.Errorf("cannot remove service %q: %v", agentServiceName, err))
 		}
 	}

@@ -6,6 +6,7 @@ package firewaller
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/network"
@@ -17,7 +18,7 @@ import (
 // Unit represents a juju unit as seen by a firewaller worker.
 type Unit struct {
 	st   *State
-	tag  names.Tag
+	tag  names.UnitTag
 	life params.Life
 }
 
@@ -43,11 +44,12 @@ func (u *Unit) Refresh() error {
 
 // Watch returns a watcher for observing changes to the unit.
 func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(u.st.facade, u.tag.String())
+	return common.Watch(u.st.facade, u.tag)
 }
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
+	// TODO(dfc) seriously ?!?
 	serviceTag := names.NewServiceTag(names.UnitService(u.Name()))
 	service := &Service{
 		st:  u.st,
@@ -87,21 +89,21 @@ func (u *Unit) OpenedPorts() ([]network.Port, error) {
 
 // AssignedMachine returns the tag of this unit's assigned machine (if
 // any), or a CodeNotAssigned error.
-func (u *Unit) AssignedMachine() (string, error) {
+func (u *Unit) AssignedMachine() (names.Tag, error) {
 	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
 	err := u.st.facade.FacadeCall("GetAssignedMachine", args, &results)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return "", fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return "", result.Error
+		return nil, result.Error
 	}
-	return result.Result, nil
+	return names.ParseMachineTag(result.Result)
 }

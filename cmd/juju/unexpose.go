@@ -9,7 +9,6 @@ import (
 	"github.com/juju/cmd"
 
 	"github.com/juju/juju/cmd/envcmd"
-	"github.com/juju/juju/juju"
 )
 
 // UnexposeCommand is responsible exposing services.
@@ -37,7 +36,7 @@ func (c *UnexposeCommand) Init(args []string) error {
 // Run changes the juju-managed firewall to hide any
 // ports that were also explicitly marked by units as closed.
 func (c *UnexposeCommand) Run(_ *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

@@ -45,7 +45,7 @@ func (s *versionUpdaterSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned("i-manager", "fake_nonce", nil)
 	c.Assert(err, gc.IsNil)
-	st := s.OpenAPIAsMachine(c, machine.Tag().String(), password, "fake_nonce")
+	st := s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 	c.Assert(st, gc.NotNil)
 
 	s.updater = charmrevisionupdater.NewState(st)

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/fslock"
@@ -55,12 +56,11 @@ func noImportance(err0, err1 error) bool {
 
 func (s *ContainerSetupSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
-	s.CommonProvisionerSuite.setupEnvironmentManager(c)
 	aptCmdChan := s.HookCommandOutput(&apt.CommandOutput, []byte{}, nil)
 	s.aptCmdChan = aptCmdChan
 
 	// Set up provisioner for the state machine.
-	s.agentConfig = s.AgentConfigForTag(c, "machine-0")
+	s.agentConfig = s.AgentConfigForTag(c, names.NewMachineTag("0"))
 	s.p = provisioner.NewEnvironProvisioner(s.provisioner, s.agentConfig)
 
 	// Create a new container initialisation lock.
@@ -75,7 +75,7 @@ func (s *ContainerSetupSuite) TearDownTest(c *gc.C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) (worker.StringsWatchHandler, worker.Runner) {
+func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag names.MachineTag) (worker.StringsWatchHandler, worker.Runner) {
 	runner := worker.NewRunner(allFatal, noImportance)
 	pr := s.st.Provisioner()
 	machine, err := pr.Machine(tag)
@@ -94,7 +94,7 @@ func (s *ContainerSetupSuite) setupContainerWorker(c *gc.C, tag string) (worker.
 
 func (s *ContainerSetupSuite) createContainer(c *gc.C, host *state.Machine, ctype instance.ContainerType) {
 	inst := s.checkStartInstance(c, host)
-	s.setupContainerWorker(c, host.Tag().String())
+	s.setupContainerWorker(c, host.Tag().(names.MachineTag))
 
 	// make a container on the host machine
 	template := state.MachineTemplate{
@@ -123,7 +123,7 @@ func (s *ContainerSetupSuite) assertContainerProvisionerStarted(
 	startProvisionerWorker := func(runner worker.Runner, containerType instance.ContainerType,
 		pr *apiprovisioner.State, cfg agent.Config, broker environs.InstanceBroker) error {
 		c.Assert(containerType, gc.Equals, ctype)
-		c.Assert(cfg.Tag(), gc.Equals, host.Tag().String())
+		c.Assert(cfg.Tag(), gc.Equals, host.Tag())
 		provisionerStarted = true
 		return nil
 	}
@@ -221,7 +221,7 @@ func (s *ContainerSetupSuite) TestContainerInitLockError(c *gc.C) {
 
 	err = os.RemoveAll(s.initLockDir)
 	c.Assert(err, gc.IsNil)
-	handler, runner := s.setupContainerWorker(c, m.Tag().String())
+	handler, runner := s.setupContainerWorker(c, m.Tag().(names.MachineTag))
 	runner.Kill()
 	err = runner.Wait()
 	c.Assert(err, gc.IsNil)

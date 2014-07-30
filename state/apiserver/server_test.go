@@ -9,16 +9,19 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"strconv"
 	stdtesting "testing"
 	"time"
 
 	"code.google.com/p/go.net/websocket"
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cert"
 	jujutesting "github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/rpc"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -43,8 +46,9 @@ var _ = gc.Suite(&serverSuite{})
 func (s *serverSuite) TestStop(c *gc.C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
-	srv, err := apiserver.NewServer(s.State, apiserver.ServerConfig{
-		Addr: "localhost:0",
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, gc.IsNil)
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
 	})
@@ -61,9 +65,8 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Note we can't use openAs because we're not connecting to
-	// s.APIConn.
 	apiInfo := &api.Info{
-		Tag:      stm.Tag().String(),
+		Tag:      stm.Tag(),
 		Password: password,
 		Nonce:    "fake_nonce",
 		Addrs:    []string{srv.Addr()},
@@ -73,13 +76,13 @@ func (s *serverSuite) TestStop(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
-	_, err = st.Machiner().Machine(stm.Tag().String())
+	_, err = st.Machiner().Machine(stm.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 
 	err = srv.Stop()
 	c.Assert(err, gc.IsNil)
 
-	_, err = st.Machiner().Machine(stm.Tag().String())
+	_, err = st.Machiner().Machine(stm.Tag().(names.MachineTag))
 	// The client has not necessarily seen the server shutdown yet,
 	// so there are two possible errors.
 	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
@@ -88,6 +91,71 @@ func (s *serverSuite) TestStop(c *gc.C) {
 
 	// Check it can be stopped twice.
 	err = srv.Stop()
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *serverSuite) TestAPIServerCanListenOnBothIPv4AndIPv6(c *gc.C) {
+	// Start our own instance of the server listening on
+	// both IPv4 and IPv6 localhost addresses and an ephemeral port.
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, gc.IsNil)
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
+		Cert: []byte(coretesting.ServerCert),
+		Key:  []byte(coretesting.ServerKey),
+	})
+	c.Assert(err, gc.IsNil)
+	defer srv.Stop()
+
+	// srv.Addr() always reports "localhost" together
+	// with the port as address. This way it can be used
+	// as hostname to construct URLs which will work
+	// for both IPv4 and IPv6-only networks, as
+	// localhost resolves as both 127.0.0.1 and ::1.
+	// Retrieve the port as string and integer.
+	hostname, portString, err := net.SplitHostPort(srv.Addr())
+	c.Assert(err, gc.IsNil)
+	c.Assert(hostname, gc.Equals, "localhost")
+	port, err := strconv.Atoi(portString)
+	c.Assert(err, gc.IsNil)
+
+	stm, err := s.State.AddMachine("quantal", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = stm.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = stm.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+
+	// Now connect twice - using IPv4 and IPv6 endpoints.
+	apiInfo := &api.Info{
+		Tag:      stm.Tag(),
+		Password: password,
+		Nonce:    "fake_nonce",
+		Addrs:    []string{net.JoinHostPort("127.0.0.1", portString)},
+		CACert:   coretesting.CACert,
+	}
+	ipv4State, err := api.Open(apiInfo, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	defer ipv4State.Close()
+	c.Assert(ipv4State.Addr(), gc.Equals, net.JoinHostPort("127.0.0.1", portString))
+	c.Assert(ipv4State.APIHostPorts(), jc.DeepEquals, [][]network.HostPort{
+		[]network.HostPort{{network.NewAddress("127.0.0.1", network.ScopeMachineLocal), port}},
+	})
+
+	_, err = ipv4State.Machiner().Machine(stm.Tag().(names.MachineTag))
+	c.Assert(err, gc.IsNil)
+
+	apiInfo.Addrs = []string{net.JoinHostPort("::1", portString)}
+	ipv6State, err := api.Open(apiInfo, fastDialOpts)
+	c.Assert(err, gc.IsNil)
+	defer ipv6State.Close()
+	c.Assert(ipv6State.Addr(), gc.Equals, net.JoinHostPort("::1", portString))
+	c.Assert(ipv6State.APIHostPorts(), jc.DeepEquals, [][]network.HostPort{
+		[]network.HostPort{{network.NewAddress("::1", network.ScopeMachineLocal), port}},
+	})
+
+	_, err = ipv6State.Machiner().Machine(stm.Tag().(names.MachineTag))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -108,8 +176,8 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 
 	// This does almost exactly the same as OpenAPIAsMachine but checks
 	// for failures instead.
-	_, info, err := s.APIConn.Environ.StateInfo()
-	info.Tag = stm.Tag().String()
+	info := s.APIInfo(c)
+	info.Tag = stm.Tag()
 	info.Password = password
 	info.Nonce = "invalid-nonce"
 	st, err := api.Open(info, fastDialOpts)
@@ -136,7 +204,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Try connecting, it will fail.
-	info.Tag = stm1.Tag().String()
+	info.Tag = stm1.Tag()
 	info.Nonce = ""
 	st, err = api.Open(info, fastDialOpts)
 	assertNotProvisioned(err)
@@ -160,7 +228,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	s.assertAlive(c, machine, false)
 
 	// Login as the machine agent of the created machine.
-	st := s.OpenAPIAsMachine(c, machine.Tag().String(), password, "fake_nonce")
+	st := s.OpenAPIAsMachine(c, machine.Tag(), password, "fake_nonce")
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, machine, true)
@@ -190,7 +258,7 @@ func (s *serverSuite) TestUnitLoginStartsPinger(c *gc.C) {
 	s.assertAlive(c, unit, false)
 
 	// Login as the unit agent of the created unit.
-	st := s.OpenAPIAs(c, unit.Tag().String(), password)
+	st := s.OpenAPIAs(c, unit.Tag(), password)
 
 	// Make sure the pinger has started.
 	s.assertAlive(c, unit, true)
@@ -229,8 +297,9 @@ func dialWebsocket(c *gc.C, addr, path string) (*websocket.Conn, error) {
 func (s *serverSuite) TestNonCompatiblePathsAre404(c *gc.C) {
 	// we expose the API at '/' for compatibility, and at '/ENVUUID/api'
 	// for the correct location, but other Paths should fail.
-	srv, err := apiserver.NewServer(s.State, apiserver.ServerConfig{
-		Addr: "localhost:0",
+	listener, err := net.Listen("tcp", ":0")
+	c.Assert(err, gc.IsNil)
+	srv, err := apiserver.NewServer(s.State, listener, apiserver.ServerConfig{
 		Cert: []byte(coretesting.ServerCert),
 		Key:  []byte(coretesting.ServerKey),
 	})

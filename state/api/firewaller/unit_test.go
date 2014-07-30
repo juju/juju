@@ -4,6 +4,7 @@
 package firewaller_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -25,7 +26,7 @@ func (s *unitSuite) SetUpTest(c *gc.C) {
 	s.firewallerSuite.SetUpTest(c)
 
 	var err error
-	s.apiUnit, err = s.firewaller.Unit(s.units[0].Tag().String())
+	s.apiUnit, err = s.firewaller.Unit(s.units[0].Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 }
 
@@ -34,12 +35,12 @@ func (s *unitSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *unitSuite) TestUnit(c *gc.C) {
-	apiUnitFoo, err := s.firewaller.Unit("unit-foo-42")
+	apiUnitFoo, err := s.firewaller.Unit(names.NewUnitTag("foo/42"))
 	c.Assert(err, gc.ErrorMatches, `unit "foo/42" not found`)
 	c.Assert(err, jc.Satisfies, params.IsCodeNotFound)
 	c.Assert(apiUnitFoo, gc.IsNil)
 
-	apiUnit0, err := s.firewaller.Unit(s.units[0].Tag().String())
+	apiUnit0, err := s.firewaller.Unit(s.units[0].Tag().(names.UnitTag))
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiUnit0, gc.NotNil)
 	c.Assert(apiUnit0.Name(), gc.Equals, s.units[0].Name())
@@ -86,7 +87,7 @@ func (s *unitSuite) TestWatch(c *gc.C) {
 func (s *unitSuite) TestAssignedMachine(c *gc.C) {
 	machineTag, err := s.apiUnit.AssignedMachine()
 	c.Assert(err, gc.IsNil)
-	c.Assert(machineTag, gc.Equals, s.machines[0].Tag().String())
+	c.Assert(machineTag, gc.Equals, s.machines[0].Tag())
 
 	// Unassign now and check CodeNotAssigned is reported.
 	err = s.units[0].UnassignFromMachine()
@@ -102,13 +103,13 @@ func (s *unitSuite) TestOpenedPorts(c *gc.C) {
 	c.Assert(ports, jc.DeepEquals, []network.Port{})
 
 	// Open some ports and check again.
-	err = s.units[0].OpenPort("foo", 1234)
+	err = s.units[0].OpenPort("tcp", 1234)
 	c.Assert(err, gc.IsNil)
-	err = s.units[0].OpenPort("bar", 4321)
+	err = s.units[0].OpenPort("tcp", 4321)
 	c.Assert(err, gc.IsNil)
 	ports, err = s.apiUnit.OpenedPorts()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, jc.DeepEquals, []network.Port{{"bar", 4321}, {"foo", 1234}})
+	c.Assert(ports, jc.DeepEquals, []network.Port{{"tcp", 1234}, {"tcp", 4321}})
 }
 
 func (s *unitSuite) TestService(c *gc.C) {

@@ -14,7 +14,6 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju"
 )
 
 // UpgradeCharm is responsible for upgrading a service's charm.
@@ -84,7 +83,7 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *UpgradeCharmCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
-		if !names.IsService(args[0]) {
+		if !names.IsValidService(args[0]) {
 			return fmt.Errorf("invalid service name %q", args[0])
 		}
 		c.ServiceName = args[0]
@@ -102,7 +101,7 @@ func (c *UpgradeCharmCommand) Init(args []string) error {
 // Run connects to the specified environment and starts the charm
 // upgrade process.
 func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
-	client, err := juju.NewAPIClientFromName(c.EnvName)
+	client, err := c.NewAPIClient()
 	if err != nil {
 		return err
 	}

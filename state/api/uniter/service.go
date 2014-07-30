@@ -20,7 +20,7 @@ import (
 // Service represents the state of a service.
 type Service struct {
 	st   *State
-	tag  names.Tag
+	tag  names.ServiceTag
 	life params.Life
 }
 
@@ -36,7 +36,7 @@ func (s *Service) String() string {
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Service) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.st.facade, s.tag.String())
+	return common.Watch(s.st.facade, s.tag)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to

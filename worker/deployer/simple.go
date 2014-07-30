@@ -5,9 +5,9 @@ package deployer
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -16,8 +16,9 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/service"
+	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/upstart"
 	"github.com/juju/juju/version"
 )
 
@@ -30,8 +31,7 @@ type APICalls interface {
 	ConnectionInfo() (params.DeployerConnectionValues, error)
 }
 
-// SimpleContext is a Context that manages unit deployments via upstart
-// jobs on the local system.
+// SimpleContext is a Context that manages unit deployments on the local system.
 type SimpleContext struct {
 
 	// api is used to get the current state server addresses at the time the
@@ -49,10 +49,27 @@ type SimpleContext struct {
 
 var _ Context = (*SimpleContext)(nil)
 
+// recursiveChmod will change the permissions on all files and
+// folders inside path
+func recursiveChmod(path string, mode os.FileMode) error {
+	walker := func(p string, fi os.FileInfo, err error) error {
+		if _, err := os.Stat(p); err == nil {
+			errPerm := os.Chmod(p, mode)
+			if errPerm != nil {
+				return errPerm
+			}
+		}
+		return nil
+	}
+	if err := filepath.Walk(path, walker); err != nil {
+		return err
+	}
+	return nil
+}
+
 // NewSimpleContext returns a new SimpleContext, acting on behalf of
-// the specified deployer, that deploys unit agents as upstart jobs in
-// "/etc/init". Paths to which agents and tools are installed are
-// relative to dataDir.
+// the specified deployer, that deploys unit agents.
+// Paths to which agents and tools are installed are relative to dataDir.
 func NewSimpleContext(agentConfig agent.Config, api APICalls) *SimpleContext {
 	return &SimpleContext{
 		api:         api,
@@ -67,17 +84,19 @@ func (ctx *SimpleContext) AgentConfig() agent.Config {
 
 func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err error) {
 	// Check sanity.
-	svc := ctx.upstartService(unitName)
+	svc := ctx.service(unitName)
 	if svc.Installed() {
 		return fmt.Errorf("unit %q is already deployed", unitName)
 	}
 
 	// Link the current tools for use by the new agent.
-	tag := names.NewUnitTag(unitName).String()
+	tag := names.NewUnitTag(unitName)
 	dataDir := ctx.agentConfig.DataDir()
 	logDir := ctx.agentConfig.LogDir()
-	_, err = tools.ChangeAgentTools(dataDir, tag, version.Current)
-	toolsDir := tools.ToolsDir(dataDir, tag)
+	// TODO(dfc)
+	_, err = tools.ChangeAgentTools(dataDir, tag.String(), version.Current)
+	// TODO(dfc)
+	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	defer removeOnErr(&err, toolsDir)
 
 	result, err := ctx.api.ConnectionInfo()
@@ -114,7 +133,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, conf.Dir())
 
 	// Install an upstart job that runs the unit agent.
-	logPath := path.Join(logDir, tag+".log")
+	logPath := path.Join(logDir, tag.String()+".log")
 	cmd := strings.Join([]string{
 		path.Join(toolsDir, "jujud"), "unit",
 		"--data-dir", dataDir,
@@ -125,30 +144,30 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	// As much as I'd like to remove JujuContainerType now, it is still
 	// needed as MAAS still needs it at this stage, and we can't fix
 	// everything at once.
-	uconf := &upstart.Conf{
-		Service: *svc,
-		Desc:    "juju unit agent for " + unitName,
-		Cmd:     cmd,
-		Out:     logPath,
+	sconf := common.Conf{
+		Desc: "juju unit agent for " + unitName,
+		Cmd:  cmd,
+		Out:  logPath,
 		Env: map[string]string{
 			osenv.JujuContainerTypeEnvKey: containerType,
 		},
+		InitDir: ctx.initDir,
 	}
-	return uconf.Install()
+	svc.UpdateConfig(sconf)
+	return svc.Install()
 }
 
 // findUpstartJob tries to find an upstart job matching the
 // given unit name in one of these formats:
 //   jujud-<deployer-tag>:<unit-tag>.conf (for compatibility)
 //   jujud-<unit-tag>.conf (default)
-func (ctx *SimpleContext) findUpstartJob(unitName string) *upstart.Service {
+func (ctx *SimpleContext) findUpstartJob(unitName string) service.Service {
 	unitsAndJobs, err := ctx.deployedUnitsUpstartJobs()
 	if err != nil {
 		return nil
 	}
 	if job, ok := unitsAndJobs[unitName]; ok {
-		svc := upstart.NewService(job)
-		svc.InitDir = ctx.initDir
+		svc := service.NewService(job, common.Conf{InitDir: ctx.initDir})
 		return svc
 	}
 	return nil
@@ -162,28 +181,38 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if err := svc.StopAndRemove(); err != nil {
 		return err
 	}
-	tag := names.NewUnitTag(unitName).String()
+	tag := names.NewUnitTag(unitName)
 	dataDir := ctx.agentConfig.DataDir()
 	agentDir := agent.Dir(dataDir, tag)
+	// Recursivley change mode to 777 on windows to avoid
+	// Operation not permitted errors when deleting the agentDir
+	err := recursiveChmod(agentDir, os.FileMode(0777))
+	if err != nil {
+		return err
+	}
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
-	toolsDir := tools.ToolsDir(dataDir, tag)
+	// TODO(dfc) should take a Tag
+	toolsDir := tools.ToolsDir(dataDir, tag.String())
 	return os.Remove(toolsDir)
 }
 
-var deployedRe = regexp.MustCompile("^(jujud-.*unit-([a-z0-9-]+)-([0-9]+))\\.conf$")
+var deployedRe = regexp.MustCompile("^(jujud-.*unit-([a-z0-9-]+)-([0-9]+))$")
 
 func (ctx *SimpleContext) deployedUnitsUpstartJobs() (map[string]string, error) {
-	fis, err := ioutil.ReadDir(ctx.initDir)
+	fis, err := service.ListServices(ctx.initDir)
+	if err != nil {
+		return nil, err
+	}
 	if err != nil {
 		return nil, err
 	}
 	installed := make(map[string]string)
 	for _, fi := range fis {
-		if groups := deployedRe.FindStringSubmatch(fi.Name()); len(groups) == 4 {
+		if groups := deployedRe.FindStringSubmatch(fi); len(groups) > 0 {
 			unitName := groups[2] + "/" + groups[3]
-			if !names.IsUnit(unitName) {
+			if !names.IsValidUnit(unitName) {
 				continue
 			}
 			installed[unitName] = groups[1]
@@ -204,13 +233,12 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 	return installed, nil
 }
 
-// upstartService returns an upstart.Service corresponding to the specified
+// service returns a service.Service corresponding to the specified
 // unit.
-func (ctx *SimpleContext) upstartService(unitName string) *upstart.Service {
+func (ctx *SimpleContext) service(unitName string) service.Service {
 	tag := names.NewUnitTag(unitName).String()
 	svcName := "jujud-" + tag
-	svc := upstart.NewService(svcName)
-	svc.InitDir = ctx.initDir
+	svc := service.NewService(svcName, common.Conf{InitDir: ctx.initDir})
 	return svc
 }
 

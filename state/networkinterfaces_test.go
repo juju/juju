@@ -52,30 +52,28 @@ func (s *NetworkInterfaceSuite) TestGetterMethods(c *gc.C) {
 func (s *NetworkInterfaceSuite) TestSetAndIsDisabled(c *gc.C) {
 	err := s.iface.SetDisabled(true)
 	c.Assert(err, gc.IsNil)
-	err = s.iface.Refresh()
-	c.Assert(err, gc.IsNil)
 	c.Assert(s.iface.IsDisabled(), jc.IsTrue)
 
 	err = s.iface.SetDisabled(false)
-	c.Assert(err, gc.IsNil)
-	err = s.iface.Refresh()
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
 }
 
 func (s *NetworkInterfaceSuite) TestRefresh(c *gc.C) {
+	ifaceCopy := *s.iface
 	err := s.iface.SetDisabled(true)
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.iface.IsDisabled(), jc.IsFalse)
-	err = s.iface.Refresh()
+	c.Assert(ifaceCopy.IsDisabled(), jc.IsFalse)
+	err = ifaceCopy.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.iface.IsDisabled(), jc.IsTrue)
+	c.Assert(ifaceCopy.IsDisabled(), jc.IsTrue)
 }
 
 func (s *NetworkInterfaceSuite) TestRemove(c *gc.C) {
 	err := s.iface.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.iface.Refresh()
-	c.Assert(err, gc.ErrorMatches, `network interface .* not found`)
+	errMatch := `network interface &state\.NetworkInterface\{.*\} not found`
+	c.Check(err, gc.ErrorMatches, errMatch)
 	c.Assert(err, jc.Satisfies, errors.IsNotFound)
 }

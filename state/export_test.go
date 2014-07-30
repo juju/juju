@@ -11,32 +11,40 @@ import (
 
 	"github.com/juju/charm"
 	charmtesting "github.com/juju/charm/testing"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"github.com/juju/names"
+	jujutxn "github.com/juju/txn"
+	txntesting "github.com/juju/txn/testing"
+	"github.com/juju/utils/set"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/instance"
-	statetxn "github.com/juju/juju/state/txn"
-	txntesting "github.com/juju/juju/state/txn/testing"
-	"github.com/juju/juju/testing"
 )
 
-func SetTestHooks(c *gc.C, st *State, hooks ...statetxn.TestHook) txntesting.TransactionChecker {
-	return txntesting.SetTestHooks(c, st.transactionRunner, hooks...)
+func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetTestHooks(c, runner, hooks...)
 }
 
 func SetBeforeHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	return txntesting.SetBeforeHooks(c, st.transactionRunner, fs...)
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetBeforeHooks(c, runner, fs...)
 }
 
 func SetAfterHooks(c *gc.C, st *State, fs ...func()) txntesting.TransactionChecker {
-	return txntesting.SetAfterHooks(c, st.transactionRunner, fs...)
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetAfterHooks(c, runner, fs...)
 }
 
 func SetRetryHooks(c *gc.C, st *State, block, check func()) txntesting.TransactionChecker {
-	return txntesting.SetRetryHooks(c, st.transactionRunner, block, check)
+	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
+	st.transactionRunner = runner
+	return txntesting.SetRetryHooks(c, runner, block, check)
 }
 
 // SetPolicy updates the State's policy field to the
@@ -45,18 +53,6 @@ func SetPolicy(st *State, p Policy) Policy {
 	old := st.policy
 	st.policy = p
 	return old
-}
-
-// TestingInitialize initializes the state and returns it. If state was not
-// already initialized, and cfg is nil, the minimal default environment
-// configuration will be used.
-func TestingInitialize(c *gc.C, cfg *config.Config, policy Policy) *State {
-	if cfg == nil {
-		cfg = testing.EnvironConfig(c)
-	}
-	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts(), policy)
-	c.Assert(err, gc.IsNil)
-	return st
 }
 
 type (
@@ -73,9 +69,12 @@ func (doc *MachineDoc) String() string {
 }
 
 func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (int, error) {
+	settingsRefsCollection, closer := st.getCollection(settingsrefsC)
+	defer closer()
+
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	if err := st.settingsrefs.FindId(key).One(&doc); err == nil {
+	if err := settingsRefsCollection.FindId(key).One(&doc); err == nil {
 		return doc.RefCount, nil
 	}
 	return 0, mgo.ErrNotFound
@@ -135,7 +134,7 @@ func SetMachineInstanceId(m *Machine, instanceId string) {
 func ClearInstanceDocId(c *gc.C, m *Machine) {
 	ops := []txn.Op{
 		{
-			C:      m.st.instanceData.Name,
+			C:      instanceDataC,
 			Id:     m.doc.Id,
 			Assert: txn.DocExists,
 			Update: bson.D{{"$set", bson.D{{"instanceid", ""}}}},
@@ -195,14 +194,16 @@ func TxnRevno(st *State, coll string, id interface{}) (int64, error) {
 // MinUnitsRevno returns the Revno of the minUnits document
 // associated with the given service name.
 func MinUnitsRevno(st *State, serviceName string) (int, error) {
+	minUnitsCollection, closer := st.getCollection(minUnitsC)
+	defer closer()
 	var doc minUnitsDoc
-	if err := st.minUnits.FindId(serviceName).One(&doc); err != nil {
+	if err := minUnitsCollection.FindId(serviceName).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil
 }
 
-func ParseTag(st *State, tag string) (string, string, error) {
+func ParseTag(st *State, tag names.Tag) (string, string, error) {
 	return st.parseTag(tag)
 }
 
@@ -219,14 +220,29 @@ func CheckUserExists(st *State, name string) (bool, error) {
 
 var StateServerAvailable = &stateServerAvailable
 
-func ActionPrefix(u *Unit) string {
-	return actionPrefix(u.Name())
+func EnsureActionMarker(prefix string) string {
+	return ensureActionMarker(prefix)
 }
 
+var EnsureActionResultMarker = ensureSuffixFn(actionResultMarker)
+
 func GetActionResultId(actionId string) (string, bool) {
-	actionResultId := actionIdToActionResultId(actionId)
-	if "" == actionResultId {
-		return "", false
-	}
-	return actionResultId, true
+	return convertActionIdToActionResultId(actionId)
 }
+
+func WatcherMergeIds(changes, initial set.Strings, updates map[interface{}]bool) error {
+	return mergeIds(changes, initial, updates)
+}
+
+func WatcherEnsureSuffixFn(marker string) func(string) string {
+	return ensureSuffixFn(marker)
+}
+
+func WatcherMakeIdFilter(marker string, receivers ...ActionReceiver) func(interface{}) bool {
+	return makeIdFilter(marker, receivers...)
+}
+
+var (
+	GetOrCreatePorts = getOrCreatePorts
+	GetPorts         = getPorts
+)

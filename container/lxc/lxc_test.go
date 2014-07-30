@@ -15,6 +15,7 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
+	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
 	"launchpad.net/goyaml"
@@ -211,7 +212,7 @@ func (s *LxcSuite) TestCreateContainer(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(linkInfo.Mode()&os.ModeSymlink, gc.Equals, os.ModeSymlink)
 
-	location, err := os.Readlink(expectedLinkLocation)
+	location, err := symlink.Read(expectedLinkLocation)
 	c.Assert(err, gc.IsNil)
 	c.Assert(location, gc.Equals, expectedTarget)
 }
