@@ -66,9 +66,10 @@ retrieve_packages() {
 
 start_series_arch_tests() {
     [[ $START_OTHER_TESTS == "false" ]] && return 0
+    query="token=$TOKEN&VERSION=$VERSION"
     for job in $TRUSTY_AMD64 $TRUSTY_PPC64 $TRUSTY_I386; do
         curl -o /dev/null \
-            "$LOCAL_JENKINS_URL/job/$job/build?token=$TOKEN&VERSION=$VERSION"
+            "$LOCAL_JENKINS_URL/job/$job/buildWithParameters?$query"
     done
 }
 
