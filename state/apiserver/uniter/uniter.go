@@ -47,13 +47,16 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		return authorizer.AuthOwner, nil
 	}
 	accessService := func() (common.AuthFunc, error) {
-		unit, ok := authorizer.GetAuthEntity().(*state.Unit)
-		if !ok {
-			panic("authenticated entity is not a unit")
+		switch entity := authorizer.GetAuthEntity().(type) {
+		case *state.Unit:
+			serviceName := entity.ServiceName()
+			serviceTag := names.NewServiceTag(serviceName).String()
+			return func(tag string) bool {
+				return tag == serviceTag
+			}, nil
+		default:
+			return nil, errors.Errorf("expected *state.Unit, got %T", entity)
 		}
-		return func(tag string) bool {
-			return tag == names.NewServiceTag(unit.ServiceName()).String()
-		}, nil
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	// Uniter can always watch for environ changes.
