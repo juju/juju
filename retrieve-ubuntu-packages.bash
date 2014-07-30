@@ -1,6 +1,6 @@
 #!/bin/bash
 # Download Ubuntu juju packages that match the version under test.
-set -eux
+set -eu
 
 : ${LOCAL_JENKINS_URL=http://juju-ci.vapour.ws:8080}
 ARTIFACTS_PATH=$WORKSPACE/artifacts
@@ -16,6 +16,8 @@ TOKEN="chiyo-sakaki-osaka-yomi-tomo"
 TRUSTY_AMD64="certify-trusty-amd64"
 TRUSTY_PPC64="certify-trusty-ppc64"
 TRUSTY_I386="certify-trusty-i386"
+
+set -x
 
 setup_workspace() {
     rm $WORKSPACE/* -rf
@@ -49,7 +51,7 @@ retrieve_packages() {
     cd $ARTIFACTS_PATH
     for archive in $ALL_ARCHIVES; do
         safe_archive=$(echo "$archive" | sed -e 's,//.*@,//,')
-        echo "checking $safe_archive for $RELEASE."
+        echo "checking $safe_archive for $VERSION."
         lftp -c mirror -I "juju-core_${VERSION}*.deb" $archive;
     done
     if [ -d $ARTIFACTS_PATH/juju-core ]; then
@@ -71,20 +73,18 @@ start_series_arch_tests() {
 
 
 START_OTHER_TESTS="false"
-while [[ "${1-}" != "" ]]; do
-    if [[ $1 =~ ^-.* ]]; then
-        case $1 in
-            --start-other-tests)
-                START_OTHER_TESTS="true"
-                ;;
-        esac
-        shift
-    fi
+while [[ "${1-}" != "" && $1 =~ ^-.*  ]]; do
+    case $1 in
+        --start-other-tests)
+            START_OTHER_TESTS="true"
+            ;;
+    esac
+    shift
 done
 
 test $# -eq 1 || usage
 VERSION=$1
 
 check_deps
-retrieve_released_tools
+retrieve_packages
 start_series_arch_tests
