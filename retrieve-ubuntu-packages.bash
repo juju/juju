@@ -19,13 +19,6 @@ TRUSTY_I386="certify-trusty-i386"
 
 set -x
 
-setup_workspace() {
-    rm $WORKSPACE/* -rf
-    mkdir -p $ARTIFACTS_PATH
-    touch $ARTIFACTS_PATH/empty
-}
-
-
 usage() {
     echo "usage: $0 VERSION"
     echo "  VERSION: The juju package version to retrive."
@@ -44,6 +37,13 @@ check_deps() {
 }
 
 
+setup_workspace() {
+    rm $WORKSPACE/* -rf
+    mkdir -p $ARTIFACTS_PATH
+    touch $ARTIFACTS_PATH/empty
+}
+
+
 retrieve_packages() {
     # Retrieve the $RELEASE packages that contain jujud,
     # or copy a locally built package.
@@ -52,7 +52,7 @@ retrieve_packages() {
     for archive in $ALL_ARCHIVES; do
         safe_archive=$(echo "$archive" | sed -e 's,//.*@,//,')
         echo "checking $safe_archive for $VERSION."
-        lftp -c mirror -I "juju-core_${VERSION}*.deb" $archive;
+        lftp -c mirror -I "juju*${VERSION}*.deb" $archive;
     done
     if [ -d $ARTIFACTS_PATH/juju-core ]; then
         found=$(find $ARTIFACTS_PATH/juju-core/ -name "*deb")
@@ -86,5 +86,6 @@ test $# -eq 1 || usage
 VERSION=$1
 
 check_deps
+setup_workspace
 retrieve_packages
 start_series_arch_tests
