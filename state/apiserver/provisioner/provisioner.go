@@ -163,17 +163,16 @@ func (p *ProvisionerAPI) WatchAllContainers(args params.WatchContainers) (params
 }
 
 // SetSupportedContainers updates the list of containers supported by the machines passed in args.
-func (p *ProvisionerAPI) SetSupportedContainers(
-	args params.MachineContainersParams) (params.ErrorResults, error) {
-
+func (p *ProvisionerAPI) SetSupportedContainers(args params.MachineContainersParams) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Params)),
 	}
+
+	canAccess, err := p.getAuthFunc()
+	if err != nil {
+		return result, err
+	}
 	for i, arg := range args.Params {
-		canAccess, err := p.getAuthFunc()
-		if err != nil {
-			return result, err
-		}
 		tag, err := names.ParseMachineTag(arg.MachineTag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
@@ -248,7 +247,7 @@ func (p *ProvisionerAPI) Status(args params.Entities) (params.StatusResults, err
 	for i, entity := range args.Entities {
 		tag, err := names.ParseMachineTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		machine, err := p.getMachine(canAccess, tag)
