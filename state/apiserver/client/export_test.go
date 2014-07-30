@@ -3,6 +3,10 @@
 
 package client
 
-var ParseSettingsCompatible = parseSettingsCompatible
-var RemoteParamsForMachine = remoteParamsForMachine
-var GetAllUnitNames = getAllUnitNames
+var (
+	ParseSettingsCompatible = parseSettingsCompatible
+	RemoteParamsForMachine  = remoteParamsForMachine
+	GetAllUnitNames         = getAllUnitNames
+
+	NewBackupAPI = newBackupAPI
+)
