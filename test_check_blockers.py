@@ -79,18 +79,18 @@ class CheckBlockers(TestCase):
             bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
             code, reason = check_blockers.get_reason(bugs, args)
             self.assertEqual(1, code)
-            self.assertEqual("Does not match ['$$fixes-98765$$']", reason)
+            self.assertEqual("Does not match ['__fixes-98765__']", reason)
 
     def test_get_reason_with_blockers_with_match(self):
         args = check_blockers.parse_args(['master', '17'])
         with patch('check_blockers.get_json') as gj:
             gj.return_value = [
                 {'body': '$$merge$$', 'user': OTHER_USER},
-                {'body': 'la la $$fixes-98765$$ ha ha', 'user': OTHER_USER}]
+                {'body': 'la la __fixes-98765__ ha ha', 'user': OTHER_USER}]
             bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
             code, reason = check_blockers.get_reason(bugs, args)
             self.assertEqual(0, code)
-            self.assertEqual("Matches $$fixes-98765$$", reason)
+            self.assertEqual("Matches __fixes-98765__", reason)
 
     def test_get_reason_with_blockers_with_jujubot_comment(self):
         args = check_blockers.parse_args(['master', '17'])
@@ -101,7 +101,7 @@ class CheckBlockers(TestCase):
             bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
             code, reason = check_blockers.get_reason(bugs, args)
             self.assertEqual(1, code)
-            self.assertEqual("Does not match ['$$fixes-98765$$']", reason)
+            self.assertEqual("Does not match ['__fixes-98765__']", reason)
 
     def test_get_reason_with_blockers_with_reply_jujubot_comment(self):
         args = check_blockers.parse_args(['master', '17'])
@@ -112,4 +112,15 @@ class CheckBlockers(TestCase):
             bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
             code, reason = check_blockers.get_reason(bugs, args)
             self.assertEqual(1, code)
-            self.assertEqual("Does not match ['$$fixes-98765$$']", reason)
+            self.assertEqual("Does not match ['__fixes-98765__']", reason)
+
+    def test_get_reason_with_blockers_with_jfdi(self):
+        args = check_blockers.parse_args(['master', '17'])
+        with patch('check_blockers.get_json') as gj:
+            gj.return_value = [
+                {'body': '$$merge$$', 'user': OTHER_USER},
+                {'body': 'la la __JFDI__ ha ha', 'user': OTHER_USER}]
+            bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
+            code, reason = check_blockers.get_reason(bugs, args)
+            self.assertEqual(0, code)
+            self.assertEqual("Engineer says JFDI", reason)
