@@ -33,8 +33,9 @@ if [[ -n ${revision_build:-} ]]; then
     echo "Testing $BRANCH $rev on $ENV"
 elif [[ -n ${VERSION:-} ]]; then
     PACKAGES_JOB="certify-ubuntu-packages"
-    JUJU_LOCAL_DEB="juju-local_$VERSION.$RELEASE.1_all.deb"
-    JUJU_CORE_DEB="juju-core_$VERSION.$RELEASE.1_$ARCH.deb"
+    ENCODED_VERSION=$($echo "$VERSION" | sed 's,[+],%2B,')
+    JUJU_LOCAL_DEB="juju-local_$ENCODED_VERSION.$RELEASE.1_all.deb"
+    JUJU_CORE_DEB="juju-core_$ENCODED_VERSION.$RELEASE.1_$ARCH.deb"
     echo "Testing $VERSION on $ENV"
 else
     echo "Job didn't define revision_build or VERSION"
