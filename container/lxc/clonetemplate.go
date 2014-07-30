@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/juju/utils"
-	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/tailer"
 	"launchpad.net/golxc"
@@ -74,11 +73,11 @@ func templateUserData(
 	return data, nil
 }
 
-func AcquireTemplateLock(name, message string) (*fslock.Lock, error) {
-	logger.Infof("wait for fslock on %v", name)
-	lock, err := fslock.NewLock(TemplateLockDir, name)
+func AcquireTemplateLock(name, message string) (*container.Lock, error) {
+	logger.Infof("wait for flock on %v", name)
+	lock, err := container.NewLock(TemplateLockDir, name)
 	if err != nil {
-		logger.Tracef("failed to create fslock for template: %v", err)
+		logger.Tracef("failed to create flock for template: %v", err)
 		return nil, err
 	}
 	err = lock.Lock(message)
