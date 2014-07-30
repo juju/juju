@@ -74,8 +74,7 @@ def main():
     args = parse_args()
     bugs = get_lp_bugs(args)
     code, reason = get_reason(bugs, args)
-    if reason:
-        print(reason)
+    print(reason)
     return code
 
 
