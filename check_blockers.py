@@ -58,7 +58,7 @@ def get_reason(bugs, args):
     if comments:
         for comment in comments:
             user = comment['user']
-            if user['login'] == 'jujubot' or user['id'] == 7779494:
+            if user['login'] == 'jujubot' or 'Juju bot' in comment['body']:
                 continue
             for fid in fixes_ids:
                 if fid in comment['body']:

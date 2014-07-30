@@ -102,3 +102,14 @@ class CheckBlockers(TestCase):
             code, reason = check_blockers.get_reason(bugs, args)
             self.assertEqual(1, code)
             self.assertEqual("Does not match ['$$fixes-98765$$']", reason)
+
+    def test_get_reason_with_blockers_with_reply_jujubot_comment(self):
+        args = check_blockers.parse_args(['master', '17'])
+        with patch('check_blockers.get_json') as gj:
+            gj.return_value = [
+                {'body': '$$merge$$', 'user': OTHER_USER},
+                {'body': 'Juju bot wrote $$fixes-98765$$', 'user': OTHER_USER}]
+            bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
+            code, reason = check_blockers.get_reason(bugs, args)
+            self.assertEqual(1, code)
+            self.assertEqual("Does not match ['$$fixes-98765$$']", reason)
