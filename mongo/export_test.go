@@ -13,7 +13,9 @@ var (
 	SSLKeyPath       = sslKeyPath
 
 	UpstartConfInstall          = &upstartConfInstall
+	UpstartConfExists           = &upstartConfExists
 	UpstartService              = upstartService
+	UpstartServiceRunning       = &upstartServiceRunning
 	UpstartServiceStopAndRemove = &upstartServiceStopAndRemove
 	UpstartServiceStop          = &upstartServiceStop
 	UpstartServiceStart         = &upstartServiceStart

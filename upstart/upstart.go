@@ -5,7 +5,6 @@ package upstart
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 )
 
@@ -177,18 +177,48 @@ func (c *Conf) render() ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Exists returns whether the service configuration exists in the
+// init directory with the same content that this Service would have
+// if installed.
+func (c *Conf) Exists() bool {
+	// In any error case, we just say it doesn't exist with this configuration.
+	// Subsequent calls into the Service will give the caller more useful errors.
+	_, same, _, err := c.existsAndSame()
+	if err != nil {
+		return false
+	}
+	return same
+}
+
+func (c *Conf) existsAndSame() (exists, same bool, conf []byte, err error) {
+	expected, err := c.render()
+	if err != nil {
+		return false, false, nil, errors.Trace(err)
+	}
+	current, err := ioutil.ReadFile(c.confPath())
+	if err != nil {
+		if os.IsNotExist(err) {
+			// no existing config
+			return false, false, expected, nil
+		}
+		return false, false, nil, errors.Trace(err)
+	}
+	return true, bytes.Equal(current, expected), expected, nil
+}
+
 // Install installs and starts the service.
 func (c *Conf) Install() error {
-	conf, err := c.render()
+	exists, same, conf, err := c.existsAndSame()
 	if err != nil {
-		return err
+		return errors.Trace(err)
 	}
 
-	exists, err := c.removeOld(conf)
-	if err != nil {
-		return err
+	if exists && !same {
+		if err := c.StopAndRemove(); err != nil {
+			return fmt.Errorf("upstart: could not remove installed service: %s", err)
+		}
 	}
-	if !exists {
+	if !same {
 		if err := ioutil.WriteFile(c.confPath(), conf, 0644); err != nil {
 			return err
 		}
@@ -202,26 +232,6 @@ func (c *Conf) Install() error {
 		}
 	}
 	return err
-}
-
-func (c *Conf) removeOld(expected []byte) (exists bool, err error) {
-	current, err := ioutil.ReadFile(c.confPath())
-	if os.IsNotExist(err) {
-		// no existing config
-		return false, nil
-	}
-	if err != nil {
-		return false, fmt.Errorf("upstart: could not read existing service config: %v", err)
-	}
-
-	// if we have a current config on disk, check to see if it's different
-	if bytes.Equal(current, expected) {
-		return true, nil
-	}
-	if err := c.StopAndRemove(); err != nil {
-		return false, fmt.Errorf("upstart: could not remove installed service: %s", err)
-	}
-	return false, nil
 }
 
 // InstallCommands returns shell commands to install and start the service.
