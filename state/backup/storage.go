@@ -3,6 +3,8 @@
 
 package backup
 
+// This is a separate package due to import cycles with state.
+
 import (
 	"fmt"
 	"io"

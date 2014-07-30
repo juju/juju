@@ -6,29 +6,19 @@ package client
 import (
 	"fmt"
 
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/backup/api"
 )
 
-var (
-	newBackupAPI = api.NewBackupServerAPI
-)
-
-func (c *Client) Backup(args api.Backup) (p api.BackupResult, err error) {
-	api, err := newBackupAPI(c.api.state)
+func (c *Client) Backup(args api.BackupArgs) (p api.BackupResult, err error) {
+	backupAPI, err := api.NewBackupServerAPI(c.api.state)
 	if err != nil {
 		return p, err
 	}
-
-	switch args.Action {
-	case "create":
-		info, URL, err := api.Create(args.Name)
-		if err != nil {
-			return p, err
-		}
-		p.Info = *info
-		p.URL = URL
-	default:
-		return p, fmt.Errorf("unsupported backup action: %q", args.Action)
+	result, err := api.HandleRequest(backupAPI, &args)
+	if err != nil {
+		return p, err
 	}
-	return
+	p = *result
+	return p, nil
 }

@@ -8,18 +8,18 @@ import (
 )
 
 // Backup holds the args to backup-related API calls.
-type Backup struct {
+//
+// Action must always be set.  Otherwise which fields must be set
+// depends on the action.
+type BackupArgs struct {
 	Action string
 	Name   string
 }
 
 // BackupResult holds the result of backup-related API calls.
+//
+// Not all fields will be set for any given result.
 type BackupResult struct {
 	Info backup.BackupInfo
 	URL  string
-}
-
-// BackupListResult holds the result of a BackupList API call.
-type BackupListResult struct {
-	Backups map[string]backup.BackupInfo
 }

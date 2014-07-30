@@ -7,6 +7,4 @@ var (
 	ParseSettingsCompatible = parseSettingsCompatible
 	RemoteParamsForMachine  = remoteParamsForMachine
 	GetAllUnitNames         = getAllUnitNames
-
-	NewBackupAPI = newBackupAPI
 )

@@ -16,28 +16,28 @@ var (
 	getStorage   = backup.NewBackupStorage
 )
 
-type BackupServerAPI interface {
-	Create(name string) (*backup.BackupInfo, string, error)
-}
-
-type backupAPI struct {
+type backupServerAPI struct {
 	st      *state.State
 	storage backup.BackupStorage
 }
 
-func NewBackupServerAPI(st *state.State) (*backupAPI, error) {
+func NewBackupServerAPI(st *state.State) (BackupAPI, error) {
+	return newBackupServerAPI(st)
+}
+
+var newBackupServerAPI = func(st *state.State) (BackupAPI, error) {
 	storage, err := getStorage(st, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error opening backup storage: %v", err)
 	}
-	api := backupAPI{
+	api := backupServerAPI{
 		st:      st,
 		storage: storage,
 	}
 	return &api, nil
 }
 
-func (ba *backupAPI) Create(name string) (*backup.BackupInfo, string, error) {
+func (ba *backupServerAPI) Create(name string) (*backup.BackupInfo, string, error) {
 	dbinfo := getDBInfo(ba.st)
 	info, err := createBackup(dbinfo, ba.storage, name, nil)
 	if err != nil {
