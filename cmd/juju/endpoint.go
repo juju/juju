@@ -19,8 +19,7 @@ type EndpointCommand struct {
 }
 
 const endpointDoc = `
-Returns a list of the API servers formatted as host:port
-Default output format returns an api server per line.
+Returns the address of the current API server formatted as host:port.
 
 Examples:
   $ juju api-endpoints
@@ -32,14 +31,14 @@ func (c *EndpointCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "api-endpoints",
 		Args:    "",
-		Purpose: "Print the API server addresses",
+		Purpose: "Print the API server address",
 		Doc:     endpointDoc,
 	}
 }
 
 func (c *EndpointCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
-	f.BoolVar(&c.refresh, "refresh", false, "connect to the API to ensure up-to-date endpoint locations")
+	f.BoolVar(&c.refresh, "refresh", false, "connect to the API to ensure an up-to-date endpoint location")
 }
 
 // Print out the addresses of the API server endpoints.
@@ -48,5 +47,8 @@ func (c *EndpointCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.out.Write(ctx, apiendpoint.Addresses)
+	// We rely on the fact that the returned API endoint always
+	// has the last address we connected to as the first address.
+	address := apiendpoint.Addresses[0:1]
+	return c.out.Write(ctx, address)
 }

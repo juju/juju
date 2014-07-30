@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/juju/cmd"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -22,9 +21,8 @@ type EndpointSuite struct {
 var _ = gc.Suite(&EndpointSuite{})
 
 func (s *EndpointSuite) TestEndpoint(c *gc.C) {
-	ctx := coretesting.Context(c)
-	code := cmd.Main(envcmd.Wrap(&EndpointCommand{}), ctx, []string{})
-	c.Check(code, gc.Equals, 0)
+	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&EndpointCommand{}))
+	c.Assert(err, gc.IsNil)
 	c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 	output := string(ctx.Stdout.(*bytes.Buffer).Bytes())
 	info := s.APIInfo(c)
