@@ -3,7 +3,7 @@ set -eu
 export PATH="$SCRIPTS:$PATH"
 
 # For most jobs, this is localhost, so provide it.
-: ${LOCAL_JENKINS_URL=http://localhost:8080}
+: ${LOCAL_JENKINS_URL=http://juju-ci.vapour.ws:8080}
 export JUJU_HOME=$HOME/cloud-city
 if [ "$ENV" = "manual" ]; then
   source $HOME/cloud-city/ec2rc
@@ -21,18 +21,27 @@ touch $artifacts_path/empty
 
 # Determine BRANCH, REVNO, and VERSION
 afact='lastSuccessfulBuild/artifact'
-wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
-source buildvars.bash
-rev=${REVNO-$(echo $REVISION_ID | head -c8)}
-echo "Testing $BRANCH $rev on $ENV"
+if [[ -n ${revision_build:-} ]]; then
+    PACKAGES_JOB="publish-revision"
+    wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
+    source buildvars.bash
+    rev=${REVNO-$(echo $REVISION_ID | head -c8)}
+    echo "Testing $BRANCH $rev on $ENV"
+elif [[ -n ${version:-} ]]; then
+    PACKAGES_JOB="certify-ubuntu-packages"
+    echo "Testing $VERSION on $ENV"
+else
+    echo "Job didn't define revision_build or VERSION"
+    exit 1
+fi
 
 # Provide the juju-core and juju-local packages to the test
 RELEASE=$(lsb_release -sr)
 ARCH=$(dpkg --print-architecture)
 juju_local_deb="juju-local_$VERSION-0ubuntu1~$RELEASE.1~juju1_all.deb"
 juju_core_deb="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
-wget -q $LOCAL_JENKINS_URL/job/publish-revision/$afact/$juju_local_deb
-wget -q $LOCAL_JENKINS_URL/job/publish-revision/$afact/$juju_core_deb
+wget -q $LOCAL_JENKINS_URL/job/$PACKAGES_JOB/$afact/$juju_local_deb
+wget -q $LOCAL_JENKINS_URL/job/$PACKAGES_JOB/$afact/$juju_core_deb
 dpkg-deb -x $WORKSPACE/$juju_core_deb extracted-bin
 export NEW_JUJU_BIN=$(readlink -f $(dirname $(find extracted-bin -name juju)))
 
