@@ -23,7 +23,7 @@ touch $artifacts_path/empty
 afact='lastSuccessfulBuild/artifact'
 RELEASE=$(lsb_release -sr)
 ARCH=$(dpkg --print-architecture)
-#if [[ -n ${revision_build:-} ]]; then
+if [[ -n ${revision_build:-} ]]; then
     wget -q $LOCAL_JENKINS_URL/job/build-revision/$afact/buildvars.bash
     source buildvars.bash
     PACKAGES_JOB="publish-revision"
@@ -31,15 +31,15 @@ ARCH=$(dpkg --print-architecture)
     JUJU_CORE_DEB="juju-core_$VERSION-0ubuntu1~$RELEASE.1~juju1_$ARCH.deb"
     rev=${REVNO-$(echo $REVISION_ID | head -c8)}
     echo "Testing $BRANCH $rev on $ENV"
-#elif [[ -n ${version:-} ]]; then
-#    PACKAGES_JOB="certify-ubuntu-packages"
-#    JUJU_LOCAL_DEB="juju-local_$VERSION.$RELEASE.1_all.deb"
-#    JUJU_CORE_DEB="juju-core_$VERSION.$RELEASE.1_$ARCH.deb"
-#    echo "Testing $VERSION on $ENV"
-#else
-#    echo "Job didn't define revision_build or VERSION"
-#    exit 1
-#fi
+elif [[ -n ${VERSION:-} ]]; then
+    PACKAGES_JOB="certify-ubuntu-packages"
+    JUJU_LOCAL_DEB="juju-local_$VERSION.$RELEASE.1_all.deb"
+    JUJU_CORE_DEB="juju-core_$VERSION.$RELEASE.1_$ARCH.deb"
+    echo "Testing $VERSION on $ENV"
+else
+    echo "Job didn't define revision_build or VERSION"
+    exit 1
+fi
 
 # Provide the juju-core and juju-local packages to the test
 wget -q $LOCAL_JENKINS_URL/job/$PACKAGES_JOB/$afact/$JUJU_LOCAL_DEB
