@@ -290,6 +290,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
 		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
+		curlCommand += " --retry 10"
 		if cfg.DisableSSLHostnameVerification {
 			curlCommand += " --insecure"
 		}
