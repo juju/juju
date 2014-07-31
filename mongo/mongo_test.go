@@ -70,7 +70,17 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&mongo.JujuMongodPath, s.mongodPath)
 
 	// Patch "df" such that it always reports there's 1MB free.
-	s.PatchValue(mongo.AvailSpace, func(dir string) (float64, error) { return 1, nil })
+	s.PatchValue(mongo.AvailSpace, func(dir string) (float64, error) {
+		info, err := os.Stat(dir)
+		if err != nil {
+			return 0, err
+		}
+		if info.IsDir() {
+			return 1, nil
+
+		}
+		return 0, fmt.Errorf("not a directory")
+	})
 	s.PatchValue(mongo.MinOplogSizeMB, 1)
 
 	testPath := c.MkDir()
