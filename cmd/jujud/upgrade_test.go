@@ -505,11 +505,11 @@ func (s *UpgradeSuite) checkLoginToAPIAsUser(c *gc.C, expectFullApi exposedAPI) 
 
 	// this call should always work
 	var result api.Status
-	err = apiState.Call("Client", "", "FullStatus", nil, &result)
+	err = apiState.APICall("Client", 0, "", "FullStatus", nil, &result)
 	c.Assert(err, gc.IsNil)
 
 	// this call should only work if API is not restricted
-	err = apiState.Call("Client", "", "DestroyEnvironment", nil, nil)
+	err = apiState.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
 	if expectFullApi {
 		c.Assert(err, gc.IsNil)
 	} else {
