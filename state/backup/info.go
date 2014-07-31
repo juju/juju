@@ -20,7 +20,7 @@ const (
 )
 
 type BackupInfo struct {
-	Name      string
+	Name      string `bson:"_id"`
 	Timestamp time.Time
 	CheckSum  string // SHA-1
 	Size      int64

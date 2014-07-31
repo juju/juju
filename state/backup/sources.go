@@ -9,8 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"github.com/juju/juju/state"
 )
 
 //---------------------------
@@ -57,20 +55,6 @@ type DBConnInfo struct {
 	Hostname string
 	Username string
 	Password string
-}
-
-func NewDBInfo(st *state.State) *DBConnInfo {
-	mgoInfo := st.MongoConnectionInfo()
-
-	dbinfo := DBConnInfo{
-		Hostname: mgoInfo.Addrs[0],
-		Password: mgoInfo.Password,
-	}
-	// TODO(dfc) Backup should take a Tag
-	if mgoInfo.Tag != nil {
-		dbinfo.Username = mgoInfo.Tag.String()
-	}
-	return &dbinfo
 }
 
 var runCommand = _runCommand

@@ -6,40 +6,36 @@ package api
 import (
 	"fmt"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backup"
 )
 
 var (
 	createBackup = backup.CreateBackup
-	getDBInfo    = backup.NewDBInfo
-	getStorage   = backup.NewBackupStorage
 )
 
 type backupServerAPI struct {
-	st      *state.State
+	dbinfo  *backup.DBConnInfo
 	storage backup.BackupStorage
 }
 
-func NewBackupServerAPI(st *state.State) (BackupAPI, error) {
-	return newBackupServerAPI(st)
+func NewBackupServerAPI(
+	dbinfo *backup.DBConnInfo, stor backup.BackupStorage,
+) BackupAPI {
+	return newBackupServerAPI(dbinfo, stor)
 }
 
-var newBackupServerAPI = func(st *state.State) (BackupAPI, error) {
-	storage, err := getStorage(st, nil)
-	if err != nil {
-		return nil, fmt.Errorf("error opening backup storage: %v", err)
-	}
+var newBackupServerAPI = func(
+	dbinfo *backup.DBConnInfo, stor backup.BackupStorage,
+) BackupAPI {
 	api := backupServerAPI{
-		st:      st,
-		storage: storage,
+		dbinfo:  dbinfo,
+		storage: stor,
 	}
-	return &api, nil
+	return &api
 }
 
 func (ba *backupServerAPI) Create(name string) (*backup.BackupInfo, string, error) {
-	dbinfo := getDBInfo(ba.st)
-	info, err := createBackup(dbinfo, ba.storage, name, nil)
+	info, err := createBackup(ba.dbinfo, ba.storage, name, nil)
 	if err != nil {
 		return nil, "", fmt.Errorf("error creating backup: %v", err)
 	}

@@ -5,6 +5,4 @@ package api
 
 var (
 	CreateBackup = &createBackup
-	GetDBInfo    = &getDBInfo
-	GetStorage   = &getStorage
 )

@@ -10,7 +10,6 @@ import (
 	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backup"
 	"github.com/juju/juju/version"
 )
@@ -105,8 +104,8 @@ func (s *BackupSuite) SetFakeBackupClient() {
 
 func (s *BackupSuite) setFaker(i *backup.BackupInfo, u string, f, e error) {
 	s.Faker = BackupFaker{i, u, f, e}
-	newAPI := func(st *state.State) (BackupAPI, error) {
-		return &s.Faker, s.Faker.Error
+	newAPI := func(dbinfo *backup.DBConnInfo, stor backup.BackupStorage) BackupAPI {
+		return &s.Faker
 	}
 	s.PatchValue(newBackupServerAPI, newAPI)
 }

@@ -3,7 +3,6 @@
 
 package api
 
-/*
 import (
 	"github.com/juju/juju/state/backup"
 	"github.com/juju/juju/state/backup/api"
@@ -19,8 +18,7 @@ func (c *Client) Backup(args api.BackupArgs) (api.BackupResult, error) {
 	return result, err
 }
 
-func (c *Client) BackupCreate(name string) (*backup.Info, string, error) {
+func (c *Client) BackupCreate(name string) (*backup.BackupInfo, string, error) {
 	backupAPI := newBackupAPI(c)
 	return backupAPI.Create(name)
 }
-*/

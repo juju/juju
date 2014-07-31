@@ -11,15 +11,15 @@ type backupClientAPI struct {
 	client apiClient
 }
 
-func NewBackupClientAPI(client apiClient) (BackupAPI, error) {
+func NewBackupClientAPI(client apiClient) BackupAPI {
 	return newBackupClientAPI(client)
 }
 
-func newBackupClientAPI(client apiClient) (BackupAPI, error) {
+func newBackupClientAPI(client apiClient) BackupAPI {
 	api := backupClientAPI{
 		client: client,
 	}
-	return &api, nil
+	return &api
 }
 
 func (ba *backupClientAPI) Create(name string) (*backup.BackupInfo, string, error) {
