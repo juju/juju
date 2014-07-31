@@ -88,6 +88,21 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 	_, err = s.State.AddService("no-units", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 
+	wordpress, err := s.State.AddService("wordpress", "user-admin", s.AddTestingCharm(c, "wordpress"), nil)
+	c.Assert(err, gc.IsNil)
+	wordpress0 := s.addUnit(c, wordpress)
+	_, err = s.State.AddService("logging", "user-admin", s.AddTestingCharm(c, "logging"), nil)
+	c.Assert(err, gc.IsNil)
+
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	ru, err := rel.Unit(wordpress0)
+	c.Assert(err, gc.IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+
 	for i, test := range []struct {
 		message  string
 		expected []string
@@ -119,6 +134,10 @@ func (s *runSuite) TestGetAllUnitNames(c *gc.C) {
 		message:  "Asking for just a unit",
 		units:    []string{"magic/0"},
 		expected: []string{"magic/0"},
+	}, {
+		message:  "Asking for just a subordinate unit",
+		units:    []string{"logging/0"},
+		expected: []string{"logging/0"},
 	}, {
 		message:  "Asking for a unit, and the service",
 		services: []string{"magic"},
