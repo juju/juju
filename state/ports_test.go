@@ -6,6 +6,7 @@ package state_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
 )
 
@@ -43,10 +44,12 @@ func (s *PortsDocSuite) TestCreatePorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.NotNil)
 	err = ports.OpenPorts(state.PortRange{
-		FromPort: 100,
-		ToPort:   200,
-		UnitName: s.unit.Name(),
-		Protocol: "TCP",
+		s.unit.Name(),
+		network.PortRange{
+			FromPort: 100,
+			ToPort:   200,
+			Protocol: "TCP",
+		},
 	})
 	c.Assert(err, gc.IsNil)
 
@@ -59,10 +62,12 @@ func (s *PortsDocSuite) TestCreatePorts(c *gc.C) {
 
 func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 	portRange := state.PortRange{
-		FromPort: 100,
-		ToPort:   200,
-		UnitName: s.unit.Name(),
-		Protocol: "TCP",
+		s.unit.Name(),
+		network.PortRange{
+			FromPort: 100,
+			ToPort:   200,
+			Protocol: "TCP",
+		},
 	}
 	err := s.ports.OpenPorts(portRange)
 	c.Assert(err, gc.IsNil)
@@ -81,10 +86,12 @@ func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
 
 func (s *PortsDocSuite) TestOpenInvalidRange(c *gc.C) {
 	portRange := state.PortRange{
-		FromPort: 400,
-		ToPort:   200,
-		UnitName: s.unit.Name(),
-		Protocol: "TCP",
+		s.unit.Name(),
+		network.PortRange{
+			FromPort: 400,
+			ToPort:   200,
+			Protocol: "TCP",
+		},
 	}
 	err := s.ports.OpenPorts(portRange)
 	c.Assert(err, gc.ErrorMatches, "port range .* is invalid")
@@ -92,29 +99,35 @@ func (s *PortsDocSuite) TestOpenInvalidRange(c *gc.C) {
 
 func (s *PortsDocSuite) TestCloseInvalidRange(c *gc.C) {
 	portRange := state.PortRange{
-		FromPort: 100,
-		ToPort:   200,
-		UnitName: s.unit.Name(),
-		Protocol: "TCP",
+		s.unit.Name(),
+		network.PortRange{
+			FromPort: 100,
+			ToPort:   200,
+			Protocol: "TCP",
+		},
 	}
 	err := s.ports.OpenPorts(portRange)
 	c.Assert(err, gc.IsNil)
 
 	err = s.ports.ClosePorts(state.PortRange{
-		FromPort: 150,
-		ToPort:   200,
-		UnitName: s.unit.Name(),
-		Protocol: "TCP",
+		s.unit.Name(),
+		network.PortRange{
+			FromPort: 150,
+			ToPort:   200,
+			Protocol: "TCP",
+		},
 	})
 	c.Assert(err, gc.ErrorMatches, "no match found for port range: .*")
 }
 
 func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
 	portRange := state.PortRange{
-		FromPort: 100,
-		ToPort:   200,
-		UnitName: s.unit.Name(),
-		Protocol: "TCP",
+		s.unit.Name(),
+		network.PortRange{
+			FromPort: 100,
+			ToPort:   200,
+			Protocol: "TCP",
+		},
 	}
 	err := s.ports.OpenPorts(portRange)
 	c.Assert(err, gc.IsNil)
@@ -148,43 +161,43 @@ func (p *PortRangeSuite) TestPortRangeConflicts(c *gc.C) {
 		expectConflict bool
 	}{{
 		"identical ports",
-		state.PortRange{"wordpress/0", 80, 80, "TCP"},
-		state.PortRange{"wordpress/0", 80, 80, "TCP"},
+		state.PortRange{"wordpress/0", network.PortRange{80, 80, "TCP"}},
+		state.PortRange{"wordpress/0", network.PortRange{80, 80, "TCP"}},
 		true,
 	}, {
 		"different ports",
-		state.PortRange{"wordpress/0", 80, 80, "TCP"},
-		state.PortRange{"wordpress/0", 90, 90, "TCP"},
+		state.PortRange{"wordpress/0", network.PortRange{80, 80, "TCP"}},
+		state.PortRange{"wordpress/0", network.PortRange{90, 90, "TCP"}},
 		false,
 	}, {
 		"touching ranges",
-		state.PortRange{"wordpress/0", 100, 200, "TCP"},
-		state.PortRange{"wordpress/0", 201, 240, "TCP"},
+		state.PortRange{"wordpress/0", network.PortRange{100, 200, "TCP"}},
+		state.PortRange{"wordpress/0", network.PortRange{201, 240, "TCP"}},
 		false,
 	}, {
 		"touching ranges with overlap",
-		state.PortRange{"wordpress/0", 100, 200, "TCP"},
-		state.PortRange{"wordpress/0", 200, 240, "TCP"},
+		state.PortRange{"wordpress/0", network.PortRange{100, 200, "TCP"}},
+		state.PortRange{"wordpress/0", network.PortRange{200, 240, "TCP"}},
 		true,
 	}, {
 		"different protocols",
-		state.PortRange{"wordpress/0", 80, 80, "UDP"},
-		state.PortRange{"wordpress/0", 80, 80, "TCP"},
+		state.PortRange{"wordpress/0", network.PortRange{80, 80, "UDP"}},
+		state.PortRange{"wordpress/0", network.PortRange{80, 80, "TCP"}},
 		false,
 	}, {
 		"outside range",
-		state.PortRange{"wordpress/0", 100, 200, "TCP"},
-		state.PortRange{"wordpress/0", 80, 80, "TCP"},
+		state.PortRange{"wordpress/0", network.PortRange{100, 200, "TCP"}},
+		state.PortRange{"wordpress/0", network.PortRange{80, 80, "TCP"}},
 		false,
 	}, {
 		"overlap end",
-		state.PortRange{"wordpress/0", 100, 200, "TCP"},
-		state.PortRange{"wordpress/0", 80, 120, "TCP"},
+		state.PortRange{"wordpress/0", network.PortRange{100, 200, "TCP"}},
+		state.PortRange{"wordpress/0", network.PortRange{80, 120, "TCP"}},
 		true,
 	}, {
 		"complete overlap",
-		state.PortRange{"wordpress/0", 100, 200, "TCP"},
-		state.PortRange{"wordpress/0", 120, 140, "TCP"},
+		state.PortRange{"wordpress/0", network.PortRange{100, 200, "TCP"}},
+		state.PortRange{"wordpress/0", network.PortRange{120, 140, "TCP"}},
 		true,
 	}}
 
@@ -196,10 +209,10 @@ func (p *PortRangeSuite) TestPortRangeConflicts(c *gc.C) {
 }
 
 func (p *PortRangeSuite) TestPortRangeString(c *gc.C) {
-	c.Assert(state.PortRange{"wordpress/0", 80, 80, "TCP"}.String(),
+	c.Assert(state.PortRange{"wordpress/0", network.PortRange{80, 80, "TCP"}}.String(),
 		gc.Equals,
 		"80-80/tcp")
-	c.Assert(state.PortRange{"wordpress/0", 80, 100, "TCP"}.String(),
+	c.Assert(state.PortRange{"wordpress/0", network.PortRange{80, 100, "TCP"}}.String(),
 		gc.Equals,
 		"80-100/tcp")
 }
@@ -211,27 +224,27 @@ func (p *PortRangeSuite) TestPortRangeValidity(c *gc.C) {
 		valid bool
 	}{{
 		"single valid port",
-		state.PortRange{"wordpress/0", 80, 80, "tcp"},
+		state.PortRange{"wordpress/0", network.PortRange{80, 80, "tcp"}},
 		true,
 	}, {
 		"valid port range",
-		state.PortRange{"wordpress/0", 80, 90, "tcp"},
+		state.PortRange{"wordpress/0", network.PortRange{80, 90, "tcp"}},
 		true,
 	}, {
 		"valid udp port range",
-		state.PortRange{"wordpress/0", 80, 90, "UDP"},
+		state.PortRange{"wordpress/0", network.PortRange{80, 90, "UDP"}},
 		true,
 	}, {
 		"invalid port range boundaries",
-		state.PortRange{"wordpress/0", 90, 80, "tcp"},
+		state.PortRange{"wordpress/0", network.PortRange{90, 80, "tcp"}},
 		false,
 	}, {
 		"invalid protocol",
-		state.PortRange{"wordpress/0", 80, 80, "some protocol"},
+		state.PortRange{"wordpress/0", network.PortRange{80, 80, "some protocol"}},
 		false,
 	}, {
 		"invalid unit",
-		state.PortRange{"invalid unit", 80, 80, "tcp"},
+		state.PortRange{"invalid unit", network.PortRange{80, 80, "tcp"}},
 		false,
 	}}
 

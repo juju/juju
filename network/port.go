@@ -120,3 +120,10 @@ func SortHostPorts(hps []HostPort, preferIPv6 bool) {
 	}
 	sort.Sort(h)
 }
+
+// PortRange represents a single range of ports.
+type PortRange struct {
+	FromPort int
+	ToPort   int
+	Protocol string
+}

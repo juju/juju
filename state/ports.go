@@ -37,18 +37,18 @@ const (
 // by one unit.
 type PortRange struct {
 	UnitName string
-	FromPort int
-	ToPort   int
-	Protocol string
+	network.PortRange
 }
 
 // NewPortRange create a new port range.
 func NewPortRange(unitName string, fromPort, toPort int, protocol string) (PortRange, error) {
 	p := PortRange{
 		UnitName: unitName,
-		FromPort: fromPort,
-		ToPort:   toPort,
-		Protocol: strings.ToLower(protocol),
+		PortRange: network.PortRange{
+			FromPort: fromPort,
+			ToPort:   toPort,
+			Protocol: strings.ToLower(protocol),
+		},
 	}
 	if !p.IsValid() {
 		return PortRange{}, fmt.Errorf("Port range %v for unit %v is invalid.", p, unitName)
