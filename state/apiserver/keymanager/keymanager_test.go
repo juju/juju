@@ -39,7 +39,6 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag:      names.NewUserTag("admin"),
 		LoggedIn: true,
-		Client:   true,
 	}
 	var err error
 	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, s.authoriser)
@@ -62,7 +61,7 @@ func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsEnvironManager(c *gc.C) {
 
 func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
-	anAuthoriser.Client = false
+	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
 	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -70,7 +69,7 @@ func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonClient(c *gc.C) {
 
 func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonEnvironManager(c *gc.C) {
 	anAuthoriser := s.authoriser
-	anAuthoriser.Client = false
+	anAuthoriser.Tag = names.NewMachineTag("99")
 	anAuthoriser.MachineAgent = true
 	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
@@ -139,7 +138,6 @@ func (s *keyManagerSuite) TestAddKeys(c *gc.C) {
 
 func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
 	anAuthoriser := s.authoriser
-	anAuthoriser.Client = false
 	anAuthoriser.EnvironManager = true
 	anAuthoriser.Tag = names.NewMachineTag("0")
 	var err error
@@ -167,7 +165,6 @@ func (s *keyManagerSuite) TestAddJujuSystemKey(c *gc.C) {
 
 func (s *keyManagerSuite) TestAddJujuSystemKeyNotMachine(c *gc.C) {
 	anAuthoriser := s.authoriser
-	anAuthoriser.Client = false
 	anAuthoriser.EnvironManager = true
 	anAuthoriser.Tag = names.NewUnitTag("wordpress/0")
 	var err error

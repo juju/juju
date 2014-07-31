@@ -16,7 +16,6 @@ type FakeAuthorizer struct {
 	EnvironManager bool
 	MachineAgent   bool
 	UnitAgent      bool
-	Client         bool
 	Entity         state.Entity
 }
 
@@ -33,6 +32,34 @@ func mustParseTag(tag string) names.Tag {
 	return t
 }
 
+/*
+
+// AuthMachineAgent returns whether the current client is a machine agent.
+func (r *srvRoot) AuthMachineAgent() bool {
+        _, isMachine := r.GetAuthTag().(names.MachineTag)
+        return isMachine
+}
+
+// AuthUnitAgent returns whether the current client is a unit agent.
+func (r *srvRoot) AuthUnitAgent() bool {
+        _, isUnit := r.GetAuthTag().(names.UnitTag)
+        return isUnit
+}
+
+// AuthOwner returns whether the authenticated user's tag matches the
+// given entity tag.
+func (r *srvRoot) AuthOwner(tag string) bool {
+        return r.GetAuthTag().String() == tag
+}
+
+// AuthEnvironManager returns whether the authenticated user is a
+// machine with running the ManageEnviron job.
+func (r *srvRoot) AuthEnvironManager() bool {
+        return isMachineWithJob(r.entity, state.JobManageEnviron)
+}
+
+*/
+
 func (fa FakeAuthorizer) AuthEnvironManager() bool {
 	return fa.EnvironManager
 }
@@ -45,8 +72,11 @@ func (fa FakeAuthorizer) AuthUnitAgent() bool {
 	return fa.UnitAgent
 }
 
+// AuthClient returns whether the authenticated entity is a client
+// user.
 func (fa FakeAuthorizer) AuthClient() bool {
-	return fa.Client
+	_, isUser := fa.GetAuthTag().(names.UserTag)
+	return isUser
 }
 
 func (fa FakeAuthorizer) GetAuthTag() names.Tag {
