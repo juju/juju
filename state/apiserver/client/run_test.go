@@ -248,7 +248,8 @@ func (s *runSuite) TestRunOnAllMachines(c *gc.C) {
 		expectedResults = append(expectedResults,
 			params.RunResult{
 				ExecResponse: exec.ExecResponse{Stdout: []byte("juju-run --no-context 'hostname'\n")},
-				MachineId:    fmt.Sprint(i),
+
+				MachineId: fmt.Sprint(i),
 			})
 	}
 
