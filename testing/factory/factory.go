@@ -139,7 +139,7 @@ func (factory *Factory) MakeUser(vParams ...UserParams) *state.User {
 // some meaningful valid values are used instead.
 // If params is not specified, defaults are used. If more than one
 // params struct is passed to the function, it panics.
-func (factory *Factory) MakeEnvUser(vParams ...EnvUserParams) *state.EnvUser {
+func (factory *Factory) MakeEnvUser(vParams ...EnvUserParams) *state.EnvironmentUser {
 	params := EnvUserParams{}
 	if len(vParams) == 1 {
 		params = vParams[0]
@@ -162,8 +162,8 @@ func (factory *Factory) MakeEnvUser(vParams ...EnvUserParams) *state.EnvUser {
 	if params.CreatedBy == "" {
 		params.CreatedBy = "created-by"
 	}
-	envUser, err := factory.st.AddEnvUser(
-		params.EnvUUID, params.User, params.Alias, params.DisplayName, params.CreatedBy)
+	envUser, err := factory.st.AddEnvironmentUser(
+		params.EnvUUID, params.User, params.DisplayName, params.Alias, params.CreatedBy)
 	factory.c.Assert(err, gc.IsNil)
 	return envUser
 }

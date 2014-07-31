@@ -18,8 +18,11 @@ const (
 	envUserCollectionName = "envusers"
 )
 
-// EnvUser represents a user within an environment
-type EnvUser struct {
+// EnvironmentUser represents a user within an environment
+// Whereas the user could represent a remote user or a user
+// across multiple environments the environment user always represents
+// a single user for a single environment.
+type EnvironmentUser struct {
 	st  *State
 	doc envUserDoc
 }
@@ -35,48 +38,48 @@ type envUserDoc struct {
 	LastConnection *time.Time
 }
 
-// Returns the ID of the envUser
-func (e *EnvUser) ID() string {
+// ID returns the ID of the environment user.
+func (e *EnvironmentUser) ID() string {
 	return e.doc.ID
 }
 
-// Returns the EnvironmentID of the envUser
-func (e *EnvUser) EnvUUID() string {
+// EnvUUID Returns the environment UUIID of the environment user.
+func (e *EnvironmentUser) EnvUUID() string {
 	return e.doc.EnvUUID
 }
 
-// Returns the user name of the envUser
-func (e *EnvUser) UserName() string {
+// UserName returns the user name of the environment user.
+func (e *EnvironmentUser) UserName() string {
 	return e.doc.User
 }
 
-// Returns the alias of the envUser
-func (e *EnvUser) Alias() string {
+// Alias returns the alias of the environment user.
+func (e *EnvironmentUser) Alias() string {
 	return e.doc.Alias
 }
 
-// Returns the display name of the env user
-func (e *EnvUser) DisplayName() string {
+// DisplayName returns the display name of the environment user.
+func (e *EnvironmentUser) DisplayName() string {
 	return e.doc.DisplayName
 }
 
-// Returns the user who created the envUser
-func (e *EnvUser) CreatedBy() string {
+// CreatedBy returns the user who created the environment user.
+func (e *EnvironmentUser) CreatedBy() string {
 	return e.doc.CreatedBy
 }
 
-// Returns the date the envUser was created
-func (e *EnvUser) DateCreated() time.Time {
+// DateCreated returns the date the environment user.
+func (e *EnvironmentUser) DateCreated() time.Time {
 	return e.doc.DateCreated
 }
 
-// Returns the last connection time
-func (e *EnvUser) LastConnection() *time.Time {
+// LastConnection returns the last connection time of the environment user.
+func (e *EnvironmentUser) LastConnection() *time.Time {
 	return e.doc.LastConnection
 }
 
-// Updates the last connection time
-func (e *EnvUser) UpdateLastConnection() error {
+// UpdateLastConnection updates the last connection time of the environment user.
+func (e *EnvironmentUser) UpdateLastConnection() error {
 	timestamp := nowToTheSecond()
 	ops := []txn.Op{{
 		C:      envUsersC,
@@ -96,7 +99,7 @@ func envUserID(envuuid, user string) string {
 	return fmt.Sprintf("%s:%s", envuuid, user)
 }
 
-func (st *State) getEnvUser(envuuid, user string, doc *envUserDoc) error {
+func (st *State) getEnvironmentUser(envuuid, user string, doc *envUserDoc) error {
 	envUsers, closer := st.getCollection(envUsersC)
 	defer closer()
 	id := envUserID(envuuid, user)
@@ -107,17 +110,17 @@ func (st *State) getEnvUser(envuuid, user string, doc *envUserDoc) error {
 	return err
 }
 
-// Returns the EnvUser for the given envuuid and user
-func (st *State) EnvUser(envuuid, user string) (*EnvUser, error) {
-	envUser := &EnvUser{st: st}
-	if err := st.getEnvUser(envuuid, user, &envUser.doc); err != nil {
+// EnvironmentUser returns the environment user for the given envuuid and user.
+func (st *State) EnvironmentUser(envuuid, user string) (*EnvironmentUser, error) {
+	envUser := &EnvironmentUser{st: st}
+	if err := st.getEnvironmentUser(envuuid, user, &envUser.doc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return envUser, nil
 }
 
-// Adds a new EnvUser to the database
-func (st *State) AddEnvUser(envuuid, user, displayName, alias, createdBy string) (*EnvUser, error) {
+// Adds a new EnvironmentUser to the database
+func (st *State) AddEnvironmentUser(envuuid, user, displayName, alias, createdBy string) (*EnvironmentUser, error) {
 	if !names.IsValidUser(user) {
 		return nil, errors.Errorf("invalid user name %q", user)
 	}
@@ -126,7 +129,7 @@ func (st *State) AddEnvUser(envuuid, user, displayName, alias, createdBy string)
 	}
 
 	id := envUserID(envuuid, user)
-	envUser := &EnvUser{
+	envUser := &EnvironmentUser{
 		st: st,
 		doc: envUserDoc{
 			ID:          id,

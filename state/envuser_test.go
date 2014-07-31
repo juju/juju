@@ -29,7 +29,7 @@ func (s *EnvUserSuite) TestAddInvalidTags(c *gc.C) {
 		"a-",
 	} {
 		c.Logf("check invalid name %q", name)
-		envUser, err := s.State.AddEnvUser("ignored", name, "ignored", "ignored", "ignored")
+		envUser, err := s.State.AddEnvironmentUser("ignored", name, "ignored", "ignored", "ignored")
 		c.Check(err, gc.ErrorMatches, `invalid user name "`+regexp.QuoteMeta(name)+`"`)
 		c.Check(envUser, gc.IsNil)
 	}
@@ -38,17 +38,17 @@ func (s *EnvUserSuite) TestAddInvalidTags(c *gc.C) {
 		"env/foo",
 	} {
 		c.Logf("check invalid environment %q", env)
-		envUser, err := s.State.AddEnvUser(env, "user-valid", "ignored", "ignored", "ignored")
+		envUser, err := s.State.AddEnvironmentUser(env, "user-valid", "ignored", "ignored", "ignored")
 		c.Check(err, gc.ErrorMatches, `invalid environment "`+regexp.QuoteMeta(env)+`"`)
 		c.Check(envUser, gc.IsNil)
 	}
 }
 
-func (s *EnvUserSuite) TestAddEnvUser(c *gc.C) {
+func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
 	fac := factory.NewFactory(s.State, c)
 	envUuid := fac.NewUUID()
-	envUser, err := s.State.AddEnvUser(envUuid, "user-valid", "display-name", "alias", "createdby")
+	envUser, err := s.State.AddEnvironmentUser(envUuid, "user-valid", "display-name", "alias", "createdby")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:user-valid", envUuid))
@@ -60,7 +60,7 @@ func (s *EnvUserSuite) TestAddEnvUser(c *gc.C) {
 	c.Assert(envUser.DateCreated().After(now) || envUser.DateCreated().Equal(now), jc.IsTrue)
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 
-	envUser, err = s.State.EnvUser(envUuid, "user-valid")
+	envUser, err = s.State.EnvironmentUser(envUuid, "user-valid")
 	c.Assert(err, gc.IsNil)
 	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:user-valid", envUuid))
 	c.Assert(envUser.EnvUUID(), gc.Equals, envUuid)
@@ -76,7 +76,7 @@ func (s *UserSuite) TestUpdateLastConnection(c *gc.C) {
 	now := time.Now().Round(time.Second).UTC()
 	fac := factory.NewFactory(s.State, c)
 	envUuid := fac.NewUUID()
-	envUser, err := s.State.AddEnvUser(envUuid, "user-valid", "display-name", "alias", "createdby")
+	envUser, err := s.State.AddEnvironmentUser(envUuid, "user-valid", "display-name", "alias", "createdby")
 	c.Assert(err, gc.IsNil)
 	err = envUser.UpdateLastConnection()
 	c.Assert(err, gc.IsNil)
