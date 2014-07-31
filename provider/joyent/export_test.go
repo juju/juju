@@ -205,3 +205,5 @@ func MakeStorage(c *gc.C, attrs testing.Attrs) storage.Storage {
 	c.Assert(err, gc.IsNil)
 	return stor
 }
+
+var GetPorts = getPorts

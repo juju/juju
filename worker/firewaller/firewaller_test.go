@@ -80,7 +80,7 @@ func (s *FirewallerSuite) assertEnvironPorts(c *gc.C, expected []network.Port) {
 			c.Fatal(err)
 			return
 		}
-		network.SortPorts(got)
+		network.SortPorts(network.PortRangesToPorts(got))
 		network.SortPorts(expected)
 		if reflect.DeepEqual(got, expected) {
 			c.Succeed()

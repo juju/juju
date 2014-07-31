@@ -209,7 +209,7 @@ type environState struct {
 	maxId        int // maximum instance id allocated so far.
 	maxAddr      int // maximum allocated address last byte
 	insts        map[instance.Id]*dummyInstance
-	globalPorts  map[network.Port]bool
+	globalPorts  map[network.PortRange]bool
 	bootstrapped bool
 	storageDelay time.Duration
 	storage      *storageServer
@@ -326,7 +326,7 @@ func newState(name string, ops chan<- Operation, policy state.Policy) *environSt
 		ops:         ops,
 		statePolicy: policy,
 		insts:       make(map[instance.Id]*dummyInstance),
-		globalPorts: make(map[network.Port]bool),
+		globalPorts: make(map[network.PortRange]bool),
 	}
 	s.storage = newStorageServer(s, "/"+name+"/private")
 	s.listenStorage()
@@ -1014,7 +1014,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) OpenPorts(ports []network.Port) error {
+func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment", mode)
 	}
@@ -1030,7 +1030,7 @@ func (e *environ) OpenPorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.Port) error {
+func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment", mode)
 	}
@@ -1046,7 +1046,7 @@ func (e *environ) ClosePorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() (ports []network.Port, err error) {
+func (e *environ) Ports() (ports []network.PortRange, err error) {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment", mode)
 	}
@@ -1059,7 +1059,7 @@ func (e *environ) Ports() (ports []network.Port, err error) {
 	for p := range estate.globalPorts {
 		ports = append(ports, p)
 	}
-	network.SortPorts(ports)
+	network.SortPortRanges(ports)
 	return
 }
 

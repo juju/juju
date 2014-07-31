@@ -101,5 +101,5 @@ func (inst *joyentInstance) Ports(machineId string) ([]network.Port, error) {
 		return nil, fmt.Errorf("cannot get firewall rules: %v", err)
 	}
 
-	return getPorts(inst.env, fwRules), nil
+	return network.PortRangesToPorts(getPorts(inst.env.Config().Name(), fwRules)), nil
 }

@@ -435,7 +435,7 @@ func (inst *openstackInstance) OpenPorts(machineId string, ports []network.Port)
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	if err := inst.e.openPortsInGroup(name, ports); err != nil {
+	if err := inst.e.openPortsInGroup(name, network.PortsToPortRanges(ports)); err != nil {
 		return err
 	}
 	logger.Infof("opened ports in security group %s: %v", name, ports)
@@ -448,7 +448,7 @@ func (inst *openstackInstance) ClosePorts(machineId string, ports []network.Port
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	if err := inst.e.closePortsInGroup(name, ports); err != nil {
+	if err := inst.e.closePortsInGroup(name, network.PortsToPortRanges(ports)); err != nil {
 		return err
 	}
 	logger.Infof("closed ports in security group %s: %v", name, ports)
@@ -461,7 +461,11 @@ func (inst *openstackInstance) Ports(machineId string) ([]network.Port, error) {
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	return inst.e.portsInGroup(name)
+	portRanges, err := inst.e.portsInGroup(name)
+	if err != nil {
+		return nil, err
+	}
+	return network.PortRangesToPorts(portRanges), nil
 }
 
 func (e *environ) ecfg() *environConfig {
@@ -1192,18 +1196,18 @@ func (e *environ) machinesFilter() *nova.Filter {
 	return filter
 }
 
-func (e *environ) openPortsInGroup(name string, ports []network.Port) error {
+func (e *environ) openPortsInGroup(name string, portRanges []network.PortRange) error {
 	novaclient := e.nova()
 	group, err := novaclient.SecurityGroupByName(name)
 	if err != nil {
 		return err
 	}
-	for _, port := range ports {
+	for _, portRange := range portRanges {
 		_, err := novaclient.CreateSecurityGroupRule(nova.RuleInfo{
 			ParentGroupId: group.Id,
-			FromPort:      port.Number,
-			ToPort:        port.Number,
-			IPProtocol:    port.Protocol,
+			FromPort:      portRange.FromPort,
+			ToPort:        portRange.ToPort,
+			IPProtocol:    portRange.Protocol,
 			Cidr:          "0.0.0.0/0",
 		})
 		if err != nil {
@@ -1214,8 +1218,8 @@ func (e *environ) openPortsInGroup(name string, ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
-	if len(ports) == 0 {
+func (e *environ) closePortsInGroup(name string, portRanges []network.PortRange) error {
+	if len(portRanges) == 0 {
 		return nil
 	}
 	novaclient := e.nova()
@@ -1224,11 +1228,11 @@ func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
 		return err
 	}
 	// TODO: Hey look ma, it's quadratic
-	for _, port := range ports {
+	for _, portRange := range portRanges {
 		for _, p := range (*group).Rules {
-			if p.IPProtocol == nil || *p.IPProtocol != port.Protocol ||
-				p.FromPort == nil || *p.FromPort != port.Number ||
-				p.ToPort == nil || *p.ToPort != port.Number {
+			if p.IPProtocol == nil || *p.IPProtocol != portRange.Protocol ||
+				p.FromPort == nil || *p.FromPort != portRange.FromPort ||
+				p.ToPort == nil || *p.ToPort != portRange.ToPort {
 				continue
 			}
 			err := novaclient.DeleteSecurityGroupRule(p.Id)
@@ -1241,26 +1245,25 @@ func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []network.Port, err error) {
+func (e *environ) portsInGroup(name string) (portRanges []network.PortRange, err error) {
 	group, err := e.nova().SecurityGroupByName(name)
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range (*group).Rules {
-		for i := *p.FromPort; i <= *p.ToPort; i++ {
-			ports = append(ports, network.Port{
-				Protocol: *p.IPProtocol,
-				Number:   i,
-			})
-		}
+		portRanges = append(portRanges, network.PortRange{
+			Protocol: *p.IPProtocol,
+			FromPort: *p.FromPort,
+			ToPort:   *p.ToPort,
+		})
 	}
-	network.SortPorts(ports)
-	return ports, nil
+	network.SortPortRanges(portRanges)
+	return portRanges, nil
 }
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (e *environ) OpenPorts(ports []network.Port) error {
+func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
@@ -1272,7 +1275,7 @@ func (e *environ) OpenPorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.Port) error {
+func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
@@ -1284,7 +1287,7 @@ func (e *environ) ClosePorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]network.Port, error) {
+func (e *environ) Ports() ([]network.PortRange, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
 			e.Config().FirewallMode())

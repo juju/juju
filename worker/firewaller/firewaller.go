@@ -253,10 +253,11 @@ func (fw *Firewaller) startService(service *apifirewaller.Service) error {
 // units and services with the opened and closed ports globally and
 // opens and closes the appropriate ports for the whole environment.
 func (fw *Firewaller) reconcileGlobal() error {
-	initialPorts, err := fw.environ.Ports()
+	initialPortRanges, err := fw.environ.Ports()
 	if err != nil {
 		return err
 	}
+	initialPorts := network.PortRangesToPorts(initialPortRanges)
 	collector := make(map[network.Port]bool)
 	for _, unitd := range fw.unitds {
 		if unitd.serviced.exposed {
@@ -274,14 +275,14 @@ func (fw *Firewaller) reconcileGlobal() error {
 	toClose := Diff(initialPorts, wantedPorts)
 	if len(toOpen) > 0 {
 		logger.Infof("opening global ports %v", toOpen)
-		if err := fw.environ.OpenPorts(toOpen); err != nil {
+		if err := fw.environ.OpenPorts(network.PortsToPortRanges(toOpen)); err != nil {
 			return err
 		}
 		network.SortPorts(toOpen)
 	}
 	if len(toClose) > 0 {
 		logger.Infof("closing global ports %v", toClose)
-		if err := fw.environ.ClosePorts(toClose); err != nil {
+		if err := fw.environ.ClosePorts(network.PortsToPortRanges(toClose)); err != nil {
 			return err
 		}
 		network.SortPorts(toClose)
@@ -442,7 +443,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.Port) error {
 	}
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := fw.environ.OpenPorts(toOpen); err != nil {
+		if err := fw.environ.OpenPorts(network.PortsToPortRanges(toOpen)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -450,7 +451,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []network.Port) error {
 		logger.Infof("opened ports %v in environment", toOpen)
 	}
 	if len(toClose) > 0 {
-		if err := fw.environ.ClosePorts(toClose); err != nil {
+		if err := fw.environ.ClosePorts(network.PortsToPortRanges(toClose)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}

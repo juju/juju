@@ -143,3 +143,116 @@ func (*PortSuite) TestSortHostPorts(c *gc.C) {
 		1234,
 	))
 }
+
+func (p *PortSuite) TestPortRangeConflicts(c *gc.C) {
+	var testCases = []struct {
+		about          string
+		first          network.PortRange
+		second         network.PortRange
+		expectConflict bool
+	}{{
+		"identical ports",
+		network.PortRange{80, 80, "TCP"},
+		network.PortRange{80, 80, "TCP"},
+		true,
+	}, {
+		"different ports",
+		network.PortRange{80, 80, "TCP"},
+		network.PortRange{90, 90, "TCP"},
+		false,
+	}, {
+		"touching ranges",
+		network.PortRange{100, 200, "TCP"},
+		network.PortRange{201, 240, "TCP"},
+		false,
+	}, {
+		"touching ranges with overlap",
+		network.PortRange{100, 200, "TCP"},
+		network.PortRange{200, 240, "TCP"},
+		true,
+	}, {
+		"different protocols",
+		network.PortRange{80, 80, "UDP"},
+		network.PortRange{80, 80, "TCP"},
+		false,
+	}, {
+		"outside range",
+		network.PortRange{100, 200, "TCP"},
+		network.PortRange{80, 80, "TCP"},
+		false,
+	}, {
+		"overlap end",
+		network.PortRange{100, 200, "TCP"},
+		network.PortRange{80, 120, "TCP"},
+		true,
+	}, {
+		"complete overlap",
+		network.PortRange{100, 200, "TCP"},
+		network.PortRange{120, 140, "TCP"},
+		true,
+	}}
+
+	for i, t := range testCases {
+		c.Logf("test %d: %s", i, t.about)
+		c.Check(t.first.ConflictsWith(t.second), gc.Equals, t.expectConflict)
+		c.Check(t.second.ConflictsWith(t.first), gc.Equals, t.expectConflict)
+	}
+}
+
+func (p *PortSuite) TestPortRangeString(c *gc.C) {
+	c.Assert(network.PortRange{80, 80, "TCP"}.String(),
+		gc.Equals,
+		"80-80/tcp")
+	c.Assert(network.PortRange{80, 100, "TCP"}.String(),
+		gc.Equals,
+		"80-100/tcp")
+}
+
+func (p *PortSuite) TestPortRangeValidity(c *gc.C) {
+	testCases := []struct {
+		about string
+		ports network.PortRange
+		valid bool
+	}{{
+		"single valid port",
+		network.PortRange{80, 80, "tcp"},
+		true,
+	}, {
+		"valid port range",
+		network.PortRange{80, 90, "tcp"},
+		true,
+	}, {
+		"valid udp port range",
+		network.PortRange{80, 90, "UDP"},
+		true,
+	}, {
+		"invalid port range boundaries",
+		network.PortRange{90, 80, "tcp"},
+		false,
+	}, {
+		"invalid protocol",
+		network.PortRange{80, 80, "some protocol"},
+		false,
+	}}
+
+	for i, t := range testCases {
+		c.Logf("test %d: %s", i, t.about)
+		c.Assert(t.ports.IsValid(), gc.Equals, t.valid)
+	}
+}
+
+func (*PortSuite) TestSortPortRanges(c *gc.C) {
+	ranges := []network.PortRange{
+		{10, 100, "udp"},
+		{80, 90, "tcp"},
+		{80, 80, "tcp"},
+	}
+	expected := []network.PortRange{
+		{80, 80, "tcp"},
+		{80, 90, "tcp"},
+		{10, 100, "udp"},
+	}
+	network.SortPortRanges(ranges)
+	c.Assert(ranges, gc.DeepEquals,
+		expected)
+}
