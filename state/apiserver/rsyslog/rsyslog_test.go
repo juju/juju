@@ -6,6 +6,7 @@ package rsyslog_test
 import (
 	"encoding/pem"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -102,7 +103,7 @@ func (s *rsyslogSuite) TestSetRsyslogCertPerms(c *gc.C) {
 
 func (s *rsyslogSuite) TestUpgraderAPIAllowsUnitAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.UnitAgent = true
+	anAuthorizer.Tag = names.NewUnitTag("seven/9")
 	anAuthorizer.MachineAgent = false
 	anUpgrader, err := rsyslog.NewRsyslogAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
@@ -111,7 +112,7 @@ func (s *rsyslogSuite) TestUpgraderAPIAllowsUnitAgent(c *gc.C) {
 
 func (s *rsyslogSuite) TestUpgraderAPIRefusesNonUnitNonMachineAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.UnitAgent = false
+	anAuthorizer.Tag = names.NewServiceTag("hadoop")
 	anAuthorizer.MachineAgent = false
 	anUpgrader, err := rsyslog.NewRsyslogAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.NotNil)
