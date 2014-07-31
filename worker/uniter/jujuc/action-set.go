@@ -117,19 +117,35 @@ func (c *ActionSetCommand) Run(ctx *cmd.Context) error {
 // This allows us to merge maps such as {foo: {bar: baz}} and {foo: {baz: faz}}
 // into {foo: {bar: baz, baz: faz}}.
 func (nm nestedMap) addPhrase(p phrase) {
-	next := nm
-	k := p.keys
-	v := p.value
+	// What if nm contains the key we found, but it is not a map?
+	next := nm   // {a:b}
+	k := p.keys  // {a,c}
+	v := p.value // d
 
 	for i := range k {
+		// if we are on last key set the value.
+		// shouldn't be a problem.  overwrites existing vals.
 		if i == len(k)-1 {
 			next[k[i]] = v
 			break
 		}
 
 		if iface, ok := next[k[i]]; ok {
-			next = iface.(map[string]interface{})
+			switch typed := iface.(type) {
+			case map[string]interface{}:
+				// If we already had a map inside, keep
+				// stepping through.
+				next = typed
+			default:
+				// If we didn't, then overwrite value
+				// with a map and iterate with that.
+				m := map[string]interface{}{}
+				next[k[i]] = m
+				next = m
+			}
 		} else {
+			// Otherwise, it wasn't present, so make it and step
+			// into.
 			m := map[string]interface{}{}
 			next[k[i]] = m
 			next = m

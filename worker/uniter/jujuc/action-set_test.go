@@ -18,61 +18,68 @@ type ActionSetSuite struct {
 
 var _ = gc.Suite(&ActionSetSuite{})
 
-// TODO(binary132):
-// action-set - <YAML>
-
-func (s *ActionSetSuite) TestActionSet(c *gc.C) {
+func (s *ActionSetSuite) TestGoodActionSet(c *gc.C) {
 	var actionSetTests = []struct {
-		summary string
-		args    []string
-		values  []string
-		results map[string]interface{}
-		fail    bool
-		code    int
-		errMsg  string
+		summary  string
+		commands [][]string
+		results  map[string]interface{}
 	}{{
 		summary: "a single bare value",
-		args:    []string{},
-		values:  []string{"result"},
+		commands: [][]string{
+			[]string{"result"},
+		},
 		results: map[string]interface{}{
 			"val0": "result",
 		},
 	}, {
+		summary: "a single bare string",
+		commands: [][]string{
+			[]string{"result is a string"},
+		},
+		results: map[string]interface{}{
+			"val0": `result is a string`,
+		},
+	}, {
 		summary: "two bare values",
-		args:    []string{},
-		values:  []string{"result", "other"},
+		commands: [][]string{
+			[]string{"result", "other"},
+		},
 		results: map[string]interface{}{
 			"val0": "result",
 			"val1": "other",
 		},
 	}, {
 		summary: "a response of one key to one value",
-		args:    []string{},
-		values:  []string{"outfile=foo.bz2"},
+		commands: [][]string{
+			[]string{"outfile=foo.bz2"},
+		},
 		results: map[string]interface{}{
 			"outfile": "foo.bz2",
 		},
 	}, {
 		summary: "two keys, two values",
-		args:    []string{},
-		values:  []string{"outfile=foo.bz2", "size=10G"},
+		commands: [][]string{
+			[]string{"outfile=foo.bz2", "size=10G"},
+		},
 		results: map[string]interface{}{
 			"outfile": "foo.bz2",
 			"size":    "10G",
 		},
 	}, {
 		summary: "multiple = are ok",
-		args:    []string{},
-		values:  []string{"outfile=foo=bz2"},
+		commands: [][]string{
+			[]string{"outfile=foo=bz2"},
+		},
 		results: map[string]interface{}{
 			"outfile": "foo=bz2",
 		},
 	}, {
 		summary: "several interleaved values",
-		args:    []string{},
-		values: []string{"outfile.name=foo.bz2",
-			"outfile.kind.util=bzip2",
-			"outfile.kind.ratio=high"},
+		commands: [][]string{
+			[]string{"outfile.name=foo.bz2",
+				"outfile.kind.util=bzip2",
+				"outfile.kind.ratio=high"},
+		},
 		results: map[string]interface{}{
 			"outfile": map[string]interface{}{
 				"name": "foo.bz2",
@@ -82,21 +89,79 @@ func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 				},
 			},
 		},
+	}, {
+		summary: "conflicting simple values in one command result in overwrite",
+		commands: [][]string{
+			[]string{"util=bzip2", "util=5"},
+		},
+		results: map[string]interface{}{
+			"util": 5,
+		},
+	}, {
+		summary: "conflicting simple values in two commands results in overwrite",
+		commands: [][]string{
+			[]string{"util=bzip2"},
+			[]string{"util=5"},
+		},
+		results: map[string]interface{}{
+			"util": 5,
+		},
+	}, {
+		summary: "conflicted map spec: {map1:{key:val}} vs {map1:val2}",
+		commands: [][]string{
+			[]string{"map1.key=val", "map1=val"},
+		},
+		results: map[string]interface{}{
+			"map1": "val",
+		},
+	}, {
+		summary: "two-invocation conflicted map spec: {map1:{key:val}} vs {map1:val2}",
+		commands: [][]string{
+			[]string{"map1.key=val"},
+			[]string{"map1=val"},
+		},
+		results: map[string]interface{}{
+			"map1": "val",
+		},
+	}, {
+		summary: "conflicted map spec: {map1:val2} vs {map1:{key:val}}",
+		commands: [][]string{
+			[]string{"map1=val", "map1.key=val"},
+		},
+		results: map[string]interface{}{
+			"map1": map[string]interface{}{
+				"key": "val",
+			},
+		},
+	}, {
+		summary: "two-invocation conflicted map spec: {map1:val2} vs {map1:{key:val}}",
+		commands: [][]string{
+			[]string{"map1=val"},
+			[]string{"map1.key=val"},
+		},
+		results: map[string]interface{}{
+			"map1": map[string]interface{}{
+				"key": "val",
+			},
+		},
 	}}
 
 	for i, t := range actionSetTests {
-		c.Logf("test %d: %s\n args: %#v", i, t.summary, t.args)
+		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, -1, "")
 		com, err := jujuc.NewCommand(hctx, "action-set")
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
-		allArgs := append(t.args, t.values...)
-		code := cmd.Main(com, ctx, allArgs)
-		c.Check(code, gc.Equals, t.code)
-		c.Check(bufferString(ctx.Stderr), gc.Equals, "")
-		results, failed := hctx.ActionResults()
+		for j, command := range t.commands {
+			c.Logf("  command %d: %#v", j, command)
+			code := cmd.Main(com, ctx, command)
+			c.Check(code, gc.Equals, 0)
+			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
+			_, failed := hctx.ActionResults()
+			c.Check(failed, gc.Equals, false)
+		}
+		results, _ := hctx.ActionResults()
 		c.Check(results, jc.DeepEquals, t.results)
-		c.Check(failed, gc.Equals, t.fail)
 	}
 }
 
