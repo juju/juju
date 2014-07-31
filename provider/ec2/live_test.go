@@ -224,9 +224,8 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IPPerms
-	c.Assert(perms, gc.HasLen, 6)
+	c.Assert(perms, gc.HasLen, 5)
 	checkPortAllowed(c, perms, 22) // SSH
-	checkPortAllowed(c, perms, coretesting.FakeConfig()["state-port"].(int))
 	checkPortAllowed(c, perms, coretesting.FakeConfig()["api-port"].(int))
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
