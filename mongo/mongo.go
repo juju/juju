@@ -171,6 +171,9 @@ func EnsureServer(args EnsureServerParams) error {
 	)
 	dbDir := filepath.Join(args.DataDir, "db")
 
+	if err := os.MkdirAll(dbDir, 0700); err != nil {
+		return fmt.Errorf("cannot create mongo database directory: %v", err)
+	}
 	oplogSizeMB := args.OplogSize
 	if oplogSizeMB == 0 {
 		var err error
@@ -190,10 +193,6 @@ func EnsureServer(args EnsureServerParams) error {
 			return upstartServiceStart(svc)
 		}
 		return nil
-	}
-
-	if err := os.MkdirAll(dbDir, 0700); err != nil {
-		return fmt.Errorf("cannot create mongo database directory: %v", err)
 	}
 
 	certKey := args.Cert + "\n" + args.PrivateKey
