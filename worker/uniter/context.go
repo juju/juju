@@ -372,7 +372,7 @@ func searchHook(hook string) (string, error) {
 		return lookPath(hook)
 	}
 	for _, val := range windowsSuffixOrder {
-		file := fmt.Sprintf("%s.%s", hook, val)
+		file := fmt.Sprintf("%s%s", hook, val)
 		hookFile, err := lookPath(file)
 		if err != nil {
 			if IsMissingHookError(err) {
