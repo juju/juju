@@ -69,7 +69,6 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as the environment manager.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		LoggedIn:       true,
 		EnvironManager: true,
 	}
 

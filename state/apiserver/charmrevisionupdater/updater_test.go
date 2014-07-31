@@ -44,7 +44,6 @@ func (s *charmVersionSuite) SetUpTest(c *gc.C) {
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		LoggedIn:       true,
 		EnvironManager: true,
 	}
 	var err error
