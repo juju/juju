@@ -134,17 +134,25 @@ func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
 	// root data directory, as that is created in the process of
 	// initialising sshstorage.
 	agentsDir := path.Join(agent.DefaultDataDir, "agents")
-	stdin := fmt.Sprintf("test -d %s || echo 1", utils.ShQuote(agentsDir))
-	out, err := runSSHCommand("ubuntu@"+e.cfg.bootstrapHost(), []string{"/bin/bash"}, stdin)
+	const noAgentDir = "no-agent-dir"
+	stdin := fmt.Sprintf(
+		"test -d %s || echo %s",
+		utils.ShQuote(agentsDir),
+		noAgentDir,
+	)
+	out, err := runSSHCommand(
+		"ubuntu@"+e.cfg.bootstrapHost(),
+		[]string{"/bin/bash"},
+		stdin,
+	)
 	if err != nil {
 		return nil, err
 	}
 	if out = strings.TrimSpace(out); len(out) > 0 {
-		// If output is non-empty, /var/lib/juju/agents does not exist.
-		if out != "1" {
-			logger.Errorf("output: %q", out)
+		if out == noAgentDir {
+			return nil, environs.ErrNotBootstrapped
 		}
-		return nil, environs.ErrNotBootstrapped
+		return nil, errors.LoggedErrorf(logger, "unexpected output: %q", out)
 	}
 	return []instance.Id{manual.BootstrapInstanceId}, nil
 }

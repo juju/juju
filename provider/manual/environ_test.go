@@ -177,8 +177,11 @@ func (s *environSuite) TestStateServerInstances(c *gc.C) {
 	tests := []test{{
 		output: "",
 	}, {
-		output:      "woo",
+		output:      "no-agent-dir",
 		expectedErr: "environment is not bootstrapped",
+	}, {
+		output:      "woo",
+		expectedErr: `unexpected output: "woo"`,
 	}, {
 		err:         errors.New("an error"),
 		expectedErr: "an error",
