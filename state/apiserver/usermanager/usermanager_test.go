@@ -34,6 +34,7 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:      names.NewUserTag("admin"),
 		LoggedIn: true,
+		Client:   true,
 		Entity:   user,
 	}
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
@@ -42,7 +43,7 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authorizer
-	anAuthoriser.Tag = names.NewMachineTag("1")
+	anAuthoriser.Client = false
 	endPoint, err := usermanager.NewUserManagerAPI(s.State, nil, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
