@@ -21,7 +21,6 @@ import (
 	"github.com/juju/utils"
 
 	"github.com/juju/juju/environmentserver/authentication"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api"
@@ -33,10 +32,16 @@ var logger = loggo.GetLogger("juju.agent")
 
 // logDir returns a filesystem path to the location where juju
 // may create a folder containing its logs
-var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
+//
+// TODO(gsamfira) 2014-07-31 https://github.com/juju/juju/pull/189
+// Use the target series to decide the path.
+var logDir = "/var/log"
 
 // dataDir returns the default data directory for this running system
-var dataDir = paths.MustSucceed(paths.DataDir(version.Current.Series))
+//
+// TODO(gsamfira) 2014-07-31 https://github.com/juju/juju/pull/189
+// Use the target series to decide the path.
+var dataDir = "/var/lib/juju"
 
 // DefaultLogDir defines the default log directory for juju agents.
 // It's defined as a variable so it could be overridden in tests.
