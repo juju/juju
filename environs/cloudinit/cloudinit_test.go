@@ -5,6 +5,7 @@ package cloudinit_test
 
 import (
 	"encoding/base64"
+	"path"
 	"regexp"
 	"strings"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/juju/paths"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api"
@@ -422,6 +424,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
 		c.Assert(err, gc.IsNil)
 		err = udata.Configure()
+
 		c.Assert(err, gc.IsNil)
 		c.Check(ci, gc.NotNil)
 		// render the cloudinit config to bytes, and then
@@ -935,3 +938,75 @@ JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 2Vc9NN09ty+HZgxpwqIA1fHVuYJY9GMPG1LnTnZ9INg=
 -----END RSA PRIVATE KEY-----
 `[1:])
+
+var windowsCloudinitTests = []cloudinitTest{
+	{
+		cfg: cloudinit.MachineConfig{
+			MachineId: "10",
+			// AuthorizedKeys:   "sshkey1",
+			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
+			Tools:            newSimpleTools("1.2.3-win8-amd64"),
+			Series:           "win8",
+			Bootstrap:        false,
+			// StateServingInfo: stateServingInfo,
+			MachineNonce: "FAKE_NONCE",
+			MongoInfo: &authentication.MongoInfo{
+				Tag:      names.NewMachineTag("10"),
+				Password: "arble",
+				Info: mongo.Info{
+					CACert: "CA CERT\n" + string(serverCert),
+					Addrs:  []string{"state-addr.testing.invalid:12345"},
+				},
+			},
+			APIInfo: &api.Info{
+				Addrs:    []string{"state-addr.testing.invalid:54321"},
+				Password: "bletch",
+				CACert:   "CA CERT\n" + string(serverCert),
+				Tag:      names.NewMachineTag("10"),
+			},
+			Constraints:        envConstraints,
+			Jobs:               allMachineJobs,
+			CloudInitOutputLog: environs.CloudInitOutputLog,
+			InstanceId:         "i-bootstrap",
+			// SystemPrivateSSHKey:     "private rsa key",
+			MachineAgentServiceName: "jujud-machine-0",
+		},
+		setEnvConfig:  false,
+		expectScripts: cloudinit.WindowsUserdata,
+	},
+}
+
+func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
+	for i, test := range windowsCloudinitTests {
+		c.Logf("test %d", i)
+		dataDir, err := paths.DataDir(test.cfg.Series)
+		c.Assert(err, gc.IsNil)
+		logDir, err := paths.LogDir(test.cfg.Series)
+		c.Assert(err, gc.IsNil)
+
+		test.cfg.DataDir = dataDir
+		test.cfg.LogDir = path.Join(logDir, "juju")
+
+		ci := coreCloudinit.New()
+		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
+
+		c.Assert(err, gc.IsNil)
+		err = udata.Configure()
+
+		c.Assert(err, gc.IsNil)
+		c.Check(ci, gc.NotNil)
+		data, err := udata.Render()
+		c.Assert(err, gc.IsNil)
+
+		stringData := strings.Replace(string(data), "\r\n", "\n", -1)
+		stringData = strings.Replace(stringData, "\t", " ", -1)
+		stringData = strings.TrimSpace(stringData)
+
+		compareString := strings.Replace(string(test.expectScripts), "\r\n", "\n", -1)
+		compareString = strings.Replace(compareString, "\t", " ", -1)
+		compareString = strings.TrimSpace(compareString)
+
+		c.Assert(stringData, gc.Equals, compareString)
+
+	}
+}

@@ -4,6 +4,7 @@
 package agent
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -53,6 +54,18 @@ func (*formatSuite) TestWriteCommands(c *gc.C) {
 	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/machine-1'`)
 	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/machine-1/agent.conf'`)
 	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/machine-1/agent.conf'`)
+}
+
+func (*formatSuite) TestWindowsWriteCommands(c *gc.C) {
+	config := newTestConfig(c)
+	commands, err := config.WriteCommands("win8")
+	c.Assert(err, gc.IsNil)
+	c.Assert(commands, gc.HasLen, 2)
+	fmt.Println(config)
+	c.Assert(commands[0], gc.Matches, `mkdir \S+\\agents\\machine-1`)
+	c.Assert(commands[1], gc.Matches, `Set-Content '\S+/agents/machine-1/agent.conf' @"
+(.|\n)*
+"@`)
 }
 
 func (*formatSuite) TestWriteAgentConfig(c *gc.C) {
