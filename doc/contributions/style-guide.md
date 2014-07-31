@@ -132,6 +132,10 @@ The juju/errors package should be used to handle errors:
 
 ```go
 return errors.Trace(err)
+
+return errors.Errorf("this will be the error message %s", var)
+
+return errors.Annotate(err, "err will be wrapped with this annotation")
 ```
 
 ## Tests
@@ -169,7 +173,7 @@ func (s *SomeSuite) TestSomethingc(c *gc.C) {
 If your test functions are under `package_test` and they need to test something 
 from package that is not exported, create an exported alias to it in `export_test.go`:
 
- ```go
+```go
 // -----------
 // in tools.go
 // -----------
@@ -198,6 +202,24 @@ func (s *SomeSuite) TestSomethingc(c *gc.C) {
         s.PatchValue(tools.SomeVar, newValue)
         // ...
 }
+```
+
+## Layout
+
+Imports are grouped into 3 sections: standard library, 3rd party libraries, juju/juju library:
+
+```go
+import (
+    "fmt"
+    "io"
+
+    "github.com/juju/errors"
+    "github.com/juju/loggo"
+    gc "launchpad.net/gocheck"
+
+    "github.com/juju/juju/environs"
+    "github.com/juju/juju/environs/config"
+)
 ```
 
 ## API
