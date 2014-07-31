@@ -794,19 +794,38 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 	secondAction, err := s.wordpressUnit.AddAction("snapshot", nil)
 	c.Assert(err, gc.IsNil)
 
+	idsAppeared := map[string]int{
+		firstAction.Id():  0,
+		secondAction.Id(): 0,
+	}
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-wordpress-0"},
 	}}
 
-	result, err := s.uniter.WatchActions(args)
+	// WatchActions returns params.StringsWatchResults{
+	//	Results: []params.StringsWatchResult{
+	//		StringsWatcherId: string,
+	//		Changes: []string
+	// 	}
+	// }
+	// So, we need to extract the changes and make sure they have the
+	// same values of our expected Action IDs, not necessarily in order.
+	swResults, err := s.uniter.WatchActions(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(len(result.Results), gc.Equals, 1)
-
-	expected := []string{
-		firstAction.Id(),
-		secondAction.Id(),
+	c.Assert(swResults, gc.NotNil)
+	swResultsContent := swResults.Results
+	c.Assert(len(swResultsContent), gc.Equals, 1)
+	swResult := swResultsContent[0]
+	c.Assert(swResult.StringsWatcherId, gc.Equals, "1")
+	for _, change := range swResult.Changes {
+		// How many times have we seen this ID?
+		idsAppeared[change] += 1
 	}
-	c.Assert(result.Results[0].Changes, jc.SameContents, expected)
+	c.Assert(idsAppeared, jc.DeepEquals, map[string]int{
+		firstAction.Id():  1,
+		secondAction.Id(): 1,
+	})
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
