@@ -3,12 +3,17 @@
 
 package api
 
-var (
-	NewWebsocketDialer = newWebsocketDialer
+import (
+	"github.com/juju/juju/network"
+)
 
+var (
+	NewWebsocketDialer  = newWebsocketDialer
 	WebsocketDialConfig = &websocketDialConfig
 	SetUpWebsocket      = setUpWebsocket
 	SlideAddressToFront = slideAddressToFront
+	BestVersion         = bestVersion
+	FacadeVersions      = &facadeVersions
 )
 
 // SetServerRoot allows changing the URL to the internal API server
@@ -25,4 +30,28 @@ func PatchEnvironTag(st *State, envTag string) func() {
 	return func() {
 		st.environTag = originalTag
 	}
+}
+
+// TestingStateParams is the parameters for NewTestingState, so that you can
+// only set the bits that you acutally want to test.
+type TestingStateParams struct {
+	Address        string
+	EnvironTag     string
+	APIHostPorts   [][]network.HostPort
+	FacadeVersions map[string][]int
+	ServerRoot     string
+}
+
+// NewTestingState creates an api.State object that can be used for testing. It
+// isn't backed onto an actual API server, so actual RPC methods can't be
+// called on it. But it can be used for testing general behavior.
+func NewTestingState(params TestingStateParams) *State {
+	st := &State{
+		addr:           params.Address,
+		environTag:     params.EnvironTag,
+		hostPorts:      params.APIHostPorts,
+		facadeVersions: params.FacadeVersions,
+		serverRoot:     params.ServerRoot,
+	}
+	return st
 }
