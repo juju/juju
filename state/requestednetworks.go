@@ -4,8 +4,8 @@
 package state
 
 import (
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // requestedNetworksDoc represents the network restrictions for a

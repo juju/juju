@@ -4,7 +4,7 @@
 package peergrouper
 
 import (
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"

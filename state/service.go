@@ -14,9 +14,9 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
+	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state/api/params"

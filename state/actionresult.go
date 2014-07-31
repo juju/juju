@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/errors"
-	"labix.org/v2/mgo/txn"
+	"gopkg.in/mgo.v2/txn"
 )
 
 // ActionStatus represents the possible end states for an action.

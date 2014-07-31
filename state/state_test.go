@@ -19,8 +19,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
@@ -2154,10 +2154,8 @@ func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *gc.C) {
 	}
 	c.Assert(err, gc.ErrorMatches, "no reachable servers")
 	// tryOpenState should have delayed for at least retryDelay
-	// internally mgo will try three times in a row before returning
-	// to the caller.
-	if t1 := time.Since(t0); t1 < 3*retryDelay {
-		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, 3*retryDelay)
+	if t1 := time.Since(t0); t1 < retryDelay {
+		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, retryDelay)
 	}
 }
 
