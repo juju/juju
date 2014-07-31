@@ -52,7 +52,7 @@ def get_lp_bugs(args):
 def get_reason(bugs, args):
     if not bugs:
         return 0, 'No blocking bugs'
-    fixes_ids = ['__fixes-{}__'.format(bug_id) for bug_id in bugs]
+    fixes_ids = ['fixes-{}'.format(bug_id) for bug_id in bugs]
     uri = GH_COMMENTS.format(args.pull_request)
     comments = get_json(uri)
     if comments:

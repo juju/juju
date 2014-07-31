@@ -79,7 +79,7 @@ class CheckBlockers(TestCase):
             bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
             code, reason = check_blockers.get_reason(bugs, args)
             self.assertEqual(1, code)
-            self.assertEqual("Does not match ['__fixes-98765__']", reason)
+            self.assertEqual("Does not match ['fixes-98765']", reason)
 
     def test_get_reason_with_blockers_with_match(self):
         args = check_blockers.parse_args(['master', '17'])
@@ -90,7 +90,7 @@ class CheckBlockers(TestCase):
             bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
             code, reason = check_blockers.get_reason(bugs, args)
             self.assertEqual(0, code)
-            self.assertEqual("Matches __fixes-98765__", reason)
+            self.assertEqual("Matches fixes-98765", reason)
 
     def test_get_reason_with_blockers_with_jujubot_comment(self):
         args = check_blockers.parse_args(['master', '17'])
@@ -101,7 +101,7 @@ class CheckBlockers(TestCase):
             bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
             code, reason = check_blockers.get_reason(bugs, args)
             self.assertEqual(1, code)
-            self.assertEqual("Does not match ['__fixes-98765__']", reason)
+            self.assertEqual("Does not match ['fixes-98765']", reason)
 
     def test_get_reason_with_blockers_with_reply_jujubot_comment(self):
         args = check_blockers.parse_args(['master', '17'])
@@ -112,7 +112,7 @@ class CheckBlockers(TestCase):
             bugs = {'98765': {'self_link': 'https://lp/j/98765'}}
             code, reason = check_blockers.get_reason(bugs, args)
             self.assertEqual(1, code)
-            self.assertEqual("Does not match ['__fixes-98765__']", reason)
+            self.assertEqual("Does not match ['fixes-98765']", reason)
 
     def test_get_reason_with_blockers_with_jfdi(self):
         args = check_blockers.parse_args(['master', '17'])
