@@ -70,6 +70,39 @@ type PortsResult struct {
 	Ports []network.Port
 }
 
+// MachinePortsParam specifies the machine and network tags
+// to retrieve the list of open port ranges for.
+type MachinePortsParam struct {
+	Machine string
+	Network string
+}
+
+// MachinePortsParams specifies a list of machine-network pairs
+// to retrieve open port range information for.
+type MachinePortsParams struct {
+	Params []MachinePortsParam
+}
+
+// MachinePortDef defines a single port range open on a machine
+// with the tag of the unit associated with that port.
+type MachinePortDef struct {
+	Range network.PortRange
+	Unit  Entity
+}
+
+// MachinePortsResult holds the result of an API call that returns a
+// map from port ranges to unit tags.
+type MachinePortsResult struct {
+	Error *Error
+	Ports []MachinePortDef
+}
+
+// MachinePortsResults holds the results of a bulk operation that returns
+// a map from port ranges to unit tags.
+type MachinePortsResults struct {
+	Results []MachinePortsResult
+}
+
 // StringsResults holds the bulk operation result of an API call
 // that returns a slice of strings or an error.
 type StringsResults struct {

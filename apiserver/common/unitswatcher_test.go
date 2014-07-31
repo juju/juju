@@ -30,29 +30,7 @@ func (f *fakeUnitsWatcher) WatchUnits() state.StringsWatcher {
 	changes := make(chan []string, 1)
 	// Simulate initial event.
 	changes <- f.initial
-	return &fakeStringsWatcher{changes}
-}
-
-type fakeStringsWatcher struct {
-	changes chan []string
-}
-
-func (*fakeStringsWatcher) Stop() error {
-	return nil
-}
-
-func (*fakeStringsWatcher) Kill() {}
-
-func (*fakeStringsWatcher) Wait() error {
-	return nil
-}
-
-func (*fakeStringsWatcher) Err() error {
-	return nil
-}
-
-func (w *fakeStringsWatcher) Changes() <-chan []string {
-	return w.changes
+	return &apiservertesting.FakeStringsWatcher{changes}
 }
 
 func (*unitsWatcherSuite) TestWatchUnits(c *gc.C) {

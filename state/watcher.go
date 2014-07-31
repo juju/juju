@@ -1,6 +1,5 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2012-2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-
 package state
 
 import (
@@ -1890,4 +1889,115 @@ func (w *machineInterfacesWatcher) loop() error {
 			out = nil
 		}
 	}
+}
+
+//openedPortsWatcher notifies of changes in the openedPortsCollection
+type openedPortsWatcher struct {
+	commonWatcher
+	out chan []string
+}
+
+var _ Watcher = (*openedPortsWatcher)(nil)
+
+// WatchOpenedPorts starts and returns an openedPortsWatcher
+func (st *State) WatchOpenedPorts() StringsWatcher {
+	return newOpenedPortsWatcher(st)
+}
+
+func newOpenedPortsWatcher(st *State) StringsWatcher {
+	w := &openedPortsWatcher{
+		commonWatcher: commonWatcher{st: st},
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+
+	return w
+}
+
+// transformId transforms the ports document id into a string
+// <machine-id>:<network-name>
+func (w *openedPortsWatcher) transformId(id string) (string, error) {
+	machineId, err := PortsMachineId(id)
+	if err != nil {
+		return "", err
+	}
+	networkName, err := PortsNetworkId(id)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s:%s", machineId, networkName), nil
+}
+
+// Changes returns the event channel for w
+func (w *openedPortsWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+func (w *openedPortsWatcher) initial() (*set.Strings, error) {
+	var portDocs set.Strings
+	var doc portsDoc
+	ports, closer := w.st.getCollection(openedPortsC)
+	defer closer()
+	iter := ports.Find(nil).Iter()
+	for iter.Next(&doc) {
+		change, err := w.transformId(doc.Id)
+		if err != nil {
+			return nil, err
+		}
+		portDocs.Add(change)
+	}
+	return &portDocs, iter.Close()
+}
+
+func (w *openedPortsWatcher) loop() error {
+	in := make(chan watcher.Change)
+	changes, err := w.initial()
+	if err != nil {
+		return err
+	}
+	w.st.watcher.WatchCollection(openedPortsC, in)
+	defer w.st.watcher.UnwatchCollection(openedPortsC, in)
+	out := w.out
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return stateWatcherDeadError(w.st.watcher.Err())
+		case ch := <-in:
+			updates, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if err := w.merge(changes, updates); err != nil {
+				return err
+			}
+			if !changes.IsEmpty() {
+				out = w.out
+			}
+		case out <- changes.Values():
+			changes = &set.Strings{}
+			out = nil
+		}
+	}
+}
+
+func (w *openedPortsWatcher) merge(changes *set.Strings, updates map[interface{}]bool) error {
+	for id := range updates {
+		if id, ok := id.(string); ok {
+			change, err := w.transformId(id)
+			if err != nil {
+				return err
+			}
+			changes.Add(change)
+
+		} else {
+			return fmt.Errorf("id is not of type string")
+		}
+	}
+	return nil
 }

@@ -582,7 +582,7 @@ func (m *Machine) removePortsOps() ([]txn.Op, error) {
 	if m.doc.Life != Dead {
 		return nil, errors.Errorf("machine is not dead")
 	}
-	ports, err := m.OpenedPorts(m.st)
+	ports, err := m.AllPorts()
 	if err != nil {
 		return nil, err
 	}

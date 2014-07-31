@@ -4,6 +4,7 @@
 package firewaller
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 
 	"github.com/juju/juju/api/base"
@@ -74,5 +75,28 @@ func (st *State) WatchEnvironMachines() (watcher.StringsWatcher, error) {
 		return nil, result.Error
 	}
 	w := watcher.NewStringsWatcher(st.facade.RawAPICaller(), result)
+	return w, nil
+}
+
+// WatchOpenedPorts returns a StringsWatcher that notifies of changes
+// to the ports open on machines.
+func (st *State) WatchOpenedPorts() (watcher.StringsWatcher, error) {
+	var result params.StringsWatchResults
+
+	// use empty string for the id of the current env
+	args := params.Entities{[]params.Entity{{""}}}
+
+	err := st.facade.FacadeCall("WatchOpenedPorts", args, &result)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result.Results) != 1 {
+		return nil, errors.Errorf("expected 1 result, got %d", len(result.Results))
+	}
+	if err := result.Results[0].Error; err != nil {
+		return nil, err
+	}
+	w := watcher.NewStringsWatcher(st.facade.RawAPICaller(), result.Results[0])
 	return w, nil
 }
