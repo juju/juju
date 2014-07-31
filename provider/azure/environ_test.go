@@ -1158,11 +1158,6 @@ func (s *environSuite) TestInitialPorts(c *gc.C) {
 	// Only role2 should report opened state server ports via the Ports method.
 	dummyRole := *role1
 	configSetNetwork(&dummyRole).InputEndpoints = &[]gwacl.InputEndpoint{{
-		LocalPort: env.Config().StatePort(),
-		Protocol:  "tcp",
-		Name:      "stateserver",
-		Port:      env.Config().StatePort(),
-	}, {
 		LocalPort: env.Config().APIPort(),
 		Protocol:  "tcp",
 		Name:      "apiserver",
@@ -1177,7 +1172,7 @@ func (s *environSuite) TestInitialPorts(c *gc.C) {
 		for _, port := range ports {
 			portmap[port.Number] = true
 		}
-		return portmap[env.Config().StatePort()] && portmap[env.Config().APIPort()]
+		return portmap[env.Config().APIPort()]
 	}
 	c.Check(inst1, gc.Not(jc.Satisfies), reportsStateServerPorts)
 	c.Check(inst2, jc.Satisfies, reportsStateServerPorts)
