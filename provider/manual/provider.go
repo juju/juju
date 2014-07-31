@@ -94,6 +94,10 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 	if err != nil {
 		return nil, err
 	}
+	cfg, err = cfg.Apply(validated)
+	if err != nil {
+		return nil, err
+	}
 	envConfig := newEnvironConfig(cfg, validated)
 	if envConfig.bootstrapHost() == "" {
 		return nil, errNoBootstrapHost
@@ -130,7 +134,7 @@ func (p manualProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 	if err != nil {
 		return nil, err
 	}
-	return cfg.Apply(envConfig.attrs)
+	return envConfig.Config, nil
 }
 
 func (_ manualProvider) BoilerplateConfig() string {

@@ -24,7 +24,7 @@ gopkg.in/mgo.v2	git	3116f72d0fe0216b75201cb3a1ae61c82c2a4d63
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
 launchpad.net/goamz	bzr	ian.booth@canonical.com-20140708164959-72q70lo1du0e4qki	48
 launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20140225173054-xu9zlkf9kxhvow02	87
-launchpad.net/golxc	bzr	frank.mueller@canonical.com-20140709124547-dvc1bzcl986zcm5f	10
+launchpad.net/golxc	bzr	ian.booth@canonical.com-20140730020217-xa1jyuytye6g1qie	12
 launchpad.net/gomaasapi	bzr	andrew.wilkins@canonical.com-20140728022143-mth8hx6p0i546y0w	52
 launchpad.net/goose	bzr	tarmac-20140702055133-xpuj6gm4pa0f3a0e	127
 launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50

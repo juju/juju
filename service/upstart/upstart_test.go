@@ -36,9 +36,14 @@ func (s *UpstartSuite) SetUpTest(c *gc.C) {
 	s.initDir = c.MkDir()
 	s.PatchEnvPathPrepend(s.testPath)
 	s.PatchValue(&upstart.InstallStartRetryAttempts, utils.AttemptStrategy{})
-	s.service = &upstart.Service{Name: "some-service", Conf: common.Conf{InitDir: s.initDir}}
-	_, err := os.Create(filepath.Join(s.service.Conf.InitDir, "some-service.conf"))
-	c.Assert(err, gc.IsNil)
+	s.PatchValue(&upstart.InitDir, s.initDir)
+	s.service = upstart.NewService(
+		"some-service",
+		common.Conf{
+			Desc: "some service",
+			Cmd:  "some command",
+		},
+	)
 }
 
 var checkargs = `
@@ -70,14 +75,32 @@ func (s *UpstartSuite) RunningStatus(c *gc.C) {
 
 func (s *UpstartSuite) TestInitDir(c *gc.C) {
 	svc := upstart.NewService("blah", common.Conf{})
-	c.Assert(svc.Conf.InitDir, gc.Equals, "/etc/init")
+	c.Assert(svc.Conf.InitDir, gc.Equals, s.initDir)
+}
+
+func (s *UpstartSuite) goodInstall(c *gc.C) {
+	s.MakeTool(c, "start", "exit 0")
+	err := s.service.Install()
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *UpstartSuite) TestInstalled(c *gc.C) {
-	c.Assert(s.service.Installed(), gc.Equals, true)
-	err := os.Remove(filepath.Join(s.service.Conf.InitDir, "some-service.conf"))
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.service.Installed(), gc.Equals, false)
+	c.Assert(s.service.Installed(), jc.IsFalse)
+	s.goodInstall(c)
+	c.Assert(s.service.Installed(), jc.IsTrue)
+}
+
+func (s *UpstartSuite) TestExists(c *gc.C) {
+	// Setup creates the file, but it is empty.
+	c.Assert(s.service.Exists(), jc.IsFalse)
+	s.goodInstall(c)
+	c.Assert(s.service.Exists(), jc.IsTrue)
+}
+
+func (s *UpstartSuite) TestExistsNonEmpty(c *gc.C) {
+	s.goodInstall(c)
+	s.service.Conf.Cmd = "something else"
+	c.Assert(s.service.Exists(), jc.IsFalse)
 }
 
 func (s *UpstartSuite) TestRunning(c *gc.C) {
@@ -110,12 +133,11 @@ func (s *UpstartSuite) TestStop(c *gc.C) {
 }
 
 func (s *UpstartSuite) TestRemoveMissing(c *gc.C) {
-	err := os.Remove(filepath.Join(s.service.Conf.InitDir, "some-service.conf"))
-	c.Assert(err, gc.IsNil)
 	c.Assert(s.service.StopAndRemove(), gc.IsNil)
 }
 
 func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
+	s.goodInstall(c)
 	s.StoppedStatus(c)
 	c.Assert(s.service.StopAndRemove(), gc.IsNil)
 	_, err := os.Stat(filepath.Join(s.service.Conf.InitDir, "some-service.conf"))
@@ -123,6 +145,7 @@ func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
 }
 
 func (s *UpstartSuite) TestRemoveRunning(c *gc.C) {
+	s.goodInstall(c)
 	s.RunningStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
 	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
@@ -135,6 +158,7 @@ func (s *UpstartSuite) TestRemoveRunning(c *gc.C) {
 }
 
 func (s *UpstartSuite) TestStopAndRemove(c *gc.C) {
+	s.goodInstall(c)
 	s.RunningStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
 

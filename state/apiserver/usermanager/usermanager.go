@@ -68,10 +68,8 @@ type ModifyUser struct {
 // UserManagerAPI implements the user manager interface and is the concrete
 // implementation of the api end point.
 type UserManagerAPI struct {
-	state       *state.State
-	authorizer  common.Authorizer
-	getCanWrite common.GetAuthFunc
-	getCanRead  common.GetAuthFunc
+	state      *state.State
+	authorizer common.Authorizer
 }
 
 var _ UserManager = (*UserManagerAPI)(nil)
@@ -85,17 +83,10 @@ func NewUserManagerAPI(
 		return nil, common.ErrPerm
 	}
 
-	// TODO(mattyw) - replace stub with real canWrite function
-	getCanWrite := common.AuthAlways(true)
-
-	// TODO(waigani) - replace stub with real canRead function
-	getCanRead := common.AuthAlways(true)
 	return &UserManagerAPI{
-			state:       st,
-			authorizer:  authorizer,
-			getCanWrite: getCanWrite,
-			getCanRead:  getCanRead},
-		nil
+		state:      st,
+		authorizer: authorizer,
+	}, nil
 }
 
 // AddUser adds a user.
@@ -106,20 +97,11 @@ func (api *UserManagerAPI) AddUser(args ModifyUsers) (params.ErrorResults, error
 	if len(args.Changes) == 0 {
 		return result, nil
 	}
-	canWrite, err := api.getCanWrite()
-	if err != nil {
-		result.Results[0].Error = common.ServerError(err)
-		return result, err
-	}
 	user := api.getLoggedInUser()
 	if user == nil {
 		return result, fmt.Errorf("api connection is not through a user")
 	}
 	for i, arg := range args.Changes {
-		if !canWrite(arg.Tag) {
-			result.Results[0].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
 		username := arg.Username
 		if username == "" {
 			username = arg.Tag
@@ -142,15 +124,7 @@ func (api *UserManagerAPI) RemoveUser(args params.Entities) (params.ErrorResults
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canWrite, err := api.getCanWrite()
-	if err != nil {
-		return result, err
-	}
 	for i, arg := range args.Entities {
-		if !canWrite(arg.Tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
 		user, err := api.state.User(arg.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
@@ -171,15 +145,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (UserInfoResults, erro
 		Results: make([]UserInfoResult, len(args.Entities)),
 	}
 
-	canRead, err := api.getCanRead()
-	if err != nil {
-		return results, err
-	}
 	for i, userArg := range args.Entities {
-		if !canRead(userArg.Tag) {
-			results.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
 		tag, err := names.ParseUserTag(userArg.Tag)
 		if err != nil {
 			results.Results[0].Error = common.ServerError(err)
@@ -201,7 +167,7 @@ func (api *UserManagerAPI) UserInfo(args params.Entities) (UserInfoResults, erro
 				DisplayName:    user.DisplayName(),
 				CreatedBy:      user.CreatedBy(),
 				DateCreated:    user.DateCreated(),
-				LastConnection: user.LastConnection(),
+				LastConnection: user.LastLogin(),
 			}
 			result.Result = &info
 		}
@@ -218,16 +184,7 @@ func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, e
 	if len(args.Changes) == 0 {
 		return result, nil
 	}
-	canWrite, err := api.getCanWrite()
-	if err != nil {
-		return result, err
-	}
 	for i, arg := range args.Changes {
-		if !canWrite(arg.Tag) {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-
 		username := arg.Username
 		if username == "" {
 			username = arg.Tag
@@ -255,9 +212,10 @@ func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, e
 }
 
 func (api *UserManagerAPI) getLoggedInUser() *state.User {
-	entity := api.authorizer.GetAuthEntity()
-	if user, ok := entity.(*state.User); ok {
-		return user
+	switch entity := api.authorizer.GetAuthEntity().(type) {
+	case *state.User:
+		return entity
+	default:
+		return nil
 	}
-	return nil
 }

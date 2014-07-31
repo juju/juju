@@ -51,6 +51,8 @@ var (
 	JujuMongodPath = "/usr/lib/juju/bin/mongod"
 
 	upstartConfInstall          = (*upstart.Service).Install
+	upstartServiceExists        = (*upstart.Service).Exists
+	upstartServiceRunning       = (*upstart.Service).Running
 	upstartServiceStopAndRemove = (*upstart.Service).StopAndRemove
 	upstartServiceStop          = (*upstart.Service).Stop
 	upstartServiceStart         = (*upstart.Service).Start
@@ -170,12 +172,32 @@ func EnsureServer(args EnsureServerParams) error {
 	)
 	dbDir := filepath.Join(args.DataDir, "db")
 
+	oplogSizeMB := args.OplogSize
+	if oplogSizeMB == 0 {
+		var err error
+		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
+			return err
+		}
+	}
+
+	svc, mongoPath, err := upstartService(args.Namespace, args.DataDir, dbDir, args.StatePort, oplogSizeMB)
+	if err != nil {
+		return err
+	}
+	if upstartServiceExists(svc) {
+		logger.Debugf("mongo exists as expected")
+		if !upstartServiceRunning(svc) {
+			return upstartServiceStart(svc)
+		}
+		return nil
+	}
+
 	if err := os.MkdirAll(dbDir, 0700); err != nil {
 		return fmt.Errorf("cannot create mongo database directory: %v", err)
 	}
 
 	certKey := args.Cert + "\n" + args.PrivateKey
-	err := utils.AtomicWriteFile(sslKeyPath(args.DataDir), []byte(certKey), 0600)
+	err = utils.AtomicWriteFile(sslKeyPath(args.DataDir), []byte(certKey), 0600)
 	if err != nil {
 		return fmt.Errorf("cannot write SSL key: %v", err)
 	}
@@ -203,17 +225,6 @@ func EnsureServer(args EnsureServerParams) error {
 		return fmt.Errorf("cannot install mongod: %v", err)
 	}
 
-	oplogSizeMB := args.OplogSize
-	if oplogSizeMB == 0 {
-		if oplogSizeMB, err = defaultOplogSize(dbDir); err != nil {
-			return err
-		}
-	}
-
-	svc, mongoPath, err := upstartService(args.Namespace, args.DataDir, dbDir, args.StatePort, oplogSizeMB)
-	if err != nil {
-		return err
-	}
 	logVersion(mongoPath)
 
 	if err := upstartServiceStop(svc); err != nil {

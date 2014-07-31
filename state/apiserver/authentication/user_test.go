@@ -58,7 +58,7 @@ func (s *userAuthenticatorSuite) TestUnitLoginFails(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 	user := s.Factory.MakeUser(factory.UserParams{
-		Username:    "bobbrown",
+		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		Password:    "password",
 	})
@@ -71,7 +71,7 @@ func (s *userAuthenticatorSuite) TestValidUserLogin(c *gc.C) {
 
 func (s *userAuthenticatorSuite) TestUserLoginWrongPassword(c *gc.C) {
 	user := s.Factory.MakeUser(factory.UserParams{
-		Username:    "bobbrown",
+		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		Password:    "password",
 	})
