@@ -19,7 +19,7 @@ import (
 	"github.com/juju/names"
 	"github.com/juju/utils"
 	"github.com/juju/utils/voyeur"
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 

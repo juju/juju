@@ -248,7 +248,7 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 	select {
 	case err := <-done:
 		c.Assert(err, gc.IsNil)
-	case <-time.After(watcher.Period * 5 / 4):
+	case <-time.After(watcher.Period * 2):
 		// TODO(rog) Fix this so it doesn't wait for so long.
 		// https://bugs.github.com/juju/juju/+bug/1163983
 		c.Fatalf("timed out waiting for agent to terminate")

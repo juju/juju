@@ -8,7 +8,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
 	coretesting "github.com/juju/juju/testing"

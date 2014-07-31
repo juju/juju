@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/names"
-	"labix.org/v2/mgo/bson"
+	"gopkg.in/mgo.v2/bson"
 )
 
 // NetworkInterface represents the state of a machine network
