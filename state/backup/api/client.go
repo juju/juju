@@ -4,8 +4,6 @@
 package api
 
 import (
-	"fmt"
-
 	"github.com/juju/juju/state/backup"
 )
 
@@ -29,7 +27,7 @@ func (ba *backupClientAPI) Create(name string) (*backup.BackupInfo, string, erro
 		Action: ActionCreate,
 		Name:   name,
 	}
-	result, err := ba.client.Backup(&args)
+	result, err := ba.client.Backup(args)
 	if err != nil {
 		return nil, "", err
 	}

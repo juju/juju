@@ -20,6 +20,8 @@ type backupSuite struct {
 func (s *backupSuite) SetUpTest(c *gc.C) {
 	s.clientSuite.SetUpTest(c)
 	s.BackupSuite.SetUpTest(c)
+
+	s.Client = s.APIState.Client()
 }
 
 //---------------------------
@@ -48,15 +50,15 @@ func (s *backupSuite) TestBackupCreateSuccess(c *gc.C) {
 	info := s.SetSuccess(nil, "")
 	result := s.SendSuccess(c, "create", "backup.tar.gz")
 
-	s.CheckBackupResult(c, result, info, "backup.tar.gz", "")
+	s.CheckSuccess(c, result, info, "backup.tar.gz", "", nil)
 }
 
 func (s *backupSuite) TestBackupCreateSuccessBlank(c *gc.C) {
 	s.Name = "juju-backup.tar.gz"
 	info := s.SetSuccess(nil, "")
-	res := s.SendSuccess(c, "create", "")
+	result := s.SendSuccess(c, "create", "")
 
-	s.CheckBackupResult(c, result, info, "juju-backup.tar.gz", "")
+	s.CheckSuccess(c, result, info, "juju-backup.tar.gz", "", nil)
 }
 
 func (s *backupSuite) TestBackupCreateFailure(c *gc.C) {

@@ -4,9 +4,6 @@
 package client
 
 import (
-	"fmt"
-
-	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/backup/api"
 )
 

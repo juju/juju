@@ -6,7 +6,6 @@ package backup
 import (
 	"time"
 
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/version"
 )
 

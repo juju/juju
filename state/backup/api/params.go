@@ -12,7 +12,7 @@ import (
 // Action must always be set.  Otherwise which fields must be set
 // depends on the action.
 type BackupArgs struct {
-	Action string
+	Action Action
 	Name   string
 }
 

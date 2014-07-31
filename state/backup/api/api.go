@@ -4,6 +4,8 @@
 package api
 
 import (
+	"fmt"
+
 	"github.com/juju/juju/state/backup"
 )
 

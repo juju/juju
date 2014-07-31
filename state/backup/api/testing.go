@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backup"
+	"github.com/juju/juju/version"
 )
 
 //---------------------------
@@ -32,33 +34,35 @@ func NewBackupFaker(info *backup.BackupInfo, url string, failure error) *BackupF
 	return &faker
 }
 
-func (c *BackupFaker) Backup(args BackupArgs) (BackupResult, error) {
+func (bf *BackupFaker) Backup(args BackupArgs) (BackupResult, error) {
 	var result BackupResult
 
-	if c.Failure != nil {
-		return result, c.Failure
+	if bf.Failure != nil {
+		return result, bf.Failure
 	}
-	result.Info = c.Info
-	result.URL = c.URL
+	result.Info = *bf.Info
+	result.URL = bf.URL
 	return result, nil
 }
 
-func (ba *BackupFaker) Create(name string) (*backup.BackupInfo, string, error) {
-	if ba.err != nil {
-		return nil, "", ba.Failure
+func (bf *BackupFaker) Create(name string) (*backup.BackupInfo, string, error) {
+	if bf.Failure != nil {
+		return nil, "", bf.Failure
 	}
 	var info backup.BackupInfo
-	info = *ba.info
+	info = *bf.Info
 	if name != "" {
 		info.Name = name
 	}
-	return &info, ba.url, nil
+	return &info, bf.URL, nil
 }
 
 //---------------------------
 // test suite
 
 type BackupSuite struct {
+	testing.IsolationSuite
+
 	Name      string
 	Timestamp *time.Time
 	CheckSum  string
@@ -70,6 +74,8 @@ type BackupSuite struct {
 }
 
 func (s *BackupSuite) SetUpTest(c *gc.C) {
+	s.IsolationSuite.SetUpTest(c)
+
 	s.Name = "juju-backup.tar.gz"
 	timestamp := time.Now().UTC()
 	s.Timestamp = &timestamp
@@ -77,8 +83,6 @@ func (s *BackupSuite) SetUpTest(c *gc.C) {
 	s.Size = 42
 	version := version.Current.Number
 	s.Version = &version
-
-	s.Client = s.StateAPI.Client()
 }
 
 func (s *BackupSuite) Info() *backup.BackupInfo {
@@ -127,18 +131,21 @@ func (s *BackupSuite) SetError(msg string, args ...interface{}) {
 	s.setFaker(nil, "", nil, err)
 }
 
-func (s *BackupSuite) send(c *gc.C, a, n string) (*BackupResult, error) {
+func (s *BackupSuite) send(c *gc.C, a Action, n string) (*BackupResult, error) {
 	req := BackupArgs{a, n}
-	return s.Client.Backup(&req)
+	result, err := s.Client.Backup(req)
+	return &result, err
 }
 
-func (s *BackupSuite) SendSuccess(c *gc.C, action, name string) *BackupResult {
+func (s *BackupSuite) SendSuccess(
+	c *gc.C, action Action, name string,
+) *BackupResult {
 	res, err := s.send(c, action, name)
 	c.Assert(err, gc.IsNil)
 	return res
 }
 
-func (s *BackupSuite) SendError(c *gc.C, action, name string) error {
+func (s *BackupSuite) SendError(c *gc.C, action Action, name string) error {
 	result, err := s.send(c, action, name)
 	if err == nil {
 		c.Error(fmt.Sprintf("%v", result))
@@ -157,7 +164,7 @@ func (s *BackupSuite) CheckSuccess(
 	} else {
 		var infoCopy backup.BackupInfo
 		infoCopy = *info
-		infoCopy.Name = Name
+		infoCopy.Name = name
 		res = c.Check(result.Info, gc.DeepEquals, infoCopy) && res
 	}
 	return res
@@ -182,17 +189,17 @@ func (s *BackupSuite) CheckAPIClient(c *gc.C, client apiClient) bool {
 	info := s.SetSuccess(nil, "")
 	result, err := client.Backup(args)
 	res := c.Check(err, gc.IsNil)
-	res = s.CheckSuccess(c, result, info, "", "", err) && res
+	res = s.CheckSuccess(c, &result, info, "", "", err) && res
 
 	s.SetError("exploded!")
-	result, err := client.Backup(args)
-	res := c.Check(err, gc.IsNil)
-	res = s.CheckError(c, result, err, "exploded!") && res
+	result, err = client.Backup(args)
+	res = c.Check(err, gc.IsNil)
+	res = s.CheckError(c, &result, err, "exploded!") && res
 
 	s.SetFailure("failed!")
-	result, err := client.Backup(args)
-	res := c.Check(err, gc.IsNil)
-	res = s.CheckError(c, result, err, "failed!") && res
+	result, err = client.Backup(args)
+	res = c.Check(err, gc.IsNil)
+	res = s.CheckError(c, &result, err, "failed!") && res
 
 	return res
 }
