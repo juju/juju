@@ -81,6 +81,8 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
+
+	s.PatchEnvironment("BASH_ENV", "")
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {
