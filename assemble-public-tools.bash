@@ -42,11 +42,13 @@ check_deps() {
     echo "Phase 0: Checking requirements."
     has_deps=1
     which lftp || has_deps=0
-    which s3cmd || has_deps=0
-    test -f $JUJU_DIR/s3cfg || has_deps=0
-    test -f $JUJU_DIR/environments.yaml || has_deps=0
+    if [[ GET_RELEASED_TOOL == "true" ]]; then
+        which s3cmd || has_deps=0
+        test -f $JUJU_DIR/s3cfg || has_deps=0
+        test -f $JUJU_DIR/environments.yaml || has_deps=0
+    fi
     if [[ $has_deps == 0 ]]; then
-        echo "Install lftp, s3cmd, then configure s3cmd."
+        echo "Install lftp, s3cmd, then configure s3cmd in JUJU_HOME."
         exit 2
     fi
 }
@@ -70,6 +72,7 @@ retrieve_released_tools() {
     # Retrieve previously released tools to ensure the metadata continues
     # to work for historic releases.
     [[ $PRIVATE == "true" ]] && return 0
+    [[ $GET_RELEASED_TOOL="false" ]] && return 0
     echo "Phase 2: Retrieving released tools."
     # unsupported, stable, devel excludes to make sync fast.
     if [[ $IS_TESTING == "true" ]]; then
@@ -315,13 +318,18 @@ declare -a added_tools
 added_tools=()
 
 IS_TESTING="false"
-while getopts ":t:" o; do
+GET_RELEASED_TOOL="true"
+while getopts "t:n" o; do
     case "${o}" in
         t)
             TEST_DEBS_DIR=${OPTARG}
             [[ -d $TEST_DEBS_DIR ]] || usage
             IS_TESTING="true"
             echo "# Assembling test tools from $TEST_DEBS_DIR"
+            ;;
+        n)
+            GET_RELEASED_TOOL="false"
+            echo "Not downloading release tools."
             ;;
         *)
             usage
