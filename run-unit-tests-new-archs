@@ -99,7 +99,7 @@ export GOPATH=\$HOME/$juju_version
 if [[ -d \$GOPATH ]]; then
   rm -r \$GOPATH
 fi
-tar -xzvf $tarfile
+tar -xzf $tarfile
 if [[ -d \$GOPATH/src/launchpad.net/juju-core ]]; then
     cd \$GOPATH/src/launchpad.net/juju-core
 else

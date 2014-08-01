@@ -101,7 +101,7 @@ if [[ "$USE_TMPFS" == "true" ]]; then
     sudo mount -t tmpfs -o size=2G /mnt/tmp /mnt/tmp
     export TMPDIR=/mnt/tmp
 fi
-tar -xzvf $tarfile
+tar -xzf $tarfile
 export GOPATH=\$HOME/$juju_version
 if [[ -d \$GOPATH/src/launchpad.net/juju-core ]]; then
     cd \$GOPATH/src/launchpad.net/juju-core
