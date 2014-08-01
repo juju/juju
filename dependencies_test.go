@@ -19,7 +19,7 @@ func Test(t *testing.T) {
 
 type dependenciesTest struct{}
 
-var _ = gc.Suite(&dependenciesTest{})
+var  _ = gc.Suite(&dependenciesTest{})
 
 func projectRoot(c *gc.C) string {
 	p, err := build.Import("github.com/juju/juju", "", build.FindOnly)
