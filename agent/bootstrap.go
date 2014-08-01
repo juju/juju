@@ -64,7 +64,10 @@ type BootstrapMachineConfig struct {
 
 const BootstrapMachineId = "0"
 
-func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+	// Don't attempt to dial peers.
+	dialOpts.Direct = true
+
 	if c.Tag() != names.NewMachineTag(BootstrapMachineId).String() {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -72,6 +75,7 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	if !ok {
 		return nil, nil, fmt.Errorf("state serving information not available")
 	}
+
 	// N.B. no users are set up when we're initializing the state,
 	// so don't use any tag or password when opening it.
 	info, ok := c.StateInfo()
@@ -81,12 +85,12 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	info.Tag = ""
 	info.Password = c.OldPassword()
 
-	if err := initMongoAdminUser(info.Info, timeout, info.Password); err != nil {
+	if err := initMongoAdminUser(info.Info, dialOpts, info.Password); err != nil {
 		return nil, nil, errors.Annotate(err, "failed to initialize mongo admin user")
 	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(info, envCfg, timeout, policy)
+	st, err := state.Initialize(info, envCfg, dialOpts, policy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
