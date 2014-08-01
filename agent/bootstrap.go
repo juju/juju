@@ -6,8 +6,10 @@ package agent
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -77,7 +79,11 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 		return nil, nil, fmt.Errorf("stateinfo not available")
 	}
 	info.Tag = ""
-	info.Password = ""
+	info.Password = c.OldPassword()
+
+	if err := initMongoAdminUser(info.Info, timeout, info.Password); err != nil {
+		return nil, nil, errors.Annotate(err, "failed to initialize mongo admin user")
+	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(info, envCfg, timeout, policy)
@@ -140,13 +146,22 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 	// it here. For now, we pass "" so that on first login we will create a
 	// new salt, but the fixed-salt password is still available from
 	// cloud-init.
-	if err := u.SetPasswordHash(passwordHash, ""); err != nil {
+	return u.SetPasswordHash(passwordHash, "")
+}
+
+// initMongoAdminUser adds the admin user with the specified
+// password to the admin database in Mongo.
+func initMongoAdminUser(info mongo.Info, dialOpts mongo.DialOpts, password string) error {
+	dialInfo, err := mongo.DialInfo(info, dialOpts)
+	if err != nil {
 		return err
 	}
-	if err := st.SetAdminMongoPassword(passwordHash); err != nil {
+	session, err := mgo.DialWithInfo(dialInfo)
+	if err != nil {
 		return err
 	}
-	return nil
+	defer session.Close()
+	return mongo.SetAdminMongoPassword(session, "admin", password)
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.
