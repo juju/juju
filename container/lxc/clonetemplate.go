@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/tailer"
@@ -71,6 +72,30 @@ func templateUserData(
 		return nil, err
 	}
 	return data, nil
+}
+
+// Override for testing.
+var removeLockFile = os.RemoveAll
+
+// RemoveTemplateLockFiles deletes any left over lock files so avoid confusing
+// older versions of Juju which used fslock.
+func RemoveTemplateLockFiles() error {
+	lockFiles, err := filepath.Glob(filepath.Join(TemplateLockDir, "juju-*-template"))
+	if err != nil {
+		return errors.Trace(err)
+	}
+	numFilesRemoved := 0
+	for _, f := range lockFiles {
+		if err := removeLockFile(f); err != nil {
+			logger.Warningf("failed to remove lock file %q: %v", f, err)
+		} else {
+			numFilesRemoved++
+		}
+	}
+	if numFilesRemoved != len(lockFiles) {
+		return fmt.Errorf("failed to remove all %d lock files, only %d removed", len(lockFiles), numFilesRemoved)
+	}
+	return nil
 }
 
 func AcquireTemplateLock(name, message string) (*container.Lock, error) {

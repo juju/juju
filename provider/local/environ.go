@@ -24,6 +24,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
 	"github.com/juju/juju/container/factory"
+	"github.com/juju/juju/container/lxc"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/cloudinit"
@@ -195,7 +196,11 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return err
 	}
-	return finishBootstrap(mcfg, cloudcfg, ctx)
+	if err := finishBootstrap(mcfg, cloudcfg, ctx); err != nil {
+		return err
+	}
+	// Clean up any left over lock files from older Juju versions.
+	return lxc.RemoveTemplateLockFiles()
 }
 
 // finishBootstrap converts the machine config to cloud-config,
@@ -469,7 +474,13 @@ func (env *localEnviron) Destroy() error {
 		cmd := exec.Command("sudo", args...)
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		return cmd.Run()
+		err = cmd.Run()
+		// Clean up any left over lock files from older Juju versions.
+		err1 := lxc.RemoveTemplateLockFiles()
+		if err != nil {
+			return err
+		}
+		return err1
 	}
 	// Kill all running instances. This must be done as
 	// root, or listing/stopping containers will fail.
@@ -501,7 +512,7 @@ func (env *localEnviron) Destroy() error {
 	mongo.RemoveService(env.config.namespace())
 	upstart.NewService(env.machineAgentServiceName()).StopAndRemove()
 
-	// Finally, remove the data-dir.
+	// Remove the data-dir.
 	if err := os.RemoveAll(env.config.rootDir()); err != nil && !os.IsNotExist(err) {
 		// Before we return the error, just check to see if the directory is
 		// there. There is a race condition with the agent with the removing
@@ -513,7 +524,8 @@ func (env *localEnviron) Destroy() error {
 		}
 		return err
 	}
-	return nil
+	// Clean up any left over lock files from older Juju versions.
+	return lxc.RemoveTemplateLockFiles()
 }
 
 // OpenPorts is specified in the Environ interface.

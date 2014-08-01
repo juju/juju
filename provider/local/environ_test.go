@@ -167,6 +167,8 @@ func (s *localJujuTestSuite) TestStartStop(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) (env environs.Environ) {
+	err := os.MkdirAll(filepath.Join(lxc.TemplateLockDir, "juju-precise-template"), 0755)
+	c.Assert(err, gc.IsNil)
 	ctx := coretesting.Context(c)
 	environ, err := local.Provider.Prepare(ctx, cfg)
 	c.Assert(err, gc.IsNil)
@@ -174,6 +176,9 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) (env env
 	defer environ.Storage().RemoveAll()
 	err = environ.Bootstrap(ctx, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
+	fileInfo, err := ioutil.ReadDir(lxc.TemplateLockDir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(fileInfo, gc.HasLen, 0)
 	return environ
 }
 
@@ -271,6 +276,8 @@ func (s *localJujuTestSuite) TestDestroyRemovesUpstartServices(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {
+	err := os.MkdirAll(filepath.Join(lxc.TemplateLockDir, "juju-precise-template"), 0755)
+	c.Assert(err, gc.IsNil)
 	env := s.testBootstrap(c, minimalConfig(c))
 	s.makeAgentsDir(c, env)
 	s.PatchValue(local.CheckIfRoot, func() bool { return true })
@@ -290,6 +297,10 @@ func (s *localJujuTestSuite) TestDestroyRemovesContainers(c *gc.C) {
 
 	container := s.ContainerFactory.New(string(machine1.Id()))
 	c.Assert(container.IsConstructed(), jc.IsFalse)
+
+	fileInfo, err := ioutil.ReadDir(lxc.TemplateLockDir)
+	c.Assert(err, gc.IsNil)
+	c.Assert(fileInfo, gc.HasLen, 0)
 }
 
 func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
