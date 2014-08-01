@@ -47,7 +47,7 @@ func (m *Machine) SetStatus(status params.Status, info string, data params.Statu
 			{Tag: m.tag.String(), Status: status, Info: info, Data: data},
 		},
 	}
-	err := m.st.call("SetStatus", args, &result)
+	err := m.st.facade.FacadeCall("SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -62,7 +62,7 @@ func (m *Machine) SetMachineAddresses(addresses []network.Address) error {
 			{Tag: m.Tag().String(), Addresses: addresses},
 		},
 	}
-	err := m.st.call("SetMachineAddresses", args, &result)
+	err := m.st.facade.FacadeCall("SetMachineAddresses", args, &result)
 	if err != nil {
 		return err
 	}
@@ -76,7 +76,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag.String()}},
 	}
-	err := m.st.call("EnsureDead", args, &result)
+	err := m.st.facade.FacadeCall("EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
@@ -85,5 +85,5 @@ func (m *Machine) EnsureDead() error {
 
 // Watch returns a watcher for observing changes to the machine.
 func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(m.st.caller, machinerFacade, m.tag)
+	return common.Watch(m.st.facade, m.tag)
 }

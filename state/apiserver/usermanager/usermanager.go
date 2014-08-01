@@ -212,9 +212,10 @@ func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, e
 }
 
 func (api *UserManagerAPI) getLoggedInUser() *state.User {
-	entity := api.authorizer.GetAuthEntity()
-	if user, ok := entity.(*state.User); ok {
-		return user
+	switch entity := api.authorizer.GetAuthEntity().(type) {
+	case *state.User:
+		return entity
+	default:
+		return nil
 	}
-	return nil
 }

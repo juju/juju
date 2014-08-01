@@ -178,9 +178,6 @@ func doPreallocFile(filename string, size int) (created bool, err error) {
 		return false, fmt.Errorf("specified size %v for file %q is not a multiple of %d", size, filename, preallocAlign)
 	}
 	f, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0700)
-	// TODO(jam) 2014-04-12 https://launchpad.net/bugs/1306902
-	// When we support upgrading Mongo into Replica mode, we should
-	// start rewriting the upstart config
 	if os.IsExist(err) {
 		// already exists, don't overwrite
 		return false, nil
