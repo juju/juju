@@ -96,7 +96,7 @@ func EnsureCloneTemplate(
 	authorizedKeys string,
 	aptProxy proxy.Settings,
 ) (golxc.Container, error) {
-	name := fmt.Sprintf("juju-%s-template", series)
+	name := fmt.Sprintf("juju-%s-lxc-template", series)
 	containerDirectory, err := container.NewDirectory(name)
 	if err != nil {
 		return nil, err
