@@ -197,3 +197,43 @@ func PortsToPortRanges(ports []Port) (result []PortRange) {
 	}
 	return
 }
+
+// CollapsePorts collapses a slice of ports into port ranges.
+func CollapsePorts(ports []Port) (result []PortRange) {
+	SortPorts(ports)
+	fromPort := 0
+	toPort := 0
+	protocol := ""
+	for _, p := range ports {
+		if fromPort == 0 {
+			// new port range
+			fromPort = p.Number
+			toPort = p.Number
+			protocol = p.Protocol
+		} else if p.Number == toPort+1 && protocol == p.Protocol {
+			// continuing port range
+			toPort = p.Number
+		} else {
+			// break in port range
+			result = append(result,
+				PortRange{
+					Protocol: protocol,
+					FromPort: fromPort,
+					ToPort:   toPort,
+				})
+			fromPort = p.Number
+			toPort = p.Number
+			protocol = p.Protocol
+		}
+	}
+	if fromPort != 0 {
+		result = append(result,
+			PortRange{
+				Protocol: protocol,
+				FromPort: fromPort,
+				ToPort:   toPort,
+			})
+
+	}
+	return
+}

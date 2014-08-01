@@ -238,41 +238,7 @@ func convertEndpointsToPortRanges(endpoints []gwacl.InputEndpoint) []network.Por
 
 	// convert port sets into port ranges
 	for _, ports := range portSets {
-		network.SortPorts(ports)
-		fromPort := 0
-		toPort := 0
-		protocol := ""
-		for _, p := range ports {
-			if fromPort == 0 {
-				// new port range
-				fromPort = p.Number
-				toPort = p.Number
-				protocol = p.Protocol
-			} else if p.Number == toPort+1 && protocol == p.Protocol {
-				// continuing port range
-				toPort = p.Number
-			} else {
-				// break in port range
-				portRanges = append(portRanges,
-					network.PortRange{
-						Protocol: protocol,
-						FromPort: fromPort,
-						ToPort:   toPort,
-					})
-				fromPort = p.Number
-				toPort = p.Number
-				protocol = p.Protocol
-			}
-			if fromPort != 0 {
-				portRanges = append(portRanges,
-					network.PortRange{
-						Protocol: protocol,
-						FromPort: fromPort,
-						ToPort:   toPort,
-					})
-			}
-
-		}
+		portRanges = append(portRanges, network.CollapsePorts(ports)...)
 	}
 
 	portRanges = append(portRanges, network.PortsToPortRanges(otherPorts)...)

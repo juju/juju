@@ -255,3 +255,35 @@ func (*PortSuite) TestSortPortRanges(c *gc.C) {
 	network.SortPortRanges(ranges)
 	c.Assert(ranges, gc.DeepEquals, expected)
 }
+
+func (*PortSuite) TestCollapsePorts(c *gc.C) {
+	testCases := []struct {
+		about    string
+		ports    []network.Port
+		expected []network.PortRange
+	}{{
+		"single port",
+		[]network.Port{{"tcp", 80}},
+		[]network.PortRange{{80, 80, "tcp"}},
+	},
+		{
+			"continuous port range",
+			[]network.Port{{"tcp", 80}, {"tcp", 81}, {"tcp", 82}, {"tcp", 83}},
+			[]network.PortRange{{80, 83, "tcp"}},
+		},
+		{
+			"non-continuous port range",
+			[]network.Port{{"tcp", 80}, {"tcp", 81}, {"tcp", 82}, {"tcp", 84}, {"tcp", 85}},
+			[]network.PortRange{{80, 82, "tcp"}, {84, 85, "tcp"}},
+		},
+		{
+			"non-continuous port range (udp vs tcp)",
+			[]network.Port{{"tcp", 80}, {"tcp", 81}, {"tcp", 82}, {"udp", 84}, {"tcp", 83}},
+			[]network.PortRange{{80, 83, "tcp"}, {84, 84, "udp"}},
+		},
+	}
+	for i, t := range testCases {
+		c.Logf("test %d: %s", i, t.about)
+		c.Assert(network.CollapsePorts(t.ports), gc.DeepEquals, t.expected)
+	}
+}
