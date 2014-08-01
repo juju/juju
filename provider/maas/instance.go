@@ -117,17 +117,17 @@ func (mi *maasInstance) hostname() (string, error) {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (mi *maasInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (mi *maasInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (mi *maasInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (mi *maasInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (mi *maasInstance) Ports(machineId string) ([]network.Port, error) {
+func (mi *maasInstance) Ports(machineId string) ([]network.PortRange, error) {
 	logger.Debugf("unimplemented Ports() called")
-	return []network.Port{}, nil
+	return nil, nil
 }

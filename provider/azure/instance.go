@@ -13,7 +13,6 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/network"
-	"github.com/juju/juju/worker/firewaller"
 )
 
 const AzureDomainName = "cloudapp.net"
@@ -122,9 +121,9 @@ func (azInstance *azureInstance) ipAddress() string {
 }
 
 // OpenPorts is specified in the Instance interface.
-func (azInstance *azureInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (azInstance *azureInstance) OpenPorts(machineId string, portRange []network.PortRange) error {
 	return azInstance.apiCall(true, func(context *azureManagementContext) error {
-		return azInstance.openEndpoints(context, ports)
+		return azInstance.openEndpoints(context, portRange)
 	})
 }
 
@@ -147,45 +146,47 @@ func (azInstance *azureInstance) apiCall(lock bool, f func(*azureManagementConte
 // openEndpoints opens the endpoints in the Azure deployment. The caller is
 // responsible for locking and unlocking the environ and releasing the
 // management context.
-func (azInstance *azureInstance) openEndpoints(context *azureManagementContext, ports []network.Port) error {
+func (azInstance *azureInstance) openEndpoints(context *azureManagementContext, portRanges []network.PortRange) error {
 	request := &gwacl.AddRoleEndpointsRequest{
 		ServiceName:    azInstance.serviceName(),
 		DeploymentName: azInstance.deploymentName,
 		RoleName:       azInstance.roleName,
 	}
-	for _, port := range ports {
-		name := fmt.Sprintf("%s%d", port.Protocol, port.Number)
-		endpoint := gwacl.InputEndpoint{
-			LocalPort: port.Number,
-			Name:      name,
-			Port:      port.Number,
-			Protocol:  port.Protocol,
-		}
-		if azInstance.supportsLoadBalancing() {
-			probePort := port.Number
-			if strings.ToUpper(endpoint.Protocol) == "UDP" {
-				// Load balancing needs a TCP port to probe, or an HTTP
-				// server port & path to query. For UDP, we just use the
-				// machine's SSH agent port to test machine liveness.
-				//
-				// It probably doesn't make sense to load balance most UDP
-				// protocols transparently, but that's an application level
-				// concern.
-				probePort = 22
+	for _, portRange := range portRanges {
+		name := fmt.Sprintf("%s%d-%d", portRange.Protocol, portRange.FromPort, portRange.ToPort)
+		for port := portRange.FromPort; port <= portRange.ToPort; port++ {
+			endpoint := gwacl.InputEndpoint{
+				LocalPort: port,
+				Name:      fmt.Sprintf("%s_range_%d", name, port),
+				Port:      port,
+				Protocol:  portRange.Protocol,
 			}
-			endpoint.LoadBalancedEndpointSetName = name
-			endpoint.LoadBalancerProbe = &gwacl.LoadBalancerProbe{
-				Port:     probePort,
-				Protocol: "TCP",
+			if azInstance.supportsLoadBalancing() {
+				probePort := port
+				if strings.ToUpper(endpoint.Protocol) == "UDP" {
+					// Load balancing needs a TCP port to probe, or an HTTP
+					// server port & path to query. For UDP, we just use the
+					// machine's SSH agent port to test machine liveness.
+					//
+					// It probably doesn't make sense to load balance most UDP
+					// protocols transparently, but that's an application level
+					// concern.
+					probePort = 22
+				}
+				endpoint.LoadBalancedEndpointSetName = name
+				endpoint.LoadBalancerProbe = &gwacl.LoadBalancerProbe{
+					Port:     probePort,
+					Protocol: "TCP",
+				}
 			}
+			request.InputEndpoints = append(request.InputEndpoints, endpoint)
 		}
-		request.InputEndpoints = append(request.InputEndpoints, endpoint)
 	}
 	return context.AddRoleEndpoints(request)
 }
 
 // ClosePorts is specified in the Instance interface.
-func (azInstance *azureInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (azInstance *azureInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	return azInstance.apiCall(true, func(context *azureManagementContext) error {
 		return azInstance.closeEndpoints(context, ports)
 	})
@@ -194,54 +195,122 @@ func (azInstance *azureInstance) ClosePorts(machineId string, ports []network.Po
 // closeEndpoints closes the endpoints in the Azure deployment. The caller is
 // responsible for locking and unlocking the environ and releasing the
 // management context.
-func (azInstance *azureInstance) closeEndpoints(context *azureManagementContext, ports []network.Port) error {
+func (azInstance *azureInstance) closeEndpoints(context *azureManagementContext, portRanges []network.PortRange) error {
 	request := &gwacl.RemoveRoleEndpointsRequest{
 		ServiceName:    azInstance.serviceName(),
 		DeploymentName: azInstance.deploymentName,
 		RoleName:       azInstance.roleName,
 	}
-	for _, port := range ports {
-		name := fmt.Sprintf("%s%d", port.Protocol, port.Number)
-		request.InputEndpoints = append(request.InputEndpoints, gwacl.InputEndpoint{
-			LocalPort:                   port.Number,
-			Name:                        name,
-			Port:                        port.Number,
-			Protocol:                    port.Protocol,
-			LoadBalancedEndpointSetName: name,
-		})
+	for _, portRange := range portRanges {
+		name := fmt.Sprintf("%s%d-%d", portRange.Protocol, portRange.FromPort, portRange.ToPort)
+		for port := portRange.FromPort; port <= portRange.ToPort; port++ {
+			request.InputEndpoints = append(request.InputEndpoints, gwacl.InputEndpoint{
+				LocalPort:                   port,
+				Name:                        fmt.Sprintf("%s_%d", name, port),
+				Port:                        port,
+				Protocol:                    portRange.Protocol,
+				LoadBalancedEndpointSetName: name,
+			})
+		}
 	}
 	return context.RemoveRoleEndpoints(request)
 }
 
-// convertEndpointsToPorts converts a slice of gwacl.InputEndpoint into a slice of network.Port.
-func convertEndpointsToPorts(endpoints []gwacl.InputEndpoint) []network.Port {
-	ports := []network.Port{}
+// convertEndpointsToPorts converts a slice of gwacl.InputEndpoint into a slice of network.PortRange.
+func convertEndpointsToPortRanges(endpoints []gwacl.InputEndpoint) []network.PortRange {
+	// group ports by prefix on the endpoint name
+	portSets := make(map[string][]network.Port)
+	otherPorts := []network.Port{}
 	for _, endpoint := range endpoints {
-		ports = append(ports, network.Port{
+		port := network.Port{
 			Protocol: strings.ToLower(endpoint.Protocol),
 			Number:   endpoint.Port,
-		})
+		}
+		if strings.Contains(endpoint.Name, "_range_") {
+			prefix := strings.Split(endpoint.Name, "_range_")[0]
+			portSets[prefix] = append(portSets[prefix], port)
+		} else {
+			otherPorts = append(otherPorts, port)
+		}
 	}
-	return ports
+
+	portRanges := []network.PortRange{}
+
+	// convert port sets into port ranges
+	for _, ports := range portSets {
+		network.SortPorts(ports)
+		fromPort := 0
+		toPort := 0
+		protocol := ""
+		for _, p := range ports {
+			if fromPort == 0 {
+				// new port range
+				fromPort = p.Number
+				toPort = p.Number
+				protocol = p.Protocol
+			} else if p.Number == toPort+1 && protocol == p.Protocol {
+				// continuing port range
+				toPort = p.Number
+			} else {
+				// break in port range
+				portRanges = append(portRanges,
+					network.PortRange{
+						Protocol: protocol,
+						FromPort: fromPort,
+						ToPort:   toPort,
+					})
+				fromPort = p.Number
+				toPort = p.Number
+				protocol = p.Protocol
+			}
+			if fromPort != 0 {
+				portRanges = append(portRanges,
+					network.PortRange{
+						Protocol: protocol,
+						FromPort: fromPort,
+						ToPort:   toPort,
+					})
+			}
+
+		}
+	}
+
+	portRanges = append(portRanges, network.PortsToPortRanges(otherPorts)...)
+	network.SortPortRanges(portRanges)
+	return portRanges
 }
 
-// convertAndFilterEndpoints converts a slice of gwacl.InputEndpoint into a slice of network.Port
+// convertAndFilterEndpoints converts a slice of gwacl.InputEndpoint into a slice of network.PortRange
 // and filters out the initial endpoints that every instance should have opened (ssh port, etc.).
-func convertAndFilterEndpoints(endpoints []gwacl.InputEndpoint, env *azureEnviron, stateServer bool) []network.Port {
-	return firewaller.Diff(
-		convertEndpointsToPorts(endpoints),
-		convertEndpointsToPorts(env.getInitialEndpoints(stateServer)),
+func convertAndFilterEndpoints(endpoints []gwacl.InputEndpoint, env *azureEnviron, stateServer bool) []network.PortRange {
+	return portRangeDiff(
+		convertEndpointsToPortRanges(endpoints),
+		convertEndpointsToPortRanges(env.getInitialEndpoints(stateServer)),
 	)
 }
 
+// portRangeDiff returns all port ranges that are in a but not in b.
+func portRangeDiff(A, B []network.PortRange) (missing []network.PortRange) {
+next:
+	for _, a := range A {
+		for _, b := range B {
+			if a == b {
+				continue next
+			}
+		}
+		missing = append(missing, a)
+	}
+	return
+}
+
 // Ports is specified in the Instance interface.
-func (azInstance *azureInstance) Ports(machineId string) (ports []network.Port, err error) {
+func (azInstance *azureInstance) Ports(machineId string) (ports []network.PortRange, err error) {
 	err = azInstance.apiCall(false, func(context *azureManagementContext) error {
 		ports, err = azInstance.listPorts(context)
 		return err
 	})
 	if ports != nil {
-		network.SortPorts(ports)
+		network.SortPortRanges(ports)
 	}
 	return ports, err
 }
@@ -251,7 +320,7 @@ func (azInstance *azureInstance) Ports(machineId string) (ports []network.Port, 
 // (i.e. the ports every instance shoud have opened). The caller is
 // responsible for locking and unlocking the environ and releasing the
 // management context.
-func (azInstance *azureInstance) listPorts(context *azureManagementContext) ([]network.Port, error) {
+func (azInstance *azureInstance) listPorts(context *azureManagementContext) ([]network.PortRange, error) {
 	endpoints, err := context.ListRoleEndpoints(&gwacl.ListRoleEndpointsRequest{
 		ServiceName:    azInstance.serviceName(),
 		DeploymentName: azInstance.deploymentName,

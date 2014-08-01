@@ -315,17 +315,18 @@ func (fw *Firewaller) reconcileInstances() error {
 			return err
 		}
 		machineId := machined.tag.Id()
-		initialPorts, err := instances[0].Ports(machineId)
+		initialPortRanges, err := instances[0].Ports(machineId)
 		if err != nil {
 			return err
 		}
+		initialPorts := network.PortRangesToPorts(initialPortRanges)
 		// Check which ports to open or to close.
 		toOpen := Diff(machined.ports, initialPorts)
 		toClose := Diff(initialPorts, machined.ports)
 		if len(toOpen) > 0 {
 			logger.Infof("opening instance ports %v for %q",
 				toOpen, machined.tag)
-			if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
+			if err := instances[0].OpenPorts(machineId, network.PortsToPortRanges(toOpen)); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -334,7 +335,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if len(toClose) > 0 {
 			logger.Infof("closing instance ports %v for %q",
 				toClose, machined.tag)
-			if err := instances[0].ClosePorts(machineId, toClose); err != nil {
+			if err := instances[0].ClosePorts(machineId, network.PortsToPortRanges(toClose)); err != nil {
 				// TODO(mue) Add local retry logic.
 				return err
 			}
@@ -488,7 +489,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	// Open and close the ports.
 	if len(toOpen) > 0 {
-		if err := instances[0].OpenPorts(machineId, toOpen); err != nil {
+		if err := instances[0].OpenPorts(machineId, network.PortsToPortRanges(toOpen)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}
@@ -496,7 +497,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 		logger.Infof("opened ports %v on %q", toOpen, machined.tag)
 	}
 	if len(toClose) > 0 {
-		if err := instances[0].ClosePorts(machineId, toClose); err != nil {
+		if err := instances[0].ClosePorts(machineId, network.PortsToPortRanges(toClose)); err != nil {
 			// TODO(mue) Add local retry logic.
 			return err
 		}

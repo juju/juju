@@ -167,14 +167,14 @@ type OpOpenPorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []network.Port
+	Ports      []network.PortRange
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []network.Port
+	Ports      []network.PortRange
 }
 
 type OpPutFile struct {
@@ -654,7 +654,7 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	i := &dummyInstance{
 		id:           BootstrapInstanceId,
 		addresses:    network.NewAddresses("localhost"),
-		ports:        make(map[network.Port]bool),
+		ports:        make(map[network.PortRange]bool),
 		machineId:    agent.BootstrapMachineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -809,7 +809,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	i := &dummyInstance{
 		id:           instance.Id(idString),
 		addresses:    addrs,
-		ports:        make(map[network.Port]bool),
+		ports:        make(map[network.PortRange]bool),
 		machineId:    machineId,
 		series:       series,
 		firewallMode: e.Config().FirewallMode(),
@@ -1069,7 +1069,7 @@ func (*environ) Provider() environs.EnvironProvider {
 
 type dummyInstance struct {
 	state        *environState
-	ports        map[network.Port]bool
+	ports        map[network.PortRange]bool
 	id           instance.Id
 	status       string
 	machineId    string
@@ -1117,7 +1117,7 @@ func (inst *dummyInstance) Addresses() ([]network.Address, error) {
 	return append([]network.Address{}, inst.addresses...), nil
 }
 
-func (inst *dummyInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (inst *dummyInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	defer delay()
 	logger.Infof("openPorts %s, %#v", machineId, ports)
 	if inst.firewallMode != config.FwInstance {
@@ -1141,7 +1141,7 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []network.Port) err
 	return nil
 }
 
-func (inst *dummyInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (inst *dummyInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
@@ -1164,7 +1164,7 @@ func (inst *dummyInstance) ClosePorts(machineId string, ports []network.Port) er
 	return nil
 }
 
-func (inst *dummyInstance) Ports(machineId string) (ports []network.Port, err error) {
+func (inst *dummyInstance) Ports(machineId string) (ports []network.PortRange, err error) {
 	defer delay()
 	if inst.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
@@ -1178,7 +1178,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []network.Port, err er
 	for p := range inst.ports {
 		ports = append(ports, p)
 	}
-	network.SortPorts(ports)
+	network.SortPortRanges(ports)
 	return
 }
 

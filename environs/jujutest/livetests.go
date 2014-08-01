@@ -229,64 +229,64 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	defer t.Env.StopInstances(inst2.Id())
 
 	// Open some ports and check they're there.
-	err = inst1.OpenPorts("1", []network.Port{{"udp", 67}, {"tcp", 45}})
+	err = inst1.OpenPorts("1", []network.PortRange{{67, 67, "udp"}, {45, 45, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}})
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	err = inst2.OpenPorts("2", []network.Port{{"tcp", 89}, {"tcp", 45}})
+	err = inst2.OpenPorts("2", []network.PortRange{{89, 89, "tcp"}, {45, 45, "tcp"}})
 	c.Assert(err, gc.IsNil)
 
 	// Check there's no crosstalk to another machine
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}})
 	ports, err = inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}})
 
 	// Check that opening the same port again is ok.
 	oldPorts, err := inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
-	err = inst2.OpenPorts("2", []network.Port{{"tcp", 45}})
+	err = inst2.OpenPorts("2", []network.PortRange{{45, 45, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.DeepEquals, oldPorts)
 
 	// Check that opening the same port again and another port is ok.
-	err = inst2.OpenPorts("2", []network.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.OpenPorts("2", []network.PortRange{{45, 45, "tcp"}, {99, 99, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}})
 
-	err = inst2.ClosePorts("2", []network.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.ClosePorts("2", []network.PortRange{{45, 45, "tcp"}, {99, 99, "tcp"}})
 	c.Assert(err, gc.IsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 89}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{89, 89, "tcp"}})
 	ports, err = inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}})
 
 	// Check that we can close multiple ports.
-	err = inst1.ClosePorts("1", []network.Port{{"tcp", 45}, {"udp", 67}})
+	err = inst1.ClosePorts("1", []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst1.Ports("1")
 	c.Assert(ports, gc.HasLen, 0)
 
 	// Check that we can close ports that aren't there.
-	err = inst2.ClosePorts("2", []network.Port{{"tcp", 111}, {"udp", 222}})
+	err = inst2.ClosePorts("2", []network.PortRange{{111, 111, "tcp"}, {222, 222, "udp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst2.Ports("2")
-	c.Assert(ports, gc.DeepEquals, []network.Port{{"tcp", 89}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{89, 89, "tcp"}})
 
 	// Check errors when acting on environment.
 	err = t.Env.OpenPorts([]network.PortRange{{80, 80, "tcp"}})
@@ -354,10 +354,10 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}})
 
 	// Check errors when acting on instances.
-	err = inst1.OpenPorts("1", []network.Port{{"tcp", 80}})
+	err = inst1.OpenPorts("1", []network.PortRange{{80, 80, "tcp"}})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
 
-	err = inst1.ClosePorts("1", []network.Port{{"tcp", 80}})
+	err = inst1.ClosePorts("1", []network.PortRange{{80, 80, "tcp"}})
 	c.Assert(err, gc.ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
 
 	_, err = inst1.Ports("1")

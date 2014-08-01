@@ -429,33 +429,33 @@ func convertNovaAddresses(addresses map[string][]nova.IPAddress) []network.Addre
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (inst *openstackInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (inst *openstackInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	if err := inst.e.openPortsInGroup(name, network.PortsToPortRanges(ports)); err != nil {
+	if err := inst.e.openPortsInGroup(name, ports); err != nil {
 		return err
 	}
 	logger.Infof("opened ports in security group %s: %v", name, ports)
 	return nil
 }
 
-func (inst *openstackInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (inst *openstackInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	if err := inst.e.closePortsInGroup(name, network.PortsToPortRanges(ports)); err != nil {
+	if err := inst.e.closePortsInGroup(name, ports); err != nil {
 		return err
 	}
 	logger.Infof("closed ports in security group %s: %v", name, ports)
 	return nil
 }
 
-func (inst *openstackInstance) Ports(machineId string) ([]network.Port, error) {
+func (inst *openstackInstance) Ports(machineId string) ([]network.PortRange, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
 			inst.e.Config().FirewallMode())
@@ -465,7 +465,7 @@ func (inst *openstackInstance) Ports(machineId string) ([]network.Port, error) {
 	if err != nil {
 		return nil, err
 	}
-	return network.PortRangesToPorts(portRanges), nil
+	return portRanges, nil
 }
 
 func (e *environ) ecfg() *environConfig {
