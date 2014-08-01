@@ -23,6 +23,13 @@ import (
 	"github.com/juju/juju/instance"
 )
 
+var (
+	NextBackupID      = nextBackupID
+	SetBackupStatus   = setBackupStatus
+	GetBackupMetadata = getBackupMetadata
+	AddBackupMetadata = addBackupMetadata
+)
+
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
 	st.transactionRunner = runner
