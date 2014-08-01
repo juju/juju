@@ -8,7 +8,7 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/txn"
-	"labix.org/v2/mgo"
+	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/state"
