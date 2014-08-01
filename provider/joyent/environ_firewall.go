@@ -52,7 +52,7 @@ func ruleExists(rules []cloudapi.FirewallRule, rule string) (bool, string) {
 
 // Helper method to get port from the given firewall rules
 func getPorts(envName string, rules []cloudapi.FirewallRule) []network.PortRange {
-	ports := []network.PortRange{}
+	portRanges := []network.PortRange{}
 	for _, r := range rules {
 		rule := r.Rule
 		if r.Enabled && strings.HasPrefix(rule, "FROM tag "+envName) && strings.Contains(rule, "PORT") {
@@ -63,45 +63,27 @@ func getPorts(envName string, rules []cloudapi.FirewallRule) []network.PortRange
 				}
 				protocol := parts[1]
 				n, _ := strconv.Atoi(parts[2])
-				ports = append(ports, network.PortRange{Protocol: protocol, FromPort: n, ToPort: n})
+				portRanges = append(portRanges, network.PortRange{Protocol: protocol, FromPort: n, ToPort: n})
 			} else if firewallMultiPortRule.MatchString(rule) {
 				parts := firewallMultiPortRule.FindStringSubmatch(rule)
 				if len(parts) != 3 {
 					continue
 				}
 				protocol := parts[1]
+				ports := []network.Port{}
 				portStrings := strings.Split(parts[2], " AND ")
-				pFrom := 0
-				pTo := 0
-				// parse multiple ports into port ranges
-				// so PORT 20 AND PORT 21 becomes a port range {20-21}
 				for _, portString := range portStrings {
 					portString = portString[strings.LastIndex(portString, "PORT")+5:]
 					port, _ := strconv.Atoi(portString)
-					if pFrom == 0 {
-						// starting new port range
-						pFrom = port
-						pTo = port
-					} else if port == pTo+1 {
-						// continuing port range
-						pTo = port
-					} else {
-						// port range broken
-						ports = append(ports, network.PortRange{Protocol: protocol, FromPort: pFrom, ToPort: pTo})
-						pFrom = port
-						pTo = port
-					}
+					ports = append(ports, network.Port{protocol, port})
 				}
-				if pFrom != 0 {
-					ports = append(ports, network.PortRange{Protocol: protocol, FromPort: pFrom, ToPort: pTo})
-				}
-
+				portRanges = append(portRanges, network.CollapsePorts(ports)...)
 			}
 		}
 	}
 
-	network.SortPortRanges(ports)
-	return ports
+	network.SortPortRanges(portRanges)
+	return portRanges
 }
 
 func (env *joyentEnviron) OpenPorts(ports []network.PortRange) error {
