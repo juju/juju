@@ -18,24 +18,25 @@ const (
 	envUserCollectionName = "envusers"
 )
 
-// EnvironmentUser represents a user within an environment
-// Whereas the user could represent a remote user or a user
+// EnvironmentUser represents a user access to an environment
+// whereas the user could represent a remote user or a user
 // across multiple environments the environment user always represents
 // a single user for a single environment.
+// There should be no more than one EnvironmentUser per user
 type EnvironmentUser struct {
 	st  *State
 	doc envUserDoc
 }
 
 type envUserDoc struct {
-	ID             string `bson:"_id"`
-	EnvUUID        string
-	User           string
-	Alias          string
-	DisplayName    string
-	CreatedBy      string
-	DateCreated    time.Time
-	LastConnection *time.Time
+	ID             string     `bson:"_id"`
+	EnvUUID        string     `bson:"envuuid"`
+	User           string     `bson:"user"`
+	Alias          string     `bson:"alias"`
+	DisplayName    string     `bson:"displayname"`
+	CreatedBy      string     `bson:"createdby"`
+	DateCreated    time.Time  `bson:"datecreated"`
+	LastConnection *time.Time `bson:"lastconnection"`
 }
 
 // ID returns the ID of the environment user.
@@ -43,7 +44,7 @@ func (e *EnvironmentUser) ID() string {
 	return e.doc.ID
 }
 
-// EnvUUID Returns the environment UUIID of the environment user.
+// EnvUUID returns the environment UUIID of the environment user.
 func (e *EnvironmentUser) EnvUUID() string {
 	return e.doc.EnvUUID
 }
@@ -95,14 +96,15 @@ func (e *EnvironmentUser) UpdateLastConnection() error {
 	return nil
 }
 
+// Returns the document id of the environment user
 func envUserID(envuuid, user string) string {
 	return fmt.Sprintf("%s:%s", envuuid, user)
 }
 
-func (st *State) getEnvironmentUser(envuuid, user string, doc *envUserDoc) error {
+func (st *State) getEnvironmentUser(user string, doc *envUserDoc) error {
 	envUsers, closer := st.getCollection(envUsersC)
 	defer closer()
-	id := envUserID(envuuid, user)
+	id := envUserID(st.EnvironTag().String(), user)
 	err := envUsers.Find(bson.D{{"_id", id}}).One(doc)
 	if err == mgo.ErrNotFound {
 		err = errors.NotFoundf("envUser %q", user)
@@ -111,29 +113,30 @@ func (st *State) getEnvironmentUser(envuuid, user string, doc *envUserDoc) error
 }
 
 // EnvironmentUser returns the environment user for the given envuuid and user.
-func (st *State) EnvironmentUser(envuuid, user string) (*EnvironmentUser, error) {
+func (st *State) EnvironmentUser(user string) (*EnvironmentUser, error) {
 	envUser := &EnvironmentUser{st: st}
-	if err := st.getEnvironmentUser(envuuid, user, &envUser.doc); err != nil {
+	if err := st.getEnvironmentUser(user, &envUser.doc); err != nil {
 		return nil, errors.Trace(err)
 	}
 	return envUser, nil
 }
 
 // Adds a new EnvironmentUser to the database
-func (st *State) AddEnvironmentUser(envuuid, user, displayName, alias, createdBy string) (*EnvironmentUser, error) {
+func (st *State) AddEnvironmentUser(user, displayName, alias, createdBy string) (*EnvironmentUser, error) {
+	envuuid := st.EnvironTag()
+	if envuuid == names.NewEnvironTag("") {
+		return nil, errors.Errorf("environment not set")
+	}
 	if !names.IsValidUser(user) {
 		return nil, errors.Errorf("invalid user name %q", user)
 	}
-	if !names.IsValidEnvironment(envuuid) {
-		return nil, errors.Errorf("invalid environment %q", envuuid)
-	}
 
-	id := envUserID(envuuid, user)
+	id := envUserID(envuuid.String(), user)
 	envUser := &EnvironmentUser{
 		st: st,
 		doc: envUserDoc{
 			ID:          id,
-			EnvUUID:     envuuid,
+			EnvUUID:     envuuid.String(),
 			User:        user,
 			Alias:       alias,
 			DisplayName: displayName,

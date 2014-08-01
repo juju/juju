@@ -6,12 +6,12 @@ package state_test
 import (
 	"fmt"
 	"regexp"
-	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/state"
 	"github.com/juju/juju/testing/factory"
-	jc "github.com/juju/testing/checkers"
 )
 
 type EnvUserSuite struct {
@@ -29,26 +29,17 @@ func (s *EnvUserSuite) TestAddInvalidTags(c *gc.C) {
 		"a-",
 	} {
 		c.Logf("check invalid name %q", name)
-		envUser, err := s.State.AddEnvironmentUser("ignored", name, "ignored", "ignored", "ignored")
+		envUser, err := s.State.AddEnvironmentUser(name, "ignored", "ignored", "ignored")
 		c.Check(err, gc.ErrorMatches, `invalid user name "`+regexp.QuoteMeta(name)+`"`)
-		c.Check(envUser, gc.IsNil)
-	}
-
-	for _, env := range []string{
-		"env/foo",
-	} {
-		c.Logf("check invalid environment %q", env)
-		envUser, err := s.State.AddEnvironmentUser(env, "user-valid", "ignored", "ignored", "ignored")
-		c.Check(err, gc.ErrorMatches, `invalid environment "`+regexp.QuoteMeta(env)+`"`)
 		c.Check(envUser, gc.IsNil)
 	}
 }
 
 func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
-	now := time.Now().Round(time.Second).UTC()
+	now := state.NowToTheSecond()
 	fac := factory.NewFactory(s.State, c)
-	envUuid := fac.NewUUID()
-	envUser, err := s.State.AddEnvironmentUser(envUuid, "user-valid", "display-name", "alias", "createdby")
+	envUuid := fac.EnvironTag().String()
+	envUser, err := s.State.AddEnvironmentUser("user-valid", "display-name", "alias", "createdby")
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:user-valid", envUuid))
@@ -57,10 +48,10 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(envUser.Alias(), gc.Equals, "alias")
 	c.Assert(envUser.DisplayName(), gc.Equals, "display-name")
 	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby")
-	c.Assert(envUser.DateCreated().After(now) || envUser.DateCreated().Equal(now), jc.IsTrue)
+	c.Assert(envUser.DateCreated().Equal(now), jc.IsTrue)
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 
-	envUser, err = s.State.EnvironmentUser(envUuid, "user-valid")
+	envUser, err = s.State.EnvironmentUser("user-valid")
 	c.Assert(err, gc.IsNil)
 	c.Assert(envUser.ID(), gc.Equals, fmt.Sprintf("%s:user-valid", envUuid))
 	c.Assert(envUser.EnvUUID(), gc.Equals, envUuid)
@@ -68,18 +59,15 @@ func (s *EnvUserSuite) TestAddEnvironmentUser(c *gc.C) {
 	c.Assert(envUser.Alias(), gc.Equals, "alias")
 	c.Assert(envUser.DisplayName(), gc.Equals, "display-name")
 	c.Assert(envUser.CreatedBy(), gc.Equals, "createdby")
-	c.Assert(envUser.DateCreated().After(now) || envUser.DateCreated().Equal(now), jc.IsTrue)
+	c.Assert(envUser.DateCreated().Equal(now), jc.IsTrue)
 	c.Assert(envUser.LastConnection(), gc.IsNil)
 }
 
 func (s *UserSuite) TestUpdateLastConnection(c *gc.C) {
-	now := time.Now().Round(time.Second).UTC()
-	fac := factory.NewFactory(s.State, c)
-	envUuid := fac.NewUUID()
-	envUser, err := s.State.AddEnvironmentUser(envUuid, "user-valid", "display-name", "alias", "createdby")
+	now := state.NowToTheSecond()
+	envUser, err := s.State.AddEnvironmentUser("user-valid", "display-name", "alias", "createdby")
 	c.Assert(err, gc.IsNil)
 	err = envUser.UpdateLastConnection()
 	c.Assert(err, gc.IsNil)
-	c.Assert(envUser.LastConnection().After(now) ||
-		envUser.LastConnection().Equal(now), jc.IsTrue)
+	c.Assert(envUser.LastConnection().Equal(now), jc.IsTrue)
 }

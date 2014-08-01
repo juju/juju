@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/url"
 
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	charm "gopkg.in/juju/charm.v2"
 	charmtesting "gopkg.in/juju/charm.v2/testing"
@@ -40,7 +41,6 @@ type UserParams struct {
 }
 
 type EnvUserParams struct {
-	EnvUUID     string
 	User        string
 	Alias       string
 	DisplayName string
@@ -146,10 +146,6 @@ func (factory *Factory) MakeEnvUser(vParams ...EnvUserParams) *state.Environment
 	} else if len(vParams) > 1 {
 		panic("expecting 1 parameter or none")
 	}
-	if params.EnvUUID == "" {
-		uuid := factory.NewUUID()
-		params.EnvUUID = uuid
-	}
 	if params.User == "" {
 		params.User = factory.UniqueString("user")
 	}
@@ -162,8 +158,7 @@ func (factory *Factory) MakeEnvUser(vParams ...EnvUserParams) *state.Environment
 	if params.CreatedBy == "" {
 		params.CreatedBy = "created-by"
 	}
-	envUser, err := factory.st.AddEnvironmentUser(
-		params.EnvUUID, params.User, params.DisplayName, params.Alias, params.CreatedBy)
+	envUser, err := factory.st.AddEnvironmentUser(params.User, params.DisplayName, params.Alias, params.CreatedBy)
 	factory.c.Assert(err, gc.IsNil)
 	return envUser
 }
@@ -342,4 +337,9 @@ func (factory *Factory) NewUUID() string {
 	uuid, err := utils.NewUUID()
 	factory.c.Assert(err, gc.IsNil)
 	return uuid.String()
+}
+
+// EnvironTag returns the environtag for the state this factory uses
+func (factory *Factory) EnvironTag() names.EnvironTag {
+	return factory.st.EnvironTag()
 }
