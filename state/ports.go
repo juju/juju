@@ -37,18 +37,18 @@ const (
 // by one unit.
 type PortRange struct {
 	UnitName string
-	network.PortRange
+	FromPort int
+	ToPort   int
+	Protocol string
 }
 
 // NewPortRange create a new port range.
 func NewPortRange(unitName string, fromPort, toPort int, protocol string) (PortRange, error) {
 	p := PortRange{
 		UnitName: unitName,
-		PortRange: network.PortRange{
-			FromPort: fromPort,
-			ToPort:   toPort,
-			Protocol: strings.ToLower(protocol),
-		},
+		FromPort: fromPort,
+		ToPort:   toPort,
+		Protocol: strings.ToLower(protocol),
 	}
 	if !p.IsValid() {
 		return PortRange{}, fmt.Errorf("Port range %v for unit %v is invalid.", p, unitName)
@@ -58,10 +58,35 @@ func NewPortRange(unitName string, fromPort, toPort int, protocol string) (PortR
 
 // IsValid checks if the port range is valid.
 func (p PortRange) IsValid() bool {
+	proto := strings.ToLower(p.Protocol)
+	if proto != "tcp" && proto != "udp" {
+		return false
+	}
 	if !names.IsValidUnit(p.UnitName) {
 		return false
 	}
-	return p.PortRange.IsValid()
+	return p.FromPort <= p.ToPort
+}
+
+// ConflictsWith determines if the two port ranges conflict.
+func (a PortRange) ConflictsWith(b PortRange) bool {
+	if a.Protocol != b.Protocol {
+		return false
+	}
+	switch {
+	case a.FromPort >= b.FromPort && a.FromPort <= b.ToPort:
+		return true
+	case a.ToPort >= b.FromPort && a.ToPort <= b.ToPort:
+		return true
+	case a.FromPort <= b.FromPort && a.ToPort >= b.ToPort:
+		return true
+	}
+
+	return false
+}
+
+func (p PortRange) String() string {
+	return fmt.Sprintf("%d-%d/%s", p.FromPort, p.ToPort, strings.ToLower(p.Protocol))
 }
 
 // portsDoc represents the state of ports opened on machines for networks
@@ -87,7 +112,7 @@ func (p *Ports) Id() string {
 // Check if a port range can be opened.
 func (p *Ports) canOpenPorts(newPorts PortRange) bool {
 	for _, existingPorts := range p.doc.Ports {
-		if existingPorts.ConflictsWith(newPorts.PortRange) {
+		if existingPorts.ConflictsWith(newPorts) {
 			return false
 		}
 	}
