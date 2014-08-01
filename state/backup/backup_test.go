@@ -1,4 +1,4 @@
-// Copyright 2013 Canonical Ltd.
+// Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package backup
@@ -72,13 +72,6 @@ func (b *BackupSuite) createTestFiles(c *gc.C) {
 
 }
 
-func (b *BackupSuite) removeTestFiles(c *gc.C) {
-	for _, removable := range b.testFiles {
-		err := os.RemoveAll(removable)
-		c.Assert(err, gc.IsNil)
-	}
-}
-
 type expectedTarContents struct {
 	Name string
 	Body string
@@ -150,32 +143,7 @@ func shaSumFile(c *gc.C, fileToSum string) string {
 	return base64.StdEncoding.EncodeToString(shahash.Sum(nil))
 }
 
-func (b *BackupSuite) TestTarFilesUncompressed(c *gc.C) {
-	b.createTestFiles(c)
-	outputTar := path.Join(b.cwd, "output_tar_file.tar")
-	trimPath := fmt.Sprintf("%s/", b.cwd)
-	shaSum, err := tarFiles(b.testFiles, outputTar, trimPath, false)
-	c.Check(err, gc.IsNil)
-	fileShaSum := shaSumFile(c, outputTar)
-	c.Assert(shaSum, gc.Equals, fileShaSum)
-	b.removeTestFiles(c)
-	b.assertTarContents(c, testExpectedTarContents, outputTar, false)
-}
-
-func (b *BackupSuite) TestTarFilesCompressed(c *gc.C) {
-	b.createTestFiles(c)
-	outputTarGz := path.Join(b.cwd, "output_tar_file.tgz")
-	trimPath := fmt.Sprintf("%s/", b.cwd)
-	shaSum, err := tarFiles(b.testFiles, outputTarGz, trimPath, true)
-	c.Check(err, gc.IsNil)
-
-	fileShaSum := shaSumFile(c, outputTarGz)
-	c.Assert(shaSum, gc.Equals, fileShaSum)
-
-	b.assertTarContents(c, testExpectedTarContents, outputTarGz, true)
-}
-
-func (b *BackupSuite) TestBackup(c *gc.C) {
+func (b *BackupSuite) TestBackUp(c *gc.C) {
 	b.createTestFiles(c)
 	ranCommand := false
 	getMongodumpPath = func() (string, error) { return "bogusmongodump", nil }
