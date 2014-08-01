@@ -233,9 +233,6 @@ func (srv *Server) run(lis net.Listener) {
 	handleAll(mux, "/tools",
 		&toolsHandler{httpHandler{state: srv.state}},
 	)
-	handleAll(mux, "/backup",
-		&backupHandler{httpHandler{state: srv.state}},
-	)
 	handleAll(mux, "/", http.HandlerFunc(srv.apiHandler))
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, mux)

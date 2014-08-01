@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backup
+package backup_test
 
 import (
 	"archive/tar"
@@ -14,16 +14,12 @@ import (
 	"os"
 	"path"
 	"strings"
-	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/state/backup"
 	"github.com/juju/juju/testing"
 )
-
-func Test(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
-}
 
 var _ = gc.Suite(&BackupSuite{})
 
@@ -150,49 +146,35 @@ func shaSumFile(c *gc.C, fileToSum string) string {
 	return base64.StdEncoding.EncodeToString(shahash.Sum(nil))
 }
 
-func (b *BackupSuite) TestTarFilesUncompressed(c *gc.C) {
-	b.createTestFiles(c)
-	outputTar := path.Join(b.cwd, "output_tar_file.tar")
-	trimPath := fmt.Sprintf("%s/", b.cwd)
-	shaSum, err := tarFiles(b.testFiles, outputTar, trimPath, false)
-	c.Check(err, gc.IsNil)
-	fileShaSum := shaSumFile(c, outputTar)
-	c.Assert(shaSum, gc.Equals, fileShaSum)
-	b.removeTestFiles(c)
-	b.assertTarContents(c, testExpectedTarContents, outputTar, false)
-}
-
-func (b *BackupSuite) TestTarFilesCompressed(c *gc.C) {
-	b.createTestFiles(c)
-	outputTarGz := path.Join(b.cwd, "output_tar_file.tgz")
-	trimPath := fmt.Sprintf("%s/", b.cwd)
-	shaSum, err := tarFiles(b.testFiles, outputTarGz, trimPath, true)
-	c.Check(err, gc.IsNil)
-
-	fileShaSum := shaSumFile(c, outputTarGz)
-	c.Assert(shaSum, gc.Equals, fileShaSum)
-
-	b.assertTarContents(c, testExpectedTarContents, outputTarGz, true)
-}
-
 func (b *BackupSuite) TestBackup(c *gc.C) {
 	b.createTestFiles(c)
+
+	b.PatchValue(backup.GetMongodumpPath, func() (string, error) {
+		return "bogusmongodump", nil
+	})
+	b.PatchValue(backup.GetFilesToBackup, func() ([]string, error) {
+		return b.testFiles, nil
+	})
 	ranCommand := false
-	getMongodumpPath = func() (string, error) { return "bogusmongodump", nil }
-	getFilesToBackup = func() ([]string, error) { return b.testFiles, nil }
-	runCommand = func(command string, args ...string) error {
+	b.PatchValue(backup.RunCommand, func(command string, args ...string) error {
 		ranCommand = true
 		return nil
+	})
+
+	dbinfo := backup.DBConnInfo{
+		Hostname: "localhost:8080",
+		Username: "bogus-user",
+		Password: "boguspassword",
 	}
-	bkpFile, shaSum, err := Backup("boguspassword", "bogus-user", b.cwd, "localhost:8080")
+	stor, err := backup.NewFileStorage(b.cwd)
+	c.Assert(err, gc.IsNil)
+	info, err := backup.CreateBackup(&dbinfo, stor, "", nil)
+
 	c.Check(err, gc.IsNil)
 	c.Assert(ranCommand, gc.Equals, true)
 
-	// It is important that the filename uses non-special characters
-	// only because it is returned in a header (unencoded) by the
-	// backup API call. This also avoids compatibility problems with
-	// client side filename conventions.
-	c.Check(bkpFile, gc.Matches, `^[a-z0-9_.-]+$`)
+	shaSum := info.CheckSum
+	bkpFile := info.Name
 
 	fileShaSum := shaSumFile(c, path.Join(b.cwd, bkpFile))
 	c.Assert(shaSum, gc.Equals, fileShaSum)
@@ -203,10 +185,4 @@ func (b *BackupSuite) TestBackup(c *gc.C) {
 		{"juju-backup/root.tar", ""},
 	}
 	b.assertTarContents(c, bkpExpectedContents, path.Join(b.cwd, bkpFile), true)
-}
-
-func (b *BackupSuite) TestStorageName(c *gc.C) {
-	c.Assert(StorageName("foo"), gc.Equals, "/backups/foo")
-	c.Assert(StorageName("/foo/bar"), gc.Equals, "/backups/bar")
-	c.Assert(StorageName("foo/bar"), gc.Equals, "/backups/bar")
 }
