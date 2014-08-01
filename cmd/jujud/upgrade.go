@@ -166,15 +166,17 @@ func (c *upgradeWorkerContext) runUpgrades() error {
 		if err := waitForOtherStateServers(c.st, isMaster); err != nil {
 			logger.Errorf(`other state servers failed to come up for upgrade `+
 				`to %s - aborting: %v`, version.Current, err)
-
 			a.setMachineStatus(c.apiState, params.StatusError,
 				fmt.Sprintf("upgrade to %v aborted while waiting for other "+
 					"state servers: %v", version.Current, err))
-
-			// TODO(menn0): if master, roll agent-version back to
-			// previous version, once the upgrader allows downgrades
-			// to previous version.
-
+			// If master, trigger a rollback to the previous agent version.
+			if isMaster {
+				logger.Errorf("downgrading environment agent version to %v due to aborted upgrade",
+					from.Number)
+				if rollbackErr := c.st.SetEnvironAgentVersion(from.Number); rollbackErr != nil {
+					return errors.Annotate(rollbackErr, "failed to roll back desired agent version")
+				}
+			}
 			return err
 		}
 	}

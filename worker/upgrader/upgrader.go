@@ -46,12 +46,17 @@ type Upgrader struct {
 // an upgrade is needed, the worker will exit with an UpgradeReadyError
 // holding details of the requested upgrade. The tools will have been
 // downloaded and unpacked.
-func NewUpgrader(st *upgrader.State, agentConfig agent.Config, isUpgradeRunning func() bool) *Upgrader {
+func NewUpgrader(
+	st *upgrader.State,
+	agentConfig agent.Config,
+	origAgentVersion version.Number,
+	isUpgradeRunning func() bool,
+) *Upgrader {
 	u := &Upgrader{
 		st:               st,
 		dataDir:          agentConfig.DataDir(),
 		tag:              agentConfig.Tag(),
-		origAgentVersion: agentConfig.UpgradedToVersion(),
+		origAgentVersion: origAgentVersion,
 		isUpgradeRunning: isUpgradeRunning,
 	}
 	go func() {

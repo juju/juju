@@ -78,22 +78,20 @@ func (mock *mockConfig) DataDir() string {
 	return mock.datadir
 }
 
-func (mock *mockConfig) UpgradedToVersion() version.Number {
-	return mock.version
-}
-
-func agentConfig(tag names.Tag, datadir string, vers version.Number) agent.Config {
+func agentConfig(tag names.Tag, datadir string) agent.Config {
 	return &mockConfig{
 		tag:     tag,
 		datadir: datadir,
-		version: vers,
 	}
 }
 
 func (s *UpgraderSuite) makeUpgrader() *upgrader.Upgrader {
-	config := agentConfig(s.machine.Tag(), s.DataDir(), s.confVersion)
-	return upgrader.NewUpgrader(s.state.Upgrader(), config,
-		func() bool { return s.upgradeRunning })
+	return upgrader.NewUpgrader(
+		s.state.Upgrader(),
+		agentConfig(s.machine.Tag(), s.DataDir()),
+		s.confVersion,
+		func() bool { return s.upgradeRunning },
+	)
 }
 
 func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
@@ -372,10 +370,10 @@ func (s *AllowedTargetVersionSuite) TestAllowedTargetVersionSuite(c *gc.C) {
 		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "1.2.3", allowed: true},
 		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "2.2.3", allowed: true},
 		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "1.1.3", allowed: false},
-		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "1.2.2", allowed: true},
+		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "1.2.2", allowed: true}, // downgrade between builds
 		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "0.2.3", allowed: false},
 		{original: "0.2.3", current: "1.2.3", upgradeRunning: false, target: "0.2.3", allowed: false},
-		{original: "0.2.3", current: "1.2.3", upgradeRunning: true, target: "0.2.3", allowed: false},
+		{original: "0.2.3", current: "1.2.3", upgradeRunning: true, target: "0.2.3", allowed: true}, // downgrade during upgrade
 	}
 	for i, test := range cases {
 		c.Logf("test case %d, %#v", i, test)

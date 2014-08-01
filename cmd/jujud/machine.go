@@ -296,7 +296,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return upgrader.NewUpgrader(
 			st.Upgrader(),
 			agentConfig,
-			func() bool { return false },
+			a.previousAgentVersion,
+			a.upgradeWorkerContext.IsUpgradeRunning,
 		), nil
 	})
 	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {

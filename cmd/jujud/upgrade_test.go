@@ -21,13 +21,16 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/juju/state/watcher"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
+	"github.com/juju/juju/worker/upgrader"
 )
 
 type UpgradeSuite struct {
@@ -251,12 +254,17 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	// This test checks when a state server is upgrading and one of
 	// the other state servers doesn't signal it is ready in time.
 
+	// The master state server in this scenario is functionally tested
+	// elsewhere in this suite.
+	s.machineIsMaster = false
+
 	attemptCount := 0
 	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
 		attemptCount++
 		return nil
 	}
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+	s.patchInTargetVersion(c)
 	s.captureLogs(c)
 	s.waitForOtherStateServersErr = errors.New("boom")
 
@@ -266,6 +274,10 @@ func (s *UpgradeSuite) TestAbortWhenOtherStateServerDoesntStartUpgrade(c *gc.C) 
 	c.Check(attemptCount, gc.Equals, 0)
 	c.Check(config.Version, gc.Equals, s.oldVersion.Number) // Upgrade didn't happen
 	assertUpgradeNotComplete(c, context)
+
+	// The environment agent-version should still be the new version.
+	// It's up to the master to trigger the rollback.
+	s.assertEnvironAgentVersion(c, s.upgradeToVersion.Number)
 
 	c.Assert(s.logWriter.Log(), jc.LogMatches, []jc.SimpleMessage{{
 		loggo.ERROR, fmt.Sprintf(
@@ -321,16 +333,15 @@ func (s *UpgradeSuite) TestUpgradeStepsHostMachine(c *gc.C) {
 }
 
 func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
-	// This test is a fairly heavyweight end-to-end functional test
-	// that spins up machine agents and attempts actual logins during
-	// and after the upgrade process. Please keep this as a functional
-	// test so that we have at least one check which ensures that
-	// everything hangs together.
+	// Most tests in this file are lightweight unit tests.
 	//
-	// Other tests in this file are lightweight unit tests.
+	// This test however is a fairly heavyweight end-to-end functional
+	// test that spins up machine agents and attempts actual logins
+	// during and after the upgrade process. Please keep this as a
+	// functional test so that there are at least some tests which
+	// ensure that the various components involved with machine agent
+	// upgrades hang together.
 
-	// Override the main upgrade entry point so that the test can
-	// control when upgrades start and finish.
 	upgradeCh := make(chan bool)
 	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
 		upgradeCh <- true // signal that upgrade has started
@@ -410,6 +421,51 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 
 	// Even though no upgrade was done upgradedToVersion should have been updated.
 	c.Assert(a.CurrentConfig().UpgradedToVersion(), gc.Equals, version.Current.Number)
+}
+
+func (s *UpgradeSuite) TestDowngradeOnMasterWhenOtherStateServerDoesntStartUpgrade(c *gc.C) {
+	// This test checks that the master triggers a downgrade if one of
+	// the other state server fails to signal it is ready for upgrade.
+	//
+	// This test is functional, ensuring that the upgrader worker
+	// terminates the machine agent with the UpgradeReadyError which
+	// makes the downgrade happen.
+
+	// Speed up the watcher frequency to make the test much faster.
+	s.PatchValue(&watcher.Period, 200*time.Millisecond)
+
+	s.machineIsMaster = true
+
+	// Signal that some state servers didn't come up for upgrade. This
+	// should trigger a rollback to the previous agent version.
+	s.waitForOtherStateServersErr = errors.New("boom")
+
+	// Provide (fake) tools so that the upgrader has something to downgrade to.
+	envtesting.AssertUploadFakeToolsVersions(c, s.Environ.Storage(), s.oldVersion)
+
+	agent := s.createUpgradingAgent(c, state.JobManageEnviron)
+	defer agent.Stop()
+
+	var agentErr error
+	agentDone := make(chan bool)
+	go func() {
+		agentErr = agent.Run(nil)
+		close(agentDone)
+	}()
+
+	select {
+	case <-agentDone:
+		upgradeReadyErr, ok := agentErr.(*upgrader.UpgradeReadyError)
+		if !ok {
+			c.Fatalf("didn't see UpgradeReadyError, instead got: %v", agentErr)
+		}
+		// Confirm that the downgrade is back to the previous version.
+		c.Assert(upgradeReadyErr.OldTools, gc.Equals, s.upgradeToVersion)
+		c.Assert(upgradeReadyErr.NewTools, gc.Equals, s.oldVersion)
+
+	case <-time.After(coretesting.LongWait):
+		c.Fatal("machine agent did not exit as expected")
+	}
 }
 
 func (s *UpgradeSuite) runUpgradeWorker(job params.MachineJob) (
@@ -556,15 +612,21 @@ func (s *UpgradeSuite) assertHostUpgrades(c *gc.C) {
 }
 
 func (s *UpgradeSuite) createAgentAndStartUpgrade(c *gc.C, job state.MachineJob) func() {
-	s.agentSuite.PatchValue(&version.Current, s.upgradeToVersion)
-	err := s.State.SetEnvironAgentVersion(s.upgradeToVersion.Number)
-	c.Assert(err, gc.IsNil)
-
-	s.machine0, s.machine0Config, _ = s.primeAgent(c, s.oldVersion, job)
-
-	a := s.newAgent(c, s.machine0)
+	a := s.createUpgradingAgent(c, job)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	return func() { c.Check(a.Stop(), gc.IsNil) }
+}
+
+func (s *UpgradeSuite) createUpgradingAgent(c *gc.C, job state.MachineJob) *MachineAgent {
+	s.patchInTargetVersion(c)
+	s.machine0, s.machine0Config, _ = s.primeAgent(c, s.oldVersion, job)
+	return s.newAgent(c, s.machine0)
+}
+
+func (s *UpgradeSuite) patchInTargetVersion(c *gc.C) {
+	s.PatchValue(&version.Current, s.upgradeToVersion)
+	err := s.State.SetEnvironAgentVersion(s.upgradeToVersion.Number)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *UpgradeSuite) waitForUpgradeToFinish(c *gc.C) {
@@ -624,6 +686,14 @@ func (s *UpgradeSuite) canLoginToAPIAsMachine(c *gc.C, config agent.Config) bool
 		return true
 	}
 	return false
+}
+
+func (s *UpgradeSuite) assertEnvironAgentVersion(c *gc.C, expected version.Number) {
+	envConfig, err := s.State.EnvironConfig()
+	c.Assert(err, gc.IsNil)
+	agentVersion, ok := envConfig.AgentVersion()
+	c.Assert(ok, jc.IsTrue)
+	c.Assert(agentVersion, gc.Equals, expected)
 }
 
 var upgradeTestDialOpts = api.DialOpts{
