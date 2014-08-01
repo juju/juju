@@ -458,7 +458,7 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 		AuthTag:  "user-admin",
 		Password: "dummy-secret",
 	}
-	err = st.Call("Admin", "", "Login", creds, &result)
+	err = st.APICall("Admin", 0, "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
@@ -474,7 +474,7 @@ func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
 
 		// Ensure an API call that would be restricted during
 		// upgrades works after a normal login.
-		err := st.Call("Client", "", "DestroyEnvironment", nil, nil)
+		err := st.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
 		c.Assert(err, gc.IsNil)
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -498,10 +498,10 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		c.Assert(loginErr, gc.IsNil)
 
 		var statusResult api.Status
-		err := st.Call("Client", "", "FullStatus", params.StatusParams{}, &statusResult)
+		err := st.APICall("Client", 0, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, gc.IsNil)
 
-		err = st.Call("Client", "", "DestroyEnvironment", nil, nil)
+		err = st.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
 		c.Assert(err, gc.ErrorMatches, "upgrade in progress - Juju functionality is limited")
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -569,7 +569,7 @@ func (s *loginSuite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 		AuthTag:  "user-admin",
 		Password: "dummy-secret",
 	}
-	err = st.Call("Admin", "", "Login", creds, &result)
+	err = st.APICall("Admin", 0, "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	c.Check(result.Facades, gc.Not(gc.HasLen), 0)
 	// as a sanity check, ensure that we have Client v0

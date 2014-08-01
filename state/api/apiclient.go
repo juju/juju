@@ -279,20 +279,20 @@ func (s *State) heartbeatMonitor() {
 }
 
 func (s *State) Ping() error {
-	return s.Call("Pinger", "", "Ping", nil, nil)
+	return s.APICall("Pinger", s.BestFacadeVersion("Pinger"), "", "Ping", nil, nil)
 }
 
-// Call invokes a low-level RPC method of the given objType, id, and
-// request, passing the given parameters and filling in the response
-// results. This should not be used directly by clients.
-// TODO (dimitern) Add tests for all client-facing objects to verify
-// we return the correct error when invoking Call("Object",
-// "non-empty-id",...)
-func (s *State) Call(objType, id, request string, args, response interface{}) error {
+// APICall places a call to the remote machine.
+//
+// This fills out the rpc.Request on the given facade, version for a given
+// object id, and the specific RPC method. It marshalls the Arguments, and will
+// unmarshall the result into the response object that is supplied.
+func (s *State) APICall(facade string, version int, id, method string, args, response interface{}) error {
 	err := s.client.Call(rpc.Request{
-		Type:   objType,
-		Id:     id,
-		Action: request,
+		Type:    facade,
+		Version: version,
+		Id:      id,
+		Action:  method,
 	}, args, response)
 	return params.ClientError(err)
 }
@@ -363,5 +363,5 @@ func (s *State) AllFacadeVersions() map[string][]int {
 // Facade we will want to use. It needs to line up the versions that the server
 // reports to us, with the versions that our client knows how to use.
 func (s *State) BestFacadeVersion(facade string) int {
-	return 0
+	return bestVersion(facadeVersions[facade], s.facadeVersions[facade])
 }

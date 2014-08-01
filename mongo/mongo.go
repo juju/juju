@@ -19,6 +19,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
@@ -89,6 +90,18 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 
 	machinePeerAddr := SelectPeerAddress(addrs)
 	return machinePeerAddr == masterAddr, nil
+}
+
+// JournalEnabled reports whether mongo has journaling enabled.
+func JournalEnabled(session *mgo.Session) (bool, error) {
+	var result bson.M
+	if err := session.Run("serverStatus", &result); err != nil {
+		return false, err
+	}
+	// The Journaling (dur) document is present if journaling is enabled.
+	// http://docs.mongodb.org/manual/reference/server-status/
+	_, ok := result["dur"]
+	return ok, nil
 }
 
 // SelectPeerAddress returns the address to use as the
@@ -170,11 +183,12 @@ func EnsureServer(args EnsureServerParams) error {
 		"Ensuring mongo server is running; data directory %s; port %d",
 		args.DataDir, args.StatePort,
 	)
-	dbDir := filepath.Join(args.DataDir, "db")
 
+	dbDir := filepath.Join(args.DataDir, "db")
 	if err := os.MkdirAll(dbDir, 0700); err != nil {
 		return fmt.Errorf("cannot create mongo database directory: %v", err)
 	}
+
 	oplogSizeMB := args.OplogSize
 	if oplogSizeMB == 0 {
 		var err error
@@ -183,7 +197,16 @@ func EnsureServer(args EnsureServerParams) error {
 		}
 	}
 
-	svc, mongoPath, err := upstartService(args.Namespace, args.DataDir, dbDir, args.StatePort, oplogSizeMB)
+	if err := aptGetInstallMongod(); err != nil {
+		return fmt.Errorf("cannot install mongod: %v", err)
+	}
+	mongoPath, err := Path()
+	if err != nil {
+		return err
+	}
+	logVersion(mongoPath)
+
+	svc, err := upstartService(args.Namespace, args.DataDir, dbDir, mongoPath, args.StatePort, oplogSizeMB)
 	if err != nil {
 		return err
 	}
@@ -219,12 +242,6 @@ func EnsureServer(args EnsureServerParams) error {
 			return err
 		}
 	}
-
-	if err := aptGetInstallMongod(); err != nil {
-		return fmt.Errorf("cannot install mongod: %v", err)
-	}
-
-	logVersion(mongoPath)
 
 	if err := upstartServiceStop(svc); err != nil {
 		return fmt.Errorf("failed to stop mongo: %v", err)
@@ -282,12 +299,7 @@ func sharedSecretPath(dataDir string) string {
 // upstartService returns the upstart config for the mongo state service.
 // It also returns the path to the mongod executable that the upstart config
 // will be using.
-func upstartService(namespace, dataDir, dbDir string, port, oplogSizeMB int) (*upstart.Service, string, error) {
-	mongoPath, err := Path()
-	if err != nil {
-		return nil, "", err
-	}
-
+func upstartService(namespace, dataDir, dbDir, mongoPath string, port, oplogSizeMB int) (*upstart.Service, error) {
 	mongoCmd := mongoPath + " --auth" +
 		" --dbpath=" + utils.ShQuote(dbDir) +
 		" --sslOnNormalPorts" +
@@ -311,7 +323,7 @@ func upstartService(namespace, dataDir, dbDir string, port, oplogSizeMB int) (*u
 		Cmd: mongoCmd,
 	}
 	svc := upstart.NewService(ServiceName(namespace), conf)
-	return svc, mongoPath, nil
+	return svc, nil
 }
 
 func aptGetInstallMongod() error {
