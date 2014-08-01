@@ -4,106 +4,143 @@
 package state_test
 
 import (
-	"time"
+	"os"
 
+	"github.com/juju/errors"
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/backup"
+	"github.com/juju/juju/version"
 )
 
 type backupSuite struct {
-	ConnSuite
+	StateSuite
 }
 
 var _ = gc.Suite(&backupSuite{})
 
-//---------------------------
-// nextBackupID()
-
-func (s *backupSuite) TestBackupsNextBackupIDSuccess(c *gc.C) {
-	timestamp := time.Date(2014, 7, 31, 16, 59, 59, 0, time.UTC)
-	id := state.NextBackupID(s.State, &timestamp)
-
-	c.Check(id, gc.Equals, "20140731-165959")
+func (s *backupSuite) metadata(c *gc.C) *backup.Metadata {
+	origin := state.NewBackupOrigin(s.State, "0")
+	origin.Hostname = "localhost"
+	return backup.NewMetadata("some-hash", 42, *origin, "")
 }
 
-func (s *backupSuite) TestBackupsNextBackupIDEmpty(c *gc.C) {
-	id := state.NextBackupID(s.State, nil)
-
-	c.Check(id, gc.Not(gc.Equals), "")
-}
-
-//---------------------------
-// setBackupStatus()
-
-func (s *backupSuite) TestBackupsSetBackupStatusSuccess(c *gc.C) {
-	original := backup.Info{
-		Status: backup.StatusInfoOnly,
+func (s *backupSuite) checkMetadata(
+	c *gc.C, metadata, expected *backup.Metadata, id string,
+) bool {
+	res := true
+	if id != "" {
+		res = c.Check(metadata.ID, gc.Equals, id)
 	}
-	id, err := state.AddBackupMetadata(s.State, &original)
-	c.Check(err, gc.IsNil)
-	expected, err := state.GetBackupMetadata(s.State, id)
-	c.Check(err, gc.IsNil)
-	c.Check(expected, gc.Equals, backup.StatusInfoOnly)
-
-	status := backup.StatusAvailable
-	err := state.SetBackupStatus(s.State, id, status)
-	c.Check(err, gc.IsNil)
-	info, err := state.GetBackupMetadata(s.State, id)
-	c.Check(err, gc.IsNil)
-
-	c.Check(info, gc.Equals, backup.StatusAvailable)
+	res = c.Check(metadata.Notes, gc.Equals, expected.Notes) && res
+	res = c.Check(metadata.Timestamp.Unix(), gc.DeepEquals, expected.Timestamp.Unix()) && res
+	res = c.Check(metadata.CheckSum, gc.Equals, expected.CheckSum) && res
+	res = c.Check(metadata.CheckSumFormat, gc.Equals, expected.CheckSumFormat) && res
+	res = c.Check(metadata.Size, gc.Equals, expected.Size) && res
+	res = c.Check(metadata.Origin, gc.DeepEquals, expected.Origin) && res
+	res = c.Check(metadata.Archived, gc.DeepEquals, expected.Archived) && res
+	return res
 }
 
-func (s *backupSuite) TestBackupsSetBackupStatusMissing(c *gc.C) {
-	id := "20140731-165959"
-	status := backup.StatusAvailable
-	err := state.SetBackupStatus(s.State, id, status)
-	c.Check(err, gc.Equals, state.ErrBackupsMetadataNotFound)
+//---------------------------
+// NewBackupOrigin()
+
+func (s *backupSuite) TestBackupsNewBackupOrigin(c *gc.C) {
+	origin := state.NewBackupOrigin(s.State, "0")
+	hostname, err := os.Hostname()
+	c.Assert(err, gc.IsNil)
+
+	c.Check(origin.Environment, gc.Matches, `[-0-9a-f]+`)
+	c.Check(origin.Machine, gc.Equals, "0")
+	c.Check(origin.Hostname, gc.Equals, hostname)
+	c.Check(origin.Version.Major, gc.Equals, version.Current.Major)
+	c.Check(origin.Version.Minor, gc.Equals, version.Current.Minor)
 }
 
 //---------------------------
 // getBackupMetadata()
 
 func (s *backupSuite) TestBackupsGetBackupMetadataFound(c *gc.C) {
-	expected := backup.Info{}
-	id, err := state.AddBackupMetadata(s.State, &expected)
+	expected := s.metadata(c)
+	id, err := state.AddBackupMetadata(s.State, expected)
+	c.Assert(err, gc.IsNil)
+
+	metadata, err := state.GetBackupMetadata(s.State, id)
 	c.Check(err, gc.IsNil)
 
-	info, err := state.GetBackupMetadata(s.State, id)
-	c.Check(err, gc.IsNil)
-
-	expected.ID = id
-	c.Check(info, gc.DeepEquals, expected)
+	s.checkMetadata(c, metadata, expected, id)
 }
 
 func (s *backupSuite) TestBackupsGetBackupMetadataNotFound(c *gc.C) {
-	id := "20140731-165959"
-	info, err := state.GetBackupMetadata(s.State, id)
-	c.Check(err, gc.Equals, state.ErrBackupsMetadataNotFound)
+	_, err := state.GetBackupMetadata(s.State, "spam")
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
 
 //---------------------------
 // addBackupMetadata()
 
 func (s *backupSuite) TestBackupsAddBackupMetadataSuccess(c *gc.C) {
-	expected := backup.Info{
-		ID: "20140731-165959",
-	}
-	id, err := state.AddBackupMetadata(s.State, &expected)
+	expected := s.metadata(c)
+	id, err := state.AddBackupMetadata(s.State, expected)
 	c.Check(err, gc.IsNil)
 
-	c.Check(id, gc.Not(gc.Equals), "20140731-165959")
-	info := state.GetBackupMetadata(s.State, id)
-	expected.ID = id
-	c.Check(info, gc.DeepEquals, expected)
+	metadata, err := state.GetBackupMetadata(s.State, id)
+	c.Assert(err, gc.IsNil)
+
+	s.checkMetadata(c, metadata, expected, id)
+}
+
+func (s *backupSuite) TestBackupsAddBackupMetadataGeneratedID(c *gc.C) {
+	expected := s.metadata(c)
+	expected.ID = "spam"
+	id, err := state.AddBackupMetadata(s.State, expected)
+	c.Check(err, gc.IsNil)
+
+	c.Check(id, gc.Not(gc.Equals), "spam")
 }
 
 func (s *backupSuite) TestBackupsAddBackupMetadataEmpty(c *gc.C) {
-	original := backup.Info{}
+	original := backup.Metadata{}
 	id, err := state.AddBackupMetadata(s.State, &original)
 	c.Check(err, gc.IsNil)
 
-	info := state.GetBackupMetadata(s.State, id)
-	c.Check(info, gc.NotNil)
+	metadata, err := state.GetBackupMetadata(s.State, id)
+	c.Assert(err, gc.IsNil)
+	c.Check(metadata, gc.NotNil)
+}
+
+func (s *backupSuite) TestBackupsAddBackupMetadataAlreadyExists(c *gc.C) {
+	expected := s.metadata(c)
+	id, err := state.AddBackupMetadata(s.State, expected)
+	c.Assert(err, gc.IsNil)
+	err = state.AddBackupMetadataID(s.State, expected, id)
+
+	c.Check(err, jc.Satisfies, errors.IsAlreadyExists)
+}
+
+//---------------------------
+// setBackupArchived()
+
+func (s *backupSuite) TestBackupsSetBackupArchivedSuccess(c *gc.C) {
+	original := s.metadata(c)
+	id, err := state.AddBackupMetadata(s.State, original)
+	c.Check(err, gc.IsNil)
+	metadata, err := state.GetBackupMetadata(s.State, id)
+	c.Assert(err, gc.IsNil)
+	c.Assert(metadata.Archived, gc.Equals, false)
+
+	err = state.SetBackupArchived(s.State, id)
+	c.Check(err, gc.IsNil)
+
+	metadata, err = state.GetBackupMetadata(s.State, id)
+	c.Assert(err, gc.IsNil)
+	c.Assert(metadata.Archived, gc.Equals, true)
+}
+
+func (s *backupSuite) TestBackupsSetBackupArchivedNotFound(c *gc.C) {
+	err := state.SetBackupArchived(s.State, "spam")
+
+	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }

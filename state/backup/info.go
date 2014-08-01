@@ -6,45 +6,62 @@ package backup
 import (
 	"time"
 
-	"github.com/juju/utils"
-
 	"github.com/juju/juju/version"
 )
 
-type Status string
+const checksumFormat = "SHA-1, base64 encoded"
 
-const (
-	StatusNotSet         Status = ""
-	StatusAvailable      Status = "available"
-	StatusInfoOnly       Status = "info-only"
-	StatusBuilding       Status = "building"
-	StatusStoringInfo    Status = "storing"
-	StatusStoringArchive Status = "storing"
-	StatusFailed         Status = "failed"
-)
-
-const IDFormat = "%Y%M%D-%h%m%s"
-
-func IDFromTimestamp(timestamp *time.Time, ver *version.Number) string {
-	format := IDFormat
-	// If the default format changes in a future version we will need to
-	// look up the old format based on the Major/Minor of the version.
-	return utils.FormatTimestamp(format, timestamp)
+// BackupOrigin identifies where a backup archive came from.
+//
+// Environment is the ID for the backed-up environment.
+// Machine is the ID of the state "machine" that ran the backup.
+// Hostname is where the backup happened.
+// Version is the version of juju used to produce the backup.
+type Origin struct {
+	Environment string
+	Machine     string
+	Hostname    string
+	Version     version.Number
 }
 
-func TimestampFromID(id string, ver *version.Number) *time.Time {
-	format := IDFormat
-	// If the default format changes in a future version we will need to
-	// look up the old format based on the Major/Minor of the version.
-	return utils.ParseTimestamp(format, id)
+// Metadata contains the metadata for a single state backup archive.
+//
+// ID is the unique ID assigned by the system.
+// Notes (optional) contains any user-supplied annotations for the archive.
+// Timestamp records when the backup process was started for the archive.
+// CheckSum is the checksum for the archive.
+// CheckSumFormat is the kind (and encoding) of checksum.
+// Size is the size of the archive (in bytes).
+// Origin identifies where the backup was created.
+// Archived indicates whether or not the backup archive was stored.
+type Metadata struct {
+	ID             string
+	Notes          string // not required
+	Timestamp      time.Time
+	CheckSum       string
+	CheckSumFormat string
+	Size           int64
+	Origin         Origin
+	Archived       bool
 }
 
-type Info struct {
-	ID        string
-	Notes     string
-	Timestamp *time.Time
-	CheckSum  string // SHA-1
-	Size      int64
-	Version   *version.Number
-	Status    Status
+// NewMetadata returns a new Metadata for a state backup archive.  The
+// current date/time is used for the timestamp and the default checksum
+// format is used.  ID is not set.  That is left up to the persistence
+// layer.  Archived is set as false.  "notes" may be empty, but
+// everything else should be provided.
+func NewMetadata(
+	checksum string, size int64, origin Origin, notes string,
+) *Metadata {
+	metadata := Metadata{
+		// ID is omitted.
+		Notes:          notes,
+		Timestamp:      time.Now().UTC(),
+		CheckSum:       checksum,
+		CheckSumFormat: checksumFormat,
+		Size:           size,
+		Origin:         origin,
+		// Archived is left as false.
+	}
+	return &metadata
 }

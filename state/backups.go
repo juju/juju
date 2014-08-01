@@ -4,9 +4,13 @@
 package state
 
 import (
-	"errors"
+	"os"
+	"time"
 
+	"github.com/juju/errors"
+	"github.com/juju/utils"
 	"gopkg.in/mgo.v2"
+	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/state/backup"
@@ -50,114 +54,152 @@ Furthermore, the bulk of the backup code, which does not need direct
 interaction with State, lives in the state/backup package.
 */
 
-// backupInfoDoc is a mirror of backup.Info, used just for DB storage.
-type backupInfoDoc struct {
-	ID        string `bson:"_id"`
-	Notes     string
-	Timestamp time.Time
-	CheckSum  string
-	Size      int64
-	Version   version.Number
-	Status    backup.Status
-}
-
-func (doc *backupInfoDoc) asInfo() *backup.Info {
-	info := backup.Info{
-		ID:        doc.ID,
-		Notes:     doc.Notes,
-		Timestamp: &doc.Timestamp,
-		CheckSum:  doc.CheckSum,
-		Size:      doc.Size,
-		Version:   &doc.Version,
-		Status:    doc.Status,
+// NewBackupOrigin returns a snapshot of where backup was run.
+func NewBackupOrigin(st *State, machine string) *backup.Origin {
+	hostname, err := os.Hostname()
+	if err != nil {
+		// Ignore the error.
+		hostname = ""
 	}
-	return &info
+	origin := backup.Origin{
+		Environment: st.EnvironTag().Id(),
+		Machine:     machine,
+		Hostname:    hostname,
+		Version:     version.Current.Number,
+	}
+	return &origin
 }
 
-func (doc *backupInfoDoc) updateFromInfo(info *backup.Info) {
-	doc.ID = info.ID
-	doc.Notes = info.Notes
-	doc.Timestamp = *info.Timestamp
-	doc.CheckSum = info.CheckSum
-	doc.Size = info.Size
-	doc.Version = *info.Version
-	doc.Status = info.Status
+// backupMetadataDoc is a mirror of backup.Metadata, used just for DB storage.
+type backupMetadataDoc struct {
+	ID             string `bson:"_id"`
+	Notes          string `bson:"notes,omitempty"`
+	Timestamp      int64  `bson:"timestamp,minsize"`
+	CheckSum       string `bson:"checksum"`
+	CheckSumFormat string `bson:"checksumFormat"`
+	Size           int64  `bson:"size,minsize"`
+	Archived       bool   `bson:"archived"`
+
+	// origin
+	Environment string         `bson:"environment"`
+	Machine     string         `bson:"machine"`
+	Hostname    string         `bson:"hostname"`
+	Version     version.Number `bson:"version"`
+}
+
+// asMetadata returns a new backup.Metadata based on the backupMetadataDoc.
+func (doc *backupMetadataDoc) asMetadata() *backup.Metadata {
+	origin := backup.Origin{
+		Environment: doc.Environment,
+		Machine:     doc.Machine,
+		Hostname:    doc.Hostname,
+		Version:     doc.Version,
+	}
+	metadata := backup.Metadata{
+		ID:             doc.ID,
+		Notes:          doc.Notes,
+		Timestamp:      time.Unix(doc.Timestamp, 0).UTC(),
+		CheckSum:       doc.CheckSum,
+		CheckSumFormat: doc.CheckSumFormat,
+		Size:           doc.Size,
+		Origin:         origin,
+		Archived:       doc.Archived,
+	}
+	return &metadata
+}
+
+// updateFromMetadata copies the corresponding data from the backup.Metadata
+// into the backupMetadataDoc.
+func (doc *backupMetadataDoc) updateFromMetadata(metadata *backup.Metadata) {
+	// Ignore metadata.ID.
+	doc.Notes = metadata.Notes
+	doc.Timestamp = metadata.Timestamp.Unix()
+	doc.CheckSum = metadata.CheckSum
+	doc.CheckSumFormat = metadata.CheckSumFormat
+	doc.Size = metadata.Size
+	doc.Archived = metadata.Archived
+
+	doc.Environment = metadata.Origin.Environment
+	doc.Machine = metadata.Origin.Machine
+	doc.Hostname = metadata.Origin.Hostname
+	doc.Version = metadata.Origin.Version
 }
 
 //---------------------------
 // DB operations
 
-var (
-	ErrBackupMetadataNotFound = errors.New("backup info not found")
-	ErrBackupMetadataNotAdded = errors.New("backup info not added")
-	ErrBackupStatusNotUpdated = errors.New("backup status not updated")
-)
+// getBackupMetadata returns the backup metadata associated with "id".
+// If "id" does not match any stored records, an error satisfying
+// juju/errors.IsNotFound() is returned.
+func getBackupMetadata(st *State, id string) (*backup.Metadata, error) {
+	collection, closer := st.getCollection(backupsC)
+	defer closer()
 
-func nextBackupID(st *State, timestamp *time.Time) string {
-	return backup.IDFromTimestamp(timestamp, &version.Current.Number)
+	var doc backupMetadataDoc
+	// There can only be one!
+	err := collection.FindId(id).One(&doc)
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf(id)
+	} else if err != nil {
+		return nil, errors.Errorf("error getting backup metadata: %v", err)
+	}
+
+	return doc.asMetadata(), nil
 }
 
-func updateStatusOp(id string, status backup.Status) txn.Op {
-	updateFields := bson.D{{"$set", bson.D{
-		{"status", status},
-	}}}
-	return txn.Op{
+// addBackupMetadata stores metadata for a backup where it can be
+// accessed later.  It returns a new ID that is associated with the
+// backup.  If the provided metadata already has an ID set, it is
+// ignored.
+func addBackupMetadata(st *State, metadata *backup.Metadata) (string, error) {
+	// We use our own mongo _id value since the auto-generated one from
+	// mongo may contain sensitive data (see bson.ObjectID).
+	id, err := utils.NewUUID()
+	if err != nil {
+		return "", errors.Annotate(err, "error generating new ID")
+	}
+	idStr := id.String()
+	return idStr, addBackupMetadataID(st, metadata, idStr)
+}
+
+func addBackupMetadataID(st *State, metadata *backup.Metadata, id string) error {
+	var doc backupMetadataDoc
+	doc.updateFromMetadata(metadata)
+	doc.ID = id
+
+	ops := []txn.Op{{
 		C:      backupsC,
-		Id:     id,
-		Assert: txn.DocExists,
-		Update: updateFields,
-	}
-}
-
-func setBackupStatus(st *State, id string, status backup.Status) error {
-	ops := []txn.Op{
-		updateStatusOp(id, status),
-	}
+		Id:     doc.ID,
+		Assert: txn.DocMissing,
+		Insert: doc,
+	}}
 	if err := st.runTransaction(ops); err != nil {
-		return onAbort(err, ErrBackupStatusNotUpdated)
+		if err == txn.ErrAborted {
+			return errors.AlreadyExistsf(doc.ID)
+		}
+		return errors.Annotate(err, "error running transaction")
 	}
 
 	return nil
 }
 
-func getBackupMetadata(st *State, id string) (*backup.Info, error) {
-	collection, closer := st.getCollection(backupsC)
-	defer closer()
-
-	var doc backupInfoDoc
-	// There can only be one!
-	err := s.coll.FindId(id).One(&doc)
-	if err == mg.ErrNotFound {
-		return nil, ErrBackupMetadataNotFound
-	} else if err != nil {
-		return nil, fmt.Errorf("error getting backup metadata: %v", err)
-	}
-
-	return doc.asInfo(), nil
-}
-
-func addBackupMetadata(st *State, info *info.BackupInfo) (string, error) {
-	var doc backupInfoDoc
-	doc.updateFromInfo(info)
-	doc.Name = nextBackupID(st, nil)
-	doc.Status = backup.StatusStoringInfo
-	status = info.Status
-	if status == backup.StatusNotSet || status == backup.StatusStoringInfo {
-		status = backup.StatusInfoOnly
-	}
-
-	ops := []txn.Op{
-		{
-			C:      backupsC,
-			Id:     info.ID,
-			Assert: txn.DocMissing,
-			Insert: doc,
-		},
-		updateStatusOp(doc.ID, status),
-	}
+// getBackupMetadata returns the backup metadata associated with "id".
+// If "id" does not match any stored records, an error satisfying
+// juju/errors.IsNotFound() is returned.
+func setBackupArchived(st *State, id string) error {
+	ops := []txn.Op{{
+		C:      backupsC,
+		Id:     id,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{
+			{"archived", true},
+		}}},
+	}}
 	if err := st.runTransaction(ops); err != nil {
-		return onAbort(err, ErrBackupMetadataNotAdded)
+		if err == txn.ErrAborted {
+			return errors.NotFoundf(id)
+		}
+		return errors.Annotate(err, "error running transaction")
 	}
-
-	return doc.ID, nil
+	return nil
 }
