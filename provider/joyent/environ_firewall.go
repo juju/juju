@@ -55,10 +55,8 @@ func getPorts(envName string, rules []cloudapi.FirewallRule) []network.PortRange
 	ports := []network.PortRange{}
 	for _, r := range rules {
 		rule := r.Rule
-		logger.Debugf("HAHAHA %s\n", rule)
 		if r.Enabled && strings.HasPrefix(rule, "FROM tag "+envName) && strings.Contains(rule, "PORT") {
 			if firewallSinglePortRule.MatchString(rule) {
-				logger.Debugf("SINGLE")
 				parts := firewallSinglePortRule.FindStringSubmatch(rule)
 				if len(parts) != 3 {
 					continue
@@ -67,7 +65,6 @@ func getPorts(envName string, rules []cloudapi.FirewallRule) []network.PortRange
 				n, _ := strconv.Atoi(parts[2])
 				ports = append(ports, network.PortRange{Protocol: protocol, FromPort: n, ToPort: n})
 			} else if firewallMultiPortRule.MatchString(rule) {
-				logger.Debugf("MULTI")
 				parts := firewallMultiPortRule.FindStringSubmatch(rule)
 				if len(parts) != 3 {
 					continue
