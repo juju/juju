@@ -93,6 +93,14 @@ if [[ ! -f $GODEPS ]]; then
 fi
 GOPATH=$WORK $GODEPS -u "$WORK/src/$PACKAGE/dependencies.tsv"
 
+# TODO(gz): Ideally just run ./scripts/pre-push.bash instead, but govet issues
+BADFMT=$(find $WORK/src/$PACKAGE -name '*.go' -not -name '.#*' | xargs gofmt -l)
+if [[ -n "$BADFMT" ]]; then
+    BADFMT=$(echo "$BADFMT" | sed "s/^/  /")
+    echo -e "gofmt is sad:\n\n$BADFMT"
+    exit 1
+fi
+
 # Remove godeps, non-free data, and any binaries.
 rm -r $WORK/src/launchpad.net/godeps
 rm -r $WORK/src/code.google.com/p/go.net/html/charset/testdata/
