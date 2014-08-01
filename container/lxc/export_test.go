@@ -13,7 +13,6 @@ var (
 	RestartSymlink          = restartSymlink
 	ReleaseVersion          = &releaseVersion
 	PreferFastLXC           = preferFastLXC
-	RemoveLockFile          = &removeLockFile
 )
 
 func GetCreateWithCloneValue(mgr container.Manager) bool {
