@@ -253,6 +253,5 @@ func (*PortSuite) TestSortPortRanges(c *gc.C) {
 		{10, 100, "udp"},
 	}
 	network.SortPortRanges(ranges)
-	c.Assert(ranges, gc.DeepEquals,
-		expected)
+	c.Assert(ranges, gc.DeepEquals, expected)
 }

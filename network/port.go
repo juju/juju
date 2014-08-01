@@ -143,16 +143,7 @@ func (a PortRange) ConflictsWith(b PortRange) bool {
 	if a.Protocol != b.Protocol {
 		return false
 	}
-	switch {
-	case a.FromPort >= b.FromPort && a.FromPort <= b.ToPort:
-		return true
-	case a.ToPort >= b.FromPort && a.ToPort <= b.ToPort:
-		return true
-	case a.FromPort <= b.FromPort && a.ToPort >= b.ToPort:
-		return true
-	}
-
-	return false
+	return a.ToPort >= b.FromPort && b.ToPort >= a.FromPort
 }
 
 func (p PortRange) String() string {
