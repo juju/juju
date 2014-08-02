@@ -5,15 +5,19 @@ package state
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"path"
 	"time"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"github.com/juju/utils/filestorage"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
+	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/version"
 )
@@ -55,8 +59,8 @@ Furthermore, the bulk of the backup code, which does not need direct
 interaction with State, lives in the state/backup package.
 */
 
-// NewBackupOrigin returns a snapshot of where backup was run.
-func NewBackupOrigin(st *State, machine string) *backups.Origin {
+// NewBackupsOrigin returns a snapshot of where backup was run.
+func NewBackupsOrigin(st *State, machine string) *backups.Origin {
 	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -289,4 +293,121 @@ func setBackupStored(st *State, id string) error {
 		return errors.Annotate(err, "error running transaction")
 	}
 	return nil
+}
+
+//---------------------------
+// metadata storage
+
+type backupMetadataStorage struct {
+	state *State
+}
+
+func newBackupMetadataStorage(st *State) filestorage.MetadataStorage {
+	stor := backupMetadataStorage{
+		state: st,
+	}
+	return &stor
+}
+
+func (s *backupMetadataStorage) AddDoc(doc interface{}) (string, error) {
+	metadata, ok := doc.(backups.Metadata)
+	if !ok {
+		return "", errors.Errorf("doc must be of type state.backups.Metadata")
+	}
+	return addBackupMetadata(s.state, &metadata)
+}
+
+func (s *backupMetadataStorage) Doc(id string) (interface{}, error) {
+	return s.Metadata(id)
+}
+
+func (s *backupMetadataStorage) Metadata(id string) (filestorage.Metadata, error) {
+	metadata, err := getBackupMetadata(s.state, id)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return metadata, nil
+}
+
+func (s *backupMetadataStorage) ListDocs() ([]interface{}, error) {
+	metas, err := s.ListMetadata()
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	docs := []interface{}{}
+	for _, meta := range metas {
+		docs = append(docs, meta)
+	}
+	return docs, nil
+}
+
+func (s *backupMetadataStorage) ListMetadata() ([]filestorage.Metadata, error) {
+	return nil, errors.New("not implemented yet")
+}
+
+func (s *backupMetadataStorage) RemoveDoc(id string) error {
+	return errors.New("not implemented yet")
+}
+
+func (s *backupMetadataStorage) New() filestorage.Metadata {
+	origin := NewBackupsOrigin(s.state, "")
+	return backups.NewMetadata(*origin, "", nil)
+}
+
+func (s *backupMetadataStorage) SetStored(meta filestorage.Metadata) error {
+	err := setBackupStored(s.state, meta.ID())
+	if err != nil {
+		return errors.Trace(err)
+	}
+	meta.SetStored()
+	return nil
+}
+
+//---------------------------
+// raw file storage
+
+const backupStorageRoot = "/"
+
+type envFileStorage struct {
+	envStor storage.Storage
+	root    string
+}
+
+func newBackupFileStorage(envStor storage.Storage, root string) filestorage.RawFileStorage {
+	// Due to circular imports we cannot simply get the storage from
+	// State using environs.GetStorage().
+	stor := envFileStorage{
+		envStor: envStor,
+		root:    root,
+	}
+	return &stor
+}
+
+func (s *envFileStorage) path(id string) string {
+	// Use of path.Join instead of filepath.Join is intentional - this
+	// is an environment storage path not a filesystem path.
+	return path.Join(s.root, id)
+}
+
+func (s *envFileStorage) File(id string) (io.ReadCloser, error) {
+	return s.envStor.Get(s.path(id))
+}
+
+func (s *envFileStorage) AddFile(id string, file io.Reader, size int64) error {
+	return s.envStor.Put(s.path(id), file, size)
+}
+
+func (s *envFileStorage) RemoveFile(id string) error {
+	return s.envStor.Remove(s.path(id))
+}
+
+//---------------------------
+// backup storage
+
+// NewBackupsStorage returns a new FileStorage to use for storing backup
+// archives (and metadata).
+func NewBackupsStorage(st *State, envStor storage.Storage) filestorage.FileStorage {
+	files := newBackupFileStorage(envStor, backupStorageRoot)
+	docs := newBackupMetadataStorage(st)
+	return filestorage.NewFileStorage(docs, files)
 }
