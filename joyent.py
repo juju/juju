@@ -101,7 +101,7 @@ class Client:
         uri = "{}/{}/{}".format(self.sdc_url, self.account, path)
         if method == 'DELETE':
             request = DeleteRequest(uri, headers=headers)
-        if method == 'HEAD':
+        elif method == 'HEAD':
             request = HeadRequest(uri, headers=headers)
         elif method == 'POST':
             request = PostRequest(uri, data=body, headers=headers)
