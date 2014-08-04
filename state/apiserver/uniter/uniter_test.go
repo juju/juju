@@ -783,49 +783,43 @@ func (s *uniterSuite) TestWatchActions(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func checkUnorderedActionIdsEqual(c *gc.C, ids []string, results params.StringsWatchResults) {
+	c.Assert(results, gc.NotNil)
+	content := results.Results
+	c.Assert(len(content), gc.Equals, 1)
+	result := content[0]
+	c.Assert(result.StringsWatcherId, gc.Equals, "1")
+	obtainedIds := map[string]int{}
+	expectedIds := map[string]int{}
+	for _, id := range ids {
+		expectedIds[id]++
+	}
+	// The count of each ID that has been seen.
+	for _, change := range result.Changes {
+		obtainedIds[change]++
+	}
+	c.Check(obtainedIds, jc.DeepEquals, expectedIds)
+}
+
 func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
-	firstAction, err := s.wordpressUnit.AddAction("backup", nil)
+	act1, err := s.wordpressUnit.AddAction("backup", nil)
 	c.Assert(err, gc.IsNil)
-	secondAction, err := s.wordpressUnit.AddAction("snapshot", nil)
+	act2, err := s.wordpressUnit.AddAction("snapshot", nil)
 	c.Assert(err, gc.IsNil)
-
-	idsAppeared := map[string]int{
-		firstAction.Id():  0,
-		secondAction.Id(): 0,
-	}
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-wordpress-0"},
 	}}
 
-	// WatchActions returns params.StringsWatchResults{
-	//	Results: []params.StringsWatchResult{
-	//		StringsWatcherId: string,
-	//		Changes: []string
-	// 	}
-	// }
-	// So, we need to extract the changes and make sure they have the
-	// same values of our expected Action IDs, not necessarily in order.
-	swResults, err := s.uniter.WatchActions(args)
+	results, err := s.uniter.WatchActions(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(swResults, gc.NotNil)
-	swResultsContent := swResults.Results
-	c.Assert(len(swResultsContent), gc.Equals, 1)
-	swResult := swResultsContent[0]
-	c.Assert(swResult.StringsWatcherId, gc.Equals, "1")
-	for _, change := range swResult.Changes {
-		// How many times have we seen this ID?
-		idsAppeared[change] += 1
-	}
-	c.Assert(idsAppeared, jc.DeepEquals, map[string]int{
-		firstAction.Id():  1,
-		secondAction.Id(): 1,
-	})
+
+	checkUnorderedActionIdsEqual(c, []string{act1.Id(), act2.Id()}, results)
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
