@@ -33,12 +33,8 @@ import (
 // Open returns unauthorizedError if access is unauthorized.
 func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
-	di, err := mongo.DialInfo(info.Info, opts)
-	if err != nil {
-		return nil, err
-	}
 	logger.Debugf("dialing mongo")
-	session, err := mgo.DialWithInfo(di)
+	session, err := mongo.DialWithInfo(info.Info, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -58,7 +54,6 @@ func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 		session.Close()
 		return nil, err
 	}
-	session.SetSocketTimeout(mongo.SocketTimeout)
 	return st, nil
 }
 
