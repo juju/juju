@@ -6,6 +6,7 @@ package deployer
 import (
 	"github.com/juju/names"
 
+	"github.com/juju/juju/state/api/common"
 	"github.com/juju/juju/state/api/params"
 )
 
@@ -33,7 +34,7 @@ func (u *Unit) Life() params.Life {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := u.st.unitLife(u.tag)
+	life, err := common.Life(u.st.facade, u.tag)
 	if err != nil {
 		return err
 	}
@@ -48,7 +49,7 @@ func (u *Unit) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag.String()}},
 	}
-	err := u.st.call("Remove", args, &result)
+	err := u.st.facade.FacadeCall("Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -63,7 +64,7 @@ func (u *Unit) SetPassword(password string) error {
 			{Tag: u.tag.String(), Password: password},
 		},
 	}
-	err := u.st.call("SetPasswords", args, &result)
+	err := u.st.facade.FacadeCall("SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}

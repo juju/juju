@@ -42,10 +42,9 @@ type ProvisionMachineArgs struct {
 	// Host is the SSH host: [user@]host
 	Host string
 
-	// SSHKeyPath is a path to the public key added to the machine's allowed keys to
-	// ssh to the host. If unset, a key will be looked for in $JUJU_HOME/ssh
-	// and ~/.ssh. A key can also be specified in ssh_config, or added to the
-	// SSH agent.
+	// SSHKeyPath is an optional path to a private key/identity file used when
+	// attempting to login. If unset, the default key/identity file will be
+	// used.
 	SSHKeyPath string
 
 	// DataDir is the root directory for juju data.
@@ -97,14 +96,27 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 	// The authenticationworker will later update the ubuntu user's
 	// authorized_keys.
 	user, hostname := splitUserHost(args.Host)
+	pubFilePath := ""
 
-	// try adding the public key of a private key used to ssh in.
-	pubKey := args.SSHKeyPath + ".pub"
-	authorizedKeys, err := config.ReadAuthorizedKeys(pubKey)
+	// Try adding the public key of a private key used to login in.
+	if args.SSHKeyPath != "" {
+		// ReadAuthorizedKeys considers non-absolute paths to be relative to ~/.ssh
+		if absKeyPath, err := utils.NormalizePath(args.SSHKeyPath); err == nil {
+			pubFilePath = absKeyPath + ".pub"
+		}
+	}
+	authorizedKeys, err := config.ReadAuthorizedKeys(pubFilePath)
+	if err != nil && pubFilePath != "" {
+		logger.Warningf("cannot add corresponding public key for %q: %v", args.SSHKeyPath, err)
+		// If pub key can't be added (e.g. because it's not found), add default keys.
+		authorizedKeys, err = config.ReadAuthorizedKeys("")
+		if err != nil {
+			logger.Warningf("cannot determine authorized keys: %v", err)
+		}
+	}
 	if err := InitUbuntuUser(hostname, user, authorizedKeys, args.SSHKeyPath, args.Stdin, args.Stdout); err != nil {
 		return "", err
 	}
-
 	machineParams, err := gatherMachineParams(hostname)
 	if err != nil {
 		return "", err

@@ -4,6 +4,7 @@
 package manual
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"path"
@@ -133,18 +134,25 @@ func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
 	// root data directory, as that is created in the process of
 	// initialising sshstorage.
 	agentsDir := path.Join(agent.DefaultDataDir, "agents")
-	stdin := fmt.Sprintf("test -d %s || echo 1", utils.ShQuote(agentsDir))
-	out, err := runSSHCommand("ubuntu@"+e.cfg.bootstrapHost(), []string{"/bin/bash"}, stdin)
-	out = strings.TrimSpace(out)
+	const noAgentDir = "no-agent-dir"
+	stdin := fmt.Sprintf(
+		"test -d %s || echo %s",
+		utils.ShQuote(agentsDir),
+		noAgentDir,
+	)
+	out, err := runSSHCommand(
+		"ubuntu@"+e.cfg.bootstrapHost(),
+		[]string{"/bin/bash"},
+		stdin,
+	)
 	if err != nil {
-		if len(out) > 0 {
-			err = errors.Annotate(err, out)
-		}
 		return nil, err
 	}
-	if len(out) > 0 {
-		// If output is non-empty, /var/lib/juju/agents does not exist.
-		return nil, environs.ErrNotBootstrapped
+	if out = strings.TrimSpace(out); len(out) > 0 {
+		if out == noAgentDir {
+			return nil, environs.ErrNotBootstrapped
+		}
+		return nil, errors.LoggedErrorf(logger, "unexpected output: %q", out)
 	}
 	return []instance.Id{manual.BootstrapInstanceId}, nil
 }
@@ -251,11 +259,19 @@ func (e *manualEnviron) Storage() storage.Storage {
 	return e.storage
 }
 
-var runSSHCommand = func(host string, command []string, stdin string) (output string, err error) {
+var runSSHCommand = func(host string, command []string, stdin string) (stdout string, err error) {
 	cmd := ssh.Command(host, command, nil)
 	cmd.Stdin = strings.NewReader(stdin)
-	out, err := cmd.CombinedOutput()
-	return string(out), err
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+	if err := cmd.Run(); err != nil {
+		if stderr := strings.TrimSpace(stderrBuf.String()); len(stderr) > 0 {
+			err = errors.Annotate(err, stderr)
+		}
+		return "", err
+	}
+	return stdoutBuf.String(), nil
 }
 
 func (e *manualEnviron) Destroy() error {
@@ -275,15 +291,10 @@ exit 0
 		utils.ShQuote(agent.DefaultDataDir),
 		utils.ShQuote(agent.DefaultLogDir),
 	)
-	stderr, err := runSSHCommand(
+	_, err := runSSHCommand(
 		"ubuntu@"+e.envConfig().bootstrapHost(),
 		[]string{"sudo", "/bin/bash"}, script,
 	)
-	if err != nil {
-		if stderr := strings.TrimSpace(stderr); len(stderr) > 0 {
-			err = fmt.Errorf("%v (%v)", err, stderr)
-		}
-	}
 	return err
 }
 

@@ -2111,7 +2111,6 @@ func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
 	session := st.MongoSession()
 	safe := session.Safe()
 	c.Assert(safe.WMode, gc.Not(gc.Equals), "majority")
-	c.Assert(safe.J, gc.Equals, true)
 }
 
 func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
@@ -2138,7 +2137,32 @@ func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 	stateSession := st.MongoSession()
 	safe := stateSession.Safe()
 	c.Assert(safe.WMode, gc.Equals, "majority")
-	c.Assert(safe.J, gc.Equals, true)
+}
+
+func (s *StateSuite) TestOpenDoesNotForceGroupCommits(c *gc.C) {
+	info := state.TestingMongoInfo()
+	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	session := st.MongoSession()
+	safe := session.Safe()
+	c.Assert(safe.J, jc.IsFalse)
+}
+
+func (s *StateSuite) TestOpenForcesGroupCommits(c *gc.C) {
+	inst := gitjujutesting.MgoInstance{EnableJournal: true}
+	err := inst.Start(testing.Certs)
+	c.Assert(err, gc.IsNil)
+	defer inst.Destroy()
+	stateInfo := &authentication.MongoInfo{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
+	st, err := state.Open(stateInfo, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	stateSession := st.MongoSession()
+	safe := stateSession.Safe()
+	c.Assert(safe.J, jc.IsTrue)
 }
 
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {

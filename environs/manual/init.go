@@ -134,14 +134,19 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 // authorizedKeys may be empty, in which case the file
 // will be created and left empty.
 //
-// identity is an optional private key/identity file
+// identityFile is an optional private key/identity file
 // used when attempting to login. If unset, the default
-//key/identity file will be used.
+// key/identity file will be used.
 //
 // stdin and stdout will be used for remote sudo prompts,
 // if the ubuntu user must be created/updated.
-func InitUbuntuUser(host, login, authorizedKeys string, identity string, stdin io.Reader, stdout io.Writer) error {
+func InitUbuntuUser(host, login, authorizedKeys, identityFile string, stdin io.Reader, stdout io.Writer) error {
+	return initUbuntuUser(host, login, authorizedKeys, identityFile, stdin, stdout)
+}
+
+var initUbuntuUser = func(host, login, authorizedKeys, identityFile string, stdin io.Reader, stdout io.Writer) error {
 	logger.Infof("initialising %q, user %q", host, login)
+	sshCli := GetSSHClient()
 
 	// To avoid unnecessary prompting for the specified login,
 	// initUbuntuUser will first attempt to ssh to the machine
@@ -150,7 +155,7 @@ func InitUbuntuUser(host, login, authorizedKeys string, identity string, stdin i
 	//
 	// Note that we explicitly do not allocate a PTY, so we
 	// get a failure if sudo prompts.
-	cmd := ssh.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, nil)
+	cmd := sshCli.Command("ubuntu@"+host, []string{"sudo", "-n", "true"}, nil)
 	if cmd.Run() == nil {
 		logger.Infof("ubuntu user is already initialised")
 		return nil
@@ -165,10 +170,10 @@ func InitUbuntuUser(host, login, authorizedKeys string, identity string, stdin i
 	var options ssh.Options
 	options.AllowPasswordAuthentication()
 	options.EnablePTY()
-	if identity != "" {
-		options.SetIdentities(identity)
+	if identityFile != "" {
+		options.SetIdentities(identityFile)
 	}
-	cmd = ssh.Command(host, []string{"sudo", "/bin/bash -c " + utils.ShQuote(script)}, &options)
+	cmd = sshCli.Command(host, []string{"sudo", "/bin/bash -c " + utils.ShQuote(script)}, &options)
 	var stderr bytes.Buffer
 	cmd.Stdin = stdin
 	cmd.Stdout = stdout // for sudo prompt
@@ -182,9 +187,16 @@ func InitUbuntuUser(host, login, authorizedKeys string, identity string, stdin i
 	return nil
 }
 
+func GetSSHClient() ssh.Client {
+	return getSSHClient()
+}
+
+var getSSHClient = func() ssh.Client {
+	return ssh.DefaultClient
+}
+
 const initUbuntuScript = `
 set -e
-(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash
 umask 0077
 temp=$(mktemp)
 echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp
