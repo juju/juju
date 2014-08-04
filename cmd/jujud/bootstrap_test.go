@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
@@ -433,6 +434,23 @@ func (s *BootstrapSuite) TestBootstrapArgs(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, t.err)
 		}
 	}
+}
+
+func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
+	var called int
+	initializeState := func(_ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+		called++
+		c.Assert(dialOpts.Direct, gc.Equals, true)
+		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
+		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
+		return nil, nil, errors.New("failed to initialize state")
+	}
+	s.PatchValue(&agentInitializeState, initializeState)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
+	c.Assert(called, gc.Equals, 1)
 }
 
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
