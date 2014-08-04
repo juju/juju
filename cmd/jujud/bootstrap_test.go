@@ -445,7 +445,7 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 		called++
 		c.Assert(dialOpts.Direct, gc.Equals, true)
 		c.Assert(dialOpts.Timeout, gc.Equals, 30*time.Second)
-		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
+		c.Assert(dialOpts.SocketTimeout, gc.Equals, 123*time.Second)
 		return nil, nil, errors.New("failed to initialize state")
 	}
 	s.PatchValue(&agentInitializeState, initializeState)
@@ -459,7 +459,8 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	attrs := dummy.SampleConfig().Merge(
 		testing.Attrs{
-			"agent-version": version.Current.Number.String(),
+			"agent-version":     version.Current.Number.String(),
+			"bootstrap-timeout": "123",
 		},
 	).Delete("admin-secret", "ca-private-key")
 
