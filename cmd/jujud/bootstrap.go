@@ -26,6 +26,8 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 )
 
+var agentInitializeState = agent.InitializeState
+
 type BootstrapCommand struct {
 	cmd.CommandBase
 	AgentConf
@@ -144,7 +146,8 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 
 		// We shouldn't attempt to dial peers until we have some.
 		dialOpts.Direct = true
-		st, m, stateErr = agent.InitializeState(
+
+		st, m, stateErr = agentInitializeState(
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
