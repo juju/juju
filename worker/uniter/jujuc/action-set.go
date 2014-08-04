@@ -9,27 +9,15 @@ import (
 
 	"github.com/juju/cmd"
 	"launchpad.net/gnuflag"
-	"launchpad.net/goyaml"
 )
-
-// phrase is a struct representing a list of keys and a value to be added to
-// a map, e.g.:
-//  - outfile.format=bzip2
-//  - person.home.address.number=123
-//  - x=5
-//  - "does not compute"
-type phrase struct {
-	keys  []string
-	value interface{}
-}
 
 type nestedMap map[string]interface{}
 
-// ActionSetCommand implements the relation-get command.
+// ActionSetCommand implements the action-set command.
 type ActionSetCommand struct {
 	cmd.CommandBase
 	ctx  Context
-	args []string
+	args map[string]string
 }
 
 // NewActionSetCommand returns a new ActionSetCommand with the given context.
@@ -40,22 +28,27 @@ func NewActionSetCommand(ctx Context) cmd.Command {
 // Info returns the content for --help.
 func (c *ActionSetCommand) Info() *cmd.Info {
 	doc := `
-action-set commits the given map as the return value of the Action.  If a
-bare value is given, it will be converted to a map.  This value will be
-returned to the stateservice and client after completion of the Action.
-Subsequent calls to action-set before completion of the Action will add the
-values to the map, unless there is a conflict in which case the new value
-will overwrite the old value.
+action-set adds the given values to the results map of the Action.  This map
+is returned to the user after the completion of the Action.
 
 Example usage:
  action-set outfile.size=10G
- action-set foo
- action-set foo.bar.baz=2 foo.bar.zab="3"
+ action-set foo.bar.baz=2 foo.bar.zab=3
+ action-set foo.bar.baz=4
+
+ will yield:
+
+ outfile:
+   size: "10G"
+ foo:
+   bar:
+     baz: "4"
+     zab: "3"
 `
 	return &cmd.Info{
 		Name:    "action-set",
-		Args:    "<values>",
-		Purpose: "set action response",
+		Args:    "<key>=<value> [<key>.<key>....=<value> ...]",
+		Purpose: "set action results",
 		Doc:     doc,
 	}
 }
@@ -65,10 +58,17 @@ Example usage:
 func (c *ActionSetCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
-// Init currently accepts all input.  Malformed values will be rejected
-// in the Run step.
+// Init accepts maps in the form of key=value, key.key2.keyN....=value
 func (c *ActionSetCommand) Init(args []string) error {
-	c.args = args
+	c.args = make(map[string]string)
+	for _, arg := range args {
+		thisArg := strings.SplitN(arg, "=", 2)
+		if len(thisArg) != 2 {
+			return fmt.Errorf("argument %q must be of the form key...=value", arg)
+		}
+		c.args[thisArg[0]] = thisArg[1]
+	}
+
 	return nil
 }
 
@@ -80,57 +80,35 @@ func (c *ActionSetCommand) Run(ctx *cmd.Context) error {
 	}
 
 	// c.ctx.ActionResults() will get us the current map of
-	// action results, allowing us to add to it.
-	results, alreadyFailed := c.ctx.ActionResults()
-	if alreadyFailed {
-		return nil
-	}
-
+	// action results, allowing us to add to it.  We don't care if it's
+	// already failed, so the user doesn't lose useful debugging info.
+	results, _ := c.ctx.ActionResults()
 	nm := nestedMap(results)
-	for i, arg := range c.args {
-		phraseSplit := strings.SplitN(arg, "=", 2)
-		var toUnmarshal []byte
-		newPhrase := phrase{keys: strings.Split(phraseSplit[0], ".")}
-		if len(phraseSplit) == 1 {
-			// If we had a bare value, then define the pair as
-			// "val$i:foo"
-			toUnmarshal = []byte(arg)
-			newPhrase.keys[0] = fmt.Sprintf("val%d", i)
-		} else {
-			toUnmarshal = []byte(phraseSplit[1])
-		}
-		var yamlVal interface{}
-		err := goyaml.Unmarshal([]byte(toUnmarshal), &yamlVal)
-		if err != nil {
-			c.ctx.ActionSetFailed(err)
-			return nil
-		}
-		newPhrase.value = yamlVal
-		nm.addPhrase(newPhrase)
+
+	for keys, value := range c.args {
+		keySlice := strings.Split(keys, ".")
+		nm.addValueToMap(keySlice, value)
 	}
 
 	c.ctx.ActionSetResults(map[string]interface{}(nm))
 	return nil
 }
 
-// addPhrase adds the given phrase to the map on which the method is run.
+// addValueToMap adds the given value to the map on which the method is run.
 // This allows us to merge maps such as {foo: {bar: baz}} and {foo: {baz: faz}}
 // into {foo: {bar: baz, baz: faz}}.
-func (nm nestedMap) addPhrase(p phrase) {
-	// What if nm contains the key we found, but it is not a map?
-	next := nm   // {a:b}
-	k := p.keys  // {a,c}
-	v := p.value // d
+func (nm nestedMap) addValueToMap(keys []string, value string) {
+	next := nm
 
-	for i := range k {
+	for i := range keys {
 		// if we are on last key set the value.
 		// shouldn't be a problem.  overwrites existing vals.
-		if i == len(k)-1 {
-			next[k[i]] = v
+		if i == len(keys)-1 {
+			next[keys[i]] = value
 			break
 		}
 
-		if iface, ok := next[k[i]]; ok {
+		if iface, ok := next[keys[i]]; ok {
 			switch typed := iface.(type) {
 			case map[string]interface{}:
 				// If we already had a map inside, keep
@@ -140,65 +118,15 @@ func (nm nestedMap) addPhrase(p phrase) {
 				// If we didn't, then overwrite value
 				// with a map and iterate with that.
 				m := map[string]interface{}{}
-				next[k[i]] = m
+				next[keys[i]] = m
 				next = m
 			}
 		} else {
 			// Otherwise, it wasn't present, so make it and step
 			// into.
 			m := map[string]interface{}{}
-			next[k[i]] = m
+			next[keys[i]] = m
 			next = m
 		}
-	}
-}
-
-// TODO(binary132): Use this for YAML piping.
-// coerceKeysToStrings rejects maps containing containin non-string keys, and coerces
-// acceptable map[interface{}]interface{}'s to maps keyed by strings.
-// This is necessary because goyaml unmarshals nested maps as map[i{}]i{},
-// which is unsuitable for marshaling to BSON for storage in the stateserver.
-func coerceKeysToStrings(input interface{}) (interface{}, error) {
-	switch typedInput := input.(type) {
-
-	// In this case, recurse in.
-	case map[string]interface{}:
-		newMap := make(map[string]interface{})
-		for key, value := range typedInput {
-			newValue, err := coerceKeysToStrings(value)
-			if err != nil {
-				return nil, err
-			}
-			newMap[key] = newValue
-		}
-		return newMap, nil
-
-	// Coerce keys to strings and error out if there's a problem; then recurse.
-	case map[interface{}]interface{}:
-		newMap := make(map[string]interface{})
-		for key, value := range typedInput {
-			typedKey, ok := key.(string)
-			if !ok {
-				return nil, fmt.Errorf("map keyed with non-string value %#v", key)
-			}
-			newMap[typedKey] = value
-		}
-		return coerceKeysToStrings(newMap)
-
-	// Recurse into any maps contained in lists
-	case []interface{}:
-		newSlice := make([]interface{}, 0)
-		for _, sliceValue := range typedInput {
-			newSliceValue, err := coerceKeysToStrings(sliceValue)
-			if err != nil {
-				return nil, err
-			}
-			newSlice = append(newSlice, newSliceValue)
-		}
-		return newSlice, nil
-
-	// Other kinds of values are OK.
-	default:
-		return input, nil
 	}
 }

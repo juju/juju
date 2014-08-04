@@ -23,31 +23,15 @@ func (s *ActionSetSuite) TestGoodActionSet(c *gc.C) {
 		summary  string
 		commands [][]string
 		results  map[string]interface{}
+		errMsg   string
+		code     int
 	}{{
-		summary: "a single bare value",
+		summary: "bare value(s) are an Init error",
 		commands: [][]string{
 			[]string{"result"},
 		},
-		results: map[string]interface{}{
-			"val0": "result",
-		},
-	}, {
-		summary: "a single bare string",
-		commands: [][]string{
-			[]string{"result is a string"},
-		},
-		results: map[string]interface{}{
-			"val0": `result is a string`,
-		},
-	}, {
-		summary: "two bare values",
-		commands: [][]string{
-			[]string{"result", "other"},
-		},
-		results: map[string]interface{}{
-			"val0": "result",
-			"val1": "other",
-		},
+		errMsg: "error: argument \"result\" must be of the form key...=value\n",
+		code:   2,
 	}, {
 		summary: "a response of one key to one value",
 		commands: [][]string{
@@ -95,7 +79,7 @@ func (s *ActionSetSuite) TestGoodActionSet(c *gc.C) {
 			[]string{"util=bzip2", "util=5"},
 		},
 		results: map[string]interface{}{
-			"util": 5,
+			"util": "5",
 		},
 	}, {
 		summary: "conflicting simple values in two commands results in overwrite",
@@ -104,7 +88,7 @@ func (s *ActionSetSuite) TestGoodActionSet(c *gc.C) {
 			[]string{"util=5"},
 		},
 		results: map[string]interface{}{
-			"util": 5,
+			"util": "5",
 		},
 	}, {
 		summary: "conflicted map spec: {map1:{key:val}} vs {map1:val2}",
@@ -155,13 +139,17 @@ func (s *ActionSetSuite) TestGoodActionSet(c *gc.C) {
 		for j, command := range t.commands {
 			c.Logf("  command %d: %#v", j, command)
 			code := cmd.Main(com, ctx, command)
-			c.Check(code, gc.Equals, 0)
-			c.Check(bufferString(ctx.Stderr), gc.Equals, "")
 			_, failed := hctx.ActionResults()
 			c.Check(failed, gc.Equals, false)
+			c.Check(code, gc.Equals, t.code)
+			c.Check(bufferString(ctx.Stderr), gc.Equals, t.errMsg)
+			if t.code == 0 {
+				if j == len(t.commands)-1 {
+					results, _ := hctx.ActionResults()
+					c.Check(results, jc.DeepEquals, t.results)
+				}
+			}
 		}
-		results, _ := hctx.ActionResults()
-		c.Check(results, jc.DeepEquals, t.results)
 	}
 }
 
@@ -172,20 +160,25 @@ func (s *ActionSetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: action-set <values>
-purpose: set action response
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: action-set <key>=<value> [<key>.<key>....=<value> ...]
+purpose: set action results
 
-action-set commits the given map as the return value of the Action.  If a
-bare value is given, it will be converted to a map.  This value will be
-returned to the stateservice and client after completion of the Action.
-Subsequent calls to action-set before completion of the Action will add the
-values to the map, unless there is a conflict in which case the new value
-will overwrite the old value.
+action-set adds the given values to the results map of the Action.  This map
+is returned to the user after the completion of the Action.
 
 Example usage:
  action-set outfile.size=10G
- action-set foo
- action-set foo.bar.baz=2 foo.bar.zab="3"
+ action-set foo.bar.baz=2 foo.bar.zab=3
+ action-set foo.bar.baz=4
+
+ will yield:
+
+ outfile:
+   size: "10G"
+ foo:
+   bar:
+     baz: "4"
+     zab: "3"
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
