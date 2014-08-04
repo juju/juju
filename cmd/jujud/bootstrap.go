@@ -26,6 +26,11 @@ import (
 	"github.com/juju/juju/worker/peergrouper"
 )
 
+var (
+	agentInitializeState = agent.InitializeState
+	minSocketTimeout     = 1 * time.Minute
+)
+
 type BootstrapCommand struct {
 	cmd.CommandBase
 	AgentConf
@@ -133,7 +138,21 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	var m *state.Machine
 	err = nil
 	writeErr := c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
-		st, m, err = agent.InitializeState(
+		dialOpts := mongo.DefaultDialOpts()
+
+		// Set a longer socket timeout than usual, as the machine
+		// will be starting up and disk I/O slower than usual. This
+		// has been known to cause timeouts in queries.
+		timeouts := envCfg.BootstrapSSHOpts()
+		dialOpts.SocketTimeout = timeouts.Timeout
+		if dialOpts.SocketTimeout < minSocketTimeout {
+			dialOpts.SocketTimeout = minSocketTimeout
+		}
+
+		// We shouldn't attempt to dial peers until we have some.
+		dialOpts.Direct = true
+
+		st, m, err = agentInitializeState(
 			agentConfig,
 			envCfg,
 			agent.BootstrapMachineConfig{
@@ -144,7 +163,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				Characteristics: c.Hardware,
 				SharedSecret:    sharedSecret,
 			},
-			mongo.DefaultDialOpts(),
+			dialOpts,
 			environs.NewStatePolicy(),
 		)
 	})

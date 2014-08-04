@@ -16,13 +16,13 @@ import (
 	"github.com/juju/juju/cert"
 )
 
-// SocketTimeout should be long enough that
+// defaultSocketTimeout should be long enough that
 // even a slow mongo server will respond in that
 // length of time. Since mongo servers ping themselves
 // every 10 seconds, we use a value of just over 2
 // ping periods to allow for delayed pings due to
 // issues such as CPU starvation etc.
-const SocketTimeout = 21 * time.Second
+const defaultSocketTimeout = 21 * time.Second
 
 // defaultDialTimeout should be representative of
 // the upper bound of time taken to dial a mongo
@@ -36,6 +36,12 @@ type DialOpts struct {
 	// a state server.
 	Timeout time.Duration
 
+	// SocketTimeout is the amount of time to wait for a
+	// non-responding socket to the database before it is
+	// forcefully closed. If this is zero, Timeout will be
+	// used.
+	SocketTimeout time.Duration
+
 	// Direct informs whether to establish connections only with the
 	// specified seed servers, or to obtain information for the whole
 	// cluster and establish connections with further servers too.
@@ -45,7 +51,10 @@ type DialOpts struct {
 // DefaultDialOpts returns a DialOpts representing the default
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
-	return DialOpts{Timeout: defaultDialTimeout}
+	return DialOpts{
+		Timeout:       defaultDialTimeout,
+		SocketTimeout: defaultSocketTimeout,
+	}
 }
 
 // Info encapsulates information about cluster of
@@ -102,4 +111,21 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		Dial:    dial,
 		Direct:  opts.Direct,
 	}, nil
+}
+
+// DialWithInfo establishes a new session to the cluster identified by info,
+// with the specified options.
+func DialWithInfo(info Info, opts DialOpts) (*mgo.Session, error) {
+	dialInfo, err := DialInfo(info, opts)
+	if err != nil {
+		return nil, err
+	}
+	session, err := mgo.DialWithInfo(dialInfo)
+	if err != nil {
+		return nil, err
+	}
+	if opts.SocketTimeout != 0 {
+		session.SetSocketTimeout(opts.SocketTimeout)
+	}
+	return session, nil
 }

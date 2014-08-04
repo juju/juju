@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -65,9 +64,6 @@ type BootstrapMachineConfig struct {
 const BootstrapMachineId = "0"
 
 func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
-	// Don't attempt to dial peers.
-	dialOpts.Direct = true
-
 	if c.Tag() != names.NewMachineTag(BootstrapMachineId).String() {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -156,11 +152,7 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 // initMongoAdminUser adds the admin user with the specified
 // password to the admin database in Mongo.
 func initMongoAdminUser(info mongo.Info, dialOpts mongo.DialOpts, password string) error {
-	dialInfo, err := mongo.DialInfo(info, dialOpts)
-	if err != nil {
-		return err
-	}
-	session, err := mgo.DialWithInfo(dialInfo)
+	session, err := mongo.DialWithInfo(info, dialOpts)
 	if err != nil {
 		return err
 	}
