@@ -133,6 +133,16 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	var m *state.Machine
 	err = nil
 	writeErr := c.ChangeConfig(func(agentConfig agent.ConfigSetter) {
+		dialOpts := mongo.DefaultDialOpts()
+
+		// Set a longer socket timeout than usual, as the machine
+		// will be starting up and disk I/O slower than usual. This
+		// has been known to cause timeouts in queries.
+		dialOpts.SocketTimeout = 1 * time.Minute
+
+		// We shouldn't attempt to dial peers until we have some.
+		dialOpts.Direct = true
+
 		st, m, err = agent.InitializeState(
 			agentConfig,
 			envCfg,
@@ -144,7 +154,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 				Characteristics: c.Hardware,
 				SharedSecret:    sharedSecret,
 			},
-			mongo.DefaultDialOpts(),
+			dialOpts,
 			environs.NewStatePolicy(),
 		)
 	})
