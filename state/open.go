@@ -44,15 +44,6 @@ func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 	}
 	logger.Debugf("connection established")
 
-	_, err = replicaset.CurrentConfig(session)
-	safe := &mgo.Safe{J: true}
-	if err == nil {
-		// set mongo to write-majority (writes only returned after replicated
-		// to a majority of replica-set members)
-		safe.WMode = "majority"
-	}
-	session.SetSafe(safe)
-
 	st, err := newState(session, info, policy)
 	if err != nil {
 		session.Close()
@@ -195,6 +186,21 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 		authenticated = true
 	}
 
+	var safe mgo.Safe
+	if _, err := replicaset.CurrentConfig(session); err == nil {
+		// set mongo to write-majority (writes only returned after replicated
+		// to a majority of replica-set members)
+		safe.WMode = "majority"
+	}
+	// Setting J=true fails in Mongo 2.6 when journaling is disabled.
+	// https://bugs.launchpad.net/mgo/+bug/1340275
+	journalEnabled, err := mongo.JournalEnabled(session)
+	if err != nil {
+		return nil, maybeUnauthorized(err, "cannot detect journaling")
+	}
+	safe.J = journalEnabled
+	session.SetSafe(&safe)
+
 	st := &State{
 		mongoInfo:     mongoInfo,
 		policy:        policy,
@@ -205,7 +211,7 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 	logInfo := mgo.CollectionInfo{Capped: true, MaxBytes: logSize}
 	// The lack of error code for this error was reported upstream:
 	//     https://jira.klmongodb.org/browse/SERVER-6992
-	err := log.Create(&logInfo)
+	err = log.Create(&logInfo)
 	if err != nil && err.Error() != "collection already exists" {
 		return nil, maybeUnauthorized(err, "cannot create log collection")
 	}
