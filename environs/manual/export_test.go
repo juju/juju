@@ -7,6 +7,7 @@ var (
 	NetLookupHost         = &netLookupHost
 	ProvisionMachineAgent = &provisionMachineAgent
 	CheckProvisioned      = checkProvisioned
+	SSHOptions            = &options
 )
 
 const (

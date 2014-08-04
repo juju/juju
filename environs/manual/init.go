@@ -122,6 +122,9 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 	return hc, series, nil
 }
 
+// options is exported as SSHOptions for testing.
+var options ssh.Options
+
 // InitUbuntuUser adds the ubuntu user if it doesn't
 // already exist, updates its ~/.ssh/authorized_keys,
 // and enables passwordless sudo for it.
@@ -134,9 +137,20 @@ func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCh
 // authorizedKeys may be empty, in which case the file
 // will be created and left empty.
 //
+
+// identityFile is an optional private key/identity file
+// used when attempting to login. If unset, the default
+// key/identity file will be used.
+//
 // stdin and stdout will be used for remote sudo prompts,
 // if the ubuntu user must be created/updated.
-func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout io.Writer) error {
+type InitUbuntuUserFunc func(host, login, authorizedKeys, identityFile string, stdin io.Reader, stdout io.Writer) error
+
+// Override for testing.
+var InitUbuntuUser InitUbuntuUserFunc = initUbuntuUser
+
+func initUbuntuUser(host, login, authorizedKeys, identityFile string, stdin io.Reader, stdout io.Writer) error {
+
 	logger.Infof("initialising %q, user %q", host, login)
 
 	// To avoid unnecessary prompting for the specified login,
@@ -158,9 +172,11 @@ func InitUbuntuUser(host, login, authorizedKeys string, stdin io.Reader, stdout 
 		host = login + "@" + host
 	}
 	script := fmt.Sprintf(initUbuntuScript, utils.ShQuote(authorizedKeys))
-	var options ssh.Options
 	options.AllowPasswordAuthentication()
 	options.EnablePTY()
+	if identityFile != "" {
+		options.SetIdentities(identityFile)
+	}
 	cmd = ssh.Command(host, []string{"sudo", "/bin/bash -c " + utils.ShQuote(script)}, &options)
 	var stderr bytes.Buffer
 	cmd.Stdin = stdin
