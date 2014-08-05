@@ -245,11 +245,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
-	envConfig, err := a.st.EnvironConfig()
-	if err != nil {
-		return nil, err
-	}
-
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
 			info, err := st.Agent().StateServingInfo()
@@ -271,10 +266,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	rsyslogMode := rsyslog.RsyslogModeForwarding
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	var singularRunner worker.Runner
-	var isStateServer bool
 	for _, job := range entity.Jobs() {
 		if job == params.JobManageEnviron {
-			isStateServer = true
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
 			conn := singularAPIConn{st, st.Agent()}
 			singularRunner, err = newSingularRunner(runner, conn)
@@ -284,6 +277,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 			break
 		}
 	}
+
+	providerType := agentConfig.Value(agent.ProviderType)
 
 	// Run the upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
@@ -313,7 +308,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	})
 	if networker.CanStart() {
 		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return networker.NewNetworker(st.Networker(), agentConfig, !isStateServer || envConfig.Type() != "local")
+			return networker.NewNetworker(st.Networker(), agentConfig, providerType != provider.Local || a.MachineId != bootstrapMachineId)
 		})
 	} else {
 		logger.Infof("not starting networker - missing /etc/network/interfaces")
@@ -321,7 +316,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
-	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
 		a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
 			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
