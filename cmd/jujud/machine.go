@@ -1,6 +1,3 @@
-// Copyright 2012, 2013 Canonical Ltd.
-// Licensed under the AGPLv3, see LICENCE file for details.
-
 package main
 
 import (
@@ -248,6 +245,10 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
+	envConfig, err := a.st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
 
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
@@ -270,8 +271,10 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	rsyslogMode := rsyslog.RsyslogModeForwarding
 	runner := newRunner(connectionIsFatal(st), moreImportant)
 	var singularRunner worker.Runner
+	var isStateServer bool
 	for _, job := range entity.Jobs() {
 		if job == params.JobManageEnviron {
+			isStateServer = true
 			rsyslogMode = rsyslog.RsyslogModeAccumulate
 			conn := singularAPIConn{st, st.Agent()}
 			singularRunner, err = newSingularRunner(runner, conn)
@@ -310,7 +313,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	})
 	if networker.CanStart() {
 		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return networker.NewNetworker(st.Networker(), agentConfig)
+			return networker.NewNetworker(st.Networker(), agentConfig, !isStateServer || envConfig.Type() != "local")
 		})
 	} else {
 		logger.Infof("not starting networker - missing /etc/network/interfaces")

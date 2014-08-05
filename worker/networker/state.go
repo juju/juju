@@ -21,10 +21,17 @@ type configState struct {
 
 	// commands contains the generated list of commands to execute.
 	commands []string
+
+	// writeNetworkConfig determines if network configuration files
+	// should be written out or not
+	writeNetworkConfig bool
 }
 
 // apply writes updates to network config files and executes commands to bring up and down interfaces.
 func (s *configState) apply() error {
+	if !s.writeNetworkConfig {
+		return nil
+	}
 	if err := s.configFiles.writeOrRemove(); err != nil {
 		return err
 	}
