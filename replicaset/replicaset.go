@@ -67,6 +67,7 @@ func Initiate(session *mgo.Session, address, name string, tags map[string]string
 	logger.Infof("Initiating replicaset with config %#v", cfg)
 	var err error
 	for i := 0; i < maxInitiateAttempts; i++ {
+		monotonicSession.Refresh()
 		err = monotonicSession.Run(bson.D{{"replSetInitiate", cfg}}, nil)
 		if err != nil && err.Error() == rsMembersUnreachableError {
 			time.Sleep(initiateAttemptDelay)

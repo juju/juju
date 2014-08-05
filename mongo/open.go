@@ -16,13 +16,13 @@ import (
 	"github.com/juju/juju/cert"
 )
 
-// defaultSocketTimeout should be long enough that
+// SocketTimeout should be long enough that
 // even a slow mongo server will respond in that
 // length of time. Since mongo servers ping themselves
 // every 10 seconds, we use a value of just over 2
 // ping periods to allow for delayed pings due to
 // issues such as CPU starvation etc.
-const defaultSocketTimeout = 21 * time.Second
+const SocketTimeout = 21 * time.Second
 
 // defaultDialTimeout should be representative of
 // the upper bound of time taken to dial a mongo
@@ -53,7 +53,7 @@ type DialOpts struct {
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
 		Timeout:       defaultDialTimeout,
-		SocketTimeout: defaultSocketTimeout,
+		SocketTimeout: SocketTimeout,
 	}
 }
 
