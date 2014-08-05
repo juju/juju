@@ -18,11 +18,9 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/version"
 )
 
 // DataDir is the default data directory.
@@ -32,7 +30,10 @@ var DataDir = agent.DefaultDataDir
 
 // logDir returns a filesystem path to the location where applications
 // may create a folder containing logs
-var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
+//
+// TODO(gsamfira) 2014-07-31 https://github.com/juju/juju/pull/189
+// Use the target series to decide the path.
+var logDir = "/var/log"
 
 // CloudInitOutputLog is the default cloud-init-output.log file path.
 var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")

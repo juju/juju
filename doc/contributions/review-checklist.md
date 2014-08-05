@@ -10,7 +10,7 @@ A list of common (not exhaustive) mistakes to check for when reviewing. For furt
     + A description justifying the change.
     + A link to a design document or mailing list discussion.
 - Work out what the code is trying to fix (feature or bug).
- + Is it obvious that the code does this?
+    + Is it obvious that the code does this?
 - Is this code valid for all operating systems?
 - Are there any race conditions?
 
@@ -50,8 +50,7 @@ A list of common (not exhaustive) mistakes to check for when reviewing. For furt
 - Is external functionality being called that should be mocked instead?
 - Each suite is set up directly before tests for that suite.
 - Correct use of c.Check vs c.Assert.
-- TMP files must be given a prefix (in case cleanup fails) e.g. test-juju.. 
-- TMP files must be inside a c.MkDir()
+- Temporary files must be created inside a path provided by c.Mkdir
 - Variables from external modules should not be patched directly, (see 'Tests' in [Style Guide](doc/contributions/style-guide.md)).
 - Are test entities being created in the most efficient way? (e.g. using the test factory)?
 - `doc/how-to-write-tests.txt` covers some basics of writing good tests.
@@ -66,10 +65,10 @@ A list of common (not exhaustive) mistakes to check for when reviewing. For furt
 - Is a comment needed?
 - Todo convention e.g:
 
-`
+```
 // TODO(axw) 2013-09-24 bug #1229507
 // Description of todo
-`
+```
 
 
 ## Variables:
@@ -88,7 +87,6 @@ can be simplified to:
 func someFunc() string {
     return someOtherFunc("a string")
 }
-
 ```
 
 - Could/should a pointer be used instead of a reference?

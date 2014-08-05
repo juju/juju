@@ -4,6 +4,7 @@
 package agent_test
 
 import (
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -231,7 +232,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "failed to initialize state: cannot create log collection: unauthorized mongo access: unauthorized")
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
 }
 
 func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {

@@ -131,12 +131,27 @@ If an error is thrown away, why it is not handled is explained in a comment.
 The juju/errors package should be used to handle errors:
 
 ```go
-return errors.Trace(err)
+// Trace always returns an annotated error.  Trace records the
+// location of the Trace call, and adds it to the annotation stack.
+// If the error argument is nil, the result of Trace is nil.
+if err := SomeFunc(); err != nil {
+      return errors.Trace(err)
+}
 
-return errors.Errorf("this will be the error message %s", var)
+// Errorf creates a new annotated error and records the location that the
+// error is created.  This should be a drop in replacement for fmt.Errorf.
+return errors.Errorf("validation failed: %s", message)
 
-return errors.Annotate(err, "err will be wrapped with this annotation")
+// Annotate is used to add extra context to an existing error. The location of
+// the Annotate call is recorded with the annotations. The file, line and
+// function are also recorded.
+// If the error argument is nil, the result of Annotate is nil.
+if err := SomeFunc(); err != nil {
+    return errors.Annotate(err, "failed to frombulate")
+}
 ```
+
+See [github.com/juju/errors/annotation.go](github.com/juju/errors/annotation.go) for more error handling functions.
 
 ## Tests
 

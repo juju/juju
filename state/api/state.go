@@ -5,13 +5,13 @@ package api
 
 import (
 	"net"
-	"sort"
 	"strconv"
 
 	"github.com/juju/names"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/agent"
+	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/charmrevisionupdater"
 	"github.com/juju/juju/state/api/deployer"
 	"github.com/juju/juju/state/api/environment"
@@ -33,7 +33,7 @@ import (
 // should be empty unless logging in as a machine agent.
 func (st *State) Login(tag, password, nonce string) error {
 	var result params.LoginResult
-	err := st.Call("Admin", "", "Login", &params.Creds{
+	err := st.APICall("Admin", 0, "", "Login", &params.Creds{
 		AuthTag:  tag,
 		Password: password,
 		Nonce:    nonce,
@@ -53,10 +53,6 @@ func (st *State) Login(tag, password, nonce string) error {
 		st.environTag = result.EnvironTag
 		st.facadeVersions = make(map[string][]int, len(result.Facades))
 		for _, facade := range result.Facades {
-			// The API will likely return versions in sorted order,
-			// but we sort again so we don't have to trust that all
-			// implementations always will.
-			sort.Ints(facade.Versions)
 			st.facadeVersions[facade.Name] = facade.Versions
 		}
 	}
@@ -112,7 +108,8 @@ func addAddress(servers [][]network.HostPort, addr string) ([][]network.HostPort
 // Client returns an object that can be used
 // to access client-specific functionality.
 func (st *State) Client() *Client {
-	return &Client{st}
+	frontend, backend := base.NewClientFacade(st, "Client")
+	return &Client{ClientFacade: frontend, facade: backend, st: st}
 }
 
 // Machiner returns a version of the state that provides functionality
