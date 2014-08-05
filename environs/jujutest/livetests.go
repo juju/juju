@@ -93,9 +93,7 @@ func publicAttrs(e environs.Environ) map[string]interface{} {
 }
 
 func (t *LiveTests) TearDownSuite(c *gc.C) {
-	if t.Env != nil {
-		t.Destroy(c)
-	}
+	t.Destroy(c)
 }
 
 // PrepareOnce ensures that the environment is
@@ -159,7 +157,7 @@ func (t *LiveTests) TestPrechecker(c *gc.C) {
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *gc.C) {
-	t.PrepareOnce(c)
+	t.BootstrapOnce(c)
 	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst, _ := testing.AssertStartInstance(c, t.Env, "0")
@@ -213,7 +211,7 @@ func (t *LiveTests) TestStartStop(c *gc.C) {
 }
 
 func (t *LiveTests) TestPorts(c *gc.C) {
-	t.PrepareOnce(c)
+	t.BootstrapOnce(c)
 	t.UploadFakeTools(c, t.Env.Storage())
 
 	inst1, _ := testing.AssertStartInstance(c, t.Env, "1")
@@ -302,7 +300,7 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 }
 
 func (t *LiveTests) TestGlobalPorts(c *gc.C) {
-	t.PrepareOnce(c)
+	t.BootstrapOnce(c)
 	t.UploadFakeTools(c, t.Env.Storage())
 
 	// Change configuration.
@@ -377,7 +375,8 @@ func (t *LiveTests) TestBootstrapMultiple(c *gc.C) {
 	c.Logf("destroy env")
 	env := t.Env
 	t.Destroy(c)
-	env.Destroy() // Again, should work fine and do nothing.
+	err = env.Destroy() // Again, should work fine and do nothing.
+	c.Assert(err, gc.IsNil)
 
 	// check that we can bootstrap after destroy
 	t.BootstrapOnce(c)
