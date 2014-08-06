@@ -7,10 +7,12 @@ import (
 	"testing"
 
 	gitjujutesting "github.com/juju/testing"
+
+	"github.com/juju/juju/mongo"
 )
 
 // MgoTestPackage should be called to register the tests for any package
 // that requires a secure connection to a MongoDB server.
 func MgoTestPackage(t *testing.T) {
-	gitjujutesting.MgoTestPackage(t, Certs)
+	gitjujutesting.MgoTestPackage(t, Certs, mongo.JujuMongodPath)
 }

@@ -475,7 +475,7 @@ func (s *MongoSuite) TestJournalDisabledDetected(c *gc.C) {
 
 func (s *MongoSuite) testJournalEnabled(c *gc.C, enabled bool) {
 	inst := &testing.MgoInstance{EnableJournal: enabled}
-	err := inst.Start(coretesting.Certs)
+	err := inst.Start(coretesting.Certs, mongo.JujuMongodPath)
 	c.Assert(err, gc.IsNil)
 	defer inst.DestroyWithLog()
 	session, err := inst.Dial()

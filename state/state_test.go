@@ -2115,7 +2115,7 @@ func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
 
 func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
 	inst := gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
-	err := inst.Start(testing.Certs)
+	err := inst.Start(testing.Certs, mongo.JujuMongodPath)
 	c.Assert(err, gc.IsNil)
 	defer inst.Destroy()
 
@@ -2152,7 +2152,7 @@ func (s *StateSuite) TestOpenDoesNotForceGroupCommits(c *gc.C) {
 
 func (s *StateSuite) TestOpenForcesGroupCommits(c *gc.C) {
 	inst := gitjujutesting.MgoInstance{EnableJournal: true}
-	err := inst.Start(testing.Certs)
+	err := inst.Start(testing.Certs, mongo.JujuMongodPath)
 	c.Assert(err, gc.IsNil)
 	defer inst.Destroy()
 	stateInfo := &authentication.MongoInfo{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}

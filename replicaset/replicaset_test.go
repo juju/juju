@@ -1,4 +1,4 @@
-package replicaset
+package replicaset_test
 
 import (
 	"fmt"
@@ -11,6 +11,8 @@ import (
 	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/replicaset"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -27,7 +29,7 @@ type MongoSuite struct {
 
 func newServer(c *gc.C) *gitjujutesting.MgoInstance {
 	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", rsName}}
-	err := inst.Start(coretesting.Certs)
+	err := inst.Start(coretesting.Certs, mongo.JujuMongodPath)
 	c.Assert(err, gc.IsNil)
 
 	session, err := inst.DialDirect()
@@ -65,20 +67,20 @@ func dialAndTestInitiate(c *gc.C, inst *gitjujutesting.MgoInstance, addr string)
 	defer session.Close()
 
 	mode := session.Mode()
-	err := Initiate(session, addr, rsName, initialTags)
+	err := replicaset.Initiate(session, addr, rsName, initialTags)
 	c.Assert(err, gc.IsNil)
 
 	// make sure we haven't messed with the session's mode
 	c.Assert(session.Mode(), gc.Equals, mode)
 
 	// Ids start at 1 for us, so we can differentiate between set and unset
-	expectedMembers := []Member{Member{Id: 1, Address: addr, Tags: initialTags}}
+	expectedMembers := []replicaset.Member{replicaset.Member{Id: 1, Address: addr, Tags: initialTags}}
 
 	// need to set mode to strong so that we wait for the write to succeed
 	// before reading and thus ensure that we're getting consistent reads.
 	session.SetMode(mgo.Strong, false)
 
-	mems, err := CurrentMembers(session)
+	mems, err := replicaset.CurrentMembers(session)
 	c.Assert(err, gc.IsNil)
 	c.Assert(mems, jc.DeepEquals, expectedMembers)
 
@@ -95,8 +97,8 @@ func (s *MongoSuite) TestInitiateWaitsForStatus(c *gc.C) {
 	defer session.Close()
 
 	i := 0
-	mockStatus := func(session *mgo.Session) (*Status, error) {
-		status := &Status{}
+	mockStatus := func(session *mgo.Session) (*replicaset.Status, error) {
+		status := &replicaset.Status{}
 		var err error
 		i += 1
 		if i < 20 {
@@ -105,13 +107,13 @@ func (s *MongoSuite) TestInitiateWaitsForStatus(c *gc.C) {
 			// when i == 20 then len(status.Members) == 0
 			// so we will be called one more time until we populate
 			// Members
-			status.Members = append(status.Members, MemberStatus{Id: 1})
+			status.Members = append(status.Members, replicaset.MemberStatus{Id: 1})
 		}
 		return status, err
 	}
 
-	s.PatchValue(&getCurrentStatus, mockStatus)
-	Initiate(session, s.root.Addr(), rsName, initialTags)
+	s.PatchValue(replicaset.GetCurrentStatus, mockStatus)
+	replicaset.Initiate(session, s.root.Addr(), rsName, initialTags)
 	c.Assert(i, gc.Equals, 21)
 }
 
@@ -181,11 +183,11 @@ func assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(
 	session := root.MustDial()
 	defer session.Close()
 
-	members := make([]Member, 0, 5)
+	members := make([]replicaset.Member, 0, 5)
 
 	// Add should be idempotent, so re-adding root here shouldn't result in
 	// two copies of root in the replica set
-	members = append(members, Member{Address: getAddr(root), Tags: initialTags})
+	members = append(members, replicaset.Member{Address: getAddr(root), Tags: initialTags})
 
 	// We allow for up to 2 minutes  per operation, since Add, Set, etc. call
 	// replSetReconfig which may cause primary renegotiation. According
@@ -204,30 +206,30 @@ func assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(
 		defer inst.Destroy()
 		defer func() {
 			attemptLoop(c, strategy, "Remove()", func() error {
-				return Remove(session, getAddr(inst))
+				return replicaset.Remove(session, getAddr(inst))
 			})
 		}()
 		key := fmt.Sprintf("key%d", i)
 		val := fmt.Sprintf("val%d", i)
 		tags := map[string]string{key: val}
-		members = append(members, Member{Address: getAddr(inst), Tags: tags})
+		members = append(members, replicaset.Member{Address: getAddr(inst), Tags: tags})
 	}
 
 	attemptLoop(c, strategy, "Add()", func() error {
-		return Add(session, members...)
+		return replicaset.Add(session, members...)
 	})
 
-	expectedMembers := make([]Member, len(members))
+	expectedMembers := make([]replicaset.Member, len(members))
 	for i, m := range members {
 		// Ids should start at 1 (for the root) and go up
 		m.Id = i + 1
 		expectedMembers[i] = m
 	}
 
-	var cfg *Config
+	var cfg *replicaset.Config
 	attemptLoop(c, strategy, "CurrentConfig()", func() error {
 		var err error
-		cfg, err = CurrentConfig(session)
+		cfg, err = replicaset.CurrentConfig(session)
 		return err
 	})
 	c.Assert(cfg.Name, gc.Equals, rsName)
@@ -239,23 +241,23 @@ func assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(
 
 	// Now remove the last two Members...
 	attemptLoop(c, strategy, "Remove()", func() error {
-		return Remove(session, members[3].Address, members[4].Address)
+		return replicaset.Remove(session, members[3].Address, members[4].Address)
 	})
 	expectedMembers = expectedMembers[0:3]
 
 	// ... and confirm that CurrentMembers reflects the removal.
 	attemptLoop(c, strategy, "CurrentMembers()", func() error {
 		var err error
-		mems, err = CurrentMembers(session)
+		mems, err = replicaset.CurrentMembers(session)
 		return err
 	})
 	c.Assert(mems, jc.DeepEquals, expectedMembers)
 
 	// now let's mix it up and set the new members to a mix of the previous
 	// plus the new arbiter
-	mems = []Member{members[3], mems[2], mems[0], members[4]}
+	mems = []replicaset.Member{members[3], mems[2], mems[0], members[4]}
 	attemptLoop(c, strategy, "Set()", func() error {
-		err := Set(session, mems)
+		err := replicaset.Set(session, mems)
 		if err != nil {
 			c.Logf("current session mode: %v", session.Mode())
 			session.Refresh()
@@ -273,13 +275,13 @@ func assertAddRemoveSet(c *gc.C, root *gitjujutesting.MgoInstance, getAddr func(
 	})
 
 	// any new members will get an id of max(other_ids...)+1
-	expectedMembers = []Member{members[3], expectedMembers[2], expectedMembers[0], members[4]}
+	expectedMembers = []replicaset.Member{members[3], expectedMembers[2], expectedMembers[0], members[4]}
 	expectedMembers[0].Id = 4
 	expectedMembers[3].Id = 5
 
 	attemptLoop(c, strategy, "CurrentMembers()", func() error {
 		var err error
-		mems, err = CurrentMembers(session)
+		mems, err = replicaset.CurrentMembers(session)
 		return err
 	})
 	c.Assert(mems, jc.DeepEquals, expectedMembers)
@@ -289,7 +291,7 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 	session := s.root.MustDial()
 	defer session.Close()
 
-	expected := IsMasterResults{
+	expected := replicaset.IsMasterResults{
 		// The following fields hold information about the specific mongodb node.
 		IsMaster:  true,
 		Secondary: false,
@@ -304,7 +306,7 @@ func (s *MongoSuite) TestIsMaster(c *gc.C) {
 		PrimaryAddress: s.root.Addr(),
 	}
 
-	res, err := IsMaster(session)
+	res, err := replicaset.IsMaster(session)
 	c.Assert(err, gc.IsNil)
 	c.Check(closeEnough(res.LocalTime, time.Now()), gc.Equals, true)
 	res.LocalTime = time.Time{}
@@ -316,7 +318,7 @@ func (s *MongoSuite) TestMasterHostPort(c *gc.C) {
 	defer session.Close()
 
 	expected := s.root.Addr()
-	result, err := MasterHostPort(session)
+	result, err := replicaset.MasterHostPort(session)
 
 	c.Logf("TestMasterHostPort expected: %v, got: %v", expected, result)
 	c.Assert(err, gc.IsNil)
@@ -325,12 +327,12 @@ func (s *MongoSuite) TestMasterHostPort(c *gc.C) {
 
 func (s *MongoSuite) TestMasterHostPortOnUnconfiguredReplicaSet(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{}
-	err := inst.Start(coretesting.Certs)
+	err := inst.Start(coretesting.Certs, mongo.JujuMongodPath)
 	c.Assert(err, gc.IsNil)
 	defer inst.Destroy()
 	session := inst.MustDial()
-	hp, err := MasterHostPort(session)
-	c.Assert(err, gc.Equals, ErrMasterNotConfigured)
+	hp, err := replicaset.MasterHostPort(session)
+	c.Assert(err, gc.Equals, replicaset.ErrMasterNotConfigured)
 	c.Assert(hp, gc.Equals, "")
 }
 
@@ -340,55 +342,55 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 
 	inst1 := newServer(c)
 	defer inst1.Destroy()
-	defer Remove(session, inst1.Addr())
+	defer replicaset.Remove(session, inst1.Addr())
 
 	inst2 := newServer(c)
 	defer inst2.Destroy()
-	defer Remove(session, inst2.Addr())
+	defer replicaset.Remove(session, inst2.Addr())
 
 	var err error
 	strategy := utils.AttemptStrategy{Total: time.Minute * 2, Delay: time.Millisecond * 500}
 	attempt := strategy.Start()
 	for attempt.Next() {
-		err = Add(session, Member{Address: inst1.Addr()}, Member{Address: inst2.Addr()})
+		err = replicaset.Add(session, replicaset.Member{Address: inst1.Addr()}, replicaset.Member{Address: inst2.Addr()})
 		if err == nil || !attempt.HasNext() {
 			break
 		}
 	}
 	c.Assert(err, gc.IsNil)
 
-	expected := &Status{
+	expected := &replicaset.Status{
 		Name: rsName,
-		Members: []MemberStatus{{
+		Members: []replicaset.MemberStatus{{
 			Id:      1,
 			Address: s.root.Addr(),
 			Self:    true,
 			ErrMsg:  "",
 			Healthy: true,
-			State:   PrimaryState,
+			State:   replicaset.PrimaryState,
 		}, {
 			Id:      2,
 			Address: inst1.Addr(),
 			Self:    false,
 			ErrMsg:  "",
 			Healthy: true,
-			State:   SecondaryState,
+			State:   replicaset.SecondaryState,
 		}, {
 			Id:      3,
 			Address: inst2.Addr(),
 			Self:    false,
 			ErrMsg:  "",
 			Healthy: true,
-			State:   SecondaryState,
+			State:   replicaset.SecondaryState,
 		}},
 	}
 
 	strategy.Total = time.Second * 90
 	attempt = strategy.Start()
-	var res *Status
+	var res *replicaset.Status
 	for attempt.Next() {
 		var err error
-		res, err = CurrentStatus(session)
+		res, err = replicaset.CurrentStatus(session)
 		if err != nil {
 			if !attempt.HasNext() {
 				c.Errorf("Couldn't get status before timeout, got err: %v", err)
@@ -399,9 +401,9 @@ func (s *MongoSuite) TestCurrentStatus(c *gc.C) {
 			}
 		}
 
-		if res.Members[0].State == PrimaryState &&
-			res.Members[1].State == SecondaryState &&
-			res.Members[2].State == SecondaryState {
+		if res.Members[0].State == replicaset.PrimaryState &&
+			res.Members[1].State == replicaset.SecondaryState &&
+			res.Members[2].State == replicaset.SecondaryState {
 			break
 		}
 		if !attempt.HasNext() {
