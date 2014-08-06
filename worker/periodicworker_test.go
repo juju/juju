@@ -24,10 +24,19 @@ func (s *periodicWorkerSuite) TestWait(c *gc.C) {
 		return testError
 	}
 
-	w := NewPeriodicWorker(doWork, 1e9)
-	<-funcHasRun
+	w := NewPeriodicWorker(doWork, time.Second)
+	select {
+	case <-funcHasRun:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("The doWork function should have been called by now")
+	}
 	w.Kill()
 	c.Assert(w.Wait(), gc.Equals, testError)
+	select {
+	case <-funcHasRun:
+		c.Fatalf("After the kill we don't expect anymore calls to the function")
+	case <-time.After(testing.ShortWait):
+	}
 }
 
 func (s *periodicWorkerSuite) TestWaitNil(c *gc.C) {
@@ -37,8 +46,12 @@ func (s *periodicWorkerSuite) TestWaitNil(c *gc.C) {
 		return nil
 	}
 
-	w := NewPeriodicWorker(doWork, 1e9)
-	<-funcHasRun
+	w := NewPeriodicWorker(doWork, time.Second)
+	select {
+	case <-funcHasRun:
+	case <-time.After(testing.ShortWait):
+		c.Fatalf("The doWork function should have been called by now")
+	}
 	w.Kill()
 	c.Assert(w.Wait(), gc.Equals, nil)
 }
@@ -49,7 +62,7 @@ func (s *periodicWorkerSuite) TestKill(c *gc.C) {
 		return testError
 	}
 
-	w := NewPeriodicWorker(doWork, 1e9)
+	w := NewPeriodicWorker(doWork, time.Second)
 	w.Kill()
 	c.Assert(w.Wait(), gc.Equals, testError)
 
@@ -64,18 +77,18 @@ func (s *periodicWorkerSuite) TestCallUntilKilled(c *gc.C) {
 	funcHasRun := make(chan struct{})
 	doWork := func(_ <-chan struct{}) error {
 		funcHasRun <- struct{}{}
-		return testError
+		return nil
 	}
 
-	w := NewPeriodicWorker(doWork, 1e3)
+	w := NewPeriodicWorker(doWork, time.Millisecond)
 	for i := 0; i < 5; i++ {
 		select {
 		case <-funcHasRun:
 			continue
-		case <-time.Tick(1e9):
+		case <-time.Tick(time.Second):
 			c.Fatalf("The function should have been called again by now")
 		}
 	}
 	w.Kill()
-	c.Assert(w.Wait(), gc.Equals, testError)
+	c.Assert(w.Wait(), gc.Equals, nil)
 }

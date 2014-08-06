@@ -4,6 +4,8 @@
 package worker
 
 import (
+	"errors"
+
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"
@@ -14,6 +16,8 @@ type simpleWorkerSuite struct {
 }
 
 var _ = gc.Suite(&simpleWorkerSuite{})
+
+var testError = errors.New("test error")
 
 func (s *simpleWorkerSuite) TestWait(c *gc.C) {
 	doWork := func(_ <-chan struct{}) error {

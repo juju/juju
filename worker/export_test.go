@@ -4,15 +4,10 @@
 package worker
 
 import (
-	"errors"
-
 	"github.com/juju/juju/state/watcher"
 )
 
-var (
-	LoadedInvalid = make(chan struct{})
-	testError     = errors.New("test error")
-)
+var LoadedInvalid = make(chan struct{})
 
 func init() {
 	loadedInvalid = func() {

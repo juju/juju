@@ -20,15 +20,19 @@ type periodicWorker struct {
 // by the doWork function will be returned by the worker's Wait function.
 func NewPeriodicWorker(doWork func(stopCh <-chan struct{}) error, sleepDuration time.Duration) Worker {
 	w := &periodicWorker{}
+	timer := time.NewTimer(0)
 	go func() {
+		defer w.tomb.Done()
 		for {
-			err := doWork(w.tomb.Dying())
-			select {
-			case <-time.Tick(sleepDuration):
-				continue
-			case <-w.tomb.Dying():
+			if err := doWork(w.tomb.Dying()); err != nil {
 				w.tomb.Kill(err)
-				w.tomb.Done()
+				return
+			}
+			timer.Reset(sleepDuration)
+			select {
+			case <-timer.C:
+			case <-w.tomb.Dying():
+				w.tomb.Kill(tomb.ErrDying)
 				return
 			}
 		}
