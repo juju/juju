@@ -207,3 +207,7 @@ func MakeStorage(c *gc.C, attrs testing.Attrs) storage.Storage {
 }
 
 var GetPorts = getPorts
+
+var CreateFirewallRuleAll = createFirewallRuleAll
+
+var CreateFirewallRuleVm = createFirewallRuleVm

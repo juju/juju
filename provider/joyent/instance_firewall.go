@@ -18,7 +18,7 @@ const (
 )
 
 // Helper method to create a firewall rule string for the given machine Id and port
-func createFirewallRuleVm(env *joyentEnviron, machineId string, portRange network.PortRange) string {
+func createFirewallRuleVm(envName string, machineId string, portRange network.PortRange) string {
 	ports := []string{}
 	for p := portRange.FromPort; p <= portRange.ToPort; p++ {
 		ports = append(ports, fmt.Sprintf("PORT %d", p))
@@ -29,7 +29,7 @@ func createFirewallRuleVm(env *joyentEnviron, machineId string, portRange networ
 	} else if len(ports) == 1 {
 		portList = ports[0]
 	}
-	return fmt.Sprintf(firewallRuleVm, env.Config().Name(), machineId, strings.ToLower(portRange.Protocol), portList)
+	return fmt.Sprintf(firewallRuleVm, envName, machineId, strings.ToLower(portRange.Protocol), portList)
 }
 
 func (inst *joyentInstance) OpenPorts(machineId string, ports []network.PortRange) error {
@@ -44,7 +44,7 @@ func (inst *joyentInstance) OpenPorts(machineId string, ports []network.PortRang
 
 	machineId = string(inst.Id())
 	for _, p := range ports {
-		rule := createFirewallRuleVm(inst.env, machineId, p)
+		rule := createFirewallRuleVm(inst.env.Config().Name(), machineId, p)
 		if e, id := ruleExists(fwRules, rule); e {
 			_, err := inst.env.compute.cloudapi.EnableFirewallRule(id)
 			if err != nil {
@@ -78,7 +78,7 @@ func (inst *joyentInstance) ClosePorts(machineId string, ports []network.PortRan
 
 	machineId = string(inst.Id())
 	for _, p := range ports {
-		rule := createFirewallRuleVm(inst.env, machineId, p)
+		rule := createFirewallRuleVm(inst.env.Config().Name(), machineId, p)
 		if e, id := ruleExists(fwRules, rule); e {
 			_, err := inst.env.compute.cloudapi.DisableFirewallRule(id)
 			if err != nil {

@@ -25,7 +25,7 @@ var (
 )
 
 // Helper method to create a firewall rule string for the given port
-func createFirewallRuleAll(env *joyentEnviron, portRange network.PortRange) string {
+func createFirewallRuleAll(envName string, portRange network.PortRange) string {
 	ports := []string{}
 	for p := portRange.FromPort; p <= portRange.ToPort; p++ {
 		ports = append(ports, fmt.Sprintf("PORT %d", p))
@@ -36,7 +36,7 @@ func createFirewallRuleAll(env *joyentEnviron, portRange network.PortRange) stri
 	} else if len(ports) == 1 {
 		portList = ports[0]
 	}
-	return fmt.Sprintf(firewallRuleAll, env.Config().Name(), strings.ToLower(portRange.Protocol), portList)
+	return fmt.Sprintf(firewallRuleAll, envName, strings.ToLower(portRange.Protocol), portList)
 }
 
 // Helper method to check if a firewall rule string already exist
@@ -97,7 +97,7 @@ func (env *joyentEnviron) OpenPorts(ports []network.PortRange) error {
 	}
 
 	for _, p := range ports {
-		rule := createFirewallRuleAll(env, p)
+		rule := createFirewallRuleAll(env.Config().Name(), p)
 		if e, id := ruleExists(fwRules, rule); e {
 			_, err := env.compute.cloudapi.EnableFirewallRule(id)
 			if err != nil {
@@ -130,7 +130,7 @@ func (env *joyentEnviron) ClosePorts(ports []network.PortRange) error {
 	}
 
 	for _, p := range ports {
-		rule := createFirewallRuleAll(env, p)
+		rule := createFirewallRuleAll(env.Config().Name(), p)
 		if e, id := ruleExists(fwRules, rule); e {
 			_, err := env.compute.cloudapi.DisableFirewallRule(id)
 			if err != nil {

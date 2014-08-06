@@ -10,11 +10,11 @@ import (
 	"github.com/juju/juju/provider/joyent"
 )
 
-type FirewallSuite struct{}
+type InstanceFirewallSuite struct{}
 
-var _ = gc.Suite(&FirewallSuite{})
+var _ = gc.Suite(&InstanceFirewallSuite{})
 
-func (s *FirewallSuite) TestGetPorts(c *gc.C) {
+func (s *InstanceFirewallSuite) TestGetPorts(c *gc.C) {
 	testCases := []struct {
 		about    string
 		envName  string
@@ -22,12 +22,12 @@ func (s *FirewallSuite) TestGetPorts(c *gc.C) {
 		expected []network.PortRange
 	}{
 		{
-			"single port environment rule",
+			"single port instance rule",
 			"env",
 			[]cloudapi.FirewallRule{{
 				"",
 				true,
-				"FROM tag env TO tag juju ALLOW tcp PORT 80",
+				"FROM tag env TO vm machine ALLOW tcp PORT 80",
 			}},
 			[]network.PortRange{{
 				FromPort: 80,
@@ -36,12 +36,12 @@ func (s *FirewallSuite) TestGetPorts(c *gc.C) {
 			}},
 		},
 		{
-			"port range environment rule",
+			"port range instance rule",
 			"env",
 			[]cloudapi.FirewallRule{{
 				"",
 				true,
-				"FROM tag env TO tag juju ALLOW tcp (PORT 80 AND PORT 81 AND PORT 82 AND PORT 83)",
+				"FROM tag env TO vm machine ALLOW tcp (PORT 80 AND PORT 81 AND PORT 82 AND PORT 83)",
 			}},
 			[]network.PortRange{{
 				FromPort: 80,
@@ -57,7 +57,7 @@ func (s *FirewallSuite) TestGetPorts(c *gc.C) {
 
 }
 
-func (s *FirewallSuite) TestRuleCreation(c *gc.C) {
+func (s *InstanceFirewallSuite) TestRuleCreation(c *gc.C) {
 	testCases := []struct {
 		about    string
 		ports    network.PortRange
@@ -65,16 +65,16 @@ func (s *FirewallSuite) TestRuleCreation(c *gc.C) {
 	}{{
 		"single port firewall rule",
 		network.PortRange{80, 80, "tcp"},
-		"FROM tag env TO tag juju ALLOW tcp PORT 80",
+		"FROM tag env TO vm machine ALLOW tcp PORT 80",
 	}, {
 		"multiple port firewall rule",
 		network.PortRange{80, 81, "tcp"},
-		"FROM tag env TO tag juju ALLOW tcp ( PORT 80 AND PORT 81 )",
+		"FROM tag env TO vm machine ALLOW tcp ( PORT 80 AND PORT 81 )",
 	}}
 
 	for i, t := range testCases {
 		c.Logf("test case %d: %s", i, t.about)
-		rule := joyent.CreateFirewallRuleAll("env", t.ports)
+		rule := joyent.CreateFirewallRuleVm("env", "machine", t.ports)
 		c.Check(rule, gc.Equals, t.expected)
 	}
 }
