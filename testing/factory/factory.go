@@ -301,7 +301,7 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 		params.Metrics = []*state.Metric{state.NewMetric(factory.UniqueString("metric"), factory.UniqueString(""), now, []byte("creds"))}
 	}
 
-	metric, err := params.Unit.AddMetrics(params.Metrics)
+	metric, err := params.Unit.AddMetrics(*params.Time, params.Metrics)
 	c.Assert(err, gc.IsNil)
 	if params.Sent {
 		err := metric.SetSent()

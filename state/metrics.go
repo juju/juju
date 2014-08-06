@@ -29,6 +29,7 @@ type metricBatchDoc struct {
 	Unit     string      `bson:"unit"`
 	CharmUrl string      `bson:"charmurl"`
 	Sent     bool        `bson:"sent"`
+	Created  time.Time   `bson:"created"`
 	Metrics  []metricDoc `bson:"metrics"`
 }
 
@@ -51,7 +52,7 @@ type metricDoc struct {
 
 // AddMetric adds a new batch of metrics to the database.
 // A UUID for the metric will be generated and the new MetricBatch will be returned
-func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, metrics []*Metric) (*MetricBatch, error) {
+func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, created time.Time, metrics []*Metric) (*MetricBatch, error) {
 	if len(metrics) == 0 {
 		return nil, errors.New("cannot add a batch of 0 metrics")
 	}
@@ -76,6 +77,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, metrics 
 			Unit:     unitTag.Id(),
 			CharmUrl: charmUrl.String(),
 			Sent:     false,
+			Created:  created,
 			Metrics:  metricDocs,
 		}}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -115,6 +117,48 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 		return nil, err
 	}
 	return &MetricBatch{st: st, doc: doc}, nil
+}
+
+// NoMetricToDeleteError is used by DeleteMetric
+// to signify that no metric was deleted by the call
+var NoMetricToDeleteError = errors.Errorf("No metric to delete")
+
+// DeleteMetric deletes a metric from the collection
+// If not metric is deleted returns a NoMetricToDeleteError
+// It's up to the caller to decide if this is an issue or not
+func (st *State) DeleteMetric(Uuid string) error {
+	ops := []txn.Op{{
+		C:      metricsC,
+		Id:     Uuid,
+		Assert: txn.DocExists,
+		Remove: true,
+	}}
+	err := st.runTransaction(ops)
+	if err == txn.ErrAborted {
+		return NoMetricToDeleteError
+	}
+	return err
+}
+
+func (st *State) CleanupOldMetrics() error {
+	age := time.Now().Add(-(time.Hour - 24))
+	c, closer := st.getCollection(metricsC)
+	defer closer()
+	iter := c.Find(bson.M{
+		"sent":    true,
+		"created": bson.M{"$lte": age},
+	}).Iter()
+	doc := metricBatchDoc{}
+	for iter.Next(&doc) {
+		err := st.DeleteMetric(doc.Uuid)
+		if err != nil {
+			return err
+		}
+	}
+	if err := iter.Close(); err != nil {
+		return err
+	}
+	return nil
 }
 
 // UUID returns to uuid of the metric.

@@ -4,6 +4,8 @@
 package state_test
 
 import (
+	"time"
+
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -17,8 +19,9 @@ type MetricSuite struct {
 var _ = gc.Suite(&MetricSuite{})
 
 func (s *MetricSuite) TestAddNoMetrics(c *gc.C) {
+	now := state.NowToTheSecond()
 	unit := s.assertAddUnit(c)
-	_, err := unit.AddMetrics([]*state.Metric{})
+	_, err := unit.AddMetrics(now, []*state.Metric{})
 	c.Assert(err, gc.ErrorMatches, "cannot add a batch of 0 metrics")
 }
 
@@ -26,7 +29,7 @@ func (s *MetricSuite) TestAddMetric(c *gc.C) {
 	unit := s.assertAddUnit(c)
 	now := state.NowToTheSecond()
 	m := state.NewMetric("item", "5", now, []byte("creds"))
-	metricBatch, err := unit.AddMetrics([]*state.Metric{m})
+	metricBatch, err := unit.AddMetrics(now, []*state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	c.Assert(metricBatch.Unit(), gc.Equals, "wordpress/0")
 	c.Assert(metricBatch.CharmURL(), gc.Equals, "local:quantal/quantal-wordpress-3")
@@ -78,7 +81,7 @@ func (s *MetricSuite) TestAddMetricNonExitentUnit(c *gc.C) {
 	assertUnitRemoved(c, unit)
 	now := state.NowToTheSecond()
 	m := state.NewMetric("item", "5", now, []byte{})
-	_, err := unit.AddMetrics([]*state.Metric{m})
+	_, err := unit.AddMetrics(now, []*state.Metric{m})
 	c.Assert(err, gc.ErrorMatches, `wordpress/0 not found`)
 }
 
@@ -87,7 +90,7 @@ func (s *MetricSuite) TestAddMetricDeadUnit(c *gc.C) {
 	assertUnitDead(c, unit)
 	now := state.NowToTheSecond()
 	m := state.NewMetric("item", "5", now, []byte{})
-	_, err := unit.AddMetrics([]*state.Metric{m})
+	_, err := unit.AddMetrics(now, []*state.Metric{m})
 	c.Assert(err, gc.ErrorMatches, `wordpress/0 not found`)
 }
 
@@ -95,7 +98,7 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 	unit := s.assertAddUnit(c)
 	now := state.NowToTheSecond()
 	m := state.NewMetric("item", "5", now, []byte{})
-	added, err := unit.AddMetrics([]*state.Metric{m})
+	added, err := unit.AddMetrics(now, []*state.Metric{m})
 	c.Assert(err, gc.IsNil)
 	saved, err := s.State.MetricBatch(added.UUID())
 	c.Assert(err, gc.IsNil)
@@ -105,4 +108,48 @@ func (s *MetricSuite) TestSetMetricSent(c *gc.C) {
 	saved, err = s.State.MetricBatch(added.UUID())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.Sent(), jc.IsTrue)
+}
+
+func (s *MetricSuite) TestDeleteMetric(c *gc.C) {
+	unit := s.assertAddUnit(c)
+	now := state.NowToTheSecond()
+	m := state.NewMetric("item", "5", now, []byte{})
+	added, err := unit.AddMetrics(now, []*state.Metric{m})
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.MetricBatch(added.UUID())
+	c.Assert(err, gc.IsNil)
+
+	err = s.State.DeleteMetric(added.UUID())
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.MetricBatch(added.UUID())
+	c.Assert(err, gc.ErrorMatches, "not found")
+}
+
+func (s *MetricSuite) TestDeleteNoExistingMetric(c *gc.C) {
+	err := s.State.DeleteMetric("0")
+	c.Assert(err, gc.DeepEquals, state.NoMetricToDeleteError)
+
+}
+
+func (s *MetricSuite) TestCleanupMetrics(c *gc.C) {
+	unit := s.assertAddUnit(c)
+	oldTime := time.Now().Add(-(time.Hour * 25))
+	m := state.NewMetric("item", "5", oldTime, []byte("creds"))
+	oldMetric, err := unit.AddMetrics(oldTime, []*state.Metric{m})
+	c.Assert(err, gc.IsNil)
+	oldMetric.SetSent()
+
+	now := time.Now()
+	m = state.NewMetric("item", "5", now, []byte("creds"))
+	newMetric, err := unit.AddMetrics(now, []*state.Metric{m})
+	c.Assert(err, gc.IsNil)
+	newMetric.SetSent()
+	err = s.State.CleanupOldMetrics()
+	c.Assert(err, gc.IsNil)
+
+	_, err = s.State.MetricBatch(newMetric.UUID())
+	c.Assert(err, gc.IsNil)
+
+	_, err = s.State.MetricBatch(oldMetric.UUID())
+	c.Assert(err, gc.ErrorMatches, "not found")
 }
