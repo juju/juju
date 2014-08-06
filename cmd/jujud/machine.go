@@ -310,8 +310,9 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 	if networker.CanStart() {
+		writeNetworkConfig := providerType != provider.Local || a.MachineId != bootstrapMachineId
 		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return networker.NewNetworker(st.Networker(), agentConfig, providerType != provider.Local || a.MachineId != bootstrapMachineId)
+			return networker.NewNetworker(st.Networker(), agentConfig, writeNetworkConfig)
 		})
 	} else {
 		logger.Infof("not starting networker - missing /etc/network/interfaces")
