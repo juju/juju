@@ -465,15 +465,28 @@ func (s *MongoSuite) TestAddPPAInQuantal(c *gc.C) {
 	}})
 }
 
-func (s *MongoSuite) TestJournalEnabledDetected(c *gc.C) {
+type JournalSuite struct {
+	MongoSuite
+}
+
+var _ = gc.Suite(&JournalSuite{})
+
+func (s *JournalSuite) SetUpTest(c *gc.C) {
+	// For some tests we don't want to patch out PATH.
+	home := os.Getenv("PATH")
+	s.MongoSuite.SetUpTest(c)
+	os.Setenv("PATH", home)
+}
+
+func (s *JournalSuite) TestJournalEnabledDetected(c *gc.C) {
 	s.testJournalEnabled(c, true)
 }
 
-func (s *MongoSuite) TestJournalDisabledDetected(c *gc.C) {
+func (s *JournalSuite) TestJournalDisabledDetected(c *gc.C) {
 	s.testJournalEnabled(c, false)
 }
 
-func (s *MongoSuite) testJournalEnabled(c *gc.C, enabled bool) {
+func (s *JournalSuite) testJournalEnabled(c *gc.C, enabled bool) {
 	inst := &testing.MgoInstance{EnableJournal: enabled}
 	err := inst.Start(coretesting.Certs)
 	c.Assert(err, gc.IsNil)
