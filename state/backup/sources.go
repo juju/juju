@@ -11,6 +11,8 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/tar"
+
+	"github.com/juju/juju/mongo"
 )
 
 var sep = string(os.PathSeparator)
@@ -28,7 +30,7 @@ var runCommand = func(cmd string, args ...string) error {
 			strings.Replace(string(out), "\n", "; ", -1),
 		)
 	}
-	return errors.Annotatef(err, "cannot execute %q: %v", cmd)
+	return errors.Annotatef(err, "cannot execute %q", cmd)
 }
 
 //---------------------------
@@ -93,6 +95,9 @@ func dumpFiles(dumpdir string) error {
 //---------------------------
 // database
 
+const dumpName = "mongodump"
+
+// DBConnInfo is a simplification of authentication.MongoInfo.
 type DBConnInfo struct {
 	Address  string
 	Username string
@@ -100,14 +105,18 @@ type DBConnInfo struct {
 }
 
 var getMongodumpPath = func() (string, error) {
-	const mongoDumpPath string = "/usr/lib/juju/bin/mongodump"
+	mongod, err := mongo.Path()
+	if err != nil {
+		return "", errors.Annotate(err, "failed to get mongod path")
+	}
+	mongoDumpPath := filepath.Join(filepath.Dir(mongod), dumpName)
 
 	if _, err := os.Stat(mongoDumpPath); err == nil {
 		// It already exists so no need to continue.
 		return mongoDumpPath, nil
 	}
 
-	path, err := exec.LookPath("mongodump")
+	path, err := exec.LookPath(dumpName)
 	if err != nil {
 		return "", errors.Trace(err)
 	}

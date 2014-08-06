@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
 	"path/filepath"
 	"time"
 
@@ -18,10 +19,12 @@ import (
 
 // Backup creates a tar.gz file named juju-backup_<date YYYYMMDDHHMMSS>.tar.gz
 // in the specified outputFolder.
-// The backup contains a dump folder with the output of mongodump command
-// and a root.tar file which contains all the system files obtained from
-// the output of getFilesToBackup
-func Backup(password string, username string, outputFolder string, addr string) (string, string, error) {
+// The backup contents look like this:
+//   juju-backup/dump/ - the files generated from dumping the database
+//   juju-backup/root.tar - contains all the files needed by juju
+// Between the two, this is all that is necessary to later restore the
+// juju agent on another machine.
+func Backup(password string, username string, outputFolder string, addr string) (filename string, sha1sum string, err error) {
 	// YYYYMMDDHHMMSS
 	formattedDate := time.Now().Format("20060102150405")
 	bkpFile := fmt.Sprintf("juju-backup_%s.tar.gz", formattedDate)
@@ -89,4 +92,12 @@ func createBundle(name, outdir, contentdir, root string) (string, error) {
 	}
 
 	return hasher.Base64Sum(), nil
+}
+
+// StorageName returns the path in environment storage where a backup
+// should be stored.  That name is derived from the provided filename.
+func StorageName(filename string) string {
+	// Use of path.Join instead of filepath.Join is intentional - this
+	// is an environment storage path not a filesystem path.
+	return path.Join("/backups", filepath.Base(filename))
 }
