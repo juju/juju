@@ -47,7 +47,7 @@ func (s *adminSuite) SetUpTest(c *gc.C) {
 
 func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{}
-	err := inst.Start(coretesting.Certs)
+	err := inst.Start(coretesting.Certs, mongo.JujuMongodPath)
 	c.Assert(err, gc.IsNil)
 	defer inst.DestroyWithLog()
 	dialInfo := inst.DialInfo()
@@ -99,7 +99,7 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 
 func (s *adminSuite) TestEnsureAdminUserError(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{}
-	err := inst.Start(coretesting.Certs)
+	err := inst.Start(coretesting.Certs, mongo.JujuMongodPath)
 	c.Assert(err, gc.IsNil)
 	defer inst.Destroy()
 	dialInfo := inst.DialInfo()
@@ -130,7 +130,7 @@ func (s *adminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, pass
 
 func (s *adminSuite) setUpMongo(c *gc.C) *mgo.DialInfo {
 	inst := &gitjujutesting.MgoInstance{}
-	err := inst.Start(coretesting.Certs)
+	err := inst.Start(coretesting.Certs, mongo.JujuMongodPath)
 	c.Assert(err, gc.IsNil)
 	s.AddCleanup(func(*gc.C) { inst.Destroy() })
 	dialInfo := inst.DialInfo()

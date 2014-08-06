@@ -15,6 +15,7 @@ import (
 	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -544,7 +545,7 @@ func startReplicaSet(n int) (_ []*gitjujutesting.MgoInstance, err error) {
 
 func newMongoInstance() (*gitjujutesting.MgoInstance, error) {
 	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", replicaSetName}}
-	if err := inst.Start(testing.Certs); err != nil {
+	if err := inst.Start(testing.Certs, mongo.JujuMongodPath); err != nil {
 		return nil, fmt.Errorf("cannot start mongo server: %s", err.Error())
 	}
 	return inst, nil

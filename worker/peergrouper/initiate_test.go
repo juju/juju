@@ -7,6 +7,7 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/mongo"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/worker/peergrouper"
 )
@@ -23,7 +24,7 @@ var _ = gc.Suite(&InitiateSuite{})
 func (s *InitiateSuite) TestInitiateReplicaSet(c *gc.C) {
 	var err error
 	inst := &gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
-	err = inst.Start(coretesting.Certs)
+	err = inst.Start(coretesting.Certs, mongo.JujuMongodPath)
 	c.Assert(err, gc.IsNil)
 	defer inst.Destroy()
 
