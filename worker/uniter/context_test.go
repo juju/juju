@@ -26,6 +26,9 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
+	apiuniter "github.com/juju/juju/state/api/uniter"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -814,7 +817,9 @@ func (s *HookContextSuite) TestNonActionCallsToActionMethodsFail(c *gc.C) {
 	ctx := uniter.HookContext{}
 	_, err := ctx.ActionParams()
 	c.Check(err, gc.ErrorMatches, "not running an action")
-	err = ctx.SetActionFailed("oops")
+	err = ctx.SetActionFailed()
+	c.Check(err, gc.ErrorMatches, "not running an action")
+	err = ctx.SetActionMessage()
 	c.Check(err, gc.ErrorMatches, "not running an action")
 	err = ctx.RunAction("asdf", "fdsa", "qwerty", "uiop")
 	c.Check(err, gc.ErrorMatches, "not running an action")
@@ -868,6 +873,22 @@ func (s *HookContextSuite) TestUpdateActionResults(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Check(hctx.ActionResultsMap(), jc.DeepEquals, t.expected)
 	}
+}
+
+// TestSetActionFailed ensures SetActionFailed works properly.
+func (s *HookContextSuite) TestSetActionFailed(c *gc.C) {
+	hctx := uniter.GetStubActionContext(nil)
+	err := hctx.SetActionFailed()
+	c.Assert(err, gc.IsNil)
+	c.Check(hctx.ActionFailed(), jc.IsTrue)
+}
+
+// TestSetActionMessage ensures SetActionMessage works properly.
+func (s *HookContextSuite) TestSetActionMessage(c *gc.C) {
+	hctx := uniter.GetStubActionContext(nil)
+	err := hctx.SetActionMessage("because reasons")
+	c.Assert(err, gc.IsNil)
+	c.Check(hctx.ActionMessage(), gc.Equals, "because reasons")
 }
 
 func convertSettings(settings params.RelationSettings) map[string]interface{} {

@@ -81,7 +81,6 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 }
 
 type Context struct {
-	actionParams  map[string]interface{}
 	ports         set.Strings
 	relid         int
 	remote        string
@@ -139,10 +138,18 @@ func (c *Context) ConfigSettings() (charm.Settings, error) {
 }
 
 func (c *Context) ActionParams() (map[string]interface{}, error) {
-	return c.actionParams, nil
+	return nil, fmt.Errorf("not running an action")
 }
 
 func (c *Context) UpdateActionResults(keys []string, value string) error {
+	return fmt.Errorf("not running an action")
+}
+
+func (c *Context) SetActionFailed() error {
+	return fmt.Errorf("not running an action")
+}
+
+func (c *Context) SetActionMessage(message string) error {
 	return fmt.Errorf("not running an action")
 }
 

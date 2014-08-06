@@ -47,6 +47,12 @@ type Context interface {
 	// completion of the Action.
 	UpdateActionResults(keys []string, value string) error
 
+	// SetActionMessage sets a message for the Action.
+	SetActionMessage(string) error
+
+	// SetActionFailed sets a failure state for the Action.
+	SetActionFailed() error
+
 	// HookRelation returns the ContextRelation associated with the executing
 	// hook if it was found, and whether it was found.
 	HookRelation() (ContextRelation, bool)
