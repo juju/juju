@@ -58,25 +58,130 @@ func (s *PortsDocSuite) TestCreatePorts(c *gc.C) {
 }
 
 func (s *PortsDocSuite) TestOpenAndClosePorts(c *gc.C) {
-	portRange := state.PortRange{
-		FromPort: 100,
-		ToPort:   200,
-		UnitName: s.unit.Name(),
-		Protocol: "TCP",
+
+	testCases := []struct {
+		about    string
+		existing []state.PortRange
+		open     *state.PortRange
+		close    *state.PortRange
+		expected string
+	}{{
+		about:    "open and close same port range",
+		existing: nil,
+		open: &state.PortRange{
+			FromPort: 100,
+			ToPort:   200,
+			UnitName: s.unit.Name(),
+			Protocol: "TCP",
+		},
+		close: &state.PortRange{
+			FromPort: 100,
+			ToPort:   200,
+			UnitName: s.unit.Name(),
+			Protocol: "TCP",
+		},
+		expected: "",
+	}, {
+		about: "try to close part of a port range",
+		existing: []state.PortRange{{
+			FromPort: 100,
+			ToPort:   200,
+			UnitName: s.unit.Name(),
+			Protocol: "TCP",
+		}},
+		open: nil,
+		close: &state.PortRange{
+			FromPort: 100,
+			ToPort:   150,
+			UnitName: s.unit.Name(),
+			Protocol: "TCP",
+		},
+		expected: "mismatched port ranges 100-200/tcp and 100-150/tcp",
+	}, {
+		about: "close an unopened port range with existing clash from other unit",
+		existing: []state.PortRange{{
+			FromPort: 100,
+			ToPort:   150,
+			UnitName: s.unit.Name(),
+			Protocol: "TCP",
+		}},
+		open: nil,
+		close: &state.PortRange{
+			FromPort: 100,
+			ToPort:   150,
+			UnitName: s.unit.Name(),
+			Protocol: "TCP",
+		},
+		expected: "",
+	}, {
+		about:    "close an unopened port range",
+		existing: nil,
+		open:     nil,
+		close: &state.PortRange{
+			FromPort: 100,
+			ToPort:   150,
+			UnitName: s.unit.Name(),
+			Protocol: "TCP",
+		},
+		expected: "",
+	}, {
+		about: "try to close an overlapping port range",
+		existing: []state.PortRange{{
+			FromPort: 100,
+			ToPort:   200,
+			UnitName: s.unit.Name(),
+			Protocol: "TCP",
+		}},
+		open: nil,
+		close: &state.PortRange{
+			FromPort: 100,
+			ToPort:   300,
+			UnitName: s.unit.Name(),
+			Protocol: "TCP",
+		},
+		expected: "mismatched port ranges 100-200/tcp and 100-300/tcp",
+	},
 	}
-	err := s.ports.OpenPorts(portRange)
-	c.Assert(err, gc.IsNil)
 
-	err = s.ports.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.ports.PortsForUnit(s.unit.Name()), gc.HasLen, 1)
+	for i, t := range testCases {
+		c.Logf("test %d: %s", i, t.about)
 
-	err = s.ports.ClosePorts(portRange)
-	c.Assert(err, gc.IsNil)
+		ports, err := state.GetOrCreatePorts(s.State, s.machine.Id())
+		c.Assert(err, gc.IsNil)
+		c.Assert(ports, gc.NotNil)
 
-	err = s.ports.Refresh()
-	c.Assert(err, gc.IsNil)
-	c.Assert(s.ports.PortsForUnit(s.unit.Name()), gc.HasLen, 0)
+		// open ports that should exist for the test case
+		for _, portRange := range t.existing {
+			err := ports.OpenPorts(portRange)
+			c.Check(err, gc.IsNil)
+		}
+		if t.existing != nil {
+			err = ports.Refresh()
+			c.Check(err, gc.IsNil)
+		}
+		if t.open != nil {
+			err = ports.OpenPorts(*t.open)
+			if t.expected == "" {
+				c.Check(err, gc.IsNil)
+			} else {
+				c.Check(err, gc.ErrorMatches, t.expected)
+			}
+			err = ports.Refresh()
+			c.Check(err, gc.IsNil)
+
+		}
+
+		if t.close != nil {
+			err := ports.ClosePorts(*t.close)
+			if t.expected == "" {
+				c.Check(err, gc.IsNil)
+			} else {
+				c.Check(err, gc.ErrorMatches, t.expected)
+			}
+		}
+		err = ports.Remove()
+		c.Check(err, gc.IsNil)
+	}
 }
 
 func (s *PortsDocSuite) TestOpenInvalidRange(c *gc.C) {
@@ -100,13 +205,15 @@ func (s *PortsDocSuite) TestCloseInvalidRange(c *gc.C) {
 	err := s.ports.OpenPorts(portRange)
 	c.Assert(err, gc.IsNil)
 
+	err = s.ports.Refresh()
+	c.Assert(err, gc.IsNil)
 	err = s.ports.ClosePorts(state.PortRange{
 		FromPort: 150,
 		ToPort:   200,
 		UnitName: s.unit.Name(),
 		Protocol: "TCP",
 	})
-	c.Assert(err, gc.ErrorMatches, "no match found for port range: .*")
+	c.Assert(err, gc.ErrorMatches, "mismatched port ranges 100-200/tcp and 150-200/tcp")
 }
 
 func (s *PortsDocSuite) TestRemovePortsDoc(c *gc.C) {
