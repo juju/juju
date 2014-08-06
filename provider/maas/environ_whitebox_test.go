@@ -466,8 +466,10 @@ func (suite *environSuite) TestStateInfo(c *gc.C) {
 	cfg := env.Config()
 	statePortSuffix := fmt.Sprintf(":%d", cfg.StatePort())
 	apiPortSuffix := fmt.Sprintf(":%d", cfg.APIPort())
-	c.Assert(stateInfo.Addrs, gc.DeepEquals, []string{hostname + statePortSuffix})
-	c.Assert(apiInfo.Addrs, gc.DeepEquals, []string{hostname + apiPortSuffix})
+	hostStateAddr := hostname + statePortSuffix
+	c.Assert(stateInfo.Addrs, gc.DeepEquals, []string{hostStateAddr, hostStateAddr})
+	hostApiAddr := hostname + apiPortSuffix
+	c.Assert(apiInfo.Addrs, gc.DeepEquals, []string{hostApiAddr, hostApiAddr})
 }
 
 func (suite *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {

@@ -75,6 +75,9 @@ func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	}
 	host := network.Address{name, network.HostName, "", network.ScopePublic}
 	addrs := []network.Address{host}
+	// MAAS prefers to use the dns name for intra-node communication.
+	cloudHost := network.Address{name, network.HostName, "", network.ScopeCloudLocal}
+	addrs = append(addrs, cloudHost)
 
 	ips, err := mi.ipAddresses()
 	if err != nil {
