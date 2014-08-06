@@ -162,6 +162,9 @@ func (t *Tests) TestBootstrap(c *gc.C) {
 
 	err = bootstrap.EnsureNotBootstrapped(e3)
 	c.Assert(err, gc.ErrorMatches, "environment is already bootstrapped")
+
+	err = environs.Destroy(e3, t.ConfigStore)
+	c.Assert(err, gc.IsNil)
 }
 
 var noRetry = utils.AttemptStrategy{}
