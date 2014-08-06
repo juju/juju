@@ -229,30 +229,32 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	defer t.Env.StopInstances(inst2.Id())
 
 	// Open some ports and check they're there.
-	err = inst1.OpenPorts("1", []network.PortRange{{67, 67, "udp"}, {45, 45, "tcp"}})
+	err = inst1.OpenPorts("1", []network.PortRange{{67, 67, "udp"}, {45, 45, "tcp"}, {80, 100, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ports, gc.HasLen, 0)
 
-	err = inst2.OpenPorts("2", []network.PortRange{{89, 89, "tcp"}, {45, 45, "tcp"}})
+	err = inst2.OpenPorts("2", []network.PortRange{{89, 89, "tcp"}, {45, 45, "tcp"}, {20, 30, "tcp"}})
 	c.Assert(err, gc.IsNil)
 
 	// Check there's no crosstalk to another machine
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{20, 30, "tcp"}, {45, 45, "tcp"}, {89, 89, "tcp"}})
 	ports, err = inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
 
 	// Check that opening the same port again is ok.
 	oldPorts, err := inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
 	err = inst2.OpenPorts("2", []network.PortRange{{45, 45, "tcp"}})
+	c.Assert(err, gc.IsNil)
+	err = inst2.OpenPorts("2", []network.PortRange{{20, 30, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
@@ -263,9 +265,9 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{20, 30, "tcp"}, {45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}})
 
-	err = inst2.ClosePorts("2", []network.PortRange{{45, 45, "tcp"}, {99, 99, "tcp"}})
+	err = inst2.ClosePorts("2", []network.PortRange{{45, 45, "tcp"}, {99, 99, "tcp"}, {20, 30, "tcp"}})
 	c.Assert(err, gc.IsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
@@ -274,16 +276,16 @@ func (t *LiveTests) TestPorts(c *gc.C) {
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{89, 89, "tcp"}})
 	ports, err = inst1.Ports("1")
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {80, 100, "tcp"}, {67, 67, "udp"}})
 
 	// Check that we can close multiple ports.
-	err = inst1.ClosePorts("1", []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}})
+	err = inst1.ClosePorts("1", []network.PortRange{{45, 45, "tcp"}, {67, 67, "udp"}, {80, 100, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst1.Ports("1")
 	c.Assert(ports, gc.HasLen, 0)
 
 	// Check that we can close ports that aren't there.
-	err = inst2.ClosePorts("2", []network.PortRange{{111, 111, "tcp"}, {222, 222, "udp"}})
+	err = inst2.ClosePorts("2", []network.PortRange{{111, 111, "tcp"}, {222, 222, "udp"}, {600, 700, "tcp"}})
 	c.Assert(err, gc.IsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(ports, gc.DeepEquals, []network.PortRange{{89, 89, "tcp"}})
@@ -330,12 +332,12 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 	c.Assert(ports, gc.HasLen, 0)
 	defer t.Env.StopInstances(inst2.Id())
 
-	err = t.Env.OpenPorts([]network.PortRange{{67, 67, "udp"}, {45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}})
+	err = t.Env.OpenPorts([]network.PortRange{{67, 67, "udp"}, {45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}, {100, 110, "tcp"}})
 	c.Assert(err, gc.IsNil)
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}, {67, 67, "udp"}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {99, 99, "tcp"}, {100, 110, "tcp"}, {67, 67, "udp"}})
 
 	// Check closing some ports.
 	err = t.Env.ClosePorts([]network.PortRange{{99, 99, "tcp"}, {67, 67, "udp"}})
@@ -343,15 +345,15 @@ func (t *LiveTests) TestGlobalPorts(c *gc.C) {
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {100, 110, "tcp"}})
 
 	// Check that we can close ports that aren't there.
-	err = t.Env.ClosePorts([]network.PortRange{{111, 111, "tcp"}, {222, 222, "udp"}})
+	err = t.Env.ClosePorts([]network.PortRange{{111, 111, "tcp"}, {222, 222, "udp"}, {2000, 2500, "tcp"}})
 	c.Assert(err, gc.IsNil)
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}})
+	c.Assert(ports, gc.DeepEquals, []network.PortRange{{45, 45, "tcp"}, {89, 89, "tcp"}, {100, 110, "tcp"}})
 
 	// Check errors when acting on instances.
 	err = inst1.OpenPorts("1", []network.PortRange{{80, 80, "tcp"}})
