@@ -144,7 +144,7 @@ func getBackupMetadata(st *State, id string) (*backup.Metadata, error) {
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf(id)
 	} else if err != nil {
-		return nil, errors.Errorf("error getting backup metadata: %v", err)
+		return nil, errors.Annotate(err, "error getting backup metadata")
 	}
 
 	return doc.asMetadata(), nil
