@@ -7,11 +7,19 @@ from deploy_stack import bootstrap_from_env
 
 
 def main():
-    parser = ArgumentParser('Deploy a WordPress stack')
-    parser.add_argument('env', help='The environment to deploy on.')
-    parser.add_argument('option', nargs='*', help='An option to override')
+    parser = ArgumentParser(description="""
+    Bootstrap a customized environment.  The first argument is the configured
+    environment to use as the starting point.  Subsequent arguments are
+    options to override, e.g. "region=lcy03".
+    """)
+    parser.add_argument('env', help='The environment to base deployment on.')
+    parser.add_argument('option', nargs='*',
+                        help='Override an environment option with value.')
+    parser.add_argument('--name', help='A name for the new environment.')
     args = parser.parse_args()
     env = Environment.from_config(args.env)
+    if args.name is not None:
+        env.environment = args.name
     for option in args.option:
         key, value = option.split('=', 1)
         env.config[key] = value
