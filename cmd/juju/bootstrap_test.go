@@ -313,16 +313,16 @@ var bootstrapTests = []bootstrapTest{{
 	},
 }, {
 	info:     "--upload-tools uses arch from constraint if it matches current version",
-	version:  "1.3.3-saucy-ppc64",
-	hostArch: "ppc64",
-	args:     []string{"--upload-tools", "--constraints", "arch=ppc64"},
+	version:  "1.3.3-saucy-ppc64el",
+	hostArch: "ppc64el",
+	args:     []string{"--upload-tools", "--constraints", "arch=ppc64el"},
 	uploads: []string{
-		"1.3.3.1-saucy-ppc64",  // from version.Current
-		"1.3.3.1-raring-ppc64", // from env.Config().DefaultSeries()
-		"1.3.3.1-precise-ppc64",
-		"1.3.3.1-trusty-ppc64",
+		"1.3.3.1-saucy-ppc64el",  // from version.Current
+		"1.3.3.1-raring-ppc64el", // from env.Config().DefaultSeries()
+		"1.3.3.1-precise-ppc64el",
+		"1.3.3.1-trusty-ppc64el",
 	},
-	constraints: constraints.MustParse("arch=ppc64"),
+	constraints: constraints.MustParse("arch=ppc64el"),
 }, {
 	info:    "--upload-tools only uploads each file once",
 	version: "1.2.3-%LTS%-amd64",
@@ -341,8 +341,8 @@ var bootstrapTests = []bootstrapTest{{
 	info:     "--upload-tools rejects mismatched arch",
 	version:  "1.3.3-saucy-amd64",
 	hostArch: "amd64",
-	args:     []string{"--upload-tools", "--constraints", "arch=ppc64"},
-	err:      `cannot build tools for "ppc64" using a machine running on "amd64"`,
+	args:     []string{"--upload-tools", "--constraints", "arch=ppc64el"},
+	err:      `cannot build tools for "ppc64el" using a machine running on "amd64"`,
 }, {
 	info:     "--upload-tools rejects non-supported arch",
 	version:  "1.3.3-saucy-arm64",
