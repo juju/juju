@@ -26,17 +26,27 @@ type networker struct {
 	st                     *apinetworker.State
 	tag                    string
 	isVLANSupportInstalled bool
-	writeNetworkConfig     bool
+	canWriteNetworkConfig  bool
 }
 
 // NewNetworker returns a Worker that handles machine networking
 // configuration. If there is no /etc/network/interfaces file, an
 // error is returned.
-func NewNetworker(st *apinetworker.State, agentConfig agent.Config, writeNetworkConfig bool) (worker.Worker, error) {
+func NewNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Worker, error) {
+	return newNetworker(st, agentConfig, true)
+}
+
+// NewSafeNetworker returns a Worker that handles machine networking
+// configuration. It does not write out config files. This is used
+// on the bootstrap machine for the local provider.
+func NewSafeNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Worker, error) {
+	return newNetworker(st, agentConfig, false)
+}
+func newNetworker(st *apinetworker.State, agentConfig agent.Config, canWriteNetworkConfig bool) (worker.Worker, error) {
 	nw := &networker{
-		st:                 st,
-		tag:                agentConfig.Tag().String(),
-		writeNetworkConfig: writeNetworkConfig,
+		st:  st,
+		tag: agentConfig.Tag().String(),
+		canWriteNetworkConfig: canWriteNetworkConfig,
 	}
 	// Verify we have /etc/network/interfaces first, otherwise bail out.
 	if !CanStart() {
@@ -48,7 +58,7 @@ func NewNetworker(st *apinetworker.State, agentConfig agent.Config, writeNetwork
 }
 
 func (nw *networker) SetUp() (watcher.NotifyWatcher, error) {
-	s := &configState{writeNetworkConfig: nw.writeNetworkConfig}
+	s := &configState{canWriteNetworkConfig: nw.canWriteNetworkConfig}
 
 	// Read network configuration files and revert modifications made by MAAS.
 
@@ -77,7 +87,7 @@ func (nw *networker) SetUp() (watcher.NotifyWatcher, error) {
 
 func (nw *networker) Handle() error {
 	var err error
-	s := &configState{writeNetworkConfig: nw.writeNetworkConfig}
+	s := &configState{canWriteNetworkConfig: nw.canWriteNetworkConfig}
 	// Read configuration files for managed interfaces.
 	if err = s.configFiles.readManaged(); err != nil {
 		return err

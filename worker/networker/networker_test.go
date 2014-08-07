@@ -205,7 +205,7 @@ func executeCommandsHook(c *gc.C, s *networkerSuite, commands []string) error {
 func (s *networkerSuite) TestNewNetworkerReturnsErrorWithoutConfig(c *gc.C) {
 	_, err := os.Stat(networker.ConfigFileName)
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
-	nw, err := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()), true)
+	nw, err := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()))
 	c.Assert(err, gc.ErrorMatches, `missing ".*" config file`)
 	c.Assert(nw, gc.IsNil)
 }
@@ -238,7 +238,7 @@ func (s *networkerSuite) TestNetworker(c *gc.C) {
 
 	// Create and setup networker.
 	s.executed = make(chan bool)
-	nw, err := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()), true)
+	nw, err := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()))
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Stop(nw), gc.IsNil) }()
 
@@ -320,7 +320,13 @@ loop:
 		[]string{"br0", "eth0.69", "eth1", "eth1.42", "eth2", "wlan0"})
 }
 
-func (s *networkerSuite) TestNetworkerDoesNotWriteConfigFiles(c *gc.C) {
+func (s *networkerSuite) TestSafeNetworkerDoesNotWriteConfigFiles(c *gc.C) {
+	// Create a sample interfaces file (MAAS configuration)
+	interfacesFileContents := fmt.Sprintf(sampleInterfacesFile, networker.ConfigDirName)
+	err := utils.AtomicWriteFile(networker.ConfigFileName, []byte(interfacesFileContents), 0644)
+	c.Assert(err, gc.IsNil)
+	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth0.config"), []byte(sampleEth0DotConfigFile), 0644)
+	c.Assert(err, gc.IsNil)
 	// Patch the command executor function
 	s.configStates = []*configState{}
 	s.PatchValue(&networker.ExecuteCommands,
@@ -331,17 +337,16 @@ func (s *networkerSuite) TestNetworkerDoesNotWriteConfigFiles(c *gc.C) {
 
 	// Create and setup networker.
 	s.executed = make(chan bool)
-	nw, err := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()), false)
+	nw, err := networker.NewSafeNetworker(s.networkerState, agentConfig(s.machine.Tag()))
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Stop(nw), gc.IsNil) }()
 
-loop:
 	for {
 		select {
 		case <-s.executed:
 			c.Fatalf("command executed unexpectedly")
 		case <-time.After(coretesting.ShortWait):
-			break loop
+			return
 		}
 	}
 }

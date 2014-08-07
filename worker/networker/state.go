@@ -24,14 +24,17 @@ type configState struct {
 
 	// writeNetworkConfig determines if network configuration files
 	// should be written out or not
-	writeNetworkConfig bool
+	canWriteNetworkConfig bool
 }
 
 // apply writes updates to network config files and executes commands to bring up and down interfaces.
 func (s *configState) apply() error {
-	if !s.writeNetworkConfig {
-		return nil
+	if s.canWriteNetworkConfig {
+		return s.writeAndExecute()
 	}
+	return nil
+}
+func (s *configState) writeAndExecute() error {
 	if err := s.configFiles.writeOrRemove(); err != nil {
 		return err
 	}
