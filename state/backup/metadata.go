@@ -38,6 +38,7 @@ type Metadata struct {
 	ID             string
 	Notes          string // not required
 	Timestamp      time.Time
+	Finished       time.Time
 	CheckSum       string
 	CheckSumFormat string
 	Size           int64
@@ -55,8 +56,9 @@ func NewMetadata(
 ) *Metadata {
 	metadata := Metadata{
 		// ID is omitted.
-		Notes:          notes,
-		Timestamp:      time.Now().UTC(),
+		Notes:     notes,
+		Timestamp: time.Now().UTC(),
+		// Finished is omitted.
 		CheckSum:       checksum,
 		CheckSumFormat: checksumFormat,
 		Size:           size,

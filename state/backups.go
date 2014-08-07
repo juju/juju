@@ -74,7 +74,8 @@ func NewBackupOrigin(st *State, machine string) *backup.Origin {
 type backupMetadataDoc struct {
 	ID             string `bson:"_id"`
 	Notes          string `bson:"notes,omitempty"`
-	Timestamp      int64  `bson:"timestamp,minsize"`
+	Started        int64  `bson:"started,minsize"`
+	Finished       int64  `bson:"finished,minsize"`
 	CheckSum       string `bson:"checksum"`
 	CheckSumFormat string `bson:"checksumFormat"`
 	Size           int64  `bson:"size,minsize"`
@@ -98,7 +99,8 @@ func (doc *backupMetadataDoc) asMetadata() *backup.Metadata {
 	metadata := backup.Metadata{
 		ID:             doc.ID,
 		Notes:          doc.Notes,
-		Timestamp:      time.Unix(doc.Timestamp, 0).UTC(),
+		Timestamp:      time.Unix(doc.Started, 0).UTC(),
+		Finished:       time.Unix(doc.Finished, 0).UTC(),
 		CheckSum:       doc.CheckSum,
 		CheckSumFormat: doc.CheckSumFormat,
 		Size:           doc.Size,
@@ -113,7 +115,8 @@ func (doc *backupMetadataDoc) asMetadata() *backup.Metadata {
 func (doc *backupMetadataDoc) updateFromMetadata(metadata *backup.Metadata) {
 	// Ignore metadata.ID.
 	doc.Notes = metadata.Notes
-	doc.Timestamp = metadata.Timestamp.Unix()
+	doc.Started = metadata.Timestamp.Unix()
+	doc.Finished = metadata.Finished.Unix()
 	doc.CheckSum = metadata.CheckSum
 	doc.CheckSumFormat = metadata.CheckSumFormat
 	doc.Size = metadata.Size
