@@ -12,38 +12,37 @@ import (
 const checksumFormat = "SHA-1, base64 encoded"
 
 // BackupOrigin identifies where a backup archive came from.
-//
-// Environment is the ID for the backed-up environment.
-// Machine is the ID of the state "machine" that ran the backup.
-// Hostname is where the backup happened.
-// Version is the version of juju used to produce the backup.
 type Origin struct {
+	// Environment is the ID for the backed-up environment.
 	Environment string
-	Machine     string
-	Hostname    string
-	Version     version.Number
+	// Machine is the ID of the state "machine" that ran the backup.
+	Machine string
+	// Hostname is where the backup happened.
+	Hostname string
+	// Version is the version of juju used to produce the backup.
+	Version version.Number
 }
 
 // Metadata contains the metadata for a single state backup archive.
-//
-// ID is the unique ID assigned by the system.
-// Notes (optional) contains any user-supplied annotations for the archive.
-// Timestamp records when the backup process was started for the archive.
-// CheckSum is the checksum for the archive.
-// CheckSumFormat is the kind (and encoding) of checksum.
-// Size is the size of the archive (in bytes).
-// Origin identifies where the backup was created.
-// Archived indicates whether or not the backup archive was stored.
 type Metadata struct {
-	ID             string
-	Notes          string // not required
-	Timestamp      time.Time
-	Finished       time.Time
-	CheckSum       string
+	// ID is the unique ID assigned by the system.
+	ID string
+	// Notes (optional) contains any user-supplied annotations for the archive.
+	Notes string // not required
+	// Timestamp records when the backup process was started for the archive.
+	Timestamp time.Time
+	// Finished records when the backup process finished for the archive.
+	Finished time.Time
+	// CheckSum is the checksum for the archive.
+	CheckSum string
+	// CheckSumFormat is the kind (and encoding) of checksum.
 	CheckSumFormat string
-	Size           int64
-	Origin         Origin
-	Archived       bool
+	// Size is the size of the archive (in bytes).
+	Size int64
+	// Origin identifies where the backup was created.
+	Origin Origin
+	// Archived indicates whether or not the backup archive was stored.
+	Archived bool
 }
 
 // NewMetadata returns a new Metadata for a state backup archive.  The
