@@ -5,9 +5,36 @@ from argparse import ArgumentParser
 import json
 import os
 
+from jujuconfig import get_selected_environment
+
+
+def describe_env(env):
+    environ = get_selected_environment(env)[0]
+    if environ['type'] == 'local':
+        return {
+            'kvm': 'KVM (local)',
+            'lxc': 'LXC (local)'
+        }[environ.get('container', 'lxc')]
+    elif environ['type'] == 'openstack':
+        if environ['auth-url'].endswith('hpcloudsvc.com:35357/v2.0/'):
+            return 'HPCloud'
+        elif environ['auth-url'] == (
+                'https://keystone.canonistack.canonical.com:443/v2.0/'):
+            return 'Canonistack'
+    try:
+        return {
+            'ec2': 'AWS',
+            'joyent': 'Joyent',
+            'azure': 'Azure',
+        }[environ['type']]
+    except KeyError:
+        return environ['type']
+
+
 def main():
     parser = ArgumentParser()
     parser.add_argument('file')
+    parser.add_argument('env', nargs='*', default=('local',))
     args = parser.parse_args()
     with open(args.file) as file_obj:
         test_json = json.load(file_obj)
@@ -15,7 +42,8 @@ def main():
     metadata['job_name'] = os.environ['JOB_NAME']
     metadata['build_number'] = os.environ['BUILD_NUMBER']
     metadata['build_url'] = os.environ['BUILD_URL']
-    metadata['environments'] = {'local': {'substrate': 'Local Provider'}}
+    metadata['environments'] = dict((env, {'substrate': describe_env(env)})
+             for env in args.env)
     with open(args.file, 'w') as file_obj:
         test_json = json.dump(test_json, file_obj, indent=2)
 
