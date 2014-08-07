@@ -319,3 +319,27 @@ loop:
 	c.Assert(s.configStates[2].interfacesWithAddress, gc.DeepEquals,
 		[]string{"br0", "eth0.69", "eth1", "eth1.42", "eth2", "wlan0"})
 }
+
+func (s *networkerSuite) TestNetworkerDoesNotWriteConfigFiles(c *gc.C) {
+	interfacesFileContents := fmt.Sprintf(sampleInterfacesFile, networker.ConfigDirName)
+	err := utils.AtomicWriteFile(networker.ConfigFileName, []byte(interfacesFileContents), 0644)
+	c.Assert(err, gc.IsNil)
+	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth0.config"), []byte(sampleEth0DotConfigFile), 0644)
+	c.Assert(err, gc.IsNil)
+
+	// Create and setup networker.
+	s.executed = make(chan bool)
+	nw, err := networker.NewNetworker(s.networkerState, agentConfig(s.machine.Tag()), false)
+	c.Assert(err, gc.IsNil)
+	defer func() { c.Assert(worker.Stop(nw), gc.IsNil) }()
+
+loop:
+	for {
+		select {
+		case <-s.executed:
+			c.Fatalf("command executed unexpectedly")
+		case <-time.After(coretesting.ShortWait):
+			break loop
+		}
+	}
+}
