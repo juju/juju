@@ -15,7 +15,7 @@ const (
 	I386  = "i386"
 	ARM   = "armhf"
 	ARM64 = "arm64"
-	PPC64 = "ppc64"
+	PPC64 = "ppc64el"
 )
 
 // AllSupportedArches records the machine architectures recognised by Juju.
