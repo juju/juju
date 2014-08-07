@@ -82,4 +82,85 @@ to them.
 
 ## Versioning
 
+When implementing a new version of a facade, there are a couple of use cases:
+
+1. Changing the meaning of an existing API without changing its signature (empty strings 
+   passed to `Set` are considered to mean set the value to empty, rather than meaning revert 
+   to default).
+2. Changing the signature of an existing API (adding new parameters, removing parameters, 
+   changing the return signature).
+3. Adding a new API.
+4. Removing an existing API (such as during a rename operation).
+
+For (1), (2), and (3) it is possible to take the existing implementation, and just embed it 
+into the new version:
+
+```
+type ClientV2 struct {
+	ClientV1
+}
+
+func (c *ClientV2) ChangedMeaning(args params.Args) (r, error){
+}
+
+func (c *ClientV2) ChangeSig(args params.ArgsV2) (r2, error) {
+}
+
+func (c *ClientV2) NewMethod(args params.NewArgs) (rNew,...) {
+}
+```
+
+The embedding rules for Go mean that if you re-use the name of a method, the embedded method is 
+automatically hidden. However for (4) it is hard to hide a method that is exposed on an embedded 
+struct. So here create a base class that has all the common functionality, and embed that into 
+both versions of the facade. And then on the original version just copy the original implementation, 
+and do not copy the implementation to the new version.
+
+```
+type ClientBase struct {
+}
+
+// RENAME all methods that were func (*Client) Foo to func (*ClientBase) Foo
+
+type ClientV0 struct {
+	ClientBase
+}
+
+func (*ClientV0) OnlyInV0(args params.Args) (r, error) {
+}
+
+
+type ClientV1 struct {
+	ClientBase
+}
+```
+
 ## Patterns
+
+### Bulk Requests
+
+Many of the API requests are intended to change a property of an entity inside state. But
+while this may be correct in the one or other case many operation especially in larger
+environments need to change many entities of one type during one operation. In case of an
+API method implementation accepting only the needed parameters for one change this would
+lead to an unacceptable I/O overhead as well as the loosing of the transactional context.
+
+To avoid these problems most API methods should be implemented to accept *bulk requests*.
+Instead of parameters for only one change the API method takes a list of parameter sets.
+Additionally if the request returns a response this has to be capable to transport all
+individual responses in a way that the caller is able to identify to which parameter set
+they belong.
+
+As an example take the *Machiner* and here
+
+```
+func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error)
+```
+
+Here `SetMachinesAdresses`is a struct containing a slice of `MachineAddresses`. The
+method iterates over this slice and sets the addresses for the individual machines.
+The result of this operation is of type `error`and may be nil. All errors are
+collected in the order of the passed machine addresses and returned as `ErrorResults`.
+So the client is able to check if and where errors occured. In case of only one machine
+address to change it's no problem to put one this one machine address into the parameter
+set.
