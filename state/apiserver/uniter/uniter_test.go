@@ -803,14 +803,13 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 
 	result, err := s.uniter.WatchActions(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
-		Results: []params.StringsWatchResult{
-			{StringsWatcherId: "1", Changes: []string{
-				firstAction.Id(),
-				secondAction.Id(),
-			}},
-		},
-	})
+	c.Assert(len(result.Results), gc.Equals, 1)
+
+	expected := []string{
+		firstAction.Id(),
+		secondAction.Id(),
+	}
+	c.Assert(result.Results[0].Changes, jc.SameContents, expected)
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
