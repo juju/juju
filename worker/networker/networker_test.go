@@ -321,11 +321,13 @@ loop:
 }
 
 func (s *networkerSuite) TestNetworkerDoesNotWriteConfigFiles(c *gc.C) {
-	interfacesFileContents := fmt.Sprintf(sampleInterfacesFile, networker.ConfigDirName)
-	err := utils.AtomicWriteFile(networker.ConfigFileName, []byte(interfacesFileContents), 0644)
-	c.Assert(err, gc.IsNil)
-	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth0.config"), []byte(sampleEth0DotConfigFile), 0644)
-	c.Assert(err, gc.IsNil)
+	// Patch the command executor function
+	s.configStates = []*configState{}
+	s.PatchValue(&networker.ExecuteCommands,
+		func(commands []string) error {
+			return executeCommandsHook(c, s, commands)
+		},
+	)
 
 	// Create and setup networker.
 	s.executed = make(chan bool)
