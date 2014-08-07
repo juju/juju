@@ -186,8 +186,9 @@ func addBackupMetadataID(st *State, metadata *backup.Metadata, id string) error 
 	return nil
 }
 
-// getBackupMetadata returns the backup metadata associated with "id".
-// If "id" does not match any stored records, an error satisfying
+// setBackupMetadata updatess the backup metadata associated with "id"
+// to indicate that a backup archive has been stored.  If "id" does
+// not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
 func setBackupArchived(st *State, id string) error {
 	ops := []txn.Op{{
