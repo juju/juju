@@ -4,6 +4,7 @@
 package rsyslog_test
 
 import (
+	"crypto/tls"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	syslogPkg "github.com/juju/syslog"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
@@ -53,6 +55,9 @@ func (s *RsyslogSuite) SetUpSuite(c *gc.C) {
 func (s *RsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.PatchValue(rsyslog.RestartRsyslog, func() error { return nil })
+	s.PatchValue(rsyslog.DialSyslog, func(network, raddr string, priority syslogPkg.Priority, tag string, tlsCfg *tls.Config) (*syslogPkg.Writer, error) {
+		return &syslogPkg.Writer{}, nil
+	})
 	s.PatchValue(rsyslog.LogDir, c.MkDir())
 	s.PatchValue(rsyslog.RsyslogConfDir, c.MkDir())
 
@@ -131,17 +136,7 @@ func (s *RsyslogSuite) TestModeForwarding(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(caCertPEM), gc.DeepEquals, coretesting.CACert)
 
-	// Verify rsyslog configuration.
-	waitForFile(c, filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf"))
-	rsyslogConf, err := ioutil.ReadFile(filepath.Join(*rsyslog.RsyslogConfDir, "25-juju.conf"))
-	c.Assert(err, gc.IsNil)
-
-	syslogPort := s.Environ.Config().SyslogPort()
-	syslogConfig := syslog.NewForwardConfig(m.Tag().String(), *rsyslog.LogDir, syslogPort, "", addrs)
-	syslogConfig.ConfigDir = *rsyslog.RsyslogConfDir
-	rendered, err := syslogConfig.Render()
-	c.Assert(err, gc.IsNil)
-	c.Assert(string(rsyslogConf), gc.DeepEquals, string(rendered))
+	c.Assert(*rsyslog.SyslogTargets, gc.HasLen, 2)
 }
 
 func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
@@ -225,7 +220,7 @@ func (s *RsyslogSuite) testNamespace(c *gc.C, st *api.State, tag names.Tag, name
 
 	err := os.MkdirAll(expectedLogDir, 0755)
 	c.Assert(err, gc.IsNil)
-	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, tag, namespace, []string{"0.1.2.3"})
+	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeAccumulate, tag, namespace, []string{"0.1.2.3"})
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Wait(), gc.IsNil) }()
 	defer worker.Kill()

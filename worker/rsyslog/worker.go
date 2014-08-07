@@ -11,6 +11,7 @@ import (
 	"net"
 	"os"
 	"os/user"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -139,6 +140,7 @@ func (h *RsyslogConfigHandler) SetUp() (watcher.NotifyWatcher, error) {
 }
 
 var restartRsyslog = syslog.Restart
+var dialSyslog = rsyslog.Dial
 
 func (h *RsyslogConfigHandler) TearDown() error {
 	if err := os.Remove(h.syslogConfig.ConfigFilePath()); err == nil {
@@ -169,7 +171,7 @@ func (h *RsyslogConfigHandler) replaceRemoteLogger(caCert string) error {
 	for _, j := range h.syslogConfig.StateServerAddresses {
 		parts := strings.Split(j, ":")
 		target := fmt.Sprintf("%s:%d", parts[0], h.syslogConfig.Port)
-		writer, err := rsyslog.Dial("tcp", target, rsyslog.LOG_DEBUG, "juju-"+h.tag.String(), tlsConf)
+		writer, err := dialSyslog("tcp", target, rsyslog.LOG_DEBUG, "juju-"+h.tag.String(), tlsConf)
 		if err != nil {
 			return err
 		}
@@ -209,6 +211,7 @@ func (h *RsyslogConfigHandler) Handle() error {
 
 	h.syslogConfig.Port = cfg.Port
 	if h.mode == RsyslogModeForwarding {
+		// TODO(gabriel-samfira): check if this is actually needed anymore
 		if err := writeFileAtomic(h.syslogConfig.CACertPath(), []byte(rsyslogCACert), 0644, 0, 0); err != nil {
 			return errors.Annotate(err, "cannot write CA certificate")
 		}
@@ -272,6 +275,20 @@ func localIPS() ([]string, error) {
 	return ips, nil
 }
 
+func (h *RsyslogConfigHandler) rsyslogHosts() ([]string, error) {
+	var hosts []string
+	cfg, err := h.st.GetRsyslogConfig(h.tag.String())
+	if err != nil {
+		return nil, err
+	}
+	for _, j := range cfg.HostPorts {
+		if j.Value != "" {
+			hosts = append(hosts, j.Address.Value)
+		}
+	}
+	return hosts, nil
+}
+
 // ensureCertificates ensures that a CA certificate,
 // server certificate, and private key exist in the log
 // directory, and writes them if not. The CA certificate
@@ -301,14 +318,22 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 		return err
 	}
 
-	// Add local IPs to SAN. When connecting via IP address, the client will validate
-	// the server against any IP in the subjectAltName. We add all local ips to make sure
+	// Add rsyslog servers in the subjectAltName so we can
+	// successfully validate when connectiong via SSL
+	hosts, err := h.rsyslogHosts()
+	if err != nil {
+		return err
+	}
+	// Add local IPs to SAN. When connecting via IP address,
+	// the client will validate the server against any IP in
+	// the subjectAltName. We add all local ips to make sure
 	// this does not cause an error
 	ips, err := localIPS()
 	if err != nil {
 		return err
 	}
-	rsyslogCertPEM, rsyslogKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, ips)
+	hosts = append(hosts, ips...)
+	rsyslogCertPEM, rsyslogKeyPEM, err := cert.NewServer(caCertPEM, caKeyPEM, expiry, hosts)
 	if err != nil {
 		return err
 	}
@@ -380,6 +405,13 @@ func (h *RsyslogConfigHandler) ensureLogrotate() error {
 
 func writeFileAtomic(path string, data []byte, mode os.FileMode, uid, gid int) error {
 	chmodAndChown := func(f *os.File) error {
+		// f.Chmod() and f.Chown() are not implemented on Windows
+		// There is currently no good way of doing file permission
+		// management for Windows, directly from Go. The behavior of os.Chmod()
+		// is different from its linux implementation.
+		if runtime.GOOS == "windows" {
+			return nil
+		}
 		if err := f.Chmod(mode); err != nil {
 			return err
 		}
