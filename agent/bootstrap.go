@@ -6,7 +6,6 @@ package agent
 import (
 	"fmt"
 
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
@@ -88,7 +87,7 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(info, envCfg, timeout, policy)
 	if err != nil {
-		return nil, nil, errors.Annotate(err, "failed to initialize state")
+		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
 	logger.Debugf("connected to initial state")
 	defer func() {
@@ -102,7 +101,7 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 		return nil, nil, err
 	}
 	if err := st.SetStateServingInfo(servingInfo); err != nil {
-		return nil, nil, errors.Annotate(err, "cannot set state serving info")
+		return nil, nil, fmt.Errorf("cannot set state serving info: %v", err)
 	}
 	m, err := initUsersAndBootstrapMachine(c, st, machineCfg)
 	if err != nil {
