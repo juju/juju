@@ -52,7 +52,7 @@ func (s *backupSuite) TestBackupsNewBackupOrigin(c *gc.C) {
 	hostname, err := os.Hostname()
 	c.Assert(err, gc.IsNil)
 
-	c.Check(origin.Environment, gc.Matches, `[-0-9a-f]+`)
+	c.Check(origin.Environment, gc.Matches, s.State.EnvironTag().Id())
 	c.Check(origin.Machine, gc.Equals, "0")
 	c.Check(origin.Hostname, gc.Equals, hostname)
 	c.Check(origin.Version.Major, gc.Equals, version.Current.Major)
