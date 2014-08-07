@@ -436,14 +436,14 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		}
 		err := s.State.Close()
 		if serverAlive {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 		}
 		s.State = nil
 	}
 	for _, st := range s.apiStates {
 		err := st.Close()
 		if serverAlive {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 		}
 	}
 	s.apiStates = nil
@@ -451,7 +451,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		err := s.APIState.Close()
 		s.APIState = nil
 		if serverAlive {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 		}
 	}
 	dummy.Reset()
