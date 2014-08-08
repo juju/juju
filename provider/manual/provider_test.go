@@ -86,6 +86,8 @@ func (s *providerSuite) TestOpenDoesntSetUseSSHStorage(c *gc.C) {
 	cfg := env.Config()
 	_, ok := cfg.AllAttrs()["use-sshstorage"]
 	c.Assert(ok, jc.IsFalse)
+	ok = manual.EnvironUseSSHStorage(env)
+	c.Assert(ok, jc.IsFalse)
 }
 
 func (s *providerSuite) TestNullAlias(c *gc.C) {
