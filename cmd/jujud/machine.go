@@ -311,9 +311,15 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	})
 	if networker.CanStart() {
 		writeNetworkConfig := providerType != provider.Local || a.MachineId != bootstrapMachineId
-		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return networker.NewNetworker(st.Networker(), agentConfig, writeNetworkConfig)
-		})
+		if writeNetworkConfig {
+			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+				return networker.NewNetworker(st.Networker(), agentConfig)
+			})
+		} else {
+			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+				return networker.NewSafeNetworker(st.Networker(), agentConfig)
+			})
+		}
 	} else {
 		logger.Infof("not starting networker - missing /etc/network/interfaces")
 	}
