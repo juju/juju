@@ -56,6 +56,7 @@ interaction with State, lives in the state/backup package.
 
 // NewBackupOrigin returns a snapshot of where backup was run.
 func NewBackupOrigin(st *State, machine string) *backup.Origin {
+	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
 		// Ignore the error.
@@ -73,13 +74,13 @@ func NewBackupOrigin(st *State, machine string) *backup.Origin {
 // backupMetadataDoc is a mirror of backup.Metadata, used just for DB storage.
 type backupMetadataDoc struct {
 	ID             string `bson:"_id"`
-	Notes          string `bson:"notes,omitempty"`
 	Started        int64  `bson:"started,minsize"`
 	Finished       int64  `bson:"finished,minsize"`
 	CheckSum       string `bson:"checksum"`
 	CheckSumFormat string `bson:"checksumFormat"`
 	Size           int64  `bson:"size,minsize"`
-	Archived       bool   `bson:"archived"`
+	Stored         bool   `bson:"stored"`
+	Notes          string `bson:"notes,omitempty"`
 
 	// origin
 	Environment string         `bson:"environment"`
@@ -98,14 +99,14 @@ func (doc *backupMetadataDoc) asMetadata() *backup.Metadata {
 	}
 	metadata := backup.Metadata{
 		ID:             doc.ID,
-		Notes:          doc.Notes,
 		Timestamp:      time.Unix(doc.Started, 0).UTC(),
 		Finished:       time.Unix(doc.Finished, 0).UTC(),
 		CheckSum:       doc.CheckSum,
 		CheckSumFormat: doc.CheckSumFormat,
 		Size:           doc.Size,
 		Origin:         origin,
-		Archived:       doc.Archived,
+		Stored:         doc.Stored,
+		Notes:          doc.Notes,
 	}
 	return &metadata
 }
@@ -114,13 +115,13 @@ func (doc *backupMetadataDoc) asMetadata() *backup.Metadata {
 // into the backupMetadataDoc.
 func (doc *backupMetadataDoc) updateFromMetadata(metadata *backup.Metadata) {
 	// Ignore metadata.ID.
-	doc.Notes = metadata.Notes
 	doc.Started = metadata.Timestamp.Unix()
 	doc.Finished = metadata.Finished.Unix()
 	doc.CheckSum = metadata.CheckSum
 	doc.CheckSumFormat = metadata.CheckSumFormat
 	doc.Size = metadata.Size
-	doc.Archived = metadata.Archived
+	doc.Stored = metadata.Stored
+	doc.Notes = metadata.Notes
 
 	doc.Environment = metadata.Origin.Environment
 	doc.Machine = metadata.Origin.Machine
@@ -186,17 +187,17 @@ func addBackupMetadataID(st *State, metadata *backup.Metadata, id string) error 
 	return nil
 }
 
-// setBackupMetadata updatess the backup metadata associated with "id"
+// setBackupStored updatess the backup metadata associated with "id"
 // to indicate that a backup archive has been stored.  If "id" does
 // not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
-func setBackupArchived(st *State, id string) error {
+func setBackupStored(st *State, id string) error {
 	ops := []txn.Op{{
 		C:      backupsC,
 		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{
-			{"archived", true},
+			{"stored", true},
 		}}},
 	}}
 	if err := st.runTransaction(ops); err != nil {

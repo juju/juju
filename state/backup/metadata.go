@@ -27,8 +27,6 @@ type Origin struct {
 type Metadata struct {
 	// ID is the unique ID assigned by the system.
 	ID string
-	// Notes (optional) contains any user-supplied annotations for the archive.
-	Notes string // not required
 	// Timestamp records when the backup process was started for the archive.
 	Timestamp time.Time
 	// Finished records when the backup process finished for the archive.
@@ -42,7 +40,9 @@ type Metadata struct {
 	// Origin identifies where the backup was created.
 	Origin Origin
 	// Archived indicates whether or not the backup archive was stored.
-	Archived bool
+	Stored bool
+	// Notes (optional) contains any user-supplied annotations for the archive.
+	Notes string // not required
 }
 
 // NewMetadata returns a new Metadata for a state backup archive.  The
@@ -55,14 +55,14 @@ func NewMetadata(
 ) *Metadata {
 	metadata := Metadata{
 		// ID is omitted.
-		Notes:     notes,
 		Timestamp: time.Now().UTC(),
 		// Finished is omitted.
 		CheckSum:       checksum,
 		CheckSumFormat: checksumFormat,
 		Size:           size,
 		Origin:         origin,
-		// Archived is left as false.
+		// Stored is left as false.
+		Notes: notes,
 	}
 	return &metadata
 }

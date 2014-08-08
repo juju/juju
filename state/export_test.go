@@ -27,7 +27,7 @@ var (
 	GetBackupMetadata   = getBackupMetadata
 	AddBackupMetadata   = addBackupMetadata
 	AddBackupMetadataID = addBackupMetadataID
-	SetBackupArchived   = setBackupArchived
+	SetBackupStored     = setBackupStored
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {

@@ -40,7 +40,7 @@ func (s *backupSuite) checkMetadata(
 	res = c.Check(metadata.CheckSumFormat, gc.Equals, expected.CheckSumFormat) && res
 	res = c.Check(metadata.Size, gc.Equals, expected.Size) && res
 	res = c.Check(metadata.Origin, gc.DeepEquals, expected.Origin) && res
-	res = c.Check(metadata.Archived, gc.DeepEquals, expected.Archived) && res
+	res = c.Check(metadata.Stored, gc.DeepEquals, expected.Stored) && res
 	return res
 }
 
@@ -121,26 +121,26 @@ func (s *backupSuite) TestBackupsAddBackupMetadataAlreadyExists(c *gc.C) {
 }
 
 //---------------------------
-// setBackupArchived()
+// setBackupStored()
 
-func (s *backupSuite) TestBackupsSetBackupArchivedSuccess(c *gc.C) {
+func (s *backupSuite) TestBackupsSetBackupStoredSuccess(c *gc.C) {
 	original := s.metadata(c)
 	id, err := state.AddBackupMetadata(s.State, original)
 	c.Check(err, gc.IsNil)
 	metadata, err := state.GetBackupMetadata(s.State, id)
 	c.Assert(err, gc.IsNil)
-	c.Assert(metadata.Archived, gc.Equals, false)
+	c.Assert(metadata.Stored, gc.Equals, false)
 
-	err = state.SetBackupArchived(s.State, id)
+	err = state.SetBackupStored(s.State, id)
 	c.Check(err, gc.IsNil)
 
 	metadata, err = state.GetBackupMetadata(s.State, id)
 	c.Assert(err, gc.IsNil)
-	c.Assert(metadata.Archived, gc.Equals, true)
+	c.Assert(metadata.Stored, gc.Equals, true)
 }
 
-func (s *backupSuite) TestBackupsSetBackupArchivedNotFound(c *gc.C) {
-	err := state.SetBackupArchived(s.State, "spam")
+func (s *backupSuite) TestBackupsSetBackupStoredNotFound(c *gc.C) {
+	err := state.SetBackupStored(s.State, "spam")
 
 	c.Check(err, jc.Satisfies, errors.IsNotFound)
 }
