@@ -202,7 +202,7 @@ def copy_remote_logs(host, directory):
     ])
 
     subprocess.check_call([
-        'timeout', '5m', 'scp',
+        'timeout', '5m', 'scp', '-C',
         '-o', 'UserKnownHostsFile /dev/null',
         '-o', 'StrictHostKeyChecking no',
         source, directory,
