@@ -1,12 +1,12 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// backup contains all the stand-alone backup-related functionality for
+// backups contains all the stand-alone backup-related functionality for
 // juju state.
-package backup
+package backups
 
 import (
 	"github.com/juju/loggo"
 )
 
-var logger = loggo.GetLogger("juju.state.backup")
+var logger = loggo.GetLogger("juju.state.backups")

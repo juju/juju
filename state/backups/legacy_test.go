@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backup_test
+package backups_test
 
 import (
 	"archive/tar"
@@ -15,7 +15,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/backup"
+	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/testing"
 )
 
@@ -130,19 +130,19 @@ func (s *legacySuite) assertTarContents(c *gc.C, expectedContents []expectedTarC
 func (s *legacySuite) TestBackup(c *gc.C) {
 	s.createTestFiles(c)
 
-	s.PatchValue(backup.GetMongodumpPath, func() (string, error) {
+	s.PatchValue(backups.GetMongodumpPath, func() (string, error) {
 		return "bogusmongodump", nil
 	})
-	s.PatchValue(backup.GetFilesToBackup, func() ([]string, error) {
+	s.PatchValue(backups.GetFilesToBackup, func() ([]string, error) {
 		return s.testFiles, nil
 	})
 	ranCommand := false
-	s.PatchValue(backup.RunCommand, func(command string, args ...string) error {
+	s.PatchValue(backups.RunCommand, func(command string, args ...string) error {
 		ranCommand = true
 		return nil
 	})
 
-	bkpFile, shaSum, err := backup.Backup("boguspassword", "bogus-user", s.cwd, "localhost:8080")
+	bkpFile, shaSum, err := backups.Backup("boguspassword", "bogus-user", s.cwd, "localhost:8080")
 	c.Check(err, gc.IsNil)
 	c.Assert(ranCommand, gc.Equals, true)
 
@@ -161,4 +161,10 @@ func (s *legacySuite) TestBackup(c *gc.C) {
 		{"juju-backup/root.tar", ""},
 	}
 	s.assertTarContents(c, bkpExpectedContents, path.Join(s.cwd, bkpFile), true)
+}
+
+func (s *legacySuite) TestStorageName(c *gc.C) {
+	c.Check(backups.StorageName("foo"), gc.Equals, "/backups/foo")
+	c.Check(backups.StorageName("/foo/bar"), gc.Equals, "/backups/bar")
+	c.Check(backups.StorageName("foo/bar"), gc.Equals, "/backups/bar")
 }
