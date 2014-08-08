@@ -153,20 +153,58 @@ def deploy_dummy_stack(env, charm_prefix):
         raise ValueError('Token is %r' % result)
 
 
+def dump_env_logs(env, bootstrap_host, directory, host_id=None):
+    machine_addrs = get_machines_for_logs(env, bootstrap_host)
+
+    for machine_id, addr in machine_addrs.iteritems():
+        logging.info("Retrieving logs for machine-%d", machine_id)
+        machine_directory = os.path.join(directory, str(machine_id))
+        os.mkdir(machine_directory)
+        dump_logs(env, addr, machine_directory)
+
+    dump_euca_console(host_id, directory)
+
+
+def get_machines_for_logs(env, bootstrap_host):
+    # Try to get machine details from environment if possible.
+    machine_addrs = dict(get_machine_addrs(env))
+
+    # The bootstrap host always overrides the status output if
+    # provided.
+    if bootstrap_host:
+        machine_addrs['0'] = bootstrap_host
+
+    if env.local and machine_addrs:
+        # As per above, we only need one machine for the local
+        # provider. Use machine-0 if possible.
+        machine_id = min(machine_addrs)
+        return {machine_id: machine_addrs[machine_id]}
+
+    return machine_addrs
+
+
+def get_machine_addrs(env):
+    try:
+        status = env.get_status()
+    except Exception as err:
+        logging.warning("Failed to retrieve status for dumping logs: %s", err)
+        return
+    for machine_id, machine in status.iter_machines():
+        hostname = machine.get('dns-name')
+        if hostname:
+            yield machine_id, hostname
+
+
 def dump_logs(env, host, directory, host_id=None):
     if env.local:
         copy_local_logs(directory)
     else:
         copy_remote_logs(host, directory)
-
-    if host_id is not None:
-        with open(os.path.join(directory, 'console.log'), 'w') as console_file:
-            subprocess.Popen(['euca-get-console-output', host_id],
-                             stdout=console_file)
-
     subprocess.check_call(
         ['gzip', '-f'] +
         glob.glob(os.path.join(directory, '*.log')))
+
+    dump_euca_console(host_id, directory)
 
 
 def copy_local_logs(directory):
@@ -180,10 +218,8 @@ def copy_local_logs(directory):
 
 def copy_remote_logs(host, directory):
     log_names = [
-        'juju/machine-*.log',
-        'juju/all-machines.log',
-        'cloud-init.log',
-        'cloud-init-output.log',
+        'juju/*.log',
+        'cloud-init*.log',
     ]
     source = 'ubuntu@%s:/var/log/{%s}' % (host, ','.join(log_names))
 
@@ -207,6 +243,14 @@ def copy_remote_logs(host, directory):
         '-o', 'StrictHostKeyChecking no',
         source, directory,
     ])
+
+
+def dump_euca_console(host_id, directory):
+    if host_id is None:
+        return
+    with open(os.path.join(directory, 'console.log'), 'w') as console_file:
+        subprocess.Popen(['euca-get-console-output', host_id],
+                         stdout=console_file)
 
 
 def test_upgrade(old_env):
