@@ -341,12 +341,10 @@ func (s *networkerSuite) TestSafeNetworkerDoesNotWriteConfigFiles(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer func() { c.Assert(worker.Stop(nw), gc.IsNil) }()
 
-	for {
-		select {
-		case <-s.executed:
-			c.Fatalf("command executed unexpectedly")
-		case <-time.After(coretesting.ShortWait):
-			return
-		}
+	select {
+	case <-s.executed:
+		c.Fatalf("command executed unexpectedly")
+	case <-time.After(coretesting.ShortWait):
+		return
 	}
 }

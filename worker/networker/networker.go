@@ -37,8 +37,7 @@ func NewNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Work
 }
 
 // NewSafeNetworker returns a Worker that handles machine networking
-// configuration. It does not write out config files. This is used
-// on the bootstrap machine for the local provider.
+// configuration. It does not write out config files.
 func NewSafeNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Worker, error) {
 	return newNetworker(st, agentConfig, false)
 }
