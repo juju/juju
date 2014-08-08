@@ -45,12 +45,8 @@ func Backup(password string, username string, outputFolder string, addr string) 
 
 	// Dump the database.
 	logger.Debugf("dumping database")
-	dbinfo := DBConnInfo{
-		Address:  addr,
-		Username: username,
-		Password: password,
-	}
-	err = dumpDatabase(&dbinfo, dumpdir)
+	dbinfo := NewDBConnInfo(addr, username, password)
+	err = dumpDatabase(dbinfo, dumpdir)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}

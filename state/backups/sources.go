@@ -12,6 +12,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/tar"
 
+	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/mongo"
 )
 
@@ -98,10 +99,52 @@ func dumpFiles(dumpdir string) error {
 const dumpName = "mongodump"
 
 // DBConnInfo is a simplification of authentication.MongoInfo.
-type DBConnInfo struct {
-	Address  string
-	Username string
-	Password string
+type DBConnInfo interface {
+	Address() string
+	Username() string
+	Password() string
+}
+
+type dbConnInfo struct {
+	address  string
+	username string
+	password string
+}
+
+// NewDBConnInfo returns a new DBConnInfo.
+func NewDBConnInfo(addr, user, pw string) DBConnInfo {
+	dbinfo := dbConnInfo{
+		address:  addr,
+		username: user,
+		password: pw,
+	}
+	return &dbinfo
+}
+
+// Address returns the connection address.
+func (ci *dbConnInfo) Address() string {
+	return ci.address
+}
+
+// Username returns the connection username.
+func (ci *dbConnInfo) Username() string {
+	return ci.username
+}
+
+// Password returns the connection password.
+func (ci *dbConnInfo) Password() string {
+	return ci.password
+}
+
+// UpdateFromMongoInfo pulls in the provided connection info.
+func (ci *dbConnInfo) UpdateFromMongoInfo(mgoInfo *authentication.MongoInfo) {
+	ci.address = mgoInfo.Addrs[0]
+	ci.password = mgoInfo.Password
+
+	// TODO(dfc) Backup should take a Tag.
+	if mgoInfo.Tag != nil {
+		ci.username = mgoInfo.Tag.String()
+	}
 }
 
 var getMongodumpPath = func() (string, error) {
@@ -123,7 +166,7 @@ var getMongodumpPath = func() (string, error) {
 	return path, nil
 }
 
-func dumpDatabase(info *DBConnInfo, dirname string) error {
+func dumpDatabase(info DBConnInfo, dirname string) error {
 	mongodumpPath, err := getMongodumpPath()
 	if err != nil {
 		return errors.Annotate(err, "mongodump not available")
@@ -133,9 +176,9 @@ func dumpDatabase(info *DBConnInfo, dirname string) error {
 		mongodumpPath,
 		"--oplog",
 		"--ssl",
-		"--host", info.Address,
-		"--username", info.Username,
-		"--password", info.Password,
+		"--host", info.Address(),
+		"--username", info.Username(),
+		"--password", info.Password(),
 		"--out", dirname,
 	)
 	if err != nil {
