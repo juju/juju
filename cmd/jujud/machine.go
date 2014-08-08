@@ -310,7 +310,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 	if networker.CanStart() {
-		// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities
+		// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
 		writeNetworkConfig := providerType == "maas"
 		if writeNetworkConfig {
 			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
