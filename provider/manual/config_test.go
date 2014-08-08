@@ -22,10 +22,13 @@ var _ = gc.Suite(&configSuite{})
 
 func MinimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
-		"name":             "test",
-		"type":             "manual",
-		"bootstrap-host":   "hostname",
-		"storage-auth-key": "whatever",
+		"name":              "test",
+		"type":              "manual",
+		"bootstrap-host":    "hostname",
+		"bootstrap-user":    "",
+		"storage-auth-key":  "whatever",
+		"storage-port":      8040,
+		"storage-listen-ip": "",
 		// Not strictly necessary, but simplifies testing by disabling
 		// ssh storage by default.
 		"use-sshstorage": false,
@@ -63,10 +66,15 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	_, err = manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.ErrorMatches, "storage-auth-key: expected string, got nothing")
 
-	testConfig = MinimalConfig(c)
-	valid, err := manualProvider{}.Validate(testConfig, nil)
+	values := MinimalConfigValues()
+	delete(values, "bootstrap-user")
+	delete(values, "storage-listen-ip")
+	delete(values, "storage-port")
+	testConfig, err = config.New(config.UseDefaults, values)
 	c.Assert(err, gc.IsNil)
 
+	valid, err := manualProvider{}.Validate(testConfig, nil)
+	c.Assert(err, gc.IsNil)
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["bootstrap-host"], gc.Equals, "hostname")
 	c.Assert(unknownAttrs["bootstrap-user"], gc.Equals, "")

@@ -160,10 +160,11 @@ func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
 func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	e.cfgmutex.Lock()
 	defer e.cfgmutex.Unlock()
-	envConfig, err := manualProvider{}.validate(cfg, e.cfg.Config)
+	_, err := manualProvider{}.validate(cfg, e.cfg.Config)
 	if err != nil {
 		return err
 	}
+	envConfig := newEnvironConfig(cfg, cfg.UnknownAttrs())
 	// Set storage. If "use-sshstorage" is true then use the SSH storage.
 	// Otherwise, use HTTP storage.
 	//
