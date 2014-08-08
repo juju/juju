@@ -1,0 +1,50 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package params
+
+import (
+	"time"
+
+	"github.com/juju/juju/state/backups/metadata"
+	"github.com/juju/juju/version"
+)
+
+type BackupsCreateArgs struct {
+	Notes string
+}
+
+type BackupsMetadataResult struct {
+	ID             string
+	Started        time.Time
+	Finished       time.Time // May be zero...
+	Checksum       string
+	ChecksumFormat string
+	Size           int64
+	Stored         bool
+	Notes          string
+
+	Environment string
+	Machine     string
+	Hostname    string
+	Version     version.Number
+}
+
+func (r *BackupsMetadataResult) UpdateFromMetadata(meta *metadata.Metadata) {
+	r.ID = meta.ID()
+	r.Started = meta.Started()
+	if meta.Finished() != nil {
+		r.Finished = *(meta.Finished())
+	}
+	r.Checksum = meta.Checksum()
+	r.ChecksumFormat = meta.ChecksumFormat()
+	r.Size = meta.Size()
+	r.Stored = meta.Stored()
+	r.Notes = meta.Notes()
+
+	origin := meta.Origin()
+	r.Environment = origin.Environment()
+	r.Machine = origin.Machine()
+	r.Hostname = origin.Hostname()
+	r.Version = origin.Version()
+}
