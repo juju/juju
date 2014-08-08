@@ -152,51 +152,64 @@ def deploy_dummy_stack(env, charm_prefix):
         raise ValueError('Token is %r' % result)
 
 
-def scp_logs(log_names, directory, host=None):
-    if host is None:
-        command = ['sudo', 'chmod', 'go+r'] + log_names
-    else:
-        command = [
-            'timeout', '5m', 'ssh', '-o', 'UserKnownHostsFile /dev/null',
-            '-o', 'StrictHostKeyChecking no', 'ubuntu@%s' % host,
-            'sudo chmod go+r /var/log/juju/*']
-    subprocess.check_call(command)
-    subprocess.check_call([
-        'timeout', '5m', 'scp', '-o', 'UserKnownHostsFile /dev/null',
-        '-o', 'StrictHostKeyChecking no'] + log_names + [directory])
-
-
 def dump_logs(env, host, directory, host_id=None):
-    log_names = []
     if env.local:
-        local = os.path.join(get_juju_home(), 'local')
-        log_names = [os.path.join(local, 'cloud-init-output.log')]
-        log_dir = os.path.join(local, 'log')
-        log_names.extend(os.path.join(log_dir, l) for l
-                         in os.listdir(log_dir) if l.endswith('.log'))
-        scp_logs(log_names, directory)
+        copy_local_logs(directory)
     else:
-        log_names = [
-            'ubuntu@%s:/var/log/%s' % (host, n)
-            for n in ['juju/all-machines.log', 'cloud-init-output.log']]
-        try:
-            wait_for_port(host, 22, timeout=60)
-        except PortTimeoutError:
-            logging.warning("Could not dump logs because port 22 was closed.")
-        for log_name in log_names:
-            try:
-                scp_logs([log_name], directory, host)
-            except subprocess.CalledProcessError:
-                pass
+        copy_remote_logs(host, directory)
+
     if host_id is not None:
         with open(os.path.join(directory, 'console.log'), 'w') as console_file:
             subprocess.Popen(['euca-get-console-output', host_id],
                              stdout=console_file)
+
     for log_name in os.listdir(directory):
         if not log_name.endswith('.log'):
             continue
         path = os.path.join(directory, log_name)
-        subprocess.check_call(['gzip', path])
+        subprocess.check_call(['gzip', '-f', path])
+
+
+def copy_local_logs(directory):
+    local = os.path.join(get_juju_home(), 'local')
+    log_names = [os.path.join(local, 'cloud-init-output.log')]
+    log_dir = os.path.join(local, 'log')
+    log_names.extend(os.path.join(log_dir, l) for l
+                     in os.listdir(log_dir) if l.endswith('.log'))
+
+    subprocess.check_call(['sudo', 'chmod', 'go+r'] + log_names)
+    subprocess.check_call(['cp'] + log_names + [directory])
+
+
+def copy_remote_logs(host, directory):
+    log_names = [
+        'juju/machine-*.log',
+        'juju/all-machines.log',
+        'cloud-init.log',
+        'cloud-init-output.log',
+    ]
+    source = 'ubuntu@%s:/var/log/{%s}' % (host, ','.join(log_names))
+
+    try:
+        wait_for_port(host, 22, timeout=60)
+    except PortTimeoutError:
+        logging.warning("Could not dump logs because port 22 was closed.")
+        return
+
+    subprocess.check_call([
+        'timeout', '5m', 'ssh',
+        '-o', 'UserKnownHostsFile /dev/null',
+        '-o', 'StrictHostKeyChecking no',
+        'ubuntu@' + host,
+        'sudo chmod go+r /var/log/juju/*',
+    ])
+
+    subprocess.check_call([
+        'timeout', '5m', 'scp',
+        '-o', 'UserKnownHostsFile /dev/null',
+        '-o', 'StrictHostKeyChecking no',
+        source, directory,
+    ])
 
 
 def test_upgrade(old_env):
