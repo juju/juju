@@ -172,7 +172,7 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (*State, error) {
+func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (st *State, resultErr error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
@@ -195,7 +195,7 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 		authenticated = true
 	}
 
-	st := &State{
+	st = &State{
 		mongoInfo:     mongoInfo,
 		policy:        policy,
 		authenticated: authenticated,
@@ -216,24 +216,39 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 	}
 
 	st.watcher = watcher.New(log)
+	defer func() {
+		if resultErr != nil {
+			if err := st.watcher.Stop(); err != nil {
+				logger.Errorf("failed to stop watcher: %v", err)
+			}
+		}
+	}()
 	st.pwatcher = presence.NewWatcher(pdb.C(presenceC))
+	defer func() {
+		if resultErr != nil {
+			if err := st.pwatcher.Stop(); err != nil {
+				logger.Errorf("failed to stop presence watcher: %v", err)
+			}
+		}
+	}()
+
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique}
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
-			return nil, fmt.Errorf("cannot create database index: %v", err)
+			return nil, errors.Annotate(err, "cannot create database index")
 		}
 	}
 
 	// TODO(rog) delete this when we can assume there are no
 	// pre-1.18 environments running.
 	if err := st.createStateServersDoc(); err != nil {
-		return nil, fmt.Errorf("cannot create state servers document: %v", err)
+		return nil, errors.Annotate(err, "cannot create state servers document")
 	}
 	if err := st.createAPIAddressesDoc(); err != nil {
-		return nil, fmt.Errorf("cannot create API addresses document: %v", err)
+		return nil, errors.Annotate(err, "cannot create API addresses document")
 	}
 	if err := st.createStateServingInfoDoc(); err != nil {
-		return nil, fmt.Errorf("cannot create state serving info document: %v", err)
+		return nil, errors.Annotate(err, "cannot create state serving info document")
 	}
 	return st, nil
 }
