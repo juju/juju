@@ -5,6 +5,7 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 import errno
+import glob
 import logging
 import os
 import random
@@ -163,19 +164,15 @@ def dump_logs(env, host, directory, host_id=None):
             subprocess.Popen(['euca-get-console-output', host_id],
                              stdout=console_file)
 
-    for log_name in os.listdir(directory):
-        if not log_name.endswith('.log'):
-            continue
-        path = os.path.join(directory, log_name)
-        subprocess.check_call(['gzip', '-f', path])
+    subprocess.check_call(
+        ['gzip', '-f'] +
+        glob.glob(os.path.join(directory, '*.log')))
 
 
 def copy_local_logs(directory):
     local = os.path.join(get_juju_home(), 'local')
     log_names = [os.path.join(local, 'cloud-init-output.log')]
-    log_dir = os.path.join(local, 'log')
-    log_names.extend(os.path.join(log_dir, l) for l
-                     in os.listdir(log_dir) if l.endswith('.log'))
+    log_names.extend(glob.glob(os.path.join(local, 'log', '*.log')))
 
     subprocess.check_call(['sudo', 'chmod', 'go+r'] + log_names)
     subprocess.check_call(['cp'] + log_names + [directory])
