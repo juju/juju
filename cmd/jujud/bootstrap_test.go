@@ -45,7 +45,8 @@ var _ = configstore.Default
 type BootstrapSuite struct {
 	testing.BaseSuite
 	gitjujutesting.MgoSuite
-	envcfg          string
+	envcfg          *config.Config
+	b64yamlEnvcfg   string
 	instanceId      instance.Id
 	dataDir         string
 	logDir          string
@@ -159,7 +160,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, jobs []params.MachineJob,
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	machConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	machConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -217,7 +218,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *gc.C) {
 func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 	s.mongoOplogSize = "NaN"
 	hw := instance.MustParseHardware("arch=amd64 mem=8G")
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId), "--hardware", hw.String())
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, `invalid oplog size: "NaN"`)
@@ -226,7 +227,7 @@ func (s *BootstrapSuite) TestInitializeEnvironmentInvalidOplogSize(c *gc.C) {
 func (s *BootstrapSuite) TestSetConstraints(c *gc.C) {
 	tcons := constraints.Value{Mem: uint64p(2048), CpuCores: uint64p(2)}
 	_, cmd, err := s.initBootstrapCommand(c, nil,
-		"--env-config", s.envcfg,
+		"--env-config", s.b64yamlEnvcfg,
 		"--instance-id", string(s.instanceId),
 		"--constraints", tcons.String(),
 	)
@@ -263,7 +264,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 	expectedJobs := []state.MachineJob{
 		state.JobManageEnviron, state.JobHostUnits,
 	}
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -284,7 +285,7 @@ func (s *BootstrapSuite) TestDefaultMachineJobs(c *gc.C) {
 
 func (s *BootstrapSuite) TestConfiguredMachineJobs(c *gc.C) {
 	jobs := []params.MachineJob{params.JobManageEnviron}
-	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, jobs, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
@@ -316,7 +317,7 @@ func testOpenState(c *gc.C, info *authentication.MongoInfo, expectErrType error)
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
-	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
+	machineConf, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 
 	err = cmd.Run(nil)
@@ -449,7 +450,30 @@ func (s *BootstrapSuite) TestInitializeStateArgs(c *gc.C) {
 		return nil, nil, errors.New("failed to initialize state")
 	}
 	s.PatchValue(&agentInitializeState, initializeState)
-	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.envcfg, "--instance-id", string(s.instanceId))
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", s.b64yamlEnvcfg, "--instance-id", string(s.instanceId))
+	c.Assert(err, gc.IsNil)
+	err = cmd.Run(nil)
+	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
+	c.Assert(called, gc.Equals, 1)
+}
+
+func (s *BootstrapSuite) TestInitializeStateMinSocketTimeout(c *gc.C) {
+	var called int
+	initializeState := func(_ agent.ConfigSetter, envCfg *config.Config, machineCfg agent.BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+		called++
+		c.Assert(dialOpts.Direct, gc.Equals, true)
+		c.Assert(dialOpts.SocketTimeout, gc.Equals, 1*time.Minute)
+		return nil, nil, errors.New("failed to initialize state")
+	}
+
+	envcfg, err := s.envcfg.Apply(map[string]interface{}{
+		"bootstrap-timeout": "13",
+	})
+	c.Assert(err, gc.IsNil)
+	b64yamlEnvcfg := b64yaml(envcfg.AllAttrs()).encode()
+
+	s.PatchValue(&agentInitializeState, initializeState)
+	_, cmd, err := s.initBootstrapCommand(c, nil, "--env-config", b64yamlEnvcfg, "--instance-id", string(s.instanceId))
 	c.Assert(err, gc.IsNil)
 	err = cmd.Run(nil)
 	c.Assert(err, gc.ErrorMatches, "failed to initialize state")
@@ -479,7 +503,8 @@ func (s *BootstrapSuite) makeTestEnv(c *gc.C) {
 	addresses, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
 	s.bootstrapName = network.SelectPublicAddress(addresses)
-	s.envcfg = b64yaml(env.Config().AllAttrs()).encode()
+	s.envcfg = env.Config()
+	s.b64yamlEnvcfg = b64yaml(s.envcfg.AllAttrs()).encode()
 }
 
 func nullContext() *cmd.Context {
