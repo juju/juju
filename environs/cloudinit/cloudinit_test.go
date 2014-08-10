@@ -82,6 +82,9 @@ var stateServingInfo = &params.StateServingInfo{
 	APIPort:    17070,
 }
 
+var logDir = must(paths.LogDir("precise"))
+var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
+
 // Each test gives a cloudinit config - we check the
 // output to see if it looks correct.
 var cloudinitTests = []cloudinitTest{
@@ -111,7 +114,7 @@ var cloudinitTests = []cloudinitTest{
 			DataDir:                 environs.DataDir,
 			LogDir:                  agent.DefaultLogDir,
 			Jobs:                    allMachineJobs,
-			CloudInitOutputLog:      environs.CloudInitOutputLog,
+			CloudInitOutputLog:      cloudInitOutputLog,
 			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
@@ -174,7 +177,7 @@ start jujud-machine-0
 			DataDir:                 environs.DataDir,
 			LogDir:                  agent.DefaultLogDir,
 			Jobs:                    allMachineJobs,
-			CloudInitOutputLog:      environs.CloudInitOutputLog,
+			CloudInitOutputLog:      cloudInitOutputLog,
 			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
@@ -200,7 +203,7 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			DataDir:            environs.DataDir,
 			LogDir:             agent.DefaultLogDir,
 			Jobs:               normalMachineJobs,
-			CloudInitOutputLog: environs.CloudInitOutputLog,
+			CloudInitOutputLog: cloudInitOutputLog,
 			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-quantal-amd64"),
 			Series:             "quantal",
@@ -259,7 +262,7 @@ start jujud-machine-99
 			DataDir:              environs.DataDir,
 			LogDir:               agent.DefaultLogDir,
 			Jobs:                 normalMachineJobs,
-			CloudInitOutputLog:   environs.CloudInitOutputLog,
+			CloudInitOutputLog:   cloudInitOutputLog,
 			Bootstrap:            false,
 			Tools:                newSimpleTools("1.2.3-quantal-amd64"),
 			Series:               "quantal",
@@ -298,7 +301,7 @@ start jujud-machine-2-lxc-1
 			DataDir:            environs.DataDir,
 			LogDir:             agent.DefaultLogDir,
 			Jobs:               normalMachineJobs,
-			CloudInitOutputLog: environs.CloudInitOutputLog,
+			CloudInitOutputLog: cloudInitOutputLog,
 			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-quantal-amd64"),
 			Series:             "quantal",
@@ -349,7 +352,7 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			DataDir:                 environs.DataDir,
 			LogDir:                  agent.DefaultLogDir,
 			Jobs:                    allMachineJobs,
-			CloudInitOutputLog:      environs.CloudInitOutputLog,
+			CloudInitOutputLog:      cloudInitOutputLog,
 			InstanceId:              "i-bootstrap",
 			SystemPrivateSSHKey:     "private rsa key",
 			MachineAgentServiceName: "jujud-machine-0",
@@ -798,7 +801,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		DataDir:                 environs.DataDir,
 		LogDir:                  agent.DefaultLogDir,
 		Jobs:                    normalMachineJobs,
-		CloudInitOutputLog:      environs.CloudInitOutputLog,
+		CloudInitOutputLog:      cloudInitOutputLog,
 		InstanceId:              "i-bootstrap",
 		MachineNonce:            "FAKE_NONCE",
 		SystemPrivateSSHKey:     "private rsa key",
@@ -949,7 +952,7 @@ var windowsCloudinitTests = []cloudinitTest{
 			Bootstrap:          false,
 			Jobs:               normalMachineJobs,
 			MachineNonce:       "FAKE_NONCE",
-			CloudInitOutputLog: environs.CloudInitOutputLog,
+			CloudInitOutputLog: cloudInitOutputLog,
 			MongoInfo: &authentication.MongoInfo{
 				Tag:      names.NewMachineTag("10"),
 				Password: "arble",

@@ -5,6 +5,7 @@ package azure
 
 import (
 	"encoding/base64"
+	"path"
 
 	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
@@ -13,6 +14,7 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
@@ -27,6 +29,16 @@ type customDataSuite struct {
 
 var _ = gc.Suite(&customDataSuite{})
 
+func must(s string, err error) string {
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+var logDir = must(paths.LogDir("precise"))
+var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
+
 // makeMachineConfig produces a valid cloudinit machine config.
 func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 	machineId := "0"
@@ -37,7 +49,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		DataDir:            environs.DataDir,
 		LogDir:             agent.DefaultLogDir,
 		Jobs:               []params.MachineJob{params.JobManageEnviron, params.JobHostUnits},
-		CloudInitOutputLog: environs.CloudInitOutputLog,
+		CloudInitOutputLog: cloudInitOutputLog,
 		Tools: &tools.Tools{
 			Version: version.MustParseBinary("1.2.3-quantal-amd64"),
 			URL:     "file://" + c.MkDir(),
