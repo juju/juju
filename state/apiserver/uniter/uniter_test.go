@@ -76,7 +76,6 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	// set up assuming unit 0 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:       s.wordpressUnit.Tag(),
-		LoggedIn:  true,
 		UnitAgent: true,
 		Entity:    s.wordpressUnit,
 	}
@@ -1057,7 +1056,6 @@ func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 	// Action doesn't match unit.
 	fakeBadAuth := apiservertesting.FakeAuthorizer{
 		Tag:       s.mysqlUnit.Tag(),
-		LoggedIn:  true,
 		UnitAgent: true,
 		Entity:    s.wordpressUnit,
 	}
