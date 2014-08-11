@@ -211,12 +211,9 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	})
 	bootstrapEnv(c, coretesting.SampleEnvName, store)
 
-	// Verify the cache is empty.
 	info, err := store.ReadInfo("myenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
-	c.Assert(info.APIEndpoint(), jc.DeepEquals, configstore.APIEndpoint{})
-	c.Assert(info.APICredentials(), jc.DeepEquals, configstore.APICredentials{})
 
 	called := 0
 	expectState := mockedAPIState(0)
@@ -243,12 +240,6 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Assert(ep.Addresses, gc.HasLen, 1)
 	c.Check(ep.Addresses[0], gc.Matches, `localhost:\d+`)
 	c.Check(ep.CACert, gc.Not(gc.Equals), "")
-	// Old servers won't hand back EnvironTag, so it should stay empty in
-	// the cache
-	c.Check(ep.EnvironUUID, gc.Equals, "")
-	creds := info.APICredentials()
-	c.Check(creds.User, gc.Equals, "admin")
-	c.Check(creds.Password, gc.Equals, "adminpass")
 }
 
 func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {

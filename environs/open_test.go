@@ -49,6 +49,21 @@ func (*OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *OpenSuite) TestUpdateEnvInfo(c *gc.C) {
+	store := configstore.NewMem()
+	ctx := testing.Context(c)
+	_, err := environs.PrepareFromName("erewhemos", ctx, store)
+	c.Assert(err, gc.IsNil)
+
+	info, err := store.ReadInfo("erewhemos")
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
+	c.Assert(info.APIEndpoint().CACert, gc.Not(gc.Equals), "")
+	c.Assert(info.APIEndpoint().EnvironUUID, gc.Not(gc.Equals), "")
+	c.Assert(info.APICredentials().Password, gc.Not(gc.Equals), "")
+	c.Assert(info.APICredentials().User, gc.Equals, "admin")
+}
+
 func (*OpenSuite) TestNewUnknownEnviron(c *gc.C) {
 	attrs := dummySampleConfig().Merge(testing.Attrs{
 		"type": "wondercloud",
