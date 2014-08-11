@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/bzr"
@@ -109,7 +109,7 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 		pushLocation = c.changePushLocation(pushLocation)
 	}
 
-	repo, err := charm.InferRepository(curl.Reference, "/not/important")
+	repo, err := charm.InferRepository(curl.Reference(), "/not/important")
 	if err != nil {
 		return err
 	}

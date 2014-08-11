@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"

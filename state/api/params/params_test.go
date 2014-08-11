@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"

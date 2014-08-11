@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/loggo"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v2"
-	"gopkg.in/juju/charm.v2/hooks"
+	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v3/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/api/params"

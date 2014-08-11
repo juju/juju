@@ -27,8 +27,8 @@ import (
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
-	corecharm "gopkg.in/juju/charm.v2"
-	charmtesting "gopkg.in/juju/charm.v2/testing"
+	corecharm "gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
