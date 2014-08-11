@@ -15,6 +15,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/version"
 )
 
@@ -133,12 +134,10 @@ func findExecutable(execFile string) (string, error) {
 		path := os.Getenv("PATH")
 		for _, name := range filepath.SplitList(path) {
 			result := filepath.Join(name, file)
-			info, err := os.Stat(result)
+			// Use exec.LookPath() to check if file exists and is executable
+			f, err := exec.LookPath(result)
 			if err == nil {
-				// Sanity check to see if executable.
-				if info.Mode()&0111 != 0 {
-					return result, nil
-				}
+				return f, nil
 			}
 		}
 
@@ -158,7 +157,7 @@ func copyExistingJujud(dir string) error {
 		logger.Infof("%v", err)
 		return err
 	}
-	jujudLocation := filepath.Join(filepath.Dir(jujuLocation), "jujud")
+	jujudLocation := filepath.Join(filepath.Dir(jujuLocation), names.Jujud)
 	logger.Debugf("checking: %s", jujudLocation)
 	info, err := os.Stat(jujudLocation)
 	if err != nil {
@@ -174,7 +173,7 @@ func copyExistingJujud(dir string) error {
 		return err
 	}
 	defer source.Close()
-	target := filepath.Join(dir, "jujud")
+	target := filepath.Join(dir, names.Jujud)
 	logger.Infof("target: %v", target)
 	destination, err := os.OpenFile(target, os.O_RDWR|os.O_TRUNC|os.O_CREATE, info.Mode())
 	if err != nil {
@@ -192,7 +191,7 @@ func copyExistingJujud(dir string) error {
 func buildJujud(dir string) error {
 	logger.Infof("building jujud")
 	cmds := [][]string{
-		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, "jujud"), "github.com/juju/juju/cmd/jujud"},
+		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/juju/cmd/jujud"},
 	}
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)
@@ -235,7 +234,7 @@ func bundleTools(w io.Writer, forceVersion *version.Number) (tvers version.Binar
 			return version.Binary{}, "", err
 		}
 	}
-	cmd := exec.Command(filepath.Join(dir, "jujud"), "version")
+	cmd := exec.Command(filepath.Join(dir, names.Jujud), "version")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return version.Binary{}, "", fmt.Errorf("cannot get version from %q: %v; %s", cmd.Args[0], err, out)
