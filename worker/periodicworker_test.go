@@ -25,6 +25,7 @@ func (s *periodicWorkerSuite) TestWait(c *gc.C) {
 	}
 
 	w := NewPeriodicWorker(doWork, time.Second)
+	defer func() { c.Assert(Stop(w), gc.Equals, testError) }()
 	select {
 	case <-funcHasRun:
 	case <-time.After(testing.ShortWait):
@@ -47,6 +48,7 @@ func (s *periodicWorkerSuite) TestWaitNil(c *gc.C) {
 	}
 
 	w := NewPeriodicWorker(doWork, time.Second)
+	defer func() { c.Assert(Stop(w), gc.IsNil) }()
 	select {
 	case <-funcHasRun:
 	case <-time.After(testing.ShortWait):
@@ -63,8 +65,9 @@ func (s *periodicWorkerSuite) TestKill(c *gc.C) {
 	}
 
 	w := NewPeriodicWorker(doWork, time.Second)
+	defer func() { c.Assert(Stop(w), gc.IsNil) }()
 	w.Kill()
-	c.Assert(w.Wait(), gc.Equals, testError)
+	c.Assert(w.Wait(), gc.IsNil)
 
 	// test we can kill again without a panic
 	w.Kill()
@@ -81,11 +84,12 @@ func (s *periodicWorkerSuite) TestCallUntilKilled(c *gc.C) {
 	}
 
 	w := NewPeriodicWorker(doWork, time.Millisecond)
+	defer func() { c.Assert(Stop(w), gc.IsNil) }()
 	for i := 0; i < 5; i++ {
 		select {
 		case <-funcHasRun:
 			continue
-		case <-time.Tick(time.Second):
+		case <-time.After(testing.LongWait):
 			c.Fatalf("The function should have been called again by now")
 		}
 	}
