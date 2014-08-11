@@ -5,6 +5,7 @@ __metaclass__ = type
 
 from argparse import ArgumentParser
 import errno
+import glob
 import logging
 import os
 import random
@@ -152,51 +153,104 @@ def deploy_dummy_stack(env, charm_prefix):
         raise ValueError('Token is %r' % result)
 
 
-def scp_logs(log_names, directory, host=None):
-    if host is None:
-        command = ['sudo', 'chmod', 'go+r'] + log_names
-    else:
-        command = [
-            'timeout', '5m', 'ssh', '-o', 'UserKnownHostsFile /dev/null',
-            '-o', 'StrictHostKeyChecking no', 'ubuntu@%s' % host,
-            'sudo chmod go+r /var/log/juju/*']
-    subprocess.check_call(command)
-    subprocess.check_call([
-        'timeout', '5m', 'scp', '-o', 'UserKnownHostsFile /dev/null',
-        '-o', 'StrictHostKeyChecking no'] + log_names + [directory])
+def dump_env_logs(env, bootstrap_host, directory, host_id=None):
+    machine_addrs = get_machines_for_logs(env, bootstrap_host)
+
+    for machine_id, addr in machine_addrs.iteritems():
+        logging.info("Retrieving logs for machine-%d", machine_id)
+        machine_directory = os.path.join(directory, str(machine_id))
+        os.mkdir(machine_directory)
+        dump_logs(env, addr, machine_directory)
+
+    dump_euca_console(host_id, directory)
+
+
+def get_machines_for_logs(env, bootstrap_host):
+    # Try to get machine details from environment if possible.
+    machine_addrs = dict(get_machine_addrs(env))
+
+    # The bootstrap host always overrides the status output if
+    # provided.
+    if bootstrap_host:
+        machine_addrs['0'] = bootstrap_host
+
+    if env.local and machine_addrs:
+        # As per above, we only need one machine for the local
+        # provider. Use machine-0 if possible.
+        machine_id = min(machine_addrs)
+        return {machine_id: machine_addrs[machine_id]}
+
+    return machine_addrs
+
+
+def get_machine_addrs(env):
+    try:
+        status = env.get_status()
+    except Exception as err:
+        logging.warning("Failed to retrieve status for dumping logs: %s", err)
+        return
+    for machine_id, machine in status.iter_machines():
+        hostname = machine.get('dns-name')
+        if hostname:
+            yield machine_id, hostname
 
 
 def dump_logs(env, host, directory, host_id=None):
-    log_names = []
     if env.local:
-        local = os.path.join(get_juju_home(), 'local')
-        log_names = [os.path.join(local, 'cloud-init-output.log')]
-        log_dir = os.path.join(local, 'log')
-        log_names.extend(os.path.join(log_dir, l) for l
-                         in os.listdir(log_dir) if l.endswith('.log'))
-        scp_logs(log_names, directory)
+        copy_local_logs(directory)
     else:
-        log_names = [
-            'ubuntu@%s:/var/log/%s' % (host, n)
-            for n in ['juju/all-machines.log', 'cloud-init-output.log']]
-        try:
-            wait_for_port(host, 22, timeout=60)
-        except PortTimeoutError:
-            logging.warning("Could not dump logs because port 22 was closed.")
-        for log_name in log_names:
-            try:
-                scp_logs([log_name], directory, host)
-            except subprocess.CalledProcessError:
-                pass
-    if host_id is not None:
-        with open(os.path.join(directory, 'console.log'), 'w') as console_file:
-            subprocess.Popen(['euca-get-console-output', host_id],
-                             stdout=console_file)
-    for log_name in os.listdir(directory):
-        if not log_name.endswith('.log'):
-            continue
-        path = os.path.join(directory, log_name)
-        subprocess.check_call(['gzip', path])
+        copy_remote_logs(host, directory)
+    subprocess.check_call(
+        ['gzip', '-f'] +
+        glob.glob(os.path.join(directory, '*.log')))
+
+    dump_euca_console(host_id, directory)
+
+
+def copy_local_logs(directory):
+    local = os.path.join(get_juju_home(), 'local')
+    log_names = [os.path.join(local, 'cloud-init-output.log')]
+    log_names.extend(glob.glob(os.path.join(local, 'log', '*.log')))
+
+    subprocess.check_call(['sudo', 'chmod', 'go+r'] + log_names)
+    subprocess.check_call(['cp'] + log_names + [directory])
+
+
+def copy_remote_logs(host, directory):
+    log_names = [
+        'juju/*.log',
+        'cloud-init*.log',
+    ]
+    source = 'ubuntu@%s:/var/log/{%s}' % (host, ','.join(log_names))
+
+    try:
+        wait_for_port(host, 22, timeout=60)
+    except PortTimeoutError:
+        logging.warning("Could not dump logs because port 22 was closed.")
+        return
+
+    subprocess.check_call([
+        'timeout', '5m', 'ssh',
+        '-o', 'UserKnownHostsFile /dev/null',
+        '-o', 'StrictHostKeyChecking no',
+        'ubuntu@' + host,
+        'sudo chmod go+r /var/log/juju/*',
+    ])
+
+    subprocess.check_call([
+        'timeout', '5m', 'scp', '-C',
+        '-o', 'UserKnownHostsFile /dev/null',
+        '-o', 'StrictHostKeyChecking no',
+        source, directory,
+    ])
+
+
+def dump_euca_console(host_id, directory):
+    if host_id is None:
+        return
+    with open(os.path.join(directory, 'console.log'), 'w') as console_file:
+        subprocess.Popen(['euca-get-console-output', host_id],
+                         stdout=console_file)
 
 
 def test_upgrade(old_env):
