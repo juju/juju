@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	"github.com/juju/juju/juju/names"
@@ -190,9 +191,20 @@ func copyExistingJujud(dir string) error {
 
 func buildJujud(dir string) error {
 	logger.Infof("building jujud")
-	cmds := [][]string{
-		{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/juju/cmd/jujud"},
+
+	var cmds [][]string
+	switch runtime.GOOS {
+	case "windows":
+		// gccgo does not run on windows
+		cmds = [][]string{
+			{"go", "build", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/juju/cmd/jujud"},
+		}
+	default:
+		cmds = [][]string{
+			{"go", "build", "-gccgoflags=-static-libgo", "-o", filepath.Join(dir, names.Jujud), "github.com/juju/juju/cmd/jujud"},
+		}
 	}
+
 	for _, args := range cmds {
 		cmd := exec.Command(args[0], args[1:]...)
 		out, err := cmd.CombinedOutput()

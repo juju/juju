@@ -11,7 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/juju/osenv"
-	// "github.com/juju/juju/wrench"
+	"github.com/juju/juju/wrench"
 )
 
 // JujuOSEnvSuite isolates the tests from Juju environment variables.
@@ -66,7 +66,7 @@ type BaseSuite struct {
 }
 
 func (s *BaseSuite) SetUpSuite(c *gc.C) {
-	// wrench.SetEnabled(false)
+	wrench.SetEnabled(false)
 	s.CleanupSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 	s.JujuOSEnvSuite.SetUpSuite(c)
