@@ -283,9 +283,8 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 
 func (s *userManagerSuite) TestCannotSetPasswordWhenNotAUser(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:      names.NewMachineTag("0"),
-		LoggedIn: true,
-		Client:   true,
+		Tag:    names.NewMachineTag("0"),
+		Client: true,
 	}
 	var err error
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
