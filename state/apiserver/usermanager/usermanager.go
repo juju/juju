@@ -106,7 +106,7 @@ func (api *UserManagerAPI) AddUser(args ModifyUsers) (params.ErrorResults, error
 		if username == "" {
 			username = arg.Tag
 		}
-		_, err := api.state.AddUser(username, arg.DisplayName, arg.Password, user.Name())
+		_, err := api.state.AddUser(username, arg.DisplayName, arg.Password, user.Id())
 		if err != nil {
 			err = errors.Annotate(err, "failed to create user")
 			result.Results[i].Error = common.ServerError(err)
@@ -197,8 +197,13 @@ func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, e
 		}
 
 		loggedInUser := api.getLoggedInUser()
-		if loggedInUser.Tag() != argUser.Tag() {
-			result.Results[i].Error = common.ServerError(fmt.Errorf("Can only change the password of the current user (%s)", loggedInUser.Name()))
+		if _, ok := loggedInUser.(names.UserTag); !ok {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("Not a user"))
+			continue
+		}
+
+		if loggedInUser != argUser.Tag() {
+			result.Results[i].Error = common.ServerError(fmt.Errorf("Can only change the password of the current user (%s)", loggedInUser.Id()))
 			continue
 		}
 
@@ -211,10 +216,10 @@ func (api *UserManagerAPI) SetPassword(args ModifyUsers) (params.ErrorResults, e
 	return result, nil
 }
 
-func (api *UserManagerAPI) getLoggedInUser() *state.User {
-	switch entity := api.authorizer.GetAuthEntity().(type) {
-	case *state.User:
-		return entity
+func (api *UserManagerAPI) getLoggedInUser() names.Tag {
+	switch tag := api.authorizer.GetAuthTag().(type) {
+	case names.UserTag:
+		return tag
 	default:
 		return nil
 	}

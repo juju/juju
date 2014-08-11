@@ -281,6 +281,26 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	c.Assert(adminUser.PasswordValid("new-password"), gc.Equals, true)
 }
 
+func (s *userManagerSuite) TestCannotSetPasswordWhenNotAUser(c *gc.C) {
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag:    names.NewMachineTag("0"),
+		Client: true,
+	}
+	var err error
+	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
+
+	args := usermanager.ModifyUsers{
+		Changes: []usermanager.ModifyUser{{
+			Username: "admin",
+			Password: "new-password",
+		}}}
+	results, err := s.usermanager.SetPassword(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	expectedError := apiservertesting.ServerError("Not a user")
+	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
+}
+
 func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
 	args := usermanager.ModifyUsers{
 		Changes: []usermanager.ModifyUser{
