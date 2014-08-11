@@ -9,7 +9,7 @@ import (
 	"net/url"
 
 	"github.com/juju/utils"
-	charm "gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
