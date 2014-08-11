@@ -225,7 +225,7 @@ def main():
             else:
                 restore_missing_state_server(env, backup_file)
         except:
-            dump_env_logs(env, bootstrap_host,
+            dump_env_logs(env, None,
                           os.path.join(os.environ['WORKSPACE'], 'artifacts'))
             raise
         finally:
