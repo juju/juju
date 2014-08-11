@@ -18,6 +18,7 @@ github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d
 github.com/juju/testing	git	8bdbb45d87dd9724c254eb6afeacd84b127d7e76	
 github.com/juju/txn	git	ee0346875f2ae9a21442f3ff64409f750f37afbc	
 github.com/juju/utils	git	7f3110a0b4f01e5800e72b50cc92c8e9de4ea658	
+gopkg.in/natefinch/npipe.v2	git	86d100b9cc0fb2e0d27f2222801c16cd6fe9916a	
 gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
 gopkg.in/juju/charm.v2	git	ffe7392a3c6128c088b05d681fad336c4d3a8c22	
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
