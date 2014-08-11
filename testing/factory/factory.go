@@ -145,7 +145,7 @@ func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
 
 // MakeCharm creates a charm with the values specified in params.
 // Sensible default values are substituted for missing ones.
-// Supported charms depend on the github.com/juju/charm/testing package.
+// Supported charms depend on the charm/testing package.
 // Currently supported charms:
 //   all-hooks, category, dummy, format2, logging, monitoring, mysql,
 //   mysql-alternative, riak, terracotta, upgrade1, upgrade2, varnish,
