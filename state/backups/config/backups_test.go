@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backups_test
+package config_test
 
 import (
 	"os"
@@ -10,11 +10,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/state/backups/config"
 	"github.com/juju/juju/testing"
 )
-
-var getFilesToBackup = *backups.GetFilesToBackup
 
 var _ = gc.Suite(&sourcesSuite{})
 
@@ -25,7 +23,6 @@ type sourcesSuite struct {
 
 func (s *sourcesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-
 	s.root = c.MkDir()
 
 	// Prep the fake FS.
@@ -42,11 +39,11 @@ func (s *sourcesSuite) SetUpTest(c *gc.C) {
 	}
 
 	dirname := mkdir("/var/lib/juju")
+	touch(dirname, "tools")
 	touch(dirname, "system-identity")
 	touch(dirname, "nonce.txt")
 	touch(dirname, "server.pem")
 	touch(dirname, "shared-secret")
-	mkdir("/var/lib/juju/tools")
 
 	dirname = mkdir("/var/lib/juju/agents")
 	touch(dirname, "machine-0.conf")
@@ -66,8 +63,10 @@ func (s *sourcesSuite) SetUpTest(c *gc.C) {
 	touch(dirname, "authorized_keys")
 }
 
-func (s *sourcesSuite) TestGetFilesToBackup(c *gc.C) {
-	files, err := getFilesToBackup(s.root)
+func (s *sourcesSuite) TestBackupsConfigFilesToBackUp(c *gc.C) {
+	conf, err := config.NewBackupsConfig("", "", "", "", s.root)
+	c.Assert(err, gc.IsNil)
+	files, err := conf.FilesToBackUp()
 	c.Assert(err, gc.IsNil)
 
 	c.Check(files, jc.SameContents, []string{

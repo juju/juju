@@ -16,6 +16,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/state/backups/config"
 	"github.com/juju/juju/testing"
 )
 
@@ -130,14 +131,20 @@ func (s *legacySuite) assertTarContents(
 func (s *legacySuite) TestBackup(c *gc.C) {
 	s.createTestFiles(c)
 
-	s.PatchValue(backups.GetMongodumpPath, func() (string, error) {
-		return "bogusmongodump", nil
+	s.PatchValue(backups.GetDumpCmd, func(
+		config config.BackupsConfig, outdir string,
+	) (string, []string, error) {
+		_, args, err := config.DBDump(outdir)
+		c.Assert(err, gc.IsNil)
+		return "bogusmongodump", args, nil
 	})
-	s.PatchValue(backups.GetFilesToBackup, func(string) ([]string, error) {
+	s.PatchValue(backups.GetFilesToBackup, func(
+		config config.BackupsConfig,
+	) ([]string, error) {
 		return s.testFiles, nil
 	})
 	ranCommand := false
-	s.PatchValue(backups.RunCommand, func(command string, args ...string) error {
+	s.PatchValue(backups.RunCommand, func(cmd string, args ...string) error {
 		ranCommand = true
 		return nil
 	})
