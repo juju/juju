@@ -11,6 +11,7 @@ import (
 
 	"github.com/juju/juju/environs/manual"
 	"github.com/juju/juju/testing"
+	"github.com/juju/juju/utils/ssh"
 )
 
 type initialisationSuite struct {
@@ -140,18 +141,52 @@ func (s *initialisationSuite) TestCheckProvisioned(c *gc.C) {
 func (s *initialisationSuite) TestInitUbuntuUserNonExisting(c *gc.C) {
 	defer installFakeSSH(c, "", "", 0)() // successful creation of ubuntu user
 	defer installFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
-	err := manual.InitUbuntuUser("testhost", "testuser", "", nil, nil)
+	err := manual.InitUbuntuUser("testhost", "testuser", "", "", nil, nil)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *initialisationSuite) TestInitUbuntuUserExisting(c *gc.C) {
 	defer installFakeSSH(c, "", nil, 0)()
-	manual.InitUbuntuUser("testhost", "testuser", "", nil, nil)
+	manual.InitUbuntuUser("testhost", "testuser", "", "", nil, nil)
+}
+
+func (s *initialisationSuite) TestInitUbuntuUserSetIdentityFileInSSHOptions(c *gc.C) {
+	identityFile := "/path/to/identity/file"
+	client := newMockClient(ssh.DefaultClient)
+	s.PatchValue(manual.GetSSHClientFunc, func() ssh.Client {
+		return client
+	})
+	manual.InitUbuntuUser("testhost", "testuser", "", identityFile, nil, nil)
+
+	obtained := client.Options
+	var expected ssh.Options
+	expected.SetIdentities(identityFile)
+	expected.EnablePTY()
+	expected.AllowPasswordAuthentication()
+	c.Assert(obtained, gc.DeepEquals, &expected)
 }
 
 func (s *initialisationSuite) TestInitUbuntuUserError(c *gc.C) {
 	defer installFakeSSH(c, "", []string{"", "failed to create ubuntu user"}, 123)()
 	defer installFakeSSH(c, "", "", 1)() // simulate failure of ubuntu@ login
-	err := manual.InitUbuntuUser("testhost", "testuser", "", nil, nil)
+	err := manual.InitUbuntuUser("testhost", "testuser", "", "", nil, nil)
 	c.Assert(err, gc.ErrorMatches, "subprocess encountered error code 123 \\(failed to create ubuntu user\\)")
+}
+
+type mockClient struct {
+	Options *ssh.Options
+	Client  ssh.Client
+}
+
+func newMockClient(client ssh.Client) *mockClient {
+	return &mockClient{Client: client}
+}
+
+func (m *mockClient) Command(host string, command []string, options *ssh.Options) *ssh.Cmd {
+	m.Options = options
+	return m.Client.Command(host, command, options)
+}
+
+func (m *mockClient) Copy(args []string, options *ssh.Options) error {
+	return m.Client.Copy(args, options)
 }
