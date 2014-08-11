@@ -163,14 +163,18 @@ func (c *Settings) Write() ([]ItemChange, error) {
 		return []ItemChange{}, nil
 	}
 	sort.Sort(itemChangeSlice(changes))
+	var update bson.D
+	if len(updates) > 0 {
+		update = append(update, bson.DocElem{"$set", updates})
+	}
+	if len(deletions) > 0 {
+		update = append(update, bson.DocElem{"$unset", deletions})
+	}
 	ops := []txn.Op{{
 		C:      settingsC,
 		Id:     c.key,
 		Assert: txn.DocExists,
-		Update: bson.D{
-			{"$set", updates},
-			{"$unset", deletions},
-		},
+		Update: update,
 	}}
 	err := c.st.runTransaction(ops)
 	if err == txn.ErrAborted {
@@ -323,10 +327,14 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 	}
 	newValues := copyMap(values, escapeReplacer.Replace)
 	op := s.assertUnchangedOp()
-	op.Update = bson.D{
-		{"$set", newValues},
-		{"$unset", deletes},
+	var update bson.D
+	if len(newValues) > 0 {
+		update = append(update, bson.DocElem{"$set", newValues})
 	}
+	if len(deletes) > 0 {
+		update = append(update, bson.DocElem{"$unset", deletes})
+	}
+	op.Update = update
 	assertFailed := func() (bool, error) {
 		latest, err := readSettings(st, key)
 		if err != nil {

@@ -106,11 +106,18 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 
 // updateOps returns the operations required to update or remove annotations in MongoDB.
 func (a *annotator) updateOps(toUpdate map[string]string, toRemove map[string]bool) []txn.Op {
+	var update bson.D
+	if len(toUpdate) > 0 {
+		update = append(update, bson.DocElem{"$set", toUpdate})
+	}
+	if len(toRemove) > 0 {
+		update = append(update, bson.DocElem{"$unset", toRemove})
+	}
 	return []txn.Op{{
 		C:      annotationsC,
 		Id:     a.globalKey,
 		Assert: txn.DocExists,
-		Update: bson.D{{"$set", toUpdate}, {"$unset", toRemove}},
+		Update: update,
 	}}
 }
 
