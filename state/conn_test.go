@@ -61,7 +61,7 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 	cs.stateServers = cs.MgoSuite.Session.DB("juju").C("stateServers")
 	cs.State.AddAdminUser("pass")
-	cs.factory = factory.NewFactory(cs.State, c)
+	cs.factory = factory.NewFactory(cs.State)
 }
 
 func (cs *ConnSuite) TearDownTest(c *gc.C) {

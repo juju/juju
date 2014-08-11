@@ -127,8 +127,8 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 	barfoo := "barfoo"
 	fooTag := names.NewUserTag(foobar)
 	barTag := names.NewUserTag(barfoo)
-	userFoo := s.Factory.MakeUser(factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
-	userBar := s.Factory.MakeUser(factory.UserParams{Name: barfoo, DisplayName: "Bar Foo"})
+	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
+	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: barfoo, DisplayName: "Bar Foo"})
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: fooTag.String()}, {Tag: barTag.String()}},
@@ -162,7 +162,7 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
 	foobar := "foobar"
 	fooTag := names.NewUserTag(foobar)
-	user := s.Factory.MakeUser(factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: fooTag.String()}},
@@ -328,7 +328,7 @@ func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
 // users to change other users passwords. For the time being we only allow
 // the password of the current user to be changed
 func (s *userManagerSuite) TestSetPasswordOnDifferentUser(c *gc.C) {
-	s.Factory.MakeUser(factory.UserParams{Name: "foobar"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 	args := usermanager.ModifyUsers{
 		Changes: []usermanager.ModifyUser{{
 			Username:    "foobar",

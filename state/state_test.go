@@ -2379,7 +2379,7 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = unit.AddAction("fakeaction", nil)
 	c.Assert(err, gc.IsNil)
-	s.factory.MakeUser(factory.UserParams{Name: "arble"})
+	s.factory.MakeUser(c, &factory.UserParams{Name: "arble"})
 	c.Assert(err, gc.IsNil)
 	s.AddTestingService(c, "wordpress", s.AddTestingCharm(c, "wordpress"))
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "ser-vice2"})
@@ -2476,7 +2476,7 @@ func (s *StateSuite) TestParseActionTag(c *gc.C) {
 }
 
 func (s *StateSuite) TestParseUserTag(c *gc.C) {
-	user := s.factory.MakeUser()
+	user := s.factory.MakeUser(c, nil)
 	coll, id, err := state.ParseTag(s.State, user.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(coll, gc.Equals, "users")

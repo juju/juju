@@ -91,7 +91,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.setUpConn(c)
-	s.Factory = factory.NewFactory(s.State, c)
+	s.Factory = factory.NewFactory(s.State)
 }
 
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {

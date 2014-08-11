@@ -23,12 +23,11 @@ const (
 
 type Factory struct {
 	st    *state.State
-	c     *gc.C
 	index int
 }
 
-func NewFactory(st *state.State, c *gc.C) *Factory {
-	return &Factory{st: st, c: c}
+func NewFactory(st *state.State) *Factory {
+	return &Factory{st: st}
 }
 
 type UserParams struct {
@@ -100,12 +99,9 @@ func (factory *Factory) UniqueString(prefix string) string {
 // some meaningful valid values are used instead.
 // If params is not specified, defaults are used. If more than one
 // params struct is passed to the function, it panics.
-func (factory *Factory) MakeUser(vParams ...UserParams) *state.User {
-	params := UserParams{}
-	if len(vParams) == 1 {
-		params = vParams[0]
-	} else if len(vParams) > 1 {
-		panic("expecting 1 parameter or none")
+func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
+	if params == nil {
+		params = &UserParams{}
 	}
 	if params.Name == "" {
 		params.Name = factory.UniqueString("username")
@@ -121,7 +117,7 @@ func (factory *Factory) MakeUser(vParams ...UserParams) *state.User {
 	}
 	user, err := factory.st.AddUser(
 		params.Name, params.DisplayName, params.Password, params.Creator)
-	factory.c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	return user
 }
 
@@ -130,12 +126,9 @@ func (factory *Factory) MakeUser(vParams ...UserParams) *state.User {
 // set.
 // If params is not specified, defaults are used. If more than one
 // params struct is passed to the function, it panics.
-func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
-	params := MachineParams{}
-	if len(vParams) == 1 {
-		params = vParams[0]
-	} else if len(vParams) > 1 {
-		panic("expecting 1 parameter or none")
+func (factory *Factory) MakeMachine(c *gc.C, params *MachineParams) *state.Machine {
+	if params == nil {
+		params = &MachineParams{}
 	}
 	if params.Series == "" {
 		params.Series = "quantal"
@@ -152,14 +145,14 @@ func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
 	if params.Password == "" {
 		var err error
 		params.Password, err = utils.RandomPassword()
-		factory.c.Assert(err, gc.IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
-	factory.c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	err = machine.SetProvisioned(params.InstanceId, params.Nonce, params.Characteristics)
-	factory.c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	err = machine.SetPassword(params.Password)
-	factory.c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	return machine
 }
 
@@ -172,12 +165,9 @@ func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
 //   varnish-alternative, wordpress.
 // If params is not specified, defaults are used. If more than one
 // params struct is passed to the function, it panics.
-func (factory *Factory) MakeCharm(vParams ...CharmParams) *state.Charm {
-	params := CharmParams{}
-	if len(vParams) == 1 {
-		params = vParams[0]
-	} else if len(vParams) > 1 {
-		panic("expecting 1 parameter or none")
+func (factory *Factory) MakeCharm(c *gc.C, params *CharmParams) *state.Charm {
+	if params == nil {
+		params = &CharmParams{}
 	}
 	if params.Name == "" {
 		params.Name = "mysql"
@@ -197,10 +187,10 @@ func (factory *Factory) MakeCharm(vParams ...CharmParams) *state.Charm {
 	curl := charm.MustParseURL(params.URL)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
 	bundleSHA256 := factory.UniqueString("bundlesha")
-	factory.c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	charm, err := factory.st.AddCharm(ch, curl, bundleURL, bundleSHA256)
 
-	factory.c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	return charm
 }
 
@@ -208,26 +198,22 @@ func (factory *Factory) MakeCharm(vParams ...CharmParams) *state.Charm {
 // sane defaults for missing values.
 // If params is not specified, defaults are used. If more than one
 // params struct is passed to the function, it panics.
-func (factory *Factory) MakeService(vParams ...ServiceParams) *state.Service {
-	params := ServiceParams{}
-	if len(vParams) == 1 {
-		params = vParams[0]
-	} else if len(vParams) > 1 {
-		panic("expecting 1 parameter or none")
+func (factory *Factory) MakeService(c *gc.C, params *ServiceParams) *state.Service {
+	if params == nil {
+		params = &ServiceParams{}
 	}
-
 	if params.Charm == nil {
-		params.Charm = factory.MakeCharm()
+		params.Charm = factory.MakeCharm(c, nil)
 	}
 	if params.Name == "" {
 		params.Name = params.Charm.Meta().Name
 	}
 	if params.Creator == "" {
-		creator := factory.MakeUser()
+		creator := factory.MakeUser(c, nil)
 		params.Creator = creator.Tag().String()
 	}
 	service, err := factory.st.AddService(params.Name, params.Creator, params.Charm, nil)
-	factory.c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	return service
 }
 
@@ -235,24 +221,20 @@ func (factory *Factory) MakeService(vParams ...ServiceParams) *state.Service {
 // sane defaults for missing values.
 // If params is not specified, defaults are used. If more than one
 // params struct is passed to the function, it panics.
-func (factory *Factory) MakeUnit(vParams ...UnitParams) *state.Unit {
-	params := UnitParams{}
-	if len(vParams) == 1 {
-		params = vParams[0]
-	} else if len(vParams) > 1 {
-		panic("expecting 1 parameter or none")
+func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
+	if params == nil {
+		params = &UnitParams{}
 	}
-
 	if params.Machine == nil {
-		params.Machine = factory.MakeMachine()
+		params.Machine = factory.MakeMachine(c, nil)
 	}
 	if params.Service == nil {
-		params.Service = factory.MakeService()
+		params.Service = factory.MakeService(c, nil)
 	}
 	unit, err := params.Service.AddUnit()
-	factory.c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	err = unit.AssignToMachine(params.Machine)
-	factory.c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	return unit
 }
 
@@ -260,36 +242,32 @@ func (factory *Factory) MakeUnit(vParams ...UnitParams) *state.Unit {
 // defaults for missing values.
 // If params is not specified, defaults are used. If more than one
 // params struct is passed to the function, it panics.
-func (factory *Factory) MakeRelation(vParams ...RelationParams) *state.Relation {
-	params := RelationParams{}
-	if len(vParams) == 1 {
-		params = vParams[0]
-	} else if len(vParams) > 1 {
-		panic("expecting 1 parameter or none")
+func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Relation {
+	if params == nil {
+		params = &RelationParams{}
 	}
-
 	if len(params.Endpoints) == 0 {
-		s1 := factory.MakeService(ServiceParams{
-			Charm: factory.MakeCharm(CharmParams{
+		s1 := factory.MakeService(c, &ServiceParams{
+			Charm: factory.MakeCharm(c, &CharmParams{
 				Name: "mysql",
 			}),
 		})
 		e1, err := s1.Endpoint("server")
-		factory.c.Assert(err, gc.IsNil)
+		c.Assert(err, gc.IsNil)
 
-		s2 := factory.MakeService(ServiceParams{
-			Charm: factory.MakeCharm(CharmParams{
+		s2 := factory.MakeService(c, &ServiceParams{
+			Charm: factory.MakeCharm(c, &CharmParams{
 				Name: "wordpress",
 			}),
 		})
 		e2, err := s2.Endpoint("db")
-		factory.c.Assert(err, gc.IsNil)
+		c.Assert(err, gc.IsNil)
 
 		params.Endpoints = []state.Endpoint{e1, e2}
 	}
 
 	relation, err := factory.st.AddRelation(params.Endpoints...)
-	factory.c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 
 	return relation
 }

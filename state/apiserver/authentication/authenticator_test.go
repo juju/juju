@@ -31,8 +31,8 @@ func (s *AgentAuthenticatorSuite) TestFindEntityAuthenticatorFails(c *gc.C) {
 }
 
 func (s *AgentAuthenticatorSuite) TestFindEntityAuthenticator(c *gc.C) {
-	fact := factory.NewFactory(s.State, c)
-	user := fact.MakeUser(factory.UserParams{Password: "password"})
+	fact := factory.NewFactory(s.State)
+	user := fact.MakeUser(c, &factory.UserParams{Password: "password"})
 	authenticator, err := authentication.FindEntityAuthenticator(user)
 	c.Assert(err, gc.IsNil)
 	c.Assert(authenticator, gc.NotNil)
