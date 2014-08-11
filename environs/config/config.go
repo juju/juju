@@ -13,12 +13,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/schema"
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
+	"gopkg.in/juju/charm.v2"
 
 	"github.com/juju/juju/cert"
 	"github.com/juju/juju/juju/osenv"

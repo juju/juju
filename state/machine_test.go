@@ -11,6 +11,7 @@ import (
 	"github.com/juju/loggo"
 	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
 
@@ -23,7 +24,6 @@ import (
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
-	"github.com/juju/txn"
 )
 
 type MachineSuite struct {

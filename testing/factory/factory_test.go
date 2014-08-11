@@ -6,9 +6,9 @@ package factory_test
 import (
 	"fmt"
 
-	"github.com/juju/charm"
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v2"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environmentserver/authentication"

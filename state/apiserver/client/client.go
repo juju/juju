@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -950,7 +950,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	}
 
 	// Open it and calculate the SHA256 hash.
-	downloadedBundle, ok := downloadedCharm.(*charm.Bundle)
+	downloadedBundle, ok := downloadedCharm.(*charm.CharmArchive)
 	if !ok {
 		return errors.Errorf("expected a charm archive, got %T", downloadedCharm)
 	}

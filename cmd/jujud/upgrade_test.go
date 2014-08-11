@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/utils/apt"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"

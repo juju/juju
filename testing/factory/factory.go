@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
+	"gopkg.in/juju/charm.v2"
+	charmtesting "gopkg.in/juju/charm.v2/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
@@ -145,7 +145,7 @@ func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
 
 // MakeCharm creates a charm with the values specified in params.
 // Sensible default values are substituted for missing ones.
-// Supported charms depend on the github.com/juju/charm/testing package.
+// Supported charms depend on the charm/testing package.
 // Currently supported charms:
 //   all-hooks, category, dummy, format2, logging, monitoring, mysql,
 //   mysql-alternative, riak, terracotta, upgrade1, upgrade2, varnish,
@@ -172,7 +172,7 @@ func (factory *Factory) MakeCharm(vParams ...CharmParams) *state.Charm {
 		params.URL = fmt.Sprintf("cs:%s/%s-%s", params.Series, params.Name, params.Revision)
 	}
 
-	ch := charmtesting.Charms.Dir(params.Name)
+	ch := charmtesting.Charms.CharmDir(params.Name)
 
 	curl := charm.MustParseURL(params.URL)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")

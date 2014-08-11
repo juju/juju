@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v2"
+	charmtesting "gopkg.in/juju/charm.v2/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -1196,7 +1196,7 @@ func addCharm(c *gc.C, store *charmtesting.MockCharmStore, name string) (*charm.
 }
 
 func addSeriesCharm(c *gc.C, store *charmtesting.MockCharmStore, series, name string) (*charm.URL, charm.Charm) {
-	bundle := charmtesting.Charms.Bundle(c.MkDir(), name)
+	bundle := charmtesting.Charms.CharmArchive(c.MkDir(), name)
 	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
 	err := store.SetCharm(curl, bundle)
@@ -2006,7 +2006,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 
 	// Add a charm, without uploading it to storage, to
 	// check that AddCharm does not try to do it.
-	charmDir := charmtesting.Charms.Dir("dummy")
+	charmDir := charmtesting.Charms.CharmDir("dummy")
 	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
 	curl := charm.MustParseURL("cs:quantal/" + ident)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)

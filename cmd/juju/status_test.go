@@ -10,10 +10,10 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v2"
+	charmtesting "gopkg.in/juju/charm.v2/testing"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -1827,7 +1827,7 @@ type addCharm struct {
 }
 
 func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
-	ch := charmtesting.Charms.Dir(ac.name)
+	ch := charmtesting.Charms.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("%s:quantal/%s-%d", scheme, name, rev))
 	bundleURL, err := url.Parse(fmt.Sprintf("http://bundles.testing.invalid/%s-%d", name, rev))
@@ -1838,7 +1838,7 @@ func (ac addCharm) addCharmStep(c *gc.C, ctx *context, scheme string, rev int) {
 }
 
 func (ac addCharm) step(c *gc.C, ctx *context) {
-	ch := charmtesting.Charms.Dir(ac.name)
+	ch := charmtesting.Charms.CharmDir(ac.name)
 	ac.addCharmStep(c, ctx, "cs", ch.Revision())
 }
 
@@ -1904,7 +1904,7 @@ type addCharmPlaceholder struct {
 }
 
 func (ac addCharmPlaceholder) step(c *gc.C, ctx *context) {
-	ch := charmtesting.Charms.Dir(ac.name)
+	ch := charmtesting.Charms.CharmDir(ac.name)
 	name := ch.Meta().Name
 	curl := charm.MustParseURL(fmt.Sprintf("cs:quantal/%s-%d", name, ac.rev))
 	err := ctx.st.AddStoreCharmPlaceholder(curl)
