@@ -81,8 +81,8 @@ def restore_present_state_server(env, backup_file):
     """juju-restore wont restore when the state-server is still present."""
     environ = dict(os.environ)
     proc = subprocess.Popen(
-        ["juju-restore", '-e', env.environment, backup_file], env=environ,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ["juju', '--show-log', 'restore", '-e', env.environment, backup_file],
+        env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
     if proc.returncode == 0:
         raise Exception(
@@ -186,6 +186,15 @@ def wait_for_state_server_to_shutdown(host, env, instance_id):
                 '{} was not deleted:\n{}'.format(instance_id, output))
 
 
+def parse_new_state_server_from_error(error):
+    # find all the "Attempting to connect to (.*)" and return the last one.
+    output = str(error) + getattr(error, 'output','')
+    matches = re.findall(r'Attempting to connect to (.*)\n', output)
+    if matches:
+        return matches[-1].group(0)
+    return None
+
+
 def main():
     parser = ArgumentParser('Test recovery strategies.')
     parser.add_argument(
@@ -227,7 +236,9 @@ def main():
                 env.get_status(600)
             else:
                 restore_missing_state_server(env, backup_file)
-        except:
+        except Exception as e:
+            if log_host is None:
+                log_host = parse_new_state_server_from_error(e)
             if log_host is not None:
                 dump_logs(env, log_host,
                           os.path.join(os.environ['WORKSPACE'], 'artifacts'))
@@ -235,10 +246,12 @@ def main():
         finally:
             destroy_environment(env)
     except Exception as e:
+        print_now("\nEXCEPTION CAUGHT:\n")
         print_now(e)
         if getattr(e, 'output', None):
+            print_now('\n')
             print_now(e.output)
-        print_now("FAIL")
+        print_now("\nFAIL")
         sys.exit(1)
 
 
