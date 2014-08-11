@@ -318,7 +318,7 @@ func (s *SSHStorage) Put(name string, r io.Reader, length int64) error {
 	tmpdir := utils.ShQuote(s.tmpdir)
 
 	// Write to a temporary file ($TMPFILE), then mv atomically.
-	command := fmt.Sprintf("mkdir -p `dirname %s` && cat > $TMPFILE", path)
+	command := fmt.Sprintf("mkdir -p `dirname %s` && cat >| $TMPFILE", path)
 	command = fmt.Sprintf(
 		"TMPFILE=`mktemp --tmpdir=%s` && ((%s && mv $TMPFILE %s) || rm -f $TMPFILE)",
 		tmpdir, command, path,

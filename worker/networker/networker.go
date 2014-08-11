@@ -26,15 +26,26 @@ type networker struct {
 	st                     *apinetworker.State
 	tag                    string
 	isVLANSupportInstalled bool
+	canWriteNetworkConfig  bool
 }
 
 // NewNetworker returns a Worker that handles machine networking
 // configuration. If there is no /etc/network/interfaces file, an
 // error is returned.
 func NewNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Worker, error) {
+	return newNetworker(st, agentConfig, true)
+}
+
+// NewSafeNetworker returns a Worker that handles machine networking
+// configuration. It does not write out config files.
+func NewSafeNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Worker, error) {
+	return newNetworker(st, agentConfig, false)
+}
+func newNetworker(st *apinetworker.State, agentConfig agent.Config, canWriteNetworkConfig bool) (worker.Worker, error) {
 	nw := &networker{
 		st:  st,
 		tag: agentConfig.Tag().String(),
+		canWriteNetworkConfig: canWriteNetworkConfig,
 	}
 	// Verify we have /etc/network/interfaces first, otherwise bail out.
 	if !CanStart() {
@@ -46,12 +57,14 @@ func NewNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Work
 }
 
 func (nw *networker) SetUp() (watcher.NotifyWatcher, error) {
-	s := &configState{}
+	s := &configState{canWriteNetworkConfig: nw.canWriteNetworkConfig}
 
 	// Read network configuration files and revert modifications made by MAAS.
+
 	if err := s.configFiles.readAll(); err != nil {
 		return nil, err
 	}
+
 	if err := s.configFiles.fixMAAS(); err != nil {
 		return nil, err
 	}
@@ -73,8 +86,7 @@ func (nw *networker) SetUp() (watcher.NotifyWatcher, error) {
 
 func (nw *networker) Handle() error {
 	var err error
-	s := &configState{}
-
+	s := &configState{canWriteNetworkConfig: nw.canWriteNetworkConfig}
 	// Read configuration files for managed interfaces.
 	if err = s.configFiles.readManaged(); err != nil {
 		return err

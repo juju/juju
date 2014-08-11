@@ -248,7 +248,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
-
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
 			info, err := st.Agent().StateServingInfo()
@@ -282,6 +281,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 
+	providerType := agentConfig.Value(agent.ProviderType)
+
 	// Run the upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
@@ -309,16 +310,23 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 	if networker.CanStart() {
-		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return networker.NewNetworker(st.Networker(), agentConfig)
-		})
+		// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
+		writeNetworkConfig := providerType == "maas"
+		if writeNetworkConfig {
+			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+				return networker.NewNetworker(st.Networker(), agentConfig)
+			})
+		} else {
+			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+				return networker.NewSafeNetworker(st.Networker(), agentConfig)
+			})
+		}
 	} else {
 		logger.Infof("not starting networker - missing /etc/network/interfaces")
 	}
 
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
-	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
 		a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
 			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil

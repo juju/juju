@@ -52,7 +52,6 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.rawMachine.Tag(),
-		LoggedIn:     true,
 		MachineAgent: true,
 	}
 	s.upgrader, err = upgrader.NewUpgraderAPI(s.State, s.resources, s.authorizer)
@@ -308,7 +307,6 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	// Grab a different Upgrader for the apiMachine
 	authorizer := apiservertesting.FakeAuthorizer{
 		Tag:          s.apiMachine.Tag(),
-		LoggedIn:     true,
 		MachineAgent: true,
 	}
 	upgraderAPI, err := upgrader.NewUpgraderAPI(s.State, s.resources, authorizer)

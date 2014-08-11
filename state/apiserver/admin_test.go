@@ -167,9 +167,9 @@ func (s *loginSuite) TestLoginSetsLogIdentifier(c *gc.C) {
 		// Now that we are logged in, we see the entity's tag
 		// [0-9.umns] is to handle timestamps that are ns, us, ms, or s
 		// long, though we expect it to be in the 'ms' range.
-		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[umn]?s {"RequestId":1,"Response":.*} Admin\[""\].Login`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.]+[µumn]?s {"RequestId":1,"Response":.*} Admin\[""\].Login`,
 		`<- \[[0-9A-F]+\] machine-0 {"RequestId":2,"Type":"Machiner","Request":"Life","Params":{"Entities":\[{"Tag":"machine-0"}\]}}`,
-		`-> \[[0-9A-F]+\] machine-0 [0-9.umns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
+		`-> \[[0-9A-F]+\] machine-0 [0-9.µumns]+ {"RequestId":2,"Response":{"Results":\[{"Life":"alive","Error":null}\]}} Machiner\[""\]\.Life`,
 	})
 }
 
@@ -458,7 +458,7 @@ func (s *loginSuite) TestLoginReportsEnvironTag(c *gc.C) {
 		AuthTag:  "user-admin",
 		Password: "dummy-secret",
 	}
-	err = st.Call("Admin", "", "Login", creds, &result)
+	err = st.APICall("Admin", 0, "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
@@ -474,7 +474,7 @@ func (s *loginSuite) TestLoginValidationSuccess(c *gc.C) {
 
 		// Ensure an API call that would be restricted during
 		// upgrades works after a normal login.
-		err := st.Call("Client", "", "DestroyEnvironment", nil, nil)
+		err := st.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
 		c.Assert(err, gc.IsNil)
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -498,10 +498,10 @@ func (s *loginSuite) TestLoginValidationDuringUpgrade(c *gc.C) {
 		c.Assert(loginErr, gc.IsNil)
 
 		var statusResult api.Status
-		err := st.Call("Client", "", "FullStatus", params.StatusParams{}, &statusResult)
+		err := st.APICall("Client", 0, "", "FullStatus", params.StatusParams{}, &statusResult)
 		c.Assert(err, gc.IsNil)
 
-		err = st.Call("Client", "", "DestroyEnvironment", nil, nil)
+		err = st.APICall("Client", 0, "", "DestroyEnvironment", nil, nil)
 		c.Assert(err, gc.ErrorMatches, "upgrade in progress - Juju functionality is limited")
 	}
 	s.checkLoginWithValidator(c, validator, checker)
@@ -569,7 +569,7 @@ func (s *loginSuite) TestLoginReportsAvailableFacadeVersions(c *gc.C) {
 		AuthTag:  "user-admin",
 		Password: "dummy-secret",
 	}
-	err = st.Call("Admin", "", "Login", creds, &result)
+	err = st.APICall("Admin", 0, "", "Login", creds, &result)
 	c.Assert(err, gc.IsNil)
 	c.Check(result.Facades, gc.Not(gc.HasLen), 0)
 	// as a sanity check, ensure that we have Client v0

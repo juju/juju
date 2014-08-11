@@ -70,7 +70,17 @@ func (s *MongoSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(&mongo.JujuMongodPath, s.mongodPath)
 
 	// Patch "df" such that it always reports there's 1MB free.
-	s.PatchValue(mongo.AvailSpace, func(dir string) (float64, error) { return 1, nil })
+	s.PatchValue(mongo.AvailSpace, func(dir string) (float64, error) {
+		info, err := os.Stat(dir)
+		if err != nil {
+			return 0, err
+		}
+		if info.IsDir() {
+			return 1, nil
+
+		}
+		return 0, fmt.Errorf("not a directory")
+	})
 	s.PatchValue(mongo.MinOplogSizeMB, 1)
 
 	testPath := c.MkDir()
@@ -285,10 +295,34 @@ func (s *MongoSuite) TestInstallMongod(c *gc.C) {
 	}
 }
 
+func (s *MongoSuite) TestInstallMongodServiceExists(c *gc.C) {
+	output := mockShellCommand(c, &s.CleanupSuite, "apt-get")
+	dataDir := c.MkDir()
+	namespace := "namespace"
+
+	s.PatchValue(mongo.UpstartServiceExists, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceRunning, func(svc *upstart.Service) bool {
+		return true
+	})
+	s.PatchValue(mongo.UpstartServiceStart, func(svc *upstart.Service) error {
+		return fmt.Errorf("shouldn't be called")
+	})
+
+	err := mongo.EnsureServer(makeEnsureServerParams(dataDir, namespace))
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.installed, gc.HasLen, 0)
+
+	// We still attempt to install mongodb, despite the service existing.
+	cmds := getMockShellCalls(c, output)
+	c.Assert(cmds, gc.HasLen, 1)
+}
+
 func (s *MongoSuite) TestUpstartServiceWithReplSet(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234, 1024)
+	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Conf.Cmd, "--replSet"), jc.IsTrue)
 }
@@ -296,7 +330,7 @@ func (s *MongoSuite) TestUpstartServiceWithReplSet(c *gc.C) {
 func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234, 1024)
+	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024)
 	c.Assert(err, gc.IsNil)
 	c.Assert(strings.Contains(svc.Conf.Cmd, "--ipv6"), jc.IsTrue)
 }
@@ -304,7 +338,7 @@ func (s *MongoSuite) TestUpstartServiceIPv6(c *gc.C) {
 func (s *MongoSuite) TestUpstartServiceWithJournal(c *gc.C) {
 	dataDir := c.MkDir()
 
-	svc, _, err := mongo.UpstartService("", dataDir, dataDir, 1234, 1024)
+	svc, err := mongo.UpstartService("", dataDir, dataDir, mongo.JujuMongodPath, 1234, 1024)
 	c.Assert(err, gc.IsNil)
 	journalPresent := strings.Contains(svc.Conf.Cmd, " --journal ") || strings.HasSuffix(svc.Conf.Cmd, " --journal")
 	c.Assert(journalPresent, jc.IsTrue)
@@ -346,6 +380,7 @@ func (s *MongoSuite) TestQuantalAptAddRepo(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot install mongod: cannot add apt repository: exit status 1.*")
 
 	s.PatchValue(&version.Current.Series, "trusty")
+	failCmd(filepath.Join(dir, "mongod"))
 	err = mongo.EnsureServer(makeEnsureServerParams(dir, ""))
 	c.Assert(err, gc.IsNil)
 }
