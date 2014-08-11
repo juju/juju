@@ -7,32 +7,18 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/utils/tar"
 
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/mongo"
+	coreutils "github.com/juju/juju/utils"
 )
 
 var sep = string(os.PathSeparator)
 
-var runCommand = func(cmd string, args ...string) error {
-	command := exec.Command(cmd, args...)
-	out, err := command.CombinedOutput()
-	if err == nil {
-		return nil
-	}
-	if _, ok := err.(*exec.ExitError); ok && len(out) > 0 {
-		return errors.Errorf(
-			"error executing %q: %s",
-			cmd,
-			strings.Replace(string(out), "\n", "; ", -1),
-		)
-	}
-	return errors.Annotatef(err, "cannot execute %q", cmd)
-}
+var runCommand = coreutils.RunCommand
 
 //---------------------------
 // state-related files
