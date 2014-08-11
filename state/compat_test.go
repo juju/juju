@@ -202,9 +202,9 @@ func (s *compatSuite) TestMigratePortsOnClose(c *gc.C) {
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	// Check if closing an unopened port causes error
+	// Check if closing an unopened port works
 	err = unit.ClosePort("tcp", 8080)
-	c.Assert(err, gc.ErrorMatches, "cannot close ports 8080-8080/tcp for unit \"mysql/0\": no match found for port range: 8080-8080/tcp")
+	c.Assert(err, gc.IsNil)
 
 	err = unit.ClosePort("tcp", 80)
 	c.Assert(err, gc.IsNil)

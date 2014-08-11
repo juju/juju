@@ -1031,7 +1031,7 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 	})
 
 	err = s.unit.ClosePort("tcp", 80)
-	c.Assert(err, gc.ErrorMatches, ".* no match found for port range: .*")
+	c.Assert(err, gc.IsNil)
 	open = s.unit.OpenedPorts()
 	c.Assert(open, gc.DeepEquals, []network.Port{
 		{"tcp", 53},
