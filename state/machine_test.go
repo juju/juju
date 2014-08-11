@@ -9,6 +9,7 @@ import (
 
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
+	jujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
@@ -344,9 +345,52 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
-	testSetMongoPassword(c, func(st *state.State) (entity, error) {
-		return st.Machine(s.machine.Id())
-	})
+	info := state.TestingMongoInfo()
+	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	// Turn on fully-authenticated mode.
+	err = st.SetAdminMongoPassword(jujutesting.DefaultMongoPassword)
+	c.Assert(err, gc.IsNil)
+
+	// Set the password for the machine.
+	m, err := st.Machine("0")
+	c.Assert(err, gc.IsNil)
+	err = m.SetMongoPassword("foo")
+	c.Assert(err, gc.IsNil)
+
+	// Check that we cannot log in with the wrong password.
+	info.Tag = m.Tag()
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "foo"
+	err = tryOpenState(info)
+	c.Assert(err, gc.IsNil)
+
+	// Change the password with an entity derived from the newly
+	// opened and authenticated state.
+	m, err = st.Machine("0")
+	c.Assert(err, gc.IsNil)
+	err = m.SetMongoPassword("bar")
+	c.Assert(err, gc.IsNil)
+
+	// Check that we cannot log in with the old password.
+	info.Password = "foo"
+	err = tryOpenState(info)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+
+	// Check that we can log in with the new password.
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, gc.IsNil)
+
+	// Check that the administrator can still log in.
+	info.Tag, info.Password = nil, jujutesting.DefaultMongoPassword
+	err = tryOpenState(info)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *MachineSuite) TestSetPassword(c *gc.C) {
