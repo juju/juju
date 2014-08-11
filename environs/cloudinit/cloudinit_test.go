@@ -83,6 +83,7 @@ var stateServingInfo = &params.StateServingInfo{
 }
 
 var logDir = must(paths.LogDir("precise"))
+var dataDir = must(paths.DataDir("precise"))
 var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
 // Each test gives a cloudinit config - we check the
@@ -111,8 +112,8 @@ var cloudinitTests = []cloudinitTest{
 				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			Constraints:             envConstraints,
-			DataDir:                 environs.DataDir,
-			LogDir:                  agent.DefaultLogDir,
+			DataDir:                 dataDir,
+			LogDir:                  path.Join(logDir, "juju"),
 			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      cloudInitOutputLog,
 			InstanceId:              "i-bootstrap",
@@ -174,8 +175,8 @@ start jujud-machine-0
 				CACert:   "CA CERT\n" + testing.CACert,
 			},
 			Constraints:             envConstraints,
-			DataDir:                 environs.DataDir,
-			LogDir:                  agent.DefaultLogDir,
+			DataDir:                 dataDir,
+			LogDir:                  path.Join(logDir, "juju"),
 			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      cloudInitOutputLog,
 			InstanceId:              "i-bootstrap",
@@ -200,8 +201,8 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			MachineId:          "99",
 			AuthorizedKeys:     "sshkey1",
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
-			DataDir:            environs.DataDir,
-			LogDir:             agent.DefaultLogDir,
+			DataDir:            dataDir,
+			LogDir:             path.Join(logDir, "juju"),
 			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: cloudInitOutputLog,
 			Bootstrap:          false,
@@ -259,8 +260,8 @@ start jujud-machine-99
 			MachineContainerType: "lxc",
 			AuthorizedKeys:       "sshkey1",
 			AgentEnvironment:     map[string]string{agent.ProviderType: "dummy"},
-			DataDir:              environs.DataDir,
-			LogDir:               agent.DefaultLogDir,
+			DataDir:              dataDir,
+			LogDir:               path.Join(logDir, "juju"),
 			Jobs:                 normalMachineJobs,
 			CloudInitOutputLog:   cloudInitOutputLog,
 			Bootstrap:            false,
@@ -298,8 +299,8 @@ start jujud-machine-2-lxc-1
 			MachineId:          "99",
 			AuthorizedKeys:     "sshkey1",
 			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
-			DataDir:            environs.DataDir,
-			LogDir:             agent.DefaultLogDir,
+			DataDir:            dataDir,
+			LogDir:             path.Join(logDir, "juju"),
 			Jobs:               normalMachineJobs,
 			CloudInitOutputLog: cloudInitOutputLog,
 			Bootstrap:          false,
@@ -349,8 +350,8 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 				Password: "bletch",
 				CACert:   "CA CERT\n" + testing.CACert,
 			},
-			DataDir:                 environs.DataDir,
-			LogDir:                  agent.DefaultLogDir,
+			DataDir:                 dataDir,
+			LogDir:                  path.Join(logDir, "juju"),
 			Jobs:                    allMachineJobs,
 			CloudInitOutputLog:      cloudInitOutputLog,
 			InstanceId:              "i-bootstrap",
