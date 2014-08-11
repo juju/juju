@@ -579,11 +579,6 @@ type CharmsResponse struct {
 	Files    []string `json:",omitempty"`
 }
 
-// BackupResponse is the server (error only) response to backup requests
-type BackupResponse struct {
-	Error string `json:",omitempty"`
-}
-
 // RunParams is used to provide the parameters to the Run method.
 // Commands and Timeout are expected to have values, and one or more
 // values should be in the Machines, Services, or Units slices.
