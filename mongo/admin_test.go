@@ -157,19 +157,37 @@ func (s *adminSuite) TestSetAdminMongoPassword(c *gc.C) {
 
 	// Check that we can SetAdminMongoPassword to nothing when there's
 	// no password currently set.
-	err = mongo.SetAdminMongoPassword(session, "auser", "")
+	err = mongo.SetAdminMongoPassword(session, "admin", "")
 	c.Assert(err, gc.IsNil)
 
-	err = mongo.SetAdminMongoPassword(session, "auser", "foo")
+	err = mongo.SetAdminMongoPassword(session, "admin", "foo")
 	c.Assert(err, gc.IsNil)
-	err = admin.Login("auser", "")
+	err = admin.Login("admin", "")
 	c.Assert(err, gc.ErrorMatches, "auth fails")
-	err = admin.Login("auser", "foo")
+	err = admin.Login("admin", "foo")
 	c.Assert(err, gc.IsNil)
-	checkRoles(c, admin, "auser",
+	checkRoles(c, admin, "admin",
 		[]interface{}{
 			string(mgo.RoleReadWriteAny),
 			string(mgo.RoleDBAdminAny),
 			string(mgo.RoleUserAdminAny),
 			string(mgo.RoleClusterAdmin)})
+}
+
+func (s *adminSuite) TestSetMongoPassword(c *gc.C) {
+	dialInfo := s.setUpMongo(c)
+	session, err := mgo.DialWithInfo(dialInfo)
+	c.Assert(err, gc.IsNil)
+	defer session.Close()
+	db := session.DB("juju")
+
+	err = db.Login("foo", "bar")
+	c.Assert(err, gc.ErrorMatches, "auth fails")
+
+	err = mongo.SetMongoPassword("foo", "bar", db)
+	c.Assert(err, gc.IsNil)
+	err = db.Login("foo", "bar")
+	c.Assert(err, gc.IsNil)
+	checkRoles(c, db, "foo",
+		[]interface{}{string(mgo.RoleReadWriteAny), string(mgo.RoleUserAdmin), string(mgo.RoleClusterAdmin)})
 }

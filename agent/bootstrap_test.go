@@ -82,7 +82,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	mcfg := agent.BootstrapMachineConfig{
 		Addresses:       network.NewAddresses("zeroonetwothree", "0.1.2.3"),
 		Constraints:     expectConstraints,
-		Jobs:            []params.MachineJob{params.JobManageEnviron},
+		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 		SharedSecret:    "abc123",
@@ -114,7 +114,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
+	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits})
 	c.Assert(m.Series(), gc.Equals, version.Current.Series)
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), gc.DeepEquals, mcfg.Addresses)
@@ -210,7 +210,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
 		Constraints:     expectConstraints,
-		Jobs:            []params.MachineJob{params.JobManageEnviron},
+		Jobs:            []params.MachineJob{params.JobHostUnits},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 	}

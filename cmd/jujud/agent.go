@@ -152,6 +152,7 @@ type AgentState interface {
 	// currently running.
 	SetAgentVersion(v version.Binary) error
 	Tag() string
+	SetMongoPassword(password string) error
 	Life() state.Life
 }
 
