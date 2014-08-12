@@ -1,5 +1,3 @@
-# This name is ridiculous.
-
 from subprocess import CalledProcessError
 from textwrap import dedent
 from unittest import TestCase
