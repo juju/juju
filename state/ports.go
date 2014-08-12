@@ -50,22 +50,25 @@ func NewPortRange(unitName string, fromPort, toPort int, protocol string) (PortR
 		ToPort:   toPort,
 		Protocol: strings.ToLower(protocol),
 	}
-	if !p.IsValid() {
-		return PortRange{}, fmt.Errorf("Port range %v for unit %v is invalid.", p, unitName)
+	if err := p.Validate(); err != nil {
+		return PortRange{}, err
 	}
 	return p, nil
 }
 
 // IsValid checks if the port range is valid.
-func (p PortRange) IsValid() bool {
+func (p PortRange) Validate() error {
 	proto := strings.ToLower(p.Protocol)
 	if proto != "tcp" && proto != "udp" {
-		return false
+		return errors.Errorf("invalid protocol %q", proto)
 	}
 	if !names.IsValidUnit(p.UnitName) {
-		return false
+		return errors.Errorf("invalid unit %q", p.UnitName)
 	}
-	return p.FromPort <= p.ToPort
+	if p.FromPort > p.ToPort {
+		return errors.Errorf("invalid port range %d-%d", p.FromPort, p.ToPort)
+	}
+	return nil
 }
 
 // ConflictsWith determines if the two port ranges conflict.
@@ -141,8 +144,8 @@ func (p *Ports) NetworkName() (string, error) {
 
 // OpenPorts adds the specified port range to the ports maintained by this document.
 func (p *Ports) OpenPorts(portRange PortRange) error {
-	if !portRange.IsValid() {
-		return fmt.Errorf("port range %v is invalid", portRange)
+	if err := portRange.Validate(); err != nil {
+		return err
 	}
 	ports := Ports{st: p.st, doc: p.doc, new: p.new}
 	buildTxn := func(attempt int) ([]txn.Op, error) {

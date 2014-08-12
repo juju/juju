@@ -210,34 +210,38 @@ func (p *PortSuite) TestPortRangeString(c *gc.C) {
 
 func (p *PortSuite) TestPortRangeValidity(c *gc.C) {
 	testCases := []struct {
-		about string
-		ports network.PortRange
-		valid bool
+		about    string
+		ports    network.PortRange
+		expected string
 	}{{
 		"single valid port",
 		network.PortRange{80, 80, "tcp"},
-		true,
+		"",
 	}, {
 		"valid port range",
 		network.PortRange{80, 90, "tcp"},
-		true,
+		"",
 	}, {
 		"valid udp port range",
 		network.PortRange{80, 90, "UDP"},
-		true,
+		"",
 	}, {
 		"invalid port range boundaries",
 		network.PortRange{90, 80, "tcp"},
-		false,
+		"invalid port range.*",
 	}, {
 		"invalid protocol",
 		network.PortRange{80, 80, "some protocol"},
-		false,
+		"invalid protocol.*",
 	}}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		c.Assert(t.ports.IsValid(), gc.Equals, t.valid)
+		if t.expected == "" {
+			c.Check(t.ports.Validate(), gc.IsNil)
+		} else {
+			c.Check(t.ports.Validate(), gc.ErrorMatches, t.expected)
+		}
 	}
 }
 

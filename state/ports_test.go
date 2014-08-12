@@ -87,7 +87,7 @@ func (s *PortsDocSuite) TestOpenInvalidRange(c *gc.C) {
 		Protocol: "TCP",
 	}
 	err := s.ports.OpenPorts(portRange)
-	c.Assert(err, gc.ErrorMatches, "port range .* is invalid")
+	c.Assert(err, gc.ErrorMatches, "invalid port range .*")
 }
 
 func (s *PortsDocSuite) TestCloseInvalidRange(c *gc.C) {
@@ -206,37 +206,41 @@ func (p *PortRangeSuite) TestPortRangeString(c *gc.C) {
 
 func (p *PortRangeSuite) TestPortRangeValidity(c *gc.C) {
 	testCases := []struct {
-		about string
-		ports state.PortRange
-		valid bool
+		about    string
+		ports    state.PortRange
+		expected string
 	}{{
 		"single valid port",
 		state.PortRange{"wordpress/0", 80, 80, "tcp"},
-		true,
+		"",
 	}, {
 		"valid port range",
 		state.PortRange{"wordpress/0", 80, 90, "tcp"},
-		true,
+		"",
 	}, {
 		"valid udp port range",
 		state.PortRange{"wordpress/0", 80, 90, "UDP"},
-		true,
+		"",
 	}, {
 		"invalid port range boundaries",
 		state.PortRange{"wordpress/0", 90, 80, "tcp"},
-		false,
+		"invalid port range.*",
 	}, {
 		"invalid protocol",
 		state.PortRange{"wordpress/0", 80, 80, "some protocol"},
-		false,
+		"invalid protocol.*",
 	}, {
 		"invalid unit",
 		state.PortRange{"invalid unit", 80, 80, "tcp"},
-		false,
+		"invalid unit.*",
 	}}
 
 	for i, t := range testCases {
 		c.Logf("test %d: %s", i, t.about)
-		c.Assert(t.ports.IsValid(), gc.Equals, t.valid)
+		if t.expected == "" {
+			c.Check(t.ports.Validate(), gc.IsNil)
+		} else {
+			c.Check(t.ports.Validate(), gc.ErrorMatches, t.expected)
+		}
 	}
 }

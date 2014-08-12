@@ -9,6 +9,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/juju/errors"
 )
 
 // Port identifies a network port number for a particular protocol.
@@ -130,12 +132,15 @@ type PortRange struct {
 }
 
 // IsValid determines if the port range is valid.
-func (p PortRange) IsValid() bool {
+func (p PortRange) Validate() error {
 	proto := strings.ToLower(p.Protocol)
 	if proto != "tcp" && proto != "udp" {
-		return false
+		return errors.Errorf("invalid protocol %q", proto)
 	}
-	return p.FromPort <= p.ToPort
+	if p.FromPort > p.ToPort {
+		return errors.Errorf("invalid port range %d-%d", p.FromPort, p.ToPort)
+	}
+	return nil
 }
 
 // ConflictsWith determines if the two port ranges conflict.
@@ -166,12 +171,12 @@ func (p portRangeSlice) Less(i, j int) bool {
 	return p1.ToPort < p2.ToPort
 }
 
-// SortPorts sorts the given ports, first by protocol, then by number.
+// SortPortRanges sorts the given ports, first by protocol, then by number.
 func SortPortRanges(portRanges []PortRange) {
 	sort.Sort(portRangeSlice(portRanges))
 }
 
-// portRangesToPorts is a temporary function converting a slice of port ranges
+// PortRangesToPorts is a temporary function converting a slice of port ranges
 // to a slice of ports. It is here to fill the gap caused
 // by environments dealing with port ranges and the firewaller still
 // dealing with individual ports
@@ -186,7 +191,7 @@ func PortRangesToPorts(portRanges []PortRange) (result []Port) {
 	return
 }
 
-// portsToPortRanges is a temporary function converting a slice of ports to
+// PortsToPortRanges is a temporary function converting a slice of ports to
 // a slice of port ranges. It is here to fill the gap caused by environments
 // handling port ranges and firewaller still dealing with individual ports.
 // TODO (domas) 2014-07-31: remove this once firewaller is capable of
@@ -227,12 +232,11 @@ func CollapsePorts(ports []Port) (result []PortRange) {
 		}
 	}
 	if fromPort != 0 {
-		result = append(result,
-			PortRange{
-				Protocol: protocol,
-				FromPort: fromPort,
-				ToPort:   toPort,
-			})
+		result = append(result, PortRange{
+			Protocol: protocol,
+			FromPort: fromPort,
+			ToPort:   toPort,
+		})
 
 	}
 	return
