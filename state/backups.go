@@ -13,7 +13,7 @@ import (
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 
-	"github.com/juju/juju/state/backup"
+	"github.com/juju/juju/state/backups"
 	"github.com/juju/juju/version"
 )
 
@@ -55,14 +55,14 @@ interaction with State, lives in the state/backup package.
 */
 
 // NewBackupOrigin returns a snapshot of where backup was run.
-func NewBackupOrigin(st *State, machine string) *backup.Origin {
+func NewBackupOrigin(st *State, machine string) *backups.Origin {
 	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
 		// Ignore the error.
 		hostname = ""
 	}
-	origin := backup.Origin{
+	origin := backups.Origin{
 		Environment: st.EnvironTag().Id(),
 		Machine:     machine,
 		Hostname:    hostname,
@@ -71,7 +71,7 @@ func NewBackupOrigin(st *State, machine string) *backup.Origin {
 	return &origin
 }
 
-// backupMetadataDoc is a mirror of backup.Metadata, used just for DB storage.
+// backupMetadataDoc is a mirror of backups.Metadata, used just for DB storage.
 type backupMetadataDoc struct {
 	ID             string `bson:"_id"`
 	Started        int64  `bson:"started,minsize"`
@@ -89,15 +89,15 @@ type backupMetadataDoc struct {
 	Version     version.Number `bson:"version"`
 }
 
-// asMetadata returns a new backup.Metadata based on the backupMetadataDoc.
-func (doc *backupMetadataDoc) asMetadata() *backup.Metadata {
-	origin := backup.Origin{
+// asMetadata returns a new backups.Metadata based on the backupMetadataDoc.
+func (doc *backupMetadataDoc) asMetadata() *backups.Metadata {
+	origin := backups.Origin{
 		Environment: doc.Environment,
 		Machine:     doc.Machine,
 		Hostname:    doc.Hostname,
 		Version:     doc.Version,
 	}
-	metadata := backup.Metadata{
+	metadata := backups.Metadata{
 		ID:             doc.ID,
 		Timestamp:      time.Unix(doc.Started, 0).UTC(),
 		Finished:       time.Unix(doc.Finished, 0).UTC(),
@@ -111,9 +111,9 @@ func (doc *backupMetadataDoc) asMetadata() *backup.Metadata {
 	return &metadata
 }
 
-// updateFromMetadata copies the corresponding data from the backup.Metadata
+// updateFromMetadata copies the corresponding data from the backups.Metadata
 // into the backupMetadataDoc.
-func (doc *backupMetadataDoc) updateFromMetadata(metadata *backup.Metadata) {
+func (doc *backupMetadataDoc) updateFromMetadata(metadata *backups.Metadata) {
 	// Ignore metadata.ID.
 	doc.Started = metadata.Timestamp.Unix()
 	doc.Finished = metadata.Finished.Unix()
@@ -135,7 +135,7 @@ func (doc *backupMetadataDoc) updateFromMetadata(metadata *backup.Metadata) {
 // getBackupMetadata returns the backup metadata associated with "id".
 // If "id" does not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
-func getBackupMetadata(st *State, id string) (*backup.Metadata, error) {
+func getBackupMetadata(st *State, id string) (*backups.Metadata, error) {
 	collection, closer := st.getCollection(backupsC)
 	defer closer()
 
@@ -155,7 +155,7 @@ func getBackupMetadata(st *State, id string) (*backup.Metadata, error) {
 // accessed later.  It returns a new ID that is associated with the
 // backup.  If the provided metadata already has an ID set, it is
 // ignored.
-func addBackupMetadata(st *State, metadata *backup.Metadata) (string, error) {
+func addBackupMetadata(st *State, metadata *backups.Metadata) (string, error) {
 	// We use our own mongo _id value since the auto-generated one from
 	// mongo may contain sensitive data (see bson.ObjectID).
 	id, err := utils.NewUUID()
@@ -166,7 +166,7 @@ func addBackupMetadata(st *State, metadata *backup.Metadata) (string, error) {
 	return idStr, addBackupMetadataID(st, metadata, idStr)
 }
 
-func addBackupMetadataID(st *State, metadata *backup.Metadata, id string) error {
+func addBackupMetadataID(st *State, metadata *backups.Metadata, id string) error {
 	var doc backupMetadataDoc
 	doc.updateFromMetadata(metadata)
 	doc.ID = id
