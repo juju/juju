@@ -81,7 +81,7 @@ def restore_present_state_server(env, backup_file):
     """juju-restore wont restore when the state-server is still present."""
     environ = dict(os.environ)
     proc = subprocess.Popen(
-        ["juju', '--show-log', 'restore", '-e', env.environment, backup_file],
+        ['juju', '--show-log', 'restore', '-e', env.environment, backup_file],
         env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
     if proc.returncode == 0:
