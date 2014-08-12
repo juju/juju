@@ -13,7 +13,7 @@ import sys
 
 from deploy_stack import (
     destroy_environment,
-    dump_logs,
+    dump_env_logs,
     get_machine_dns_name,
 )
 from jujuconfig import translate_to_env
@@ -217,17 +217,14 @@ def main():
         env = Environment.from_config(args.env_name)
         env.bootstrap()
         bootstrap_host = get_machine_dns_name(env, 0)
-        log_host = bootstrap_host
         try:
             instance_id = deploy_stack(env, args.charm_prefix)
             if args.strategy in ('ha', 'ha-backup'):
                 env.juju('ensure-availability', '-n', '3')
                 wait_for_ha(env)
-                log_host = get_machine_dns_name(env, 3)
             if args.strategy in ('ha-backup', 'backup'):
                 backup_file = backup_state_server(env)
                 restore_present_state_server(env, backup_file)
-                log_host = None
             if args.strategy == 'ha-backup':
                 delete_extra_state_servers(env, instance_id)
             delete_instance(env, instance_id)
@@ -237,10 +234,9 @@ def main():
             else:
                 restore_missing_state_server(env, backup_file)
         except Exception as e:
-            if log_host is None:
-                log_host = parse_new_state_server_from_error(e)
-            if log_host is not None:
-                dump_logs(env, log_host,
+            if bootstrap_host is None:
+                bootstrap_host = parse_new_state_server_from_error(e)
+            dump_env_logs(env, bootstrap_host,
                           os.path.join(os.environ['WORKSPACE'], 'artifacts'))
             raise
         finally:
