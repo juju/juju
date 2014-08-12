@@ -201,13 +201,6 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 	return nil
 }
 
-// SetMongoPassword sets the password the agent responsible for the unit
-// should use to communicate with the state servers.  Previous passwords
-// are invalidated.
-func (u *Unit) SetMongoPassword(password string) error {
-	return u.st.setMongoPassword(u.Tag().String(), password)
-}
-
 // SetPassword sets the password for the machine's agent.
 func (u *Unit) SetPassword(password string) error {
 	if len(password) < utils.MinAgentPasswordLength {
