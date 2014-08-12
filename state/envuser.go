@@ -144,13 +144,16 @@ func (st *State) AddEnvironmentUser(user, displayName, alias, createdBy string) 
 			DateCreated: nowToTheSecond(),
 		}}
 
-	ops := []txn.Op{{
-		C:      envUsersC,
-		Id:     id,
-		Assert: txn.DocMissing,
-		Insert: &envUser.doc,
-	}}
-	err := st.runTransaction(ops)
+	buildTxn := func(attempt int) ([]txn.Op, error) {
+		ops := []txn.Op{{
+			C:      envUsersC,
+			Id:     id,
+			Assert: txn.DocMissing,
+			Insert: &envUser.doc,
+		}}
+		return ops, nil
+	}
+	err := st.run(buildTxn)
 	if err == txn.ErrAborted {
 		err = errors.New("env user already exists")
 	}

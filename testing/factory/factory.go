@@ -16,7 +16,6 @@ import (
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
-	"github.com/juju/utils"
 )
 
 const (

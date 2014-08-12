@@ -116,9 +116,10 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
+	s.Factory = factory.NewFactory(s.State, c)
 	envUser := s.Factory.MakeEnvUser()
 
-	saved, err := s.State.EnvironmentUser(envUser.EnvUUID(), envUser.UserName())
+	saved, err := s.State.EnvironmentUser(envUser.UserName())
 	c.Assert(err, gc.IsNil)
 	c.Assert(saved.EnvUUID(), gc.Equals, envUser.EnvUUID())
 	c.Assert(saved.UserName(), gc.Equals, envUser.UserName())
@@ -128,18 +129,17 @@ func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
-	envuuid := s.Factory.NewUUID()
+	s.Factory = factory.NewFactory(s.State, c)
 	envUser := s.Factory.MakeEnvUser(factory.EnvUserParams{
-		EnvUUID:     envuuid,
 		User:        "foobar",
 		Alias:       "alias",
 		DisplayName: "displayName",
 		CreatedBy:   "created-by",
 	})
 
-	saved, err := s.State.EnvironmentUser(envUser.EnvUUID(), envUser.UserName())
+	saved, err := s.State.EnvironmentUser(envUser.UserName())
 	c.Assert(err, gc.IsNil)
-	c.Assert(saved.EnvUUID(), gc.Equals, envuuid)
+	c.Assert(saved.EnvUUID(), gc.Equals, s.Factory.EnvironTag().String())
 	c.Assert(saved.UserName(), gc.Equals, "foobar")
 	c.Assert(saved.Alias(), gc.Equals, "alias")
 	c.Assert(saved.DisplayName(), gc.Equals, "displayName")
