@@ -40,9 +40,9 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 		return nil
 	}
 	// Collect in separate maps pairs to be inserted/updated or removed.
-	toRemove := make(map[string]bool)
+	toRemove := make(bson.M)
 	toInsert := make(map[string]string)
-	toUpdate := make(map[string]string)
+	toUpdate := make(bson.M)
 	for key, value := range pairs {
 		if strings.Contains(key, ".") {
 			return fmt.Errorf("invalid key %q", key)
@@ -105,19 +105,12 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 }
 
 // updateOps returns the operations required to update or remove annotations in MongoDB.
-func (a *annotator) updateOps(toUpdate map[string]string, toRemove map[string]bool) []txn.Op {
-	var update bson.D
-	if len(toUpdate) > 0 {
-		update = append(update, bson.DocElem{"$set", toUpdate})
-	}
-	if len(toRemove) > 0 {
-		update = append(update, bson.DocElem{"$unset", toRemove})
-	}
+func (a *annotator) updateOps(toUpdate, toRemove bson.M) []txn.Op {
 	return []txn.Op{{
 		C:      annotationsC,
 		Id:     a.globalKey,
 		Assert: txn.DocExists,
-		Update: update,
+		Update: setUnsetUpdate(toUpdate, toRemove),
 	}}
 }
 
