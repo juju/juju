@@ -32,7 +32,7 @@ archives.  As a result, here are a couple concerns worth mentioning.
 First, as noted above backup is about state but not a part of state.
 So exposing backup-related methods on State would imply the wrong
 thing.  Thus the backup functionality here in the state package (not
-state/backup) is exposed as functions to which you pass a state
+state/backups) is exposed as functions to which you pass a state
 object.
 
 Second, backup creates an archive file containing a dump of state's
@@ -55,8 +55,8 @@ State's DB.  In the interest of making the distinction clear, the
 code that directly interacts with State (and its DB) lives in this
 file.  As mentioned previously, the functionality here is exposed
 through functions that take State, rather than as methods on State.
-Furthermore, the bulk of the backup code, which does not need direct
-interaction with State, lives in the state/backup package.
+Furthermore, the bulk of the backup-related code, which does not need
+direct interaction with State, lives in the state/backups package.
 */
 
 // NewBackupsOrigin returns a snapshot of where backup was run.
