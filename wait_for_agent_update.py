@@ -1,9 +1,10 @@
 #!/usr/bin/env python
+from __future__ import print_function
+
 __metaclass__ = type
 
 from jujupy import Environment
 
-from collections import defaultdict
 import sys
 
 
@@ -16,7 +17,7 @@ def main():
     try:
        agent_update(sys.argv[1])
     except Exception as e:
-        print e
+        print(e)
         sys.exit(1)
 
 
