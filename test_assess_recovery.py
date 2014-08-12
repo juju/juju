@@ -7,7 +7,7 @@ from test_recovery import (
 )
 
 
-class RecoveryTestCase(TestCase):
+class AssessRecoveryTestCase(TestCase):
 
     def test_parse_new_state_server_from_error(self):
         output = dedent("""
