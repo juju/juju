@@ -139,7 +139,7 @@ func PopulateMachineConfig(mcfg *cloudinit.MachineConfig,
 // that it be spread out across 3 or 4 providers, but this is its only
 // redeeming feature.
 func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config) (err error) {
-	defer errors.Maskf(&err, "cannot complete machine configuration")
+	defer errors.DeferredAnnotatef(&err, "cannot complete machine configuration")
 
 	if err := PopulateMachineConfig(
 		mcfg,

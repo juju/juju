@@ -1086,7 +1086,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 // supplied name (which must be unique). If the charm defines peer relations,
 // they will be created automatically.
 func (st *State) AddService(name, owner string, ch *Charm, networks []string) (service *Service, err error) {
-	defer errors.Maskf(&err, "cannot add service %q", name)
+	defer errors.DeferredAnnotatef(&err, "cannot add service %q", name)
 	ownerTag, err := names.ParseUserTag(owner)
 	if err != nil {
 		return nil, errors.Annotatef(err, "Invalid ownertag %s", owner)
@@ -1177,7 +1177,7 @@ func (st *State) AddService(name, owner string, ch *Charm, networks []string) (s
 // network with the same name or provider id already exists in state,
 // an error satisfying errors.IsAlreadyExists is returned.
 func (st *State) AddNetwork(args NetworkInfo) (n *Network, err error) {
-	defer errors.Contextf(&err, "cannot add network %q", args.Name)
+	defer errors.DeferredAnnotatef(&err, "cannot add network %q", args.Name)
 	if args.CIDR != "" {
 		_, _, err := net.ParseCIDR(args.CIDR)
 		if err != nil {
@@ -1425,7 +1425,7 @@ func (st *State) endpoints(name string, filter func(ep Endpoint) bool) ([]Endpoi
 // AddRelation creates a new relation with the given endpoints.
 func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 	key := relationKey(eps)
-	defer errors.Maskf(&err, "cannot add relation %q", key)
+	defer errors.DeferredAnnotatef(&err, "cannot add relation %q", key)
 	// Enforce basic endpoint sanity. The epCount restrictions may be relaxed
 	// in the future; if so, this method is likely to need significant rework.
 	if len(eps) != 2 {
@@ -1692,7 +1692,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return errors.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
-	defer errors.Maskf(&err, "cannot assign unit %q to machine", u)
+	defer errors.DeferredAnnotatef(&err, "cannot assign unit %q to machine", u)
 	var m *Machine
 	switch policy {
 	case AssignLocal:

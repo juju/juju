@@ -82,7 +82,7 @@ type State struct {
 
 // validate returns an error if the state violates expectations.
 func (st State) validate() (err error) {
-	defer errors.Maskf(&err, "invalid uniter state")
+	defer errors.DeferredAnnotatef(&err, "invalid uniter state")
 	hasHook := st.Hook != nil
 	isAction := hasHook && st.Hook.Kind == hooks.Action
 	hasCharm := st.CharmURL != nil

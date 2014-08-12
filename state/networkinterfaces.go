@@ -130,8 +130,7 @@ func (ni *NetworkInterface) IsDisabled() bool {
 // interface. If the interface is already disabled, nothing happens
 // and no error is returned.
 func (ni *NetworkInterface) Disable() (err error) {
-	defer errors.Maskf(&err, "cannot disable network interface %q", ni)
-
+	defer errors.DeferredAnnotatef(&err, "cannot disable network interface %q", ni)
 	return ni.setDisabled(true)
 }
 
@@ -139,7 +138,7 @@ func (ni *NetworkInterface) Disable() (err error) {
 // the interface is already enabled, nothing happens and no error is
 // returned.
 func (ni *NetworkInterface) Enable() (err error) {
-	defer errors.Maskf(&err, "cannot enable network interface %q", ni)
+	defer errors.DeferredAnnotatef(&err, "cannot enable network interface %q", ni)
 
 	return ni.setDisabled(false)
 }
@@ -166,7 +165,7 @@ func (ni *NetworkInterface) Refresh() error {
 
 // Remove removes the network interface from state.
 func (ni *NetworkInterface) Remove() (err error) {
-	defer errors.Maskf(&err, "cannot remove network interface %q", ni)
+	defer errors.DeferredAnnotatef(&err, "cannot remove network interface %q", ni)
 
 	ops := []txn.Op{{
 		C:      networkInterfacesC,

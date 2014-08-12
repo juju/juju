@@ -123,7 +123,7 @@ func (st *State) AddOneMachine(template MachineTemplate) (*Machine, error) {
 // AddMachines adds new machines configured according to the
 // given templates.
 func (st *State) AddMachines(templates ...MachineTemplate) (_ []*Machine, err error) {
-	defer errors.Maskf(&err, "cannot add a new machine")
+	defer errors.DeferredAnnotatef(&err, "cannot add a new machine")
 	var ms []*Machine
 	env, err := st.Environment()
 	if err != nil {
