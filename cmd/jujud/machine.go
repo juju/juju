@@ -165,6 +165,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.configChangedVal.Set(struct{}{})
 	agentConfig := a.CurrentConfig()
 	network.InitializeFromConfig(agentConfig)
+	a.upgradeWorkerContext.InitializeFromConfig(agentConfig)
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)

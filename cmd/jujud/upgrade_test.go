@@ -105,6 +105,34 @@ func (s *UpgradeSuite) captureLogs(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { loggo.RemoveWriter("upgrade-tests") })
 }
 
+func (s *UpgradeSuite) TestContextInitializeFromConfigWhenNoUpgradeRequired(c *gc.C) {
+	config := NewFakeConfigSetter(names.NewMachineTag("0"), version.Current.Number)
+
+	context := NewUpgradeWorkerContext()
+	context.InitializeFromConfig(config)
+
+	select {
+	case <-context.UpgradeComplete:
+		// Success
+	default:
+		c.Fatal("UpgradeComplete channel should be closed because no upgrade is required")
+	}
+}
+
+func (s *UpgradeSuite) TestContextInitializeFromConfigWhenUpgradeRequired(c *gc.C) {
+	config := NewFakeConfigSetter(names.NewMachineTag("0"), version.MustParse("1.16.0"))
+
+	context := NewUpgradeWorkerContext()
+	context.InitializeFromConfig(config)
+
+	select {
+	case <-context.UpgradeComplete:
+		c.Fatal("UpgradeComplete channel shouldn't be closed because upgrade is required")
+	default:
+		// Success
+	}
+}
+
 func (s *UpgradeSuite) TestRetryStrategy(c *gc.C) {
 	retries := getUpgradeRetryStrategy()
 	c.Assert(retries.Delay, gc.Equals, 2*time.Minute)
@@ -323,6 +351,35 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	s.checkLoginToAPIAsUser(c, FullAPIExposed)
 	c.Assert(s.canLoginToAPIAsMachine(c, s.machine0Config), gc.Equals, true)
 	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, true)
+}
+
+func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
+	attemptCount := 0
+	upgradeCh := make(chan bool)
+	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
+		// Note: this shouldn't run.
+		attemptCount++
+		// If execution ends up here, wait so it can be detected (by
+		// checking for restricted API
+		<-upgradeCh
+		return nil
+	}
+	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+
+	// Set up machine agent running the current version.
+	s.machine0, s.machine0Config, _ = s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, s.machine0)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() {
+		close(upgradeCh)
+		c.Check(a.Stop(), gc.IsNil)
+	}()
+
+	// Test that unrestricted API logins are possible (i.e. no
+	// "upgrade mode" in force)
+	s.checkLoginToAPIAsUser(c, FullAPIExposed)
+	// There should have been no attempt to upgrade.
+	c.Assert(attemptCount, gc.Equals, 0)
 }
 
 func (s *UpgradeSuite) runUpgradeWorker(job params.MachineJob) (
