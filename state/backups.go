@@ -59,22 +59,6 @@ Furthermore, the bulk of the backup-related code, which does not need
 direct interaction with State, lives in the state/backups package.
 */
 
-// NewBackupsOrigin returns a snapshot of where backup was run.
-func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
-	// hostname could be derived from the environment...
-	hostname, err := os.Hostname()
-	if err != nil {
-		panic(fmt.Sprintf("could not get hostname: %v", err))
-	}
-	origin := metadata.NewOrigin(
-		st.EnvironTag().Id(),
-		machine,
-		hostname,
-		version.Current.Number,
-	)
-	return origin
-}
-
 // backupMetadataDoc is a mirror of metadata.Metadata, used just for DB storage.
 type backupMetadataDoc struct {
 	ID             string `bson:"_id"`
@@ -296,6 +280,25 @@ func setBackupStored(st *State, id string) error {
 
 //---------------------------
 // metadata storage
+
+// NewBackupsOrigin returns a snapshot of where backup was run.  That
+// snapshot is a new backup Origin value, for use in a backup's
+// metadata.  Every value except for the machine name is populated
+// either from juju state or some other implicit mechanism.
+func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
+	// hostname could be derived from the environment...
+	hostname, err := os.Hostname()
+	if err != nil {
+		panic(fmt.Sprintf("could not get hostname: %v", err))
+	}
+	origin := metadata.NewOrigin(
+		st.EnvironTag().Id(),
+		machine,
+		hostname,
+		version.Current.Number,
+	)
+	return origin
+}
 
 // Ensure we satisfy the interface.
 var _ = filestorage.MetadataStorage((*backupMetadataStorage)(nil))
