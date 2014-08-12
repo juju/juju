@@ -16,7 +16,12 @@ type Origin struct {
 }
 
 // NewOrigin returns a new backups origin.
-func NewOrigin(env, machine, hostname string, vers version.Number) *Origin {
+func NewOrigin(env, machine, hostname string) *Origin {
+	return NewOriginFull(env, machine, hostname, version.Current.Number)
+}
+
+// NewOriginFull returns a new backups origin.
+func NewOriginFull(env, machine, hostname string, vers version.Number) *Origin {
 	origin := Origin{
 		environment: env,
 		machine:     machine,

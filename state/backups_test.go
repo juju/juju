@@ -10,7 +10,6 @@ import (
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/backups/metadata"
-	"github.com/juju/juju/version"
 )
 
 type backupSuite struct {
@@ -24,7 +23,6 @@ func (s *backupSuite) metadata(c *gc.C) *metadata.Metadata {
 		s.State.EnvironTag().Id(),
 		"0",
 		"localhost",
-		version.Current.Number,
 	)
 	meta := metadata.NewMetadata(*origin, "", nil)
 	meta.Finish(int64(42), "some hash", "", nil)

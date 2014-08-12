@@ -127,7 +127,7 @@ func (doc *backupMetadataDoc) validate() error {
 // asMetadata returns a new backups.Metadata based on the backupMetadataDoc.
 func (doc *backupMetadataDoc) asMetadata() *metadata.Metadata {
 	// Create a new Metadata.
-	origin := metadata.NewOrigin(
+	origin := metadata.NewOriginFull(
 		doc.Environment,
 		doc.Machine,
 		doc.Hostname,
@@ -295,7 +295,6 @@ func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
 		st.EnvironTag().Id(),
 		machine,
 		hostname,
-		version.Current.Number,
 	)
 	return origin
 }
