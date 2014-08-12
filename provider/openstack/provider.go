@@ -1196,26 +1196,46 @@ func (e *environ) machinesFilter() *nova.Filter {
 	return filter
 }
 
+// portsToRuleInfo maps port ranges to nova rules
+func portsToRuleInfo(groupId string, ports []network.PortRange) []nova.RuleInfo {
+	rules := make([]nova.RuleInfo, len(ports))
+	for i, portRange := range ports {
+		rules[i] = nova.RuleInfo{
+			ParentGroupId: groupId,
+			FromPort:      portRange.FromPort,
+			ToPort:        portRange.ToPort,
+			IPProtocol:    portRange.Protocol,
+			Cidr:          "0.0.0.0/0",
+		}
+	}
+	return rules
+}
+
 func (e *environ) openPortsInGroup(name string, portRanges []network.PortRange) error {
 	novaclient := e.nova()
 	group, err := novaclient.SecurityGroupByName(name)
 	if err != nil {
 		return err
 	}
-	for _, portRange := range portRanges {
-		_, err := novaclient.CreateSecurityGroupRule(nova.RuleInfo{
-			ParentGroupId: group.Id,
-			FromPort:      portRange.FromPort,
-			ToPort:        portRange.ToPort,
-			IPProtocol:    portRange.Protocol,
-			Cidr:          "0.0.0.0/0",
-		})
+	rules := portsToRuleInfo(group.Id, portRanges)
+	for _, rule := range rules {
+		_, err := novaclient.CreateSecurityGroupRule(rule)
 		if err != nil {
 			// TODO: if err is not rule already exists, raise?
 			logger.Debugf("error creating security group rule: %v", err.Error())
 		}
 	}
 	return nil
+}
+
+// ruleMatchesPortRange checks if supplied nova security group rule matches the port range
+func ruleMatchesPortRange(rule nova.SecurityGroupRule, portRange network.PortRange) bool {
+	if rule.IPProtocol == nil || rule.FromPort == nil || rule.ToPort == nil {
+		return false
+	}
+	return *rule.IPProtocol == portRange.Protocol &&
+		*rule.FromPort == portRange.FromPort &&
+		*rule.ToPort == portRange.ToPort
 }
 
 func (e *environ) closePortsInGroup(name string, portRanges []network.PortRange) error {
@@ -1230,9 +1250,7 @@ func (e *environ) closePortsInGroup(name string, portRanges []network.PortRange)
 	// TODO: Hey look ma, it's quadratic
 	for _, portRange := range portRanges {
 		for _, p := range (*group).Rules {
-			if p.IPProtocol == nil || *p.IPProtocol != portRange.Protocol ||
-				p.FromPort == nil || *p.FromPort != portRange.FromPort ||
-				p.ToPort == nil || *p.ToPort != portRange.ToPort {
+			if !ruleMatchesPortRange(p, portRange) {
 				continue
 			}
 			err := novaclient.DeleteSecurityGroupRule(p.Id)

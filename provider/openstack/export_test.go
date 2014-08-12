@@ -340,3 +340,6 @@ func GetNovaClient(e environs.Environ) *nova.Client {
 func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
 	return e.(*environ).resolveNetwork(networkName)
 }
+
+var PortsToRuleInfo = portsToRuleInfo
+var RuleMatchesPortRange = ruleMatchesPortRange
