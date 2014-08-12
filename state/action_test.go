@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
+	"github.com/juju/utils/set"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
 	statetesting "github.com/juju/juju/state/testing"
-	"github.com/juju/txn"
-	"github.com/juju/utils/set"
 )
 
 type ActionSuite struct {

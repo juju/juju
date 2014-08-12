@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/juju/charm/hooks"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v2/hooks"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/worker/uniter/hook"

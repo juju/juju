@@ -8,9 +8,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v2"
 )
 
 const (

@@ -12,7 +12,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/utils/proxy"
 	"github.com/juju/utils/set"
 	"github.com/juju/utils/symlink"
+	"gopkg.in/juju/charm.v2"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -466,34 +466,6 @@ func (s *MachineSuite) TestManageEnvironRunsPeergrouper(c *gc.C) {
 	case <-started:
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for peergrouper worker to be started")
-	}
-}
-
-func (s *MachineSuite) TestEnsureLocalEnvironDoesntRunPeergrouper(c *gc.C) {
-	started := make(chan struct{}, 1)
-	s.agentSuite.PatchValue(&peergrouperNew, func(st *state.State) (worker.Worker, error) {
-		c.Check(st, gc.NotNil)
-		select {
-		case started <- struct{}{}:
-		default:
-		}
-		return newDummyWorker(), nil
-	})
-	m, _, _ := s.primeAgent(c, version.Current, state.JobManageEnviron)
-	a := s.newAgent(c, m)
-	err := a.ChangeConfig(func(config agent.ConfigSetter) error {
-		config.SetValue(agent.ProviderType, "local")
-		return nil
-	})
-	c.Assert(err, gc.IsNil)
-	defer func() { c.Check(a.Stop(), gc.IsNil) }()
-	go func() {
-		c.Check(a.Run(nil), gc.IsNil)
-	}()
-	select {
-	case <-started:
-		c.Fatalf("local environment should not start peergrouper")
-	case <-time.After(coretesting.ShortWait):
 	}
 }
 

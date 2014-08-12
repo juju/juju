@@ -13,11 +13,11 @@ import (
 	"path/filepath"
 	"time"
 
-	corecharm "github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	corecharm "gopkg.in/juju/charm.v2"
+	charmtesting "gopkg.in/juju/charm.v2/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/juju/testing"
@@ -79,8 +79,8 @@ func (s *BundlesDirSuite) AddCharm(c *gc.C) (*uniter.Charm, *state.Charm, []byte
 	curl := corecharm.MustParseURL("cs:quantal/dummy-1")
 	surl, err := url.Parse(s.URL("/some/charm.bundle"))
 	c.Assert(err, gc.IsNil)
-	bunpath := charmtesting.Charms.BundlePath(c.MkDir(), "dummy")
-	bun, err := corecharm.ReadBundle(bunpath)
+	bunpath := charmtesting.Charms.CharmArchivePath(c.MkDir(), "dummy")
+	bun, err := corecharm.ReadCharmArchive(bunpath)
 	c.Assert(err, gc.IsNil)
 	bundata, hash := readHash(c, bunpath)
 	sch, err := s.State.AddCharm(bun, curl, surl, hash)
@@ -153,7 +153,7 @@ func readHash(c *gc.C, path string) ([]byte, string) {
 }
 
 func assertCharm(c *gc.C, bun charm.Bundle, sch *state.Charm) {
-	actual := bun.(*corecharm.Bundle)
+	actual := bun.(*corecharm.CharmArchive)
 	c.Assert(actual.Revision(), gc.Equals, sch.Revision())
 	c.Assert(actual.Meta(), gc.DeepEquals, sch.Meta())
 	c.Assert(actual.Config(), gc.DeepEquals, sch.Config())

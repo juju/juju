@@ -67,7 +67,7 @@ type BootstrapMachineConfig struct {
 
 const BootstrapMachineId = "0"
 
-func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.NewMachineTag(BootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -85,7 +85,7 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 	info.Password = ""
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(info, envCfg, timeout, policy)
+	st, err := state.Initialize(info, envCfg, dialOpts, policy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}

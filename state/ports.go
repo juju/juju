@@ -213,20 +213,19 @@ func (p *Ports) ClosePorts(portRange PortRange) error {
 			}
 		}
 		newPorts := []PortRange{}
-		// Create a list of ports with the specified port
-		// removed. This still relies on the assumption that
-		// we are not storing actual port ranges.
-		// TODO(domas) 2014-07-04 bug #1337817: update this section to deal with actual port ranges.
+
 		found := false
 		for _, existingPortsDef := range ports.doc.Ports {
 			if existingPortsDef == portRange {
 				found = true
 				continue
+			} else if existingPortsDef.UnitName == portRange.UnitName && existingPortsDef.ConflictsWith(portRange) {
+				return nil, fmt.Errorf("mismatched port ranges %v and %v", existingPortsDef, portRange)
 			}
 			newPorts = append(newPorts, existingPortsDef)
 		}
 		if !found {
-			return nil, fmt.Errorf("no match found for port range: %v", portRange)
+			return nil, statetxn.ErrNoOperations
 		}
 		ops := []txn.Op{{
 			C:      unitsC,

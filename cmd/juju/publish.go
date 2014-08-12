@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm"
 	"github.com/juju/cmd"
+	"gopkg.in/juju/charm.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/bzr"
@@ -123,7 +123,7 @@ func (c *PublishCommand) Run(ctx *cmd.Context) (err error) {
 	}
 	logger.Infof("local digest is %s", localDigest)
 
-	ch, err := charm.ReadDir(branch.Location())
+	ch, err := charm.ReadCharmDir(branch.Location())
 	if err != nil {
 		return err
 	}

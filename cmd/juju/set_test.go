@@ -9,8 +9,8 @@ import (
 	"os"
 	"unicode/utf8"
 
-	"github.com/juju/charm"
 	"github.com/juju/cmd"
+	"gopkg.in/juju/charm.v2"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"

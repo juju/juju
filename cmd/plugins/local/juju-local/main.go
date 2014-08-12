@@ -7,7 +7,6 @@ import (
 	"os"
 
 	"github.com/juju/juju/cmd/plugins/local"
-
 	// Import only the local provider.
 	_ "github.com/juju/juju/provider/local"
 )

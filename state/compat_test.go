@@ -4,8 +4,8 @@
 package state
 
 import (
-	charmtesting "github.com/juju/charm/testing"
 	gitjujutesting "github.com/juju/testing"
+	charmtesting "gopkg.in/juju/charm.v2/testing"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
@@ -77,7 +77,7 @@ func (s *compatSuite) TestEnvironAssertAlive(c *gc.C) {
 func (s *compatSuite) TestGetServiceWithoutNetworksIsOK(c *gc.C) {
 	_, err := s.state.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
+	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
 	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	// In 1.17.7+ all services have associated document in the
@@ -113,7 +113,7 @@ func (s *compatSuite) TestGetMachineWithoutRequestedNetworksIsOK(c *gc.C) {
 func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
 	_, err := s.state.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
+	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
 	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
@@ -143,7 +143,7 @@ func (s *compatSuite) TestShowUnitPorts(c *gc.C) {
 func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
 	_, err := s.state.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
+	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
 	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
@@ -180,7 +180,7 @@ func (s *compatSuite) TestMigratePortsOnOpen(c *gc.C) {
 func (s *compatSuite) TestMigratePortsOnClose(c *gc.C) {
 	_, err := s.state.AddAdminUser("pass")
 	c.Assert(err, gc.IsNil)
-	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.Dir("mysql"))
+	charm := addCharm(c, s.state, "quantal", charmtesting.Charms.CharmDir("mysql"))
 	service, err := s.state.AddService("mysql", "user-admin", charm, nil)
 	c.Assert(err, gc.IsNil)
 	unit, err := service.AddUnit()
@@ -202,9 +202,9 @@ func (s *compatSuite) TestMigratePortsOnClose(c *gc.C) {
 	err = unit.Refresh()
 	c.Assert(err, gc.IsNil)
 
-	// Check if closing an unopened port causes error
+	// Check if closing an unopened port works
 	err = unit.ClosePort("tcp", 8080)
-	c.Assert(err, gc.ErrorMatches, "cannot close ports 8080-8080/tcp for unit \"mysql/0\": no match found for port range: 8080-8080/tcp")
+	c.Assert(err, gc.IsNil)
 
 	err = unit.ClosePort("tcp", 80)
 	c.Assert(err, gc.IsNil)

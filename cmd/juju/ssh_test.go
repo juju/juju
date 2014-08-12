@@ -10,9 +10,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/cmd"
+	"gopkg.in/juju/charm.v2"
+	charmtesting "gopkg.in/juju/charm.v2/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -98,7 +98,7 @@ var sshTests = []struct {
 
 func (s *SSHSuite) TestSSHCommand(c *gc.C) {
 	m := s.makeMachines(3, c, true)
-	ch := charmtesting.Charms.Dir("dummy")
+	ch := charmtesting.Charms.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

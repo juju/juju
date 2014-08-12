@@ -10,14 +10,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v2"
+	charmtesting "gopkg.in/juju/charm.v2/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
@@ -37,7 +38,6 @@ import (
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/peergrouper"
-	"github.com/juju/txn"
 )
 
 var goodPassword = "foo-12345678901234567890"
@@ -168,7 +168,7 @@ func (s *StateSuite) TestIsNotFound(c *gc.C) {
 
 func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSHA256 string) {
 	var err error
-	ch = charmtesting.Charms.Dir("dummy")
+	ch = charmtesting.Charms.CharmDir("dummy")
 	if curlOverride != "" {
 		curl = charm.MustParseURL(curlOverride)
 	} else {
@@ -199,7 +199,7 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	// Check that adding charms updates any existing placeholder charm
 	// with the same URL.
-	ch := charmtesting.Charms.Dir("dummy")
+	ch := charmtesting.Charms.CharmDir("dummy")
 
 	// Add a placeholder charm.
 	curl := charm.MustParseURL("cs:quantal/dummy-1")
@@ -420,7 +420,7 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddStoreCharmPlaceholderErrors(c *gc.C) {
-	ch := charmtesting.Charms.Dir("dummy")
+	ch := charmtesting.Charms.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)

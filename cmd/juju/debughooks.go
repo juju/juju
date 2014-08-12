@@ -8,9 +8,9 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/charm/hooks"
 	"github.com/juju/cmd"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v2/hooks"
 
 	unitdebug "github.com/juju/juju/worker/uniter/debug"
 )

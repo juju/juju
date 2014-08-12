@@ -12,7 +12,6 @@ import (
 // FakeAuthorizer implements the common.Authorizer interface.
 type FakeAuthorizer struct {
 	Tag            names.Tag
-	LoggedIn       bool
 	EnvironManager bool
 	MachineAgent   bool
 	UnitAgent      bool

@@ -6,8 +6,8 @@ package uniter
 import (
 	"fmt"
 
-	"github.com/juju/charm"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v2"
 
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/common"

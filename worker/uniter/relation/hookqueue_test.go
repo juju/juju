@@ -7,7 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	"github.com/juju/charm/hooks"
+	"gopkg.in/juju/charm.v2/hooks"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state/api/params"
