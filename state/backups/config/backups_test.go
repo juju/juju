@@ -18,8 +18,9 @@ var _ = gc.Suite(&sourcesSuite{})
 
 type sourcesSuite struct {
 	testing.BaseSuite
-	root  string
-	paths config.Paths
+	root   string
+	paths  config.Paths
+	dbInfo config.DBInfo
 }
 
 func (s *sourcesSuite) SetUpTest(c *gc.C) {
@@ -28,8 +29,16 @@ func (s *sourcesSuite) SetUpTest(c *gc.C) {
 	root := c.MkDir()
 	paths, err := config.NewPathsDefaults(root)
 	c.Assert(err, gc.IsNil)
+	dbConnInfo := config.NewDBConnInfo(
+		"some-host.com:8080",
+		"awesome",
+		"bad-pw",
+	)
+	dbInfo, err := config.NewDBInfo(dbConnInfo)
+	c.Assert(err, gc.IsNil)
 	s.root = root
 	s.paths = paths
+	s.dbInfo = dbInfo
 
 	// Prep the fake FS.
 	mkdir := func(path string) string {
@@ -69,6 +78,67 @@ func (s *sourcesSuite) SetUpTest(c *gc.C) {
 	touch(dirname, "authorized_keys")
 }
 
+func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigOkay(c *gc.C) {
+	conf, err := config.NewBackupsConfig(s.dbInfo, s.paths)
+	c.Assert(err, gc.IsNil)
+	dbInfo, paths := config.BackupsConfigValues(conf)
+
+	c.Check(dbInfo, gc.DeepEquals, s.dbInfo)
+	c.Check(paths, gc.DeepEquals, s.paths)
+}
+
+func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigDefaults(c *gc.C) {
+	conf, err := config.NewBackupsConfig(s.dbInfo, nil)
+	c.Assert(err, gc.IsNil)
+	dbInfo, paths := config.BackupsConfigValues(conf)
+	expectedPaths, err := config.NewPathsDefaults("")
+	c.Assert(err, gc.IsNil)
+
+	c.Check(dbInfo, gc.DeepEquals, s.dbInfo)
+	c.Check(paths, gc.DeepEquals, expectedPaths)
+}
+
+func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigMissingDBInfo(c *gc.C) {
+	_, err := config.NewBackupsConfig(nil, s.paths)
+	c.Check(err, gc.ErrorMatches, "missing dbInfo")
+}
+
+func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigRawFull(c *gc.C) {
+	conf, err := config.NewBackupsConfigRawFull(
+		"some-host.com:8080",
+		"awesome",
+		"bad-pw",
+		"spam",
+		s.paths,
+	)
+	c.Assert(err, gc.IsNil)
+	dbInfo, paths := config.BackupsConfigValues(conf)
+
+	c.Check(dbInfo.ConnInfo().Address(), gc.Equals, "some-host.com:8080")
+	c.Check(dbInfo.ConnInfo().Username(), gc.Equals, "awesome")
+	c.Check(dbInfo.ConnInfo().Password(), gc.Equals, "bad-pw")
+	c.Check(dbInfo.BinDir(), gc.Equals, "spam")
+	c.Check(paths, gc.DeepEquals, s.paths)
+}
+
+func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigRaw(c *gc.C) {
+	conf, err := config.NewBackupsConfigRaw(
+		"some-host.com:8080",
+		"awesome",
+		"bad-pw",
+	)
+	c.Assert(err, gc.IsNil)
+	dbInfo, paths := config.BackupsConfigValues(conf)
+	expectedPaths, err := config.NewPathsDefaults("")
+	c.Assert(err, gc.IsNil)
+
+	c.Check(dbInfo.ConnInfo().Address(), gc.Equals, "some-host.com:8080")
+	c.Check(dbInfo.ConnInfo().Username(), gc.Equals, "awesome")
+	c.Check(dbInfo.ConnInfo().Password(), gc.Equals, "bad-pw")
+	c.Check(dbInfo.BinDir(), gc.Not(gc.Equals), "")
+	c.Check(paths, gc.DeepEquals, expectedPaths)
+}
+
 func (s *sourcesSuite) TestBackupsConfigFilesToBackUp(c *gc.C) {
 	conf, err := config.NewBackupsConfigRawFull("", "", "", "", s.paths)
 	c.Assert(err, gc.IsNil)
@@ -89,4 +159,45 @@ func (s *sourcesSuite) TestBackupsConfigFilesToBackUp(c *gc.C) {
 		filepath.Join(s.root, "/var/log/juju/all-machines.log"),
 		filepath.Join(s.root, "/var/log/juju/machine-0.log"),
 	})
+}
+
+func (s *sourcesSuite) TestBackupsConfigDBDumpOkay(c *gc.C) {
+	dumpBinary := filepath.Join(s.root, "mongodump")
+	file, err := os.Create(dumpBinary)
+	c.Assert(err, gc.IsNil)
+	file.Close()
+
+	conf, err := config.NewBackupsConfigRawFull(
+		"some-host.com:8080",
+		"awesome",
+		"bad-pw",
+		s.root,
+		nil,
+	)
+	c.Assert(err, gc.IsNil)
+	bin, args, err := conf.DBDump("/tmp/dbdump")
+
+	c.Check(err, gc.IsNil)
+	c.Check(bin, gc.Equals, dumpBinary)
+	c.Check(args, gc.DeepEquals, []string{
+		"--oplog",
+		"--ssl",
+		"--host", "some-host.com:8080",
+		"--username", "awesome",
+		"--password", "bad-pw",
+		"--out", "/tmp/dbdump",
+	})
+}
+
+func (s *sourcesSuite) TestBackupsConfigDBDumpMissing(c *gc.C) {
+	conf, err := config.NewBackupsConfigRawFull(
+		"some-host.com:8080",
+		"awesome",
+		"bad-pw",
+		"spam",
+		nil,
+	)
+	c.Assert(err, gc.IsNil)
+	_, _, err = conf.DBDump("/tmp/dbdump")
+	c.Check(err, gc.ErrorMatches, `missing "spam/mongodump".*`)
 }
