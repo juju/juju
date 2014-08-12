@@ -8,8 +8,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/mongo"
 )
 
 // TODO(ericsnow) Pull these from elsewhere in juju.
@@ -40,8 +38,7 @@ var (
 	}
 
 	// DB
-	defaultDBDumpName = "mongodump"
-	dbDataFiles       = []string{
+	dbDataFiles = []string{
 		"server.pem",
 		"shared-secret",
 	}
@@ -55,46 +52,58 @@ type BackupsConfig interface {
 	// FilesToBackUp returns the list of paths to files that should be
 	// backed up.
 	FilesToBackUp() ([]string, error)
-
 	// DBDump returns the necessary information to call the dump command.
 	DBDump(outDir string) (bin string, args []string, err error)
 }
 
 type backupsConfig struct {
-	dbConnInfo DBConnInfo
-	dbBinDir   string
-	dbDumpName string
-
-	paths Paths
+	dbInfo DBInfo
+	paths  Paths
 }
 
 // NewBackupsConfig returns a new backups config.
-func NewBackupsConfig(
-	addr, user, pw, dbBinDir string, paths Paths,
-) (BackupsConfig, error) {
-	if dbBinDir == "" {
-		mongod, err := mongo.Path()
-		if err != nil {
-			return nil, errors.Annotate(err, "failed to get mongod path")
-		}
-		dbBinDir = filepath.Dir(mongod)
+func NewBackupsConfig(dbInfo DBInfo, paths Paths) (BackupsConfig, error) {
+	if dbInfo == nil {
+		return nil, errors.Errorf("missing dbInfo")
 	}
 	if paths == nil {
 		var err error
-		paths, err = NewPaths("", "", "", "", "", "")
+		paths, err = NewPathsDefaults("")
 		if err != nil {
 			return nil, errors.Trace(err)
 		}
 	}
 
 	config := backupsConfig{
-		dbConnInfo: NewDBConnInfo(addr, user, pw),
-		dbBinDir:   dbBinDir,
-		dbDumpName: defaultDBDumpName,
-
-		paths: paths,
+		dbInfo: dbInfo,
+		paths:  paths,
 	}
 	return &config, nil
+}
+
+// NewBackupsConfigFull returns a new backups config.
+func NewBackupsConfigRawFull(
+	addr, user, pw, dbBinDir string, paths Paths,
+) (BackupsConfig, error) {
+	dbInfo, err := NewDBInfoFull(addr, user, pw, dbBinDir, "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+
+	config, err := NewBackupsConfig(dbInfo, paths)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return config, nil
+}
+
+// NewBackupsConfigRaw returns a new backups config.
+func NewBackupsConfigRaw(addr, user, pw string) (BackupsConfig, error) {
+	config, err := NewBackupsConfigRawFull(addr, user, pw, "", nil)
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return config, nil
 }
 
 func findFiles(dir string, nameGroups ...[]string) ([]string, error) {
@@ -176,12 +185,12 @@ func (bc *backupsConfig) FilesToBackUp() ([]string, error) {
 }
 
 func (bc *backupsConfig) DBDump(outDir string) (string, []string, error) {
-	bin := filepath.Join(bc.dbBinDir, bc.dbDumpName)
+	bin := bc.dbInfo.DumpBinary()
 	if _, err := os.Stat(bin); err != nil {
 		return "", nil, errors.Annotatef(err, "missing %q", bin)
 	}
 
-	addr, user, pw, err := bc.dbConnInfo.Check()
+	addr, user, pw, err := bc.dbInfo.ConnInfo().Check()
 	if err != nil {
 		return "", nil, errors.Trace(err)
 	}

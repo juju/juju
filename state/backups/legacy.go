@@ -46,11 +46,11 @@ func Backup(
 	password string, username string, outputFolder string, addr string,
 ) (filename string, sha1sum string, err error) {
 	// Set up the config.
-	config, err := config.NewBackupsConfig(addr, username, password, "", "")
+	conf, err := config.NewBackupsConfigRaw(addr, username, password)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
-	f, s, err := runBackup(config, outputFolder)
+	f, s, err := runBackup(conf, outputFolder)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}

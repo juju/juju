@@ -6,6 +6,8 @@ package config
 import (
 	"os"
 	"path/filepath"
+
+	"github.com/juju/errors"
 )
 
 // TODO(ericsnow) Pull these from elsewhere in juju.
@@ -77,6 +79,15 @@ func NewPaths(
 		sshDir:         ssh,
 	}
 	return &p, nil
+}
+
+// NewPathsDefaults returns a new Paths value with defaults set.
+func NewPathsDefaults(root string) (Paths, error) {
+	paths, err := NewPaths(root, "", "", "", "", "")
+	if err != nil {
+		return nil, errors.Trace(err)
+	}
+	return paths, nil
 }
 
 func (p *paths) DataDir() string {

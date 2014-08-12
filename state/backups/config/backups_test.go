@@ -18,12 +18,18 @@ var _ = gc.Suite(&sourcesSuite{})
 
 type sourcesSuite struct {
 	testing.BaseSuite
-	root string
+	root  string
+	paths config.Paths
 }
 
 func (s *sourcesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.root = c.MkDir()
+
+	root := c.MkDir()
+	paths, err := config.NewPathsDefaults(root)
+	c.Assert(err, gc.IsNil)
+	s.root = root
+	s.paths = paths
 
 	// Prep the fake FS.
 	mkdir := func(path string) string {
@@ -64,9 +70,7 @@ func (s *sourcesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *sourcesSuite) TestBackupsConfigFilesToBackUp(c *gc.C) {
-	paths, err := config.NewPaths(s.root, "", "", "", "", "")
-	c.Assert(err, gc.IsNil)
-	conf, err := config.NewBackupsConfig("", "", "", "", paths)
+	conf, err := config.NewBackupsConfigRawFull("", "", "", "", s.paths)
 	c.Assert(err, gc.IsNil)
 	files, err := conf.FilesToBackUp()
 	c.Assert(err, gc.IsNil)
