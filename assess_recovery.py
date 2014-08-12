@@ -81,8 +81,8 @@ def restore_present_state_server(env, backup_file):
     """juju-restore wont restore when the state-server is still present."""
     environ = dict(os.environ)
     proc = subprocess.Popen(
-        ["juju-restore", '-e', env.environment, backup_file], env=environ,
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        ["juju', '--show-log', 'restore", '-e', env.environment, backup_file],
+        env=environ, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     output, err = proc.communicate()
     if proc.returncode == 0:
         raise Exception(
@@ -186,6 +186,14 @@ def wait_for_state_server_to_shutdown(host, env, instance_id):
                 '{} was not deleted:\n{}'.format(instance_id, output))
 
 
+def parse_new_state_server_from_error(error):
+    output = str(error) + getattr(error, 'output', '')
+    matches = re.findall(r'Attempting to connect to (.*):22', output)
+    if matches:
+        return matches[-1]
+    return None
+
+
 def main():
     parser = ArgumentParser('Test recovery strategies.')
     parser.add_argument(
@@ -220,21 +228,26 @@ def main():
                 delete_extra_state_servers(env, instance_id)
             delete_instance(env, instance_id)
             wait_for_state_server_to_shutdown(bootstrap_host, env, instance_id)
+            bootstrap_host = None
             if args.strategy == 'ha':
                 env.get_status(600)
             else:
                 restore_missing_state_server(env, backup_file)
-        except:
-            dump_env_logs(env, None,
+        except Exception as e:
+            if bootstrap_host is None:
+                bootstrap_host = parse_new_state_server_from_error(e)
+            dump_env_logs(env, bootstrap_host,
                           os.path.join(os.environ['WORKSPACE'], 'artifacts'))
             raise
         finally:
             destroy_environment(env)
     except Exception as e:
+        print_now("\nEXCEPTION CAUGHT:\n")
         print_now(e)
         if getattr(e, 'output', None):
+            print_now('\n')
             print_now(e.output)
-        print_now("FAIL")
+        print_now("\nFAIL")
         sys.exit(1)
 
 
