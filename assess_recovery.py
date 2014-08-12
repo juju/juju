@@ -187,11 +187,10 @@ def wait_for_state_server_to_shutdown(host, env, instance_id):
 
 
 def parse_new_state_server_from_error(error):
-    # find all the "Attempting to connect to (.*)" and return the last one.
-    output = str(error) + getattr(error, 'output','')
-    matches = re.findall(r'Attempting to connect to (.*)\n', output)
+    output = str(error) + getattr(error, 'output', '')
+    matches = re.findall(r'Attempting to connect to (.*):22', output)
     if matches:
-        return matches[-1].group(0)
+        return matches[-1]
     return None
 
 
@@ -229,6 +228,7 @@ def main():
                 delete_extra_state_servers(env, instance_id)
             delete_instance(env, instance_id)
             wait_for_state_server_to_shutdown(bootstrap_host, env, instance_id)
+            bootstrap_host = None
             if args.strategy == 'ha':
                 env.get_status(600)
             else:
