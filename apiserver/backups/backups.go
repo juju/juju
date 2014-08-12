@@ -46,7 +46,7 @@ func NewBackupsAPI(
 	return &b, nil
 }
 
-func newBackupsStorage(st *state.State) (filestorage.FileStorage, error) {
+var newBackupsStorage = func(st *state.State) (filestorage.FileStorage, error) {
 	envStor, err := environs.GetStorage(st)
 	if err != nil {
 		return nil, errors.Trace(err)
