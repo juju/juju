@@ -32,7 +32,7 @@ check_access() {
 
 check_url_access() {
     option=$1
-    option_url=$(juju get-env -e $ENV $option)
+    option_url=$(juju get-env -e $ENV $option | sed -e 's,/tools$,,')
     if [[ -n "$option_url" ]]; then
         check_access $option $option_url
     else
