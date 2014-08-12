@@ -64,7 +64,9 @@ func (s *sourcesSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *sourcesSuite) TestBackupsConfigFilesToBackUp(c *gc.C) {
-	conf, err := config.NewBackupsConfig("", "", "", "", s.root)
+	paths, err := config.NewPaths(s.root, "", "", "", "", "")
+	c.Assert(err, gc.IsNil)
+	conf, err := config.NewBackupsConfig("", "", "", "", paths)
 	c.Assert(err, gc.IsNil)
 	files, err := conf.FilesToBackUp()
 	c.Assert(err, gc.IsNil)

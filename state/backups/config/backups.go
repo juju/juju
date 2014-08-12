@@ -14,12 +14,6 @@ import (
 
 // TODO(ericsnow) Pull these from elsewhere in juju.
 var (
-	defaultDataDir        = "/var/lib/juju"
-	defaultStartupDir     = "/etc/init"
-	defaultLoggingConfDir = "/etc/rsyslog.d"
-	defaultLogsDir        = "/var/log/juju"
-	defaultSSHDir         = "/home/ubuntu/.ssh"
-
 	// tools
 	toolsDataFiles = []string{
 		"tools",
@@ -71,16 +65,12 @@ type backupsConfig struct {
 	dbBinDir   string
 	dbDumpName string
 
-	dataDir        string
-	startupDir     string
-	loggingConfDir string
-	logsDir        string
-	sshDir         string
+	paths Paths
 }
 
 // NewBackupsConfig returns a new backups config.
 func NewBackupsConfig(
-	addr, user, pw, dbBinDir, root string,
+	addr, user, pw, dbBinDir string, paths Paths,
 ) (BackupsConfig, error) {
 	if dbBinDir == "" {
 		mongod, err := mongo.Path()
@@ -89,8 +79,12 @@ func NewBackupsConfig(
 		}
 		dbBinDir = filepath.Dir(mongod)
 	}
-	if root == "" {
-		root = string(os.PathSeparator)
+	if paths == nil {
+		var err error
+		paths, err = NewPaths("", "", "", "", "", "")
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
 	}
 
 	config := backupsConfig{
@@ -98,11 +92,7 @@ func NewBackupsConfig(
 		dbBinDir:   dbBinDir,
 		dbDumpName: defaultDBDumpName,
 
-		dataDir:        filepath.Join(root, defaultDataDir),
-		startupDir:     filepath.Join(root, defaultStartupDir),
-		loggingConfDir: filepath.Join(root, defaultLoggingConfDir),
-		logsDir:        filepath.Join(root, defaultLogsDir),
-		sshDir:         filepath.Join(root, defaultSSHDir),
+		paths: paths,
 	}
 	return &config, nil
 }
@@ -131,7 +121,7 @@ func (bc *backupsConfig) FilesToBackUp() ([]string, error) {
 
 	// data files
 	found, err := findFiles(
-		bc.dataDir,
+		bc.paths.DataDir(),
 		machinesDataFiles,
 		dbDataFiles,
 		toolsDataFiles,
@@ -143,7 +133,7 @@ func (bc *backupsConfig) FilesToBackUp() ([]string, error) {
 
 	// startup files
 	found, err = findFiles(
-		bc.startupDir,
+		bc.paths.StartupDir(),
 		machinesStartupFiles,
 		dbStartupFiles,
 	)
@@ -154,7 +144,7 @@ func (bc *backupsConfig) FilesToBackUp() ([]string, error) {
 
 	// logging conf files
 	found, err = findFiles(
-		bc.loggingConfDir,
+		bc.paths.LoggingConfDir(),
 		machinesLoggingConfs,
 	)
 	if err != nil {
@@ -164,7 +154,7 @@ func (bc *backupsConfig) FilesToBackUp() ([]string, error) {
 
 	// log files
 	found, err = findFiles(
-		bc.logsDir,
+		bc.paths.LogsDir(),
 		machinesLogFiles,
 	)
 	if err != nil {
@@ -174,7 +164,7 @@ func (bc *backupsConfig) FilesToBackUp() ([]string, error) {
 
 	// ssh files
 	found, err = findFiles(
-		bc.sshDir,
+		bc.paths.SSHDir(),
 		machinesSSHFiles,
 	)
 	if err != nil {
