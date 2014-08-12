@@ -2247,6 +2247,67 @@ func testSetAgentCompatPassword(c *gc.C, entity state.Authenticator) {
 	c.Assert(entity.PasswordValid("short"), jc.IsTrue)
 }
 
+type entity interface {
+	state.Entity
+	state.Lifer
+	state.Authenticator
+	state.MongoPassworder
+}
+
+func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, error)) {
+	info := state.TestingMongoInfo()
+	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	// Turn on fully-authenticated mode.
+	err = st.SetAdminMongoPassword("admin-secret")
+	c.Assert(err, gc.IsNil)
+
+	// Set the password for the entity
+	ent, err := getEntity(st)
+	c.Assert(err, gc.IsNil)
+	err = ent.SetMongoPassword("foo")
+	c.Assert(err, gc.IsNil)
+
+	// Check that we cannot log in with the wrong password.
+	info.Tag = ent.Tag()
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "foo"
+	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st1.Close()
+
+	// Change the password with an entity derived from the newly
+	// opened and authenticated state.
+	ent, err = getEntity(st)
+	c.Assert(err, gc.IsNil)
+	err = ent.SetMongoPassword("bar")
+	c.Assert(err, gc.IsNil)
+
+	// Check that we cannot log in with the old password.
+	info.Password = "foo"
+	err = tryOpenState(info)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, gc.IsNil)
+
+	// Check that the administrator can still log in.
+	info.Tag, info.Password = nil, "admin-secret"
+	err = tryOpenState(info)
+	c.Assert(err, gc.IsNil)
+
+	// Remove the admin password so that the test harness can reset the state.
+	err = st.SetAdminMongoPassword("")
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 	// Check that we can SetAdminMongoPassword to nothing when there's
 	// no password currently set.
