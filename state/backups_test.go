@@ -9,7 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
-	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/version"
 )
 
@@ -19,20 +19,20 @@ type backupSuite struct {
 
 var _ = gc.Suite(&backupSuite{})
 
-func (s *backupSuite) metadata(c *gc.C) *backups.Metadata {
-	origin := backups.NewOrigin(
+func (s *backupSuite) metadata(c *gc.C) *metadata.Metadata {
+	origin := metadata.NewOrigin(
 		s.State.EnvironTag().Id(),
 		"0",
 		"localhost",
 		version.Current.Number,
 	)
-	meta := backups.NewMetadata(*origin, "", nil)
+	meta := metadata.NewMetadata(*origin, "", nil)
 	meta.Finish(int64(42), "some hash", "", nil)
 	return meta
 }
 
 func (s *backupSuite) checkMetadata(
-	c *gc.C, metadata, expected *backups.Metadata, id string,
+	c *gc.C, metadata, expected *metadata.Metadata, id string,
 ) {
 	if id != "" {
 		c.Check(metadata.ID(), gc.Equals, id)
@@ -89,7 +89,7 @@ func (s *backupSuite) TestBackupsAddBackupMetadataGeneratedID(c *gc.C) {
 }
 
 func (s *backupSuite) TestBackupsAddBackupMetadataEmpty(c *gc.C) {
-	original := backups.Metadata{}
+	original := metadata.Metadata{}
 	c.Assert(original.Timestamp(), gc.NotNil)
 	_, err := state.AddBackupMetadata(s.State, &original)
 

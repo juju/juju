@@ -18,7 +18,7 @@ import (
 	"gopkg.in/mgo.v2/txn"
 
 	"github.com/juju/juju/environs/storage"
-	"github.com/juju/juju/state/backups"
+	"github.com/juju/juju/state/backups/metadata"
 	"github.com/juju/juju/version"
 )
 
@@ -60,13 +60,13 @@ interaction with State, lives in the state/backup package.
 */
 
 // NewBackupsOrigin returns a snapshot of where backup was run.
-func NewBackupsOrigin(st *State, machine string) *backups.Origin {
+func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
 	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
 		panic(fmt.Sprintf("could not get hostname: %v", err))
 	}
-	origin := backups.NewOrigin(
+	origin := metadata.NewOrigin(
 		st.EnvironTag().Id(),
 		machine,
 		hostname,
@@ -75,7 +75,7 @@ func NewBackupsOrigin(st *State, machine string) *backups.Origin {
 	return origin
 }
 
-// backupMetadataDoc is a mirror of backups.Metadata, used just for DB storage.
+// backupMetadataDoc is a mirror of metadata.Metadata, used just for DB storage.
 type backupMetadataDoc struct {
 	ID             string `bson:"_id"`
 	Started        int64  `bson:"started,minsize"`
@@ -141,9 +141,9 @@ func (doc *backupMetadataDoc) validate() error {
 }
 
 // asMetadata returns a new backups.Metadata based on the backupMetadataDoc.
-func (doc *backupMetadataDoc) asMetadata() *backups.Metadata {
+func (doc *backupMetadataDoc) asMetadata() *metadata.Metadata {
 	// Create a new Metadata.
-	origin := backups.NewOrigin(
+	origin := metadata.NewOrigin(
 		doc.Environment,
 		doc.Machine,
 		doc.Hostname,
@@ -151,14 +151,14 @@ func (doc *backupMetadataDoc) asMetadata() *backups.Metadata {
 	)
 
 	started := time.Unix(doc.Started, 0).UTC()
-	metadata := backups.NewMetadata(
+	meta := metadata.NewMetadata(
 		*origin,
 		doc.Notes,
 		&started,
 	)
 
 	// The ID is already set.
-	metadata.SetID(doc.ID)
+	meta.SetID(doc.ID)
 
 	// Set the "finished" fields.
 	if doc.Finished == 0 {
@@ -166,7 +166,7 @@ func (doc *backupMetadataDoc) asMetadata() *backups.Metadata {
 			if doc.ChecksumFormat == "" {
 				if doc.Size == 0 {
 					// Not finished so exit early.
-					return metadata
+					return meta
 				}
 			}
 		}
@@ -176,20 +176,19 @@ func (doc *backupMetadataDoc) asMetadata() *backups.Metadata {
 		val := time.Unix(doc.Finished, 0).UTC()
 		finished = &val
 	}
-	err := metadata.Finish(doc.Size, doc.Checksum, doc.ChecksumFormat, finished)
+	err := meta.Finish(doc.Size, doc.Checksum, doc.ChecksumFormat, finished)
 	if err != nil {
 		panic("invalid metadata doc")
 	}
 	if doc.Stored {
-		metadata.SetStored()
+		meta.SetStored()
 	}
-
-	return metadata
+	return meta
 }
 
-// updateFromMetadata copies the corresponding data from the backups.Metadata
+// updateFromMetadata copies the corresponding data from the metadata.Metadata
 // into the backupMetadataDoc.
-func (doc *backupMetadataDoc) updateFromMetadata(metadata *backups.Metadata) {
+func (doc *backupMetadataDoc) updateFromMetadata(metadata *metadata.Metadata) {
 	finished := metadata.Finished()
 	// Ignore metadata.ID.
 	doc.Started = metadata.Started().Unix()
@@ -215,7 +214,7 @@ func (doc *backupMetadataDoc) updateFromMetadata(metadata *backups.Metadata) {
 // getBackupMetadata returns the backup metadata associated with "id".
 // If "id" does not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
-func getBackupMetadata(st *State, id string) (*backups.Metadata, error) {
+func getBackupMetadata(st *State, id string) (*metadata.Metadata, error) {
 	collection, closer := st.getCollection(backupsMetaC)
 	defer closer()
 
@@ -238,7 +237,7 @@ func getBackupMetadata(st *State, id string) (*backups.Metadata, error) {
 // accessed later.  It returns a new ID that is associated with the
 // backup.  If the provided metadata already has an ID set, it is
 // ignored.
-func addBackupMetadata(st *State, metadata *backups.Metadata) (string, error) {
+func addBackupMetadata(st *State, metadata *metadata.Metadata) (string, error) {
 	// We use our own mongo _id value since the auto-generated one from
 	// mongo may contain sensitive data (see bson.ObjectID).
 	id, err := utils.NewUUID()
@@ -249,7 +248,7 @@ func addBackupMetadata(st *State, metadata *backups.Metadata) (string, error) {
 	return idStr, addBackupMetadataID(st, metadata, idStr)
 }
 
-func addBackupMetadataID(st *State, metadata *backups.Metadata, id string) error {
+func addBackupMetadataID(st *State, metadata *metadata.Metadata, id string) error {
 	var doc backupMetadataDoc
 	doc.updateFromMetadata(metadata)
 	doc.ID = id
@@ -298,6 +297,9 @@ func setBackupStored(st *State, id string) error {
 //---------------------------
 // metadata storage
 
+// Ensure we satisfy the interface.
+var _ = filestorage.MetadataStorage((*backupMetadataStorage)(nil))
+
 type backupMetadataStorage struct {
 	state *State
 }
@@ -310,9 +312,9 @@ func newBackupMetadataStorage(st *State) filestorage.MetadataStorage {
 }
 
 func (s *backupMetadataStorage) AddDoc(doc interface{}) (string, error) {
-	metadata, ok := doc.(backups.Metadata)
+	metadata, ok := doc.(metadata.Metadata)
 	if !ok {
-		return "", errors.Errorf("doc must be of type state.backups.Metadata")
+		return "", errors.Errorf("doc must be of type state.metadata.Metadata")
 	}
 	return addBackupMetadata(s.state, &metadata)
 }
@@ -342,16 +344,16 @@ func (s *backupMetadataStorage) ListDocs() ([]interface{}, error) {
 }
 
 func (s *backupMetadataStorage) ListMetadata() ([]filestorage.Metadata, error) {
-	return nil, errors.New("not implemented yet")
+	return nil, errors.Errorf("not implemented yet")
 }
 
 func (s *backupMetadataStorage) RemoveDoc(id string) error {
-	return errors.New("not implemented yet")
+	return errors.Errorf("not implemented yet")
 }
 
 func (s *backupMetadataStorage) New() filestorage.Metadata {
 	origin := NewBackupsOrigin(s.state, "")
-	return backups.NewMetadata(*origin, "", nil)
+	return metadata.NewMetadata(*origin, "", nil)
 }
 
 func (s *backupMetadataStorage) SetStored(meta filestorage.Metadata) error {
@@ -367,6 +369,9 @@ func (s *backupMetadataStorage) SetStored(meta filestorage.Metadata) error {
 // raw file storage
 
 const backupStorageRoot = "/"
+
+// Ensure we satisfy the interface.
+var _ = filestorage.RawFileStorage(&envFileStorage{})
 
 type envFileStorage struct {
 	envStor storage.Storage
