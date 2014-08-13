@@ -4,10 +4,16 @@
 package worker
 
 import (
+	"errors"
 	"time"
 
 	"launchpad.net/tomb"
 )
+
+// ErrKilled can be returned by the PeriodicWorkerCall to signify that
+// the function has returned as a result of a Stop() or Kill() signal
+// and that the function was able to stop cleanly
+var ErrKilled = errors.New("worker killed")
 
 // periodicWorker implements the worker returned by NewPeriodicWorker.
 type periodicWorker struct {
@@ -38,6 +44,9 @@ func (w *periodicWorker) run(call PeriodicWorkerCall, period time.Duration) erro
 			return tomb.ErrDying
 		case <-timer.C:
 			if err := call(stop); err != nil {
+				if err == ErrKilled {
+					return tomb.ErrDying
+				}
 				return err
 			}
 		}
