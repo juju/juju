@@ -249,6 +249,9 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 	return nil
 }
 
+// ensureLogrotate ensures that the logrotate
+// configuration file and logrotate helper script
+// exist in the log directory and creates them if they do not.
 func (h *RsyslogConfigHandler) ensureLogrotate() error {
 	// Files must be chowned to syslog:adm.
 	syslogUid, syslogGid, err := lookupUser("syslog")
@@ -256,28 +259,32 @@ func (h *RsyslogConfigHandler) ensureLogrotate() error {
 		return err
 	}
 
-	logrotateConfFile, err := h.syslogConfig.LogrotateConfFile()
-	if err != nil {
-		return err
-	}
-
-	logrotateHelperFile, err := h.syslogConfig.LogrotateHelperFile()
-	if err != nil {
-		return err
-	}
-
-	for _, triple := range []struct {
-		path string
-		data []byte
-		mode os.FileMode
-	}{
-		{h.syslogConfig.LogrotateConfPath(), logrotateConfFile, 0600},
-		{h.syslogConfig.LogrotateHelperPath(), logrotateHelperFile, 0700},
-	} {
-		if err := writeFileAtomic(triple.path, triple.data, triple.mode, syslogUid, syslogGid); err != nil {
+	logrotateConfPath := h.syslogConfig.LogrotateConfPath()
+	// check for the logrotate conf
+	if _, err := os.Stat(logrotateConfPath); err != nil {
+		logrotateConfFile, err := h.syslogConfig.LogrotateConfFile()
+		if err != nil {
+			return err
+		}
+		// create the logrotate conf
+		if err := writeFileAtomic(logrotateConfPath, logrotateConfFile, 0600, syslogUid, syslogGid); err != nil {
 			return err
 		}
 	}
+
+	logrotateHelperPath := h.syslogConfig.LogrotateHelperPath()
+	// check for the logrotate helper
+	if _, err := os.Stat(logrotateHelperPath); err != nil {
+		logrotateHelperFile, err := h.syslogConfig.LogrotateHelperFile()
+		if err != nil {
+			return err
+		}
+		// create the logrotate helper
+		if err := writeFileAtomic(logrotateHelperPath, logrotateHelperFile, 0700, syslogUid, syslogGid); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
