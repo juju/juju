@@ -4,7 +4,7 @@
 package client
 
 import (
-	"github.com/juju/charm"
+	"gopkg.in/juju/charm.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/state/api/params"

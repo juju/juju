@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/utils/apt"
 	gc "launchpad.net/gocheck"
 
-	"github.com/juju/errors"
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -103,6 +103,34 @@ func (s *UpgradeSuite) SetUpTest(c *gc.C) {
 func (s *UpgradeSuite) captureLogs(c *gc.C) {
 	c.Assert(loggo.RegisterWriter("upgrade-tests", &s.logWriter, loggo.INFO), gc.IsNil)
 	s.AddCleanup(func(*gc.C) { loggo.RemoveWriter("upgrade-tests") })
+}
+
+func (s *UpgradeSuite) TestContextInitializeFromConfigWhenNoUpgradeRequired(c *gc.C) {
+	config := NewFakeConfigSetter(names.NewMachineTag("0"), version.Current.Number)
+
+	context := NewUpgradeWorkerContext()
+	context.InitializeFromConfig(config)
+
+	select {
+	case <-context.UpgradeComplete:
+		// Success
+	default:
+		c.Fatal("UpgradeComplete channel should be closed because no upgrade is required")
+	}
+}
+
+func (s *UpgradeSuite) TestContextInitializeFromConfigWhenUpgradeRequired(c *gc.C) {
+	config := NewFakeConfigSetter(names.NewMachineTag("0"), version.MustParse("1.16.0"))
+
+	context := NewUpgradeWorkerContext()
+	context.InitializeFromConfig(config)
+
+	select {
+	case <-context.UpgradeComplete:
+		c.Fatal("UpgradeComplete channel shouldn't be closed because upgrade is required")
+	default:
+		// Success
+	}
 }
 
 func (s *UpgradeSuite) TestRetryStrategy(c *gc.C) {
@@ -323,6 +351,35 @@ func (s *UpgradeSuite) TestLoginsDuringUpgrade(c *gc.C) {
 	s.checkLoginToAPIAsUser(c, FullAPIExposed)
 	c.Assert(s.canLoginToAPIAsMachine(c, s.machine0Config), gc.Equals, true)
 	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, true)
+}
+
+func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
+	attemptCount := 0
+	upgradeCh := make(chan bool)
+	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
+		// Note: this shouldn't run.
+		attemptCount++
+		// If execution ends up here, wait so it can be detected (by
+		// checking for restricted API
+		<-upgradeCh
+		return nil
+	}
+	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+
+	// Set up machine agent running the current version.
+	s.machine0, s.machine0Config, _ = s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, s.machine0)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() {
+		close(upgradeCh)
+		c.Check(a.Stop(), gc.IsNil)
+	}()
+
+	// Test that unrestricted API logins are possible (i.e. no
+	// "upgrade mode" in force)
+	s.checkLoginToAPIAsUser(c, FullAPIExposed)
+	// There should have been no attempt to upgrade.
+	c.Assert(attemptCount, gc.Equals, 0)
 }
 
 func (s *UpgradeSuite) runUpgradeWorker(job params.MachineJob) (

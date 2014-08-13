@@ -11,8 +11,9 @@ import (
 	"net/rpc"
 	"sync"
 
-	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/utils/exec"
+
+	"github.com/juju/juju/juju/sockets"
 )
 
 const JujuRunEndpoint = "JujuRunServer.RunCommands"

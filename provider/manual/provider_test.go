@@ -26,7 +26,7 @@ var _ = gc.Suite(&providerSuite{})
 
 func (s *providerSuite) SetUpTest(c *gc.C) {
 	s.FakeJujuHomeSuite.SetUpTest(c)
-	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys string, stdin io.Reader, stdout io.Writer) error {
+	s.PatchValue(manual.InitUbuntuUser, func(host, user, keys, identity string, stdin io.Reader, stdout io.Writer) error {
 		return nil
 	})
 }
@@ -85,6 +85,8 @@ func (s *providerSuite) TestOpenDoesntSetUseSSHStorage(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	cfg := env.Config()
 	_, ok := cfg.AllAttrs()["use-sshstorage"]
+	c.Assert(ok, jc.IsFalse)
+	ok = manual.EnvironUseSSHStorage(env)
 	c.Assert(ok, jc.IsFalse)
 }
 

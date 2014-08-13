@@ -4,7 +4,7 @@
 package main
 
 import (
-	charmtesting "github.com/juju/charm/testing"
+	charmtesting "gopkg.in/juju/charm.v2/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -24,10 +24,10 @@ func runRemoveRelation(c *gc.C, args ...string) error {
 }
 
 func (s *RemoveRelationSuite) TestRemoveRelation(c *gc.C) {
-	charmtesting.Charms.BundlePath(s.SeriesPath, "riak")
+	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, gc.IsNil)
-	charmtesting.Charms.BundlePath(s.SeriesPath, "logging")
+	charmtesting.Charms.CharmArchivePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "local:logging", "logging")
 	c.Assert(err, gc.IsNil)
 	runAddRelation(c, "riak", "logging")

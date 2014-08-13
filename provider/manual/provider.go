@@ -26,7 +26,7 @@ var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 var initUbuntuUser = manual.InitUbuntuUser
 
 func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, cfg *environConfig) error {
-	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
+	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), "", ctx.GetStdin(), ctx.GetStdout())
 	if err != nil {
 		logger.Errorf("initializing ubuntu user: %v", err)
 		return err
@@ -67,10 +67,14 @@ func (p manualProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Confi
 }
 
 func (p manualProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	envConfig, err := p.validate(cfg, nil)
+	_, err := p.validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
+	// validate adds missing manual-specific config attributes
+	// with their defaults in the result; we don't wnat that in
+	// Open.
+	envConfig := newEnvironConfig(cfg, cfg.UnknownAttrs())
 	return p.open(envConfig)
 }
 

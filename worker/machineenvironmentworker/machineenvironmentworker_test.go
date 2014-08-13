@@ -162,12 +162,12 @@ func (s *MachineEnvironmentWatcherSuite) TestInitialState(c *gc.C) {
 }
 
 func (s *MachineEnvironmentWatcherSuite) TestRespondsToEvents(c *gc.C) {
+	proxySettings, aptProxySettings := s.updateConfig(c)
+
 	agentConfig := agentConfig(names.NewMachineTag("0"), "ec2")
 	envWorker := s.makeWorker(c, agentConfig)
 	defer worker.Stop(envWorker)
 	s.waitForPostSetup(c)
-
-	proxySettings, aptProxySettings := s.updateConfig(c)
 
 	s.waitProxySettings(c, proxySettings)
 	s.waitForFile(c, s.proxyFile, proxySettings.AsScriptEnvironment()+"\n")

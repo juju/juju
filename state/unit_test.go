@@ -6,9 +6,10 @@ package state_test
 import (
 	"strconv"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
+	"gopkg.in/juju/charm.v2"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
@@ -17,7 +18,6 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/txn"
 )
 
 const (
@@ -1103,7 +1103,7 @@ func (s *UnitSuite) TestOpenedPorts(c *gc.C) {
 	})
 
 	err = s.unit.ClosePort("tcp", 80)
-	c.Assert(err, gc.ErrorMatches, ".* no match found for port range: .*")
+	c.Assert(err, gc.IsNil)
 	open = s.unit.OpenedPorts()
 	c.Assert(open, gc.DeepEquals, []network.Port{
 		{"tcp", 53},

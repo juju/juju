@@ -6,11 +6,12 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/utils/exec"
+
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
-	"github.com/juju/utils/exec"
 )
 
 var _ Service = (*upstart.Service)(nil)

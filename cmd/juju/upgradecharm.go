@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/charm"
 	"github.com/juju/cmd"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v2"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"

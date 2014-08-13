@@ -7,8 +7,8 @@ import (
 	stderrors "errors"
 	"fmt"
 
-	"github.com/juju/charm"
-	"github.com/juju/charm/hooks"
+	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v2/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/api/params"

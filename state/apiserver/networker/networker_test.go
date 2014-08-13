@@ -156,7 +156,6 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as a machine agent.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		LoggedIn:     true,
 		MachineAgent: true,
 		Tag:          s.machine.Tag(),
 	}

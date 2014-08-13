@@ -14,14 +14,14 @@ import (
 	"sync"
 	"time"
 
-	corecharm "github.com/juju/charm"
-	"github.com/juju/charm/hooks"
 	"github.com/juju/cmd"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	proxyutils "github.com/juju/utils/proxy"
+	corecharm "gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v2/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/agent/tools"
@@ -466,7 +466,7 @@ func (u *Uniter) notifyHookFailed(hook string, hctx *HookContext) {
 // validateAction validates the given Action params against the spec defined
 // for the charm.
 func (u *Uniter) validateAction(name string, params map[string]interface{}) (bool, error) {
-	ch, err := corecharm.Read(u.charmPath)
+	ch, err := corecharm.ReadCharm(u.charmPath)
 	if err != nil {
 		return false, err
 	}
@@ -713,7 +713,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 			continue
 		}
 		// Make sure we ignore relations not implemented by the unit's charm.
-		ch, err := corecharm.ReadDir(u.charmPath)
+		ch, err := corecharm.ReadCharmDir(u.charmPath)
 		if err != nil {
 			return nil, err
 		}

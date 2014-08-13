@@ -7,8 +7,8 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	corecharm "github.com/juju/charm"
 	"github.com/juju/utils/symlink"
+	corecharm "gopkg.in/juju/charm.v2"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"

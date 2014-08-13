@@ -7,10 +7,10 @@ import (
 	"bytes"
 	"net/url"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v2"
+	charmtesting "gopkg.in/juju/charm.v2/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
@@ -95,7 +95,7 @@ func assertCustomCharm(c *gc.C, ch *state.Charm, series string, meta *charm.Meta
 }
 
 func assertStandardCharm(c *gc.C, ch *state.Charm, series string) {
-	chd := charmtesting.Charms.Dir(ch.Meta().Name)
+	chd := charmtesting.Charms.CharmDir(ch.Meta().Name)
 	assertCustomCharm(c, ch, series, chd.Meta(), chd.Config(), chd.Revision())
 }
 
@@ -110,7 +110,7 @@ func forEachStandardCharm(c *gc.C, f func(name string)) {
 
 func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
-		chd := charmtesting.Charms.Dir(name)
+		chd := charmtesting.Charms.CharmDir(name)
 		meta := chd.Meta()
 		config := chd.Config()
 		revision := chd.Revision()
@@ -136,7 +136,7 @@ func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	forEachStandardCharm(c, func(name string) {
-		chd := charmtesting.Charms.Dir(name)
+		chd := charmtesting.Charms.CharmDir(name)
 		meta := chd.Meta()
 
 		ch := s.AddConfigCharm(c, name, configYaml, 123)
@@ -171,7 +171,7 @@ description: blah blah
 
 func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
-		chd := charmtesting.Charms.Dir(name)
+		chd := charmtesting.Charms.CharmDir(name)
 		config := chd.Config()
 		metaYaml := "name: " + name + metaYamlSnippet
 		meta, err := charm.ReadMeta(bytes.NewBuffer([]byte(metaYaml)))

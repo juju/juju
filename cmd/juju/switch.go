@@ -71,7 +71,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	// Passing through the empty string reads the default environments.yaml file.
 	environments, err := environs.ReadEnvirons("")
 	if err != nil {
-		return errors.New("couldn't read the environment")
+		return fmt.Errorf("couldn't read the environment")
 	}
 	names := environments.Names()
 	sort.Strings(names)

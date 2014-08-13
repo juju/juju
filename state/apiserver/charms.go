@@ -21,9 +21,9 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	ziputil "github.com/juju/utils/zip"
+	"gopkg.in/juju/charm.v2"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/state/api/params"
@@ -37,7 +37,7 @@ type charmsHandler struct {
 
 // bundleContentSenderFunc functions are responsible for sending a
 // response related to a charm bundle.
-type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle)
+type bundleContentSenderFunc func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive)
 
 func (h *charmsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if err := h.authenticate(r); err != nil {
@@ -93,7 +93,7 @@ func (h *charmsHandler) sendJSON(w http.ResponseWriter, statusCode int, response
 // sendBundleContent uses the given bundleContentSenderFunc to send a response
 // related to the charm archive located in the given archivePath.
 func sendBundleContent(w http.ResponseWriter, r *http.Request, archivePath string, sender bundleContentSenderFunc) {
-	bundle, err := charm.ReadBundle(archivePath)
+	bundle, err := charm.ReadCharmArchive(archivePath)
 	if err != nil {
 		http.Error(
 			w, fmt.Sprintf("unable to read archive in %q: %v", archivePath, err),
@@ -106,7 +106,7 @@ func sendBundleContent(w http.ResponseWriter, r *http.Request, archivePath strin
 
 // manifestSender sends a JSON-encoded response to the client including the
 // list of files contained in the charm bundle.
-func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle) {
+func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) {
 	manifest, err := bundle.Manifest()
 	if err != nil {
 		http.Error(
@@ -121,7 +121,7 @@ func (h *charmsHandler) manifestSender(w http.ResponseWriter, r *http.Request, b
 // the contents of filePath included in the given charm bundle. If filePath does
 // not identify a file or a symlink, a 403 forbidden error is returned.
 func (h *charmsHandler) fileSender(filePath string) bundleContentSenderFunc {
-	return func(w http.ResponseWriter, r *http.Request, bundle *charm.Bundle) {
+	return func(w http.ResponseWriter, r *http.Request, bundle *charm.CharmArchive) {
 		// TODO(fwereade) 2014-01-27 bug #1285685
 		// This doesn't handle symlinks helpfully, and should be talking in
 		// terms of bundles rather than zip readers; but this demands thought
@@ -195,7 +195,7 @@ func (h *charmsHandler) processPost(r *http.Request) (*charm.URL, error) {
 	if err != nil {
 		return nil, err
 	}
-	archive, err := charm.ReadBundle(tempFile.Name())
+	archive, err := charm.ReadCharmArchive(tempFile.Name())
 	if err != nil {
 		return nil, fmt.Errorf("invalid charm archive: %v", err)
 	}
@@ -249,7 +249,7 @@ func (h *charmsHandler) processUploadedArchive(path string) error {
 		return errors.Annotate(err, "cannot read charm archive")
 	}
 	if rootDir == "." {
-		// Normal charm, just use charm.ReadBundle().
+		// Normal charm, just use charm.ReadCharmArchive).
 		return nil
 	}
 
@@ -263,7 +263,7 @@ func (h *charmsHandler) processUploadedArchive(path string) error {
 	if err := ziputil.Extract(zipr, tempDir, rootDir); err != nil {
 		return errors.Annotate(err, "cannot extract charm archive")
 	}
-	dir, err := charm.ReadDir(tempDir)
+	dir, err := charm.ReadCharmDir(tempDir)
 	if err != nil {
 		return errors.Annotate(err, "cannot read extracted archive")
 	}
@@ -272,7 +272,7 @@ func (h *charmsHandler) processUploadedArchive(path string) error {
 	if err := f.Truncate(0); err != nil {
 		return err
 	}
-	if err := dir.BundleTo(f); err != nil {
+	if err := dir.ArchiveTo(f); err != nil {
 		return err
 	}
 	return nil
@@ -312,7 +312,7 @@ func (d byDepth) Less(i, j int) bool { return depth(d[i]) < depth(d[j]) }
 // repackageAndUploadCharm expands the given charm archive to a
 // temporary directoy, repackages it with the given curl's revision,
 // then uploads it to providr storage, and finally updates the state.
-func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *charm.URL) error {
+func (h *charmsHandler) repackageAndUploadCharm(archive *charm.CharmArchive, curl *charm.URL) error {
 	// Create a temp dir to contain the extracted charm
 	// dir and the repackaged archive.
 	tempDir, err := ioutil.TempDir("", "charm-download")
@@ -333,7 +333,7 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	if err := archive.ExpandTo(extractPath); err != nil {
 		return errors.Annotate(err, "cannot extract uploaded charm")
 	}
-	charmDir, err := charm.ReadDir(extractPath)
+	charmDir, err := charm.ReadCharmDir(extractPath)
 	if err != nil {
 		return errors.Annotate(err, "cannot read extracted charm")
 	}
@@ -341,7 +341,7 @@ func (h *charmsHandler) repackageAndUploadCharm(archive *charm.Bundle, curl *cha
 	// Bundle the charm and calculate its sha256 hash at the
 	// same time.
 	hash := sha256.New()
-	err = charmDir.BundleTo(io.MultiWriter(hash, repackagedArchive))
+	err = charmDir.ArchiveTo(io.MultiWriter(hash, repackagedArchive))
 	if err != nil {
 		return errors.Annotate(err, "cannot repackage uploaded charm")
 	}
