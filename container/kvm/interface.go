@@ -9,13 +9,14 @@ import (
 
 // StartParams is a simple parameter struct for Container.Start.
 type StartParams struct {
-	Series       string
-	Arch         string
-	UserDataFile string
-	Network      *container.NetworkConfig
-	Memory       uint64 // MB
-	CpuCores     uint64
-	RootDisk     uint64 // GB
+	Series           string
+	Arch             string
+	UserDataFile     string
+	Network          *container.NetworkConfig
+	Memory           uint64 // MB
+	CpuCores         uint64
+	RootDisk         uint64 // GB
+	ImageDownloadUrl string
 }
 
 // Container represents a virtualized container instance and provides

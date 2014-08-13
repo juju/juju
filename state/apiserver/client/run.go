@@ -63,14 +63,9 @@ func getAllUnitNames(st *state.State, units, services []string) (result []*state
 		if err != nil {
 			return nil, err
 		}
-		// We only operate on principal units, and only thise that have an
-		// assigned machines.
-		if unit.IsPrincipal() {
-			if _, err := unit.AssignedMachineId(); err != nil {
-				return nil, err
-			}
-		} else {
-			return nil, fmt.Errorf("%s is not a principal unit", unit)
+		// We only operate on units that have an assigned machine.
+		if _, err := unit.AssignedMachineId(); err != nil {
+			return nil, err
 		}
 		result = append(result, unit)
 	}

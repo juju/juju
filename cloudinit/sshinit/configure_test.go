@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/environs"
 	envcloudinit "github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
@@ -58,7 +59,7 @@ func (s *configureSuite) getCloudConfig(c *gc.C, stateServer bool, vers version.
 		mcfg.InstanceId = "instance-id"
 		mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
 	} else {
-		mcfg = environs.NewMachineConfig("0", "ya", nil, nil, nil)
+		mcfg = environs.NewMachineConfig("0", "ya", imagemetadata.ReleasedStream, nil, nil, nil)
 		mcfg.Jobs = []params.MachineJob{params.JobHostUnits}
 	}
 	mcfg.Tools = &tools.Tools{
