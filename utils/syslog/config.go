@@ -70,6 +70,8 @@ $ActionSendStreamDriverMode 1 # run driver in TLS-only mode
 $FileCreateMode 0600
 
 # Maximum size for the log on this outchannel is 512MB
+# The command to execute when an outchannel as reached its size limit cannot accept any arguments
+# that is why we have created the helper script for executing logrotate.
 $outchannel logRotation,{{logDir}}/all-machines.log,512000000,{{logrotateHelperPath}}
 
 $RuleSet remote
@@ -134,6 +136,9 @@ $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %sy
 & ~
 `
 
+// The logrotate conf for state serve nodes.
+// default size is 512MB, ensuring that the log + one rotation
+// will never take up more than 1GB of space.
 const logrotateConfTemplate = `
 {{logDir}}/all-machines.log {
     size 512M
@@ -149,6 +154,8 @@ const logrotateConfTemplate = `
 }
 `
 
+// The logrotate helper script for state server nodes.
+// We specify a state file to ensure we have the proper permissions.
 const logrotateHelperTemplate = `
 /usr/sbin/logrotate -s {{logDir}}/logrotate.state {{logrotateConfPath}}
 `
