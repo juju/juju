@@ -9,7 +9,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs/config"
@@ -157,11 +156,7 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 // initMongoAdminUser adds the admin user with the specified
 // password to the admin database in Mongo.
 func initMongoAdminUser(info mongo.Info, dialOpts mongo.DialOpts, password string) error {
-	dialInfo, err := mongo.DialInfo(info, dialOpts)
-	if err != nil {
-		return err
-	}
-	session, err := mgo.DialWithInfo(dialInfo)
+	session, err := mongo.DialWithInfo(info, dialOpts)
 	if err != nil {
 		return err
 	}
