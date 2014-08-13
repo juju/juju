@@ -11,6 +11,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cert"
@@ -46,6 +47,11 @@ type DialOpts struct {
 	// specified seed servers, or to obtain information for the whole
 	// cluster and establish connections with further servers too.
 	Direct bool
+
+	// PostDial, if non-nil, is called by DialWithInfo with the
+	// mgo.Session after a successful dial but before DialWithInfo
+	// returns to its caller.
+	PostDial func(*mgo.Session) error
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -126,6 +132,12 @@ func DialWithInfo(info Info, opts DialOpts) (*mgo.Session, error) {
 	}
 	if opts.SocketTimeout != 0 {
 		session.SetSocketTimeout(opts.SocketTimeout)
+	}
+	if opts.PostDial != nil {
+		if err := opts.PostDial(session); err != nil {
+			session.Close()
+			return nil, errors.Annotate(err, "PostDial failed")
+		}
 	}
 	return session, nil
 }

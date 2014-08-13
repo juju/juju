@@ -15,6 +15,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
@@ -52,6 +53,7 @@ import (
 	"github.com/juju/juju/worker/deployer"
 	"github.com/juju/juju/worker/instancepoller"
 	"github.com/juju/juju/worker/machineenvironmentworker"
+	"github.com/juju/juju/worker/peergrouper"
 	"github.com/juju/juju/worker/rsyslog"
 	"github.com/juju/juju/worker/singular"
 	"github.com/juju/juju/worker/upgrader"
@@ -67,7 +69,6 @@ type commonMachineSuite struct {
 func (s *commonMachineSuite) SetUpSuite(c *gc.C) {
 	s.agentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
-	s.agentSuite.PatchValue(&charm.CacheDir, c.MkDir())
 }
 
 func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
@@ -78,6 +79,8 @@ func (s *commonMachineSuite) TearDownSuite(c *gc.C) {
 func (s *commonMachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
+	s.agentSuite.PatchValue(&charm.CacheDir, c.MkDir())
+	s.agentSuite.PatchValue(&stateWorkerDialOpts, mongo.DialOpts{})
 
 	os.Remove(jujuRun) // ignore error; may not exist
 	// Patch ssh user to avoid touching ~ubuntu/.ssh/authorized_keys.
@@ -1042,6 +1045,58 @@ func (s *MachineWithCharmsSuite) TestManageEnvironRunsCharmRevisionUpdater(c *gc
 		}
 	}
 	c.Assert(success, gc.Equals, true)
+}
+
+type mongoSuite struct {
+	coretesting.BaseSuite
+}
+
+var _ = gc.Suite(&mongoSuite{})
+
+func (s *mongoSuite) TestStateWorkerDialSetsWriteMajority(c *gc.C) {
+	s.testStateWorkerDialSetsWriteMajority(c, true)
+}
+
+func (s *mongoSuite) TestStateWorkerDialDoesNotSetWriteMajorityWithoutReplsetConfig(c *gc.C) {
+	s.testStateWorkerDialSetsWriteMajority(c, false)
+}
+
+func (s *mongoSuite) testStateWorkerDialSetsWriteMajority(c *gc.C, configureReplset bool) {
+	inst := gitjujutesting.MgoInstance{
+		EnableJournal: true,
+		Params:        []string{"--replSet", "juju"},
+	}
+	err := inst.Start(coretesting.Certs)
+	c.Assert(err, gc.IsNil)
+	defer inst.Destroy()
+
+	var expectedWMode string
+	dialOpts := stateWorkerDialOpts
+	if configureReplset {
+		info := inst.DialInfo()
+		args := peergrouper.InitiateMongoParams{
+			DialInfo:       info,
+			MemberHostPort: inst.Addr(),
+		}
+		err = peergrouper.MaybeInitiateMongoServer(args)
+		c.Assert(err, gc.IsNil)
+		expectedWMode = "majority"
+	} else {
+		dialOpts.Direct = true
+	}
+
+	mongoInfo := mongo.Info{
+		Addrs:  []string{inst.Addr()},
+		CACert: coretesting.CACert,
+	}
+	session, err := mongo.DialWithInfo(mongoInfo, dialOpts)
+	c.Assert(err, gc.IsNil)
+	defer session.Close()
+
+	safe := session.Safe()
+	c.Assert(safe, gc.NotNil)
+	c.Assert(safe.WMode, gc.Equals, expectedWMode)
+	c.Assert(safe.J, jc.IsTrue) // always enabled
 }
 
 type singularRunnerRecord struct {

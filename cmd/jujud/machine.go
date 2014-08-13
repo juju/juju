@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
+	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -443,16 +444,16 @@ func (a *MachineAgent) updateSupportedContainers(
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
-	// Create system-identity file
+	// Create system-identity file.
 	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
 		return nil, err
 	}
 
-	// Start MondoDB server
+	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, err
 	}
-	st, m, err := openState(agentConfig, mongo.DialOpts{})
+	st, m, err := openState(agentConfig, stateWorkerDialOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -540,6 +541,32 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		}
 	}
 	return newCloseWorker(runner, st), nil
+}
+
+// stateWorkerDialOpts is a mongo.DialOpts suitable
+// for use by StateWorker to dial mongo.
+//
+// This must be overridden in tests, as it assumes
+// journaling is enabled.
+var stateWorkerDialOpts mongo.DialOpts
+
+func init() {
+	stateWorkerDialOpts = mongo.DefaultDialOpts()
+	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
+		safe := mgo.Safe{
+			// Wait for group commit if journaling is enabled,
+			// which is always true in production.
+			J: true,
+		}
+		_, err := replicaset.CurrentConfig(session)
+		if err == nil {
+			// set mongo to write-majority (writes only returned after
+			// replicated to a majority of replica-set members).
+			safe.WMode = "majority"
+		}
+		session.SetSafe(&safe)
+		return nil
+	}
 }
 
 // limitLoginsDuringUpgrade is called by the API server for each login
