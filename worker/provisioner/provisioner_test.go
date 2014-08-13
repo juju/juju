@@ -20,6 +20,7 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
@@ -995,9 +996,17 @@ func (s *ProvisionerSuite) newProvisionerTask(
 	c.Assert(err, gc.IsNil)
 	auth, err := authentication.NewAPIAuthenticator(s.provisioner)
 	c.Assert(err, gc.IsNil)
+
 	return provisioner.NewProvisionerTask(
-		names.NewMachineTag("0"), safeMode, machineGetter,
-		machineWatcher, retryWatcher, broker, auth)
+		names.NewMachineTag("0"),
+		safeMode,
+		machineGetter,
+		machineWatcher,
+		retryWatcher,
+		broker,
+		auth,
+		imagemetadata.ReleasedStream,
+	)
 }
 
 func (s *ProvisionerSuite) TestTurningOffSafeModeReapsUnknownInstances(c *gc.C) {

@@ -1572,7 +1572,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 			c, s.env.storage, envtesting.V120p...,
 		),
 		MachineConfig: environs.NewMachineConfig(
-			"1", "yanonce", nil, stateInfo, apiInfo,
+			"1", "yanonce", imagemetadata.ReleasedStream, nil, stateInfo, apiInfo,
 		),
 	}
 }

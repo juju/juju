@@ -121,9 +121,22 @@ func (p *provisioner) getStartTask(safeMode bool) (ProvisionerTask, error) {
 	if !ok {
 		errors.Errorf("expacted names.MachineTag, got %T", tag)
 	}
+
+	envCfg, err := p.st.EnvironConfig()
+	if err != nil {
+		return nil, errors.Annotate(err, "could not retrieve the environment config.")
+	}
+
 	task := NewProvisionerTask(
-		machineTag, safeMode, p.st,
-		machineWatcher, retryWatcher, p.broker, auth)
+		machineTag,
+		safeMode,
+		p.st,
+		machineWatcher,
+		retryWatcher,
+		p.broker,
+		auth,
+		envCfg.ImageStream(),
+	)
 	return task, nil
 }
 

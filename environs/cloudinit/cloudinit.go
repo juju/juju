@@ -151,6 +151,9 @@ type MachineConfig struct {
 	// and when set IPv6 addresses for connecting to the API/state
 	// servers will be preferred over IPv4 ones.
 	PreferIPv6 bool
+
+	// The type of Simple Stream to download and deploy on this machine.
+	ImageStream string
 }
 
 func base64yaml(m *config.Config) string {
