@@ -36,6 +36,7 @@ func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	// Don't use MgoSuite, because we need to ensure
 	// we have a fresh mongo for each test case.
+	s.mgoInst.EnableAuth = true
 	err := s.mgoInst.Start(testing.Certs)
 	c.Assert(err, gc.IsNil)
 }
@@ -221,7 +222,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, gc.ErrorMatches, "failed to initialize mongo admin user: cannot set admin password: not authorized for update on admin.system.users")
+	c.Assert(err, gc.ErrorMatches, "failed to initialize mongo admin user: cannot set admin password: not authorized .*")
 }
 
 func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {

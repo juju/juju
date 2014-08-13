@@ -323,24 +323,28 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	err = cmd.Run(nil)
 	c.Assert(err, gc.IsNil)
 
-	// Check that we cannot now connect to the state without a
-	// password.
 	info := &authentication.MongoInfo{
 		Info: mongo.Info{
 			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
 			CACert: testing.CACert,
 		},
 	}
-	testOpenState(c, info, errors.Unauthorizedf(""))
 
 	// Check we can log in to mongo as admin.
 	// TODO(dfc) does passing nil for the admin user name make your skin crawl ? mine too.
 	info.Tag, info.Password = nil, testPasswordHash()
 	st, err := state.Open(info, mongo.DefaultDialOpts(), environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
-	// Reset password so the tests can continue to use the same server.
 	defer st.Close()
-	defer st.SetAdminMongoPassword("")
+
+	// We're running Mongo with --noauth; let's explicitly verify
+	// that we can login as that user. Even with --noauth, an
+	// explicit Login will still be verified.
+	adminDB := st.MongoSession().DB("admin")
+	err = adminDB.Login("admin", "invalid-password")
+	c.Assert(err, gc.ErrorMatches, "auth fail(s|ed)")
+	err = adminDB.Login("admin", info.Password)
+	c.Assert(err, gc.IsNil)
 
 	// Check that the admin user has been given an appropriate
 	// password

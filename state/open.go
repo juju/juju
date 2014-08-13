@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -146,13 +147,14 @@ func isUnauthorized(err error) bool {
 	}
 	// Some unauthorized access errors have no error code,
 	// just a simple error string.
-	if err.Error() == "auth fails" {
+	if strings.HasPrefix(err.Error(), "auth fail") {
 		return true
 	}
 	if err, ok := err.(*mgo.QueryError); ok {
 		return err.Code == 10057 ||
 			err.Message == "need to login" ||
-			err.Message == "unauthorized"
+			err.Message == "unauthorized" ||
+			strings.HasPrefix(err.Message, "not authorized")
 	}
 	return false
 }

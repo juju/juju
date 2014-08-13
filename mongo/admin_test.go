@@ -99,6 +99,7 @@ func (s *adminSuite) TestEnsureAdminUser(c *gc.C) {
 
 func (s *adminSuite) TestEnsureAdminUserError(c *gc.C) {
 	inst := &gitjujutesting.MgoInstance{}
+	inst.EnableAuth = true
 	err := inst.Start(coretesting.Certs)
 	c.Assert(err, gc.IsNil)
 	defer inst.Destroy()
@@ -112,7 +113,7 @@ func (s *adminSuite) TestEnsureAdminUserError(c *gc.C) {
 	// Second call fails, as there is another user and the database doesn't
 	// actually get reopened with --noauth in the test; mimics AddUser failure
 	_, err = s.ensureAdminUser(c, dialInfo, "whomeverelse", "whateverelse")
-	c.Assert(err, gc.ErrorMatches, `failed to add "whomeverelse" to admin database: cannot set admin password: not authorized for update on admin.system.users`)
+	c.Assert(err, gc.ErrorMatches, `failed to add "whomeverelse" to admin database: cannot set admin password: not authorized .*`)
 }
 
 func (s *adminSuite) ensureAdminUser(c *gc.C, dialInfo *mgo.DialInfo, user, password string) (added bool, err error) {
@@ -138,13 +139,26 @@ func (s *adminSuite) setUpMongo(c *gc.C) *mgo.DialInfo {
 	return dialInfo
 }
 
-func checkRoles(c *gc.C, db *mgo.Database, user string, expected []interface{}) {
-	// Check the assigned roles.
+func checkRoles(c *gc.C, session *mgo.Session, db, user string, expected []interface{}) {
+	admin := session.DB("admin")
+
 	var info map[string]interface{}
-	err := db.C("system.users").Find(bson.D{{"user", user}}).One(&info)
+	err := admin.C("system.users").Find(bson.D{{"user", user}}).One(&info)
 	c.Assert(err, gc.IsNil)
 
-	roles := info["roles"]
+	var roles []interface{}
+	for _, role := range info["roles"].([]interface{}) {
+		switch role := role.(type) {
+		case map[string]interface{}:
+			// Mongo 2.6
+			if role["db"] == db {
+				roles = append(roles, role["role"])
+			}
+		default:
+			// Mongo 2.4
+			roles = append(roles, role)
+		}
+	}
 	c.Assert(roles, jc.SameContents, expected)
 }
 
@@ -153,20 +167,21 @@ func (s *adminSuite) TestSetAdminMongoPassword(c *gc.C) {
 	session, err := mgo.DialWithInfo(dialInfo)
 	c.Assert(err, gc.IsNil)
 	defer session.Close()
-	admin := session.DB("admin")
 
 	// Check that we can SetAdminMongoPassword to nothing when there's
 	// no password currently set.
 	err = mongo.SetAdminMongoPassword(session, "auser", "")
 	c.Assert(err, gc.IsNil)
 
+	admin := session.DB("admin")
 	err = mongo.SetAdminMongoPassword(session, "auser", "foo")
 	c.Assert(err, gc.IsNil)
 	err = admin.Login("auser", "")
-	c.Assert(err, gc.ErrorMatches, "auth fails")
+	c.Assert(err, gc.ErrorMatches, "auth fail(s|ed)")
 	err = admin.Login("auser", "foo")
 	c.Assert(err, gc.IsNil)
-	checkRoles(c, admin, "auser",
+
+	checkRoles(c, session, "admin", "auser",
 		[]interface{}{
 			string(mgo.RoleReadWriteAny),
 			string(mgo.RoleDBAdminAny),
