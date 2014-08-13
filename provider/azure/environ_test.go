@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/api"
 	apiparams "github.com/juju/juju/state/api/params"
@@ -1158,6 +1159,11 @@ func (s *environSuite) TestInitialPorts(c *gc.C) {
 	// Only role2 should report opened state server ports via the Ports method.
 	dummyRole := *role1
 	configSetNetwork(&dummyRole).InputEndpoints = &[]gwacl.InputEndpoint{{
+		LocalPort: env.Config().StatePort(),
+		Protocol:  "tcp",
+		Name:      "stateserver",
+		Port:      env.Config().StatePort(),
+	}, {
 		LocalPort: env.Config().APIPort(),
 		Protocol:  "tcp",
 		Name:      "apiserver",
@@ -1168,11 +1174,21 @@ func (s *environSuite) TestInitialPorts(c *gc.C) {
 		gwacl.PatchManagementAPIResponses(responses)
 		ports, err := inst.Ports("")
 		c.Assert(err, gc.IsNil)
-		portmap := make(map[int]bool)
-		for _, port := range ports {
-			portmap[port.Number] = true
+		portmap := make(map[network.PortRange]bool)
+		for _, portRange := range ports {
+			portmap[portRange] = true
 		}
-		return portmap[env.Config().APIPort()]
+		statePortRange := network.PortRange{
+			Protocol: "tcp",
+			FromPort: env.Config().StatePort(),
+			ToPort:   env.Config().StatePort(),
+		}
+		apiPortRange := network.PortRange{
+			Protocol: "tcp",
+			FromPort: env.Config().APIPort(),
+			ToPort:   env.Config().APIPort(),
+		}
+		return portmap[statePortRange] && portmap[apiPortRange]
 	}
 	c.Check(inst1, gc.Not(jc.Satisfies), reportsStateServerPorts)
 	c.Check(inst2, jc.Satisfies, reportsStateServerPorts)
@@ -1242,7 +1258,13 @@ func (*environSuite) testNewRole(c *gc.C, stateServer bool) {
 	c.Check(sshEndpoint.Protocol, gc.Equals, "tcp")
 
 	if stateServer {
-		// There should be an endpoint for the API port.
+		// There's also an endpoint for the state (mongodb) port.
+		stateEndpoint, ok := endpoints[env.Config().StatePort()]
+		c.Assert(ok, gc.Equals, true)
+		c.Check(stateEndpoint.LocalPort, gc.Equals, env.Config().StatePort())
+		c.Check(stateEndpoint.Protocol, gc.Equals, "tcp")
+
+		// And one for the API port.
 		apiEndpoint, ok := endpoints[env.Config().APIPort()]
 		c.Assert(ok, gc.Equals, true)
 		c.Check(apiEndpoint.LocalPort, gc.Equals, env.Config().APIPort())
@@ -1652,9 +1674,9 @@ func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
-	cons := constraints.MustParse("arch=ppc64")
+	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")

@@ -5,11 +5,11 @@ package manual
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 	"io"
 	"strings"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
 	"github.com/juju/utils/shell"
@@ -133,6 +133,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 		Nonce:     machineParams.Nonce,
 	})
 	if err != nil {
+		logger.Errorf("cannot obtain provisioning script")
 		return "", err
 	}
 
@@ -246,14 +247,14 @@ var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, pro
 func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	cloudcfg := coreCloudinit.New()
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
-		return "", err
+		return "", errors.Annotate(err, "error generating cloud-config")
 	}
 	// Explicitly disabling apt_upgrade so as not to trample
 	// the target machine's existing configuration.
 	cloudcfg.SetAptUpgrade(false)
 	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
-		return "", err
+		return "", errors.Annotate(err, "error converting cloud-config to script")
 	}
 
 	var buf bytes.Buffer

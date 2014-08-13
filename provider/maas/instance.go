@@ -75,6 +75,11 @@ func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	}
 	host := network.Address{name, network.HostName, "", network.ScopePublic}
 	addrs := []network.Address{host}
+	// MAAS prefers to use the dns name for intra-node communication.
+	// When Juju looks up the address to use for communicating between nodes, it looks
+	// up the address bu scope. So we add a cloud local address for that purpose.
+	cloudHost := network.Address{name, network.HostName, "", network.ScopeCloudLocal}
+	addrs = append(addrs, cloudHost)
 
 	ips, err := mi.ipAddresses()
 	if err != nil {
@@ -117,17 +122,17 @@ func (mi *maasInstance) hostname() (string, error) {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (mi *maasInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (mi *maasInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (mi *maasInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (mi *maasInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (mi *maasInstance) Ports(machineId string) ([]network.Port, error) {
+func (mi *maasInstance) Ports(machineId string) ([]network.PortRange, error) {
 	logger.Debugf("unimplemented Ports() called")
-	return []network.Port{}, nil
+	return nil, nil
 }

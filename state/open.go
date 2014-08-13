@@ -16,7 +16,6 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
@@ -39,15 +38,6 @@ func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*
 		return nil, err
 	}
 	logger.Debugf("connection established")
-
-	_, err = replicaset.CurrentConfig(session)
-	safe := &mgo.Safe{J: true}
-	if err == nil {
-		// set mongo to write-majority (writes only returned after replicated
-		// to a majority of replica-set members)
-		safe.WMode = "majority"
-	}
-	session.SetSafe(safe)
 
 	st, err := newState(session, info, policy)
 	if err != nil {
@@ -167,7 +157,7 @@ func isUnauthorized(err error) bool {
 	return false
 }
 
-func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (st *State, resultErr error) {
+func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	db := session.DB("juju")
 	pdb := session.DB("presence")
 	admin := session.DB("admin")
@@ -190,7 +180,7 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 		authenticated = true
 	}
 
-	st = &State{
+	st := &State{
 		mongoInfo:     mongoInfo,
 		policy:        policy,
 		authenticated: authenticated,

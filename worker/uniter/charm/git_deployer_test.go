@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/juju/utils/symlink"
-	corecharm "gopkg.in/juju/charm.v2"
+	corecharm "gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/testing"

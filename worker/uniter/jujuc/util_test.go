@@ -11,7 +11,7 @@ import (
 	stdtesting "testing"
 
 	"github.com/juju/utils/set"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"

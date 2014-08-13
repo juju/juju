@@ -11,7 +11,7 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -170,7 +170,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	repo, err := charm.InferRepository(curl.Reference, ctx.AbsPath(c.RepoPath))
+	repo, err := charm.InferRepository(curl.Reference(), ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}

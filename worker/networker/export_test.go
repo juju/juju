@@ -25,6 +25,11 @@ var (
 	SourceCommentAndCommand = sourceCommentAndCommand
 )
 
+func IsRunningInLXC(machineTag string) bool {
+	nw := &networker{tag: machineTag}
+	return nw.isRunningInLXC()
+}
+
 func ChangeConfigDirName(dirName string) {
 	configDirName = dirName
 	configFileName = filepath.Join(configDirName, "interfaces")

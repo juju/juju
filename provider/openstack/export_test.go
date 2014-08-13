@@ -86,7 +86,7 @@ var indexData = `
 		   "products": [
 			"com.ubuntu.cloud:server:12.04:amd64",
 			"com.ubuntu.cloud:server:12.04:i386",
-			"com.ubuntu.cloud:server:12.04:ppc64",
+			"com.ubuntu.cloud:server:12.04:ppc64el",
 			"com.ubuntu.cloud:server:12.10:amd64",
 			"com.ubuntu.cloud:server:13.04:amd64"
 		   ],
@@ -158,10 +158,10 @@ var imagesData = `
        }
      }
    },
-   "com.ubuntu.cloud:server:12.04:ppc64": {
+   "com.ubuntu.cloud:server:12.04:ppc64el": {
      "release": "precise",
      "version": "12.04",
-     "arch": "ppc64",
+     "arch": "ppc64el",
      "versions": {
        "20121111": {
          "items": {
@@ -172,7 +172,7 @@ var imagesData = `
              "id": "33"
            }
          },
-         "pubname": "ubuntu-precise-12.04-ppc64-server-20121111",
+         "pubname": "ubuntu-precise-12.04-ppc64el-server-20121111",
          "label": "release"
        }
      }
@@ -296,8 +296,8 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env.ecfg().attrs["use-floating-ip"] = val
 }
 
-func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (nova.SecurityGroup, error) {
-	return e.(*environ).setUpGlobalGroup(name, apiPort)
+func SetUpGlobalGroup(e environs.Environ, name string, statePort, apiPort int) (nova.SecurityGroup, error) {
+	return e.(*environ).setUpGlobalGroup(name, statePort, apiPort)
 }
 
 func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
@@ -340,3 +340,6 @@ func GetNovaClient(e environs.Environ) *nova.Client {
 func ResolveNetwork(e environs.Environ, networkName string) (string, error) {
 	return e.(*environ).resolveNetwork(networkName)
 }
+
+var PortsToRuleInfo = portsToRuleInfo
+var RuleMatchesPortRange = ruleMatchesPortRange

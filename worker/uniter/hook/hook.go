@@ -8,7 +8,7 @@ import (
 	"fmt"
 
 	"github.com/juju/names"
-	"gopkg.in/juju/charm.v2/hooks"
+	"gopkg.in/juju/charm.v3/hooks"
 )
 
 // Info holds details required to execute a hook. Not all fields are

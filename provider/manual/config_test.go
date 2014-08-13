@@ -145,15 +145,21 @@ func (s *configSuite) TestStorageCompat(c *gc.C) {
 	c.Assert(envConfig.useSSHStorage(), jc.IsFalse)
 }
 
-func (s *configSuite) TestValidateConfigWithFloatPort(c *gc.C) {
+func (s *configSuite) TestConfigWithFloatStoragePort(c *gc.C) {
 	// When the config values get serialized through JSON, the integers
 	// get coerced to float64 values.  The parsing needs to handle this.
 	values := MinimalConfigValues()
 	values["storage-port"] = float64(8040)
+
 	cfg, err := config.New(config.UseDefaults, values)
 	c.Assert(err, gc.IsNil)
 	valid, err := ProviderInstance.Validate(cfg, nil)
 	c.Assert(err, gc.IsNil)
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["storage-port"], gc.Equals, int(8040))
+
+	env, err := ProviderInstance.Open(cfg)
+	c.Assert(err, gc.IsNil)
+	// really, we're asserting that this doesn't panic :)
+	c.Assert(env.(*manualEnviron).cfg.storagePort(), gc.Equals, int(8040))
 }

@@ -17,8 +17,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/txn"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v2"
-	charmtesting "gopkg.in/juju/charm.v2/testing"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
@@ -37,7 +37,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/peergrouper"
 )
 
 var goodPassword = "foo-12345678901234567890"
@@ -2100,45 +2099,6 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	info.Tag, info.Password = nil, ""
 	err = tryOpenState(info)
 	c.Assert(err, gc.IsNil)
-}
-
-func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
-	info := state.TestingMongoInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	session := st.MongoSession()
-	safe := session.Safe()
-	c.Assert(safe.WMode, gc.Not(gc.Equals), "majority")
-	c.Assert(safe.J, gc.Equals, true)
-}
-
-func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
-	inst := gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
-	err := inst.Start(testing.Certs)
-	c.Assert(err, gc.IsNil)
-	defer inst.Destroy()
-
-	info := inst.DialInfo()
-	args := peergrouper.InitiateMongoParams{
-		DialInfo:       info,
-		MemberHostPort: inst.Addr(),
-	}
-
-	err = peergrouper.MaybeInitiateMongoServer(args)
-	c.Assert(err, gc.IsNil)
-
-	stateInfo := &authentication.MongoInfo{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
-	dialOpts := mongo.DialOpts{Timeout: time.Second * 30}
-	st, err := state.Open(stateInfo, dialOpts, state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	stateSession := st.MongoSession()
-	safe := stateSession.Safe()
-	c.Assert(safe.WMode, gc.Equals, "majority")
-	c.Assert(safe.J, gc.Equals, true)
 }
 
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {

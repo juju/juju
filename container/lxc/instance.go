@@ -41,17 +41,17 @@ func (lxc *lxcInstance) Addresses() ([]network.Address, error) {
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.
-func (lxc *lxcInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (lxc *lxcInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts implements instance.Instance.ClosePorts.
-func (lxc *lxcInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (lxc *lxcInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	return fmt.Errorf("not implemented")
 }
 
 // Ports implements instance.Instance.Ports.
-func (lxc *lxcInstance) Ports(machineId string) ([]network.Port, error) {
+func (lxc *lxcInstance) Ports(machineId string) ([]network.PortRange, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 

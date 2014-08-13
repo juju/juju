@@ -15,8 +15,8 @@ import (
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v2"
-	charmtesting "gopkg.in/juju/charm.v2/testing"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
@@ -484,7 +484,7 @@ func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	ch := charmtesting.Charms.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charm.InferRepository(curl.Reference, charmtesting.Charms.Path())
+	repo, err := charm.InferRepository(curl.Reference(), charmtesting.Charms.Path())
 	c.Assert(err, gc.IsNil)
 	sch, err := PutCharm(s.State, curl, repo, false)
 	c.Assert(err, gc.IsNil)

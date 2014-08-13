@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 type environSuite struct {
@@ -161,7 +162,77 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags"})
 }
 
-func (s *environSuite) TestStateServerInstances(c *gc.C) {
+type bootstrapSuite struct {
+	coretesting.FakeJujuHomeSuite
+	env *manualEnviron
+}
+
+var _ = gc.Suite(&bootstrapSuite{})
+
+func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+
+	// ensure use-sshstorage=true to mimic what happens
+	// in the real client: the environment is Prepared,
+	// at which point use-sshstorage=true.
+	cfg := MinimalConfig(c)
+	cfg, err := cfg.Apply(map[string]interface{}{
+		"use-sshstorage": true,
+	})
+	c.Assert(err, gc.IsNil)
+
+	env, err := manualProvider{}.Open(cfg)
+	c.Assert(err, gc.IsNil)
+	s.env = env.(*manualEnviron)
+}
+
+func (s *bootstrapSuite) TestBootstrapClearsUseSSHStorage(c *gc.C) {
+	s.PatchValue(&manualBootstrap, func(manual.BootstrapArgs) error {
+		return nil
+	})
+	s.PatchValue(&manualDetectSeriesAndHardwareCharacteristics, func(string) (instance.HardwareCharacteristics, string, error) {
+		return instance.HardwareCharacteristics{}, "precise", nil
+	})
+	s.PatchValue(&commonEnsureBootstrapTools, func(environs.BootstrapContext, environs.Environ, string, *string) (coretools.List, error) {
+		return nil, nil
+	})
+
+	// use-sshstorage is initially true.
+	cfg := s.env.Config()
+	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], gc.Equals, true)
+
+	err := s.env.Bootstrap(coretesting.Context(c), environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	// Bootstrap must set use-sshstorage to false within the environment.
+	cfg = s.env.Config()
+	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], gc.Equals, false)
+}
+
+type stateServerInstancesSuite struct {
+	coretesting.FakeJujuHomeSuite
+	env *manualEnviron
+}
+
+var _ = gc.Suite(&stateServerInstancesSuite{})
+
+func (s *stateServerInstancesSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+
+	// ensure use-sshstorage=true, or bootstrap-host
+	// verification won't happen in StateServerInstances.
+	cfg := MinimalConfig(c)
+	cfg, err := cfg.Apply(map[string]interface{}{
+		"use-sshstorage": true,
+	})
+	c.Assert(err, gc.IsNil)
+
+	env, err := manualProvider{}.Open(cfg)
+	c.Assert(err, gc.IsNil)
+	s.env = env.(*manualEnviron)
+}
+
+func (s *stateServerInstancesSuite) TestStateServerInstances(c *gc.C) {
 	var outputResult string
 	var errResult error
 	runSSHCommandTesting := func(host string, command []string, stdin string) (string, error) {
@@ -202,16 +273,28 @@ func (s *environSuite) TestStateServerInstances(c *gc.C) {
 	}
 }
 
-func (s *environSuite) TestStateServerInstancesStderr(c *gc.C) {
+func (s *stateServerInstancesSuite) TestStateServerInstancesStderr(c *gc.C) {
 	// Stderr should not affect the behaviour of StateServerInstances.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 0")
 	_, err := s.env.StateServerInstances()
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *environSuite) TestStateServerInstancesError(c *gc.C) {
+func (s *stateServerInstancesSuite) TestStateServerInstancesError(c *gc.C) {
 	// If the ssh execution fails, its stderr will be captured in the error message.
 	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
 	_, err := s.env.StateServerInstances()
 	c.Assert(err, gc.ErrorMatches, "abc: .*")
+}
+
+func (s *stateServerInstancesSuite) TestStateServerInstancesInternal(c *gc.C) {
+	// If use-sshstorage=false, then we're on the bootstrap host;
+	// verification is elided.
+	env, err := manualProvider{}.Open(MinimalConfig(c))
+	c.Assert(err, gc.IsNil)
+
+	testing.PatchExecutable(c, s, "ssh", "#!/bin/sh\nhead -n1 > /dev/null; echo abc >&2; exit 1")
+	instances, err := env.StateServerInstances()
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, gc.DeepEquals, []instance.Id{manual.BootstrapInstanceId})
 }

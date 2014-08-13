@@ -429,7 +429,7 @@ func convertNovaAddresses(addresses map[string][]nova.IPAddress) []network.Addre
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (inst *openstackInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (inst *openstackInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
@@ -442,7 +442,7 @@ func (inst *openstackInstance) OpenPorts(machineId string, ports []network.Port)
 	return nil
 }
 
-func (inst *openstackInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (inst *openstackInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -455,13 +455,17 @@ func (inst *openstackInstance) ClosePorts(machineId string, ports []network.Port
 	return nil
 }
 
-func (inst *openstackInstance) Ports(machineId string) ([]network.Port, error) {
+func (inst *openstackInstance) Ports(machineId string) ([]network.PortRange, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	return inst.e.portsInGroup(name)
+	portRanges, err := inst.e.portsInGroup(name)
+	if err != nil {
+		return nil, err
+	}
+	return portRanges, nil
 }
 
 func (e *environ) ecfg() *environConfig {
@@ -959,7 +963,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	cfg := e.Config()
-	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
+	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -1192,20 +1196,30 @@ func (e *environ) machinesFilter() *nova.Filter {
 	return filter
 }
 
-func (e *environ) openPortsInGroup(name string, ports []network.Port) error {
+// portsToRuleInfo maps port ranges to nova rules
+func portsToRuleInfo(groupId string, ports []network.PortRange) []nova.RuleInfo {
+	rules := make([]nova.RuleInfo, len(ports))
+	for i, portRange := range ports {
+		rules[i] = nova.RuleInfo{
+			ParentGroupId: groupId,
+			FromPort:      portRange.FromPort,
+			ToPort:        portRange.ToPort,
+			IPProtocol:    portRange.Protocol,
+			Cidr:          "0.0.0.0/0",
+		}
+	}
+	return rules
+}
+
+func (e *environ) openPortsInGroup(name string, portRanges []network.PortRange) error {
 	novaclient := e.nova()
 	group, err := novaclient.SecurityGroupByName(name)
 	if err != nil {
 		return err
 	}
-	for _, port := range ports {
-		_, err := novaclient.CreateSecurityGroupRule(nova.RuleInfo{
-			ParentGroupId: group.Id,
-			FromPort:      port.Number,
-			ToPort:        port.Number,
-			IPProtocol:    port.Protocol,
-			Cidr:          "0.0.0.0/0",
-		})
+	rules := portsToRuleInfo(group.Id, portRanges)
+	for _, rule := range rules {
+		_, err := novaclient.CreateSecurityGroupRule(rule)
 		if err != nil {
 			// TODO: if err is not rule already exists, raise?
 			logger.Debugf("error creating security group rule: %v", err.Error())
@@ -1214,8 +1228,18 @@ func (e *environ) openPortsInGroup(name string, ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
-	if len(ports) == 0 {
+// ruleMatchesPortRange checks if supplied nova security group rule matches the port range
+func ruleMatchesPortRange(rule nova.SecurityGroupRule, portRange network.PortRange) bool {
+	if rule.IPProtocol == nil || rule.FromPort == nil || rule.ToPort == nil {
+		return false
+	}
+	return *rule.IPProtocol == portRange.Protocol &&
+		*rule.FromPort == portRange.FromPort &&
+		*rule.ToPort == portRange.ToPort
+}
+
+func (e *environ) closePortsInGroup(name string, portRanges []network.PortRange) error {
+	if len(portRanges) == 0 {
 		return nil
 	}
 	novaclient := e.nova()
@@ -1224,11 +1248,9 @@ func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
 		return err
 	}
 	// TODO: Hey look ma, it's quadratic
-	for _, port := range ports {
+	for _, portRange := range portRanges {
 		for _, p := range (*group).Rules {
-			if p.IPProtocol == nil || *p.IPProtocol != port.Protocol ||
-				p.FromPort == nil || *p.FromPort != port.Number ||
-				p.ToPort == nil || *p.ToPort != port.Number {
+			if !ruleMatchesPortRange(p, portRange) {
 				continue
 			}
 			err := novaclient.DeleteSecurityGroupRule(p.Id)
@@ -1241,26 +1263,25 @@ func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []network.Port, err error) {
+func (e *environ) portsInGroup(name string) (portRanges []network.PortRange, err error) {
 	group, err := e.nova().SecurityGroupByName(name)
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range (*group).Rules {
-		for i := *p.FromPort; i <= *p.ToPort; i++ {
-			ports = append(ports, network.Port{
-				Protocol: *p.IPProtocol,
-				Number:   i,
-			})
-		}
+		portRanges = append(portRanges, network.PortRange{
+			Protocol: *p.IPProtocol,
+			FromPort: *p.FromPort,
+			ToPort:   *p.ToPort,
+		})
 	}
-	network.SortPorts(ports)
-	return ports, nil
+	network.SortPortRanges(portRanges)
+	return portRanges, nil
 }
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (e *environ) OpenPorts(ports []network.Port) error {
+func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
@@ -1272,7 +1293,7 @@ func (e *environ) OpenPorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.Port) error {
+func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
@@ -1284,7 +1305,7 @@ func (e *environ) ClosePorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]network.Port, error) {
+func (e *environ) Ports() ([]network.PortRange, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
 			e.Config().FirewallMode())
@@ -1296,13 +1317,19 @@ func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) setUpGlobalGroup(groupName string, apiPort int) (nova.SecurityGroup, error) {
+func (e *environ) setUpGlobalGroup(groupName string, statePort, apiPort int) (nova.SecurityGroup, error) {
 	return e.ensureGroup(groupName,
 		[]nova.RuleInfo{
 			{
 				IPProtocol: "tcp",
 				FromPort:   22,
 				ToPort:     22,
+				Cidr:       "0.0.0.0/0",
+			},
+			{
+				IPProtocol: "tcp",
+				FromPort:   statePort,
+				ToPort:     statePort,
 				Cidr:       "0.0.0.0/0",
 			},
 			{
@@ -1340,8 +1367,8 @@ func (e *environ) setUpGlobalGroup(groupName string, apiPort int) (nova.Security
 // Note: ideally we'd have a better way to determine group membership so that 2
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
-func (e *environ) setUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
-	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), apiPort)
+func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.SecurityGroup, error) {
+	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), statePort, apiPort)
 	if err != nil {
 		return nil, err
 	}

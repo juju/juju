@@ -10,7 +10,7 @@ import (
 	"github.com/juju/names"
 	patchtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
 	envtesting "github.com/juju/juju/environs/testing"

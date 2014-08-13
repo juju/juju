@@ -60,7 +60,14 @@ func (c *environConfig) storageListenIPAddress() string {
 }
 
 func (c *environConfig) storagePort() int {
-	return c.attrs["storage-port"].(int)
+	switch val := c.attrs["storage-port"].(type) {
+	case float64:
+		return int(val)
+	case int:
+		return val
+	default:
+		panic(fmt.Sprintf("Unexpected %T in storage-port: %#v. Expected float64 or int.", val, val))
+	}
 }
 
 func (c *environConfig) storageAuthKey() string {

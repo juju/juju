@@ -4,7 +4,7 @@
 package main
 
 import (
-	charmtesting "gopkg.in/juju/charm.v2/testing"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
