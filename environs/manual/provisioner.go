@@ -133,7 +133,8 @@ func ProvisionMachine(args ProvisionMachineArgs) (machineId string, err error) {
 		Nonce:     machineParams.Nonce,
 	})
 	if err != nil {
-		return "", errors.Annotate(err, "cannot obtain provisioning script")
+		logger.Errorf("cannot obtain provisioning script")
+		return "", err
 	}
 
 	// Finally, provision the machine agent.
