@@ -8,6 +8,9 @@ import (
 	"net"
 	"sort"
 	"strconv"
+	"strings"
+
+	"github.com/juju/errors"
 )
 
 // Port identifies a network port number for a particular protocol.
@@ -119,4 +122,122 @@ func SortHostPorts(hps []HostPort, preferIPv6 bool) {
 		h.preference = IPv4Address
 	}
 	sort.Sort(h)
+}
+
+// PortRange represents a single range of ports.
+type PortRange struct {
+	FromPort int
+	ToPort   int
+	Protocol string
+}
+
+// IsValid determines if the port range is valid.
+func (p PortRange) Validate() error {
+	proto := strings.ToLower(p.Protocol)
+	if proto != "tcp" && proto != "udp" {
+		return errors.Errorf("invalid protocol %q", proto)
+	}
+	if p.FromPort > p.ToPort {
+		return errors.Errorf("invalid port range %d-%d", p.FromPort, p.ToPort)
+	}
+	return nil
+}
+
+// ConflictsWith determines if the two port ranges conflict.
+func (a PortRange) ConflictsWith(b PortRange) bool {
+	if a.Protocol != b.Protocol {
+		return false
+	}
+	return a.ToPort >= b.FromPort && b.ToPort >= a.FromPort
+}
+
+func (p PortRange) String() string {
+	return fmt.Sprintf("%d-%d/%s", p.FromPort, p.ToPort, strings.ToLower(p.Protocol))
+}
+
+type portRangeSlice []PortRange
+
+func (p portRangeSlice) Len() int      { return len(p) }
+func (p portRangeSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
+func (p portRangeSlice) Less(i, j int) bool {
+	p1 := p[i]
+	p2 := p[j]
+	if p1.Protocol != p2.Protocol {
+		return p1.Protocol < p2.Protocol
+	}
+	if p1.FromPort != p2.FromPort {
+		return p1.FromPort < p2.FromPort
+	}
+	return p1.ToPort < p2.ToPort
+}
+
+// SortPortRanges sorts the given ports, first by protocol, then by number.
+func SortPortRanges(portRanges []PortRange) {
+	sort.Sort(portRangeSlice(portRanges))
+}
+
+// PortRangesToPorts is a temporary function converting a slice of port ranges
+// to a slice of ports. It is here to fill the gap caused
+// by environments dealing with port ranges and the firewaller still
+// dealing with individual ports
+// TODO (domas) 2014-07-31: remove this once firewaller is capable of
+// handling port ranges
+func PortRangesToPorts(portRanges []PortRange) (result []Port) {
+	for _, portRange := range portRanges {
+		for p := portRange.FromPort; p <= portRange.ToPort; p++ {
+			result = append(result, Port{portRange.Protocol, p})
+		}
+	}
+	return
+}
+
+// PortsToPortRanges is a temporary function converting a slice of ports to
+// a slice of port ranges. It is here to fill the gap caused by environments
+// handling port ranges and firewaller still dealing with individual ports.
+// TODO (domas) 2014-07-31: remove this once firewaller is capable of
+// handling port ranges
+func PortsToPortRanges(ports []Port) (result []PortRange) {
+	for _, p := range ports {
+		result = append(result, PortRange{p.Number, p.Number, p.Protocol})
+	}
+	return
+}
+
+// CollapsePorts collapses a slice of ports into port ranges.
+func CollapsePorts(ports []Port) (result []PortRange) {
+	SortPorts(ports)
+	fromPort := 0
+	toPort := 0
+	protocol := ""
+	for _, p := range ports {
+		if fromPort == 0 {
+			// new port range
+			fromPort = p.Number
+			toPort = p.Number
+			protocol = p.Protocol
+		} else if p.Number == toPort+1 && protocol == p.Protocol {
+			// continuing port range
+			toPort = p.Number
+		} else {
+			// break in port range
+			result = append(result,
+				PortRange{
+					Protocol: protocol,
+					FromPort: fromPort,
+					ToPort:   toPort,
+				})
+			fromPort = p.Number
+			toPort = p.Number
+			protocol = p.Protocol
+		}
+	}
+	if fromPort != 0 {
+		result = append(result, PortRange{
+			Protocol: protocol,
+			FromPort: fromPort,
+			ToPort:   toPort,
+		})
+
+	}
+	return
 }

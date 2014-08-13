@@ -630,19 +630,19 @@ func (environ *maasEnviron) Destroy() error {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (*maasEnviron) OpenPorts([]network.Port) error {
+func (*maasEnviron) OpenPorts([]network.PortRange) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (*maasEnviron) ClosePorts([]network.Port) error {
+func (*maasEnviron) ClosePorts([]network.PortRange) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (*maasEnviron) Ports() ([]network.Port, error) {
+func (*maasEnviron) Ports() ([]network.PortRange, error) {
 	logger.Debugf("unimplemented Ports() called")
-	return []network.Port{}, nil
+	return nil, nil
 }
 
 func (*maasEnviron) Provider() environs.EnvironProvider {

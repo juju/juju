@@ -8,6 +8,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/network"
 )
 
 type Suite struct{}
@@ -60,4 +61,66 @@ func (*Suite) TestRootDisk(c *gc.C) {
 
 func pInt(i uint64) *uint64 {
 	return &i
+}
+
+func (*Suite) TestPortsToIPPerms(c *gc.C) {
+	testCases := []struct {
+		about    string
+		ports    []network.PortRange
+		expected []amzec2.IPPerm
+	}{{
+		about: "single port",
+		ports: []network.PortRange{{
+			FromPort: 80,
+			ToPort:   80,
+			Protocol: "tcp",
+		}},
+		expected: []amzec2.IPPerm{{
+			Protocol:  "tcp",
+			FromPort:  80,
+			ToPort:    80,
+			SourceIPs: []string{"0.0.0.0/0"},
+		}},
+	}, {
+		about: "multiple ports",
+		ports: []network.PortRange{{
+			FromPort: 80,
+			ToPort:   82,
+			Protocol: "tcp",
+		}},
+		expected: []amzec2.IPPerm{{
+			Protocol:  "tcp",
+			FromPort:  80,
+			ToPort:    82,
+			SourceIPs: []string{"0.0.0.0/0"},
+		}},
+	}, {
+		about: "multiple port ranges",
+		ports: []network.PortRange{{
+			FromPort: 80,
+			ToPort:   82,
+			Protocol: "tcp",
+		}, {
+			FromPort: 100,
+			ToPort:   120,
+			Protocol: "tcp",
+		}},
+		expected: []amzec2.IPPerm{{
+			Protocol:  "tcp",
+			FromPort:  80,
+			ToPort:    82,
+			SourceIPs: []string{"0.0.0.0/0"},
+		}, {
+			Protocol:  "tcp",
+			FromPort:  100,
+			ToPort:    120,
+			SourceIPs: []string{"0.0.0.0/0"},
+		}},
+	}}
+
+	for i, t := range testCases {
+		c.Logf("test %d: %s", i, t.about)
+		ipperms := portsToIPPerms(t.ports)
+		c.Assert(ipperms, gc.DeepEquals, t.expected)
+	}
 }

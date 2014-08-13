@@ -333,16 +333,16 @@ func (e *manualEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
-func (e *manualEnviron) OpenPorts(ports []network.Port) error {
+func (e *manualEnviron) OpenPorts(ports []network.PortRange) error {
 	return nil
 }
 
-func (e *manualEnviron) ClosePorts(ports []network.Port) error {
+func (e *manualEnviron) ClosePorts(ports []network.PortRange) error {
 	return nil
 }
 
-func (e *manualEnviron) Ports() ([]network.Port, error) {
-	return []network.Port{}, nil
+func (e *manualEnviron) Ports() ([]network.PortRange, error) {
+	return nil, nil
 }
 
 func (*manualEnviron) Provider() environs.EnvironProvider {
