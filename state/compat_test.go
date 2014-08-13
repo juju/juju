@@ -5,7 +5,7 @@ package state
 
 import (
 	gitjujutesting "github.com/juju/testing"
-	charmtesting "gopkg.in/juju/charm.v2/testing"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"

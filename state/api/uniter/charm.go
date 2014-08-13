@@ -8,7 +8,7 @@ import (
 	"net/url"
 
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/state/api/params"
 )

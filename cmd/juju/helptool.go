@@ -7,7 +7,7 @@ import (
 	"fmt"
 
 	"github.com/juju/cmd"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/worker/uniter/jujuc"

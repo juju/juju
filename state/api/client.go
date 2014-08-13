@@ -20,7 +20,7 @@ import (
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
-	"gopkg.in/juju/charm.v2"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -700,8 +700,8 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
-func (c *Client) ResolveCharm(ref charm.Reference) (*charm.URL, error) {
-	args := params.ResolveCharms{References: []charm.Reference{ref}}
+func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
+	args := params.ResolveCharms{References: []charm.Reference{*ref}}
 	result := new(params.ResolveCharmResults)
 	if err := c.facade.FacadeCall("ResolveCharms", args, result); err != nil {
 		return nil, err
