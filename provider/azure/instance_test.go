@@ -354,6 +354,11 @@ func (s *instanceSuite) testPorts(c *gc.C, maskStateServerPorts bool) {
 		Name:      "test456",
 		Port:      4456,
 	}, {
+		LocalPort: s.env.Config().StatePort(),
+		Protocol:  "tcp",
+		Name:      "stateserver",
+		Port:      s.env.Config().StatePort(),
+	}, {
 		LocalPort: s.env.Config().APIPort(),
 		Protocol:  "tcp",
 		Name:      "apiserver",
@@ -375,6 +380,7 @@ func (s *instanceSuite) testPorts(c *gc.C, maskStateServerPorts bool) {
 		{Number: 2123, Protocol: "udp"},
 	}
 	if !maskStateServerPorts {
+		expected = append(expected, network.Port{Number: s.env.Config().StatePort(), Protocol: "tcp"})
 		expected = append(expected, network.Port{Number: s.env.Config().APIPort(), Protocol: "tcp"})
 		network.SortPorts(expected)
 	}

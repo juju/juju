@@ -959,7 +959,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	cfg := e.Config()
-	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
+	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -1296,13 +1296,19 @@ func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) setUpGlobalGroup(groupName string, apiPort int) (nova.SecurityGroup, error) {
+func (e *environ) setUpGlobalGroup(groupName string, statePort, apiPort int) (nova.SecurityGroup, error) {
 	return e.ensureGroup(groupName,
 		[]nova.RuleInfo{
 			{
 				IPProtocol: "tcp",
 				FromPort:   22,
 				ToPort:     22,
+				Cidr:       "0.0.0.0/0",
+			},
+			{
+				IPProtocol: "tcp",
+				FromPort:   statePort,
+				ToPort:     statePort,
 				Cidr:       "0.0.0.0/0",
 			},
 			{
@@ -1340,8 +1346,8 @@ func (e *environ) setUpGlobalGroup(groupName string, apiPort int) (nova.Security
 // Note: ideally we'd have a better way to determine group membership so that 2
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
-func (e *environ) setUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
-	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), apiPort)
+func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.SecurityGroup, error) {
+	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), statePort, apiPort)
 	if err != nil {
 		return nil, err
 	}

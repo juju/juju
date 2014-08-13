@@ -1158,6 +1158,11 @@ func (s *environSuite) TestInitialPorts(c *gc.C) {
 	// Only role2 should report opened state server ports via the Ports method.
 	dummyRole := *role1
 	configSetNetwork(&dummyRole).InputEndpoints = &[]gwacl.InputEndpoint{{
+		LocalPort: env.Config().StatePort(),
+		Protocol:  "tcp",
+		Name:      "stateserver",
+		Port:      env.Config().StatePort(),
+	}, {
 		LocalPort: env.Config().APIPort(),
 		Protocol:  "tcp",
 		Name:      "apiserver",
@@ -1172,7 +1177,7 @@ func (s *environSuite) TestInitialPorts(c *gc.C) {
 		for _, port := range ports {
 			portmap[port.Number] = true
 		}
-		return portmap[env.Config().APIPort()]
+		return portmap[env.Config().StatePort()] && portmap[env.Config().APIPort()]
 	}
 	c.Check(inst1, gc.Not(jc.Satisfies), reportsStateServerPorts)
 	c.Check(inst2, jc.Satisfies, reportsStateServerPorts)
@@ -1242,7 +1247,13 @@ func (*environSuite) testNewRole(c *gc.C, stateServer bool) {
 	c.Check(sshEndpoint.Protocol, gc.Equals, "tcp")
 
 	if stateServer {
-		// There should be an endpoint for the API port.
+		// There's also an endpoint for the state (mongodb) port.
+		stateEndpoint, ok := endpoints[env.Config().StatePort()]
+		c.Assert(ok, gc.Equals, true)
+		c.Check(stateEndpoint.LocalPort, gc.Equals, env.Config().StatePort())
+		c.Check(stateEndpoint.Protocol, gc.Equals, "tcp")
+
+		// And one for the API port.
 		apiEndpoint, ok := endpoints[env.Config().APIPort()]
 		c.Assert(ok, gc.Equals, true)
 		c.Check(apiEndpoint.LocalPort, gc.Equals, env.Config().APIPort())
