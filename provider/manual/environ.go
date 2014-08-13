@@ -46,7 +46,12 @@ const (
 	storageTmpSubdir = "storage-tmp"
 )
 
-var logger = loggo.GetLogger("juju.provider.manual")
+var (
+	logger                                       = loggo.GetLogger("juju.provider.manual")
+	commonEnsureBootstrapTools                   = common.EnsureBootstrapTools
+	manualDetectSeriesAndHardwareCharacteristics = manual.DetectSeriesAndHardwareCharacteristics
+	manualBootstrap                              = manual.Bootstrap
+)
 
 type manualEnviron struct {
 	common.SupportsUnitPlacementPolicy
@@ -108,15 +113,15 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	envConfig := e.envConfig()
 	// TODO(axw) consider how we can use placement to override bootstrap-host.
 	host := envConfig.bootstrapHost()
-	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(host)
+	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(host)
 	if err != nil {
 		return err
 	}
-	selectedTools, err := common.EnsureBootstrapTools(ctx, e, series, hc.Arch)
+	selectedTools, err := commonEnsureBootstrapTools(ctx, e, series, hc.Arch)
 	if err != nil {
 		return err
 	}
-	return manual.Bootstrap(manual.BootstrapArgs{
+	return manualBootstrap(manual.BootstrapArgs{
 		Context:                 ctx,
 		Host:                    host,
 		DataDir:                 agent.DefaultDataDir,

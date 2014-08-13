@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	coretesting "github.com/juju/juju/testing"
+	coretools "github.com/juju/juju/tools"
 )
 
 type environSuite struct {
@@ -159,6 +160,53 @@ func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	unsupported, err := validator.Validate(cons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(unsupported, jc.SameContents, []string{"cpu-power", "instance-type", "tags"})
+}
+
+type bootstrapSuite struct {
+	coretesting.FakeJujuHomeSuite
+	env *manualEnviron
+}
+
+var _ = gc.Suite(&bootstrapSuite{})
+
+func (s *bootstrapSuite) SetUpTest(c *gc.C) {
+	s.FakeJujuHomeSuite.SetUpTest(c)
+
+	// ensure use-sshstorage=true to mimic what happens
+	// in the real client: the environment is Prepared,
+	// at which point use-sshstorage=true.
+	cfg := MinimalConfig(c)
+	cfg, err := cfg.Apply(map[string]interface{}{
+		"use-sshstorage": true,
+	})
+	c.Assert(err, gc.IsNil)
+
+	env, err := manualProvider{}.Open(cfg)
+	c.Assert(err, gc.IsNil)
+	s.env = env.(*manualEnviron)
+}
+
+func (s *bootstrapSuite) TestBootstrapClearsUseSSHStorage(c *gc.C) {
+	s.PatchValue(&manualBootstrap, func(manual.BootstrapArgs) error {
+		return nil
+	})
+	s.PatchValue(&manualDetectSeriesAndHardwareCharacteristics, func(string) (instance.HardwareCharacteristics, string, error) {
+		return instance.HardwareCharacteristics{}, "precise", nil
+	})
+	s.PatchValue(&commonEnsureBootstrapTools, func(environs.BootstrapContext, environs.Environ, string, *string) (coretools.List, error) {
+		return nil, nil
+	})
+
+	// use-sshstorage is initially true.
+	cfg := s.env.Config()
+	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], gc.Equals, true)
+
+	err := s.env.Bootstrap(coretesting.Context(c), environs.BootstrapParams{})
+	c.Assert(err, gc.IsNil)
+
+	// Bootstrap must set use-sshstorage to false within the environment.
+	cfg = s.env.Config()
+	c.Assert(cfg.UnknownAttrs()["use-sshstorage"], gc.Equals, false)
 }
 
 type stateServerInstancesSuite struct {
