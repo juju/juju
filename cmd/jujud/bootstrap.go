@@ -11,8 +11,8 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"

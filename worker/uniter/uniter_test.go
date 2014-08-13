@@ -29,8 +29,8 @@ import (
 	"github.com/juju/utils/proxy"
 	corecharm "gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/testing"

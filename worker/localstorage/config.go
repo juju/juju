@@ -4,7 +4,7 @@
 package localstorage
 
 import (
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent"
 )

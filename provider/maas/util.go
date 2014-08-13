@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/juju/utils"
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/instance"
