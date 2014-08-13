@@ -6,8 +6,10 @@ package networker
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	apinetworker "github.com/juju/juju/state/api/networker"
@@ -18,8 +20,10 @@ import (
 var logger = loggo.GetLogger("juju.networker")
 
 // Interface and bridge interface for juju internal network
-var privateInterface string
-var privateBridge string
+var (
+	privateInterface string
+	privateBridge    string
+)
 
 // networker configures network interfaces on the machine, as needed.
 type networker struct {
@@ -41,6 +45,7 @@ func NewNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Work
 func NewSafeNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Worker, error) {
 	return newNetworker(st, agentConfig, false)
 }
+
 func newNetworker(st *apinetworker.State, agentConfig agent.Config, canWriteNetworkConfig bool) (worker.Worker, error) {
 	nw := &networker{
 		st:  st,
@@ -54,6 +59,24 @@ func newNetworker(st *apinetworker.State, agentConfig agent.Config, canWriteNetw
 		return nil, err
 	}
 	return worker.NewNotifyWorker(nw), nil
+}
+
+// isRunningInLXC returns whether the worker is running inside a LXC
+// container or not. When running in LXC containers, we should not
+// attempt to modprobe anything, as it's not possible and leads to
+// run-time errors. See http://pad.lv/1353443.
+func (nw *networker) isRunningInLXC() bool {
+	tag, err := names.ParseMachineTag(nw.tag)
+	if err != nil {
+		// This should never happen, as it was already checked inside
+		// the machine agent.
+		panic(err.Error())
+	}
+	// In case of nested containers, we need to check
+	// the last nesting level to ensure it's not LXC.
+	machineId := strings.ToLower(tag.Id())
+	parts := strings.Split(machineId, "/")
+	return len(parts) > 2 && parts[len(parts)-2] == "lxc"
 }
 
 func (nw *networker) SetUp() (watcher.NotifyWatcher, error) {
@@ -107,11 +130,8 @@ func (nw *networker) Handle() error {
 	// Reset the list of executed commands.
 	s.resetCommands()
 
-	// Add commands to install VLAN module, if required.
-	if !nw.isVLANSupportInstalled {
-		s.ensureVLANModule()
-		nw.isVLANSupportInstalled = true
-	}
+	// Add commands to install VLAN module, if required and possible.
+	s.maybeLoadVLANModule(nw)
 
 	// Up configured interfaces.
 	s.bringUpInterfaces()

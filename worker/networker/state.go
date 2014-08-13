@@ -113,7 +113,13 @@ func (s *configState) bringDownInterfaces() {
 	}
 }
 
-func (s *configState) ensureVLANModule() {
+func (s *configState) maybeLoadVLANModule(nw *networker) {
+	if nw.isVLANSupportInstalled || nw.isRunningInLXC() {
+		// Don't attempt to load the VLAN module twice or when running
+		// inside an LXC container.
+		return
+	}
+
 	commands := []string{
 		`dpkg-query -s vlan || apt-get --option Dpkg::Options::=--force-confold --assume-yes install vlan`,
 		`lsmod | grep -q 8021q || modprobe 8021q`,
@@ -121,6 +127,7 @@ func (s *configState) ensureVLANModule() {
 		`vconfig set_name_type DEV_PLUS_VID_NO_PAD`,
 	}
 	s.commands = append(s.commands, commands...)
+	nw.isVLANSupportInstalled = true
 }
 
 // configText generate configuration text for interface based on its configuration.
