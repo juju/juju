@@ -129,6 +129,18 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 
 // StateServerInstances is specified in the Environ interface.
 func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
+	// If we're running from the bootstrap host, then
+	// useSSHStorage will be false; in that case, we
+	// do not need or want to verify the bootstrap host.
+	if e.envConfig().useSSHStorage() {
+		if err := e.verifyBootstrapHost(); err != nil {
+			return nil, err
+		}
+	}
+	return []instance.Id{manual.BootstrapInstanceId}, nil
+}
+
+func (e *manualEnviron) verifyBootstrapHost() error {
 	// First verify that the environment is bootstrapped by checking
 	// if the agents directory exists. Note that we cannot test the
 	// root data directory, as that is created in the process of
@@ -146,15 +158,15 @@ func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
 		stdin,
 	)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if out = strings.TrimSpace(out); len(out) > 0 {
 		if out == noAgentDir {
-			return nil, environs.ErrNotBootstrapped
+			return environs.ErrNotBootstrapped
 		}
-		return nil, errors.LoggedErrorf(logger, "unexpected output: %q", out)
+		return errors.LoggedErrorf(logger, "unexpected output: %q", out)
 	}
-	return []instance.Id{manual.BootstrapInstanceId}, nil
+	return nil
 }
 
 func (e *manualEnviron) SetConfig(cfg *config.Config) error {
