@@ -122,6 +122,11 @@ func (h *RsyslogConfigHandler) SetUp() (watcher.NotifyWatcher, error) {
 		if err := h.ensureCertificates(); err != nil {
 			return nil, errors.Annotate(err, "failed to write rsyslog certificates")
 		}
+
+		if err := h.ensureLogrotate(); err != nil {
+			return nil, errors.Annotate(err, "failed to write rsyslog logrotate scripts")
+		}
+
 	}
 	// TODO(dfc)
 	return h.st.WatchForRsyslogChanges(h.tag.String())
@@ -238,6 +243,38 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 		{h.syslogConfig.CACertPath(), caCertPEM},
 	} {
 		if err := writeFileAtomic(pair.path, []byte(pair.data), 0600, syslogUid, syslogGid); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (h *RsyslogConfigHandler) ensureLogrotate() error {
+	// Files must be chowned to syslog:adm.
+	syslogUid, syslogGid, err := lookupUser("syslog")
+	if err != nil {
+		return err
+	}
+
+	logrotateConfFile, err := h.syslogConfig.LogrotateConfFile()
+	if err != nil {
+		return err
+	}
+
+	logrotateHelperFile, err := h.syslogConfig.LogrotateHelperFile()
+	if err != nil {
+		return err
+	}
+
+	for _, triple := range []struct {
+		path string
+		data []byte
+		mode os.FileMode
+	}{
+		{h.syslogConfig.LogrotateConfPath(), logrotateConfFile, 0600},
+		{h.syslogConfig.LogrotateHelperPath(), logrotateHelperFile, 0700},
+	} {
+		if err := writeFileAtomic(triple.path, triple.data, triple.mode, syslogUid, syslogGid); err != nil {
 			return err
 		}
 	}
