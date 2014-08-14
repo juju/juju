@@ -16,6 +16,31 @@ import (
 	coreutils "github.com/juju/juju/utils"
 )
 
+// TODO(ericsnow) Pull these from authoritative sources:
+var (
+	dataDir        = "/var/lib/juju"
+	startupDir     = "/etc/init"
+	loggingConfDir = "/etc/rsyslog.d"
+	logsDir        = "/var/log/juju"
+	sshDir         = "/home/ubuntu/.ssh"
+
+	machinesConfs = "jujud-machine-*.conf"
+	agentsDir     = "agents"
+	agentsConfs   = "machine-*"
+	loggingConfs  = "*juju.conf"
+	toolsDir      = "tools"
+
+	sshIdentFile   = "system-identity"
+	nonceFile      = "nonce.txt"
+	allMachinesLog = "all-machines.log"
+	machine0Log    = "machine-0.log"
+	authKeysFile   = "authorized_keys"
+
+	dbStartupConf = "juju-db.conf"
+	dbPEM         = "server.pem"
+	dbSecret      = "shared-secret"
+)
+
 var runCommand = coreutils.RunCommand
 
 //---------------------------
@@ -26,33 +51,38 @@ var runCommand = coreutils.RunCommand
 // files.
 
 var getFilesToBackup = func() ([]string, error) {
-	const dataDir string = "/var/lib/juju"
-	initMachineConfs, err := filepath.Glob("/etc/init/jujud-machine-*.conf")
+	var glob string
+
+	glob = filepath.Join(startupDir, machinesConfs)
+	initMachineConfs, err := filepath.Glob(glob)
 	if err != nil {
-		return nil, errors.Annotate(
-			err, "failed to fetch machine upstart files")
+		return nil, errors.Annotate(err, "failed to fetch machine init files")
 	}
-	agentConfs, err := filepath.Glob(filepath.Join(
-		dataDir, "agents", "machine-*"))
+
+	glob = filepath.Join(dataDir, agentsDir, agentsConfs)
+	agentConfs, err := filepath.Glob(glob)
 	if err != nil {
-		return nil, errors.Annotate(
-			err, "failed to fetch agent configuration files")
+		return nil, errors.Annotate(err, "failed to fetch agent config files")
 	}
-	jujuLogConfs, err := filepath.Glob("/etc/rsyslog.d/*juju.conf")
+
+	glob = filepath.Join(loggingConfDir, loggingConfs)
+	jujuLogConfs, err := filepath.Glob(glob)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to fetch juju log conf files")
 	}
 
 	backupFiles := []string{
-		"/etc/init/juju-db.conf",
-		filepath.Join(dataDir, "tools"),
-		filepath.Join(dataDir, "server.pem"),
-		filepath.Join(dataDir, "system-identity"),
-		filepath.Join(dataDir, "nonce.txt"),
-		filepath.Join(dataDir, "shared-secret"),
-		"/home/ubuntu/.ssh/authorized_keys",
-		"/var/log/juju/all-machines.log",
-		"/var/log/juju/machine-0.log",
+		filepath.Join(dataDir, toolsDir),
+
+		filepath.Join(dataDir, sshIdentFile),
+		filepath.Join(dataDir, nonceFile),
+		filepath.Join(logsDir, allMachinesLog),
+		filepath.Join(logsDir, machine0Log),
+		filepath.Join(sshDir, authKeysFile),
+
+		filepath.Join(startupDir, dbStartupConf),
+		filepath.Join(dataDir, dbPEM),
+		filepath.Join(dataDir, dbSecret),
 	}
 	backupFiles = append(backupFiles, initMachineConfs...)
 	backupFiles = append(backupFiles, agentConfs...)
