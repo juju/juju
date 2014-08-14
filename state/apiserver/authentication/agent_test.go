@@ -29,7 +29,7 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.user = s.Factory.MakeUser(factory.UserParams{
+	s.user = s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		Password:    "password",

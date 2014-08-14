@@ -879,7 +879,7 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 
-	user := s.Factory.MakeUser(factory.UserParams{Password: "password"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "password"})
 	s.APIState = s.OpenAPIAs(c, user.Tag(), "password")
 
 	err := s.APIState.Client().ServiceDeploy(
