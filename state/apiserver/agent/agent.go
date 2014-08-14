@@ -103,7 +103,7 @@ func (api *API) IsMaster() (params.IsMasterResult, error) {
 	case names.MachineTag:
 		machine, err := api.st.Machine(tag.Id())
 		if err != nil {
-		return params.IsMasterResult{}, common.ErrPerm
+			return params.IsMasterResult{}, common.ErrPerm
 		}
 
 		session := api.st.MongoSession()

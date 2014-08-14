@@ -50,7 +50,9 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		switch tag := authorizer.GetAuthTag().(type) {
 		case names.UnitTag:
 			entity, err := st.Unit(tag.Id())
-			if err != nil { return nil, errors.Trace(err) }
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
 			serviceName := entity.ServiceName()
 			serviceTag := names.NewServiceTag(serviceName).String()
 			return func(tag string) bool {
@@ -695,7 +697,7 @@ func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error)
 	}
 	unit, err := u.st.FindEntity(tag.String())
 	if err != nil {
-		return nothing, err 
+		return nothing, err
 	}
 	// Use the currently authenticated unit to get the endpoint.
 	result, err := u.prepareRelationResult(rel, unit.(*state.Unit))
