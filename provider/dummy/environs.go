@@ -678,6 +678,9 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 		if err := st.SetAdminMongoPassword(password); err != nil {
 			panic(err)
 		}
+		if err := st.MongoSession().DB("admin").Login("admin", password); err != nil {
+			panic(err)
+		}
 		_, err = st.AddAdminUser(password)
 		if err != nil {
 			panic(err)

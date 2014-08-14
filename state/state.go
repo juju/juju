@@ -1634,13 +1634,6 @@ func (st *State) SetAdminMongoPassword(password string) error {
 	return mongo.SetAdminMongoPassword(st.db.Session, AdminUser, password)
 }
 
-func (st *State) setMongoPassword(name, password string) error {
-	return mongo.SetMongoPassword(name, password,
-		st.db,
-		st.db.Session.DB("presence"),
-		st.db.Session.DB("admin"))
-}
-
 type stateServersDoc struct {
 	Id               string `bson:"_id"`
 	MachineIds       []string
