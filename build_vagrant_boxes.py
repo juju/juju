@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+from argparse import ArgumentParser
 from jenkins import Jenkins
 import logging
 import os
@@ -36,7 +37,7 @@ def package_regexes():
         yield series[0], 'all', regex_local
 
 
-def get_debian_packages(jenkins):
+def get_debian_packages(jenkins, workspace):
     job_info = jenkins.get_job_info(PUBLISH_REVISION_JOB)
     build_number = job_info['lastSuccessfulBuild']['number']
     build_info = jenkins.get_build_info(PUBLISH_REVISION_JOB, build_number)
@@ -49,7 +50,7 @@ def get_debian_packages(jenkins):
                 if matcher.search(filename) is not None:
                     package_url = '%s/artifact/%s' % (
                         build_info['url'], filename)
-                    local_path = os.path.join(os.getenv(WORKSPACE), filename)
+                    local_path = os.path.join(workspace, filename)
                     logging.info(
                         'copying %s from build %s' % (filename, build_number))
                     result.setdefault(series, {})[arch] = local_path
@@ -83,14 +84,14 @@ def remove_leftover_virtualbox(series, arch):
             break
 
 
-def build_vagrant_box(series, arch, juju_core_package, juju_local_package):
+def build_vagrant_box(series, arch, juju_core_package, juju_local_package,
+                      jenkins_kvm, workspace):
     env = {
         'JUJU_CORE_PKG': juju_core_package,
         'JUJU_LOCAL_PKG': juju_local_package,
         'BUILD_FOR': '%s:%s' % (series, arch),
     }
-    builder_path = os.path.join(
-        os.getenv(JENKINS_KVM), 'build-juju-local.sh')
+    builder_path = os.path.join(jenkins_kvm, 'build-juju-local.sh')
     logging.info('Building Vagrant box for %s %s' % (series, arch))
     try:
         subprocess.check_call(builder_path, env=env)
@@ -98,25 +99,32 @@ def build_vagrant_box(series, arch, juju_core_package, juju_local_package):
             series, arch)
         build_dir = '%s-%s' % (series, arch)
         os.rename(
-            os.path.join(os.getenv(JENKINS_KVM), build_dir, boxname),
-            os.path.join(os.getenv(WORKSPACE), boxname))
+            os.path.join(jenkins_kvm, build_dir, boxname),
+            os.path.join(workspace, boxname))
     finally:
         remove_leftover_virtualbox(series, arch)
-        shutil.rmtree(os.path.join(os.getenv(JENKINS_KVM), build_dir))
+        shutil.rmtree(os.path.join(jenkins_kvm, build_dir))
         os.unlink(os.path.join(
-            os.getenv(JENKINS_KVM), '%s-builder-%s.img' % (series, arch)))
+            jenkins_kvm, '%s-builder-%s.img' % (series, arch)))
 
 
 def build_vagrant_boxes():
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
+    parser = ArgumentParser('Build Juju-Vagrant boxes')
+    parser.add_argument(
+        '--jenkins-kvm', help='Directory with the main build script',
+        required=True)
+    parser.add_argument(
+        '--workspace', help='Workspace directory', required=True)
+    args = parser.parse_args()
     jenkins = Jenkins(JENKINS_URL)
-    package_info = get_debian_packages(jenkins)
+    package_info = get_debian_packages(jenkins, args.workspace)
     try:
         for series in package_info:
             if 'all' not in package_info[series]:
-                log.error(
+                logging.error(
                     'juju-local package is missing for series %s' % series)
                 continue
             local_package_name = package_info[series]['all']
@@ -124,7 +132,8 @@ def build_vagrant_boxes():
                 if arch == 'all':
                     continue
                 build_vagrant_box(
-                    series, arch, package_name, local_package_name)
+                    series, arch, package_name, local_package_name,
+                    args.jenkins_kvm, args.workspace)
     finally:
         for arch_info in package_info.values():
             for filename in arch_info.values():
