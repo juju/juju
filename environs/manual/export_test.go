@@ -7,8 +7,6 @@ var (
 	NetLookupHost         = &netLookupHost
 	ProvisionMachineAgent = &provisionMachineAgent
 	CheckProvisioned      = checkProvisioned
-	InitUbuntuUserFunc    = &initUbuntuUser
-	GetSSHClientFunc      = &getSSHClient
 )
 
 const (
