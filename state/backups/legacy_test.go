@@ -28,8 +28,8 @@ type legacySuite struct {
 }
 
 func (s *legacySuite) SetUpTest(c *gc.C) {
-	s.cwd = c.MkDir()
 	s.BaseSuite.SetUpTest(c)
+	s.cwd = c.MkDir()
 }
 
 func (s *legacySuite) createTestFiles(c *gc.C) {
