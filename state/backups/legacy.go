@@ -53,6 +53,10 @@ func Backup(password string, username string, outputFolder string, addr string) 
 
 	// Bundle it all into a tarball.
 	logger.Infof("building archive file (%s)", bkpFile)
+	// We add a trailing slash (or whatever) to root so that everything
+	// in the path up to and including that slash is stripped off when
+	// each file is added to the tar file.
+	sep := string(os.PathSeparator)
 	shaSum, err := createBundle(bkpFile, outputFolder, contentdir, root+sep)
 	if err != nil {
 		return "", "", errors.Trace(err)

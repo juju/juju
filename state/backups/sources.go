@@ -16,8 +16,6 @@ import (
 	coreutils "github.com/juju/juju/utils"
 )
 
-var sep = string(os.PathSeparator)
-
 var runCommand = coreutils.RunCommand
 
 //---------------------------
@@ -68,14 +66,18 @@ func dumpFiles(dumpdir string) error {
 		return errors.Annotate(err, "error while opening initial archive")
 	}
 	defer tarFile.Close()
+
 	backupFiles, err := getFilesToBackup()
 	if err != nil {
 		return errors.Annotate(err, "cannot determine files to backup")
 	}
+
+	sep := string(os.PathSeparator)
 	_, err = tar.TarFiles(backupFiles, tarFile, sep)
 	if err != nil {
 		return errors.Annotate(err, "cannot backup configuration files")
 	}
+
 	return nil
 }
 
