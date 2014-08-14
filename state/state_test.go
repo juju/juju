@@ -2213,37 +2213,6 @@ type entity interface {
 	state.Authenticator
 }
 
-func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
-	// Check that we can SetAdminMongoPassword to nothing when there's
-	// no password currently set.
-	err := s.State.SetAdminMongoPassword("")
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.SetAdminMongoPassword("foo")
-	c.Assert(err, gc.IsNil)
-	err = s.State.MongoSession().DB("admin").Login("admin", "foo")
-	c.Assert(err, gc.IsNil)
-	defer s.State.SetAdminMongoPassword("")
-	info := state.TestingMongoInfo()
-	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
-
-	info.Password = "foo"
-	err = tryOpenState(info)
-	c.Assert(err, gc.IsNil)
-
-	err = s.State.SetAdminMongoPassword("")
-	c.Assert(err, gc.IsNil)
-
-	// Check that removing the password is idempotent.
-	err = s.State.SetAdminMongoPassword("")
-	c.Assert(err, gc.IsNil)
-
-	info.Password = ""
-	err = tryOpenState(info)
-	c.Assert(err, gc.IsNil)
-}
-
 type findEntityTest struct {
 	tag string
 	err string
@@ -3649,4 +3618,52 @@ func (s *StateSuite) TestWatchMachineAddresses(c *gc.C) {
 		c.Fatalf("watcher not closed")
 	}
 	c.Assert(w.Err(), jc.Satisfies, errors.IsNotFound)
+}
+
+type SetAdminMongoPasswordSuite struct {
+	testing.BaseSuite
+}
+
+var _ = gc.Suite(&SetAdminMongoPasswordSuite{})
+
+func (s *SetAdminMongoPasswordSuite) TestSetAdminMongoPassword(c *gc.C) {
+	inst := &gitjujutesting.MgoInstance{EnableAuth: true}
+	err := inst.Start(testing.Certs)
+	c.Assert(err, gc.IsNil)
+	defer inst.DestroyWithLog()
+
+	mongoInfo := &authentication.MongoInfo{
+		Info: mongo.Info{
+			Addrs:  []string{inst.Addr()},
+			CACert: testing.CACert,
+		},
+	}
+	cfg := testing.EnvironConfig(c)
+	st, err := state.Initialize(mongoInfo, cfg, state.TestingDialOpts(), nil)
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+
+	// Check that we can SetAdminMongoPassword to nothing when there's
+	// no password currently set.
+	err = st.SetAdminMongoPassword("")
+	c.Assert(err, gc.IsNil)
+
+	err = st.SetAdminMongoPassword("foo")
+	c.Assert(err, gc.IsNil)
+	err = st.MongoSession().DB("admin").Login("admin", "foo")
+	c.Assert(err, gc.IsNil)
+
+	err = tryOpenState(mongoInfo)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+
+	mongoInfo.Password = "foo"
+	err = tryOpenState(mongoInfo)
+	c.Assert(err, gc.IsNil)
+
+	err = st.SetAdminMongoPassword("")
+	c.Assert(err, gc.IsNil)
+
+	mongoInfo.Password = ""
+	err = tryOpenState(mongoInfo)
+	c.Assert(err, gc.IsNil)
 }
