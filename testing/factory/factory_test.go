@@ -58,6 +58,7 @@ func (s *factorySuite) SetUpTest(c *gc.C) {
 	st, err := state.Initialize(info, cfg, opts, &policy)
 	c.Assert(err, gc.IsNil)
 	s.State = st
+	s.Factory = factory.NewFactory(s.State)
 }
 
 func (s *factorySuite) TearDownTest(c *gc.C) {
@@ -69,9 +70,7 @@ func (s *factorySuite) TearDownTest(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUserNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	user := s.Factory.MakeUser()
+	user := s.Factory.MakeUser(c, nil)
 	c.Assert(user.IsDeactivated(), jc.IsFalse)
 
 	saved, err := s.State.User(user.Name())
@@ -86,13 +85,11 @@ func (s *factorySuite) TestMakeUserNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUserParams(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
 	username := "bob"
 	displayName := "Bob the Builder"
 	creator := "eric"
 	password := "sekrit"
-	user := s.Factory.MakeUser(factory.UserParams{
+	user := s.Factory.MakeUser(c, &factory.UserParams{
 		Name:        username,
 		DisplayName: displayName,
 		Creator:     creator,
@@ -116,9 +113,7 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	machine := s.Factory.MakeMachine()
+	machine := s.Factory.MakeMachine(c, nil)
 	c.Assert(machine, gc.NotNil)
 
 	saved, err := s.State.Machine(machine.Id())
@@ -139,8 +134,6 @@ func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeMachine(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
 	series := "quantal"
 	jobs := []state.MachineJob{state.JobManageEnviron}
 	password, err := utils.RandomPassword()
@@ -148,7 +141,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 	nonce := "some-nonce"
 	id := instance.Id("some-id")
 
-	machine := s.Factory.MakeMachine(factory.MachineParams{
+	machine := s.Factory.MakeMachine(c, &factory.MachineParams{
 		Series:     series,
 		Jobs:       jobs,
 		Password:   password,
@@ -180,9 +173,7 @@ func (s *factorySuite) TestMakeMachine(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeCharmNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	charm := s.Factory.MakeCharm()
+	charm := s.Factory.MakeCharm(c, nil)
 	c.Assert(charm, gc.NotNil)
 
 	saved, err := s.State.Charm(charm.URL())
@@ -195,13 +186,11 @@ func (s *factorySuite) TestMakeCharmNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeCharm(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
 	series := "quantal"
 	name := "wordpress"
 	revision := 13
 	url := fmt.Sprintf("cs:%s/%s-%d", series, name, revision)
-	ch := s.Factory.MakeCharm(factory.CharmParams{
+	ch := s.Factory.MakeCharm(c, &factory.CharmParams{
 		Name: name,
 		URL:  url,
 	})
@@ -220,9 +209,7 @@ func (s *factorySuite) TestMakeCharm(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeServiceNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	service := s.Factory.MakeService()
+	service := s.Factory.MakeService(c, nil)
 	c.Assert(service, gc.NotNil)
 
 	saved, err := s.State.Service(service.Name())
@@ -234,11 +221,9 @@ func (s *factorySuite) TestMakeServiceNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeService(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	charm := s.Factory.MakeCharm(factory.CharmParams{Name: "wordpress"})
-	creator := s.Factory.MakeUser(factory.UserParams{Name: "bill"}).Tag().String()
-	service := s.Factory.MakeService(factory.ServiceParams{
+	charm := s.Factory.MakeCharm(c, &factory.CharmParams{Name: "wordpress"})
+	creator := s.Factory.MakeUser(c, &factory.UserParams{Name: "bill"}).Tag().String()
+	service := s.Factory.MakeService(c, &factory.ServiceParams{
 		Charm:   charm,
 		Creator: creator,
 	})
@@ -258,9 +243,7 @@ func (s *factorySuite) TestMakeService(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUnitNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	unit := s.Factory.MakeUnit()
+	unit := s.Factory.MakeUnit(c, nil)
 	c.Assert(unit, gc.NotNil)
 
 	saved, err := s.State.Unit(unit.Name())
@@ -273,10 +256,8 @@ func (s *factorySuite) TestMakeUnitNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeUnit(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	service := s.Factory.MakeService()
-	unit := s.Factory.MakeUnit(factory.UnitParams{
+	service := s.Factory.MakeService(c, nil)
+	unit := s.Factory.MakeUnit(c, &factory.UnitParams{
 		Service: service,
 	})
 	c.Assert(unit, gc.NotNil)
@@ -293,9 +274,7 @@ func (s *factorySuite) TestMakeUnit(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeRelationNil(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	relation := s.Factory.MakeRelation()
+	relation := s.Factory.MakeRelation(c, nil)
 	c.Assert(relation, gc.NotNil)
 
 	saved, err := s.State.Relation(relation.Id())
@@ -308,27 +287,25 @@ func (s *factorySuite) TestMakeRelationNil(c *gc.C) {
 }
 
 func (s *factorySuite) TestMakeRelation(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	s1 := s.Factory.MakeService(factory.ServiceParams{
+	s1 := s.Factory.MakeService(c, &factory.ServiceParams{
 		Name: "service1",
-		Charm: s.Factory.MakeCharm(factory.CharmParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "wordpress",
 		}),
 	})
 	e1, err := s1.Endpoint("db")
 	c.Assert(err, gc.IsNil)
 
-	s2 := s.Factory.MakeService(factory.ServiceParams{
+	s2 := s.Factory.MakeService(c, &factory.ServiceParams{
 		Name: "service2",
-		Charm: s.Factory.MakeCharm(factory.CharmParams{
+		Charm: s.Factory.MakeCharm(c, &factory.CharmParams{
 			Name: "mysql",
 		}),
 	})
 	e2, err := s2.Endpoint("server")
 	c.Assert(err, gc.IsNil)
 
-	relation := s.Factory.MakeRelation(factory.RelationParams{
+	relation := s.Factory.MakeRelation(c, &factory.RelationParams{
 		Endpoints: []state.Endpoint{e1, e2},
 	})
 	c.Assert(relation, gc.NotNil)
@@ -340,21 +317,4 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 	c.Assert(saved.Tag(), gc.Equals, relation.Tag())
 	c.Assert(saved.Life(), gc.Equals, relation.Life())
 	c.Assert(saved.Endpoints(), gc.DeepEquals, relation.Endpoints())
-}
-
-func (s *factorySuite) TestMultileParamPanics(c *gc.C) {
-	s.Factory = factory.NewFactory(s.State, c)
-
-	c.Assert(func() { s.Factory.MakeUser(factory.UserParams{}, factory.UserParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
-	c.Assert(func() { s.Factory.MakeMachine(factory.MachineParams{}, factory.MachineParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
-	c.Assert(func() { s.Factory.MakeService(factory.ServiceParams{}, factory.ServiceParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
-	c.Assert(func() { s.Factory.MakeCharm(factory.CharmParams{}, factory.CharmParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
-	c.Assert(func() { s.Factory.MakeUnit(factory.UnitParams{}, factory.UnitParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
-	c.Assert(func() { s.Factory.MakeRelation(factory.RelationParams{}, factory.RelationParams{}) },
-		gc.PanicMatches, "expecting 1 parameter or none")
 }

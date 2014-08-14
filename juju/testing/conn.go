@@ -17,8 +17,8 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environmentserver/authentication"
@@ -91,7 +91,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.setUpConn(c)
-	s.Factory = factory.NewFactory(s.State, c)
+	s.Factory = factory.NewFactory(s.State)
 }
 
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {

@@ -79,7 +79,7 @@ func (s *usermanagerSuite) TestCantRemoveAdminUser(c *gc.C) {
 
 func (s *usermanagerSuite) TestUserInfo(c *gc.C) {
 	tag := names.NewUserTag("foobar")
-	user := s.Factory.MakeUser(factory.UserParams{Name: tag.Id(), DisplayName: "Foo Bar"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: tag.Id(), DisplayName: "Foo Bar"})
 
 	obtained, err := s.usermanager.UserInfo(tag.String())
 	c.Assert(err, gc.IsNil)
