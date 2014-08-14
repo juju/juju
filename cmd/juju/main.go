@@ -145,6 +145,10 @@ func registerCommands(r commandRegistry, ctx *cmd.Context) {
 
 	// Manage state server availability.
 	r.Register(wrapEnvCommand(&EnsureAvailabilityCommand{}))
+
+	// Action related commands
+	r.Register(wrapEnvCommand(&ActionsCommand{}))
+	r.Register(wrapEnvCommand(&DoCommand{}))
 }
 
 // envCmdWrapper is a struct that wraps an environment command and lets us handle

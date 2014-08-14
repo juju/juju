@@ -1535,6 +1535,15 @@ func (st *State) matchingActionsByPrefix(prefix string) ([]*Action, error) {
 	return actions, iter.Close()
 }
 
+// ActionResultIdFromActionId gets the expected ActionResult Id from an Action Id
+func (st *State) ActionResultIdFromActionId(id string) string {
+	rid, ok := convertActionIdToActionResultId(id)
+	if !ok {
+		panic(fmt.Sprintf("cannot convert actionId to actionResultId: %v", id))
+	}
+	return rid
+}
+
 // ActionResult returns an ActionResult by Id.
 func (st *State) ActionResult(id string) (*ActionResult, error) {
 	actionresults, closer := st.getCollection(actionresultsC)

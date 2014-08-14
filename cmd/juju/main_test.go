@@ -187,6 +187,7 @@ func (s *MainSuite) TestActualRunJujuArgOrder(c *gc.C) {
 }
 
 var commandNames = []string{
+	"actions",
 	"add-machine",
 	"add-relation",
 	"add-unit",
@@ -202,6 +203,7 @@ var commandNames = []string{
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
+	"do",
 	"ensure-availability",
 	"env", // alias for switch
 	"expose",
