@@ -4,6 +4,7 @@
 package logger_test
 
 import (
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -59,7 +60,7 @@ func (s *loggerSuite) TestNewLoggerAPIRefusesNonAgent(c *gc.C) {
 func (s *loggerSuite) TestNewLoggerAPIAcceptsUnitAgent(c *gc.C) {
 	// We aren't even a machine agent
 	anAuthorizer := s.authorizer
-	anAuthorizer.UnitAgent = true
+	anAuthorizer.Tag = names.NewUnitTag("germany/7")
 	anAuthorizer.MachineAgent = false
 	endPoint, err := logger.NewLoggerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)

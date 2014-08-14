@@ -38,7 +38,6 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
 		Tag:    names.NewUserTag("admin"),
-		Client: true,
 	}
 	var err error
 	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, s.authoriser)

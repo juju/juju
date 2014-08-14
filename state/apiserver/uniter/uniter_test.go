@@ -76,7 +76,6 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	// set up assuming unit 0 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:       s.wordpressUnit.Tag(),
-		UnitAgent: true,
 		Entity:    s.wordpressUnit,
 	}
 
@@ -97,7 +96,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 
 func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.UnitAgent = false
+	anAuthorizer.Tag = names.NewMachineTag("9")
 	anUniter, err := uniter.NewUniterAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(anUniter, gc.IsNil)
@@ -1057,8 +1056,7 @@ func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 	// Action doesn't match unit.
 	fakeBadAuth := apiservertesting.FakeAuthorizer{
 		Tag:       s.mysqlUnit.Tag(),
-		UnitAgent: true,
-		Entity:    s.wordpressUnit,
+		Entity:   s.mysqlUnit,
 	}
 	fakeBadAPI, err := uniter.NewUniterAPI(
 		s.State,

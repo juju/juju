@@ -3,6 +3,7 @@ package agent_test
 import (
 	stdtesting "testing"
 
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
@@ -57,6 +58,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.machine1.Tag(),
 		MachineAgent: true,
+		Entity:       s.machine1,
 	}
 
 	// Create a machiner API for machine 1.
@@ -67,7 +69,6 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.MachineAgent = false
-	auth.UnitAgent = false
 	api, err := agent.NewAPI(s.State, s.resources, auth)
 	c.Assert(err, gc.NotNil)
 	c.Assert(api, gc.IsNil)
@@ -77,7 +78,7 @@ func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 	auth := s.authorizer
 	auth.MachineAgent = false
-	auth.UnitAgent = true
+	auth.Tag = names.NewUnitTag("foosball/1")
 	_, err := agent.NewAPI(s.State, s.resources, auth)
 	c.Assert(err, gc.IsNil)
 }
@@ -109,7 +110,6 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 	// Now login as the machine agent of the container and try again.
 	auth := s.authorizer
 	auth.MachineAgent = true
-	auth.UnitAgent = false
 	auth.Tag = s.container.Tag()
 	containerAgent, err := agent.NewAPI(s.State, s.resources, auth)
 	c.Assert(err, gc.IsNil)
