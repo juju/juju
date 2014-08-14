@@ -3390,7 +3390,7 @@ func (s *StateSuite) TestWatchActions(c *gc.C) {
 	// fail the middle one
 	action, err := s.State.Action(fa2.Id())
 	c.Assert(err, gc.IsNil)
-	err = action.Fail("die scum")
+	err = action.Finish(state.ActionResults{Status: state.ActionFailed, Message: "die scum"})
 	c.Assert(err, gc.IsNil)
 
 	// expect the first and last one in the watcher
