@@ -5,6 +5,7 @@ package backups
 
 import (
 	"compress/gzip"
+	"crypto/sha1"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -92,7 +93,7 @@ func createBundle(name, outdir, contentdir, root string) (string, error) {
 		return "", errors.Annotate(err, "error opening archive file")
 	}
 	defer archive.Close()
-	hasher := hash.NewSHA1Proxy(archive)
+	hasher := hash.NewHashingWriter(archive, sha1.New())
 	tarball := gzip.NewWriter(hasher)
 
 	_, err = tar.TarFiles([]string{contentdir}, tarball, root)
