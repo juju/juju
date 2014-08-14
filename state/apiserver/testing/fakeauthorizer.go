@@ -13,7 +13,6 @@ import (
 type FakeAuthorizer struct {
 	Tag            names.Tag
 	EnvironManager bool
-	MachineAgent   bool
 	Entity         state.Entity
 }
 
@@ -30,22 +29,14 @@ func mustParseTag(tag string) names.Tag {
 	return t
 }
 
-/*
-
-// AuthMachineAgent returns whether the current client is a machine agent.
-func (r *srvRoot) AuthMachineAgent() bool {
-        _, isMachine := r.GetAuthTag().(names.MachineTag)
-        return isMachine
-}
-
-*/
-
 func (fa FakeAuthorizer) AuthEnvironManager() bool {
 	return fa.EnvironManager
 }
 
+// AuthMachineAgent returns whether the current client is a machine agent.
 func (fa FakeAuthorizer) AuthMachineAgent() bool {
-	return fa.MachineAgent
+	_, isMachine := fa.GetAuthTag().(names.MachineTag)
+	return isMachine
 }
 
 // AuthUnitAgent returns whether the current client is a unit agent.

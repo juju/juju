@@ -41,8 +41,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          s.rawMachine.Tag(),
-		MachineAgent: true,
+		Tag: s.rawMachine.Tag(),
 	}
 	s.logger, err = logger.NewLoggerAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
@@ -51,7 +50,7 @@ func (s *loggerSuite) SetUpTest(c *gc.C) {
 func (s *loggerSuite) TestNewLoggerAPIRefusesNonAgent(c *gc.C) {
 	// We aren't even a machine agent
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = false
+	anAuthorizer.Tag = names.NewUserTag("admin")
 	endPoint, err := logger.NewLoggerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -61,7 +60,6 @@ func (s *loggerSuite) TestNewLoggerAPIAcceptsUnitAgent(c *gc.C) {
 	// We aren't even a machine agent
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewUnitTag("germany/7")
-	anAuthorizer.MachineAgent = false
 	endPoint, err := logger.NewLoggerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)
 	c.Assert(endPoint, gc.NotNil)

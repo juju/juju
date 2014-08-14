@@ -37,7 +37,7 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag:    names.NewUserTag("admin"),
+		Tag: names.NewUserTag("admin"),
 	}
 	var err error
 	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, s.authoriser)
@@ -69,7 +69,6 @@ func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonClient(c *gc.C) {
 func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonEnvironManager(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewMachineTag("99")
-	anAuthoriser.MachineAgent = true
 	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

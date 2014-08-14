@@ -88,8 +88,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          names.NewMachineTag(s.machine1.Id()),
-		MachineAgent: true,
+		Tag: names.NewMachineTag(s.machine1.Id()),
 	}
 
 	// Create the resource registry separately to track invocations to
@@ -109,7 +108,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 
 func (s *deployerSuite) TestDeployerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = false
+	anAuthorizer.Tag = names.NewUserTag("admin")
 	aDeployer, err := deployer.NewDeployerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)
 	c.Assert(aDeployer, gc.IsNil)

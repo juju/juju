@@ -56,9 +56,8 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          s.machine1.Tag(),
-		MachineAgent: true,
-		Entity:       s.machine1,
+		Tag:    s.machine1.Tag(),
+		Entity: s.machine1,
 	}
 
 	// Create a machiner API for machine 1.
@@ -68,7 +67,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 
 func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
-	auth.MachineAgent = false
+	auth.Tag = names.NewUserTag("admin")
 	api, err := agent.NewAPI(s.State, s.resources, auth)
 	c.Assert(err, gc.NotNil)
 	c.Assert(api, gc.IsNil)
@@ -77,7 +76,6 @@ func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 
 func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
 	auth := s.authorizer
-	auth.MachineAgent = false
 	auth.Tag = names.NewUnitTag("foosball/1")
 	_, err := agent.NewAPI(s.State, s.resources, auth)
 	c.Assert(err, gc.IsNil)
@@ -109,7 +107,6 @@ func (s *agentSuite) TestGetEntities(c *gc.C) {
 
 	// Now login as the machine agent of the container and try again.
 	auth := s.authorizer
-	auth.MachineAgent = true
 	auth.Tag = s.container.Tag()
 	containerAgent, err := agent.NewAPI(s.State, s.resources, auth)
 	c.Assert(err, gc.IsNil)

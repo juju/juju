@@ -55,7 +55,7 @@ func (s *unitUpgraderSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as the unit agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:       s.rawUnit.Tag(),
+		Tag: s.rawUnit.Tag(),
 	}
 	s.upgrader, err = upgrader.NewUnitUpgraderAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
