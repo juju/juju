@@ -139,8 +139,8 @@ $template LongTagForwardFormat,"<%PRI%>%TIMESTAMP:::date-rfc3339% %HOSTNAME% %sy
 // The logrotate conf for state serve nodes.
 // default size is 512MB, ensuring that the log + one rotation
 // will never take up more than 1GB of space.
-const logrotateConfTemplate = `
-{{logDir}}/all-machines.log {
+const logrotateConf = `
+{{.LogDir}}/all-machines.log {
     size 512M
     # don't move, but copy-and-truncate so the application won't have to be
     # told that the file has moved.
@@ -154,11 +154,15 @@ const logrotateConfTemplate = `
 }
 `
 
+var logrotateConfTemplate = template.Must(template.New("logrotate.conf").Parse(logrotateConf))
+
 // The logrotate helper script for state server nodes.
 // We specify a state file to ensure we have the proper permissions.
-const logrotateHelperTemplate = `
-/usr/sbin/logrotate -s {{logDir}}/logrotate.state {{logrotateConfPath}}
+const logrotateHelper = `
+/usr/sbin/logrotate -s {{.LogDir}}/logrotate.state {{.LogrotateConfPath}}
 `
+
+var logrotateHelperTemplate = template.Must(template.New("logrotate.run").Parse(logrotateHelper))
 
 // nodeRsyslogTemplateTLSHeader is prepended to
 // nodeRsyslogTemplate if TLS is to be used.
@@ -288,19 +292,17 @@ func (slConfig *SyslogConfig) LogrotateHelperFile() ([]byte, error) {
 	return slConfig.logrotateRender(logrotateHelperTemplate)
 }
 
-func (slConfig *SyslogConfig) logrotateRender(templateName string) ([]byte, error) {
-	t := template.New("")
-	t.Funcs(template.FuncMap{
-		"logDir":            func() string { return slConfig.LogDir },
-		"logrotateConfPath": slConfig.LogrotateConfPath,
-	})
-	p, err := t.Parse(templateName)
-	if err != nil {
-		return nil, err
+func (slConfig *SyslogConfig) logrotateRender(t *template.Template) ([]byte, error) {
+	logrotateData := struct {
+		LogDir            string
+		LogrotateConfPath string
+	}{
+		slConfig.LogDir,
+		slConfig.LogrotateConfPath(),
 	}
 
 	var buffer bytes.Buffer
-	if err := p.Execute(&buffer, nil); err != nil {
+	if err := t.Execute(&buffer, logrotateData); err != nil {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
@@ -321,7 +323,7 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 		return fmt.Sprintf("%s/%s.log", slConfig.LogDir, slConfig.LogFileName)
 	}
 
-	t := template.New("")
+	t := template.New("syslogConfig")
 	t.Funcs(template.FuncMap{
 		"logfileName":         func() string { return slConfig.LogFileName },
 		"stateServerHosts":    stateServerHosts,

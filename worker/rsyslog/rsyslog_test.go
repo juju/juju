@@ -87,6 +87,11 @@ func waitForRestart(c *gc.C, restarted chan struct{}) {
 	}
 }
 
+func assertPathExists(c *gc.C, path string) {
+	_, err := os.Stat(path)
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *RsyslogSuite) TestStartStop(c *gc.C) {
 	st, m := s.OpenAPIAsNewMachine(c, state.JobHostUnits)
 	worker, err := rsyslog.NewRsyslogConfigWorker(st.Rsyslog(), rsyslog.RsyslogModeForwarding, m.Tag(), "", []string{"0.1.2.3"})
@@ -154,10 +159,7 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	rsyslogKeyPEM, err := ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "rsyslog-key.pem"))
 	c.Assert(err, gc.IsNil)
-	_, err = ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "logrotate.conf"))
-	c.Assert(err, gc.IsNil)
-	_, err = ioutil.ReadFile(filepath.Join(*rsyslog.LogDir, "logrotate.run"))
-	c.Assert(err, gc.IsNil)
+
 	_, _, err = cert.ParseCertAndKey(string(rsyslogCertPEM), string(rsyslogKeyPEM))
 	c.Assert(err, gc.IsNil)
 	err = cert.Verify(string(rsyslogCertPEM), string(caCertPEM), time.Now().UTC())
@@ -175,6 +177,11 @@ func (s *RsyslogSuite) TestModeAccumulate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(string(rsyslogConf), gc.DeepEquals, string(rendered))
+
+	// Verify logrotate files
+	assertPathExists(c, filepath.Join(*rsyslog.LogDir, "logrotate.conf"))
+	assertPathExists(c, filepath.Join(*rsyslog.LogDir, "logrotate.run"))
+
 }
 
 func (s *RsyslogSuite) TestAccumulateHA(c *gc.C) {
