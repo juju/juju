@@ -93,15 +93,28 @@ func createBundle(name, outdir, contentdir, root string) (string, error) {
 		return "", errors.Annotate(err, "error opening archive file")
 	}
 	defer archive.Close()
-	hasher := hash.NewHashingWriter(archive, sha1.New())
-	tarball := gzip.NewWriter(hasher)
 
-	_, err = tar.TarFiles([]string{contentdir}, tarball, root)
-	tarball.Close()
+	// Build the tarball, writing out to both the archive file and a
+	// SHA1 hash.  The hash will correspond to the gzipped file rather
+	// than to the uncompressed contents of the tarball.  This is so
+	// that users can compare the published checksum against the
+	// checksum of the file without having to decompress it first.
+	hasher := hash.NewHashingWriter(archive, sha1.New())
+	err = func() error {
+		tarball := gzip.NewWriter(hasher)
+		defer tarball.Close()
+
+		_, err := tar.TarFiles([]string{contentdir}, tarball, root)
+		return err
+	}()
 	if err != nil {
 		return "", errors.Annotate(err, "error bundling final archive")
 	}
 
+	// Return the SHA1 checksum.
+	// Gzip writers may buffer what they're writing so we must call
+	// Close() on the writer *before* getting the checksum from the
+	// hasher.
 	return hasher.Base64Sum(), nil
 }
 
