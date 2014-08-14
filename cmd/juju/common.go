@@ -6,9 +6,9 @@ package main
 import (
 	"fmt"
 
-	"github.com/juju/charm"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -73,25 +73,25 @@ func environFromName(
 // If the series is not resolved, the environment default-series is used, or if
 // not set, the series is resolved with the state server.
 func resolveCharmURL(url string, client *api.Client, conf *config.Config) (*charm.URL, error) {
-	ref, series, err := charm.ParseReference(url)
+	ref, err := charm.ParseReference(url)
 	if err != nil {
 		return nil, err
 	}
 	// If series is not set, use configured default series
-	if series == "" {
+	if ref.Series == "" {
 		if defaultSeries, ok := conf.DefaultSeries(); ok {
-			series = defaultSeries
+			ref.Series = defaultSeries
 		}
+	}
+	if ref.Series != "" {
+		return ref.URL("")
 	}
 	// Otherwise, look up the best supported series for this charm
-	if series == "" {
-		if ref.Schema == "local" {
-			possibleUrl := &charm.URL{Reference: ref, Series: "precise"}
-			logger.Errorf(`The series is not specified in the environment (default-series) or with the charm. Did you mean:
-	%s`, possibleUrl.String())
-			return nil, fmt.Errorf("cannot resolve series for charm: %q", ref)
-		}
+	if ref.Schema != "local" {
 		return client.ResolveCharm(ref)
 	}
-	return &charm.URL{Reference: ref, Series: series}, nil
+	possibleURL := *ref
+	possibleURL.Series = "precise"
+	logger.Errorf("The series is not specified in the environment (default-series) or with the charm. Did you mean:\n\t%s", &possibleURL)
+	return nil, fmt.Errorf("cannot resolve series for charm: %q", ref)
 }

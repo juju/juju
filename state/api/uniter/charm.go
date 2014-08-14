@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/juju/charm"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/state/api/params"
 )

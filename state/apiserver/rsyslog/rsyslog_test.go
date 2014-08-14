@@ -34,7 +34,6 @@ var _ = gc.Suite(&rsyslogSuite{})
 func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		LoggedIn:       true,
 		EnvironManager: true,
 		MachineAgent:   true,
 	}

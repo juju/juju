@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 	"time"
 
+	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -45,41 +46,60 @@ func init() {
 
 type liveSuite struct {
 	testing.BaseSuite
+	gitjujutesting.MgoSuite
 	jujutest.LiveTests
 }
 
 func (s *liveSuite) SetUpSuite(c *gc.C) {
 	s.BaseSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
 	s.LiveTests.SetUpSuite(c)
 }
 
 func (s *liveSuite) TearDownSuite(c *gc.C) {
 	s.LiveTests.TearDownSuite(c)
+	s.MgoSuite.TearDownSuite(c)
 	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *liveSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
 	s.LiveTests.SetUpTest(c)
 }
 
 func (s *liveSuite) TearDownTest(c *gc.C) {
+	s.Destroy(c)
 	s.LiveTests.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
 	s.BaseSuite.TearDownTest(c)
 }
 
 type suite struct {
 	testing.BaseSuite
+	gitjujutesting.MgoSuite
 	jujutest.Tests
+}
+
+func (s *suite) SetUpSuite(c *gc.C) {
+	s.BaseSuite.SetUpSuite(c)
+	s.MgoSuite.SetUpSuite(c)
+}
+
+func (s *suite) TearDownSuite(c *gc.C) {
+	s.MgoSuite.TearDownSuite(c)
+	s.BaseSuite.TearDownSuite(c)
 }
 
 func (s *suite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	s.MgoSuite.SetUpTest(c)
 	s.Tests.SetUpTest(c)
 }
 
 func (s *suite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
+	s.MgoSuite.TearDownTest(c)
 	dummy.Reset()
 	s.BaseSuite.TearDownTest(c)
 }
@@ -102,6 +122,10 @@ func (s *suite) bootstrapTestEnviron(c *gc.C, preferIPv6 bool) environs.Environ 
 
 func (s *suite) TestAllocateAddress(c *gc.C) {
 	e := s.bootstrapTestEnviron(c, false)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, gc.IsNil)
+	}()
 
 	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
@@ -126,6 +150,10 @@ func (s *suite) TestAllocateAddress(c *gc.C) {
 
 func (s *suite) TestListNetworks(c *gc.C) {
 	e := s.bootstrapTestEnviron(c, false)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, gc.IsNil)
+	}()
 
 	opc := make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
@@ -142,6 +170,11 @@ func (s *suite) TestListNetworks(c *gc.C) {
 
 func (s *suite) TestPreferIPv6On(c *gc.C) {
 	e := s.bootstrapTestEnviron(c, true)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, gc.IsNil)
+	}()
+
 	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	addrs, err := inst.Addresses()
@@ -156,6 +189,11 @@ func (s *suite) TestPreferIPv6On(c *gc.C) {
 
 func (s *suite) TestPreferIPv6Off(c *gc.C) {
 	e := s.bootstrapTestEnviron(c, false)
+	defer func() {
+		err := e.Destroy()
+		c.Assert(err, gc.IsNil)
+	}()
+
 	inst, _ := jujutesting.AssertStartInstance(c, e, "0")
 	c.Assert(inst, gc.NotNil)
 	addrs, err := inst.Addresses()

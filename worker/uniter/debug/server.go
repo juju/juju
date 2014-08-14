@@ -11,7 +11,7 @@ import (
 	"os/exec"
 
 	"github.com/juju/utils/set"
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 )
 
 // ServerSession represents a "juju debug-hooks" session.

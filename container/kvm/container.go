@@ -27,8 +27,9 @@ func (c *kvmContainer) Name() string {
 }
 
 func (c *kvmContainer) Start(params StartParams) error {
-	logger.Debugf("Synchronise images for %s %s", params.Series, params.Arch)
-	if err := SyncImages(params.Series, params.Arch); err != nil {
+
+	logger.Debugf("Synchronise images for %s %s %v", params.Series, params.Arch, params.ImageDownloadUrl)
+	if err := SyncImages(params.Series, params.Arch, params.ImageDownloadUrl); err != nil {
 		return err
 	}
 	var bridge string

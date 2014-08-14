@@ -4,6 +4,15 @@
 
 *Work in Progress*
 
+## Contents
+
+1. [Introduction](#introduction)
+2. [Requirements](#requirements)
+3. [System Overview](#system-overview)
+4. [System Architecture](#system-architecture)
+5. [Data Design](#data-design)
+6. [Component Design](#component-design)
+
 ## Introduction
 
 ### Purpose
@@ -47,6 +56,25 @@ This document provides a detailed specification of
 - **RPC** Remote Procedure Calls
 - **WebSocket** A full-duplex TCP communication protocol standardized by
   the W3C ([see RfC 6455](http://tools.ietf.org/html/rfc6455)).
+
+## Requirements
+
+- As a user of Trusty, I want to be able to bootstrap an environment today, and be 
+  able to trust that in 2 years I will still be able to access/control/update that 
+  environment even when I’ve upgraded my juju client tools.
+- As a group with heterogeneous clients, we want to be able to bootstrap a new 
+  environment, and trust that all clients are still able to connect and manage the 
+  environment.
+- As a user with a new Juju client, I want to be able to bootstrap a new environment 
+  and have access to all the latest features for that environment. (HA, User accounts, 
+  etc.)
+- As an Agent, I want to be able to communicate with the API server to be able to perform 
+  my regular tasks, and be able to upgrade to stay in sync with the desired agent version. 
+  It is expected that we won’t always be able to stay in perfect synchronization, 
+  especially in an environment with heterogeneous architectures and platforms.
+- As a developer, I want to be able to make a change to an existing named API in such 
+  a fashion that new clients are able to make use of the new functionality, but older 
+  clients can still use the API in a compatible fashion.
 
 ## System Overview
 
@@ -271,23 +299,3 @@ react with an error instead of performing an invalid call.
 ### Watching
 
 *TODO: Describe watching using the API.*
-
-## Requirements
-
-- As a user of Trusty, I want to be able to bootstrap an environment today, and be 
-  able to trust that in 2 years I will still be able to access/control/update that 
-  environment even when I’ve upgraded my juju client tools.
-- As a group with heterogeneous clients, we want to be able to bootstrap a new 
-  environment, and trust that all clients are still able to connect and manage the 
-  environment.
-- As a user with a new Juju client, I want to be able to bootstrap a new environment 
-  and have access to all the latest features for that environment. (HA, User accounts, 
-  etc.)
-- As an Agent, I want to be able to communicate with the API server to be able to perform 
-  my regular tasks, and be able to upgrade to stay in sync with the desired agent version. 
-  It is expected that we won’t always be able to stay in perfect synchronization, 
-  especially in an environment with heterogeneous architectures and platforms.
-- As a developer, I want to be able to make a change to an existing named API in such 
-  a fashion that new clients are able to make use of the new functionality, but older 
-  clients can still use the API in a compatible fashion.
-

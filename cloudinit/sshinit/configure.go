@@ -53,7 +53,8 @@ func RunConfigureScript(script string, params ConfigureParams) error {
 	if client == nil {
 		client = ssh.DefaultClient
 	}
-	cmd := ssh.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
+
+	cmd := client.Command(params.Host, []string{"sudo", "/bin/bash"}, nil)
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stderr = params.ProgressWriter
 	return cmd.Run()

@@ -13,6 +13,7 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
@@ -166,9 +167,13 @@ func StartInstanceWithParams(
 	stateInfo := FakeStateInfo(machineId)
 	apiInfo := FakeAPIInfo(machineId)
 	machineConfig := environs.NewMachineConfig(
-		machineId, machineNonce,
+		machineId,
+		machineNonce,
+		imagemetadata.ReleasedStream,
 		networks,
-		stateInfo, apiInfo)
+		stateInfo,
+		apiInfo,
+	)
 	params.Tools = possibleTools
 	params.MachineConfig = machineConfig
 	return env.StartInstance(params)

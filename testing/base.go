@@ -81,6 +81,12 @@ func (s *BaseSuite) SetUpTest(c *gc.C) {
 	s.CleanupSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	s.JujuOSEnvSuite.SetUpTest(c)
+
+	// We do this to isolate invocations of bash from pulling in the
+	// ambient user environment, and potentially affecting the tests.
+	// We can't always just use IsolationSuite because we still need
+	// PATH and possibly a couple other envars.
+	s.PatchEnvironment("BASH_ENV", "")
 }
 
 func (s *BaseSuite) TearDownTest(c *gc.C) {

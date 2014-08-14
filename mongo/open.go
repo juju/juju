@@ -11,6 +11,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/juju/errors"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/juju/cert"
@@ -36,16 +37,30 @@ type DialOpts struct {
 	// a state server.
 	Timeout time.Duration
 
+	// SocketTimeout is the amount of time to wait for a
+	// non-responding socket to the database before it is
+	// forcefully closed. If this is zero, Timeout will be
+	// used.
+	SocketTimeout time.Duration
+
 	// Direct informs whether to establish connections only with the
 	// specified seed servers, or to obtain information for the whole
 	// cluster and establish connections with further servers too.
 	Direct bool
+
+	// PostDial, if non-nil, is called by DialWithInfo with the
+	// mgo.Session after a successful dial but before DialWithInfo
+	// returns to its caller.
+	PostDial func(*mgo.Session) error
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
-	return DialOpts{Timeout: defaultDialTimeout}
+	return DialOpts{
+		Timeout:       defaultDialTimeout,
+		SocketTimeout: SocketTimeout,
+	}
 }
 
 // Info encapsulates information about cluster of
@@ -102,4 +117,27 @@ func DialInfo(info Info, opts DialOpts) (*mgo.DialInfo, error) {
 		Dial:    dial,
 		Direct:  opts.Direct,
 	}, nil
+}
+
+// DialWithInfo establishes a new session to the cluster identified by info,
+// with the specified options.
+func DialWithInfo(info Info, opts DialOpts) (*mgo.Session, error) {
+	dialInfo, err := DialInfo(info, opts)
+	if err != nil {
+		return nil, err
+	}
+	session, err := mgo.DialWithInfo(dialInfo)
+	if err != nil {
+		return nil, err
+	}
+	if opts.SocketTimeout != 0 {
+		session.SetSocketTimeout(opts.SocketTimeout)
+	}
+	if opts.PostDial != nil {
+		if err := opts.PostDial(session); err != nil {
+			session.Close()
+			return nil, errors.Annotate(err, "PostDial failed")
+		}
+	}
+	return session, nil
 }

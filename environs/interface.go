@@ -157,20 +157,20 @@ type Environ interface {
 	// same remote environment may become invalid
 	Destroy() error
 
-	// OpenPorts opens the given ports for the whole environment.
+	// OpenPorts opens the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ports []network.Port) error
+	OpenPorts(ports []network.PortRange) error
 
-	// ClosePorts closes the given ports for the whole environment.
+	// ClosePorts closes the given port ranges for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ports []network.Port) error
+	ClosePorts(ports []network.PortRange) error
 
-	// Ports returns the ports opened for the whole environment.
+	// Ports returns the port ranges opened for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	Ports() ([]network.Port, error)
+	Ports() ([]network.PortRange, error)
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider

@@ -72,6 +72,7 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 
 	expected := []network.Address{
 		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
+		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopeCloudLocal},
 		network.NewAddress("1.2.3.4", network.ScopeUnknown),
 		network.NewAddress("fe80::d806:dbff:fe23:1199", network.ScopeUnknown),
 	}
@@ -96,6 +97,7 @@ func (s *instanceTest) TestAddressesMissing(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(addr, gc.DeepEquals, []network.Address{
 		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopePublic},
+		{Value: "testing.invalid", Type: network.HostName, Scope: network.ScopeCloudLocal},
 	})
 }
 

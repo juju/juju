@@ -146,10 +146,10 @@ var jsonImagesContent = `
        }
      }
    },
-   "com.ubuntu.cloud:server:12.04:ppc64": {
+   "com.ubuntu.cloud:server:12.04:ppc64el": {
      "release": "precise",
      "version": "12.04",
-     "arch": "ppc64",
+     "arch": "ppc64el",
      "versions": {
        "20121218": {
          "items": {
@@ -166,7 +166,7 @@ var jsonImagesContent = `
              "id": "ami-b79b09b9"
            }
          },
-         "pubname": "ubuntu-precise-12.04-ppc64-server-20121218",
+         "pubname": "ubuntu-precise-12.04-ppc64el-server-20121218",
          "label": "release"
        }
      }
@@ -254,12 +254,12 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		},
 	},
 	{
-		desc:    "prefer ppc64 over i386 (64-bit trumps 32-bit, regardless of alphabetical order)",
+		desc:    "prefer ppc64el over i386 (64-bit trumps 32-bit, regardless of alphabetical order)",
 		region:  "test",
 		imageId: "ami-b79b09b9",
-		arches:  []string{"ppc64", "i386"},
+		arches:  []string{"ppc64el", "i386"},
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"i386", "ppc64"}, VirtType: &pv, Mem: 512},
+			{Id: "1", Name: "it-1", Arches: []string{"i386", "ppc64el"}, VirtType: &pv, Mem: 512},
 		},
 	},
 	{

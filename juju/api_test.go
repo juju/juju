@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/juju/names"
+	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -27,19 +28,32 @@ import (
 
 type NewAPIStateSuite struct {
 	coretesting.FakeJujuHomeSuite
+	testing.MgoSuite
 	envtesting.ToolsFixture
 }
 
 var _ = gc.Suite(&NewAPIStateSuite{})
 
+func (cs *NewAPIStateSuite) SetUpSuite(c *gc.C) {
+	cs.FakeJujuHomeSuite.SetUpSuite(c)
+	cs.MgoSuite.SetUpSuite(c)
+}
+
+func (cs *NewAPIStateSuite) TearDownSuite(c *gc.C) {
+	cs.MgoSuite.TearDownSuite(c)
+	cs.FakeJujuHomeSuite.TearDownSuite(c)
+}
+
 func (cs *NewAPIStateSuite) SetUpTest(c *gc.C) {
 	cs.FakeJujuHomeSuite.SetUpTest(c)
+	cs.MgoSuite.SetUpTest(c)
 	cs.ToolsFixture.SetUpTest(c)
 }
 
 func (cs *NewAPIStateSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	cs.ToolsFixture.TearDownTest(c)
+	cs.MgoSuite.TearDownTest(c)
 	cs.FakeJujuHomeSuite.TearDownTest(c)
 }
 
@@ -74,12 +88,29 @@ func (*NewAPIStateSuite) TestNewAPIState(c *gc.C) {
 
 type NewAPIClientSuite struct {
 	coretesting.FakeJujuHomeSuite
+	testing.MgoSuite
 }
 
 var _ = gc.Suite(&NewAPIClientSuite{})
 
+func (cs *NewAPIClientSuite) SetUpSuite(c *gc.C) {
+	cs.FakeJujuHomeSuite.SetUpSuite(c)
+	cs.MgoSuite.SetUpSuite(c)
+}
+
+func (cs *NewAPIClientSuite) TearDownSuite(c *gc.C) {
+	cs.MgoSuite.TearDownSuite(c)
+	cs.FakeJujuHomeSuite.TearDownSuite(c)
+}
+
+func (cs *NewAPIClientSuite) SetUpTest(c *gc.C) {
+	cs.FakeJujuHomeSuite.SetUpTest(c)
+	cs.MgoSuite.SetUpTest(c)
+}
+
 func (cs *NewAPIClientSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
+	cs.MgoSuite.TearDownTest(c)
 	cs.FakeJujuHomeSuite.TearDownTest(c)
 }
 
@@ -180,12 +211,9 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	})
 	bootstrapEnv(c, coretesting.SampleEnvName, store)
 
-	// Verify the cache is empty.
 	info, err := store.ReadInfo("myenv")
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
-	c.Assert(info.APIEndpoint(), jc.DeepEquals, configstore.APIEndpoint{})
-	c.Assert(info.APICredentials(), jc.DeepEquals, configstore.APICredentials{})
 
 	called := 0
 	expectState := mockedAPIState(0)
@@ -212,12 +240,6 @@ func (s *NewAPIClientSuite) TestWithConfigAndNoInfo(c *gc.C) {
 	c.Assert(ep.Addresses, gc.HasLen, 1)
 	c.Check(ep.Addresses[0], gc.Matches, `localhost:\d+`)
 	c.Check(ep.CACert, gc.Not(gc.Equals), "")
-	// Old servers won't hand back EnvironTag, so it should stay empty in
-	// the cache
-	c.Check(ep.EnvironUUID, gc.Equals, "")
-	creds := info.APICredentials()
-	c.Check(creds.User, gc.Equals, "admin")
-	c.Check(creds.Password, gc.Equals, "adminpass")
 }
 
 func (s *NewAPIClientSuite) TestWithInfoError(c *gc.C) {

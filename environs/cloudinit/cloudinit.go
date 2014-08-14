@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -151,6 +151,9 @@ type MachineConfig struct {
 	// and when set IPv6 addresses for connecting to the API/state
 	// servers will be preferred over IPv4 ones.
 	PreferIPv6 bool
+
+	// The type of Simple Stream to download and deploy on this machine.
+	ImageStream string
 }
 
 func base64yaml(m *config.Config) string {
@@ -299,6 +302,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
 		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
+		curlCommand += " --retry 10"
 		if cfg.DisableSSLHostnameVerification {
 			curlCommand += " --insecure"
 		}

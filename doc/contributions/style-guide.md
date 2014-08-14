@@ -131,8 +131,27 @@ If an error is thrown away, why it is not handled is explained in a comment.
 The juju/errors package should be used to handle errors:
 
 ```go
-return errors.Trace(err)
+// Trace always returns an annotated error.  Trace records the
+// location of the Trace call, and adds it to the annotation stack.
+// If the error argument is nil, the result of Trace is nil.
+if err := SomeFunc(); err != nil {
+      return errors.Trace(err)
+}
+
+// Errorf creates a new annotated error and records the location that the
+// error is created.  This should be a drop in replacement for fmt.Errorf.
+return errors.Errorf("validation failed: %s", message)
+
+// Annotate is used to add extra context to an existing error. The location of
+// the Annotate call is recorded with the annotations. The file, line and
+// function are also recorded.
+// If the error argument is nil, the result of Annotate is nil.
+if err := SomeFunc(); err != nil {
+    return errors.Annotate(err, "failed to frombulate")
+}
 ```
+
+See [github.com/juju/errors/annotation.go](github.com/juju/errors/annotation.go) for more error handling functions.
 
 ## Tests
 
@@ -169,7 +188,7 @@ func (s *SomeSuite) TestSomethingc(c *gc.C) {
 If your test functions are under `package_test` and they need to test something 
 from package that is not exported, create an exported alias to it in `export_test.go`:
 
- ```go
+```go
 // -----------
 // in tools.go
 // -----------
@@ -198,6 +217,24 @@ func (s *SomeSuite) TestSomethingc(c *gc.C) {
         s.PatchValue(tools.SomeVar, newValue)
         // ...
 }
+```
+
+## Layout
+
+Imports are grouped into 3 sections: standard library, 3rd party libraries, juju/juju library:
+
+```go
+import (
+    "fmt"
+    "io"
+
+    "github.com/juju/errors"
+    "github.com/juju/loggo"
+    gc "launchpad.net/gocheck"
+
+    "github.com/juju/juju/environs"
+    "github.com/juju/juju/environs/config"
+)
 ```
 
 ## API

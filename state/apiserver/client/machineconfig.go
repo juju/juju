@@ -27,11 +27,10 @@ func findInstanceTools(env environs.Environ, series, arch string) (*tools.Tools,
 	return possibleTools[0], nil
 }
 
-// MachineConfig returns information from the environment config that is
-// needed for machine cloud-init (for non-state servers only).
-// It is exposed for testing purposes.
-// TODO(rog) fix environs/manual tests so they do not need to
-// call this, or move this elsewhere.
+// MachineConfig returns information from the environment config that
+// is needed for machine cloud-init (for non-state servers only). It
+// is exposed for testing purposes.
+// TODO(rog) fix environs/manual tests so they do not need to call this, or move this elsewhere.
 func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudinit.MachineConfig, error) {
 	environConfig, err := st.EnvironConfig()
 	if err != nil {
@@ -81,7 +80,7 @@ func MachineConfig(st *state.State, machineId, nonce, dataDir string) (*cloudini
 		return nil, err
 	}
 
-	mcfg := environs.NewMachineConfig(machineId, nonce, networks, mongoInfo, apiInfo)
+	mcfg := environs.NewMachineConfig(machineId, nonce, env.Config().ImageStream(), networks, mongoInfo, apiInfo)
 	if dataDir != "" {
 		mcfg.DataDir = dataDir
 	}
