@@ -65,15 +65,25 @@ func Backup(password string, username string, outputFolder string, addr string) 
 	return bkpFile, shaSum, nil
 }
 
-func prepareTemp() (root, contentdir, dumpdir string, err error) {
-	root, err = ioutil.TempDir("", "jujuBackup")
-	contentdir = filepath.Join(root, "juju-backup")
-	dumpdir = filepath.Join(contentdir, "dump")
-	err = os.MkdirAll(dumpdir, os.FileMode(0755))
+// prepareTemp creates the temp directories which backup uses as its
+// staging area while building the archive.  It returns the paths,
+// (temp root, tarball root, DB dumpdir), along with any error.
+func prepareTemp() (string, string, string, error) {
+	tempRoot, err := ioutil.TempDir("", "jujuBackup")
 	if err != nil {
-		err = errors.Annotate(err, "error creating temporary directories")
+		err = errors.Annotate(err, "error creating root temp directory")
+		return "", "", "", err
 	}
-	return
+	tarballRoot := filepath.Join(tempRoot, "juju-backup")
+	dbDumpdir := filepath.Join(tarballRoot, "dump")
+	// We go with user-only permissions on principle; the directories
+	// are short-lived so in practice it shouldn't matter much.
+	err = os.MkdirAll(dbDumpdir, os.FileMode(0700))
+	if err != nil {
+		err = errors.Annotate(err, "error creating temp directories")
+		return "", "", "", err
+	}
+	return tempRoot, tarballRoot, dbDumpdir, nil
 }
 
 func createBundle(name, outdir, contentdir, root string) (string, error) {
