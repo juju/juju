@@ -20,8 +20,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/utils"
+	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"

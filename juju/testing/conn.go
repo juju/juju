@@ -13,8 +13,8 @@ import (
 	charmtesting "github.com/juju/charm/testing"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environs"

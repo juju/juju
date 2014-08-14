@@ -8,8 +8,8 @@ import (
 
 	"github.com/juju/charm"
 	"github.com/juju/cmd"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/juju/testing"

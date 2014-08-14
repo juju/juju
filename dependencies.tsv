@@ -5,8 +5,8 @@ github.com/joyent/gocommon	git	40c7818502f7c1ebbb13dab185a26e77b746ff40
 github.com/joyent/gomanta	git	cabd97b029d931836571f00b7e48c331809a30b7	
 github.com/joyent/gosdc	git	2f11feadd2d9891e92296a1077c3e2e56939547d	
 github.com/joyent/gosign	git	0da0d5f1342065321c97812b1f4ac0c2b0bab56c	
-github.com/juju/charm	git	e4306c516ce4fc36dd8f1b9f986d587b4ad75618	
-github.com/juju/cmd	git	e2d7df426d54b663f8616901b75d1ccfafcd9997	
+github.com/juju/charm	git	b9a309f5b8827ec0c63527fdd684fd1daeec5438	
+github.com/juju/cmd	git	7ef40be0cb5a4107d29fcfca5dff3b03ba0644dc	
 github.com/juju/errgo	git	2cf7b553faddc588f903020c33e71c527d5e0838	
 github.com/juju/errors	git	09734a904adc602da4334cbf29cb4515fbeb8feb	
 github.com/juju/gojsonpointer	git	0154bf5a168b672d8c97d8dd83a54cb60cd088e8	
@@ -18,14 +18,14 @@ github.com/juju/ratelimit	git	0025ab75db6c6eaa4ffff0240c2c9e617ad1a0eb
 github.com/juju/schema	git	de545dbe6bec9a1586adfed8b47b99b616796c98	
 github.com/juju/testing	git	8bdbb45d87dd9724c254eb6afeacd84b127d7e76	
 github.com/juju/txn	git	ee0346875f2ae9a21442f3ff64409f750f37afbc	
-github.com/juju/utils	git	cf90c5739741e9af857babd42a205918f87d638f	
+github.com/juju/utils	git	87c163e49e480bff02fcfd0beb64a39aa3623913	
 gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
+gopkg.in/yaml.v1	git	1418a9bc452f9cf4efa70307cafcb10743e64a56	
 launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02yab	13
-launchpad.net/goamz	bzr	ian.booth@canonical.com-20140604055617-b7qt909ir9qf4959	47
+launchpad.net/goamz	bzr	martin.packman@canonical.com-20140813150539-umttn7s536u85eiz	49
 launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20140225173054-xu9zlkf9kxhvow02	87
 launchpad.net/golxc	bzr	ian.booth@canonical.com-20140730020217-xa1jyuytye6g1qie	12
 launchpad.net/gomaasapi	bzr	andrew.wilkins@canonical.com-20140728022143-mth8hx6p0i546y0w	52
 launchpad.net/goose	bzr	tarmac-20140613065325-tlt6r3jg7saby4ub	126
-launchpad.net/goyaml	bzr	gustavo@niemeyer.net-20131114120802-abe042syx64z2m7s	50
 launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20140624093241-rlqsuf7pqxnrztgw	236
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17

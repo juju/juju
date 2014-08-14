@@ -15,7 +15,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
