@@ -4,8 +4,7 @@
 package backups_test
 
 import (
-	"sort"
-
+	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state/backups"
@@ -24,8 +23,7 @@ func (s *sourcesSuite) TestGetFilesToBackup(c *gc.C) {
 	files, err := getFilesToBackup()
 	c.Assert(err, gc.IsNil)
 
-	sort.Strings(files)
-	c.Check(files, gc.DeepEquals, []string{
+	c.Check(files, jc.SameContents, []string{
 		"/etc/init/juju-db.conf",
 		"/home/ubuntu/.ssh/authorized_keys",
 		"/var/lib/juju/nonce.txt",
