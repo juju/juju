@@ -85,9 +85,9 @@ var testExpectedTarContents = []expectedTarContents{
 // expectedContents: is a slice of the filenames with relative paths that are
 // expected to be on the tar file
 // tarFile: is the path of the file to be checked
-func (s *legacySuite) assertTarContents(c *gc.C, expectedContents []expectedTarContents,
-	tarFile string,
-	compressed bool) {
+func (s *legacySuite) assertTarContents(
+	c *gc.C, expected []expectedTarContents, tarFile string, compressed bool,
+) {
 	f, err := os.Open(tarFile)
 	c.Assert(err, gc.IsNil)
 	defer f.Close()
@@ -112,11 +112,11 @@ func (s *legacySuite) assertTarContents(c *gc.C, expectedContents []expectedTarC
 		c.Assert(err, gc.IsNil)
 		tarContents[hdr.Name] = string(buf)
 	}
-	for _, expectedContent := range expectedContents {
+	for _, expectedContent := range expected {
 		fullExpectedContent := strings.TrimPrefix(expectedContent.Name, string(os.PathSeparator))
 		body, ok := tarContents[fullExpectedContent]
 		c.Log(tarContents)
-		c.Log(expectedContents)
+		c.Log(expected)
 		c.Log(fmt.Sprintf("checking for presence of %q on tar file", fullExpectedContent))
 		c.Assert(ok, gc.Equals, true)
 		if expectedContent.Body != "" {
