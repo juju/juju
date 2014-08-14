@@ -15,9 +15,9 @@ import (
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils/proxy"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/container"

@@ -16,9 +16,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	"github.com/juju/utils/set"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"

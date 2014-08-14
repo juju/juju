@@ -14,8 +14,8 @@ import (
 	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/cmd"
 	jc "github.com/juju/testing/checkers"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"

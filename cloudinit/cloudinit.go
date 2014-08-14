@@ -10,7 +10,7 @@ import (
 	"bytes"
 	"text/template"
 
-	yaml "launchpad.net/goyaml"
+	"gopkg.in/yaml.v1"
 )
 
 // Config represents a set of cloud-init configuration options.

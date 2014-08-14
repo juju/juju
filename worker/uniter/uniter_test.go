@@ -28,8 +28,8 @@ import (
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/testing"

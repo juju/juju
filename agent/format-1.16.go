@@ -9,7 +9,7 @@ import (
 	"net"
 	"strconv"
 
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/version"
