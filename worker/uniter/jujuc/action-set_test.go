@@ -18,7 +18,7 @@ type ActionSetSuite struct {
 
 var _ = gc.Suite(&ActionSetSuite{})
 
-func (s *ActionSetSuite) TestGoodActionSet(c *gc.C) {
+func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 	var actionSetTests = []struct {
 		summary  string
 		commands [][]string
@@ -132,21 +132,24 @@ func (s *ActionSetSuite) TestGoodActionSet(c *gc.C) {
 
 	for i, t := range actionSetTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hctx := s.GetHookContext(c, -1, "")
+		hctx := &Context{
+			actionResults: &jujuc.ActionResults{
+				Results: map[string]interface{}{},
+			},
+		}
 		com, err := jujuc.NewCommand(hctx, "action-set")
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		for j, command := range t.commands {
 			c.Logf("  command %d: %#v", j, command)
 			code := cmd.Main(com, ctx, command)
-			_, failed := hctx.ActionResults()
-			c.Check(failed, gc.Equals, false)
+			results := hctx.ActionResults()
+			c.Check(results.Err, gc.IsNil)
 			c.Check(code, gc.Equals, t.code)
 			c.Check(bufferString(ctx.Stderr), gc.Equals, t.errMsg)
 			if t.code == 0 {
 				if j == len(t.commands)-1 {
-					results, _ := hctx.ActionResults()
-					c.Check(results, jc.DeepEquals, t.results)
+					c.Check(results.Results, jc.DeepEquals, t.results)
 				}
 			}
 		}
@@ -160,7 +163,7 @@ func (s *ActionSetSuite) TestHelp(c *gc.C) {
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: action-set <key>=<value> [<key>.<key>....=<value> ...]
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: action-set <key>=<value> [<key>=<value> ...]
 purpose: set action results
 
 action-set adds the given values to the results map of the Action.  This map
@@ -168,8 +171,10 @@ is returned to the user after the completion of the Action.
 
 Example usage:
  action-set outfile.size=10G
- action-set foo.bar.baz=2 foo.bar.zab=3
- action-set foo.bar.baz=4
+ action-set foo.bar=2
+ action-set foo.baz.val=3
+ action-set foo.bar.zab=4
+ action-set foo.baz=1
 
  will yield:
 
@@ -177,8 +182,8 @@ Example usage:
    size: "10G"
  foo:
    bar:
-     baz: "4"
-     zab: "3"
+     zab: "4"
+   baz: "1"
 `)
 	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }

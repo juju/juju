@@ -82,7 +82,7 @@ func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{
 
 type Context struct {
 	actionParams  map[string]interface{}
-	actionResults map[string]interface{}
+	actionResults *jujuc.ActionResults
 	actionErr     error
 	ports         set.Strings
 	relid         int
@@ -144,15 +144,12 @@ func (c *Context) ActionParams() (map[string]interface{}, error) {
 	return c.actionParams, nil
 }
 
-func (c *Context) ActionSetResults(results map[string]interface{}) {
-	c.actionResults = results
+func (c *Context) UpdateActionResults(keys []string, value string) {
+	addValueToMap(keys, value, c.actionResults.Results)
 }
 
-func (c *Context) ActionResults() (map[string]interface{}, bool) {
-	if c.actionResults == nil {
-		return map[string]interface{}{}, c.actionErr != nil
-	}
-	return c.actionResults, c.actionErr != nil
+func (c *Context) ActionResults() *jujuc.ActionResults {
+	return c.actionResults
 }
 
 func (c *Context) ActionSetFailed(err error) {
@@ -254,4 +251,39 @@ func (s Settings) Map() params.RelationSettings {
 
 func cmdString(cmd string) string {
 	return cmd + jujuc.CmdSuffix
+}
+
+// Identical to the function implemented on worker/uniter/context
+func addValueToMap(keys []string, value string, inMap map[string]interface{}) {
+	next := inMap
+
+	for i := range keys {
+		// if we are on last key set the value.
+		// shouldn't be a problem.  overwrites existing vals.
+		if i == len(keys)-1 {
+			next[keys[i]] = value
+			break
+		}
+
+		if iface, ok := next[keys[i]]; ok {
+			switch typed := iface.(type) {
+			case map[string]interface{}:
+				// If we already had a map inside, keep
+				// stepping through.
+				next = typed
+			default:
+				// If we didn't, then overwrite value
+				// with a map and iterate with that.
+				m := map[string]interface{}{}
+				next[keys[i]] = m
+				next = m
+			}
+		} else {
+			// Otherwise, it wasn't present, so make it and step
+			// into.
+			m := map[string]interface{}{}
+			next[keys[i]] = m
+			next = m
+		}
+	}
 }

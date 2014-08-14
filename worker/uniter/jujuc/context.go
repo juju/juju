@@ -42,16 +42,13 @@ type Context interface {
 	// ActionParams returns the map of params passed with an Action.
 	ActionParams() (map[string]interface{}, error)
 
-	// ActionSetResults sets the returned values of the Action, which will be
-	// delivered to the state server upon completion of the Action.
-	ActionSetResults(map[string]interface{})
+	// UpdateActionResults inserts new values for use with action-set and
+	// action-fail.  The results struct will be delivered to the state server
+	// upon completion of the Action.
+	UpdateActionResults(keys []string, value string)
 
-	// ActionResults retrieves the state set by ActionSetResults.
-	ActionResults() (map[string]interface{}, bool)
-
-	// ActionSetFailed sets an error value for the Action and makes it unable to
-	// add more values unless SetFailed(nil) is passed.
-	ActionSetFailed(error)
+	// ActionResults retrieves the state set by UpdateActionResults.
+	ActionResults() *ActionResults
 
 	// HookRelation returns the ContextRelation associated with the executing
 	// hook if it was found, and whether it was found.
@@ -107,6 +104,13 @@ type Settings interface {
 	Map() params.RelationSettings
 	Set(string, string)
 	Delete(string)
+}
+
+// ActionResults contains the results and potentially error value of an
+// action.
+type ActionResults struct {
+	Err     error
+	Results map[string]interface{}
 }
 
 // newRelationIdValue returns a gnuflag.Value for convenient parsing of relation
