@@ -4,8 +4,8 @@
 package charmrevisionupdater_test
 
 import (
-	"github.com/juju/charm"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"

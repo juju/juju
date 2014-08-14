@@ -1121,20 +1121,20 @@ func (env *azureEnviron) Destroy() error {
 
 // OpenPorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) OpenPorts(ports []network.Port) error {
+func (env *azureEnviron) OpenPorts(ports []network.PortRange) error {
 	return nil
 }
 
 // ClosePorts is specified in the Environ interface. However, Azure does not
 // support the global firewall mode.
-func (env *azureEnviron) ClosePorts(ports []network.Port) error {
+func (env *azureEnviron) ClosePorts(ports []network.PortRange) error {
 	return nil
 }
 
 // Ports is specified in the Environ interface.
-func (env *azureEnviron) Ports() ([]network.Port, error) {
+func (env *azureEnviron) Ports() ([]network.PortRange, error) {
 	// TODO: implement this.
-	return []network.Port{}, nil
+	return []network.PortRange{}, nil
 }
 
 // Provider is specified in the Environ interface.

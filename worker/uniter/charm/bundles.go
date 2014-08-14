@@ -8,9 +8,9 @@ import (
 	"os"
 	"path"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/downloader"
 )
@@ -38,7 +38,7 @@ func (d *BundlesDir) Read(info BundleInfo, abort <-chan struct{}) (Bundle, error
 			return nil, err
 		}
 	}
-	return charm.ReadBundle(path)
+	return charm.ReadCharmArchive(path)
 }
 
 // download fetches the supplied charm and checks that it has the correct sha256

@@ -6,8 +6,8 @@ package uniter
 import (
 	"fmt"
 
-	"github.com/juju/charm"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/state/api/common"
 	"github.com/juju/juju/state/api/params"
@@ -36,7 +36,7 @@ func (s *Service) String() string {
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Service) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.st.caller, uniterFacade, s.tag)
+	return common.Watch(s.st.facade, s.tag)
 }
 
 // WatchRelations returns a StringsWatcher that notifies of changes to
@@ -46,7 +46,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	err := s.st.call("WatchServiceRelations", args, &results)
+	err := s.st.facade.FacadeCall("WatchServiceRelations", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (s *Service) WatchRelations() (watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(s.st.caller, result)
+	w := watcher.NewStringsWatcher(s.st.facade.RawAPICaller(), result)
 	return w, nil
 }
 
@@ -88,7 +88,7 @@ func (s *Service) CharmURL() (*charm.URL, bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	err := s.st.call("CharmURL", args, &results)
+	err := s.st.facade.FacadeCall("CharmURL", args, &results)
 	if err != nil {
 		return nil, false, err
 	}
@@ -116,7 +116,7 @@ func (s *Service) GetOwnerTag() (string, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	err := s.st.call("GetOwnerTag", args, &result)
+	err := s.st.facade.FacadeCall("GetOwnerTag", args, &result)
 	if err != nil {
 		return "", err
 	}

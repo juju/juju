@@ -56,7 +56,6 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.machine1.Tag(),
-		LoggedIn:     true,
 		MachineAgent: true,
 	}
 

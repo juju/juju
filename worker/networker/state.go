@@ -21,10 +21,20 @@ type configState struct {
 
 	// commands contains the generated list of commands to execute.
 	commands []string
+
+	// writeNetworkConfig determines if network configuration files
+	// should be written out or not
+	canWriteNetworkConfig bool
 }
 
 // apply writes updates to network config files and executes commands to bring up and down interfaces.
 func (s *configState) apply() error {
+	if s.canWriteNetworkConfig {
+		return s.writeAndExecute()
+	}
+	return nil
+}
+func (s *configState) writeAndExecute() error {
 	if err := s.configFiles.writeOrRemove(); err != nil {
 		return err
 	}
@@ -103,7 +113,13 @@ func (s *configState) bringDownInterfaces() {
 	}
 }
 
-func (s *configState) ensureVLANModule() {
+func (s *configState) maybeLoadVLANModule(nw *networker) {
+	if nw.isVLANSupportInstalled || nw.isRunningInLXC() {
+		// Don't attempt to load the VLAN module twice or when running
+		// inside an LXC container.
+		return
+	}
+
 	commands := []string{
 		`dpkg-query -s vlan || apt-get --option Dpkg::Options::=--force-confold --assume-yes install vlan`,
 		`lsmod | grep -q 8021q || modprobe 8021q`,
@@ -111,6 +127,7 @@ func (s *configState) ensureVLANModule() {
 		`vconfig set_name_type DEV_PLUS_VID_NO_PAD`,
 	}
 	s.commands = append(s.commands, commands...)
+	nw.isVLANSupportInstalled = true
 }
 
 // configText generate configuration text for interface based on its configuration.

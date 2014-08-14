@@ -36,7 +36,6 @@ func (s *environmentSuite) SetUpTest(c *gc.C) {
 
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.machine0.Tag(),
-		LoggedIn:     true,
 		MachineAgent: true,
 		Entity:       s.machine0,
 	}

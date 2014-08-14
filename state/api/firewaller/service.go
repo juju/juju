@@ -27,7 +27,7 @@ func (s *Service) Name() string {
 
 // Watch returns a watcher for observing changes to a service.
 func (s *Service) Watch() (watcher.NotifyWatcher, error) {
-	return common.Watch(s.st.caller, firewallerFacade, s.tag)
+	return common.Watch(s.st.facade, s.tag)
 }
 
 // Life returns the service's current life state.
@@ -57,7 +57,7 @@ func (s *Service) IsExposed() (bool, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.tag.String()}},
 	}
-	err := s.st.call("GetExposed", args, &results)
+	err := s.st.facade.FacadeCall("GetExposed", args, &results)
 	if err != nil {
 		return false, err
 	}

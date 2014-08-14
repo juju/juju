@@ -9,8 +9,8 @@ import (
 	"os"
 	"path"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/cmd/envcmd"
@@ -127,7 +127,7 @@ func (s *UpgradeCharmSuccessSuite) assertUpgraded(c *gc.C, revision int, forced 
 }
 
 func (s *UpgradeCharmSuccessSuite) assertLocalRevision(c *gc.C, revision int, path string) {
-	dir, err := charm.ReadDir(path)
+	dir, err := charm.ReadCharmDir(path)
 	c.Assert(err, gc.IsNil)
 	c.Assert(dir.Revision(), gc.Equals, revision)
 }
@@ -142,7 +142,7 @@ func (s *UpgradeCharmSuccessSuite) TestLocalRevisionUnchanged(c *gc.C) {
 }
 
 func (s *UpgradeCharmSuccessSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C) {
-	dir, err := charm.ReadDir(s.path)
+	dir, err := charm.ReadCharmDir(s.path)
 	c.Assert(err, gc.IsNil)
 	err = dir.SetDiskRevision(42)
 	c.Assert(err, gc.IsNil)
@@ -154,11 +154,11 @@ func (s *UpgradeCharmSuccessSuite) TestRespectsLocalRevisionWhenPossible(c *gc.C
 }
 
 func (s *UpgradeCharmSuccessSuite) TestUpgradesWithBundle(c *gc.C) {
-	dir, err := charm.ReadDir(s.path)
+	dir, err := charm.ReadCharmDir(s.path)
 	c.Assert(err, gc.IsNil)
 	dir.SetRevision(42)
 	buf := &bytes.Buffer{}
-	err = dir.BundleTo(buf)
+	err = dir.ArchiveTo(buf)
 	c.Assert(err, gc.IsNil)
 	bundlePath := path.Join(s.SeriesPath, "riak.charm")
 	err = ioutil.WriteFile(bundlePath, buf.Bytes(), 0644)

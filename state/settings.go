@@ -134,8 +134,8 @@ func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 // overwriting unrelated changes made to the node since it was last read.
 func (c *Settings) Write() ([]ItemChange, error) {
 	changes := []ItemChange{}
-	updates := map[string]interface{}{}
-	deletions := map[string]int{}
+	updates := bson.M{}
+	deletions := bson.M{}
 	for key := range cacheKeys(c.disk, c.core) {
 		old, ondisk := c.disk[key]
 		new, incore := c.core[key]
@@ -167,10 +167,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 		C:      settingsC,
 		Id:     c.key,
 		Assert: txn.DocExists,
-		Update: bson.D{
-			{"$set", updates},
-			{"$unset", deletions},
-		},
+		Update: setUnsetUpdate(updates, deletions),
 	}}
 	err := c.st.runTransaction(ops)
 	if err == txn.ErrAborted {
@@ -315,7 +312,7 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 	if err != nil {
 		return txn.Op{}, nil, err
 	}
-	deletes := map[string]int{}
+	deletes := bson.M{}
 	for k := range s.disk {
 		if _, found := values[k]; !found {
 			deletes[escapeReplacer.Replace(k)] = 1
@@ -323,10 +320,7 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 	}
 	newValues := copyMap(values, escapeReplacer.Replace)
 	op := s.assertUnchangedOp()
-	op.Update = bson.D{
-		{"$set", newValues},
-		{"$unset", deletes},
-	}
+	op.Update = setUnsetUpdate(bson.M(newValues), deletes)
 	assertFailed := func() (bool, error) {
 		latest, err := readSettings(st, key)
 		if err != nil {
@@ -343,4 +337,19 @@ func (s *Settings) assertUnchangedOp() txn.Op {
 		Id:     s.key,
 		Assert: bson.D{{"txn-revno", s.txnRevno}},
 	}
+}
+
+// setUnsetUpdate returns a bson.D for use in
+// a txn.Op's Update field, containing $set and
+// $unset operators if the corresponding operands
+// are non-empty.
+func setUnsetUpdate(set, unset bson.M) bson.D {
+	var update bson.D
+	if len(set) > 0 {
+		update = append(update, bson.DocElem{"$set", set})
+	}
+	if len(unset) > 0 {
+		update = append(update, bson.DocElem{"$unset", unset})
+	}
+	return update
 }

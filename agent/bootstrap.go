@@ -6,6 +6,7 @@ package agent
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/names"
 	"github.com/juju/utils"
 
@@ -67,7 +68,7 @@ type BootstrapMachineConfig struct {
 
 const BootstrapMachineId = "0"
 
-func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, timeout mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
+func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg BootstrapMachineConfig, dialOpts mongo.DialOpts, policy state.Policy) (_ *state.State, _ *state.Machine, resultErr error) {
 	if c.Tag() != names.NewMachineTag(BootstrapMachineId) {
 		return nil, nil, fmt.Errorf("InitializeState not called with bootstrap machine's configuration")
 	}
@@ -82,10 +83,14 @@ func InitializeState(c ConfigSetter, envCfg *config.Config, machineCfg Bootstrap
 		return nil, nil, fmt.Errorf("stateinfo not available")
 	}
 	info.Tag = nil
-	info.Password = ""
+	info.Password = c.OldPassword()
+
+	if err := initMongoAdminUser(info.Info, dialOpts, info.Password); err != nil {
+		return nil, nil, errors.Annotate(err, "failed to initialize mongo admin user")
+	}
 
 	logger.Debugf("initializing address %v", info.Addrs)
-	st, err := state.Initialize(info, envCfg, timeout, policy)
+	st, err := state.Initialize(info, envCfg, dialOpts, policy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to initialize state: %v", err)
 	}
@@ -145,13 +150,18 @@ func initBootstrapUser(st *state.State, passwordHash string) error {
 	// it here. For now, we pass "" so that on first login we will create a
 	// new salt, but the fixed-salt password is still available from
 	// cloud-init.
-	if err := u.SetPasswordHash(passwordHash, ""); err != nil {
+	return u.SetPasswordHash(passwordHash, "")
+}
+
+// initMongoAdminUser adds the admin user with the specified
+// password to the admin database in Mongo.
+func initMongoAdminUser(info mongo.Info, dialOpts mongo.DialOpts, password string) error {
+	session, err := mongo.DialWithInfo(info, dialOpts)
+	if err != nil {
 		return err
 	}
-	if err := st.SetAdminMongoPassword(passwordHash); err != nil {
-		return err
-	}
-	return nil
+	defer session.Close()
+	return mongo.SetAdminMongoPassword(session, "admin", password)
 }
 
 // initBootstrapMachine initializes the initial bootstrap machine in state.

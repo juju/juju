@@ -105,17 +105,6 @@ var (
 	_ Authenticator = (*User)(nil)
 )
 
-// MongoPassworder represents an entity that can
-// have a mongo password set for it.
-type MongoPassworder interface {
-	SetMongoPassword(password string) error
-}
-
-var (
-	_ MongoPassworder = (*Machine)(nil)
-	_ MongoPassworder = (*Unit)(nil)
-)
-
 // Annotator represents entities capable of handling annotations.
 type Annotator interface {
 	Annotation(key string) (string, error)
@@ -149,7 +138,6 @@ type AgentEntity interface {
 	Entity
 	Lifer
 	Authenticator
-	MongoPassworder
 	AgentTooler
 	StatusSetter
 	EnsureDeader

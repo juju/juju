@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -199,13 +199,6 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 	}
 	u.doc.Tools = tools
 	return nil
-}
-
-// SetMongoPassword sets the password the agent responsible for the unit
-// should use to communicate with the state servers.  Previous passwords
-// are invalidated.
-func (u *Unit) SetMongoPassword(password string) error {
-	return u.st.setMongoPassword(u.Tag().String(), password)
 }
 
 // SetPassword sets the password for the machine's agent.

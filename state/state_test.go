@@ -10,14 +10,15 @@ import (
 	"strings"
 	"time"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
@@ -36,8 +37,6 @@ import (
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/testing/factory"
 	"github.com/juju/juju/version"
-	"github.com/juju/juju/worker/peergrouper"
-	"github.com/juju/txn"
 )
 
 var goodPassword = "foo-12345678901234567890"
@@ -168,7 +167,7 @@ func (s *StateSuite) TestIsNotFound(c *gc.C) {
 
 func (s *StateSuite) dummyCharm(c *gc.C, curlOverride string) (ch charm.Charm, curl *charm.URL, bundleURL *url.URL, bundleSHA256 string) {
 	var err error
-	ch = charmtesting.Charms.Dir("dummy")
+	ch = charmtesting.Charms.CharmDir("dummy")
 	if curlOverride != "" {
 		curl = charm.MustParseURL(curlOverride)
 	} else {
@@ -199,7 +198,7 @@ func (s *StateSuite) TestAddCharm(c *gc.C) {
 func (s *StateSuite) TestAddCharmUpdatesPlaceholder(c *gc.C) {
 	// Check that adding charms updates any existing placeholder charm
 	// with the same URL.
-	ch := charmtesting.Charms.Dir("dummy")
+	ch := charmtesting.Charms.CharmDir("dummy")
 
 	// Add a placeholder charm.
 	curl := charm.MustParseURL("cs:quantal/dummy-1")
@@ -420,7 +419,7 @@ func (s *StateSuite) TestLatestPlaceholderCharm(c *gc.C) {
 }
 
 func (s *StateSuite) TestAddStoreCharmPlaceholderErrors(c *gc.C) {
-	ch := charmtesting.Charms.Dir("dummy")
+	ch := charmtesting.Charms.CharmDir("dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -2102,45 +2101,6 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *StateSuite) TestOpenDoesnotSetWriteMajority(c *gc.C) {
-	info := state.TestingMongoInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	session := st.MongoSession()
-	safe := session.Safe()
-	c.Assert(safe.WMode, gc.Not(gc.Equals), "majority")
-	c.Assert(safe.J, gc.Equals, true)
-}
-
-func (s *StateSuite) TestOpenSetsWriteMajority(c *gc.C) {
-	inst := gitjujutesting.MgoInstance{Params: []string{"--replSet", "juju"}}
-	err := inst.Start(testing.Certs)
-	c.Assert(err, gc.IsNil)
-	defer inst.Destroy()
-
-	info := inst.DialInfo()
-	args := peergrouper.InitiateMongoParams{
-		DialInfo:       info,
-		MemberHostPort: inst.Addr(),
-	}
-
-	err = peergrouper.MaybeInitiateMongoServer(args)
-	c.Assert(err, gc.IsNil)
-
-	stateInfo := &authentication.MongoInfo{Info: mongo.Info{Addrs: []string{inst.Addr()}, CACert: testing.CACert}}
-	dialOpts := mongo.DialOpts{Timeout: time.Second * 30}
-	st, err := state.Open(stateInfo, dialOpts, state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-
-	stateSession := st.MongoSession()
-	safe := stateSession.Safe()
-	c.Assert(safe.WMode, gc.Equals, "majority")
-	c.Assert(safe.J, gc.Equals, true)
-}
-
 func (s *StateSuite) TestOpenBadAddress(c *gc.C) {
 	info := state.TestingMongoInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
@@ -2251,61 +2211,6 @@ type entity interface {
 	state.Entity
 	state.Lifer
 	state.Authenticator
-	state.MongoPassworder
-}
-
-func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, error)) {
-	info := state.TestingMongoInfo()
-	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st.Close()
-	// Turn on fully-authenticated mode.
-	err = st.SetAdminMongoPassword("admin-secret")
-	c.Assert(err, gc.IsNil)
-
-	// Set the password for the entity
-	ent, err := getEntity(st)
-	c.Assert(err, gc.IsNil)
-	err = ent.SetMongoPassword("foo")
-	c.Assert(err, gc.IsNil)
-
-	// Check that we cannot log in with the wrong password.
-	info.Tag = ent.Tag()
-	info.Password = "bar"
-	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
-
-	// Check that we can log in with the correct password.
-	info.Password = "foo"
-	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
-	c.Assert(err, gc.IsNil)
-	defer st1.Close()
-
-	// Change the password with an entity derived from the newly
-	// opened and authenticated state.
-	ent, err = getEntity(st)
-	c.Assert(err, gc.IsNil)
-	err = ent.SetMongoPassword("bar")
-	c.Assert(err, gc.IsNil)
-
-	// Check that we cannot log in with the old password.
-	info.Password = "foo"
-	err = tryOpenState(info)
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
-
-	// Check that we can log in with the correct password.
-	info.Password = "bar"
-	err = tryOpenState(info)
-	c.Assert(err, gc.IsNil)
-
-	// Check that the administrator can still log in.
-	info.Tag, info.Password = nil, "admin-secret"
-	err = tryOpenState(info)
-	c.Assert(err, gc.IsNil)
-
-	// Remove the admin password so that the test harness can reset the state.
-	err = st.SetAdminMongoPassword("")
-	c.Assert(err, gc.IsNil)
 }
 
 func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
@@ -2315,6 +2220,8 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	err = s.State.SetAdminMongoPassword("foo")
+	c.Assert(err, gc.IsNil)
+	err = s.State.MongoSession().DB("admin").Login("admin", "foo")
 	c.Assert(err, gc.IsNil)
 	defer s.State.SetAdminMongoPassword("")
 	info := state.TestingMongoInfo()

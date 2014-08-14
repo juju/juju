@@ -6,10 +6,10 @@ package uniter
 import (
 	"sort"
 
-	"github.com/juju/charm"
-	"github.com/juju/charm/hooks"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v3/hooks"
 	"launchpad.net/tomb"
 
 	"github.com/juju/juju/state/api/params"

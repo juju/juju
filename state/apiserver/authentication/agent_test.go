@@ -4,9 +4,8 @@
 package authentication_test
 
 import (
-	gc "launchpad.net/gocheck"
-
 	"github.com/juju/utils"
+	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"

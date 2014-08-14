@@ -7,11 +7,10 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
-	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/network"
@@ -388,56 +387,60 @@ func (s *unitSuite) TestWatchActions(c *gc.C) {
 }
 
 func (s *unitSuite) TestWatchActionsError(c *gc.C) {
-	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, params, results interface{}) error {
-		return fmt.Errorf("Test error")
-	})
-
-	defer restore()
+	cleanup := uniter.PatchUnitResponse(s.apiUnit,
+		func(result interface{}) error {
+			return fmt.Errorf("Test error")
+		},
+	)
+	defer cleanup()
 
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "Test error")
 }
 
 func (s *unitSuite) TestWatchActionsErrorResults(c *gc.C) {
-	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, args, results interface{}) error {
-		if results, ok := results.(*params.StringsWatchResults); ok {
-			results.Results = make([]params.StringsWatchResult, 1)
-			results.Results[0] = params.StringsWatchResult{
-				Error: &params.Error{
-					Message: "An error in the watch result.",
-					Code:    params.CodeNotAssigned,
-				},
+	cleanup := uniter.PatchUnitResponse(s.apiUnit,
+		func(results interface{}) error {
+			if results, ok := results.(*params.StringsWatchResults); ok {
+				results.Results = make([]params.StringsWatchResult, 1)
+				results.Results[0] = params.StringsWatchResult{
+					Error: &params.Error{
+						Message: "An error in the watch result.",
+						Code:    params.CodeNotAssigned,
+					},
+				}
 			}
-		}
-		return nil
-	})
-
-	defer restore()
+			return nil
+		},
+	)
+	defer cleanup()
 
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "An error in the watch result.")
 }
 
 func (s *unitSuite) TestWatchActionsNoResults(c *gc.C) {
-	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, params, results interface{}) error {
-		return nil
-	})
-
-	defer restore()
+	cleanup := uniter.PatchUnitResponse(s.apiUnit,
+		func(results interface{}) error {
+			return nil
+		},
+	)
+	defer cleanup()
 
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 0")
 }
 
 func (s *unitSuite) TestWatchActionsMoreResults(c *gc.C) {
-	restore := testing.PatchValue(uniter.Call, func(st *uniter.State, method string, args, results interface{}) error {
-		if results, ok := results.(*params.StringsWatchResults); ok {
-			results.Results = make([]params.StringsWatchResult, 2)
-		}
-		return nil
-	})
-
-	defer restore()
+	cleanup := uniter.PatchUnitResponse(s.apiUnit,
+		func(results interface{}) error {
+			if results, ok := results.(*params.StringsWatchResults); ok {
+				results.Results = make([]params.StringsWatchResult, 2)
+			}
+			return nil
+		},
+	)
+	defer cleanup()
 
 	_, err := s.apiUnit.WatchActions()
 	c.Assert(err.Error(), gc.Equals, "expected 1 result, got 2")

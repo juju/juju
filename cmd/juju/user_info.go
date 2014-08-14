@@ -4,10 +4,9 @@
 package main
 
 import (
-	"launchpad.net/gnuflag"
-
 	"github.com/juju/cmd"
 	"github.com/juju/names"
+	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/state/apiserver/usermanager"
 )

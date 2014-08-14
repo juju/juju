@@ -50,22 +50,25 @@ func NewPortRange(unitName string, fromPort, toPort int, protocol string) (PortR
 		ToPort:   toPort,
 		Protocol: strings.ToLower(protocol),
 	}
-	if !p.IsValid() {
-		return PortRange{}, fmt.Errorf("Port range %v for unit %v is invalid.", p, unitName)
+	if err := p.Validate(); err != nil {
+		return PortRange{}, err
 	}
 	return p, nil
 }
 
 // IsValid checks if the port range is valid.
-func (p PortRange) IsValid() bool {
+func (p PortRange) Validate() error {
 	proto := strings.ToLower(p.Protocol)
 	if proto != "tcp" && proto != "udp" {
-		return false
+		return errors.Errorf("invalid protocol %q", proto)
 	}
 	if !names.IsValidUnit(p.UnitName) {
-		return false
+		return errors.Errorf("invalid unit %q", p.UnitName)
 	}
-	return p.FromPort <= p.ToPort
+	if p.FromPort > p.ToPort {
+		return errors.Errorf("invalid port range %d-%d", p.FromPort, p.ToPort)
+	}
+	return nil
 }
 
 // ConflictsWith determines if the two port ranges conflict.
@@ -141,8 +144,8 @@ func (p *Ports) NetworkName() (string, error) {
 
 // OpenPorts adds the specified port range to the ports maintained by this document.
 func (p *Ports) OpenPorts(portRange PortRange) error {
-	if !portRange.IsValid() {
-		return fmt.Errorf("port range %v is invalid", portRange)
+	if err := portRange.Validate(); err != nil {
+		return err
 	}
 	ports := Ports{st: p.st, doc: p.doc, new: p.new}
 	buildTxn := func(attempt int) ([]txn.Op, error) {
@@ -213,20 +216,19 @@ func (p *Ports) ClosePorts(portRange PortRange) error {
 			}
 		}
 		newPorts := []PortRange{}
-		// Create a list of ports with the specified port
-		// removed. This still relies on the assumption that
-		// we are not storing actual port ranges.
-		// TODO(domas) 2014-07-04 bug #1337817: update this section to deal with actual port ranges.
+
 		found := false
 		for _, existingPortsDef := range ports.doc.Ports {
 			if existingPortsDef == portRange {
 				found = true
 				continue
+			} else if existingPortsDef.UnitName == portRange.UnitName && existingPortsDef.ConflictsWith(portRange) {
+				return nil, fmt.Errorf("mismatched port ranges %v and %v", existingPortsDef, portRange)
 			}
 			newPorts = append(newPorts, existingPortsDef)
 		}
 		if !found {
-			return nil, fmt.Errorf("no match found for port range: %v", portRange)
+			return nil, statetxn.ErrNoOperations
 		}
 		ops := []txn.Op{{
 			C:      unitsC,

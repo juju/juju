@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/state/api"
 	apiparams "github.com/juju/juju/state/api/params"
@@ -1173,11 +1174,21 @@ func (s *environSuite) TestInitialPorts(c *gc.C) {
 		gwacl.PatchManagementAPIResponses(responses)
 		ports, err := inst.Ports("")
 		c.Assert(err, gc.IsNil)
-		portmap := make(map[int]bool)
-		for _, port := range ports {
-			portmap[port.Number] = true
+		portmap := make(map[network.PortRange]bool)
+		for _, portRange := range ports {
+			portmap[portRange] = true
 		}
-		return portmap[env.Config().StatePort()] && portmap[env.Config().APIPort()]
+		statePortRange := network.PortRange{
+			Protocol: "tcp",
+			FromPort: env.Config().StatePort(),
+			ToPort:   env.Config().StatePort(),
+		}
+		apiPortRange := network.PortRange{
+			Protocol: "tcp",
+			FromPort: env.Config().APIPort(),
+			ToPort:   env.Config().APIPort(),
+		}
+		return portmap[statePortRange] && portmap[apiPortRange]
 	}
 	c.Check(inst1, gc.Not(jc.Satisfies), reportsStateServerPorts)
 	c.Check(inst2, jc.Satisfies, reportsStateServerPorts)
@@ -1561,7 +1572,7 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 			c, s.env.storage, envtesting.V120p...,
 		),
 		MachineConfig: environs.NewMachineConfig(
-			"1", "yanonce", nil, stateInfo, apiInfo,
+			"1", "yanonce", imagemetadata.ReleasedStream, nil, stateInfo, apiInfo,
 		),
 	}
 }
@@ -1663,9 +1674,9 @@ func (s *environSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := s.setupEnvWithDummyMetadata(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
-	cons := constraints.MustParse("arch=ppc64")
+	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")

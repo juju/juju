@@ -16,6 +16,7 @@ import (
 	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
+	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/instance"
 	jujutesting "github.com/juju/juju/juju/testing"
 	coretesting "github.com/juju/juju/testing"
@@ -84,7 +85,7 @@ func createContainer(c *gc.C, manager container.Manager, machineId string) insta
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, nil, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, imagemetadata.ReleasedStream, nil, stateInfo, apiInfo)
 	network := container.BridgeNetworkConfig("virbr0")
 
 	machineConfig.Tools = &tools.Tools{

@@ -89,7 +89,6 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          names.NewMachineTag(s.machine1.Id()),
-		LoggedIn:     true,
 		MachineAgent: true,
 	}
 

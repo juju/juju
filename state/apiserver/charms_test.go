@@ -15,10 +15,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/environs"
@@ -164,7 +164,7 @@ func (s *charmsSuite) TestUploadFailsWithInvalidZip(c *gc.C) {
 
 func (s *charmsSuite) TestUploadBumpsRevision(c *gc.C) {
 	// Add the dummy charm with revision 1.
-	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:quantal/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
@@ -199,7 +199,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
-	err = dir.BundleTo(tempFile)
+	err = dir.ArchiveTo(tempFile)
 	c.Assert(err, gc.IsNil)
 
 	// Now try uploading it and ensure the revision persists.
@@ -238,7 +238,7 @@ func (s *charmsSuite) TestUploadRespectsLocalRevision(c *gc.C) {
 }
 
 func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
-	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
 	// Backwards compatibility check, that we can upload charms to
 	// https://host:port/charms
 	url := s.charmsURL(c, "series=quantal")
@@ -251,7 +251,7 @@ func (s *charmsSuite) TestUploadAllowsTopLevelPath(c *gc.C) {
 
 func (s *charmsSuite) TestUploadAllowsEnvUUIDPath(c *gc.C) {
 	// Check that we can upload charms to https://host:port/ENVUUID/charms
-	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
 	environ, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 	url := s.charmsURL(c, "series=quantal")
@@ -284,12 +284,12 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	defer tempFile.Close()
 	defer os.Remove(tempFile.Name())
-	err = dir.BundleTo(tempFile)
+	err = dir.ArchiveTo(tempFile)
 	c.Assert(err, gc.IsNil)
 
 	// Try reading it as a bundle - should fail due to nested dirs.
-	_, err = charm.ReadBundle(tempFile.Name())
-	c.Assert(err, gc.ErrorMatches, "bundle file not found: metadata.yaml")
+	_, err = charm.ReadCharmArchive(tempFile.Name())
+	c.Assert(err, gc.ErrorMatches, `archive file "metadata.yaml" not found`)
 
 	// Now try uploading it - should succeeed and be repackaged.
 	resp, err := s.uploadRequest(c, s.charmsURI(c, "?series=quantal"), true, tempFile.Name())
@@ -321,7 +321,7 @@ func (s *charmsSuite) TestUploadRepackagesNestedArchives(c *gc.C) {
 	err = ioutil.WriteFile(downloadedFile.Name(), data, 0644)
 	c.Assert(err, gc.IsNil)
 
-	bundle, err := charm.ReadBundle(downloadedFile.Name())
+	bundle, err := charm.ReadCharmArchive(downloadedFile.Name())
 	c.Assert(err, gc.IsNil)
 	c.Assert(bundle.Revision(), jc.DeepEquals, sch.Revision())
 	c.Assert(bundle.Meta(), jc.DeepEquals, sch.Meta())
@@ -350,7 +350,7 @@ func (s *charmsSuite) TestGetFailsWithInvalidCharmURL(c *gc.C) {
 
 func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 	// Add the dummy charm.
-	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
@@ -369,7 +369,7 @@ func (s *charmsSuite) TestGetReturnsNotFoundWhenMissing(c *gc.C) {
 
 func (s *charmsSuite) TestGetReturnsForbiddenWithDirectory(c *gc.C) {
 	// Add the dummy charm.
-	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
@@ -383,7 +383,7 @@ func (s *charmsSuite) TestGetReturnsForbiddenWithDirectory(c *gc.C) {
 
 func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 	// Add the dummy charm.
-	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
@@ -416,7 +416,7 @@ func (s *charmsSuite) TestGetReturnsFileContents(c *gc.C) {
 }
 
 func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
-	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
@@ -430,7 +430,7 @@ func (s *charmsSuite) TestGetAllowsTopLevelPath(c *gc.C) {
 }
 
 func (s *charmsSuite) TestGetAllowsEnvUUIDPath(c *gc.C) {
-	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
@@ -455,7 +455,7 @@ func (s *charmsSuite) TestGetRejectsWrongEnvUUIDPath(c *gc.C) {
 
 func (s *charmsSuite) TestGetReturnsManifest(c *gc.C) {
 	// Add the dummy charm.
-	ch := charmtesting.Charms.Bundle(c.MkDir(), "dummy")
+	ch := charmtesting.Charms.CharmArchive(c.MkDir(), "dummy")
 	_, err := s.uploadRequest(
 		c, s.charmsURI(c, "?series=quantal"), true, ch.Path)
 	c.Assert(err, gc.IsNil)
@@ -485,7 +485,7 @@ func (s *charmsSuite) TestGetUsesCache(c *gc.C) {
 	err = ioutil.WriteFile(testPath, []byte(contents), 0755)
 	c.Assert(err, gc.IsNil)
 	var buffer bytes.Buffer
-	err = charmDir.BundleTo(&buffer)
+	err = charmDir.ArchiveTo(&buffer)
 	c.Assert(err, gc.IsNil)
 	charmArchivePath := filepath.Join(
 		cacheDir, charm.Quote("local:trusty/django-42")+".zip")

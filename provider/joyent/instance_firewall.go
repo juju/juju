@@ -14,15 +14,25 @@ import (
 )
 
 const (
-	firewallRuleVm = "FROM tag %s TO vm %s ALLOW %s PORT %d"
+	firewallRuleVm = "FROM tag %s TO vm %s ALLOW %s %s"
 )
 
 // Helper method to create a firewall rule string for the given machine Id and port
-func createFirewallRuleVm(env *joyentEnviron, machineId string, port network.Port) string {
-	return fmt.Sprintf(firewallRuleVm, env.Config().Name(), machineId, strings.ToLower(port.Protocol), port.Number)
+func createFirewallRuleVm(envName string, machineId string, portRange network.PortRange) string {
+	ports := []string{}
+	for p := portRange.FromPort; p <= portRange.ToPort; p++ {
+		ports = append(ports, fmt.Sprintf("PORT %d", p))
+	}
+	var portList string
+	if len(ports) > 1 {
+		portList = fmt.Sprintf("( %s )", strings.Join(ports, " AND "))
+	} else if len(ports) == 1 {
+		portList = ports[0]
+	}
+	return fmt.Sprintf(firewallRuleVm, envName, machineId, strings.ToLower(portRange.Protocol), portList)
 }
 
-func (inst *joyentInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (inst *joyentInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	if inst.env.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance", inst.env.Config().FirewallMode())
 	}
@@ -34,7 +44,7 @@ func (inst *joyentInstance) OpenPorts(machineId string, ports []network.Port) er
 
 	machineId = string(inst.Id())
 	for _, p := range ports {
-		rule := createFirewallRuleVm(inst.env, machineId, p)
+		rule := createFirewallRuleVm(inst.env.Config().Name(), machineId, p)
 		if e, id := ruleExists(fwRules, rule); e {
 			_, err := inst.env.compute.cloudapi.EnableFirewallRule(id)
 			if err != nil {
@@ -56,7 +66,7 @@ func (inst *joyentInstance) OpenPorts(machineId string, ports []network.Port) er
 	return nil
 }
 
-func (inst *joyentInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (inst *joyentInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	if inst.env.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance", inst.env.Config().FirewallMode())
 	}
@@ -68,7 +78,7 @@ func (inst *joyentInstance) ClosePorts(machineId string, ports []network.Port) e
 
 	machineId = string(inst.Id())
 	for _, p := range ports {
-		rule := createFirewallRuleVm(inst.env, machineId, p)
+		rule := createFirewallRuleVm(inst.env.Config().Name(), machineId, p)
 		if e, id := ruleExists(fwRules, rule); e {
 			_, err := inst.env.compute.cloudapi.DisableFirewallRule(id)
 			if err != nil {
@@ -90,7 +100,7 @@ func (inst *joyentInstance) ClosePorts(machineId string, ports []network.Port) e
 	return nil
 }
 
-func (inst *joyentInstance) Ports(machineId string) ([]network.Port, error) {
+func (inst *joyentInstance) Ports(machineId string) ([]network.PortRange, error) {
 	if inst.env.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance", inst.env.Config().FirewallMode())
 	}
@@ -101,5 +111,5 @@ func (inst *joyentInstance) Ports(machineId string) ([]network.Port, error) {
 		return nil, fmt.Errorf("cannot get firewall rules: %v", err)
 	}
 
-	return getPorts(inst.env, fwRules), nil
+	return getPorts(inst.env.Config().Name(), fwRules), nil
 }

@@ -5,14 +5,20 @@ package factory
 
 import (
 	"fmt"
+	"math/rand"
 	"net/url"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
+	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/state"
+)
+
+const (
+	symbols = "abcdefghijklmopqrstuvwxyz"
 )
 
 type Factory struct {
@@ -66,6 +72,15 @@ type UnitParams struct {
 // RelationParams are used to create relations.
 type RelationParams struct {
 	Endpoints []state.Endpoint
+}
+
+// RandomSuffix adds a random 5 character suffix to the presented string.
+func (*Factory) RandomSuffix(prefix string) string {
+	result := prefix
+	for i := 0; i < 5; i++ {
+		result += string(symbols[rand.Intn(len(symbols))])
+	}
+	return result
 }
 
 func (factory *Factory) UniqueInteger() int {
@@ -123,7 +138,7 @@ func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
 		panic("expecting 1 parameter or none")
 	}
 	if params.Series == "" {
-		params.Series = "trusty"
+		params.Series = "quantal"
 	}
 	if params.Nonce == "" {
 		params.Nonce = "nonce"
@@ -133,6 +148,11 @@ func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
 	}
 	if params.InstanceId == "" {
 		params.InstanceId = instance.Id(factory.UniqueString("id"))
+	}
+	if params.Password == "" {
+		var err error
+		params.Password, err = utils.RandomPassword()
+		factory.c.Assert(err, gc.IsNil)
 	}
 	machine, err := factory.st.AddMachine(params.Series, params.Jobs...)
 	factory.c.Assert(err, gc.IsNil)
@@ -145,7 +165,7 @@ func (factory *Factory) MakeMachine(vParams ...MachineParams) *state.Machine {
 
 // MakeCharm creates a charm with the values specified in params.
 // Sensible default values are substituted for missing ones.
-// Supported charms depend on the github.com/juju/charm/testing package.
+// Supported charms depend on the charm/testing package.
 // Currently supported charms:
 //   all-hooks, category, dummy, format2, logging, monitoring, mysql,
 //   mysql-alternative, riak, terracotta, upgrade1, upgrade2, varnish,
@@ -172,14 +192,14 @@ func (factory *Factory) MakeCharm(vParams ...CharmParams) *state.Charm {
 		params.URL = fmt.Sprintf("cs:%s/%s-%s", params.Series, params.Name, params.Revision)
 	}
 
-	ch := charmtesting.Charms.Dir(params.Name)
+	ch := charmtesting.Charms.CharmDir(params.Name)
 
 	curl := charm.MustParseURL(params.URL)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
 	bundleSHA256 := factory.UniqueString("bundlesha")
 	factory.c.Assert(err, gc.IsNil)
-
 	charm, err := factory.st.AddCharm(ch, curl, bundleURL, bundleSHA256)
+
 	factory.c.Assert(err, gc.IsNil)
 	return charm
 }
@@ -196,11 +216,11 @@ func (factory *Factory) MakeService(vParams ...ServiceParams) *state.Service {
 		panic("expecting 1 parameter or none")
 	}
 
-	if params.Name == "" {
-		params.Name = factory.UniqueString("mysql")
-	}
 	if params.Charm == nil {
 		params.Charm = factory.MakeCharm()
+	}
+	if params.Name == "" {
+		params.Name = params.Charm.Meta().Name
 	}
 	if params.Creator == "" {
 		creator := factory.MakeUser()
@@ -254,7 +274,7 @@ func (factory *Factory) MakeRelation(vParams ...RelationParams) *state.Relation 
 				Name: "mysql",
 			}),
 		})
-		e1, err := s1.Endpoint("db")
+		e1, err := s1.Endpoint("server")
 		factory.c.Assert(err, gc.IsNil)
 
 		s2 := factory.MakeService(ServiceParams{

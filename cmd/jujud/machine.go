@@ -13,7 +13,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm"
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
@@ -21,6 +20,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	"github.com/juju/utils/voyeur"
+	"gopkg.in/juju/charm.v3"
 	"gopkg.in/mgo.v2"
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
@@ -34,6 +34,7 @@ import (
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
+	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/service"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/state"
@@ -165,6 +166,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.configChangedVal.Set(struct{}{})
 	agentConfig := a.CurrentConfig()
 	network.InitializeFromConfig(agentConfig)
+	a.upgradeWorkerContext.InitializeFromConfig(agentConfig)
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
@@ -248,7 +250,6 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 
 	// Refresh the configuration, since it may have been updated after opening state.
 	agentConfig = a.CurrentConfig()
-
 	for _, job := range entity.Jobs() {
 		if job.NeedsState() {
 			info, err := st.Agent().StateServingInfo()
@@ -282,6 +283,8 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		}
 	}
 
+	providerType := agentConfig.Value(agent.ProviderType)
+
 	// Run the upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
@@ -309,16 +312,23 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
 	if networker.CanStart() {
-		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-			return networker.NewNetworker(st.Networker(), agentConfig)
-		})
+		// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
+		writeNetworkConfig := providerType == "maas"
+		if writeNetworkConfig {
+			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+				return networker.NewNetworker(st.Networker(), agentConfig)
+			})
+		} else {
+			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+				return networker.NewSafeNetworker(st.Networker(), agentConfig)
+			})
+		}
 	} else {
 		logger.Infof("not starting networker - missing /etc/network/interfaces")
 	}
 
 	// If not a local provider bootstrap machine, start the worker to
 	// manage SSH keys.
-	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local || a.MachineId != bootstrapMachineId {
 		a.startWorkerAfterUpgrade(runner, "authenticationworker", func() (worker.Worker, error) {
 			return authenticationworker.NewWorker(st.KeyUpdater(), agentConfig), nil
@@ -434,16 +444,16 @@ func (a *MachineAgent) updateSupportedContainers(
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	agentConfig := a.CurrentConfig()
 
-	// Create system-identity file
+	// Create system-identity file.
 	if err := agent.WriteSystemIdentityFile(agentConfig); err != nil {
 		return nil, err
 	}
 
-	// Start MondoDB server
+	// Start MongoDB server and dial.
 	if err := a.ensureMongoServer(agentConfig); err != nil {
 		return nil, err
 	}
-	st, m, err := openState(agentConfig, mongo.DialOpts{})
+	st, m, err := openState(agentConfig, stateWorkerDialOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -531,6 +541,32 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		}
 	}
 	return newCloseWorker(runner, st), nil
+}
+
+// stateWorkerDialOpts is a mongo.DialOpts suitable
+// for use by StateWorker to dial mongo.
+//
+// This must be overridden in tests, as it assumes
+// journaling is enabled.
+var stateWorkerDialOpts mongo.DialOpts
+
+func init() {
+	stateWorkerDialOpts = mongo.DefaultDialOpts()
+	stateWorkerDialOpts.PostDial = func(session *mgo.Session) error {
+		safe := mgo.Safe{
+			// Wait for group commit if journaling is enabled,
+			// which is always true in production.
+			J: true,
+		}
+		_, err := replicaset.CurrentConfig(session)
+		if err == nil {
+			// set mongo to write-majority (writes only returned after
+			// replicated to a majority of replica-set members).
+			safe.WMode = "majority"
+		}
+		session.SetSafe(&safe)
+		return nil
+	}
 }
 
 // limitLoginsDuringUpgrade is called by the API server for each login

@@ -9,9 +9,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/network"

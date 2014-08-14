@@ -26,7 +26,7 @@ var errNoBootstrapHost = errors.New("bootstrap-host must be specified")
 var initUbuntuUser = manual.InitUbuntuUser
 
 func ensureBootstrapUbuntuUser(ctx environs.BootstrapContext, cfg *environConfig) error {
-	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), ctx.GetStdin(), ctx.GetStdout())
+	err := initUbuntuUser(cfg.bootstrapHost(), cfg.bootstrapUser(), cfg.AuthorizedKeys(), "", ctx.GetStdin(), ctx.GetStdout())
 	if err != nil {
 		logger.Errorf("initializing ubuntu user: %v", err)
 		return err
@@ -55,6 +55,11 @@ func (p manualProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Confi
 	if err != nil {
 		return nil, err
 	}
+	cfg, err = cfg.Apply(envConfig.attrs)
+	if err != nil {
+		return nil, err
+	}
+	envConfig = newEnvironConfig(cfg, envConfig.attrs)
 	if err := ensureBootstrapUbuntuUser(ctx, envConfig); err != nil {
 		return nil, err
 	}
@@ -62,10 +67,14 @@ func (p manualProvider) Prepare(ctx environs.BootstrapContext, cfg *config.Confi
 }
 
 func (p manualProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	envConfig, err := p.validate(cfg, nil)
+	_, err := p.validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
+	// validate adds missing manual-specific config attributes
+	// with their defaults in the result; we don't wnat that in
+	// Open.
+	envConfig := newEnvironConfig(cfg, cfg.UnknownAttrs())
 	return p.open(envConfig)
 }
 
@@ -91,10 +100,6 @@ func (p manualProvider) validate(cfg, old *config.Config) (*environConfig, error
 		return nil, err
 	}
 	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
-	if err != nil {
-		return nil, err
-	}
-	cfg, err = cfg.Apply(validated)
 	if err != nil {
 		return nil, err
 	}
@@ -134,7 +139,7 @@ func (p manualProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 	if err != nil {
 		return nil, err
 	}
-	return envConfig.Config, nil
+	return cfg.Apply(envConfig.attrs)
 }
 
 func (_ manualProvider) BoilerplateConfig() string {

@@ -869,20 +869,20 @@ func (e *environ) Destroy() error {
 	return common.Destroy(e)
 }
 
-func portsToIPPerms(ports []network.Port) []ec2.IPPerm {
+func portsToIPPerms(ports []network.PortRange) []ec2.IPPerm {
 	ipPerms := make([]ec2.IPPerm, len(ports))
 	for i, p := range ports {
 		ipPerms[i] = ec2.IPPerm{
 			Protocol:  p.Protocol,
-			FromPort:  p.Number,
-			ToPort:    p.Number,
+			FromPort:  p.FromPort,
+			ToPort:    p.ToPort,
 			SourceIPs: []string{"0.0.0.0/0"},
 		}
 	}
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []network.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []network.PortRange) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -915,7 +915,7 @@ func (e *environ) openPortsInGroup(name string, ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []network.PortRange) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -933,7 +933,7 @@ func (e *environ) closePortsInGroup(name string, ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []network.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []network.PortRange, err error) {
 	group, err := e.groupInfoByName(name)
 	if err != nil {
 		return nil, err
@@ -943,18 +943,17 @@ func (e *environ) portsInGroup(name string) (ports []network.Port, err error) {
 			logger.Warningf("unexpected IP permission found: %v", p)
 			continue
 		}
-		for i := p.FromPort; i <= p.ToPort; i++ {
-			ports = append(ports, network.Port{
-				Protocol: p.Protocol,
-				Number:   i,
-			})
-		}
+		ports = append(ports, network.PortRange{
+			Protocol: p.Protocol,
+			FromPort: p.FromPort,
+			ToPort:   p.ToPort,
+		})
 	}
-	network.SortPorts(ports)
+	network.SortPortRanges(ports)
 	return ports, nil
 }
 
-func (e *environ) OpenPorts(ports []network.Port) error {
+func (e *environ) OpenPorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
@@ -966,7 +965,7 @@ func (e *environ) OpenPorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []network.Port) error {
+func (e *environ) ClosePorts(ports []network.PortRange) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
@@ -978,7 +977,7 @@ func (e *environ) ClosePorts(ports []network.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]network.Port, error) {
+func (e *environ) Ports() ([]network.PortRange, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
 			e.Config().FirewallMode())
@@ -1037,7 +1036,7 @@ func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
-func (inst *ec2Instance) OpenPorts(machineId string, ports []network.Port) error {
+func (inst *ec2Instance) OpenPorts(machineId string, ports []network.PortRange) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
@@ -1050,7 +1049,7 @@ func (inst *ec2Instance) OpenPorts(machineId string, ports []network.Port) error
 	return nil
 }
 
-func (inst *ec2Instance) ClosePorts(machineId string, ports []network.Port) error {
+func (inst *ec2Instance) ClosePorts(machineId string, ports []network.PortRange) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
@@ -1063,13 +1062,17 @@ func (inst *ec2Instance) ClosePorts(machineId string, ports []network.Port) erro
 	return nil
 }
 
-func (inst *ec2Instance) Ports(machineId string) ([]network.Port, error) {
+func (inst *ec2Instance) Ports(machineId string) ([]network.PortRange, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
-	return inst.e.portsInGroup(name)
+	ranges, err := inst.e.portsInGroup(name)
+	if err != nil {
+		return nil, err
+	}
+	return ranges, nil
 }
 
 // setUpGroups creates the security groups for the new machine, and

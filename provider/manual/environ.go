@@ -4,6 +4,7 @@
 package manual
 
 import (
+	"bytes"
 	"fmt"
 	"net"
 	"path"
@@ -45,7 +46,12 @@ const (
 	storageTmpSubdir = "storage-tmp"
 )
 
-var logger = loggo.GetLogger("juju.provider.manual")
+var (
+	logger                                       = loggo.GetLogger("juju.provider.manual")
+	commonEnsureBootstrapTools                   = common.EnsureBootstrapTools
+	manualDetectSeriesAndHardwareCharacteristics = manual.DetectSeriesAndHardwareCharacteristics
+	manualBootstrap                              = manual.Bootstrap
+)
 
 type manualEnviron struct {
 	common.SupportsUnitPlacementPolicy
@@ -107,15 +113,15 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 	envConfig := e.envConfig()
 	// TODO(axw) consider how we can use placement to override bootstrap-host.
 	host := envConfig.bootstrapHost()
-	hc, series, err := manual.DetectSeriesAndHardwareCharacteristics(host)
+	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(host)
 	if err != nil {
 		return err
 	}
-	selectedTools, err := common.EnsureBootstrapTools(ctx, e, series, hc.Arch)
+	selectedTools, err := commonEnsureBootstrapTools(ctx, e, series, hc.Arch)
 	if err != nil {
 		return err
 	}
-	return manual.Bootstrap(manual.BootstrapArgs{
+	return manualBootstrap(manual.BootstrapArgs{
 		Context:                 ctx,
 		Host:                    host,
 		DataDir:                 agent.DefaultDataDir,
@@ -128,34 +134,54 @@ func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.B
 
 // StateServerInstances is specified in the Environ interface.
 func (e *manualEnviron) StateServerInstances() ([]instance.Id, error) {
+	// If we're running from the bootstrap host, then
+	// useSSHStorage will be false; in that case, we
+	// do not need or want to verify the bootstrap host.
+	if e.envConfig().useSSHStorage() {
+		if err := e.verifyBootstrapHost(); err != nil {
+			return nil, err
+		}
+	}
+	return []instance.Id{manual.BootstrapInstanceId}, nil
+}
+
+func (e *manualEnviron) verifyBootstrapHost() error {
 	// First verify that the environment is bootstrapped by checking
 	// if the agents directory exists. Note that we cannot test the
 	// root data directory, as that is created in the process of
 	// initialising sshstorage.
 	agentsDir := path.Join(agent.DefaultDataDir, "agents")
-	stdin := fmt.Sprintf("test -d %s || echo 1", utils.ShQuote(agentsDir))
-	out, err := runSSHCommand("ubuntu@"+e.cfg.bootstrapHost(), []string{"/bin/bash"}, stdin)
-	out = strings.TrimSpace(out)
+	const noAgentDir = "no-agent-dir"
+	stdin := fmt.Sprintf(
+		"test -d %s || echo %s",
+		utils.ShQuote(agentsDir),
+		noAgentDir,
+	)
+	out, err := runSSHCommand(
+		"ubuntu@"+e.cfg.bootstrapHost(),
+		[]string{"/bin/bash"},
+		stdin,
+	)
 	if err != nil {
-		if len(out) > 0 {
-			err = errors.Annotate(err, out)
+		return err
+	}
+	if out = strings.TrimSpace(out); len(out) > 0 {
+		if out == noAgentDir {
+			return environs.ErrNotBootstrapped
 		}
-		return nil, err
+		return errors.LoggedErrorf(logger, "unexpected output: %q", out)
 	}
-	if len(out) > 0 {
-		// If output is non-empty, /var/lib/juju/agents does not exist.
-		return nil, environs.ErrNotBootstrapped
-	}
-	return []instance.Id{manual.BootstrapInstanceId}, nil
+	return nil
 }
 
 func (e *manualEnviron) SetConfig(cfg *config.Config) error {
 	e.cfgmutex.Lock()
 	defer e.cfgmutex.Unlock()
-	envConfig, err := manualProvider{}.validate(cfg, e.cfg.Config)
+	_, err := manualProvider{}.validate(cfg, e.cfg.Config)
 	if err != nil {
 		return err
 	}
+	envConfig := newEnvironConfig(cfg, cfg.UnknownAttrs())
 	// Set storage. If "use-sshstorage" is true then use the SSH storage.
 	// Otherwise, use HTTP storage.
 	//
@@ -251,11 +277,19 @@ func (e *manualEnviron) Storage() storage.Storage {
 	return e.storage
 }
 
-var runSSHCommand = func(host string, command []string, stdin string) (output string, err error) {
+var runSSHCommand = func(host string, command []string, stdin string) (stdout string, err error) {
 	cmd := ssh.Command(host, command, nil)
 	cmd.Stdin = strings.NewReader(stdin)
-	out, err := cmd.CombinedOutput()
-	return string(out), err
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+	if err := cmd.Run(); err != nil {
+		if stderr := strings.TrimSpace(stderrBuf.String()); len(stderr) > 0 {
+			err = errors.Annotate(err, stderr)
+		}
+		return "", err
+	}
+	return stdoutBuf.String(), nil
 }
 
 func (e *manualEnviron) Destroy() error {
@@ -275,15 +309,10 @@ exit 0
 		utils.ShQuote(agent.DefaultDataDir),
 		utils.ShQuote(agent.DefaultLogDir),
 	)
-	stderr, err := runSSHCommand(
+	_, err := runSSHCommand(
 		"ubuntu@"+e.envConfig().bootstrapHost(),
 		[]string{"sudo", "/bin/bash"}, script,
 	)
-	if err != nil {
-		if stderr := strings.TrimSpace(stderr); len(stderr) > 0 {
-			err = fmt.Errorf("%v (%v)", err, stderr)
-		}
-	}
 	return err
 }
 
@@ -304,16 +333,16 @@ func (e *manualEnviron) ConstraintsValidator() (constraints.Validator, error) {
 	return validator, nil
 }
 
-func (e *manualEnviron) OpenPorts(ports []network.Port) error {
+func (e *manualEnviron) OpenPorts(ports []network.PortRange) error {
 	return nil
 }
 
-func (e *manualEnviron) ClosePorts(ports []network.Port) error {
+func (e *manualEnviron) ClosePorts(ports []network.PortRange) error {
 	return nil
 }
 
-func (e *manualEnviron) Ports() ([]network.Port, error) {
-	return []network.Port{}, nil
+func (e *manualEnviron) Ports() ([]network.PortRange, error) {
+	return nil, nil
 }
 
 func (*manualEnviron) Provider() environs.EnvironProvider {
