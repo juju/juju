@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 )
 
@@ -142,7 +143,7 @@ func (v *seriesValue) Set(s string) error {
 type BootstrapInterface interface {
 	EnsureNotBootstrapped(env environs.Environ) error
 	UploadTools(environs.BootstrapContext, environs.Environ, *string, bool, ...string) error
-	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) error
+	Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) ([]network.Address, error)
 }
 
 type bootstrapFuncs struct{}
@@ -155,7 +156,7 @@ func (b bootstrapFuncs) UploadTools(ctx environs.BootstrapContext, env environs.
 	return bootstrap.UploadTools(ctx, env, toolsArch, forceVersion, bootstrapSeries...)
 }
 
-func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) error {
+func (b bootstrapFuncs) Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) ([]network.Address, error) {
 	return bootstrap.Bootstrap(ctx, env, args)
 }
 
@@ -246,10 +247,17 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return err
 		}
 	}
-	return bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
+	_, err = bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 	})
+	if err != nil {
+		return err
+	}
+
+	// TODO(waigani)
+	// Get endpoints from Bootstrap and write them to environ config.
+	return nil
 }
 
 var uploadCustomMetadata = func(metadataDir string, env environs.Environ) error {

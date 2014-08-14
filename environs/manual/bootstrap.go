@@ -11,6 +11,7 @@ import (
 	"github.com/juju/juju/environs"
 	envtools "github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/worker/localstorage"
@@ -45,32 +46,32 @@ func errMachineIdInvalid(machineId string) error {
 //
 // InitUbuntuUser is expected to have been executed successfully against
 // the host being bootstrapped.
-func Bootstrap(args BootstrapArgs) (err error) {
+func Bootstrap(args BootstrapArgs) (endpoints []network.Address, err error) {
 	if args.Host == "" {
-		return errors.New("host argument is empty")
+		return endpoints, errors.New("host argument is empty")
 	}
 	if args.Environ == nil {
-		return errors.New("environ argument is nil")
+		return endpoints, errors.New("environ argument is nil")
 	}
 	if args.DataDir == "" {
-		return errors.New("data-dir argument is empty")
+		return endpoints, errors.New("data-dir argument is empty")
 	}
 	if args.Series == "" {
-		return errors.New("series argument is empty")
+		return endpoints, errors.New("series argument is empty")
 	}
 	if args.HardwareCharacteristics == nil {
-		return errors.New("hardware characteristics argument is empty")
+		return endpoints, errors.New("hardware characteristics argument is empty")
 	}
 	if len(args.PossibleTools) == 0 {
-		return errors.New("possible tools is empty")
+		return endpoints, errors.New("possible tools is empty")
 	}
 
 	provisioned, err := checkProvisioned(args.Host)
 	if err != nil {
-		return fmt.Errorf("failed to check provisioned status: %v", err)
+		return endpoints, fmt.Errorf("failed to check provisioned status: %v", err)
 	}
 	if provisioned {
-		return ErrProvisioned
+		return endpoints, ErrProvisioned
 	}
 
 	// Filter tools based on detected series/arch.
@@ -80,7 +81,7 @@ func Bootstrap(args BootstrapArgs) (err error) {
 		Series: args.Series,
 	})
 	if err != nil {
-		return err
+		return endpoints, err
 	}
 
 	// If the tools are on the machine already, get a file:// scheme tools URL.
@@ -95,12 +96,12 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	// Add the local storage configuration.
 	agentEnv, err := localstorage.StoreConfig(args.Environ)
 	if err != nil {
-		return err
+		return endpoints, err
 	}
 
 	privateKey, err := common.GenerateSystemSSHKey(args.Environ)
 	if err != nil {
-		return err
+		return endpoints, err
 	}
 
 	// Finally, provision the machine agent.
@@ -113,10 +114,15 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	mcfg.Tools = &tools
 	err = environs.FinishMachineConfig(mcfg, args.Environ.Config(), constraints.Value{})
 	if err != nil {
-		return err
+		return endpoints, err
 	}
 	for k, v := range agentEnv {
 		mcfg.AgentEnvironment[k] = v
 	}
-	return provisionMachineAgent(args.Host, mcfg, args.Context.GetStderr())
+	err = provisionMachineAgent(args.Host, mcfg, args.Context.GetStderr())
+	if err != nil {
+		return nil, err
+	}
+	endpoints = network.NewAddresses(args.Host)
+	return endpoints, nil
 }

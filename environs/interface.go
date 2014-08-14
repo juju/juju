@@ -91,18 +91,18 @@ type BootstrapParams struct {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
-	// Bootstrap initializes the state for the environment, possibly
-	// starting one or more instances.  If the configuration's
-	// AdminSecret is non-empty, the administrator password on the
-	// newly bootstrapped state will be set to a hash of it (see
-	// utils.PasswordHash), When first connecting to the
-	// environment via the juju package, the password hash will be
-	// automatically replaced by the real password.
+	// Bootstrap initializes the state for the environment, possibly starting
+	// one or more instances. It will return the addresses of those instances.
+	// If the configuration's AdminSecret is non-empty, the administrator
+	// password on the newly bootstrapped state will be set to a hash of it
+	// (see utils.PasswordHash), When first connecting to the environment via
+	// the juju package, the password hash will be automatically replaced by
+	// the real password.
 	//
 	// Bootstrap is responsible for selecting the appropriate tools,
 	// and setting the agent-version configuration attribute prior to
 	// bootstrapping the environment.
-	Bootstrap(ctx BootstrapContext, params BootstrapParams) error
+	Bootstrap(ctx BootstrapContext, params BootstrapParams) ([]network.Address, error)
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.

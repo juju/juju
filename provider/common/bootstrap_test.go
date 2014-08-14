@@ -98,7 +98,7 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, environs.BootstrapParams{
+	_, err := common.Bootstrap(ctx, env, environs.BootstrapParams{
 		Constraints: checkCons,
 		Placement:   checkPlacement,
 	})
@@ -132,7 +132,7 @@ func (s *BootstrapSuite) TestCannotRecordStartedInstance(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	_, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
@@ -169,7 +169,7 @@ func (s *BootstrapSuite) TestCannotRecordThenCannotStop(c *gc.C) {
 	}
 
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	_, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot save state: suddenly a wild blah")
 	c.Assert(stopped, gc.HasLen, 1)
 	c.Assert(stopped[0], gc.Equals, instance.Id("i-blah"))
@@ -188,7 +188,11 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	) (
 		instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 	) {
-		return &mockInstance{id: checkInstanceId}, &checkHardware, nil, nil
+		inst := &mockInstance{
+			id:        checkInstanceId,
+			addresses: network.NewAddresses("169.254.169.254"),
+		}
+		return inst, &checkHardware, nil, nil
 	}
 	var mocksConfig = minimalConfig(c)
 	var getConfigCalled int
@@ -212,7 +216,9 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	}
 	originalAuthKeys := env.Config().AuthorizedKeys()
 	ctx := coretesting.Context(c)
-	err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+
+	endpoints, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
+	c.Assert(endpoints, gc.DeepEquals, network.NewAddresses("169.254.169.254"))
 	c.Assert(err, gc.IsNil)
 
 	authKeys := env.Config().AuthorizedKeys()

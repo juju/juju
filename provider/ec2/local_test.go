@@ -230,7 +230,7 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	_, err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// check that StateServerInstances returns the id of the bootstrap machine.
@@ -315,7 +315,7 @@ func splitAuthKeys(keys string) []interface{} {
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	_, err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
@@ -326,7 +326,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	_, err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.AssertStartInstance(c, env, "1")
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -354,7 +354,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneUnknown(c *gc.C) {
 func (t *localServerSuite) testStartInstanceAvailZone(c *gc.C, zone string) (instance.Instance, error) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	_, err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	params := environs.StartInstanceParams{Placement: "zone=" + zone}
@@ -436,7 +436,7 @@ func (t *mockAvailabilityZoneAllocations) AvailabilityZoneAllocations(
 func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	_, err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -463,7 +463,7 @@ func (t *localServerSuite) TestStartInstanceDistributionParams(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	_, err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -487,7 +487,7 @@ func (t *localServerSuite) TestStartInstanceDistributionErrors(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceDistribution(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	_, err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	// test-available is the only available AZ, so AvailabilityZoneAllocations
@@ -504,7 +504,7 @@ var azConstrainedErr = &amzec2.Error{
 func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	_, err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -527,7 +527,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneAllConstrained(c *gc.C) {
 func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	_, err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	mock := mockAvailabilityZoneAllocations{
@@ -556,7 +556,7 @@ func (t *localServerSuite) TestStartInstanceAvailZoneOneConstrained(c *gc.C) {
 func (t *localServerSuite) TestAddresses(c *gc.C) {
 	env := t.Prepare(c)
 	envtesting.UploadFakeTools(c, env.Storage())
-	err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	_, err := bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
