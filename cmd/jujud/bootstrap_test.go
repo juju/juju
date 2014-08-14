@@ -16,8 +16,8 @@ import (
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/constraints"

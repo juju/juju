@@ -17,8 +17,8 @@ import (
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environmentserver/authentication"
