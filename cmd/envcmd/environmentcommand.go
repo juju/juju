@@ -131,7 +131,7 @@ func (c *EnvCommandBase) ConnectionCredentials() (configstore.APICredentials, er
 	// TODO: the user may soon be specified through the command line
 	// or through an environment setting, so return these when they are ready.
 	var emptyCreds configstore.APICredentials
-	info, err := connectionInfoForName(c.envName)
+	info, err := ConnectionInfoForName(c.envName)
 	if err != nil {
 		return emptyCreds, errors.Trace(err)
 	}
@@ -145,7 +145,7 @@ func (c *EnvCommandBase) ConnectionEndpoint(refresh bool) (configstore.APIEndpoi
 	// or through an environment setting, so return these when they are ready.
 	// NOTE: refresh when specified through command line should error.
 	var emptyEndpoint configstore.APIEndpoint
-	info, err := connectionInfoForName(c.envName)
+	info, err := ConnectionInfoForName(c.envName)
 	if err != nil {
 		return emptyEndpoint, errors.Trace(err)
 	}
@@ -163,7 +163,7 @@ func (c *EnvCommandBase) ConnectionEndpoint(refresh bool) (configstore.APIEndpoi
 	}
 	refresher.Close()
 
-	info, err = connectionInfoForName(c.envName)
+	info, err = ConnectionInfoForName(c.envName)
 	if err != nil {
 		return emptyEndpoint, err
 	}
@@ -193,7 +193,9 @@ var getConfigStore = func() (configstore.Storage, error) {
 	return store, nil
 }
 
-func connectionInfoForName(envName string) (configstore.EnvironInfo, error) {
+// ConnectionInfoForName reads the environment information for the named
+// environment (envName) and returns it.
+func ConnectionInfoForName(envName string) (configstore.EnvironInfo, error) {
 	store, err := getConfigStore()
 	if err != nil {
 		return nil, errors.Trace(err)
@@ -212,7 +214,7 @@ func connectionInfoForName(envName string) (configstore.EnvironInfo, error) {
 func (c *EnvCommandBase) ConnectionWriter() (ConnectionWriter, error) {
 	// TODO: when accessing with just command line params or environment
 	// variables, this should error.
-	return connectionInfoForName(c.envName)
+	return ConnectionInfoForName(c.envName)
 }
 
 // ConnectionName returns the name of the connection if there is one.

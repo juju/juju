@@ -29,7 +29,9 @@ import (
 	envtesting "github.com/juju/juju/environs/testing"
 	envtools "github.com/juju/juju/environs/tools"
 	toolstesting "github.com/juju/juju/environs/tools/testing"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/dummy"
 	coretesting "github.com/juju/juju/testing"
 	coretools "github.com/juju/juju/tools"
@@ -86,8 +88,8 @@ type bootstrapRetryTest struct {
 	addVersionToSource bool
 }
 
-var noToolsAvailableMessage = "cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*"
-var toolsNotFoundMessage = "cannot find bootstrap tools: tools not found"
+var noToolsAvailableMessage = "failed to bootstrap environment: cannot upload bootstrap tools: Juju cannot bootstrap because no tools are available for your environment.*"
+var toolsNotFoundMessage = "failed to bootstrap environment: cannot find bootstrap tools: tools not found"
 
 var bootstrapRetryTests = []bootstrapRetryTest{{
 	info:               "no tools uploaded, first check has no retries; no matching binary in source; no second attempt",
@@ -256,6 +258,10 @@ func (test bootstrapTest) run(c *gc.C) {
 	c.Check(hasCert, gc.Equals, true)
 	_, hasKey := env.Config().CAPrivateKey()
 	c.Check(hasKey, gc.Equals, true)
+	info, err := store.ReadInfo("peckham")
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
+	c.Assert(info.APIEndpoint().Addresses, gc.DeepEquals, []string{"localhost:17070"})
 }
 
 var bootstrapTests = []bootstrapTest{{
@@ -288,7 +294,7 @@ var bootstrapTests = []bootstrapTest{{
 	info:    "bad environment",
 	version: "1.2.3-%LTS%-amd64",
 	args:    []string{"-e", "brokenenv"},
-	err:     `dummy.Bootstrap is broken`,
+	err:     `failed to bootstrap environment: dummy.Bootstrap is broken`,
 }, {
 	info:        "constraints",
 	args:        []string{"--constraints", "mem=4G cpu-cores=4"},
@@ -387,6 +393,14 @@ func (s *BootstrapSuite) TestSeriesDeprecation(c *gc.C) {
 		"Use of --series is deprecated. Please use --upload-series instead.\n")
 }
 
+type mockBootstrapInstance struct {
+	instance.Instance
+}
+
+func (*mockBootstrapInstance) Addresses() ([]network.Address, error) {
+	return []network.Address{network.Address{Value: "localhost"}}, nil
+}
+
 func (s *BootstrapSuite) TestNoDeprecationWithUploadSeries(c *gc.C) {
 	ctx := s.checkSeriesArg(c, "--upload-series")
 	c.Check(coretesting.Stderr(ctx), gc.Equals, "")
@@ -398,6 +412,9 @@ func (s *BootstrapSuite) checkSeriesArg(c *gc.C, argVariant string) *cmd.Context
 		return _bootstrap
 	})
 	resetJujuHome(c)
+	s.PatchValue(&allInstances, func(environ environs.Environ) ([]instance.Instance, error) {
+		return []instance.Instance{&mockBootstrapInstance{}}, nil
+	})
 
 	ctx, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--upload-tools", argVariant, "foo,bar")
 
@@ -466,7 +483,7 @@ func (s *BootstrapSuite) TestInvalidLocalSource(c *gc.C) {
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}), "--metadata-source", c.MkDir())
-	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: Juju "+
+	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: Juju "+
 		"cannot bootstrap because no tools are available for your "+
 		"environment(.|\n)*")
 
@@ -656,7 +673,7 @@ func (s *BootstrapSuite) TestMissingToolsError(c *gc.C) {
 	s.setupAutoUploadTest(c, "1.8.3", "precise")
 
 	_, err := coretesting.RunCommand(c, envcmd.Wrap(&BootstrapCommand{}))
-	c.Assert(err, gc.ErrorMatches, "cannot upload bootstrap tools: Juju "+
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: Juju "+
 		"cannot bootstrap because no tools are available for your "+
 		"environment(.|\n)*")
 }
@@ -673,7 +690,7 @@ func (s *BootstrapSuite) TestMissingToolsUploadFailedError(c *gc.C) {
 
 	c.Check(coretesting.Stderr(ctx), gc.Matches,
 		"uploading tools for series \\[precise raring .*\\]\n")
-	c.Check(err, gc.ErrorMatches, "cannot upload bootstrap tools: an error")
+	c.Check(err, gc.ErrorMatches, "failed to bootstrap environment: cannot upload bootstrap tools: an error")
 }
 
 func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
@@ -686,7 +703,7 @@ func (s *BootstrapSuite) TestBootstrapDestroy(c *gc.C) {
 	s.PatchValue(&version.Current, devVersion)
 	opc, errc := runCommand(nullContext(c), envcmd.Wrap(new(BootstrapCommand)), "-e", "brokenenv")
 	err := <-errc
-	c.Assert(err, gc.ErrorMatches, "dummy.Bootstrap is broken")
+	c.Assert(err, gc.ErrorMatches, "failed to bootstrap environment: dummy.Bootstrap is broken")
 	var opDestroy *dummy.OpDestroy
 	for opDestroy == nil {
 		select {

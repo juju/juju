@@ -19,6 +19,7 @@ import (
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider"
 )
 
@@ -246,10 +247,63 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return err
 		}
 	}
-	return bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
+	err = bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 	})
+	if err != nil {
+		return errors.Annotate(err, "failed to bootstrap environment")
+	}
+	return c.SetBootstrapEndpointAddress(environ)
+}
+
+var allInstances = func(environ environs.Environ) ([]instance.Instance, error) {
+	return environ.AllInstances()
+}
+
+// SetBootstrapEndpointAddress writes the API endpoint address of the
+// bootstrap server into the connection information. This should only be run
+// once directly after Bootstrap. It assumes that there is just one instance
+// in the environment - the bootstrap instance.
+func (c *BootstrapCommand) SetBootstrapEndpointAddress(environ environs.Environ) error {
+	instances, err := allInstances(environ)
+	if err != nil {
+		return errors.Trace(err)
+	}
+	length := len(instances)
+	if length == 0 {
+		return errors.Errorf("found no instances, expected at least one")
+	}
+	if length > 1 {
+		logger.Warningf("expected one instance, got %d", length)
+	}
+	bootstrapInstance := instances[0]
+	cfg := environ.Config()
+	info, err := envcmd.ConnectionInfoForName(c.ConnectionName())
+	if err != nil {
+		return errors.Annotate(err, "failed to get connection info")
+	}
+
+	// Don't use c.ConnectionEndpoint as it attempts to contact the state
+	// server if no addresses are found in connection info.
+	endpoint := info.APIEndpoint()
+	netAddrs, err := bootstrapInstance.Addresses()
+	apiPort := cfg.APIPort()
+	apiAddrs := make([]string, len(netAddrs))
+	for i, hp := range network.AddressesWithPort(netAddrs, apiPort) {
+		apiAddrs[i] = hp.NetAddr()
+	}
+	endpoint.Addresses = apiAddrs
+	writer, err := c.ConnectionWriter()
+	if err != nil {
+		return errors.Annotate(err, "failed to get connection writer")
+	}
+	writer.SetAPIEndpoint(endpoint)
+	err = writer.Write()
+	if err != nil {
+		return errors.Annotate(err, "failed to write API endpoint to connection info")
+	}
+	return nil
 }
 
 var uploadCustomMetadata = func(metadataDir string, env environs.Environ) error {
