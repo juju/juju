@@ -37,14 +37,14 @@ func Backup(password string, username string, outputFolder string, addr string) 
 	defer os.RemoveAll(root)
 
 	// Dump the files.
-	logger.Debugf("dumping state-related files")
+	logger.Infof("dumping state-related files")
 	err = dumpFiles(contentdir)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
 
 	// Dump the database.
-	logger.Debugf("dumping database")
+	logger.Infof("dumping database")
 	dbinfo := NewDBConnInfo(addr, username, password)
 	err = dumpDatabase(dbinfo, dumpdir)
 	if err != nil {
@@ -52,7 +52,7 @@ func Backup(password string, username string, outputFolder string, addr string) 
 	}
 
 	// Bundle it all into a tarball.
-	logger.Debugf("building archive file")
+	logger.Infof("building archive file (%s)", bkpFile)
 	shaSum, err := createBundle(bkpFile, outputFolder, contentdir, root+sep)
 	if err != nil {
 		return "", "", errors.Trace(err)
