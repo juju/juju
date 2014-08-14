@@ -246,10 +246,31 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) (resultErr error) {
 			return err
 		}
 	}
-	return bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
+	err = bootstrapFuncs.Bootstrap(ctx, environ, environs.BootstrapParams{
 		Constraints: c.Constraints,
 		Placement:   c.Placement,
 	})
+	if err != nil {
+		return err
+	}
+
+	// Populate environment information with the API endpoint addresses by
+	// connecting to the API.
+	//
+	// TODO(waigani) 12/08/2014
+	// common.Bootstrap ensures addresses are available (via FinishBootstrap >
+	// waitSSH). local, dummy and manual providers cannot use common.Bootstrap
+	// as they necessarily do different things. Hardcode these providers to
+	// return "127.0.0.1" for local and dummy and the configured value of
+	// bootstrap-host for manual. Then get the addresses from Bootstrap
+	// instead of connecting to the API.
+	if environ.Config().AllAttrs()["state-server"].(bool) {
+		_, err = c.NewAPIClient()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 var uploadCustomMetadata = func(metadataDir string, env environs.Environ) error {
