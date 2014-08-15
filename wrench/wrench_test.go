@@ -32,11 +32,19 @@ var _ = gc.Suite(&wrenchSuite{})
 
 func (s *wrenchSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
+	// BaseSuite turns off wrench so restore the non-testing default.
+	wrench.SetEnabled(true)
 	c.Assert(loggo.RegisterWriter("wrench-tests", &s.logWriter, loggo.TRACE), gc.IsNil)
 	s.AddCleanup(func(*gc.C) {
 		s.logWriter.Clear()
 		loggo.RemoveWriter("wrench-tests")
 	})
+}
+
+func (s *wrenchSuite) TearDownSuite(c *gc.C) {
+	s.BaseSuite.TearDownSuite(c)
+	// Ensure the wrench is turned off when these tests are done.
+	wrench.SetEnabled(false)
 }
 
 func (s *wrenchSuite) createWrenchDir(c *gc.C) {
