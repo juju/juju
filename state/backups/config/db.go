@@ -73,11 +73,11 @@ func (ci *dbConnInfo) Check() (address, username, password string, err error) {
 	password = ci.password
 
 	if address == "" {
-		err = errors.Errorf("missing address")
+		err = errors.New("missing address")
 	} else if username == "" {
-		err = errors.Errorf("missing username")
+		err = errors.New("missing username")
 	} else if password == "" {
-		err = errors.Errorf("missing password")
+		err = errors.New("missing password")
 	}
 
 	return
@@ -135,7 +135,7 @@ func NewDBInfoFull(addr, user, pw, binDir, dumpName string) (DBInfo, error) {
 	}
 	if binDir == "" {
 		if info.binDir == "" {
-			return nil, errors.Errorf("missing binDir")
+			return nil, errors.New("missing binDir")
 		}
 		binDir = info.binDir
 	}

@@ -61,7 +61,7 @@ type backupsConfig struct {
 // NewBackupsConfig returns a new backups config.
 func NewBackupsConfig(dbInfo DBInfo, paths Paths) (BackupsConfig, error) {
 	if dbInfo == nil {
-		return nil, errors.Errorf("missing dbInfo")
+		return nil, errors.New("missing dbInfo")
 	}
 	if paths == nil {
 		var err error
