@@ -50,39 +50,39 @@ var runCommand = coreutils.RunCommand
 // backup finishes running.  This is particularly a problem with log
 // files.
 
-var getFilesToBackup = func() ([]string, error) {
+var getFilesToBackup = func(rootDir string) ([]string, error) {
 	var glob string
 
-	glob = filepath.Join(startupDir, machinesConfs)
+	glob = filepath.Join(rootDir, startupDir, machinesConfs)
 	initMachineConfs, err := filepath.Glob(glob)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to fetch machine init files")
 	}
 
-	glob = filepath.Join(dataDir, agentsDir, agentsConfs)
+	glob = filepath.Join(rootDir, dataDir, agentsDir, agentsConfs)
 	agentConfs, err := filepath.Glob(glob)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to fetch agent config files")
 	}
 
-	glob = filepath.Join(loggingConfDir, loggingConfs)
+	glob = filepath.Join(rootDir, loggingConfDir, loggingConfs)
 	jujuLogConfs, err := filepath.Glob(glob)
 	if err != nil {
 		return nil, errors.Annotate(err, "failed to fetch juju log conf files")
 	}
 
 	backupFiles := []string{
-		filepath.Join(dataDir, toolsDir),
+		filepath.Join(rootDir, dataDir, toolsDir),
 
-		filepath.Join(dataDir, sshIdentFile),
-		filepath.Join(dataDir, nonceFile),
-		filepath.Join(logsDir, allMachinesLog),
-		filepath.Join(logsDir, machine0Log),
-		filepath.Join(sshDir, authKeysFile),
+		filepath.Join(rootDir, dataDir, sshIdentFile),
+		filepath.Join(rootDir, dataDir, nonceFile),
+		filepath.Join(rootDir, logsDir, allMachinesLog),
+		filepath.Join(rootDir, logsDir, machine0Log),
+		filepath.Join(rootDir, sshDir, authKeysFile),
 
-		filepath.Join(startupDir, dbStartupConf),
-		filepath.Join(dataDir, dbPEM),
-		filepath.Join(dataDir, dbSecret),
+		filepath.Join(rootDir, startupDir, dbStartupConf),
+		filepath.Join(rootDir, dataDir, dbPEM),
+		filepath.Join(rootDir, dataDir, dbSecret),
 	}
 	backupFiles = append(backupFiles, initMachineConfs...)
 	backupFiles = append(backupFiles, agentConfs...)
@@ -97,7 +97,7 @@ func dumpFiles(dumpdir string) error {
 	}
 	defer tarFile.Close()
 
-	backupFiles, err := getFilesToBackup()
+	backupFiles, err := getFilesToBackup("")
 	if err != nil {
 		return errors.Annotate(err, "cannot determine files to backup")
 	}
