@@ -5,33 +5,31 @@ import (
 
 	"gopkg.in/juju/charm.v2/hooks"
 
-	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/worker/uniter/hook"
 )
 
-func NewDyingHookQueue(initial *State, out chan<- hook.Info) HookQueue {
-	q := &hookQueue{
-		out: out,
-	}
-	go func() {
-		defer q.tomb.Done()
-		q.driver = newDyingDriver(initial)
-		q.tomb.Kill(q.loop(nil))
-	}()
-	return q
+type listSource struct {
+	hooks []hook.Info
 }
 
-type dyingDriver struct {
-	infos []hook.Info
+func (q *listSource) Empty() bool {
+	return len(q.hooks) == 0
 }
 
-func newDyingDriver(initial *State) queueDriver {
-	q := &dyingDriver{}
+func (q *listSource) Next() hook.Info {
+	return q.hooks[0]
+}
 
-	// Queue hooks to:
+func (q *listSource) Pop() {
+	q.hooks = q.hooks[1:]
+}
+
+func newDyingSource(initial *State) HookSource {
+	source := &listSource{}
+
 	//  * Honour any expected relation-changed hook.
 	if initial.ChangedPending != "" {
-		q.infos = append(q.infos, hook.Info{
+		source.hooks = append(source.hooks, hook.Info{
 			Kind:          hooks.RelationChanged,
 			RelationId:    initial.RelationId,
 			RemoteUnit:    initial.ChangedPending,
@@ -46,7 +44,7 @@ func newDyingDriver(initial *State) queueDriver {
 	}
 	sort.Strings(departs)
 	for _, name := range departs {
-		q.infos = append(q.infos, hook.Info{
+		source.hooks = append(source.hooks, hook.Info{
 			Kind:          hooks.RelationDeparted,
 			RelationId:    initial.RelationId,
 			RemoteUnit:    name,
@@ -55,26 +53,10 @@ func newDyingDriver(initial *State) queueDriver {
 	}
 
 	// * Finally break the relation.
-	q.infos = append(q.infos, hook.Info{
+	source.hooks = append(source.hooks, hook.Info{
 		Kind:       hooks.RelationBroken,
 		RelationId: initial.RelationId,
 	})
 
-	return q
-}
-
-func (q *dyingDriver) update(_ params.RelationUnitsChange) {
-	panic("it's not meaningful to update a DyingHookQueue")
-}
-
-func (q *dyingDriver) empty() bool {
-	return len(q.infos) == 0
-}
-
-func (q *dyingDriver) next() hook.Info {
-	return q.infos[0]
-}
-
-func (q *dyingDriver) pop() {
-	q.infos = q.infos[1:]
+	return source
 }
