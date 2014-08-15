@@ -197,6 +197,7 @@ var getSSHClient = func() ssh.Client {
 
 const initUbuntuScript = `
 set -e
+(id ubuntu &> /dev/null) || useradd -m ubuntu -s /bin/bash
 umask 0077
 temp=$(mktemp)
 echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > $temp
