@@ -16,9 +16,8 @@ type pathsSuite struct {
 	testing.BaseSuite
 }
 
-func (s *sourcesSuite) TestPathsNewPathsExplicitValues(c *gc.C) {
-	paths, err := config.NewPaths("", "a", "b", "c", "d", "e")
-	c.Assert(err, gc.IsNil)
+func (s *sourcesSuite) TestPathsNewPathsUnrooted(c *gc.C) {
+	paths := config.NewPaths("", "a", "b", "c", "d", "e")
 
 	c.Check(paths.DataDir(), gc.Equals, "a")
 	c.Check(paths.StartupDir(), gc.Equals, "b")
@@ -27,20 +26,8 @@ func (s *sourcesSuite) TestPathsNewPathsExplicitValues(c *gc.C) {
 	c.Check(paths.SSHDir(), gc.Equals, "e")
 }
 
-func (s *sourcesSuite) TestPathsNewPathsDefaults(c *gc.C) {
-	paths, err := config.NewPaths("", "", "", "", "", "")
-	c.Assert(err, gc.IsNil)
-
-	c.Check(paths.DataDir(), gc.Equals, "/var/lib/juju")
-	c.Check(paths.StartupDir(), gc.Equals, "/etc/init")
-	c.Check(paths.LoggingConfDir(), gc.Equals, "/etc/rsyslog.d")
-	c.Check(paths.LogsDir(), gc.Equals, "/var/log/juju")
-	c.Check(paths.SSHDir(), gc.Equals, "/home/ubuntu/.ssh")
-}
-
-func (s *sourcesSuite) TestPathsNewPathsRootedExplicitValues(c *gc.C) {
-	paths, err := config.NewPaths("/some_root", "a", "b", "c", "d", "e")
-	c.Assert(err, gc.IsNil)
+func (s *sourcesSuite) TestPathsNewPathsRooted(c *gc.C) {
+	paths := config.NewPaths("/some_root", "a", "b", "c", "d", "e")
 
 	c.Check(paths.DataDir(), gc.Equals, "/some_root/a")
 	c.Check(paths.StartupDir(), gc.Equals, "/some_root/b")
@@ -49,20 +36,8 @@ func (s *sourcesSuite) TestPathsNewPathsRootedExplicitValues(c *gc.C) {
 	c.Check(paths.SSHDir(), gc.Equals, "/some_root/e")
 }
 
-func (s *sourcesSuite) TestPathsNewPathsRootedDefaults(c *gc.C) {
-	paths, err := config.NewPaths("/some_root", "", "", "", "", "")
-	c.Assert(err, gc.IsNil)
-
-	c.Check(paths.DataDir(), gc.Equals, "/some_root/var/lib/juju")
-	c.Check(paths.StartupDir(), gc.Equals, "/some_root/etc/init")
-	c.Check(paths.LoggingConfDir(), gc.Equals, "/some_root/etc/rsyslog.d")
-	c.Check(paths.LogsDir(), gc.Equals, "/some_root/var/log/juju")
-	c.Check(paths.SSHDir(), gc.Equals, "/some_root/home/ubuntu/.ssh")
-}
-
-func (s *sourcesSuite) TestPathsNewPathsFSRootedExplicitValues(c *gc.C) {
-	paths, err := config.NewPaths("/", "a", "b", "c", "d", "e")
-	c.Assert(err, gc.IsNil)
+func (s *sourcesSuite) TestPathsNewPathsFSRooted(c *gc.C) {
+	paths := config.NewPaths("/", "a", "b", "c", "d", "e")
 
 	c.Check(paths.DataDir(), gc.Equals, "/a")
 	c.Check(paths.StartupDir(), gc.Equals, "/b")
@@ -71,13 +46,36 @@ func (s *sourcesSuite) TestPathsNewPathsFSRootedExplicitValues(c *gc.C) {
 	c.Check(paths.SSHDir(), gc.Equals, "/e")
 }
 
-func (s *sourcesSuite) TestPathsNewPathsRelRootedExplicitValues(c *gc.C) {
-	paths, err := config.NewPaths("some_root", "a", "b", "c", "d", "e")
-	c.Assert(err, gc.IsNil)
+func (s *sourcesSuite) TestPathsNewPathsRelRooted(c *gc.C) {
+	paths := config.NewPaths("some_root", "a", "b", "c", "d", "e")
 
 	c.Check(paths.DataDir(), gc.Equals, "some_root/a")
 	c.Check(paths.StartupDir(), gc.Equals, "some_root/b")
 	c.Check(paths.LoggingConfDir(), gc.Equals, "some_root/c")
 	c.Check(paths.LogsDir(), gc.Equals, "some_root/d")
 	c.Check(paths.SSHDir(), gc.Equals, "some_root/e")
+}
+
+func (s *sourcesSuite) TestPathsNewPathsDefaultsRooted(c *gc.C) {
+	paths := config.NewPathsDefaults("/some_root")
+
+	c.Check(paths.DataDir(), gc.Equals, "/some_root/var/lib/juju")
+	c.Check(paths.StartupDir(), gc.Equals, "/some_root/etc/init")
+	c.Check(paths.LoggingConfDir(), gc.Equals, "/some_root/etc/rsyslog.d")
+	c.Check(paths.LogsDir(), gc.Equals, "/some_root/var/log/juju")
+	c.Check(paths.SSHDir(), gc.Equals, "/some_root/home/ubuntu/.ssh")
+}
+
+func (s *sourcesSuite) TestPathsNewPathsDefaultsUnrooted(c *gc.C) {
+	paths := config.NewPathsDefaults("")
+
+	c.Check(paths.DataDir(), gc.Equals, "/var/lib/juju")
+	c.Check(paths.StartupDir(), gc.Equals, "/etc/init")
+	c.Check(paths.LoggingConfDir(), gc.Equals, "/etc/rsyslog.d")
+	c.Check(paths.LogsDir(), gc.Equals, "/var/log/juju")
+	c.Check(paths.SSHDir(), gc.Equals, "/home/ubuntu/.ssh")
+}
+
+func (s *sourcesSuite) TestPathsDefaultPaths(c *gc.C) {
+	c.Check(config.DefaultPaths, gc.DeepEquals, config.NewPathsDefaults(""))
 }

@@ -64,11 +64,7 @@ func NewBackupsConfig(dbInfo DBInfo, paths Paths) (BackupsConfig, error) {
 		return nil, errors.New("missing dbInfo")
 	}
 	if paths == nil {
-		var err error
-		paths, err = NewPathsDefaults("")
-		if err != nil {
-			return nil, errors.Trace(err)
-		}
+		paths = DefaultPaths
 	}
 
 	config := backupsConfig{

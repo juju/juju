@@ -4,10 +4,7 @@
 package config
 
 import (
-	"os"
 	"path/filepath"
-
-	"github.com/juju/errors"
 )
 
 // TODO(ericsnow) Pull these from elsewhere in juju.
@@ -18,6 +15,9 @@ var (
 	defaultLogsDir        = "/var/log/juju"
 	defaultSSHDir         = "/home/ubuntu/.ssh"
 )
+
+// DefaultPaths is a Paths value using all defaults.
+var DefaultPaths = NewPathsDefaults("")
 
 // Paths is an abstraction of FS paths important to juju state.
 type Paths interface {
@@ -44,32 +44,10 @@ type paths struct {
 }
 
 // NewPaths returns a new Paths value.  If root is not empty, it is
-// treated as a directory and all paths are relative to it.  If "/" is
-// passed in for root, the FS root directory is used for the root.  If
-// root is an empty string, all paths (including relative ones) are
-// treated as-is.
-func NewPaths(
-	root, data, startup, loggingConf, logs, ssh string,
-) (Paths, error) {
-	if root == "/" {
-		root = string(os.PathSeparator)
-	}
-	if data == "" {
-		data = defaultDataDir
-	}
-	if startup == "" {
-		startup = defaultStartupDir
-	}
-	if loggingConf == "" {
-		loggingConf = defaultLoggingConfDir
-	}
-	if logs == "" {
-		logs = defaultLogsDir
-	}
-	if ssh == "" {
-		ssh = defaultSSHDir
-	}
-
+// treated as a directory and all paths are relative to it.  If root is
+// an empty string, all paths (including relative ones) are treated
+// as-is.
+func NewPaths(root, data, startup, loggingConf, logs, ssh string) *paths {
 	p := paths{
 		root:           root,
 		dataDir:        data,
@@ -78,54 +56,38 @@ func NewPaths(
 		logsDir:        logs,
 		sshDir:         ssh,
 	}
-	return &p, nil
+	return &p
 }
 
 // NewPathsDefaults returns a new Paths value with defaults set.
-func NewPathsDefaults(root string) (Paths, error) {
-	paths, err := NewPaths(root, "", "", "", "", "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return paths, nil
+func NewPathsDefaults(root string) *paths {
+	paths := NewPaths(
+		root,
+		defaultDataDir,
+		defaultStartupDir,
+		defaultLoggingConfDir,
+		defaultLogsDir,
+		defaultSSHDir,
+	)
+	return paths
 }
 
 func (p *paths) DataDir() string {
-	if p.root == "" {
-		return p.dataDir
-	} else {
-		return filepath.Join(p.root, p.dataDir)
-	}
+	return filepath.Join(p.root, p.dataDir)
 }
 
 func (p *paths) StartupDir() string {
-	if p.root == "" {
-		return p.startupDir
-	} else {
-		return filepath.Join(p.root, p.startupDir)
-	}
+	return filepath.Join(p.root, p.startupDir)
 }
 
 func (p *paths) LoggingConfDir() string {
-	if p.root == "" {
-		return p.loggingConfDir
-	} else {
-		return filepath.Join(p.root, p.loggingConfDir)
-	}
+	return filepath.Join(p.root, p.loggingConfDir)
 }
 
 func (p *paths) LogsDir() string {
-	if p.root == "" {
-		return p.logsDir
-	} else {
-		return filepath.Join(p.root, p.logsDir)
-	}
+	return filepath.Join(p.root, p.logsDir)
 }
 
 func (p *paths) SSHDir() string {
-	if p.root == "" {
-		return p.sshDir
-	} else {
-		return filepath.Join(p.root, p.sshDir)
-	}
+	return filepath.Join(p.root, p.sshDir)
 }

@@ -27,8 +27,7 @@ func (s *sourcesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	root := c.MkDir()
-	paths, err := config.NewPathsDefaults(root)
-	c.Assert(err, gc.IsNil)
+	paths := config.NewPathsDefaults(root)
 	dbConnInfo := config.NewDBConnInfo(
 		"some-host.com:8080",
 		"awesome",
@@ -91,8 +90,7 @@ func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigDefaults(c *gc.C) {
 	conf, err := config.NewBackupsConfig(s.dbInfo, nil)
 	c.Assert(err, gc.IsNil)
 	dbInfo, paths := config.BackupsConfigValues(conf)
-	expectedPaths, err := config.NewPathsDefaults("")
-	c.Assert(err, gc.IsNil)
+	expectedPaths := config.NewPathsDefaults("")
 
 	c.Check(dbInfo, gc.DeepEquals, s.dbInfo)
 	c.Check(paths, gc.DeepEquals, expectedPaths)
@@ -129,8 +127,7 @@ func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigRaw(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 	dbInfo, paths := config.BackupsConfigValues(conf)
-	expectedPaths, err := config.NewPathsDefaults("")
-	c.Assert(err, gc.IsNil)
+	expectedPaths := config.NewPathsDefaults("")
 
 	c.Check(dbInfo.ConnInfo().Address(), gc.Equals, "some-host.com:8080")
 	c.Check(dbInfo.ConnInfo().Username(), gc.Equals, "awesome")
