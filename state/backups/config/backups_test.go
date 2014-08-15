@@ -27,7 +27,7 @@ func (s *sourcesSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 
 	root := c.MkDir()
-	paths := config.NewPathsDefaults(root)
+	paths := config.ReRoot(&config.DefaultPaths, root)
 	dbConnInfo := config.NewDBConnInfo(
 		"some-host.com:8080",
 		"awesome",
@@ -90,10 +90,10 @@ func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigDefaults(c *gc.C) {
 	conf, err := config.NewBackupsConfig(s.dbInfo, nil)
 	c.Assert(err, gc.IsNil)
 	dbInfo, paths := config.BackupsConfigValues(conf)
-	expectedPaths := config.NewPathsDefaults("")
+	expectedPaths := config.DefaultPaths
 
 	c.Check(dbInfo, gc.DeepEquals, s.dbInfo)
-	c.Check(paths, gc.DeepEquals, expectedPaths)
+	c.Check(paths, gc.DeepEquals, &expectedPaths)
 }
 
 func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigMissingDBInfo(c *gc.C) {
@@ -101,8 +101,8 @@ func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigMissingDBInfo(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "missing dbInfo")
 }
 
-func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigRawFull(c *gc.C) {
-	conf, err := config.NewBackupsConfigRawFull(
+func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigRaw(c *gc.C) {
+	conf, err := config.NewBackupsConfigRaw(
 		"some-host.com:8080",
 		"awesome",
 		"bad-pw",
@@ -119,25 +119,8 @@ func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigRawFull(c *gc.C) {
 	c.Check(paths, gc.DeepEquals, s.paths)
 }
 
-func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigRaw(c *gc.C) {
-	conf, err := config.NewBackupsConfigRaw(
-		"some-host.com:8080",
-		"awesome",
-		"bad-pw",
-	)
-	c.Assert(err, gc.IsNil)
-	dbInfo, paths := config.BackupsConfigValues(conf)
-	expectedPaths := config.NewPathsDefaults("")
-
-	c.Check(dbInfo.ConnInfo().Address(), gc.Equals, "some-host.com:8080")
-	c.Check(dbInfo.ConnInfo().Username(), gc.Equals, "awesome")
-	c.Check(dbInfo.ConnInfo().Password(), gc.Equals, "bad-pw")
-	c.Check(dbInfo.BinDir(), gc.Not(gc.Equals), "")
-	c.Check(paths, gc.DeepEquals, expectedPaths)
-}
-
 func (s *sourcesSuite) TestBackupsConfigFilesToBackUpOkay(c *gc.C) {
-	conf, err := config.NewBackupsConfigRawFull("", "", "", "", s.paths)
+	conf, err := config.NewBackupsConfigRaw("", "", "", "", s.paths)
 	c.Assert(err, gc.IsNil)
 	files, err := conf.FilesToBackUp()
 	c.Assert(err, gc.IsNil)
@@ -158,22 +141,13 @@ func (s *sourcesSuite) TestBackupsConfigFilesToBackUpOkay(c *gc.C) {
 	})
 }
 
-func (s *sourcesSuite) TestBackupsConfigFilesToBackUpMissing(c *gc.C) {
-	paths := config.NewPathsDefaults(c.MkDir())
-	conf, err := config.NewBackupsConfigRawFull("", "", "", "", paths)
-	c.Assert(err, gc.IsNil)
-	_, err = conf.FilesToBackUp()
-
-	c.Check(err, gc.ErrorMatches, "no files found for .*")
-}
-
 func (s *sourcesSuite) TestBackupsConfigDBDumpOkay(c *gc.C) {
 	dumpBinary := filepath.Join(s.root, "mongodump")
 	file, err := os.Create(dumpBinary)
 	c.Assert(err, gc.IsNil)
 	file.Close()
 
-	conf, err := config.NewBackupsConfigRawFull(
+	conf, err := config.NewBackupsConfigRaw(
 		"some-host.com:8080",
 		"awesome",
 		"bad-pw",
@@ -196,7 +170,7 @@ func (s *sourcesSuite) TestBackupsConfigDBDumpOkay(c *gc.C) {
 }
 
 func (s *sourcesSuite) TestBackupsConfigDBDumpMissing(c *gc.C) {
-	conf, err := config.NewBackupsConfigRawFull(
+	conf, err := config.NewBackupsConfigRaw(
 		"some-host.com:8080",
 		"awesome",
 		"bad-pw",

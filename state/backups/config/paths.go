@@ -5,36 +5,35 @@ package config
 
 import (
 	"path/filepath"
+
+	"github.com/juju/errors"
 )
 
-// TODO(ericsnow) Pull these from elsewhere in juju.
-var (
-	defaultDataDir        = "/var/lib/juju"
-	defaultStartupDir     = "/etc/init"
-	defaultLoggingConfDir = "/etc/rsyslog.d"
-	defaultLogsDir        = "/var/log/juju"
-	defaultSSHDir         = "/home/ubuntu/.ssh"
-)
-
-// DefaultPaths is a Paths value using all defaults.
-var DefaultPaths = NewPathsDefaults("")
+// DefaultPaths is a Paths value with all values set to defaults.
+var DefaultPaths = paths{
+	// TODO(ericsnow) Pull these from elsewhere in juju.
+	dataDir:        "/var/lib/juju",
+	startupDir:     "/etc/init",
+	loggingConfDir: "/etc/rsyslog.d",
+	logsDir:        "/var/log/juju",
+	sshDir:         "/home/ubuntu/.ssh",
+}
 
 // Paths is an abstraction of FS paths important to juju state.
 type Paths interface {
-	// DataDir returns the state data directory.
-	DataDir() string
-	// StartupDir returns the system startup/init directory.
-	StartupDir() string
-	// LoggingConfDir returns the conf directory for juju's logging system.
-	LoggingConfDir() string
-	// LogsDir returns the directory where juju stores logs.
-	LogsDir() string
-	// SSHDir returns the directory used for SSH keys, etc.
-	SSHDir() string
+	// FindEvery returns all matching (and existing) paths, each fully
+	// resolved.  paths is a 2-tuple of (kind, relPath), where kind is
+	// one of the kinds the Paths recognizes and relPath is a relative
+	// path or glob.  If any one of the relative paths does not match
+	// then the method fails with errors.NotFound.
+	FindEvery(paths ...[]string) ([]string, error)
 }
 
 type paths struct {
-	root string
+	// rootDir is treated as a directory and all paths are relative to
+	// it.  If rootDir is an empty string, all paths (including relative
+	// ones) are treated as-is.
+	rootDir string
 
 	dataDir        string
 	startupDir     string
@@ -43,51 +42,73 @@ type paths struct {
 	sshDir         string
 }
 
-// NewPaths returns a new Paths value.  If root is not empty, it is
-// treated as a directory and all paths are relative to it.  If root is
-// an empty string, all paths (including relative ones) are treated
-// as-is.
-func NewPaths(root, data, startup, loggingConf, logs, ssh string) *paths {
-	p := paths{
-		root:           root,
+// NewPaths returns a new Paths value with the provided values set.
+func NewPaths(data, startup, loggingConf, logs, ssh string) *paths {
+	newPaths := paths{
 		dataDir:        data,
 		startupDir:     startup,
 		loggingConfDir: loggingConf,
 		logsDir:        logs,
 		sshDir:         ssh,
 	}
-	return &p
+	return &newPaths
 }
 
-// NewPathsDefaults returns a new Paths value with defaults set.
-func NewPathsDefaults(root string) *paths {
-	paths := NewPaths(
-		root,
-		defaultDataDir,
-		defaultStartupDir,
-		defaultLoggingConfDir,
-		defaultLogsDir,
-		defaultSSHDir,
+func (p *paths) resolve(kind, relPath string) (string, error) {
+	var dirName string
+
+	switch kind {
+	case "data":
+		dirName = p.dataDir
+	case "startup":
+		dirName = p.startupDir
+	case "loggingConf":
+		dirName = p.loggingConfDir
+	case "logs":
+		dirName = p.logsDir
+	case "ssh":
+		dirName = p.sshDir
+	default:
+		return "", errors.NotFoundf(kind)
+	}
+
+	return filepath.Join(p.rootDir, dirName, relPath), nil
+}
+
+func (p *paths) FindEvery(paths ...[]string) ([]string, error) {
+	var filenames []string
+
+	for _, pair := range paths {
+		kind, relPath := pair[0], pair[1]
+		glob, err := p.resolve(kind, relPath)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		found, err := filepath.Glob(glob)
+		if err != nil {
+			return nil, errors.Trace(err)
+		}
+
+		if found == nil {
+			return nil, errors.NotFoundf("no files found for %q", glob)
+		}
+
+		filenames = append(filenames, found...)
+	}
+
+	return filenames, nil
+}
+
+// reRoot returns a new Paths value with the new root set.
+func (p *paths) reRoot(rootDir string) *paths {
+	newPaths := NewPaths(
+		p.dataDir,
+		p.startupDir,
+		p.loggingConfDir,
+		p.logsDir,
+		p.sshDir,
 	)
-	return paths
-}
-
-func (p *paths) DataDir() string {
-	return filepath.Join(p.root, p.dataDir)
-}
-
-func (p *paths) StartupDir() string {
-	return filepath.Join(p.root, p.startupDir)
-}
-
-func (p *paths) LoggingConfDir() string {
-	return filepath.Join(p.root, p.loggingConfDir)
-}
-
-func (p *paths) LogsDir() string {
-	return filepath.Join(p.root, p.logsDir)
-}
-
-func (p *paths) SSHDir() string {
-	return filepath.Join(p.root, p.sshDir)
+	newPaths.rootDir = rootDir
+	return newPaths
 }

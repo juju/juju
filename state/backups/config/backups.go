@@ -10,46 +10,41 @@ import (
 	"github.com/juju/errors"
 )
 
-// TODO(ericsnow) Pull these from elsewhere in juju.
-var (
-	toolsDataFiles = []string{
-		"tools",
-	}
+var filesToBackUp = [][]string{
+	// TODO(ericsnow) Pull these from elsewhere in juju.
 
-	machinesDataFiles = []string{
-		filepath.Join("agents", "machine-*"),
-		"system-identity",
-		"nonce.txt",
-	}
-	machinesStartupFiles = []string{
-		"jujud-machine-*.conf",
-	}
-	machinesLoggingConfs = []string{
-		"*juju.conf",
-	}
-	machinesLogFiles = []string{
-		"all-machines.log",
-		"machine-0.log",
-	}
-	machinesSSHFiles = []string{
-		"authorized_keys",
-	}
+	// tools
+	{"data", "tools/"},
 
-	dbDataFiles = []string{
-		"server.pem",
-		"shared-secret",
-	}
-	dbStartupFiles = []string{
-		"juju-db.conf",
-	}
-)
+	// machines
+	{"data", filepath.Join("agents", "machine-*")},
+	{"data", "system-identity"},
+	{"data", "nonce.txt"},
+	{"startup", "jujud-machine-*.conf"},
+	{"loggingConf", "*juju.conf"},
+	{"logs", "all-machines.log"},
+	{"logs", "machine-0.log"},
+	{"ssh", "authorized_keys"},
 
-// BackupsConfig is an abstraction of the info needed for backups.
+	// DB
+	{"data", "server.pem"},
+	{"data", "shared-secret"},
+	{"startup", "juju-db.conf"},
+}
+
+// BackupsConfig is an abstraction of the information needed for all
+// backups-related functionality.  Its methods expose only the specific
+// information needed for existing functionality.  However, as a whole
+// BackupsConfig represents any type that encapsulates all the external
+// information needed by backups-related functionality.  As the backups
+// API grows this type becomes more valuable, particularly where it
+// provides information that is common across the backups API.
 type BackupsConfig interface {
 	// FilesToBackUp returns the list of paths to files that should be
-	// backed up.
+	// backed up, based on the config.
 	FilesToBackUp() ([]string, error)
 	// DBDump returns the necessary information to call the dump command.
+	// This info is derived from the underlying config.
 	DBDump(outDir string) (bin string, args []string, err error)
 }
 
@@ -64,7 +59,7 @@ func NewBackupsConfig(dbInfo DBInfo, paths Paths) (BackupsConfig, error) {
 		return nil, errors.New("missing dbInfo")
 	}
 	if paths == nil {
-		paths = DefaultPaths
+		paths = &DefaultPaths
 	}
 
 	config := backupsConfig{
@@ -74,107 +69,13 @@ func NewBackupsConfig(dbInfo DBInfo, paths Paths) (BackupsConfig, error) {
 	return &config, nil
 }
 
-// NewBackupsConfigFull returns a new backups config.
-func NewBackupsConfigRawFull(
-	addr, user, pw, dbBinDir string, paths Paths,
-) (BackupsConfig, error) {
-	dbInfo, err := NewDBInfoFull(addr, user, pw, dbBinDir, "")
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-
-	config, err := NewBackupsConfig(dbInfo, paths)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return config, nil
-}
-
-// NewBackupsConfigRaw returns a new backups config.
-func NewBackupsConfigRaw(addr, user, pw string) (BackupsConfig, error) {
-	config, err := NewBackupsConfigRawFull(addr, user, pw, "", nil)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	return config, nil
-}
-
-func findFiles(dir string, nameGroups ...[]string) ([]string, error) {
-	files := []string{}
-	for _, names := range nameGroups {
-		for _, name := range names {
-			glob := filepath.Join(dir, name)
-			found, err := filepath.Glob(glob)
-			if err != nil {
-				err = errors.Annotatef(err, "error finding files (%s)", glob)
-				return nil, err
-			}
-			if found == nil {
-				return nil, errors.Errorf("no files found for %q", glob)
-			}
-			files = append(files, found...)
-		}
-	}
-	return files, nil
-}
-
 func (bc *backupsConfig) FilesToBackUp() ([]string, error) {
-	files := []string{}
-
-	// data files
-	found, err := findFiles(
-		bc.paths.DataDir(),
-		machinesDataFiles,
-		dbDataFiles,
-		toolsDataFiles,
-	)
+	filenames, err := bc.paths.FindEvery(filesToBackUp...)
 	if err != nil {
 		return nil, errors.Trace(err)
 	}
-	files = append(files, found...)
 
-	// startup files
-	found, err = findFiles(
-		bc.paths.StartupDir(),
-		machinesStartupFiles,
-		dbStartupFiles,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	files = append(files, found...)
-
-	// logging conf files
-	found, err = findFiles(
-		bc.paths.LoggingConfDir(),
-		machinesLoggingConfs,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	files = append(files, found...)
-
-	// log files
-	found, err = findFiles(
-		bc.paths.LogsDir(),
-		machinesLogFiles,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	files = append(files, found...)
-
-	// ssh files
-	found, err = findFiles(
-		bc.paths.SSHDir(),
-		machinesSSHFiles,
-	)
-	if err != nil {
-		return nil, errors.Trace(err)
-	}
-	files = append(files, found...)
-
-	return files, nil
+	return filenames, nil
 }
 
 func (bc *backupsConfig) DBDump(outDir string) (string, []string, error) {
