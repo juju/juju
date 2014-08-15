@@ -29,19 +29,17 @@ func (s *backupSuite) metadata(c *gc.C) *backups.Metadata {
 
 func (s *backupSuite) checkMetadata(
 	c *gc.C, metadata, expected *backups.Metadata, id string,
-) bool {
-	res := true
+) {
 	if id != "" {
-		res = c.Check(metadata.ID, gc.Equals, id)
+		c.Check(metadata.ID, gc.Equals, id)
 	}
-	res = c.Check(metadata.Notes, gc.Equals, expected.Notes) && res
-	res = c.Check(metadata.Timestamp.Unix(), gc.DeepEquals, expected.Timestamp.Unix()) && res
-	res = c.Check(metadata.CheckSum, gc.Equals, expected.CheckSum) && res
-	res = c.Check(metadata.CheckSumFormat, gc.Equals, expected.CheckSumFormat) && res
-	res = c.Check(metadata.Size, gc.Equals, expected.Size) && res
-	res = c.Check(metadata.Origin, gc.DeepEquals, expected.Origin) && res
-	res = c.Check(metadata.Stored, gc.DeepEquals, expected.Stored) && res
-	return res
+	c.Check(metadata.Notes, gc.Equals, expected.Notes)
+	c.Check(metadata.Timestamp.Unix(), gc.DeepEquals, expected.Timestamp.Unix())
+	c.Check(metadata.CheckSum, gc.Equals, expected.CheckSum)
+	c.Check(metadata.CheckSumFormat, gc.Equals, expected.CheckSumFormat)
+	c.Check(metadata.Size, gc.Equals, expected.Size)
+	c.Check(metadata.Origin, gc.DeepEquals, expected.Origin)
+	c.Check(metadata.Stored, gc.DeepEquals, expected.Stored)
 }
 
 //---------------------------
