@@ -133,7 +133,7 @@ func (s *legacySuite) TestBackup(c *gc.C) {
 	s.PatchValue(backups.GetMongodumpPath, func() (string, error) {
 		return "bogusmongodump", nil
 	})
-	s.PatchValue(backups.GetFilesToBackup, func() ([]string, error) {
+	s.PatchValue(backups.GetFilesToBackup, func(string) ([]string, error) {
 		return s.testFiles, nil
 	})
 	ranCommand := false
