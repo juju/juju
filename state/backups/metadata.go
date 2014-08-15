@@ -50,17 +50,15 @@ type Metadata struct {
 // format is used.  ID is not set.  That is left up to the persistence
 // layer.  Archived is set as false.  "notes" may be empty, but
 // everything else should be provided.
-func NewMetadata(
-	checksum string, size int64, origin Origin, notes string,
-) *Metadata {
+func NewMetadata(sum string, size int64, orig Origin, notes string) *Metadata {
 	metadata := Metadata{
 		// ID is omitted.
 		Timestamp: time.Now().UTC(),
 		// Finished is omitted.
-		CheckSum:       checksum,
+		CheckSum:       sum,
 		CheckSumFormat: checksumFormat,
 		Size:           size,
-		Origin:         origin,
+		Origin:         orig,
 		// Stored is left as false.
 		Notes: notes,
 	}
