@@ -4,6 +4,7 @@
 package state
 
 import (
+    "fmt"
 	"os"
 	"time"
 
@@ -59,8 +60,7 @@ func NewBackupOrigin(st *State, machine string) *backups.Origin {
 	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
-		// Ignore the error.
-		hostname = ""
+		panic(fmt.Sprintf("could not get hostname: %v", err))
 	}
 	origin := backups.Origin{
 		Environment: st.EnvironTag().Id(),
