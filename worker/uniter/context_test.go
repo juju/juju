@@ -17,6 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v3/hooks"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/juju/testing"
@@ -158,11 +159,18 @@ var runHookTests = []struct {
 	err           string
 	env           map[string]string
 	proxySettings proxy.Settings
+	defaulthook   bool
 }{
 	{
 		summary: "missing hook is not an error",
 		relid:   -1,
-	}, {
+	},
+	{
+		summary:     "run defaultHook",
+		relid:       -1,
+		defaulthook: true,
+	},
+	{
 		summary: "report failure to execute hook",
 		relid:   -1,
 		spec:    hookSpec{perm: 0600},
@@ -253,11 +261,17 @@ func (s *RunHookSuite) TestRunHook(c *gc.C) {
 		ctx := s.getHookContext(c, uuid.String(), t.relid, t.remote, t.proxySettings)
 		var charmDir, outPath string
 		var hookExists bool
-		if t.spec.perm == 0 {
+		if t.spec.perm == 0 && !t.defaulthook {
 			charmDir = c.MkDir()
 		} else {
 			spec := t.spec
-			spec.name = "something-happened"
+			if t.defaulthook {
+				// make the default hook file
+				spec.name = string(hooks.Default)
+				spec.perm = 0700
+			} else {
+				spec.name = "something-happened"
+			}
 			c.Logf("makeCharm %#v", spec)
 			charmDir, outPath = makeCharm(c, spec)
 			hookExists = true

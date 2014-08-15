@@ -19,6 +19,7 @@ import (
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/proxy"
 	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v3/hooks"
 
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/api/uniter"
@@ -361,28 +362,30 @@ func lookPath(hook string) (string, error) {
 	return hookFile, nil
 }
 
-// searchHook will search, in order, hooks suffixed with extensions
-// in windowsSuffixOrder. As windows cares about extensions to determine
-// how to execute a file, we will allow several suffixes, with powershell
-// being default.
+// searchHook will search, in order, hooks suffixed with extensions in
+// windowsSuffixOrder. As windows cares about extensions to determine how to
+// execute a file, we will allow several suffixes, with powershell being
+// default.
 func searchHook(hook string) (string, error) {
 	if version.Current.OS != version.Windows {
 		// we are not running on windows,
 		// there is no need to look for suffixed hooks
 		return lookPath(hook)
 	}
+
 	for _, val := range windowsSuffixOrder {
 		file := fmt.Sprintf("%s.%s", hook, val)
 		hookFile, err := lookPath(file)
+		if IsMissingHookError(err) {
+			// look for next suffix
+			continue
+		}
 		if err != nil {
-			if IsMissingHookError(err) {
-				// look for next suffix
-				continue
-			}
 			return "", err
 		}
 		return hookFile, nil
 	}
+
 	return "", &missingHookError{hook}
 }
 
@@ -412,14 +415,25 @@ func hookCommand(hook string) []string {
 
 func (ctx *HookContext) runCharmHook(hookName, charmDir string, env []string, charmLocation string) error {
 	hook, err := searchHook(filepath.Join(charmDir, charmLocation, hookName))
-	if err != nil {
-		if IsMissingHookError(err) {
+	isdefault := false
+	if IsMissingHookError(err) {
+		var err2 error
+		hook, err2 = searchHook(filepath.Join(charmDir, charmLocation, string(hooks.Default)))
+		if err2 != nil {
 			// Missing hook is perfectly valid, but worth mentioning.
 			logger.Infof("skipped %q hook (not implemented)", hookName)
+		} else {
+			isdefault = true
+			err = nil
 		}
+	}
+	if err != nil {
 		return err
 	}
 	hookCmd := hookCommand(hook)
+	if isdefault {
+		hookCmd = append(hookCmd, hookName)
+	}
 	ps := exec.Command(hookCmd[0], hookCmd[1:]...)
 	ps.Env = env
 	ps.Dir = charmDir
