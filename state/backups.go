@@ -143,7 +143,7 @@ func getBackupMetadata(st *State, id string) (*backups.Metadata, error) {
 	// There can only be one!
 	err := collection.FindId(id).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf(id)
+		return nil, errors.NotFoundf("backup metadata %q", id)
 	} else if err != nil {
 		return nil, errors.Annotate(err, "error getting backup metadata")
 	}
@@ -179,7 +179,7 @@ func addBackupMetadataID(st *State, metadata *backups.Metadata, id string) error
 	}}
 	if err := st.runTransaction(ops); err != nil {
 		if err == txn.ErrAborted {
-			return errors.AlreadyExistsf(doc.ID)
+			return errors.AlreadyExistsf("backup metadata %q", doc.ID)
 		}
 		return errors.Annotate(err, "error running transaction")
 	}
@@ -187,7 +187,7 @@ func addBackupMetadataID(st *State, metadata *backups.Metadata, id string) error
 	return nil
 }
 
-// setBackupStored updatess the backup metadata associated with "id"
+// setBackupStored updates the backup metadata associated with "id"
 // to indicate that a backup archive has been stored.  If "id" does
 // not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.

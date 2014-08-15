@@ -42,13 +42,13 @@ type Metadata struct {
 	// Archived indicates whether or not the backup archive was stored.
 	Stored bool
 	// Notes (optional) contains any user-supplied annotations for the archive.
-	Notes string // not required
+	Notes string
 }
 
 // NewMetadata returns a new Metadata for a state backup archive.  The
 // current date/time is used for the timestamp and the default checksum
 // format is used.  ID is not set.  That is left up to the persistence
-// layer.  Archived is set as false.  "notes" may be empty, but
+// layer.  Stored is set as false.  "notes" may be empty, but
 // everything else should be provided.
 func NewMetadata(sum string, size int64, orig Origin, notes string) *Metadata {
 	metadata := Metadata{
