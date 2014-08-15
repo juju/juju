@@ -142,6 +142,18 @@ type AddMachinesResult struct {
 	Error   *Error
 }
 
+// IsManualResult holds one result of an IsManual call.
+type IsManualResult struct {
+	Tag      string
+	IsManual bool
+	Error    *Error
+}
+
+// IsManualResults holds the results of an IsManual call.
+type IsManualResults struct {
+	Results []IsManualResult
+}
+
 // DestroyMachines holds parameters for the DestroyMachines call.
 type DestroyMachines struct {
 	MachineNames []string

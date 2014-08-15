@@ -592,6 +592,12 @@ func (*environ) SupportNetworks() bool {
 	return true
 }
 
+// RequiresSafeNetworker is specified on the EnvironCapability interface.
+func (*environ) RequiresSafeNetworker(machineId string, isManual bool) bool {
+	// TODO(mue) Add a switching feature similar to "broken" flag.
+	return false
+}
+
 // PrecheckInstance is specified in the state.Prechecker interface.
 func (*environ) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	if placement != "" && placement != "valid" {

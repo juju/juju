@@ -18,6 +18,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/environs"
 	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
@@ -308,6 +309,20 @@ func openAPIState(agentConfig agent.Config, a Agent) (_ *api.State, _ *apiagent.
 	}
 
 	return st, entity, nil
+}
+
+// environCapability returns the capability of the environment
+// opened with the passed state.
+func environCapability(st *api.State) (state.EnvironCapability, error) {
+	cfg, err := st.Environment().EnvironConfig()
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve environment configuration: %v", err)
+	}
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, fmt.Errorf("cannot retrieve environment: %v", err)
+	}
+	return env, nil
 }
 
 // agentDone processes the error returned by

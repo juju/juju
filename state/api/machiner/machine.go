@@ -4,6 +4,8 @@
 package machiner
 
 import (
+	"fmt"
+
 	"github.com/juju/names"
 
 	"github.com/juju/juju/network"
@@ -27,6 +29,25 @@ func (m *Machine) Tag() names.Tag {
 // Life returns the machine's lifecycle value.
 func (m *Machine) Life() params.Life {
 	return m.life
+}
+
+// IsManual returns true if the machine was manually provisioned.
+func (m *Machine) IsManual() (bool, error) {
+	var result params.IsManualResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: m.tag.String()},
+		},
+	}
+	err := m.st.facade.FacadeCall("IsManual", args, &result)
+	if err != nil {
+		return false, err
+	}
+	if n := len(result.Results); n != 1 {
+		return false, fmt.Errorf("expected 1 result, got %d", n)
+	}
+	// TODO(mue) Add check of possible results error.
+	return result.Results[0].IsManual, nil
 }
 
 // Refresh updates the cached local copy of the machine's data.

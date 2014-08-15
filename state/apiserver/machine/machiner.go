@@ -62,6 +62,27 @@ func (api *MachinerAPI) getMachine(tag string) (*state.Machine, error) {
 	return entity.(*state.Machine), nil
 }
 
+func (api *MachinerAPI) IsManual(args params.Entities) (params.IsManualResults, error) {
+	results := params.IsManualResults{
+		Results: make([]params.IsManualResult, len(args.Entities)),
+	}
+	for i, arg := range args.Entities {
+		err := common.ErrPerm
+		var m *state.Machine
+		m, err = api.getMachine(arg.Tag)
+		if err == nil {
+			var isManual bool
+			isManual, err = m.IsManual()
+			results.Results[i].Tag = arg.Tag
+			results.Results[i].IsManual = isManual
+		} else if errors.IsNotFound(err) {
+			err = common.ErrPerm
+		}
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
+}
+
 func (api *MachinerAPI) SetMachineAddresses(args params.SetMachinesAddresses) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.MachineAddresses)),

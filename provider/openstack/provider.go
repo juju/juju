@@ -509,6 +509,14 @@ func (e *environ) SupportNetworks() bool {
 	return false
 }
 
+// RequiresSafeNetworker is specified on the EnvironCapability interface.
+func (e *environ) RequiresSafeNetworker(machineId string, isManual bool) bool {
+	if isManual {
+		return true
+	}
+	return false
+}
+
 var unsupportedConstraints = []string{
 	constraints.Tags,
 	constraints.CpuPower,

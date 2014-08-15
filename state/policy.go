@@ -74,6 +74,11 @@ type EnvironCapability interface {
 	// specify networks for services and machines.
 	SupportNetworks() bool
 
+	// RequiresSafeNetworker returns whether the safe variant of the networker
+	// is required. In this case the networker doesn't modify local network
+	// configuration files.
+	RequiresSafeNetworker(machineId string, isManual bool) bool
+
 	// SupportsUnitAssignment returns an error which, if non-nil, indicates
 	// that the environment does not support unit placement. If the environment
 	// does not support unit placement, then machines may not be created

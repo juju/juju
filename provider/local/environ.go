@@ -48,7 +48,10 @@ import (
 
 // boostrapInstanceId is just the name we give to the bootstrap machine.
 // Using "localhost" because it is, and it makes sense.
-const bootstrapInstanceId instance.Id = "localhost"
+const (
+	bootstrapInstanceId instance.Id = "localhost"
+	bootstrapMachineId              = "0"
+)
 
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
@@ -83,6 +86,14 @@ func (*localEnviron) SupportedArchitectures() ([]string, error) {
 
 // SupportNetworks is specified on the EnvironCapability interface.
 func (*localEnviron) SupportNetworks() bool {
+	return false
+}
+
+// RequiresSafeNetworker is specified on the EnvironCapability interface.
+func (env *localEnviron) RequiresSafeNetworker(machineId string, isManual bool) bool {
+	if machineId == bootstrapMachineId || isManual {
+		return true
+	}
 	return false
 }
 

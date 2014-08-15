@@ -101,6 +101,11 @@ func (e *manualEnviron) SupportNetworks() bool {
 	return false
 }
 
+// RequiresSafeNetworker is specified on the EnvironCapability interface.
+func (e *manualEnviron) RequiresSafeNetworker(machineId string, isManual bool) bool {
+	return true
+}
+
 func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
 	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
 	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})

@@ -164,6 +164,14 @@ func (env *maasEnviron) SupportNetworks() bool {
 	return caps.Contains(capNetworksManagement)
 }
 
+// RequiresSafeNetworker is specified on the EnvironCapability interface.
+func (env *maasEnviron) RequiresSafeNetworker(machineId string, isManual bool) bool {
+	if isManual {
+		return true
+	}
+	return false
+}
+
 func (env *maasEnviron) PrecheckInstance(series string, cons constraints.Value, placement string) error {
 	// We treat all placement directives as maas-name.
 	return nil
