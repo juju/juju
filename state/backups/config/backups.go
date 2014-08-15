@@ -12,12 +12,10 @@ import (
 
 // TODO(ericsnow) Pull these from elsewhere in juju.
 var (
-	// tools
 	toolsDataFiles = []string{
 		"tools",
 	}
 
-	// machines
 	machinesDataFiles = []string{
 		filepath.Join("agents", "machine-*"),
 		"system-identity",
@@ -37,7 +35,6 @@ var (
 		"authorized_keys",
 	}
 
-	// DB
 	dbDataFiles = []string{
 		"server.pem",
 		"shared-secret",
