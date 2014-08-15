@@ -4,7 +4,7 @@
 package state
 
 import (
-    "fmt"
+	"fmt"
 	"os"
 	"time"
 
@@ -136,7 +136,7 @@ func (doc *backupMetadataDoc) updateFromMetadata(metadata *backups.Metadata) {
 // If "id" does not match any stored records, an error satisfying
 // juju/errors.IsNotFound() is returned.
 func getBackupMetadata(st *State, id string) (*backups.Metadata, error) {
-	collection, closer := st.getCollection(backupsC)
+	collection, closer := st.getCollection(backupsMetaC)
 	defer closer()
 
 	var doc backupMetadataDoc
@@ -172,7 +172,7 @@ func addBackupMetadataID(st *State, metadata *backups.Metadata, id string) error
 	doc.ID = id
 
 	ops := []txn.Op{{
-		C:      backupsC,
+		C:      backupsMetaC,
 		Id:     doc.ID,
 		Assert: txn.DocMissing,
 		Insert: doc,
@@ -193,7 +193,7 @@ func addBackupMetadataID(st *State, metadata *backups.Metadata, id string) error
 // juju/errors.IsNotFound() is returned.
 func setBackupStored(st *State, id string) error {
 	ops := []txn.Op{{
-		C:      backupsC,
+		C:      backupsMetaC,
 		Id:     id,
 		Assert: txn.DocExists,
 		Update: bson.D{{"$set", bson.D{

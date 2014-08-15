@@ -69,7 +69,7 @@ const (
 	metricsC           = "metrics"
 
 	// This collection is used just for storing metadata.
-	backupsC = "backups"
+	backupsMetaC = "backupsmetadata"
 
 	// These collections are used by the mgo transaction runner.
 	txnLogC = "txns.log"
