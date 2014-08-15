@@ -66,6 +66,7 @@ const (
 	statusesC          = "statuses"
 	stateServersC      = "stateServers"
 	openedPortsC       = "openedPorts"
+	metricsC           = "metrics"
 
 	// These collections are used by the mgo transaction runner.
 	txnLogC = "txns.log"

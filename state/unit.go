@@ -1733,3 +1733,13 @@ func (u *Unit) WatchActions() StringsWatcher {
 func (u *Unit) WatchActionResults() StringsWatcher {
 	return u.st.WatchActionResultsFilteredBy(u)
 }
+
+// AddMetric adds a new batch of metrics to the database.
+// A UUID for the metric will be generated and the new MetricBatch will be returned
+func (u *Unit) AddMetrics(metrics []*Metric) (*MetricBatch, error) {
+	charmUrl, ok := u.CharmURL()
+	if !ok {
+		return nil, stderrors.New("failed to add metrics, couldn't find charm url")
+	}
+	return u.st.addMetrics(u.UnitTag(), charmUrl, metrics)
+}
