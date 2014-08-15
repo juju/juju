@@ -25,7 +25,7 @@ const (
 )
 
 // ReadAuthorizedKeys implements the standard juju behaviour for finding
-// authorized_keys. It returns a set of keys in an authorized_keys format
+// authorized_keys. It returns a set of keys in in authorized_keys format
 // (see sshd(8) for a description).  If path is non-empty, it names the
 // file to use; otherwise the user's .ssh directory will be searched.
 // Home directory expansion will be performed on the path if it starts with
