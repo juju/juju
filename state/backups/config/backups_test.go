@@ -136,7 +136,7 @@ func (s *sourcesSuite) TestBackupsConfigNewBackupsConfigRaw(c *gc.C) {
 	c.Check(paths, gc.DeepEquals, expectedPaths)
 }
 
-func (s *sourcesSuite) TestBackupsConfigFilesToBackUp(c *gc.C) {
+func (s *sourcesSuite) TestBackupsConfigFilesToBackUpOkay(c *gc.C) {
 	conf, err := config.NewBackupsConfigRawFull("", "", "", "", s.paths)
 	c.Assert(err, gc.IsNil)
 	files, err := conf.FilesToBackUp()
@@ -156,6 +156,15 @@ func (s *sourcesSuite) TestBackupsConfigFilesToBackUp(c *gc.C) {
 		filepath.Join(s.root, "/var/log/juju/all-machines.log"),
 		filepath.Join(s.root, "/var/log/juju/machine-0.log"),
 	})
+}
+
+func (s *sourcesSuite) TestBackupsConfigFilesToBackUpMissing(c *gc.C) {
+	paths := config.NewPathsDefaults(c.MkDir())
+	conf, err := config.NewBackupsConfigRawFull("", "", "", "", paths)
+	c.Assert(err, gc.IsNil)
+	_, err = conf.FilesToBackUp()
+
+	c.Check(err, gc.ErrorMatches, "no files found for .*")
 }
 
 func (s *sourcesSuite) TestBackupsConfigDBDumpOkay(c *gc.C) {
