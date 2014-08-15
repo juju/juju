@@ -7,9 +7,9 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
-	"syscall"
 
 	"github.com/juju/loggo"
 
@@ -132,20 +132,13 @@ func checkWrenchFile(category, feature, fileName string) bool {
 			"- ignoring %s", category, feature, fileName)
 		return false
 	}
-	if fileinfo.Mode()&0022 != 0 {
-		logger.Errorf("wrench file for %s/%s should only be writable by "+
-			"owner - ignoring %s", category, feature, fileName)
-		return false
+	// Windows is not fully POSIX compliant
+	if runtime.GOOS != "windows" {
+		if fileinfo.Mode()&0022 != 0 {
+			logger.Errorf("wrench file for %s/%s should only be writable by "+
+				"owner - ignoring %s", category, feature, fileName)
+			return false
+		}
 	}
 	return true
-}
-
-func isOwnedByJujuUser(fi os.FileInfo) bool {
-	statStruct, ok := fi.Sys().(*syscall.Stat_t)
-	if !ok {
-		// Uid check is not supported on this platform so assume
-		// the owner is ok.
-		return true
-	}
-	return int(statStruct.Uid) == jujuUid
 }
