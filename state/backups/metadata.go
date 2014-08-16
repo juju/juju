@@ -32,9 +32,9 @@ type Metadata struct {
 	// Finished records when the backup process finished for the archive.
 	Finished time.Time
 	// CheckSum is the checksum for the archive.
-	CheckSum string
+	Checksum string
 	// CheckSumFormat is the kind (and encoding) of checksum.
-	CheckSumFormat string
+	ChecksumFormat string
 	// Size is the size of the archive (in bytes).
 	Size int64
 	// Origin identifies where the backup was created.
@@ -55,8 +55,8 @@ func NewMetadata(sum string, size int64, orig Origin, notes string) *Metadata {
 		// ID is omitted.
 		Timestamp: time.Now().UTC(),
 		// Finished is omitted.
-		CheckSum:       sum,
-		CheckSumFormat: checksumFormat,
+		Checksum:       sum,
+		ChecksumFormat: checksumFormat,
 		Size:           size,
 		Origin:         orig,
 		// Stored is left as false.

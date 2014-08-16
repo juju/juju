@@ -35,8 +35,8 @@ func (s *backupSuite) checkMetadata(
 	}
 	c.Check(metadata.Notes, gc.Equals, expected.Notes)
 	c.Check(metadata.Timestamp.Unix(), gc.DeepEquals, expected.Timestamp.Unix())
-	c.Check(metadata.CheckSum, gc.Equals, expected.CheckSum)
-	c.Check(metadata.CheckSumFormat, gc.Equals, expected.CheckSumFormat)
+	c.Check(metadata.Checksum, gc.Equals, expected.Checksum)
+	c.Check(metadata.ChecksumFormat, gc.Equals, expected.ChecksumFormat)
 	c.Check(metadata.Size, gc.Equals, expected.Size)
 	c.Check(metadata.Origin, gc.DeepEquals, expected.Origin)
 	c.Check(metadata.Stored, gc.DeepEquals, expected.Stored)

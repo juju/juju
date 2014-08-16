@@ -76,8 +76,8 @@ type backupMetadataDoc struct {
 	ID             string `bson:"_id"`
 	Started        int64  `bson:"started,minsize"`
 	Finished       int64  `bson:"finished,minsize"`
-	CheckSum       string `bson:"checksum"`
-	CheckSumFormat string `bson:"checksumFormat"`
+	Checksum       string `bson:"checksum"`
+	ChecksumFormat string `bson:"checksumFormat"`
 	Size           int64  `bson:"size,minsize"`
 	Stored         bool   `bson:"stored"`
 	Notes          string `bson:"notes,omitempty"`
@@ -101,8 +101,8 @@ func (doc *backupMetadataDoc) asMetadata() *backups.Metadata {
 		ID:             doc.ID,
 		Timestamp:      time.Unix(doc.Started, 0).UTC(),
 		Finished:       time.Unix(doc.Finished, 0).UTC(),
-		CheckSum:       doc.CheckSum,
-		CheckSumFormat: doc.CheckSumFormat,
+		Checksum:       doc.Checksum,
+		ChecksumFormat: doc.ChecksumFormat,
 		Size:           doc.Size,
 		Origin:         origin,
 		Stored:         doc.Stored,
@@ -117,8 +117,8 @@ func (doc *backupMetadataDoc) updateFromMetadata(metadata *backups.Metadata) {
 	// Ignore metadata.ID.
 	doc.Started = metadata.Timestamp.Unix()
 	doc.Finished = metadata.Finished.Unix()
-	doc.CheckSum = metadata.CheckSum
-	doc.CheckSumFormat = metadata.CheckSumFormat
+	doc.Checksum = metadata.Checksum
+	doc.ChecksumFormat = metadata.ChecksumFormat
 	doc.Size = metadata.Size
 	doc.Stored = metadata.Stored
 	doc.Notes = metadata.Notes
