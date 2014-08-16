@@ -38,7 +38,7 @@ type authHttpSuite struct {
 func (s *authHttpSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.password = "password"
-	user := s.Factory.MakeUser(factory.UserParams{Password: s.password})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: s.password})
 	s.userTag = user.Tag().String()
 }
 

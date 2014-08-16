@@ -66,6 +66,10 @@ const (
 	statusesC          = "statuses"
 	stateServersC      = "stateServers"
 	openedPortsC       = "openedPorts"
+	metricsC           = "metrics"
+
+	// This collection is used just for storing metadata.
+	backupsMetaC = "backupsmetadata"
 
 	// These collections are used by the mgo transaction runner.
 	txnLogC = "txns.log"
@@ -1632,13 +1636,6 @@ func (st *State) StartSync() {
 // be authorized; otherwise no authorization is required.
 func (st *State) SetAdminMongoPassword(password string) error {
 	return mongo.SetAdminMongoPassword(st.db.Session, AdminUser, password)
-}
-
-func (st *State) setMongoPassword(name, password string) error {
-	return mongo.SetMongoPassword(name, password,
-		st.db,
-		st.db.Session.DB("presence"),
-		st.db.Session.DB("admin"))
 }
 
 type stateServersDoc struct {

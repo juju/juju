@@ -23,6 +23,13 @@ import (
 	"github.com/juju/juju/instance"
 )
 
+var (
+	GetBackupMetadata   = getBackupMetadata
+	AddBackupMetadata   = addBackupMetadata
+	AddBackupMetadataID = addBackupMetadataID
+	SetBackupStored     = setBackupStored
+)
+
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
 	runner := jujutxn.NewRunner(jujutxn.RunnerParams{Database: st.db})
 	st.transactionRunner = runner
@@ -245,4 +252,5 @@ func WatcherMakeIdFilter(marker string, receivers ...ActionReceiver) func(interf
 var (
 	GetOrCreatePorts = getOrCreatePorts
 	GetPorts         = getPorts
+	NowToTheSecond   = nowToTheSecond
 )

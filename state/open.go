@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -146,29 +147,22 @@ func isUnauthorized(err error) bool {
 	}
 	// Some unauthorized access errors have no error code,
 	// just a simple error string.
-	if err.Error() == "auth fails" {
+	if strings.HasPrefix(err.Error(), "auth fail") {
 		return true
 	}
 	if err, ok := err.(*mgo.QueryError); ok {
 		return err.Code == 10057 ||
 			err.Message == "need to login" ||
-			err.Message == "unauthorized"
+			err.Message == "unauthorized" ||
+			strings.HasPrefix(err.Message, "not authorized")
 	}
 	return false
 }
 
 func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (_ *State, resultErr error) {
-	db := session.DB("juju")
-	pdb := session.DB("presence")
 	admin := session.DB("admin")
 	authenticated := false
 	if mongoInfo.Tag != nil {
-		if err := db.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", mongoInfo.Tag))
-		}
-		if err := pdb.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", mongoInfo.Tag))
-		}
 		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
@@ -180,6 +174,8 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 		authenticated = true
 	}
 
+	db := session.DB("juju")
+	pdb := session.DB("presence")
 	st := &State{
 		mongoInfo:     mongoInfo,
 		policy:        policy,
