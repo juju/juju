@@ -5,8 +5,6 @@ package common
 
 import (
 	"github.com/juju/names"
-
-	"github.com/juju/juju/state"
 )
 
 // AuthFunc returns whether the given entity is available to some operation.
@@ -43,9 +41,6 @@ type Authorizer interface {
 
 	// GetAuthTag returns the tag of the authenticated entity.
 	GetAuthTag() names.Tag
-
-	// GetAuthEntity returns the authenticated entity.
-	GetAuthEntity() state.Entity
 }
 
 // AuthEither returns an AuthFunc generator that returns an AuthFunc
