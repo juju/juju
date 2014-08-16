@@ -32,8 +32,7 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	user, err := s.State.User("admin")
 	c.Assert(err, gc.IsNil)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:    names.NewUserTag("admin"),
-		Entity: user,
+		Tag:    user.Tag(),
 	}
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.IsNil)
@@ -282,7 +281,6 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 func (s *userManagerSuite) TestCannotSetPasswordWhenNotAUser(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:    names.NewMachineTag("0"),
-		Client: true,
 	}
 	var err error
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
