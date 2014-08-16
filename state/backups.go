@@ -62,13 +62,13 @@ func NewBackupOrigin(st *State, machine string) *backups.Origin {
 	if err != nil {
 		panic(fmt.Sprintf("could not get hostname: %v", err))
 	}
-	origin := backups.Origin{
-		Environment: st.EnvironTag().Id(),
-		Machine:     machine,
-		Hostname:    hostname,
-		Version:     version.Current.Number,
-	}
-	return &origin
+	origin := backups.NewOrigin(
+		st.EnvironTag().Id(),
+		machine,
+		hostname,
+		version.Current.Number,
+	)
+	return origin
 }
 
 // backupMetadataDoc is a mirror of backups.Metadata, used just for DB storage.
@@ -77,7 +77,7 @@ type backupMetadataDoc struct {
 	Started        int64  `bson:"started,minsize"`
 	Finished       int64  `bson:"finished,minsize"`
 	Checksum       string `bson:"checksum"`
-	ChecksumFormat string `bson:"checksumFormat"`
+	ChecksumFormat string `bson:"checksumformat"`
 	Size           int64  `bson:"size,minsize"`
 	Stored         bool   `bson:"stored"`
 	Notes          string `bson:"notes,omitempty"`
@@ -138,42 +138,71 @@ func (doc *backupMetadataDoc) validate() error {
 
 // asMetadata returns a new backups.Metadata based on the backupMetadataDoc.
 func (doc *backupMetadataDoc) asMetadata() *backups.Metadata {
-	origin := backups.Origin{
-		Environment: doc.Environment,
-		Machine:     doc.Machine,
-		Hostname:    doc.Hostname,
-		Version:     doc.Version,
+	// Create a new Metadata.
+	origin := backups.NewOrigin(
+		doc.Environment,
+		doc.Machine,
+		doc.Hostname,
+		doc.Version,
+	)
+
+	started := time.Unix(doc.Started, 0).UTC()
+	metadata := backups.NewMetadata(
+		*origin,
+		doc.Notes,
+		&started,
+	)
+
+	// The ID is already set.
+	metadata.SetID(doc.ID)
+
+	// Set the "finished" fields.
+	if doc.Finished == 0 {
+		if doc.Checksum == "" {
+			if doc.ChecksumFormat == "" {
+				if doc.Size == 0 {
+					// Not finished so exit early.
+					return metadata
+				}
+			}
+		}
 	}
-	metadata := backups.Metadata{
-		ID:             doc.ID,
-		Timestamp:      time.Unix(doc.Started, 0).UTC(),
-		Finished:       time.Unix(doc.Finished, 0).UTC(),
-		Checksum:       doc.Checksum,
-		ChecksumFormat: doc.ChecksumFormat,
-		Size:           doc.Size,
-		Origin:         origin,
-		Stored:         doc.Stored,
-		Notes:          doc.Notes,
+	var finished *time.Time
+	if doc.Finished != 0 {
+		val := time.Unix(doc.Finished, 0).UTC()
+		finished = &val
 	}
-	return &metadata
+	err := metadata.Finish(doc.Size, doc.Checksum, doc.ChecksumFormat, finished)
+	if err != nil {
+		panic("invalid metadata doc")
+	}
+	if doc.Stored {
+		metadata.SetStored()
+	}
+
+	return metadata
 }
 
 // updateFromMetadata copies the corresponding data from the backups.Metadata
 // into the backupMetadataDoc.
 func (doc *backupMetadataDoc) updateFromMetadata(metadata *backups.Metadata) {
+	finished := metadata.Finished()
 	// Ignore metadata.ID.
-	doc.Started = metadata.Timestamp.Unix()
-	doc.Finished = metadata.Finished.Unix()
-	doc.Checksum = metadata.Checksum
-	doc.ChecksumFormat = metadata.ChecksumFormat
-	doc.Size = metadata.Size
-	doc.Stored = metadata.Stored
-	doc.Notes = metadata.Notes
+	doc.Started = metadata.Started().Unix()
+	if finished != nil {
+		doc.Finished = finished.Unix()
+	}
+	doc.Checksum = metadata.Checksum()
+	doc.ChecksumFormat = metadata.ChecksumFormat()
+	doc.Size = metadata.Size()
+	doc.Stored = metadata.Stored()
+	doc.Notes = metadata.Notes()
 
-	doc.Environment = metadata.Origin.Environment
-	doc.Machine = metadata.Origin.Machine
-	doc.Hostname = metadata.Origin.Hostname
-	doc.Version = metadata.Origin.Version
+	origin := metadata.Origin()
+	doc.Environment = origin.Environment()
+	doc.Machine = origin.Machine()
+	doc.Hostname = origin.Hostname()
+	doc.Version = origin.Version()
 }
 
 //---------------------------
