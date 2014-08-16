@@ -37,7 +37,6 @@ func (s *environmentSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.machine0.Tag(),
 		MachineAgent: true,
-		Entity:       s.machine0,
 	}
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
