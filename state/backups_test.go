@@ -16,7 +16,7 @@ import (
 )
 
 type backupSuite struct {
-	StateSuite
+	ConnSuite
 }
 
 var _ = gc.Suite(&backupSuite{})
