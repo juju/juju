@@ -126,8 +126,8 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 	barfoo := "barfoo"
 	fooTag := names.NewUserTag(foobar)
 	barTag := names.NewUserTag(barfoo)
-	userFoo := s.Factory.MakeUser(factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
-	userBar := s.Factory.MakeUser(factory.UserParams{Name: barfoo, DisplayName: "Bar Foo"})
+	userFoo := s.Factory.MakeUser(c, &factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
+	userBar := s.Factory.MakeUser(c, &factory.UserParams{Name: barfoo, DisplayName: "Bar Foo"})
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: fooTag.String()}, {Tag: barTag.String()}},
@@ -161,7 +161,7 @@ func (s *userManagerSuite) TestUserInfoUsersExist(c *gc.C) {
 func (s *userManagerSuite) TestUserInfoUserExists(c *gc.C) {
 	foobar := "foobar"
 	fooTag := names.NewUserTag(foobar)
-	user := s.Factory.MakeUser(factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Name: foobar, DisplayName: "Foo Bar"})
 
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: fooTag.String()}},
@@ -279,6 +279,26 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 	c.Assert(adminUser.PasswordValid("new-password"), gc.Equals, true)
 }
 
+func (s *userManagerSuite) TestCannotSetPasswordWhenNotAUser(c *gc.C) {
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag:    names.NewMachineTag("0"),
+		Client: true,
+	}
+	var err error
+	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
+
+	args := usermanager.ModifyUsers{
+		Changes: []usermanager.ModifyUser{{
+			Username: "admin",
+			Password: "new-password",
+		}}}
+	results, err := s.usermanager.SetPassword(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	expectedError := apiservertesting.ServerError("Not a user")
+	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
+}
+
 func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
 	args := usermanager.ModifyUsers{
 		Changes: []usermanager.ModifyUser{
@@ -306,7 +326,7 @@ func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
 // users to change other users passwords. For the time being we only allow
 // the password of the current user to be changed
 func (s *userManagerSuite) TestSetPasswordOnDifferentUser(c *gc.C) {
-	s.Factory.MakeUser(factory.UserParams{Name: "foobar"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar"})
 	args := usermanager.ModifyUsers{
 		Changes: []usermanager.ModifyUser{{
 			Username:    "foobar",

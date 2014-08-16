@@ -232,19 +232,19 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleHostArch(c *gc.C
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
-	arch := "ppc64"
+	arch := "ppc64el"
 	_, err := bootstrap.EnsureToolsAvailability(coretesting.Context(c), env, config.PreferredSeries(env.Config()), &arch)
 	c.Assert(err, gc.NotNil)
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped,
 		gc.Matches,
-		`cannot upload bootstrap tools: cannot build tools for "ppc64" using a machine running on "amd64"`)
+		`cannot upload bootstrap tools: cannot build tools for "ppc64el" using a machine running on "amd64"`)
 }
 
 func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleTargetArch(c *gc.C) {
-	// Host runs ppc64, environment only supports amd64, arm64.
+	// Host runs ppc64el, environment only supports amd64, arm64.
 	s.PatchValue(&arch.HostArch, func() string {
-		return "ppc64"
+		return "ppc64el"
 	})
 	// Force a dev version by having a non zero build number.
 	// This is because we have not uploaded any tools and auto
@@ -260,7 +260,7 @@ func (s *bootstrapSuite) TestEnsureToolsAvailabilityIncompatibleTargetArch(c *gc
 	stripped := strings.Replace(err.Error(), "\n", "", -1)
 	c.Assert(stripped,
 		gc.Matches,
-		`cannot upload bootstrap tools: environment "foo" of type dummy does not support instances running on "ppc64"`)
+		`cannot upload bootstrap tools: environment "foo" of type dummy does not support instances running on "ppc64el"`)
 }
 
 func (s *bootstrapSuite) TestEnsureToolsAvailabilityAgentVersionAlreadySet(c *gc.C) {

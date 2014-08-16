@@ -4,7 +4,7 @@
 package state
 
 import (
-	"github.com/juju/charm"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 )
 

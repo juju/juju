@@ -6,8 +6,8 @@ package main
 import (
 	"fmt"
 
-	"github.com/juju/charm"
 	"github.com/juju/cmd"
+	"gopkg.in/juju/charm.v3"
 	"launchpad.net/gnuflag"
 
 	"github.com/juju/juju/worker/uniter/jujuc"

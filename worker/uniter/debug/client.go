@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"strings"
 
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 )
 
 type hookArgs struct {

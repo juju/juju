@@ -140,7 +140,7 @@ func (s *ListKeysSuite) TestListKeysNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	s.setAuthorizedKeys(c, key1, key2)
-	s.Factory.MakeUser(factory.UserParams{Name: "fred"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 
 	context, err := coretesting.RunCommand(c, envcmd.Wrap(&ListKeysCommand{}), "--user", "fred")
 	c.Assert(err, gc.IsNil)
@@ -174,7 +174,7 @@ func (s *AddKeySuite) TestAddKey(c *gc.C) {
 func (s *AddKeySuite) TestAddKeyNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorizedKeys(c, key1)
-	s.Factory.MakeUser(factory.UserParams{Name: "fred"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	context, err := coretesting.RunCommand(c, envcmd.Wrap(&AddKeysCommand{}), "--user", "fred", key2)
@@ -205,7 +205,7 @@ func (s *DeleteKeySuite) TestDeleteKeyNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	key2 := sshtesting.ValidKeyTwo.Key + " another@host"
 	s.setAuthorizedKeys(c, key1, key2)
-	s.Factory.MakeUser(factory.UserParams{Name: "fred"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 
 	context, err := coretesting.RunCommand(c, envcmd.Wrap(&DeleteKeysCommand{}),
 		"--user", "fred", sshtesting.ValidKeyTwo.Fingerprint)
@@ -238,7 +238,7 @@ func (s *ImportKeySuite) TestImportKeys(c *gc.C) {
 func (s *ImportKeySuite) TestImportKeyNonDefaultUser(c *gc.C) {
 	key1 := sshtesting.ValidKeyOne.Key + " user@host"
 	s.setAuthorizedKeys(c, key1)
-	s.Factory.MakeUser(factory.UserParams{Name: "fred"})
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "fred"})
 
 	context, err := coretesting.RunCommand(c, envcmd.Wrap(&ImportKeysCommand{}), "--user", "fred", "lp:validuser")
 	c.Assert(err, gc.IsNil)

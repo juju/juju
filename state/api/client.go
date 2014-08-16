@@ -16,11 +16,11 @@ import (
 	"time"
 
 	"code.google.com/p/go.net/websocket"
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/instance"
@@ -618,20 +618,20 @@ func (c *Client) AddLocalCharm(curl *charm.URL, ch charm.Charm) (*charm.URL, err
 	// Package the charm for uploading.
 	var archive *os.File
 	switch ch := ch.(type) {
-	case *charm.Dir:
+	case *charm.CharmDir:
 		var err error
 		if archive, err = ioutil.TempFile("", "charm"); err != nil {
 			return nil, fmt.Errorf("cannot create temp file: %v", err)
 		}
 		defer os.Remove(archive.Name())
 		defer archive.Close()
-		if err := ch.BundleTo(archive); err != nil {
+		if err := ch.ArchiveTo(archive); err != nil {
 			return nil, fmt.Errorf("cannot repackage charm: %v", err)
 		}
 		if _, err := archive.Seek(0, 0); err != nil {
 			return nil, fmt.Errorf("cannot rewind packaged charm: %v", err)
 		}
-	case *charm.Bundle:
+	case *charm.CharmArchive:
 		var err error
 		if archive, err = os.Open(ch.Path); err != nil {
 			return nil, fmt.Errorf("cannot read charm archive: %v", err)
@@ -700,8 +700,8 @@ func (c *Client) AddCharm(curl *charm.URL) error {
 
 // ResolveCharm resolves the best available charm URLs with series, for charm
 // locations without a series specified.
-func (c *Client) ResolveCharm(ref charm.Reference) (*charm.URL, error) {
-	args := params.ResolveCharms{References: []charm.Reference{ref}}
+func (c *Client) ResolveCharm(ref *charm.Reference) (*charm.URL, error) {
+	args := params.ResolveCharms{References: []charm.Reference{*ref}}
 	result := new(params.ResolveCharmResults)
 	if err := c.facade.FacadeCall("ResolveCharms", args, result); err != nil {
 		return nil, err

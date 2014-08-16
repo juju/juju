@@ -6,7 +6,7 @@ package client_test
 import (
 	"fmt"
 
-	"github.com/juju/charm"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/constraints"

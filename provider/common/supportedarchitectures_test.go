@@ -64,21 +64,21 @@ func (s *archSuite) TestSupportedArchitecturesNone(c *gc.C) {
 }
 
 func (s *archSuite) TestSupportedArchitecturesOne(c *gc.C) {
-	env, cloudSpec := s.setupMetadata(c, []string{"ppc64"})
+	env, cloudSpec := s.setupMetadata(c, []string{"ppc64el"})
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: cloudSpec,
 	})
 	arches, err := common.SupportedArchitectures(env, imageConstraint)
 	c.Assert(err, gc.IsNil)
-	c.Assert(arches, jc.SameContents, []string{"ppc64"})
+	c.Assert(arches, jc.SameContents, []string{"ppc64el"})
 }
 
 func (s *archSuite) TestSupportedArchitecturesMany(c *gc.C) {
-	env, cloudSpec := s.setupMetadata(c, []string{"ppc64", "amd64"})
+	env, cloudSpec := s.setupMetadata(c, []string{"ppc64el", "amd64"})
 	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
 		CloudSpec: cloudSpec,
 	})
 	arches, err := common.SupportedArchitectures(env, imageConstraint)
 	c.Assert(err, gc.IsNil)
-	c.Assert(arches, jc.SameContents, []string{"amd64", "ppc64"})
+	c.Assert(arches, jc.SameContents, []string{"amd64", "ppc64el"})
 }

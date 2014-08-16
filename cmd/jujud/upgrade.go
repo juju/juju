@@ -44,6 +44,15 @@ type upgradeWorkerContext struct {
 	st              *state.State
 }
 
+// Initialise a upgradeWorkerContext once the agent configuration is available.
+func (c *upgradeWorkerContext) InitializeFromConfig(config agent.Config) {
+	if config.UpgradedToVersion() == version.Current.Number {
+		logger.Infof("No need for upgrade: upgrade steps for %v have already been run.",
+			version.Current.Number)
+		close(c.UpgradeComplete)
+	}
+}
+
 func (c *upgradeWorkerContext) Worker(
 	agent upgradingMachineAgent,
 	apiState *api.State,

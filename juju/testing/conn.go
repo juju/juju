@@ -11,14 +11,14 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/environmentserver/authentication"
@@ -91,7 +91,7 @@ func (s *JujuConnSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
 	s.setUpConn(c)
-	s.Factory = factory.NewFactory(s.State, c)
+	s.Factory = factory.NewFactory(s.State)
 }
 
 func (s *JujuConnSuite) TearDownTest(c *gc.C) {
@@ -324,7 +324,7 @@ func PutCharm(st *state.State, curl *charm.URL, repo charm.Repository, bumpRevis
 		return nil, fmt.Errorf("cannot get charm: %v", err)
 	}
 	if bumpRevision {
-		chd, ok := ch.(*charm.Dir)
+		chd, ok := ch.(*charm.CharmDir)
 		if !ok {
 			return nil, fmt.Errorf("cannot increment revision of charm %q: not a directory", curl)
 		}
@@ -343,21 +343,21 @@ func addCharm(st *state.State, curl *charm.URL, ch charm.Charm) (*state.Charm, e
 	var f *os.File
 	name := charm.Quote(curl.String())
 	switch ch := ch.(type) {
-	case *charm.Dir:
+	case *charm.CharmDir:
 		var err error
 		if f, err = ioutil.TempFile("", name); err != nil {
 			return nil, err
 		}
 		defer os.Remove(f.Name())
 		defer f.Close()
-		err = ch.BundleTo(f)
+		err = ch.ArchiveTo(f)
 		if err != nil {
 			return nil, fmt.Errorf("cannot bundle charm: %v", err)
 		}
 		if _, err := f.Seek(0, 0); err != nil {
 			return nil, err
 		}
-	case *charm.Bundle:
+	case *charm.CharmArchive:
 		var err error
 		if f, err = os.Open(ch.Path); err != nil {
 			return nil, fmt.Errorf("cannot read charm bundle: %v", err)
@@ -436,14 +436,14 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		}
 		err := s.State.Close()
 		if serverAlive {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 		}
 		s.State = nil
 	}
 	for _, st := range s.apiStates {
 		err := st.Close()
 		if serverAlive {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 		}
 	}
 	s.apiStates = nil
@@ -451,7 +451,7 @@ func (s *JujuConnSuite) tearDownConn(c *gc.C) {
 		err := s.APIState.Close()
 		s.APIState = nil
 		if serverAlive {
-			c.Assert(err, gc.IsNil)
+			c.Check(err, gc.IsNil)
 		}
 	}
 	dummy.Reset()
@@ -481,10 +481,10 @@ func (s *JujuConnSuite) WriteConfig(configData string) {
 }
 
 func (s *JujuConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
-	ch := charmtesting.Charms.Dir(name)
+	ch := charmtesting.Charms.CharmDir(name)
 	ident := fmt.Sprintf("%s-%d", ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:quantal/" + ident)
-	repo, err := charm.InferRepository(curl.Reference, charmtesting.Charms.Path())
+	repo, err := charm.InferRepository(curl.Reference(), charmtesting.Charms.Path())
 	c.Assert(err, gc.IsNil)
 	sch, err := PutCharm(s.State, curl, repo, false)
 	c.Assert(err, gc.IsNil)

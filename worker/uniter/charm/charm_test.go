@@ -9,9 +9,9 @@ import (
 	"path/filepath"
 	stdtesting "testing"
 
-	corecharm "github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/utils/set"
+	corecharm "gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
 	coretesting "github.com/juju/juju/testing"
@@ -68,7 +68,7 @@ func (br *bundleReader) AddCustomBundle(c *gc.C, url *corecharm.URL, customize f
 	if customize != nil {
 		customize(dirpath)
 	}
-	dir, err := corecharm.ReadDir(dirpath)
+	dir, err := corecharm.ReadCharmDir(dirpath)
 	c.Assert(err, gc.IsNil)
 	err = dir.SetDiskRevision(url.Revision)
 	c.Assert(err, gc.IsNil)
@@ -76,9 +76,9 @@ func (br *bundleReader) AddCustomBundle(c *gc.C, url *corecharm.URL, customize f
 	file, err := os.Create(bunpath)
 	c.Assert(err, gc.IsNil)
 	defer file.Close()
-	err = dir.BundleTo(file)
+	err = dir.ArchiveTo(file)
 	c.Assert(err, gc.IsNil)
-	bundle, err := corecharm.ReadBundle(bunpath)
+	bundle, err := corecharm.ReadCharmArchive(bunpath)
 	c.Assert(err, gc.IsNil)
 	return br.AddBundle(c, url, bundle)
 }

@@ -6,8 +6,10 @@ package networker
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/juju/loggo"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/agent"
 	apinetworker "github.com/juju/juju/state/api/networker"
@@ -18,23 +20,37 @@ import (
 var logger = loggo.GetLogger("juju.networker")
 
 // Interface and bridge interface for juju internal network
-var privateInterface string
-var privateBridge string
+var (
+	privateInterface string
+	privateBridge    string
+)
 
 // networker configures network interfaces on the machine, as needed.
 type networker struct {
 	st                     *apinetworker.State
 	tag                    string
 	isVLANSupportInstalled bool
+	canWriteNetworkConfig  bool
 }
 
 // NewNetworker returns a Worker that handles machine networking
 // configuration. If there is no /etc/network/interfaces file, an
 // error is returned.
 func NewNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Worker, error) {
+	return newNetworker(st, agentConfig, true)
+}
+
+// NewSafeNetworker returns a Worker that handles machine networking
+// configuration. It does not write out config files.
+func NewSafeNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Worker, error) {
+	return newNetworker(st, agentConfig, false)
+}
+
+func newNetworker(st *apinetworker.State, agentConfig agent.Config, canWriteNetworkConfig bool) (worker.Worker, error) {
 	nw := &networker{
 		st:  st,
 		tag: agentConfig.Tag().String(),
+		canWriteNetworkConfig: canWriteNetworkConfig,
 	}
 	// Verify we have /etc/network/interfaces first, otherwise bail out.
 	if !CanStart() {
@@ -45,13 +61,33 @@ func NewNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.Work
 	return worker.NewNotifyWorker(nw), nil
 }
 
+// isRunningInLXC returns whether the worker is running inside a LXC
+// container or not. When running in LXC containers, we should not
+// attempt to modprobe anything, as it's not possible and leads to
+// run-time errors. See http://pad.lv/1353443.
+func (nw *networker) isRunningInLXC() bool {
+	tag, err := names.ParseMachineTag(nw.tag)
+	if err != nil {
+		// This should never happen, as it was already checked inside
+		// the machine agent.
+		panic(err.Error())
+	}
+	// In case of nested containers, we need to check
+	// the last nesting level to ensure it's not LXC.
+	machineId := strings.ToLower(tag.Id())
+	parts := strings.Split(machineId, "/")
+	return len(parts) > 2 && parts[len(parts)-2] == "lxc"
+}
+
 func (nw *networker) SetUp() (watcher.NotifyWatcher, error) {
-	s := &configState{}
+	s := &configState{canWriteNetworkConfig: nw.canWriteNetworkConfig}
 
 	// Read network configuration files and revert modifications made by MAAS.
+
 	if err := s.configFiles.readAll(); err != nil {
 		return nil, err
 	}
+
 	if err := s.configFiles.fixMAAS(); err != nil {
 		return nil, err
 	}
@@ -73,8 +109,7 @@ func (nw *networker) SetUp() (watcher.NotifyWatcher, error) {
 
 func (nw *networker) Handle() error {
 	var err error
-	s := &configState{}
-
+	s := &configState{canWriteNetworkConfig: nw.canWriteNetworkConfig}
 	// Read configuration files for managed interfaces.
 	if err = s.configFiles.readManaged(); err != nil {
 		return err
@@ -95,11 +130,8 @@ func (nw *networker) Handle() error {
 	// Reset the list of executed commands.
 	s.resetCommands()
 
-	// Add commands to install VLAN module, if required.
-	if !nw.isVLANSupportInstalled {
-		s.ensureVLANModule()
-		nw.isVLANSupportInstalled = true
-	}
+	// Add commands to install VLAN module, if required and possible.
+	s.maybeLoadVLANModule(nw)
 
 	// Up configured interfaces.
 	s.bringUpInterfaces()

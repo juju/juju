@@ -11,6 +11,7 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/openstack"
 )
 
@@ -196,5 +197,143 @@ func (t *localTests) TestGetServerAddresses(c *gc.C) {
 		}
 		addr := openstack.InstanceAddress(addresses)
 		c.Assert(addr, gc.Equals, t.expected)
+	}
+}
+
+func (*localTests) TestPortsToRuleInfo(c *gc.C) {
+	groupId := "groupid"
+	testCases := []struct {
+		about    string
+		ports    []network.PortRange
+		expected []nova.RuleInfo
+	}{{
+		about: "single port",
+		ports: []network.PortRange{{
+			FromPort: 80,
+			ToPort:   80,
+			Protocol: "tcp",
+		}},
+		expected: []nova.RuleInfo{{
+			IPProtocol:    "tcp",
+			FromPort:      80,
+			ToPort:        80,
+			Cidr:          "0.0.0.0/0",
+			ParentGroupId: groupId,
+		}},
+	}, {
+		about: "multiple ports",
+		ports: []network.PortRange{{
+			FromPort: 80,
+			ToPort:   82,
+			Protocol: "tcp",
+		}},
+		expected: []nova.RuleInfo{{
+			IPProtocol:    "tcp",
+			FromPort:      80,
+			ToPort:        82,
+			Cidr:          "0.0.0.0/0",
+			ParentGroupId: groupId,
+		}},
+	}, {
+		about: "multiple port ranges",
+		ports: []network.PortRange{{
+			FromPort: 80,
+			ToPort:   82,
+			Protocol: "tcp",
+		}, {
+			FromPort: 100,
+			ToPort:   120,
+			Protocol: "tcp",
+		}},
+		expected: []nova.RuleInfo{{
+			IPProtocol:    "tcp",
+			FromPort:      80,
+			ToPort:        82,
+			Cidr:          "0.0.0.0/0",
+			ParentGroupId: groupId,
+		}, {
+			IPProtocol:    "tcp",
+			FromPort:      100,
+			ToPort:        120,
+			Cidr:          "0.0.0.0/0",
+			ParentGroupId: groupId,
+		}},
+	}}
+
+	for i, t := range testCases {
+		c.Logf("test %d: %s", i, t.about)
+		rules := openstack.PortsToRuleInfo(groupId, t.ports)
+		c.Check(len(rules), gc.Equals, len(t.expected))
+		c.Check(rules, gc.DeepEquals, t.expected)
+	}
+}
+
+func (*localTests) TestRuleMatchesPortRange(c *gc.C) {
+	proto_tcp := "tcp"
+	proto_udp := "udp"
+	port_80 := 80
+	port_85 := 85
+
+	testCases := []struct {
+		about    string
+		ports    network.PortRange
+		rule     nova.SecurityGroupRule
+		expected bool
+	}{{
+		about: "single port",
+		ports: network.PortRange{
+			FromPort: 80,
+			ToPort:   80,
+			Protocol: "tcp",
+		},
+		rule: nova.SecurityGroupRule{
+			IPProtocol: &proto_tcp,
+			FromPort:   &port_80,
+			ToPort:     &port_80,
+		},
+		expected: true,
+	}, {
+		about: "multiple port",
+		ports: network.PortRange{
+			FromPort: port_80,
+			ToPort:   port_85,
+			Protocol: proto_tcp,
+		},
+		rule: nova.SecurityGroupRule{
+			IPProtocol: &proto_tcp,
+			FromPort:   &port_80,
+			ToPort:     &port_85,
+		},
+		expected: true,
+	}, {
+		about: "nil rule components",
+		ports: network.PortRange{
+			FromPort: port_80,
+			ToPort:   port_85,
+			Protocol: proto_tcp,
+		},
+		rule: nova.SecurityGroupRule{
+			IPProtocol: nil,
+			FromPort:   nil,
+			ToPort:     nil,
+		},
+		expected: false,
+	}, {
+		about: "mismatched port range and rule",
+		ports: network.PortRange{
+			FromPort: port_80,
+			ToPort:   port_85,
+			Protocol: proto_tcp,
+		},
+		rule: nova.SecurityGroupRule{
+			IPProtocol: &proto_udp,
+			FromPort:   &port_80,
+			ToPort:     &port_80,
+		},
+		expected: false,
+	}}
+	for i, t := range testCases {
+		c.Logf("test %d: %s", i, t.about)
+		c.Check(openstack.RuleMatchesPortRange(t.rule, t.ports), gc.Equals, t.expected)
 	}
 }

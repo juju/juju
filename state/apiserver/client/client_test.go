@@ -11,11 +11,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
@@ -879,7 +879,7 @@ func (s *clientSuite) TestClientServiceDeployServiceOwner(c *gc.C) {
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
 
-	user := s.Factory.MakeUser(factory.UserParams{Password: "password"})
+	user := s.Factory.MakeUser(c, &factory.UserParams{Password: "password"})
 	s.APIState = s.OpenAPIAs(c, user.Tag(), "password")
 
 	err := s.APIState.Client().ServiceDeploy(
@@ -1196,7 +1196,7 @@ func addCharm(c *gc.C, store *charmtesting.MockCharmStore, name string) (*charm.
 }
 
 func addSeriesCharm(c *gc.C, store *charmtesting.MockCharmStore, series, name string) (*charm.URL, charm.Charm) {
-	bundle := charmtesting.Charms.Bundle(c.MkDir(), name)
+	bundle := charmtesting.Charms.CharmArchive(c.MkDir(), name)
 	scurl := fmt.Sprintf("cs:%s/%s-%d", series, name, bundle.Revision())
 	curl := charm.MustParseURL(scurl)
 	err := store.SetCharm(curl, bundle)
@@ -1997,7 +1997,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 
 	client := s.APIState.Client()
 	// First test the sanity checks.
-	err := client.AddCharm(&charm.URL{Reference: charm.Reference{Name: "nonsense"}})
+	err := client.AddCharm(&charm.URL{Name: "nonsense"})
 	c.Assert(err, gc.ErrorMatches, `charm URL has invalid schema: ":nonsense-0"`)
 	err = client.AddCharm(charm.MustParseURL("local:precise/dummy"))
 	c.Assert(err, gc.ErrorMatches, "only charm store charm URLs are supported, with cs: schema")
@@ -2006,7 +2006,7 @@ func (s *clientSuite) TestAddCharm(c *gc.C) {
 
 	// Add a charm, without uploading it to storage, to
 	// check that AddCharm does not try to do it.
-	charmDir := charmtesting.Charms.Dir("dummy")
+	charmDir := charmtesting.Charms.CharmDir("dummy")
 	ident := fmt.Sprintf("%s-%d", charmDir.Meta().Name, charmDir.Revision())
 	curl := charm.MustParseURL("cs:quantal/" + ident)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
@@ -2043,12 +2043,12 @@ var resolveCharmCases = []struct {
 }{
 	{"cs", "precise", "wordpress", "", ""},
 	{"cs", "trusty", "wordpress", "", ""},
-	{"cs", "", "wordpress", "", `missing default series, cannot resolve charm url: "cs:wordpress"`},
+	{"cs", "", "wordpress", "", `charm url series is not resolved`},
 	{"cs", "trusty", "", `charm URL has invalid charm name: "cs:"`, ""},
 	{"local", "trusty", "wordpress", "", `only charm store charm references are supported, with cs: schema`},
 	{"cs", "precise", "hl3", "", ""},
 	{"cs", "trusty", "hl3", "", ""},
-	{"cs", "", "hl3", "", `missing default series, cannot resolve charm url: \"cs:hl3\"`},
+	{"cs", "", "hl3", "", `charm url series is not resolved`},
 }
 
 func (s *clientSuite) TestResolveCharm(c *gc.C) {
@@ -2061,7 +2061,7 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 		store.DefaultSeries = test.defaultSeries
 
 		client := s.APIState.Client()
-		ref, series, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))
+		ref, err := charm.ParseReference(fmt.Sprintf("%s:%s", test.schema, test.charmName))
 		if test.parseErr == "" {
 			if !c.Check(err, gc.IsNil) {
 				continue
@@ -2071,7 +2071,6 @@ func (s *clientSuite) TestResolveCharm(c *gc.C) {
 			c.Check(err, gc.ErrorMatches, test.parseErr)
 			continue
 		}
-		c.Check(series, gc.Equals, "")
 		c.Check(ref.String(), gc.Equals, fmt.Sprintf("%s:%s", test.schema, test.charmName))
 
 		curl, err := client.ResolveCharm(ref)

@@ -18,8 +18,6 @@ import (
 	stdtesting "testing"
 	"time"
 
-	corecharm "github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/errors"
 	gitjujutesting "github.com/juju/testing"
 	gt "github.com/juju/testing"
@@ -29,8 +27,10 @@ import (
 	utilexec "github.com/juju/utils/exec"
 	"github.com/juju/utils/fslock"
 	"github.com/juju/utils/proxy"
+	corecharm "gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
+	goyaml "gopkg.in/yaml.v1"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/agent/tools"
 	"github.com/juju/juju/juju/testing"
@@ -1597,7 +1597,7 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 	if s.customize != nil {
 		s.customize(c, ctx, base)
 	}
-	dir, err := corecharm.ReadDir(base)
+	dir, err := corecharm.ReadCharmDir(base)
 	c.Assert(err, gc.IsNil)
 	err = dir.SetDiskRevision(s.revision)
 	c.Assert(err, gc.IsNil)
@@ -1605,13 +1605,13 @@ func (s createCharm) step(c *gc.C, ctx *context) {
 }
 
 type addCharm struct {
-	dir  *corecharm.Dir
+	dir  *corecharm.CharmDir
 	curl *corecharm.URL
 }
 
 func (s addCharm) step(c *gc.C, ctx *context) {
 	var buf bytes.Buffer
-	err := s.dir.BundleTo(&buf)
+	err := s.dir.ArchiveTo(&buf)
 	c.Assert(err, gc.IsNil)
 	body := buf.Bytes()
 	hash, _, err := utils.ReadSHA256(&buf)

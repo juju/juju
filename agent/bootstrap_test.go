@@ -4,7 +4,6 @@
 package agent_test
 
 import (
-	"github.com/juju/errors"
 	"github.com/juju/names"
 	gitjujutesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -28,28 +27,22 @@ import (
 
 type bootstrapSuite struct {
 	testing.BaseSuite
-	gitjujutesting.MgoSuite
+	mgoInst gitjujutesting.MgoInstance
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) SetUpSuite(c *gc.C) {
-	s.BaseSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
-}
-
-func (s *bootstrapSuite) TearDownSuite(c *gc.C) {
-	s.MgoSuite.TearDownSuite(c)
-	s.BaseSuite.TearDownSuite(c)
-}
-
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
+	// Don't use MgoSuite, because we need to ensure
+	// we have a fresh mongo for each test case.
+	s.mgoInst.EnableAuth = true
+	err := s.mgoInst.Start(testing.Certs)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
-	s.MgoSuite.TearDownTest(c)
+	s.mgoInst.Destroy()
 	s.BaseSuite.TearDownTest(c)
 }
 
@@ -61,7 +54,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		DataDir:           dataDir,
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
-		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
+		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
@@ -69,7 +62,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 		Cert:           testing.ServerCert,
 		PrivateKey:     testing.ServerKey,
 		APIPort:        1234,
-		StatePort:      gitjujutesting.MgoServer.Port(),
+		StatePort:      s.mgoInst.Port(),
 		SystemIdentity: "def456",
 	}
 
@@ -83,7 +76,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	mcfg := agent.BootstrapMachineConfig{
 		Addresses:       network.NewAddresses("zeroonetwothree", "0.1.2.3"),
 		Constraints:     expectConstraints,
-		Jobs:            []params.MachineJob{params.JobHostUnits},
+		Jobs:            []params.MachineJob{params.JobManageEnviron},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 		SharedSecret:    "abc123",
@@ -115,7 +108,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 
 	// Check that the bootstrap machine looks correct.
 	c.Assert(m.Id(), gc.Equals, "0")
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits})
+	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobManageEnviron})
 	c.Assert(m.Series(), gc.Equals, version.Current.Series)
 	c.Assert(m.CheckProvisioned(agent.BootstrapNonce), jc.IsTrue)
 	c.Assert(m.Addresses(), gc.DeepEquals, mcfg.Addresses)
@@ -143,7 +136,7 @@ func (s *bootstrapSuite) TestInitializeState(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateServingInfo, jc.DeepEquals, params.StateServingInfo{
 		APIPort:        1234,
-		StatePort:      gitjujutesting.MgoServer.Port(),
+		StatePort:      s.mgoInst.Port(),
 		Cert:           testing.ServerCert,
 		PrivateKey:     testing.ServerKey,
 		SharedSecret:   "abc123",
@@ -170,7 +163,7 @@ func (s *bootstrapSuite) TestInitializeStateWithStateServingInfoNotAvailable(c *
 		DataDir:           c.MkDir(),
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
-		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
+		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          "fake",
 	}
@@ -193,7 +186,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 		DataDir:           dataDir,
 		Tag:               names.NewMachineTag("0"),
 		UpgradedToVersion: version.Current.Number,
-		StateAddresses:    []string{gitjujutesting.MgoServer.Addr()},
+		StateAddresses:    []string{s.mgoInst.Addr()},
 		CACert:            testing.CACert,
 		Password:          pwHash,
 	}
@@ -201,7 +194,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	cfg.SetStateServingInfo(params.StateServingInfo{
 		APIPort:        5555,
-		StatePort:      gitjujutesting.MgoServer.Port(),
+		StatePort:      s.mgoInst.Port(),
 		Cert:           "foo",
 		PrivateKey:     "bar",
 		SharedSecret:   "baz",
@@ -211,7 +204,7 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 	expectHW := instance.MustParseHardware("mem=2048M")
 	mcfg := agent.BootstrapMachineConfig{
 		Constraints:     expectConstraints,
-		Jobs:            []params.MachineJob{params.JobHostUnits},
+		Jobs:            []params.MachineJob{params.JobManageEnviron},
 		InstanceId:      "i-bootstrap",
 		Characteristics: expectHW,
 	}
@@ -224,21 +217,18 @@ func (s *bootstrapSuite) TestInitializeStateFailsSecondTime(c *gc.C) {
 
 	st, _, err := agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
 	c.Assert(err, gc.IsNil)
-	err = st.SetAdminMongoPassword("")
-	c.Check(err, gc.IsNil)
-	st.Close()
 
 	st, _, err = agent.InitializeState(cfg, envCfg, mcfg, mongo.DialOpts{}, environs.NewStatePolicy())
 	if err == nil {
 		st.Close()
 	}
-	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+	c.Assert(err, gc.ErrorMatches, "failed to initialize mongo admin user: cannot set admin password: not authorized .*")
 }
 
-func (*bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
+func (s *bootstrapSuite) assertCanLogInAsAdmin(c *gc.C, password string) {
 	info := &authentication.MongoInfo{
 		Info: mongo.Info{
-			Addrs:  []string{gitjujutesting.MgoServer.Addr()},
+			Addrs:  []string{s.mgoInst.Addr()},
 			CACert: testing.CACert,
 		},
 		Tag:      nil, // admin user

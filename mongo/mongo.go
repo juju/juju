@@ -19,7 +19,6 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
 	"gopkg.in/mgo.v2"
-	"gopkg.in/mgo.v2/bson"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/replicaset"
@@ -90,18 +89,6 @@ func IsMaster(session *mgo.Session, obj WithAddresses) (bool, error) {
 
 	machinePeerAddr := SelectPeerAddress(addrs)
 	return machinePeerAddr == masterAddr, nil
-}
-
-// JournalEnabled reports whether mongo has journaling enabled.
-func JournalEnabled(session *mgo.Session) (bool, error) {
-	var result bson.M
-	if err := session.Run("serverStatus", &result); err != nil {
-		return false, err
-	}
-	// The Journaling (dur) document is present if journaling is enabled.
-	// http://docs.mongodb.org/manual/reference/server-status/
-	_, ok := result["dur"]
-	return ok, nil
 }
 
 // SelectPeerAddress returns the address to use as the

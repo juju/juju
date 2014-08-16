@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/juju/charm"
-	"github.com/juju/charm/hooks"
 	"github.com/juju/errors"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
+	"gopkg.in/juju/charm.v3/hooks"
 
 	uhook "github.com/juju/juju/worker/uniter/hook"
 )

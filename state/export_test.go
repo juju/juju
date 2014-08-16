@@ -9,18 +9,25 @@ import (
 	"net/url"
 	"path/filepath"
 
-	"github.com/juju/charm"
-	charmtesting "github.com/juju/charm/testing"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	txntesting "github.com/juju/txn/testing"
 	"github.com/juju/utils/set"
+	"gopkg.in/juju/charm.v3"
+	charmtesting "gopkg.in/juju/charm.v3/testing"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
+)
+
+var (
+	GetBackupMetadata   = getBackupMetadata
+	AddBackupMetadata   = addBackupMetadata
+	AddBackupMetadataID = addBackupMetadataID
+	SetBackupStored     = setBackupStored
 )
 
 func SetTestHooks(c *gc.C, st *State, hooks ...jujutxn.TestHook) txntesting.TransactionChecker {
@@ -81,7 +88,7 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 }
 
 func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
-	return addCharm(c, st, "quantal", charmtesting.Charms.Dir(name))
+	return addCharm(c, st, "quantal", charmtesting.Charms.CharmDir(name))
 }
 
 func AddTestingService(c *gc.C, st *State, name string, ch *Charm) *Service {
@@ -101,7 +108,7 @@ func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, 
 		err := ioutil.WriteFile(config, []byte(content), 0644)
 		c.Assert(err, gc.IsNil)
 	}
-	ch, err := charm.ReadDir(path)
+	ch, err := charm.ReadCharmDir(path)
 	c.Assert(err, gc.IsNil)
 	if revision != -1 {
 		ch.SetRevision(revision)
@@ -245,4 +252,5 @@ func WatcherMakeIdFilter(marker string, receivers ...ActionReceiver) func(interf
 var (
 	GetOrCreatePorts = getOrCreatePorts
 	GetPorts         = getPorts
+	NowToTheSecond   = nowToTheSecond
 )

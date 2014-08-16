@@ -6,11 +6,11 @@ package uniter_test
 import (
 	stdtesting "testing"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	patchtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 
 	envtesting "github.com/juju/juju/environs/testing"
@@ -801,14 +801,13 @@ func (s *uniterSuite) TestWatchPreexistingActions(c *gc.C) {
 
 	result, err := s.uniter.WatchActions(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsWatchResults{
-		Results: []params.StringsWatchResult{
-			{StringsWatcherId: "1", Changes: []string{
-				firstAction.Id(),
-				secondAction.Id(),
-			}},
-		},
-	})
+	c.Assert(len(result.Results), gc.Equals, 1)
+
+	expected := []string{
+		firstAction.Id(),
+		secondAction.Id(),
+	}
+	c.Assert(result.Results[0].Changes, jc.SameContents, expected)
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), gc.Equals, 1)
