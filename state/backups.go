@@ -89,6 +89,53 @@ type backupMetadataDoc struct {
 	Version     version.Number `bson:"version"`
 }
 
+func (doc *backupMetadataDoc) validate() error {
+	if doc.ID == "" {
+		return errors.New("missing ID")
+	}
+	if doc.Started == 0 {
+		return errors.New("missing Started")
+	}
+	if doc.Environment == "" {
+		return errors.New("missing Environment")
+	}
+	if doc.Machine == "" {
+		return errors.New("missing Machine")
+	}
+	if doc.Hostname == "" {
+		return errors.New("missing Hostname")
+	}
+	if doc.Version.Major == 0 {
+		return errors.New("missing Version")
+	}
+
+	// Check the "finished" fields.
+	if doc.Finished == 0 {
+		if doc.Checksum == "" {
+			if doc.ChecksumFormat == "" {
+				if doc.Size == 0 {
+					if doc.Stored {
+						return errors.New("Stored unexpected set")
+					}
+					return nil
+				}
+			}
+		}
+		return errors.New("missing finished")
+	}
+	if doc.Checksum == "" {
+		return errors.New("missing finished")
+	}
+	if doc.ChecksumFormat == "" {
+		return errors.New("missing finished")
+	}
+	if doc.Size == 0 {
+		return errors.New("missing finished")
+	}
+
+	return nil
+}
+
 // asMetadata returns a new backups.Metadata based on the backupMetadataDoc.
 func (doc *backupMetadataDoc) asMetadata() *backups.Metadata {
 	origin := backups.Origin{
@@ -148,6 +195,9 @@ func getBackupMetadata(st *State, id string) (*backups.Metadata, error) {
 		return nil, errors.Annotate(err, "error getting backup metadata")
 	}
 
+	if err := doc.validate(); err != nil {
+		return nil, errors.Trace(err)
+	}
 	return doc.asMetadata(), nil
 }
 
@@ -170,6 +220,9 @@ func addBackupMetadataID(st *State, metadata *backups.Metadata, id string) error
 	var doc backupMetadataDoc
 	doc.updateFromMetadata(metadata)
 	doc.ID = id
+	if err := doc.validate(); err != nil {
+		return errors.Trace(err)
+	}
 
 	ops := []txn.Op{{
 		C:      backupsMetaC,

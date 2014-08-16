@@ -101,12 +101,9 @@ func (s *backupSuite) TestBackupsAddBackupMetadataGeneratedID(c *gc.C) {
 
 func (s *backupSuite) TestBackupsAddBackupMetadataEmpty(c *gc.C) {
 	original := backups.Metadata{}
-	id, err := state.AddBackupMetadata(s.State, &original)
-	c.Check(err, gc.IsNil)
+	_, err := state.AddBackupMetadata(s.State, &original)
 
-	metadata, err := state.GetBackupMetadata(s.State, id)
-	c.Assert(err, gc.IsNil)
-	c.Check(metadata, gc.NotNil)
+	c.Check(err, gc.NotNil)
 }
 
 func (s *backupSuite) TestBackupsAddBackupMetadataAlreadyExists(c *gc.C) {
