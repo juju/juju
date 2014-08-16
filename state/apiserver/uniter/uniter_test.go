@@ -75,7 +75,7 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming unit 0 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:    s.wordpressUnit.Tag(),
+		Tag: s.wordpressUnit.Tag(),
 	}
 
 	// Create the resource registry separately to track invocations to
@@ -1053,7 +1053,7 @@ func (s *uniterSuite) TestActionNotPresent(c *gc.C) {
 func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 	// Action doesn't match unit.
 	fakeBadAuth := apiservertesting.FakeAuthorizer{
-		Tag:    s.mysqlUnit.Tag(),
+		Tag: s.mysqlUnit.Tag(),
 	}
 	fakeBadAPI, err := uniter.NewUniterAPI(
 		s.State,
