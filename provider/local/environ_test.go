@@ -29,6 +29,7 @@ import (
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/juju/mongo"
+	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
@@ -133,8 +134,8 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.PatchValue(local.CheckIfRoot, func() bool { return false })
 	s.Tests.SetUpTest(c)
 
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
-		return nil
+	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) ([]network.Address, error) {
+		return network.NewAddresses("localhost"), nil
 	})
 }
 
@@ -174,20 +175,21 @@ func (s *localJujuTestSuite) testBootstrap(c *gc.C, cfg *config.Config) (env env
 	c.Assert(err, gc.IsNil)
 	envtesting.UploadFakeTools(c, environ.Storage())
 	defer environ.Storage().RemoveAll()
-	err = environ.Bootstrap(ctx, environs.BootstrapParams{})
+	endpoints, err := environ.Bootstrap(ctx, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
+	c.Assert(endpoints, gc.DeepEquals, network.NewAddresses("localhost"))
 	return environ
 }
 
 func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
-	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+	s.PatchValue(local.FinishBootstrap, func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) ([]network.Address, error) {
 		c.Assert(cloudcfg.AptUpdate(), jc.IsFalse)
 		c.Assert(cloudcfg.AptUpgrade(), jc.IsFalse)
 		c.Assert(cloudcfg.Packages(), gc.HasLen, 0)
 		c.Assert(mcfg.AgentEnvironment, gc.Not(gc.IsNil))
 		// local does not allow machine-0 to host units
 		c.Assert(mcfg.Jobs, gc.DeepEquals, []params.MachineJob{params.JobManageEnviron})
-		return nil
+		return network.NewAddresses("localhost"), nil
 	})
 	s.testBootstrap(c, minimalConfig(c))
 }

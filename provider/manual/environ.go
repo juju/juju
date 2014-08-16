@@ -101,25 +101,25 @@ func (e *manualEnviron) SupportNetworks() bool {
 	return false
 }
 
-func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (e *manualEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) ([]network.Address, error) {
 	// Set "use-sshstorage" to false, so agents know not to use sshstorage.
 	cfg, err := e.Config().Apply(map[string]interface{}{"use-sshstorage": false})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if err := e.SetConfig(cfg); err != nil {
-		return err
+		return nil, err
 	}
 	envConfig := e.envConfig()
 	// TODO(axw) consider how we can use placement to override bootstrap-host.
 	host := envConfig.bootstrapHost()
 	hc, series, err := manualDetectSeriesAndHardwareCharacteristics(host)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	selectedTools, err := commonEnsureBootstrapTools(ctx, e, series, hc.Arch)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	return manualBootstrap(manual.BootstrapArgs{
 		Context:                 ctx,

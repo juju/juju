@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/environs/tools"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
+	"github.com/juju/juju/network"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 )
@@ -83,7 +84,8 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 	args.Host = "ubuntu@" + args.Host
 
 	defer fakeSSH{SkipDetection: true}.install(c).Restore()
-	err := manual.Bootstrap(args)
+	endpoints, err := manual.Bootstrap(args)
+	c.Assert(endpoints, gc.DeepEquals, network.NewAddresses(args.Host))
 	c.Assert(err, gc.IsNil)
 
 	// If the machine has no juju* upstart jobs, then bootstrap
@@ -93,7 +95,7 @@ func (s *bootstrapSuite) TestBootstrap(c *gc.C) {
 		SkipDetection:      true,
 		SkipProvisionAgent: true,
 	}.install(c).Restore()
-	err = manual.Bootstrap(args)
+	_, err = manual.Bootstrap(args)
 	c.Assert(err, gc.Equals, manual.ErrProvisioned)
 }
 
@@ -101,26 +103,29 @@ func (s *bootstrapSuite) TestBootstrapScriptFailure(c *gc.C) {
 	args := s.getArgs(c)
 	args.Host = "ubuntu@" + args.Host
 	defer fakeSSH{SkipDetection: true, ProvisionAgentExitCode: 1}.install(c).Restore()
-	err := manual.Bootstrap(args)
+	_, err := manual.Bootstrap(args)
 	c.Assert(err, gc.NotNil)
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyDataDir(c *gc.C) {
 	args := s.getArgs(c)
 	args.DataDir = ""
-	c.Assert(manual.Bootstrap(args), gc.ErrorMatches, "data-dir argument is empty")
+	_, err := manual.Bootstrap(args)
+	c.Assert(err, gc.ErrorMatches, "data-dir argument is empty")
 }
 
 func (s *bootstrapSuite) TestBootstrapEmptyHost(c *gc.C) {
 	args := s.getArgs(c)
 	args.Host = ""
-	c.Assert(manual.Bootstrap(args), gc.ErrorMatches, "host argument is empty")
+	_, err := manual.Bootstrap(args)
+	c.Assert(err, gc.ErrorMatches, "host argument is empty")
 }
 
 func (s *bootstrapSuite) TestBootstrapNilEnviron(c *gc.C) {
 	args := s.getArgs(c)
 	args.Environ = nil
-	c.Assert(manual.Bootstrap(args), gc.ErrorMatches, "environ argument is nil")
+	_, err := manual.Bootstrap(args)
+	c.Assert(err, gc.ErrorMatches, "environ argument is nil")
 }
 
 func (s *bootstrapSuite) TestBootstrapNoMatchingTools(c *gc.C) {
@@ -128,13 +133,15 @@ func (s *bootstrapSuite) TestBootstrapNoMatchingTools(c *gc.C) {
 	args := s.getArgs(c)
 	args.PossibleTools = nil
 	defer fakeSSH{SkipDetection: true, SkipProvisionAgent: true}.install(c).Restore()
-	c.Assert(manual.Bootstrap(args), gc.ErrorMatches, "possible tools is empty")
+	_, err := manual.Bootstrap(args)
+	c.Assert(err, gc.ErrorMatches, "possible tools is empty")
 
 	// Non-empty list, but none that match the series/arch.
 	args = s.getArgs(c)
 	args.Series = "edgy"
 	defer fakeSSH{SkipDetection: true, SkipProvisionAgent: true}.install(c).Restore()
-	c.Assert(manual.Bootstrap(args), gc.ErrorMatches, "no matching tools available")
+	_, err = manual.Bootstrap(args)
+	c.Assert(err, gc.ErrorMatches, "no matching tools available")
 }
 
 func (s *bootstrapSuite) TestBootstrapToolsFileURL(c *gc.C) {
@@ -158,6 +165,6 @@ func (s *bootstrapSuite) testBootstrapToolsURL(c *gc.C, toolsURL, expectedURL st
 	args := s.getArgs(c)
 	args.PossibleTools[0].URL = toolsURL
 	defer fakeSSH{SkipDetection: true}.install(c).Restore()
-	err := manual.Bootstrap(args)
+	_, err := manual.Bootstrap(args)
 	c.Assert(err, gc.IsNil)
 }

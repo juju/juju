@@ -21,11 +21,11 @@ var logger = loggo.GetLogger("juju.environs.bootstrap")
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) error {
+func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args environs.BootstrapParams) ([]network.Address, error) {
 	cfg := environ.Config()
 	network.InitializeFromConfig(cfg)
 	if secret := cfg.AdminSecret(); secret == "" {
-		return errors.Errorf("environment configuration has no admin-secret")
+		return nil, errors.Errorf("environment configuration has no admin-secret")
 	}
 	if authKeys := ssh.SplitAuthorisedKeys(cfg.AuthorizedKeys()); len(authKeys) == 0 {
 		// Apparently this can never happen, so it's not tested. But, one day,
@@ -33,17 +33,17 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args env
 		// authorized-keys are optional config settings... but it's impossible
 		// to actually *create* a config without them)... and when it does,
 		// we'll be here to catch this problem early.
-		return errors.Errorf("environment configuration has no authorized-keys")
+		return nil, errors.Errorf("environment configuration has no authorized-keys")
 	}
 	if _, hasCACert := cfg.CACert(); !hasCACert {
-		return errors.Errorf("environment configuration has no ca-cert")
+		return nil, errors.Errorf("environment configuration has no ca-cert")
 	}
 	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
-		return errors.Errorf("environment configuration has no ca-private-key")
+		return nil, errors.Errorf("environment configuration has no ca-private-key")
 	}
 	// Write out the bootstrap-init file, and confirm storage is writeable.
 	if err := environs.VerifyStorage(environ.Storage()); err != nil {
-		return err
+		return nil, err
 	}
 	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), environ.SupportNetworks())
 	logger.Infof("bootstrapping environment %q", cfg.Name())

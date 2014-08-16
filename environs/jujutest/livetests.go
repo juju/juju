@@ -126,7 +126,7 @@ func (t *LiveTests) BootstrapOnce(c *gc.C) {
 	t.UploadFakeTools(c, t.Env.Storage())
 	err := bootstrap.EnsureNotBootstrapped(t.Env)
 	c.Assert(err, gc.IsNil)
-	err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, environs.BootstrapParams{Constraints: cons})
+	_, err = bootstrap.Bootstrap(coretesting.Context(c), t.Env, environs.BootstrapParams{Constraints: cons})
 	c.Assert(err, gc.IsNil)
 	t.bootstrapped = true
 }
@@ -852,7 +852,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *gc.C) {
 	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
 	c.Assert(err, gc.IsNil)
 
-	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
+	_, err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	st := t.Env.(testing.GetStater).GetStateInAPIServer()

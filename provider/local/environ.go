@@ -105,19 +105,19 @@ func ensureNotRoot() error {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) ([]network.Address, error) {
 	if err := ensureNotRoot(); err != nil {
-		return err
+		return nil, err
 	}
 	privateKey, err := common.GenerateSystemSSHKey(env)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	vers := version.Current
 	selectedTools, err := common.EnsureBootstrapTools(ctx, env, vers.Series, &vers.Arch)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// Record the bootstrap IP, so the containers know where to go for storage.
@@ -129,7 +129,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	}
 	if err != nil {
 		logger.Errorf("failed to apply bootstrap-ip to config: %v", err)
-		return err
+		return nil, err
 	}
 
 	mcfg := environs.NewBootstrapMachineConfig(privateKey)
@@ -152,7 +152,7 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		agent.MongoOplogSize: "1", // 1MB
 	}
 	if err := environs.FinishMachineConfig(mcfg, cfg, args.Constraints); err != nil {
-		return err
+		return nil, err
 	}
 	// don't write proxy settings for local machine
 	mcfg.AptProxySettings = proxy.Settings{}
@@ -165,20 +165,20 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 	// potentially remove it at the start of the cloud-init.
 	localLogDir := filepath.Join(mcfg.DataDir, "log")
 	if err := os.RemoveAll(localLogDir); err != nil {
-		return err
+		return nil, err
 	}
 	if err := symlink.New(mcfg.LogDir, localLogDir); err != nil {
-		return err
+		return nil, err
 	}
 	if err := os.Remove(mcfg.CloudInitOutputLog); err != nil && !os.IsNotExist(err) {
-		return err
+		return nil, err
 	}
 	cloudcfg.AddScripts(
 		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
 		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
 	)
 	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
-		return err
+		return nil, err
 	}
 	return finishBootstrap(mcfg, cloudcfg, ctx)
 }
@@ -187,17 +187,21 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 // converts that to a script, and then executes it locally.
 //
 // mcfg is supplied for testing purposes.
-var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) error {
+var finishBootstrap = func(mcfg *cloudinit.MachineConfig, cloudcfg *coreCloudinit.Config, ctx environs.BootstrapContext) ([]network.Address, error) {
 	configScript, err := sshinit.ConfigureScript(cloudcfg)
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	script := shell.DumpFileOnErrorScript(mcfg.CloudInitOutputLog) + configScript
 	cmd := exec.Command("sudo", "/bin/bash", "-s")
 	cmd.Stdin = strings.NewReader(script)
 	cmd.Stdout = ctx.GetStdout()
 	cmd.Stderr = ctx.GetStderr()
-	return cmd.Run()
+	err = cmd.Run()
+	if err != nil {
+		return nil, err
+	}
+	return network.NewAddresses("localhost"), nil
 }
 
 // StateServerInstances is specified in the Environ interface.

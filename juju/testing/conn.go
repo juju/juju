@@ -228,7 +228,7 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 	// Upload tools for both preferred and fake default series
 	envtesting.MustUploadFakeToolsVersions(environ.Storage(), versions...)
-	err = bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{})
+	_, err = bootstrap.Bootstrap(ctx, environ, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()

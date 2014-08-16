@@ -84,7 +84,7 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) ([]network.Address, error) {
 	return common.Bootstrap(ctx, env, args)
 }
 

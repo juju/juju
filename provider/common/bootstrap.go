@@ -34,7 +34,7 @@ var logger = loggo.GetLogger("juju.provider.common")
 // Bootstrap is a common implementation of the Bootstrap method defined on
 // environs.Environ; we strongly recommend that this implementation be used
 // when writing a new provider.
-func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (err error) {
+func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environs.BootstrapParams) (endpoints []network.Address, err error) {
 	// TODO make safe in the case of racing Bootstraps
 	// If two Bootstraps are called concurrently, there's
 	// no way to make sure that only one succeeds.
@@ -47,7 +47,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	// First thing, ensure we have tools otherwise there's no point.
 	selectedTools, err := EnsureBootstrapTools(ctx, env, config.PreferredSeries(env.Config()), args.Constraints.Arch)
 	if err != nil {
-		return err
+		return endpoints, err
 	}
 
 	// Get the bootstrap SSH client. Do this early, so we know
@@ -56,12 +56,12 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	if client == nil {
 		// This should never happen: if we don't have OpenSSH, then
 		// go.crypto/ssh should be used with an auto-generated key.
-		return fmt.Errorf("no SSH client available")
+		return endpoints, fmt.Errorf("no SSH client available")
 	}
 
 	privateKey, err := GenerateSystemSSHKey(env)
 	if err != nil {
-		return err
+		return endpoints, err
 	}
 	machineConfig := environs.NewBootstrapMachineConfig(privateKey)
 
@@ -73,7 +73,7 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 		Placement:     args.Placement,
 	})
 	if err != nil {
-		return fmt.Errorf("cannot start bootstrap instance: %v", err)
+		return endpoints, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	fmt.Fprintf(ctx.GetStderr(), " - %s\n", inst.Id())
 	machineConfig.InstanceId = inst.Id()
@@ -83,9 +83,13 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 		StateInstances: []instance.Id{inst.Id()},
 	})
 	if err != nil {
-		return fmt.Errorf("cannot save state: %v", err)
+		return endpoints, fmt.Errorf("cannot save state: %v", err)
 	}
-	return FinishBootstrap(ctx, client, inst, machineConfig)
+	endpoints, err = inst.Addresses()
+	if err != nil {
+		return nil, err
+	}
+	return endpoints, FinishBootstrap(ctx, client, inst, machineConfig)
 }
 
 // GenerateSystemSSHKey creates a new key for the system identity. The
