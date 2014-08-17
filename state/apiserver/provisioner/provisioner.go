@@ -78,9 +78,12 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 		}, nil
 	}
 	// Both provisioner types can watch the environment.
-	getCanWatch := common.AuthAlways(true)
+	getCanWatch := common.AuthAlways()
 	// Only the environment provisioner can read secrets.
-	getCanReadSecrets := common.AuthAlways(authorizer.AuthEnvironManager())
+	getCanReadSecrets := common.AuthNever()
+	if authorizer.AuthEnvironManager() {
+		getCanReadSecrets = common.AuthAlways()
+	}
 	return &ProvisionerAPI{
 		Remover:                common.NewRemover(st, false, getAuthFunc),
 		StatusSetter:           common.NewStatusSetter(st, getAuthFunc),

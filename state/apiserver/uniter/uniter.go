@@ -64,9 +64,9 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	// Uniter can always watch for environ changes.
-	getCanWatch := common.AuthAlways(true)
+	getCanWatch := common.AuthAlways()
 	// Uniter can not get the secrets.
-	getCanReadSecrets := common.AuthAlways(false)
+	getCanReadSecrets := common.AuthNever()
 	return &UniterAPI{
 		LifeGetter:         common.NewLifeGetter(st, accessUnitOrService),
 		StatusSetter:       common.NewStatusSetter(st, accessUnit),

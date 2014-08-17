@@ -32,9 +32,9 @@ func NewRsyslogAPI(st *state.State, resources *common.Resources, authorizer comm
 		return nil, common.ErrPerm
 	}
 	// Can always watch for environ changes.
-	getCanWatch := common.AuthAlways(true)
+	getCanWatch := common.AuthAlways()
 	// Does not get the secrets.
-	getCanReadSecrets := common.AuthAlways(false)
+	getCanReadSecrets := common.AuthNever()
 	return &RsyslogAPI{
 		EnvironWatcher: common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
 		st:             st,
