@@ -77,7 +77,6 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:       s.wordpressUnit.Tag(),
 		UnitAgent: true,
-		Entity:    s.wordpressUnit,
 	}
 
 	// Create the resource registry separately to track invocations to
@@ -1057,7 +1056,6 @@ func (s *uniterSuite) TestActionWrongUnit(c *gc.C) {
 	fakeBadAuth := apiservertesting.FakeAuthorizer{
 		Tag:       s.mysqlUnit.Tag(),
 		UnitAgent: true,
-		Entity:    s.wordpressUnit,
 	}
 	fakeBadAPI, err := uniter.NewUniterAPI(
 		s.State,
