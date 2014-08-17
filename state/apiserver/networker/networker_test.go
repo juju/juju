@@ -4,6 +4,7 @@
 package networker_test
 
 import (
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/instance"
@@ -156,8 +157,7 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as a machine agent.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		MachineAgent: true,
-		Tag:          s.machine.Tag(),
+		Tag: s.machine.Tag(),
 	}
 
 	// Create the resource registry separately to track invocations to
@@ -177,7 +177,7 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 func (s *networkerSuite) TestNetworkerNonMachineAgent(c *gc.C) {
 	// Fails with not a machine agent
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = false
+	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
 	aNetworker, err := networker.NewNetworkerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(aNetworker, gc.IsNil)

@@ -32,8 +32,7 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 	user, err := s.State.User("admin")
 	c.Assert(err, gc.IsNil)
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:    user.Tag(),
-		Client: true,
+		Tag: user.Tag(),
 	}
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
 	c.Assert(err, gc.IsNil)
@@ -41,7 +40,7 @@ func (s *userManagerSuite) SetUpTest(c *gc.C) {
 
 func (s *userManagerSuite) TestNewUserManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authorizer
-	anAuthoriser.Client = false
+	anAuthoriser.Tag = names.NewMachineTag("1")
 	endPoint, err := usermanager.NewUserManagerAPI(s.State, nil, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -255,8 +254,7 @@ func (s *userManagerSuite) TestAgentUnauthorized(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          machine1.Tag(),
-		MachineAgent: true,
+		Tag: machine1.Tag(),
 	}
 
 	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
@@ -281,23 +279,13 @@ func (s *userManagerSuite) TestSetPassword(c *gc.C) {
 }
 
 func (s *userManagerSuite) TestCannotSetPasswordWhenNotAUser(c *gc.C) {
-	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:    names.NewMachineTag("0"),
-		Client: true,
-	}
-	var err error
-	s.usermanager, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
-
-	args := usermanager.ModifyUsers{
-		Changes: []usermanager.ModifyUser{{
-			Username: "admin",
-			Password: "new-password",
-		}}}
-	results, err := s.usermanager.SetPassword(args)
+	machine1, err := s.State.AddMachine("quantal", state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
-	c.Assert(results.Results, gc.HasLen, 1)
-	expectedError := apiservertesting.ServerError("Not a user")
-	c.Assert(results.Results[0], gc.DeepEquals, params.ErrorResult{Error: expectedError})
+	s.authorizer = apiservertesting.FakeAuthorizer{
+		Tag: machine1.Tag(),
+	}
+	_, err = usermanager.NewUserManagerAPI(s.State, nil, s.authorizer)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
 func (s *userManagerSuite) TestSetMultiplePasswords(c *gc.C) {
