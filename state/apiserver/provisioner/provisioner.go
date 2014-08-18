@@ -591,11 +591,7 @@ func (p *ProvisionerAPI) SetInstanceInfo(args params.InstancesInfo) (params.Erro
 // the provisioner should retry provisioning machines with transient errors.
 func (p *ProvisionerAPI) WatchMachineErrorRetry() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-	canWatch, err := p.getCanWatchMachines()
-	if err != nil {
-		return params.NotifyWatchResult{}, err
-	}
-	if !canWatch("") {
+	if !p.authorizer.AuthEnvironManager() {
 		return result, common.ErrPerm
 	}
 	watch := newWatchMachineErrorRetry()
