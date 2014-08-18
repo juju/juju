@@ -16,148 +16,94 @@ type ActionSetSuite struct {
 	ContextSuite
 }
 
+type actionTestContext struct {
+	jujuc.Context
+	commands [][]string
+}
+
+func (a *actionTestContext) UpdateActionResults(keys []string, value string) {
+	if a.commands == nil {
+		a.commands = make([][]string, 0)
+	}
+
+	a.commands = append(a.commands, append(keys, value))
+}
+
 var _ = gc.Suite(&ActionSetSuite{})
 
 func (s *ActionSetSuite) TestActionSet(c *gc.C) {
 	var actionSetTests = []struct {
 		summary  string
-		commands [][]string
-		results  map[string]interface{}
+		command  []string
+		expected [][]string
 		errMsg   string
 		code     int
 	}{{
 		summary: "bare value(s) are an Init error",
-		commands: [][]string{
-			[]string{"result"},
-		},
-		errMsg: "error: argument \"result\" must be of the form key...=value\n",
-		code:   2,
+		command: []string{"result"},
+		errMsg:  "error: argument \"result\" must be of the form key...=value\n",
+		code:    2,
 	}, {
 		summary: "a response of one key to one value",
-		commands: [][]string{
-			[]string{"outfile=foo.bz2"},
-		},
-		results: map[string]interface{}{
-			"outfile": "foo.bz2",
+		command: []string{"outfile=foo.bz2"},
+		expected: [][]string{
+			[]string{"outfile", "foo.bz2"},
 		},
 	}, {
 		summary: "two keys, two values",
-		commands: [][]string{
-			[]string{"outfile=foo.bz2", "size=10G"},
-		},
-		results: map[string]interface{}{
-			"outfile": "foo.bz2",
-			"size":    "10G",
+		command: []string{"outfile=foo.bz2", "size=10G"},
+		expected: [][]string{
+			[]string{"outfile", "foo.bz2"},
+			[]string{"size", "10G"},
 		},
 	}, {
 		summary: "multiple = are ok",
-		commands: [][]string{
-			[]string{"outfile=foo=bz2"},
-		},
-		results: map[string]interface{}{
-			"outfile": "foo=bz2",
+		command: []string{"outfile=foo=bz2"},
+		expected: [][]string{
+			[]string{"outfile", "foo=bz2"},
 		},
 	}, {
 		summary: "several interleaved values",
-		commands: [][]string{
-			[]string{"outfile.name=foo.bz2",
-				"outfile.kind.util=bzip2",
-				"outfile.kind.ratio=high"},
-		},
-		results: map[string]interface{}{
-			"outfile": map[string]interface{}{
-				"name": "foo.bz2",
-				"kind": map[string]interface{}{
-					"util":  "bzip2",
-					"ratio": "high",
-				},
-			},
+		command: []string{"outfile.name=foo.bz2",
+			"outfile.kind.util=bzip2",
+			"outfile.kind.ratio=high"},
+		expected: [][]string{
+			[]string{"outfile", "name", "foo.bz2"},
+			[]string{"outfile", "kind", "util", "bzip2"},
+			[]string{"outfile", "kind", "ratio", "high"},
 		},
 	}, {
-		summary: "conflicting simple values in one command result in overwrite",
-		commands: [][]string{
-			[]string{"util=bzip2", "util=5"},
-		},
-		results: map[string]interface{}{
-			"util": "5",
-		},
-	}, {
-		summary: "conflicting simple values in two commands results in overwrite",
-		commands: [][]string{
-			[]string{"util=bzip2"},
-			[]string{"util=5"},
-		},
-		results: map[string]interface{}{
-			"util": "5",
+		summary: "conflicting simple values",
+		command: []string{"util=bzip2", "util=5"},
+		expected: [][]string{
+			[]string{"util", "bzip2"},
+			[]string{"util", "5"},
 		},
 	}, {
 		summary: "conflicted map spec: {map1:{key:val}} vs {map1:val2}",
-		commands: [][]string{
-			[]string{"map1.key=val", "map1=val"},
-		},
-		results: map[string]interface{}{
-			"map1": "val",
-		},
-	}, {
-		summary: "two-invocation conflicted map spec: {map1:{key:val}} vs {map1:val2}",
-		commands: [][]string{
-			[]string{"map1.key=val"},
-			[]string{"map1=val"},
-		},
-		results: map[string]interface{}{
-			"map1": "val",
-		},
-	}, {
-		summary: "conflicted map spec: {map1:val2} vs {map1:{key:val}}",
-		commands: [][]string{
-			[]string{"map1=val", "map1.key=val"},
-		},
-		results: map[string]interface{}{
-			"map1": map[string]interface{}{
-				"key": "val",
-			},
-		},
-	}, {
-		summary: "two-invocation conflicted map spec: {map1:val2} vs {map1:{key:val}}",
-		commands: [][]string{
-			[]string{"map1=val"},
-			[]string{"map1.key=val"},
-		},
-		results: map[string]interface{}{
-			"map1": map[string]interface{}{
-				"key": "val",
-			},
+		command: []string{"map1.key=val", "map1=val"},
+		expected: [][]string{
+			[]string{"map1", "key", "val"},
+			[]string{"map1", "val"},
 		},
 	}}
 
 	for i, t := range actionSetTests {
 		c.Logf("test %d: %s", i, t.summary)
-		hctx := &Context{
-			actionResults: &jujuc.ActionResults{
-				Results: map[string]interface{}{},
-			},
-		}
+		hctx := &actionTestContext{}
 		com, err := jujuc.NewCommand(hctx, "action-set")
 		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
-		for j, command := range t.commands {
-			c.Logf("  command %d: %#v", j, command)
-			code := cmd.Main(com, ctx, command)
-			results := hctx.ActionResults()
-			c.Check(results.Err, gc.IsNil)
-			c.Check(code, gc.Equals, t.code)
-			c.Check(bufferString(ctx.Stderr), gc.Equals, t.errMsg)
-			if t.code == 0 {
-				if j == len(t.commands)-1 {
-					c.Check(results.Results, jc.DeepEquals, t.results)
-				}
-			}
-		}
+		c.Logf("  command list: %#v", t.command)
+		code := cmd.Main(com, ctx, t.command)
+		c.Check(code, gc.Equals, t.code)
+		c.Check(bufferString(ctx.Stderr), gc.Equals, t.errMsg)
+		c.Check(hctx.commands, jc.DeepEquals, t.expected)
 	}
 }
 
 func (s *ActionSetSuite) TestHelp(c *gc.C) {
-	hctx := s.GetHookContext(c, -1, "")
+	hctx := &actionTestContext{}
 	com, err := jujuc.NewCommand(hctx, "action-set")
 	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)

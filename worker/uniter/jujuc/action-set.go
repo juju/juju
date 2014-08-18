@@ -83,8 +83,8 @@ func (c *ActionSetCommand) Init(args []string) error {
 	return nil
 }
 
-// Run adds the given phrases (such as foo.bar=baz) to the existing map of
-// results for the Action.
+// Run adds the given <key list>/<value> pairs, such as foo.bar=baz to the
+// existing map of results for the Action.
 func (c *ActionSetCommand) Run(ctx *cmd.Context) error {
 	for _, argSlice := range c.args {
 		valueIndex := len(argSlice) - 1

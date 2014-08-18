@@ -79,7 +79,7 @@ type HookContext struct {
 	actionData *actionData
 
 	// actionResults holds the values set by action-set and action-fail.
-	actionResults *jujuc.ActionResults
+	actionResults *actionResults
 
 	// uuid is the universally unique identifier of the environment.
 	uuid string
@@ -158,7 +158,7 @@ func NewHookContext(
 		return nil, err
 	}
 
-	ctx.actionResults = &jujuc.ActionResults{
+	ctx.actionResults = &actionResults{
 		Results: map[string]interface{}{},
 	}
 	return ctx, nil
@@ -222,16 +222,18 @@ func (ctx *HookContext) SetActionFailed(message string) error {
 	return nil
 }
 
+// ActionParams is the map of parameters delivered as arguments to an action.
+// Note that since this is a map, it is a reference to the actual data and
+// should not be altered.
+func (ctx *HookContext) ActionParams() map[string]interface{} {
+	return ctx.actionParams
+}
+
 // UpdateActionResults inserts new values for use with action-set and
 // action-fail.  The results struct will be delivered to the state server
 // upon completion of the Action.
 func (ctx *HookContext) UpdateActionResults(keys []string, value string) {
 	addValueToMap(keys, value, ctx.actionResults.Results)
-}
-
-// ActionResults retrieves the state set by UpdateActionResults.
-func (ctx *HookContext) ActionResults() *jujuc.ActionResults {
-	return ctx.actionResults
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
@@ -759,11 +761,10 @@ func newActionData(tag *names.ActionTag, params map[string]interface{}) *actionD
 	}
 }
 
-// ActionResults contains the results and potentially error value of an
-// action.
-type ActionResults struct {
-	err     error
-	results map[string]interface{}
+// actionResults contains the results of an action, and any response message.
+type actionResults struct {
+	Message string
+	Results map[string]interface{}
 }
 
 // AddValueToMap adds the given value to the map on which the method is run.
