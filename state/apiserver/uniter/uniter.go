@@ -63,8 +63,6 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		}
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
-	// Uniter can always watch for environ changes.
-	getCanWatch := common.AuthAlways()
 	// Uniter can not get the secrets.
 	getCanReadSecrets := common.AuthNever()
 	return &UniterAPI{
@@ -73,7 +71,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		DeadEnsurer:        common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
-		EnvironWatcher:     common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
+		EnvironWatcher:     common.NewEnvironWatcher(st, resources, getCanReadSecrets),
 
 		st:            st,
 		auth:          authorizer,

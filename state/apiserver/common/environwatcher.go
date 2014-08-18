@@ -15,7 +15,6 @@ import (
 type EnvironWatcher struct {
 	st                state.EnvironAccessor
 	resources         *Resources
-	getCanWatch       GetAuthFunc
 	getCanReadSecrets GetAuthFunc
 }
 
@@ -25,11 +24,10 @@ type EnvironWatcher struct {
 // determine current permissions.
 // Right now, environment tags are not used, so both created AuthFuncs
 // are called with "" for tag, which means "the current environment".
-func NewEnvironWatcher(st state.EnvironAccessor, resources *Resources, getCanWatch, getCanReadSecrets GetAuthFunc) *EnvironWatcher {
+func NewEnvironWatcher(st state.EnvironAccessor, resources *Resources, getCanReadSecrets GetAuthFunc) *EnvironWatcher {
 	return &EnvironWatcher{
 		st:                st,
 		resources:         resources,
-		getCanWatch:       getCanWatch,
 		getCanReadSecrets: getCanReadSecrets,
 	}
 }
@@ -41,17 +39,6 @@ func NewEnvironWatcher(st state.EnvironAccessor, resources *Resources, getCanWat
 // so we use the regular error return.
 func (e *EnvironWatcher) WatchForEnvironConfigChanges() (params.NotifyWatchResult, error) {
 	result := params.NotifyWatchResult{}
-
-	canWatch, err := e.getCanWatch()
-	if err != nil {
-		return result, err
-	}
-	// TODO(dimitern) If we have multiple environments in state, use a
-	// tag argument here and as a method argument.
-	if !canWatch("") {
-		return result, ErrPerm
-	}
-
 	watch := e.st.WatchForEnvironConfigChanges()
 	// Consume the initial event. Technically, API
 	// calls to Watch 'transmit' the initial event
