@@ -26,14 +26,12 @@ import (
 
 	"github.com/juju/juju/cmd/envcmd"
 	"github.com/juju/juju/constraints"
-	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/provider/common"
@@ -276,30 +274,24 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
+
+	apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
+
 	progress("opening state")
 	// We need to retry here to allow mongo to come up on the restored state server.
-	// The connection might succeed due to the mongo dial retries but there may still
-	// be a problem issuing database commands.
-	var st *state.State
+	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
 	for a := attempt.Start(); a.Next(); {
-		st, err = state.Open(&authentication.MongoInfo{
-			Info: mongo.Info{
-				Addrs:  []string{fmt.Sprintf("%s:%d", machine0Addr, cfg.StatePort())},
-				CACert: caCert,
-			},
-			Tag:      tag,
-			Password: agentConf.Credentials.Password,
-		}, mongo.DefaultDialOpts(), environs.NewStatePolicy())
-		if err == nil {
+		apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
+		if err == nil || errors.Cause(err).Error() != "EOF" {
 			break
 		}
-		progress("state server not ready - attempting to re-connect")
+		progress("api server not ready - attempting to redial")
 	}
 	if err != nil {
-		return fmt.Errorf("cannot open state: %v", err)
+		return fmt.Errorf("cannot connect to api server: %v", err)
 	}
 	progress("updating all machines")
-	if err := updateAllMachines(st, machine0Addr); err != nil {
+	if err := updateAllMachines(apiState, machine0Addr); err != nil {
 		return fmt.Errorf("cannot update machines: %v", err)
 	}
 	return nil
@@ -509,7 +501,12 @@ func setAgentAddressScript(stateAddr string) string {
 
 // updateAllMachines finds all machines and resets the stored state address
 // in each of them. The address does not include the port.
-func updateAllMachines(st *state.State, stateAddr string) error {
+func updateAllMachines(apiState *api.State, stateAddr string) error {
+	client := apiState.Client()
+	status, err := client.Status(nil)
+	if err != nil {
+		return "", fmt.Errorf("cannot get environment status: %v", err)
+	}
 	machines, err := st.AllMachines()
 	if err != nil {
 		return err
