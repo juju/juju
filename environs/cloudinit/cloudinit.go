@@ -332,7 +332,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
 	machineTag := names.NewMachineTag(cfg.MachineId)
-	_, err = cfg.addAgentInfo(c, machineTag)
+	_, err = cfg.addAgentInfo(c, machineTag, cfg.Tools.Version.Number)
 	if err != nil {
 		return err
 	}
@@ -376,7 +376,10 @@ func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(tag names.Tag) (agent.ConfigSetter, error) {
+func (cfg *MachineConfig) agentConfig(
+	tag names.Tag,
+	toolsVersion version.Number,
+) (agent.ConfigSetter, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
 	// if the machine is a stateServer then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
@@ -391,7 +394,7 @@ func (cfg *MachineConfig) agentConfig(tag names.Tag) (agent.ConfigSetter, error)
 		LogDir:            cfg.LogDir,
 		Jobs:              cfg.Jobs,
 		Tag:               tag,
-		UpgradedToVersion: version.Current.Number,
+		UpgradedToVersion: toolsVersion,
 		Password:          password,
 		Nonce:             cfg.MachineNonce,
 		StateAddresses:    cfg.stateHostAddrs(),
@@ -408,8 +411,12 @@ func (cfg *MachineConfig) agentConfig(tag names.Tag) (agent.ConfigSetter, error)
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag names.Tag) (agent.Config, error) {
-	acfg, err := cfg.agentConfig(tag)
+func (cfg *MachineConfig) addAgentInfo(
+	c *cloudinit.Config,
+	tag names.Tag,
+	toolsVersion version.Number,
+) (agent.Config, error) {
+	acfg, err := cfg.agentConfig(tag, toolsVersion)
 	if err != nil {
 		return nil, err
 	}
