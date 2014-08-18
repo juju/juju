@@ -14,6 +14,8 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/hash"
 	"github.com/juju/utils/tar"
+
+	"github.com/juju/juju/state/backups/archive"
 )
 
 // TODO(ericsnow) One concern is files that get out of date by the time
@@ -23,10 +25,6 @@ import (
 const (
 	tempPrefix   = "jujuBackup-"
 	tempFilename = "juju-backup.tar.gz"
-
-	archiveContentDir  = "juju-backup"
-	archiveDBDumpDir   = "dump"
-	archiveFilesBundle = "root.tar"
 )
 
 type dumper interface {
@@ -74,15 +72,13 @@ func create(args *createArgs) (*createResult, error) {
 
 // Builder exposes the machinery for creating a backup of juju's state.
 type builder struct {
-	// rootDir is the top directory of the builder workspace.
-	rootDir string
-	// filename is the path to the backup archive file.
-	filename string
+	// archive is the backups archive summary.
+	archive *archive.Archive
 	// checksum is the checksum of the archive file.
 	checksum string
 	// filesToBackUp is the paths to every file to include in the archive.
 	filesToBackUp []string
-	// dbDump is the wrapper around the DB dump command and args.
+	// db is the wrapper around the DB dump command and args.
 	db dumper
 	// archiveFile is the backup archive file.
 	archiveFile *os.File
@@ -106,13 +102,13 @@ func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
 	if err != nil {
 		return nil, errors.Annotate(err, "error making backups workspace")
 	}
-	b.rootDir = rootDir
-	b.filename = filepath.Join(b.rootDir, tempFilename)
+	filename := filepath.Join(rootDir, tempFilename)
+	b.archive = archive.NewRootedArchive(filename, rootDir)
 
 	// Create all the direcories we need.  We go with user-only
 	// permissions on principle; the directories are short-lived so in
 	// practice it shouldn't matter much.
-	err = os.MkdirAll(b.dbDumpDir(), 0700)
+	err = os.MkdirAll(b.archive.DBDumpDir(), 0700)
 	if err != nil {
 		b.cleanUp()
 		return nil, errors.Annotate(err, "error creating temp directories")
@@ -120,31 +116,19 @@ func newBuilder(filesToBackUp []string, db dumper) (*builder, error) {
 
 	// Create the archive files.  We do so here to fail as early as
 	// possible.
-	b.archiveFile, err = os.Create(b.filename)
+	b.archiveFile, err = os.Create(filename)
 	if err != nil {
 		b.cleanUp()
 		return nil, errors.Annotate(err, "error creating archive file")
 	}
 
-	b.bundleFile, err = os.Create(b.filesBundle())
+	b.bundleFile, err = os.Create(b.archive.FilesBundle())
 	if err != nil {
 		b.cleanUp()
 		return nil, errors.Annotate(err, `error creating "bundle" file`)
 	}
 
 	return &b, nil
-}
-
-func (b *builder) contentDir() string {
-	return filepath.Join(b.rootDir, archiveContentDir)
-}
-
-func (b *builder) dbDumpDir() string {
-	return filepath.Join(b.contentDir(), archiveDBDumpDir)
-}
-
-func (b *builder) filesBundle() string {
-	return filepath.Join(b.contentDir(), archiveFilesBundle)
 }
 
 func (b *builder) closeArchiveFile() error {
@@ -174,11 +158,11 @@ func (b *builder) closeBundleFile() error {
 }
 
 func (b *builder) removeRootDir() error {
-	if b.rootDir != "" {
+	if b.archive == nil || b.archive.RootDir() == "" {
 		return nil
 	}
 
-	if err := os.RemoveAll(b.rootDir); err != nil {
+	if err := os.RemoveAll(b.archive.RootDir()); err != nil {
 		return errors.Annotate(err, "error removing backups temp dir")
 	}
 
@@ -232,7 +216,7 @@ func (b *builder) buildDBDump() error {
 		return nil
 	}
 
-	dumpDir := b.dbDumpDir()
+	dumpDir := b.archive.DBDumpDir()
 	if err := b.db.Dump(dumpDir); err != nil {
 		return errors.Annotate(err, "error dumping juju state database")
 	}
@@ -247,8 +231,8 @@ func (b *builder) buildArchiveRaw(outFile io.Writer) error {
 	// We add a trailing slash (or whatever) to root so that everything
 	// in the path up to and including that slash is stripped off when
 	// each file is added to the tar file.
-	stripPrefix := b.rootDir + string(os.PathSeparator)
-	filenames := []string{b.contentDir()}
+	stripPrefix := b.archive.RootDir() + string(os.PathSeparator)
+	filenames := []string{b.archive.ContentDir()}
 	if _, err := tar.TarFiles(filenames, tarball, stripPrefix); err != nil {
 		return errors.Annotate(err, "error bundling final archive")
 	}
@@ -257,7 +241,7 @@ func (b *builder) buildArchiveRaw(outFile io.Writer) error {
 }
 
 func (b *builder) buildArchive() error {
-	logger.Infof("building archive file (%s)", b.filename)
+	logger.Infof("building archive file (%s)", b.archive.Filename())
 	if b.archiveFile == nil {
 		return errors.New("missing archiveFile")
 	}
@@ -302,7 +286,7 @@ func (b *builder) buildAll() error {
 
 func (b *builder) result() (*createResult, error) {
 	// Open the file in read-only mode.
-	file, err := os.Open(b.filename)
+	file, err := os.Open(b.archive.Filename())
 	if err != nil {
 		return nil, errors.Annotate(err, "error opening archive file")
 	}
