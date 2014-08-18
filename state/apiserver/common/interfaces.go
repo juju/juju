@@ -61,12 +61,20 @@ func AuthEither(a, b GetAuthFunc) GetAuthFunc {
 	}
 }
 
-// AuthAlways returns an authentication function that always returns
-// the given permission.
-func AuthAlways(ok bool) GetAuthFunc {
+// AuthAlways returns an authentication function that always returns true.
+func AuthAlways() GetAuthFunc {
 	return func() (AuthFunc, error) {
 		return func(tag string) bool {
-			return ok
+			return true
+		}, nil
+	}
+}
+
+// AuthNever returns an authentication function that never returns true.
+func AuthNever() GetAuthFunc {
+	return func() (AuthFunc, error) {
+		return func(tag string) bool {
+			return false
 		}, nil
 	}
 }
