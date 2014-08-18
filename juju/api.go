@@ -238,10 +238,14 @@ func apiInfoConnect(store configstore.Storage, info configstore.EnvironInfo, api
 		// valid UUID.
 		environTag = names.NewEnvironTag(endpoint.EnvironUUID)
 	}
+	username := info.APICredentials().User
+	if username == "" {
+		username = "admin"
+	}
 	apiInfo := &api.Info{
 		Addrs:      endpoint.Addresses,
 		CACert:     endpoint.CACert,
-		Tag:        names.NewUserTag(info.APICredentials().User),
+		Tag:        names.NewUserTag(username),
 		Password:   info.APICredentials().Password,
 		EnvironTag: environTag,
 	}
