@@ -4,6 +4,7 @@
 package keyupdater_test
 
 import (
+	"github.com/juju/names"
 	gc "launchpad.net/gocheck"
 
 	jujutesting "github.com/juju/juju/juju/testing"
@@ -43,8 +44,7 @@ func (s *authorisedKeysSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as a state server
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag:          s.rawMachine.Tag(),
-		MachineAgent: true,
+		Tag: s.rawMachine.Tag(),
 	}
 	s.keyupdater, err = keyupdater.NewKeyUpdaterAPI(s.State, s.resources, s.authoriser)
 	c.Assert(err, gc.IsNil)
@@ -58,7 +58,7 @@ func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIAcceptsStateServer(c *gc.C) {
 
 func (s *authorisedKeysSuite) TestNewKeyUpdaterAPIRefusesNonMachineAgent(c *gc.C) {
 	anAuthoriser := s.authoriser
-	anAuthoriser.MachineAgent = false
+	anAuthoriser.Tag = names.NewUnitTag("ubuntu/1")
 	endPoint, err := keyupdater.NewKeyUpdaterAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")

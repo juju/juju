@@ -19,11 +19,9 @@ type EnvironmentAPI struct {
 
 // NewEnvironmentAPI creates a new instance of the Environment API.
 func NewEnvironmentAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*EnvironmentAPI, error) {
-	// Can always watch for environ changes.
-	getCanWatch := common.AuthAlways(true)
 	// Does not get the secrets.
-	getCanReadSecrets := common.AuthAlways(false)
+	getCanReadSecrets := common.AuthNever()
 	return &EnvironmentAPI{
-		EnvironWatcher: common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
+		EnvironWatcher: common.NewEnvironWatcher(st, resources, getCanReadSecrets),
 	}, nil
 }

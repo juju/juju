@@ -52,60 +52,17 @@ func (s *environWatcherSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return true
-		}, nil
-	}
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{},
 		resources,
-		getCanWatch,
 		nil,
 	)
 	result, err := e.WatchForEnvironConfigChanges()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{"1", nil})
 	c.Assert(resources.Count(), gc.Equals, 1)
-}
-
-func (s *environWatcherSuite) TestWatchGetAuthError(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
-		return nil, fmt.Errorf("pow")
-	}
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewEnvironWatcher(
-		&fakeEnvironAccessor{},
-		resources,
-		getCanWatch,
-		nil,
-	)
-	_, err := e.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.ErrorMatches, "pow")
-	c.Assert(resources.Count(), gc.Equals, 0)
-}
-
-func (s *environWatcherSuite) TestWatchAuthError(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return false
-		}, nil
-	}
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewEnvironWatcher(
-		&fakeEnvironAccessor{},
-		resources,
-		getCanWatch,
-		nil,
-	)
-	result, err := e.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
-	c.Assert(resources.Count(), gc.Equals, 0)
 }
 
 func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
@@ -118,7 +75,6 @@ func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
 	testingEnvConfig := testingEnvConfig(c)
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{envConfig: testingEnvConfig},
-		nil,
 		nil,
 		getCanReadSecrets,
 	)
@@ -140,7 +96,6 @@ func (*environWatcherSuite) TestEnvironConfigFetchError(c *gc.C) {
 			envConfigError: fmt.Errorf("pow"),
 		},
 		nil,
-		nil,
 		getCanReadSecrets,
 	)
 	_, err := e.EnvironConfig()
@@ -153,7 +108,6 @@ func (*environWatcherSuite) TestEnvironConfigGetAuthError(c *gc.C) {
 	}
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{envConfig: testingEnvConfig(c)},
-		nil,
 		nil,
 		getCanReadSecrets,
 	)
@@ -171,7 +125,6 @@ func (*environWatcherSuite) TestEnvironConfigReadSecretsFalse(c *gc.C) {
 	testingEnvConfig := testingEnvConfig(c)
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{envConfig: testingEnvConfig},
-		nil,
 		nil,
 		getCanReadSecrets,
 	)
