@@ -77,8 +77,6 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 			return isMachineAgent && names.NewMachineTag(parentId) == authEntityTag
 		}, nil
 	}
-	// Both provisioner types can watch the environment.
-	getCanWatch := common.AuthAlways()
 	// Only the environment provisioner can read secrets.
 	getCanReadSecrets := common.AuthNever()
 	if authorizer.AuthEnvironManager() {
@@ -93,7 +91,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 		StateAddresser:         common.NewStateAddresser(st),
 		APIAddresser:           common.NewAPIAddresser(st, resources),
 		ToolsGetter:            common.NewToolsGetter(st, getAuthFunc),
-		EnvironWatcher:         common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
+		EnvironWatcher:         common.NewEnvironWatcher(st, resources, getCanReadSecrets),
 		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, getCanReadSecrets),
 		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
 		st:                     st,
