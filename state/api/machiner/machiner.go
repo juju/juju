@@ -4,6 +4,8 @@
 package machiner
 
 import (
+	"fmt"
+
 	"github.com/juju/names"
 
 	"github.com/juju/juju/state/api/base"
@@ -34,15 +36,39 @@ func (st *State) machineLife(tag names.MachineTag) (params.Life, error) {
 	return common.Life(st.facade, tag)
 }
 
+// machineIsManual requests the IsManual flag of the given machine from the server.
+func (st *State) machineIsManual(tag names.MachineTag) (bool, error) {
+	var result params.IsManualResults
+	args := params.Entities{
+		Entities: []params.Entity{
+			{Tag: tag.String()},
+		},
+	}
+	err := st.facade.FacadeCall("IsManual", args, &result)
+	if err != nil {
+		return false, err
+	}
+	if n := len(result.Results); n != 1 {
+		return false, fmt.Errorf("expected 1 result, got %d", n)
+	}
+	// TODO(mue) Add check of possible results error.
+	return result.Results[0].IsManual, nil
+}
+
 // Machine provides access to methods of a state.Machine through the facade.
 func (st *State) Machine(tag names.MachineTag) (*Machine, error) {
 	life, err := st.machineLife(tag)
 	if err != nil {
 		return nil, err
 	}
+	isManual, err := st.machineIsManual(tag)
+	if err != nil {
+		return nil, err
+	}
 	return &Machine{
-		tag:  tag,
-		life: life,
-		st:   st,
+		tag:      tag,
+		life:     life,
+		isManual: isManual,
+		st:       st,
 	}, nil
 }

@@ -4,8 +4,6 @@
 package machiner
 
 import (
-	"fmt"
-
 	"github.com/juju/names"
 
 	"github.com/juju/juju/network"
@@ -16,9 +14,10 @@ import (
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	tag  names.MachineTag
-	life params.Life
-	st   *State
+	tag      names.MachineTag
+	life     params.Life
+	isManual bool
+	st       *State
 }
 
 // Tag returns the machine's tag.
@@ -32,22 +31,8 @@ func (m *Machine) Life() params.Life {
 }
 
 // IsManual returns true if the machine was manually provisioned.
-func (m *Machine) IsManual() (bool, error) {
-	var result params.IsManualResults
-	args := params.Entities{
-		Entities: []params.Entity{
-			{Tag: m.tag.String()},
-		},
-	}
-	err := m.st.facade.FacadeCall("IsManual", args, &result)
-	if err != nil {
-		return false, err
-	}
-	if n := len(result.Results); n != 1 {
-		return false, fmt.Errorf("expected 1 result, got %d", n)
-	}
-	// TODO(mue) Add check of possible results error.
-	return result.Results[0].IsManual, nil
+func (m *Machine) IsManual() bool {
+	return m.isManual
 }
 
 // Refresh updates the cached local copy of the machine's data.

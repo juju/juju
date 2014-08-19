@@ -313,17 +313,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	if networker.CanStart() {
 		ecap, err := environCapability(st)
 		if err != nil {
-			return nil, fmt.Errorf("cannot retrieve environment capability: %v", err)
+			return nil, errors.Annotate(err, "cannot retrieve environment capability")
 		}
 		m, err := st.Machiner().Machine(a.Tag().(names.MachineTag))
 		if err != nil {
-			return nil, fmt.Errorf("cannot retrieve machine: %v", err)
+			return nil, errors.Annotate(err, "cannot retrieve machine")
 		}
-		isManual, err := m.IsManual()
-		if err != nil {
-			return nil, fmt.Errorf("cannot check for manual provisioning: %v", err)
-		}
-		if ecap.RequiresSafeNetworker(a.MachineId, isManual) {
+		if ecap.RequiresSafeNetworker(a.MachineId, m.IsManual()) {
 			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
 				return networker.NewSafeNetworker(st.Networker(), agentConfig)
 			})
