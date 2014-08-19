@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/tar"
 
 	"github.com/juju/juju/mongo"
 	coreutils "github.com/juju/juju/utils"
@@ -89,80 +88,10 @@ var getFilesToBackup = func(rootDir string) ([]string, error) {
 	return backupFiles, nil
 }
 
-func dumpFiles(dumpdir string) error {
-	tarFile, err := os.Create(filepath.Join(dumpdir, "root.tar"))
-	if err != nil {
-		return errors.Annotate(err, "error while opening initial archive")
-	}
-	defer tarFile.Close()
-
-	backupFiles, err := getFilesToBackup("")
-	if err != nil {
-		return errors.Annotate(err, "cannot determine files to backup")
-	}
-
-	sep := string(os.PathSeparator)
-	_, err = tar.TarFiles(backupFiles, tarFile, sep)
-	if err != nil {
-		return errors.Annotate(err, "cannot backup configuration files")
-	}
-
-	return nil
-}
-
 //---------------------------
 // database
 
 const dumpName = "mongodump"
-
-// DBConnInfo is a simplification of authentication.MongoInfo.
-type DBConnInfo interface {
-	Address() string
-	Username() string
-	Password() string
-}
-
-type dbConnInfo struct {
-	address  string
-	username string
-	password string
-}
-
-// NewDBConnInfo returns a new DBConnInfo.
-func NewDBConnInfo(addr, user, pw string) DBConnInfo {
-	dbinfo := dbConnInfo{
-		address:  addr,
-		username: user,
-		password: pw,
-	}
-	return &dbinfo
-}
-
-// Address returns the connection address.
-func (ci *dbConnInfo) Address() string {
-	return ci.address
-}
-
-// Username returns the connection username.
-func (ci *dbConnInfo) Username() string {
-	return ci.username
-}
-
-// Password returns the connection password.
-func (ci *dbConnInfo) Password() string {
-	return ci.password
-}
-
-// UpdateFromMongoInfo pulls in the provided connection info.
-func (ci *dbConnInfo) UpdateFromMongoInfo(mgoInfo *mongo.MongoInfo) {
-	ci.address = mgoInfo.Addrs[0]
-	ci.password = mgoInfo.Password
-
-	// TODO(dfc) Backup should take a Tag.
-	if mgoInfo.Tag != nil {
-		ci.username = mgoInfo.Tag.String()
-	}
-}
 
 var getMongodumpPath = func() (string, error) {
 	mongod, err := mongo.Path()
@@ -183,26 +112,29 @@ var getMongodumpPath = func() (string, error) {
 	return path, nil
 }
 
-func dumpDatabase(info DBConnInfo, dirname string) error {
-	dumper := mongoDumper{
-		address:  info.Address(),
-		username: info.Username(),
-		password: info.Password(),
-	}
-
-	if err := dumper.Dump(dirname); err != nil {
-		return errors.Trace(err)
-	}
-
-	return nil
-}
-
 type mongoDumper struct {
 	address  string
 	username string
 	password string
 }
 
+// NewDBDumper returns a new value with a Dump method for dumping the
+// juju state database.
+func NewDBDumper(mgoInfo *authentication.MongoInfo) *mongoDumper {
+	dumper := mongoDumper{
+		address:  mgoInfo.Addrs[0],
+		password: mgoInfo.Password,
+	}
+
+	// TODO(dfc) Backup should take a Tag.
+	if mgoInfo.Tag != nil {
+		dumper.username = mgoInfo.Tag.String()
+	}
+
+	return &dumper
+}
+
+// Dump dumps the juju state database.
 func (md *mongoDumper) Dump(dumpDir string) error {
 	if md.address == "" {
 		return errors.New("missing address")
