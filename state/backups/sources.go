@@ -184,6 +184,36 @@ var getMongodumpPath = func() (string, error) {
 }
 
 func dumpDatabase(info DBConnInfo, dirname string) error {
+	dumper := mongoDumper{
+		address:  info.Address(),
+		username: info.Username(),
+		password: info.Password(),
+	}
+
+	if err := dumper.Dump(dirname); err != nil {
+		return errors.Trace(err)
+	}
+
+	return nil
+}
+
+type mongoDumper struct {
+	address  string
+	username string
+	password string
+}
+
+func (md *mongoDumper) Dump(dumpDir string) error {
+	if md.address == "" {
+		return errors.New("missing address")
+	}
+	if md.username == "" {
+		return errors.New("missing username")
+	}
+	if md.password == "" {
+		return errors.New("missing password")
+	}
+
 	mongodumpPath, err := getMongodumpPath()
 	if err != nil {
 		return errors.Annotate(err, "mongodump not available")
@@ -193,13 +223,13 @@ func dumpDatabase(info DBConnInfo, dirname string) error {
 		mongodumpPath,
 		"--oplog",
 		"--ssl",
-		"--host", info.Address(),
-		"--username", info.Username(),
-		"--password", info.Password(),
-		"--out", dirname,
+		"--host", md.address,
+		"--username", md.username,
+		"--password", md.password,
+		"--out", dumpDir,
 	)
 	if err != nil {
-		return errors.Annotate(err, "failed to dump database")
+		return errors.Annotate(err, "error dumping database")
 	}
 
 	return nil
