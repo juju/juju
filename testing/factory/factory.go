@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/url"
+	"time"
 
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
@@ -71,6 +72,12 @@ type UnitParams struct {
 // RelationParams are used to create relations.
 type RelationParams struct {
 	Endpoints []state.Endpoint
+}
+
+type MetricParams struct {
+	Unit    *state.Unit
+	Time    *time.Time
+	Metrics []*state.Metric
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -235,7 +242,36 @@ func (factory *Factory) MakeUnit(c *gc.C, params *UnitParams) *state.Unit {
 	c.Assert(err, gc.IsNil)
 	err = unit.AssignToMachine(params.Machine)
 	c.Assert(err, gc.IsNil)
+	serviceCharmURL, _ := params.Service.CharmURL()
+	err = unit.SetCharmURL(serviceCharmURL)
+	c.Assert(err, gc.IsNil)
 	return unit
+}
+
+// MakeMetric makes a metric with specified params, filling in
+// sane defaults for missing values.
+// If params is not specified, defaults are used. If more than one
+// params stuct is passed to the function, it panics.
+func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricBatch {
+	now := time.Now().Round(time.Second).UTC()
+	if params == nil {
+		params = &MetricParams{}
+	}
+
+	if params.Unit == nil {
+		params.Unit = factory.MakeUnit(c, nil)
+	}
+	if params.Time == nil {
+		params.Time = &now
+	}
+
+	if params.Metrics == nil {
+		params.Metrics = []*state.Metric{state.NewMetric("item1", "42", now, []byte("creds"))}
+	}
+
+	metric, err := params.Unit.AddMetrics(params.Metrics)
+	c.Assert(err, gc.IsNil)
+	return metric
 }
 
 // MakeRelation create a relation with specified params, filling in sane
