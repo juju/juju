@@ -32,11 +32,10 @@ import (
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju"
-	"github.com/juju/juju/network"
 	_ "github.com/juju/juju/provider/all"
 	"github.com/juju/juju/provider/common"
-	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/utils/ssh"
 )
 
@@ -262,24 +261,12 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 		return fmt.Errorf("cannot restore bootstrap machine: %v", err)
 	}
 	progress("restored bootstrap machine")
-	// Construct our own state info rather than using juju.NewConn so
-	// that we can avoid storage eventual-consistency issues
-	// (and it's faster too).
-	caCert, ok := cfg.CACert()
-	if !ok {
-		return fmt.Errorf("configuration has no CA certificate")
-	}
-	// TODO(dfc) agenConf.Credentials should supply a Tag
-	tag, err := names.ParseTag(agentConf.Credentials.Tag)
-	if err != nil {
-		return err
-	}
 
 	apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
 
 	progress("opening state")
 	// We need to retry here to allow mongo to come up on the restored state server.
-	attempt := utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
+	attempt = utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
 	for a := attempt.Start(); a.Next(); {
 		apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
 		if err == nil || errors.Cause(err).Error() != "EOF" {
@@ -505,24 +492,20 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 	client := apiState.Client()
 	status, err := client.Status(nil)
 	if err != nil {
-		return "", fmt.Errorf("cannot get environment status: %v", err)
-	}
-	machines, err := st.AllMachines()
-	if err != nil {
-		return err
+		return fmt.Errorf("cannot get status: %v", err)
 	}
 	pendingMachineCount := 0
 	done := make(chan error)
-	for _, machine := range machines {
+	for _, machineStatus := range status.Machines {
 		// A newly resumed state server requires no updating, and more
 		// than one state server is not yet support by this plugin.
-		if machine.IsManager() || machine.Life() == state.Dead {
+		if machineStatus.HasVote || machineStatus.WantsVote || params.Life(machineStatus.Life) == params.Dead {
 			continue
 		}
 		pendingMachineCount++
-		machine := machine
+		machine := machineStatus
 		go func() {
-			err := runMachineUpdate(machine, setAgentAddressScript(stateAddr))
+			err := runMachineUpdate(client, machine, setAgentAddressScript(stateAddr))
 			if err != nil {
 				logger.Errorf("failed to update machine %s: %v", machine, err)
 			} else {
@@ -541,10 +524,11 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 }
 
 // runMachineUpdate connects via ssh to the machine and runs the update script
-func runMachineUpdate(m *state.Machine, sshArg string) error {
+func runMachineUpdate(client *api.Client, m api.MachineStatus, sshArg string) error {
 	progress("updating machine: %v\n", m)
-	addr := network.SelectPublicAddress(m.Addresses())
-	if addr == "" {
+	tag := names.NewMachineTag(m.Id)
+	addr, err := client.PublicAddress(tag.String())
+	if err != nil {
 		return fmt.Errorf("no appropriate public address found")
 	}
 	return runViaSsh(addr, sshArg)
