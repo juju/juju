@@ -65,7 +65,8 @@ func AuthEither(a, b GetAuthFunc) GetAuthFunc {
 func AuthAlways() GetAuthFunc {
 	return func() (AuthFunc, error) {
 		return func(tag string) bool {
-			return true
+			_, err := names.ParseTag(tag)
+			return err == nil
 		}, nil
 	}
 }
