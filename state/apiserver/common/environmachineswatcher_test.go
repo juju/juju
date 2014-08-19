@@ -4,14 +4,14 @@
 package common_test
 
 import (
-	"fmt"
-
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
+	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -34,17 +34,16 @@ func (f *fakeEnvironMachinesWatcher) WatchEnvironMachines() state.StringsWatcher
 }
 
 func (s *environMachinesWatcherSuite) TestWatchEnvironMachines(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return true
-		}, nil
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:            names.NewMachineTag("0"),
+		EnvironManager: true,
 	}
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewEnvironMachinesWatcher(
 		&fakeEnvironMachinesWatcher{initial: []string{"foo"}},
 		resources,
-		getCanWatch,
+		authorizer,
 	)
 	result, err := e.WatchEnvironMachines()
 	c.Assert(err, gc.IsNil)
@@ -52,34 +51,17 @@ func (s *environMachinesWatcherSuite) TestWatchEnvironMachines(c *gc.C) {
 	c.Assert(resources.Count(), gc.Equals, 1)
 }
 
-func (s *environMachinesWatcherSuite) TestWatchGetAuthError(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
-		return nil, fmt.Errorf("pow")
-	}
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewEnvironMachinesWatcher(
-		&fakeEnvironMachinesWatcher{},
-		resources,
-		getCanWatch,
-	)
-	_, err := e.WatchEnvironMachines()
-	c.Assert(err, gc.ErrorMatches, "pow")
-	c.Assert(resources.Count(), gc.Equals, 0)
-}
-
 func (s *environMachinesWatcherSuite) TestWatchAuthError(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return false
-		}, nil
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:            names.NewMachineTag("1"),
+		EnvironManager: false,
 	}
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewEnvironMachinesWatcher(
 		&fakeEnvironMachinesWatcher{},
 		resources,
-		getCanWatch,
+		authorizer,
 	)
 	_, err := e.WatchEnvironMachines()
 	c.Assert(err, gc.ErrorMatches, "permission denied")

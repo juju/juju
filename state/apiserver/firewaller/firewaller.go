@@ -75,7 +75,7 @@ func NewFirewallerAPI(
 	machinesWatcher := common.NewEnvironMachinesWatcher(
 		st,
 		resources,
-		accessEnviron,
+		authorizer,
 	)
 	// InstanceId() is supported for machines.
 	instanceIdGetter := common.NewInstanceIdGetter(
