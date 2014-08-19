@@ -274,20 +274,24 @@ func (slConfig *SyslogConfig) ServerKeyPath() string {
 	return filepath.Join(slConfig.LogDir, filename)
 }
 
+// LogrotateConfPath returns the the the entire logrotate.conf path including filename.
 func (slConfig *SyslogConfig) LogrotateConfPath() string {
 	filename := either(slConfig.LogrotateConfFileName, defaultLogrotateConfFileName)
 	return filepath.Join(slConfig.LogDir, filename)
 }
 
+// LogrotateHelperPath returns the entire logrotate.helper path including filename.
 func (slConfig *SyslogConfig) LogrotateHelperPath() string {
 	filename := either(slConfig.LogrotateHelperFileName, defaultLogrotateHelperFileName)
 	return filepath.Join(slConfig.LogDir, filename)
 }
 
+// LogrotateConfFile returns a ready to write to disk byte array of the logrotate.conf file.
 func (slConfig *SyslogConfig) LogrotateConfFile() ([]byte, error) {
 	return slConfig.logrotateRender(logrotateConfTemplate)
 }
 
+// LogrotateHelperFile returns a ready to write to disk byte array of the logrotate.helper file.
 func (slConfig *SyslogConfig) LogrotateHelperFile() ([]byte, error) {
 	return slConfig.logrotateRender(logrotateHelperTemplate)
 }
