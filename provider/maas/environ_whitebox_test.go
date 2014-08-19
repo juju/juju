@@ -34,7 +34,6 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	coretesting "github.com/juju/juju/testing"
-	"github.com/juju/juju/tools"
 	"github.com/juju/juju/version"
 )
 
@@ -198,7 +197,9 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	// Create node 0: it will be used as the bootstrap node.
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
+	suite.testMAASObject.TestServer.NewNode(
+		`{"system_id": "node0", "hostname": "host0", "architecture": "amd64/generic", "memory": 1024, "cpu_count": 1}`,
+	)
 	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node0", lshwXML)
@@ -221,14 +222,17 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
 	// Create node 1: it will be used as instance number 1.
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
+	suite.testMAASObject.TestServer.NewNode(
+		`{"system_id": "node1", "hostname": "host1", "architecture": "amd64/generic", "memory": 1024, "cpu_count": 1}`,
+	)
 	lshwXML, err = suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f1": "eth0"})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("node1", lshwXML)
-	// TODO(wallyworld) - test instance metadata
-	instance, _ := testing.AssertStartInstance(c, env, "1")
+	instance, hc := testing.AssertStartInstance(c, env, "1")
 	c.Assert(err, gc.IsNil)
 	c.Check(instance, gc.NotNil)
+	c.Assert(hc, gc.NotNil)
+	c.Check(hc.String(), gc.Equals, "arch=amd64 cpu-cores=1 mem=1024M")
 
 	// The instance number 1 has been acquired and started.
 	actions, found = operations["node1"]
@@ -268,12 +272,10 @@ func stringp(val string) *string {
 }
 
 func (suite *environSuite) TestAcquireNode(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode("", constraints.Value{}, nil, nil, tools.List{fakeTools})
+	_, err := env.acquireNode("", constraints.Value{}, nil, nil)
 
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -288,12 +290,10 @@ func (suite *environSuite) TestAcquireNode(c *gc.C) {
 }
 
 func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode("host0", constraints.Value{}, nil, nil, tools.List{fakeTools})
+	_, err := env.acquireNode("host0", constraints.Value{}, nil, nil)
 
 	c.Check(err, gc.IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -308,13 +308,11 @@ func (suite *environSuite) TestAcquireNodeByName(c *gc.C) {
 }
 
 func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 	constraints := constraints.Value{Arch: stringp("arm"), Mem: uint64p(1024)}
 
-	_, _, err := env.acquireNode("", constraints, nil, nil, tools.List{fakeTools})
+	_, err := env.acquireNode("", constraints, nil, nil)
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -325,12 +323,10 @@ func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 }
 
 func (suite *environSuite) TestAcquireNodePassedAgentName(c *gc.C) {
-	stor := NewStorage(suite.makeEnviron())
-	fakeTools := envtesting.MustUploadFakeToolsVersions(stor, version.Current)[0]
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
 
-	_, _, err := env.acquireNode("", constraints.Value{}, nil, nil, tools.List{fakeTools})
+	_, err := env.acquireNode("", constraints.Value{}, nil, nil)
 
 	c.Check(err, gc.IsNil)
 	requestValues := suite.testMAASObject.TestServer.NodeOperationRequestValues()
@@ -493,7 +489,9 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode", "hostname": "host"}`)
+	suite.testMAASObject.TestServer.NewNode(
+		`{"system_id": "thenode", "hostname": "host", "architecture": "amd64/generic", "memory": 256, "cpu_count": 8}`,
+	)
 	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
 	c.Assert(err, gc.IsNil)
 	suite.testMAASObject.TestServer.AddNodeDetails("thenode", lshwXML)

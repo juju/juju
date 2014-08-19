@@ -236,6 +236,9 @@ func (env *maasEnviron) getMAASClient() *gomaasapi.MAASObject {
 func convertConstraints(cons constraints.Value) url.Values {
 	params := url.Values{}
 	if cons.Arch != nil {
+		// Note: Juju and MAAS use the same architecture names.
+		// MAAS also accepts a subarchitecture (e.g. "highbank"
+		// for ARM), which defaults to "generic" if unspecified.
 		params.Add("arch", *cons.Arch)
 	}
 	if cons.CpuCores != nil {
@@ -274,13 +277,30 @@ func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
 }
 
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(nodeName string, cons constraints.Value, includeNetworks, excludeNetworks []string, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
+func (environ *maasEnviron) acquireNode(nodeName string, cons constraints.Value, includeNetworks, excludeNetworks []string) (gomaasapi.MAASObject, error) {
 	acquireParams := convertConstraints(cons)
 	addNetworks(acquireParams, includeNetworks, excludeNetworks)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
 	if nodeName != "" {
 		acquireParams.Add("name", nodeName)
+	} else if cons.Arch == nil {
+		// TODO(axw) 2014-08-18 #1358219
+		// We should be requesting preferred
+		// architectures if unspecified, like
+		// in the other providers.
+		//
+		// This is slightly complicated in MAAS
+		// as there are a finite number of each
+		// architecture; preference may also
+		// conflict with other constraints, such
+		// as tags. Thus, a preference becomes a
+		// demand (which may fail) if not handled
+		// properly.
+		logger.Warningf(
+			"no architecture was specified, acquiring an arbitrary node",
+		)
 	}
+
 	var result gomaasapi.JSONObject
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
@@ -291,16 +311,14 @@ func (environ *maasEnviron) acquireNode(nodeName string, cons constraints.Value,
 		}
 	}
 	if err != nil {
-		return gomaasapi.MAASObject{}, nil, err
+		return gomaasapi.MAASObject{}, err
 	}
 	node, err := result.GetMAASObject()
 	if err != nil {
-		msg := fmt.Errorf("unexpected result from 'acquire' on MAAS API: %v", err)
-		return gomaasapi.MAASObject{}, nil, msg
+		err := errors.Annotate(err, "unexpected result from 'acquire' on MAAS API")
+		return gomaasapi.MAASObject{}, err
 	}
-	tools := possibleTools[0]
-	logger.Warningf("picked arbitrary tools %v", tools)
-	return node, tools, nil
+	return node, nil
 }
 
 // startNode installs and boots a node.
@@ -433,24 +451,21 @@ func (environ *maasEnviron) setupNetworks(inst instance.Instance, networksToEnab
 func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	instance.Instance, *instance.HardwareCharacteristics, []network.Info, error,
 ) {
-	var inst *maasInstance
 	var err error
 	nodeName := args.Placement
 	requestedNetworks := args.MachineConfig.Networks
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
-	node, tools, err := environ.acquireNode(
+	node, err := environ.acquireNode(
 		nodeName,
 		args.Constraints,
 		includeNetworks,
 		excludeNetworks,
-		args.Tools)
+	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
-	} else {
-		inst = &maasInstance{maasObject: &node, environ: environ}
-		args.MachineConfig.Tools = tools
 	}
+	inst := &maasInstance{maasObject: &node, environ: environ}
 	defer func() {
 		if err != nil {
 			if err := environ.StopInstances(inst.Id()); err != nil {
@@ -458,6 +473,20 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 			}
 		}
 	}()
+
+	hc, err := inst.hardwareCharacteristics()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	selectedTools, err := args.Tools.Match(tools.Filter{
+		Arch: *hc.Arch,
+	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	args.MachineConfig.Tools = selectedTools[0]
+
 	var networkInfo []network.Info
 	if args.MachineConfig.HasNetworks() {
 		networkInfo, err = environ.setupNetworks(inst, set.NewStrings(requestedNetworks...))
@@ -490,13 +519,13 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	series := args.Tools.OneSeries()
-	if err := environ.startNode(*inst.maasObject, series, userdata); err != nil {
+	if err := environ.startNode(
+		*inst.maasObject, args.MachineConfig.Tools.Version.Series, userdata,
+	); err != nil {
 		return nil, nil, nil, err
 	}
 	logger.Debugf("started instance %q", inst.Id())
-	// TODO(bug 1193998) - return instance hardware characteristics as well
-	return inst, nil, networkInfo, nil
+	return inst, hc, networkInfo, nil
 }
 
 // newCloudinitConfig creates a cloudinit.Config structure

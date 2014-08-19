@@ -14,19 +14,19 @@ import (
 // EnvironMachinesWatcher implements a common WatchEnvironMachines
 // method for use by various facades.
 type EnvironMachinesWatcher struct {
-	st          state.EnvironMachinesWatcher
-	resources   *Resources
-	getCanWatch GetAuthFunc
+	st         state.EnvironMachinesWatcher
+	resources  *Resources
+	authorizer Authorizer
 }
 
 // NewEnvironMachinesWatcher returns a new EnvironMachinesWatcher. The
 // GetAuthFunc will be used on each invocation of WatchUnits to
 // determine current permissions.
-func NewEnvironMachinesWatcher(st state.EnvironMachinesWatcher, resources *Resources, getCanWatch GetAuthFunc) *EnvironMachinesWatcher {
+func NewEnvironMachinesWatcher(st state.EnvironMachinesWatcher, resources *Resources, authorizer Authorizer) *EnvironMachinesWatcher {
 	return &EnvironMachinesWatcher{
-		st:          st,
-		resources:   resources,
-		getCanWatch: getCanWatch,
+		st:         st,
+		resources:  resources,
+		authorizer: authorizer,
 	}
 }
 
@@ -35,11 +35,7 @@ func NewEnvironMachinesWatcher(st state.EnvironMachinesWatcher, resources *Resou
 // environment.
 func (e *EnvironMachinesWatcher) WatchEnvironMachines() (params.StringsWatchResult, error) {
 	result := params.StringsWatchResult{}
-	canWatch, err := e.getCanWatch()
-	if err != nil {
-		return params.StringsWatchResult{}, err
-	}
-	if !canWatch("") {
+	if !e.authorizer.AuthEnvironManager() {
 		return result, ErrPerm
 	}
 	watch := e.st.WatchEnvironMachines()

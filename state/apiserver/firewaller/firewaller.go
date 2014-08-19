@@ -44,7 +44,6 @@ func NewFirewallerAPI(
 	accessUnit := getAuthFuncForTagKind(names.UnitTagKind)
 	accessService := getAuthFuncForTagKind(names.ServiceTagKind)
 	accessMachine := getAuthFuncForTagKind(names.MachineTagKind)
-	accessEnviron := common.AuthAlways()
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
 	accessUnitServiceOrMachine := common.AuthEither(accessUnitOrService, accessMachine)
 
@@ -58,7 +57,7 @@ func NewFirewallerAPI(
 	environWatcher := common.NewEnvironWatcher(
 		st,
 		resources,
-		accessEnviron,
+		authorizer,
 	)
 	// Watch() is supported for units or services.
 	entityWatcher := common.NewAgentEntityWatcher(
@@ -75,7 +74,7 @@ func NewFirewallerAPI(
 	machinesWatcher := common.NewEnvironMachinesWatcher(
 		st,
 		resources,
-		accessEnviron,
+		authorizer,
 	)
 	// InstanceId() is supported for machines.
 	instanceIdGetter := common.NewInstanceIdGetter(
