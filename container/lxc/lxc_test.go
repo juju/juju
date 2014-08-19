@@ -36,9 +36,9 @@ func Test(t *stdtesting.T) {
 type LxcSuite struct {
 	lxctesting.TestSuite
 
-	events   chan mock.Event
-	useClone bool
-	useAUFS  bool
+	events        chan mock.Event
+	useClone      bool
+	useAUFS       bool
 	mountToolsDir bool
 }
 
