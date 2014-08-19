@@ -17,6 +17,18 @@ func (u *Uniter) GetProxyValues() proxy.Settings {
 	return u.proxy
 }
 
+func (c *HookContext) ActionResultsMap() map[string]interface{} {
+	return c.actionResults.Results
+}
+
+func (c *HookContext) ActionStatus() string {
+	return string(c.actionResults.Status)
+}
+
+func (c *HookContext) ActionMessage() string {
+	return c.actionResults.Message
+}
+
 var MergeEnvironment = mergeEnvironment
 
 var SearchHook = searchHook

@@ -4,6 +4,7 @@
 package uniter_test
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/juju/cmd"
 	"github.com/juju/names"
 	envtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -26,6 +28,10 @@ import (
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state"
+	"github.com/juju/juju/state/api"
+	"github.com/juju/juju/state/api/params"
+	apiuniter "github.com/juju/juju/state/api/uniter"
+	contexttesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/jujuc"
@@ -815,6 +821,48 @@ func (s *HookContextSuite) getHookContext(c *gc.C, uuid string, relid int,
 		proxies, addMetrics, nil)
 	c.Assert(err, gc.IsNil)
 	return context
+}
+
+// TestUpdateActionResults demonstrates that UpdateActionResults functions
+// as expected; the further tests of action-set are in jujuc/action-set_test.
+func (s *HookContextSuite) TestUpdateActionResults(c *gc.C) {
+	tests := []struct {
+		expected map[string]interface{}
+		errMsg   string
+		code     int
+		command  []string
+	}{{
+		command: []string{"foo.bar=baz", "foo.baz=bar",
+			"bar.foo=foo2", "bar=5"},
+		expected: map[string]interface{}{
+			"foo": map[string]interface{}{
+				"bar": "baz",
+				"baz": "bar",
+			},
+			"bar": "5",
+		},
+	}, {
+		command:  []string{"foo-=5"},
+		expected: map[string]interface{}{},
+		errMsg: "error: key \"foo-\" must start and end with " +
+			"lowercase alphanumeric, and contain only " +
+			"lowercase alphanumeric and hyphens\n",
+		code: 2,
+	}}
+
+	for i, t := range tests {
+		c.Logf("action-set test %d: %#v", i, t.command)
+		uuid, err := utils.NewUUID()
+		c.Assert(err, gc.IsNil)
+		hctx := s.getHookContext(c, uuid.String(), -1, "", noProxies)
+		com, err := jujuc.NewCommand(hctx, "action-set")
+		c.Assert(err, gc.IsNil)
+		ctx := contexttesting.Context(c)
+		code := cmd.Main(com, ctx, t.command)
+		c.Check(code, gc.Equals, t.code)
+		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, t.errMsg)
+		c.Check(hctx.ActionResultsMap(), jc.DeepEquals, t.expected)
+	}
 }
 
 func convertSettings(settings params.RelationSettings) map[string]interface{} {
