@@ -61,7 +61,7 @@ func AuthEither(a, b GetAuthFunc) GetAuthFunc {
 	}
 }
 
-// AuthAlways returns an authentication function that always returns true.
+// AuthAlways returns an authentication function that always returns true iff it is passed a valid tag.
 func AuthAlways() GetAuthFunc {
 	return func() (AuthFunc, error) {
 		return func(tag string) bool {
