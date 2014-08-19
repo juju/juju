@@ -25,13 +25,16 @@ import (
 	"github.com/juju/juju/environs/jujutest"
 	envtesting "github.com/juju/juju/environs/testing"
 	"github.com/juju/juju/environs/tools"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/arch"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/local"
 	"github.com/juju/juju/state/api/params"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/upstart"
+	"github.com/juju/juju/version"
 )
 
 const echoCommandScript = "#!/bin/sh\necho $0 \"$@\" >> $0.args"
@@ -311,6 +314,68 @@ func (s *localJujuTestSuite) TestBootstrapRemoveLeftovers(c *gc.C) {
 	c.Assert(logThings, jc.DoesNotExist)
 	c.Assert(cloudInitOutputLog, jc.DoesNotExist)
 	c.Assert(filepath.Join(rootDir, "log"), jc.IsSymlink)
+}
+
+func (s *localJujuTestSuite) TestToolsURLPatchedForLxc(c *gc.C) {
+	dir := c.MkDir()
+	toolsDir := filepath.Join(dir, "storage", "tools", "releases")
+	err := os.MkdirAll(toolsDir, 0755)
+	c.Assert(err, gc.IsNil)
+	config := localConfig(c, map[string]interface{}{
+		"root-dir":  dir,
+		"container": "lxc",
+	})
+	ctx := coretesting.Context(c)
+	env, err := local.Provider.Prepare(ctx, config)
+	c.Assert(err, gc.IsNil)
+
+	machineId := "1"
+	stateInfo := testing.FakeStateInfo(machineId)
+	apiInfo := testing.FakeAPIInfo(machineId)
+	machineConfig := environs.NewMachineConfig(machineId, "", nil, stateInfo, apiInfo)
+	possibleTools := envtesting.AssertUploadFakeToolsVersions(
+		c, env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))
+	params := environs.StartInstanceParams{
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	}
+
+	local.PatchCreateContainer(&s.CleanupSuite, c, "file:///var/lib/juju/storage/tools/juju-5.4.5-precise-amd64.tgz")
+	inst, _, _, err := env.StartInstance(params)
+	c.Assert(err, gc.IsNil)
+	c.Assert(inst.Id(), gc.Equals, instance.Id("mock"))
+}
+
+func (s *localJujuTestSuite) TestToolsURLNotPatchedForKvm(c *gc.C) {
+	dir := c.MkDir()
+	toolsDir := filepath.Join(dir, "storage", "tools", "releases")
+	err := os.MkdirAll(toolsDir, 0755)
+	c.Assert(err, gc.IsNil)
+	config := localConfig(c, map[string]interface{}{
+		"root-dir":  dir,
+		"container": "kvm",
+	})
+	ctx := coretesting.Context(c)
+	env, err := local.Provider.Prepare(ctx, config)
+	c.Assert(err, gc.IsNil)
+
+	machineId := "1"
+	stateInfo := testing.FakeStateInfo(machineId)
+	apiInfo := testing.FakeAPIInfo(machineId)
+	machineConfig := environs.NewMachineConfig(machineId, "", nil, stateInfo, apiInfo)
+	possibleTools := envtesting.AssertUploadFakeToolsVersions(
+		c, env.Storage(), version.MustParseBinary("5.4.5-precise-amd64"))
+	params := environs.StartInstanceParams{
+		Tools:         possibleTools,
+		MachineConfig: machineConfig,
+	}
+
+	url, err := env.Storage().URL("tools/releases/juju-5.4.5-precise-amd64.tgz")
+	c.Assert(err, gc.IsNil)
+	local.PatchCreateContainer(&s.CleanupSuite, c, url)
+	inst, _, _, err := env.StartInstance(params)
+	c.Assert(err, gc.IsNil)
+	c.Assert(inst.Id(), gc.Equals, instance.Id("mock"))
 }
 
 func (s *localJujuTestSuite) TestConstraintsValidator(c *gc.C) {

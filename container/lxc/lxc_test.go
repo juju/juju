@@ -39,6 +39,7 @@ type LxcSuite struct {
 	events   chan mock.Event
 	useClone bool
 	useAUFS  bool
+	mountToolsDir bool
 }
 
 var _ = gc.Suite(&LxcSuite{})
@@ -160,6 +161,9 @@ func (s *LxcSuite) makeManager(c *gc.C, name string) container.Manager {
 	params["use-clone"] = fmt.Sprintf("%v", s.useClone)
 	if s.useAUFS {
 		params["use-aufs"] = "true"
+	}
+	if s.mountToolsDir {
+		params["tools-dir"] = "/mount/tools"
 	}
 	manager, err := lxc.NewContainerManager(params)
 	c.Assert(err, gc.IsNil)
@@ -314,6 +318,7 @@ func (s *LxcSuite) TestCreateContainerEventsWithCloneExistingTemplateAUFS(c *gc.
 func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 	s.createTemplate(c)
 	s.PatchValue(&s.useClone, true)
+	s.PatchValue(&s.mountToolsDir, true)
 	manager := s.makeManager(c, "test")
 	instance := containertesting.CreateContainer(c, manager, "1")
 	name := string(instance.Id())
@@ -322,6 +327,8 @@ func (s *LxcSuite) TestCreateContainerWithCloneMountsAndAutostarts(c *gc.C) {
 	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
 	c.Assert(err, gc.IsNil)
 	mountLine := "lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0"
+	c.Assert(string(config), jc.Contains, mountLine)
+	mountLine = "lxc.mount.entry=/mount/tools var/lib/juju/storage/tools none defaults,bind 0 0"
 	c.Assert(string(config), jc.Contains, mountLine)
 	c.Assert(autostartLink, jc.IsSymlink)
 }
@@ -444,6 +451,27 @@ func (s *LxcSuite) TestDestroyContainerNoRestartDir(c *gc.C) {
 	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
 	err = manager.DestroyContainer(instance.Id())
 	c.Assert(err, gc.IsNil)
+}
+
+func (s *LxcSuite) TestCreateContainerWithToolsDir(c *gc.C) {
+	err := os.Remove(s.RestartDir)
+	c.Assert(err, gc.IsNil)
+
+	s.mountToolsDir = true
+	manager := s.makeManager(c, "test")
+	instance := containertesting.CreateContainer(c, manager, "1/lxc/0")
+	name := string(instance.Id())
+	config, err := ioutil.ReadFile(lxc.ContainerConfigFilename(name))
+	c.Assert(err, gc.IsNil)
+	expected := `
+lxc.network.type = veth
+lxc.network.link = nic42
+lxc.network.flags = up
+lxc.start.auto = 1
+lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
+lxc.mount.entry=/mount/tools var/lib/juju/storage/tools none defaults,bind 0 0
+`
+	c.Assert(string(config), gc.Equals, expected)
 }
 
 type NetworkSuite struct {
