@@ -46,9 +46,9 @@ type upgradeWorkerContext struct {
 
 // Initialise a upgradeWorkerContext once the agent configuration is available.
 func (c *upgradeWorkerContext) InitializeFromConfig(config agent.Config) {
-	if config.UpgradedToVersion() == version.Current.Number {
-		logger.Infof("No need for upgrade: upgrade steps for %v have already been run.",
-			version.Current.Number)
+	if !upgrades.AreUpgradesDefined(config.UpgradedToVersion()) {
+		logger.Infof("no upgrade steps required or upgrade steps for %v have already "+
+			"been run.", version.Current.Number)
 		close(c.UpgradeComplete)
 	}
 }

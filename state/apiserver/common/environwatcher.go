@@ -13,9 +13,9 @@ import (
 // EnvironWatcher implements two common methods for use by various
 // facades - WatchForEnvironConfigChanges and EnvironConfig.
 type EnvironWatcher struct {
-	st                state.EnvironAccessor
-	resources         *Resources
-	getCanReadSecrets GetAuthFunc
+	st         state.EnvironAccessor
+	resources  *Resources
+	authorizer Authorizer
 }
 
 // NewEnvironWatcher returns a new EnvironWatcher. Active watchers
@@ -24,11 +24,11 @@ type EnvironWatcher struct {
 // determine current permissions.
 // Right now, environment tags are not used, so both created AuthFuncs
 // are called with "" for tag, which means "the current environment".
-func NewEnvironWatcher(st state.EnvironAccessor, resources *Resources, getCanReadSecrets GetAuthFunc) *EnvironWatcher {
+func NewEnvironWatcher(st state.EnvironAccessor, resources *Resources, authorizer Authorizer) *EnvironWatcher {
 	return &EnvironWatcher{
-		st:                st,
-		resources:         resources,
-		getCanReadSecrets: getCanReadSecrets,
+		st:         st,
+		resources:  resources,
+		authorizer: authorizer,
 	}
 }
 
@@ -56,20 +56,13 @@ func (e *EnvironWatcher) WatchForEnvironConfigChanges() (params.NotifyWatchResul
 func (e *EnvironWatcher) EnvironConfig() (params.EnvironConfigResult, error) {
 	result := params.EnvironConfigResult{}
 
-	canReadSecrets, err := e.getCanReadSecrets()
-	if err != nil {
-		return result, err
-	}
-
 	config, err := e.st.EnvironConfig()
 	if err != nil {
 		return result, err
 	}
 	allAttrs := config.AllAttrs()
 
-	// TODO(dimitern) If we have multiple environments in state, use a
-	// tag argument here and as a method argument.
-	if !canReadSecrets("") {
+	if !e.authorizer.AuthEnvironManager() {
 		// Mask out any secrets in the environment configuration
 		// with values of the same type, so it'll pass validation.
 		//

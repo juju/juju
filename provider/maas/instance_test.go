@@ -126,3 +126,52 @@ func (s *instanceTest) TestAddressesInvalidContents(c *gc.C) {
 	_, err := inst.Addresses()
 	c.Assert(err, gc.NotNil)
 }
+
+func (s *instanceTest) TestHardwareCharacteristics(c *gc.C) {
+	jsonValue := `{
+		"system_id": "system_id",
+        "architecture": "amd64/generic",
+        "cpu_count": 6,
+        "memory": 16384
+	}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	hc, err := inst.hardwareCharacteristics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(hc, gc.NotNil)
+	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M`)
+}
+
+func (s *instanceTest) TestHardwareCharacteristicsWithTags(c *gc.C) {
+	jsonValue := `{
+		"system_id": "system_id",
+        "architecture": "amd64/generic",
+        "cpu_count": 6,
+        "memory": 16384,
+        "tag_names": ["a", "b"]
+	}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	hc, err := inst.hardwareCharacteristics()
+	c.Assert(err, gc.IsNil)
+	c.Assert(hc, gc.NotNil)
+	c.Assert(hc.String(), gc.Equals, `arch=amd64 cpu-cores=6 mem=16384M tags=a,b`)
+}
+
+func (s *instanceTest) TestHardwareCharacteristicsMissing(c *gc.C) {
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "cpu_count": 6, "memory": 16384}`,
+		`error determining architecture: Requested string, got <nil>.`)
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "amd64", "memory": 16384}`,
+		`error determining cpu count: Requested float64, got <nil>.`)
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6}`,
+		`error determining available memory: Requested float64, got <nil>.`)
+	s.testHardwareCharacteristicsMissing(c, `{"system_id": "id", "architecture": "armhf", "cpu_count": 6, "memory": 1, "tag_names": "wot"}`,
+		`error determining tag names: Requested array, got string.`)
+}
+
+func (s *instanceTest) testHardwareCharacteristicsMissing(c *gc.C, json, expect string) {
+	obj := s.testMAASObject.TestServer.NewNode(json)
+	inst := maasInstance{maasObject: &obj, environ: s.makeEnviron()}
+	_, err := inst.hardwareCharacteristics()
+	c.Assert(err, gc.ErrorMatches, expect)
+}
