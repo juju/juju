@@ -4,7 +4,8 @@
 package keyupdater
 
 import (
-	"fmt"
+	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/state/api/base"
 	"github.com/juju/juju/state/api/params"
@@ -22,10 +23,10 @@ func NewState(caller base.APICaller) *State {
 }
 
 // AuthorisedKeys returns the authorised ssh keys for the machine specified by machineTag.
-func (st *State) AuthorisedKeys(machineTag string) ([]string, error) {
+func (st *State) AuthorisedKeys(tag names.MachineTag) ([]string, error) {
 	var results params.StringsResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: machineTag}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	err := st.facade.FacadeCall("AuthorisedKeys", args, &results)
 	if err != nil {
@@ -34,7 +35,7 @@ func (st *State) AuthorisedKeys(machineTag string) ([]string, error) {
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
@@ -45,10 +46,10 @@ func (st *State) AuthorisedKeys(machineTag string) ([]string, error) {
 
 // WatchAuthorisedKeys returns a notify watcher that looks for changes in the
 // authorised ssh keys for the machine specified by machineTag.
-func (st *State) WatchAuthorisedKeys(machineTag string) (watcher.NotifyWatcher, error) {
+func (st *State) WatchAuthorisedKeys(tag names.MachineTag) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: machineTag}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	err := st.facade.FacadeCall("WatchAuthorisedKeys", args, &results)
 	if err != nil {
@@ -57,7 +58,7 @@ func (st *State) WatchAuthorisedKeys(machineTag string) (watcher.NotifyWatcher, 
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected 1 result, got %d", len(results.Results))
+		return nil, errors.Errorf("expected 1 result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
