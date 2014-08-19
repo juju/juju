@@ -31,10 +31,8 @@ func NewRsyslogAPI(st *state.State, resources *common.Resources, authorizer comm
 	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
-	// Does not get the secrets.
-	getCanReadSecrets := common.AuthNever()
 	return &RsyslogAPI{
-		EnvironWatcher: common.NewEnvironWatcher(st, resources, getCanReadSecrets),
+		EnvironWatcher: common.NewEnvironWatcher(st, resources, authorizer),
 		st:             st,
 		authorizer:     authorizer,
 		resources:      resources,

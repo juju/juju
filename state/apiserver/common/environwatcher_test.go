@@ -6,6 +6,7 @@ package common_test
 import (
 	"fmt"
 
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	gc "launchpad.net/gocheck"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
+	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -66,17 +68,15 @@ func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
 }
 
 func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
-	getCanReadSecrets := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return true
-		}, nil
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:            names.NewMachineTag("0"),
+		EnvironManager: true,
 	}
-
 	testingEnvConfig := testingEnvConfig(c)
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{envConfig: testingEnvConfig},
 		nil,
-		getCanReadSecrets,
+		authorizer,
 	)
 	result, err := e.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -86,47 +86,31 @@ func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
 }
 
 func (*environWatcherSuite) TestEnvironConfigFetchError(c *gc.C) {
-	getCanReadSecrets := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return true
-		}, nil
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:            names.NewMachineTag("0"),
+		EnvironManager: true,
 	}
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{
 			envConfigError: fmt.Errorf("pow"),
 		},
 		nil,
-		getCanReadSecrets,
+		authorizer,
 	)
 	_, err := e.EnvironConfig()
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
-func (*environWatcherSuite) TestEnvironConfigGetAuthError(c *gc.C) {
-	getCanReadSecrets := func() (common.AuthFunc, error) {
-		return nil, fmt.Errorf("pow")
+func (*environWatcherSuite) TestEnvironConfigMaskedSecrets(c *gc.C) {
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:            names.NewMachineTag("0"),
+		EnvironManager: false,
 	}
-	e := common.NewEnvironWatcher(
-		&fakeEnvironAccessor{envConfig: testingEnvConfig(c)},
-		nil,
-		getCanReadSecrets,
-	)
-	_, err := e.EnvironConfig()
-	c.Assert(err, gc.ErrorMatches, "pow")
-}
-
-func (*environWatcherSuite) TestEnvironConfigReadSecretsFalse(c *gc.C) {
-	getCanReadSecrets := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return false
-		}, nil
-	}
-
 	testingEnvConfig := testingEnvConfig(c)
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{envConfig: testingEnvConfig},
 		nil,
-		getCanReadSecrets,
+		authorizer,
 	)
 	result, err := e.EnvironConfig()
 	c.Assert(err, gc.IsNil)

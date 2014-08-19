@@ -63,15 +63,13 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		}
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
-	// Uniter can not get the secrets.
-	getCanReadSecrets := common.AuthNever()
 	return &UniterAPI{
 		LifeGetter:         common.NewLifeGetter(st, accessUnitOrService),
 		StatusSetter:       common.NewStatusSetter(st, accessUnit),
 		DeadEnsurer:        common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
-		EnvironWatcher:     common.NewEnvironWatcher(st, resources, getCanReadSecrets),
+		EnvironWatcher:     common.NewEnvironWatcher(st, resources, authorizer),
 
 		st:            st,
 		auth:          authorizer,
