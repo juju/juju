@@ -17,6 +17,7 @@ import (
 	coreCloudinit "github.com/juju/juju/cloudinit"
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/container"
+	"github.com/juju/juju/container/kvm"
 	"github.com/juju/juju/container/lxc"
 	containertesting "github.com/juju/juju/container/testing"
 	"github.com/juju/juju/environs"
@@ -347,6 +348,9 @@ func (s *localJujuTestSuite) TestToolsURLPatchedForLxc(c *gc.C) {
 }
 
 func (s *localJujuTestSuite) TestToolsURLNotPatchedForKvm(c *gc.C) {
+	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) {
+		return true, nil
+	})
 	dir := c.MkDir()
 	toolsDir := filepath.Join(dir, "storage", "tools", "releases")
 	err := os.MkdirAll(toolsDir, 0755)
