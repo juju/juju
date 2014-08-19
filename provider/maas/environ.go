@@ -472,8 +472,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 
 	selectedTools, err := args.Tools.Match(tools.Filter{
-		Arch:   *hc.Arch,
-		Series: args.Tools.OneSeries(),
+		Arch: *hc.Arch,
 	})
 	if err != nil {
 		return nil, nil, nil, err
