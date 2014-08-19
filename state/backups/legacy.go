@@ -4,18 +4,14 @@
 package backups
 
 import (
-	"compress/gzip"
-	"crypto/sha1"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"time"
 
 	"github.com/juju/errors"
-	"github.com/juju/utils/hash"
-	"github.com/juju/utils/tar"
 )
 
 // Backup creates a tar.gz file named juju-backup_<date YYYYMMDDHHMMSS>.tar.gz
@@ -26,96 +22,33 @@ import (
 // Between the two, this is all that is necessary to later restore the
 // juju agent on another machine.
 func Backup(password string, username string, outputFolder string, addr string) (filename string, sha1sum string, err error) {
-	// YYYYMMDDHHMMSS
-	formattedDate := time.Now().Format("20060102150405")
+	// Call create().
+	db := mongoDumper{addr, username, password}
+	filesToBackUp, err := getFilesToBackup("")
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	args := createArgs{filesToBackUp, &db}
+	result, err := create(&args)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+
+	// Copy the archive file.
+	formattedDate := time.Now().Format("20060102150405") // YYYYMMDDHHMMSS
 	bkpFile := fmt.Sprintf("juju-backup_%s.tar.gz", formattedDate)
 
-	// Prepare the temp dirs.
-	root, contentdir, dumpdir, err := prepareTemp()
+	file, err := os.Create(filepath.Join(outputFolder, bkpFile))
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Annotate(err, "error creating archive file")
 	}
-	defer os.RemoveAll(root)
-
-	// Dump the files.
-	logger.Infof("dumping state-related files")
-	err = dumpFiles(contentdir)
+	_, err = io.Copy(file, result.archiveFile)
 	if err != nil {
-		return "", "", errors.Trace(err)
+		return "", "", errors.Annotate(err, "error saving archive file")
 	}
 
-	// Dump the database.
-	logger.Infof("dumping database")
-	dbinfo := NewDBConnInfo(addr, username, password)
-	err = dumpDatabase(dbinfo, dumpdir)
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-
-	// Bundle it all into a tarball.
-	logger.Infof("building archive file (%s)", bkpFile)
-	// We add a trailing slash (or whatever) to root so that everything
-	// in the path up to and including that slash is stripped off when
-	// each file is added to the tar file.
-	sep := string(os.PathSeparator)
-	shaSum, err := createBundle(bkpFile, outputFolder, contentdir, root+sep)
-	if err != nil {
-		return "", "", errors.Trace(err)
-	}
-
-	return bkpFile, shaSum, nil
-}
-
-// prepareTemp creates the temp directories which backup uses as its
-// staging area while building the archive.  It returns the paths,
-// (temp root, tarball root, DB dumpdir), along with any error.
-func prepareTemp() (string, string, string, error) {
-	tempRoot, err := ioutil.TempDir("", "jujuBackup")
-	if err != nil {
-		err = errors.Annotate(err, "error creating root temp directory")
-		return "", "", "", err
-	}
-	tarballRoot := filepath.Join(tempRoot, "juju-backup")
-	dbDumpdir := filepath.Join(tarballRoot, "dump")
-	// We go with user-only permissions on principle; the directories
-	// are short-lived so in practice it shouldn't matter much.
-	err = os.MkdirAll(dbDumpdir, os.FileMode(0700))
-	if err != nil {
-		err = errors.Annotate(err, "error creating temp directories")
-		return "", "", "", err
-	}
-	return tempRoot, tarballRoot, dbDumpdir, nil
-}
-
-func createBundle(name, outdir, contentdir, root string) (string, error) {
-	archive, err := os.Create(filepath.Join(outdir, name))
-	if err != nil {
-		return "", errors.Annotate(err, "error opening archive file")
-	}
-	defer archive.Close()
-
-	// Build the tarball, writing out to both the archive file and a
-	// SHA1 hash.  The hash will correspond to the gzipped file rather
-	// than to the uncompressed contents of the tarball.  This is so
-	// that users can compare the published checksum against the
-	// checksum of the file without having to decompress it first.
-	hasher := hash.NewHashingWriter(archive, sha1.New())
-	err = func() error {
-		tarball := gzip.NewWriter(hasher)
-		defer tarball.Close()
-
-		_, err := tar.TarFiles([]string{contentdir}, tarball, root)
-		return err
-	}()
-	if err != nil {
-		return "", errors.Annotate(err, "error bundling final archive")
-	}
-
-	// Return the SHA1 checksum.
-	// Gzip writers may buffer what they're writing so we must call
-	// Close() on the writer *before* getting the checksum from the
-	// hasher.
-	return hasher.Base64Sum(), nil
+	// Return the info.
+	return bkpFile, result.checksum, nil
 }
 
 // StorageName returns the path in environment storage where a backup
