@@ -160,6 +160,8 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.configChangedVal.Set(struct{}{})
 	agentConfig := a.CurrentConfig()
 	if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
+		logger.Infof("no upgrade steps required or upgrade steps for %v have already "+
+			"been run.", version.Current.Number)
 		close(a.upgradeComplete)
 	}
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
