@@ -18,6 +18,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 type customDataSuite struct {
@@ -37,7 +38,10 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		LogDir:             agent.DefaultLogDir,
 		Jobs:               []params.MachineJob{params.JobManageEnviron, params.JobHostUnits},
 		CloudInitOutputLog: environs.CloudInitOutputLog,
-		Tools:              &tools.Tools{URL: "file://" + c.MkDir()},
+		Tools: &tools.Tools{
+			Version: version.MustParseBinary("1.2.3-quantal-amd64"),
+			URL:     "file://" + c.MkDir(),
+		},
 		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				CACert: testing.CACert,
