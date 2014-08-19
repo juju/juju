@@ -5,6 +5,7 @@ package backups_test
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"fmt"
 	"io"
@@ -26,40 +27,54 @@ type LegacySuite struct {
 	ranCommand bool
 }
 
-func (s *LegacySuite) createTestFiles(c *gc.C) (string, []string) {
+type tarContent struct {
+	Name   string
+	Body   string
+	Nested []tarContent
+}
+
+var expectedContents = map[string]string{
+	"TarDirectoryEmpty":                     "",
+	"TarDirectoryPopulated":                 "",
+	"TarDirectoryPopulated/TarSubFile1":     "TarSubFile1",
+	"TarDirectoryPopulated/TarSubDirectory": "",
+	"TarFile1":                              "TarFile1",
+	"TarFile2":                              "TarFile2",
+}
+
+func (s *LegacySuite) createTestFiles(c *gc.C) (string, []string, []tarContent) {
+	var expected []tarContent
+	var tempFiles []string
+
 	rootDir := c.MkDir()
 
-	tarDirE := path.Join(rootDir, "TarDirectoryEmpty")
-	err := os.Mkdir(tarDirE, os.FileMode(0755))
-	c.Check(err, gc.IsNil)
+	for name, body := range expectedContents {
+		filename := filepath.Join(rootDir, filepath.FromSlash(name))
 
-	tarDirP := path.Join(rootDir, "TarDirectoryPopulated")
-	err = os.Mkdir(tarDirP, os.FileMode(0755))
-	c.Check(err, gc.IsNil)
+		top := (path.Dir(name) == ".")
 
-	tarSubFile1 := path.Join(tarDirP, "TarSubFile1")
-	tarSubFile1Handle, err := os.Create(tarSubFile1)
-	c.Check(err, gc.IsNil)
-	tarSubFile1Handle.WriteString("TarSubFile1")
-	tarSubFile1Handle.Close()
+		if body == "" {
+			err := os.MkdirAll(filename, os.FileMode(0755))
+			c.Check(err, gc.IsNil)
+		} else {
+			if !top {
+				err := os.MkdirAll(filepath.Dir(filename), os.FileMode(0755))
+				c.Check(err, gc.IsNil)
+			}
+			file, err := os.Create(filename)
+			c.Assert(err, gc.IsNil)
+			file.WriteString(body)
+			file.Close()
+		}
 
-	tarSubDir := path.Join(tarDirP, "TarDirectoryPopulatedSubDirectory")
-	err = os.Mkdir(tarSubDir, os.FileMode(0755))
-	c.Check(err, gc.IsNil)
+		if top {
+			tempFiles = append(tempFiles, filename)
+		}
+		content := tarContent{filepath.ToSlash(filename), body, nil}
+		expected = append(expected, content)
+	}
 
-	tarFile1 := path.Join(rootDir, "TarFile1")
-	tarFile1Handle, err := os.Create(tarFile1)
-	c.Check(err, gc.IsNil)
-	tarFile1Handle.WriteString("TarFile1")
-	tarFile1Handle.Close()
-
-	tarFile2 := path.Join(rootDir, "TarFile2")
-	tarFile2Handle, err := os.Create(tarFile2)
-	c.Check(err, gc.IsNil)
-	tarFile2Handle.WriteString("TarFile2")
-	tarFile2Handle.Close()
-
-	return rootDir, []string{tarDirE, tarDirP, tarFile1, tarFile2}
+	return rootDir, tempFiles, expected
 }
 
 func (s *LegacySuite) patchSources(c *gc.C, testFiles []string) {
@@ -75,20 +90,6 @@ func (s *LegacySuite) patchSources(c *gc.C, testFiles []string) {
 		s.ranCommand = true
 		return nil
 	})
-}
-
-type tarContent struct {
-	Name string
-	Body string
-}
-
-var testExpectedTarContents = []tarContent{
-	{"TarDirectoryEmpty", ""},
-	{"TarDirectoryPopulated", ""},
-	{"TarDirectoryPopulated/TarSubFile1", "TarSubFile1"},
-	{"TarDirectoryPopulated/TarDirectoryPopulatedSubDirectory", ""},
-	{"TarFile1", "TarFile1"},
-	{"TarFile2", "TarFile2"},
 }
 
 func readTarFile(c *gc.C, tarFile io.Reader) map[string]string {
@@ -132,6 +133,27 @@ func (s *LegacySuite) checkTarContents(
 			c.Log("Also checking the file contents")
 			c.Check(body, gc.Equals, expected.Body)
 		}
+
+		if expected.Nested != nil {
+			c.Log("Also checking the nested tar file")
+			nestedFile := bytes.NewBufferString(body)
+			s.checkTarContents(c, nestedFile, expected.Nested)
+		}
+	}
+
+	if c.Failed() {
+		c.Log("-----------------------")
+		c.Log("expected:")
+		for _, expected := range allExpected {
+			c.Log(fmt.Sprintf("%s -> %q", expected.Name, expected.Body))
+		}
+		c.Log("got:")
+		for name, body := range contents {
+			if len(body) > 200 {
+				body = body[:200] + "...(truncated)"
+			}
+			c.Log(fmt.Sprintf("%s -> %q", name, body))
+		}
 	}
 }
 
@@ -159,11 +181,11 @@ func (s *LegacySuite) checkSize(c *gc.C, file *os.File, size, expected int64) {
 	c.Check(stat.Size(), gc.Equals, expected)
 }
 
-func (s *LegacySuite) checkArchive(c *gc.C, file *os.File) {
+func (s *LegacySuite) checkArchive(c *gc.C, file *os.File, bundle []tarContent) {
 	expected := []tarContent{
-		{"juju-backup", ""},
-		{"juju-backup/dump", ""},
-		{"juju-backup/root.tar", ""},
+		{"juju-backup", "", nil},
+		{"juju-backup/dump", "", nil},
+		{"juju-backup/root.tar", "", bundle},
 	}
 
 	tarFile, err := gzip.NewReader(file)
@@ -187,7 +209,7 @@ type legacySuite struct {
 var _ = gc.Suite(&legacySuite{})
 
 func (s *legacySuite) TestBackup(c *gc.C) {
-	_, testFiles := s.createTestFiles(c)
+	_, testFiles, expected := s.createTestFiles(c)
 	s.patchSources(c, testFiles)
 
 	outDir := c.MkDir()
@@ -213,7 +235,7 @@ func (s *legacySuite) TestBackup(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.checkChecksum(c, file, shaSum, "")
-	s.checkArchive(c, file)
+	s.checkArchive(c, file, expected)
 }
 
 func (s *legacySuite) TestStorageName(c *gc.C) {
