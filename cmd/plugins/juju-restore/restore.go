@@ -505,7 +505,7 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 		pendingMachineCount++
 		machine := machineStatus
 		go func() {
-			err := runMachineUpdate(client, machine, setAgentAddressScript(stateAddr))
+			err := runMachineUpdate(client, machine.Id, setAgentAddressScript(stateAddr))
 			if err != nil {
 				logger.Errorf("failed to update machine %s: %v", machine, err)
 			} else {
@@ -524,9 +524,9 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 }
 
 // runMachineUpdate connects via ssh to the machine and runs the update script
-func runMachineUpdate(client *api.Client, m api.MachineStatus, sshArg string) error {
-	progress("updating machine: %v\n", m)
-	tag := names.NewMachineTag(m.Id)
+func runMachineUpdate(client *api.Client, id string, sshArg string) error {
+	progress("updating machine: %v\n", id)
+	tag := names.NewMachineTag(id)
 	addr, err := client.PublicAddress(tag.String())
 	if err != nil {
 		return fmt.Errorf("no appropriate public address found")
