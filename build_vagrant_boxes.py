@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 
 
 """Build Juju-Vagrant boxes for Juju packages build by publish-revision.
@@ -19,50 +20,51 @@ Required environment variables:
 
 JENKINS_URL = 'http://juju-ci.vapour.ws:8080'
 PUBLISH_REVISION_JOB = 'publish-revision'
-SERIES = (('trusty', '14.04'), ('precise', '12.04'))
-ARCH = ('amd64', 'i386')
+SERIES_TO_NUMBERS = {
+    'trusty': '14.04',
+    'precise': '12.04',
+}
 JENKINS_KVM = 'JENKINS_KVM'
 WORKSPACE = 'WORKSPACE'
 
-def package_regexes():
-    for series in SERIES:
-        for arch in ARCH:
-            series_number = series[1].replace('.', r'\.')
-            regex_core = re.compile(
-                r'^juju-core_.*%s.*%s\.deb$' % (series_number, arch))
-            yield series[0], arch, regex_core
+def package_regexes(series, arch):
+    series_number = SERIES_TO_NUMBERS[series].replace('.', r'\.')
+    regex_core = re.compile(
+        r'^juju-core_.*%s.*%s\.deb$' % (series_number, arch))
+    regex_local = re.compile(
+        r'^juju-local_.*%s.*all\.deb$' % series_number)
+    return {
+        'core': regex_core,
+        'local': regex_local,
+    }
 
-        regex_local = re.compile(
-            r'^juju-local_.*%s.*all\.deb$' % series_number)
-        yield series[0], 'all', regex_local
 
-
-def get_debian_packages(jenkins, workspace):
+def get_debian_packages(jenkins, workspace, series, arch):
     job_info = jenkins.get_job_info(PUBLISH_REVISION_JOB)
     build_number = job_info['lastSuccessfulBuild']['number']
     build_info = jenkins.get_build_info(PUBLISH_REVISION_JOB, build_number)
 
     result = {}
+    regexes = package_regexes(series, arch)
     try:
         for artifact in build_info['artifacts']:
             filename = artifact['fileName']
-            for series, arch, matcher in package_regexes():
+            for package, matcher in regexes.items():
                 if matcher.search(filename) is not None:
                     package_url = '%s/artifact/%s' % (
                         build_info['url'], filename)
                     local_path = os.path.join(workspace, filename)
                     logging.info(
                         'copying %s from build %s' % (filename, build_number))
-                    result.setdefault(series, {})[arch] = local_path
+                    result[package] = local_path
                     command = 'wget -q -O %s %s' % (
                         local_path, package_url)
                     subprocess.check_call(command.split(' '))
                     break
     except Exception:
-        for arch in result.values():
-            for file_path in arch.values():
-                if os.path.exists(file_path):
-                    os.unlink(file_path)
+        for file_path in result.values():
+            if os.path.exists(file_path):
+                os.unlink(file_path)
         raise
     return result
 
@@ -108,7 +110,17 @@ def build_vagrant_box(series, arch, juju_core_package, juju_local_package,
             jenkins_kvm, '%s-builder-%s.img' % (series, arch)))
 
 
-def build_vagrant_boxes():
+def clean_workspace(workspace):
+    """Remove any files and directories found in the workspace."""
+    for item in os.listdir(workspace):
+        path = os.path.join(workspace, item)
+        if os.path.isdir(path):
+            shutil.rmtree(path)
+        else:
+            os.unlink(path)
+
+
+def main():
     logging.basicConfig(
         level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S')
@@ -118,27 +130,29 @@ def build_vagrant_boxes():
         required=True)
     parser.add_argument(
         '--workspace', help='Workspace directory', required=True)
+    parser.add_argument(
+        '--series', help='Build the image for this series', required=True)
+    parser.add_argument(
+        '--arch', help='Build the image for this architecture', required=True)
     args = parser.parse_args()
+    clean_workspace(args.workspace)
     jenkins = Jenkins(JENKINS_URL)
-    package_info = get_debian_packages(jenkins, args.workspace)
+    package_info = get_debian_packages(
+        jenkins, args.workspace, args.series, args.arch)
+    if 'core' not in package_info:
+        logging.error('Could not find juju-core package')
+        sys.exit(1)
+    if 'local' not in package_info:
+        logging.error('Could not find juju-local package')
+        sys.exit(1)
     try:
-        for series in package_info:
-            if 'all' not in package_info[series]:
-                logging.error(
-                    'juju-local package is missing for series %s' % series)
-                continue
-            local_package_name = package_info[series]['all']
-            for arch, package_name in package_info[series].items():
-                if arch == 'all':
-                    continue
-                build_vagrant_box(
-                    series, arch, package_name, local_package_name,
-                    args.jenkins_kvm, args.workspace)
+        build_vagrant_box(
+            args.series, args.arch, package_info['core'], package_info['local'],
+            args.jenkins_kvm, args.workspace)
     finally:
-        for arch_info in package_info.values():
-            for filename in arch_info.values():
-                os.unlink(filename)
+        for filename in package_info.values():
+            os.unlink(filename)
 
 
 if __name__ == '__main__':
-    build_vagrant_boxes()
+    main()
