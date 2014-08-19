@@ -826,3 +826,21 @@ func (suite *environSuite) TestSupportNetworks(c *gc.C) {
 	env := suite.makeEnviron()
 	c.Assert(env.SupportNetworks(), jc.IsTrue)
 }
+
+func (suite *environSuite) TestRequiresSafeNetworker(c *gc.C) {
+	env := suite.makeEnviron()
+	tests := []struct {
+		machineId string
+		isManual  bool
+		requires  bool
+	}{
+		{"0", false, false},
+		{"0", true, true},
+		{"1", false, false},
+		{"1", true, true},
+	}
+	for i, test := range tests {
+		c.Logf("test #%d: machine %q / is manual = %v", i, test.machineId, test.isManual)
+		c.Assert(env.RequiresSafeNetworker(test.machineId, test.isManual), gc.Equals, test.requires)
+	}
+}

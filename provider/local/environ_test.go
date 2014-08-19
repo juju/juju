@@ -105,6 +105,26 @@ func (*environSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(environ.SupportNetworks(), jc.IsFalse)
 }
 
+func (*environSuite) TestRequiresSafeNetworker(c *gc.C) {
+	testConfig := minimalConfig(c)
+	environ, err := local.Provider.Open(testConfig)
+	c.Assert(err, gc.IsNil)
+	tests := []struct {
+		machineId string
+		isManual  bool
+		requires  bool
+	}{
+		{"0", false, true},
+		{"0", true, true},
+		{"1", false, false},
+		{"1", true, true},
+	}
+	for i, test := range tests {
+		c.Logf("test #%d: machine %q / is manual = %v", i, test.machineId, test.isManual)
+		c.Assert(environ.RequiresSafeNetworker(test.machineId, test.isManual), gc.Equals, test.requires)
+	}
+}
+
 type localJujuTestSuite struct {
 	baseProviderSuite
 	jujutest.Tests

@@ -221,6 +221,24 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
+func (s *environSuite) TestRequiresSafeNetworker(c *gc.C) {
+	env := s.setupEnvWithDummyMetadata(c)
+	tests := []struct {
+		machineId string
+		isManual  bool
+		requires  bool
+	}{
+		{"0", false, false},
+		{"0", true, true},
+		{"1", false, false},
+		{"1", true, true},
+	}
+	for i, test := range tests {
+		c.Logf("test #%d: machine %q / is manual = %v", i, test.machineId, test.isManual)
+		c.Assert(env.RequiresSafeNetworker(test.machineId, test.isManual), gc.Equals, test.requires)
+	}
+}
+
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)
 	c.Check(strings.Contains(env.getEnvPrefix(), env.Config().Name()), jc.IsTrue)

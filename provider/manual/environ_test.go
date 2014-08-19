@@ -153,6 +153,23 @@ func (s *environSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(s.env.SupportNetworks(), jc.IsFalse)
 }
 
+func (s *environSuite) TestRequiresSafeNetworker(c *gc.C) {
+	tests := []struct {
+		machineId string
+		isManual  bool
+		requires  bool
+	}{
+		{"0", false, true},
+		{"0", true, true},
+		{"1", false, true},
+		{"1", true, true},
+	}
+	for i, test := range tests {
+		c.Logf("test #%d: machine %q / is manual = %v", i, test.machineId, test.isManual)
+		c.Assert(s.env.RequiresSafeNetworker(test.machineId, test.isManual), gc.Equals, test.requires)
+	}
+}
+
 func (s *environSuite) TestConstraintsValidator(c *gc.C) {
 	validator, err := s.env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)

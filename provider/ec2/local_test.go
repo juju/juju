@@ -705,6 +705,24 @@ func (t *localServerSuite) TestSupportNetworks(c *gc.C) {
 	c.Assert(env.SupportNetworks(), jc.IsFalse)
 }
 
+func (t *localServerSuite) TestRequiresSafeNetworker(c *gc.C) {
+	env := t.Prepare(c)
+	tests := []struct {
+		machineId string
+		isManual  bool
+		requires  bool
+	}{
+		{"0", false, false},
+		{"0", true, true},
+		{"1", false, false},
+		{"1", true, true},
+	}
+	for i, test := range tests {
+		c.Logf("test #%d: machine %q / is manual = %v", i, test.machineId, test.isManual)
+		c.Assert(env.RequiresSafeNetworker(test.machineId, test.isManual), gc.Equals, test.requires)
+	}
+}
+
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
