@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	gc "launchpad.net/gocheck"
@@ -19,25 +20,20 @@ import (
 	"github.com/juju/juju/testing"
 )
 
-var _ = gc.Suite(&legacySuite{})
-
-type legacySuite struct {
+type LegacySuite struct {
 	testing.BaseSuite
-	cwd       string
-	testFiles []string
+
+	ranCommand bool
 }
 
-func (s *legacySuite) SetUpTest(c *gc.C) {
-	s.BaseSuite.SetUpTest(c)
-	s.cwd = c.MkDir()
-}
+func (s *LegacySuite) createTestFiles(c *gc.C) (string, []string) {
+	rootDir := c.MkDir()
 
-func (s *legacySuite) createTestFiles(c *gc.C) {
-	tarDirE := path.Join(s.cwd, "TarDirectoryEmpty")
+	tarDirE := path.Join(rootDir, "TarDirectoryEmpty")
 	err := os.Mkdir(tarDirE, os.FileMode(0755))
 	c.Check(err, gc.IsNil)
 
-	tarDirP := path.Join(s.cwd, "TarDirectoryPopulated")
+	tarDirP := path.Join(rootDir, "TarDirectoryPopulated")
 	err = os.Mkdir(tarDirP, os.FileMode(0755))
 	c.Check(err, gc.IsNil)
 
@@ -51,27 +47,42 @@ func (s *legacySuite) createTestFiles(c *gc.C) {
 	err = os.Mkdir(tarSubDir, os.FileMode(0755))
 	c.Check(err, gc.IsNil)
 
-	tarFile1 := path.Join(s.cwd, "TarFile1")
+	tarFile1 := path.Join(rootDir, "TarFile1")
 	tarFile1Handle, err := os.Create(tarFile1)
 	c.Check(err, gc.IsNil)
 	tarFile1Handle.WriteString("TarFile1")
 	tarFile1Handle.Close()
 
-	tarFile2 := path.Join(s.cwd, "TarFile2")
+	tarFile2 := path.Join(rootDir, "TarFile2")
 	tarFile2Handle, err := os.Create(tarFile2)
 	c.Check(err, gc.IsNil)
 	tarFile2Handle.WriteString("TarFile2")
 	tarFile2Handle.Close()
-	s.testFiles = []string{tarDirE, tarDirP, tarFile1, tarFile2}
 
+	return rootDir, []string{tarDirE, tarDirP, tarFile1, tarFile2}
 }
 
-type expectedTarContents struct {
+func (s *LegacySuite) patchSources(c *gc.C, testFiles []string) {
+	s.PatchValue(backups.GetMongodumpPath, func() (string, error) {
+		return "bogusmongodump", nil
+	})
+
+	s.PatchValue(backups.GetFilesToBackup, func(string) ([]string, error) {
+		return testFiles, nil
+	})
+
+	s.PatchValue(backups.RunCommand, func(cmd string, args ...string) error {
+		s.ranCommand = true
+		return nil
+	})
+}
+
+type tarContent struct {
 	Name string
 	Body string
 }
 
-var testExpectedTarContents = []expectedTarContents{
+var testExpectedTarContents = []tarContent{
 	{"TarDirectoryEmpty", ""},
 	{"TarDirectoryPopulated", ""},
 	{"TarDirectoryPopulated/TarSubFile1", "TarSubFile1"},
@@ -80,26 +91,10 @@ var testExpectedTarContents = []expectedTarContents{
 	{"TarFile2", "TarFile2"},
 }
 
-// Assert thar contents checks that the tar[.gz] file provided contains the
-// Expected files
-// expectedContents: is a slice of the filenames with relative paths that are
-// expected to be on the tar file
-// tarFile: is the path of the file to be checked
-func (s *legacySuite) assertTarContents(
-	c *gc.C, expected []expectedTarContents, tarFile string, compressed bool,
-) {
-	f, err := os.Open(tarFile)
-	c.Assert(err, gc.IsNil)
-	defer f.Close()
-	var r io.Reader = f
-	if compressed {
-		r, err = gzip.NewReader(r)
-		c.Assert(err, gc.IsNil)
-	}
+func readTarFile(c *gc.C, tarFile io.Reader) map[string]string {
+	tr := tar.NewReader(tarFile)
+	contents := make(map[string]string)
 
-	tr := tar.NewReader(r)
-
-	tarContents := make(map[string]string)
 	// Iterate through the files in the archive.
 	for {
 		hdr, err := tr.Next()
@@ -110,41 +105,101 @@ func (s *legacySuite) assertTarContents(
 		c.Assert(err, gc.IsNil)
 		buf, err := ioutil.ReadAll(tr)
 		c.Assert(err, gc.IsNil)
-		tarContents[hdr.Name] = string(buf)
-	}
-	for _, expectedContent := range expected {
-		fullExpectedContent := strings.TrimPrefix(expectedContent.Name, string(os.PathSeparator))
-		body, ok := tarContents[fullExpectedContent]
-		c.Log(tarContents)
-		c.Log(expected)
-		c.Log(fmt.Sprintf("checking for presence of %q on tar file", fullExpectedContent))
-		c.Assert(ok, gc.Equals, true)
-		if expectedContent.Body != "" {
-			c.Log("Also checking the file contents")
-			c.Assert(body, gc.Equals, expectedContent.Body)
-		}
+		contents[hdr.Name] = string(buf)
 	}
 
+	return contents
 }
 
+func (s *LegacySuite) checkTarContents(
+	c *gc.C, tarFile io.Reader, allExpected []tarContent,
+) {
+	contents := readTarFile(c, tarFile)
+
+	// Check that the expected entries are there.
+	// XXX Check for unexpected entries.
+	for _, expected := range allExpected {
+		relPath := strings.TrimPrefix(expected.Name, string(os.PathSeparator))
+
+		c.Log(fmt.Sprintf("checking for presence of %q on tar file", relPath))
+		body, found := contents[relPath]
+		if !found {
+			c.Errorf("%q not found", expected.Name)
+			continue
+		}
+
+		if expected.Body != "" {
+			c.Log("Also checking the file contents")
+			c.Check(body, gc.Equals, expected.Body)
+		}
+	}
+}
+
+func (s *LegacySuite) checkChecksum(c *gc.C, file *os.File, checksum, expected string) {
+	if expected == "" {
+		expected = checksum
+	}
+
+	c.Check(checksum, gc.Equals, expected)
+
+	fileShaSum := shaSumFile(c, file)
+	c.Check(fileShaSum, gc.Equals, expected)
+	resetFile(c, file)
+}
+
+func (s *LegacySuite) checkSize(c *gc.C, file *os.File, size, expected int64) {
+	if expected == 0 {
+		expected = size
+	}
+
+	c.Check(size, gc.Equals, expected)
+
+	stat, err := file.Stat()
+	c.Assert(err, gc.IsNil)
+	c.Check(stat.Size(), gc.Equals, expected)
+}
+
+func (s *LegacySuite) checkArchive(c *gc.C, file *os.File) {
+	expected := []tarContent{
+		{"juju-backup", ""},
+		{"juju-backup/dump", ""},
+		{"juju-backup/root.tar", ""},
+	}
+
+	tarFile, err := gzip.NewReader(file)
+	c.Assert(err, gc.IsNil)
+
+	s.checkTarContents(c, tarFile, expected)
+	resetFile(c, file)
+}
+
+func resetFile(c *gc.C, reader io.Reader) {
+	file, ok := reader.(*os.File)
+	c.Assert(ok, gc.Equals, true)
+	_, err := file.Seek(0, os.SEEK_SET)
+	c.Assert(err, gc.IsNil)
+}
+
+type legacySuite struct {
+	LegacySuite
+}
+
+var _ = gc.Suite(&legacySuite{})
+
 func (s *legacySuite) TestBackup(c *gc.C) {
-	s.createTestFiles(c)
+	_, testFiles := s.createTestFiles(c)
+	s.patchSources(c, testFiles)
 
-	s.PatchValue(backups.GetMongodumpPath, func() (string, error) {
-		return "bogusmongodump", nil
-	})
-	s.PatchValue(backups.GetFilesToBackup, func(string) ([]string, error) {
-		return s.testFiles, nil
-	})
-	ranCommand := false
-	s.PatchValue(backups.RunCommand, func(command string, args ...string) error {
-		ranCommand = true
-		return nil
-	})
-
-	bkpFile, shaSum, err := backups.Backup("boguspassword", "bogus-user", s.cwd, "localhost:8080")
+	outDir := c.MkDir()
+	bkpFile, shaSum, err := backups.Backup(
+		"boguspassword",
+		"bogus-user",
+		outDir,
+		"localhost:8080",
+	)
 	c.Check(err, gc.IsNil)
-	c.Assert(ranCommand, gc.Equals, true)
+
+	c.Assert(s.ranCommand, gc.Equals, true)
 
 	// It is important that the filename uses non-special characters
 	// only because it is returned in a header (unencoded) by the
@@ -152,15 +207,13 @@ func (s *legacySuite) TestBackup(c *gc.C) {
 	// client side filename conventions.
 	c.Check(bkpFile, gc.Matches, `^[a-z0-9_.-]+$`)
 
-	fileShaSum := shaSumFile(c, path.Join(s.cwd, bkpFile))
-	c.Assert(shaSum, gc.Equals, fileShaSum)
+	// Check the result.
+	filename := filepath.Join(outDir, bkpFile)
+	file, err := os.Open(filename)
+	c.Assert(err, gc.IsNil)
 
-	bkpExpectedContents := []expectedTarContents{
-		{"juju-backup", ""},
-		{"juju-backup/dump", ""},
-		{"juju-backup/root.tar", ""},
-	}
-	s.assertTarContents(c, bkpExpectedContents, path.Join(s.cwd, bkpFile), true)
+	s.checkChecksum(c, file, shaSum, "")
+	s.checkArchive(c, file)
 }
 
 func (s *legacySuite) TestStorageName(c *gc.C) {
