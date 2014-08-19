@@ -36,7 +36,7 @@ func (s *rsyslogSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:            names.NewMachineTag("1"),
-		EnvironManager: true,
+		EnvironManager: false,
 	}
 	s.resources = common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
