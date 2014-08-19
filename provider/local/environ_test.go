@@ -351,6 +351,9 @@ func (s *localJujuTestSuite) TestToolsURLNotPatchedForKvm(c *gc.C) {
 	s.PatchValue(&kvm.IsKVMSupported, func() (bool, error) {
 		return true, nil
 	})
+	s.PatchValue(&local.VerifyPrerequisites, func(_ instance.ContainerType) error {
+		return nil
+	})
 	dir := c.MkDir()
 	toolsDir := filepath.Join(dir, "storage", "tools", "releases")
 	err := os.MkdirAll(toolsDir, 0755)
