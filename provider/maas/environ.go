@@ -269,7 +269,7 @@ func addNetworks(params url.Values, includeNetworks, excludeNetworks []string) {
 }
 
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(nodeName string, cons constraints.Value, includeNetworks, excludeNetworks []string, possibleTools tools.List) (gomaasapi.MAASObject, error) {
+func (environ *maasEnviron) acquireNode(nodeName string, cons constraints.Value, includeNetworks, excludeNetworks []string) (gomaasapi.MAASObject, error) {
 	acquireParams := convertConstraints(cons)
 	addNetworks(acquireParams, includeNetworks, excludeNetworks)
 	acquireParams.Add("agent_name", environ.ecfg().maasAgentName())
@@ -288,7 +288,9 @@ func (environ *maasEnviron) acquireNode(nodeName string, cons constraints.Value,
 		// as tags. Thus, a preference becomes a
 		// demand (which may fail) if not handled
 		// properly.
-		logger.Warningf("acquiring arbitrary arch")
+		logger.Warningf(
+			"no architecture was specified, acquiring an arbitrary node",
+		)
 	}
 
 	var result gomaasapi.JSONObject
@@ -443,7 +445,6 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 ) {
 	var err error
 	nodeName := args.Placement
-	series := args.Tools.OneSeries()
 	requestedNetworks := args.MachineConfig.Networks
 	includeNetworks := append(args.Constraints.IncludeNetworks(), requestedNetworks...)
 	excludeNetworks := args.Constraints.ExcludeNetworks()
@@ -452,7 +453,6 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 		args.Constraints,
 		includeNetworks,
 		excludeNetworks,
-		args.Tools,
 	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("cannot run instances: %v", err)
@@ -473,7 +473,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 	selectedTools, err := args.Tools.Match(tools.Filter{
 		Arch:   *hc.Arch,
-		Series: series,
+		Series: args.Tools.OneSeries(),
 	})
 	if err != nil {
 		return nil, nil, nil, err
@@ -512,7 +512,9 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	if err := environ.startNode(*inst.maasObject, series, userdata); err != nil {
+	if err := environ.startNode(
+		*inst.maasObject, args.MachineConfig.Tools.Version.Series, userdata,
+	); err != nil {
 		return nil, nil, nil, err
 	}
 	logger.Debugf("started instance %q", inst.Id())
