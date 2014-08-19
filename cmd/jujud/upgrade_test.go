@@ -114,6 +114,40 @@ func (s *UpgradeSuite) TestClientLoginsOnlyDuringUpgrade(c *gc.C) {
 	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, true)
 }
 
+func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
+	attemptCount := 0
+	upgradeCh := make(chan bool)
+	fakePerformUpgrade := func(_ version.Number, _ upgrades.Target, _ upgrades.Context) error {
+		// Note: this shouldn't run.
+		attemptCount++
+		// If execution ends up here, wait so it can be detected (by
+		// checking for restricted API
+		<-upgradeCh
+		return nil
+	}
+	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
+
+	// Set up machine agent running the current version.
+	s.machine0, s.machine0Config, _ = s.primeAgent(c, version.Current, state.JobManageEnviron)
+	a := s.newAgent(c, s.machine0)
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	defer func() {
+		close(upgradeCh)
+		c.Check(a.Stop(), gc.IsNil)
+	}()
+
+	// Set up a second machine to log in as.
+	// API logins are tested directly so there's no need to actually
+	// start this machine.
+	var machine1Config agent.Config
+	_, machine1Config, _ = s.primeAgent(c, version.Current, state.JobHostUnits)
+
+	// Test that unrestricted API logins are possible
+	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, true)
+	// There should have been no attempt to upgrade.
+	c.Assert(attemptCount, gc.Equals, 0)
+}
+
 func waitForUpgradeToStart(upgradeCh chan bool) bool {
 	select {
 	case <-upgradeCh:
