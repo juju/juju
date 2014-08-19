@@ -159,6 +159,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	}
 	a.configChangedVal.Set(struct{}{})
 	agentConfig := a.CurrentConfig()
+	if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
+		close(a.upgradeComplete)
+	}
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
