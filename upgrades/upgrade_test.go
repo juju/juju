@@ -199,6 +199,58 @@ func upgradeOperations() []upgrades.Operation {
 	return steps
 }
 
+type areUpgradesDefinedTest struct {
+	about       string
+	fromVersion string
+	toVersion   string
+	expected    bool
+	err         string
+}
+
+var areUpgradesDefinedTests = []areUpgradesDefinedTest{
+	{
+		about:       "no ops if same version",
+		fromVersion: "1.18.0",
+		expected:    false,
+	},
+	{
+		about:       "true when ops defined between versions",
+		fromVersion: "1.17.1",
+		expected:    true,
+	},
+	{
+		about:       "false when no ops defined between versions",
+		fromVersion: "1.13.0",
+		toVersion:   "1.14.1",
+		expected:    false,
+	},
+	{
+		about:       "from version is defaulted when not supplied",
+		fromVersion: "",
+		expected:    true,
+	},
+}
+
+func (s *upgradeSuite) TestAreUpgradesDefined(c *gc.C) {
+	s.PatchValue(upgrades.UpgradeOperations, upgradeOperations)
+	for i, test := range areUpgradesDefinedTests {
+		c.Logf("%d: %s", i, test.about)
+		fromVersion := version.Zero
+		if test.fromVersion != "" {
+			fromVersion = version.MustParse(test.fromVersion)
+		}
+		toVersion := version.MustParse("1.18.0")
+		if test.toVersion != "" {
+			toVersion = version.MustParse(test.toVersion)
+		}
+		vers := version.Current
+		vers.Number = toVersion
+		s.PatchValue(&version.Current, vers)
+		result := upgrades.AreUpgradesDefined(fromVersion)
+		c.Check(result, gc.Equals, test.expected)
+	}
+}
+
 type upgradeTest struct {
 	about         string
 	fromVersion   string
