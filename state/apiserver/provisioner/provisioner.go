@@ -92,7 +92,7 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 		APIAddresser:           common.NewAPIAddresser(st, resources),
 		ToolsGetter:            common.NewToolsGetter(st, getAuthFunc),
 		EnvironWatcher:         common.NewEnvironWatcher(st, resources, getCanReadSecrets),
-		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, getCanReadSecrets),
+		EnvironMachinesWatcher: common.NewEnvironMachinesWatcher(st, resources, authorizer),
 		InstanceIdGetter:       common.NewInstanceIdGetter(st, getAuthFunc),
 		st:                     st,
 		resources:              resources,
