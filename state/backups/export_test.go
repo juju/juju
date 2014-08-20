@@ -8,8 +8,6 @@ import (
 )
 
 var (
-	GetFilesToBackup = &getFilesToBackup
-
 	Create = create
 )
 

@@ -1,7 +1,7 @@
 // Copyright 2014 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package backups
+package files
 
 import (
 	"path/filepath"
@@ -34,11 +34,9 @@ var (
 	dbSecret      = "shared-secret"
 )
 
-// TODO(ericsnow) One concern is files that get out of date by the time
-// backup finishes running.  This is particularly a problem with log
-// files.
-
-var getFilesToBackup = func(rootDir string) ([]string, error) {
+// GetFilesTOBackUp returns the paths that should be included in the
+// backup archive.
+func GetFilesToBackUp(rootDir string) ([]string, error) {
 	var glob string
 
 	glob = filepath.Join(rootDir, startupDir, machinesConfs)

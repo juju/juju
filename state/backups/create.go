@@ -16,7 +16,9 @@ import (
 	"github.com/juju/utils/tar"
 )
 
-//var runCommand = utils.RunCommand
+// TODO(ericsnow) One concern is files that get out of date by the time
+// backup finishes running.  This is particularly a problem with log
+// files.
 
 const (
 	tempPrefix   = "jujuBackup-"

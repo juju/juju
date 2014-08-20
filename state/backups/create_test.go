@@ -29,7 +29,6 @@ var _ = gc.Suite(&createSuite{}) // Register the suite.
 
 func (s *createSuite) TestCreateLegacy(c *gc.C) {
 	_, testFiles, expected := s.createTestFiles(c)
-	s.patchSources(c, testFiles)
 
 	dumper := backups.NewTestDBDumper()
 	args := backups.NewTestCreateArgs(testFiles, dumper)
@@ -101,12 +100,6 @@ func (s *LegacySuite) createTestFiles(c *gc.C) (string, []string, []tarContent) 
 	}
 
 	return rootDir, tempFiles, expected
-}
-
-func (s *LegacySuite) patchSources(c *gc.C, testFiles []string) {
-	s.PatchValue(backups.GetFilesToBackup, func(string) ([]string, error) {
-		return testFiles, nil
-	})
 }
 
 func readTarFile(c *gc.C, tarFile io.Reader) map[string]string {
