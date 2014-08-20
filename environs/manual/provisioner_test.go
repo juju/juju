@@ -156,9 +156,7 @@ func (s *provisionerSuite) TestProvisioningScript(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	cloudcfg := coreCloudinit.New()
-	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
-	c.Assert(err, gc.IsNil)
-	err = udata.ConfigureJuju()
+	err = cloudinit.ConfigureJuju(mcfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
 	cloudcfg.SetAptUpgrade(false)
 	sshinitScript, err := sshinit.ConfigureScript(cloudcfg)

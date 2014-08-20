@@ -252,11 +252,11 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	decodedUserData, err := decodeUserData(userData)
 	c.Assert(err, gc.IsNil)
 	info := machineInfo{"host1"}
-	cloudinitRunCmd, err := info.cloudinitRunCmd("precise")
+	cloudinitRunCmd, err := info.cloudinitRunCmd()
 	c.Assert(err, gc.IsNil)
 	data, err := goyaml.Marshal(cloudinitRunCmd)
 	c.Assert(err, gc.IsNil)
-	c.Check(string(decodedUserData), jc.Contains, string(data))
+	c.Check(string(decodedUserData), gc.Matches, "(.|\n)*"+string(data)+"(\n|.)*")
 
 	// Trash the tools and try to start another instance.
 	envtesting.RemoveTools(c, env.Storage())

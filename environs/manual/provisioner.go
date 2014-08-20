@@ -224,11 +224,7 @@ var provisionMachineAgent = func(host string, mcfg *cloudinit.MachineConfig, pro
 // configuration.
 func ProvisioningScript(mcfg *cloudinit.MachineConfig) (string, error) {
 	cloudcfg := coreCloudinit.New()
-	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
-	if err != nil {
-		return "", errors.Annotate(err, "error generating cloud-config")
-	}
-	if err := udata.ConfigureJuju(); err != nil {
+	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
 		return "", errors.Annotate(err, "error generating cloud-config")
 	}
 	// Explicitly disabling apt_upgrade so as not to trample
