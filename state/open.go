@@ -85,7 +85,9 @@ func Initialize(info *authentication.MongoInfo, cfg *config.Config, opts mongo.D
 			C:      stateServersC,
 			Id:     environGlobalKey,
 			Assert: txn.DocMissing,
-			Insert: &stateServersDoc{},
+			Insert: &stateServersDoc{
+				EnvUUID: uuid,
+			},
 		}, {
 			C:      stateServersC,
 			Id:     apiHostPortsKey,

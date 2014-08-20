@@ -58,3 +58,23 @@ func MigrateUserLastConnectionToLastLogin(st *State) error {
 
 	return st.runTransaction(ops)
 }
+
+// Add environment uuid to state server doc.
+func AddEnvironmentUUIDToStateServerDoc(st *State) error {
+	env, err := st.Environment()
+	if err != nil {
+		return errors.Annotate(err, "failed to load environment")
+	}
+	upgradesLogger.Debugf("adding env uuid %q", env.UUID())
+
+	ops := []txn.Op{{
+		C:      stateServersC,
+		Id:     environGlobalKey,
+		Assert: txn.DocExists,
+		Update: bson.D{{"$set", bson.D{
+			{"env-uuid", env.UUID()},
+		}}},
+	}}
+
+	return st.runTransaction(ops)
+}

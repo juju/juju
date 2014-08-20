@@ -1640,6 +1640,7 @@ func (st *State) SetAdminMongoPassword(password string) error {
 
 type stateServersDoc struct {
 	Id               string `bson:"_id"`
+	EnvUUID          string `bson:"env-uuid"`
 	MachineIds       []string
 	VotingMachineIds []string
 }
@@ -1647,6 +1648,11 @@ type stateServersDoc struct {
 // StateServerInfo holds information about currently
 // configured state server machines.
 type StateServerInfo struct {
+	// EnvUUID is the UUID of the initial environment. Only the initial
+	// environment is able to have machines that manage state. The initial
+	// environment is the environment that is created when bootstrapping.
+	EnvUUID string
+
 	// MachineIds holds the ids of all machines configured
 	// to run a state server. It includes all the machine
 	// ids in VotingMachineIds.
@@ -1670,6 +1676,7 @@ func (st *State) StateServerInfo() (*StateServerInfo, error) {
 		return nil, fmt.Errorf("cannot get state servers document: %v", err)
 	}
 	return &StateServerInfo{
+		EnvUUID:          doc.EnvUUID,
 		MachineIds:       doc.MachineIds,
 		VotingMachineIds: doc.VotingMachineIds,
 	}, nil
