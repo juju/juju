@@ -57,18 +57,23 @@ func NewProvisionerAPI(st *state.State, resources *common.Resources, authorizer 
 				// A machine agent can always access its own machine.
 				return true
 			}
-			parentId := state.ParentId(tag.Id())
-			if parentId == "" {
-				// All top-level machines are accessible by the
-				// environment manager.
-				return isEnvironManager
+			switch tag := tag.(type) {
+			case names.MachineTag:
+				parentId := state.ParentId(tag.Id())
+				if parentId == "" {
+					// All top-level machines are accessible by the
+					// environment manager.
+					return isEnvironManager
+				}
+				// All containers with the authenticated machine as a
+				// parent are accessible by it.
+				// TODO(dfc) sometimes authEntity tag is nil, which is fine because nil is
+				// only equal to nil, but it suggests someone is passing an authorizer
+				// with a nil tag.
+				return isMachineAgent && names.NewMachineTag(parentId) == authEntityTag
+			default:
+				return false
 			}
-			// All containers with the authenticated machine as a
-			// parent are accessible by it.
-			// TODO(dfc) sometimes authEntity tag is nil, which is fine because nil is
-			// only equal to nil, but it suggests someone is passing an authorizer
-			// with a nil tag.
-			return isMachineAgent && names.NewMachineTag(parentId) == authEntityTag
 		}, nil
 	}
 	return &ProvisionerAPI{

@@ -112,9 +112,9 @@ func (u *UnitUpgraderAPI) Tools(args params.Entities) (params.ToolsResults, erro
 		Results: make([]params.ToolsResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
+		result.Results[i].Error = common.ServerError(common.ErrPerm)
 		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		if u.authorizer.AuthOwner(tag) {
