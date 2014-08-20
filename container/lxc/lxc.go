@@ -291,8 +291,9 @@ func autostartContainer(name string) error {
 
 func mountHostLogDir(name, logDir string) error {
 	// Make sure that the mount dir has been created.
-	logger.Tracef("make the mount dir for the shared logs")
-	if err := os.MkdirAll(internalLogDir(name), 0755); err != nil {
+	internalDir := internalLogDir(name)
+	logger.Tracef("make the mount dir for the shared logs: %s", internalDir)
+	if err := os.MkdirAll(internalDir, 0755); err != nil {
 		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
 		return err
 	}
@@ -307,8 +308,9 @@ func mountHostToolsDir(name, toolsDir string) error {
 		return nil
 	}
 	// Make sure that the mount dir has been created.
-	logger.Tracef("make the mount dir for the tools")
-	if err := os.MkdirAll(internalToolsDir(name), 0755); err != nil {
+	internalDir := internalToolsDir(name)
+	logger.Tracef("make the mount dir for the tools: %s", internalDir)
+	if err := os.MkdirAll(internalDir, 0755); err != nil {
 		logger.Errorf("failed to create internal /var/lib/juju/storage/tools mount dir: %v", err)
 		return err
 	}
