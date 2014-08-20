@@ -5,6 +5,7 @@ package state
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/juju/errors"
 	"github.com/juju/names"
@@ -16,7 +17,6 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/mongo"
-	"github.com/juju/juju/replicaset"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/presence"
 	"github.com/juju/juju/state/watcher"
@@ -33,32 +33,18 @@ import (
 // Open returns unauthorizedError if access is unauthorized.
 func Open(info *authentication.MongoInfo, opts mongo.DialOpts, policy Policy) (*State, error) {
 	logger.Infof("opening state, mongo addresses: %q; entity %q", info.Addrs, info.Tag)
-	di, err := mongo.DialInfo(info.Info, opts)
-	if err != nil {
-		return nil, err
-	}
 	logger.Debugf("dialing mongo")
-	session, err := mgo.DialWithInfo(di)
+	session, err := mongo.DialWithInfo(info.Info, opts)
 	if err != nil {
 		return nil, err
 	}
 	logger.Debugf("connection established")
-
-	_, err = replicaset.CurrentConfig(session)
-	safe := &mgo.Safe{J: true}
-	if err == nil {
-		// set mongo to write-majority (writes only returned after replicated
-		// to a majority of replica-set members)
-		safe.WMode = "majority"
-	}
-	session.SetSafe(safe)
 
 	st, err := newState(session, info, policy)
 	if err != nil {
 		session.Close()
 		return nil, err
 	}
-	session.SetSocketTimeout(mongo.SocketTimeout)
 	return st, nil
 }
 
@@ -161,29 +147,22 @@ func isUnauthorized(err error) bool {
 	}
 	// Some unauthorized access errors have no error code,
 	// just a simple error string.
-	if err.Error() == "auth fails" {
+	if strings.HasPrefix(err.Error(), "auth fail") {
 		return true
 	}
 	if err, ok := err.(*mgo.QueryError); ok {
 		return err.Code == 10057 ||
 			err.Message == "need to login" ||
-			err.Message == "unauthorized"
+			err.Message == "unauthorized" ||
+			strings.HasPrefix(err.Message, "not authorized")
 	}
 	return false
 }
 
-func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (*State, error) {
-	db := session.DB("juju")
-	pdb := session.DB("presence")
+func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy Policy) (_ *State, resultErr error) {
 	admin := session.DB("admin")
 	authenticated := false
 	if mongoInfo.Tag != nil {
-		if err := db.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", mongoInfo.Tag))
-		}
-		if err := pdb.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
-			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", mongoInfo.Tag))
-		}
 		if err := admin.Login(mongoInfo.Tag.String(), mongoInfo.Password); err != nil {
 			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to admin database as %q", mongoInfo.Tag))
 		}
@@ -195,6 +174,8 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 		authenticated = true
 	}
 
+	db := session.DB("juju")
+	pdb := session.DB("presence")
 	st := &State{
 		mongoInfo:     mongoInfo,
 		policy:        policy,
@@ -216,24 +197,39 @@ func newState(session *mgo.Session, mongoInfo *authentication.MongoInfo, policy 
 	}
 
 	st.watcher = watcher.New(log)
+	defer func() {
+		if resultErr != nil {
+			if err := st.watcher.Stop(); err != nil {
+				logger.Errorf("failed to stop watcher: %v", err)
+			}
+		}
+	}()
 	st.pwatcher = presence.NewWatcher(pdb.C(presenceC))
+	defer func() {
+		if resultErr != nil {
+			if err := st.pwatcher.Stop(); err != nil {
+				logger.Errorf("failed to stop presence watcher: %v", err)
+			}
+		}
+	}()
+
 	for _, item := range indexes {
 		index := mgo.Index{Key: item.key, Unique: item.unique}
 		if err := db.C(item.collection).EnsureIndex(index); err != nil {
-			return nil, fmt.Errorf("cannot create database index: %v", err)
+			return nil, errors.Annotate(err, "cannot create database index")
 		}
 	}
 
 	// TODO(rog) delete this when we can assume there are no
 	// pre-1.18 environments running.
 	if err := st.createStateServersDoc(); err != nil {
-		return nil, fmt.Errorf("cannot create state servers document: %v", err)
+		return nil, errors.Annotate(err, "cannot create state servers document")
 	}
 	if err := st.createAPIAddressesDoc(); err != nil {
-		return nil, fmt.Errorf("cannot create API addresses document: %v", err)
+		return nil, errors.Annotate(err, "cannot create API addresses document")
 	}
 	if err := st.createStateServingInfoDoc(); err != nil {
-		return nil, fmt.Errorf("cannot create state serving info document: %v", err)
+		return nil, errors.Annotate(err, "cannot create state serving info document")
 	}
 	return st, nil
 }

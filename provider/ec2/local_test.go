@@ -11,13 +11,13 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/goamz/s3/s3test"
 	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
 
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
@@ -95,6 +95,7 @@ func registerLocalTests() {
 	// has entries in the images/query txt files.
 	aws.Regions["test"] = aws.Region{
 		Name: "test",
+		Sign: aws.SignV2,
 	}
 
 	gc.Suite(&localServerSuite{})
@@ -146,6 +147,7 @@ func (srv *localServer) startServer(c *gc.C) {
 		EC2Endpoint:          srv.ec2srv.URL(),
 		S3Endpoint:           srv.s3srv.URL(),
 		S3LocationConstraint: true,
+		Sign:                 aws.SignV2,
 	}
 	s3inst := s3.New(aws.Auth{}, aws.Regions["test"])
 	storage := ec2.BucketStorage(s3inst.Bucket("juju-dist"))
@@ -603,9 +605,9 @@ func (t *localServerSuite) TestConstraintsValidatorVocab(c *gc.C) {
 	env := t.Prepare(c)
 	validator, err := env.ConstraintsValidator()
 	c.Assert(err, gc.IsNil)
-	cons := constraints.MustParse("arch=ppc64")
+	cons := constraints.MustParse("arch=ppc64el")
 	_, err = validator.Validate(cons)
-	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64\nvalid values are:.*")
+	c.Assert(err, gc.ErrorMatches, "invalid constraint value: arch=ppc64el\nvalid values are:.*")
 	cons = constraints.MustParse("instance-type=foo")
 	_, err = validator.Validate(cons)
 	c.Assert(err, gc.ErrorMatches, "invalid constraint value: instance-type=foo\nvalid values are:.*")

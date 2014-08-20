@@ -5,19 +5,12 @@ package testing
 
 import (
 	"github.com/juju/names"
-
-	"github.com/juju/juju/state"
 )
 
 // FakeAuthorizer implements the common.Authorizer interface.
 type FakeAuthorizer struct {
 	Tag            names.Tag
-	LoggedIn       bool
 	EnvironManager bool
-	MachineAgent   bool
-	UnitAgent      bool
-	Client         bool
-	Entity         state.Entity
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag names.Tag) bool {
@@ -28,22 +21,25 @@ func (fa FakeAuthorizer) AuthEnvironManager() bool {
 	return fa.EnvironManager
 }
 
+// AuthMachineAgent returns whether the current client is a machine agent.
 func (fa FakeAuthorizer) AuthMachineAgent() bool {
-	return fa.MachineAgent
+	_, isMachine := fa.GetAuthTag().(names.MachineTag)
+	return isMachine
 }
 
+// AuthUnitAgent returns whether the current client is a unit agent.
 func (fa FakeAuthorizer) AuthUnitAgent() bool {
-	return fa.UnitAgent
+	_, isUnit := fa.GetAuthTag().(names.UnitTag)
+	return isUnit
 }
 
+// AuthClient returns whether the authenticated entity is a client
+// user.
 func (fa FakeAuthorizer) AuthClient() bool {
-	return fa.Client
+	_, isUser := fa.GetAuthTag().(names.UserTag)
+	return isUser
 }
 
 func (fa FakeAuthorizer) GetAuthTag() names.Tag {
 	return fa.Tag
-}
-
-func (fa FakeAuthorizer) GetAuthEntity() state.Entity {
-	return fa.Entity
 }

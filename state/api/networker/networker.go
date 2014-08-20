@@ -4,7 +4,8 @@
 package networker
 
 import (
-	"fmt"
+	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/base"
@@ -16,32 +17,28 @@ const networkerFacade = "Networker"
 
 // State provides access to an networker worker's view of the state.
 type State struct {
-	caller base.Caller
-}
-
-func (st *State) call(method string, params, result interface{}) error {
-	return st.caller.Call(networkerFacade, "", method, params, result)
+	facade base.FacadeCaller
 }
 
 // NewState creates a new client-side Machiner facade.
-func NewState(caller base.Caller) *State {
-	return &State{caller}
+func NewState(caller base.APICaller) *State {
+	return &State{base.NewFacadeCaller(caller, networkerFacade)}
 }
 
 // MachineNetworkInfo returns information about networks to setup only for a single machine.
-func (st *State) MachineNetworkInfo(machineTag string) ([]network.Info, error) {
+func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.Info, error) {
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: machineTag}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.MachineNetworkInfoResults
-	err := st.call("MachineNetworkInfo", args, &results)
+	err := st.facade.FacadeCall("MachineNetworkInfo", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		err = fmt.Errorf("expected one result, got %d", len(results.Results))
+		err = errors.Errorf("expected one result, got %d", len(results.Results))
 		return nil, err
 	}
 	result := results.Results[0]
@@ -53,25 +50,25 @@ func (st *State) MachineNetworkInfo(machineTag string) ([]network.Info, error) {
 
 // WatchInterfaces returns a NotifyWatcher that notifies of changes to network
 // interfaces on the machine.
-func (st *State) WatchInterfaces(machineTag string) (watcher.NotifyWatcher, error) {
+func (st *State) WatchInterfaces(tag names.MachineTag) (watcher.NotifyWatcher, error) {
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: machineTag}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.NotifyWatchResults
-	err := st.call("WatchInterfaces", args, &results)
+	err := st.facade.FacadeCall("WatchInterfaces", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		err = fmt.Errorf("expected one result, got %d", len(results.Results))
+		err = errors.Errorf("expected one result, got %d", len(results.Results))
 		return nil, err
 	}
 	result := results.Results[0]
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(st.caller, result)
+	w := watcher.NewNotifyWatcher(st.facade.RawAPICaller(), result)
 	return w, nil
 }

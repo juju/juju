@@ -55,7 +55,7 @@ func (f *fakeUserInfoAPI) UserInfo(username string) (result usermanager.UserInfo
 		LastConnection: &lastConnection,
 	}
 	switch username {
-	case "":
+	case "admin":
 		info.Username = "admin"
 	case "foobar":
 		info.Username = "foobar"

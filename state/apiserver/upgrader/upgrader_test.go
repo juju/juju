@@ -51,9 +51,7 @@ func (s *upgraderSuite) SetUpTest(c *gc.C) {
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          s.rawMachine.Tag(),
-		LoggedIn:     true,
-		MachineAgent: true,
+		Tag: s.rawMachine.Tag(),
 	}
 	s.upgrader, err = upgrader.NewUpgraderAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, gc.IsNil)
@@ -98,8 +96,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 
 func (s *upgraderSuite) TestUpgraderAPIRefusesNonMachineAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.UnitAgent = true
-	anAuthorizer.MachineAgent = false
+	anAuthorizer.Tag = names.NewUnitTag("ubuntu/1")
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.NotNil)
 	c.Check(anUpgrader, gc.IsNil)
@@ -307,9 +304,7 @@ func (s *upgraderSuite) TestDesiredVersionUnrestrictedForAPIAgents(c *gc.C) {
 	newVersion := s.bumpDesiredAgentVersion(c)
 	// Grab a different Upgrader for the apiMachine
 	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:          s.apiMachine.Tag(),
-		LoggedIn:     true,
-		MachineAgent: true,
+		Tag: s.apiMachine.Tag(),
 	}
 	upgraderAPI, err := upgrader.NewUpgraderAPI(s.State, s.resources, authorizer)
 	c.Assert(err, gc.IsNil)

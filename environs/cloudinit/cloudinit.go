@@ -17,7 +17,7 @@ import (
 	"github.com/juju/utils"
 	"github.com/juju/utils/apt"
 	"github.com/juju/utils/proxy"
-	"launchpad.net/goyaml"
+	goyaml "gopkg.in/yaml.v1"
 
 	"github.com/juju/juju/agent"
 	agenttools "github.com/juju/juju/agent/tools"
@@ -151,6 +151,9 @@ type MachineConfig struct {
 	// and when set IPv6 addresses for connecting to the API/state
 	// servers will be preferred over IPv4 ones.
 	PreferIPv6 bool
+
+	// The type of Simple Stream to download and deploy on this machine.
+	ImageStream string
 }
 
 func base64yaml(m *config.Config) string {
@@ -299,6 +302,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 		copyCmd = fmt.Sprintf("cp %s $bin/tools.tar.gz", shquote(cfg.Tools.URL[len(fileSchemePrefix):]))
 	} else {
 		curlCommand := "curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{time_total}s; size %{size_download} bytes; speed %{speed_download} bytes/s '"
+		curlCommand += " --retry 10"
 		if cfg.DisableSSLHostnameVerification {
 			curlCommand += " --insecure"
 		}
@@ -328,7 +332,7 @@ func ConfigureJuju(cfg *MachineConfig, c *cloudinit.Config) error {
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
 	machineTag := names.NewMachineTag(cfg.MachineId)
-	_, err = cfg.addAgentInfo(c, machineTag)
+	_, err = cfg.addAgentInfo(c, machineTag, cfg.Tools.Version.Number)
 	if err != nil {
 		return err
 	}
@@ -372,7 +376,10 @@ func (cfg *MachineConfig) dataFile(name string) string {
 	return path.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(tag names.Tag) (agent.ConfigSetter, error) {
+func (cfg *MachineConfig) agentConfig(
+	tag names.Tag,
+	toolsVersion version.Number,
+) (agent.ConfigSetter, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
 	// if the machine is a stateServer then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
@@ -387,7 +394,7 @@ func (cfg *MachineConfig) agentConfig(tag names.Tag) (agent.ConfigSetter, error)
 		LogDir:            cfg.LogDir,
 		Jobs:              cfg.Jobs,
 		Tag:               tag,
-		UpgradedToVersion: version.Current.Number,
+		UpgradedToVersion: toolsVersion,
 		Password:          password,
 		Nonce:             cfg.MachineNonce,
 		StateAddresses:    cfg.stateHostAddrs(),
@@ -404,8 +411,12 @@ func (cfg *MachineConfig) agentConfig(tag names.Tag) (agent.ConfigSetter, error)
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag names.Tag) (agent.Config, error) {
-	acfg, err := cfg.agentConfig(tag)
+func (cfg *MachineConfig) addAgentInfo(
+	c *cloudinit.Config,
+	tag names.Tag,
+	toolsVersion version.Number,
+) (agent.Config, error) {
+	acfg, err := cfg.agentConfig(tag, toolsVersion)
 	if err != nil {
 		return nil, err
 	}

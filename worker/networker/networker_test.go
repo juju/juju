@@ -17,6 +17,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/agent"
+	"github.com/juju/juju/instance"
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api"
@@ -318,4 +319,133 @@ loop:
 		[]string{"br0", "eth0", "eth0.69", "eth1", "eth1.42", "eth2", "wlan0"})
 	c.Assert(s.configStates[2].interfacesWithAddress, gc.DeepEquals,
 		[]string{"br0", "eth0.69", "eth1", "eth1.42", "eth2", "wlan0"})
+}
+
+func (s *networkerSuite) TestSafeNetworkerDoesNotWriteConfigFiles(c *gc.C) {
+	// Create a sample interfaces file (MAAS configuration).
+	interfacesFileContents := fmt.Sprintf(sampleInterfacesFile, networker.ConfigDirName)
+	err := utils.AtomicWriteFile(networker.ConfigFileName, []byte(interfacesFileContents), 0644)
+	c.Assert(err, gc.IsNil)
+	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth0.config"), []byte(sampleEth0DotConfigFile), 0644)
+	c.Assert(err, gc.IsNil)
+	// Patch the command executor function.
+	s.configStates = []*configState{}
+	s.PatchValue(&networker.ExecuteCommands,
+		func(commands []string) error {
+			return executeCommandsHook(c, s, commands)
+		},
+	)
+
+	// Create and setup networker.
+	s.executed = make(chan bool)
+	nw, err := networker.NewSafeNetworker(s.networkerState, agentConfig(s.machine.Tag()))
+	c.Assert(err, gc.IsNil)
+	defer func() { c.Assert(worker.Stop(nw), gc.IsNil) }()
+
+	select {
+	case <-s.executed:
+		c.Fatalf("command executed unexpectedly")
+	case <-time.After(coretesting.ShortWait):
+		return
+	}
+}
+
+func (s *networkerSuite) TestIsRunningInLXC(c *gc.C) {
+	tests := []struct {
+		machineTag string
+		result     bool
+	}{
+		{"machine-0", false},
+		{"machine-1-lxc-0", true},
+		{"machine-2-kvm-1", false},
+		{"machine-3-lxc-0-lxc-1", true},
+		{"machine-4-lxc-0-kvm-1", false},
+		{"machine-5-lxc-1-kvm-1-lxc-3", true},
+	}
+	for i, t := range tests {
+		c.Logf("test %d: %q -> %v", i, t.machineTag, t.result)
+		tag, err := names.ParseMachineTag(t.machineTag)
+		c.Assert(err, gc.IsNil)
+		c.Check(networker.IsRunningInLXC(tag), gc.Equals, t.result)
+	}
+}
+
+func (s *networkerSuite) TestNoModprobeWhenRunningInLXC(c *gc.C) {
+	// Create a new container.
+	template := state.MachineTemplate{
+		Series: coretesting.FakeDefaultSeries,
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	lxcMachine, err := s.State.AddMachineInsideMachine(template, s.machine.Id(), instance.LXC)
+	c.Assert(err, gc.IsNil)
+	password, err := utils.RandomPassword()
+	c.Assert(err, gc.IsNil)
+	err = lxcMachine.SetPassword(password)
+	c.Assert(err, gc.IsNil)
+	lxcIFaces := []state.NetworkInterfaceInfo{{
+		MACAddress:    "aa:bb:cc:dd:01:f0",
+		InterfaceName: "wlan0",
+		NetworkName:   "net2",
+		IsVirtual:     false,
+		Disabled:      false,
+	}}
+
+	err = lxcMachine.SetInstanceInfo("i-am-lxc", "fake_nonce", nil, s.networks, lxcIFaces)
+	c.Assert(err, gc.IsNil)
+
+	// Login to the API as the machine agent of lxcMachine.
+	lxcState := s.OpenAPIAsMachine(c, lxcMachine.Tag(), password, "fake_nonce")
+	c.Assert(lxcState, gc.NotNil)
+	lxcNetworker := lxcState.Networker()
+	c.Assert(lxcNetworker, gc.NotNil)
+
+	// Create a sample interfaces file (MAAS configuration).
+	interfacesFileContents := fmt.Sprintf(sampleInterfacesFile, networker.ConfigDirName)
+	err = utils.AtomicWriteFile(networker.ConfigFileName, []byte(interfacesFileContents), 0644)
+	c.Assert(err, gc.IsNil)
+	err = utils.AtomicWriteFile(filepath.Join(networker.ConfigDirName, "eth0.config"), []byte(sampleEth0DotConfigFile), 0644)
+	c.Assert(err, gc.IsNil)
+
+	// Patch the command executor and interface checker functions.
+	commandExecuted := make(chan string)
+	s.PatchValue(&networker.InterfaceIsUp,
+		func(name string) bool {
+			return false
+		},
+	)
+	s.PatchValue(&networker.ExecuteCommands,
+		func(commands []string) error {
+			for _, command := range commands {
+				commandExecuted <- command
+			}
+			return nil
+		},
+	)
+
+	// Create and setup networker for the LXC machine.
+	nw, err := networker.NewNetworker(lxcNetworker, agentConfig(lxcMachine.Tag()))
+	c.Assert(err, gc.IsNil)
+	defer func() { c.Assert(worker.Stop(nw), gc.IsNil) }()
+
+	timeout := time.After(coretesting.LongWait)
+	for {
+		select {
+		case command := <-commandExecuted:
+			if strings.Contains(command, "ifup") {
+				// ifup commands are executed after trying to load
+				// the VLAN module, so if we get any such commands,
+				// we're done waiting.
+				return
+			}
+			if strings.Contains(command, "modprobe 8021q") {
+				// We're not expecting a modprobe command,
+				// so we're done waiting and fail the test.
+				c.Fatalf("unexpected modprobe command!")
+				return
+			}
+		case <-timeout:
+			c.Fatalf("no commands executed!")
+			return
+		}
+	}
 }

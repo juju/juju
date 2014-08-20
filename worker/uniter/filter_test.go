@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 

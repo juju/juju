@@ -182,6 +182,23 @@ func Prepare(cfg *config.Config, ctx BootstrapContext, store configstore.Storage
 			}
 			return nil, err
 		}
+		cfg = env.Config()
+		creds := configstore.APICredentials{
+			User:     "admin", // TODO(waigani) admin@local once we have that set
+			Password: cfg.AdminSecret(),
+		}
+		info.SetAPICredentials(creds)
+		endpoint := configstore.APIEndpoint{}
+		var ok bool
+		endpoint.CACert, ok = cfg.CACert()
+		if !ok {
+			return nil, errors.Errorf("CACert is not set")
+		}
+		endpoint.EnvironUUID, ok = cfg.UUID()
+		if !ok {
+			return nil, errors.Errorf("CACert is not set")
+		}
+		info.SetAPIEndpoint(endpoint)
 		info.SetBootstrapConfig(env.Config().AllAttrs())
 		if err := info.Write(); err != nil {
 			return nil, errors.Annotatef(err, "cannot create environment info %q", env.Config().Name())

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	jc "github.com/juju/testing/checkers"
+	"github.com/juju/txn"
 	"gopkg.in/mgo.v2/bson"
 	gc "launchpad.net/gocheck"
 
@@ -22,7 +23,6 @@ import (
 	"github.com/juju/juju/state/testing"
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/version"
-	"github.com/juju/txn"
 )
 
 type MachineSuite struct {
@@ -344,9 +344,59 @@ func (s *MachineSuite) TestTag(c *gc.C) {
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *gc.C) {
-	testSetMongoPassword(c, func(st *state.State) (entity, error) {
-		return st.Machine(s.machine.Id())
-	})
+	info := state.TestingMongoInfo()
+	st, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st.Close()
+	// Turn on fully-authenticated mode.
+	err = st.SetAdminMongoPassword("admin-secret")
+	c.Assert(err, gc.IsNil)
+	err = st.MongoSession().DB("admin").Login("admin", "admin-secret")
+	c.Assert(err, gc.IsNil)
+
+	// Set the password for the entity
+	ent, err := st.Machine("0")
+	c.Assert(err, gc.IsNil)
+	err = ent.SetMongoPassword("foo")
+	c.Assert(err, gc.IsNil)
+
+	// Check that we cannot log in with the wrong password.
+	info.Tag = ent.Tag()
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "foo"
+	st1, err := state.Open(info, state.TestingDialOpts(), state.Policy(nil))
+	c.Assert(err, gc.IsNil)
+	defer st1.Close()
+
+	// Change the password with an entity derived from the newly
+	// opened and authenticated state.
+	ent, err = st.Machine("0")
+	c.Assert(err, gc.IsNil)
+	err = ent.SetMongoPassword("bar")
+	c.Assert(err, gc.IsNil)
+
+	// Check that we cannot log in with the old password.
+	info.Password = "foo"
+	err = tryOpenState(info)
+	c.Assert(err, jc.Satisfies, errors.IsUnauthorized)
+
+	// Check that we can log in with the correct password.
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(err, gc.IsNil)
+
+	// Check that the administrator can still log in.
+	info.Tag, info.Password = nil, "admin-secret"
+	err = tryOpenState(info)
+	c.Assert(err, gc.IsNil)
+
+	// Remove the admin password so that the test harness can reset the state.
+	err = st.SetAdminMongoPassword("")
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *MachineSuite) TestSetPassword(c *gc.C) {

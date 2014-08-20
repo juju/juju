@@ -34,16 +34,16 @@ type Instance interface {
 
 	// OpenPorts opens the given ports on the instance, which
 	// should have been started with the given machine id.
-	OpenPorts(machineId string, ports []network.Port) error
+	OpenPorts(machineId string, ports []network.PortRange) error
 
 	// ClosePorts closes the given ports on the instance, which
 	// should have been started with the given machine id.
-	ClosePorts(machineId string, ports []network.Port) error
+	ClosePorts(machineId string, ports []network.PortRange) error
 
 	// Ports returns the set of ports open on the instance, which
 	// should have been started with the given machine id.
 	// The ports are returned as sorted by SortPorts.
-	Ports(machineId string) ([]network.Port, error)
+	Ports(machineId string) ([]network.PortRange, error)
 }
 
 // HardwareCharacteristics represents the characteristics of the instance (if known).

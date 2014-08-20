@@ -510,17 +510,17 @@ func (env *localEnviron) Destroy() error {
 }
 
 // OpenPorts is specified in the Environ interface.
-func (env *localEnviron) OpenPorts(ports []network.Port) error {
+func (env *localEnviron) OpenPorts(ports []network.PortRange) error {
 	return fmt.Errorf("open ports not implemented")
 }
 
 // ClosePorts is specified in the Environ interface.
-func (env *localEnviron) ClosePorts(ports []network.Port) error {
+func (env *localEnviron) ClosePorts(ports []network.PortRange) error {
 	return fmt.Errorf("close ports not implemented")
 }
 
 // Ports is specified in the Environ interface.
-func (env *localEnviron) Ports() ([]network.Port, error) {
+func (env *localEnviron) Ports() ([]network.PortRange, error) {
 	return nil, nil
 }
 

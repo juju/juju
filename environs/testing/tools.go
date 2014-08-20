@@ -298,8 +298,8 @@ var (
 	V220all = []version.Binary{V220p64, V220p32, V220q64, V220q32}
 	VAll    = append(V1all, V220all...)
 
-	V31d0qppc64  = version.MustParseBinary("3.1-dev0-quantal-ppc64")
-	V31d01qppc64 = version.MustParseBinary("3.1-dev0.1-quantal-ppc64")
+	V31d0qppc64  = version.MustParseBinary("3.1-dev0-quantal-ppc64el")
+	V31d01qppc64 = version.MustParseBinary("3.1-dev0.1-quantal-ppc64el")
 )
 
 type BootstrapToolsTest struct {

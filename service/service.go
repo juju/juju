@@ -6,11 +6,12 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/juju/utils/exec"
+
 	"github.com/juju/juju/service/common"
 	"github.com/juju/juju/service/upstart"
 	"github.com/juju/juju/service/windows"
 	"github.com/juju/juju/version"
-	"github.com/juju/utils/exec"
 )
 
 var _ Service = (*upstart.Service)(nil)
@@ -21,6 +22,10 @@ type Service interface {
 	// Installed will return a boolean value that denotes
 	// whether or not the service is installed
 	Installed() bool
+	// Exists returns whether the service configuration exists in the
+	// init directory with the same content that this Service would have
+	// if installed.
+	Exists() bool
 	// Running returns a boolean value that denotes
 	// whether or not the service is running
 	Running() bool

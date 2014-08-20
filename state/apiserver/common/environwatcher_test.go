@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
+	apiservertesting "github.com/juju/juju/state/apiserver/testing"
 	"github.com/juju/juju/testing"
 )
 
@@ -53,17 +54,11 @@ func (s *environWatcherSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			return true
-		}, nil
-	}
 	resources := common.NewResources()
 	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{},
 		resources,
-		getCanWatch,
 		nil,
 	)
 	result, err := e.WatchForEnvironConfigChanges()
@@ -72,56 +67,16 @@ func (s *environWatcherSuite) TestWatchSuccess(c *gc.C) {
 	c.Assert(resources.Count(), gc.Equals, 1)
 }
 
-func (s *environWatcherSuite) TestWatchGetAuthError(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
-		return nil, fmt.Errorf("pow")
-	}
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewEnvironWatcher(
-		&fakeEnvironAccessor{},
-		resources,
-		getCanWatch,
-		nil,
-	)
-	_, err := e.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.ErrorMatches, "pow")
-	c.Assert(resources.Count(), gc.Equals, 0)
-}
-
-func (s *environWatcherSuite) TestWatchAuthError(c *gc.C) {
-	getCanWatch := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			return false
-		}, nil
-	}
-	resources := common.NewResources()
-	s.AddCleanup(func(_ *gc.C) { resources.StopAll() })
-	e := common.NewEnvironWatcher(
-		&fakeEnvironAccessor{},
-		resources,
-		getCanWatch,
-		nil,
-	)
-	result, err := e.WatchForEnvironConfigChanges()
-	c.Assert(err, gc.ErrorMatches, "permission denied")
-	c.Assert(result, gc.DeepEquals, params.NotifyWatchResult{})
-	c.Assert(resources.Count(), gc.Equals, 0)
-}
-
 func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
-	getCanReadSecrets := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			return true
-		}, nil
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:            names.NewMachineTag("0"),
+		EnvironManager: true,
 	}
-
 	testingEnvConfig := testingEnvConfig(c)
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{envConfig: testingEnvConfig},
 		nil,
-		nil,
-		getCanReadSecrets,
+		authorizer,
 	)
 	result, err := e.EnvironConfig()
 	c.Assert(err, gc.IsNil)
@@ -131,50 +86,31 @@ func (*environWatcherSuite) TestEnvironConfigSuccess(c *gc.C) {
 }
 
 func (*environWatcherSuite) TestEnvironConfigFetchError(c *gc.C) {
-	getCanReadSecrets := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			return true
-		}, nil
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:            names.NewMachineTag("0"),
+		EnvironManager: true,
 	}
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{
 			envConfigError: fmt.Errorf("pow"),
 		},
 		nil,
-		nil,
-		getCanReadSecrets,
+		authorizer,
 	)
 	_, err := e.EnvironConfig()
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
-func (*environWatcherSuite) TestEnvironConfigGetAuthError(c *gc.C) {
-	getCanReadSecrets := func() (common.AuthFunc, error) {
-		return nil, fmt.Errorf("pow")
+func (*environWatcherSuite) TestEnvironConfigMaskedSecrets(c *gc.C) {
+	authorizer := apiservertesting.FakeAuthorizer{
+		Tag:            names.NewMachineTag("0"),
+		EnvironManager: false,
 	}
-	e := common.NewEnvironWatcher(
-		&fakeEnvironAccessor{envConfig: testingEnvConfig(c)},
-		nil,
-		nil,
-		getCanReadSecrets,
-	)
-	_, err := e.EnvironConfig()
-	c.Assert(err, gc.ErrorMatches, "pow")
-}
-
-func (*environWatcherSuite) TestEnvironConfigReadSecretsFalse(c *gc.C) {
-	getCanReadSecrets := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			return false
-		}, nil
-	}
-
 	testingEnvConfig := testingEnvConfig(c)
 	e := common.NewEnvironWatcher(
 		&fakeEnvironAccessor{envConfig: testingEnvConfig},
 		nil,
-		nil,
-		getCanReadSecrets,
+		authorizer,
 	)
 	result, err := e.EnvironConfig()
 	c.Assert(err, gc.IsNil)

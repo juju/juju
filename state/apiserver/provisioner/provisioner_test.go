@@ -69,7 +69,6 @@ func (s *provisionerSuite) setUpTest(c *gc.C, withStateServer bool) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as the environment manager.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		LoggedIn:       true,
 		EnvironManager: true,
 	}
 
@@ -101,7 +100,6 @@ func (s *withoutStateServerSuite) SetUpTest(c *gc.C) {
 
 func (s *withoutStateServerSuite) TestProvisionerFailsWithNonMachineAgentNonManagerUser(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = false
 	anAuthorizer.EnvironManager = true
 	// Works with an environment manager, which is not a machine agent.
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
@@ -179,7 +177,6 @@ func (s *withoutStateServerSuite) TestLifeAsMachineAgent(c *gc.C) {
 
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = true
 	anAuthorizer.EnvironManager = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
@@ -383,7 +380,6 @@ func (s *withoutStateServerSuite) TestMachinesWithTransientErrors(c *gc.C) {
 func (s *withoutStateServerSuite) TestMachinesWithTransientErrorsPermission(c *gc.C) {
 	// Machines where there's permission issues are omitted.
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = true
 	anAuthorizer.EnvironManager = false
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
@@ -536,7 +532,7 @@ func (s *withoutStateServerSuite) TestEnvironConfigNonManager(c *gc.C) {
 	// Now test it with a non-environment manager and make sure
 	// the secret attributes are masked.
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = true
+	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.EnvironManager = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources,
 		anAuthorizer)
@@ -701,7 +697,6 @@ func (s *withoutStateServerSuite) TestDistributionGroupMachineAgentAuth(c *gc.C)
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.EnvironManager = false
-	anAuthorizer.MachineAgent = true
 	provisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{Entities: []params.Entity{
@@ -773,7 +768,6 @@ func (s *withoutStateServerSuite) TestProvisioningInfo(c *gc.C) {
 func (s *withoutStateServerSuite) TestProvisioningInfoPermissions(c *gc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = true
 	anAuthorizer.EnvironManager = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
@@ -1127,7 +1121,7 @@ func (s *withoutStateServerSuite) TestWatchEnvironMachines(c *gc.C) {
 
 	// Make sure WatchEnvironMachines fails with a machine agent login.
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = true
+	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.EnvironManager = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)
@@ -1177,7 +1171,6 @@ func (s *withoutStateServerSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = names.NewMachineTag("12354")
 	anAuthorizer.EnvironManager = false
-	anAuthorizer.MachineAgent = true
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, gc.IsNil)
 	args := params.Entities{
@@ -1245,7 +1238,6 @@ func (s *withoutStateServerSuite) TestSetSupportedContainers(c *gc.C) {
 func (s *withoutStateServerSuite) TestSetSupportedContainersPermissions(c *gc.C) {
 	// Login as a machine agent for machine 0.
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = true
 	anAuthorizer.EnvironManager = false
 	anAuthorizer.Tag = s.machines[0].Tag()
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
@@ -1361,7 +1353,7 @@ func (s *withoutStateServerSuite) TestWatchMachineErrorRetry(c *gc.C) {
 
 	// Make sure WatchMachineErrorRetry fails with a machine agent login.
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = true
+	anAuthorizer.Tag = names.NewMachineTag("1")
 	anAuthorizer.EnvironManager = false
 	aProvisioner, err := provisioner.NewProvisionerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.IsNil)

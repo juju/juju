@@ -14,6 +14,8 @@ var (
 
 	UpstartConfInstall          = &upstartConfInstall
 	UpstartService              = upstartService
+	UpstartServiceExists        = &upstartServiceExists
+	UpstartServiceRunning       = &upstartServiceRunning
 	UpstartServiceStopAndRemove = &upstartServiceStopAndRemove
 	UpstartServiceStop          = &upstartServiceStop
 	UpstartServiceStart         = &upstartServiceStart

@@ -8,12 +8,12 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	jujutxn "github.com/juju/txn"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
 	"gopkg.in/mgo.v2"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
@@ -199,13 +199,6 @@ func (u *Unit) SetAgentVersion(v version.Binary) (err error) {
 	}
 	u.doc.Tools = tools
 	return nil
-}
-
-// SetMongoPassword sets the password the agent responsible for the unit
-// should use to communicate with the state servers.  Previous passwords
-// are invalidated.
-func (u *Unit) SetMongoPassword(password string) error {
-	return u.st.setMongoPassword(u.Tag().String(), password)
 }
 
 // SetPassword sets the password for the machine's agent.
@@ -1739,4 +1732,14 @@ func (u *Unit) WatchActions() StringsWatcher {
 // when actionresults with Id prefixes matching this Unit are added
 func (u *Unit) WatchActionResults() StringsWatcher {
 	return u.st.WatchActionResultsFilteredBy(u)
+}
+
+// AddMetric adds a new batch of metrics to the database.
+// A UUID for the metric will be generated and the new MetricBatch will be returned
+func (u *Unit) AddMetrics(metrics []*Metric) (*MetricBatch, error) {
+	charmUrl, ok := u.CharmURL()
+	if !ok {
+		return nil, stderrors.New("failed to add metrics, couldn't find charm url")
+	}
+	return u.st.addMetrics(u.UnitTag(), charmUrl, metrics)
 }

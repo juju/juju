@@ -17,15 +17,15 @@ import (
 
 var logger = loggo.GetLogger("juju.worker.deployer.service")
 
-var serviceInstallScript = `$data = Get-Content C:\Juju\Jujud.pass
-$serviceName = "%s"
+var serviceInstallScript = `$data = Get-Content "C:\Juju\Jujud.pass"
 if($? -eq $false){Write-Error "Failed to read encrypted password"; exit 1}
+$serviceName = "%s"
 $secpasswd = $data | convertto-securestring
 if($? -eq $false){Write-Error "Failed decode password"; exit 1}
 $juju_user = whoami
 $jujuCreds = New-Object System.Management.Automation.PSCredential($juju_user, $secpasswd)
 if($? -eq $false){Write-Error "Failed to create secure credentials"; exit 1}
-New-Service -Credential $jujuCreds -Name '$serviceName' -DisplayName '%s' '%s'
+New-Service -Credential $jujuCreds -Name "$serviceName" -DisplayName '%s' '%s'
 if($? -eq $false){Write-Error "Failed to install service $serviceName"; exit 1}
 cmd.exe /C call sc config $serviceName start=delayed-auto
 if($? -eq $false){Write-Error "Failed execute sc"; exit 1}
@@ -57,9 +57,12 @@ func (s *Service) UpdateConfig(conf common.Conf) {
 
 // Status gets the service status
 func (s *Service) Status() (string, error) {
-	cmd := fmt.Sprintf(`(Get-Service "%s").Status`, s.Name)
+	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (Get-Service "%s").Status`, s.Name)
 	out, err := runPsCommand(cmd)
-	return string(out.Stdout), err
+	if err != nil {
+		return "", err
+	}
+	return string(out.Stdout), nil
 }
 
 // Running returns true if the Service appears to be running.
@@ -84,9 +87,18 @@ func (s *Service) Installed() bool {
 	return false
 }
 
+// Exists returns whether the service configuration exists in the
+// init directory with the same content that this Service would have
+// if installed.
+// TODO (gabriel-samfira): 2014-07-30 bug 1350171
+// Needs a proper implementation when testing is improved
+func (s *Service) Exists() bool {
+	return false
+}
+
 // Start starts the service.
 func (s *Service) Start() error {
-	cmd := fmt.Sprintf(`Start-Service  "%s"`, s.Name)
+	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Start-Service  "%s"`, s.Name)
 	logger.Infof("Starting service %q", s.Name)
 	if s.Running() {
 		logger.Infof("Service %q already running", s.Name)
@@ -101,7 +113,7 @@ func (s *Service) Stop() error {
 	if !s.Running() {
 		return nil
 	}
-	cmd := fmt.Sprintf(`Stop-Service  "%s"`, s.Name)
+	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; Stop-Service  "%s"`, s.Name)
 	_, err := runPsCommand(cmd)
 	return err
 }
@@ -112,7 +124,7 @@ func (s *Service) Remove() error {
 	if err != nil {
 		return err
 	}
-	cmd := fmt.Sprintf(`(gwmi win32_service -filter 'name="%s"').Delete()`, s.Name)
+	cmd := fmt.Sprintf(`$ErrorActionPreference="Stop"; (gwmi win32_service -filter 'name="%s"').Delete()`, s.Name)
 	_, err = runPsCommand(cmd)
 	return err
 }

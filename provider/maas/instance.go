@@ -5,8 +5,10 @@ package maas
 
 import (
 	"fmt"
+	"strings"
 	"sync"
 
+	"github.com/juju/errors"
 	"launchpad.net/gomaasapi"
 
 	"github.com/juju/juju/instance"
@@ -75,6 +77,11 @@ func (mi *maasInstance) Addresses() ([]network.Address, error) {
 	}
 	host := network.Address{name, network.HostName, "", network.ScopePublic}
 	addrs := []network.Address{host}
+	// MAAS prefers to use the dns name for intra-node communication.
+	// When Juju looks up the address to use for communicating between nodes, it looks
+	// up the address bu scope. So we add a cloud local address for that purpose.
+	cloudHost := network.Address{name, network.HostName, "", network.ScopeCloudLocal}
+	addrs = append(addrs, cloudHost)
 
 	ips, err := mi.ipAddresses()
 	if err != nil {
@@ -111,23 +118,102 @@ func (mi *maasInstance) ipAddresses() ([]string, error) {
 	return ips, nil
 }
 
+func (mi *maasInstance) architecture() (arch, subarch string, err error) {
+	// MAAS may return an architecture of the form, for example,
+	// "amd64/generic"; we only care about the major part.
+	arch, err = mi.getMaasObject().GetField("architecture")
+	if err != nil {
+		return "", "", err
+	}
+	parts := strings.SplitN(arch, "/", 2)
+	arch = parts[0]
+	if len(parts) == 2 {
+		subarch = parts[1]
+	}
+	return arch, subarch, nil
+}
+
+func (mi *maasInstance) cpuCount() (uint64, error) {
+	count, err := mi.getMaasObject().GetMap()["cpu_count"].GetFloat64()
+	if err != nil {
+		return 0, err
+	}
+	return uint64(count), nil
+}
+
+func (mi *maasInstance) memory() (uint64, error) {
+	mem, err := mi.getMaasObject().GetMap()["memory"].GetFloat64()
+	if err != nil {
+		return 0, err
+	}
+	return uint64(mem), nil
+}
+
+func (mi *maasInstance) tagNames() ([]string, error) {
+	obj := mi.getMaasObject().GetMap()["tag_names"]
+	if obj.IsNil() {
+		return nil, errors.NotFoundf("tag_names")
+	}
+	array, err := obj.GetArray()
+	if err != nil {
+		return nil, err
+	}
+	tags := make([]string, len(array))
+	for i, obj := range array {
+		tag, err := obj.GetString()
+		if err != nil {
+			return nil, err
+		}
+		tags[i] = tag
+	}
+	return tags, nil
+}
+
+func (mi *maasInstance) hardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	nodeArch, _, err := mi.architecture()
+	if err != nil {
+		return nil, errors.Annotate(err, "error determining architecture")
+	}
+	nodeCpuCount, err := mi.cpuCount()
+	if err != nil {
+		return nil, errors.Annotate(err, "error determining cpu count")
+	}
+	nodeMemoryMB, err := mi.memory()
+	if err != nil {
+		return nil, errors.Annotate(err, "error determining available memory")
+	}
+	hc := &instance.HardwareCharacteristics{
+		Arch:     &nodeArch,
+		CpuCores: &nodeCpuCount,
+		Mem:      &nodeMemoryMB,
+	}
+	nodeTags, err := mi.tagNames()
+	if err != nil && !errors.IsNotFound(err) {
+		return nil, errors.Annotate(err, "error determining tag names")
+	}
+	if len(nodeTags) > 0 {
+		hc.Tags = &nodeTags
+	}
+	return hc, nil
+}
+
 func (mi *maasInstance) hostname() (string, error) {
 	// A MAAS instance has its DNS name immediately.
 	return mi.getMaasObject().GetField("hostname")
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (mi *maasInstance) OpenPorts(machineId string, ports []network.Port) error {
+func (mi *maasInstance) OpenPorts(machineId string, ports []network.PortRange) error {
 	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
-func (mi *maasInstance) ClosePorts(machineId string, ports []network.Port) error {
+func (mi *maasInstance) ClosePorts(machineId string, ports []network.PortRange) error {
 	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
-func (mi *maasInstance) Ports(machineId string) ([]network.Port, error) {
+func (mi *maasInstance) Ports(machineId string) ([]network.PortRange, error) {
 	logger.Debugf("unimplemented Ports() called")
-	return []network.Port{}, nil
+	return nil, nil
 }

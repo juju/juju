@@ -5,6 +5,8 @@ package networker
 
 import (
 	"path/filepath"
+
+	"github.com/juju/names"
 )
 
 const (
@@ -24,6 +26,11 @@ var (
 	SplitByInterfaces       = splitByInterfaces
 	SourceCommentAndCommand = sourceCommentAndCommand
 )
+
+func IsRunningInLXC(machineTag names.MachineTag) bool {
+	nw := &networker{tag: machineTag}
+	return nw.isRunningInLXC()
+}
 
 func ChangeConfigDirName(dirName string) {
 	configDirName = dirName

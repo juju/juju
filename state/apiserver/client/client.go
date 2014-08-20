@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"github.com/juju/names"
 	"github.com/juju/utils"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/config"
@@ -59,7 +59,7 @@ func NewClient(st *state.State, resources *common.Resources, authorizer common.A
 		state:        st,
 		auth:         authorizer,
 		resources:    resources,
-		statusSetter: common.NewStatusSetter(st, common.AuthAlways(true)),
+		statusSetter: common.NewStatusSetter(st, common.AuthAlways()),
 	}}, nil
 }
 
@@ -958,7 +958,7 @@ func (c *Client) AddCharm(args params.CharmURL) error {
 	}
 
 	// Open it and calculate the SHA256 hash.
-	downloadedBundle, ok := downloadedCharm.(*charm.Bundle)
+	downloadedBundle, ok := downloadedCharm.(*charm.CharmArchive)
 	if !ok {
 		return errors.Errorf("expected a charm archive, got %T", downloadedCharm)
 	}
@@ -1024,7 +1024,7 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 
 	for _, ref := range args.References {
 		result := params.ResolveCharmResult{}
-		curl, err := c.resolveCharm(ref, repo)
+		curl, err := c.resolveCharm(&ref, repo)
 		if err != nil {
 			result.Error = err.Error()
 		} else {
@@ -1035,7 +1035,7 @@ func (c *Client) ResolveCharms(args params.ResolveCharms) (params.ResolveCharmRe
 	return results, nil
 }
 
-func (c *Client) resolveCharm(ref charm.Reference, repo charm.Repository) (*charm.URL, error) {
+func (c *Client) resolveCharm(ref *charm.Reference, repo charm.Repository) (*charm.URL, error) {
 	if ref.Schema != "cs" {
 		return nil, fmt.Errorf("only charm store charm references are supported, with cs: schema")
 	}

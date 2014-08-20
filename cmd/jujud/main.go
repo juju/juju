@@ -18,9 +18,9 @@ import (
 	jujucmd "github.com/juju/juju/cmd"
 	"github.com/juju/juju/juju/names"
 	"github.com/juju/juju/juju/sockets"
-	"github.com/juju/juju/worker/uniter/jujuc"
 	// Import the providers.
 	_ "github.com/juju/juju/provider/all"
+	"github.com/juju/juju/worker/uniter/jujuc"
 )
 
 var jujudDoc = `
@@ -133,10 +133,6 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 	}
 	os.Exit(code)
-}
-
-func main() {
-	Main(os.Args)
 }
 
 type writerFactory struct{}

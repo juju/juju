@@ -16,9 +16,10 @@ import (
 	"sync"
 
 	"github.com/juju/cmd"
-	"github.com/juju/juju/juju/sockets"
 	"github.com/juju/loggo"
 	"github.com/juju/utils/exec"
+
+	"github.com/juju/juju/juju/sockets"
 )
 
 var logger = loggo.GetLogger("worker.uniter.jujuc")

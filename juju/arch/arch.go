@@ -15,7 +15,7 @@ const (
 	I386  = "i386"
 	ARM   = "armhf"
 	ARM64 = "arm64"
-	PPC64 = "ppc64"
+	PPC64 = "ppc64el"
 )
 
 // AllSupportedArches records the machine architectures recognised by Juju.
@@ -52,7 +52,7 @@ var archREs = []struct {
 	{regexp.MustCompile("i?[3-9]86"), I386},
 	{regexp.MustCompile("(arm$)|(armv.*)"), ARM},
 	{regexp.MustCompile("aarch64"), ARM64},
-	{regexp.MustCompile("ppc64el|ppc64le"), PPC64},
+	{regexp.MustCompile("ppc64|ppc64el|ppc64le"), PPC64},
 }
 
 // Override for testing.

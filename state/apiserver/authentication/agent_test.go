@@ -4,9 +4,8 @@
 package authentication_test
 
 import (
-	gc "launchpad.net/gocheck"
-
 	"github.com/juju/utils"
+	gc "launchpad.net/gocheck"
 
 	"github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/state"
@@ -30,8 +29,8 @@ var _ = gc.Suite(&agentAuthenticatorSuite{})
 func (s *agentAuthenticatorSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	s.user = s.Factory.MakeUser(factory.UserParams{
-		Username:    "bobbrown",
+	s.user = s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        "bobbrown",
 		DisplayName: "Bob Brown",
 		Password:    "password",
 	})

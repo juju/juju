@@ -8,9 +8,9 @@ package uniter
 import (
 	"fmt"
 
-	"github.com/juju/charm"
 	"github.com/juju/errors"
 	"github.com/juju/names"
+	"gopkg.in/juju/charm.v3"
 
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
@@ -47,26 +47,29 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		return authorizer.AuthOwner, nil
 	}
 	accessService := func() (common.AuthFunc, error) {
-		unit, ok := authorizer.GetAuthEntity().(*state.Unit)
-		if !ok {
-			panic("authenticated entity is not a unit")
+		switch tag := authorizer.GetAuthTag().(type) {
+		case names.UnitTag:
+			entity, err := st.Unit(tag.Id())
+			if err != nil {
+				return nil, errors.Trace(err)
+			}
+			serviceName := entity.ServiceName()
+			serviceTag := names.NewServiceTag(serviceName)
+			return func(tag names.Tag) bool {
+				return tag == serviceTag
+			}, nil
+		default:
+			return nil, errors.Errorf("expected names.UnitTag, got %T", tag)
 		}
-		return func(tag names.Tag) bool {
-			return tag == names.NewServiceTag(unit.ServiceName())
-		}, nil
 	}
 	accessUnitOrService := common.AuthEither(accessUnit, accessService)
-	// Uniter can always watch for environ changes.
-	getCanWatch := common.AuthAlways(true)
-	// Uniter can not get the secrets.
-	getCanReadSecrets := common.AuthAlways(false)
 	return &UniterAPI{
 		LifeGetter:         common.NewLifeGetter(st, accessUnitOrService),
 		StatusSetter:       common.NewStatusSetter(st, accessUnit),
 		DeadEnsurer:        common.NewDeadEnsurer(st, accessUnit),
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, accessUnitOrService),
 		APIAddresser:       common.NewAPIAddresser(st, resources),
-		EnvironWatcher:     common.NewEnvironWatcher(st, resources, getCanWatch, getCanReadSecrets),
+		EnvironWatcher:     common.NewEnvironWatcher(st, resources, authorizer),
 
 		st:            st,
 		auth:          authorizer,
@@ -752,12 +755,19 @@ func (u *UniterAPI) getOneRelationById(relId int) (params.RelationResult, error)
 	} else if err != nil {
 		return nothing, err
 	}
-	// Use the currently authenticated unit to get the endpoint.
-	unit, ok := u.auth.GetAuthEntity().(*state.Unit)
-	if !ok {
+	tag := u.auth.GetAuthTag()
+	switch tag.(type) {
+	case names.UnitTag:
+		// do nothing
+	default:
 		panic("authenticated entity is not a unit")
 	}
-	result, err := u.prepareRelationResult(rel, unit)
+	unit, err := u.st.FindEntity(tag)
+	if err != nil {
+		return nothing, err
+	}
+	// Use the currently authenticated unit to get the endpoint.
+	result, err := u.prepareRelationResult(rel, unit.(*state.Unit))
 	if err != nil {
 		// An error from prepareRelationResult means the authenticated
 		// unit's service is not part of the requested
@@ -827,7 +837,7 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 
 	for i, actionQuery := range args.Entities {
 		// Use the currently authenticated unit to get the endpoint.
-		whichUnit, ok := u.auth.GetAuthEntity().(*state.Unit)
+		whichUnit, ok := u.auth.GetAuthTag().(names.UnitTag)
 		if !ok {
 			return nothing, fmt.Errorf("entity is not a unit")
 		}
@@ -840,7 +850,7 @@ func (u *UniterAPI) Actions(args params.Entities) (params.ActionsQueryResults, e
 		unitTag := actionTag.PrefixTag()
 
 		// The Unit is querying for another Unit's Action.
-		if unitTag != whichUnit.Tag() {
+		if unitTag != whichUnit {
 			return nothing, common.ErrPerm
 		}
 
@@ -885,7 +895,7 @@ func (u *UniterAPI) actionIfPermitted(tag string) (*state.Action, error) {
 		return nil, err
 	}
 	// Use the currently authenticated unit to get the endpoint.
-	whichUnit, ok := u.auth.GetAuthEntity().(*state.Unit)
+	whichUnit, ok := u.auth.GetAuthTag().(names.UnitTag)
 	if !ok {
 		return nil, fmt.Errorf("entity is not a unit")
 	}
@@ -898,7 +908,7 @@ func (u *UniterAPI) actionIfPermitted(tag string) (*state.Action, error) {
 	unitTag := actionTag.PrefixTag()
 
 	// The Unit is querying for another Unit's Action.
-	if unitTag.String() != whichUnit.Tag().String() {
+	if unitTag != whichUnit {
 		return nil, common.ErrPerm
 	}
 
@@ -1244,7 +1254,7 @@ func (u *UniterAPI) WatchRelationUnits(args params.RelationUnits) (params.Relati
 // Add a doc comment here and use u.accessService()
 // below in the body to check for permissions.
 func (u *UniterAPI) GetOwnerTag(args params.Entities) (params.StringResult, error) {
-	var nothing  params.StringResult
+	var nothing params.StringResult
 	tag, err := names.ParseServiceTag(args.Entities[0].Tag)
 	if err != nil {
 		return nothing, common.ErrPerm

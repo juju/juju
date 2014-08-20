@@ -22,10 +22,13 @@ var _ = gc.Suite(&configSuite{})
 
 func MinimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
-		"name":             "test",
-		"type":             "manual",
-		"bootstrap-host":   "hostname",
-		"storage-auth-key": "whatever",
+		"name":              "test",
+		"type":              "manual",
+		"bootstrap-host":    "hostname",
+		"bootstrap-user":    "",
+		"storage-auth-key":  "whatever",
+		"storage-port":      8040,
+		"storage-listen-ip": "",
 		// Not strictly necessary, but simplifies testing by disabling
 		// ssh storage by default.
 		"use-sshstorage": false,
@@ -63,10 +66,15 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	_, err = manualProvider{}.Validate(testConfig, nil)
 	c.Assert(err, gc.ErrorMatches, "storage-auth-key: expected string, got nothing")
 
-	testConfig = MinimalConfig(c)
-	valid, err := manualProvider{}.Validate(testConfig, nil)
+	values := MinimalConfigValues()
+	delete(values, "bootstrap-user")
+	delete(values, "storage-listen-ip")
+	delete(values, "storage-port")
+	testConfig, err = config.New(config.UseDefaults, values)
 	c.Assert(err, gc.IsNil)
 
+	valid, err := manualProvider{}.Validate(testConfig, nil)
+	c.Assert(err, gc.IsNil)
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["bootstrap-host"], gc.Equals, "hostname")
 	c.Assert(unknownAttrs["bootstrap-user"], gc.Equals, "")
@@ -137,15 +145,21 @@ func (s *configSuite) TestStorageCompat(c *gc.C) {
 	c.Assert(envConfig.useSSHStorage(), jc.IsFalse)
 }
 
-func (s *configSuite) TestValidateConfigWithFloatPort(c *gc.C) {
+func (s *configSuite) TestConfigWithFloatStoragePort(c *gc.C) {
 	// When the config values get serialized through JSON, the integers
 	// get coerced to float64 values.  The parsing needs to handle this.
 	values := MinimalConfigValues()
 	values["storage-port"] = float64(8040)
+
 	cfg, err := config.New(config.UseDefaults, values)
 	c.Assert(err, gc.IsNil)
 	valid, err := ProviderInstance.Validate(cfg, nil)
 	c.Assert(err, gc.IsNil)
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["storage-port"], gc.Equals, int(8040))
+
+	env, err := ProviderInstance.Open(cfg)
+	c.Assert(err, gc.IsNil)
+	// really, we're asserting that this doesn't panic :)
+	c.Assert(env.(*manualEnviron).cfg.storagePort(), gc.Equals, int(8040))
 }

@@ -204,14 +204,14 @@ func (r *srvRoot) lookupMethod(rootName string, version int, methodName string) 
 
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {
-	_, ok := r.entity.(*state.Machine)
-	return ok
+	_, isMachine := r.GetAuthTag().(names.MachineTag)
+	return isMachine
 }
 
 // AuthUnitAgent returns whether the current client is a unit agent.
 func (r *srvRoot) AuthUnitAgent() bool {
-	_, ok := r.entity.(*state.Unit)
-	return ok
+	_, isUnit := r.GetAuthTag().(names.UnitTag)
+	return isUnit
 }
 
 // AuthOwner returns whether the authenticated user's tag matches the
@@ -229,7 +229,7 @@ func (r *srvRoot) AuthEnvironManager() bool {
 // AuthClient returns whether the authenticated entity is a client
 // user.
 func (r *srvRoot) AuthClient() bool {
-	_, isUser := r.entity.(*state.User)
+	_, isUser := r.GetAuthTag().(names.UserTag)
 	return isUser
 }
 

@@ -72,7 +72,6 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming we logged in as the environment manager.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		LoggedIn:       true,
 		EnvironManager: true,
 	}
 
@@ -93,7 +92,6 @@ func (s *firewallerSuite) SetUpTest(c *gc.C) {
 
 func (s *firewallerSuite) TestFirewallerFailsWithNonEnvironManagerUser(c *gc.C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.MachineAgent = true
 	anAuthorizer.EnvironManager = false
 	aFirewaller, err := firewaller.NewFirewallerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, gc.NotNil)

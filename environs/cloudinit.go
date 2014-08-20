@@ -18,31 +18,36 @@ import (
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
-	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
-	"github.com/juju/juju/version"
 )
 
-// DataDir is the default data directory.
-// Tests can override this where needed, so they don't need to mess with global
-// system state.
+// DataDir is the default data directory.  Tests can override this
+// where needed, so they don't need to mess with global system state.
 var DataDir = agent.DefaultDataDir
 
 // logDir returns a filesystem path to the location where applications
 // may create a folder containing logs
-var logDir = paths.MustSucceed(paths.LogDir(version.Current.Series))
+//
+// TODO(gsamfira) 2014-07-31 https://github.com/juju/juju/pull/189
+// Use the target series to decide the path.
+var logDir = "/var/log"
 
 // CloudInitOutputLog is the default cloud-init-output.log file path.
 var CloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
 
-// NewMachineConfig sets up a basic machine configuration, for a non-bootstrap
-// node.  You'll still need to supply more information, but this takes care of
-// the fixed entries and the ones that are always needed.
+// NewMachineConfig sets up a basic machine configuration, for a
+// non-bootstrap node. You'll still need to supply more information,
+// but this takes care of the fixed entries and the ones that are
+// always needed.
 func NewMachineConfig(
-	machineID, machineNonce string, networks []string,
-	mongoInfo *authentication.MongoInfo, apiInfo *api.Info,
+	machineID,
+	machineNonce,
+	imageStream string,
+	networks []string,
+	mongoInfo *authentication.MongoInfo,
+	apiInfo *api.Info,
 ) *cloudinit.MachineConfig {
 	mcfg := &cloudinit.MachineConfig{
 		// Fixed entries.
@@ -58,6 +63,7 @@ func NewMachineConfig(
 		Networks:     networks,
 		MongoInfo:    mongoInfo,
 		APIInfo:      apiInfo,
+		ImageStream:  imageStream,
 	}
 	return mcfg
 }
@@ -68,7 +74,7 @@ func NewMachineConfig(
 func NewBootstrapMachineConfig(privateSystemSSHKey string) *cloudinit.MachineConfig {
 	// For a bootstrap instance, FinishMachineConfig will provide the
 	// state.Info and the api.Info. The machine id must *always* be "0".
-	mcfg := NewMachineConfig("0", agent.BootstrapNonce, nil, nil, nil)
+	mcfg := NewMachineConfig("0", agent.BootstrapNonce, "", nil, nil, nil)
 	mcfg.Bootstrap = true
 	mcfg.SystemPrivateSSHKey = privateSystemSSHKey
 	mcfg.Jobs = []params.MachineJob{params.JobManageEnviron, params.JobHostUnits}
