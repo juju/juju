@@ -37,7 +37,7 @@ func (s *keyManagerSuite) SetUpTest(c *gc.C) {
 	s.AddCleanup(func(_ *gc.C) { s.resources.StopAll() })
 
 	s.authoriser = apiservertesting.FakeAuthorizer{
-		Tag: names.NewUserTag("admin"),
+		Tag: names.NewUserTag(state.AdminUser),
 	}
 	var err error
 	s.keymanager, err = keymanager.NewKeyManagerAPI(s.State, s.resources, s.authoriser)
@@ -91,7 +91,7 @@ func (s *keyManagerSuite) TestListKeys(c *gc.C) {
 
 	args := params.ListSSHKeys{
 		Entities: params.Entities{[]params.Entity{
-			{Tag: state.AdminUser},
+			{Tag: names.NewUserTag(state.AdminUser).String()},
 			{Tag: "invalid"},
 		}},
 		Mode: ssh.FullKeys,
@@ -121,7 +121,7 @@ func (s *keyManagerSuite) TestAddKeys(c *gc.C) {
 
 	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
 	args := params.ModifyUserSSHKeys{
-		User: names.NewUserTag(state.AdminUser).String(),
+		User: state.AdminUser,
 		Keys: []string{key2, newKey, "invalid-key"},
 	}
 	results, err := s.keymanager.AddKeys(args)
@@ -190,7 +190,7 @@ func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	args := params.ModifyUserSSHKeys{
-		User: names.NewUserTag(state.AdminUser).String(),
+		User: state.AdminUser,
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
 	}
 	results, err := s.keymanager.DeleteKeys(args)
@@ -212,7 +212,7 @@ func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	args := params.ModifyUserSSHKeys{
-		User: names.NewUserTag(state.AdminUser).String(),
+		User: state.AdminUser,
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, "user@host"},
 	}
 	_, err := s.keymanager.DeleteKeys(args)
@@ -227,7 +227,7 @@ func (s *keyManagerSuite) assertInvalidUserOperation(c *gc.C, runTestLogic func(
 	// Set up the params.
 	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
 	args := params.ModifyUserSSHKeys{
-		User: "user-invalid",
+		User: "invalid",
 		Keys: []string{newKey},
 	}
 	// Run the required test code and check the error.
@@ -262,7 +262,7 @@ func (s *keyManagerSuite) TestImportKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	args := params.ModifyUserSSHKeys{
-		User: names.NewUserTag(state.AdminUser).String(),
+		User: state.AdminUser,
 		Keys: []string{"lp:existing", "lp:validuser", "invalid-key"},
 	}
 	results, err := s.keymanager.ImportKeys(args)

@@ -670,13 +670,13 @@ func (m *Machine) Refresh() error {
 	machines, closer := m.st.getCollection(machinesC)
 	defer closer()
 
-	doc := machineDoc{}
+	var doc machineDoc
 	err := machines.FindId(m.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
 		return errors.NotFoundf("machine %v", m)
 	}
 	if err != nil {
-		return fmt.Errorf("cannot refresh machine %v: %v", m, err)
+		return errors.Annotatef(err, "cannot refresh machine %v", m)
 	}
 	m.doc = doc
 	return nil

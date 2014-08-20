@@ -67,7 +67,7 @@ func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer c
 	getCanWrite := func() (common.AuthFunc, error) {
 		return func(tag names.Tag) bool {
 			// Are we a machine agent writing the Juju system key.
-			if tag.String() == config.JujuSystemKey {
+			if tag.Id() == config.JujuSystemKey {
 				_, ok := authorizer.GetAuthTag().(names.MachineTag)
 				return ok
 			}
@@ -116,7 +116,7 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if _, err := api.state.User(tag.String()); err != nil {
+		if _, err := api.state.User(tag.Id()); err != nil {
 			if errors.IsNotFound(err) {
 				results[i].Error = common.ServerError(common.ErrPerm)
 			} else {
@@ -200,7 +200,6 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(err)
 	}
-	// TODO(dfc) urgh, is this an API break
 	tag, err := names.ParseUserTag("user-" + arg.User)
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
@@ -288,7 +287,7 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(err)
 	}
-	tag, err := names.ParseUserTag(arg.User)
+	tag, err := names.ParseUserTag("user-" + arg.User)
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
@@ -366,7 +365,7 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(err)
 	}
-	tag, err := names.ParseUserTag(arg.User)
+	tag, err := names.ParseUserTag("user-" + arg.User)
 	if err != nil {
 		return params.ErrorResults{}, common.ServerError(err)
 	}
