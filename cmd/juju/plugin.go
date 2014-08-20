@@ -47,7 +47,8 @@ func extractJujuArgs(args []string) []string {
 
 func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	cmdName := JujuPluginPrefix + subcommand
-	plugin := envcmd.Wrap(&PluginCommand{name: cmdName})
+	realPluginCommand := &PluginCommand{name: cmdName}
+	plugin := envcmd.Wrap(realPluginCommand)
 
 	// We process common flags supported by Juju commands.
 	// To do this, we extract only those supported flags from the
@@ -61,7 +62,16 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 		return err
 	}
 
-	plugin.Init(args)
+	if err := plugin.Init(args); err != nil {
+		// There may not be an environment set, however this is
+		// actually ok, but if we get an error here, it won't actually
+		// initialize the Plugin's args structure, so we log the error
+		// and then keep going.
+		logger.Debugf("warning: %s", err)
+		if err := realPluginCommand.Init(args); err != nil {
+			return err
+		}
+	}
 	err = plugin.Run(ctx)
 	_, execError := err.(*exec.Error)
 	// exec.Error results are for when the executable isn't found, in
@@ -90,6 +100,7 @@ func (c *PluginCommand) Init(args []string) error {
 }
 
 func (c *PluginCommand) Run(ctx *cmd.Context) error {
+	logger.Debugf("running plugin: %s %s", c.name, c.args)
 	command := exec.Command(c.name, c.args...)
 	command.Env = append(os.Environ(), []string{
 		osenv.JujuHomeEnvKey + "=" + osenv.JujuHome(),
