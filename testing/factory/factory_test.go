@@ -333,6 +333,7 @@ func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
 
 	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
 	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
+	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
 	c.Assert(saved.CharmURL(), gc.Equals, metric.CharmURL())
 	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
 	c.Assert(saved.Metrics(), gc.HasLen, 1)
@@ -348,6 +349,7 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	metric := s.Factory.MakeMetric(c, &factory.MetricParams{
 		Unit:    unit,
 		Time:    &now,
+		Sent:    true,
 		Metrics: []*state.Metric{state.NewMetric("itemA", "foo", now, []byte("somecreds"))},
 	})
 	c.Assert(metric, gc.NotNil)
@@ -358,7 +360,8 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
 	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
 	c.Assert(saved.CharmURL(), gc.Equals, metric.CharmURL())
-	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
+	c.Assert(metric.Sent(), jc.IsTrue)
+	c.Assert(saved.Sent(), jc.IsTrue)
 	c.Assert(saved.Metrics(), gc.HasLen, 1)
 	c.Assert(saved.Metrics()[0].Key(), gc.Equals, "itemA")
 	c.Assert(saved.Metrics()[0].Value(), gc.Equals, "foo")
