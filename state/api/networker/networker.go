@@ -4,7 +4,8 @@
 package networker
 
 import (
-	"fmt"
+	"github.com/juju/errors"
+	"github.com/juju/names"
 
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/state/api/base"
@@ -25,9 +26,9 @@ func NewState(caller base.APICaller) *State {
 }
 
 // MachineNetworkInfo returns information about networks to setup only for a single machine.
-func (st *State) MachineNetworkInfo(machineTag string) ([]network.Info, error) {
+func (st *State) MachineNetworkInfo(tag names.MachineTag) ([]network.Info, error) {
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: machineTag}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.MachineNetworkInfoResults
 	err := st.facade.FacadeCall("MachineNetworkInfo", args, &results)
@@ -37,7 +38,7 @@ func (st *State) MachineNetworkInfo(machineTag string) ([]network.Info, error) {
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		err = fmt.Errorf("expected one result, got %d", len(results.Results))
+		err = errors.Errorf("expected one result, got %d", len(results.Results))
 		return nil, err
 	}
 	result := results.Results[0]
@@ -49,9 +50,9 @@ func (st *State) MachineNetworkInfo(machineTag string) ([]network.Info, error) {
 
 // WatchInterfaces returns a NotifyWatcher that notifies of changes to network
 // interfaces on the machine.
-func (st *State) WatchInterfaces(machineTag string) (watcher.NotifyWatcher, error) {
+func (st *State) WatchInterfaces(tag names.MachineTag) (watcher.NotifyWatcher, error) {
 	args := params.Entities{
-		Entities: []params.Entity{{Tag: machineTag}},
+		Entities: []params.Entity{{Tag: tag.String()}},
 	}
 	var results params.NotifyWatchResults
 	err := st.facade.FacadeCall("WatchInterfaces", args, &results)
@@ -61,7 +62,7 @@ func (st *State) WatchInterfaces(machineTag string) (watcher.NotifyWatcher, erro
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		err = fmt.Errorf("expected one result, got %d", len(results.Results))
+		err = errors.Errorf("expected one result, got %d", len(results.Results))
 		return nil, err
 	}
 	result := results.Results[0]

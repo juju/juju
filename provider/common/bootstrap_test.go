@@ -87,7 +87,9 @@ func (s *BootstrapSuite) TestCannotStartInstance(c *gc.C) {
 	) {
 		c.Assert(placement, gc.DeepEquals, checkPlacement)
 		c.Assert(cons, gc.DeepEquals, checkCons)
-		c.Assert(mcfg, gc.DeepEquals, environs.NewBootstrapMachineConfig(mcfg.SystemPrivateSSHKey))
+		machineConfig, err := environs.NewBootstrapMachineConfig(mcfg.SystemPrivateSSHKey, mcfg.Series)
+		c.Assert(err, gc.IsNil)
+		c.Assert(mcfg, gc.DeepEquals, machineConfig)
 		return nil, nil, nil, fmt.Errorf("meh, not started")
 	}
 

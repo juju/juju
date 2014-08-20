@@ -4,6 +4,7 @@
 package networker_test
 
 import (
+	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
 	"github.com/juju/utils"
 	gc "launchpad.net/gocheck"
@@ -166,13 +167,10 @@ func (s *networkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *networkerSuite) TestMachineNetworkInfoPermissionDenied(c *gc.C) {
-	tags := []string{"foo-42", "unit-mysql-0", "service-mysql", "user-foo", "machine-1"}
-	for _, tag := range tags {
-		info, err := s.networker.MachineNetworkInfo(tag)
-		c.Assert(err, gc.ErrorMatches, "permission denied")
-		c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-		c.Assert(info, gc.IsNil)
-	}
+	info, err := s.networker.MachineNetworkInfo(names.NewMachineTag("1"))
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(info, gc.IsNil)
 }
 
 func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
@@ -245,27 +243,24 @@ func (s *networkerSuite) TestMachineNetworkInfo(c *gc.C) {
 		InterfaceName: "eth0",
 	}}
 
-	results, err := s.networker.MachineNetworkInfo("machine-0")
+	results, err := s.networker.MachineNetworkInfo(names.NewMachineTag("0"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, expectedMachineInfo)
 
-	results, err = s.networker.MachineNetworkInfo("machine-0-lxc-0")
+	results, err = s.networker.MachineNetworkInfo(names.NewMachineTag("0/lxc/0"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, expectedContainerInfo)
 
-	results, err = s.networker.MachineNetworkInfo("machine-0-lxc-0-lxc-0")
+	results, err = s.networker.MachineNetworkInfo(names.NewMachineTag("0/lxc/0/lxc/0"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, expectedNestedContainerInfo)
 }
 
 func (s *networkerSuite) TestWatchInterfacesPermissionDenied(c *gc.C) {
-	tags := []string{"foo-42", "unit-mysql-0", "service-mysql", "user-foo", "machine-1"}
-	for _, tag := range tags {
-		w, err := s.networker.WatchInterfaces(tag)
-		c.Assert(err, gc.ErrorMatches, "permission denied")
-		c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
-		c.Assert(w, gc.IsNil)
-	}
+	w, err := s.networker.WatchInterfaces(names.NewMachineTag("1"))
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(err, jc.Satisfies, params.IsCodeUnauthorized)
+	c.Assert(w, gc.IsNil)
 }
 
 func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
@@ -275,7 +270,7 @@ func (s *networkerSuite) TestWatchInterfaces(c *gc.C) {
 	c.Assert(ifaces, gc.HasLen, 5)
 
 	// Start network interface watcher.
-	w, err := s.networker.WatchInterfaces("machine-0")
+	w, err := s.networker.WatchInterfaces(names.NewMachineTag("0"))
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 	wc.AssertOneChange()

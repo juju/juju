@@ -364,7 +364,9 @@ func (s *networkerSuite) TestIsRunningInLXC(c *gc.C) {
 	}
 	for i, t := range tests {
 		c.Logf("test %d: %q -> %v", i, t.machineTag, t.result)
-		c.Check(networker.IsRunningInLXC(t.machineTag), gc.Equals, t.result)
+		tag, err := names.ParseMachineTag(t.machineTag)
+		c.Assert(err, gc.IsNil)
+		c.Check(networker.IsRunningInLXC(tag), gc.Equals, t.result)
 	}
 }
 

@@ -143,7 +143,10 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		return err
 	}
 
-	mcfg := environs.NewBootstrapMachineConfig(privateKey)
+	mcfg, err := environs.NewBootstrapMachineConfig(privateKey, vers.Series)
+	if err != nil {
+		return err
+	}
 	mcfg.InstanceId = bootstrapInstanceId
 	mcfg.Tools = selectedTools[0]
 	mcfg.DataDir = env.config.rootDir()
@@ -188,7 +191,11 @@ func (env *localEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.
 		fmt.Sprintf("rm -fr %s", mcfg.LogDir),
 		fmt.Sprintf("rm -f /var/spool/rsyslog/machine-0-%s", env.config.namespace()),
 	)
-	if err := cloudinit.ConfigureJuju(mcfg, cloudcfg); err != nil {
+	udata, err := cloudinit.NewUserdataConfig(mcfg, cloudcfg)
+	if err != nil {
+		return err
+	}
+	if err := udata.ConfigureJuju(); err != nil {
 		return err
 	}
 	return finishBootstrap(mcfg, cloudcfg, ctx)
@@ -243,9 +250,14 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.config = ecfg
 	env.name = ecfg.Name()
 	containerType := ecfg.container()
+	toolsDir := filepath.Join(env.config.storageDir(), "tools", "releases")
+	if _, err = os.Stat(toolsDir); err != nil {
+		toolsDir = ""
+	}
 	managerConfig := container.ManagerConfig{
-		container.ConfigName:   env.config.namespace(),
-		container.ConfigLogDir: env.config.logDir(),
+		container.ConfigName:     env.config.namespace(),
+		container.ConfigLogDir:   env.config.logDir(),
+		container.ConfigToolsDir: toolsDir,
 	}
 	if containerType == instance.LXC {
 		if useLxcClone, ok := cfg.LXCUseClone(); ok {
@@ -347,9 +359,21 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	series := args.Tools.OneSeries()
 	logger.Debugf("StartInstance: %q, %s", args.MachineConfig.MachineId, series)
 	args.MachineConfig.Tools = args.Tools[0]
+
+	// For LXC containers we update the tools URL to point to a mounted directory
+	// and the container then copies the tools from there. This is in response
+	// to bug 1357552.
+	if env.config.container() == instance.LXC {
+		storageReleasesDir, err := env.Storage().URL("tools/releases")
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		args.MachineConfig.Tools.URL = strings.Replace(
+			args.MachineConfig.Tools.URL, storageReleasesDir, "file:///var/lib/juju/storage/tools", -1)
+	}
+
 	args.MachineConfig.MachineContainerType = env.config.container()
 	logger.Debugf("tools: %#v", args.MachineConfig.Tools)
-	network := container.BridgeNetworkConfig(env.config.networkBridge())
 	if err := environs.FinishMachineConfig(args.MachineConfig, env.config.Config, args.Constraints); err != nil {
 		return nil, nil, nil, err
 	}
@@ -358,11 +382,22 @@ func (env *localEnviron) StartInstance(args environs.StartInstanceParams) (insta
 	// This limiation is why the constraints are assigned directly here.
 	args.MachineConfig.Constraints = args.Constraints
 	args.MachineConfig.AgentEnvironment[agent.Namespace] = env.config.namespace()
-	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
+	inst, hardware, err := createContainer(env, args)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 	return inst, hardware, nil, nil
+}
+
+// Override for testing.
+var createContainer = func(env *localEnviron, args environs.StartInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	series := args.Tools.OneSeries()
+	network := container.BridgeNetworkConfig(env.config.networkBridge())
+	inst, hardware, err := env.containerManager.CreateContainer(args.MachineConfig, series, network)
+	if err != nil {
+		return nil, nil, err
+	}
+	return inst, hardware, nil
 }
 
 // StopInstances is specified in the InstanceBroker interface.

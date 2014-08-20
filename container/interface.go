@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	ConfigName   = "name"
-	ConfigLogDir = "log-dir"
+	ConfigName     = "name"
+	ConfigLogDir   = "log-dir"
+	ConfigToolsDir = "tools-dir"
 )
 
 // ManagerConfig contains the initialization parameters for the ContainerManager.

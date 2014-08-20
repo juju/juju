@@ -104,7 +104,10 @@ func Bootstrap(args BootstrapArgs) (err error) {
 	}
 
 	// Finally, provision the machine agent.
-	mcfg := environs.NewBootstrapMachineConfig(privateKey)
+	mcfg, err := environs.NewBootstrapMachineConfig(privateKey, args.Series)
+	if err != nil {
+		return err
+	}
 	mcfg.InstanceId = BootstrapInstanceId
 	mcfg.HardwareCharacteristics = args.HardwareCharacteristics
 	if args.DataDir != "" {

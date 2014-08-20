@@ -5,6 +5,7 @@ package factory_test
 
 import (
 	"fmt"
+	"time"
 
 	jtesting "github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
@@ -271,6 +272,10 @@ func (s *factorySuite) TestMakeUnit(c *gc.C) {
 	c.Assert(saved.ServiceName(), gc.Equals, unit.ServiceName())
 	c.Assert(saved.Series(), gc.Equals, unit.Series())
 	c.Assert(saved.Life(), gc.Equals, unit.Life())
+
+	serviceCharmURL, _ := service.CharmURL()
+	unitCharmURL, _ := saved.CharmURL()
+	c.Assert(unitCharmURL, gc.DeepEquals, serviceCharmURL)
 }
 
 func (s *factorySuite) TestMakeRelationNil(c *gc.C) {
@@ -317,4 +322,49 @@ func (s *factorySuite) TestMakeRelation(c *gc.C) {
 	c.Assert(saved.Tag(), gc.Equals, relation.Tag())
 	c.Assert(saved.Life(), gc.Equals, relation.Life())
 	c.Assert(saved.Endpoints(), gc.DeepEquals, relation.Endpoints())
+}
+
+func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
+	metric := s.Factory.MakeMetric(c, nil)
+	c.Assert(metric, gc.NotNil)
+
+	saved, err := s.State.MetricBatch(metric.UUID())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
+	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
+	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
+	c.Assert(saved.CharmURL(), gc.Equals, metric.CharmURL())
+	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
+	c.Assert(saved.Metrics(), gc.HasLen, 1)
+	c.Assert(saved.Metrics()[0].Key(), gc.Equals, metric.Metrics()[0].Key())
+	c.Assert(saved.Metrics()[0].Value(), gc.Equals, metric.Metrics()[0].Value())
+	c.Assert(saved.Metrics()[0].Time().Equal(metric.Metrics()[0].Time()), jc.IsTrue)
+	c.Assert(saved.Metrics()[0].Credentials(), gc.DeepEquals, []byte("creds"))
+}
+
+func (s *factorySuite) TestMakeMetric(c *gc.C) {
+	now := time.Now().Round(time.Second).UTC()
+	unit := s.Factory.MakeUnit(c, nil)
+	metric := s.Factory.MakeMetric(c, &factory.MetricParams{
+		Unit:    unit,
+		Time:    &now,
+		Sent:    true,
+		Metrics: []*state.Metric{state.NewMetric("itemA", "foo", now, []byte("somecreds"))},
+	})
+	c.Assert(metric, gc.NotNil)
+
+	saved, err := s.State.MetricBatch(metric.UUID())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
+	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
+	c.Assert(saved.CharmURL(), gc.Equals, metric.CharmURL())
+	c.Assert(metric.Sent(), jc.IsTrue)
+	c.Assert(saved.Sent(), jc.IsTrue)
+	c.Assert(saved.Metrics(), gc.HasLen, 1)
+	c.Assert(saved.Metrics()[0].Key(), gc.Equals, "itemA")
+	c.Assert(saved.Metrics()[0].Value(), gc.Equals, "foo")
+	c.Assert(saved.Metrics()[0].Time().Equal(now), jc.IsTrue)
+	c.Assert(saved.Metrics()[0].Credentials(), gc.DeepEquals, []byte("somecreds"))
 }

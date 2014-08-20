@@ -1585,13 +1585,13 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 		Password: "admin",
 		Tag:      machineTag,
 	}
+	mcfg, err := environs.NewMachineConfig("1", "yanonce", imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
+	c.Assert(err, gc.IsNil)
 	s.params = environs.StartInstanceParams{
 		Tools: envtesting.AssertUploadFakeToolsVersions(
 			c, s.env.storage, envtesting.V120p...,
 		),
-		MachineConfig: environs.NewMachineConfig(
-			"1", "yanonce", imagemetadata.ReleasedStream, nil, stateInfo, apiInfo,
-		),
+		MachineConfig: mcfg,
 	}
 }
 

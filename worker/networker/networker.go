@@ -28,7 +28,7 @@ var (
 // networker configures network interfaces on the machine, as needed.
 type networker struct {
 	st                     *apinetworker.State
-	tag                    string
+	tag                    names.MachineTag
 	isVLANSupportInstalled bool
 	canWriteNetworkConfig  bool
 }
@@ -49,7 +49,7 @@ func NewSafeNetworker(st *apinetworker.State, agentConfig agent.Config) (worker.
 func newNetworker(st *apinetworker.State, agentConfig agent.Config, canWriteNetworkConfig bool) (worker.Worker, error) {
 	nw := &networker{
 		st:  st,
-		tag: agentConfig.Tag().String(),
+		tag: agentConfig.Tag().(names.MachineTag),
 		canWriteNetworkConfig: canWriteNetworkConfig,
 	}
 	// Verify we have /etc/network/interfaces first, otherwise bail out.
@@ -66,15 +66,9 @@ func newNetworker(st *apinetworker.State, agentConfig agent.Config, canWriteNetw
 // attempt to modprobe anything, as it's not possible and leads to
 // run-time errors. See http://pad.lv/1353443.
 func (nw *networker) isRunningInLXC() bool {
-	tag, err := names.ParseMachineTag(nw.tag)
-	if err != nil {
-		// This should never happen, as it was already checked inside
-		// the machine agent.
-		panic(err.Error())
-	}
 	// In case of nested containers, we need to check
 	// the last nesting level to ensure it's not LXC.
-	machineId := strings.ToLower(tag.Id())
+	machineId := strings.ToLower(nw.tag.Id())
 	parts := strings.Split(machineId, "/")
 	return len(parts) > 2 && parts[len(parts)-2] == "lxc"
 }

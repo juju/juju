@@ -5,6 +5,7 @@ package cloudinit_test
 
 import (
 	"encoding/base64"
+	"path"
 	"regexp"
 	"strings"
 
@@ -21,6 +22,7 @@ import (
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
+	"github.com/juju/juju/juju/paths"
 	jujutesting "github.com/juju/juju/juju/testing"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/state/api"
@@ -91,6 +93,7 @@ var cloudinitTests = []cloudinitTest{
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 			// precise currently needs mongo from PPA
 			Tools:            newSimpleTools("1.2.3-precise-amd64"),
+			Series:           "precise",
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
@@ -153,6 +156,7 @@ start jujud-machine-0
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 			// raring provides mongo in the archive
 			Tools:            newSimpleTools("1.2.3-raring-amd64"),
+			Series:           "raring",
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
@@ -199,6 +203,7 @@ ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 			CloudInitOutputLog: environs.CloudInitOutputLog,
 			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-quantal-amd64"),
+			Series:             "quantal",
 			MachineNonce:       "FAKE_NONCE",
 			MongoInfo: &authentication.MongoInfo{
 				Tag:      names.NewMachineTag("99"),
@@ -257,6 +262,7 @@ start jujud-machine-99
 			CloudInitOutputLog:   environs.CloudInitOutputLog,
 			Bootstrap:            false,
 			Tools:                newSimpleTools("1.2.3-quantal-amd64"),
+			Series:               "quantal",
 			MachineNonce:         "FAKE_NONCE",
 			MongoInfo: &authentication.MongoInfo{
 				Tag:      names.NewMachineTag("2/lxc/1"),
@@ -295,6 +301,7 @@ start jujud-machine-2-lxc-1
 			CloudInitOutputLog: environs.CloudInitOutputLog,
 			Bootstrap:          false,
 			Tools:              newSimpleTools("1.2.3-quantal-amd64"),
+			Series:             "quantal",
 			MachineNonce:       "FAKE_NONCE",
 			MongoInfo: &authentication.MongoInfo{
 				Tag:      names.NewMachineTag("99"),
@@ -325,6 +332,7 @@ curl -sSfw 'tools from %{url_effective} downloaded: HTTP %{http_code}; time %{ti
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 			// precise currently needs mongo from PPA
 			Tools:            newSimpleTools("1.2.3-precise-amd64"),
+			Series:           "precise",
 			Bootstrap:        true,
 			StateServingInfo: stateServingInfo,
 			MachineNonce:     "FAKE_NONCE",
@@ -413,14 +421,17 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 			test.cfg.Config = minimalConfig(c)
 		}
 		ci := coreCloudinit.New()
-		err := cloudinit.Configure(&test.cfg, ci)
+		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
+		c.Assert(err, gc.IsNil)
+		err = udata.Configure()
+
 		c.Assert(err, gc.IsNil)
 		c.Check(ci, gc.NotNil)
 		// render the cloudinit config to bytes, and then
 		// back to a map so we can introspect it without
 		// worrying about internal details of the cloudinit
 		// package.
-		data, err := ci.Render()
+		data, err := udata.Render()
 		c.Assert(err, gc.IsNil)
 
 		configKeyValues := make(map[interface{}]interface{})
@@ -446,7 +457,7 @@ func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 		c.Assert(acfg, jc.Contains, "AGENT_SERVICE_NAME: jujud-"+tag)
 		c.Assert(acfg, jc.Contains, "upgradedToVersion: 1.2.3\n")
 		source := "deb http://ubuntu-cloud.archive.canonical.com/ubuntu precise-updates/cloud-tools main"
-		needCloudArchive := test.cfg.Tools.Version.Series == "precise"
+		needCloudArchive := test.cfg.Series == "precise"
 		checkAptSource(c, configKeyValues, source, cloudinit.CanonicalCloudArchiveSigningKey, needCloudArchive)
 	}
 }
@@ -456,7 +467,9 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
 		cloudcfg := coreCloudinit.New()
-		err := cloudinit.Configure(&test.cfg, cloudcfg)
+		udata, err := cloudinit.NewUserdataConfig(&test.cfg, cloudcfg)
+		c.Assert(err, gc.IsNil)
+		err = udata.Configure()
 		c.Assert(err, gc.IsNil)
 	}
 }
@@ -467,9 +480,11 @@ func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
 	cloudinitTests[0].cfg.Config = minimalConfig(c)
-	err := cloudinit.Configure(&cloudinitTests[0].cfg, cloudcfg)
+	udata, err := cloudinit.NewUserdataConfig(&cloudinitTests[0].cfg, cloudcfg)
 	c.Assert(err, gc.IsNil)
-	data, err := cloudcfg.Render()
+	err = udata.Configure()
+	c.Assert(err, gc.IsNil)
+	data, err := udata.Render()
 	c.Assert(err, gc.IsNil)
 
 	ciContent := make(map[interface{}]interface{})
@@ -766,6 +781,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		MachineId:        "99",
 		Tools:            newSimpleTools("9.9.9-quantal-arble"),
 		AuthorizedKeys:   "sshkey1",
+		Series:           "quantal",
 		AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
@@ -794,7 +810,9 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	for i, test := range verifyTests {
 		// check that the base configuration does not give an error
 		// and that a previous test hasn't mutated it accidentially.
-		err := cloudinit.Configure(cfg, ci)
+		udata, err := cloudinit.NewUserdataConfig(cfg, ci)
+		c.Assert(err, gc.IsNil)
+		err = udata.Configure()
 		c.Assert(err, gc.IsNil)
 
 		c.Logf("test %d. %s", i, test.err)
@@ -802,7 +820,9 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		cfg1 := *cfg
 		test.mutate(&cfg1)
 
-		err = cloudinit.Configure(&cfg1, ci)
+		udata, err = cloudinit.NewUserdataConfig(&cfg1, ci)
+		c.Assert(err, gc.IsNil)
+		err = udata.Configure()
 		c.Check(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
 
 	}
@@ -813,12 +833,13 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 	machineNonce := "fake-nonce"
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, imagemetadata.ReleasedStream, nil, stateInfo, apiInfo)
+	machineConfig, err := environs.NewMachineConfig(machineId, machineNonce, imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
+	c.Assert(err, gc.IsNil)
 	machineConfig.Tools = &tools.Tools{
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}
-	err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{})
+	err = environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	return machineConfig
 }
@@ -827,7 +848,9 @@ func (s *cloudinitSuite) TestAptProxyNotWrittenIfNotSet(c *gc.C) {
 	environConfig := minimalConfig(c)
 	machineCfg := s.createMachineConfig(c, environConfig)
 	cloudcfg := coreCloudinit.New()
-	err := cloudinit.Configure(machineCfg, cloudcfg)
+	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	err = udata.Configure()
 	c.Assert(err, gc.IsNil)
 
 	cmds := cloudcfg.BootCmds()
@@ -842,7 +865,9 @@ func (s *cloudinitSuite) TestAptProxyWritten(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	machineCfg := s.createMachineConfig(c, environConfig)
 	cloudcfg := coreCloudinit.New()
-	err = cloudinit.Configure(machineCfg, cloudcfg)
+	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	err = udata.Configure()
 	c.Assert(err, gc.IsNil)
 
 	cmds := cloudcfg.BootCmds()
@@ -859,7 +884,9 @@ func (s *cloudinitSuite) TestProxyWritten(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	machineCfg := s.createMachineConfig(c, environConfig)
 	cloudcfg := coreCloudinit.New()
-	err = cloudinit.Configure(machineCfg, cloudcfg)
+	udata, err := cloudinit.NewUserdataConfig(machineCfg, cloudcfg)
+	c.Assert(err, gc.IsNil)
+	err = udata.Configure()
 	c.Assert(err, gc.IsNil)
 
 	cmds := cloudcfg.RunCmds()
@@ -911,3 +938,70 @@ JzPMDvZ0fYS30ukCIA1stlJxpFiCXQuFn0nG+jH4Q52FTv8xxBhrbLOFvHRRAiEA
 2Vc9NN09ty+HZgxpwqIA1fHVuYJY9GMPG1LnTnZ9INg=
 -----END RSA PRIVATE KEY-----
 `[1:])
+
+var windowsCloudinitTests = []cloudinitTest{
+	{
+		cfg: cloudinit.MachineConfig{
+			MachineId:          "10",
+			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
+			Tools:              newSimpleTools("1.2.3-win8-amd64"),
+			Series:             "win8",
+			Bootstrap:          false,
+			Jobs:               normalMachineJobs,
+			MachineNonce:       "FAKE_NONCE",
+			CloudInitOutputLog: environs.CloudInitOutputLog,
+			MongoInfo: &authentication.MongoInfo{
+				Tag:      names.NewMachineTag("10"),
+				Password: "arble",
+				Info: mongo.Info{
+					CACert: "CA CERT\n" + string(serverCert),
+					Addrs:  []string{"state-addr.testing.invalid:12345"},
+				},
+			},
+			APIInfo: &api.Info{
+				Addrs:    []string{"state-addr.testing.invalid:54321"},
+				Password: "bletch",
+				CACert:   "CA CERT\n" + string(serverCert),
+				Tag:      names.NewMachineTag("10"),
+			},
+			MachineAgentServiceName: "jujud-machine-0",
+		},
+		setEnvConfig:  false,
+		expectScripts: WindowsUserdata,
+	},
+}
+
+func (*cloudinitSuite) TestWindowsCloudInit(c *gc.C) {
+	for i, test := range windowsCloudinitTests {
+		c.Logf("test %d", i)
+		dataDir, err := paths.DataDir(test.cfg.Series)
+		c.Assert(err, gc.IsNil)
+		logDir, err := paths.LogDir(test.cfg.Series)
+		c.Assert(err, gc.IsNil)
+
+		test.cfg.DataDir = dataDir
+		test.cfg.LogDir = path.Join(logDir, "juju")
+
+		ci := coreCloudinit.New()
+		udata, err := cloudinit.NewUserdataConfig(&test.cfg, ci)
+
+		c.Assert(err, gc.IsNil)
+		err = udata.Configure()
+
+		c.Assert(err, gc.IsNil)
+		c.Check(ci, gc.NotNil)
+		data, err := udata.Render()
+		c.Assert(err, gc.IsNil)
+
+		stringData := strings.Replace(string(data), "\r\n", "\n", -1)
+		stringData = strings.Replace(stringData, "\t", " ", -1)
+		stringData = strings.TrimSpace(stringData)
+
+		compareString := strings.Replace(string(test.expectScripts), "\r\n", "\n", -1)
+		compareString = strings.Replace(compareString, "\t", " ", -1)
+		compareString = strings.TrimSpace(compareString)
+
+		c.Assert(stringData, gc.Equals, compareString)
+
+	}
+}

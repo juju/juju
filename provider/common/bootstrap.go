@@ -44,8 +44,9 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 
 	network.InitializeFromConfig(env.Config())
 
+	series := config.PreferredSeries(env.Config())
 	// First thing, ensure we have tools otherwise there's no point.
-	selectedTools, err := EnsureBootstrapTools(ctx, env, config.PreferredSeries(env.Config()), args.Constraints.Arch)
+	selectedTools, err := EnsureBootstrapTools(ctx, env, series, args.Constraints.Arch)
 	if err != nil {
 		return err
 	}
@@ -63,8 +64,10 @@ func Bootstrap(ctx environs.BootstrapContext, env environs.Environ, args environ
 	if err != nil {
 		return err
 	}
-	machineConfig := environs.NewBootstrapMachineConfig(privateKey)
-
+	machineConfig, err := environs.NewBootstrapMachineConfig(privateKey, series)
+	if err != nil {
+		return err
+	}
 	fmt.Fprintln(ctx.GetStderr(), "Launching instance")
 	inst, hw, _, err := env.StartInstance(environs.StartInstanceParams{
 		Constraints:   args.Constraints,
@@ -190,7 +193,11 @@ var FinishBootstrap = func(ctx environs.BootstrapContext, client ssh.Client, ins
 	// point. For that reason, we do not call StopInterruptNotify
 	// until this function completes.
 	cloudcfg := coreCloudinit.New()
-	if err := cloudinit.ConfigureJuju(machineConfig, cloudcfg); err != nil {
+	udata, err := cloudinit.NewUserdataConfig(machineConfig, cloudcfg)
+	if err != nil {
+		return err
+	}
+	if err := udata.ConfigureJuju(); err != nil {
 		return err
 	}
 	configScript, err := sshinit.ConfigureScript(cloudcfg)

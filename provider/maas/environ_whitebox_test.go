@@ -197,8 +197,9 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	// Create node 0: it will be used as the bootstrap node.
-	suite.testMAASObject.TestServer.NewNode(
-		`{"system_id": "node0", "hostname": "host0", "architecture": "amd64/generic", "memory": 1024, "cpu_count": 1}`,
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "node0", "hostname": "host0", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
+		version.Current.Arch),
 	)
 	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
 	c.Assert(err, gc.IsNil)
@@ -222,8 +223,9 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Check(insts[0].Id(), gc.Equals, instanceIds[0])
 
 	// Create node 1: it will be used as instance number 1.
-	suite.testMAASObject.TestServer.NewNode(
-		`{"system_id": "node1", "hostname": "host1", "architecture": "amd64/generic", "memory": 1024, "cpu_count": 1}`,
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "node1", "hostname": "host1", "architecture": "%s/generic", "memory": 1024, "cpu_count": 1}`,
+		version.Current.Arch),
 	)
 	lshwXML, err = suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f1": "eth0"})
 	c.Assert(err, gc.IsNil)
@@ -232,7 +234,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(instance, gc.NotNil)
 	c.Assert(hc, gc.NotNil)
-	c.Check(hc.String(), gc.Equals, "arch=amd64 cpu-cores=1 mem=1024M")
+	c.Check(hc.String(), gc.Equals, fmt.Sprintf("arch=%s cpu-cores=1 mem=1024M", version.Current.Arch))
 
 	// The instance number 1 has been acquired and started.
 	actions, found = operations["node1"]
@@ -250,11 +252,11 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	decodedUserData, err := decodeUserData(userData)
 	c.Assert(err, gc.IsNil)
 	info := machineInfo{"host1"}
-	cloudinitRunCmd, err := info.cloudinitRunCmd()
+	cloudinitRunCmd, err := info.cloudinitRunCmd("precise")
 	c.Assert(err, gc.IsNil)
 	data, err := goyaml.Marshal(cloudinitRunCmd)
 	c.Assert(err, gc.IsNil)
-	c.Check(string(decodedUserData), gc.Matches, "(.|\n)*"+string(data)+"(\n|.)*")
+	c.Check(string(decodedUserData), jc.Contains, string(data))
 
 	// Trash the tools and try to start another instance.
 	envtesting.RemoveTools(c, env.Storage())
@@ -489,8 +491,9 @@ func (suite *environSuite) TestDestroy(c *gc.C) {
 func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	suite.testMAASObject.TestServer.NewNode(
-		`{"system_id": "thenode", "hostname": "host", "architecture": "amd64/generic", "memory": 256, "cpu_count": 8}`,
+	suite.testMAASObject.TestServer.NewNode(fmt.Sprintf(
+		`{"system_id": "thenode", "hostname": "host", "architecture": "%s/generic", "memory": 256, "cpu_count": 8}`,
+		version.Current.Arch),
 	)
 	lshwXML, err := suite.generateHWTemplate(map[string]string{"aa:bb:cc:dd:ee:f0": "eth0"})
 	c.Assert(err, gc.IsNil)
