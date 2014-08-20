@@ -29,7 +29,7 @@ var logger = loggo.GetLogger("juju.worker.authenticationworker")
 type keyupdaterWorker struct {
 	st   *keyupdater.State
 	tomb tomb.Tomb
-	tag  names.Tag
+	tag  names.MachineTag
 	// jujuKeys are the most recently retrieved keys from state.
 	jujuKeys set.Strings
 	// nonJujuKeys are those added externally to auth keys file
@@ -46,15 +46,14 @@ func NewWorker(st *keyupdater.State, agentConfig agent.Config) worker.Worker {
 	if version.Current.OS == version.Windows {
 		return worker.NewNoOpWorker()
 	}
-	kw := &keyupdaterWorker{st: st, tag: agentConfig.Tag()}
+	kw := &keyupdaterWorker{st: st, tag: agentConfig.Tag().(names.MachineTag)}
 	return worker.NewNotifyWorker(kw)
 }
 
 // SetUp is defined on the worker.NotifyWatchHandler interface.
 func (kw *keyupdaterWorker) SetUp() (watcher.NotifyWatcher, error) {
 	// Record the keys Juju knows about.
-	// TODO(dfc)
-	jujuKeys, err := kw.st.AuthorisedKeys(kw.tag.String())
+	jujuKeys, err := kw.st.AuthorisedKeys(kw.tag)
 	if err != nil {
 		return nil, errors.LoggedErrorf(logger, "reading Juju ssh keys for %q: %v", kw.tag, err)
 	}
@@ -78,7 +77,7 @@ func (kw *keyupdaterWorker) SetUp() (watcher.NotifyWatcher, error) {
 		return nil, errors.LoggedErrorf(logger, "adding current Juju keys to ssh authorised keys: %v", err)
 	}
 
-	w, err := kw.st.WatchAuthorisedKeys(kw.tag.String())
+	w, err := kw.st.WatchAuthorisedKeys(kw.tag)
 	if err != nil {
 		return nil, errors.LoggedErrorf(logger, "starting key updater worker: %v", err)
 	}
@@ -101,7 +100,7 @@ func (kw *keyupdaterWorker) writeSSHKeys(jujuKeys []string) error {
 // Handle is defined on the worker.NotifyWatchHandler interface.
 func (kw *keyupdaterWorker) Handle() error {
 	// Read the keys that Juju has.
-	newKeys, err := kw.st.AuthorisedKeys(kw.tag.String())
+	newKeys, err := kw.st.AuthorisedKeys(kw.tag)
 	if err != nil {
 		return errors.LoggedErrorf(logger, "reading Juju ssh keys for %q: %v", kw.tag, err)
 	}
