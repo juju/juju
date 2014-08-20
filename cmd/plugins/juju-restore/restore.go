@@ -19,7 +19,6 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/errors"
 	"github.com/juju/loggo"
-	"github.com/juju/names"
 	"github.com/juju/utils"
 	goyaml "gopkg.in/yaml.v1"
 	"launchpad.net/gnuflag"
@@ -516,8 +515,7 @@ func updateAllMachines(apiState *api.State, stateAddr string) error {
 // runMachineUpdate connects via ssh to the machine and runs the update script
 func runMachineUpdate(client *api.Client, id string, sshArg string) error {
 	progress("updating machine: %v\n", id)
-	tag := names.NewMachineTag(id)
-	addr, err := client.PublicAddress(tag.String())
+	addr, err := client.PublicAddress(id)
 	if err != nil {
 		return fmt.Errorf("no public address found: %v", err)
 	}
