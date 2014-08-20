@@ -86,13 +86,13 @@ def remove_leftover_virtualbox(series, arch):
             break
 
 
-def build_vagrant_box(series, arch, juju_core_package, juju_local_package,
-                      jenkins_kvm, workspace):
+def build_vagrant_box(series, arch, jenkins_kvm, workspace, package_info=None):
     env = {
-        'JUJU_CORE_PKG': juju_core_package,
-        'JUJU_LOCAL_PKG': juju_local_package,
         'BUILD_FOR': '%s:%s' % (series, arch),
     }
+    if package_info is not None:
+        env['JUJU_CORE_PKG'] = package_info['core']
+        env['JUJU_LOCAL_PKG'] = package_info['local']
     builder_path = os.path.join(jenkins_kvm, 'build-juju-local.sh')
     logging.info('Building Vagrant box for %s %s' % (series, arch))
     try:
@@ -134,24 +134,31 @@ def main():
         '--series', help='Build the image for this series', required=True)
     parser.add_argument(
         '--arch', help='Build the image for this architecture', required=True)
+    parser.add_argument(
+        '--use-ci-juju-packages',  action='store_true', default=False,
+        help='Build the image with juju packages built by CI')
     args = parser.parse_args()
     clean_workspace(args.workspace)
     jenkins = Jenkins(JENKINS_URL)
-    package_info = get_debian_packages(
-        jenkins, args.workspace, args.series, args.arch)
-    if 'core' not in package_info:
-        logging.error('Could not find juju-core package')
-        sys.exit(1)
-    if 'local' not in package_info:
-        logging.error('Could not find juju-local package')
-        sys.exit(1)
+    if args.use_ci_juju_packages:
+        package_info = get_debian_packages(
+            jenkins, args.workspace, args.series, args.arch)
+        if 'core' not in package_info:
+            logging.error('Could not find juju-core package')
+            sys.exit(1)
+        if 'local' not in package_info:
+            logging.error('Could not find juju-local package')
+            sys.exit(1)
+    else:
+        package_info=None
     try:
         build_vagrant_box(
-            args.series, args.arch, package_info['core'], package_info['local'],
-            args.jenkins_kvm, args.workspace)
+            args.series, args.arch, args.jenkins_kvm, args.workspace,
+            package_info)
     finally:
-        for filename in package_info.values():
-            os.unlink(filename)
+        if package_info is not None:
+            for filename in package_info.values():
+                os.unlink(filename)
 
 
 if __name__ == '__main__':
