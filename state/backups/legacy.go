@@ -16,6 +16,23 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/utils/hash"
 	"github.com/juju/utils/tar"
+
+	"github.com/juju/juju/state/backups/config"
+	coreutils "github.com/juju/juju/utils"
+)
+
+var sep = string(os.PathSeparator)
+
+var (
+	runCommand       = coreutils.RunCommand
+	getFilesToBackup = func(config config.BackupsConfig) ([]string, error) {
+		return config.FilesToBackUp()
+	}
+	getDumpCmd = func(
+		config config.BackupsConfig, outdir string,
+	) (string, []string, error) {
+		return config.DBDump(outdir)
+	}
 )
 
 // Backup creates a tar.gz file named juju-backup_<date YYYYMMDDHHMMSS>.tar.gz
@@ -25,7 +42,29 @@ import (
 //   juju-backup/root.tar - contains all the files needed by juju
 // Between the two, this is all that is necessary to later restore the
 // juju agent on another machine.
-func Backup(password string, username string, outputFolder string, addr string) (filename string, sha1sum string, err error) {
+func Backup(
+	password string, username string, outputFolder string, addr string,
+) (filename string, sha1sum string, err error) {
+	// Set up the config.
+	dbInfo, err := config.NewDBInfoFull(addr, username, password, "", "")
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	conf, err := config.NewBackupsConfig(dbInfo, nil)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	// Run the backups.
+	f, s, err := runBackup(conf, outputFolder)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	return f, s, nil
+}
+
+func runBackup(
+	config config.BackupsConfig, outputFolder string,
+) (filename string, sha1sum string, err error) {
 	// YYYYMMDDHHMMSS
 	formattedDate := time.Now().Format("20060102150405")
 	bkpFile := fmt.Sprintf("juju-backup_%s.tar.gz", formattedDate)
@@ -39,15 +78,23 @@ func Backup(password string, username string, outputFolder string, addr string) 
 
 	// Dump the files.
 	logger.Infof("dumping state-related files")
-	err = dumpFiles(contentdir)
+	logger.Debugf("dumping state-related files")
+	files, err := getFilesToBackup(config)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	err = dumpFiles(files, contentdir)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
 
 	// Dump the database.
 	logger.Infof("dumping database")
-	dbinfo := NewDBConnInfo(addr, username, password)
-	err = dumpDatabase(dbinfo, dumpdir)
+	cmd, args, err := getDumpCmd(config, dumpdir)
+	if err != nil {
+		return "", "", errors.Trace(err)
+	}
+	err = runCommand(cmd, args...)
 	if err != nil {
 		return "", "", errors.Trace(err)
 	}
@@ -85,6 +132,20 @@ func prepareTemp() (string, string, string, error) {
 		return "", "", "", err
 	}
 	return tempRoot, tarballRoot, dbDumpdir, nil
+}
+
+func dumpFiles(backupFiles []string, dumpdir string) error {
+	tarFile, err := os.Create(filepath.Join(dumpdir, "root.tar"))
+	if err != nil {
+		return errors.Annotate(err, "error while opening initial archive")
+	}
+	defer tarFile.Close()
+
+	_, err = tar.TarFiles(backupFiles, tarFile, sep)
+	if err != nil {
+		return errors.Annotate(err, "cannot backup configuration files")
+	}
+	return nil
 }
 
 func createBundle(name, outdir, contentdir, root string) (string, error) {

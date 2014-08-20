@@ -4,7 +4,7 @@
 package backups
 
 var (
-	GetMongodumpPath = &getMongodumpPath
+	GetDumpCmd       = &getDumpCmd
 	GetFilesToBackup = &getFilesToBackup
 	RunCommand       = &runCommand
 )
