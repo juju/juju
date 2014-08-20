@@ -7,6 +7,9 @@ package main
 
 import (
 	"os"
+
+	// this is here to make godeps output the same on all OSes.
+	_ "bitbucket.org/kardianos/service"
 )
 
 func main() {
