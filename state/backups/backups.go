@@ -38,6 +38,8 @@ type Backups interface {
 	// Create creates and stores a new juju backup archive and returns
 	// its associated metadata.
 	Create(paths files.Paths, dbInfo db.ConnInfo, origin metadata.Origin, notes string) (*metadata.Metadata, error)
+	// Get returns the metadata and archive file associated with the ID.
+	Get(id string) (*metadata.Metadata, io.ReadCloser, error)
 }
 
 type backups struct {
@@ -90,4 +92,19 @@ func (b *backups) Create(paths files.Paths, dbInfo db.ConnInfo, origin metadata.
 	}
 
 	return meta, nil
+}
+
+// Get returns the metadata and archive file associated with the ID.
+func (b *backups) Get(id string) (*metadata.Metadata, io.ReadCloser, error) {
+	rawmeta, archiveFile, err := b.storage.Get(id)
+	if err != nil {
+		return nil, nil, errors.Trace(err)
+	}
+
+	meta, ok := rawmeta.(*metadata.Metadata)
+	if !ok {
+		panic("did not get a backup.Metadata value from storage")
+	}
+
+	return meta, archiveFile, nil
 }
