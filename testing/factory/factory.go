@@ -271,7 +271,8 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 	metric, err := params.Unit.AddMetrics(params.Metrics)
 	c.Assert(err, gc.IsNil)
 	if params.Sent {
-		metric.SetSent()
+		err := metric.SetSent()
+		c.Assert(err, gc.IsNil)
 	}
 	return metric
 }
