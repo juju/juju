@@ -353,7 +353,7 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 		return params.StringBoolResults{}, err
 	}
 	for i, entity := range args.Entities {
-		tag, err := names.ParseUnitTag(entity.Tag)
+		tag, err := names.ParseTag(entity.Tag)
 		if err != nil {
 			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
@@ -548,8 +548,7 @@ func (u *UniterAPI) WatchActions(args params.Entities) (params.StringsWatchResul
 	for i, entity := range args.Entities {
 		tag, err := names.ParseUnitTag(entity.Tag)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
-			continue
+			return nothing, err
 		}
 		err = common.ErrPerm
 		if canAccess(tag) {
@@ -1032,7 +1031,7 @@ func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, 
 	for i, arg := range args.RelationUnits {
 		tag, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, tag)
@@ -1064,7 +1063,7 @@ func (u *UniterAPI) LeaveScope(args params.RelationUnits) (params.ErrorResults, 
 	for i, arg := range args.RelationUnits {
 		unit, err := names.ParseUnitTag(arg.Unit)
 		if err != nil {
-			result.Results[i].Error = common.ServerError(err)
+			result.Results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, unit)
