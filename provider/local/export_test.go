@@ -12,12 +12,12 @@ import (
 )
 
 var (
-	CheckIfRoot      = &checkIfRoot
-	CheckLocalPort   = &checkLocalPort
-	DetectAptProxies = &detectAptProxies
-	FinishBootstrap  = &finishBootstrap
-	Provider         = providerInstance
-	UserCurrent      = &userCurrent
+	CheckIfRoot        = &checkIfRoot
+	CheckLocalPort     = &checkLocalPort
+	DetectAptProxies   = &detectAptProxies
+	ExecuteCloudConfig = &executeCloudConfig
+	Provider           = providerInstance
+	UserCurrent        = &userCurrent
 )
 
 // ConfigNamespace returns the result of the namespace call on the

@@ -10,6 +10,7 @@ import (
 	"github.com/juju/loggo"
 
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/network"
 	coretools "github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
@@ -41,13 +42,68 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args env
 	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
 		return errors.Errorf("environment configuration has no ca-private-key")
 	}
+
 	// Write out the bootstrap-init file, and confirm storage is writeable.
 	if err := environs.VerifyStorage(environ.Storage()); err != nil {
 		return err
 	}
+
+	// We must generate an SSH key for the state servers to log into other instances.
+	// generateSystemSSHKey updates the environment's authorized-keys, so this must
+	// be done before bootstrapping.
+	privateKey, err := generateSystemSSHKey(environ)
+	if err != nil {
+		return err
+	}
+
+	ctx.Infof("Bootstrapping environment %q", cfg.Name())
 	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), environ.SupportNetworks())
-	logger.Infof("bootstrapping environment %q", cfg.Name())
-	return environ.Bootstrap(ctx, args)
+
+	ctx.Infof("Starting new instance for initial machine")
+	arch, series, finalizer, err := environ.Bootstrap(ctx, args)
+	if err != nil {
+		return err
+	}
+
+	// TODO(axw) remove EnsureToolsAvailability calls from providers,
+	// make this function responsible for locating tools first and
+	// uploading during finalization if necessary.
+	availableTools, err := EnsureToolsAvailability(ctx, environ, series, &arch)
+	if err != nil {
+		return err
+	}
+
+	ctx.Infof("Installing Juju agent on bootstrap instance")
+	machineConfig := environs.NewBootstrapMachineConfig(args.Constraints, privateKey)
+	machineConfig.Tools = availableTools[0]
+	if err := finalizer(ctx, machineConfig); err != nil {
+		return err
+	}
+	ctx.Infof("Bootstrap complete")
+	return nil
+}
+
+// generateSystemSSHKey creates a new key for the system identity. The
+// authorized_keys in the environment config is updated to include the public
+// key for the generated key.
+func generateSystemSSHKey(env environs.Environ) (privateKey string, err error) {
+	logger.Debugf("generate a system ssh key")
+	// Create a new system ssh key and add that to the authorized keys.
+	privateKey, publicKey, err := ssh.GenerateKey(config.JujuSystemKey)
+	if err != nil {
+		return "", fmt.Errorf("failed to create system key: %v", err)
+	}
+	authorized_keys := config.ConcatAuthKeys(env.Config().AuthorizedKeys(), publicKey)
+	newConfig, err := env.Config().Apply(map[string]interface{}{
+		config.AuthKeysConfig: authorized_keys,
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to create new config: %v", err)
+	}
+	if err = env.SetConfig(newConfig); err != nil {
+		return "", fmt.Errorf("failed to set new config: %v", err)
+	}
+	return privateKey, nil
 }
 
 // SetBootstrapTools returns the newest tools from the given tools list,

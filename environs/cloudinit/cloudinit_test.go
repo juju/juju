@@ -818,7 +818,7 @@ func (*cloudinitSuite) createMachineConfig(c *gc.C, environConfig *config.Config
 		Version: version.MustParseBinary("2.3.4-quantal-amd64"),
 		URL:     "http://tools.testing.invalid/2.3.4-quantal-amd64.tgz",
 	}
-	err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{})
+	err := environs.FinishMachineConfig(machineConfig, environConfig)
 	c.Assert(err, gc.IsNil)
 	return machineConfig
 }
