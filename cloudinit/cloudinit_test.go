@@ -5,6 +5,7 @@ package cloudinit_test
 
 import (
 	"fmt"
+	"path"
 	"testing"
 
 	gc "launchpad.net/gocheck"
@@ -295,7 +296,9 @@ func (S) TestOutput(c *gc.C) {
 	for _, t := range ctests {
 		cfg := cloudinit.New()
 		t.setOption(cfg)
-		data, err := cfg.Render()
+		renderer, err := cloudinit.NewRenderer("quantal")
+		c.Assert(err, gc.IsNil)
+		data, err := renderer.Render(cfg)
 		c.Assert(err, gc.IsNil)
 		c.Assert(data, gc.NotNil)
 		c.Assert(string(data), gc.Equals, header+t.expect, gc.Commentf("test %q output differs", t.name))
@@ -364,10 +367,119 @@ func ExampleConfig() {
 	cfg := cloudinit.New()
 	cfg.AddPackage("juju")
 	cfg.AddPackage("ubuntu")
-	data, err := cfg.Render()
+	renderer, err := cloudinit.NewRenderer("quantal")
+	if err != nil {
+		fmt.Printf("render error: %v", err)
+		return
+	}
+	data, err := renderer.Render(cfg)
 	if err != nil {
 		fmt.Printf("render error: %v", err)
 		return
 	}
 	fmt.Printf("%s", data)
+}
+
+func (S) TestUbuntuMkdir(c *gc.C) {
+	compareOutput := "mkdir -p 'fake_dir'"
+	render, err := cloudinit.NewRenderer("precise")
+	c.Assert(err, gc.IsNil)
+	output := render.Mkdir("fake_dir")
+	c.Assert(err, gc.IsNil)
+	c.Assert(output, gc.NotNil)
+	c.Assert(output[0], gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows mkdir"))
+}
+
+func (S) TestUbuntuWriteFile(c *gc.C) {
+	filePath := path.Join("fake_dir", "test_file")
+	compareOutput := "install -m 17141 /dev/null 'fake_dir/test_file'"
+
+	render, err := cloudinit.NewRenderer("precise")
+	c.Assert(err, gc.IsNil)
+	output := render.WriteFile(filePath, "fake output", 7777)
+	c.Assert(err, gc.IsNil)
+	c.Assert(output, gc.NotNil)
+	c.Assert(output[0], gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows writefile"))
+}
+
+func (S) TestUbuntuFromSlash(c *gc.C) {
+	filePath := path.Join("tmp/file\\path//value\\")
+	compareOutput := "tmp/file\\path/value\\"
+
+	render, err := cloudinit.NewRenderer("precise")
+	c.Assert(err, gc.IsNil)
+	output := render.FromSlash(filePath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(output, gc.NotNil)
+	c.Assert(output, gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows fromslash"))
+}
+
+func (S) TestUbuntuPathJoin(c *gc.C) {
+	dirPath := path.Join("fake", "dir")
+	compareOutput := "fake/dir/fakeFile"
+
+	render, err := cloudinit.NewRenderer("precise")
+	c.Assert(err, gc.IsNil)
+	output := render.PathJoin(dirPath, "fakeFile")
+	c.Assert(err, gc.IsNil)
+	c.Assert(output, gc.NotNil)
+	c.Assert(output, gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows writefile"))
+}
+
+func (S) TestWindowsRender(c *gc.C) {
+	compareOutput := "#ps1_sysnative\r\n\r\npowershell"
+	cfg := cloudinit.New()
+	cfg.AddRunCmd("powershell")
+	render, err := cloudinit.NewRenderer("win8")
+	c.Assert(err, gc.IsNil)
+	data, err := render.Render(cfg)
+	c.Assert(err, gc.IsNil)
+	c.Assert(data, gc.NotNil)
+	c.Assert(string(data), gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows renderer"))
+}
+
+func (S) TestWindowsMkdir(c *gc.C) {
+	render, err := cloudinit.NewRenderer("win8")
+	compareOutput := "mkdir fake_dir"
+	c.Assert(err, gc.IsNil)
+	output := render.Mkdir("fake_dir")
+	c.Assert(err, gc.IsNil)
+	c.Assert(output, gc.NotNil)
+	c.Assert(output[0], gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows mkdir"))
+}
+
+func (S) TestWindowsWriteFile(c *gc.C) {
+	filePath := path.Join("fake_dir", "test_file")
+	compareOutput := "Set-Content '" + filePath + "' @\"\nfake output\n\"@"
+
+	render, err := cloudinit.NewRenderer("win8")
+	c.Assert(err, gc.IsNil)
+	output := render.WriteFile(filePath, "fake output", 7777)
+	c.Assert(err, gc.IsNil)
+	c.Assert(output, gc.NotNil)
+	c.Assert(output[0], gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows writefile"))
+}
+
+func (S) TestWindowsFromSlash(c *gc.C) {
+	filePath := path.Join("fake/file\\path//value\\/\\")
+	compareOutput := "fake\\file\\path\\value\\\\\\"
+
+	render, err := cloudinit.NewRenderer("win8")
+	c.Assert(err, gc.IsNil)
+	output := render.FromSlash(filePath)
+	c.Assert(err, gc.IsNil)
+	c.Assert(output, gc.NotNil)
+	c.Assert(output, gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows fromslash"))
+}
+
+func (S) TestWindowsPathJoin(c *gc.C) {
+	dirPath := path.Join("fake", "dir")
+	compareOutput := "fake\\dir\\fakeFile"
+
+	render, err := cloudinit.NewRenderer("win8")
+	c.Assert(err, gc.IsNil)
+	output := render.PathJoin(render.FromSlash(dirPath), "fakeFile")
+	c.Assert(err, gc.IsNil)
+	c.Assert(output, gc.NotNil)
+	c.Assert(output, gc.Equals, compareOutput, gc.Commentf("test %q output differs", "windows writefile"))
 }

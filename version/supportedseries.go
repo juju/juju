@@ -26,12 +26,19 @@ const (
 // On non-Ubuntu systems, these values provide a nice fallback option.
 // Exported so tests can change the values to ensure the distro-info lookup works.
 var seriesVersions = map[string]string{
-	"precise": "12.04",
-	"quantal": "12.10",
-	"raring":  "13.04",
-	"saucy":   "13.10",
-	"trusty":  "14.04",
-	"utopic":  "14.10",
+	"precise":     "12.04",
+	"quantal":     "12.10",
+	"raring":      "13.04",
+	"saucy":       "13.10",
+	"trusty":      "14.04",
+	"utopic":      "14.10",
+	"win2012hvr2": "win2012hvr2",
+	"win2012hv":   "win2012hv",
+	"win2012r2":   "win2012r2",
+	"win2012":     "win2012",
+	"win7":        "win7",
+	"win8":        "win8",
+	"win81":       "win81",
 }
 
 var ubuntuSeries = []string{
