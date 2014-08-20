@@ -358,10 +358,13 @@ func createBridgeNetwork(iface string) string {
 	return fmt.Sprintf(`cat > /etc/network/interfaces.d/br0.cfg << EOF
 auto br0
 iface br0 inet dhcp
-  bridge_ports %s
+  pre-up ifconfig %s down
+  pre-up brctl addbr br0
+  pre-up brctl addif br0 %s
+  pre-up ifconfig %s up
 EOF
 sed -i 's/iface %s inet dhcp/iface %s inet manual/' /etc/network/interfaces.d/%s.cfg
-`, iface, iface, iface, iface)
+`, iface, iface, iface, iface, iface, iface)
 }
 
 var unsupportedConstraints = []string{
@@ -548,7 +551,6 @@ func newCloudinitConfig(hostname, iface, series string) (*cloudinit.Config, erro
 		cloudcfg.AddScripts(
 			"set -xe",
 			runCmd,
-			fmt.Sprintf("ifdown %s", iface),
 			restoreInterfacesFiles(iface),
 			createBridgeNetwork(iface),
 			"ifup br0",
