@@ -5,6 +5,8 @@ package networker
 
 import (
 	"path/filepath"
+
+	"github.com/juju/names"
 )
 
 const (
@@ -25,7 +27,7 @@ var (
 	SourceCommentAndCommand = sourceCommentAndCommand
 )
 
-func IsRunningInLXC(machineTag string) bool {
+func IsRunningInLXC(machineTag names.MachineTag) bool {
 	nw := &networker{tag: machineTag}
 	return nw.isRunningInLXC()
 }
