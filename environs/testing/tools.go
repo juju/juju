@@ -119,8 +119,7 @@ func PrimeTools(c *gc.C, stor storage.Storage, dataDir string, vers version.Bina
 
 func uploadFakeToolsVersion(stor storage.Storage, vers version.Binary) (*coretools.Tools, error) {
 	logger.Infof("uploading FAKE tools %s", vers)
-	tgz, checksum := coretesting.TarGz(
-		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
+	tgz, checksum := makeFakeTools(vers)
 	size := int64(len(tgz))
 	name := envtools.StorageName(vers)
 	if err := stor.Put(name, bytes.NewReader(tgz), size); err != nil {
@@ -131,6 +130,25 @@ func uploadFakeToolsVersion(stor storage.Storage, vers version.Binary) (*coretoo
 		return nil, err
 	}
 	return &coretools.Tools{URL: url, Version: vers, Size: size, SHA256: checksum}, nil
+}
+
+// InstallFakeDownloadedTools creates and unpacks fake tools of the
+// given version into the data directory specified.
+func InstallFakeDownloadedTools(c *gc.C, dataDir string, vers version.Binary) *coretools.Tools {
+	tgz, checksum := makeFakeTools(vers)
+	agentTools := &coretools.Tools{
+		Version: vers,
+		Size:    int64(len(tgz)),
+		SHA256:  checksum,
+	}
+	err := agenttools.UnpackTools(dataDir, agentTools, bytes.NewReader(tgz))
+	c.Assert(err, gc.IsNil)
+	return agentTools
+}
+
+func makeFakeTools(vers version.Binary) ([]byte, string) {
+	return coretesting.TarGz(
+		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()))
 }
 
 // UploadFakeToolsVersions puts fake tools in the supplied storage for the supplied versions.
