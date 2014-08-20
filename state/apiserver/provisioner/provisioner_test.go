@@ -307,8 +307,8 @@ func (s *withoutStateServerSuite) TestRemove(c *gc.C) {
 
 	// Verify the changes.
 	s.assertLife(c, 0, state.Alive)
-	err = s.machines[1].Refresh()
-	c.Assert(err, jc.Satisfies, errors.IsNotFound)
+	err = s.machines[2].Refresh()
+	c.Assert(err, gc.IsNil)
 	s.assertLife(c, 2, state.Alive)
 }
 
@@ -1160,7 +1160,7 @@ func (s *withoutStateServerSuite) TestContainerConfig(c *gc.C) {
 	results, err := s.provisioner.ContainerConfig()
 	c.Check(err, gc.IsNil)
 	c.Check(results.ProviderType, gc.Equals, "dummy")
-	c.Check(results.AuthorizedKeys, gc.Equals, coretesting.FakeAuthKeys)
+	c.Check(results.AuthorizedKeys, gc.Equals, s.Environ.Config().AuthorizedKeys())
 	c.Check(results.SSLHostnameVerification, jc.IsTrue)
 	c.Check(results.Proxy, gc.DeepEquals, expectedProxy)
 	c.Check(results.AptProxy, gc.DeepEquals, expectedProxy)

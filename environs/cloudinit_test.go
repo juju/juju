@@ -4,6 +4,7 @@
 package environs_test
 
 import (
+	"path"
 	"time"
 
 	"github.com/juju/names"
@@ -15,12 +16,12 @@ import (
 	"github.com/juju/juju/agent"
 	"github.com/juju/juju/cert"
 	coreCloudinit "github.com/juju/juju/cloudinit"
-	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/juju/osenv"
+	"github.com/juju/juju/juju/paths"
 	"github.com/juju/juju/mongo"
 	"github.com/juju/juju/provider/dummy"
 	"github.com/juju/juju/state/api"
@@ -45,6 +46,16 @@ type CloudInitSuite struct {
 
 var _ = gc.Suite(&CloudInitSuite{})
 
+func must(s string, err error) string {
+	if err != nil {
+		panic(err)
+	}
+	return s
+}
+
+var logDir = must(paths.LogDir("precise"))
+var cloudInitOutputLog = path.Join(logDir, "cloud-init-output.log")
+
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 	userTag := names.NewUserTag("not-touched")
 	attrs := dummySampleConfig().Merge(testing.Attrs{
@@ -56,7 +67,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 		MongoInfo: &authentication.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 	}
-	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
+	err = environs.FinishMachineConfig(mcfg, cfg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(mcfg, jc.DeepEquals, &cloudinit.MachineConfig{
 		AuthorizedKeys: "we-are-the-keys",
@@ -83,7 +94,7 @@ func (s *CloudInitSuite) TestFinishMachineConfigNonDefault(c *gc.C) {
 		MongoInfo: &authentication.MongoInfo{Tag: userTag},
 		APIInfo:   &api.Info{Tag: userTag},
 	}
-	err = environs.FinishMachineConfig(mcfg, cfg, constraints.Value{})
+	err = environs.FinishMachineConfig(mcfg, cfg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(mcfg, jc.DeepEquals, &cloudinit.MachineConfig{
 		AuthorizedKeys: "we-are-the-keys",
@@ -111,8 +122,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	mcfg := &cloudinit.MachineConfig{
 		Bootstrap: true,
 	}
-	cons := constraints.MustParse("mem=1T cpu-power=999999999")
-	err = environs.FinishMachineConfig(mcfg, cfg, cons)
+	err = environs.FinishMachineConfig(mcfg, cfg)
 	c.Assert(err, gc.IsNil)
 	c.Check(mcfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
 	c.Check(mcfg.DisableSSLHostnameVerification, jc.IsFalse)
@@ -125,7 +135,6 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	})
 	c.Check(mcfg.StateServingInfo.StatePort, gc.Equals, cfg.StatePort())
 	c.Check(mcfg.StateServingInfo.APIPort, gc.Equals, cfg.APIPort())
-	c.Check(mcfg.Constraints, gc.DeepEquals, cons)
 
 	oldAttrs["ca-private-key"] = ""
 	oldAttrs["admin-secret"] = ""
@@ -169,6 +178,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		MachineId:    "10",
 		MachineNonce: "5432",
 		Tools:        tools,
+		Series:       "quantal",
 		MongoInfo: &authentication.MongoInfo{
 			Info: mongo.Info{
 				Addrs:  []string{"127.0.0.1:1234"},
@@ -186,7 +196,7 @@ func (*CloudInitSuite) testUserData(c *gc.C, bootstrap bool) {
 		DataDir:                 environs.DataDir,
 		LogDir:                  agent.DefaultLogDir,
 		Jobs:                    allJobs,
-		CloudInitOutputLog:      environs.CloudInitOutputLog,
+		CloudInitOutputLog:      cloudInitOutputLog,
 		Config:                  envConfig,
 		AgentEnvironment:        map[string]string{agent.ProviderType: "dummy"},
 		AuthorizedKeys:          "wheredidileavemykeys",

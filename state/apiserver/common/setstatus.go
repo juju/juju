@@ -6,8 +6,10 @@ package common
 import (
 	"fmt"
 
+	"github.com/juju/errors"
 	"github.com/juju/juju/state"
 	"github.com/juju/juju/state/api/params"
+	"github.com/juju/names"
 )
 
 // StatusSetter implements a common SetStatus method for use by
@@ -27,7 +29,7 @@ func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSet
 	}
 }
 
-func (s *StatusSetter) setEntityStatus(tag string, status params.Status, info string, data params.StatusData) error {
+func (s *StatusSetter) setEntityStatus(tag names.Tag, status params.Status, info string, data params.StatusData) error {
 	entity0, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -52,16 +54,21 @@ func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, er
 		return params.ErrorResults{}, err
 	}
 	for i, arg := range args.Entities {
-		err := ErrPerm
-		if canModify(arg.Tag) {
-			err = s.setEntityStatus(arg.Tag, arg.Status, arg.Info, arg.Data)
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		err = ErrPerm
+		if canModify(tag) {
+			err = s.setEntityStatus(tag, arg.Status, arg.Info, arg.Data)
 		}
 		result.Results[i].Error = ServerError(err)
 	}
 	return result, nil
 }
 
-func (s *StatusSetter) updateEntityStatusData(tag string, data params.StatusData) error {
+func (s *StatusSetter) updateEntityStatusData(tag names.Tag, data params.StatusData) error {
 	entity0, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err
@@ -87,7 +94,7 @@ func (s *StatusSetter) updateEntityStatusData(tag string, data params.StatusData
 		return NotSupportedError(tag, "updating status")
 	}
 	if len(newData) > 0 && existingStatus != params.StatusError {
-		return fmt.Errorf("machine %q is not in an error state", tag)
+		return fmt.Errorf("%q is not in an error state", tag)
 	}
 	return entity.SetStatus(existingStatus, existingInfo, newData)
 }
@@ -102,12 +109,17 @@ func (s *StatusSetter) UpdateStatus(args params.SetStatus) (params.ErrorResults,
 	}
 	canModify, err := s.getCanModify()
 	if err != nil {
-		return params.ErrorResults{}, err
+		return params.ErrorResults{}, errors.Trace(err)
 	}
 	for i, arg := range args.Entities {
-		err := ErrPerm
-		if canModify(arg.Tag) {
-			err = s.updateEntityStatusData(arg.Tag, arg.Data)
+		tag, err := names.ParseTag(arg.Tag)
+		if err != nil {
+			result.Results[i].Error = ServerError(ErrPerm)
+			continue
+		}
+		err = ErrPerm
+		if canModify(tag) {
+			err = s.updateEntityStatusData(tag, arg.Data)
 		}
 		result.Results[i].Error = ServerError(err)
 	}

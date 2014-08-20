@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	gitjujutesting "github.com/juju/testing"
+	jc "github.com/juju/testing/checkers"
 	"gopkg.in/mgo.v2"
 	gc "launchpad.net/gocheck"
 
@@ -36,6 +37,7 @@ type ConnSuite struct {
 	State        *state.State
 	policy       statetesting.MockPolicy
 	factory      *factory.Factory
+	envUUID      string
 }
 
 func (cs *ConnSuite) SetUpSuite(c *gc.C) {
@@ -52,7 +54,11 @@ func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.BaseSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.policy = statetesting.MockPolicy{}
-	cs.State = TestingInitialize(c, nil, &cs.policy)
+	cfg := testing.EnvironConfig(c)
+	cs.State = TestingInitialize(c, cfg, &cs.policy)
+	uuid, ok := cfg.UUID()
+	cs.envUUID = uuid
+	c.Assert(ok, jc.IsTrue)
 	cs.annotations = cs.MgoSuite.Session.DB("juju").C("annotations")
 	cs.charms = cs.MgoSuite.Session.DB("juju").C("charms")
 	cs.machines = cs.MgoSuite.Session.DB("juju").C("machines")

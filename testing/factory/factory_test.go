@@ -113,6 +113,50 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
 }
 
+func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
+	envUser := s.Factory.MakeEnvUser(c, nil)
+	saved, err := s.State.EnvironmentUser(envUser.UserName())
+	c.Assert(err, gc.IsNil)
+	c.Assert(saved.EnvUUID(), gc.Equals, envUser.EnvUUID())
+	c.Assert(saved.UserName(), gc.Equals, envUser.UserName())
+	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
+	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
+}
+
+func (s *factorySuite) TestMakeEnvUserPartialParams(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "foobar123"})
+	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+		User: "foobar123"})
+
+	saved, err := s.State.EnvironmentUser(envUser.UserName())
+	c.Assert(err, gc.IsNil)
+	c.Assert(saved.EnvUUID(), gc.Equals, envUser.EnvUUID())
+	c.Assert(saved.UserName(), gc.Equals, "foobar123@local")
+	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
+	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
+}
+
+func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
+	s.Factory.MakeUser(c, &factory.UserParams{Name: "created-by"})
+	s.Factory.MakeUser(c, &factory.UserParams{
+		Name:        "foobar",
+		DisplayName: "displayName",
+		Creator:     "created-by",
+	})
+	envUser := s.Factory.MakeEnvUser(c, &factory.EnvUserParams{
+		User:        "foobar",
+		DisplayName: "displayName",
+		CreatedBy:   "created-by",
+	})
+
+	saved, err := s.State.EnvironmentUser(envUser.UserName())
+	c.Assert(err, gc.IsNil)
+	c.Assert(saved.EnvUUID(), gc.Equals, envUser.EnvUUID())
+	c.Assert(saved.UserName(), gc.Equals, "foobar@local")
+	c.Assert(saved.DisplayName(), gc.Equals, "displayName")
+	c.Assert(saved.CreatedBy(), gc.Equals, "created-by@local")
+}
+
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	c.Assert(machine, gc.NotNil)
@@ -333,6 +377,7 @@ func (s *factorySuite) TestMakeMetricNil(c *gc.C) {
 
 	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
 	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
+	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
 	c.Assert(saved.CharmURL(), gc.Equals, metric.CharmURL())
 	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
 	c.Assert(saved.Metrics(), gc.HasLen, 1)
@@ -348,6 +393,7 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	metric := s.Factory.MakeMetric(c, &factory.MetricParams{
 		Unit:    unit,
 		Time:    &now,
+		Sent:    true,
 		Metrics: []*state.Metric{state.NewMetric("itemA", "foo", now, []byte("somecreds"))},
 	})
 	c.Assert(metric, gc.NotNil)
@@ -358,7 +404,8 @@ func (s *factorySuite) TestMakeMetric(c *gc.C) {
 	c.Assert(saved.UUID(), gc.Equals, metric.UUID())
 	c.Assert(saved.Unit(), gc.Equals, metric.Unit())
 	c.Assert(saved.CharmURL(), gc.Equals, metric.CharmURL())
-	c.Assert(saved.Sent(), gc.Equals, metric.Sent())
+	c.Assert(metric.Sent(), jc.IsTrue)
+	c.Assert(saved.Sent(), jc.IsTrue)
 	c.Assert(saved.Metrics(), gc.HasLen, 1)
 	c.Assert(saved.Metrics()[0].Key(), gc.Equals, "itemA")
 	c.Assert(saved.Metrics()[0].Value(), gc.Equals, "foo")

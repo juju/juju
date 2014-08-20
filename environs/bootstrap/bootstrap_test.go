@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environs"
 	"github.com/juju/juju/environs/bootstrap"
+	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/configstore"
 	"github.com/juju/juju/environs/simplestreams"
@@ -209,6 +210,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 }
 
 func (s *bootstrapSuite) TestBootstrapNoTools(c *gc.C) {
+	c.Skip("provider no longer locates tools")
 	env := newEnviron("foo", useDefaultKeys, nil)
 	s.setDummyStorage(c, env)
 	envtesting.RemoveFakeTools(c, env.Storage())
@@ -460,7 +462,9 @@ type bootstrapEnviron struct {
 
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
+	finalizerCount int
 	args           environs.BootstrapParams
+	machineConfig  *cloudinit.MachineConfig
 	storage        storage.Storage
 }
 
@@ -502,10 +506,15 @@ func (s *bootstrapSuite) setDummyStorage(c *gc.C, env *bootstrapEnviron) {
 	s.AddCleanup(func(c *gc.C) { closer.Close() })
 }
 
-func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (e *bootstrapEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	e.bootstrapCount++
 	e.args = args
-	return nil
+	finalizer := func(_ environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
+		e.finalizerCount++
+		e.machineConfig = mcfg
+		return nil
+	}
+	return version.Current.Arch, version.Current.Series, finalizer, nil
 }
 
 func (e *bootstrapEnviron) Config() *config.Config {

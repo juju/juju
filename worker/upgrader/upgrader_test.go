@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
@@ -39,9 +38,11 @@ func TestPackage(t *stdtesting.T) {
 type UpgraderSuite struct {
 	jujutesting.JujuConnSuite
 
-	machine       *state.Machine
-	state         *api.State
-	oldRetryAfter func() <-chan time.Time
+	machine        *state.Machine
+	state          *api.State
+	oldRetryAfter  func() <-chan time.Time
+	confVersion    version.Number
+	upgradeRunning bool
 }
 
 type AllowedTargetVersionSuite struct{}
@@ -66,6 +67,7 @@ type mockConfig struct {
 	agent.Config
 	tag     names.Tag
 	datadir string
+	version version.Number
 }
 
 func (mock *mockConfig) Tag() names.Tag {
@@ -77,12 +79,19 @@ func (mock *mockConfig) DataDir() string {
 }
 
 func agentConfig(tag names.Tag, datadir string) agent.Config {
-	return &mockConfig{tag: tag, datadir: datadir}
+	return &mockConfig{
+		tag:     tag,
+		datadir: datadir,
+	}
 }
 
 func (s *UpgraderSuite) makeUpgrader() *upgrader.Upgrader {
-	config := agentConfig(s.machine.Tag(), s.DataDir())
-	return upgrader.NewUpgrader(s.state.Upgrader(), config)
+	return upgrader.NewUpgrader(
+		s.state.Upgrader(),
+		agentConfig(s.machine.Tag(), s.DataDir()),
+		s.confVersion,
+		func() bool { return s.upgradeRunning },
+	)
 }
 
 func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
@@ -228,17 +237,28 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	c.Assert(link, gc.Equals, target)
 }
 
-func (s *UpgraderSuite) TestEnsureToolsChecksBeforeDownloading(c *gc.C) {
-	stor := s.Environ.Storage()
-	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
-	s.PatchValue(&version.Current, newTools.Version)
-	// We've already downloaded the tools, so change the URL to be
-	// something invalid and ensure we don't actually get an error, because
-	// it doesn't actually do an HTTP request
-	u := s.makeUpgrader()
-	newTools.URL = "http://0.1.2.3/invalid/path/tools.tgz"
-	err := upgrader.EnsureTools(u, newTools, utils.VerifySSLHostnames)
+func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
+	oldVersion := version.MustParseBinary("1.2.3-quantal-amd64")
+	s.PatchValue(&version.Current, oldVersion)
+
+	newVersion := version.MustParseBinary("5.4.3-quantal-amd64")
+	err := statetesting.SetAgentVersion(s.State, newVersion.Number)
 	c.Assert(err, gc.IsNil)
+
+	// Install tools matching the new version in the data directory
+	// but *not* in environment storage. The upgrader should find the
+	// downloaded tools without looking in environment storage.
+	envtesting.InstallFakeDownloadedTools(c, s.DataDir(), newVersion)
+
+	u := s.makeUpgrader()
+	err = u.Stop()
+
+	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+		AgentName: s.machine.Tag().String(),
+		OldTools:  oldVersion,
+		NewTools:  newVersion,
+		DataDir:   s.DataDir(),
+	})
 }
 
 func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {
@@ -286,25 +306,81 @@ func (s *UpgraderSuite) TestUpgraderAllowsDowngradingPatchVersions(c *gc.C) {
 	envtesting.CheckTools(c, foundTools, downgradeTools)
 }
 
+func (s *UpgraderSuite) TestUpgraderAllowsDowngradeToOrigVersionIfUpgradeInProgress(c *gc.C) {
+	// note: otherwise illegal version jump
+	downgradeVersion := version.MustParseBinary("5.3.0-precise-amd64")
+	s.confVersion = downgradeVersion.Number
+	s.upgradeRunning = true
+
+	stor := s.Environ.Storage()
+	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
+	s.PatchValue(&version.Current, origTools.Version)
+	downgradeTools := envtesting.AssertUploadFakeToolsVersions(c, stor, downgradeVersion)[0]
+	err := statetesting.SetAgentVersion(s.State, downgradeVersion.Number)
+	c.Assert(err, gc.IsNil)
+
+	dummy.SetStorageDelay(coretesting.ShortWait)
+
+	u := s.makeUpgrader()
+	err = u.Stop()
+	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+		AgentName: s.machine.Tag().String(),
+		OldTools:  origTools.Version,
+		NewTools:  downgradeVersion,
+		DataDir:   s.DataDir(),
+	})
+	foundTools, err := agenttools.ReadTools(s.DataDir(), downgradeTools.Version)
+	c.Assert(err, gc.IsNil)
+	envtesting.CheckTools(c, foundTools, downgradeTools)
+}
+
+func (s *UpgraderSuite) TestUpgraderRefusesDowngradeToOrigVersionIfUpgradeNotInProgress(c *gc.C) {
+	downgradeVersion := version.MustParseBinary("5.3.0-precise-amd64")
+	s.confVersion = downgradeVersion.Number
+	s.upgradeRunning = false
+
+	stor := s.Environ.Storage()
+	origTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
+	s.PatchValue(&version.Current, origTools.Version)
+	envtesting.AssertUploadFakeToolsVersions(c, stor, downgradeVersion)
+	err := statetesting.SetAgentVersion(s.State, downgradeVersion.Number)
+	c.Assert(err, gc.IsNil)
+
+	dummy.SetStorageDelay(coretesting.ShortWait)
+
+	u := s.makeUpgrader()
+	err = u.Stop()
+
+	// If the upgrade would have triggered, we would have gotten an
+	// UpgradeReadyError, since it was skipped, we get no error
+	c.Check(err, gc.IsNil)
+}
+
 type allowedTest struct {
-	current string
-	target  string
-	allowed bool
+	original       string
+	current        string
+	target         string
+	upgradeRunning bool
+	allowed        bool
 }
 
 func (s *AllowedTargetVersionSuite) TestAllowedTargetVersionSuite(c *gc.C) {
 	cases := []allowedTest{
-		{current: "1.2.3", target: "1.3.3", allowed: true},
-		{current: "1.2.3", target: "1.2.3", allowed: true},
-		{current: "1.2.3", target: "2.2.3", allowed: true},
-		{current: "1.2.3", target: "1.1.3", allowed: false},
-		{current: "1.2.3", target: "1.2.2", allowed: true},
-		{current: "1.2.3", target: "0.2.3", allowed: false},
+		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "1.3.3", allowed: true},
+		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "1.2.3", allowed: true},
+		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "2.2.3", allowed: true},
+		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "1.1.3", allowed: false},
+		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "1.2.2", allowed: true}, // downgrade between builds
+		{original: "1.2.3", current: "1.2.3", upgradeRunning: false, target: "0.2.3", allowed: false},
+		{original: "0.2.3", current: "1.2.3", upgradeRunning: false, target: "0.2.3", allowed: false},
+		{original: "0.2.3", current: "1.2.3", upgradeRunning: true, target: "0.2.3", allowed: true}, // downgrade during upgrade
 	}
 	for i, test := range cases {
 		c.Logf("test case %d, %#v", i, test)
+		original := version.MustParse(test.original)
 		current := version.MustParse(test.current)
 		target := version.MustParse(test.target)
-		c.Check(upgrader.AllowedTargetVersion(current, target), gc.Equals, test.allowed)
+		result := upgrader.AllowedTargetVersion(original, current, test.upgradeRunning, target)
+		c.Check(result, gc.Equals, test.allowed)
 	}
 }

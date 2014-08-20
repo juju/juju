@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/juju/juju/constraints"
+	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/storage"
 	"github.com/juju/juju/instance"
@@ -76,6 +77,10 @@ type BootstrapParams struct {
 	Placement string
 }
 
+// BootstrapFinalizer is a function returned from Environ.Bootstrap.
+// The caller must pass a MachineConfig with the Tools field set.
+type BootstrapFinalizer func(BootstrapContext, *cloudinit.MachineConfig) error
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 //
@@ -91,18 +96,18 @@ type BootstrapParams struct {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
-	// Bootstrap initializes the state for the environment, possibly
-	// starting one or more instances.  If the configuration's
-	// AdminSecret is non-empty, the administrator password on the
-	// newly bootstrapped state will be set to a hash of it (see
-	// utils.PasswordHash), When first connecting to the
-	// environment via the juju package, the password hash will be
-	// automatically replaced by the real password.
+	// Bootstrap creates a new instance with the series and architecture
+	// of its choice, constrained to those of the available tools, and
+	// returns the instance's architecture, series, and a function that
+	// must be called to finalize the bootstrap process by transferring
+	// the tools and installing the initial Juju state server.
 	//
-	// Bootstrap is responsible for selecting the appropriate tools,
-	// and setting the agent-version configuration attribute prior to
-	// bootstrapping the environment.
-	Bootstrap(ctx BootstrapContext, params BootstrapParams) error
+	// It is possible to direct Bootstrap to use a specific architecture
+	// (or fail if it cannot start an instance of that architecture) by
+	// using an architecture constraint; this will have the effect of
+	// limiting the available tools to just those matching the specified
+	// architecture.
+	Bootstrap(ctx BootstrapContext, params BootstrapParams) (arch, series string, _ BootstrapFinalizer, _ error)
 
 	// InstanceBroker defines methods for starting and stopping
 	// instances.

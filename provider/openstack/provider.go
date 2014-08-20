@@ -318,6 +318,8 @@ type openstackInstance struct {
 
 	mu           sync.Mutex
 	serverDetail *nova.ServerDetail
+	// floatingIP is non-nil iff use-floating-ip is true.
+	floatingIP *nova.FloatingIP
 }
 
 func (inst *openstackInstance) String() string {
@@ -393,24 +395,34 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 	if err != nil {
 		return nil, err
 	}
-	return convertNovaAddresses(addresses), nil
+	var floatingIP string
+	if inst.floatingIP != nil {
+		floatingIP = inst.floatingIP.IP
+	}
+	return convertNovaAddresses(floatingIP, addresses), nil
 }
 
 // convertNovaAddresses returns nova addresses in generic format
-func convertNovaAddresses(addresses map[string][]nova.IPAddress) []network.Address {
+func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) []network.Address {
+	var machineAddresses []network.Address
+	if publicIP != "" {
+		publicAddr := network.NewAddress(publicIP, network.ScopePublic)
+		publicAddr.NetworkName = "public"
+		machineAddresses = append(machineAddresses, publicAddr)
+	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
 	// the map, see lp:1188126 for example. That could potentially be fixed
 	// in goose, or left to be derived by other means.
-	var machineAddresses []network.Address
 	for netName, ips := range addresses {
 		networkScope := network.ScopeUnknown
-		// For canonistack and hpcloud, public floating addresses may
-		// be put in networks named something other than public. Rely
-		// on address sanity logic to catch and mark them corectly.
 		if netName == "public" {
 			networkScope = network.ScopePublic
 		}
 		for _, address := range ips {
+			// If this address has already been added as a floating IP, skip it.
+			if publicIP == address.Address {
+				continue
+			}
 			// Assume IPv4 unless specified otherwise
 			addrtype := network.IPv4Address
 			if address.Version == 6 {
@@ -649,13 +661,13 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
 	err := e.client.Authenticate()
 	if err != nil {
-		return err
+		return "", "", nil, err
 	}
 	return common.Bootstrap(ctx, e, args)
 }
@@ -933,7 +945,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 
 	args.MachineConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
 		return nil, nil, nil, err
 	}
 	userData, err := environs.ComposeUserData(args.MachineConfig, nil)
@@ -963,7 +975,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 		}
 	}
 	cfg := e.Config()
-	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
+	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -1009,6 +1021,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			}
 			return nil, nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
+		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
 	return inst, inst.hardwareCharacteristics(), nil, nil
@@ -1317,19 +1330,13 @@ func (e *environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) setUpGlobalGroup(groupName string, statePort, apiPort int) (nova.SecurityGroup, error) {
+func (e *environ) setUpGlobalGroup(groupName string, apiPort int) (nova.SecurityGroup, error) {
 	return e.ensureGroup(groupName,
 		[]nova.RuleInfo{
 			{
 				IPProtocol: "tcp",
 				FromPort:   22,
 				ToPort:     22,
-				Cidr:       "0.0.0.0/0",
-			},
-			{
-				IPProtocol: "tcp",
-				FromPort:   statePort,
-				ToPort:     statePort,
 				Cidr:       "0.0.0.0/0",
 			},
 			{
@@ -1367,8 +1374,8 @@ func (e *environ) setUpGlobalGroup(groupName string, statePort, apiPort int) (no
 // Note: ideally we'd have a better way to determine group membership so that 2
 // people that happen to share an openstack account and name their environment
 // "openstack" don't end up destroying each other's machines.
-func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.SecurityGroup, error) {
-	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), statePort, apiPort)
+func (e *environ) setUpGroups(machineId string, apiPort int) ([]nova.SecurityGroup, error) {
+	jujuGroup, err := e.setUpGlobalGroup(e.jujuGroupName(), apiPort)
 	if err != nil {
 		return nil, err
 	}

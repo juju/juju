@@ -83,6 +83,11 @@ func (i *Info) IsVirtual() bool {
 	return i.VLANTag > 0
 }
 
+// IsVLAN returns true when the interface is a VLAN interface.
+func (i *Info) IsVLAN() bool {
+	return i.VLANTag > 0
+}
+
 // PreferIPv6Getter will be implemented by both the environment and agent
 // config.
 type PreferIPv6Getter interface {

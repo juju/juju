@@ -311,7 +311,7 @@ func (e *environ) Storage() storage.Storage {
 	return stor
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	return common.Bootstrap(ctx, e, args)
 }
 
@@ -594,7 +594,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 
 	args.MachineConfig.Tools = tools[0]
-	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config(), args.Constraints); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, e.Config()); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -604,7 +604,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 	}
 	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	cfg := e.Config()
-	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
+	groups, err := e.setUpGroups(args.MachineConfig.MachineId, cfg.APIPort())
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -1082,19 +1082,13 @@ func (inst *ec2Instance) Ports(machineId string) ([]network.PortRange, error) {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]ec2.SecurityGroup, error) {
+func (e *environ) setUpGroups(machineId string, apiPort int) ([]ec2.SecurityGroup, error) {
 	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
 		[]ec2.IPPerm{
 			{
 				Protocol:  "tcp",
 				FromPort:  22,
 				ToPort:    22,
-				SourceIPs: []string{"0.0.0.0/0"},
-			},
-			{
-				Protocol:  "tcp",
-				FromPort:  statePort,
-				ToPort:    statePort,
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
 			{

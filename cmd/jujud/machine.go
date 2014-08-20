@@ -103,6 +103,7 @@ type MachineAgent struct {
 	tomb tomb.Tomb
 	AgentConf
 	MachineId            string
+	previousAgentVersion version.Number
 	runner               worker.Runner
 	configChangedVal     voyeur.Value
 	upgradeWorkerContext *upgradeWorkerContext
@@ -163,10 +164,14 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return fmt.Errorf("cannot read agent configuration: %v", err)
 	}
 	logger.Infof("machine agent %v start (%s [%s])", a.Tag(), version.Current, runtime.Compiler)
+
+	if err := a.upgradeWorkerContext.InitializeUsingAgent(a); err != nil {
+		return errors.Annotate(err, "error during upgradeWorkerContext initialisation")
+	}
 	a.configChangedVal.Set(struct{}{})
 	agentConfig := a.CurrentConfig()
+	a.previousAgentVersion = agentConfig.UpgradedToVersion()
 	network.InitializeFromConfig(agentConfig)
-	a.upgradeWorkerContext.InitializeFromConfig(agentConfig)
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
@@ -288,7 +293,12 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	// Run the upgrader and the upgrade-steps worker without waiting for
 	// the upgrade steps to complete.
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
+		return upgrader.NewUpgrader(
+			st.Upgrader(),
+			agentConfig,
+			a.previousAgentVersion,
+			a.upgradeWorkerContext.IsUpgradeRunning,
+		), nil
 	})
 	runner.StartWorker("upgrade-steps", func() (worker.Worker, error) {
 		return a.upgradeWorkerContext.Worker(a, st, entity.Jobs()), nil
@@ -311,20 +321,16 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	a.startWorkerAfterUpgrade(runner, "rsyslog", func() (worker.Worker, error) {
 		return newRsyslogConfigWorker(st.Rsyslog(), agentConfig, rsyslogMode)
 	})
-	if networker.CanStart() {
-		// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
-		writeNetworkConfig := providerType == "maas"
-		if writeNetworkConfig {
-			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-				return networker.NewNetworker(st.Networker(), agentConfig)
-			})
-		} else {
-			a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
-				return networker.NewSafeNetworker(st.Networker(), agentConfig)
-			})
-		}
+	// TODO (mfoord 8/8/2014) improve the way we detect networking capabilities. Bug lp:1354365
+	writeNetworkConfig := providerType == "maas"
+	if writeNetworkConfig {
+		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+			return networker.NewNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
+		})
 	} else {
-		logger.Infof("not starting networker - missing /etc/network/interfaces")
+		a.startWorkerAfterUpgrade(runner, "networker", func() (worker.Worker, error) {
+			return networker.NewSafeNetworker(st.Networker(), agentConfig, networker.DefaultConfigDir)
+		})
 	}
 
 	// If not a local provider bootstrap machine, start the worker to
@@ -573,10 +579,7 @@ func init() {
 // attempt. It returns an error if upgrades are in progress unless the
 // login is for a user (i.e. a client) or the local machine.
 func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
-	select {
-	case <-a.upgradeWorkerContext.UpgradeComplete:
-		return nil // upgrade done so allow all logins
-	default:
+	if a.upgradeWorkerContext.IsUpgradeRunning() {
 		authTag, err := names.ParseTag(creds.AuthTag)
 		if err != nil {
 			return errors.Annotate(err, "could not parse auth tag")
@@ -592,6 +595,8 @@ func (a *MachineAgent) limitLoginsDuringUpgrade(creds params.Creds) error {
 			}
 		}
 		return errors.Errorf("login for %q blocked because upgrade is in progress", authTag)
+	} else {
+		return nil // allow all logins
 	}
 }
 
@@ -623,7 +628,7 @@ func (a *MachineAgent) ensureMongoServer(agentConfig agent.Config) (err error) {
 	// to upgrade from pre-HA-capable environments.
 	var shouldInitiateMongoServer bool
 	var addrs []network.Address
-	if isPreHAVersion(agentConfig.UpgradedToVersion()) {
+	if isPreHAVersion(a.previousAgentVersion) {
 		_, err := a.ensureMongoAdminUser(agentConfig)
 		if err != nil {
 			return err
@@ -739,7 +744,7 @@ func openState(agentConfig agent.Config, dialOpts mongo.DialOpts) (_ *state.Stat
 			st.Close()
 		}
 	}()
-	m0, err := st.FindEntity(agentConfig.Tag().String())
+	m0, err := st.FindEntity(agentConfig.Tag())
 	if err != nil {
 		if errors.IsNotFound(err) {
 			err = worker.ErrTerminateAgent

@@ -12,6 +12,7 @@ import (
 	"github.com/juju/juju/state/api/params"
 	"github.com/juju/juju/state/apiserver/common"
 	apiservertesting "github.com/juju/juju/state/apiserver/testing"
+	"github.com/juju/names"
 )
 
 type removeSuite struct{}
@@ -40,27 +41,29 @@ func (r *fakeRemover) Life() state.Life {
 
 func (*removeSuite) TestRemove(c *gc.C) {
 	st := &fakeState{
-		entities: map[string]entityWithError{
-			"x0": &fakeRemover{life: state.Dying, errEnsureDead: fmt.Errorf("x0 EnsureDead fails")},
-			"x1": &fakeRemover{life: state.Dying, errRemove: fmt.Errorf("x1 Remove fails")},
-			"x2": &fakeRemover{life: state.Alive},
-			"x3": &fakeRemover{life: state.Dying},
-			"x4": &fakeRemover{life: state.Dead},
-			"x5": &fakeRemover{fetchError: "x5 error"},
+		entities: map[names.Tag]entityWithError{
+			u("x/0"): &fakeRemover{life: state.Dying, errEnsureDead: fmt.Errorf("x0 EnsureDead fails")},
+			u("x/1"): &fakeRemover{life: state.Dying, errRemove: fmt.Errorf("x1 Remove fails")},
+			u("x/2"): &fakeRemover{life: state.Alive},
+			u("x/3"): &fakeRemover{life: state.Dying},
+			u("x/4"): &fakeRemover{life: state.Dead},
+			u("x/5"): &fakeRemover{fetchError: "x5 error"},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			switch tag {
-			case "x0", "x1", "x2", "x3", "x5":
-				return true
-			}
-			return false
+		u0 := u("x/0")
+		u1 := u("x/1")
+		u2 := u("x/2")
+		u3 := u("x/3")
+		u5 := u("x/5")
+		return func(tag names.Tag) bool {
+			return tag == u0 || tag == u1 || tag == u2 || tag == u3 || tag == u5
 		}, nil
 	}
+
 	r := common.NewRemover(st, true, getCanModify)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"}, {"x5"}, {"x6"},
+		{"unit-x-0"}, {"unit-x-1"}, {"unit-x-2"}, {"unit-x-3"}, {"unit-x-4"}, {"unit-x-5"}, {"unit-x-6"},
 	}}
 	result, err := r.Remove(entities)
 	c.Assert(err, gc.IsNil)
@@ -68,7 +71,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 		Results: []params.ErrorResult{
 			{&params.Error{Message: "x0 EnsureDead fails"}},
 			{&params.Error{Message: "x1 Remove fails"}},
-			{&params.Error{Message: `cannot remove entity "x2": still alive`}},
+			{&params.Error{Message: `cannot remove entity "unit-x-2": still alive`}},
 			{nil},
 			{apiservertesting.ErrUnauthorized},
 			{&params.Error{Message: "x5 error"}},
@@ -79,7 +82,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 	// Make sure when callEnsureDead is false EnsureDead() doesn't
 	// get called.
 	r = common.NewRemover(st, false, getCanModify)
-	entities = params.Entities{[]params.Entity{{"x0"}, {"x1"}}}
+	entities = params.Entities{[]params.Entity{{"unit-x-0"}, {"unit-x-1"}}}
 	result, err = r.Remove(entities)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{

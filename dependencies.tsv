@@ -17,7 +17,7 @@ github.com/juju/ratelimit	git	f9f36d11773655c0485207f0ad30dc2655f69d56
 github.com/juju/schema	git	27a52be50766490a6fd3531865095fda6c0eeb6d	
 github.com/juju/testing	git	503e61bd033592d7b6003174389f68454deb7b7a	
 github.com/juju/txn	git	ee0346875f2ae9a21442f3ff64409f750f37afbc	
-github.com/juju/utils	git	68554773385c32c354bf6357f8b6edd8a4742682	
+github.com/juju/utils	git	28f5ce7a725633883b280766a4f835277cde79cb	
 gopkg.in/juju/charm.v3	git	eb7dae8ed9dfa44b89e4e8eee6e21f80e31a3b69	
 gopkg.in/natefinch/npipe.v2	git	e562d4ae5c2f838f9e7e406f7d9890d5b02467a9	
 gopkg.in/mgo.v2	git	dc255bb679efa273b6544a03261c4053505498a4	
@@ -26,7 +26,7 @@ launchpad.net/gnuflag	bzr	roger.peppe@canonical.com-20140716064605-pk32dnmfust02
 launchpad.net/goamz	bzr	martin.packman@canonical.com-20140813150539-umttn7s536u85eiz	49
 launchpad.net/gocheck	bzr	gustavo@niemeyer.net-20140225173054-xu9zlkf9kxhvow02	87
 launchpad.net/golxc	bzr	ian.booth@canonical.com-20140730020217-xa1jyuytye6g1qie	12
-launchpad.net/gomaasapi	bzr	andrew.wilkins@canonical.com-20140728022143-mth8hx6p0i546y0w	52
+launchpad.net/gomaasapi	bzr	ian.booth@canonical.com-20140822004003-bz8zclvxcc6ipvfg	53
 launchpad.net/goose	bzr	tarmac-20140702055133-xpuj6gm4pa0f3a0e	127
 launchpad.net/gwacl	bzr	andrew.wilkins@canonical.com-20140624093241-rlqsuf7pqxnrztgw	236
 launchpad.net/tomb	bzr	gustavo@niemeyer.net-20130531003818-70ikdgklbxopn8x4	17

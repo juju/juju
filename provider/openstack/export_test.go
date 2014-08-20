@@ -56,8 +56,8 @@ func MetadataStorage(e environs.Environ) storage.Storage {
 	return metadataStorage
 }
 
-func InstanceAddress(addresses map[string][]nova.IPAddress) string {
-	return network.SelectPublicAddress(convertNovaAddresses(addresses))
+func InstanceAddress(publicIP string, addresses map[string][]nova.IPAddress) string {
+	return network.SelectPublicAddress(convertNovaAddresses(publicIP, addresses))
 }
 
 func InstanceServerDetail(inst instance.Instance) *nova.ServerDetail {
@@ -296,8 +296,8 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env.ecfg().attrs["use-floating-ip"] = val
 }
 
-func SetUpGlobalGroup(e environs.Environ, name string, statePort, apiPort int) (nova.SecurityGroup, error) {
-	return e.(*environ).setUpGlobalGroup(name, statePort, apiPort)
+func SetUpGlobalGroup(e environs.Environ, name string, apiPort int) (nova.SecurityGroup, error) {
+	return e.(*environ).setUpGlobalGroup(name, apiPort)
 }
 
 func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {

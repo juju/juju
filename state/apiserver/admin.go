@@ -144,7 +144,11 @@ func (a *srvAdmin) Login(c params.Creds) (params.LoginResult, error) {
 var doCheckCreds = checkCreds
 
 func checkCreds(st *state.State, c params.Creds) (state.Entity, error) {
-	entity, err := st.FindEntity(c.AuthTag)
+	tag, err := names.ParseTag(c.AuthTag)
+	if err != nil {
+		return nil, err
+	}
+	entity, err := st.FindEntity(tag)
 	if errors.IsNotFound(err) {
 		// We return the same error when an entity does not exist as for a bad
 		// password, so that we don't allow unauthenticated users to find

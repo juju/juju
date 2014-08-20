@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/juju/juju/state/api"
 	"github.com/juju/juju/state/api/params"
 	apiuniter "github.com/juju/juju/state/api/uniter"
+	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker/uniter"
 	"github.com/juju/juju/worker/uniter/jujuc"
 )
@@ -825,4 +827,80 @@ exit 42
 	c.Assert(result.Code, gc.Equals, 42)
 	c.Assert(string(result.Stdout), gc.Equals, "this is standard out\n")
 	c.Assert(string(result.Stderr), gc.Equals, "this is standard err\n")
+}
+
+type WindowsHookSuite struct{}
+
+var _ = gc.Suite(&WindowsHookSuite{})
+
+func (s *WindowsHookSuite) TestHookCommandPowerShellScript(c *gc.C) {
+	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+
+	hookname := "powerShellScript.ps1"
+	expected := []string{
+		"powershell.exe",
+		"-NonInteractive",
+		"-ExecutionPolicy",
+		"RemoteSigned",
+		"-File",
+		hookname,
+	}
+
+	c.Assert(uniter.HookCommand(hookname), gc.DeepEquals, expected)
+	restorer()
+}
+
+func (s *WindowsHookSuite) TestHookCommandNotPowerShellScripts(c *gc.C) {
+	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+
+	cmdhook := "somehook.cmd"
+	c.Assert(uniter.HookCommand(cmdhook), gc.DeepEquals, []string{cmdhook})
+
+	bathook := "somehook.bat"
+	c.Assert(uniter.HookCommand(bathook), gc.DeepEquals, []string{bathook})
+
+	restorer()
+}
+
+func (s *WindowsHookSuite) TestSearchHookUbuntu(c *gc.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("Skipping hook with no extension on Windows")
+	}
+	charmDir, _ := makeCharm(c, hookSpec{
+		name: "something-happened",
+		perm: 0755,
+	})
+
+	expected, err := uniter.LookPath(filepath.Join(charmDir, "hooks", "something-happened"))
+	c.Assert(err, gc.IsNil)
+	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.Equals, expected)
+}
+
+func (s *WindowsHookSuite) TestSearchHookWindows(c *gc.C) {
+	charmDir, _ := makeCharm(c, hookSpec{
+		name: "something-happened.ps1",
+		perm: 0755,
+	})
+
+	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+
+	defer restorer()
+	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(obtained, gc.Equals, filepath.Join(charmDir, "hooks", "something-happened.ps1"))
+}
+
+func (s *WindowsHookSuite) TestSearchHookWindowsError(c *gc.C) {
+	charmDir, _ := makeCharm(c, hookSpec{
+		name: "something-happened.linux",
+		perm: 0755,
+	})
+
+	restorer := envtesting.PatchValue(&version.Current.OS, version.Windows)
+	defer restorer()
+	obtained, err := uniter.SearchHook(charmDir, filepath.Join("hooks", "something-happened"))
+	c.Assert(err, gc.ErrorMatches, "hooks/something-happened does not exist")
+	c.Assert(obtained, gc.Equals, "")
 }

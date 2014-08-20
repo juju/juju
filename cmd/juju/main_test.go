@@ -74,6 +74,10 @@ func deployHelpText() string {
 	return helpText(envcmd.Wrap(&DeployCommand{}), "juju deploy")
 }
 
+func setHelpText() string {
+	return helpText(envcmd.Wrap(&SetCommand{}), "juju set")
+}
+
 func syncToolsHelpText() string {
 	return helpText(envcmd.Wrap(&SyncToolsCommand{}), "juju sync-tools")
 }
@@ -130,6 +134,21 @@ func (s *MainSuite) TestRunMain(c *gc.C) {
 		args:    []string{"deploy", "--help"},
 		code:    0,
 		out:     deployHelpText(),
+	}, {
+		summary: "juju help set shows the default help without global options",
+		args:    []string{"help", "set"},
+		code:    0,
+		out:     setHelpText(),
+	}, {
+		summary: "juju --help set shows the same help as 'help set'",
+		args:    []string{"--help", "set"},
+		code:    0,
+		out:     setHelpText(),
+	}, {
+		summary: "juju set --help shows the same help as 'help set'",
+		args:    []string{"set", "--help"},
+		code:    0,
+		out:     setHelpText(),
 	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
