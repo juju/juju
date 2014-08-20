@@ -197,7 +197,6 @@ func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 var expectedCloudinitConfig = []interface{}{
 	"set -xe",
 	"mkdir -p '/var/lib/juju'\ninstall -m 755 /dev/null '/var/lib/juju/MAASmachine.txt'\nprintf '%s\\n' ''\"'\"'hostname: testing.invalid\n'\"'\"'' > '/var/lib/juju/MAASmachine.txt'",
-	"ifdown eth0",
 	`mkdir -p etc/network/interfaces.d
 cat > /etc/network/interfaces.d/eth0.cfg << EOF
 # The primary network interface
@@ -218,7 +217,10 @@ EOF
 	`cat > /etc/network/interfaces.d/br0.cfg << EOF
 auto br0
 iface br0 inet dhcp
-  bridge_ports eth0
+  pre-up ifconfig eth0 down
+  pre-up brctl addbr br0
+  pre-up brctl addif br0 eth0
+  pre-up ifconfig eth0 up
 EOF
 sed -i 's/iface eth0 inet dhcp/iface eth0 inet manual/' /etc/network/interfaces.d/eth0.cfg
 `,
