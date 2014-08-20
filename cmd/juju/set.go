@@ -45,7 +45,7 @@ func (c *SetCommand) Info() *cmd.Info {
 		Name:    "set",
 		Args:    "<service> name=value ...",
 		Purpose: "set service config options",
-		Doc:     "Set one or more configuration options for the specified service.",
+		Doc:     setDoc,
 	}
 }
 
