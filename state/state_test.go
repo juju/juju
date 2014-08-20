@@ -2834,6 +2834,7 @@ func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *stat
 func (s *StateSuite) TestStateServerInfo(c *gc.C) {
 	ids, err := s.State.StateServerInfo()
 	c.Assert(err, gc.IsNil)
+	// c.Assert(ids.EnvUUID, gc.Equals, s.ConnSuite.Environ.Config().UUID())
 	c.Assert(ids.MachineIds, gc.HasLen, 0)
 	c.Assert(ids.VotingMachineIds, gc.HasLen, 0)
 

@@ -6,6 +6,7 @@ package state
 import (
 	"time"
 
+	"github.com/juju/errors"
 	"github.com/juju/loggo"
 	"gopkg.in/mgo.v2/bson"
 	"gopkg.in/mgo.v2/txn"
