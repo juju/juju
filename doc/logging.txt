@@ -1,8 +1,7 @@
 Logging
 =======
 
-The intent of this documentation is to provide an overview of logging
-in Juju.
+The intent of this documentation is to provide an overview of logging in Juju.
 
 Log Rotation
 ============

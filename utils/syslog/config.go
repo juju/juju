@@ -149,8 +149,8 @@ const logrotateConf = `
     rotate 1
     # counting old files starts at 1 rather than 0
     start 1
-    # don't use compression
-    nocompress
+    # use compression
+    compress
 }
 `
 
@@ -297,16 +297,8 @@ func (slConfig *SyslogConfig) LogrotateHelperFile() ([]byte, error) {
 }
 
 func (slConfig *SyslogConfig) logrotateRender(t *template.Template) ([]byte, error) {
-	logrotateData := struct {
-		LogDir            string
-		LogrotateConfPath string
-	}{
-		slConfig.LogDir,
-		slConfig.LogrotateConfPath(),
-	}
-
 	var buffer bytes.Buffer
-	if err := t.Execute(&buffer, logrotateData); err != nil {
+	if err := t.Execute(&buffer, slConfig); err != nil {
 		return nil, err
 	}
 	return buffer.Bytes(), nil
