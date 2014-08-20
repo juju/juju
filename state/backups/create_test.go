@@ -40,8 +40,6 @@ func (s *createSuite) TestCreateLegacy(c *gc.C) {
 	archiveFile, size, checksum := backups.DumpCreateResult(result)
 	c.Assert(archiveFile, gc.NotNil)
 
-	c.Assert(s.ranCommand, gc.Equals, true)
-
 	// Check the result.
 	file, ok := archiveFile.(*os.File)
 	c.Assert(ok, gc.Equals, true)
@@ -53,8 +51,6 @@ func (s *createSuite) TestCreateLegacy(c *gc.C) {
 
 type LegacySuite struct {
 	testing.BaseSuite
-
-	ranCommand bool
 }
 
 type tarContent struct {
@@ -108,17 +104,8 @@ func (s *LegacySuite) createTestFiles(c *gc.C) (string, []string, []tarContent) 
 }
 
 func (s *LegacySuite) patchSources(c *gc.C, testFiles []string) {
-	s.PatchValue(backups.GetMongodumpPath, func() (string, error) {
-		return "bogusmongodump", nil
-	})
-
 	s.PatchValue(backups.GetFilesToBackup, func(string) ([]string, error) {
 		return testFiles, nil
-	})
-
-	s.PatchValue(backups.RunCommand, func(cmd string, args ...string) error {
-		s.ranCommand = true
-		return nil
 	})
 }
 

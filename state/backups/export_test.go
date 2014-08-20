@@ -8,9 +8,7 @@ import (
 )
 
 var (
-	GetMongodumpPath = &getMongodumpPath
 	GetFilesToBackup = &getFilesToBackup
-	RunCommand       = &runCommand
 
 	Create = create
 )
@@ -27,6 +25,15 @@ func NewTestCreateArgs(filesToBackUp []string, db dumper) *createArgs {
 	return &args
 }
 
-func NewTestDBDumper() *mongoDumper {
-	return &mongoDumper{"localhost:8080", "bogus-user", "boguspassword"}
+type testDBDumper struct {
+	DumpDir string
+}
+
+func (d *testDBDumper) Dump(dumpDir string) error {
+	d.DumpDir = dumpDir
+	return nil
+}
+
+func NewTestDBDumper() *testDBDumper {
+	return &testDBDumper{}
 }

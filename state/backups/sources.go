@@ -4,14 +4,9 @@
 package backups
 
 import (
-	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/juju/errors"
-
-	"github.com/juju/juju/mongo"
-	coreutils "github.com/juju/juju/utils"
 )
 
 // TODO(ericsnow) Pull these from authoritative sources:
@@ -38,11 +33,6 @@ var (
 	dbPEM         = "server.pem"
 	dbSecret      = "shared-secret"
 )
-
-var runCommand = coreutils.RunCommand
-
-//---------------------------
-// state-related files
 
 // TODO(ericsnow) One concern is files that get out of date by the time
 // backup finishes running.  This is particularly a problem with log
@@ -86,83 +76,4 @@ var getFilesToBackup = func(rootDir string) ([]string, error) {
 	backupFiles = append(backupFiles, agentConfs...)
 	backupFiles = append(backupFiles, jujuLogConfs...)
 	return backupFiles, nil
-}
-
-//---------------------------
-// database
-
-const dumpName = "mongodump"
-
-var getMongodumpPath = func() (string, error) {
-	mongod, err := mongo.Path()
-	if err != nil {
-		return "", errors.Annotate(err, "failed to get mongod path")
-	}
-	mongoDumpPath := filepath.Join(filepath.Dir(mongod), dumpName)
-
-	if _, err := os.Stat(mongoDumpPath); err == nil {
-		// It already exists so no need to continue.
-		return mongoDumpPath, nil
-	}
-
-	path, err := exec.LookPath(dumpName)
-	if err != nil {
-		return "", errors.Trace(err)
-	}
-	return path, nil
-}
-
-type mongoDumper struct {
-	address  string
-	username string
-	password string
-}
-
-// NewDBDumper returns a new value with a Dump method for dumping the
-// juju state database.
-func NewDBDumper(mgoInfo *authentication.MongoInfo) *mongoDumper {
-	dumper := mongoDumper{
-		address:  mgoInfo.Addrs[0],
-		password: mgoInfo.Password,
-	}
-
-	// TODO(dfc) Backup should take a Tag.
-	if mgoInfo.Tag != nil {
-		dumper.username = mgoInfo.Tag.String()
-	}
-
-	return &dumper
-}
-
-// Dump dumps the juju state database.
-func (md *mongoDumper) Dump(dumpDir string) error {
-	if md.address == "" {
-		return errors.New("missing address")
-	}
-	if md.username == "" {
-		return errors.New("missing username")
-	}
-	if md.password == "" {
-		return errors.New("missing password")
-	}
-
-	mongodumpPath, err := getMongodumpPath()
-	if err != nil {
-		return errors.Annotate(err, "mongodump not available")
-	}
-
-	err = runCommand(
-		mongodumpPath,
-		"--oplog",
-		"--ssl",
-		"--host", md.address,
-		"--username", md.username,
-		"--password", md.password,
-		"--out", dumpDir,
-	)
-	if err != nil {
-		return errors.Annotate(err, "error dumping database")
-	}
-
-	return nil
 }
