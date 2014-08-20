@@ -37,6 +37,10 @@ func (st *State) checkUserExists(name string) (bool, error) {
 }
 
 func (st *State) AddAdminUser(password string) (*User, error) {
+	_, err := st.AddEnvironmentUser(AdminUser, "", "", AdminUser)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create environment user %s", err)
+	}
 	return st.AddUser(AdminUser, "", password, "")
 }
 

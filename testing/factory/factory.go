@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/juju/names"
 	"github.com/juju/utils"
 	"gopkg.in/juju/charm.v3"
 	charmtesting "gopkg.in/juju/charm.v3/testing"
@@ -36,6 +37,13 @@ type UserParams struct {
 	DisplayName string
 	Password    string
 	Creator     string
+}
+
+type EnvUserParams struct {
+	User        string
+	Alias       string
+	DisplayName string
+	CreatedBy   string
 }
 
 // CharmParams defines the parameters for creating a charm.
@@ -127,6 +135,35 @@ func (factory *Factory) MakeUser(c *gc.C, params *UserParams) *state.User {
 		params.Name, params.DisplayName, params.Password, params.Creator)
 	c.Assert(err, gc.IsNil)
 	return user
+}
+
+// MakeEnvUser will create a envUser with values defined by the params.
+// For attributes of EnvUserParams that are the default empty values,
+// some meaningful valid values are used instead.
+// If params is not specified, defaults are used. If more than one
+// params struct is passed to the function, it panics.
+func (factory *Factory) MakeEnvUser(vParams ...EnvUserParams) *state.EnvironmentUser {
+	params := EnvUserParams{}
+	if len(vParams) == 1 {
+		params = vParams[0]
+	} else if len(vParams) > 1 {
+		panic("expecting 1 parameter or none")
+	}
+	if params.User == "" {
+		params.User = factory.UniqueString("user")
+	}
+	if params.Alias == "" {
+		params.Alias = "alias"
+	}
+	if params.DisplayName == "" {
+		params.DisplayName = factory.UniqueString("display name")
+	}
+	if params.CreatedBy == "" {
+		params.CreatedBy = "created-by"
+	}
+	envUser, err := factory.st.AddEnvironmentUser(params.User, params.DisplayName, params.Alias, params.CreatedBy)
+	factory.c.Assert(err, gc.IsNil)
+	return envUser
 }
 
 // MakeMachine will add a machine with values defined in params. For some
@@ -309,4 +346,16 @@ func (factory *Factory) MakeRelation(c *gc.C, params *RelationParams) *state.Rel
 	c.Assert(err, gc.IsNil)
 
 	return relation
+}
+
+// Returns a new uuid
+func (factory *Factory) NewUUID() string {
+	uuid, err := utils.NewUUID()
+	factory.c.Assert(err, gc.IsNil)
+	return uuid.String()
+}
+
+// EnvironTag returns the environtag for the state this factory uses
+func (factory *Factory) EnvironTag() names.EnvironTag {
+	return factory.st.EnvironTag()
 }

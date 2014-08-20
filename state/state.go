@@ -60,6 +60,7 @@ const (
 	actionsC           = "actions"
 	actionresultsC     = "actionresults"
 	usersC             = "users"
+	envUsersC          = "envusers"
 	presenceC          = "presence"
 	cleanupsC          = "cleanups"
 	annotationsC       = "annotations"

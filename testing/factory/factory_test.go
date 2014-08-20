@@ -113,6 +113,37 @@ func (s *factorySuite) TestMakeUserParams(c *gc.C) {
 	c.Assert(saved.IsDeactivated(), gc.Equals, user.IsDeactivated())
 }
 
+func (s *factorySuite) TestMakeEnvUserNil(c *gc.C) {
+	s.Factory = factory.NewFactory(s.State, c)
+	envUser := s.Factory.MakeEnvUser()
+
+	saved, err := s.State.EnvironmentUser(envUser.UserName())
+	c.Assert(err, gc.IsNil)
+	c.Assert(saved.EnvUUID(), gc.Equals, envUser.EnvUUID())
+	c.Assert(saved.UserName(), gc.Equals, envUser.UserName())
+	c.Assert(saved.Alias(), gc.Equals, envUser.Alias())
+	c.Assert(saved.DisplayName(), gc.Equals, envUser.DisplayName())
+	c.Assert(saved.CreatedBy(), gc.Equals, envUser.CreatedBy())
+}
+
+func (s *factorySuite) TestMakeEnvUserParams(c *gc.C) {
+	s.Factory = factory.NewFactory(s.State, c)
+	envUser := s.Factory.MakeEnvUser(factory.EnvUserParams{
+		User:        "foobar",
+		Alias:       "alias",
+		DisplayName: "displayName",
+		CreatedBy:   "created-by",
+	})
+
+	saved, err := s.State.EnvironmentUser(envUser.UserName())
+	c.Assert(err, gc.IsNil)
+	c.Assert(saved.EnvUUID(), gc.Equals, s.Factory.EnvironTag().String())
+	c.Assert(saved.UserName(), gc.Equals, "foobar")
+	c.Assert(saved.Alias(), gc.Equals, "alias")
+	c.Assert(saved.DisplayName(), gc.Equals, "displayName")
+	c.Assert(saved.CreatedBy(), gc.Equals, "created-by")
+}
+
 func (s *factorySuite) TestMakeMachineNil(c *gc.C) {
 	machine := s.Factory.MakeMachine(c, nil)
 	c.Assert(machine, gc.NotNil)
