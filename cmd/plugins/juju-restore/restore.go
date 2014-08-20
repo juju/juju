@@ -263,17 +263,7 @@ func (c *restoreCommand) Run(ctx *cmd.Context) error {
 	progress("restored bootstrap machine")
 
 	apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
-
 	progress("opening state")
-	// We need to retry here to allow mongo to come up on the restored state server.
-	attempt = utils.AttemptStrategy{Delay: 15 * time.Second, Min: 8}
-	for a := attempt.Start(); a.Next(); {
-		apiState, err = juju.NewAPIState(env, api.DefaultDialOpts())
-		if err == nil || errors.Cause(err).Error() != "EOF" {
-			break
-		}
-		progress("api server not ready - attempting to redial")
-	}
 	if err != nil {
 		return fmt.Errorf("cannot connect to api server: %v", err)
 	}
