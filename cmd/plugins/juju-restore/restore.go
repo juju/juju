@@ -519,7 +519,7 @@ func runMachineUpdate(client *api.Client, id string, sshArg string) error {
 	tag := names.NewMachineTag(id)
 	addr, err := client.PublicAddress(tag.String())
 	if err != nil {
-		return fmt.Errorf("no appropriate public address found")
+		return fmt.Errorf("no public address found: %v", err)
 	}
 	return runViaSsh(addr, sshArg)
 }
