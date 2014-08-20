@@ -17,6 +17,7 @@ import (
 	"github.com/juju/juju/upgrades"
 	"github.com/juju/juju/version"
 	"github.com/juju/juju/worker"
+	"github.com/juju/juju/wrench"
 )
 
 type upgradingMachineAgent interface {
@@ -275,6 +276,9 @@ var isMachineMaster = func(st *state.State, tag names.MachineTag) (bool, error) 
 }
 
 var waitForOtherStateServers = func(st *state.State, isMaster bool) error {
+	if wrench.IsActive("machine-agent", "fail-state-server-upgrade-wait") {
+		return errors.New("failing other state servers check due to wrench")
+	}
 	// TODO(mjs) - for now, assume that the other state servers are
 	// ready. This function will be fleshed out once the UpgradeInfo
 	// work is done.
