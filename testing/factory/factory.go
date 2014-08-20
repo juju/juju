@@ -78,6 +78,7 @@ type MetricParams struct {
 	Unit    *state.Unit
 	Time    *time.Time
 	Metrics []*state.Metric
+	Sent    bool
 }
 
 // RandomSuffix adds a random 5 character suffix to the presented string.
@@ -269,6 +270,9 @@ func (factory *Factory) MakeMetric(c *gc.C, params *MetricParams) *state.MetricB
 
 	metric, err := params.Unit.AddMetrics(params.Metrics)
 	c.Assert(err, gc.IsNil)
+	if params.Sent {
+		metric.SetSent()
+	}
 	return metric
 }
 
