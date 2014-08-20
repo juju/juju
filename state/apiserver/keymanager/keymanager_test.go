@@ -61,6 +61,7 @@ func (s *keyManagerSuite) TestNewKeyManagerAPIAcceptsEnvironManager(c *gc.C) {
 func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonClient(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewUnitTag("mysql/0")
+	anAuthoriser.EnvironManager = false
 	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -69,6 +70,7 @@ func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonClient(c *gc.C) {
 func (s *keyManagerSuite) TestNewKeyManagerAPIRefusesNonEnvironManager(c *gc.C) {
 	anAuthoriser := s.authoriser
 	anAuthoriser.Tag = names.NewMachineTag("99")
+	anAuthoriser.EnvironManager = false
 	endPoint, err := keymanager.NewKeyManagerAPI(s.State, s.resources, anAuthoriser)
 	c.Assert(endPoint, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -119,7 +121,7 @@ func (s *keyManagerSuite) TestAddKeys(c *gc.C) {
 
 	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
 	args := params.ModifyUserSSHKeys{
-		User: state.AdminUser,
+		User: names.NewUserTag(state.AdminUser).String(),
 		Keys: []string{key2, newKey, "invalid-key"},
 	}
 	results, err := s.keymanager.AddKeys(args)
@@ -188,7 +190,7 @@ func (s *keyManagerSuite) TestDeleteKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	args := params.ModifyUserSSHKeys{
-		User: state.AdminUser,
+		User: names.NewUserTag(state.AdminUser).String(),
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, sshtesting.ValidKeyThree.Fingerprint, "invalid-key"},
 	}
 	results, err := s.keymanager.DeleteKeys(args)
@@ -210,7 +212,7 @@ func (s *keyManagerSuite) TestCannotDeleteAllKeys(c *gc.C) {
 	s.setAuthorisedKeys(c, strings.Join(initialKeys, "\n"))
 
 	args := params.ModifyUserSSHKeys{
-		User: state.AdminUser,
+		User: names.NewUserTag(state.AdminUser).String(),
 		Keys: []string{sshtesting.ValidKeyTwo.Fingerprint, "user@host"},
 	}
 	_, err := s.keymanager.DeleteKeys(args)
@@ -225,7 +227,7 @@ func (s *keyManagerSuite) assertInvalidUserOperation(c *gc.C, runTestLogic func(
 	// Set up the params.
 	newKey := sshtesting.ValidKeyThree.Key + " newuser@host"
 	args := params.ModifyUserSSHKeys{
-		User: "invalid",
+		User: "user-invalid",
 		Keys: []string{newKey},
 	}
 	// Run the required test code and check the error.

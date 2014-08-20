@@ -49,11 +49,7 @@ var _ KeyManager = (*KeyManagerAPI)(nil)
 var adminUser = names.NewUserTag("admin")
 
 // NewKeyManagerAPI creates a new server-side keyupdater API end point.
-func NewKeyManagerAPI(
-	st *state.State,
-	resources *common.Resources,
-	authorizer common.Authorizer,
-) (*KeyManagerAPI, error) {
+func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*KeyManagerAPI, error) {
 	// Only clients and environment managers can access the key manager service.
 	if !authorizer.AuthClient() && !authorizer.AuthEnvironManager() {
 		return nil, common.ErrPerm
@@ -76,14 +72,19 @@ func NewKeyManagerAPI(
 				return ok
 			}
 			// Are we writing the auth key for a user.
-			if _, err := st.User(tag.String()); err != nil {
+			if _, err := st.User(tag.Id()); err != nil {
 				return false
 			}
 			return authorizer.GetAuthTag() == adminUser
 		}, nil
 	}
 	return &KeyManagerAPI{
-		state: st, resources: resources, authorizer: authorizer, getCanRead: getCanRead, getCanWrite: getCanWrite}, nil
+			state:       st,
+			resources:   resources,
+			authorizer:  authorizer,
+			getCanRead:  getCanRead,
+			getCanWrite: getCanWrite},
+		nil
 }
 
 // ListKeys returns the authorised ssh keys for the specified users.
@@ -202,7 +203,7 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 	// TODO(dfc) urgh, is this an API break
 	tag, err := names.ParseUserTag("user-" + arg.User)
 	if err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
+		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
 	if !canWrite(tag) {
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
@@ -289,7 +290,7 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 	}
 	tag, err := names.ParseUserTag(arg.User)
 	if err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
+		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
 	if !canWrite(tag) {
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
