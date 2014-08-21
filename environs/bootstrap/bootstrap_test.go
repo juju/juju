@@ -47,7 +47,6 @@ var _ = gc.Suite(&bootstrapSuite{})
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.BaseSuite.SetUpTest(c)
 	s.ToolsFixture.SetUpTest(c)
-	s.PatchValue(bootstrap.EnvironsVerifyStorage, func(storage.Storage) error { return nil })
 
 	storageDir := c.MkDir()
 	s.PatchValue(&envtools.DefaultBaseURL, storageDir)

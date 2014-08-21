@@ -31,8 +31,6 @@ You may want to use the 'tools-metadata-url' configuration setting to specify th
 
 var (
 	logger = loggo.GetLogger("juju.environs.bootstrap")
-
-	environsVerifyStorage = environs.VerifyStorage
 )
 
 // BootstrapParams holds the parameters for bootstrapping an environment.
@@ -80,11 +78,6 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args Boo
 	}
 	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
 		return errors.Errorf("environment configuration has no ca-private-key")
-	}
-
-	// Write out the bootstrap-init file, and confirm storage is writeable.
-	if err := environsVerifyStorage(environ.Storage()); err != nil {
-		return err
 	}
 
 	// Set default tools metadata source, add image metadata source,
