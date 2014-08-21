@@ -361,10 +361,16 @@ func (s *backupMetadataStorage) ListDocs() ([]interface{}, error) {
 }
 
 func (s *backupMetadataStorage) ListMetadata() ([]filestorage.Metadata, error) {
+	// This will be implemented when backups needs this functionality.
+	// For now the method is stubbed out for the same of the
+	// MetadataStorage interface.
 	return nil, errors.Errorf("not implemented yet")
 }
 
 func (s *backupMetadataStorage) RemoveDoc(id string) error {
+	// This will be implemented when backups needs this functionality.
+	// For now the method is stubbed out for the same of the
+	// MetadataStorage interface.
 	return errors.Errorf("not implemented yet")
 }
 
