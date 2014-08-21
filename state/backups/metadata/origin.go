@@ -7,7 +7,11 @@ import (
 	"github.com/juju/juju/version"
 )
 
-// Origin identifies where a backup archive came from.
+// Origin identifies where a backup archive came from.  While it is
+// more about where and Metadata about what and when, that distinction
+// does not merit special consideration.  Instead, Origin exists
+// separately from Metadata due to its use as an argument when
+// requesting the creation of a new backup.
 type Origin struct {
 	environment string
 	machine     string
