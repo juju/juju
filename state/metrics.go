@@ -25,7 +25,7 @@ type MetricBatch struct {
 }
 
 type metricBatchDoc struct {
-	Uuid     string      `bson:"_id"`
+	UUID     string      `bson:"_id"`
 	Unit     string      `bson:"unit"`
 	CharmUrl string      `bson:"charmurl"`
 	Sent     bool        `bson:"sent"`
@@ -46,7 +46,7 @@ type metricDoc struct {
 	Key         string    `bson:"key"`
 	Value       string    `bson:"value"`
 	Time        time.Time `bson:"time"`
-	Credentials []byte    `bson:credentials"`
+	Credentials []byte    `bson:"credentials"`
 }
 
 // AddMetric adds a new batch of metrics to the database.
@@ -72,7 +72,7 @@ func (st *State) addMetrics(unitTag names.UnitTag, charmUrl *charm.URL, metrics 
 	metric := &MetricBatch{
 		st: st,
 		doc: metricBatchDoc{
-			Uuid:     uuid.String(),
+			UUID:     uuid.String(),
 			Unit:     unitTag.Id(),
 			CharmUrl: charmUrl.String(),
 			Sent:     false,
@@ -119,7 +119,7 @@ func (st *State) MetricBatch(id string) (*MetricBatch, error) {
 
 // UUID returns to uuid of the metric.
 func (m *MetricBatch) UUID() string {
-	return m.doc.Uuid
+	return m.doc.UUID
 }
 
 // Unit returns the name of the unit this metric was generated in.

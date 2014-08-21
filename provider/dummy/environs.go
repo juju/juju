@@ -42,6 +42,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/cloudinit"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/simplestreams"
@@ -124,6 +125,12 @@ type OpBootstrap struct {
 	Context environs.BootstrapContext
 	Env     string
 	Args    environs.BootstrapParams
+}
+
+type OpFinalizeBootstrap struct {
+	Context       environs.BootstrapContext
+	Env           string
+	MachineConfig *cloudinit.MachineConfig
 }
 
 type OpDestroy struct {
@@ -612,40 +619,41 @@ func (e *environ) GetToolsSources() ([]simplestreams.DataSource, error) {
 		storage.NewStorageSimpleStreamsDataSource("cloud storage", e.Storage(), storage.BaseToolsPath)}, nil
 }
 
-func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
-	selectedTools, err := common.EnsureBootstrapTools(ctx, e, config.PreferredSeries(e.Config()), args.Constraints.Arch)
+func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
+	series = config.PreferredSeries(e.Config())
+	selectedTools, err := common.EnsureBootstrapTools(ctx, e, series, args.Constraints.Arch)
 	if err != nil {
-		return err
+		return "", "", nil, err
 	}
-	series := selectedTools.OneSeries()
+	arch = selectedTools.Arches()[0]
 
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
-		return err
+		return "", "", nil, err
 	}
 	network.InitializeFromConfig(e.Config())
 	password := e.Config().AdminSecret()
 	if password == "" {
-		return fmt.Errorf("admin-secret is required for bootstrap")
+		return "", "", nil, fmt.Errorf("admin-secret is required for bootstrap")
 	}
 	if _, ok := e.Config().CACert(); !ok {
-		return fmt.Errorf("no CA certificate in environment configuration")
+		return "", "", nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
 
 	logger.Infof("would pick tools from %s", selectedTools)
 	cfg, err := environs.BootstrapConfig(e.Config())
 	if err != nil {
-		return fmt.Errorf("cannot make bootstrap config: %v", err)
+		return "", "", nil, fmt.Errorf("cannot make bootstrap config: %v", err)
 	}
 
 	estate, err := e.state()
 	if err != nil {
-		return err
+		return "", "", nil, err
 	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if estate.bootstrapped {
-		return fmt.Errorf("environment is already bootstrapped")
+		return "", "", nil, fmt.Errorf("environment is already bootstrapped")
 	}
 	estate.preferIPv6 = e.Config().PreferIPv6()
 
@@ -698,7 +706,11 @@ func (e *environ) Bootstrap(ctx environs.BootstrapContext, args environs.Bootstr
 	}
 	estate.bootstrapped = true
 	estate.ops <- OpBootstrap{Context: ctx, Env: e.name, Args: args}
-	return nil
+	finalize := func(ctx environs.BootstrapContext, mcfg *cloudinit.MachineConfig) error {
+		estate.ops <- OpFinalizeBootstrap{Context: ctx, Env: e.name, MachineConfig: mcfg}
+		return nil
+	}
+	return arch, series, finalize, nil
 }
 
 func (e *environ) StateServerInstances() ([]instance.Id, error) {

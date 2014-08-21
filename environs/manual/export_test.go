@@ -6,7 +6,6 @@ package manual
 var (
 	NetLookupHost         = &netLookupHost
 	ProvisionMachineAgent = &provisionMachineAgent
-	CheckProvisioned      = checkProvisioned
 )
 
 const (

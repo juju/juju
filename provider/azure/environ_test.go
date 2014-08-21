@@ -25,6 +25,7 @@ import (
 	"github.com/juju/juju/constraints"
 	"github.com/juju/juju/environmentserver/authentication"
 	"github.com/juju/juju/environs"
+	"github.com/juju/juju/environs/bootstrap"
 	"github.com/juju/juju/environs/config"
 	"github.com/juju/juju/environs/imagemetadata"
 	"github.com/juju/juju/environs/instances"
@@ -1567,13 +1568,13 @@ func (s *startInstanceSuite) SetUpTest(c *gc.C) {
 		Password: "admin",
 		Tag:      machineTag,
 	}
+	mcfg, err := environs.NewMachineConfig("1", "yanonce", imagemetadata.ReleasedStream, "quantal", nil, stateInfo, apiInfo)
+	c.Assert(err, gc.IsNil)
 	s.params = environs.StartInstanceParams{
 		Tools: envtesting.AssertUploadFakeToolsVersions(
 			c, s.env.storage, envtesting.V120p...,
 		),
-		MachineConfig: environs.NewMachineConfig(
-			"1", "yanonce", imagemetadata.ReleasedStream, nil, stateInfo, apiInfo,
-		),
+		MachineConfig: mcfg,
 	}
 }
 
@@ -1720,6 +1721,6 @@ func (s *environSuite) TestBootstrapReusesAffinityGroupAndVNet(c *gc.C) {
 	})
 	s.PatchValue(&version.Current.Number, version.MustParse("1.2.0"))
 	envtesting.AssertUploadFakeToolsVersions(c, env.storage, envtesting.V120p...)
-	err = env.Bootstrap(coretesting.Context(c), environs.BootstrapParams{})
+	err = bootstrap.Bootstrap(coretesting.Context(c), env, environs.BootstrapParams{})
 	c.Assert(err, gc.ErrorMatches, "cannot start bootstrap instance: no instance for you")
 }

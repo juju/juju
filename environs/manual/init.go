@@ -33,8 +33,10 @@ cat /proc/cpuinfo`
 // common case of no matching files.
 const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
 
-// checkProvisioned checks if any juju upstart jobs already
+// CheckProvisioned checks if any juju upstart jobs already
 // exist on the host machine.
+var CheckProvisioned = checkProvisioned
+
 func checkProvisioned(host string) (bool, error) {
 	logger.Infof("Checking if %s is already provisioned", host)
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)
@@ -58,12 +60,11 @@ func checkProvisioned(host string) (bool, error) {
 	return provisioned, nil
 }
 
-// Patch for testing.
-var DetectSeriesAndHardwareCharacteristics = detectSeriesAndHardwareCharacteristics
-
-// detectSeriesAndHardwareCharacteristics detects the OS
+// DetectSeriesAndHardwareCharacteristics detects the OS
 // series and hardware characteristics of the remote machine
 // by connecting to the machine and executing a bash script.
+var DetectSeriesAndHardwareCharacteristics = detectSeriesAndHardwareCharacteristics
+
 func detectSeriesAndHardwareCharacteristics(host string) (hc instance.HardwareCharacteristics, series string, err error) {
 	logger.Infof("Detecting series and characteristics on %s", host)
 	cmd := ssh.Command("ubuntu@"+host, []string{"/bin/bash"}, nil)

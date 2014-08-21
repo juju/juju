@@ -32,6 +32,7 @@ import (
 	"github.com/juju/juju/network"
 	"github.com/juju/juju/provider/common"
 	"github.com/juju/juju/tools"
+	"github.com/juju/juju/version"
 )
 
 const (
@@ -84,7 +85,7 @@ func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) error {
+func (env *maasEnviron) Bootstrap(ctx environs.BootstrapContext, args environs.BootstrapParams) (arch, series string, _ environs.BootstrapFinalizer, _ error) {
 	return common.Bootstrap(ctx, env, args)
 }
 
@@ -491,7 +492,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config(), args.Constraints); err != nil {
+	if err := environs.FinishMachineConfig(args.MachineConfig, environ.Config()); err != nil {
 		return nil, nil, nil, err
 	}
 	// TODO(thumper): 2013-08-28 bug 1217614
@@ -500,7 +501,9 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	args.MachineConfig.AgentEnvironment[agent.LxcBridge] = "br0"
 
 	iface := environ.ecfg().networkBridge()
-	cloudcfg, err := newCloudinitConfig(hostname, iface)
+	series := args.MachineConfig.Tools.Version.Series
+
+	cloudcfg, err := newCloudinitConfig(hostname, iface, series)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -511,9 +514,7 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	if err := environ.startNode(
-		*inst.maasObject, args.MachineConfig.Tools.Version.Series, userdata,
-	); err != nil {
+	if err := environ.startNode(*inst.maasObject, series, userdata); err != nil {
 		return nil, nil, nil, err
 	}
 	logger.Debugf("started instance %q", inst.Id())
@@ -522,25 +523,37 @@ func (environ *maasEnviron) StartInstance(args environs.StartInstanceParams) (
 
 // newCloudinitConfig creates a cloudinit.Config structure
 // suitable as a base for initialising a MAAS node.
-func newCloudinitConfig(hostname string, iface string) (*cloudinit.Config, error) {
+func newCloudinitConfig(hostname, iface, series string) (*cloudinit.Config, error) {
 	info := machineInfo{hostname}
-	runCmd, err := info.cloudinitRunCmd()
+	runCmd, err := info.cloudinitRunCmd(series)
 
 	if err != nil {
 		return nil, err
 	}
 
 	cloudcfg := cloudinit.New()
-	cloudcfg.SetAptUpdate(true)
-	cloudcfg.AddPackage("bridge-utils")
-	cloudcfg.AddScripts(
-		"set -xe",
-		runCmd,
-		fmt.Sprintf("ifdown %s", iface),
-		restoreInterfacesFiles(iface),
-		createBridgeNetwork(iface),
-		"ifup br0",
-	)
+	operatingSystem, err := version.GetOSFromSeries(series)
+	if err != nil {
+		return nil, err
+	}
+
+	switch operatingSystem {
+	case version.Windows:
+		cloudcfg.AddScripts(
+			runCmd,
+		)
+	case version.Ubuntu:
+		cloudcfg.SetAptUpdate(true)
+		cloudcfg.AddPackage("bridge-utils")
+		cloudcfg.AddScripts(
+			"set -xe",
+			runCmd,
+			fmt.Sprintf("ifdown %s", iface),
+			restoreInterfacesFiles(iface),
+			createBridgeNetwork(iface),
+			"ifup br0",
+		)
+	}
 	return cloudcfg, nil
 }
 
