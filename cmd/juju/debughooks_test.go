@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"github.com/juju/juju/cmd/envcmd"
 	coretesting "github.com/juju/juju/testing"
 )
 
@@ -82,7 +83,7 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 
 		debugHooksCmd := &DebugHooksCommand{}
 		debugHooksCmd.proxy = true
-		err := debugHooksCmd.Init(t.args)
+		err := envcmd.Wrap(debugHooksCmd).Init(t.args)
 		if err == nil {
 			err = debugHooksCmd.Run(ctx)
 		}

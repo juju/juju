@@ -61,7 +61,10 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 		return err
 	}
 
-	plugin.Init(args)
+	err = plugin.Init(args)
+	if err != nil {
+		return err
+	}
 	err = plugin.Run(ctx)
 	_, execError := err.(*exec.Error)
 	// exec.Error results are for when the executable isn't found, in
