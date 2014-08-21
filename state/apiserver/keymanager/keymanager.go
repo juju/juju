@@ -40,8 +40,8 @@ type KeyManagerAPI struct {
 	state       *state.State
 	resources   *common.Resources
 	authorizer  common.Authorizer
-	getCanRead  common.GetAuthFunc
-	getCanWrite common.GetAuthFunc
+	getCanRead  func() (func(string) bool, error)
+	getCanWrite func() (func(string) bool, error)
 }
 
 var _ KeyManager = (*KeyManagerAPI)(nil)
@@ -60,7 +60,7 @@ func NewKeyManagerAPI(
 	}
 	// TODO(wallyworld) - replace stub with real canRead function
 	// For now, only admins can read authorised ssh keys.
-	getCanRead := func() (common.AuthFunc, error) {
+	getCanRead := func() (func(string) bool, error) {
 		return func(_ string) bool {
 			return authorizer.GetAuthTag() == adminUser
 		}, nil
@@ -68,16 +68,16 @@ func NewKeyManagerAPI(
 	// TODO(wallyworld) - replace stub with real canWrite function
 	// For now, only admins can write authorised ssh keys for users.
 	// Machine agents can write the juju-system-key.
-	getCanWrite := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
+	getCanWrite := func() (func(string) bool, error) {
+		return func(user string) bool {
 			// Are we a machine agent writing the Juju system key.
-			if tag == config.JujuSystemKey {
+			if user == config.JujuSystemKey {
 				// TODO(dfc) this can never be false
 				_, err := names.ParseMachineTag(authorizer.GetAuthTag().String())
 				return err == nil
 			}
 			// Are we writing the auth key for a user.
-			if _, err := st.User(tag); err != nil {
+			if _, err := st.User(user); err != nil {
 				return false
 			}
 			return authorizer.GetAuthTag() == adminUser
