@@ -77,6 +77,22 @@ type backupMetadataDoc struct {
 	Version     version.Number `bson:"version"`
 }
 
+func (doc *backupMetadataDoc) fileNotSet() bool {
+	if doc.Finished != 0 {
+		return false
+	}
+	if doc.Checksum != "" {
+		return false
+	}
+	if doc.ChecksumFormat != "" {
+		return false
+	}
+	if doc.Size != 0 {
+		return false
+	}
+	return true
+}
+
 func (doc *backupMetadataDoc) validate() error {
 	if doc.ID == "" {
 		return errors.New("missing ID")
@@ -97,28 +113,25 @@ func (doc *backupMetadataDoc) validate() error {
 		return errors.New("missing Version")
 	}
 
-	// Check the "finished" fields.
-	if doc.Finished == 0 {
-		if doc.Checksum == "" {
-			if doc.ChecksumFormat == "" {
-				if doc.Size == 0 {
-					if doc.Stored {
-						return errors.New("Stored unexpected set")
-					}
-					return nil
-				}
-			}
+	// Check the file-related fields.
+	if doc.fileNotSet() {
+		if doc.Stored {
+			return errors.New(`"Stored" flag is unexpectedly true`)
 		}
-		return errors.New("missing finished")
+		// Don't check the file-related fields.
+		return nil
+	}
+	if doc.Finished == 0 {
+		return errors.New("missing Finished")
 	}
 	if doc.Checksum == "" {
-		return errors.New("missing finished")
+		return errors.New("missing Checksum")
 	}
 	if doc.ChecksumFormat == "" {
-		return errors.New("missing finished")
+		return errors.New("missing ChecksumFormat")
 	}
 	if doc.Size == 0 {
-		return errors.New("missing finished")
+		return errors.New("missing Size")
 	}
 
 	return nil
@@ -144,17 +157,12 @@ func (doc *backupMetadataDoc) asMetadata() *metadata.Metadata {
 	// The ID is already set.
 	meta.SetID(doc.ID)
 
-	// Set the "finished" fields.
-	if doc.Finished == 0 {
-		if doc.Checksum == "" {
-			if doc.ChecksumFormat == "" {
-				if doc.Size == 0 {
-					// Not finished so exit early.
-					return meta
-				}
-			}
-		}
+	// Exit early if file-related fields not set.
+	if doc.fileNotSet() {
+		return meta
 	}
+
+	// Set the file-related fields.
 	var finished *time.Time
 	if doc.Finished != 0 {
 		val := time.Unix(doc.Finished, 0).UTC()
