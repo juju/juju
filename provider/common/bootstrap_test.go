@@ -25,7 +25,6 @@ import (
 	coretesting "github.com/juju/juju/testing"
 	"github.com/juju/juju/tools"
 	"github.com/juju/juju/utils/ssh"
-	"github.com/juju/juju/version"
 )
 
 type BootstrapSuite struct {
@@ -212,7 +211,7 @@ func (s *BootstrapSuite) TestSuccess(c *gc.C) {
 	arch, series, _, err := common.Bootstrap(ctx, env, environs.BootstrapParams{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(arch, gc.Equals, "ppc64el") // based on hardware characteristics
-	c.Assert(series, gc.Equals, version.Current.Series)
+	c.Assert(series, gc.Equals, config.PreferredSeries(mocksConfig))
 }
 
 type neverRefreshes struct {
