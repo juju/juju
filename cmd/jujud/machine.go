@@ -161,11 +161,16 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.configChangedVal.Set(struct{}{})
 	agentConfig := a.CurrentConfig()
 	a.previousAgentVersion = agentConfig.UpgradedToVersion()
-	if !upgrades.AreUpgradesDefined(a.previousAgentVersion) {
-		logger.Infof("no upgrade steps required or upgrade steps for %v have already "+
-			"been run.", version.Current.Number)
-		close(a.upgradeComplete)
-	}
+
+	a.ChangeConfig(func(config agent.ConfigSetter) {
+		if !upgrades.AreUpgradesDefined(a.previousAgentVersion) {
+			logger.Infof("no upgrade steps required or upgrade steps for %v have already "+
+				"been run.", version.Current.Number)
+			config.SetUpgradedToVersion(version.Current.Number)
+			close(a.upgradeComplete)
+		}
+	})
+
 	charm.CacheDir = filepath.Join(agentConfig.DataDir(), "charmcache")
 	if err := a.createJujuRun(agentConfig.DataDir()); err != nil {
 		return fmt.Errorf("cannot create juju run symlink: %v", err)
