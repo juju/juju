@@ -13,7 +13,6 @@ import (
 	"github.com/juju/errors"
 	"github.com/juju/names"
 	jc "github.com/juju/testing/checkers"
-	"github.com/juju/utils"
 	"github.com/juju/utils/symlink"
 	gc "launchpad.net/gocheck"
 
@@ -228,17 +227,28 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	c.Assert(link, gc.Equals, target)
 }
 
-func (s *UpgraderSuite) TestEnsureToolsChecksBeforeDownloading(c *gc.C) {
-	stor := s.Environ.Storage()
-	newTools := envtesting.PrimeTools(c, stor, s.DataDir(), version.MustParseBinary("5.4.3-precise-amd64"))
-	s.PatchValue(&version.Current, newTools.Version)
-	// We've already downloaded the tools, so change the URL to be
-	// something invalid and ensure we don't actually get an error, because
-	// it doesn't actually do an HTTP request
-	u := s.makeUpgrader()
-	newTools.URL = "http://0.1.2.3/invalid/path/tools.tgz"
-	err := upgrader.EnsureTools(u, newTools, utils.VerifySSLHostnames)
+func (s *UpgraderSuite) TestUsesAlreadyDownloadedToolsIfAvailable(c *gc.C) {
+	oldVersion := version.MustParseBinary("1.2.3-quantal-amd64")
+	s.PatchValue(&version.Current, oldVersion)
+
+	newVersion := version.MustParseBinary("5.4.3-quantal-amd64")
+	err := statetesting.SetAgentVersion(s.State, newVersion.Number)
 	c.Assert(err, gc.IsNil)
+
+	// Install tools matching the new version in the data directory
+	// but *not* in environment storage. The upgrader should find the
+	// downloaded tools without looking in environment storage.
+	envtesting.InstallFakeDownloadedTools(c, s.DataDir(), newVersion)
+
+	u := s.makeUpgrader()
+	err = u.Stop()
+
+	envtesting.CheckUpgraderReadyError(c, err, &upgrader.UpgradeReadyError{
+		AgentName: s.machine.Tag().String(),
+		OldTools:  oldVersion,
+		NewTools:  newVersion,
+		DataDir:   s.DataDir(),
+	})
 }
 
 func (s *UpgraderSuite) TestUpgraderRefusesToDowngradeMinorVersions(c *gc.C) {

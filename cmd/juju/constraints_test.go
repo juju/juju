@@ -93,7 +93,7 @@ func (s *ConstraintsCommandsSuite) TestSetErrors(c *gc.C) {
 }
 
 func assertGet(c *gc.C, stdout string, args ...string) {
-	rcode, rstdout, rstderr := runCmdLine(c, &GetConstraintsCommand{}, args...)
+	rcode, rstdout, rstderr := runCmdLine(c, envcmd.Wrap(&GetConstraintsCommand{}), args...)
 	c.Assert(rcode, gc.Equals, 0)
 	c.Assert(rstdout, gc.Equals, stdout)
 	c.Assert(rstderr, gc.Equals, "")
@@ -132,7 +132,7 @@ func (s *ConstraintsCommandsSuite) TestGetFormats(c *gc.C) {
 }
 
 func assertGetError(c *gc.C, code int, stderr string, args ...string) {
-	rcode, rstdout, rstderr := runCmdLine(c, &GetConstraintsCommand{}, args...)
+	rcode, rstdout, rstderr := runCmdLine(c, envcmd.Wrap(&GetConstraintsCommand{}), args...)
 	c.Assert(rcode, gc.Equals, code)
 	c.Assert(rstdout, gc.Equals, "")
 	c.Assert(rstderr, gc.Matches, "error: "+stderr+"\n")

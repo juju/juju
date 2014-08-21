@@ -44,13 +44,21 @@ type upgradeWorkerContext struct {
 	st              *state.State
 }
 
-// Initialise a upgradeWorkerContext once the agent configuration is available.
-func (c *upgradeWorkerContext) InitializeFromConfig(config agent.Config) {
-	if !upgrades.AreUpgradesDefined(config.UpgradedToVersion()) {
-		logger.Infof("no upgrade steps required or upgrade steps for %v have already "+
-			"been run.", version.Current.Number)
-		close(c.UpgradeComplete)
-	}
+// InitialiseUsingAgent sets up a upgradeWorkerContext from a machine agent instance.
+// It may update the agent's configuration.
+func (c *upgradeWorkerContext) InitializeUsingAgent(a upgradingMachineAgent) error {
+	return a.ChangeConfig(func(agentConfig agent.ConfigSetter) error {
+		if !upgrades.AreUpgradesDefined(agentConfig.UpgradedToVersion()) {
+			logger.Infof("no upgrade steps required or upgrade steps for %v "+
+				"have already been run.", version.Current.Number)
+			close(c.UpgradeComplete)
+
+			// Even if no upgrade is required the version number in
+			// the agent's config still needs to be bumped.
+			agentConfig.SetUpgradedToVersion(version.Current.Number)
+		}
+		return nil
+	})
 }
 
 func (c *upgradeWorkerContext) Worker(

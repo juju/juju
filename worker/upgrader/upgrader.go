@@ -138,6 +138,15 @@ func (u *Upgrader) loop() error {
 			continue
 		}
 		logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
+
+		// Check if tools have already been downloaded.
+		wantVersionBinary := toBinaryVersion(wantVersion)
+		if u.toolsAlreadyDownloaded(wantVersionBinary) {
+			return u.newUpgradeReadyError(wantVersionBinary)
+		}
+
+		// Check if tools are available for download.
+		//
 		// TODO(dimitern) 2013-10-03 bug #1234715
 		// Add a testing HTTPS storage to verify the
 		// disableSSLHostnameVerification behavior here.
@@ -153,23 +162,34 @@ func (u *Upgrader) loop() error {
 		// upgrade the agent.
 		err := u.ensureTools(wantTools, hostnameVerification)
 		if err == nil {
-			return &UpgradeReadyError{
-				OldTools:  version.Current,
-				NewTools:  wantTools.Version,
-				AgentName: u.tag.String(),
-				DataDir:   u.dataDir,
-			}
+			return u.newUpgradeReadyError(wantTools.Version)
 		}
 		logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
 		retry = retryAfter()
 	}
 }
 
-func (u *Upgrader) ensureTools(agentTools *coretools.Tools, hostnameVerification utils.SSLHostnameVerification) error {
-	if _, err := agenttools.ReadTools(u.dataDir, agentTools.Version); err == nil {
-		// Tools have already been downloaded
-		return nil
+func toBinaryVersion(vers version.Number) version.Binary {
+	outVers := version.Current
+	outVers.Number = vers
+	return outVers
+}
+
+func (u *Upgrader) toolsAlreadyDownloaded(wantVersion version.Binary) bool {
+	_, err := agenttools.ReadTools(u.dataDir, wantVersion)
+	return err == nil
+}
+
+func (u *Upgrader) newUpgradeReadyError(newVersion version.Binary) *UpgradeReadyError {
+	return &UpgradeReadyError{
+		OldTools:  version.Current,
+		NewTools:  newVersion,
+		AgentName: u.tag.String(),
+		DataDir:   u.dataDir,
 	}
+}
+
+func (u *Upgrader) ensureTools(agentTools *coretools.Tools, hostnameVerification utils.SSLHostnameVerification) error {
 	logger.Infof("fetching tools from %q", agentTools.URL)
 	client := utils.GetHTTPClient(hostnameVerification)
 	resp, err := client.Get(agentTools.URL)

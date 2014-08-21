@@ -37,11 +37,11 @@ type KeyManager interface {
 // KeyUpdaterAPI implements the KeyUpdater interface and is the concrete
 // implementation of the api end point.
 type KeyManagerAPI struct {
-	state       *state.State
-	resources   *common.Resources
-	authorizer  common.Authorizer
-	getCanRead  common.GetAuthFunc
-	getCanWrite common.GetAuthFunc
+	state      *state.State
+	resources  *common.Resources
+	authorizer common.Authorizer
+	canRead    func(string) bool
+	canWrite   func(string) bool
 }
 
 var _ KeyManager = (*KeyManagerAPI)(nil)
@@ -56,35 +56,30 @@ func NewKeyManagerAPI(st *state.State, resources *common.Resources, authorizer c
 	}
 	// TODO(wallyworld) - replace stub with real canRead function
 	// For now, only admins can read authorised ssh keys.
-	getCanRead := func() (common.AuthFunc, error) {
-		return func(_ names.Tag) bool {
-			return authorizer.GetAuthTag() == adminUser
-		}, nil
+	canRead := func(_ string) bool {
+		return authorizer.GetAuthTag() == adminUser
 	}
 	// TODO(wallyworld) - replace stub with real canWrite function
 	// For now, only admins can write authorised ssh keys for users.
 	// Machine agents can write the juju-system-key.
-	getCanWrite := func() (common.AuthFunc, error) {
-		return func(tag names.Tag) bool {
-			// Are we a machine agent writing the Juju system key.
-			if tag.Id() == config.JujuSystemKey {
-				_, ok := authorizer.GetAuthTag().(names.MachineTag)
-				return ok
-			}
-			// Are we writing the auth key for a user.
-			if _, err := st.User(tag.Id()); err != nil {
-				return false
-			}
-			return authorizer.GetAuthTag() == adminUser
-		}, nil
+	canWrite := func(user string) bool {
+		// Are we a machine agent writing the Juju system key.
+		if user == config.JujuSystemKey {
+			_, ismachinetag := authorizer.GetAuthTag().(names.MachineTag)
+			return ismachinetag
+		}
+		// Are we writing the auth key for a user.
+		if _, err := st.User(user); err != nil {
+			return false
+		}
+		return authorizer.GetAuthTag() == adminUser
 	}
 	return &KeyManagerAPI{
-			state:       st,
-			resources:   resources,
-			authorizer:  authorizer,
-			getCanRead:  getCanRead,
-			getCanWrite: getCanWrite},
-		nil
+		state: st,
+resources: resources,
+authorizer: authorizer,
+canRead: canRead,
+canWrite: canWrite}, nil
 }
 
 // ListKeys returns the authorised ssh keys for the specified users.
@@ -102,21 +97,12 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 		keyInfo = parseKeys(keys, arg.Mode)
 	}
 
-	canRead, err := api.getCanRead()
-	if err != nil {
-		return params.StringsResults{}, err
-	}
 	for i, entity := range arg.Entities.Entities {
-		tag, err := names.ParseUserTag(entity.Tag)
-		if err != nil {
+		if !api.canRead(entity.Tag) {
 			results[i].Error = common.ServerError(common.ErrPerm)
 			continue
 		}
-		if !canRead(tag) {
-			results[i].Error = common.ServerError(common.ErrPerm)
-			continue
-		}
-		if _, err := api.state.User(tag.Id()); err != nil {
+		if _, err := api.state.User(entity.Tag); err != nil {
 			if errors.IsNotFound(err) {
 				results[i].Error = common.ServerError(common.ErrPerm)
 			} else {
@@ -126,10 +112,8 @@ func (api *KeyManagerAPI) ListKeys(arg params.ListSSHKeys) (params.StringsResult
 		}
 		if configErr == nil {
 			results[i].Result = keyInfo
-		} else {
-			err = configErr
 		}
-		results[i].Error = common.ServerError(err)
+		results[i].Error = common.ServerError(configErr)
 	}
 	return params.StringsResults{Results: results}, nil
 }
@@ -196,15 +180,7 @@ func (api *KeyManagerAPI) AddKeys(arg params.ModifyUserSSHKeys) (params.ErrorRes
 		return result, nil
 	}
 
-	canWrite, err := api.getCanWrite()
-	if err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
-	}
-	tag, err := names.ParseUserTag("user-" + arg.User)
-	if err != nil {
-		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
-	}
-	if !canWrite(tag) {
+	if !api.canWrite(arg.User) {
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
 
@@ -283,15 +259,7 @@ func (api *KeyManagerAPI) ImportKeys(arg params.ModifyUserSSHKeys) (params.Error
 		return result, nil
 	}
 
-	canWrite, err := api.getCanWrite()
-	if err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
-	}
-	tag, err := names.ParseUserTag("user-" + arg.User)
-	if err != nil {
-		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
-	}
-	if !canWrite(tag) {
+	if !api.canWrite(arg.User) {
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
 
@@ -361,15 +329,8 @@ func (api *KeyManagerAPI) DeleteKeys(arg params.ModifyUserSSHKeys) (params.Error
 	if len(arg.Keys) == 0 {
 		return result, nil
 	}
-	canWrite, err := api.getCanWrite()
-	if err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
-	}
-	tag, err := names.ParseUserTag("user-" + arg.User)
-	if err != nil {
-		return params.ErrorResults{}, common.ServerError(err)
-	}
-	if !canWrite(tag) {
+
+	if !api.canWrite(arg.User) {
 		return params.ErrorResults{}, common.ServerError(common.ErrPerm)
 	}
 

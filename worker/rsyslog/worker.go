@@ -122,8 +122,12 @@ func (h *RsyslogConfigHandler) SetUp() (watcher.NotifyWatcher, error) {
 		if err := h.ensureCertificates(); err != nil {
 			return nil, errors.Annotate(err, "failed to write rsyslog certificates")
 		}
+
+		if err := h.ensureLogrotate(); err != nil {
+			return nil, errors.Annotate(err, "failed to write rsyslog logrotate scripts")
+		}
+
 	}
-	// TODO(dfc)
 	return h.st.WatchForRsyslogChanges(h.tag.String())
 }
 
@@ -241,6 +245,49 @@ func (h *RsyslogConfigHandler) ensureCertificates() error {
 			return err
 		}
 	}
+	return nil
+}
+
+// ensureLogrotate ensures that the logrotate
+// configuration file and logrotate helper script
+// exist in the log directory and creates them if they do not.
+func (h *RsyslogConfigHandler) ensureLogrotate() error {
+	// Files must be chowned to syslog
+	syslogUid, syslogGid, err := lookupUser("syslog")
+	if err != nil {
+		return err
+	}
+
+	logrotateConfPath := h.syslogConfig.LogrotateConfPath()
+	// check for the logrotate conf
+	if _, err := os.Stat(logrotateConfPath); os.IsNotExist(err) {
+		logrotateConfFile, err := h.syslogConfig.LogrotateConfFile()
+		if err != nil {
+			return err
+		}
+		// create the logrotate conf
+		if err := writeFileAtomic(logrotateConfPath, logrotateConfFile, 0600, syslogUid, syslogGid); err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+
+	logrotateHelperPath := h.syslogConfig.LogrotateHelperPath()
+	// check for the logrotate helper
+	if _, err := os.Stat(logrotateHelperPath); os.IsNotExist(err) {
+		logrotateHelperFile, err := h.syslogConfig.LogrotateHelperFile()
+		if err != nil {
+			return err
+		}
+		// create the logrotate helper
+		if err := writeFileAtomic(logrotateHelperPath, logrotateHelperFile, 0700, syslogUid, syslogGid); err != nil {
+			return err
+		}
+	} else {
+		return err
+	}
+
 	return nil
 }
 
