@@ -319,6 +319,8 @@ type openstackInstance struct {
 
 	mu           sync.Mutex
 	serverDetail *nova.ServerDetail
+	// floatingIP is non-nil iff use-floating-ip is true.
+	floatingIP *nova.FloatingIP
 }
 
 func (inst *openstackInstance) String() string {
@@ -394,24 +396,34 @@ func (inst *openstackInstance) Addresses() ([]network.Address, error) {
 	if err != nil {
 		return nil, err
 	}
-	return convertNovaAddresses(addresses), nil
+	var floatingIP string
+	if inst.floatingIP != nil {
+		floatingIP = inst.floatingIP.IP
+	}
+	return convertNovaAddresses(floatingIP, addresses), nil
 }
 
 // convertNovaAddresses returns nova addresses in generic format
-func convertNovaAddresses(addresses map[string][]nova.IPAddress) []network.Address {
+func convertNovaAddresses(publicIP string, addresses map[string][]nova.IPAddress) []network.Address {
+	var machineAddresses []network.Address
+	if publicIP != "" {
+		publicAddr := network.NewAddress(publicIP, network.ScopePublic)
+		publicAddr.NetworkName = "public"
+		machineAddresses = append(machineAddresses, publicAddr)
+	}
 	// TODO(gz) Network ordering may be significant but is not preserved by
 	// the map, see lp:1188126 for example. That could potentially be fixed
 	// in goose, or left to be derived by other means.
-	var machineAddresses []network.Address
 	for netName, ips := range addresses {
 		networkScope := network.ScopeUnknown
-		// For canonistack and hpcloud, public floating addresses may
-		// be put in networks named something other than public. Rely
-		// on address sanity logic to catch and mark them corectly.
 		if netName == "public" {
 			networkScope = network.ScopePublic
 		}
 		for _, address := range ips {
+			// If this address has already been added as a floating IP, skip it.
+			if publicIP == address.Address {
+				continue
+			}
 			// Assume IPv4 unless specified otherwise
 			addrtype := network.IPv4Address
 			if address.Version == 6 {
@@ -1010,6 +1022,7 @@ func (e *environ) StartInstance(args environs.StartInstanceParams) (instance.Ins
 			}
 			return nil, nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
+		inst.floatingIP = publicIP
 		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
 	return inst, inst.hardwareCharacteristics(), nil, nil
