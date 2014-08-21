@@ -101,6 +101,12 @@ type Environ interface {
 	// returns the instance's architecture, series, and a function that
 	// must be called to finalize the bootstrap process by transferring
 	// the tools and installing the initial Juju state server.
+	//
+	// It is possible to direct Bootstrap to use a specific architecture
+	// (or fail if it cannot start an instance of that architecture) by
+	// using an architecture constraint; this will have the effect of
+	// limiting the available tools to just those matching the specified
+	// architecture.
 	Bootstrap(ctx BootstrapContext, params BootstrapParams) (arch, series string, _ BootstrapFinalizer, _ error)
 
 	// InstanceBroker defines methods for starting and stopping

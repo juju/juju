@@ -59,7 +59,7 @@ func Bootstrap(ctx environs.BootstrapContext, environ environs.Environ, args env
 	ctx.Infof("Bootstrapping environment %q", cfg.Name())
 	logger.Debugf("environment %q supports service/machine networks: %v", cfg.Name(), environ.SupportNetworks())
 
-	ctx.Infof("Starting new instance for initial machine")
+	ctx.Infof("Starting new instance for initial state server")
 	arch, series, finalizer, err := environ.Bootstrap(ctx, args)
 	if err != nil {
 		return err
