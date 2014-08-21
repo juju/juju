@@ -170,7 +170,12 @@ func (doc *backupMetadataDoc) asMetadata() *metadata.Metadata {
 	}
 	err := meta.Finish(doc.Size, doc.Checksum, doc.ChecksumFormat, finished)
 	if err != nil {
-		panic("invalid metadata doc")
+		// The doc should have already been validated.  An error here
+		// indicates that Metadata changed and backupMetadataDoc did not
+		// accommodate the change.  Thus an error here indicates a
+		// developer "error".  A caller should not need to worry about
+		// that case so we panic instead of passing the error out.
+		panic(fmt.Sprintf("unexpectedly invalid metadata doc: %v", err))
 	}
 	if doc.Stored {
 		meta.SetStored()
@@ -297,7 +302,9 @@ func NewBackupsOrigin(st *State, machine string) *metadata.Origin {
 	// hostname could be derived from the environment...
 	hostname, err := os.Hostname()
 	if err != nil {
-		panic(fmt.Sprintf("could not get hostname: %v", err))
+		// If os.Hostname() is not working, something is woefully wrong.
+		// Run for the hills.
+		panic(fmt.Sprintf("could not get hostname (system unstable?): %v", err))
 	}
 	origin := metadata.NewOrigin(
 		st.EnvironTag().Id(),

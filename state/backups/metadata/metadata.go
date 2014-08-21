@@ -27,12 +27,7 @@ type Metadata struct {
 // everything else should be provided.
 func NewMetadata(origin Origin, notes string, started *time.Time) *Metadata {
 	raw := filestorage.NewMetadata(started)
-	fmeta, ok := raw.(*filestorage.FileMetadata)
-	if !ok {
-		panic("filestorage.NewMetadata should have returned a FileMetadata")
-	}
-
-	metadata := Metadata{*fmeta, nil, origin, notes}
+	metadata := Metadata{*raw, nil, origin, notes}
 	return &metadata
 }
 
