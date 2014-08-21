@@ -140,6 +140,8 @@ func (st *State) DeleteMetric(Uuid string) error {
 	return err
 }
 
+// CleanupOldMetrics looks for metrics that are 24 hours old (or older
+// and have been sent. Any metrics it finds are deleted.
 func (st *State) CleanupOldMetrics() error {
 	age := time.Now().Add(-(time.Hour - 24))
 	c, closer := st.getCollection(metricsC)

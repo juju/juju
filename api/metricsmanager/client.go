@@ -20,6 +20,7 @@ func NewClient(st base.APICallCloser) *Client {
 	return &Client{ClientFacade: frontend, facade: backend}
 }
 
+// CleanupOldMetrics calls the function of the same name on the apiserver
 func (c *Client) CleanupOldMetrics() error {
 	results := new(params.ErrorResult)
 	err := c.facade.FacadeCall("CleanupOldMetrics", nil, results)

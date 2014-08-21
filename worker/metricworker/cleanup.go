@@ -1,3 +1,6 @@
+// Copyright 2014 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package metricworker
 
 import (
@@ -15,6 +18,8 @@ type MetricCleanupWorker struct {
 	work worker.Worker
 }
 
+// NewCleanup creates a new periodic worker that calls the CleanupOldMetrics api.
+// If a notify channel is provided it will be signalled everytime the call is made.
 func NewCleanup(client *metricsmanager.Client, notify chan struct{}) worker.Worker {
 	f := func(stopCh <-chan struct{}) error {
 		err := client.CleanupOldMetrics()
