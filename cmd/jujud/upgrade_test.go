@@ -127,8 +127,13 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 	}
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
 
-	// Set up machine agent running the current version.
-	s.machine0, s.machine0Config, _ = s.primeAgent(c, version.Current, state.JobManageEnviron)
+	// Set up machine agent running the almost the current version. We
+	// don't update steps to be required but we do want to see the
+	// agent version be changed to version.Current at the end of the
+	// test.
+	initialVersion := version.Current
+	initialVersion.Build++
+	s.machine0, s.machine0Config, _ = s.primeAgent(c, initialVersion, state.JobManageEnviron)
 	a := s.newAgent(c, s.machine0)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() {
@@ -146,6 +151,8 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 	c.Assert(s.canLoginToAPIAsMachine(c, machine1Config), gc.Equals, true)
 	// There should have been no attempt to upgrade.
 	c.Assert(attemptCount, gc.Equals, 0)
+	// The agent's upgradedToVersion should now be the current tools version
+	c.Assert(a.CurrentConfig().UpgradedToVersion(), gc.Equals, version.Current.Number)
 }
 
 func waitForUpgradeToStart(upgradeCh chan bool) bool {
