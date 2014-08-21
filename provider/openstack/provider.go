@@ -318,7 +318,7 @@ type openstackInstance struct {
 
 	mu           sync.Mutex
 	serverDetail *nova.ServerDetail
-	//Optional, if requested via te use-floating-ip config attribute.
+	// floatingIP is non-nil iff use-floating-ip is true.
 	floatingIP *nova.FloatingIP
 }
 
