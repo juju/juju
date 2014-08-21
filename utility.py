@@ -77,7 +77,7 @@ def builds_for_revision(job, revision_build, jenkins):
     Only successful builds are included.
 
     :param job: The name of the job.
-    :param revision_build: The revision_build to searh cofr. Note that
+    :param revision_build: The revision_build to searh for. Note that
         this parameter is a string.
     :parameter  jenkins: A Jenkins instance.
     """
