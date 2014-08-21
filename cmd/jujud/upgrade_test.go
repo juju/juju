@@ -105,11 +105,16 @@ func (s *UpgradeSuite) captureLogs(c *gc.C) {
 	s.AddCleanup(func(*gc.C) { loggo.RemoveWriter("upgrade-tests") })
 }
 
-func (s *UpgradeSuite) TestContextInitializeFromConfigWhenNoUpgradeRequired(c *gc.C) {
-	config := NewFakeConfigSetter(names.NewMachineTag("0"), version.Current.Number)
+func (s *UpgradeSuite) TestContextInitializeWhenNoUpgradeRequired(c *gc.C) {
+	// Set the agent's initial upgradedToVersion to almost the same as
+	// the current version. We want it to be different to
+	// version.Current (so that we can see it change) but not to
+	// trigger upgrade steps.
+	config := NewFakeConfigSetter(names.NewMachineTag("0"), makeBumpedCurrentVersion().Number)
+	agent := NewFakeUpgradingMachineAgent(config)
 
 	context := NewUpgradeWorkerContext()
-	context.InitializeFromConfig(config)
+	context.InitializeUsingAgent(agent)
 
 	select {
 	case <-context.UpgradeComplete:
@@ -117,13 +122,19 @@ func (s *UpgradeSuite) TestContextInitializeFromConfigWhenNoUpgradeRequired(c *g
 	default:
 		c.Fatal("UpgradeComplete channel should be closed because no upgrade is required")
 	}
+	// The agent's version should have been updated.
+	c.Assert(config.Version, gc.Equals, version.Current.Number)
+
 }
 
-func (s *UpgradeSuite) TestContextInitializeFromConfigWhenUpgradeRequired(c *gc.C) {
-	config := NewFakeConfigSetter(names.NewMachineTag("0"), version.MustParse("1.16.0"))
+func (s *UpgradeSuite) TestContextInitializeWhenUpgradeRequired(c *gc.C) {
+	// Set the agent's upgradedToVersion so that upgrade steps are required.
+	initialVersion := version.MustParse("1.16.0")
+	config := NewFakeConfigSetter(names.NewMachineTag("0"), initialVersion)
+	agent := NewFakeUpgradingMachineAgent(config)
 
 	context := NewUpgradeWorkerContext()
-	context.InitializeFromConfig(config)
+	context.InitializeUsingAgent(agent)
 
 	select {
 	case <-context.UpgradeComplete:
@@ -131,6 +142,8 @@ func (s *UpgradeSuite) TestContextInitializeFromConfigWhenUpgradeRequired(c *gc.
 	default:
 		// Success
 	}
+	// The agent's version should NOT have been updated.
+	c.Assert(config.Version, gc.Equals, initialVersion)
 }
 
 func (s *UpgradeSuite) TestRetryStrategy(c *gc.C) {
@@ -367,7 +380,13 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 	s.PatchValue(&upgradesPerformUpgrade, fakePerformUpgrade)
 
 	// Set up machine agent running the current version.
-	s.machine0, s.machine0Config, _ = s.primeAgent(c, version.Current, state.JobManageEnviron)
+	//
+	// Set the agent's initial upgradedToVersion to be almost the same
+	// as version.Current but not quite. We want it to be different to
+	// version.Current (so that we can see it change) but not to
+	// trigger upgrade steps.
+	initialVersion := makeBumpedCurrentVersion()
+	s.machine0, s.machine0Config, _ = s.primeAgent(c, initialVersion, state.JobManageEnviron)
 	a := s.newAgent(c, s.machine0)
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() {
@@ -380,6 +399,9 @@ func (s *UpgradeSuite) TestUpgradeSkippedIfNoUpgradeRequired(c *gc.C) {
 	s.checkLoginToAPIAsUser(c, FullAPIExposed)
 	// There should have been no attempt to upgrade.
 	c.Assert(attemptCount, gc.Equals, 0)
+
+	// Even though no upgrade was done upgradedToVersion should have been updated.
+	c.Assert(a.CurrentConfig().UpgradedToVersion(), gc.Equals, version.Current.Number)
 }
 
 func (s *UpgradeSuite) runUpgradeWorker(job params.MachineJob) (
@@ -391,6 +413,14 @@ func (s *UpgradeSuite) runUpgradeWorker(job params.MachineJob) (
 	worker := context.Worker(agent, nil, []params.MachineJob{job})
 	s.setInstantRetryStrategy()
 	return worker.Wait(), config, agent, context
+}
+
+// Return a version the same as the current software version, but with
+// the build number bumped.
+func makeBumpedCurrentVersion() version.Binary {
+	v := version.Current
+	v.Build++
+	return v
 }
 
 func waitForUpgradeToStart(upgradeCh chan bool) bool {
